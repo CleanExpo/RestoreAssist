@@ -9,6 +9,7 @@ import {
   generateEnhancedReport,
   type GenerateEnhancedInput,
 } from "@/lib/services/ai/generate-enhanced-report";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Helper functions for standards retrieval query building
 function determineReportType(notes: string): string {
@@ -49,7 +50,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -69,10 +74,11 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const {
         reportId,
@@ -88,10 +94,11 @@ export async function POST(request: NextRequest) {
       } = body;
 
       if (!technicianNotes || !technicianNotes.trim()) {
-        return NextResponse.json(
-          { error: "Technician notes are required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Technician notes are required",
+          status: 400,
+        });
       }
 
       // Check credits and get user info (including technician name)
@@ -107,7 +114,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       // Subscription gate — applies unconditionally, even when a reportId is supplied for update.
@@ -148,10 +159,11 @@ export async function POST(request: NextRequest) {
       try {
         anthropicApiKey = await getAnthropicApiKey(userId);
       } catch (error: any) {
-        return NextResponse.json(
-          { error: "Failed to get Anthropic API key" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Failed to get Anthropic API key",
+          status: 400,
+        });
       }
 
       // STAGE 1: Retrieve relevant standards from Google Drive (IICRC Standards folder)
@@ -303,11 +315,7 @@ export async function POST(request: NextRequest) {
         message: "Enhanced professional report generated successfully",
       });
     } catch (error: any) {
-      console.error("Error generating enhanced report:", error);
-      return NextResponse.json(
-        { error: "Failed to generate enhanced report" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "generate-enhanced" });
     }
   });
 }

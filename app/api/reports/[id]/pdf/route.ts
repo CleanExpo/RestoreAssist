@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import { verifyInsurerToken } from "@/lib/portal-token";
 import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * GET /api/reports/[id]/pdf
@@ -46,7 +47,11 @@ export async function GET(
     }
 
     if (!authorised) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Rate limit: 10 PDFs per 5 minutes per user/IP to prevent DoS
@@ -83,7 +88,11 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Parse JSON fields before passing to PDF generator
@@ -116,13 +125,12 @@ export async function GET(
       console.warn(
         `[reports/pdf] PDF too large (${Math.round(pdfBytes.length / 1024 / 1024)} MB) for report ${id}`,
       );
-      return NextResponse.json(
-        {
-          error:
-            "This report is too large to generate inline. Please reduce the number of embedded photos and try again.",
-        },
-        { status: 413 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "This report is too large to generate inline. Please reduce the number of embedded photos and try again.",
+        status: 413,
+      });
     }
 
     const filename = `RestoreAssist-${report.reportNumber ?? id}.pdf`.replace(
@@ -148,10 +156,6 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("[reports/pdf] Error generating PDF:", error);
-    return NextResponse.json(
-      { error: "Failed to generate PDF" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "report-pdf" });
   }
 }

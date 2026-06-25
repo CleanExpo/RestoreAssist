@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET - Get version history for a report
 export async function GET(
@@ -12,7 +13,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -20,7 +25,11 @@ export async function GET(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const { id } = await params;
@@ -30,7 +39,11 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     const versionHistory = report.versionHistory
@@ -46,11 +59,7 @@ export async function GET(
 
     return NextResponse.json({ versionHistory });
   } catch (error) {
-    console.error("Error fetching version history:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch version history" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "version-history-get" });
   }
 }
 
@@ -63,7 +72,11 @@ export async function POST(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -71,7 +84,11 @@ export async function POST(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const { id } = await params;
@@ -82,7 +99,11 @@ export async function POST(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     const currentVersion = report.reportVersion || 1;
@@ -117,10 +138,6 @@ export async function POST(
       newVersion,
     });
   } catch (error) {
-    console.error("Error adding version history:", error);
-    return NextResponse.json(
-      { error: "Failed to add version history" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "version-history-post" });
   }
 }

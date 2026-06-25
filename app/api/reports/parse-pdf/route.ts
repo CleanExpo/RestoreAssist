@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createRequire } from "module";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const require = createRequire(import.meta.url);
 
@@ -33,7 +34,11 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user || !session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const userId = session.user.id;
@@ -50,14 +55,19 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File;
 
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "No file provided",
+        status: 400,
+      });
     }
 
     if (file.type !== "application/pdf") {
-      return NextResponse.json(
-        { error: "File must be a PDF" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "File must be a PDF",
+        status: 400,
+      });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -69,10 +79,11 @@ export async function POST(request: NextRequest) {
       buffer[2] === 0x44 &&
       buffer[3] === 0x46;
     if (!isPdf) {
-      return NextResponse.json(
-        { error: "File must be a valid PDF." },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "File must be a valid PDF.",
+        status: 400,
+      });
     }
 
     let text = "";
@@ -121,32 +132,32 @@ export async function POST(request: NextRequest) {
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : undefined;
       if (msg?.includes("canvas") || msg?.includes("napi-rs")) {
-        return NextResponse.json(
-          {
-            error:
-              "PDF parsing failed. The PDF may be image-based. Please try a text-based PDF or contact support.",
-          },
-          { status: 500 },
-        );
+        return apiError(request, {
+          code: "INTERNAL",
+          message:
+            "PDF parsing failed. The PDF may be image-based. Please try a text-based PDF or contact support.",
+          status: 500,
+          err: error,
+          stage: "pdf-extract",
+        });
       }
-      console.error("[parse-pdf] PDF text extraction failed:", error);
-      return NextResponse.json(
-        {
-          error:
-            "PDF parsing failed. Please try a text-based PDF or contact support.",
-        },
-        { status: 500 },
-      );
+      return apiError(request, {
+        code: "INTERNAL",
+        message:
+          "PDF parsing failed. Please try a text-based PDF or contact support.",
+        status: 500,
+        err: error,
+        stage: "pdf-extract",
+      });
     }
 
     if (!text || text.trim().length < 10) {
-      return NextResponse.json(
-        {
-          error:
-            "Could not extract text from PDF. The PDF may be image-based or corrupted.",
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "Could not extract text from PDF. The PDF may be image-based or corrupted.",
+        status: 400,
+      });
     }
 
     const parsedData = parseReportFromText(text);
@@ -161,10 +172,7 @@ export async function POST(request: NextRequest) {
       message: "PDF parsed successfully",
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "parse-pdf" });
   }
 }
 

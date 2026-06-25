@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function PATCH(
   request: NextRequest,
@@ -11,7 +12,11 @@ export async function PATCH(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -27,7 +32,11 @@ export async function PATCH(
     });
 
     if (!existingReport) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Map section names to database fields
@@ -63,10 +72,11 @@ export async function PATCH(
 
     const fieldMapping = sectionMappings[section.toLowerCase()];
     if (!fieldMapping) {
-      return NextResponse.json(
-        { error: `Unknown section: ${section}` },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Unknown section: ${section}`,
+        status: 400,
+      });
     }
 
     // Build update data object
@@ -109,10 +119,6 @@ export async function PATCH(
       report: updatedReport,
     });
   } catch (error) {
-    console.error("Error updating report section:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "update-section" });
   }
 }

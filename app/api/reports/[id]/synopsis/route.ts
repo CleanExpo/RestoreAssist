@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { getAnthropicApiKey } from "@/lib/ai-provider";
 import { generateReportSynopsis } from "@/lib/services/ai/report-synopsis";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * RA-1192: POST /api/reports/[id]/synopsis
@@ -24,7 +25,11 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
     const userId = session.user.id;
     const { id } = await params;
@@ -79,7 +84,11 @@ export async function POST(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Idempotent cache: return the existing synopsis if it's < 24h old.
@@ -107,13 +116,12 @@ export async function POST(
       apiKey = process.env.ANTHROPIC_API_KEY || null;
     }
     if (!apiKey) {
-      return NextResponse.json(
-        {
-          error:
-            "Connect an AI integration first. Add your Anthropic API key in Settings → Integrations to generate AI summaries.",
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "Connect an AI integration first. Add your Anthropic API key in Settings → Integrations to generate AI summaries.",
+        status: 400,
+      });
     }
 
     const totalCost =
@@ -171,10 +179,6 @@ export async function POST(
       },
     });
   } catch (error) {
-    console.error("[reports/synopsis] error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "report-synopsis" });
   }
 }

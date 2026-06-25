@@ -12,6 +12,7 @@ import {
 import { buildInspectionReportPrompt } from "@/lib/reports/generate-report-ai";
 import { buildStructuredBasicReport } from "@/lib/reports/build-structured-report";
 import { expandContext } from "@/lib/knowledge";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -19,7 +20,11 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // RA-1329 — tightened from 10/15min (=40/hr) to 5/hour to match
@@ -53,7 +58,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     // Subscription gate — CANCELED/PAST_DUE users must not run AI generation
@@ -73,10 +82,11 @@ export async function POST(request: NextRequest) {
     const { reportId, reportType = "enhanced" } = await request.json();
 
     if (!reportId) {
-      return NextResponse.json(
-        { error: "Report ID is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Report ID is required",
+        status: 400,
+      });
     }
 
     // Get the complete report with all data, including client information
@@ -93,7 +103,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Parse all stored data
@@ -148,13 +162,12 @@ export async function POST(request: NextRequest) {
           "Generate-inspection-report: Anthropic key error:",
           error,
         );
-        return NextResponse.json(
-          {
-            error:
-              "Failed to get Anthropic API key. Please ensure ANTHROPIC_API_KEY is configured in environment variables.",
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "Failed to get Anthropic API key. Please ensure ANTHROPIC_API_KEY is configured in environment variables.",
+          status: 400,
+        });
       }
     } else {
       // For upgraded users, use the integration's API key
@@ -359,20 +372,22 @@ BUSINESS INFORMATION: If business information is provided in the REPORT DATA sec
       });
     } catch (error: any) {
       // RA-786: do not leak error.message to clients
-      console.error("Failed to generate inspection report:", error);
-      return NextResponse.json(
-        { error: "Failed to generate inspection report" },
-        { status: 500 },
-      );
+      return apiError(request, {
+        code: "INTERNAL",
+        message: "Failed to generate inspection report",
+        status: 500,
+        err: error,
+        stage: "ai-generate",
+      });
     }
 
     if (!inspectionReport || inspectionReport.trim().length === 0) {
-      return NextResponse.json(
-        {
-          error: "Failed to generate inspection report: Empty response from AI",
-        },
-        { status: 500 },
-      );
+      return apiError(request, {
+        code: "INTERNAL",
+        message: "Failed to generate inspection report: Empty response from AI",
+        status: 500,
+        stage: "ai-generate",
+      });
     }
 
     // Save the generated report
@@ -393,9 +408,8 @@ BUSINESS INFORMATION: If business information is provided in the REPORT DATA sec
       message: "Inspection report generated successfully",
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to generate inspection report" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "generate-inspection-report",
+    });
   }
 }

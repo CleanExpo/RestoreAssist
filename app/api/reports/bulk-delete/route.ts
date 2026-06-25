@@ -3,13 +3,18 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Rate limit: 10 bulk deletes per 15 minutes per IP
@@ -23,17 +28,19 @@ export async function DELETE(request: NextRequest) {
     const { ids } = body;
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return NextResponse.json(
-        { error: "No report IDs provided" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "No report IDs provided",
+        status: 400,
+      });
     }
 
     if (ids.length > 100) {
-      return NextResponse.json(
-        { error: "Maximum 100 reports can be deleted at once" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Maximum 100 reports can be deleted at once",
+        status: 400,
+      });
     }
 
     // Verify all reports belong to the user
@@ -47,10 +54,11 @@ export async function DELETE(request: NextRequest) {
     });
 
     if (reports.length !== ids.length) {
-      return NextResponse.json(
-        { error: "Some reports not found or not authorized" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Some reports not found or not authorized",
+        status: 404,
+      });
     }
 
     // Delete all reports
@@ -66,10 +74,6 @@ export async function DELETE(request: NextRequest) {
       deletedCount: ids.length,
     });
   } catch (error) {
-    console.error("Error deleting reports:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "bulk-delete" });
   }
 }

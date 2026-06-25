@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateEnhancedReportPDF } from "@/lib/generate-enhanced-report-pdf";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -12,7 +13,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -32,19 +37,28 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Check ownership
     if (report.userId !== session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Unauthorized",
+        status: 403,
+      });
     }
 
     if (!report.detailedReport) {
-      return NextResponse.json(
-        { error: "Enhanced report not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Enhanced report not found",
+        status: 404,
+      });
     }
 
     // Parse equipmentUsed to get technician notes
@@ -81,11 +95,7 @@ export async function GET(
         "Content-Disposition": `attachment; filename="enhanced-report-${report.reportNumber || report.id}.pdf"`,
       },
     });
-  } catch (error: any) {
-    console.error("Error generating enhanced PDF:", error);
-    return NextResponse.json(
-      { error: "Failed to generate PDF" },
-      { status: 500 },
-    );
+  } catch (error) {
+    return fromException(request, error, { stage: "download-enhanced" });
   }
 }

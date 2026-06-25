@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // POST - Save tier responses (Tier 1, 2, or 3)
 export async function POST(request: NextRequest) {
@@ -9,7 +10,11 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -17,23 +22,29 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const { reportId, tier, responses } = await request.json();
 
     if (!reportId || !tier || !responses) {
-      return NextResponse.json(
-        { error: "Report ID, tier, and responses are required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Report ID, tier, and responses are required",
+        status: 400,
+      });
     }
 
     if (![1, 2, 3].includes(tier)) {
-      return NextResponse.json(
-        { error: "Tier must be 1, 2, or 3" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Tier must be 1, 2, or 3",
+        status: 400,
+      });
     }
 
     // Verify report belongs to user
@@ -42,7 +53,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Update the appropriate tier field
@@ -70,10 +85,6 @@ export async function POST(request: NextRequest) {
       message: `Tier ${tier} responses saved successfully`,
     });
   } catch (error) {
-    console.error("Error saving tier responses:", error);
-    return NextResponse.json(
-      { error: "Failed to save tier responses" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "save-tier-responses" });
   }
 }

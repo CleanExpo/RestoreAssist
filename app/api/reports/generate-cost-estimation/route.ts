@@ -11,13 +11,18 @@ import {
 } from "@/lib/equipment-matrix";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // POST - Generate Cost Estimation document
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -57,7 +62,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       // Subscription gate — CANCELED/PAST_DUE users must not run AI generation
@@ -65,28 +74,31 @@ export async function POST(request: NextRequest) {
       if (
         !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
       ) {
-        return NextResponse.json(
-          { error: "Active subscription required" },
-          { status: 402 },
-        );
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Active subscription required",
+          status: 402,
+        });
       }
 
       let parsed: { reportId?: string } = {};
       try {
         parsed = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { reportId } = parsed;
 
       if (!reportId) {
-        return NextResponse.json(
-          { error: "Report ID is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Report ID is required",
+          status: 400,
+        });
       }
 
       // Get the complete report with all data
@@ -95,10 +107,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!report) {
-        return NextResponse.json(
-          { error: "Report not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Report not found",
+          status: 404,
+        });
       }
 
       // Get scope of works data if available
@@ -135,13 +148,12 @@ export async function POST(request: NextRequest) {
       const pricingConfig = user.pricingConfig;
 
       if (!pricingConfig) {
-        return NextResponse.json(
-          {
-            error:
-              "Pricing configuration not found. Please configure your pricing in Settings.",
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "Pricing configuration not found. Please configure your pricing in Settings.",
+          status: 400,
+        });
       }
 
       // Detect state
@@ -156,10 +168,11 @@ export async function POST(request: NextRequest) {
       try {
         anthropicApiKey = await getAnthropicApiKey(user.id);
       } catch (error: any) {
-        return NextResponse.json(
-          { error: "Failed to get Anthropic API key" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Failed to get Anthropic API key",
+          status: 400,
+        });
       }
 
       // (Anthropic client previously instantiated here was never invoked —
@@ -208,11 +221,7 @@ export async function POST(request: NextRequest) {
         message: "Cost Estimation generated successfully",
       });
     } catch (error) {
-      console.error("Error generating cost estimation:", error);
-      return NextResponse.json(
-        { error: "Failed to generate cost estimation" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "generate-cost-estimation" });
     }
   });
 }

@@ -6,6 +6,7 @@ import {
   calculateCompletenessScore,
   checkCompletenessBeforeGeneration,
 } from "@/lib/validation";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET - Check report completeness
 export async function GET(
@@ -16,7 +17,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -24,7 +29,11 @@ export async function GET(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const { id } = await params;
@@ -34,7 +43,11 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Calculate completeness score
@@ -88,10 +101,6 @@ export async function GET(
       overallPercentage: completenessScore,
     });
   } catch (error) {
-    console.error("Error checking completeness:", error);
-    return NextResponse.json(
-      { error: "Failed to check completeness" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "completeness-check" });
   }
 }
