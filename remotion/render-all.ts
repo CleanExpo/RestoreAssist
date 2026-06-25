@@ -2,6 +2,8 @@ import {renderMedia, getCompositions} from '@remotion/renderer';
 import path from 'path';
 
 const compositionsToRender = [
+  // New-client welcome (top of /setup)
+  {id: 'OnboardingWelcome', fileName: 'onboarding-welcome.mp4'},
   // Original 4 tutorials
   {id: 'DashboardWalkthrough', fileName: 'dashboard-walkthrough.mp4'},
   {id: 'CreateInspection', fileName: 'create-inspection.mp4'},
