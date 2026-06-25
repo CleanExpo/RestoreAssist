@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateAuthorityFormPDF } from "@/lib/generate-authority-form-pdf";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * GET /api/authority-forms/:id/pdf
@@ -15,7 +16,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id: formId } = await params;
@@ -43,7 +48,11 @@ export async function GET(
     });
 
     if (!form) {
-      return NextResponse.json({ error: "Form not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Form not found",
+        status: 404,
+      });
     }
 
     // Check permissions
@@ -52,7 +61,11 @@ export async function GET(
       form.report.assignedManagerId !== session.user.id &&
       form.report.assignedAdminId !== session.user.id
     ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     // Prepare signature data
@@ -97,9 +110,6 @@ export async function GET(
     });
   } catch (error) {
     console.error("Error generating authority form PDF:", error);
-    return NextResponse.json(
-      { error: "Failed to generate PDF" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "generate-pdf" });
   }
 }

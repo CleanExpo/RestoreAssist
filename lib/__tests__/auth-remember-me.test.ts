@@ -27,7 +27,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("bcryptjs", () => ({
   default: { compare: vi.fn().mockResolvedValue(true) },
 }));
-vi.mock("@auth/prisma-adapter", () => ({ PrismaAdapter: () => ({}) }));
+vi.mock("@next-auth/prisma-adapter", () => ({ PrismaAdapter: () => ({}) }));
 vi.mock("next-auth/providers/google", () => ({ default: vi.fn(() => ({})) }));
 vi.mock("next-auth/providers/apple", () => ({ default: vi.fn(() => ({})) }));
 vi.mock("next-auth/providers/credentials", () => ({

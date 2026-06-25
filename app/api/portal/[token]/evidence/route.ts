@@ -7,6 +7,7 @@ import { validateCsrf } from "@/lib/csrf";
 import { sanitizeString } from "@/lib/sanitize";
 import { decodeImageDataUrl } from "@/lib/portal/image-data-url";
 import { SupabaseStorageProvider } from "@/lib/storage/supabase-provider";
+import { apiError } from "@/lib/api-errors";
 
 /**
  * Client-portal evidence upload (client portal Phase 2; plan D2).
@@ -42,17 +43,22 @@ export async function POST(
 
   const bot = await verifyBotId();
   if (!bot.ok) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    return apiError(request, {
+      code: "FORBIDDEN",
+      message: "forbidden",
+      status: 403,
+    });
   }
   const csrf = validateCsrf(request);
   if (csrf) return csrf;
 
   const account = await lookupPortalAccount(token);
   if (!account) {
-    return NextResponse.json(
-      { error: "invalid_or_expired_link" },
-      { status: 404 },
-    );
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "invalid_or_expired_link",
+      status: 404,
+    });
   }
 
   // Resolve the claim's inspection FROM THE TOKEN's client only.
@@ -62,31 +68,51 @@ export async function POST(
     select: { id: true, workspaceId: true, userId: true },
   });
   if (!inspection) {
-    return NextResponse.json({ error: "no_claim" }, { status: 404 });
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "no_claim",
+      status: 404,
+    });
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "invalid_json" }, { status: 422 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "invalid_json",
+      status: 422,
+    });
   }
   const b = (body ?? {}) as Record<string, unknown>;
   const description = sanitizeString(b.description, MAX_DESC);
   const images = Array.isArray(b.images) ? b.images : [];
 
   if (images.length > MAX_IMAGES) {
-    return NextResponse.json({ error: "too_many_images" }, { status: 413 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "too_many_images",
+      status: 413,
+    });
   }
   if (images.length === 0 && !description) {
-    return NextResponse.json({ error: "nothing_to_submit" }, { status: 422 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "nothing_to_submit",
+      status: 422,
+    });
   }
 
   const decoded = [];
   for (const img of images) {
     const d = decodeImageDataUrl(img, MAX_IMAGE_BYTES);
     if (!d) {
-      return NextResponse.json({ error: "invalid_image" }, { status: 422 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "invalid_image",
+        status: 422,
+      });
     }
     decoded.push(d);
   }

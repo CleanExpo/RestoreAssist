@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { isPortalInvitationToken } from "@/lib/public-token-shape";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET /api/portal/invitations/verify?token=... - Verify invitation token
 export async function GET(request: NextRequest) {
@@ -17,7 +18,11 @@ export async function GET(request: NextRequest) {
     const token = searchParams.get("token");
 
     if (!token) {
-      return NextResponse.json({ error: "Token is required" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Token is required",
+        status: 400,
+      });
     }
 
     if (!isPortalInvitationToken(token)) {
@@ -107,9 +112,8 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error verifying invitation:", error);
-    return NextResponse.json(
-      { error: "Failed to verify invitation" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "portal/invitations/verify:get",
+    });
   }
 }

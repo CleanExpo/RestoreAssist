@@ -7,6 +7,7 @@ import { generateInvoiceSentEmail } from "@/lib/invoices/email-templates";
 import { isDraft } from "@/lib/invoice-status";
 import { withIdempotency } from "@/lib/idempotency";
 import { mintPublicToken } from "@/lib/invoices/public-token";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Initialize Resend only if API key is available
 const resend = process.env.RESEND_API_KEY
@@ -19,7 +20,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -28,13 +33,12 @@ export async function POST(
   return withIdempotency(request, userId, async () => {
     try {
       if (!resend) {
-        return NextResponse.json(
-          {
-            error:
-              "Email service not configured. Please set RESEND_API_KEY environment variable.",
-          },
-          { status: 503 },
-        );
+        return apiError(request, {
+          code: "UPSTREAM_FAILED",
+          message:
+            "Email service not configured. Please set RESEND_API_KEY environment variable.",
+          status: 503,
+        });
       }
 
       const { id } = await params;
@@ -64,18 +68,20 @@ export async function POST(
       });
 
       if (!invoice) {
-        return NextResponse.json(
-          { error: "Invoice not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+          status: 404,
+        });
       }
 
       // Allow send from DRAFT (first send) or SENT (resend)
       if (!isDraft(invoice.status) && invoice.status !== "SENT") {
-        return NextResponse.json(
-          { error: "Invoice cannot be sent in current status" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invoice cannot be sent in current status",
+          status: 400,
+        });
       }
 
       // RA-1596 — mint a high-entropy token + 90-day expiry on first
@@ -179,17 +185,11 @@ export async function POST(
       } catch (emailError: any) {
         // RA-786: do not leak emailError.message to clients
         console.error("Email send error:", emailError);
-        return NextResponse.json(
-          { error: "Failed to send email" },
-          { status: 500 },
-        );
+        return fromException(request, emailError, { stage: "send-email" });
       }
     } catch (error: any) {
       console.error("Error sending invoice:", error);
-      return NextResponse.json(
-        { error: "Failed to send invoice" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "send" });
     }
   });
 }

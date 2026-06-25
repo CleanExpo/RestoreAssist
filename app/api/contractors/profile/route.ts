@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Get contractor's own profile
 export async function GET(request: NextRequest) {
@@ -9,7 +10,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const profile = await prisma.contractorProfile.findUnique({
@@ -33,19 +38,19 @@ export async function GET(request: NextRequest) {
     });
 
     if (!profile) {
-      return NextResponse.json(
-        { error: "Contractor profile not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Contractor profile not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json({ profile });
   } catch (error: any) {
     console.error("Error fetching contractor profile:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch profile" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "contractors/profile:get",
+    });
   }
 }
 
@@ -55,7 +60,11 @@ export async function PUT(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const body = await request.json();
@@ -77,10 +86,11 @@ export async function PUT(request: NextRequest) {
     });
 
     if (user?.role !== ("CONTRACTOR" as any)) {
-      return NextResponse.json(
-        { error: "User is not a contractor" },
-        { status: 403 },
-      );
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "User is not a contractor",
+        status: 403,
+      });
     }
 
     // Generate slug from business name
@@ -123,18 +133,9 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ profile });
   } catch (error: any) {
     console.error("Error updating contractor profile:", error);
-
-    // Handle unique constraint violation
-    if (error.code === "P2002") {
-      return NextResponse.json(
-        { error: "A profile with this slug already exists" },
-        { status: 409 },
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Failed to update profile" },
-      { status: 500 },
-    );
+    // fromException maps P2002 unique-constraint violations to 409 CONFLICT.
+    return fromException(request, error, {
+      stage: "contractors/profile:upsert",
+    });
   }
 }

@@ -4,13 +4,18 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { toPostgresTsquery, validateSearchParams } from "@/lib/search-utils";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -34,10 +39,11 @@ export async function GET(request: NextRequest) {
     });
 
     if (!validation.valid) {
-      return NextResponse.json(
-        { error: validation.errors?.join(", ") },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: validation.errors?.join(", ") ?? "Invalid search parameters",
+        status: 400,
+      });
     }
 
     const query = validation.query!;
@@ -119,7 +125,6 @@ export async function GET(request: NextRequest) {
       hasMore: offset + limit < totalCount,
     });
   } catch (error) {
-    console.error("Reports search error:", error);
-    return NextResponse.json({ error: "Search failed" }, { status: 500 });
+    return fromException(request, error, { stage: "search" });
   }
 }

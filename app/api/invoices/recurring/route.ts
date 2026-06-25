@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 function nextDateFromFrequency(start: Date, frequency: string): Date {
   const d = new Date(start);
@@ -35,7 +36,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const recurringInvoices = await prisma.recurringInvoice.findMany({
@@ -49,18 +54,19 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ recurringInvoices });
-  } catch {
-    return NextResponse.json(
-      { error: "Failed to fetch recurring invoices" },
-      { status: 500 },
-    );
+  } catch (error) {
+    return fromException(request, error, { stage: "list-recurring" });
   }
 }
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -72,10 +78,11 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const {
         templateName,
@@ -101,13 +108,12 @@ export async function POST(request: NextRequest) {
         !frequency ||
         !startDate
       ) {
-        return NextResponse.json(
-          {
-            error:
-              "templateName, customerName, customerEmail, frequency, and startDate are required",
-          },
-          { status: 422 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "templateName, customerName, customerEmail, frequency, and startDate are required",
+          status: 422,
+        });
       }
 
       const start = new Date(startDate);
@@ -160,11 +166,8 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({ recurringInvoice }, { status: 201 });
-    } catch {
-      return NextResponse.json(
-        { error: "Failed to create recurring invoice" },
-        { status: 500 },
-      );
+    } catch (error) {
+      return fromException(request, error, { stage: "create-recurring" });
     }
   });
 }

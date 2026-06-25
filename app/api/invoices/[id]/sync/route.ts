@@ -11,6 +11,7 @@ import {
   getSyncErrorMessage,
   INVOICE_SYNC_FAILURE_MESSAGE,
 } from "@/lib/integrations/sync-error";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   request: NextRequest,
@@ -18,7 +19,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -32,27 +37,30 @@ export async function POST(
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { provider } = body;
       const normalizedProvider =
         typeof provider === "string" ? provider.toLowerCase() : "";
 
       if (!normalizedProvider) {
-        return NextResponse.json(
-          { error: "Provider is required (xero, quickbooks, or myob)" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Provider is required (xero, quickbooks, or myob)",
+          status: 400,
+        });
       }
 
       if (!["xero", "quickbooks", "myob"].includes(normalizedProvider)) {
-        return NextResponse.json(
-          { error: "Unsupported provider" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Unsupported provider",
+          status: 400,
+        });
       }
 
       // Fetch invoice with all related data
@@ -88,20 +96,20 @@ export async function POST(
       });
 
       if (!invoice) {
-        return NextResponse.json(
-          { error: "Invoice not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+          status: 404,
+        });
       }
 
       // Can't sync draft invoices
       if (isDraft(invoice.status)) {
-        return NextResponse.json(
-          {
-            error: "Cannot sync draft invoices. Please send the invoice first.",
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Cannot sync draft invoices. Please send the invoice first.",
+          status: 400,
+        });
       }
 
       // Check if integration is connected
@@ -113,21 +121,19 @@ export async function POST(
       });
 
       if (!integration) {
-        return NextResponse.json(
-          {
-            error: `No ${provider} integration found. Please connect to ${provider} first.`,
-          },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: `No ${provider} integration found. Please connect to ${provider} first.`,
+          status: 404,
+        });
       }
 
       if (integration.status !== "CONNECTED") {
-        return NextResponse.json(
-          {
-            error: `${provider} integration is not connected. Please reconnect.`,
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `${provider} integration is not connected. Please reconnect.`,
+          status: 400,
+        });
       }
 
       // Check if token is expired
@@ -135,10 +141,11 @@ export async function POST(
         integration.tokenExpiresAt &&
         new Date(integration.tokenExpiresAt) < new Date()
       ) {
-        return NextResponse.json(
-          { error: `${provider} access token has expired. Please reconnect.` },
-          { status: 401 },
-        );
+        return apiError(request, {
+          code: "UNAUTHORIZED",
+          message: `${provider} access token has expired. Please reconnect.`,
+          status: 401,
+        });
       }
 
       // Update invoice sync status to PENDING
@@ -291,17 +298,17 @@ export async function POST(
           },
         });
 
-        return NextResponse.json(
-          { error: INVOICE_SYNC_FAILURE_MESSAGE },
-          { status: 500 },
-        );
+        return apiError(request, {
+          code: "UPSTREAM_FAILED",
+          message: INVOICE_SYNC_FAILURE_MESSAGE,
+          status: 500,
+          err: syncError,
+          stage: "sync-provider",
+        });
       }
     } catch (error: any) {
       console.error("Error in invoice sync:", error);
-      return NextResponse.json(
-        { error: "Failed to sync invoice" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "sync" });
     }
   });
 }
@@ -314,7 +321,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -334,7 +345,11 @@ export async function GET(
     });
 
     if (!invoice) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Invoice not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json({
@@ -346,9 +361,6 @@ export async function GET(
     });
   } catch (error: any) {
     console.error("Error getting sync status:", error);
-    return NextResponse.json(
-      { error: "Failed to get sync status" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "sync-status" });
   }
 }

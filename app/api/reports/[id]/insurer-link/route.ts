@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateInsurerToken } from "@/lib/portal-token";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * POST /api/reports/[id]/insurer-link
@@ -17,7 +18,11 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -28,7 +33,11 @@ export async function POST(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     const token = generateInsurerToken(report.id);
@@ -45,10 +54,6 @@ export async function POST(
       propertyAddress: report.propertyAddress,
     });
   } catch (error) {
-    console.error("[insurer-link] Error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "insurer-link" });
   }
 }

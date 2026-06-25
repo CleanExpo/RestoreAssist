@@ -4,13 +4,18 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import archiver from "archiver";
 import { Readable } from "stream";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { ids, zip = false } = await request.json();
@@ -187,7 +192,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     // RA-786: do not leak error.message to clients
-    console.error("Error in bulk-export-excel-list:", error);
-    return NextResponse.json({ error: "Export failed" }, { status: 500 });
+    return fromException(request, error, { stage: "bulk-export-excel-list" });
   }
 }

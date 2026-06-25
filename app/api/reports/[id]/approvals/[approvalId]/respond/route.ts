@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ApprovalStatus } from "@prisma/client";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   request: NextRequest,
@@ -12,7 +13,11 @@ export async function POST(
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id, approvalId } = await params;
@@ -25,21 +30,21 @@ export async function POST(
       try {
         parsed = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { status, clientComments } = parsed;
 
       const allowedStatuses: ApprovalStatus[] = ["APPROVED", "REJECTED"];
       if (!status || !allowedStatuses.includes(status)) {
-        return NextResponse.json(
-          {
-            error: `Invalid status. Must be one of: ${allowedStatuses.join(", ")}`,
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Invalid status. Must be one of: ${allowedStatuses.join(", ")}`,
+          status: 400,
+        });
       }
 
       const approval = await prisma.reportApproval.findFirst({
@@ -51,10 +56,11 @@ export async function POST(
       });
 
       if (!approval) {
-        return NextResponse.json(
-          { error: "Approval not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Approval not found",
+          status: 404,
+        });
       }
 
       const updated = await prisma.reportApproval.update({
@@ -68,11 +74,7 @@ export async function POST(
 
       return NextResponse.json({ approval: updated });
     } catch (error) {
-      console.error("Error responding to approval:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "approval-respond" });
     }
   });
 }

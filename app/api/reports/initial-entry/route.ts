@@ -4,13 +4,18 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // POST - Create initial report entry (Phase 2 Step 2)
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -30,56 +35,66 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
       if (
         !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
       ) {
-        return NextResponse.json(
-          { error: "Active subscription required" },
-          { status: 402 },
-        );
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Active subscription required",
+          status: 402,
+        });
       }
 
       let data: any;
       try {
         data = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
 
       // Validate required fields
       if (!data.clientName || !data.clientName.trim()) {
-        return NextResponse.json(
-          { error: "Client name is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Client name is required",
+          status: 400,
+        });
       }
 
       if (!data.propertyAddress || !data.propertyAddress.trim()) {
-        return NextResponse.json(
-          { error: "Property address is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Property address is required",
+          status: 400,
+        });
       }
 
       if (!data.propertyPostcode || !data.propertyPostcode.trim()) {
-        return NextResponse.json(
-          { error: "Property postcode is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Property postcode is required",
+          status: 400,
+        });
       }
 
       if (!data.technicianFieldReport || !data.technicianFieldReport.trim()) {
-        return NextResponse.json(
-          { error: "Technician field report is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Technician field report is required",
+          status: 400,
+        });
       }
 
       // Generate report title/number
@@ -439,11 +454,7 @@ export async function POST(request: NextRequest) {
           "Initial data saved successfully. Standards analysis initiated. Proceed to report generation.",
       });
     } catch (error) {
-      console.error("Error creating initial report entry:", error);
-      return NextResponse.json(
-        { error: "Failed to save initial data" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "initial-entry" });
     }
   });
 }

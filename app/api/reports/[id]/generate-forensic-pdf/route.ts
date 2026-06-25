@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { generateForensicReportPDF } from "@/lib/generate-forensic-report-pdf";
 import { detectStateFromPostcode, getStateInfo } from "@/lib/state-detection";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * GET /api/reports/[id]/generate-forensic-pdf
@@ -20,7 +21,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // RA-1272: tightened from 10/15min to 5/hour. Forensic PDF generates
@@ -83,17 +88,22 @@ export async function GET(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
     if (
       !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
     ) {
-      return NextResponse.json(
-        { error: "Active subscription required" },
-        { status: 402 },
-      );
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Active subscription required",
+        status: 402,
+      });
     }
 
     // Get the report
@@ -102,7 +112,11 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Parse all stored data
@@ -237,11 +251,7 @@ export async function GET(
       },
     });
   } catch (error: any) {
-    console.error("Error generating forensic PDF:", error);
     // RA-786: do not leak error.message to clients
-    return NextResponse.json(
-      { error: "Failed to generate forensic PDF" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "generate-forensic-pdf" });
   }
 }

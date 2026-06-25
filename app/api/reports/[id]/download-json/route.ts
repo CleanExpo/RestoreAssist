@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -11,7 +12,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -41,7 +46,11 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Fetch scope if exists - include ALL fields
@@ -287,10 +296,6 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Error generating JSON:", error);
-    return NextResponse.json(
-      { error: "Failed to generate JSON" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "download-json" });
   }
 }

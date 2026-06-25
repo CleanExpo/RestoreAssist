@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * GET /api/authority-forms/templates
@@ -9,11 +10,15 @@ import { prisma } from "@/lib/prisma";
  *
  * Requires authenticated session — returns 401 for unauthenticated callers.
  */
-export async function GET(_req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const templates = await prisma.authorityFormTemplate.findMany({
@@ -33,9 +38,6 @@ export async function GET(_req: NextRequest) {
   } catch (error) {
     // RA-786: do not leak error.message to clients
     console.error("Error fetching authority form templates:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch templates" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list-templates" });
   }
 }

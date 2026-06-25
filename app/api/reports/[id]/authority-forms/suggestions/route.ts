@@ -6,6 +6,7 @@ import {
   suggestAuthorityForms,
   extractReportAnalysis,
 } from "@/lib/authority-forms-suggestions";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * GET /api/reports/:id/authority-forms/suggestions
@@ -18,7 +19,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id: reportId } = await params;
@@ -43,7 +48,11 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Check permissions - user must own the report or be assigned to it
@@ -52,7 +61,11 @@ export async function GET(
       report.assignedManagerId !== session.user.id &&
       report.assignedAdminId !== session.user.id
     ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     // Extract analysis from report
@@ -86,10 +99,8 @@ export async function GET(
       analysis, // Include analysis for debugging/transparency
     });
   } catch (error) {
-    console.error("Error getting authority form suggestions:", error);
-    return NextResponse.json(
-      { error: "Failed to get suggestions" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "authority-forms-suggestions",
+    });
   }
 }

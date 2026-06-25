@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET /api/invoices/templates - List invoice templates
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const templates = await prisma.invoiceTemplate.findMany({
@@ -36,10 +41,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ templates });
   } catch (error) {
     console.error("Error fetching invoice templates:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch invoice templates" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list-templates" });
   }
 }
 
@@ -48,7 +50,11 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const body = await request.json();
@@ -110,10 +116,11 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!name) {
-      return NextResponse.json(
-        { error: "Template name is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Template name is required",
+        status: 400,
+      });
     }
 
     // If this is being set as default, unset other defaults
@@ -193,9 +200,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ template }, { status: 201 });
   } catch (error) {
     console.error("Error creating invoice template:", error);
-    return NextResponse.json(
-      { error: "Failed to create invoice template" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "create-template" });
   }
 }

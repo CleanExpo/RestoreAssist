@@ -6,12 +6,17 @@ import { getAnthropicApiKey } from "@/lib/ai-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { generateInterviewQuestion } from "@/lib/services/ai/generate-interview-question";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -30,10 +35,11 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { conversation } = body;
 
@@ -42,10 +48,11 @@ export async function POST(request: NextRequest) {
         !Array.isArray(conversation) ||
         conversation.length === 0
       ) {
-        return NextResponse.json(
-          { error: "Conversation is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Conversation is required",
+          status: 400,
+        });
       }
 
       const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
@@ -56,16 +63,21 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       if (
         !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
       ) {
-        return NextResponse.json(
-          { error: "Active subscription required" },
-          { status: 402 },
-        );
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Active subscription required",
+          status: 402,
+        });
       }
 
       // Get appropriate API key based on subscription status
@@ -75,10 +87,11 @@ export async function POST(request: NextRequest) {
       try {
         anthropicApiKey = await getAnthropicApiKey(userId);
       } catch (error: any) {
-        return NextResponse.json(
-          { error: "Failed to get Anthropic API key" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Failed to get Anthropic API key",
+          status: 400,
+        });
       }
 
       const conversationHistory = conversation.map((msg: any) => ({
@@ -125,10 +138,7 @@ export async function POST(request: NextRequest) {
         integrationUsed: "Anthropic API",
       });
     } catch (error: any) {
-      return NextResponse.json(
-        { error: "Failed to generate question" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "generate-question" });
     }
   });
 }

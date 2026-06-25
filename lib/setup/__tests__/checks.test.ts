@@ -6,9 +6,31 @@ import {
   beforeAll,
   afterAll,
   beforeEach,
+  afterEach,
 } from "vitest";
 import { runAllChecks, CHECKS, pricingCheck, type CheckResult } from "../checks";
 import { prisma } from "@/lib/prisma";
+
+// Shared, hoisted flag so a single module mock can serve two suites: the
+// runAllChecks suite needs the REAL pdf generator (green), while the redaction
+// suite needs it to throw. vi.mock is hoisted above imports, so the flag must
+// come from vi.hoisted to be referenceable inside the factory.
+const pdfMock = vi.hoisted(() => ({ throwOnRender: false }));
+vi.mock("@/lib/generate-iicrc-report-pdf", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/generate-iicrc-report-pdf")>();
+  return {
+    ...actual,
+    generateIICRCReportPDF: async (...args: unknown[]) => {
+      if (pdfMock.throwOnRender) {
+        throw new Error("SECRET pdf-lib internal: /var/task/node_modules/...");
+      }
+      return (actual.generateIICRCReportPDF as (...a: unknown[]) => unknown)(
+        ...args,
+      );
+    },
+  };
+});
 
 vi.mock("@/lib/ai/model-router", () => ({
   routeBasic: vi.fn(),
@@ -335,21 +357,22 @@ describe("pricingCheck (unit — presence not truthiness)", () => {
   });
 });
 
-vi.mock("@/lib/generate-iicrc-report-pdf", () => ({
-  generateIICRCReportPDF: vi.fn(async () => {
-    throw new Error("SECRET pdf-lib internal: /var/task/node_modules/...");
-  }),
-}));
-
 describe("sampleReportRenderCheck note redaction", () => {
   let orgFindUniqueSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    // Force the PDF generator to throw ONLY for this redaction suite, so the
+    // sibling runAllChecks suite still exercises the real generator (green).
+    pdfMock.throwOnRender = true;
     orgFindUniqueSpy = vi.spyOn(
       prisma.organization,
       "findUnique",
     ) as unknown as ReturnType<typeof vi.spyOn>;
     (orgFindUniqueSpy as any).mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    pdfMock.throwOnRender = false;
   });
 
   afterAll(() => {

@@ -93,8 +93,10 @@ describe("estimate extractor honours the provenance guard", () => {
   const areaItems = (e: ReturnType<typeof extractSketchEstimate>) =>
     e.lineItems.filter((li) => typeof li.areaM2 === "number");
 
-  it("counts BOTH rooms without the guard (baseline)", () => {
-    expect(areaItems(extractSketchEstimate(floors(raw)))).toHaveLength(2);
+  it("self-filters the imported room even on a RAW blob (RA-6839 — filter is inside the extractor)", () => {
+    const guarded = areaItems(extractSketchEstimate(floors(raw)));
+    expect(guarded).toHaveLength(1);
+    expect(guarded[0].areaM2).toBeCloseTo(12, 1);
   });
 
   it("excludes the imported room once the guard is applied", () => {
@@ -119,8 +121,8 @@ describe("measuredFloors — PDF/scope export guard (RA-6761 pt 2)", () => {
     },
   ];
 
-  it("baseline: extractRooms counts both rooms without the guard", () => {
-    expect(extractRooms({ objects })).toHaveLength(2);
+  it("extractRooms self-filters imported rooms on a RAW blob (RA-6839 — filter is inside the extractor)", () => {
+    expect(extractRooms({ objects })).toHaveLength(1);
   });
 
   it("excludes imported rooms from generator area extraction", () => {

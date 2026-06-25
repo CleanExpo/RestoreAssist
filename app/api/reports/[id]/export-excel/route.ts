@@ -8,6 +8,7 @@ import {
 } from "@/lib/excel-export";
 import { uploadExcelToCloudinary } from "@/lib/cloudinary";
 import { format } from "date-fns";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -17,7 +18,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -55,7 +60,11 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Parse query parameters for options
@@ -145,11 +154,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Error generating Excel export:", error);
     // RA-786: do not leak error.message to clients
-    return NextResponse.json(
-      { error: "Failed to generate Excel report" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "export-excel" });
   }
 }

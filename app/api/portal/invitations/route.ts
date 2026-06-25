@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /** Escape special HTML characters to prevent XSS in email bodies */
 function escapeHtml(value: string): string {
@@ -31,7 +32,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.userType === "client") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -70,10 +75,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ invitations });
   } catch (error) {
     console.error("Error fetching invitations:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch invitations" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "portal/invitations:list",
+    });
   }
 }
 
@@ -83,17 +87,22 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.userType === "client") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const body = await request.json();
     const { clientId, message } = body;
 
     if (!clientId) {
-      return NextResponse.json(
-        { error: "Client ID is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Client ID is required",
+        status: 400,
+      });
     }
 
     // Verify client belongs to this contractor
@@ -105,7 +114,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!client) {
-      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Client not found",
+        status: 404,
+      });
     }
 
     // Check if client already has a ClientUser account
@@ -114,10 +127,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingClientUser) {
-      return NextResponse.json(
-        { error: "Client already has portal access" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Client already has portal access",
+        status: 400,
+      });
     }
 
     // RA-1367 — the old pattern was:
@@ -172,10 +186,11 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg === "DUPLICATE_INVITE" || msg.includes("P2034")) {
-        return NextResponse.json(
-          { error: "Active invitation already exists for this client" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Active invitation already exists for this client",
+          status: 400,
+        });
       }
       throw err;
     }
@@ -240,9 +255,8 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("Error creating invitation:", error);
-    return NextResponse.json(
-      { error: "Failed to create invitation" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "portal/invitations:create",
+    });
   }
 }

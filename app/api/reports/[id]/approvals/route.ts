@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ApprovalType } from "@prisma/client";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -13,7 +14,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
     }
 
     const { id } = await params;
@@ -26,7 +31,11 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     const approvals = await prisma.reportApproval.findMany({
@@ -48,11 +57,7 @@ export async function GET(
 
     return NextResponse.json({ approvals });
   } catch (error) {
-    console.error("Error fetching approvals:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "approvals-get" });
   }
 }
 
@@ -62,7 +67,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -75,18 +84,20 @@ export async function POST(
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { approvalType, amount: rawAmount } = body;
       const amount = rawAmount != null ? Number(rawAmount) : null;
       if (amount !== null && (!isFinite(amount) || amount < 0)) {
-        return NextResponse.json(
-          { error: "Amount must be a non-negative finite number" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Amount must be a non-negative finite number",
+          status: 400,
+        });
       }
 
       // Validate approvalType
@@ -94,12 +105,11 @@ export async function POST(
         !approvalType ||
         !Object.values(ApprovalType).includes(approvalType)
       ) {
-        return NextResponse.json(
-          {
-            error: `Invalid approvalType. Must be one of: ${Object.values(ApprovalType).join(", ")}`,
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Invalid approvalType. Must be one of: ${Object.values(ApprovalType).join(", ")}`,
+          status: 400,
+        });
       }
 
       const report = await prisma.report.findFirst({
@@ -110,10 +120,11 @@ export async function POST(
       });
 
       if (!report) {
-        return NextResponse.json(
-          { error: "Report not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Report not found",
+          status: 404,
+        });
       }
 
       const approval = await prisma.reportApproval.create({
@@ -127,11 +138,7 @@ export async function POST(
 
       return NextResponse.json({ approval }, { status: 201 });
     } catch (error) {
-      console.error("Error creating approval:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "approvals-post" });
     }
   });
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Get reviews (filtered by contractor slug or client)
 export async function GET(request: NextRequest) {
@@ -14,7 +15,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (myReviews && !session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     let where: any = {
@@ -30,10 +35,11 @@ export async function GET(request: NextRequest) {
       });
 
       if (!clientUser) {
-        return NextResponse.json(
-          { error: "Client user not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Client user not found",
+          status: 404,
+        });
       }
 
       where = {
@@ -49,10 +55,11 @@ export async function GET(request: NextRequest) {
       });
 
       if (!profile) {
-        return NextResponse.json(
-          { error: "Contractor not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Contractor not found",
+          status: 404,
+        });
       }
 
       where.profileId = profile.id;
@@ -115,10 +122,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Error fetching reviews:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch reviews" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "contractors/reviews:list",
+    });
   }
 }
 
@@ -127,7 +133,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -142,20 +152,22 @@ export async function POST(request: NextRequest) {
       });
 
       if (!clientUser) {
-        return NextResponse.json(
-          { error: "Only clients can submit reviews" },
-          { status: 403 },
-        );
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Only clients can submit reviews",
+          status: 403,
+        });
       }
 
       let body: any;
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const {
         contractorSlug,
@@ -171,10 +183,11 @@ export async function POST(request: NextRequest) {
 
       // Validation
       if (!contractorSlug || !overallRating || !reviewText) {
-        return NextResponse.json(
-          { error: "Missing required fields" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Missing required fields",
+          status: 400,
+        });
       }
 
       const subRatings = [
@@ -188,10 +201,11 @@ export async function POST(request: NextRequest) {
         ...subRatings.filter((r) => r !== undefined),
       ];
       if (allRatings.some((r) => r < 1 || r > 5)) {
-        return NextResponse.json(
-          { error: "Rating must be between 1 and 5" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Rating must be between 1 and 5",
+          status: 400,
+        });
       }
 
       // Get contractor profile
@@ -201,10 +215,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!profile) {
-        return NextResponse.json(
-          { error: "Contractor not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Contractor not found",
+          status: 404,
+        });
       }
 
       // Check if report exists and belongs to this client
@@ -233,13 +248,11 @@ export async function POST(request: NextRequest) {
         });
 
         if (existingReview) {
-          return NextResponse.json(
-            {
-              error:
-                "You have already reviewed this contractor for this report",
-            },
-            { status: 409 },
-          );
+          return apiError(request, {
+            code: "CONFLICT",
+            message: "You have already reviewed this contractor for this report",
+            status: 409,
+          });
         }
       }
 
@@ -267,10 +280,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ review }, { status: 201 });
     } catch (error: any) {
       console.error("Error creating review:", error);
-      return NextResponse.json(
-        { error: "Failed to create review" },
-        { status: 500 },
-      );
+      return fromException(request, error, {
+        stage: "contractors/reviews:create",
+      });
     }
   });
 }

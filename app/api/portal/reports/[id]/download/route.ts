@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateEnhancedReportPDF } from "@/lib/generate-enhanced-report-pdf";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET /api/portal/reports/[id]/download - Download PDF for client portal users
 export async function GET(
@@ -13,16 +14,21 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.userType !== "client") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const clientId = session.user.clientId;
 
     if (!clientId) {
-      return NextResponse.json(
-        { error: "Client ID not found" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Client ID not found",
+        status: 400,
+      });
     }
 
     const { id: reportId } = await params;
@@ -45,22 +51,28 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Don't expose draft reports to clients
     if (report.status === "DRAFT") {
-      return NextResponse.json(
-        { error: "Report is not available for download" },
-        { status: 403 },
-      );
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Report is not available for download",
+        status: 403,
+      });
     }
 
     if (!report.detailedReport) {
-      return NextResponse.json(
-        { error: "Report PDF content not available" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report PDF content not available",
+        status: 404,
+      });
     }
 
     // Parse equipmentUsed to extract optional metadata
@@ -99,9 +111,8 @@ export async function GET(
   } catch (error: unknown) {
     // RA-786: do not leak error.message to clients
     console.error("[Portal Download] Error:", error);
-    return NextResponse.json(
-      { error: "Failed to generate PDF" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "portal/reports/download:get",
+    });
   }
 }

@@ -362,6 +362,18 @@ export default function DashboardLayout({
     special: true,
   };
 
+  // Hide the upgrade CTA from users who already have full access. The profile
+  // endpoint maps both paying subscribers and lifetime/full-access accounts to
+  // an effective subscriptionStatus of "ACTIVE" (see /api/user/profile
+  // effStatus), so this single check covers both. Still hidden for team members
+  // and the iOS shell (Apple 3.1.1). Gated on a known (non-null) status so a
+  // full-access user never sees a flash of the upgrade button before it loads.
+  const showUpgradeNav =
+    !isTeamMember &&
+    !hideBillingNav &&
+    subscriptionStatus !== null &&
+    subscriptionStatus !== "ACTIVE";
+
   const isDemoAccount = session?.user?.email === "demo@restoreassist.app";
 
   // Render a single nav entry. Shared by the flat (Simple/field) list and the
@@ -575,8 +587,9 @@ export default function DashboardLayout({
               : // SIMPLE mode (default) and the technician field nav — flat list.
                 navItems.map((item) => renderNavItem(item))}
 
-            {/* Upgrade Package - Special styling - Hide for team members and iOS shell (Apple 3.1.1) */}
-            {!isTeamMember && !hideBillingNav && (
+            {/* Upgrade Package - Special styling - Hidden for full-access/active
+                users, team members, and the iOS shell (Apple 3.1.1). */}
+            {showUpgradeNav && (
               <Link
                 href={upgradeItem.href}
                 className={cn(

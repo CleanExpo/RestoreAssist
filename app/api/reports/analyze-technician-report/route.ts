@@ -9,13 +9,18 @@ import {
   analyseTechnicianReport,
   type TechReportAnalysis,
 } from "@/lib/services/ai/analyse-technician-report";
+import { apiError } from "@/lib/api-errors";
 
 // POST - Analyze technician report using AI
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -34,7 +39,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       // Subscription gate — CANCELED/PAST_DUE users must not run AI generation
@@ -42,28 +51,31 @@ export async function POST(request: NextRequest) {
       if (
         !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
       ) {
-        return NextResponse.json(
-          { error: "Active subscription required" },
-          { status: 402 },
-        );
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Active subscription required",
+          status: 402,
+        });
       }
 
       let parsed: { reportId?: string } = {};
       try {
         parsed = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { reportId } = parsed;
 
       if (!reportId) {
-        return NextResponse.json(
-          { error: "Report ID is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Report ID is required",
+          status: 400,
+        });
       }
 
       // Get the report
@@ -72,17 +84,19 @@ export async function POST(request: NextRequest) {
       });
 
       if (!report) {
-        return NextResponse.json(
-          { error: "Report not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Report not found",
+          status: 404,
+        });
       }
 
       if (!report.technicianFieldReport) {
-        return NextResponse.json(
-          { error: "Technician field report is required for analysis" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Technician field report is required for analysis",
+          status: 400,
+        });
       }
 
       // Get appropriate API key based on subscription status
@@ -92,10 +106,11 @@ export async function POST(request: NextRequest) {
       try {
         anthropicApiKey = await getAnthropicApiKey(user.id);
       } catch (error: any) {
-        return NextResponse.json(
-          { error: "Failed to get Anthropic API key" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Failed to get Anthropic API key",
+          status: 400,
+        });
       }
 
       const result = await analyseTechnicianReport({
