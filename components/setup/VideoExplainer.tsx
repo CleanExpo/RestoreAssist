@@ -172,7 +172,7 @@ export function VideoExplainer({
 
     if (hasError) {
       return (
-        <div className={wrapperClass} role="img" aria-label={`${title} — video unavailable`}>
+        <div className={wrapperClass} role="status" aria-label={`${title} — video unavailable`}>
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-brand-navy text-center text-white">
             <span className="text-sm font-medium">Video unavailable</span>
             <span className="text-xs text-white/70">{title}</span>
