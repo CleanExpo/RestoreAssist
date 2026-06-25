@@ -93,6 +93,10 @@ const videos: VideoDef[] = [
   { slug: "help-billing", filePath: "public/videos/help/help-billing.mp4", title: "Trial, paid tiers, and Stripe Checkout", folder: `${folderArg}/help` },
   { slug: "help-team", filePath: "public/videos/help/help-team.mp4", title: "Invite a technician + verify their licence", folder: `${folderArg}/help` },
   { slug: "help-compliance", filePath: "public/videos/help/help-compliance.mp4", title: "IICRC citation format and edition discipline", folder: `${folderArg}/help` },
+  // New-client welcome (top of /setup). public_id `onboarding-welcome` in folder
+  // restoreassist/videos/remotion → matches the cloudinaryUrl already in
+  // components/setup/video-registry.ts under slug `remotion-onboarding-welcome`.
+  { slug: "onboarding-welcome", filePath: "public/videos/remotion/onboarding-welcome.mp4", title: "Welcome to RestoreAssist", folder: `${folderArg}/remotion` },
 ];
 
 // ── Upload function ─────────────────────────────────────────────────────

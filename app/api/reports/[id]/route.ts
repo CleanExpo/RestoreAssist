@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { parseDate } from "@/lib/parse-date";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -13,7 +14,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -42,7 +47,11 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Parse JSON fields back to objects for frontend use
@@ -101,11 +110,7 @@ export async function GET(
 
     return NextResponse.json(parsedReport);
   } catch (error) {
-    console.error("Error fetching report:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "get" });
   }
 }
 
@@ -117,7 +122,11 @@ export async function PUT(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -183,57 +192,61 @@ export async function PUT(
       body.waterCategory !== undefined &&
       !VALID_WATER_CATEGORIES.includes(body.waterCategory)
     ) {
-      return NextResponse.json(
-        { error: `Invalid waterCategory` },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Invalid waterCategory`,
+        status: 400,
+      });
     }
     if (
       body.waterClass !== undefined &&
       !VALID_WATER_CLASSES.includes(body.waterClass)
     ) {
-      return NextResponse.json(
-        { error: `Invalid waterClass` },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Invalid waterClass`,
+        status: 400,
+      });
     }
     if (
       body.reportDepthLevel !== undefined &&
       !VALID_DEPTH_LEVELS.includes(body.reportDepthLevel)
     ) {
-      return NextResponse.json(
-        { error: `Invalid reportDepthLevel` },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Invalid reportDepthLevel`,
+        status: 400,
+      });
     }
     if (body.totalCost !== undefined && body.totalCost !== null) {
       const tc = Number(body.totalCost);
       if (!isFinite(tc) || tc < 0 || tc > 100_000_000) {
-        return NextResponse.json(
-          {
-            error:
-              "totalCost must be a non-negative finite number up to 100,000,000",
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "totalCost must be a non-negative finite number up to 100,000,000",
+          status: 400,
+        });
       }
     }
     if (body.dryingPlan?.targetHumidity !== undefined) {
       const h = Number(body.dryingPlan.targetHumidity);
       if (!isFinite(h) || h < 0 || h > 100) {
-        return NextResponse.json(
-          { error: "targetHumidity must be between 0 and 100" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "targetHumidity must be between 0 and 100",
+          status: 400,
+        });
       }
     }
     if (body.dryingPlan?.targetTemperature !== undefined) {
       const t = Number(body.dryingPlan.targetTemperature);
       if (!isFinite(t) || t < -20 || t > 100) {
-        return NextResponse.json(
-          { error: "targetTemperature must be between -20 and 100" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "targetTemperature must be between -20 and 100",
+          status: 400,
+        });
       }
     }
 
@@ -246,7 +259,11 @@ export async function PUT(
     });
 
     if (!existingReport) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Sanitise free-text fields — consistent with POST handler (create path)
@@ -387,11 +404,7 @@ export async function PUT(
 
     return NextResponse.json(updatedReport);
   } catch (error) {
-    console.error("Error updating report:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "update" });
   }
 }
 
@@ -403,7 +416,11 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -417,7 +434,11 @@ export async function DELETE(
     });
 
     if (!existingReport) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     await prisma.report.delete({
@@ -426,10 +447,6 @@ export async function DELETE(
 
     return NextResponse.json({ message: "Report deleted successfully" });
   } catch (error) {
-    console.error("Error deleting report:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "delete" });
   }
 }

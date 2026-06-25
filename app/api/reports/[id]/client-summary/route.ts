@@ -8,6 +8,7 @@ import {
   generateClientSummaryService,
   type ClientSummaryInput,
 } from "@/lib/services/ai/generate-client-summary";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * RA-1461: POST /api/reports/[id]/client-summary
@@ -35,7 +36,11 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
     const userId = session.user.id;
     const { id } = await params;
@@ -89,7 +94,11 @@ export async function POST(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     const url = new URL(request.url);
@@ -139,13 +148,12 @@ export async function POST(
     try {
       apiKey = await getAnthropicApiKey(userId);
     } catch {
-      return NextResponse.json(
-        {
-          error:
-            "Connect an AI integration first. Add your Anthropic API key in Settings → Integrations to generate summaries.",
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "Connect an AI integration first. Add your Anthropic API key in Settings → Integrations to generate summaries.",
+        status: 400,
+      });
     }
 
     const input: ClientSummaryInput = {
@@ -209,10 +217,6 @@ export async function POST(
     });
   } catch (error) {
     // Rule 7 — never expose error.message in 500 responses.
-    console.error("[reports/client-summary] error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "client-summary" });
   }
 }

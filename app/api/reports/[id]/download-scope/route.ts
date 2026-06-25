@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET - Download scope of works as PDF
 export async function GET(
@@ -13,7 +14,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -21,7 +26,11 @@ export async function GET(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const { id } = await params;
@@ -32,18 +41,21 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     const scopeOfWorks = report.scopeOfWorksDocument || "";
 
     if (!scopeOfWorks) {
-      return NextResponse.json(
-        {
-          error: "Scope of works document not found. Please generate it first.",
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Scope of works document not found. Please generate it first.",
+        status: 400,
+      });
     }
 
     // Generate PDF
@@ -63,11 +75,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Error generating scope PDF:", error);
-    return NextResponse.json(
-      { error: "Failed to generate PDF" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "download-scope" });
   }
 }
 

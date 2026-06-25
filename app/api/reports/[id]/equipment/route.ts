@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   request: NextRequest,
@@ -11,7 +12,11 @@ export async function POST(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -19,7 +24,11 @@ export async function POST(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const { id } = await params;
@@ -31,7 +40,11 @@ export async function POST(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Update report with equipment data
@@ -68,11 +81,7 @@ export async function POST(
       message: "Equipment data saved successfully",
     });
   } catch (error) {
-    console.error("Error saving equipment data:", error);
-    return NextResponse.json(
-      { error: "Failed to save equipment data" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "equipment-save" });
   }
 }
 
@@ -84,7 +93,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -92,7 +105,11 @@ export async function GET(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const { id } = await params;
@@ -103,7 +120,11 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json({
@@ -118,10 +139,6 @@ export async function GET(
       estimatedDryingDuration: report.estimatedDryingDuration,
     });
   } catch (error) {
-    console.error("Error fetching equipment data:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch equipment data" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "equipment-get" });
   }
 }

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET - Export complete document package (PDF, Word, JSON)
 export async function GET(
@@ -13,7 +14,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -21,7 +26,11 @@ export async function GET(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const { id } = await params;
@@ -34,7 +43,11 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Parse all data
@@ -43,13 +56,12 @@ export async function GET(
     const costEstimation = report.costEstimationDocument || "";
 
     if (!inspectionReport && !scopeOfWorks && !costEstimation) {
-      return NextResponse.json(
-        {
-          error:
-            "No documents available to export. Please generate reports first.",
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "No documents available to export. Please generate reports first.",
+        status: 400,
+      });
     }
 
     // Build version history
@@ -171,11 +183,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Error exporting package:", error);
-    return NextResponse.json(
-      { error: "Failed to export document package" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "export-package" });
   }
 }
 

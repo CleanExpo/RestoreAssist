@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getOrganizationOwner } from "@/lib/organization-credits";
 import { AuthoritySignatoryRole } from "@prisma/client";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * GET /api/reports/:id/authority-forms
@@ -17,7 +18,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
     const userId = session.user.id;
 
@@ -34,7 +39,11 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     // Check permissions
@@ -43,7 +52,11 @@ export async function GET(
       report.assignedManagerId !== userId &&
       report.assignedAdminId !== userId
     ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     // Fetch all authority forms for this report
@@ -86,11 +99,7 @@ export async function GET(
 
     return NextResponse.json({ forms });
   } catch (error) {
-    console.error("Error fetching authority forms:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch authority forms" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "authority-forms-get" });
   }
 }
 
@@ -104,7 +113,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id: reportId } = await params;
@@ -117,18 +130,20 @@ export async function POST(
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { templateId, authorityDescription, signatoryRoles } = body;
 
       if (!templateId) {
-        return NextResponse.json(
-          { error: "Template ID is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Template ID is required",
+          status: 400,
+        });
       }
 
       // Verify report access
@@ -149,10 +164,11 @@ export async function POST(
       });
 
       if (!report) {
-        return NextResponse.json(
-          { error: "Report not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Report not found",
+          status: 404,
+        });
       }
 
       // Check permissions
@@ -161,7 +177,11 @@ export async function POST(
         report.assignedManagerId !== userId &&
         report.assignedAdminId !== userId
       ) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Forbidden",
+          status: 403,
+        });
       }
 
       // Get Admin's business info (for team members, use Admin's info)
@@ -313,11 +333,7 @@ export async function POST(
 
       return NextResponse.json({ form: completeForm });
     } catch (error) {
-      console.error("Error creating authority form:", error);
-      return NextResponse.json(
-        { error: "Failed to create authority form" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "authority-forms-post" });
     }
   });
 }

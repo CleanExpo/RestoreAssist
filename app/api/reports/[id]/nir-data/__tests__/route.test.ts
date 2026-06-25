@@ -54,7 +54,9 @@ describe("POST /api/reports/[id]/nir-data", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ error: "Invalid JSON in form data" });
-    expect(body.error).not.toContain("position");
+    expect(body.error.code).toBe("VALIDATION");
+    expect(body.error.message).toBe("Invalid JSON in form data");
+    // Still no JSON.parse internals (e.g. "...at position 9") leaked.
+    expect(body.error.message).not.toContain("position");
   });
 });

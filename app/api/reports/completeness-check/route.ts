@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 interface Section {
   name: string;
@@ -13,17 +14,22 @@ interface Section {
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   try {
     const { reportId } = await request.json();
 
     if (!reportId) {
-      return NextResponse.json(
-        { error: "reportId is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "reportId is required",
+        status: 400,
+      });
     }
 
     const report = await prisma.report.findFirst({
@@ -52,7 +58,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     const sections: Section[] = [];
@@ -161,10 +171,6 @@ export async function POST(request: NextRequest) {
       sections,
     });
   } catch (error) {
-    console.error("[Completeness Check] Error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "completeness-check" });
   }
 }

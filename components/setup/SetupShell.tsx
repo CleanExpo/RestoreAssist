@@ -52,7 +52,10 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
         // Re-fetch the canonical Organization snapshot whenever a job hits READY
         if (jobs.some((j) => j.status === 'READY')) {
           fetch('/api/setup/state')
-            .then((r) => r.json())
+            .then(async (r) => {
+              if (!r.ok) throw new Error(`state refetch ${r.status}`);
+              return r.json();
+            })
             .then((data) => {
               if (data?.data?.organization) {
                 const { hydrationJobs: _drop, pricingConfig: _p, ...orgOnly } = data.data.organization;
@@ -63,7 +66,11 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
                 });
               }
             })
-            .catch((err) => console.error('[setup] state refresh failed:', err));
+            .catch((err) => {
+              console.error('[setup] state refresh failed:', err);
+              // Surface to the user rather than freezing mid-hydrate.
+              setSectionStatus(jobKindToSectionKey('ABR'), 'error');
+            });
         }
       } catch (err) {
         console.error('[setup] SSE parse error:', err);

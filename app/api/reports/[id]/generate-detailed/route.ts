@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   request: NextRequest,
@@ -13,7 +14,11 @@ export async function POST(
   const session = await getServerSession(authOptions);
 
   if (!session?.user || !session.user.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -56,10 +61,11 @@ export async function POST(
       });
 
       if (!report) {
-        return NextResponse.json(
-          { error: "Report not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Report not found",
+          status: 404,
+        });
       }
 
       // Fetch scope with ALL fields
@@ -1193,11 +1199,7 @@ export async function POST(
         },
       });
     } catch (error) {
-      console.error("Error generating detailed report:", error);
-      return NextResponse.json(
-        { error: "Failed to generate detailed report" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "generate-detailed" });
     }
   });
 }

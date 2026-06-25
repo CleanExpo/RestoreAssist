@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { extractReportFromUpload } from "@/lib/services/ai/extract-report-from-upload";
+import { apiError } from "@/lib/api-errors";
 
 // Configuration constants
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -154,7 +155,11 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user || !session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const userId = session.user.id;
@@ -165,17 +170,22 @@ export async function POST(request: NextRequest) {
       select: { id: true, subscriptionStatus: true },
     });
     if (!sessionUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
     if (
       !ALLOWED_SUBSCRIPTION_STATUSES.includes(
         sessionUser.subscriptionStatus ?? "",
       )
     ) {
-      return NextResponse.json(
-        { error: "Active subscription required" },
-        { status: 402 },
-      );
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Active subscription required",
+        status: 402,
+      });
     }
 
     // Get appropriate API key based on subscription status
@@ -200,7 +210,11 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File;
 
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "No file provided",
+        status: 400,
+      });
     }
 
     // Validate file type
