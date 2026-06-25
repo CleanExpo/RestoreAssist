@@ -1,0 +1,11 @@
+{
+  "slug": "remotion-tutorial-compliance",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 40,
+  "segments": [
+    { "text": "Welcome to I I C R C compliance.", "startSec": 0.5, "durationSec": 4.0 },
+    { "text": "Standards. RestoreAssist embeds S500 for water damage, S520 for mould remediation, and S550 for fire and smoke.", "startSec": 5.7, "durationSec": 9.0 },
+    { "text": "Checklists. Digital compliance checklists are pre-loaded for every job type, auto-checking completion and flagging missing items.", "startSec": 15.7, "durationSec": 9.0 },
+    { "text": "Audit trail. Full traceability with timestamps, digital signatures, and a complete document log — ready whenever assessors or insurers ask.", "startSec": 25.7, "durationSec": 9.3 }
+  ]
+}

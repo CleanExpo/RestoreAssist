@@ -1,0 +1,11 @@
+{
+  "slug": "remotion-tutorial-reports",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 40,
+  "segments": [
+    { "text": "Welcome to A I-assisted reports.", "startSec": 0.5, "durationSec": 4.0 },
+    { "text": "Generate a report. With one click from any inspection, our A I drafts a professional report in I I C R C S500 format, populated with your evidence.", "startSec": 5.7, "durationSec": 9.0 },
+    { "text": "Review and edit. You're always in control — check accuracy, add notes, and attach photos before finalising.", "startSec": 15.7, "durationSec": 9.0 },
+    { "text": "Export and share. Send as PDF or Word, publish to the client portal, or email it directly.", "startSec": 25.7, "durationSec": 9.3 }
+  ]
+}

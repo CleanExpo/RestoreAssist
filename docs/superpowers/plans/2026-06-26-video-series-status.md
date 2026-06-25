@@ -22,9 +22,24 @@ Last updated: 2026-06-26 · Branch: `chore/ci-test-parity-guard`
 | 2 | wizard-dashboard | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
 | 2 | wizard-integrations | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
 | 2 | wizard-health | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
-| 3 | tutorial-login … tutorial-integrations (10) | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | NOT STARTED — Wave 3 |
+| 3 | tutorial-login | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | sandbox work done this session |
+| 3 | tutorial-signup | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
+| 3 | tutorial-setup-wizard | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
+| 3 | tutorial-dashboard | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
+| 3 | tutorial-inspections | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
+| 3 | tutorial-reports | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
+| 3 | tutorial-billing | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
+| 3 | tutorial-team | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
+| 3 | tutorial-compliance | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
+| 3 | tutorial-integrations | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
 
-⏳ = blocked on a handoff (credential/GPU) step. All Wave 1–2 **sandbox-safe** work is complete.
+⏳ = blocked on a handoff (credential/GPU) step. **All 17 videos' sandbox-safe work is complete** — only narration MP3 + render + YouTube upload remain (one handoff).
+
+## Open inconsistencies to reconcile (found while scripting)
+
+- **Domain drift in the source compositions:** wizard scenes show `restoreassist.app`; tutorial scenes show `restoreassist.au`. SSOT narration matches each composition's on-screen text to stay in sync, so the audio inherits the drift. Decide the canonical domain and fix both the compositions and the affected scripts (`wizard-signin`, `tutorial-login`).
+- **Registry `durationSec` vs real composition length:** `setup-wizard-signup`/registry tutorial badges mostly match, but `remotion-tutorial-login` badge says 45 s (real ≈40 s) and `remotion-tutorial-signup` says 90 s (real ≈60 s). Cosmetic (badge only); align when convenient.
+- **Tutorial caption keys** were also being fixed by a separately-spawned task — this session added the `remotion-tutorial-*` slug keys inline; reconcile at merge.
 
 ## Done this session (Wave 2 sandbox-safe)
 
@@ -41,7 +56,7 @@ Last updated: 2026-06-26 · Branch: `chore/ci-test-parity-guard`
 ELEVENLABS_API_KEY=*** ELEVENLABS_VOICE_ID=jSuBIjxMKhqIfb0wCK1F \
   pnpm exec tsx scripts/generate-onboarding-narration.ts        # Wave 1
 ELEVENLABS_API_KEY=*** ELEVENLABS_VOICE_ID=jSuBIjxMKhqIfb0wCK1F \
-  pnpm exec tsx scripts/generate-series-narration.ts            # Wave 2 (6)
+  pnpm exec tsx scripts/generate-series-narration.ts            # Wave 2+3 (16: wizard-* + tutorial-*)
 
 # 2. Render MP4s with baked-in audio (headless Chromium)
 pnpm run render:tutorials

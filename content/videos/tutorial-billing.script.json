@@ -1,0 +1,11 @@
+{
+  "slug": "remotion-tutorial-billing",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 40,
+  "segments": [
+    { "text": "Welcome to billing and subscriptions.", "startSec": 0.5, "durationSec": 4.0 },
+    { "text": "Plans. Choose Starter for solo operators, Growth for expanding teams, or Enterprise for multi-location businesses.", "startSec": 5.7, "durationSec": 9.0 },
+    { "text": "Invoices. Generate professional invoices automatically from completed jobs, sync with Xero, and track payment status in real time.", "startSec": 15.7, "durationSec": 9.0 },
+    { "text": "Upgrades. Scale as you grow — add seats, enable add-ons like white-label branding, and benefit from volume pricing.", "startSec": 25.7, "durationSec": 9.3 }
+  ]
+}

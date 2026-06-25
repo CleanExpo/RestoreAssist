@@ -1,0 +1,11 @@
+{
+  "slug": "remotion-tutorial-team",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 40,
+  "segments": [
+    { "text": "Welcome to team management.", "startSec": 0.5, "durationSec": 4.0 },
+    { "text": "Invite members. Send email invitations to technicians, administrators, and client contacts, each with a role.", "startSec": 5.7, "durationSec": 9.0 },
+    { "text": "Assign roles. Control permissions precisely — View Only for clients, Edit for technicians, Admin for managers, Owner for full control.", "startSec": 15.7, "durationSec": 9.0 },
+    { "text": "Licences. Manage your seats — add or remove members, transfer licences, and monitor usage from the admin panel.", "startSec": 25.7, "durationSec": 9.3 }
+  ]
+}

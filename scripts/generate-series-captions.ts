@@ -13,7 +13,7 @@ import fs from "fs/promises";
 import path from "path";
 import { segmentsToVtt, type VttSegment } from "./lib/script-to-vtt";
 
-// Wave 2 (setup-wizard). Add Wave 3 tutorial stems here as their SSOTs land.
+// Wave 2 (setup-wizard) + Wave 3 (tutorials).
 const STEMS = [
   "wizard-signin",
   "wizard-signup",
@@ -21,6 +21,16 @@ const STEMS = [
   "wizard-dashboard",
   "wizard-integrations",
   "wizard-health",
+  "tutorial-login",
+  "tutorial-signup",
+  "tutorial-setup-wizard",
+  "tutorial-dashboard",
+  "tutorial-inspections",
+  "tutorial-reports",
+  "tutorial-billing",
+  "tutorial-team",
+  "tutorial-compliance",
+  "tutorial-integrations",
 ];
 
 interface Script {

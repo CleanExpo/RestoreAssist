@@ -1,0 +1,11 @@
+{
+  "slug": "remotion-tutorial-dashboard",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 40,
+  "segments": [
+    { "text": "Welcome to your RestoreAssist dashboard. This is your command centre.", "startSec": 0.5, "durationSec": 4.0 },
+    { "text": "The Overview shows active jobs, upcoming inspections, team status, and pending claims at a glance.", "startSec": 5.7, "durationSec": 9.0 },
+    { "text": "Navigation is simple — use the sidebar to jump to any module, the search bar to find anything, or quick actions for common tasks.", "startSec": 15.7, "durationSec": 9.0 },
+    { "text": "The Insights panel tracks your performance — completion rates, workspace health score, and recent activity.", "startSec": 25.7, "durationSec": 9.3 }
+  ]
+}

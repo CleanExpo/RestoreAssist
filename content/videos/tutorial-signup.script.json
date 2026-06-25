@@ -1,0 +1,13 @@
+{
+  "slug": "remotion-tutorial-signup",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 60,
+  "segments": [
+    { "text": "Welcome to RestoreAssist. In this tutorial, I'll walk you through creating your account.", "startSec": 0.5, "durationSec": 4.0 },
+    { "text": "Enter your name and email, and create a secure password with at least eight characters.", "startSec": 5.7, "durationSec": 9.0 },
+    { "text": "Add your business name and A B N. We verify your A B N automatically against the Australian Business Register.", "startSec": 15.7, "durationSec": 9.0 },
+    { "text": "Check your inbox for a six-digit verification code, and enter it within ten minutes to activate your account.", "startSec": 25.7, "durationSec": 9.0 },
+    { "text": "The Setup Wizard guides you through five steps — profile, A I hydration, integrations, health check, and activation.", "startSec": 35.7, "durationSec": 9.0 },
+    { "text": "Tap Activate. All twelve health checks pass, and your workspace is now live.", "startSec": 45.7, "durationSec": 9.0 }
+  ]
+}
