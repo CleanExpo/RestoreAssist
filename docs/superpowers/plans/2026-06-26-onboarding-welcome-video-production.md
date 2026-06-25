@@ -309,7 +309,7 @@ async function main() {
 
   const { size } = await fs.stat(outPath);
   if (size < 10_000) throw new Error(`MP3 suspiciously small (${size} bytes)`);
-  console.log(`[onboarding-narration] ✓ wrote ${size} bytes`);
+  console.log(`[onboarding-narration] [x] wrote ${size} bytes`);
 }
 
 main().catch((err) => {
@@ -326,7 +326,7 @@ ELEVENLABS_API_KEY=*** ELEVENLABS_VOICE_ID=jSuBIjxMKhqIfb0wCK1F \
   pnpm exec tsx scripts/generate-onboarding-narration.ts
 ls -la public/narration/onboarding-welcome.mp3
 ```
-Expected: file exists, > 10 KB, script logs `✓ wrote <N> bytes`.
+Expected: file exists, > 10 KB, script logs `[x] wrote <N> bytes`.
 
 - [ ] **Step 7: Commit** (commit the code; the MP3 may be git-ignored — check `.gitignore` for `public/narration`; if ignored, document that the asset is produced by the script)
 
@@ -528,7 +528,7 @@ async function main() {
   await fs.mkdir(outDir, { recursive: true });
   const outPath = path.join(outDir, "onboarding-welcome.vtt");
   await fs.writeFile(outPath, segmentsToVtt(script.segments));
-  console.log(`[onboarding-captions] ✓ wrote ${outPath}`);
+  console.log(`[onboarding-captions] [x] wrote ${outPath}`);
 }
 
 main().catch((err) => {
@@ -946,17 +946,17 @@ Post `[DONE] pr=#<NNN>` on the epic and move child issues to In Review. Leave th
 ## Self-Review (performed against the request)
 
 **Spec coverage:**
-- "generate the script" → Task 1 (transcript SSOT). ✅
-- "the process / everything required for production" → Tasks 0–6 chain audio→composition→render→captions→CDN. ✅
-- "the videos" → Tasks 3–4 (embed audio, render MP4). ✅
-- "the editing" → Task 1 timing + Task 3 audio embed are the edit; captions Task 5. ✅
-- "using elevenlabs, 1 voice" → Task 2, Global Constraints pin `jSuBIjxMKhqIfb0wCK1F`. ✅
-- "work through all these found issues" → Track A Task 7 (finding #1, broken player), Track B Tasks 8–10 (findings #2, #4, #5); finding #3 explicitly deferred to a linked ticket with rationale. ✅
-- "using the Sub Agents, Senior Agents, Orchestrator Agent, and the Board" → Orchestration section + Task 0 + Task 11 use the real primitives (Linear, `pr-creator`, `/review-pr`, `deployment-verifier`); the report's finding that no dedicated "video-gen agent" exists is reflected by driving production through this task plan. ✅
+- "generate the script" → Task 1 (transcript SSOT). [x]
+- "the process / everything required for production" → Tasks 0–6 chain audio→composition→render→captions→CDN. [x]
+- "the videos" → Tasks 3–4 (embed audio, render MP4). [x]
+- "the editing" → Task 1 timing + Task 3 audio embed are the edit; captions Task 5. [x]
+- "using elevenlabs, 1 voice" → Task 2, Global Constraints pin `jSuBIjxMKhqIfb0wCK1F`. [x]
+- "work through all these found issues" → Track A Task 7 (finding #1, broken player), Track B Tasks 8–10 (findings #2, #4, #5); finding #3 explicitly deferred to a linked ticket with rationale. [x]
+- "using the Sub Agents, Senior Agents, Orchestrator Agent, and the Board" → Orchestration section + Task 0 + Task 11 use the real primitives (Linear, `pr-creator`, `/review-pr`, `deployment-verifier`); the report's finding that no dedicated "video-gen agent" exists is reflected by driving production through this task plan. [x]
 
-**Placeholder scan:** no "TBD/handle errors/similar to" — every code step shows complete code. Asset/network/render steps that cannot be unit-tested are explicitly marked **[RUN ON DEV/CI HOST]** with a concrete file/ffprobe/curl verification instead of a fake test. ✅
+**Placeholder scan:** no "TBD/handle errors/similar to" — every code step shows complete code. Asset/network/render steps that cannot be unit-tested are explicitly marked **[RUN ON DEV/CI HOST]** with a concrete file/ffprobe/curl verification instead of a fake test. [x]
 
-**Type/name consistency:** slug `remotion-onboarding-welcome` used identically in caption-registry, VideoExplainer test, and transcript; file stem `onboarding-welcome` used identically in narration MP3, render `fileName`, `public/videos/remotion/…mp4`, and Cloudinary `public_id`; `segmentsToVtt`, `buildTtsBody`, `generateAudio`, `pricingCheck`, `sampleReportRenderCheck` names match between definition and test. ✅
+**Type/name consistency:** slug `remotion-onboarding-welcome` used identically in caption-registry, VideoExplainer test, and transcript; file stem `onboarding-welcome` used identically in narration MP3, render `fileName`, `public/videos/remotion/…mp4`, and Cloudinary `public_id`; `segmentsToVtt`, `buildTtsBody`, `generateAudio`, `pricingCheck`, `sampleReportRenderCheck` names match between definition and test. [x]
 
 **Open risks the executor must confirm (not fabricated):**
 1. Remotion `staticFile()` resolving `public/narration/onboarding-welcome.mp3` — verified by the ffprobe audio-stream check in Task 4 Step 2. If empty, the asset path is wrong.
