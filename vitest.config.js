@@ -21,6 +21,7 @@ export default {
       "app/capture/**/__tests__/**/*.test.tsx",
       "app/dashboard/**/__tests__/**/*.test.tsx",
       "app/__tests__/**/*.test.tsx",
+      "content/videos/__tests__/**/*.test.ts",
     ],
     exclude: [
       "e2e/**",

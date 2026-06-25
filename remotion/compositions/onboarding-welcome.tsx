@@ -1,5 +1,5 @@
 import React from 'react';
-import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
+import {AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame} from 'remotion';
 
 /**
  * OnboardingWelcome — the brand "welcome" video shown to a NEW client at the top
@@ -87,6 +87,7 @@ export const OnboardingWelcome: React.FC<{title?: string}> = ({
 
   return (
     <AbsoluteFill style={{fontFamily: 'Inter, sans-serif', backgroundColor: INK}}>
+      <Audio src={staticFile('narration/onboarding-welcome.mp3')} />
       {/* Intro */}
       <div style={{position: 'absolute', inset: 0, opacity: introOpacity}}>
         <AbsoluteFill
