@@ -7,6 +7,8 @@ import {
   getOrganizationOwner,
 } from "@/lib/organization-credits";
 
+export const AI_PROVIDER_ROUTE = "/dashboard/settings/ai-providers";
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -174,17 +176,15 @@ export async function GET() {
       // Trial users have platform-key coverage; paid users without BYOK are
       // blocked on report generation. Required = true for paid users only.
       ai_provider: {
-        completed: isTrial || hasApiKey,
-        required: !isTrial && !hasApiKey,
-        title: isTrial
-          ? "AI reports active — platform key (trial)"
-          : hasApiKey
-            ? "Anthropic API key configured"
-            : "Add your Anthropic API key",
-        description: isTrial
-          ? "Your trial uses our platform AI key. To keep generating reports after your trial, add your own key in Settings → Integrations."
-          : "AI report generation requires an Anthropic API key. Add yours in Settings → Integrations.",
-        route: "/dashboard/integrations",
+        completed: hasApiKey,
+        required: !hasApiKey,
+        title: hasApiKey
+          ? "AI provider key configured"
+          : "Add your Anthropic or OpenAI API key",
+        description: hasApiKey
+          ? "An Anthropic or OpenAI API key is configured — AI report generation is active."
+          : "An Anthropic or OpenAI API key is required to operate RestoreAssist. You pay providers directly, at cost. Add it in Settings → AI Providers.",
+        route: AI_PROVIDER_ROUTE,
       },
       first_inspection: {
         completed: inspectionCount > 0,
