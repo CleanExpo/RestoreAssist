@@ -1,0 +1,12 @@
+{
+  "slug": "remotion-onboarding-welcome",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 36,
+  "segments": [
+    { "text": "Welcome to RestoreAssist. Let's get your restoration business ready to work.", "startSec": 0.5, "durationSec": 4.5 },
+    { "text": "First, your business details. Enter your A B N and we'll pull your legal name and trading details straight from the Australian Business Register.", "startSec": 6.5, "durationSec": 6.5 },
+    { "text": "Next, your brand. Add your logo and colours, so every report and invoice you send out looks like yours.", "startSec": 14.0, "durationSec": 6.0 },
+    { "text": "Then your pricing. Set your labour rates and administration fee once, and RestoreAssist applies them automatically.", "startSec": 21.5, "durationSec": 6.0 },
+    { "text": "That's it. Once your setup checks pass, your workspace goes live. Welcome aboard.", "startSec": 29.0, "durationSec": 5.5 }
+  ]
+}
