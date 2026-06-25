@@ -6,9 +6,11 @@ import { describe, expect, it } from "vitest";
 import {
   describeToolObject,
   pxToMetres,
+  metresToPx,
   formatMetres,
   distancePx,
   DEFAULT_PX_PER_METRE,
+  WALL_THICKNESS_INTERNAL_M,
 } from "../tool-objects";
 
 describe("describeToolObject — data.type contract", () => {
@@ -91,6 +93,49 @@ describe("describeToolObject — data.type contract", () => {
     const d = describeToolObject({ tool: "photo", points: [{ x: 5, y: 5 }] });
     expect(d?.kind).toBe("photo-marker");
     expect(d?.data.type).toBe("photo");
+  });
+});
+
+describe("describeToolObject — RA-6840 wall thickness (presentation only)", () => {
+  const SQUARE = [
+    { x: 0, y: 0 },
+    { x: 100, y: 0 },
+    { x: 100, y: 100 },
+    { x: 0, y: 100 },
+  ];
+
+  it("room renders a mitred wall band at internal thickness", () => {
+    const d = describeToolObject({ tool: "room", points: SQUARE });
+    expect(d?.props.strokeWidth).toBe(
+      metresToPx(WALL_THICKNESS_INTERNAL_M), // 0.11m × 100px = 11px
+    );
+    expect(d?.props.strokeLineJoin).toBe("miter");
+  });
+
+  it("room thickness scales with pxPerMetre, leaving centerline points intact", () => {
+    const d = describeToolObject({
+      tool: "room",
+      points: SQUARE,
+      pxPerMetre: 50, // 0.11m × 50px = 5.5px band
+    });
+    expect(d?.props.strokeWidth).toBe(5.5);
+    // The measured centerline geometry is untouched — area calc is unaffected.
+    expect(d?.props.points).toEqual(SQUARE);
+  });
+
+  it("wall tool renders with thickness, endpoints unchanged", () => {
+    const d = describeToolObject({
+      tool: "line",
+      points: [
+        { x: 0, y: 0 },
+        { x: 300, y: 0 },
+      ],
+    });
+    expect(d?.props.strokeWidth).toBe(metresToPx(WALL_THICKNESS_INTERNAL_M));
+    expect(d?.props.strokeLineCap).toBe("square");
+    expect(d?.props.x1).toBe(0);
+    expect(d?.props.x2).toBe(300);
+    expect(d?.data.lengthM).toBe(3); // unchanged by presentation
   });
 });
 
