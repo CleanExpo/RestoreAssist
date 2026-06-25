@@ -7,7 +7,7 @@ import {
   afterAll,
   beforeEach,
 } from "vitest";
-import { runAllChecks, CHECKS, type CheckResult } from "../checks";
+import { runAllChecks, CHECKS, pricingCheck, type CheckResult } from "../checks";
 import { prisma } from "@/lib/prisma";
 
 vi.mock("@/lib/ai/model-router", () => ({
@@ -302,5 +302,35 @@ describe("welcomeEmailCheck (Resend domain probe)", () => {
     });
     const r = await welcomeEmailCheck("any-org");
     expect(r.status).toBe("green");
+  });
+});
+
+describe("pricingCheck (unit — presence not truthiness)", () => {
+  let findUniqueSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    findUniqueSpy = vi.spyOn(
+      prisma.organizationPricingConfig,
+      "findUnique",
+    ) as unknown as ReturnType<typeof vi.spyOn>;
+  });
+
+  afterAll(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("is green when admin fee is 0 (a legitimate waived fee)", async () => {
+    (findUniqueSpy as any).mockResolvedValueOnce({
+      masterQualifiedNormalHours: 40,
+      administrationFee: 0,
+    });
+    const result = await pricingCheck("org-1");
+    expect(result.status).toBe("green");
+  });
+
+  it("is red when the pricing row is missing entirely", async () => {
+    (findUniqueSpy as any).mockResolvedValueOnce(null);
+    const result = await pricingCheck("org-1");
+    expect(result.status).toBe("red");
   });
 });

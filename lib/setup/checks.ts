@@ -102,12 +102,12 @@ const brandingCheck: Check = async (orgId) => {
   return { capability: "branding", label: "Branding set", status: "green" };
 };
 
-const pricingCheck: Check = async (orgId) => {
+export const pricingCheck: Check = async (orgId) => {
   const p = await prisma.organizationPricingConfig.findUnique({
     where: { organizationId: orgId },
     select: { masterQualifiedNormalHours: true, administrationFee: true },
   });
-  const ready = !!p?.masterQualifiedNormalHours && !!p?.administrationFee;
+  const ready = p != null && p.masterQualifiedNormalHours != null && p.administrationFee != null;
   return {
     capability: "pricing",
     label: "Pricing config",
