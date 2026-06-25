@@ -8,6 +8,7 @@ import { StorageCard } from './StorageCard';
 import { IntegrationsCard } from './IntegrationsCard';
 import { FeatureHealthCard } from './FeatureHealthCard';
 import { VideoExplainer } from './VideoExplainer';
+import { AiKeyCard } from './AiKeyCard';
 
 type SectionKey = 'businessDetails' | 'branding' | 'pricing' | 'storage' | 'integrations';
 
@@ -86,6 +87,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       <h1 className="text-3xl font-semibold tracking-tight">Let&apos;s get you set up</h1>
       <p className="text-muted-foreground">Enter your ABN below — we&apos;ll do the rest.</p>
       <VideoExplainer slug="remotion-onboarding-welcome" />
+      <AiKeyCard />
       <BusinessDetailsCard />
       <BrandCard />
       <PricingCard />

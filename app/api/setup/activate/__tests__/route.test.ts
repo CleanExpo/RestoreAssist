@@ -11,6 +11,23 @@ import { routeBasic } from '@/lib/ai/model-router';
 // Stub email so no real Resend calls are made during tests
 vi.mock('@/lib/email', () => ({ sendWelcomeEmail: vi.fn().mockResolvedValue(null) }));
 
+// byok_keys is now a REQUIRED operating-key check (Anthropic or OpenAI). The
+// provider-connections module is used ONLY by byokKeysCheck, so mock it
+// file-wide to a deterministically-valid Anthropic key — activation must be
+// reachable in CI without a live provider call. (cloud_storage / accounting
+// checks do not use this module, so they keep their real impls.) Return values
+// are (re)set in beforeEach because vi.restoreAllMocks() wipes vi.fn() impls.
+vi.mock('@/lib/workspace/provider-connections', () => ({
+  getWorkspaceForUser: vi.fn(),
+  listProviderConnections: vi.fn(),
+  validateProviderKey: vi.fn(),
+}));
+import {
+  getWorkspaceForUser,
+  listProviderConnections,
+  validateProviderKey,
+} from '@/lib/workspace/provider-connections';
+
 describe.skipIf(!process.env.DATABASE_URL)('POST /api/setup/activate', () => {
   let testUserId = '';
   let testOrgId = '';
@@ -41,6 +58,22 @@ describe.skipIf(!process.env.DATABASE_URL)('POST /api/setup/activate', () => {
       user: { id: testUserId, email: 't@t.com' },
     });
     (routeBasic as ReturnType<typeof vi.fn>).mockResolvedValue({ text: 'ok', confidence: 1 });
+    // byok_keys → green: one ACTIVE, valid Anthropic key.
+    (getWorkspaceForUser as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'ws-activate-test', name: 'WS' });
+    (listProviderConnections as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        id: 'pc-anthropic',
+        workspaceId: 'ws-activate-test',
+        provider: 'ANTHROPIC',
+        status: 'ACTIVE',
+        maskedKey: 'sk-ant-..1234',
+        lastValidatedAt: null,
+        lastError: null,
+        createdAt: '',
+        updatedAt: '',
+      },
+    ]);
+    (validateProviderKey as ReturnType<typeof vi.fn>).mockResolvedValue({ provider: 'ANTHROPIC', valid: true, latencyMs: 1 });
     // welcomeEmailCheck (inside runAllChecks) does a live Resend domain probe —
     // the only env-dependent check that goes red (Drive/Xero stay yellow when
     // unconnected and never reach fetch). Stub fetch + key so it resolves green,

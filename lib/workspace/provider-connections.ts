@@ -24,7 +24,10 @@ import { encrypt, decrypt } from "../credential-vault";
 export type AiProvider = "ANTHROPIC" | "OPENAI" | "GOOGLE" | "GEMMA";
 
 /** Mirrors the Prisma ProviderConnectionStatus enum */
-export type ProviderConnectionStatus = "ACTIVE" | "DISABLED" | "ERROR";
+export type ProviderConnectionStatus = "ACTIVE" | "FAILED" | "DISABLED";
+
+/** Schema-valid status for a provider key that failed validation */
+export const CONNECTION_FAILED_STATUS = "FAILED" as const;
 
 /** Shape stored (encrypted) in encryptedCredentials */
 interface CredentialPayload {
@@ -273,11 +276,11 @@ export async function validateProviderKey(
     where: { workspaceId, provider },
     data: valid
       ? { status: "ACTIVE", lastValidatedAt: new Date(), lastError: null }
-      : ({
-          status: "ERROR",
+      : {
+          status: CONNECTION_FAILED_STATUS,
           lastError: errorMessage ?? "Validation failed",
           lastValidatedAt: new Date(),
-        } as any),
+        },
   });
 
   return { provider, valid, errorMessage, latencyMs };

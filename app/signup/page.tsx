@@ -212,14 +212,13 @@ export default function SignupPage() {
             <Key className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
             <div>
               <p className="text-amber-300 font-semibold text-sm">
-                AI report generation requires an Anthropic API key
+                An Anthropic or OpenAI API key is required to operate
+                RestoreAssist
               </p>
               <p className="text-amber-200/70 text-xs mt-1 leading-relaxed">
-                Your free trial uses our platform key automatically — no setup
-                needed to get started. For ongoing use after your trial, add
-                your own key in{" "}
+                You pay providers directly, at cost. Add it in{" "}
                 <span className="font-medium text-amber-300">
-                  Settings → Integrations
+                  Settings → AI Providers
                 </span>
                 .
               </p>
@@ -269,9 +268,10 @@ export default function SignupPage() {
                   {PRICING_CONFIG.free.trialReportCredits} free report credits,
                   valid for {PRICING_CONFIG.free.trialDays} days.{" "}
                   <span className="text-amber-400 font-medium">
-                    AI-powered reports use our platform key during your trial
+                    You will need an Anthropic or OpenAI API key to generate
+                    reports
                   </span>{" "}
-                  — no Anthropic account needed to get started.
+                  — add it in Settings → AI Providers after signup.
                 </p>
               </div>
 
@@ -313,16 +313,17 @@ export default function SignupPage() {
 
               <div>
                 <p className="font-semibold text-cyan-300 mb-1">
-                  5. Add Your Own Anthropic API Key (after trial)
+                  5. Add Your Anthropic or OpenAI API Key
                 </p>
                 <p className="text-slate-400">
-                  For unlimited AI report generation beyond your trial credits,
-                  add your own Anthropic API key in{" "}
+                  An Anthropic or OpenAI API key is required to operate
+                  RestoreAssist — you pay providers directly, at cost. Add it
+                  in{" "}
                   <span className="font-medium text-white">
-                    Settings → Integrations
+                    Settings → AI Providers
                   </span>
                   . Without a key configured, report generation will be
-                  unavailable once trial credits are exhausted.
+                  unavailable.
                 </p>
               </div>
 

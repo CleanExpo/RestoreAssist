@@ -31,9 +31,10 @@ import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
  *   - ai_generation          (AI inference reachable — system health)
  *   - sample_report_render   (IICRC PDF generation works — system health)
  *   - chain_of_custody       (hashing + UTC timestamps work — system health)
+ *   - byok_keys              (≥1 ACTIVE Anthropic or OpenAI key that validates)
  *
  * Optional (YELLOW-when-unmet) — do not block activation:
- *   - cloud_storage, accounting, byok_keys, welcome_email
+ *   - cloud_storage, accounting, welcome_email
  */
 export type CheckStatus = "green" | "yellow" | "red";
 
@@ -123,13 +124,13 @@ const aiGenerationCheck: Check = async () => {
     });
     return {
       capability: "ai_generation",
-      label: "AI generation (Gemma)",
+      label: "System AI service (Gemma)",
       status: result ? "green" : "red",
     };
   } catch {
     return {
       capability: "ai_generation",
-      label: "AI generation (Gemma)",
+      label: "System AI service (Gemma)",
       status: "red",
       note: "Gemma endpoint unreachable",
     };
@@ -407,13 +408,22 @@ const accountingCheck: Check = async (orgId) => {
 //
 // BYOK provider keys live in `ProviderConnection`, keyed by workspaceId. We
 // resolve the org owner's active workspace, list ACTIVE provider connections,
-// and call `validateProviderKey` for each. That helper makes the minimal
-// 1-token-equivalent probe (`/v1/models` etc.) and persists the validation
-// status. Green if at least one provider passes; red if all fail; yellow when
-// no connections exist.
-const byokKeysCheck: Check = async (orgId) => {
+// filter to OPERATING providers only (ANTHROPIC or OPENAI — the ones that
+// power client report generation), and call `validateProviderKey` for each.
+// That helper makes the minimal 1-token-equivalent probe (`/v1/models` etc.)
+// and persists the validation status.
+//
+// GREEN  = ≥1 ACTIVE ANTHROPIC or OPENAI connection passes validateProviderKey
+// RED    = no operating provider available (no workspace, zero connections,
+//          only GOOGLE/GEMMA present, or all operating keys fail validation)
+//
+// GOOGLE and GEMMA connections are ignored here — Google is for Drive storage,
+// Gemma is the platform's own inference service checked by ai_generation.
+export const byokKeysCheck: Check = async (orgId) => {
   const capability = "byok_keys";
   const label = "BYOK AI keys";
+  const NO_KEY_NOTE =
+    "Add your Anthropic or OpenAI API key to operate RestoreAssist.";
 
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
@@ -423,8 +433,8 @@ const byokKeysCheck: Check = async (orgId) => {
     return {
       capability,
       label,
-      status: "yellow",
-      note: "Using platform Gemma — add BYOK key for premium models",
+      status: "red",
+      note: NO_KEY_NOTE,
     };
   }
 
@@ -433,24 +443,31 @@ const byokKeysCheck: Check = async (orgId) => {
     return {
       capability,
       label,
-      status: "yellow",
-      note: "Using platform Gemma — add BYOK key for premium models",
+      status: "red",
+      note: NO_KEY_NOTE,
     };
   }
 
   const connections = await listProviderConnections(workspace.id);
-  const active = connections.filter((c) => c.status === "ACTIVE");
-  if (active.length === 0) {
+
+  // Only ANTHROPIC and OPENAI are operating providers for client report generation.
+  const operatingActive = connections.filter(
+    (c) =>
+      c.status === "ACTIVE" &&
+      (c.provider === "ANTHROPIC" || c.provider === "OPENAI"),
+  );
+
+  if (operatingActive.length === 0) {
     return {
       capability,
       label,
-      status: "yellow",
-      note: "Using platform Gemma — add BYOK key for premium models",
+      status: "red",
+      note: NO_KEY_NOTE,
     };
   }
 
   const results = await Promise.all(
-    active.map(async (c) => ({
+    operatingActive.map(async (c) => ({
       provider: c.provider as AiProvider,
       result: await validateProviderKey(workspace.id, c.provider as AiProvider),
     })),
@@ -462,7 +479,7 @@ const byokKeysCheck: Check = async (orgId) => {
       capability,
       label,
       status: "green",
-      note: `${valid.length}/${results.length} BYOK key(s) verified (${valid.map((v) => v.provider).join(", ")})`,
+      note: `${valid.length}/${results.length} key(s) verified (${valid.map((v) => v.provider).join(", ")})`,
     };
   }
 

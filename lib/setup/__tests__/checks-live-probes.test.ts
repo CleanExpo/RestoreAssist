@@ -245,20 +245,22 @@ describe.skipIf(!process.env.DATABASE_URL)("byok_keys check", () => {
     expect(mocks.validateProviderKey).toHaveBeenCalledWith("w1", "ANTHROPIC");
   });
 
-  it("yellow when no provider connections exist", async () => {
+  // byok_keys is now a REQUIRED (red-when-unmet) operating-key check: a client
+  // must install an Anthropic or OpenAI key before activation. No key ⇒ RED.
+  it("red when no provider connections exist", async () => {
     mocks.getWorkspaceForUser.mockResolvedValueOnce({ id: "w1", name: "ws" });
     mocks.listProviderConnections.mockResolvedValueOnce([]);
     const results = await runAllChecks("o1");
     const byok = results.find((r) => r.capability === "byok_keys");
-    expect(byok?.status).toBe("yellow");
+    expect(byok?.status).toBe("red");
     expect(mocks.validateProviderKey).not.toHaveBeenCalled();
   });
 
-  it("yellow when org has no workspace", async () => {
+  it("red when org has no workspace", async () => {
     mocks.getWorkspaceForUser.mockResolvedValueOnce(null);
     const results = await runAllChecks("o1");
     const byok = results.find((r) => r.capability === "byok_keys");
-    expect(byok?.status).toBe("yellow");
+    expect(byok?.status).toBe("red");
   });
 
   it("red when an ACTIVE connection exists but validation fails", async () => {
@@ -288,7 +290,7 @@ describe.skipIf(!process.env.DATABASE_URL)("byok_keys check", () => {
     expect(byok?.note).toMatch(/rejected/i);
   });
 
-  it("skips DISABLED connections — treats as no connection (yellow)", async () => {
+  it("skips DISABLED connections — treats as no operating key (red)", async () => {
     mocks.getWorkspaceForUser.mockResolvedValueOnce({ id: "w1", name: "ws" });
     mocks.listProviderConnections.mockResolvedValueOnce([
       {
@@ -305,7 +307,7 @@ describe.skipIf(!process.env.DATABASE_URL)("byok_keys check", () => {
     ]);
     const results = await runAllChecks("o1");
     const byok = results.find((r) => r.capability === "byok_keys");
-    expect(byok?.status).toBe("yellow");
+    expect(byok?.status).toBe("red");
     expect(mocks.validateProviderKey).not.toHaveBeenCalled();
   });
 });

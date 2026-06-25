@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { detectStateFromPostcode, getStateInfo } from "@/lib/state-detection";
 import { getLatestAIIntegration, callAIProvider } from "@/lib/ai-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { resolveReportProvider } from "./provider";
 import {
   hasValue,
   extractMaterialsFromReport,
@@ -135,42 +136,46 @@ export async function POST(request: NextRequest) {
     const stateCode = detectStateFromPostcode(report.propertyPostcode || "");
     const stateInfo = getStateInfo(stateCode);
 
-    // Get appropriate API key based on subscription status
-    // Free users: uses ANTHROPIC_API_KEY from .env
-    // Upgraded users: uses API key from integrations
-    const { getAnthropicApiKey, getLatestAIIntegration } =
-      await import("@/lib/ai-provider");
+    // Resolve AI provider — new ProviderConnection store (BYOK) takes priority
+    // over the legacy Integration store, so clients who installed a key via
+    // Settings → AI Providers are always routed to the provider they chose.
+    const { getAnthropicApiKey } = await import("@/lib/ai-provider");
 
-    // Try to get integration first (for upgraded users)
-    let aiIntegration = await getLatestAIIntegration(user.id);
-    let anthropicApiKey: string;
+    // Step 1: check the new BYOK store (ProviderConnection) — same store the
+    //         setup gate (byokKeysCheck) validates, so a client who passes the
+    //         gate will also pass here.
+    let aiIntegration = await resolveReportProvider(user.id);
 
+    // Step 2: fall back to the legacy Integration store (old BYOK path)
     if (!aiIntegration) {
-      // For free users, get API key from .env
+      aiIntegration = await getLatestAIIntegration(user.id);
+    }
+
+    // Step 3: fall back to the platform ANTHROPIC_API_KEY env var (free tier)
+    let anthropicApiKey: string;
+    if (!aiIntegration) {
       try {
         anthropicApiKey = await getAnthropicApiKey(user.id);
-        // Create a synthetic integration object for callAIProvider
         aiIntegration = {
           id: "env-anthropic",
           name: "Anthropic Claude (Free Tier)",
           apiKey: anthropicApiKey,
           provider: "anthropic" as const,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         // RA-786: do not leak error.message to clients
         console.error(
-          "Generate-inspection-report: Anthropic key error:",
+          "Generate-inspection-report: no working AI provider key:",
           error,
         );
         return apiError(request, {
           code: "VALIDATION",
           message:
-            "Failed to get Anthropic API key. Please ensure ANTHROPIC_API_KEY is configured in environment variables.",
+            "No working AI provider key. Add an Anthropic or OpenAI key in Settings → AI Providers.",
           status: 400,
         });
       }
     } else {
-      // For upgraded users, use the integration's API key
       anthropicApiKey = aiIntegration.apiKey;
     }
 
