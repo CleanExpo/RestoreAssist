@@ -138,7 +138,7 @@ const aiGenerationCheck: Check = async () => {
 
 // Renders a minimal IICRC PDF in-memory using the hydrated organization profile.
 // Green when pdf-lib returns a non-trivial byte buffer (> 1 KB); red on any throw.
-const sampleReportRenderCheck: Check = async (orgId) => {
+export const sampleReportRenderCheck: Check = async (orgId) => {
   try {
     const org = await prisma.organization.findUnique({
       where: { id: orgId },
@@ -173,11 +173,12 @@ const sampleReportRenderCheck: Check = async (orgId) => {
       status: "green",
     };
   } catch (err) {
+    console.error("[setup-check] sample_report_render failed:", err);
     return {
       capability: "sample_report_render",
       label: "Sample report rendering",
       status: "red",
-      note: err instanceof Error ? err.message : "PDF render failed",
+      note: "Sample report rendering failed",
     };
   }
 };
@@ -221,11 +222,12 @@ const chainOfCustodyCheck: Check = async () => {
       status: "green",
     };
   } catch (err) {
+    console.error("[setup-check] chain_of_custody failed:", err);
     return {
       capability: "chain_of_custody",
       label: "Photo chain-of-custody",
       status: "red",
-      note: err instanceof Error ? err.message : "Manifest primitives failed",
+      note: "Chain-of-custody primitives failed",
     };
   }
 };
