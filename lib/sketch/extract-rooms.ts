@@ -18,7 +18,7 @@ interface FabricObject {
   scaleY?: number;
   fill?: string;
   stroke?: string;
-  data?: { label?: string; roomType?: string };
+  data?: { label?: string; roomType?: string; provenance?: string };
 }
 
 export interface RoomInfo {
@@ -48,6 +48,11 @@ export function extractRooms(
   for (const obj of objects) {
     if (obj.type?.toLowerCase() !== "polygon") continue;
     if (!obj.points?.length) continue;
+    // RA-6839 (A0): provenance firewall — underlay_reference geometry
+    // (AI/imported) is reference-only and must never contribute to billed/
+    // scoped quantities. Filter here (the last point provenance is visible)
+    // so no caller can leak it, regardless of upstream sanitisation.
+    if (obj.data?.provenance === "underlay_reference") continue;
 
     const scaleX = obj.scaleX ?? 1;
     const scaleY = obj.scaleY ?? 1;

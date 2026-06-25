@@ -86,6 +86,7 @@ interface FabricObject {
     label?: string;
     roomType?: string;
     isDamageZone?: boolean;
+    provenance?: string;
   };
 }
 
@@ -117,6 +118,9 @@ function extractRoomsFromFabricJson(
   for (const obj of objects) {
     if (obj.type?.toLowerCase() !== "polygon") continue;
     if (!obj.points?.length) continue;
+    // RA-6839 (A0): provenance firewall — underlay_reference geometry is
+    // reference-only and must never become a billed room or damage line item.
+    if (obj.data?.provenance === "underlay_reference") continue;
 
     const areaM2 = pxAreaToM2(obj.points, obj.scaleX, obj.scaleY);
     if (areaM2 < 0.1) continue; // Skip tiny objects (< 0.1 m²)
