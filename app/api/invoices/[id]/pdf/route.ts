@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateInvoicePDF } from "@/lib/invoices/pdf-generator";
 import { uploadPDFToCloudinary } from "@/lib/cloudinary";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -13,7 +14,11 @@ export async function GET(
     const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Fetch invoice with all related data
@@ -64,7 +69,11 @@ export async function GET(
     });
 
     if (!invoice) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Invoice not found",
+        status: 404,
+      });
     }
 
     // Prepare business info
@@ -149,9 +158,6 @@ export async function GET(
     });
   } catch (error: any) {
     console.error("Error generating invoice PDF:", error);
-    return NextResponse.json(
-      { error: "Failed to generate PDF" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "generate-pdf" });
   }
 }

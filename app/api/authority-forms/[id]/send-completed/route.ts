@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { generateAuthorityFormPDF } from "@/lib/generate-authority-form-pdf";
 import { sendSignedFormEmail } from "@/lib/email";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * POST /api/authority-forms/:id/send-completed
@@ -16,7 +17,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id: formId } = await params;
@@ -44,7 +49,11 @@ export async function POST(
       });
 
       if (!form) {
-        return NextResponse.json({ error: "Form not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Form not found",
+          status: 404,
+        });
       }
 
       // Check permissions
@@ -53,7 +62,11 @@ export async function POST(
         form.report.assignedManagerId !== userId &&
         form.report.assignedAdminId !== userId
       ) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Forbidden",
+          status: 403,
+        });
       }
 
       // Collect recipients (signatories with email who have signed)
@@ -62,10 +75,11 @@ export async function POST(
       );
 
       if (recipients.length === 0) {
-        return NextResponse.json(
-          { error: "No signed signatories with email addresses" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "No signed signatories with email addresses",
+          status: 400,
+        });
       }
 
       // Generate PDF
@@ -134,10 +148,7 @@ export async function POST(
       });
     } catch (error: any) {
       console.error("[Send Completed] Error:", error);
-      return NextResponse.json(
-        { error: "Failed to send completed form emails" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "send-completed" });
     }
   });
 }

@@ -3,12 +3,17 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const creditNotes = await prisma.creditNote.findMany({
@@ -38,18 +43,19 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ creditNotes });
-  } catch {
-    return NextResponse.json(
-      { error: "Failed to fetch credit notes" },
-      { status: 500 },
-    );
+  } catch (error) {
+    return fromException(request, error, { stage: "list-credit-notes" });
   }
 }
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -61,10 +67,11 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const {
         invoiceId,
@@ -77,10 +84,11 @@ export async function POST(request: NextRequest) {
       } = body;
 
       if (!invoiceId || !reason) {
-        return NextResponse.json(
-          { error: "invoiceId and reason are required" },
-          { status: 422 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "invoiceId and reason are required",
+          status: 422,
+        });
       }
 
       // Verify the invoice belongs to this user
@@ -90,10 +98,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!invoice) {
-        return NextResponse.json(
-          { error: "Invoice not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+          status: 404,
+        });
       }
 
       // Generate credit note number
@@ -174,11 +183,8 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({ creditNote }, { status: 201 });
-    } catch {
-      return NextResponse.json(
-        { error: "Failed to create credit note" },
-        { status: 500 },
-      );
+    } catch (error) {
+      return fromException(request, error, { stage: "create-credit-note" });
     }
   });
 }

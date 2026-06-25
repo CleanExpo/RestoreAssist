@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET /api/invoices/[id]/variations - Get invoice variations
 export async function GET(
@@ -12,7 +13,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -26,7 +31,11 @@ export async function GET(
     });
 
     if (!invoice) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Invoice not found",
+        status: 404,
+      });
     }
 
     // Get all variations of this invoice
@@ -120,10 +129,7 @@ export async function GET(
     });
   } catch (error) {
     console.error("Error fetching invoice variations:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch invoice variations" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list-variations" });
   }
 }
 
@@ -134,7 +140,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -148,10 +158,11 @@ export async function POST(
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const {
         notes,
@@ -179,10 +190,11 @@ export async function POST(
       });
 
       if (!originalInvoice) {
-        return NextResponse.json(
-          { error: "Invoice not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+          status: 404,
+        });
       }
 
       // If the original invoice is itself a variation, use its original
@@ -224,10 +236,11 @@ export async function POST(
       });
 
       if (!sequence) {
-        return NextResponse.json(
-          { error: "Invoice sequence not found" },
-          { status: 500 },
-        );
+        return apiError(request, {
+          code: "INTERNAL",
+          message: "Invoice sequence not found",
+          status: 500,
+        });
       }
 
       const year = new Date().getFullYear();
@@ -359,10 +372,7 @@ export async function POST(
       return NextResponse.json({ variation }, { status: 201 });
     } catch (error) {
       console.error("Error creating invoice variation:", error);
-      return NextResponse.json(
-        { error: "Failed to create invoice variation" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "create-variation" });
     }
   });
 }

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isDraft, isCancelled } from "@/lib/invoice-status";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   request: NextRequest,
@@ -11,7 +12,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -26,49 +31,55 @@ export async function POST(
       });
 
       if (!invoice) {
-        return NextResponse.json(
-          { error: "Invoice not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+          status: 404,
+        });
       }
 
       if (isDraft(invoice.status) || isCancelled(invoice.status)) {
-        return NextResponse.json(
-          { error: "Cannot record payment for draft or cancelled invoices" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Cannot record payment for draft or cancelled invoices",
+          status: 400,
+        });
       }
 
       let body: any;
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { amount, paymentMethod, reference, notes, paymentDate } = body;
 
       if (!amount || amount <= 0) {
-        return NextResponse.json(
-          { error: "Valid payment amount is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Valid payment amount is required",
+          status: 400,
+        });
       }
 
       if (!paymentMethod) {
-        return NextResponse.json(
-          { error: "Payment method is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Payment method is required",
+          status: 400,
+        });
       }
 
       if (amount > invoice.amountDue) {
-        return NextResponse.json(
-          { error: "Payment amount exceeds amount due" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Payment amount exceeds amount due",
+          status: 400,
+        });
       }
 
       const result = await prisma.$transaction(async (tx) => {
@@ -187,10 +198,7 @@ export async function POST(
       );
     } catch (error: any) {
       console.error("Error recording payment:", error);
-      return NextResponse.json(
-        { error: "Failed to record payment" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "record-payment" });
     }
   });
 }

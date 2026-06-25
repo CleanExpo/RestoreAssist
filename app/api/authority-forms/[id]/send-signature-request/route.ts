@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { Resend } from "resend";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 let resend: Resend | null = null;
 function getResendClient(): Resend {
@@ -27,7 +28,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id: formId } = await params;
@@ -39,18 +44,20 @@ export async function POST(
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { signatureId } = body;
 
       if (!signatureId) {
-        return NextResponse.json(
-          { error: "signatureId is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "signatureId is required",
+          status: 400,
+        });
       }
 
       // Verify form and permissions
@@ -69,7 +76,11 @@ export async function POST(
       });
 
       if (!form) {
-        return NextResponse.json({ error: "Form not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Form not found",
+          status: 404,
+        });
       }
 
       if (
@@ -77,7 +88,11 @@ export async function POST(
         form.report.assignedManagerId !== userId &&
         form.report.assignedAdminId !== userId
       ) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Forbidden",
+          status: 403,
+        });
       }
 
       // Get the signature record
@@ -86,21 +101,27 @@ export async function POST(
       });
 
       if (!signature) {
-        return NextResponse.json(
-          { error: "Signature not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Signature not found",
+          status: 404,
+        });
       }
 
       if (!signature.signatoryEmail) {
-        return NextResponse.json(
-          { error: "Signatory has no email address" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Signatory has no email address",
+          status: 400,
+        });
       }
 
       if (signature.signedAt) {
-        return NextResponse.json({ error: "Already signed" }, { status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Already signed",
+          status: 400,
+        });
       }
 
       // Generate token
@@ -169,10 +190,7 @@ export async function POST(
       return NextResponse.json({ success: true, token });
     } catch (error: any) {
       console.error("[Send Signature Request] Error:", error);
-      return NextResponse.json(
-        { error: "Failed to send signature request" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "send-signature-request" });
     }
   });
 }
