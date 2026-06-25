@@ -13,7 +13,7 @@ Live-site research completed against restoreassist.app on 2026-06-23 AEST.
 
 Verified public claims used in this campaign:
 
-- RestoreAssist is positioned as Australia's first Australian-designed full CRM / Office and Field Management System for the Australian restoration industry.
+- RestoreAssist is positioned as an Australian-designed full CRM / Office and Field Management System for the Australian restoration industry.
 - Core line: One System. Fewer Gaps. More Confidence.
 - Built for Australian restoration workflows, with IICRC frameworks, WHS policies, and Australian Building Code references.
 - AI assists administration and field technicians; decisions stay with the operator.
@@ -112,9 +112,9 @@ Campaign phases:
 | 3. Trial conversion | 15-21 | Push qualified users to setup/pricing | CTA posts + retargeting copy |
 | 4. Objection handling | 22-28 | Address price, AI trust, compliance, and switching friction | FAQ posts + comparison framing |
 
-## UTM structure
+## UTM structure (template)
 
-Use raw URLs, no shorteners.
+Use raw URLs, no shorteners. The `{{...}}` tokens below are placeholders — replace every one before publishing. Never paste a URL still containing `{{` into a live ad, or tracking will break.
 
 LinkedIn organic:
 https://restoreassist.app/setup?utm_source=linkedin&utm_medium=organic_social&utm_campaign=ra_social_launch_2026_06&utm_content={{POST_SLUG}}
@@ -128,7 +128,7 @@ https://restoreassist.app/setup?utm_source=facebook&utm_medium=organic_social&ut
 Facebook paid:
 https://restoreassist.app/setup?utm_source=facebook&utm_medium=paid_social&utm_campaign=ra_social_launch_2026_06&utm_content={{AD_SLUG}}
 
-Retargeting:
+Retargeting template (set `{{PLATFORM}}` to `linkedin` or `facebook`):
 https://restoreassist.app/pricing?utm_source={{PLATFORM}}&utm_medium=retargeting&utm_campaign=ra_social_launch_2026_06&utm_content={{AD_SLUG}}
 
 ## Creative guardrails
