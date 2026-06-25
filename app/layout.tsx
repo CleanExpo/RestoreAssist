@@ -21,8 +21,20 @@ import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 // regions rendered inside the provider.
 import { AnnouncerProvider } from "@/components/LiveRegion";
 import { Analytics } from "@vercel/analytics/next";
+import { BotIdClient } from "botid/client";
 import "@/lib/env-check";
 import "./globals.css";
+
+// RA-1286 — Vercel BotID. `BotIdClient` injects a client script and MUST be
+// mounted in the root layout <head>; rendering it in a page body throws Next
+// 16's "script tag while rendering" error AND the script never executes, so
+// the bot signal silently fails. One mount here covers every protected route.
+// Docs: node_modules/botid/README.md ("Mount the <BotIdClient/> in your layout").
+const BOTID_PROTECTED_ROUTES = [
+  { path: "/api/auth/register", method: "POST" },
+  { path: "/api/auth/forgot-password", method: "POST" },
+  { path: "/api/auth/reset-password", method: "POST" },
+];
 
 // RA — /_not-found export was failing with "TypeError: Invalid URL" because
 // metadataBase received an empty or malformed NEXTAUTH_URL at build time
@@ -124,6 +136,9 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
+      <head>
+        <BotIdClient protect={BOTID_PROTECTED_ROUTES} />
+      </head>
       <body className={geistSans.className}>
         <OrganizationSchema />
         <SoftwareApplicationSchema />

@@ -164,7 +164,9 @@ export function VideoExplainer({
 
   // ─── Video element with captions + mobile optimisation ───
   const renderVideo = (src: string) => {
-    const captionUrl = getCaptionUrl(slug);
+    // Captions are keyed by file stem; the registry slug differs, so resolve
+    // via the resolved video source (`src` = …/<stem>.mp4) as the fallback.
+    const captionUrl = getCaptionUrl(slug, src);
     // Use CDN poster if available (first frame extracted by Cloudinary)
     const posterUrl = cloudinaryUrl
       ? cloudinaryUrl.replace("/upload/", "/upload/so_0,w_1280,h_720,c_fill/").replace(".mp4", ".jpg")
