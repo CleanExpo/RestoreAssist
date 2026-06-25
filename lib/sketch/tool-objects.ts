@@ -26,6 +26,23 @@ export interface Point {
 /** Canvas default: 100px = 1m (mirrors lib/sketch decompose + extract-rooms). */
 export const DEFAULT_PX_PER_METRE = 100;
 
+/**
+ * RA-6840 [A1] — architectural wall thickness presets (metres). Presentation
+ * only: rendered as the stroke band width on the room/wall descriptor. The
+ * measured centerline geometry (polygon `points` / line endpoints) is never
+ * touched, so area/scope decomposition is unchanged.
+ */
+export const WALL_THICKNESS_INTERNAL_M = 0.11; // ~110mm internal partition
+export const WALL_THICKNESS_EXTERNAL_M = 0.23; // ~230mm external/party wall
+
+export function metresToPx(
+  m: number,
+  pxPerMetre = DEFAULT_PX_PER_METRE,
+): number {
+  const scale = pxPerMetre || DEFAULT_PX_PER_METRE;
+  return m * scale;
+}
+
 /** Brand palette (CLAUDE.md): primary, secondary, accent. */
 const PRIMARY = "#1C2E47";
 const SECONDARY = "#8A6B4E";
@@ -95,13 +112,20 @@ export function describeToolObject(
   switch (tool) {
     case "room": {
       if (points.length < 3) return null;
+      // RA-6840 [A1]: draw the perimeter as a filled wall band (thick mitred
+      // stroke centered on the centerline) so the room reads as an
+      // architectural floor plan, not a 2px wireframe. `points` stay the
+      // measured centerline — area calc (shoelace) is unaffected.
       return {
         kind: "polygon",
         props: {
           points,
           fill: "rgba(28,46,71,0.08)",
           stroke: PRIMARY,
-          strokeWidth: 2,
+          strokeWidth: metresToPx(WALL_THICKNESS_INTERNAL_M, pxPerMetre),
+          strokeLineJoin: "miter",
+          strokeMiterLimit: 10,
+          strokeUniform: true,
           objectCaching: false,
         },
         data: { type: "room", provenance: "operator_measured" },
@@ -112,6 +136,9 @@ export function describeToolObject(
       if (points.length < 2) return null;
       const [a, b] = points;
       const lengthM = round2(pxToMetres(distancePx(a, b), pxPerMetre));
+      // RA-6840 [A1]: render the standalone wall tool with real thickness
+      // (square caps so abutting walls overlap cleanly). Endpoints stay the
+      // measured centerline; lengthM is unaffected.
       return {
         kind: "line",
         props: {
@@ -120,7 +147,9 @@ export function describeToolObject(
           x2: b.x,
           y2: b.y,
           stroke: PRIMARY,
-          strokeWidth: 3,
+          strokeWidth: metresToPx(WALL_THICKNESS_INTERNAL_M, pxPerMetre),
+          strokeLineCap: "square",
+          strokeUniform: true,
         },
         data: { type: "wall", provenance: "operator_measured", lengthM },
       };
