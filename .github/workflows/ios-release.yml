@@ -20,7 +20,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # RA-3010 — pre-flight: assert Info.plist reversed-client-ID matches the
       # GitHub repo variable GOOGLE_IOS_REVERSED_CLIENT_ID. Catches plist
