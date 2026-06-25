@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { applyRateLimit } from "@/lib/rate-limiter";
+import { applyRateLimitEdge } from "@/lib/rate-limiter-edge";
 
 /**
  * Middleware handles two orthogonal slices:
@@ -174,7 +174,7 @@ export async function middleware(req: NextRequest) {
     API_MUTATION_METHODS.has(req.method.toUpperCase()) &&
     !shouldSkipApiRateLimit(pathname)
   ) {
-    const limited = await applyRateLimit(req, {
+    const limited = applyRateLimitEdge(req, {
       windowMs: API_DEFAULT_WINDOW_MS,
       maxRequests: API_DEFAULT_MAX,
       prefix: "api:mw",
