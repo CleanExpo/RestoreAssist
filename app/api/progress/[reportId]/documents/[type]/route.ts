@@ -15,6 +15,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { prisma } from "@/lib/prisma";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import {
   generateCarrierPacketPdf,
   generateCloseoutPack,
@@ -82,9 +83,13 @@ export async function GET(
   if (!report) {
     return NextResponse.json({ error: "Report not found" }, { status: 404 });
   }
-  const role = (session.user as { role?: string }).role ?? "USER";
-  if (report.userId !== userId && role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  // Tenancy gate (CLAUDE.md rule 3): the report owner always has access.
+  // For non-owners, the admin override must be re-validated against the DB
+  // because the JWT `session.user.role` claim can be stale (e.g. a demoted
+  // admin keeps `role: "ADMIN"` in their token until it expires).
+  if (report.userId !== userId) {
+    const auth = await verifyAdminFromDb(session);
+    if (auth.response) return auth.response;
   }
 
   const loaded = await loadClaimDataGraph(reportId);
