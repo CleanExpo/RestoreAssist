@@ -78,6 +78,9 @@ const compositionsToRender = [
   {id: 'WizardIntegrations', fileName: 'wizard-integrations.mp4'},
   {id: 'WizardHealth', fileName: 'wizard-health.mp4'},
 
+  // New-client welcome (shown at the top of /setup)
+  {id: 'OnboardingWelcome', fileName: 'onboarding-welcome.mp4'},
+
 ];
 
 async function renderAll() {
