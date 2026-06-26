@@ -10,6 +10,11 @@ _expand_tilde() {
 }
 
 discover_env_files() {
+  # NOTE: assumes config provides non-empty includeGlobs and that roots live
+  # under $HOME. Empty includeGlobs/excludePaths would make `find` emit an
+  # empty `\( \)` group (syntax error); non-$HOME roots won't round-trip
+  # through env_path_to_title/title_to_env_path. The committed config satisfies
+  # both. Harden here if those assumptions ever change.
   local roots=() includes=() excludes=() prunes=()
   if [ -n "${LB_ROOTS_OVERRIDE:-}" ]; then
     roots=("$LB_ROOTS_OVERRIDE")

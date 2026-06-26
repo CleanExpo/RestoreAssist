@@ -17,7 +17,7 @@ done
 
 VAULT="$(cfg_str '.secrets.vault')"
 op whoami >/dev/null 2>&1 || die "Not signed in to 1Password. Run: eval \$(op signin)"
-[ "$DRY_RUN" -eq 1 ] && log "DRY-RUN: no files will be written."
+[ "$DRY_RUN" -eq 1 ] && printf 'DRY-RUN: no files will be written.\n'
 
 restored=0; skipped=0
 while IFS= read -r title; do
@@ -31,7 +31,9 @@ while IFS= read -r title; do
     log "would restore $title -> $target"
   else
     mkdir -p "$(dirname "$target")"
-    op document get "$title" --vault "$VAULT" > "$target"
+    tmp="$(mktemp "${target}.XXXXXX")"
+    op document get "$title" --vault "$VAULT" > "$tmp" || { rm -f "$tmp"; die "failed to fetch $title"; }
+    mv "$tmp" "$target"
   fi
   restored=$((restored+1))
 done < <(op item list --vault "$VAULT" --format=json | jq -r '.[].title')

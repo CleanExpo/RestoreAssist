@@ -23,6 +23,14 @@ bash "$DIR/../restore-media.sh" >/dev/null
 LOG2="$(cat "$RCLONE_LOG")"
 assert_contains "$LOG2" "copy gdrive:Backups/testbox/RestoreAssist/public/videos/remotion $HOME/RestoreAssist/public/videos/remotion" "restore copies remote->local"
 
+assert_contains "$LOG2" "--ignore-existing" "default restore is non-destructive"
+
+: > "$RCLONE_LOG"
+bash "$DIR/../restore-media.sh" --force >/dev/null
+LOG3="$(cat "$RCLONE_LOG")"
+case "$LOG3" in *"--ignore-existing"*) echo "FAIL: --force must overwrite"; exit 1;; esac
+assert_contains "$LOG3" "copy gdrive:Backups/testbox/RestoreAssist/public/videos/remotion $HOME/RestoreAssist/public/videos/remotion" "force restore still copies"
+
 : > "$RCLONE_LOG"
 bash "$DIR/../backup-media.sh" --dry-run >/dev/null
 assert_contains "$(cat "$RCLONE_LOG")" "--dry-run" "dry-run passes flag to rclone"
