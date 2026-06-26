@@ -1,0 +1,16 @@
+{
+  "secrets": {
+    "vault": "Local-Env-Backups",
+    "roots": ["~"],
+    "includeGlobs": [".env", ".env.*"],
+    "excludeGlobs": ["*.example", "*.sample", "*.template"],
+    "excludePaths": ["node_modules", "Library", ".Trash"]
+  },
+  "media": {
+    "remote": "gdrive",
+    "destPrefix": "Backups",
+    "folders": [
+      "RestoreAssist/public/videos/remotion"
+    ]
+  }
+}
