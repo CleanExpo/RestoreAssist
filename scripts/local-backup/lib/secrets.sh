@@ -42,3 +42,15 @@ discover_env_files() {
       \( -type f \( "${inc_expr[@]}" \) "${exc_expr[@]}" -print \)
   done
 }
+
+env_path_to_title() {
+  local p="$1"
+  case "$p" in
+    "$HOME/"*) printf '%s\n' "${p#"$HOME"/}" ;;
+    *) printf '%s\n' "$p" ;;
+  esac
+}
+
+title_to_env_path() {
+  printf '%s\n' "$HOME/$1"
+}
