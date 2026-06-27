@@ -50,24 +50,19 @@ export function RestoreFromDrivePanel() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3 text-sm">
+      <fieldset className="flex items-center gap-3 text-sm border-0 p-0 m-0">
+        <legend className="sr-only">Restore mode</legend>
         <label className="flex items-center gap-1">
-          <input
-            type="radio"
-            checked={mode === "MISSING"}
-            onChange={() => setMode("MISSING")}
-          />
+          <input type="radio" name="mode" value="MISSING"
+            checked={mode === "MISSING"} onChange={() => { setMode("MISSING"); setCount(null); }} />
           Only missing files
         </label>
         <label className="flex items-center gap-1">
-          <input
-            type="radio"
-            checked={mode === "FORCE"}
-            onChange={() => setMode("FORCE")}
-          />
+          <input type="radio" name="mode" value="FORCE"
+            checked={mode === "FORCE"} onChange={() => { setMode("FORCE"); setCount(null); }} />
           Overwrite all (force)
         </label>
-      </div>
+      </fieldset>
       <div className="flex items-center gap-3">
         <Button size="sm" variant="outline" disabled={busy} onClick={preview}>
           {busy ? "Working…" : "Preview"}
