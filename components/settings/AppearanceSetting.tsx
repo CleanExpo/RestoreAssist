@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Text-only labels — the design system (Phill Rule 1) forbids generic icon
+// libraries (lucide/heroicons/fontawesome) in app code.
 const OPTIONS = [
-  { value: "light", label: "Light", Icon: Sun },
-  { value: "dark", label: "Dark", Icon: Moon },
-  { value: "system", label: "System", Icon: Monitor },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+  { value: "system", label: "System" },
 ] as const;
 
 /**
@@ -42,7 +43,7 @@ export function AppearanceSetting() {
         aria-label="Theme"
         className="mt-3 inline-flex gap-1 rounded-lg border border-slate-700 p-1"
       >
-        {OPTIONS.map(({ value, label, Icon }) => {
+        {OPTIONS.map(({ value, label }) => {
           const active = mounted && theme === value;
           return (
             <button
@@ -53,14 +54,13 @@ export function AppearanceSetting() {
               aria-label={label}
               onClick={() => setTheme(value)}
               className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
+                "rounded-md px-3 py-1.5 text-sm transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
                 active
                   ? "bg-cyan-600 text-white"
                   : "text-slate-300 hover:bg-slate-700/60",
               )}
             >
-              <Icon className="h-4 w-4" aria-hidden="true" />
               {label}
             </button>
           );
