@@ -19,10 +19,10 @@ const readSrc = (rel: string) => readFileSync(join(repoRoot, rel), "utf8");
 describe("RA-1585 pricing-config integrity", () => {
   it("free tier is a 15-day trial whose copy matches the credit grant", () => {
     const { free } = PRICING_CONFIG;
-    // Decided model: a 15-day free trial that grants 30 report credits.
+    // Decided model: a 15-day free trial that grants 50 report credits.
     // These three values are the SSOT the register route + marketing copy read.
     expect(free.trialDays).toBe(15);
-    expect(free.trialReportCredits).toBe(30);
+    expect(free.trialReportCredits).toBe(50);
     // `reportLimit` is the deprecated alias the display cards still read; it
     // must equal the real credit grant so the card never shows a stale number.
     expect(free.reportLimit).toBe(free.trialReportCredits);
