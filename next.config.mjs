@@ -65,6 +65,18 @@ const nextConfig = {
       { source: "/faq", destination: "/help", permanent: true },
     ];
   },
+  async rewrites() {
+    // Marketing funnel pages. The finished designs ship as self-contained
+    // static HTML in public/campaigns/; these rewrites expose them at clean,
+    // extensionless campaign URLs (the .html paths still resolve directly but
+    // the campaign links point at the clean URLs below).
+    return [
+      { source: "/cost-calculator", destination: "/campaigns/cost-calculator.html" },
+      { source: "/30-in-30", destination: "/campaigns/launch-30-in-30.html" },
+      { source: "/teardown", destination: "/campaigns/comparison-teardown.html" },
+      { source: "/features-gallery", destination: "/campaigns/features-gallery.html" },
+    ];
+  },
   async headers() {
     // Shared security headers applied to every route
     // RA-1589 — static Content-Security-Policy stopgap.
@@ -91,14 +103,16 @@ const nextConfig = {
       // proxied same-origin via withBotId() rewrites — no extra CSP entry.
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://widget.cloudinary.com https://upload-widget.cloudinary.com https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "img-src 'self' data: blob: https://res.cloudinary.com https://*.stripe.com https://lh3.googleusercontent.com",
+      // i.ytimg.com — YouTube video thumbnails on the /features-gallery campaign page.
+      "img-src 'self' data: blob: https://res.cloudinary.com https://*.stripe.com https://lh3.googleusercontent.com https://i.ytimg.com",
       // media-src governs <video>/<audio>. Tutorial/help videos are served from
       // the Cloudinary CDN (res.cloudinary.com); without this they fall back to
       // default-src 'self' and every video fails to load (MEDIA_ERR_SRC_NOT_SUPPORTED).
       "media-src 'self' blob: https://res.cloudinary.com",
       "font-src 'self' data: https://fonts.gstatic.com",
       "connect-src 'self' https://api.stripe.com https://*.supabase.co wss://*.supabase.co https://api.cloudinary.com https://vitals.vercel-insights.com",
-      "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
+      // youtube-nocookie.com — click-to-load video embeds on the /features-gallery campaign page.
+      "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.youtube-nocookie.com",
       "frame-ancestors 'none'",
       "form-action 'self'",
       "base-uri 'self'",

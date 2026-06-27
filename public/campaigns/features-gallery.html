@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RestoreAssist — Features</title>
+<!--
+  ==========================================================================
+  RestoreAssist — Features Video Gallery (embed-ready, self-contained)
+  ==========================================================================
+  WHAT THIS IS
+    A single-file, responsive gallery of all 30 attribute videos. No build
+    step, no external CSS/JS. Privacy-friendly "click-to-load" YouTube embeds:
+    a static thumbnail is shown until the user clicks, then a
+    youtube-nocookie.com iframe is injected (no tracking cookies on page load,
+    fast first paint, zero player JS until interaction).
+
+  HOW TO EMBED INTO THE Next.js SITE (restoreassist.app)
+    Option A — drop-in route (simplest):
+      1. Copy this file to  public/features-gallery.html
+      2. Link to it, or iframe it on a page:
+           <iframe src="/features-gallery.html"
+                   style="width:100%;border:0;min-height:100vh"
+                   loading="lazy" title="RestoreAssist features"></iframe>
+      Files in /public are served as-is at the matching URL.
+
+    Option B — React component (App Router):
+      1. Copy the <style> block into a CSS module or a <style jsx global>.
+      2. Move the FEATURES array + render loop into a Client Component
+         ('use client') and map over it with JSX instead of innerHTML.
+      3. Keep the click-to-load handler — it is the lite-embed pattern.
+
+    Option C — raw markup:
+      Paste the <body> contents into any page and keep the <style> in <head>.
+
+  PALETTE (CANONICAL — brand-kit.md): navy #1C2E47, warm earth #8A6B4E,
+    tan #D4A574 (accent/CTA), dark #050505, off-white #F5F5F4.
+  TYPE: Inter (Display = ExtraBold 800, Body = Regular 400).
+  ==========================================================================
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --navy: #1C2E47;
+    --earth: #8A6B4E;
+    --tan: #D4A574;
+    --dark: #050505;
+    --offwhite: #F5F5F4;
+    --grey: #E7E5E4;
+    --midgrey: #78716C;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 400;
+    background: var(--navy);
+    color: var(--offwhite);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Header ---------- */
+  .hero {
+    background: linear-gradient(160deg, #16263b 0%, var(--navy) 55%, var(--dark) 100%);
+    padding: 64px 20px 56px;
+    text-align: center;
+    border-bottom: 3px solid var(--tan);
+  }
+  .hero__brand {
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    color: var(--tan);
+    margin-bottom: 18px;
+  }
+  .hero__tagline {
+    font-weight: 800;
+    font-size: clamp(1.7rem, 5vw, 3rem);
+    line-height: 1.1;
+    max-width: 16ch;
+    margin: 0 auto 14px;
+  }
+  .hero__sub {
+    color: var(--grey);
+    font-size: clamp(0.95rem, 2.4vw, 1.15rem);
+    max-width: 52ch;
+    margin: 0 auto 28px;
+  }
+  .cta {
+    display: inline-block;
+    background: var(--tan);
+    color: var(--dark);
+    font-weight: 800;
+    text-decoration: none;
+    padding: 14px 30px;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .cta:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(212,165,116,0.35); }
+
+  /* ---------- Sections ---------- */
+  main { max-width: 1240px; margin: 0 auto; padding: 16px 20px 72px; }
+  .section { padding: 44px 0 8px; }
+  .section__head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 26px;
+    border-left: 4px solid var(--tan);
+    padding-left: 14px;
+  }
+  .section__title {
+    font-weight: 800;
+    font-size: clamp(1.3rem, 3.5vw, 1.9rem);
+  }
+  .section__count {
+    font-size: 0.85rem;
+    color: var(--midgrey);
+    font-weight: 600;
+  }
+
+  /* ---------- Grid + cards ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 22px;
+  }
+  .card {
+    background: var(--dark);
+    border: 1px solid rgba(212,165,116,0.18);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .card:hover { transform: translateY(-3px); border-color: var(--tan); }
+
+  .lite {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: var(--navy) center / cover no-repeat;
+    cursor: pointer;
+    border: 0;
+    width: 100%;
+    padding: 0;
+    display: block;
+  }
+  .lite::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.55) 100%);
+  }
+  .lite__play {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--tan);
+    display: grid;
+    place-items: center;
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+  .lite:hover .lite__play { transform: translate(-50%, -50%) scale(1.08); }
+  .lite__play::after {
+    content: "";
+    margin-left: 4px;
+    border-style: solid;
+    border-width: 11px 0 11px 18px;
+    border-color: transparent transparent transparent var(--dark);
+  }
+  .lite iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+  .card__body { padding: 16px 18px 20px; }
+  .card__title {
+    font-weight: 800;
+    font-size: 1.1rem;
+    margin-bottom: 6px;
+    color: var(--offwhite);
+  }
+  .card__headline {
+    font-size: 0.92rem;
+    color: var(--grey);
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    background: var(--dark);
+    text-align: center;
+    padding: 48px 20px;
+    border-top: 3px solid var(--tan);
+  }
+  footer .hero__tagline { font-size: clamp(1.4rem, 4vw, 2.1rem); margin-bottom: 22px; }
+  footer .sub { color: var(--midgrey); font-size: 0.85rem; margin-top: 26px; }
+
+  @media (max-width: 480px) {
+    .grid { grid-template-columns: 1fr; }
+    .hero { padding: 48px 18px 44px; }
+  }
+</style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero__brand">RestoreAssist</div>
+    <h1 class="hero__tagline">One software does all your professional restoration needs.</h1>
+    <p class="hero__sub">All-in-one CRM, job management, scope &amp; quotes for the professional restoration industry across Australia and New Zealand. Australian built &amp; designed.</p>
+    <a class="cta" href="https://restoreassist.app" target="_blank" rel="noopener">Visit restoreassist.app</a>
+  </header>
+
+  <main id="gallery"></main>
+
+  <footer>
+    <h2 class="hero__tagline">One software does all your professional restoration needs.</h2>
+    <a class="cta" href="https://restoreassist.app" target="_blank" rel="noopener">Get started at restoreassist.app</a>
+    <p class="sub">Built in Brisbane for Australian & New Zealand restorers. IICRC S500/S520 built in.</p>
+  </footer>
+
+  <script>
+    // 30 attribute videos, grouped into the five canonical sections.
+    var SECTIONS = [
+      {
+        title: "AI-Assisted",
+        items: [
+          { id: "P2V86aqqors", name: "AI Photo Analysis", headline: "Turn site photos into structured damage data instantly" },
+          { id: "cJ8RbD6sAgU", name: "AI Moisture Mapping", headline: "See drying progress across the whole property in one view" },
+          { id: "sMP8oM27ns8", name: "AI Inspection Reports", headline: "Inspection to finished report in minutes, not hours" },
+          { id: "J01Eqfmn9_4", name: "AI Scope of Works", headline: "Compliant scopes for water, mould, fire and storm, instantly" },
+          { id: "PtedMIKIvP8", name: "AI Cost Estimation", headline: "Quote the client on-site with accurate labour and materials" },
+          { id: "wgmFlwIYztI", name: "AI Documentation", headline: "Owners get clear, non-technical explanations of the damage" }
+        ]
+      },
+      {
+        title: "Integrations",
+        items: [
+          { id: "K1RuRDblr3Y", name: "Xero Integration", headline: "Invoices auto-sync to Xero — no double-entry" },
+          { id: "zDI9z3oYCzU", name: "QuickBooks Integration", headline: "Native QuickBooks sync, no re-keying" },
+          { id: "eNDjbHMwtVE", name: "ServiceM8 Integration", headline: "Field scheduling + restoration workflow on one platform" },
+          { id: "6VZrAgt52L8", name: "Ascora Pricing", headline: "Quotes always match current market rates" }
+        ]
+      },
+      {
+        title: "Core Platform",
+        items: [
+          { id: "bkIoga02MYo", name: "Business CRM", headline: "Every client and property in one searchable place" },
+          { id: "tis9wRNVAaU", name: "Job Management", headline: "Track every job from callout to completion" },
+          { id: "2HsQ6Z85nlA", name: "Client Portal", headline: "Clients approve quotes and watch progress" },
+          { id: "uT-Hzrfpjog", name: "Authority Forms & E-Sign", headline: "Collect approvals digitally — no printing" },
+          { id: "RE8m3o69-qg", name: "Native iOS & Android App", headline: "A real app on the home screen, built for the field" },
+          { id: "_BvIX7gCAs4", name: "Real-Time Analytics", headline: "See your business in real time" },
+          { id: "aCJ3XqfrSdc", name: "Invoice & Payments", headline: "From quote to paid invoice in one workflow" },
+          { id: "6yCxJtkKwjQ", name: "Team Roles & Permissions", headline: "Technicians see their jobs, admins see everything" },
+          { id: "2KGjAsgo6DU", name: "Contractor Certifications", headline: "Assign work by verified qualification" },
+          { id: "-K97VvRwOF4", name: "Data On Your Server", headline: "Your data stays yours — on your own server" },
+          { id: "SJccjCgupAc", name: "Cloud Backup", headline: "Automatic backup to your own cloud" },
+          { id: "KS6K7xMS6go", name: "All-In-One Software", headline: "One software does all your professional restoration needs" },
+          { id: "7pBJH-AMBBA", name: "Bulk Operations", headline: "Manage fifty jobs at once" },
+          { id: "eJwSraPf8Ac", name: "Built for AU & NZ", headline: "Built for the AU and NZ restoration industry" }
+        ]
+      },
+      {
+        title: "Field & Compliance",
+        items: [
+          { id: "4xq18tzu94s", name: "Field On-Site Capture", headline: "Finish the whole inspection on-site, one app" },
+          { id: "jY5BRpT2NyM", name: "Bluetooth Meters", headline: "Readings flow straight from the meter" },
+          { id: "mfU_FD6Tgj8", name: "Field → Office Sync", headline: "The office sees today's jobs in real time" },
+          { id: "3hkoZZNr96Y", name: "Offline Mode", headline: "Keep working with no mobile coverage" },
+          { id: "qfqcdcRxC9o", name: "IICRC S500/S520 Guidance", headline: "Follow IICRC standards automatically, every job" },
+          { id: "8MK-xCoCQiU", name: "Compliance & Audit Trail", headline: "Insurance-audit ready — every action logged" }
+        ]
+      }
+    ];
+
+    function buildCard(item) {
+      var card = document.createElement("div");
+      card.className = "card";
+
+      var lite = document.createElement("button");
+      lite.className = "lite";
+      lite.type = "button";
+      lite.setAttribute("aria-label", "Play video: " + item.name);
+      lite.style.backgroundImage =
+        "url('https://i.ytimg.com/vi/" + item.id + "/hqdefault.jpg')";
+      lite.innerHTML = '<span class="lite__play" aria-hidden="true"></span>';
+      lite.addEventListener("click", function () {
+        var iframe = document.createElement("iframe");
+        iframe.src =
+          "https://www.youtube-nocookie.com/embed/" + item.id +
+          "?autoplay=1&rel=0";
+        iframe.title = item.name;
+        iframe.allow =
+          "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+        iframe.allowFullscreen = true;
+        lite.innerHTML = "";
+        lite.appendChild(iframe);
+      });
+
+      var body = document.createElement("div");
+      body.className = "card__body";
+      var h = document.createElement("h3");
+      h.className = "card__title";
+      h.textContent = item.name;
+      var p = document.createElement("p");
+      p.className = "card__headline";
+      p.textContent = item.headline;
+      body.appendChild(h);
+      body.appendChild(p);
+
+      card.appendChild(lite);
+      card.appendChild(body);
+      return card;
+    }
+
+    (function render() {
+      var root = document.getElementById("gallery");
+      SECTIONS.forEach(function (sec) {
+        var section = document.createElement("section");
+        section.className = "section";
+
+        var head = document.createElement("div");
+        head.className = "section__head";
+        var title = document.createElement("h2");
+        title.className = "section__title";
+        title.textContent = sec.title;
+        var count = document.createElement("span");
+        count.className = "section__count";
+        count.textContent =
+          sec.items.length + (sec.items.length === 1 ? " feature" : " features");
+        head.appendChild(title);
+        head.appendChild(count);
+
+        var grid = document.createElement("div");
+        grid.className = "grid";
+        sec.items.forEach(function (item) {
+          grid.appendChild(buildCard(item));
+        });
+
+        section.appendChild(head);
+        section.appendChild(grid);
+        root.appendChild(section);
+      });
+    })();
+  </script>
+</body>
+</html>

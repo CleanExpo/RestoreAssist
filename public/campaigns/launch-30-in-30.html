@@ -1,0 +1,185 @@
+<!doctype html>
+<!--
+  RestoreAssist — "30 Features in 30 Days" launch-event hub (campaign SPINE).
+  Reframes the 30 attribute videos as a daily-drop countdown event: one feature
+  unlocks each day for 30 days. Turns catalogue volume into a novel mechanic —
+  a reason to come back tomorrow instead of a wall of links.
+  Narrative order: AI first → integrations → core → field → compliance → AU/NZ.
+  Self-contained (inline CSS/JS, data embedded). STAGED — HOLD until app finalised.
+  UTM on every link: utm_campaign=30-in-30.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>30 Features in 30 Days — the RestoreAssist launch event | RestoreAssist</title>
+<style>
+  :root{--navy:#1C2E47;--earth:#8A6B4E;--tan:#D4A574;--off:#F5F5F4;--ink:#050505;--mid:#78716C}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:var(--navy);color:var(--off);line-height:1.5}
+  a{color:inherit}
+  .wrap{max-width:1080px;margin:0 auto;padding:48px 20px 80px}
+  .accent{height:5px;width:64px;background:var(--tan);border-radius:3px;margin-bottom:18px}
+  .kicker{color:var(--tan);font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-size:13px;margin:0 0 8px}
+  h1{font-weight:800;font-size:clamp(30px,6vw,56px);margin:0 0 14px;line-height:1.05}
+  h1 .em{color:var(--tan)}
+  .sub{color:#c9d2df;font-size:18px;margin:0 0 28px;max-width:64ch}
+
+  .capture{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:rgba(245,245,244,.06);border:1px solid rgba(212,165,116,.35);border-radius:14px;padding:16px 18px;max-width:560px}
+  .capture label{font-weight:700;flex:1 1 100%;margin-bottom:4px}
+  .capture input{flex:1 1 220px;padding:12px 14px;border-radius:10px;border:2px solid transparent;font-size:16px;font-weight:600;color:var(--navy)}
+  .capture button{background:var(--tan);color:var(--navy);font-weight:800;border:none;border-radius:10px;padding:12px 22px;font-size:16px;cursor:pointer}
+  .capture small{flex:1 1 100%;color:#9aa6b6;font-size:12px;margin-top:6px}
+
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin:34px 0 16px;font-size:13px;color:#c9d2df}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+  .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+  @media(max-width:900px){.grid{grid-template-columns:repeat(4,1fr)}}
+  @media(max-width:620px){.grid{grid-template-columns:repeat(2,1fr)}}
+  .day{position:relative;display:block;background:var(--off);color:var(--ink);border-radius:12px;padding:14px 14px 16px;text-decoration:none;border-top:4px solid var(--tan);min-height:118px;transition:transform .12s ease}
+  .day:hover{transform:translateY(-3px)}
+  .day .n{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--earth)}
+  .day .name{font-weight:700;color:var(--navy);font-size:15px;line-height:1.2;margin-top:6px}
+  .day .watch{position:absolute;bottom:12px;left:14px;font-size:12px;font-weight:700;color:var(--earth)}
+  /* phase tinting on the top border */
+  .day.ai{border-top-color:var(--tan)}
+  .day.integration{border-top-color:#9fb3c8}
+  .day.core{border-top-color:var(--navy)}
+  .day.field{border-top-color:var(--earth)}
+  .day.compliance{border-top-color:#E0A800}
+  .day.aunz{border-top-color:#3FA34D}
+  .day.finale{background:var(--navy);color:var(--off);border-top:4px solid var(--tan)}
+  .day.finale .name{color:var(--off)}
+  .day.finale .watch{color:var(--tan)}
+
+  .phasebar{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:0 0 8px}
+  @media(max-width:900px){.phasebar{display:none}}
+  .phasebar div{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#9aa6b6;text-align:center}
+
+  .cta{display:inline-block;margin-top:34px;background:var(--tan);color:var(--navy);font-weight:800;text-decoration:none;padding:14px 26px;border-radius:12px}
+  .foot{color:#9aa6b6;font-size:13px;margin-top:18px;max-width:72ch}
+
+  /* Day-30 finale — free-pilot CTA (the genuine early-access mechanic; no cap exists) */
+  .pilot{margin:34px 0 0;background:rgba(212,165,116,.10);border:1px solid rgba(212,165,116,.4);border-radius:14px;padding:20px 22px;max-width:620px}
+  .pilot .kick{color:var(--tan);font-weight:800;letter-spacing:.06em;text-transform:uppercase;font-size:12px;margin:0 0 10px}
+  .pilot .headline{font-weight:800;font-size:clamp(22px,4vw,30px);color:var(--off);margin:0 0 12px;line-height:1.15}
+  .pilot .note{color:#c9d2df;font-size:14px;margin:0 0 16px;max-width:60ch}
+  .pilot .pilot-cta{display:inline-block;background:var(--tan);color:var(--navy);font-weight:800;text-decoration:none;padding:12px 22px;border-radius:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="accent"></div>
+  <p class="kicker">RestoreAssist · Launch Event</p>
+  <h1>30 features. <span class="em">30 days.</span> One software.</h1>
+  <p class="sub">One feature unlocks every day for 30 days — the full picture of what one restoration platform can do, drop by drop. Start at day one with the AI that turns site photos into reports, finish on the day built for Australia and New Zealand. Watch today's, come back tomorrow.</p>
+
+  <!-- Live form — posts JSON to the real RestoreAssist support intake (Resend-backed). Fields match the endpoint body {email, name, subject, body, category}. -->
+  <form class="capture" id="dropForm" action="https://restoreassist.app/api/support/tickets" method="post">
+    <label for="dropEmail">Get tomorrow's feature in your inbox</label>
+    <input id="dropEmail" name="email" type="email" required placeholder="you@yourbusiness.com.au" aria-label="Email address"/>
+    <input type="hidden" name="name" value="30-in-30 signup"/>
+    <input type="hidden" name="subject" value="Early access enquiry"/>
+    <input type="hidden" name="category" value="feature_request"/>
+    <input type="hidden" name="body" value="Early access enquiry from the 30 Features in 30 Days launch page."/>
+    <button type="submit">Send me the drop</button>
+    <small>One short email a day for the run of the event. Submits to the RestoreAssist support intake as an early-access enquiry.</small>
+  </form>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--tan)"></i>AI</span>
+    <span><i class="dot" style="background:#9fb3c8"></i>Integrations</span>
+    <span><i class="dot" style="background:var(--navy);outline:1px solid #c9d2df"></i>Core platform</span>
+    <span><i class="dot" style="background:var(--earth)"></i>Field &amp; mobile</span>
+    <span><i class="dot" style="background:#E0A800"></i>Compliance</span>
+    <span><i class="dot" style="background:#3FA34D"></i>AU &amp; NZ</span>
+  </div>
+
+  <div id="grid" class="grid"></div>
+
+  <!-- Day-30 finale — the genuine early-access mechanic is a free 15-day pilot. No cap exists; no false scarcity. -->
+  <div class="pilot" id="pilot">
+    <p class="kick">Day 30 · Founding Users</p>
+    <p class="headline">Full feature access, free for 15 days.</p>
+    <p class="note">Start a free 15-day pilot with 30 inspection report credits — no credit card. After the pilot, $99/month or $1,188/year AUD, GST included, cancel any time.</p>
+    <a class="pilot-cta" href="https://restoreassist.app/?utm_source=web&utm_medium=web&utm_campaign=30-in-30&utm_content=pilot">Start your free 15-day pilot — 30 reports, no card →</a>
+  </div>
+
+  <a class="cta" href="https://restoreassist.app/?utm_source=web&utm_medium=web&utm_campaign=30-in-30&utm_content=hub">Skip the wait — see all 30 → restoreassist.app</a>
+  <p class="foot">One software does all your professional restoration needs — CRM, job management, scope and quotes — built for Australia &amp; New Zealand. Each day links the feature video; the calendar fills as the event runs.</p>
+</div>
+
+<script>
+  // 30 attributes in narrative order: AI → integrations → core → field → compliance → AU/NZ.
+  const DROPS=[
+    {n:"AI Photo Analysis",y:"https://youtu.be/P2V86aqqors",slug:"ai-photo-analysis",p:"ai"},
+    {n:"AI Moisture Mapping",y:"https://youtu.be/cJ8RbD6sAgU",slug:"ai-moisture-mapping",p:"ai"},
+    {n:"AI Inspection Reports",y:"https://youtu.be/sMP8oM27ns8",slug:"ai-inspection-reports",p:"ai"},
+    {n:"AI Scope of Works",y:"https://youtu.be/J01Eqfmn9_4",slug:"ai-scope-generation",p:"ai"},
+    {n:"AI Cost Estimation",y:"https://youtu.be/PtedMIKIvP8",slug:"ai-cost-estimation",p:"ai"},
+    {n:"AI Documentation",y:"https://youtu.be/wgmFlwIYztI",slug:"ai-documentation",p:"ai"},
+    {n:"Xero Integration",y:"https://youtu.be/K1RuRDblr3Y",slug:"xero-integration",p:"integration"},
+    {n:"QuickBooks Integration",y:"https://youtu.be/zDI9z3oYCzU",slug:"quickbooks-integration",p:"integration"},
+    {n:"ServiceM8 Integration",y:"https://youtu.be/eNDjbHMwtVE",slug:"servicem8-integration",p:"integration"},
+    {n:"Ascora Pricing",y:"https://youtu.be/6VZrAgt52L8",slug:"ascora-integration",p:"integration"},
+    {n:"All-In-One Software",y:"https://youtu.be/KS6K7xMS6go",slug:"all-in-one",p:"core"},
+    {n:"Business CRM",y:"https://youtu.be/bkIoga02MYo",slug:"crm-client-management",p:"core"},
+    {n:"Job Management",y:"https://youtu.be/tis9wRNVAaU",slug:"job-management-system",p:"core"},
+    {n:"Client Portal",y:"https://youtu.be/2HsQ6Z85nlA",slug:"client-portal",p:"core"},
+    {n:"Invoice & Payments",y:"https://youtu.be/aCJ3XqfrSdc",slug:"invoice-management",p:"core"},
+    {n:"Bulk Operations",y:"https://youtu.be/7pBJH-AMBBA",slug:"bulk-operations",p:"core"},
+    {n:"Real-Time Analytics",y:"https://youtu.be/_BvIX7gCAs4",slug:"analytics-dashboard",p:"core"},
+    {n:"Team Roles & Permissions",y:"https://youtu.be/6yCxJtkKwjQ",slug:"team-roles",p:"core"},
+    {n:"Field On-Site Capture",y:"https://youtu.be/4xq18tzu94s",slug:"field-onsite-capture",p:"field"},
+    {n:"Bluetooth Meters",y:"https://youtu.be/jY5BRpT2NyM",slug:"bluetooth-meters",p:"field"},
+    {n:"Field → Office Sync",y:"https://youtu.be/mfU_FD6Tgj8",slug:"field-office-sync",p:"field"},
+    {n:"Offline Mode",y:"https://youtu.be/3hkoZZNr96Y",slug:"offline-pwa",p:"field"},
+    {n:"Native iOS & Android App",y:"https://youtu.be/RE8m3o69-qg",slug:"native-app",p:"field"},
+    {n:"IICRC S500/S520 Guidance",y:"https://youtu.be/qfqcdcRxC9o",slug:"iicrc-guidance",p:"compliance"},
+    {n:"Authority Forms & E-Sign",y:"https://youtu.be/uT-Hzrfpjog",slug:"authority-esignature",p:"compliance"},
+    {n:"Compliance & Audit Trail",y:"https://youtu.be/8MK-xCoCQiU",slug:"compliance-audit-trail",p:"compliance"},
+    {n:"Contractor Certifications",y:"https://youtu.be/2KGjAsgo6DU",slug:"contractor-profiles",p:"compliance"},
+    {n:"Data On Your Server",y:"https://youtu.be/-K97VvRwOF4",slug:"data-on-your-server",p:"aunz"},
+    {n:"Cloud Backup",y:"https://youtu.be/SJccjCgupAc",slug:"cloud-backup",p:"aunz"},
+    {n:"Built for AU & NZ",y:"https://youtu.be/eJwSraPf8Ac",slug:"au-nz-built",p:"aunz"}
+  ];
+  const grid=document.getElementById('grid');
+  DROPS.forEach((d,i)=>{
+    const day=i+1, finale=day===30;
+    const a=document.createElement('a');
+    a.className='day '+d.p+(finale?' finale':'');
+    a.href=d.y+'?utm_source=web&utm_medium=video&utm_campaign=30-in-30&utm_content='+d.slug;
+    a.target='_blank'; a.rel='noopener';
+    a.innerHTML='<span class="n">Day '+day+(finale?' · Finale':'')+'</span>'+
+      '<span class="name">'+d.n+'</span>'+
+      '<span class="watch">Watch ▸</span>';
+    grid.appendChild(a);
+  });
+
+  // Email capture — posts JSON to the real RestoreAssist support intake. Body matches the
+  // endpoint schema {email, name, subject, body, category}; category=feature_request.
+  document.getElementById('dropForm').addEventListener('submit',function(e){
+    e.preventDefault();
+    const el=this.elements;
+    const payload={
+      email:el['email'].value,
+      name:el['name'].value,
+      subject:el['subject'].value,
+      category:el['category'].value,
+      body:el['body'].value+' Contact email: '+el['email'].value
+    };
+    fetch(this.action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+      .then(function(r){
+        if(r.ok){
+          document.getElementById('dropForm').innerHTML='<p style="margin:0;font-weight:700;color:var(--off)">Thanks — you\'re on the list. Tomorrow\'s feature lands in your inbox.</p>';
+        }else{
+          alert('Something went wrong — please try again shortly.');
+        }
+      })
+      .catch(function(){ alert('Network error — please try again shortly.'); });
+  });
+</script>
+</body>
+</html>
