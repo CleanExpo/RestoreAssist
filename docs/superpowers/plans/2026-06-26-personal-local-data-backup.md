@@ -879,17 +879,17 @@ git commit -m "docs(backup): add setup, usage, and disaster-recovery runbook"
 ## Self-Review
 
 **Spec coverage:**
-- Secrets → 1Password (vault, one-doc-per-file, idempotent, encrypted-by-1Password, recovery) → Tasks 2–5. ✓
-- Media → Drive via rclone (opt-in folders, plain, additive `copy`, recovery) → Task 6. ✓
-- Config file `backup.config.json` with the spec's exact keys → Task 1. ✓
-- `--dry-run` everywhere; non-destructive restore without `--force` → Tasks 4–6. ✓
-- Pre-flight checks (`op whoami`, remote exists) → Tasks 4–6. ✓
-- README runbook → Task 7. ✓
-- Manual run mode; LaunchAgent explicitly deferred (out of scope) → matches spec. ✓
-- Tool location `scripts/local-backup/` → all tasks. ✓
+- Secrets → 1Password (vault, one-doc-per-file, idempotent, encrypted-by-1Password, recovery) → Tasks 2–5. [x]
+- Media → Drive via rclone (opt-in folders, plain, additive `copy`, recovery) → Task 6. [x]
+- Config file `backup.config.json` with the spec's exact keys → Task 1. [x]
+- `--dry-run` everywhere; non-destructive restore without `--force` → Tasks 4–6. [x]
+- Pre-flight checks (`op whoami`, remote exists) → Tasks 4–6. [x]
+- README runbook → Task 7. [x]
+- Manual run mode; LaunchAgent explicitly deferred (out of scope) → matches spec. [x]
+- Tool location `scripts/local-backup/` → all tasks. [x]
 
-**Placeholder scan:** No TBD/TODO; every code/test step contains complete, runnable content. ✓
+**Placeholder scan:** No TBD/TODO; every code/test step contains complete, runnable content. [x]
 
-**Type/name consistency:** `discover_env_files`, `env_path_to_title`, `title_to_env_path`, `media_dest`, `media_preflight`, `cfg_str`, `cfg_list`, `lb_hostname`, vault `Local-Env-Backups`, remote `gdrive`, dest `gdrive:Backups/<hostname>/` are used identically across all tasks and the stubs. ✓
+**Type/name consistency:** `discover_env_files`, `env_path_to_title`, `title_to_env_path`, `media_dest`, `media_preflight`, `cfg_str`, `cfg_list`, `lb_hostname`, vault `Local-Env-Backups`, remote `gdrive`, dest `gdrive:Backups/<hostname>/` are used identically across all tasks and the stubs. [x]
 
-**Known environment assumptions baked in:** bash 3.2 (no associative arrays), BSD `find`, `jq` present, `op` present, `rclone` installed at setup time, stubs make the suite offline. ✓
+**Known environment assumptions baked in:** bash 3.2 (no associative arrays), BSD `find`, `jq` present, `op` present, `rclone` installed at setup time, stubs make the suite offline. [x]
