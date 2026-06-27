@@ -144,6 +144,7 @@ export const SERVICE_ONLY = new Set<string>([
   "ScheduledEmail",
   "PropertyLookup",
   "StorageMirrorJob",
+  "StorageRestoreJob",
   "HydrationJob",
   "InvoiceAuditLog",
   "AgentDefinition",

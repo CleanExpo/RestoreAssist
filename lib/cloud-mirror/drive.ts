@@ -151,6 +151,23 @@ export async function uploadToDrive(input: {
   return { providerFileId: data.id, viewUrl: data.webViewLink };
 }
 
+export async function downloadFromDrive(input: {
+  accessToken: string;
+  refreshToken: string | null;
+  fileId: string;
+}): Promise<Buffer> {
+  const auth = getOAuthClient(input.accessToken, input.refreshToken);
+  const drive = google.drive({ version: "v3", auth });
+
+  const { data } = await withBackoff(() =>
+    drive.files.get(
+      { fileId: input.fileId, alt: "media" },
+      { responseType: "arraybuffer" },
+    ),
+  );
+  return Buffer.from(data as ArrayBuffer);
+}
+
 export class DriveCloudMirror implements CloudMirrorProvider {
   readonly id = "drive" as const;
 
