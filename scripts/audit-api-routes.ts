@@ -82,7 +82,11 @@ function hasAuth(content: string): boolean {
   return (
     content.includes("getServerSession(") ||
     content.includes("getToken(") ||
-    content.includes("verifyAdminFromDb(")
+    content.includes("verifyAdminFromDb(") ||
+    // requireOwner() is the codebase's named ownership gate; it resolves to
+    // getServerSession internally. Recognising it here is behaviour-based
+    // (any route that actually calls the gate passes) rather than path-exempt.
+    content.includes("requireOwner(")
   );
 }
 
