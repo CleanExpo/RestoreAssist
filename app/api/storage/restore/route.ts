@@ -10,7 +10,7 @@ import {
 } from "@/lib/restore/plan";
 import { getRestoreQueueStats } from "@/lib/queue/storage-restore";
 
-async function requireOwner(): Promise<
+export async function requireOwner(): Promise<
   { orgId: string; userId: string } | { error: NextResponse }
 > {
   const session = await getServerSession(authOptions);

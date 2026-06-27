@@ -4,41 +4,29 @@
  * POST /api/storage/restore/[jobId]/retry
  *   → { data: { retried: boolean } }
  *
- * Auth: only members of the same org may retry.
- * Ownership verified by matching job.orgId against user.organizationId.
+ * Auth: org owner only (same ownership gate as the parent restore routes).
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { retryRestoreJob } from "@/lib/queue/storage-restore";
 import { fromException } from "@/lib/api-errors";
+import { requireOwner } from "@/app/api/storage/restore/route";
 
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { organizationId: true },
-    });
-    if (!user?.organizationId) {
-      return NextResponse.json({ error: "No organization" }, { status: 404 });
-    }
+    const auth = await requireOwner();
+    if ("error" in auth) return auth.error;
 
     const { jobId } = await params;
     const job = await prisma.storageRestoreJob.findUnique({
       where: { id: jobId },
-      select: { orgId: true, status: true },
+      select: { orgId: true },
     });
-    if (!job || job.orgId !== user.organizationId) {
+    if (!job || job.orgId !== auth.orgId) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
