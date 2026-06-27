@@ -13,6 +13,36 @@ function getInstance(): Stripe {
   if (!_stripe) {
     const key = process.env.STRIPE_SECRET_KEY;
     if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
+
+    // RA Shipit guard: in production the secret MUST be a live key, and a live
+    // key MUST NOT be used outside production. "production" = Vercel prod env,
+    // or (no Vercel) NODE_ENV=production. Vercel *preview* runs with
+    // NODE_ENV=production but VERCEL_ENV=preview, so we key off VERCEL_ENV first
+    // to avoid forcing sk_live on preview branches. Runs lazily at first call,
+    // never at build time (see file header).
+    const isProd =
+      process.env.VERCEL_ENV === "production" ||
+      (process.env.VERCEL_ENV === undefined &&
+        process.env.NODE_ENV === "production");
+    if (isProd && !key.startsWith("sk_live")) {
+      throw new Error(
+        "STRIPE_SECRET_KEY must be a live key (sk_live_…) in production",
+      );
+    }
+    if (!isProd && key.startsWith("sk_live")) {
+      console.warn(
+        "[stripe] live secret key (sk_live_…) detected outside production — refusing to charge real cards is your responsibility",
+      );
+    }
+    const pk =
+      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
+      process.env.STRIPE_PUBLISHABLE_KEY;
+    if (isProd && pk && !pk.startsWith("pk_live")) {
+      throw new Error(
+        "Stripe publishable key must be a live key (pk_live_…) in production",
+      );
+    }
+
     _stripe = new Stripe(key, {
       apiVersion: "2026-05-27.dahlia",
       typescript: true,

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import Stripe from "stripe";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { stripe } from "@/lib/stripe";
 import { apiError, fromException } from "@/lib/api-errors";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 
@@ -19,7 +19,14 @@ function tierToPriceId(tier: (typeof VALID_TIERS)[number]): string {
     ENTERPRISE: process.env.STRIPE_PRICE_ENTERPRISE,
   } as const;
   const priceId = map[tier];
-  if (!priceId) throw new Error(`Missing STRIPE_PRICE_${tier} env var`);
+  // Fail closed on a missing OR malformed price id — a real Stripe price id is
+  // always "price_…". This rejects unset env vars and literal placeholders
+  // before they ever reach Stripe.
+  if (!priceId || !priceId.startsWith("price_")) {
+    throw new Error(
+      `STRIPE_PRICE_${tier} is missing or not a real Stripe price id (price_…)`,
+    );
+  }
   return priceId;
 }
 
@@ -61,10 +68,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: "2026-05-27.dahlia",
-    });
-
+    // Use the shared lazy singleton so the production test/live key guard in
+    // lib/stripe.ts applies to this checkout path too.
     let customerId = user.stripeCustomerId;
     if (!customerId) {
       const customer = await stripe.customers.create({

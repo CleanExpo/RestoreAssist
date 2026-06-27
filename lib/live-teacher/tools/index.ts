@@ -29,6 +29,7 @@ import {
   checkReportGapsDefinition,
   checkReportGapsSchema,
 } from "./check-report-gaps";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { z } from "zod";
 
 // ─── Anthropic tool-use definition array ─────────────────────────────────────
@@ -54,7 +55,10 @@ type AnySchema = z.ZodTypeAny;
 // optional so existing callers keep working unchanged; only flag_whs_hazard
 // consumes it today (to attribute AI-flagged incidents to the real user
 // instead of the "system" placeholder). Other handlers ignore the extra arg.
-export interface ToolDispatchContext extends FlagWhsHazardContext {}
+export interface ToolDispatchContext extends FlagWhsHazardContext {
+  /** Authenticated user's role; enables the admin tenancy path. */
+  role?: string;
+}
 
 type Handler<S extends AnySchema> = (
   args: z.infer<S>,
@@ -71,6 +75,48 @@ export const TOOL_HANDLERS: Record<ToolName, Handler<AnySchema>> = {
   check_report_gaps: (args) =>
     checkReportGaps(checkReportGapsSchema.parse(args)),
 };
+
+/**
+ * Central, FAIL-CLOSED entrypoint for executing a Live-Teacher tool.
+ *
+ * SECURITY — tool-layer IDOR guard (RA-1132f / Shipit H1):
+ * Every tool takes a model-controlled `inspectionId`. Calling a handler
+ * directly with that id would let a crafted prompt reference another tenant's
+ * inspection (cross-tenant read/write). This dispatcher refuses to run unless
+ *   (a) an authenticated owner context is present, AND
+ *   (b) the target inspection is owned by — or in an active workspace of —
+ *       that user (admins by id), verified via assertInspectionTenancy.
+ * The model-supplied id is thus always re-scoped to the caller; a foreign or
+ * non-existent id fails with 403/404 BEFORE the handler runs.
+ *
+ * When RA-1132f wires tool dispatch, it MUST call dispatchTool — never
+ * TOOL_HANDLERS directly — or the IDOR re-opens.
+ */
+export async function dispatchTool(
+  name: ToolName,
+  args: unknown,
+  context?: ToolDispatchContext,
+): Promise<unknown> {
+  if (!context?.userId) {
+    throw new Error(
+      `Refusing to dispatch Live-Teacher tool "${name}" without an authenticated user context (tool-layer IDOR guard)`,
+    );
+  }
+  const inspectionId = (args as { inspectionId?: unknown } | null)?.inspectionId;
+  if (typeof inspectionId !== "string" || inspectionId.length === 0) {
+    throw new Error(`Live-Teacher tool "${name}" requires a string inspectionId`);
+  }
+  const tenancy = await assertInspectionTenancy(
+    { user: { id: context.userId, role: context.role ?? null } },
+    inspectionId,
+  );
+  if (!tenancy.ok) {
+    throw new Error(
+      `Live-Teacher tool "${name}" tenancy check failed (${tenancy.status}): ${tenancy.reason}`,
+    );
+  }
+  return TOOL_HANDLERS[name](args, context);
+}
 
 // Re-export individual tools for direct import
 export {
