@@ -33,6 +33,7 @@ TypeScript / Next.js 15 App Router compliance platform for Australian water dama
 15. **Secrets in `.env.local` only.** Reference `.env.example`.
 16. **Read before modify.** 120+ Prisma models, 800+ files — never assume.
 17. **Progress Framework (RA-1376 Epic) is non-negotiable.** Full constraints in `.claude/RULES.md`.
+18. **Never auto-open PRs into `main`.** `main` is protected (strict up-to-date + required conversation resolution). Autonomous/agent runs land work on a dedicated feature branch or `sandbox` — never a full-tree `sandbox → main` or `<branch> → main` merge PR. PRs into `main` are human-authored only. Any stray agent-opened `→ main` PR is noise: close it on sight, don't resolve its conflicts.
 
 ## Package source — use opensrc, don't fabricate APIs
 
