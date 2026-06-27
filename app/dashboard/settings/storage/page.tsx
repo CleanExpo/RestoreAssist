@@ -16,6 +16,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { MirrorJobsTable } from "@/components/settings/MirrorJobsTable";
+import { RestoreFromDrivePanel } from "@/components/settings/RestoreFromDrivePanel";
+import { RestoreJobsTable } from "@/components/settings/RestoreJobsTable";
 
 export const dynamic = "force-dynamic";
 
@@ -43,8 +45,11 @@ export default async function StorageSettingsPage() {
     select: {
       storageProvider: true,
       storageProviderAccountEmail: true,
+      ownerId: true,
     },
   });
+
+  const isOwner = org?.ownerId === session.user.id;
 
   const connected =
     org?.storageProvider === "GOOGLE_DRIVE" &&
@@ -88,6 +93,20 @@ export default async function StorageSettingsPage() {
           <MirrorJobsTable />
         </div>
       </section>
+
+      {isOwner && (
+        <section className="rounded-lg border bg-card p-4">
+          <h2 className="text-lg font-medium">Restore from Drive</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Re-hydrate original files lost from primary storage using your
+            connected Google Drive. Non-destructive by default.
+          </p>
+          <div className="mt-4 space-y-4">
+            <RestoreFromDrivePanel />
+            <RestoreJobsTable />
+          </div>
+        </section>
+      )}
     </main>
   );
 }
