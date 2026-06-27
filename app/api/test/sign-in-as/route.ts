@@ -6,7 +6,7 @@
  *
  * HARD GUARD — returns 404 unless ALLOW_TEST_HELPERS === "true".
  *
- * Body: { role: "USER" | "ADMIN" | "MANAGER" }
+ * Body: { role: "USER" | "ADMIN" | "MANAGER", email?, setupCompletedAt? }
  * Returns: 200 with set-cookie for the NextAuth session token.
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -29,14 +29,21 @@ export async function POST(req: NextRequest) {
   // Vercel preview deploys run with NODE_ENV=production, so we cannot use
   // NODE_ENV to gate. The sandbox Vercel project sets ALLOW_TEST_HELPERS=true;
   // prod does not. Local dev sets it via .env.local for the E2E suite to work.
-  if (process.env.ALLOW_TEST_HELPERS !== "true") {
+  // Defense-in-depth (RA-6680): even if ALLOW_TEST_HELPERS were ever true in a
+  // production deploy (or a preview alias pointed at prod data), VERCEL_ENV
+  // hard-blocks session forging in production — a single env-var misconfig must
+  // not be enough to mint an ADMIN cookie.
+  if (
+    process.env.ALLOW_TEST_HELPERS !== "true" ||
+    process.env.VERCEL_ENV === "production"
+  ) {
     return NextResponse.json(
       { error: "Test helpers are not enabled in this environment" },
       { status: 404 },
     );
   }
 
-  let body: { role?: string };
+  let body: { role?: string; email?: string; setupCompletedAt?: unknown };
   try {
     body = (await req.json()) as { role?: string };
   } catch {
@@ -51,7 +58,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const email = TEST_USER_EMAIL[role];
+  const email =
+    typeof body.email === "string" && body.email.includes("@")
+      ? body.email
+      : TEST_USER_EMAIL[role];
+  const setupCompletedAt =
+    body.setupCompletedAt === null || body.setupCompletedAt === false
+      ? null
+      : new Date();
 
   let user = await prisma.user.findUnique({
     where: { email },
@@ -87,7 +101,7 @@ export async function POST(req: NextRequest) {
       data: {
         name: `Test Org for ${role}`,
         ownerId: user.id,
-        setupCompletedAt: new Date(),
+        setupCompletedAt,
       },
       select: { id: true },
     });
@@ -101,7 +115,7 @@ export async function POST(req: NextRequest) {
     userId: user.id,
     email: user.email,
     role,
-    setupCompletedAt: new Date(),
+    setupCompletedAt,
   });
 
   const res = NextResponse.json({ ok: true, userId: user.id });
