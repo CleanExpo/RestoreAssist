@@ -26,16 +26,16 @@ export const PRICING_CONFIG = {
     /** Length of the free trial in days. Mirrors `trialEndsAt` in register/route.ts. */
     trialDays: 15,
     /** Report credits granted on signup. Mirrors `creditsRemaining` in register/route.ts. */
-    trialReportCredits: 30,
+    trialReportCredits: 50,
     /** Quick Fill credits granted on signup. Mirrors `quickFillCreditsRemaining`. */
     trialQuickFillCredits: 30,
     /** @deprecated Use `trialReportCredits`. Kept so display cards reading `reportLimit` still work. */
-    reportLimit: 30,
+    reportLimit: 50,
     description:
-      "Try Restore Assist free for 15 days — 30 inspection report credits with basic features. No credit card required.",
+      "Try Restore Assist free for 15 days — 50 inspection report credits with basic features. No credit card required.",
     features: [
       "15-day free trial",
-      "30 inspection report credits",
+      "50 inspection report credits",
       "30 Quick Fill credits (AI-powered form auto-fill)",
       "Basic report type",
       "IICRC S500 compliant reports",

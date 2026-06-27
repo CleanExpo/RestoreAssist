@@ -181,7 +181,7 @@ export async function canCreateReport(
       };
     }
     // Trial report cap — exhausted credits block further reports even while
-    // the trial window is still open, so the "30 report credits" promise is
+    // the trial window is still open, so the "50 report credits" promise is
     // enforced rather than unlimited.
     if ((effectiveSub.creditsRemaining ?? 0) <= 0) {
       return {

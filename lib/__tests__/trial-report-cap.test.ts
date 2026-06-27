@@ -2,7 +2,7 @@
  * Trial report-cap enforcement (PR #1254 — honest 15-day trial).
  *
  * FOUNDER DECISION: the 15-day free trial is CAPPED at
- * PRICING_CONFIG.free.trialReportCredits (30) reports, so the "30 report
+ * PRICING_CONFIG.free.trialReportCredits (50) reports, so the "50 report
  * credits" marketing copy is true rather than an unlimited free-for-all.
  *
  * This suite asserts the enforcement at three layers:
@@ -68,7 +68,7 @@ beforeEach(() => {
   getOrganizationOwner.mockResolvedValue("admin-1");
 });
 
-describe("canCreateReport — trial 30-report cap", () => {
+describe("canCreateReport — trial 50-report cap", () => {
   it("BLOCKS an in-period TRIAL user whose credits are exhausted (0)", async () => {
     getEffectiveSubscription.mockResolvedValue({
       id: "admin-1",
@@ -238,7 +238,7 @@ describe("credits/use route enforces the trial cap (no unlimited bypass)", () =>
   });
 });
 
-describe("every signup path grants a ~15-day / 30-credit trial from PRICING_CONFIG", () => {
+describe("every signup path grants a ~15-day / 50-credit trial from PRICING_CONFIG", () => {
   const paths = [
     "app/api/auth/register/route.ts",
     "app/api/auth/google-signin/route.ts",
@@ -246,9 +246,9 @@ describe("every signup path grants a ~15-day / 30-credit trial from PRICING_CONF
     "app/api/user/profile/route.ts",
   ];
 
-  it("PRICING_CONFIG is the 15-day / 30-credit SSOT", () => {
+  it("PRICING_CONFIG is the 15-day / 50-credit SSOT", () => {
     expect(PRICING_CONFIG.free.trialDays).toBe(15);
-    expect(PRICING_CONFIG.free.trialReportCredits).toBe(30);
+    expect(PRICING_CONFIG.free.trialReportCredits).toBe(50);
   });
 
   for (const rel of paths) {
