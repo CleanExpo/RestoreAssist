@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -uo pipefail
+case "${1:-}" in
+  listremotes) printf '%s\n' "${RCLONE_REMOTES:-gdrive:}" ;;
+  copy) printf 'copy %s\n' "$*" >> "${RCLONE_LOG:?RCLONE_LOG must be set}" ;;
+  *) echo "stub rclone: unhandled '${1:-}'" >&2; exit 2 ;;
+esac
