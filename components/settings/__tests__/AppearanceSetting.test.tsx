@@ -32,6 +32,9 @@ describe("AppearanceSetting", () => {
   });
 
   it("calls setTheme('dark') when Dark is chosen", () => {
+    // Start from a non-dark theme so the Dark radio is unchecked — clicking an
+    // already-checked native radio fires no change event (correct behavior).
+    useThemeMock.mockReturnValue({ theme: "light", setTheme: setThemeMock });
     render(<AppearanceSetting />);
     fireEvent.click(screen.getByRole("radio", { name: "Dark" }));
     expect(setThemeMock).toHaveBeenCalledWith("dark");
@@ -45,13 +48,7 @@ describe("AppearanceSetting", () => {
 
   it("marks the current theme as the checked radio", () => {
     render(<AppearanceSetting />);
-    expect(screen.getByRole("radio", { name: "Dark" })).toHaveAttribute(
-      "aria-checked",
-      "true",
-    );
-    expect(screen.getByRole("radio", { name: "Light" })).toHaveAttribute(
-      "aria-checked",
-      "false",
-    );
+    expect(screen.getByRole("radio", { name: "Dark" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Light" })).not.toBeChecked();
   });
 });
