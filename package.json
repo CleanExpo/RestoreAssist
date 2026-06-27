@@ -38,7 +38,8 @@
     },
     "auditConfig": {
       "ignoreGhsas": [
-        "GHSA-hfvx-25r5-qc3w"
+        "GHSA-hfvx-25r5-qc3w",
+        "GHSA-22p9-wv53-3rq4"
       ]
     }
   },

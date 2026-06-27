@@ -250,6 +250,49 @@ export class SupabaseStorageProvider implements StorageProvider {
     return data.signedUrl;
   }
 
+  /**
+   * Cheap existence check: list the parent prefix searching for the filename.
+   */
+  async exists(
+    storagePath: string,
+    bucket: string = BUCKET_ORIGINALS,
+  ): Promise<boolean> {
+    const supabase = getSupabaseServerClient();
+    const slash = storagePath.lastIndexOf("/");
+    const dir = slash >= 0 ? storagePath.slice(0, slash) : "";
+    const name = slash >= 0 ? storagePath.slice(slash + 1) : storagePath;
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .list(dir, { search: name, limit: 1 });
+    if (error) {
+      throw new Error(`[storage] exists() failed: ${error.message}`);
+    }
+    return Boolean(data?.some((f) => f.name === name));
+  }
+
+  /**
+   * Write raw bytes to an EXACT storage path (no path derivation, no
+   * compression). Used by the restore engine to re-hydrate originals.
+   */
+  async restoreToPath(
+    storagePath: string,
+    buffer: Buffer,
+    mimeType: string,
+    opts: { upsert?: boolean } = {},
+    bucket: string = BUCKET_ORIGINALS,
+  ): Promise<void> {
+    const supabase = getSupabaseServerClient();
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(storagePath, buffer, {
+        contentType: mimeType,
+        upsert: opts.upsert ?? false,
+      });
+    if (error) {
+      throw new Error(`[storage] restoreToPath failed: ${error.message}`);
+    }
+  }
+
   async listByInspection(
     orgId: string,
     inspectionId: string,

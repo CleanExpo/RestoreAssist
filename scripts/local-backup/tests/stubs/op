@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Minimal stateful fake of the 1Password CLI for tests.
+# State dir: $OP_STUB_DIR (vault docs stored as files; title slashes -> %2F).
+set -uo pipefail
+STATE="${OP_STUB_DIR:?OP_STUB_DIR must be set}"
+mkdir -p "$STATE"
+enc() { printf '%s\n' "$1" | sed 's#/#%2F#g'; }
+dec() { printf '%s\n' "$1" | sed 's#%2F#/#g'; }
+# crude flag extractor: --flag value
+flagval() { local want="$1"; shift; while [ $# -gt 0 ]; do [ "$1" = "$want" ] && { printf '%s\n' "$2"; return; }; shift; done; }
+
+cmd="${1:-}"; sub="${2:-}"
+case "$cmd" in
+  whoami) echo "stub-user"; exit 0 ;;
+  vault)
+    name="${3:-}"
+    case "$sub" in
+      get)    [ -d "$STATE/$(enc "$name")" ] && exit 0 || { echo "no vault" >&2; exit 1; } ;;
+      create) mkdir -p "$STATE/$(enc "$name")"; exit 0 ;;
+    esac ;;
+  item)
+    case "$sub" in
+      get)   title="$3"; v="$(flagval --vault "$@")"; [ -f "$STATE/$(enc "$v")/$(enc "$title")" ] && exit 0 || { echo "not found" >&2; exit 1; } ;;
+      list)  v="$(flagval --vault "$@")"; printf '['; first=1
+             if [ -d "$STATE/$(enc "$v")" ]; then
+               for f in "$STATE/$(enc "$v")"/*; do
+                 [ -e "$f" ] || continue
+                 t="$(dec "$(basename "$f")")"
+                 [ "$first" -eq 1 ] || printf ','; first=0
+                 printf '{"title":"%s"}' "$t"
+               done
+             fi
+             printf ']\n' ;;
+    esac ;;
+  document)
+    case "$sub" in
+      create) file="$3"; title="$(flagval --title "$@")"; v="$(flagval --vault "$@")"
+              mkdir -p "$STATE/$(enc "$v")"; cp "$file" "$STATE/$(enc "$v")/$(enc "$title")"; exit 0 ;;
+      edit)   title="$3"; file="$4"; v="$(flagval --vault "$@")"
+              cp "$file" "$STATE/$(enc "$v")/$(enc "$title")"; exit 0 ;;
+      get)    title="$3"; v="$(flagval --vault "$@")"; cat "$STATE/$(enc "$v")/$(enc "$title")" ;;
+    esac ;;
+  *) echo "stub op: unhandled '$cmd $sub'" >&2; exit 2 ;;
+esac

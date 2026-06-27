@@ -20,7 +20,7 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/credential-vault";
-import { uploadToDrive } from "@/lib/cloud-mirror/drive";
+import { uploadToDrive, downloadFromDrive } from "@/lib/cloud-mirror/drive";
 import type {
   StorageProvider,
   UploadInput,
@@ -116,6 +116,31 @@ export class GoogleDriveStorageProvider implements StorageProvider {
     }
 
     return { succeeded, failed };
+  }
+
+  /**
+   * Read a file back from the org's Drive by its Drive file id. Used by the
+   * restore engine. (The interface `download(path)` stays unimplemented — it
+   * is path-based and not how restore addresses Drive objects.)
+   */
+  async downloadByFileId(fileId: string): Promise<Buffer> {
+    const org = await prisma.organization.findUnique({
+      where: { id: this.orgId },
+      select: {
+        storageProviderRefreshToken: true,
+        storageProviderAccessToken: true,
+      },
+    });
+    if (!org?.storageProviderRefreshToken) {
+      throw new Error(
+        `[invalid_grant] Google Drive not connected for org ${this.orgId}`,
+      );
+    }
+    const refreshToken = decrypt(org.storageProviderRefreshToken);
+    const accessToken = org.storageProviderAccessToken
+      ? decrypt(org.storageProviderAccessToken)
+      : "";
+    return downloadFromDrive({ accessToken, refreshToken, fileId });
   }
 
   async download(_storagePath: string, _bucket?: string): Promise<Buffer> {
