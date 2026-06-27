@@ -1,0 +1,121 @@
+<!doctype html>
+<!--
+  RestoreAssist — "Your second job" cost calculator (campaign signature asset).
+  Operationalises the strongest creative thread from the kit: running 4+ separate
+  tools is a second job. Operator enters their current stack; page shows annual $
+  + hours lost stitching tools together vs one RestoreAssist login.
+  Self-contained (inline CSS/JS). Embed: drop into Next.js /public or paste markup.
+  STAGED — HOLD until app finalised. UTM on CTA: utm_campaign=second-job-calculator.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>What is your tool stack really costing you? | RestoreAssist</title>
+<style>
+  :root{--navy:#1C2E47;--earth:#8A6B4E;--tan:#D4A574;--off:#F5F5F4;--ink:#050505;--mid:#78716C}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:var(--navy);color:var(--off);line-height:1.5}
+  .wrap{max-width:880px;margin:0 auto;padding:48px 20px 72px}
+  .kicker{color:var(--tan);font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-size:13px;margin:0 0 8px}
+  h1{font-weight:800;font-size:clamp(28px,5vw,44px);margin:0 0 12px;line-height:1.1}
+  .sub{color:#c9d2df;font-size:18px;margin:0 0 32px;max-width:60ch}
+  .card{background:var(--off);color:var(--ink);border-radius:16px;padding:28px;display:grid;gap:18px}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+  label{font-weight:600;color:var(--navy);flex:1 1 240px}
+  label small{display:block;font-weight:400;color:var(--mid);font-size:13px}
+  input[type=number]{width:140px;padding:10px 12px;border:2px solid #e7e5e4;border-radius:10px;font-size:16px;font-weight:700;color:var(--navy)}
+  input:focus{outline:none;border-color:var(--tan)}
+  .result{background:var(--navy);color:var(--off);border-radius:16px;padding:28px;margin-top:24px}
+  .big{font-size:clamp(34px,7vw,56px);font-weight:800;color:var(--tan);line-height:1}
+  .big small{display:block;font-size:15px;color:#c9d2df;font-weight:400;margin-top:6px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:560px){.grid2{grid-template-columns:1fr}}
+  .cta{display:inline-block;margin-top:24px;background:var(--tan);color:var(--navy);font-weight:800;text-decoration:none;padding:14px 26px;border-radius:12px}
+  .share{display:inline-block;margin:24px 0 0 12px;background:transparent;color:var(--tan);font-weight:800;border:2px solid var(--tan);padding:12px 24px;border-radius:12px;cursor:pointer;font-size:16px;font-family:inherit}
+  .share:hover{background:var(--tan);color:var(--navy)}
+  @media(max-width:560px){.share{margin-left:0;display:block;width:100%}}
+  .foot{color:#9aa6b6;font-size:13px;margin-top:18px}
+  .accent{height:5px;width:64px;background:var(--tan);border-radius:3px;margin-bottom:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="accent"></div>
+  <p class="kicker">RestoreAssist</p>
+  <h1>Running four tools is your second job. Here's the bill.</h1>
+  <p class="sub">Most restoration businesses pay for a CRM, a job tracker, an estimating tool and a forms app — then spend hours every week stitching them together. Add it up.</p>
+
+  <div class="card">
+    <div class="row"><label>Separate software tools you pay for<small>CRM, jobs, estimating, forms, accounting add-ons…</small></label><input id="tools" type="number" min="0" value="4"/></div>
+    <div class="row"><label>Average monthly cost per tool (AUD/NZD)<small>per seat or per account</small></label><input id="cost" type="number" min="0" value="80"/></div>
+    <div class="row"><label>Hours/week re-keying &amp; reconciling between tools<small>across your team</small></label><input id="hours" type="number" min="0" value="6"/></div>
+    <div class="row"><label>Admin/owner hourly rate (AUD/NZD)<small>what that time is worth</small></label><input id="rate" type="number" min="0" value="45"/></div>
+  </div>
+
+  <div class="result">
+    <div class="grid2">
+      <div class="big" id="dollars">$0<small>per year on tool subscriptions + lost admin time</small></div>
+      <div class="big" id="hrs">0 hrs<small>per year stitching tools together — your second job</small></div>
+    </div>
+    <a class="cta" id="cta" href="https://restoreassist.app/?utm_source=web&utm_medium=web&utm_campaign=second-job-calculator&utm_content=cost-calc">See it as one login → restoreassist.app</a>
+    <button class="share" id="cardBtn" type="button">Get my shareable result card</button>
+    <p class="foot">One software does all your professional restoration needs — CRM, job management, scope and quotes — built for Australia &amp; New Zealand. Estimate only; your numbers, your call.</p>
+  </div>
+</div>
+<canvas id="cardCanvas" width="1200" height="630" style="display:none"></canvas>
+<script>
+  const $=id=>document.getElementById(id);
+  function fmt(n){return '$'+Math.round(n).toLocaleString()}
+  let lastDollars=0, lastHrs=0;
+  function calc(){
+    const tools=+$('tools').value||0, cost=+$('cost').value||0, hours=+$('hours').value||0, rate=+$('rate').value||0;
+    const subs=tools*cost*12;
+    const lostHrs=hours*52;
+    const lostCost=lostHrs*rate;
+    lastDollars=subs+lostCost; lastHrs=lostHrs;
+    $('dollars').innerHTML=fmt(subs+lostCost)+'<small>per year on tool subscriptions + lost admin time</small>';
+    $('hrs').innerHTML=Math.round(lostHrs).toLocaleString()+' hrs<small>per year stitching tools together — your second job</small>';
+  }
+  ['tools','cost','hours','rate'].forEach(id=>$(id).addEventListener('input',calc));
+  calc();
+
+  // Shareable branded result card — turns a private calc into trade word-of-mouth.
+  // Renders a 1200×630 social card (canonical palette, Inter) and downloads it as PNG.
+  function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+  function makeCard(){
+    const cv=$('cardCanvas'), c=cv.getContext('2d');
+    const W=1200,H=630, navy='#1C2E47', tan='#D4A574', off='#F5F5F4', mid='#9aa6b6';
+    // background
+    c.fillStyle=navy; c.fillRect(0,0,W,H);
+    // tan accent bar
+    c.fillStyle=tan; roundRect(c,80,84,120,10,5); c.fill();
+    // kicker
+    c.fillStyle=tan; c.font='800 26px Inter, system-ui, Arial, sans-serif'; c.textBaseline='alphabetic';
+    c.fillText('THE SECOND-JOB CALCULATOR', 80, 150);
+    // headline numbers
+    const dollars=fmt(lastDollars);
+    const hrs=Math.round(lastHrs).toLocaleString();
+    c.fillStyle=off; c.font='800 60px Inter, system-ui, Arial, sans-serif';
+    c.fillText('My second job is costing me', 80, 250);
+    c.fillStyle=tan; c.font='800 96px Inter, system-ui, Arial, sans-serif';
+    c.fillText(dollars+' a year', 80, 360);
+    c.fillStyle=off; c.font='800 60px Inter, system-ui, Arial, sans-serif';
+    c.fillText('and '+hrs+' hours stitching tools together.', 80, 450);
+    // divider
+    c.strokeStyle='rgba(245,245,244,.18)'; c.lineWidth=2; c.beginPath(); c.moveTo(80,510); c.lineTo(W-80,510); c.stroke();
+    // wordmark + url
+    c.fillStyle=off; c.font='800 38px Inter, system-ui, Arial, sans-serif';
+    c.fillText('RestoreAssist', 80, 568);
+    c.fillStyle=mid; c.font='400 30px Inter, system-ui, Arial, sans-serif';
+    c.fillText('One software does all your restoration needs  ·  restoreassist.app', 80, 606);
+    // download
+    const a=document.createElement('a');
+    a.download='restoreassist-second-job.png';
+    a.href=cv.toDataURL('image/png');
+    a.click();
+  }
+  $('cardBtn').addEventListener('click', makeCard);
+</script>
+</body>
+</html>

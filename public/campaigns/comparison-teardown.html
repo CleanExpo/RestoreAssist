@@ -1,0 +1,112 @@
+<!doctype html>
+<!--
+  RestoreAssist — "RestoreAssist vs the 4-tool stack" teardown (campaign signature asset).
+  Side-by-side scorecard: the typical restoration stack (CRM + job tracker + estimating
+  tool + forms/accounting add-on) vs one RestoreAssist login. Six rows, RestoreAssist
+  wins each with a one-line reason. Pairs with the "second job" cost-calculator: the
+  calculator gives you the bill, the teardown shows you why.
+  Self-contained (inline CSS/JS-free). STAGED — HOLD until app finalised.
+  UTM on CTA: utm_campaign=stack-teardown.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>RestoreAssist vs the 4-tool stack — the teardown | RestoreAssist</title>
+<style>
+  :root{--navy:#1C2E47;--earth:#8A6B4E;--tan:#D4A574;--off:#F5F5F4;--ink:#050505;--mid:#78716C;--ok:#3FA34D}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:var(--navy);color:var(--off);line-height:1.5}
+  .wrap{max-width:980px;margin:0 auto;padding:48px 20px 72px}
+  .accent{height:5px;width:64px;background:var(--tan);border-radius:3px;margin-bottom:18px}
+  .kicker{color:var(--tan);font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-size:13px;margin:0 0 8px}
+  h1{font-weight:800;font-size:clamp(28px,5vw,46px);margin:0 0 12px;line-height:1.1}
+  .sub{color:#c9d2df;font-size:18px;margin:0 0 32px;max-width:62ch}
+
+  .board{background:var(--off);color:var(--ink);border-radius:16px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:18px 20px;text-align:left;vertical-align:top}
+  thead th{background:var(--navy);color:var(--off);font-weight:800;font-size:15px}
+  thead th.win{background:var(--earth)}
+  thead th .tag{display:block;font-weight:400;font-size:12px;color:#c9d2df;margin-top:3px}
+  thead th.win .tag{color:var(--tan)}
+  tbody tr{border-top:1px solid #e7e5e4}
+  td.metric{font-weight:700;color:var(--navy);width:24%}
+  td.metric small{display:block;font-weight:400;color:var(--mid);font-size:13px;margin-top:3px}
+  td.stack{width:38%;color:#57534e}
+  td.ra{width:38%;background:#faf6f0;color:var(--ink);font-weight:600;border-left:3px solid var(--tan)}
+  td.ra .why{display:block;font-weight:400;color:var(--mid);font-size:13px;margin-top:4px}
+  .check{color:var(--ok);font-weight:800;margin-right:6px}
+  .cross{color:var(--mid);font-weight:800;margin-right:6px}
+
+  .cta{display:inline-block;margin-top:28px;background:var(--tan);color:var(--navy);font-weight:800;text-decoration:none;padding:14px 26px;border-radius:12px}
+  .foot{color:#9aa6b6;font-size:13px;margin-top:18px;max-width:70ch}
+
+  @media(max-width:640px){
+    thead{display:none}
+    table,tbody,tr,td{display:block;width:100%}
+    tbody tr{border-top:8px solid var(--off);background:#fff}
+    td.metric{background:var(--navy);color:var(--off);width:100%}
+    td.metric small{color:#c9d2df}
+    td.stack::before{content:"The 4-tool stack — ";font-weight:700;color:var(--mid)}
+    td.ra::before{content:"RestoreAssist — ";font-weight:800;color:var(--earth)}
+    td.ra{border-left:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="accent"></div>
+  <p class="kicker">RestoreAssist</p>
+  <h1>RestoreAssist vs the 4-tool stack. Row by row.</h1>
+  <p class="sub">Most restoration businesses run a CRM, a job tracker, an estimating tool and a forms or accounting add-on — four bills, four logins, and the gaps between them. Here is the same job, side by side.</p>
+
+  <div class="board">
+    <table>
+      <thead>
+        <tr>
+          <th>What you're comparing</th>
+          <th>The 4-tool stack<span class="tag">CRM + jobs + estimating + forms</span></th>
+          <th class="win">RestoreAssist<span class="tag">one software, one login</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="metric">Monthly cost<small>what leaves the account</small></td>
+          <td class="stack"><span class="cross">✕</span>Four separate subscriptions, four renewal dates, four price rises a year.</td>
+          <td class="ra"><span class="check">✓</span>One subscription.<span class="why">One bill replaces four — see your own number in the cost calculator.</span></td>
+        </tr>
+        <tr>
+          <td class="metric">Number of logins<small>to run one job</small></td>
+          <td class="stack"><span class="cross">✕</span>Four (or more) — every tool with its own password and its own way of working.</td>
+          <td class="ra"><span class="check">✓</span>One login.<span class="why">CRM, job management, scope and quotes behind a single sign-in.</span></td>
+        </tr>
+        <tr>
+          <td class="metric">Double data-entry<small>typing the same thing twice</small></td>
+          <td class="stack"><span class="cross">✕</span>Client, job and invoice details re-keyed between apps — where numbers quietly drift.</td>
+          <td class="ra"><span class="check">✓</span>Enter once.<span class="why">Capture flows from inspection to scope to invoice without re-typing.</span></td>
+        </tr>
+        <tr>
+          <td class="metric">Where your data lives<small>who actually holds it</small></td>
+          <td class="stack"><span class="cross">✕</span>Spread across four overseas vendors' servers, on their terms.</td>
+          <td class="ra"><span class="check">✓</span>On your own server.<span class="why">Your business stays yours, with backup to your own cloud.</span></td>
+        </tr>
+        <tr>
+          <td class="metric">AU &amp; NZ support<small>who picks up the phone</small></td>
+          <td class="stack"><span class="cross">✕</span>Offshore help desks and timezones that don't match a wet job at 7am.</td>
+          <td class="ra"><span class="check">✓</span>Built in Brisbane.<span class="why">Made for Australian and New Zealand restorers, supported in your hours.</span></td>
+        </tr>
+        <tr>
+          <td class="metric">IICRC built in<small>S500 / S520 standards</small></td>
+          <td class="stack"><span class="cross">✕</span>Standards live in a PDF or someone's head — not in the workflow.</td>
+          <td class="ra"><span class="check">✓</span>Guidance on every job.<span class="why">IICRC S500/S520 guidance built into scoping, so the standard travels with the work.</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <a class="cta" href="https://restoreassist.app/?utm_source=web&utm_medium=web&utm_campaign=stack-teardown&utm_content=comparison">See it as one login → restoreassist.app</a>
+  <p class="foot">One software does all your professional restoration needs — CRM, job management, scope and quotes — built for Australia &amp; New Zealand. Comparison reflects the typical separate-tool setup; your stack, your call.</p>
+</div>
+</body>
+</html>
