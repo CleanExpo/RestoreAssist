@@ -1646,16 +1646,16 @@ git commit -m "feat(restore): add Restore-from-Drive panel + jobs table (owner-o
 ## Self-Review
 
 **Spec coverage:**
-- Manual admin (org-owner) trigger, preview + scope (org/inspection) → Tasks 6, 7, 9. ✓
-- Durable resumable queue reflecting the mirror queue (claim/retry/backoff/dead-letter/invalid_grant) → Task 5. ✓
-- Restore engine: download from Drive → write original to exact path → SHA-256 verify → status → Task 4. ✓
-- Drive read path implemented (replaces NotImplementedError) → Task 3. ✓
-- Non-destructive default (MISSING skip) + FORCE overwrite → Tasks 4, 6, 9. ✓
-- Integrity mismatch fails the job → Task 4. ✓
-- Org-owner auth + ownership checks on every route → Tasks 7, 8 (cron uses CRON_SECRET), 9. ✓
-- Settings UI with jobs table → Task 9. ✓
-- Schema additive migration → Task 1. ✓
-- Rate-limit + circuit-breaker around the network read → Task 4. ✓
+- Manual admin (org-owner) trigger, preview + scope (org/inspection) → Tasks 6, 7, 9. [x]
+- Durable resumable queue reflecting the mirror queue (claim/retry/backoff/dead-letter/invalid_grant) → Task 5. [x]
+- Restore engine: download from Drive → write original to exact path → SHA-256 verify → status → Task 4. [x]
+- Drive read path implemented (replaces NotImplementedError) → Task 3. [x]
+- Non-destructive default (MISSING skip) + FORCE overwrite → Tasks 4, 6, 9. [x]
+- Integrity mismatch fails the job → Task 4. [x]
+- Org-owner auth + ownership checks on every route → Tasks 7, 8 (cron uses CRON_SECRET), 9. [x]
+- Settings UI with jobs table → Task 9. [x]
+- Schema additive migration → Task 1. [x]
+- Rate-limit + circuit-breaker around the network read → Task 4. [x]
 
 **Deviations from the spec (intentional, surfaced to the human):**
 1. **Variant regeneration deferred** — v1 restores the original master only (Drive holds only originals). Documented in Global Constraints + Task 4.

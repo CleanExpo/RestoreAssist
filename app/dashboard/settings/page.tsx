@@ -20,6 +20,7 @@ import {
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+import { AppearanceSetting } from "@/components/settings/AppearanceSetting";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import {
   Dialog,
@@ -302,6 +303,9 @@ export default function SettingsPage() {
           </button>
         </div>
       )}
+
+      {/* Appearance — theme control (reuses the existing next-themes provider) */}
+      <AppearanceSetting />
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Profile Information */}
