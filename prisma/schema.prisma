@@ -933,6 +933,9 @@ model Organization {
   // SP-E: Storage BYOK mirror queue
   storageMirrorJobs StorageMirrorJob[]
 
+  // SP-E: Restore from Google Drive queue
+  storageRestoreJobs StorageRestoreJob[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@index([ownerId])
@@ -5491,6 +5494,69 @@ model StorageMirrorJob {
   @@index([orgId, status])
   @@index([status, nextAttemptAt])
   @@index([createdAt])
+}
+
+// ============================================================
+// SP-E: Storage restore queue (reverse of mirror — rehydrates
+// Supabase primary storage from the org's Google Drive copy).
+// One row per file being restored, sourced from a COMPLETED
+// StorageMirrorJob. Self-contained so restores survive mirror
+// row cleanup.
+// ============================================================
+
+enum RestoreJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  SKIPPED
+  FAILED
+  DEAD_LETTER
+}
+
+enum RestoreMode {
+  MISSING
+  FORCE
+}
+
+/// Re-hydrate primary storage (Supabase) from the org's Google Drive.
+/// One row per file being restored, sourced from a COMPLETED StorageMirrorJob.
+model StorageRestoreJob {
+  id           String           @id @default(cuid())
+  orgId        String
+  organization Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // The COMPLETED mirror job we are reversing. driveFileId/sourceStoragePath are
+  // copied onto this row at enqueue time so a restore is self-contained even if
+  // the mirror row is later cleaned up.
+  sourceMirrorJobId String
+  kind              MirrorJobKind
+  mode              RestoreMode      @default(MISSING)
+  status            RestoreJobStatus @default(PENDING)
+
+  sourceStoragePath String        // exact path in BUCKET_ORIGINALS to write back to
+  filename          String
+  mimeType          String
+  driveFileId       String        // copied from the mirror job
+  inspectionId      String?       // for audit-log linkage when resolvable
+  initiatedByUserId String?       // who started the restore (for the audit row)
+
+  // Integrity / result
+  expectedSha256 String?
+  restoredSha256 String?
+  restoredBytes  Int?
+
+  attempts      Int       @default(0)
+  lastError     String?   @db.Text
+  lastAttemptAt DateTime?
+  nextAttemptAt DateTime  @default(now())
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@unique([orgId, sourceMirrorJobId], name: "restore_idempotency")
+  @@index([orgId, status])
+  @@index([status, nextAttemptAt])
 }
 
 // ============================================================
