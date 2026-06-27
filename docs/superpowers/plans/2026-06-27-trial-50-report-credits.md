@@ -139,14 +139,14 @@ cap, and display pages derive from it, so the usable cap follows to 50.
 ## Self-Review
 
 **Spec coverage:**
-- Success #1 (new signups grant 50 report / 30 Quick Fill / 15 days) — Step 3 changes the SSOT the 4 routes read; trialQuickFillCredits/trialDays untouched. ✓
-- Success #2 (cap follows to 50; 51st blocked) — the cap derives from `trialReportCredits` (`lib/report-limits.ts`), so no edit needed; credit-exhaustion enforces it. ✓
-- Success #3 (signup/pricing/email read "50") — display pages read from config (verified); copy strings updated in Step 3. ✓
-- Success #4 (both suites pass) — Steps 2 & 4. ✓
-- Success #5 (`npm run build` passes) — Step 6. ✓
-- "No retroactive top-up" — Global Constraints; no migration task by design. ✓
-- Out of scope (paid plans, Quick Fill, trial length, tiers) — explicitly not touched. ✓
+- Success #1 (new signups grant 50 report / 30 Quick Fill / 15 days) — Step 3 changes the SSOT the 4 routes read; trialQuickFillCredits/trialDays untouched. [x]
+- Success #2 (cap follows to 50; 51st blocked) — the cap derives from `trialReportCredits` (`lib/report-limits.ts`), so no edit needed; credit-exhaustion enforces it. [x]
+- Success #3 (signup/pricing/email read "50") — display pages read from config (verified); copy strings updated in Step 3. [x]
+- Success #4 (both suites pass) — Steps 2 & 4. [x]
+- Success #5 (`npm run build` passes) — Step 6. [x]
+- "No retroactive top-up" — Global Constraints; no migration task by design. [x]
+- Out of scope (paid plans, Quick Fill, trial length, tiers) — explicitly not touched. [x]
 
-**Placeholder scan:** No TBD/TODO; every step has the exact code/command. ✓
+**Placeholder scan:** No TBD/TODO; every step has the exact code/command. [x]
 
-**Type/name consistency:** `trialReportCredits`, `reportLimit`, `trialQuickFillCredits`, `trialDays`, `PRICING_CONFIG.free` used identically across config + both test files. ✓
+**Type/name consistency:** `trialReportCredits`, `reportLimit`, `trialQuickFillCredits`, `trialDays`, `PRICING_CONFIG.free` used identically across config + both test files. [x]
