@@ -9,10 +9,10 @@
  * Critique addressed: C1 — Standards cited as badge, not embedded in logic
  *
  * Standards covered:
- *   IICRC S500 — Standard for Professional Water Damage Restoration (S500:2025)
- *   IICRC S520 — Standard for Professional Mould Remediation (3rd Ed)
- *   IICRC S540 — Standard for Trauma and Crime Scene Cleanup (S540:2023)
- *   IICRC S700 — Standard for Professional Fire and Smoke Damage Restoration (2nd Ed)
+ *   IICRC S500 — Standard for Professional Water Damage Restoration (5th Ed, 2021)
+ *   IICRC S520 — Standard for Professional Mould Remediation (4th Ed, 2024)
+ *   IICRC S540 — Standard for Trauma and Crime Scene Cleanup (2nd Ed, 2023)
+ *   IICRC S700 — Standard for Professional Fire and Smoke Damage Restoration (1st Ed, 2025)
  *   NCC 2022   — National Construction Code (Australia)
  */
 
@@ -25,7 +25,7 @@ export const S500_FIELD_MAP = {
    * >0.5% in concrete substrates
    */
   moistureContent: {
-    clauseRef: "S500:2025 §12.3",
+    clauseRef: "S500:2021 §12.3",
     thresholds: {
       wood: { normal: 12, elevated: 16, critical: 25 },
       drywall: { normal: 0.5, elevated: 1.0, critical: 2.0 },
@@ -44,7 +44,7 @@ export const S500_FIELD_MAP = {
    * conditions for the region
    */
   relativeHumidity: {
-    clauseRef: "S500:2025 §12.4",
+    clauseRef: "S500:2021 §12.4",
     drinkTarget: "Match or below ambient outdoor RH at time of inspection",
     engineLogic:
       "Compute drying target from recorded outdoor RH. Target is calculated, not estimated.",
@@ -58,7 +58,7 @@ export const S500_FIELD_MAP = {
    * Cat 1: Clean/potable water  Cat 2: Grey water  Cat 3: Black/contaminated water
    */
   waterCategory: {
-    clauseRef: "S500:2025 §7.1–7.3",
+    clauseRef: "S500:2021 §7.1–7.3",
     definitions: {
       category1: {
         label: "Clean Water",
@@ -81,7 +81,7 @@ export const S500_FIELD_MAP = {
       },
     },
     timeEscalation:
-      "Cat 1 degrades to Cat 2 after 48 hrs standing (S500:2025 §7.1 note)",
+      "Cat 1 degrades to Cat 2 after 48 hrs standing (S500:2021 §7.1 note)",
     engineLogic:
       "Map observed water source to category. Cat 3 triggers mandatory containment protocol and PPE requirement in scope items.",
     adjusterValue:
@@ -93,7 +93,7 @@ export const S500_FIELD_MAP = {
    * Source: IICRC S500 §8.1–8.4
    */
   waterClass: {
-    clauseRef: "S500:2025 §8.1–8.4",
+    clauseRef: "S500:2021 §8.1–8.4",
     definitions: {
       class1: {
         label: "Slow Evaporation",
@@ -127,7 +127,7 @@ export const S500_FIELD_MAP = {
    * Source: IICRC S500 §14 — Equipment placement and air movement requirements
    */
   dryingEquipment: {
-    clauseRef: "S500:2025 §14",
+    clauseRef: "S500:2021 §14",
     engineLogic:
       "Validate equipment selection and quantity against S500 §14 formulas for affected area and class. Flag if proposed equipment is undersized.",
     adjusterValue: "Equipment adequacy is verifiable — audit trail available.",
@@ -138,7 +138,7 @@ export const S500_FIELD_MAP = {
    * Source: IICRC S500 §5.3 — Documentation requirements for insurance claims
    */
   photoDocumentation: {
-    clauseRef: "S500:2025 §5.3",
+    clauseRef: "S500:2021 §5.3",
     requirements: [
       "Auto-timestamp on every photo",
       "GPS geotag on every photo",
@@ -802,13 +802,52 @@ export const S540_FIELD_MAP = {
 
 // ─── STANDARDS VERSION TRACKING ───────────────────────────────────────────────
 
+/**
+ * IICRC standards version registry — the single source of truth for which
+ * edition/year of each standard RestoreAssist cites.
+ *
+ * Values verified 2026-06-30 against the owner's LICENSED source documents
+ * (IICRC standards library), not web research:
+ *   - S500: ANSI/IICRC S500-2021, 5th ed. (overview: "5th Edition ... released
+ *     May 2021"). The product's prior "S500:2025" citations were fabricated — standards-cite-ignore
+ *     there is no 2025 S500.
+ *   - S520: ANSI/IICRC S520-2024, 4th ed. (foreword: "This 4th Edition of the
+ *     ANSI/IICRC S520 Standard").
+ *   - S700: ANSI/IICRC S700-2025, 1st ed. (header: "ANSI/IICRC S700-2025 ...
+ *     First Edition"). S700:2025 is CORRECT — the first edition is 2025; there
+ *     is no 2021 or 2015 S700.
+ *   - S540: ANSI/IICRC S540-2023, 2nd ed.
+ *   - S100: ANSI/IICRC S100-2021, 7th ed.
+ *
+ * Every citation string in the product should derive from this registry (see
+ * standardCite / standardDesignation). scripts/check-standards-citations.ts
+ * guards against literals drifting out of sync.
+ */
 export const STANDARDS_VERSIONS = {
-  S500: { edition: "7th", year: 2021, nextRevisionExpected: 2027 },
-  S520: { edition: "3rd", year: 2015, nextRevisionExpected: 2026 },
-  S540: { edition: "S540:2023", year: 2023, nextRevisionExpected: 2028 },
-  S700: { edition: "2nd", year: 2015, nextRevisionExpected: 2026 },
-  NCC: { edition: "2022", year: 2022, nextRevisionExpected: 2025 },
+  S500: { edition: "5th", year: 2021, designation: "ANSI/IICRC S500-2021", nextRevisionExpected: 2026 },
+  S520: { edition: "4th", year: 2024, designation: "ANSI/IICRC S520-2024", nextRevisionExpected: 2029 },
+  S540: { edition: "2nd", year: 2023, designation: "ANSI/IICRC S540-2023", nextRevisionExpected: 2028 },
+  S700: { edition: "1st", year: 2025, designation: "ANSI/IICRC S700-2025", nextRevisionExpected: 2030 },
+  S100: { edition: "7th", year: 2021, designation: "ANSI/IICRC S100-2021", nextRevisionExpected: 2026 },
+  NCC: { edition: "2022", year: 2022, designation: "NCC 2022", nextRevisionExpected: 2025 },
 } as const;
+
+export type StandardKey = keyof typeof STANDARDS_VERSIONS;
+
+/**
+ * Canonical in-product short citation, e.g. `standardCite("S500")` → "S500:2021",
+ * `standardCite("S500", "10.5")` → "S500:2021 §10.5". Use this instead of hard-coding
+ * `S###:YYYY` literals so the year always tracks the registry.
+ */
+export function standardCite(std: StandardKey, section?: string): string {
+  const base = `${std}:${STANDARDS_VERSIONS[std].year}`;
+  return section ? `${base} §${section.replace(/^§\s*/, "")}` : base;
+}
+
+/** Formal designation for report/legal text, e.g. "ANSI/IICRC S500-2021". */
+export function standardDesignation(std: StandardKey): string {
+  return STANDARDS_VERSIONS[std].designation;
+}
 
 /**
  * Get the full citation string for a standards reference
@@ -848,7 +887,7 @@ export interface ClaimTypePickerOption {
 export const CLAIM_TYPE_PICKER_OPTIONS: readonly ClaimTypePickerOption[] = [
   {
     value: "WATER",
-    label: "Water Damage (IICRC S500:2025)",
+    label: "Water Damage (IICRC S500:2021)",
     description:
       "Burst pipe, flood, roof leak. Category 1/2/3 + Class 1–4 classification, moisture monitoring, drying scope.",
   },

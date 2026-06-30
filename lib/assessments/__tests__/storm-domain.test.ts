@@ -126,7 +126,7 @@ describe("stormDomain — duration heuristics", () => {
 });
 
 describe("stormDomain — citations + scope", () => {
-  it("aggregates S500:2025 + NCC citations", async () => {
+  it("aggregates S500:2021 + NCC citations", async () => {
     inspectionFindUnique.mockResolvedValueOnce(baseInspection);
     const r = await stormDomain.generate({
       ...baseInput,
@@ -134,7 +134,7 @@ describe("stormDomain — citations + scope", () => {
     });
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
-    expect(r.data.citations.some((c) => c.standard === "IICRC S500:2025")).toBe(
+    expect(r.data.citations.some((c) => c.standard === "IICRC S500:2021")).toBe(
       true,
     );
     expect(r.data.citations.some((c) => c.standard === "NCC Volume 2")).toBe(

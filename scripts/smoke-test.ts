@@ -270,7 +270,7 @@ async function main() {
   await testRLSPolicies();
   console.log("");
 
-  console.log("🌊 Demo Dataset (S500:2025 Category 2):");
+  console.log("🌊 Demo Dataset (S500:2021 Category 2):");
   await testDemoDataPresent();
   console.log("");
 

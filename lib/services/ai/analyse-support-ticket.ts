@@ -50,7 +50,7 @@ Priority rules:
 
 Response draft must:
 - Address the specific issue raised
-- Reference IICRC S500:2025 if technically relevant
+- Reference IICRC S500:2021 if technically relevant
 - End with next-steps and timeline (we respond within 24 hours)
 - Be warm but professional
 - Use Australian English spelling`;

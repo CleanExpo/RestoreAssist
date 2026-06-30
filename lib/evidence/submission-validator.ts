@@ -26,7 +26,7 @@ export interface EvidenceGap {
   riskTier: number;
   issue: "missing_evidence" | "missing_exception_reason" | "below_minimum";
   detail: string;
-  /** S500:2025 clause reference if applicable */
+  /** S500:2021 clause reference if applicable */
   s500Ref?: string;
 }
 
@@ -73,22 +73,22 @@ export interface WorkflowForValidation {
 }
 
 // ============================================
-// S500:2025 EVIDENCE CLAUSE REFERENCES
+// S500:2021 EVIDENCE CLAUSE REFERENCES
 // ============================================
 
 const STEP_S500_REFS: Record<string, string> = {
-  site_arrival: "S500:2025 §5.2 — Initial response documentation",
-  client_authority: "S500:2025 §5.3 — Authority and communication",
-  damage_documentation: "S500:2025 §7.1 — Damage assessment documentation",
-  environmental_readings: "S500:2025 §7.3 — Psychrometric documentation",
-  moisture_mapping: "S500:2025 §10.2 — Moisture mapping requirements",
-  affected_area_mapping: "S500:2025 §7.2 — Affected area documentation",
-  equipment_deployment: "S500:2025 §12.1 — Equipment documentation",
-  scope_documentation: "S500:2025 §11.1 — Scope of work documentation",
-  monitoring_review: "S500:2025 §12.4 — Monitoring documentation",
-  contamination_assessment: "S500:2025 §3 — Water damage categories",
-  mould_assessment: "S500:2025 §8.4 — Mould documentation",
-  fire_smoke_assessment: "S500:2025 §15 — Fire and smoke documentation",
+  site_arrival: "S500:2021 §5.2 — Initial response documentation",
+  client_authority: "S500:2021 §5.3 — Authority and communication",
+  damage_documentation: "S500:2021 §7.1 — Damage assessment documentation",
+  environmental_readings: "S500:2021 §7.3 — Psychrometric documentation",
+  moisture_mapping: "S500:2021 §10.2 — Moisture mapping requirements",
+  affected_area_mapping: "S500:2021 §7.2 — Affected area documentation",
+  equipment_deployment: "S500:2021 §12.1 — Equipment documentation",
+  scope_documentation: "S500:2021 §11.1 — Scope of work documentation",
+  monitoring_review: "S500:2021 §12.4 — Monitoring documentation",
+  contamination_assessment: "S500:2021 §3 — Water damage categories",
+  mould_assessment: "S500:2021 §8.4 — Mould documentation",
+  fire_smoke_assessment: "S500:2021 §15 — Fire and smoke documentation",
 };
 
 // ============================================

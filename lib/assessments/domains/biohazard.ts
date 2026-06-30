@@ -4,7 +4,7 @@
  * Third concrete domain. Reads an Inspection plus a domain-options
  * payload (`biohazardType` and optional state override) and produces:
  *
- *   - report  — IICRC S540:2021 (trauma) / S500:2025 §6.3 (Cat-3
+ *   - report  — IICRC S540:2023 (trauma) / S500:2021 §6.3 (Cat-3
  *               sewage) grounded sections (situation, classification,
  *               PPE rationale, controlled-waste pathway, clearance)
  *   - scope   — ScopeItem[] from lib/scope-biohazard::generateBiohazardScope
@@ -202,12 +202,12 @@ const TYPE_LABEL: Record<BiohazardType, string> = {
 
 const TYPE_PRIMARY_STANDARD: Record<BiohazardType, StandardCitation> = {
   sewage_overflow: {
-    standard: "IICRC S500:2025",
+    standard: "IICRC S500:2021",
     section: "§6.3",
     note: "Category 3 (grossly contaminated) water treatment",
   },
   decomposition: {
-    standard: "IICRC S540:2021",
+    standard: "IICRC S540:2023",
     section: "§5",
     note: "Trauma, decomposition + crime-scene cleanup",
   },
@@ -217,7 +217,7 @@ const TYPE_PRIMARY_STANDARD: Record<BiohazardType, StandardCitation> = {
     note: "Risk controls for hazardous-substance response",
   },
   blood_trauma: {
-    standard: "IICRC S540:2021",
+    standard: "IICRC S540:2023",
     section: "§5",
     note: "Trauma + bloodborne-pathogen cleanup",
   },
@@ -275,15 +275,15 @@ function buildReport(args: {
     body:
       args.biohazardType === "sewage_overflow"
         ? `Category 3 contamination requires removal of porous materials ` +
-          `that contacted sewage (S500:2025 §6.3). Hard surfaces: detergent ` +
+          `that contacted sewage (S500:2021 §6.3). Hard surfaces: detergent ` +
           `wash → rinse → quaternary ammonium or hypochlorite disinfection ` +
-          `(EPA-registered tuberculocide). HVAC must be inspected (S520:2015 ` +
+          `(EPA-registered tuberculocide). HVAC must be inspected (S520:2024 ` +
           `§6.1) — replace porous insulation. Anti-microbial application ` +
           `at conclusion before drying restoration begins.`
         : args.biohazardType === "decomposition" ||
             args.biohazardType === "blood_trauma"
           ? `Bulk debris removal under controlled-access containment per ` +
-            `S540:2021 §5. Visible biological material must be packaged in ` +
+            `S540:2023 §5. Visible biological material must be packaged in ` +
             `red biohazard bags (UN 3291 packaging Group II for transport). ` +
             `Surfaces undergo three-pass clean: enzymatic detergent → ` +
             `oxidising disinfectant (e.g. peroxide-based) → ATP verification.`
@@ -293,7 +293,7 @@ function buildReport(args: {
             `Surfaces undergo solvent wash + rinse + ATP verification.`,
     citations:
       args.biohazardType === "sewage_overflow"
-        ? [primary, { standard: "IICRC S520:2015", section: "§6.1" }]
+        ? [primary, { standard: "IICRC S520:2024", section: "§6.1" }]
         : [primary],
   });
 
@@ -315,10 +315,10 @@ function buildReport(args: {
           `verification on representative surfaces (target < 30 RLU on ` +
           `AccuPoint or equivalent meter), and microbial sampling per ` +
           `AS 4276 if requested by an Indoor Environmental Professional ` +
-          `(IEP). Drying restoration follows S500:2025 §13 thereafter.`
+          `(IEP). Drying restoration follows S500:2021 §13 thereafter.`
         : args.biohazardType === "decomposition" ||
             args.biohazardType === "blood_trauma"
-          ? `Clearance: visual inspection per S540:2021 §5, ATP testing ` +
+          ? `Clearance: visual inspection per S540:2023 §5, ATP testing ` +
             `(target < 30 RLU on representative surfaces), and bloodborne-` +
             `pathogen verification using rapid strip tests where exposure ` +
             `is suspected. Document with photographs + meter readings.`

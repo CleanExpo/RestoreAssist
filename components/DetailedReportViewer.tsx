@@ -248,7 +248,7 @@ export default function DetailedReportViewer({
               Professional Inspection Report
             </h2>
             <p className="text-sm text-slate-400 mt-1">
-              AI-Enhanced Report • AS-IICRC S500:2025 Compliant • Queensland NCC
+              AI-Enhanced Report • ANSI/IICRC S500:2021 Compliant • Queensland NCC
               & QDC 4.5 Standards
             </p>
           </div>

@@ -2,7 +2,7 @@
  * Unit tests for lib/scope-fire.ts
  *
  * Verifies deterministic scope generation for fire/smoke damage jobs
- * following IICRC S700:2015.
+ * following IICRC S700:2025.
  */
 
 import { describe, it, expect } from "vitest";
@@ -145,7 +145,7 @@ describe("generateFireScope — iicrcReference on every item", () => {
       });
       items.forEach((item) => {
         expect(item.iicrcReference).toBeTruthy();
-        expect(item.iicrcReference).toMatch(/^S700:2015 §\d+\.\d+$/);
+        expect(item.iicrcReference).toMatch(/^S700:2025 §\d+\.\d+$/);
       });
     });
   });

@@ -1,5 +1,5 @@
 /**
- * AS-IICRC S500:2025 class of water — the evaporation load / amount of affected
+ * ANSI/IICRC S500:2021 class of water — the evaporation load / amount of affected
  * material (spec §5.2). Distinct from water Category (contamination, see
  * `water-category.ts`): Class drives the drying-equipment sizing.
  *

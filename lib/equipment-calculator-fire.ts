@@ -12,7 +12,7 @@
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-/** Fire/smoke severity per IICRC S700:2021 §4.2 classification. */
+/** Fire/smoke severity per IICRC S700:2025 §4.2 classification. */
 export type FireSeverity = "MINOR" | "MODERATE" | "SEVERE";
 
 /** Structure type — affects odour treatment choice + duration. */
@@ -65,7 +65,7 @@ export interface FireEquipmentCalculatorResult {
 
 // ─── IICRC S700 Ratios ────────────────────────────────────────────────────────
 
-/** Air scrubber m²/unit — IICRC S700:2021 §8.2 (particulate filtration). */
+/** Air scrubber m²/unit — IICRC S700:2025 §8.2 (particulate filtration). */
 const AIR_SCRUBBER_RATIO: Record<FireSeverity, number> = {
   MINOR: 100,
   MODERATE: 75,
@@ -80,7 +80,7 @@ const NEGATIVE_AIR_RATIO: Record<FireSeverity, number> = {
 };
 
 /**
- * Odour treatment ratios (m²/unit) — IICRC S700:2021 §9.
+ * Odour treatment ratios (m²/unit) — IICRC S700:2025 §9.
  * Ozone/hydroxyl generators scale with cubic metres, but for consistency with
  * other calculators we use floor area × assumed 2.4m ceiling.
  */
@@ -168,7 +168,7 @@ function buildItem(
 
 /**
  * Calculate IICRC S700-compliant equipment list for a fire/smoke damage job.
- * Occupancy state determines ozone vs hydroxyl selection (S700:2021 §9.4.2).
+ * Occupancy state determines ozone vs hydroxyl selection (S700:2025 §9.4.2).
  */
 export function calculateFireEquipment(
   input: FireEquipmentCalculatorInput,
@@ -186,7 +186,7 @@ export function calculateFireEquipment(
       asQty,
       asRatio,
       areaM2,
-      "IICRC S700:2021 §8.2",
+      "IICRC S700:2025 §8.2",
     ),
   );
 
@@ -200,13 +200,13 @@ export function calculateFireEquipment(
         namQty,
         namRatio,
         areaM2,
-        "IICRC S700:2021 §8.4 — Containment for severe smoke",
+        "IICRC S700:2025 §8.4 — Containment for severe smoke",
       ),
     );
   }
 
   // 3. Odour treatment — ozone vs hydroxyl based on occupancy
-  // S700:2021 §9.4.2: ozone must never be used in occupied spaces (ozone is a lung irritant)
+  // S700:2025 §9.4.2: ozone must never be used in occupied spaces (ozone is a lung irritant)
   if (occupied) {
     const hyRatio = HYDROXYL_RATIO_M2[severity];
     const hyQty = calcQty(areaM2, hyRatio);
@@ -216,7 +216,7 @@ export function calculateFireEquipment(
         hyQty,
         hyRatio,
         areaM2,
-        "IICRC S700:2021 §9.4.2 — Hydroxyl safe for occupied spaces",
+        "IICRC S700:2025 §9.4.2 — Hydroxyl safe for occupied spaces",
       ),
     );
   } else {
@@ -228,7 +228,7 @@ export function calculateFireEquipment(
         ozQty,
         ozRatio,
         areaM2,
-        "IICRC S700:2021 §9.4.1 — Ozone for unoccupied spaces",
+        "IICRC S700:2025 §9.4.1 — Ozone for unoccupied spaces",
       ),
     );
   }
@@ -242,7 +242,7 @@ export function calculateFireEquipment(
         fogQty,
         THERMAL_FOGGER_COVERAGE_M2,
         areaM2,
-        "IICRC S700:2021 §9.5 — Thermal fogging for protein-fire odours",
+        "IICRC S700:2025 §9.5 — Thermal fogging for protein-fire odours",
       ),
     );
   }
@@ -255,7 +255,7 @@ export function calculateFireEquipment(
       vacQty,
       HEPA_VACUUM_RATIO,
       areaM2,
-      "IICRC S700:2021 §7.3 — Soot removal",
+      "IICRC S700:2025 §7.3 — Soot removal",
     ),
   );
 
@@ -278,6 +278,6 @@ export function calculateFireEquipment(
     circuitLoadWarning,
     recommendedCircuits,
     summary: `${severity} fire damage over ${areaM2.toFixed(0)}m²${occupied ? " (occupied)" : ""} → ${items.length} equipment types, ${totalAmps.toFixed(1)}A total`,
-    iicrcClassification: `IICRC S700:2021 — ${severity} fire/smoke damage${input.structureType ? ` (${input.structureType.toLowerCase()})` : ""}`,
+    iicrcClassification: `IICRC S700:2025 — ${severity} fire/smoke damage${input.structureType ? ` (${input.structureType.toLowerCase()})` : ""}`,
   };
 }

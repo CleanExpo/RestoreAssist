@@ -5,7 +5,7 @@
  * Flags early warning for hidden moisture sources, HVAC faults, and imminent
  * mould risk — prevents the "reopened claim weeks later" scenario.
  *
- * Thresholds per IICRC S500:2025 moisture monitoring concern zone:
+ * Thresholds per IICRC S500:2021 moisture monitoring concern zone:
  *   - moistureLevel > 20% on Day 3+ is a concern zone breach
  *   - Any rising trend after Day 2 requires investigation
  *   - Stuck-high (>60%) after 48h indicates critical drying failure
@@ -29,12 +29,12 @@ export type MoistureTrendResult = {
   anomalies: MoistureAnomaly[];
 };
 
-/** IICRC S500:2025 — moisture level concern zone threshold (>20% on Day 3+) */
+/** IICRC S500:2021 — moisture level concern zone threshold (>20% on Day 3+) */
 const IICRC_CONCERN_ZONE = 20;
 
 /**
  * Drying failure threshold — critically dangerous after 48h.
- * Above this level, mould colonisation can begin within 24-48h (IICRC S500:2025 §7).
+ * Above this level, mould colonisation can begin within 24-48h (IICRC S500:2021 §7).
  * Distinct from the plateau concern zone (>20%): stuck_high only fires when
  * moisture remains critically elevated despite ongoing drying.
  */
@@ -108,7 +108,7 @@ export async function detectMoistureTrendAnomalies(
         location,
         severity: "rising",
         message:
-          `IICRC S500:2025: Moisture at "${location}" is rising ` +
+          `IICRC S500:2021: Moisture at "${location}" is rising ` +
           `(${first.value.toFixed(1)} → ${last.value.toFixed(1)}${last.unit ?? "%"}) ` +
           `after ${Math.round(spanMs / 3600000)}h. ` +
           `Investigate for hidden moisture source or HVAC fault.`,
@@ -121,7 +121,7 @@ export async function detectMoistureTrendAnomalies(
         location,
         severity: "stuck_high",
         message:
-          `IICRC S500:2025 §7: Moisture at "${location}" remains critically high ` +
+          `IICRC S500:2021 §7: Moisture at "${location}" remains critically high ` +
           `at ${last.value.toFixed(1)}${last.unit ?? "%"} after ${Math.round(spanMs / 3600000)}h. ` +
           `Imminent mould risk — review drying strategy and check for structural concealment.`,
         recentReadings: last3,
@@ -135,7 +135,7 @@ export async function detectMoistureTrendAnomalies(
         location,
         severity: "plateau",
         message:
-          `IICRC S500:2025 §7: Moisture at "${location}" has plateaued at ` +
+          `IICRC S500:2021 §7: Moisture at "${location}" has plateaued at ` +
           `${last.value.toFixed(1)}${last.unit ?? "%"} (concern zone >20%) ` +
           `over ${Math.round(spanMs / 3600000)}h. ` +
           `Probable hidden moisture source or inadequate drying equipment.`,

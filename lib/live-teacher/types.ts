@@ -49,7 +49,7 @@ export type ToolName =
 export type TeacherTurn = {
   role: "user" | "assistant" | "system";
   content: string;
-  /** IICRC clause references cited in the reply, e.g. ["S500:2025 §7.1"]. */
+  /** IICRC clause references cited in the reply, e.g. ["S500:2021 §7.1"]. */
   clauseRefs?: string[];
   /** Model self-reported confidence, 0-1. */
   confidence?: number;

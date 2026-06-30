@@ -446,7 +446,7 @@ export function DamageReportView({
         {/* 8. Standards */}
         <Section title="Standards we're working to" number={8}>
           <p>
-            Your property is being assessed and dried to the IICRC S500:2025
+            Your property is being assessed and dried to the IICRC S500:2021
             Standard §7.1 for professional water damage restoration. This is the
             same standard that every licensed restorer in Australia works to,
             and it is the standard your insurer expects.

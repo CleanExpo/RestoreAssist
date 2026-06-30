@@ -79,7 +79,7 @@ describe("POST scope-report", () => {
     expect(body.structured.schemaVersion).toBe("1.0");
     expect(body.structured.floors[0].rooms[0].areaM2).toBeCloseTo(12, 5);
     expect(body.narrative).toContain("# Scope of Works");
-    expect(body.narrative).toContain("AS-IICRC S500:2025");
+    expect(body.narrative).toContain("ANSI/IICRC S500:2021");
   });
 
   it("422 when floors[] is missing", async () => {

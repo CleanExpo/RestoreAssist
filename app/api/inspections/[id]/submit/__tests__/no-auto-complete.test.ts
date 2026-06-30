@@ -2,7 +2,7 @@
  * Stabilisation P0 — submit route must NOT auto-promote inspection
  * status to "COMPLETED". COMPLETED is the terminal close state owned
  * exclusively by the user-driven CloseJobPrompt flow (SP-A close gate,
- * S500:2025 §5.3 Editability invariant). The AI submit pipeline stops
+ * S500:2021 §5.3 Editability invariant). The AI submit pipeline stops
  * at "ESTIMATED" — anything beyond is a regression of the close gate.
  *
  * Source-text guard: cheaper and more durable than mocking the entire

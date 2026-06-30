@@ -49,7 +49,7 @@ export type AiTaskType =
   | "translation" // Multi-language support
   | "close_summary" // SP-A: client-facing close-summary draft
   // Premium tasks → BYOK
-  | "s500_report" // Full S500:2025 compliance report generation
+  | "s500_report" // Full S500:2021 compliance report generation
   | "contents_manifest" // AI-drafted contents manifest from photos
   | "complex_damage_assessment" // Multi-room, multi-category damage analysis
   | "expert_analysis" // Complex reasoning about restoration strategy
@@ -243,7 +243,7 @@ export async function classifyEvidence(
 }
 
 /**
- * Generate S500:2025 compliance report (premium task → BYOK).
+ * Generate S500:2021 compliance report (premium task → BYOK).
  */
 export async function generateS500Report(
   inspectionData: string,
@@ -278,7 +278,7 @@ export async function structureFieldNotes(
         "Take raw, informal field notes from a technician and structure them into " +
         "clear, professional documentation suitable for an insurance report. " +
         "Preserve all measurements, observations, and technical details. " +
-        "Use Australian English spelling. Reference S500:2025 sections where applicable.",
+        "Use Australian English spelling. Reference S500:2021 sections where applicable.",
       userPrompt: rawNotes,
       temperature: 0.3,
       maxTokens: 2048,

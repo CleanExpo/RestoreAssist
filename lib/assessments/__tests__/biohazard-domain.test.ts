@@ -54,8 +54,8 @@ describe("biohazardDomain — happy paths per type", () => {
       "Clearance criteria",
     ]);
 
-    // Citations include S500:2025 + state EPA.
-    expect(r.data.citations.some((c) => c.standard === "IICRC S500:2025")).toBe(
+    // Citations include S500:2021 + state EPA.
+    expect(r.data.citations.some((c) => c.standard === "IICRC S500:2021")).toBe(
       true,
     );
     expect(r.data.citations.some((c) => c.standard.includes("EPA"))).toBe(true);
@@ -68,7 +68,7 @@ describe("biohazardDomain — happy paths per type", () => {
     }
   });
 
-  it("blood_trauma uses S540:2021 §5 as the primary reference + premium PPE", async () => {
+  it("blood_trauma uses S540:2023 §5 as the primary reference + premium PPE", async () => {
     inspectionFindUnique.mockResolvedValueOnce(baseInspection);
 
     const r = await biohazardDomain.generate({
@@ -79,7 +79,7 @@ describe("biohazardDomain — happy paths per type", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
 
-    expect(r.data.citations.some((c) => c.standard === "IICRC S540:2021")).toBe(
+    expect(r.data.citations.some((c) => c.standard === "IICRC S540:2023")).toBe(
       true,
     );
 

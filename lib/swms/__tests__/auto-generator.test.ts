@@ -104,11 +104,11 @@ describe("generateSwmsDraft", () => {
       expect(draft.signatoriesRequired).toContain("Worker Representative");
     });
 
-    it("all clauseRefs contain AS-IICRC S500:2025 format", async () => {
+    it("all clauseRefs contain ANSI/IICRC S500:2021 format", async () => {
       mockFindUnique.mockResolvedValue(makeInspection() as never);
       const draft = await generateSwmsDraft("insp-001");
       for (const ref of draft.clauseRefs) {
-        expect(ref).toMatch(/AS-IICRC S500:2025/);
+        expect(ref).toMatch(/ANSI\/IICRC S500:2021/);
       }
     });
   });
@@ -159,7 +159,7 @@ describe("generateSwmsDraft", () => {
       expect(categories).toContain("mould");
     });
 
-    it("biological hazard cites S500:2025 §10.4", async () => {
+    it("biological hazard cites S500:2021 §10.4", async () => {
       mockFindUnique.mockResolvedValue(
         makeInspection({
           affectedAreas: [{ category: "3", affectedSquareFootage: 200 }],
@@ -224,7 +224,7 @@ describe("generateSwmsDraft", () => {
       expect(categories).not.toContain("asbestos_risk");
     });
 
-    it("asbestos_risk hazard cites S500:2025 §7.1", async () => {
+    it("asbestos_risk hazard cites S500:2021 §7.1", async () => {
       mockFindUnique.mockResolvedValue(
         makeInspection({ propertyYearBuilt: 1975 }) as never,
       );

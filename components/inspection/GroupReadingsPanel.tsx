@@ -179,7 +179,7 @@ export function GroupReadingsPanel({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="text-xs text-neutral-500 dark:text-slate-400">
-          Auto-group readings into affected areas (IICRC S500:2025 §6)
+          Auto-group readings into affected areas (IICRC S500:2021 §6)
         </div>
         <Button
           type="button"

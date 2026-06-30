@@ -19,6 +19,7 @@ import {
   buildStandardsContextPrompt,
 } from "./standards-retrieval";
 import { describeClause } from "./reports/clause-descriptions";
+import { standardDesignation } from "./nir-standards-mapping";
 
 interface BusinessInfo {
   businessName?: string | null;
@@ -109,7 +110,7 @@ interface ScopeItem {
   description: string;
   justification: string;
   standardReference: string;
-  /** Optional IICRC/AS-NZS/NZBS clause reference, e.g. "S500:2025 §7.1" */
+  /** Optional IICRC/AS-NZS/NZBS clause reference, e.g. "S500:2021 §7.1" */
   clauseRef?: string;
 }
 
@@ -1655,9 +1656,9 @@ async function renderComplianceIndexPage(
 
   // ── Collect distinct clause refs from scope items ─────────────────────────
   const clauseSet = new Set<string>();
-  // Always include core S500:2025 references
-  clauseSet.add("S500:2025 §7.1");
-  clauseSet.add("S500:2025 §10.1");
+  // Always include core S500:2021 references
+  clauseSet.add("S500:2021 §7.1");
+  clauseSet.add("S500:2021 §10.1");
   scopeItems.forEach((item) => {
     if (item.clauseRef) clauseSet.add(item.clauseRef.trim());
   });
@@ -1690,8 +1691,9 @@ async function renderComplianceIndexPage(
 
   // ── Standard metadata footer ──────────────────────────────────────────────
   const footerY = margin + 20;
-  const footerText =
-    "Prepared per AS-IICRC S500:2025 (Australian edition) published by Standards Australia + IICRC + RIA Australasia.";
+  const footerText = `Prepared per ${standardDesignation(
+    "S500",
+  )} (5th ed.), Standard for Professional Water Damage Restoration.`;
   const footerLines = wrapText(footerText, width - 2 * margin, helvetica, 8);
   footerLines.forEach((line: string, fi: number) => {
     page.drawText(sanitizeTextForPDF(line), {

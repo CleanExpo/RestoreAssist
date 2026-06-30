@@ -40,9 +40,9 @@ describe("computeTargetCurve", () => {
     expect(finalMC).toBe(19);
   });
 
-  it("standardsRef always cites S500:2025 §12.2.2", () => {
+  it("standardsRef always cites S500:2021 §12.2.2", () => {
     const { standardsRef } = computeTargetCurve(BASE);
-    expect(standardsRef).toBe("AS-IICRC S500:2025 §12.2.2");
+    expect(standardsRef).toBe("ANSI/IICRC S500:2021 §12.2.2");
   });
 
   it("projectedCompletionDay is a positive integer", () => {

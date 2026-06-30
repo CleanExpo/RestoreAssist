@@ -288,7 +288,7 @@ export async function restoreAssistAiDispatch(
 }
 
 /**
- * Analyze inspection photos using RestoreAssist AI with S500:2025 output.
+ * Analyze inspection photos using RestoreAssist AI with S500:2021 output.
  * Falls back to BYOK if self-hosted is unavailable.
  */
 export async function analyzeInspectionPhotosRA(

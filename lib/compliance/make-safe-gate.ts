@@ -21,7 +21,7 @@ export type MakeSafeGateResult = {
 };
 
 /**
- * Stabilisation gate per AS-IICRC S500:2025.
+ * Stabilisation gate per ANSI/IICRC S500:2021.
  * Internal symbol name retained for backward compatibility;
  * user-facing wording is "Stabilisation" per RA-1151.
  *

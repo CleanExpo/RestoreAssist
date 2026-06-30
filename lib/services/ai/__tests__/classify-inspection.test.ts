@@ -29,7 +29,7 @@ describe("classifyInspection", () => {
               waterCategory: "CATEGORY_2",
               waterClass: "CLASS_3",
               confidence: 82,
-              reasoning: "S500:2025 §10.6.1 — visible mould growth",
+              reasoning: "S500:2021 §10.6.1 — visible mould growth",
             }),
           },
         ],

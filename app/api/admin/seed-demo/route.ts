@@ -2,7 +2,7 @@
  * RA-427: Admin Demo Seed Trigger
  *
  * POST /api/admin/seed-demo
- *   Runs the seed-demo.ts logic to create a complete S500:2025 demo job.
+ *   Runs the seed-demo.ts logic to create a complete S500:2021 demo job.
  *   Admin-only — requires session with role === "ADMIN".
  *   Idempotent: re-running is safe (skips if demo data already present).
  *
@@ -141,7 +141,7 @@ export async function POST(_req: NextRequest) {
         createdAt: day1,
         updatedAt: day3,
         notes:
-          "Washing machine hose failure caused grey water release. Subfloor cavity affected — moisture readings confirm Category 2 classification. IICRC S500:2025 §6.3 applied.",
+          "Washing machine hose failure caused grey water release. Subfloor cavity affected — moisture readings confirm Category 2 classification. IICRC S500:2021 §6.3 applied.",
       } as any,
     });
 
@@ -175,7 +175,7 @@ export async function POST(_req: NextRequest) {
                 dayIdx === 0
                   ? "Initial reading"
                   : dayIdx >= 5
-                    ? "Drying goal achieved per S500:2025 §8.4"
+                    ? "Drying goal achieved per S500:2021 §8.4"
                     : null,
             } as any,
           }),
@@ -191,7 +191,7 @@ export async function POST(_req: NextRequest) {
         unit: "LM",
         quantity: 42,
         unitRate: 18.5,
-        iicrcReference: "IICRC S500:2025 §7.2",
+        iicrcReference: "IICRC S500:2021 §7.2",
       },
       {
         category: "STRUCTURAL_DRYING",
@@ -200,7 +200,7 @@ export async function POST(_req: NextRequest) {
         unit: "DAY",
         quantity: 3,
         unitRate: 285.0,
-        iicrcReference: "IICRC S500:2025 §8.1",
+        iicrcReference: "IICRC S500:2021 §8.1",
       },
       {
         category: "STRUCTURAL_DRYING",
@@ -208,7 +208,7 @@ export async function POST(_req: NextRequest) {
         unit: "DAY",
         quantity: 3,
         unitRate: 65.0,
-        iicrcReference: "IICRC S500:2025 §8.2",
+        iicrcReference: "IICRC S500:2021 §8.2",
       },
       {
         category: "ANTIMICROBIAL",
@@ -217,7 +217,7 @@ export async function POST(_req: NextRequest) {
         unit: "M2",
         quantity: 150,
         unitRate: 8.75,
-        iicrcReference: "IICRC S500:2025 §10.3",
+        iicrcReference: "IICRC S500:2021 §10.3",
       },
       {
         category: "REINSTATEMENT",

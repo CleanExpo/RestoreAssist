@@ -38,7 +38,7 @@ vi.mock("@/lib/prisma", () => {
 
 vi.mock("@/lib/ai/model-router", () => ({
   routeAiRequest: vi.fn().mockResolvedValue({
-    text: "Inspection NIR-2026-05-0001 at 12 Main St completed on 2026-05-14. Scope completed includes Cat 2 water remediation per IICRC S500:2025 §10.5. Total billed: $1,210 inc GST (10%). 90-day workmanship warranty applies.",
+    text: "Inspection NIR-2026-05-0001 at 12 Main St completed on 2026-05-14. Scope completed includes Cat 2 water remediation per IICRC S500:2021 §10.5. Total billed: $1,210 inc GST (10%). 90-day workmanship warranty applies.",
     model: "gemma-4-31b-it",
     tier: "basic",
     fellBack: false,
@@ -220,7 +220,7 @@ describe("buildCloseSummary — IICRC citation guard", () => {
     expect(out.ok).toBe(true);
     if (out.ok) {
       // Citation guard must append S500 reference for water claims.
-      expect(out.draft.text).toContain("S500:2025");
+      expect(out.draft.text).toContain("S500:2021");
     }
   });
 });

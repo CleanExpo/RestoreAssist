@@ -81,7 +81,7 @@ describe("POST scope-narrative", () => {
     expect(res.headers.get("content-type")).toMatch(/text\/markdown/);
     const md = await res.text();
     expect(md).toContain("# Scope of Works");
-    expect(md).toContain("AS-IICRC S500:2025");
+    expect(md).toContain("ANSI/IICRC S500:2021");
     expect(md).toContain("Bathroom");
     expect(md).toMatch(/suspected asbestos|ACM/i);
   });

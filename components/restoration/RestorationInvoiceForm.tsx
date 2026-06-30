@@ -97,7 +97,7 @@ const defaultFormData: RestorationInvoiceFormData = {
   lineItems: [],
   excessAmt: "0.00",
   cert: {
-    standardApplied: "AS-IICRC S500:2025",
+    standardApplied: "ANSI/IICRC S500:2021",
     technicianCert: "[IICRC WRT #]",
     preLossMoisture: "[Readings / Baseline]",
     postDryMoisture: "[Readings / Confirmation]",
@@ -829,7 +829,7 @@ export default function RestorationInvoiceForm({
             following a covered insured event. This right is consistent with:
             Insurance Contracts Act 1984 (Cth) §§13, 54, 57; ACCC Northern
             Australia Insurance Inquiry Recommendation 20.2; General Insurance
-            Code of Practice (2020); AFCA Approach; AS-IICRC S500:2025 (and
+            Code of Practice (2020); AFCA Approach; ANSI/IICRC S500:2021 (and
             applicable IICRC Standards).
           </p>
           <p>
@@ -1012,7 +1012,7 @@ export default function RestorationInvoiceForm({
             <strong>Applicable Legislation &amp; Standards:</strong> Insurance
             Contracts Act 1984 (Cth) §§13, 54, 57 · Competition and Consumer Act
             2010 (Cth) Sch 2 §§100–101 · General Insurance Code of Practice
-            (2020) · AS-IICRC S500:2025 · QBCC Act 1991 (Qld)
+            (2020) · ANSI/IICRC S500:2021 · QBCC Act 1991 (Qld)
           </p>
         </div>
       </div>

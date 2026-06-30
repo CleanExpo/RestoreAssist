@@ -187,7 +187,7 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
     it.each([
       "One field in. Eleven fields out.",
       "Every wired capability is checked before Activate.",
-      "IICRC S500:2025 §7.1 cited correctly in every report footer.",
+      "IICRC S500:2021 §7.1 cited correctly in every report footer.",
     ])("home page renders proof bullet: %s", (bullet) => {
       const { container, unmount } = render(<Home />);
       expect(container.textContent).toContain(bullet);

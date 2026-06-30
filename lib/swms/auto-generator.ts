@@ -2,13 +2,13 @@
  * RA-1131: Auto-SWMS Draft Generator
  *
  * Pure function — no side effects. Generates a Safe Work Method Statement draft
- * from an inspection's hazard data, citing AS-IICRC S500:2025 stabilisation
+ * from an inspection's hazard data, citing ANSI/IICRC S500:2021 stabilisation
  * clauses and state WHS Act references.
  *
  * Authority:
- *   - AS-IICRC S500:2025 (water damage restoration)
+ *   - ANSI/IICRC S500:2021 (water damage restoration)
  *   - State WHS Acts via lib/state-detection.ts
- *   - IICRC S520:2015 (mould remediation)
+ *   - IICRC S520:2024 (mould remediation)
  */
 
 import { prisma } from "@/lib/prisma";
@@ -35,7 +35,7 @@ export type SwmsHazard = {
 export type SwmsDraft = {
   inspectionId: string;
   hazards: SwmsHazard[];
-  /** Deduplicated AS-IICRC S500:2025 clause references across all hazards */
+  /** Deduplicated ANSI/IICRC S500:2021 clause references across all hazards */
   clauseRefs: string[];
   /** State WHS Act reference for this jurisdiction */
   stateWhsRefs: string[];
@@ -55,8 +55,8 @@ const ELECTRICAL_HAZARD: SwmsHazard = {
     "Do not operate electrical equipment in wet zones until clearance obtained",
   ],
   clauseRefs: [
-    "AS-IICRC S500:2025 §7.1 — Stabilisation: electrical hazard isolation",
-    "AS-IICRC S500:2025 §6.2 — Safety and personal protective equipment",
+    "ANSI/IICRC S500:2021 §7.1 — Stabilisation: electrical hazard isolation",
+    "ANSI/IICRC S500:2021 §6.2 — Safety and personal protective equipment",
   ],
 };
 
@@ -71,8 +71,8 @@ const GAS_HAZARD: SwmsHazard = {
     "Contact gas utility if meter is inaccessible",
   ],
   clauseRefs: [
-    "AS-IICRC S500:2025 §7.1 — Stabilisation: gas isolation",
-    "AS-IICRC S500:2025 §6.2 — Safety and personal protective equipment",
+    "ANSI/IICRC S500:2021 §7.1 — Stabilisation: gas isolation",
+    "ANSI/IICRC S500:2021 §6.2 — Safety and personal protective equipment",
   ],
 };
 
@@ -87,8 +87,8 @@ const SLIP_HAZARD: SwmsHazard = {
     "Establish safe walkways through affected area",
   ],
   clauseRefs: [
-    "AS-IICRC S500:2025 §7.2 — Stabilisation: water removal sequence",
-    "AS-IICRC S500:2025 §6.2 — Safety and personal protective equipment",
+    "ANSI/IICRC S500:2021 §7.2 — Stabilisation: water removal sequence",
+    "ANSI/IICRC S500:2021 §6.2 — Safety and personal protective equipment",
   ],
 };
 
@@ -105,9 +105,9 @@ const BIOLOGICAL_HAZARD: SwmsHazard = {
     "Disinfect all tools and equipment on exit",
   ],
   clauseRefs: [
-    "AS-IICRC S500:2025 §10.4 — Category 3 water: grossly contaminated",
-    "AS-IICRC S500:2025 §6.3 — Personal protective equipment for contaminated water",
-    "AS-IICRC S500:2025 §11.1 — Containment for Category 3 restoration",
+    "ANSI/IICRC S500:2021 §10.4 — Category 3 water: grossly contaminated",
+    "ANSI/IICRC S500:2021 §6.3 — Personal protective equipment for contaminated water",
+    "ANSI/IICRC S500:2021 §11.1 — Containment for Category 3 restoration",
   ],
 };
 
@@ -123,9 +123,9 @@ const MOULD_HAZARD: SwmsHazard = {
     "Bag and seal mould-contaminated materials before transport",
   ],
   clauseRefs: [
-    "AS-IICRC S500:2025 §12.1 — Mould presence during water damage restoration",
-    "AS-IICRC S520:2015 §7 — Mould remediation: containment and removal",
-    "AS-IICRC S500:2025 §6.3 — Personal protective equipment",
+    "ANSI/IICRC S500:2021 §12.1 — Mould presence during water damage restoration",
+    "ANSI/IICRC S520:2024 §7 — Mould remediation: containment and removal",
+    "ANSI/IICRC S500:2021 §6.3 — Personal protective equipment",
   ],
 };
 
@@ -142,8 +142,8 @@ const ASBESTOS_RISK_HAZARD: SwmsHazard = {
     "Notify state WHS regulator per jurisdictional requirements",
   ],
   clauseRefs: [
-    "AS-IICRC S500:2025 §7.1 — Stabilisation: hazardous material identification",
-    "AS-IICRC S500:2025 §6.4 — Hazardous building materials",
+    "ANSI/IICRC S500:2021 §7.1 — Stabilisation: hazardous material identification",
+    "ANSI/IICRC S500:2021 §6.4 — Hazardous building materials",
   ],
 };
 
@@ -168,7 +168,7 @@ function detectStateCode(postcode: string): string {
 /**
  * Generate a SWMS draft for the given inspection.
  * Reads MakeSafeAction rows, AffectedArea category, and WHSIncident types
- * to enumerate applicable hazards and cite AS-IICRC S500:2025 clauses.
+ * to enumerate applicable hazards and cite ANSI/IICRC S500:2021 clauses.
  */
 export async function generateSwmsDraft(
   inspectionId: string,

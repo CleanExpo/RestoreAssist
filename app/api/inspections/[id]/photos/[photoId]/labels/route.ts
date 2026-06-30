@@ -2,7 +2,7 @@
  * RA-447: Inspection photo label API — PATCH endpoint
  * PATCH /api/inspections/[id]/photos/[photoId]/labels
  *
- * Accepts all 13 required + 2 optional S500:2025 label fields.
+ * Accepts all 13 required + 2 optional S500:2021 label fields.
  * Enforces cross-field validation rules from INSPECTION-IMAGE-SCHEMA.md §8.
  * Returns { asbestosStopWork: true } when ASBESTOS_SUSPECT is flagged.
  * Workspace-scoped: inspection must belong to authenticated user.
@@ -300,7 +300,7 @@ export async function PATCH(
       return NextResponse.json({ errors }, { status: 400 });
     }
 
-    // ---- Cross-field validation (S500:2025 §8) ----
+    // ---- Cross-field validation (S500:2021 §8) ----
     const crossFieldErrors = validateCrossFieldRules({
       damageCategory: body.damageCategory,
       secondaryDamageIndicators: body.secondaryDamageIndicators,

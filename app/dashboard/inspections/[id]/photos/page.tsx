@@ -4,7 +4,7 @@
  * RA-448: Inspection photo evidence screen
  * /dashboard/inspections/[id]/photos
  *
- * Photo grid with S500:2025 label display, inline label editing,
+ * Photo grid with S500:2021 label display, inline label editing,
  * asbestos stop-work banner, and filter bar.
  * Depends on: RA-446 (types), RA-447 (PATCH endpoint)
  */
@@ -547,7 +547,7 @@ function PhotoPanel({
         {editing && (
           <div className="space-y-4 p-4 pb-8">
             <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-              Edit Labels — S500:2025
+              Edit Labels — S500:2021
             </p>
 
             {/* Damage Category */}

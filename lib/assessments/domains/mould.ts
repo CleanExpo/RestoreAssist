@@ -5,7 +5,7 @@
  * payload (`condition` + optional `ambientRelativeHumidity` and
  * `containment` override) and produces:
  *
- *   - report  — IICRC S520:2015 §12 grounded sections (situation,
+ *   - report  — IICRC S520:2024 §12 grounded sections (situation,
  *               classification, containment rationale, equipment,
  *               clearance criteria, post-remediation verification)
  *   - scope   — ScopeItem[] from lib/equipment-calculator-mould +
@@ -49,7 +49,7 @@ const DAILY_RATES_AUD: Record<MouldEquipmentLineItem["type"], number> = {
 };
 
 /**
- * Estimated remediation duration (days). S520:2015 doesn't prescribe a
+ * Estimated remediation duration (days). S520:2024 doesn't prescribe a
  * fixed schedule — duration is condition × area driven. Conservative
  * mid-points used for pilot defaults; pilots can supply `days` via
  * options to override.
@@ -180,7 +180,7 @@ function buildReport(args: {
   iicrcClassification: string;
 }): { report: AssessmentReport; citations: StandardCitation[] } {
   const cite = (section: string, note?: string): StandardCitation => ({
-    standard: "IICRC S520:2015",
+    standard: "IICRC S520:2024",
     section,
     note,
   });
@@ -193,7 +193,7 @@ function buildReport(args: {
       `Inspection of ${args.propertyAddress} identified ` +
       `${args.iicrcClassification} mould contamination across ` +
       `${args.affectedAreaM2.toFixed(1)} m². Condition assessment per ` +
-      `IICRC S520:2015 §3 sets the regulatory pathway for remediation: ` +
+      `IICRC S520:2024 §3 sets the regulatory pathway for remediation: ` +
       `Condition 2 (settled spores / traces of amplification) requires ` +
       `LIMITED containment; Condition 3 (active fungal growth) requires ` +
       `negative-pressure FULL containment with HEPA filtration whenever ` +

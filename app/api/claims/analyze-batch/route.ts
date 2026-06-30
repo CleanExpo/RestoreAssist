@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
           "S520",
           "S540",
           "IICRC",
-          "AS-IICRC",
+          "ANSI/IICRC",
           "AS/NZS 3000",
           "AS/NZS 3500",
           "AS 1668",

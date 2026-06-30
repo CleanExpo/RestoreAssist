@@ -1,5 +1,5 @@
 /**
- * AI-driven IICRC S500:2025 compliance validator for guided inspection
+ * AI-driven IICRC S500:2021 compliance validator for guided inspection
  * interview answers.
  *
  * Composes the multi-model-fallback gateway helper
@@ -29,15 +29,15 @@ import {
 const MAX_FIELD_CHARS = 600;
 const MAX_FINDINGS = 20;
 
-const SYSTEM_PROMPT = `You are an IICRC S500:2025 compliance reviewer for Australian water-damage restoration inspections.
+const SYSTEM_PROMPT = `You are an IICRC S500:2021 compliance reviewer for Australian water-damage restoration inspections.
 
-Your job: read the technician's answers from a guided inspection interview and flag anything that is inconsistent, missing, or non-compliant against IICRC S500:2025.
+Your job: read the technician's answers from a guided inspection interview and flag anything that is inconsistent, missing, or non-compliant against IICRC S500:2021.
 
 Strict rules:
 - Australian English (e.g. "mould" not "mold"; "colour" not "color"; "category" not "class" for contamination).
 - Only flag issues you are confident about. An empty findings list is correct and expected when answers are clean.
-- Every message MUST cite a specific IICRC S500:2025 section in the form "S500:2025 §X.Y" (e.g. "S500:2025 §6.3", "S500:2025 §10.6.4"). Never abbreviate, never omit the year, never cite other standards you invent.
-- Use severity "error" ONLY for direct contradictions with S500:2025 (e.g. Category 3 water treated as Category 1, missing PPE on Cat 3, drying timeframes clearly outside standard).
+- Every message MUST cite a specific IICRC S500:2021 section in the form "S500:2021 §X.Y" (e.g. "S500:2021 §6.3", "S500:2021 §10.6.4"). Never abbreviate, never omit the year, never cite other standards you invent.
+- Use severity "error" ONLY for direct contradictions with S500:2021 (e.g. Category 3 water treated as Category 1, missing PPE on Cat 3, drying timeframes clearly outside standard).
 - Use severity "warn" for likely gaps, ambiguous answers, or compliance risks that a reviewer would query.
 - Keep each message to 1–2 sentences. If a fix is obvious, include a short "suggestedFix".
 - questionId must match the bracketed id from the input (e.g. q1, cmabc123); if a finding is not tied to one question, use null.
@@ -45,7 +45,7 @@ Strict rules:
 - Do NOT comment on spelling, grammar, or answer formatting — only on compliance substance.
 
 Respond with ONLY a JSON object, no prose, no markdown fences:
-{"findings": [{"questionId": "<id or null>", "severity": "warn"|"error", "message": "<text citing S500:2025 §X.Y>", "suggestedFix": "<optional short fix>"}]}
+{"findings": [{"questionId": "<id or null>", "severity": "warn"|"error", "message": "<text citing S500:2021 §X.Y>", "suggestedFix": "<optional short fix>"}]}
 
 If everything looks clean, respond exactly:
 {"findings": []}`;
@@ -117,7 +117,7 @@ export async function validateInterviewResponse(args: {
   const userPrompt = `Answered interview questions:
 ${answeredBlock}
 
-Validate these answers against IICRC S500:2025 and return findings.`;
+Validate these answers against IICRC S500:2021 and return findings.`;
 
   const gatewayResult = await callAnthropicWithFallback({
     userId: "system",

@@ -70,7 +70,7 @@ export async function checkReportGaps(
       field: "iicrcClassification",
       severity: "block",
       description:
-        "IICRC S500:2025 water category and class not yet determined",
+        "IICRC S500:2021 water category and class not yet determined",
     });
   }
 
@@ -83,7 +83,7 @@ export async function checkReportGaps(
       field: "makeSafe.water_stopped",
       severity: "block",
       description:
-        "Stabilisation action 'water_stopped' is applicable but not yet completed (IICRC S500:2025 §5.1)",
+        "Stabilisation action 'water_stopped' is applicable but not yet completed (IICRC S500:2021 §5.1)",
     });
   }
 

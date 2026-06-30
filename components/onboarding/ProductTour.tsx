@@ -49,7 +49,7 @@ const STEPS: TourStep[] = [
   {
     icon: Sparkles,
     title: "Welcome to RestoreAssist",
-    body: "Let's take a 60-second tour of the tools that help Australian and New Zealand restorers run IICRC S500:2025-compliant jobs end-to-end.",
+    body: "Let's take a 60-second tour of the tools that help Australian and New Zealand restorers run IICRC S500:2021-compliant jobs end-to-end.",
   },
   {
     icon: Plus,
@@ -59,7 +59,7 @@ const STEPS: TourStep[] = [
   {
     icon: ClipboardCheck,
     title: "Inspections",
-    body: "Log moisture readings, psychrometric data and stabilisation progress against S500:2025 categories and classes. Readings sync into every report you create.",
+    body: "Log moisture readings, psychrometric data and stabilisation progress against S500:2021 categories and classes. Readings sync into every report you create.",
   },
   {
     icon: MessageSquare,

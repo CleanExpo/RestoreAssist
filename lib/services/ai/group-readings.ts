@@ -2,7 +2,7 @@
  * Moisture-reading AI auto-grouper.
  *
  * Composes lib/services/ai/anthropic-gateway.ts (platform-key flow) with the
- * S500:2025 §6 drying-chamber clustering prompt + tolerant JSON parser. Action
+ * S500:2021 §6 drying-chamber clustering prompt + tolerant JSON parser. Action
  * layer (app/api/inspections/[id]/group-readings/route.ts) maps result.reason
  * to HTTP, and is responsible for inspection-tenancy + readings fetch.
  *
@@ -13,7 +13,7 @@ import { callAnthropic } from "./anthropic-gateway";
 import type { AnthropicReason } from "./anthropic-gateway";
 import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
 
-const SYSTEM_PROMPT = `You are a structural drying expert clustering moisture readings into affected areas (drying chambers) per IICRC S500:2025 §6.
+const SYSTEM_PROMPT = `You are a structural drying expert clustering moisture readings into affected areas (drying chambers) per IICRC S500:2021 §6.
 
 Your job: given a list of moisture readings taken at various sub-locations, group them by the underlying room / zone / drying chamber they belong to.
 
@@ -23,7 +23,7 @@ Fuzzy-match rules:
 - "LR" and "Living Room" -> same group "Living Room"
 - Different floors / wings stay separate ("Upstairs Bath" vs "Downstairs Bath")
 - Hallways, entries, landings stay separate from adjoining rooms
-- When ambiguous, prefer fewer, larger groups that would constitute one drying chamber under S500:2025 §6
+- When ambiguous, prefer fewer, larger groups that would constitute one drying chamber under S500:2021 §6
 
 Output STRICT JSON only — no prose, no code fences:
 {
@@ -39,7 +39,7 @@ Output STRICT JSON only — no prose, no code fences:
 Every readingId from the input MUST appear exactly once across all "readingIds" arrays plus "unsortedReadingIds". Do NOT invent IDs.`;
 
 // Moisture %MC threshold above which a reading is "elevated" for summary badge.
-// 16%MC aligns with IICRC S500:2025 drying-goal guidance for gypsum/timber.
+// 16%MC aligns with IICRC S500:2021 drying-goal guidance for gypsum/timber.
 const ELEVATED_THRESHOLD = 16;
 
 export type GroupReadingsReason = AnthropicReason | "PARSE_FAILED";
@@ -105,7 +105,7 @@ ${readings
   )
   .join("\n")}
 
-Group these into affected areas per IICRC S500:2025 §6. Respond with the strict JSON schema only.`;
+Group these into affected areas per IICRC S500:2021 §6. Respond with the strict JSON schema only.`;
 
   const gatewayResult = await callAnthropic({
     userId: args.userId,

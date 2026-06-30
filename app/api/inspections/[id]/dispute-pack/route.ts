@@ -10,7 +10,7 @@ import { withIdempotency } from "@/lib/idempotency";
  *
  * Generates a Dispute Defence Pack PDF for a completed inspection.
  * The PDF contains all evidence, moisture readings, scope of works,
- * and IICRC S500:2025 citations for insurance dispute resolution.
+ * and IICRC S500:2021 citations for insurance dispute resolution.
  *
  * Auth: getServerSession (CLAUDE.md Rule 1)
  * Response: PDF stream with Content-Disposition attachment header.

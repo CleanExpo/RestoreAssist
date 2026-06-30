@@ -31,7 +31,7 @@ const sampleSections: ReportSection[] = [
   {
     heading: "Situation",
     body: "Cat 2 water damage. Class 2.",
-    citations: [{ standard: "IICRC S500:2025", section: "§13" }],
+    citations: [{ standard: "IICRC S500:2021", section: "§13" }],
   },
   {
     heading: "Scope rationale",

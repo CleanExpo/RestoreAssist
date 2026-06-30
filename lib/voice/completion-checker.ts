@@ -1,5 +1,5 @@
 /**
- * RA-396: S500:2025 inspection completion checker.
+ * RA-396: S500:2021 inspection completion checker.
  *
  * Checks which required evidence items are missing from an inspection
  * and returns them ranked by priority (field-frequency of causing claim rejection).
@@ -22,7 +22,7 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     priority: 1,
     prompt: {
       guided:
-        "You need to record temperature and relative humidity in every affected room. S500:2025 §6 requires this before equipment placement.",
+        "You need to record temperature and relative humidity in every affected room. S500:2021 §6 requires this before equipment placement.",
       assisted:
         "Psychrometric data missing for some rooms — temp and RH needed.",
       dictation: "Psychrometric data incomplete.",
@@ -35,7 +35,7 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     priority: 1,
     prompt: {
       guided:
-        "Take moisture readings at the structural elements — studs and joists if accessible. S500:2025 §8 requires baseline readings on all affected materials.",
+        "Take moisture readings at the structural elements — studs and joists if accessible. S500:2021 §8 requires baseline readings on all affected materials.",
       assisted: "Structural moisture readings needed — studs/joists.",
       dictation: "No structural readings logged.",
     },
@@ -47,7 +47,7 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     priority: 1,
     prompt: {
       guided:
-        "Get a photo of where the water came from — the source point. This is required for the insurance claim under S500:2025 §9.",
+        "Get a photo of where the water came from — the source point. This is required for the insurance claim under S500:2021 §9.",
       assisted: "Water source photo missing.",
       dictation: "No source photo.",
     },
@@ -71,7 +71,7 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     priority: 1,
     prompt: {
       guided:
-        "Document the water category — Cat 1, 2, or 3 — and the reason. S500:2025 §7.1 requires this. What's the source?",
+        "Document the water category — Cat 1, 2, or 3 — and the reason. S500:2021 §7.1 requires this. What's the source?",
       assisted: "Category not documented — Cat 1, 2, or 3?",
       dictation: "Category missing.",
     },
@@ -83,7 +83,7 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     priority: 2,
     prompt: {
       guided:
-        "What damage class is this — Class 1, 2, 3, or 4? And roughly how many square metres are affected? S500:2025 §7.2 needs both.",
+        "What damage class is this — Class 1, 2, 3, or 4? And roughly how many square metres are affected? S500:2021 §7.2 needs both.",
       assisted: "Class and area estimate needed.",
       dictation: "Class/area not set.",
     },
@@ -95,7 +95,7 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     priority: 2,
     prompt: {
       guided:
-        "Log the serial number and position of every piece of equipment you're placing. S500:2025 §14 requires this for the equipment log.",
+        "Log the serial number and position of every piece of equipment you're placing. S500:2021 §14 requires this for the equipment log.",
       assisted:
         "Equipment serials not logged — add serial numbers and positions.",
       dictation: "Equipment log incomplete.",
@@ -142,7 +142,7 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
 // ─── Completion check ─────────────────────────────────────────────────────────
 
 /**
- * Check which S500:2025 items are complete for a given inspection.
+ * Check which S500:2021 items are complete for a given inspection.
  * Reads from the DB to determine completion status.
  */
 export async function checkCompletion(

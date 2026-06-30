@@ -1,6 +1,6 @@
 /**
  * RA-396: GET /api/inspections/[id]/voice/checklist
- * Returns the S500:2025 completion checklist for an inspection.
+ * Returns the S500:2021 completion checklist for an inspection.
  *
  * Response: { inspectionId, items, completedCount, totalCount, criticalMissing, readyToLeave }
  */

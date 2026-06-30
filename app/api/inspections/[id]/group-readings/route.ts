@@ -16,7 +16,7 @@
  *  - Subscription gate allowlist: TRIAL / ACTIVE / LIFETIME (rule 8)
  *  - Rate limit: 10/min/user (ticket)
  *  - Anthropic key via getAnthropicApiKey(userId) — no env fallback
- *  - IICRC S500:2025 §6 (structural drying chambers) cited in prompt
+ *  - IICRC S500:2021 §6 (structural drying chambers) cited in prompt
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -40,7 +40,7 @@ type GroupResponse = {
 };
 
 // Moisture %MC threshold above which a reading is "elevated" for summary badge.
-// 16%MC aligns with IICRC S500:2025 drying-goal guidance for gypsum/timber.
+// 16%MC aligns with IICRC S500:2021 drying-goal guidance for gypsum/timber.
 const ELEVATED_THRESHOLD = 16;
 
 export async function POST(

@@ -50,7 +50,7 @@ describe("generateEnhancedReport", () => {
 
   it("returns ok with enhancedReport when model returns text", async () => {
     const reportText =
-      "# Professional Inspection Report\n\nDetailed report text referencing AS-IICRC S500:2025.";
+      "# Professional Inspection Report\n\nDetailed report text referencing ANSI/IICRC S500:2021.";
     vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
       ok: true,
       data: mockTextMessage(reportText) as any,

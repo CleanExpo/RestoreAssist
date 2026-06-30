@@ -291,7 +291,7 @@ function addComplianceAnnexPage(
   const { helvetica, bold } = shared;
   let y = PAGE_H - MARGIN;
 
-  page.drawText("Compliance Annex — AS-IICRC S500:2025 / NCC", {
+  page.drawText("Compliance Annex — ANSI/IICRC S500:2021 / NCC", {
     x: MARGIN,
     y,
     size: 16,

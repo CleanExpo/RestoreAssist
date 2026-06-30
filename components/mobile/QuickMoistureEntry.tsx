@@ -235,7 +235,7 @@ export function QuickMoistureEntry({
       {std && (
         <p className="text-center text-xs text-white/30">
           Dry target for {MATERIALS.find((m) => m.value === material)?.label}: ≤
-          {std.dryThreshold}%{" · "}S500:2025 §12
+          {std.dryThreshold}%{" · "}S500:2021 §12
         </p>
       )}
     </div>

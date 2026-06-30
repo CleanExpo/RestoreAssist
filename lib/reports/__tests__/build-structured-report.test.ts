@@ -249,7 +249,7 @@ describe("buildStructuredBasicReport — compliance & stabilisation terminology"
     expect(result.compliance.standards).toContain("QDC");
   });
 
-  it("labels phase 1 timeline using AS-IICRC S500 'Stabilisation' terminology", () => {
+  it("labels phase 1 timeline using ANSI/IICRC S500 'Stabilisation' terminology", () => {
     expect(build().timeline.phase1.description).toBe("Stabilisation (Make-Safe)");
   });
 });

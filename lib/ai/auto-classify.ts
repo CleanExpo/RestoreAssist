@@ -26,8 +26,8 @@ export interface ClassificationResult {
    */
   llmConfidence?: number;
   /**
-   * RA-1126: IICRC S500:2025 clause references from LLM classifier.
-   * e.g. ["S500:2025 §10.5.4"]
+   * RA-1126: IICRC S500:2021 clause references from LLM classifier.
+   * e.g. ["S500:2021 §10.5.4"]
    */
   clauseRefs?: string[];
   /**
@@ -254,15 +254,15 @@ export async function vectorClassify(input: {
 // Stage 3: LLM classifier — Claude Opus 4.7 via Anthropic SDK (RA-1126).
 // ---------------------------------------------------------------------------
 
-const SYSTEM_PROMPT = `You are an IICRC S500:2025-certified water damage classifier for Australian and New Zealand restoration contractors.
+const SYSTEM_PROMPT = `You are an IICRC S500:2021-certified water damage classifier for Australian and New Zealand restoration contractors.
 
 Given inspection data, return JSON with:
 - claimType (water/fire/mould/storm/biohazard)
-- category (1, 2, or 3 per S500:2025 §10.5)
-- class (1-4 per S500:2025 §10.6)
+- category (1, 2, or 3 per S500:2021 §10.5)
+- class (1-4 per S500:2021 §10.6)
 - confidence (0.0-1.0)
 - reasoning (20-500 chars, cite clauses)
-- clauseRefs (array of "S500:2025 §X.Y.Z" citations)
+- clauseRefs (array of "S500:2021 §X.Y.Z" citations)
 - humanReviewRequired (true if confidence < 0.7 or ambiguous)
 
 Australian English spelling (mould, not mold). If jurisdiction is "NZ", additionally consider NZBS E2/E3.`;

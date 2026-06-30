@@ -4,7 +4,7 @@
  * Fifth concrete domain. Reads an Inspection plus a domain-options
  * payload (`entryType` + `waterCategory`) and produces:
  *
- *   - report  — IICRC S500:2025 + AU NCC weatherproofing grounded
+ *   - report  — IICRC S500:2021 + AU NCC weatherproofing grounded
  *               sections (situation, entry-pathway analysis, water
  *               classification, scope rationale, drying targets,
  *               make-safe recommendations)
@@ -238,7 +238,7 @@ function buildReport(args: {
   days: number;
 }): { report: AssessmentReport; citations: StandardCitation[] } {
   const cite = (section: string, note?: string): StandardCitation => ({
-    standard: "IICRC S500:2025",
+    standard: "IICRC S500:2021",
     section,
     note,
   });
@@ -254,7 +254,7 @@ function buildReport(args: {
       `Inspection of ${args.propertyAddress} identified storm damage via ` +
       `${ENTRY_LABEL[args.entryType]} affecting ` +
       `${args.affectedAreaM2.toFixed(1)} m². Restoration pathway is governed ` +
-      `by IICRC S500:2025 plus AU National Construction Code Volume 2 ` +
+      `by IICRC S500:2021 plus AU National Construction Code Volume 2 ` +
       `Part 3.5 weatherproofing requirements for the make-safe and ` +
       `reinstatement phases.`,
     citations: [cite("§3.1"), ncc],
@@ -268,10 +268,10 @@ function buildReport(args: {
       `category for treatment: ${args.effectiveCategory}.` +
       (elevated
         ? ` Elevation rationale: ${args.entryType === "flash_flood" ? "flash-flood inundation carries surface contaminants and is treated as Cat-3" : "stormwater-ingress water mixes with municipal drainage and is treated as Cat-3"} ` +
-          `per S500:2025 §3.1. All porous materials in contact with the ` +
+          `per S500:2021 §3.1. All porous materials in contact with the ` +
           `Cat-3 water must be removed or evaluated against §6.3 treatment ` +
           `criteria; antimicrobial application is included as a default.`
-        : ` Treatment follows S500:2025 §3.1 thresholds for the declared ` +
+        : ` Treatment follows S500:2021 §3.1 thresholds for the declared ` +
           `category — extraction, drying, monitoring; restorability of ` +
           `porous materials is decided per §6.`),
     citations: [cite("§3.1"), cite("§6"), cite("§6.3")],
@@ -309,7 +309,7 @@ function buildReport(args: {
   sections.push({
     heading: "Scope rationale",
     body:
-      `Scope items are generated from the storm pathway in S500:2025: ` +
+      `Scope items are generated from the storm pathway in S500:2021: ` +
       `extraction (§5.2) → moisture mapping (§7.3) → drying (§8.1) → ` +
       `category-specific treatment (§6 / §6.3 if Cat-3). Equipment ` +
       `quantities are ratio-driven, not estimated. Where the effective ` +
@@ -415,7 +415,7 @@ export const stormDomain: DomainPlugin = {
         category: categoryFromItemType(d.itemType),
         quantity: d.quantity ?? 1,
         unit: d.unit ?? "ea",
-        iicrcRef: d.iicrcReference?.trim() || "IICRC S500:2025",
+        iicrcRef: d.iicrcReference?.trim() || "IICRC S500:2021",
         notes: d.justification,
       }));
 

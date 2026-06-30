@@ -346,7 +346,7 @@ export default function PrivacyPage() {
               stored together with its EXIF header (camera model, capture
               timestamp, exposure settings) and, where you have granted
               location permission, the GPS coordinates at the moment of
-              capture. This metadata is required by IICRC S500:2025 §10.5 for
+              capture. This metadata is required by IICRC S500:2021 §10.5 for
               admissible chain-of-custody and is signed by a per-device
               Ed25519 key so the photograph cannot be silently altered after
               capture.

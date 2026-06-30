@@ -4,12 +4,12 @@
  * POST /api/inspections/[id]/classify
  *
  * Reads the inspection's moisture readings and affected-area data, sends them
- * to Claude Haiku with an S500:2025-aware prompt, and returns a *suggestion*:
+ * to Claude Haiku with an S500:2021-aware prompt, and returns a *suggestion*:
  *
  *   { waterCategory: "CATEGORY_1"|"CATEGORY_2"|"CATEGORY_3",
  *     waterClass:    "CLASS_1"|"CLASS_2"|"CLASS_3"|"CLASS_4",
  *     confidence:    0-100,
- *     reasoning:     string (cites S500:2025 sections) }
+ *     reasoning:     string (cites S500:2021 sections) }
  *
  * The endpoint does NOT persist anything. The user reviews the preview and
  * applies via the existing inspection update flow.

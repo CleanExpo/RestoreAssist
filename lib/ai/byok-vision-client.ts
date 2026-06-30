@@ -6,7 +6,7 @@
  *   Gemini (gemini-3.1-pro, gemini-3.1-flash)    — Google multimodal API
  *   GPT (gpt-5.4, gpt-5.4-mini)                  — OpenAI vision API
  *
- * All output is structured as IICRC S500:2025-compliant analysis results that
+ * All output is structured as IICRC S500:2021-compliant analysis results that
  * populate inspection evidence fields automatically.
  *
  * RA-393: Phase 0.5 — BYOK Vision Extension
@@ -21,7 +21,7 @@ import {
   type AllowedModel,
 } from "@/mobile/constants/byok";
 
-// ─── Evidence & damage taxonomy (IICRC S500:2025) ────────────────────────────
+// ─── Evidence & damage taxonomy (IICRC S500:2021) ────────────────────────────
 
 export const EVIDENCE_CLASSES = [
   "SITE_OVERVIEW",
@@ -76,7 +76,7 @@ export interface VisionAnalysisRequest {
   userId: string;
 }
 
-/** IICRC S500:2025-compliant structured vision output */
+/** IICRC S500:2021-compliant structured vision output */
 export interface S500VisionResult {
   /** Best-fit IICRC S500 damage category (1–3) */
   damageCategory: DamageCategory | null;
@@ -110,7 +110,7 @@ export interface S500VisionResult {
 
 // ─── System prompt ────────────────────────────────────────────────────────────
 
-const S500_SYSTEM_PROMPT = `You are an IICRC-certified water damage restoration expert analysing site photographs for an Australian insurance inspection. Apply IICRC S500:2025 standards to every analysis.
+const S500_SYSTEM_PROMPT = `You are an IICRC-certified water damage restoration expert analysing site photographs for an Australian insurance inspection. Apply IICRC S500:2021 standards to every analysis.
 
 Respond ONLY with a valid JSON object matching this exact schema:
 {
@@ -131,7 +131,7 @@ Respond ONLY with a valid JSON object matching this exact schema:
 Rules:
 - If water source is not visible or ambiguous, set damageCategory to null
 - photoQualityScore: 100 = well-lit, sharp, full coverage; deduct for blur, backlight, partial framing
-- s500ComplianceNotes: cite specific S500:2025 section numbers (e.g. §7.1, §9.3)
+- s500ComplianceNotes: cite specific S500:2021 section numbers (e.g. §7.1, §9.3)
 - Be concise and factual — this is a legal document`;
 
 // ─── Provider dispatch ────────────────────────────────────────────────────────
@@ -233,7 +233,7 @@ async function callAnthropicVision(
           },
           {
             type: "text",
-            text: `Analyse this water damage site photograph using IICRC S500:2025 standards.${contextNote}`,
+            text: `Analyse this water damage site photograph using IICRC S500:2021 standards.${contextNote}`,
           },
         ],
       },
@@ -275,7 +275,7 @@ async function callOpenAIVision(
           },
           {
             type: "text",
-            text: `Analyse this water damage site photograph using IICRC S500:2025 standards.${contextNote}`,
+            text: `Analyse this water damage site photograph using IICRC S500:2021 standards.${contextNote}`,
           },
         ],
       },
@@ -317,7 +317,7 @@ async function callGeminiVision(
 
   const result = await model.generateContent([
     imagePart,
-    `Analyse this water damage site photograph using IICRC S500:2025 standards.${contextNote}`,
+    `Analyse this water damage site photograph using IICRC S500:2021 standards.${contextNote}`,
   ]);
 
   const text = result.response.text();

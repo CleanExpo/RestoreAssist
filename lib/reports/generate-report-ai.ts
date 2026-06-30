@@ -200,14 +200,14 @@ ${
 - ${stateInfo.epaAct || "Environmental Protection Act 1994"}
 - ${stateInfo.buildingCode || "Queensland Development Code"}
 - Standards Applied
-- ANSI/IICRC S500:2025
+- ANSI/IICRC S500:2021
 `
     : `
 - Work Health and Safety Act 2011
 - Environmental Protection Act 1994
 - Queensland Development Code
 - Standards Applied
-- ANSI/IICRC S500:2025
+- ANSI/IICRC S500:2021
 `
 }
 
@@ -1108,7 +1108,7 @@ CRITICAL: Do NOT use HTML tags like <p>, <br>, or style attributes. Use plain te
    - Do NOT use plain text for section titles - they must have markdown heading syntax
    - **CRITICAL: NEVER use HTML tags like <p>, <br>, <div>, or style attributes anywhere in the report. Use plain text and markdown only.**
 2. Use state-specific regulatory information provided (${stateInfo ? stateInfo.name : "generic Australian"})
-3. Reference IICRC S500:2025 and S520 standards explicitly
+3. Reference IICRC S500:2021 and S520 standards explicitly
 4. Reference ${stateInfo ? stateInfo.buildingCode : "NCC"} explicitly
 5. Reference ${stateInfo ? stateInfo.whsAct : "Work Health and Safety Act 2011"} explicitly
 6. Use ONLY the actual data provided in the REPORT DATA section - do not make up information

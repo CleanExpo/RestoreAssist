@@ -194,9 +194,9 @@ const REQUIRED_REPORT_SECTIONS = [
  */
 const ALL_STANDARDS_TO_CHECK = [
   // IICRC Standards
-  "AS-IICRC S500:2025",
+  "ANSI/IICRC S500:2021",
   "IICRC S500 Standard",
-  "AS-IICRC S520",
+  "ANSI/IICRC S520",
   "IICRC S520 Standard",
   "IICRC S540 Standard",
   "IICRC RIA Standards",

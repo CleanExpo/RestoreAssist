@@ -2,7 +2,7 @@
  * Inspection-photo auto-classifier (Claude Vision).
  *
  * Composes lib/services/ai/anthropic-gateway.ts (platform-key flow) with the
- * S500:2025-aware photo classification prompt + Australian water-damage
+ * S500:2021-aware photo classification prompt + Australian water-damage
  * vernacular. Action layer (app/api/ai/auto-classify-photo/[photoId]) handles
  * the InspectionPhoto DB write and maps result.reason to HTTP status codes.
  *
@@ -18,7 +18,7 @@ import type { AnthropicReason } from "./anthropic-gateway";
 import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
 
 const SYSTEM_PROMPT = `You are inspecting a water damage photo for an Australian restoration report.
-Apply IICRC S500:2025 categorisation and return JSON ONLY.
+Apply IICRC S500:2021 categorisation and return JSON ONLY.
 
 Fields to populate (null when the photo doesn't support a confident answer):
 - damageCategory: "CAT_1" | "CAT_2" | "CAT_3"

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { categoryRequirements, WATER_CATEGORIES } from "../water-category";
 
-describe("S500:2025 water categories", () => {
+describe("S500:2021 water categories", () => {
   it("defines the three categories clean/grey/black", () => {
     expect(WATER_CATEGORIES).toEqual(["cat1", "cat2", "cat3"]);
   });

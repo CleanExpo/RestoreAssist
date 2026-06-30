@@ -4,7 +4,7 @@
  * Fourth concrete domain. Reads an Inspection plus a domain-options
  * payload (`smokeType` + `charLevel`) and produces:
  *
- *   - report  — IICRC S700:2015 grounded sections (situation,
+ *   - report  — IICRC S700:2025 grounded sections (situation,
  *               smoke classification, structural assessment,
  *               cleaning protocol, odour control, clearance)
  *   - scope   — ScopeItem[] from lib/scope-fire::generateFireScope
@@ -181,7 +181,7 @@ function buildReport(args: {
   charLevel: 1 | 2 | 3 | 4;
 }): { report: AssessmentReport; citations: StandardCitation[] } {
   const cite = (section: string, note?: string): StandardCitation => ({
-    standard: "IICRC S700:2015",
+    standard: "IICRC S700:2025",
     section,
     note,
   });
@@ -193,7 +193,7 @@ function buildReport(args: {
       `Inspection of ${args.propertyAddress} identified ` +
       `${SMOKE_LABEL[args.smokeType]} affecting ` +
       `${args.affectedAreaM2.toFixed(1)} m². Smoke classification per IICRC ` +
-      `S700:2015 §4.3 governs the cleaning pathway: wet residues require ` +
+      `S700:2025 §4.3 governs the cleaning pathway: wet residues require ` +
       `degreaser + HEPA + odour neutralisation; dry residues require ` +
       `mechanical removal first to avoid smearing; protein films require ` +
       `enzymatic cleaners; fuel-oil residues require petroleum-specific ` +
@@ -205,7 +205,7 @@ function buildReport(args: {
     heading: "Structural assessment",
     body:
       `${CHAR_LABEL[args.charLevel]}. Char-level classification under ` +
-      `S700:2015 §5 drives structural removal/replacement decisions: ` +
+      `S700:2025 §5 drives structural removal/replacement decisions: ` +
       `Char 1-2 are typically restorable; Char 3 requires engineer ` +
       `assessment of load-bearing elements; Char 4 frames the demolition ` +
       `pathway and typically triggers builder involvement under the ` +
@@ -247,7 +247,7 @@ function buildReport(args: {
   sections.push({
     heading: "Odour control",
     body:
-      `Odour neutralisation per S700:2015 §7. Method selection follows ` +
+      `Odour neutralisation per S700:2025 §7. Method selection follows ` +
       `the smoke type: oxidising agents (ozone, hydroxyl) for ` +
       `combustion-byproduct VOCs; thermal fogging with odour-counteractant ` +
       `for protein; encapsulant sealers on substrates that cannot be ` +
@@ -340,7 +340,7 @@ export const fireSmokeDomain: DomainPlugin = {
         category: categoryFromItemType(d.itemType),
         quantity: d.quantity ?? 1,
         unit: d.unit ?? "ea",
-        iicrcRef: d.iicrcReference?.trim() || "IICRC S700:2015",
+        iicrcRef: d.iicrcReference?.trim() || "IICRC S700:2025",
         notes: d.justification,
       }));
 

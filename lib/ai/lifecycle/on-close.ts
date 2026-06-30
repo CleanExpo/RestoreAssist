@@ -113,7 +113,7 @@ export async function buildCloseSummary(
 const SYSTEM_PROMPT = `You are RestoreAssist's close-summary assistant.
 Draft a concise, client-facing summary (max 200 words) for a completed water
 damage / restoration inspection in Australia. Be warm but professional.
-Cite IICRC S500:2025 §X.Y where relevant. Include: scope completed, total
+Cite IICRC S500:2021 §X.Y where relevant. Include: scope completed, total
 billed (GST 10%), warranty period. No internal jargon.`;
 
 function buildPrompt(i: BuildInput): string {
@@ -147,21 +147,24 @@ function fallbackTemplate(i: BuildInput): string {
     `Inspection ${i.inspection.inspectionNumber} at ${i.inspection.propertyAddress} was completed on ${signedAt}.`,
     `Total billed (inc GST 10%): ${total}.`,
     `Workmanship is covered by a 90-day warranty from the completion date.`,
-    `Per IICRC S500:2025 §10.5 (water damage restoration), all scope items have been completed to industry standard.`,
+    `This water damage restoration was carried out with reference to IICRC S500:2021 (Standard for Professional Water Damage Restoration).`,
     `Please review and edit this summary before sending to the customer.`,
   ].join("\n\n");
 }
 
 function applyCitationGuard(text: string, claimType: string | null): string {
-  // Rule 14: every IICRC reference cites edition + section. If the draft is
-  // for a water claim and doesn't mention S500:, append a stock line.
+  // Rule 14: every IICRC reference cites edition + year. If the draft is for a
+  // water claim and doesn't mention S500:, append a neutral citation of the
+  // governing standard. Do NOT assert that work was "completed in accordance
+  // with" the standard — that is an unverified compliance claim and must come
+  // from recorded evidence, not an auto-injected stock line.
   if (text.includes("S500:")) return text;
   if (!claimType) return text;
   const ct = claimType.toUpperCase();
   if (ct !== "WATER") return text;
   return (
     text.trimEnd() +
-    "\n\nAll restoration work completed in accordance with IICRC S500:2025 §10.5."
+    "\n\nApplicable standard: IICRC S500:2021 (Standard for Professional Water Damage Restoration)."
   );
 }
 
