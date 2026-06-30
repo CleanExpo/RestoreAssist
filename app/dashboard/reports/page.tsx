@@ -205,10 +205,16 @@ export default function ReportsPage() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
+        // STORM #5 — was a silent console-only failure; surface it so the
+        // user knows the download didn't happen and can retry.
         console.error("Failed to download report");
+        toast.error("Couldn't download the report. Please try again.");
       }
     } catch (error) {
       console.error("Error downloading report:", error);
+      toast.error(
+        "Couldn't download the report. Check your connection and try again.",
+      );
     } finally {
       setDownloading(null);
     }
