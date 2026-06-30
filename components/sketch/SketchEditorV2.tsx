@@ -848,7 +848,11 @@ export function SketchEditorV2({
 
           {/* Save indicator (with RA-1769 failed-entry surfacing) */}
           {!readonly && (
-            <span className="relative text-xs text-white/30 min-w-[80px] text-right">
+            <span
+              role="status"
+              aria-live="polite"
+              className="relative text-xs text-white/30 min-w-[80px] text-right"
+            >
               {failedEntries.length > 0 ? (
                 <button
                   type="button"
@@ -894,6 +898,7 @@ export function SketchEditorV2({
                 <div
                   role="dialog"
                   aria-label="Failed sketch saves"
+                  aria-live="off"
                   className="absolute right-0 top-full mt-2 w-[360px] z-50 rounded-lg border border-rose-500/40 bg-slate-900 shadow-xl p-3 text-left"
                 >
                   <div className="flex items-center justify-between mb-2">
