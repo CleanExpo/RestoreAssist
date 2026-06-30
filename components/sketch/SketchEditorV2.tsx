@@ -54,7 +54,6 @@ import { SketchScaleModal } from "./SketchScaleModal";
 import type { ScaleConfig } from "./SketchScaleModal";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
-import { uploadRenderedSketch, dataUrlToBlob } from "@/lib/sketch-storage";
 
 const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
   ssr: false,
@@ -334,6 +333,13 @@ export function SketchEditorV2({
       let renderedPngUrl: string | undefined;
       if (renderImage && inspectionId && !captureMode) {
         try {
+          // Lazy import so the Supabase client (instantiated at module load in
+          // lib/supabase) stays out of this component's import graph — eager
+          // import broke unit tests that load SketchEditorV2 without Supabase
+          // env, and it kept supabase out of the initial client chunk anyway.
+          const { uploadRenderedSketch, dataUrlToBlob } = await import(
+            "@/lib/sketch-storage"
+          );
           const dataUrl = canvas.toDataURL({ format: "png", multiplier: 2 });
           const uploaded = await uploadRenderedSketch(
             dataUrlToBlob(dataUrl),
