@@ -38,9 +38,15 @@ describe("describeClause", () => {
     );
   });
 
+  it("resolves the report's other hardcoded core ref §10.1 via the verified index", () => {
+    // generate-forensic-report-pdf.ts also emits §10.1; it is not in the table
+    // but is a verified S500 section ("Introduction" to the Inspections chapter).
+    expect(describeClause("S500:2021 §10.1")).toBe("Introduction");
+  });
+
   it("returns the fallback for an S500 ref absent from both table and index", () => {
-    // §10.1 is neither in CLAUSE_DESCRIPTIONS nor the verified index.
-    expect(describeClause("S500:2021 §10.1")).toBe("Standards reference");
+    // §11.5 is neither in CLAUSE_DESCRIPTIONS nor the verified index.
+    expect(describeClause("S500:2021 §11.5")).toBe("Standards reference");
   });
 });
 
