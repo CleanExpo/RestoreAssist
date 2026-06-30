@@ -96,7 +96,16 @@ export async function GET(request: NextRequest) {
     const previousEndDate = new Date(startDate.getTime() - 1);
     const previousStartDate = new Date(previousEndDate.getTime() - periodMs);
 
-    const baseInclude = {
+    // Explicit select (not include) so we don't pull the ~40 @db.Text Report
+    // columns we never read — only the 7 scalars used below + 2 relations.
+    const baseSelect = {
+      createdAt: true,
+      updatedAt: true,
+      completionDate: true,
+      status: true,
+      hazardType: true,
+      totalCost: true,
+      clientName: true,
       estimates: {
         take: 1,
         orderBy: { createdAt: "desc" as const },
@@ -112,7 +121,7 @@ export async function GET(request: NextRequest) {
           createdAt: { gte: startDate, lte: endDate },
         },
         take: 5000, // CLAUDE.md rule 4
-        include: baseInclude,
+        select: baseSelect,
       }),
       prisma.report.findMany({
         where: {
@@ -120,7 +129,7 @@ export async function GET(request: NextRequest) {
           createdAt: { gte: previousStartDate, lt: startDate },
         },
         take: 5000, // CLAUDE.md rule 4
-        include: baseInclude,
+        select: baseSelect,
       }),
     ]);
 

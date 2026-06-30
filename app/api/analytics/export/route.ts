@@ -80,7 +80,17 @@ export async function POST(request: NextRequest) {
           },
         },
         take: 10000, // CLAUDE.md rule 4 — export is higher-cap than list views
-        include: {
+        // Explicit select (not include) so we don't pull the ~40 @db.Text Report
+        // columns; only the 8 scalars used by the export rows + 2 relations.
+        select: {
+          id: true,
+          createdAt: true,
+          title: true,
+          clientName: true,
+          hazardType: true,
+          insuranceType: true,
+          status: true,
+          totalCost: true,
           estimates: {
             take: 1,
             orderBy: { createdAt: "desc" },
