@@ -13,6 +13,7 @@ import {
   brandPrimaryColorSchema,
   brandLogoUrlSchema,
   resolveClientBrandTheme,
+  resolveOrgBrandTheme,
   hexToRgb,
   RA_DEFAULT_PRIMARY_COLOR,
   RA_DEFAULT_LOGO_URL,
@@ -107,6 +108,51 @@ describe("resolveClientBrandTheme", () => {
     ).toEqual({
       logoUrl: RA_DEFAULT_LOGO_URL,
       primaryColor: "#FF6600",
+    });
+  });
+});
+
+describe("resolveOrgBrandTheme", () => {
+  it("uses RA defaults when org is null", () => {
+    expect(resolveOrgBrandTheme(null)).toEqual({
+      logoUrl: RA_DEFAULT_LOGO_URL,
+      primaryColor: RA_DEFAULT_PRIMARY_COLOR,
+    });
+  });
+
+  it("returns the firm's https logo and hex colour", () => {
+    expect(
+      resolveOrgBrandTheme({
+        logoUrl: "https://res.cloudinary.com/x/firm-logo.png",
+        primaryColor: "#0EA5E9",
+      }),
+    ).toEqual({
+      logoUrl: "https://res.cloudinary.com/x/firm-logo.png",
+      primaryColor: "#0EA5E9",
+    });
+  });
+
+  it("falls back to text-only when the logo is a data-URL (not embeddable)", () => {
+    expect(
+      resolveOrgBrandTheme({
+        logoUrl: "data:image/png;base64,AAAA",
+        primaryColor: "#0EA5E9",
+      }),
+    ).toEqual({
+      logoUrl: RA_DEFAULT_LOGO_URL,
+      primaryColor: "#0EA5E9",
+    });
+  });
+
+  it("falls back to RA navy when the colour is malformed", () => {
+    expect(
+      resolveOrgBrandTheme({
+        logoUrl: "https://cdn.example.com/l.png",
+        primaryColor: "cyan",
+      }),
+    ).toEqual({
+      logoUrl: "https://cdn.example.com/l.png",
+      primaryColor: RA_DEFAULT_PRIMARY_COLOR,
     });
   });
 });
