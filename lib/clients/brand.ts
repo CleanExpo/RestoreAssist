@@ -74,6 +74,34 @@ export function resolveClientBrandTheme(
 }
 
 /**
+ * Resolve the effective brand theme for the CONTRACTOR'S OWN organisation
+ * (firm branding from the setup BrandCard: `Organization.logoUrl/primaryColor`).
+ * This is what makes "the entire report company branded" — distinct from
+ * `resolveClientBrandTheme`, which co-brands with the insurer/client.
+ *
+ * Guards (so the PDF generator never has to think about bad input):
+ *   - logo only embeds when it is an absolute HTTPS URL (a data-URL or relative
+ *     path falls back to text-only header).
+ *   - primaryColor must be 6-char hex; otherwise falls back to the RA navy.
+ */
+export function resolveOrgBrandTheme(
+  org:
+    | { logoUrl?: string | null; primaryColor?: string | null }
+    | null
+    | undefined,
+): ClientBrandTheme {
+  const logo = org?.logoUrl;
+  const color = org?.primaryColor;
+  return {
+    logoUrl: logo && logo.startsWith("https://") ? logo : RA_DEFAULT_LOGO_URL,
+    primaryColor:
+      color && /^#[0-9a-fA-F]{6}$/.test(color)
+        ? color
+        : RA_DEFAULT_PRIMARY_COLOR,
+  };
+}
+
+/**
  * Parse a hex color into 0..1 RGB triplet for pdf-lib's `rgb()` helper.
  * Tolerates lower/upper case. Caller must pre-validate via
  * `brandPrimaryColorSchema` — this helper assumes the input is well-formed.

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
+import { resolveOrgBrandTheme } from "@/lib/clients/brand";
 import { verifyInsurerToken } from "@/lib/portal-token";
 import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -74,6 +75,10 @@ export async function GET(
             businessName: true,
             businessAddress: true,
             businessABN: true,
+            // Firm branding (setup BrandCard) → drives the report's logo + accent.
+            organization: {
+              select: { logoUrl: true, primaryColor: true },
+            },
           },
         },
         client: {
@@ -115,7 +120,10 @@ export async function GET(
         : null,
     };
 
-    const pdfBytes = await generateIICRCReportPDF(reportData as any);
+    // Brand the report with the contractor's own firm identity (logo + accent
+    // colour). Falls back to RestoreAssist defaults when the org has no branding.
+    const theme = resolveOrgBrandTheme(report.user?.organization);
+    const pdfBytes = await generateIICRCReportPDF(reportData as any, { theme });
 
     // RA-1331: guard against OOM on very large reports (embedded photos can
     // reach 20-50 MB). 60 MB is a generous cap — beyond that, the Vercel
