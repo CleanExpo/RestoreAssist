@@ -167,7 +167,10 @@ function StorageOption({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active ? 'true' : undefined}
-      aria-label={label}
+      aria-disabled={disabled || undefined}
+      // When disabled, fold the reason (e.g. "Coming soon") into the accessible
+      // name so screen-reader users learn *why* the option is unavailable.
+      aria-label={disabled ? `${label} — ${description}` : label}
       className={[
         'rounded-md border p-3 text-left transition flex flex-col gap-2 min-h-[110px]',
         active
