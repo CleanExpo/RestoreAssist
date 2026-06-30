@@ -9,7 +9,7 @@
 
 ## Overview
 
-React component library for the premium guided interview system. Provides a complete, mobile-optimized UI for conducting structured interviews that auto-populate 50+ form fields with 90%+ confidence scoring.
+React component library for the premium guided interview system. Provides a complete, mobile-optimised UI for conducting structured interviews that auto-populate 50+ form fields with 90%+ confidence scoring.
 
 ---
 
@@ -154,16 +154,16 @@ interface ProgressRingProps {
 - ✅ Circular SVG progress ring
 - ✅ Center shows percentage & count
 - ✅ Tier indicators (4 numbered buttons)
-- ✅ Tier color coding:
+- ✅ Tier colour coding:
   - Tier 1: Blue (Essential)
   - Tier 2: Green (Environmental)
   - Tier 3: Amber (Compliance)
-  - Tier 4: Purple (Specialized)
+  - Tier 4: Purple (Specialised)
 
 - ✅ Tier status display:
   - Current tier: Highlighted & scaled
   - Completed tiers: Green background
-  - Upcoming tiers: Gray/disabled
+  - Upcoming tiers: Grey/disabled
 
 - ✅ Tooltips for tier information
 - ✅ Jump to tier on click (if allowed)
@@ -286,7 +286,7 @@ interface AutoPopulatedFieldsDisplayProps {
   - Confidence score
   - Progress bar
 
-- ✅ Confidence color coding:
+- ✅ Confidence colour coding:
   - Green border: High confidence
   - Blue border: Medium confidence
   - Amber border: Low confidence
@@ -375,13 +375,13 @@ export default function InspectionInterviewPage() {
 
 ---
 
-## Styling & Customization
+## Styling & Customisation
 
 ### Tailwind Classes Used
 
 - Layout: `grid`, `flex`, `fixed`, `absolute`
 - Spacing: `gap`, `p`, `m`, `px`, `py`
-- Colors: `bg-*`, `text-*`, `border-*`
+- Colours: `bg-*`, `text-*`, `border-*`
 - Borders: `border`, `rounded`, `shadow`
 - Effects: `opacity`, `hover`, `transition`, `transform`, `scale`
 
@@ -493,10 +493,10 @@ Response: { sessionId, totalAnswered, totalQuestions, progressPercentage, sessio
 - Semantic HTML (button, label, input)
 - Tooltip ARIA descriptions
 
-✅ **Color Contrast**
+✅ **Colour Contrast**
 
 - All text meets 4.5:1 ratio
-- Color used with icons/text (not alone)
+- Colour used with icons/text (not alone)
 - Confidence indicators have text labels
 
 ✅ **Focus Management**
@@ -507,7 +507,7 @@ Response: { sessionId, totalAnswered, totalQuestions, progressPercentage, sessio
 
 ---
 
-## Mobile Optimization
+## Mobile Optimisation
 
 ✅ **Touch-Friendly**
 
@@ -530,7 +530,7 @@ Response: { sessionId, totalAnswered, totalQuestions, progressPercentage, sessio
 ✅ **Performance**
 
 - Lazy load questions as needed
-- Minimize re-renders
+- Minimise re-renders
 - Efficient event handling
 - Debounced API calls
 
@@ -646,12 +646,12 @@ components/forms/guided-interview/
 
 - [ ] Integration tests for component interactions
 - [ ] E2E tests with Playwright
-- [ ] Performance profiling & optimization
+- [ ] Performance profiling & optimisation
 - [ ] Mobile UI refinement
 - [ ] Accessibility audit (WCAG 2.1 Level AA)
 - [ ] Storybook integration for component library
 - [ ] Dark mode support
-- [ ] Localization/i18n support
+- [ ] Localisation/i18n support
 - [ ] Animation refinements
 - [ ] Mobile gestures (swipe between tiers)
 
@@ -668,7 +668,7 @@ A: Check that formTemplateId exists and is valid. Check browser console for API 
 A: Verify field mappings are correct in question definitions. Check confidence scoring.
 
 **Q: Slow performance on mobile?**
-A: Check network latency. Ensure images are optimized. Profile with Chrome DevTools.
+A: Check network latency. Ensure images are optimised. Profile with Chrome DevTools.
 
 **Q: Progress ring not clickable?**
 A: Check that onQuestionSelect prop is passed. Verify allQuestions array is populated.

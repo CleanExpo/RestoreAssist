@@ -130,7 +130,7 @@ export default function InsuranceInformation({
       id: "equipment",
       title: "Business Equipment",
       description: "Computers, tools, and business equipment",
-      coverage: "IT equipment, tools, specialized business equipment",
+      coverage: "IT equipment, tools, specialised business equipment",
     },
   ];
 

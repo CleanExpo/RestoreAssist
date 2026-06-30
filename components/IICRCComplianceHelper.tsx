@@ -45,7 +45,7 @@ export default function IICRCComplianceHelper({
         };
       case "Category 2":
         return {
-          title: "Category 2 - Gray Water",
+          title: "Category 2 - Grey Water",
           description:
             "Significant contamination, may cause discomfort or sickness",
           procedures: [

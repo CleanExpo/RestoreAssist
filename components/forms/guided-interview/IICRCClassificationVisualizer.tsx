@@ -84,7 +84,7 @@ const getCategoryInfo = (category: number) => {
         "Bacterial contamination",
         "Potential viral hazards",
         "Allergenic spore formation",
-        "Mold growth potential",
+        "Mould growth potential",
       ],
       treatment: [
         "Enhanced drying procedures",
@@ -203,7 +203,7 @@ const getClassInfo = (waterClass: number) => {
       percentage: ">50%",
       color: "text-destructive",
       description:
-        "Involves materials that take extended time to dry due to high porosity and capillary action. Requires specialized drying equipment and techniques.",
+        "Involves materials that take extended time to dry due to high porosity and capillary action. Requires specialised drying equipment and techniques.",
       dryingTime: "7-30+ days",
       dehumidificationMethod: "Multiple LGR units + specialty equipment",
       affectedMaterials: [
@@ -492,7 +492,7 @@ export function IICRCClassificationVisualizer({
                 </span>
               ) : timeElapsedHours > 48 ? (
                 <span className="block mt-1 text-yellow-700 font-semibold">
-                  ⚠ 48-72 hours - Mold growth risk increasing. Urgent action
+                  ⚠ 48-72 hours - Mould growth risk increasing. Urgent action
                   needed.
                 </span>
               ) : (

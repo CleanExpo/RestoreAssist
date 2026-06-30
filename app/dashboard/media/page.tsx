@@ -286,7 +286,7 @@ export default function MediaPage() {
                 Media Library
               </h1>
               <p className="text-xs text-muted-foreground">
-                Cataloged inspection photos for marketing &amp; SEO
+                Catalogued inspection photos for marketing &amp; SEO
               </p>
             </div>
           </div>
@@ -968,7 +968,7 @@ function EmptyState({
       <p className="text-xs text-muted-foreground max-w-sm">
         {hasFilters
           ? "Try adjusting or clearing your filters."
-          : "Media assets are automatically cataloged when photos are uploaded to inspections."}
+          : "Media assets are automatically catalogued when photos are uploaded to inspections."}
       </p>
       {hasFilters && (
         <Button variant="outline" size="sm" className="mt-4" onClick={onClear}>

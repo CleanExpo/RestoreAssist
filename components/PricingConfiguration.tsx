@@ -397,7 +397,7 @@ export default function PricingConfiguration({
               </h3>
               <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
                 Pricing configuration is locked for free users. Upgrade to
-                unlock this feature and customize your rates.
+                unlock this feature and customise your rates.
               </p>
               <button
                 onClick={() => router.push("/dashboard/pricing")}
