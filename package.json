@@ -51,6 +51,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings 851",
     "check:standards": "tsx scripts/check-standards-citations.ts",
+    "check:no-verbatim": "tsx scripts/check-no-verbatim-standards.ts",
     "type-check": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsc --noEmit",
     "check:no-emoji": "node scripts/check-no-emoji.mjs",
     "test:parity": "node scripts/ci/check-test-parity.mjs",
