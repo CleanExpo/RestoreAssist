@@ -40,8 +40,10 @@ contradicted by source — no change needed) · **DEFER** (owner-gated) · **REP
 
 > **Honesty note:** during the build, T4/T5/T10 were retargeted from heavy client-page renders to tractable,
 > genuinely-untested API/lib subjects; the disposition + coverage table below reflect **what was actually built**,
-> not the original plan. Three audit findings (#1, #4, #23) were verified against source and turned out to be
-> **already correct** — they are *not* fixes, they are corrected false-positives / regression locks.
+> not the original plan. Several audit findings were verified against source and were **not** the defects claimed:
+> #1 (reopen) and #23 (interview stats) are **already correct** in source → regression-LOCKed, not fixed;
+> #4 (invoice bulk-delete) is **already reasonable** (counts shown) with only a minor gap — per-item itemization
+> of *which* invoices failed — which is filed as REPORT, not a fix. None of these three were code changes this run.
 
 | # | Sev | Finding | file:line | Persona | Disposition |
 |---|---|---|---|---|---|
