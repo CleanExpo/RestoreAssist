@@ -508,23 +508,21 @@ async function processInspectionComplete(
     environmentalData: inspection.environmentalData,
   });
 
-  // Save scope items
-  for (const scopeItem of scopeItems) {
-    await prisma.scopeItem.create({
-      data: {
-        inspectionId,
-        itemType: scopeItem.itemType,
-        description: scopeItem.description,
-        justification: scopeItem.justification,
-        quantity: scopeItem.quantity || null,
-        unit: scopeItem.unit || null,
-        specification: scopeItem.specification || null,
-        autoDetermined: true,
-        isRequired: scopeItem.isRequired,
-        isSelected: true,
-      },
-    });
-  }
+  // Save scope items — one batched write instead of N sequential creates.
+  await prisma.scopeItem.createMany({
+    data: scopeItems.map((scopeItem) => ({
+      inspectionId,
+      itemType: scopeItem.itemType,
+      description: scopeItem.description,
+      justification: scopeItem.justification,
+      quantity: scopeItem.quantity || null,
+      unit: scopeItem.unit || null,
+      specification: scopeItem.specification || null,
+      autoDetermined: true,
+      isRequired: scopeItem.isRequired,
+      isSelected: true,
+    })),
+  });
 
   // Update status to SCOPED
   await prisma.inspection.update({
@@ -546,25 +544,27 @@ async function processInspectionComplete(
   );
 
   // Save cost estimates
-  for (const costItem of costEstimate.items) {
-    await prisma.costEstimate.create({
-      data: {
-        inspectionId,
-        category: costItem.category,
-        description: costItem.description,
-        quantity: costItem.quantity,
-        unit: costItem.unit,
-        rate: costItem.rate,
-        subtotal: costItem.subtotal,
-        costDatabaseId: costItem.costDatabaseId || null,
-        isEstimated: costItem.isEstimated,
-        contingency: costEstimate.contingency / costEstimate.items.length, // Distribute contingency
-        total:
-          costItem.subtotal +
-          costEstimate.contingency / costEstimate.items.length,
-      },
-    });
-  }
+  // Distribute contingency evenly across items, computed once.
+  const contingencyPerItem =
+    costEstimate.items.length > 0
+      ? costEstimate.contingency / costEstimate.items.length
+      : 0;
+  // One batched write instead of N sequential creates.
+  await prisma.costEstimate.createMany({
+    data: costEstimate.items.map((costItem) => ({
+      inspectionId,
+      category: costItem.category,
+      description: costItem.description,
+      quantity: costItem.quantity,
+      unit: costItem.unit,
+      rate: costItem.rate,
+      subtotal: costItem.subtotal,
+      costDatabaseId: costItem.costDatabaseId || null,
+      isEstimated: costItem.isEstimated,
+      contingency: contingencyPerItem,
+      total: costItem.subtotal + contingencyPerItem,
+    })),
+  });
 
   // Update status to ESTIMATED — terminal state of the AI submit
   // pipeline. Promotion to the COMPLETED terminal state is owned by

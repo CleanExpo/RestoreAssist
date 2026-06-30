@@ -350,9 +350,10 @@ export async function POST(request: NextRequest) {
               await tx.missingElement.deleteMany({
                 where: { analysisId: analysis.id },
               });
-              for (const issue of r.issues || []) {
-                await tx.missingElement.create({
-                  data: {
+              const issues = r.issues ?? [];
+              if (issues.length > 0) {
+                await tx.missingElement.createMany({
+                  data: issues.map((issue) => ({
                     analysisId: analysis.id,
                     category: mapCategory(issue.category),
                     elementType: issue.category || "Other",
@@ -364,7 +365,7 @@ export async function POST(request: NextRequest) {
                     estimatedCost: issue.estimatedCost ?? null,
                     estimatedHours: issue.estimatedHours ?? null,
                     suggestedLineItem: issue.suggestedLineItem ?? null,
-                  },
+                  })),
                 });
               }
             }
@@ -390,7 +391,10 @@ export async function POST(request: NextRequest) {
                 estimatedRevenueRecovery: summary.totalEstimatedMissingRevenue,
               },
             });
-          });
+          },
+          // Batches can carry many files × issues; give the interactive tx
+          // headroom beyond the 5s default so a large batch can't roll back.
+          { timeout: 20_000, maxWait: 10_000 });
 
           sendEvent({
             type: "complete",
@@ -499,9 +503,10 @@ export async function POST(request: NextRequest) {
         await tx.missingElement.deleteMany({
           where: { analysisId: analysis.id },
         });
-        for (const issue of r.issues || []) {
-          await tx.missingElement.create({
-            data: {
+        const issues = r.issues ?? [];
+        if (issues.length > 0) {
+          await tx.missingElement.createMany({
+            data: issues.map((issue) => ({
               analysisId: analysis.id,
               category: mapCategory(issue.category),
               elementType: issue.category || "Other",
@@ -513,11 +518,13 @@ export async function POST(request: NextRequest) {
               estimatedCost: issue.estimatedCost ?? null,
               estimatedHours: issue.estimatedHours ?? null,
               suggestedLineItem: issue.suggestedLineItem ?? null,
-            },
+            })),
           });
         }
       }
-    });
+    },
+    // Headroom beyond the 5s default for large batches (files × issues).
+    { timeout: 20_000, maxWait: 10_000 });
 
     return NextResponse.json({
       success: true,

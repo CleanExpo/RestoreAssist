@@ -49,38 +49,41 @@ export async function POST(
     const reviewerId = session.user.id;
     const reviewerName = session.user.name || "Staff";
     const now = new Date();
-    let promoted = 0;
 
-    for (const s of pending) {
-      await prisma.$transaction([
-        prisma.evidenceItem.create({
-          data: {
-            inspectionId: id,
-            evidenceClass: s.fileUrl ? "PHOTO_DAMAGE" : "TECHNICIAN_NOTE",
-            title: s.description || "Client-submitted photo",
-            description: s.description ?? null,
-            // Chain of custody: client-sourced, staff-verified on promotion.
-            capturedById: reviewerId,
-            capturedByName: `Client (verified by ${reviewerName})`,
-            capturedAt: s.submittedAt,
-            fileUrl: s.fileUrl ?? null,
-            fileName: s.fileName ?? null,
-            fileMimeType: s.fileMimeType ?? null,
-            fileSizeBytes: s.fileSizeBytes ?? null,
-          },
-        }),
-        prisma.clientEvidenceSubmission.update({
-          where: {
-            id: s.id,
-            ...(tenancy.data.childInspectionFilter && {
-              inspection: tenancy.data.childInspectionFilter,
-            }),
-          },
-          data: { reviewedAt: now, reviewedById: reviewerId },
-        }),
-      ]);
-      promoted++;
+    // Promote the whole batch in a single transaction instead of opening one
+    // interactive transaction per submission (N round-trips). All-or-nothing.
+    const ops = pending.flatMap((s) => [
+      prisma.evidenceItem.create({
+        data: {
+          inspectionId: id,
+          evidenceClass: s.fileUrl ? "PHOTO_DAMAGE" : "TECHNICIAN_NOTE",
+          title: s.description || "Client-submitted photo",
+          description: s.description ?? null,
+          // Chain of custody: client-sourced, staff-verified on promotion.
+          capturedById: reviewerId,
+          capturedByName: `Client (verified by ${reviewerName})`,
+          capturedAt: s.submittedAt,
+          fileUrl: s.fileUrl ?? null,
+          fileName: s.fileName ?? null,
+          fileMimeType: s.fileMimeType ?? null,
+          fileSizeBytes: s.fileSizeBytes ?? null,
+        },
+      }),
+      prisma.clientEvidenceSubmission.update({
+        where: {
+          id: s.id,
+          ...(tenancy.data.childInspectionFilter && {
+            inspection: tenancy.data.childInspectionFilter,
+          }),
+        },
+        data: { reviewedAt: now, reviewedById: reviewerId },
+      }),
+    ]);
+
+    if (ops.length > 0) {
+      await prisma.$transaction(ops);
     }
+    const promoted = pending.length;
 
     return NextResponse.json({ data: { promoted } });
   } catch (e) {
