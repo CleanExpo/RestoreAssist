@@ -130,6 +130,23 @@ function makeFabricCanvas(): React.MutableRefObject<FabricCanvasRef | null> {
   return { current: null };
 }
 
+/**
+ * Decides the save indicator after one save tick.
+ * Invariant: never claim "Saved" unless a floor actually persisted online, and
+ * surface an explicit failure for capture-mode saves (which have no offline
+ * queue) when nothing saved — otherwise a failed homeowner save silently shows
+ * "Saved" and the work is lost.
+ */
+export function nextSaveIndicator(input: {
+  succeededOnline: number;
+  captureFailedThisTick: boolean;
+}): { markSaved: boolean; captureFailed: boolean } {
+  return {
+    markSaved: input.succeededOnline > 0,
+    captureFailed: input.captureFailedThisTick && input.succeededOnline === 0,
+  };
+}
+
 export function SketchEditorV2({
   inspectionId,
   propertyAddress,
@@ -171,6 +188,9 @@ export function SketchEditorV2({
   const [showScaleModal, setShowScaleModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  // Capture mode (homeowner self-capture) has no offline queue, so a failed
+  // save must surface as an explicit error rather than a false "Saved".
+  const [captureSaveFailed, setCaptureSaveFailed] = useState(false);
   // RA-1762 — running count of sketch saves currently held in the
   // offline queue (this tab's enqueues only; cross-tab counts come
   // from useNirOffline if the parent provider exposes them). Surfaced
@@ -292,6 +312,8 @@ export function SketchEditorV2({
   const performSave = useCallback(async () => {
     setSaving(true);
     let queuedThisTick = 0;
+    let succeededOnline = 0;
+    let captureFailedThisTick = false;
     const tickStartedAt = Date.now();
 
     const floorPromises = floorsData.map(async (fd) => {
@@ -325,10 +347,13 @@ export function SketchEditorV2({
           body: JSON.stringify(body),
         });
         if (!res.ok) throw new Error(`save ${res.status}`);
+        succeededOnline++;
       } catch {
         // Capture mode has no offline queue (the queue is bound to the authed
-        // sketches route); a failed homeowner save just surfaces via savedAt.
+        // sketches route); a failed homeowner save must surface as an error,
+        // never as a "Saved" indicator (silent data loss).
         if (captureMode || !inspectionId) {
+          captureFailedThisTick = true;
           return;
         }
         // Network failure or non-2xx — queue locally, drain later.
@@ -365,16 +390,17 @@ export function SketchEditorV2({
         setOfflinePending((c) => c + queuedThisTick);
       }
     }
-    // Only refresh savedAt when at least one floor succeeded online —
-    // otherwise the indicator would lie about the save being durable.
-    // If everything got queued, the user sees "Offline: N pending"
-    // instead of "Saved at HH:MM".
-    const floorsWithCanvas = floorsData.filter(
-      (fd) => fd.canvasRef.current,
-    ).length;
-    if (queuedThisTick < floorsWithCanvas || queuedThisTick === 0) {
+    // Only refresh savedAt when at least one floor actually saved online —
+    // otherwise the indicator would lie about the save being durable. If
+    // everything got queued (authed) the user sees "Offline: N pending"; if a
+    // capture-mode save failed (no queue) they see an explicit error.
+    const indicator = nextSaveIndicator({ succeededOnline, captureFailedThisTick });
+    if (indicator.markSaved) {
       setSavedAt(new Date(tickStartedAt));
     }
+    // In capture mode a failed save is unrecoverable here (no offline queue),
+    // so flag it whenever nothing saved online this tick.
+    setCaptureSaveFailed(indicator.captureFailed);
     setSaving(false);
   }, [inspectionId, floorsData, country, captureMode, captureToken]);
 
@@ -836,6 +862,14 @@ export function SketchEditorV2({
               ) : saving ? (
                 <span className="flex items-center gap-1 justify-end">
                   <Loader2 size={11} className="animate-spin" /> Saving…
+                </span>
+              ) : captureSaveFailed ? (
+                <span
+                  role="alert"
+                  className="flex items-center gap-1 justify-end text-destructive"
+                  title="Your last change could not be saved. Check your connection and try again."
+                >
+                  <AlertTriangle size={11} /> Not saved — retry
                 </span>
               ) : offlinePending > 0 ? (
                 <span
