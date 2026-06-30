@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import { resolveOrgBrandTheme } from "@/lib/clients/brand";
+import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
+import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
 import { verifyInsurerToken } from "@/lib/portal-token";
 import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -89,6 +91,20 @@ export async function GET(
             company: true,
           },
         },
+        // RA-120 (PR2): per-floor sketches (underlay + annotations) embedded
+        // into the report. Only floors with a rendered PNG can be drawn.
+        inspection: {
+          select: {
+            claimSketches: {
+              select: {
+                floorNumber: true,
+                floorLabel: true,
+                renderedPngUrl: true,
+                sketchData: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -123,7 +139,18 @@ export async function GET(
     // Brand the report with the contractor's own firm identity (logo + accent
     // colour). Falls back to RestoreAssist defaults when the org has no branding.
     const theme = resolveOrgBrandTheme(report.user?.organization);
-    const pdfBytes = await generateIICRCReportPDF(reportData as any, { theme });
+    let pdfBytes = await generateIICRCReportPDF(reportData as any, { theme });
+
+    // RA-120 (PR2): embed each floor's sketch (underlay + annotations) as its
+    // own page so the floor plan lives inside the canonical report. A failed
+    // image fetch skips that floor — it must never block the download.
+    const floors = await claimSketchesToFloors(
+      report.inspection?.claimSketches ?? [],
+    );
+    pdfBytes = await appendSketchPages(pdfBytes, floors, {
+      propertyAddress: report.propertyAddress ?? undefined,
+      reportNumber: report.reportNumber ?? undefined,
+    });
 
     // RA-1331: guard against OOM on very large reports (embedded photos can
     // reach 20-50 MB). 60 MB is a generous cap — beyond that, the Vercel

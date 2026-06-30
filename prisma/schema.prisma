@@ -5984,6 +5984,10 @@ model ClaimSketch {
   sketchType         String             @default("structural")
   sketchData         Json?
   backgroundImageUrl String?
+  // RA-120 (PR2): rasterised PNG of the floor (underlay + annotations) captured
+  // client-side via Fabric canvas.toDataURL and uploaded to sketch-media/exports.
+  // The canonical IICRC report embeds this per floor (server can't render Fabric).
+  renderedPngUrl     String?
   moisturePoints     Json?
   equipmentPoints    Json?
   // Homeowner self-capture quarantine (D4): unauthenticated submissions land
