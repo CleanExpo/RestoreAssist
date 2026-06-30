@@ -2762,7 +2762,7 @@ export default function InitialDataEntryForm({
                   )}
                 >
                   No {session?.user?.role === "USER" ? "managers" : "admins"}{" "}
-                  available in your organization.
+                  available in your organisation.
                 </div>
               ) : (
                 <select

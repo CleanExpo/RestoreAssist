@@ -256,8 +256,8 @@ export default function IICRCReportBuilder({
         insuranceType: "Building & Contents",
       },
       category2: {
-        title: "Category 2 Water Damage Assessment - Gray Water Solutions",
-        clientName: "Gray Water Solutions",
+        title: "Category 2 Water Damage Assessment - Grey Water Solutions",
+        clientName: "Grey Water Solutions",
         propertyAddress: "456 Commercial Avenue, Melbourne VIC 3000",
         safetyHazards:
           "Electrical outlets near water damage, potential structural compromise, gas line integrity needs verification",
@@ -285,7 +285,7 @@ export default function IICRCReportBuilder({
         waterCategory: "Category 2",
         waterClass: "Class 2",
         sourceOfWater:
-          "Burst hot water heater with gray water contamination from sediment and mineral buildup",
+          "Burst hot water heater with grey water contamination from sediment and mineral buildup",
         affectedArea: 450,
       },
       category3: {
@@ -621,7 +621,7 @@ export default function IICRCReportBuilder({
                   onClick={() => handleAutoFill("category2")}
                   className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
                 >
-                  Gray Water Scenario
+                  Grey Water Scenario
                 </button>
                 <button
                   onClick={() => handleAutoFill("category3")}
@@ -819,7 +819,7 @@ export default function IICRCReportBuilder({
                   onClick={() => handleAutoFill("category2")}
                   className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
                 >
-                  Gray Water (Category 2)
+                  Grey Water (Category 2)
                 </button>
                 <button
                   onClick={() => handleAutoFill("category3")}
@@ -864,7 +864,7 @@ export default function IICRCReportBuilder({
                     },
                     {
                       value: "Category 2",
-                      label: "Category 2 - Gray Water",
+                      label: "Category 2 - Grey Water",
                       description:
                         "Significant contamination, may cause discomfort or sickness",
                     },
@@ -1008,7 +1008,7 @@ export default function IICRCReportBuilder({
                   onClick={() => handleAutoFill("category2")}
                   className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
                 >
-                  Gray Water Damage
+                  Grey Water Damage
                 </button>
                 <button
                   onClick={() => handleAutoFill("category3")}
@@ -1177,7 +1177,7 @@ export default function IICRCReportBuilder({
                   onClick={() => handleAutoFill("category2")}
                   className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
                 >
-                  Gray Water Drying
+                  Grey Water Drying
                 </button>
                 <button
                   onClick={() => handleAutoFill("category3")}
@@ -1225,7 +1225,7 @@ export default function IICRCReportBuilder({
                   onClick={() => handleAutoFill("category2")}
                   className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
                 >
-                  Gray Water Equipment
+                  Grey Water Equipment
                 </button>
                 <button
                   onClick={() => handleAutoFill("category3")}
@@ -1275,7 +1275,7 @@ export default function IICRCReportBuilder({
                   onClick={() => handleAutoFill("category2")}
                   className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
                 >
-                  Gray Water Monitoring
+                  Grey Water Monitoring
                 </button>
                 <button
                   onClick={() => handleAutoFill("category3")}

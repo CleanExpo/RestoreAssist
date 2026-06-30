@@ -139,7 +139,7 @@ export default function FeedbackPage() {
             <CardTitle className="text-foreground">Send feedback</CardTitle>
             <CardDescription>
               Tell us what you were trying to do and what happened. Your input
-              helps us fix issues and prioritize improvements.
+              helps us fix issues and prioritise improvements.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -188,7 +188,7 @@ export default function FeedbackPage() {
                 </Label>
                 <Textarea
                   id="whatHappened"
-                  placeholder="Describe the issue, unexpected behavior, or share an idea..."
+                  placeholder="Describe the issue, unexpected behaviour, or share an idea..."
                   value={whatHappened}
                   onChange={(e) => setWhatHappened(e.target.value)}
                   rows={4}

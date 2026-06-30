@@ -141,7 +141,7 @@ const WATER_CATEGORIES = [
   },
   {
     value: "2",
-    label: "Category 2 - Gray Water",
+    label: "Category 2 - Grey Water",
     description: "Significant contamination, may cause discomfort or sickness",
   },
   {

@@ -20,7 +20,7 @@ const damageTypes = [
     title: "Fire Damage",
     range: "$10K - $100K+",
     description:
-      "Smoke, soot, and fire damage restoration with specialized cleaning protocols.",
+      "Smoke, soot, and fire damage restoration with specialised cleaning protocols.",
     color: "",
   },
   {
@@ -44,7 +44,7 @@ const damageTypes = [
     title: "Mould Damage",
     range: "$3K - $30K+",
     description:
-      "Mould remediation, containment, and specialized cleaning services.",
+      "Mould remediation, containment, and specialised cleaning services.",
     color: "",
   },
 ];

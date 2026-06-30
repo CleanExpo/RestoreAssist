@@ -898,7 +898,7 @@ export default function ClaimsAnalysisPage() {
                 <CardHeader>
                   <CardTitle>Quality Scores</CardTitle>
                   <CardDescription>
-                    Average completeness and compliance across all analyzed
+                    Average completeness and compliance across all analysed
                     reports
                   </CardDescription>
                 </CardHeader>
@@ -915,7 +915,7 @@ export default function ClaimsAnalysisPage() {
                       },
                       {
                         value: summary.averageScores.standardization,
-                        label: "Standardization",
+                        label: "Standardisation",
                       },
                       ...(summary.averageScores &&
                       (summary.averageScores as ScoresSummary).scopeAccuracy
@@ -978,7 +978,7 @@ export default function ClaimsAnalysisPage() {
             {/* Key Metrics */}
             <StatCardGrid columns={4}>
               <StatCard
-                title="Files Analyzed"
+                title="Files Analysed"
                 value={summary.totalFiles}
                 subtitle={`${summary.totalFiles} PDF reports processed`}
                 icon={FileText}
@@ -1150,7 +1150,7 @@ export default function ClaimsAnalysisPage() {
                         </div>
                         <div>
                           <div className="text-sm text-muted-foreground">
-                            Standardization
+                            Standardisation
                           </div>
                           <div className="text-lg font-semibold">
                             {result.scores.standardization.toFixed(0)}%
@@ -1841,7 +1841,7 @@ export default function ClaimsAnalysisPage() {
                       </div>
                       <div>
                         <h4 className="font-semibold mb-2">
-                          Standardization Level:
+                          Standardisation Level:
                         </h4>
                         <Badge
                           className={
@@ -1949,7 +1949,7 @@ export default function ClaimsAnalysisPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <CardTitle className="text-lg">Analyzing Claims</CardTitle>
+                <CardTitle className="text-lg">Analysing Claims</CardTitle>
               </div>
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -2053,7 +2053,7 @@ export default function ClaimsAnalysisPage() {
               <div className="flex flex-col items-center justify-center py-4 space-y-2">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">
-                  Initializing analysis...
+                  Initialising analysis...
                 </p>
               </div>
             )}

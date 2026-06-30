@@ -37,7 +37,7 @@ export default function FeaturesPage() {
     {
       title: "AI-Powered Damage Assessment",
       description:
-        "Advanced AI technology analyzes damage patterns and provides accurate assessments in real-time.",
+        "Advanced AI technology analyses damage patterns and provides accurate assessments in real-time.",
       icon: "🔍",
     },
     {
@@ -49,7 +49,7 @@ export default function FeaturesPage() {
     {
       title: "Multi-Hazard Support",
       description:
-        "Comprehensive support for water, fire, mold, and storm damage assessments.",
+        "Comprehensive support for water, fire, mould, and storm damage assessments.",
       icon: "🌊",
     },
     {
