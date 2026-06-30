@@ -133,12 +133,14 @@ export class CircuitBreaker {
     }
 
     const startTime = Date.now();
+    let succeeded = false;
 
     try {
       // Execute the function
       const result = await fn();
 
       // Record success
+      succeeded = true;
       this.onSuccess();
 
       return result;
@@ -148,11 +150,13 @@ export class CircuitBreaker {
 
       throw error;
     } finally {
-      // Track request
-      const success = true; // Will be false if error was thrown
+      // Track the real outcome of this request so getFailureRate() reflects
+      // actual failures. (Previously this recorded success based on circuit
+      // state, so failures were logged as successes and the rate-based open
+      // path never fired.)
       this.recentRequests.push({
         timestamp: Date.now(),
-        success: (this.state as CircuitState) !== CircuitState.OPEN,
+        success: succeeded,
       });
     }
   }
