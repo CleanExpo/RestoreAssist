@@ -32,8 +32,8 @@ describe("S500_FIELD_MAP — IICRC S500:2021 edition standardisation (RA-6793)",
     }
   });
 
-  it("the moisture-content clause is exactly 'S500:2021 §12.3'", () => {
-    expect(S500_FIELD_MAP.moistureContent.clauseRef).toBe("S500:2021 §12.3");
+  it("the moisture-content clause is exactly 'S500:2021 §10' (assessed in Inspections, not §12.3)", () => {
+    expect(S500_FIELD_MAP.moistureContent.clauseRef).toBe("S500:2021 §10");
   });
 });
 

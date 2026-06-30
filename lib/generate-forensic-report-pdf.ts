@@ -2133,7 +2133,7 @@ function buildScopeItems(
     item: "Remediation",
     description: remediationDesc,
     justification: remediationJustification,
-    standardReference: "IICRC S500 Sec 13.5.6",
+    standardReference: "IICRC S500 Sec 12.3.6",
   });
 
   // Structural Drying
@@ -2153,7 +2153,7 @@ function buildScopeItems(
     item: "Structural Drying",
     description: dryingDesc,
     justification: dryingJustification,
-    standardReference: "IICRC S500 Sec 14",
+    standardReference: "IICRC S500 Sec 12.5",
   });
 
   // Add scope area specific items with dynamic justification
@@ -2178,7 +2178,7 @@ function buildScopeItems(
         item: areaName,
         description: `Controlled removal and disposal of affected materials (${materials}) under containment protocols.${moistureLevel ? ` Moisture reading: ${moistureLevel}%.` : ""}`,
         justification: areaJustification,
-        standardReference: "IICRC S500 Sec 13.5.6",
+        standardReference: "IICRC S500 Sec 12.3.6",
       });
     });
   }
@@ -2191,7 +2191,7 @@ function buildScopeItems(
         "Comprehensive HVAC system cleaning, disinfection, and verification to prevent cross-contamination and ensure indoor air quality.",
       justification:
         "IICRC S500 requires HVAC system assessment and remediation when affected by water damage. HVAC systems can spread contamination throughout the structure if not properly addressed.",
-      standardReference: "IICRC S500 Sec 15",
+      standardReference: "IICRC S500 Sec 13.4",
     });
   }
 

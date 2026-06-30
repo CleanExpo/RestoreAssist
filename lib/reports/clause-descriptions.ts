@@ -9,15 +9,14 @@ export const CLAUSE_DESCRIPTIONS: Record<string, string> = {
   // IICRC S500:2021 (Australian edition)
   "S500:2021 §3.1": "Scope and application of the standard",
   "S500:2021 §3.2": "Definitions of key restoration terms",
-  "S500:2021 §7.1": "General health and safety obligations for restorers",
-  "S500:2021 §7.3": "Electrical hazard management during water intrusion",
+  "S500:2021 §8": "General health and safety obligations for restorers",
+  "S500:2021 §8.12": "Electrical hazard management during water intrusion",
   "S500:2021 §7.5": "Mould and microbial risk during water damage response",
-  "S500:2021 §10.1": "Water category classification framework",
-  "S500:2021 §10.5":
-    "Category 2 water — greywater characteristics and response",
-  "S500:2021 §10.5.4": "Category 2 water — greywater classification",
-  "S500:2021 §12.1": "Drying system design principles",
-  "S500:2021 §13.5.6": "Porous material remediation requirements by category",
+  "S500:2021 §10.4": "Water category classification framework",
+  "S500:2021 §10.4.1":
+    "Category of water — Category 1/2/3 (clean/grey/black) characteristics and classification",
+  "S500:2021 §12.5": "Drying system design principles",
+  "S500:2021 §12.3.6": "Porous material remediation requirements by category",
 
   // AS/NZS 4849.1:2019 — Moisture measurement
   "AS/NZS 4849.1:2019 §4.2": "Moisture content thresholds for timber framing",
