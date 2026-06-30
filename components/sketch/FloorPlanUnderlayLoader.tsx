@@ -23,6 +23,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import type { ScrapedPropertyData } from "@/lib/property-data-parser";
+import { validateUnderlayUpload } from "@/lib/sketch/validate-underlay-upload";
 
 export interface FloorPlanUnderlayLoaderProps {
   /** Pass the inspection's address to pre-fill the search. */
@@ -145,6 +146,13 @@ export function FloorPlanUnderlayLoader({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // RA-120 (PR4): reject unsupported type / oversized files before inlining.
+    const check = validateUnderlayUpload({ type: file.type, size: file.size });
+    if (!check.ok) {
+      setError(check.error ?? "Invalid file.");
+      e.target.value = "";
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (ev) => {
       if (ev.target?.result) {
@@ -249,7 +257,7 @@ export function FloorPlanUnderlayLoader({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/png,image/jpeg,image/webp"
               className="hidden"
               onChange={handleFileUpload}
             />

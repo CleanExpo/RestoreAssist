@@ -87,10 +87,18 @@ export async function POST(
       sketchData,
       backgroundImageUrl,
       renderedPngUrl,
+      backgroundImageOpacity,
       moisturePoints,
       equipmentPoints,
       country,
     } = body;
+
+    // RA-120 (PR4): underlay opacity is a 0..1 slider value; clamp defensively
+    // so a malformed client can't store an out-of-range opacity.
+    const opacity =
+      typeof backgroundImageOpacity === "number"
+        ? Math.max(0, Math.min(1, backgroundImageOpacity))
+        : undefined;
 
     // If a sketch already exists for this floor, update it; otherwise create
     const existing = await (prisma as any).claimSketch.findFirst({
@@ -135,6 +143,7 @@ export async function POST(
             sketchData: sketchData ?? undefined,
             backgroundImageUrl: backgroundImageUrl ?? undefined,
             renderedPngUrl: renderedPngUrl ?? undefined,
+            backgroundImageOpacity: opacity,
             moisturePoints: moisturePoints ?? undefined,
             equipmentPoints: equipmentPoints ?? undefined,
             country: country ?? undefined,
@@ -149,6 +158,7 @@ export async function POST(
             sketchData: sketchData ?? undefined,
             backgroundImageUrl: backgroundImageUrl ?? undefined,
             renderedPngUrl: renderedPngUrl ?? undefined,
+            backgroundImageOpacity: opacity,
             moisturePoints: moisturePoints ?? undefined,
             equipmentPoints: equipmentPoints ?? undefined,
             country: country ?? undefined,
