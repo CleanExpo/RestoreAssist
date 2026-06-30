@@ -14,6 +14,7 @@
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Prisma } from "@prisma/client";
+import { circuitBreakerManager } from "@/lib/integrations/circuit-breaker";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,10 @@ function fakeJob(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The google-drive-mirror circuit breaker is a process-level singleton; reset
+  // it so a prior test that opens it (e.g. the 5-attempt dead-letter case) can't
+  // leak an OPEN state into the next test and mask the real upload error.
+  circuitBreakerManager.resetAll();
   getMirrorStorageProviderMock.mockResolvedValue(
     new GoogleDriveStorageProvider("org_1"),
   );
