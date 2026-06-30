@@ -99,6 +99,12 @@ describe("POST /api/inspections/[id]/reopen", () => {
     const json = await res.json();
     expect(json.data.newStatus).toBe("IN_BILLING");
     expect(json.data).not.toHaveProperty("invoiceVoided");
+    // Compare-and-swap guard: the status write must be conditional on the
+    // previous status so two concurrent reopens can't both succeed.
+    expect(txInspectionUpdateMany.mock.calls[0][0].where).toMatchObject({
+      id: "i_1",
+      status: "CLOSED",
+    });
   });
 
   it("is honest when voidInvoice=true but reversal is unimplemented", async () => {
