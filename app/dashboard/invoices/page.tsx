@@ -24,6 +24,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
 import { formatCurrencyCents, formatDate } from "@/lib/formatters";
+import {
+  collectFailedLabels,
+  formatDeleteFailureMessage,
+} from "@/lib/bulk-delete-message";
 import toast from "react-hot-toast";
 import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -135,11 +139,13 @@ export default function InvoicesPage() {
       const results = await Promise.allSettled(
         ids.map((id) => fetch(`/api/invoices/${id}`, { method: "DELETE" })),
       );
-      const failed = results.filter(
-        (r) =>
-          r.status === "rejected" || (r.status === "fulfilled" && !r.value.ok),
+      // RA — itemise WHICH invoices failed (by number) instead of a bare count.
+      const failedLabels = collectFailedLabels(
+        ids,
+        results,
+        (id) => invoices.find((inv) => inv.id === id)?.invoiceNumber ?? id,
       );
-      const succeeded = results.length - failed.length;
+      const succeeded = results.length - failedLabels.length;
       if (succeeded > 0) {
         setSelectedIds(new Set());
         setShowDeleteDialog(false);
@@ -151,12 +157,8 @@ export default function InvoicesPage() {
         refetchInvoices();
         refetchStats();
       }
-      if (failed.length > 0) {
-        toast.error(
-          failed.length === 1
-            ? "Failed to delete one invoice"
-            : `Failed to delete ${failed.length} invoices`,
-        );
+      if (failedLabels.length > 0) {
+        toast.error(formatDeleteFailureMessage(failedLabels));
       }
     } catch (e) {
       console.error("Bulk delete error:", e);
