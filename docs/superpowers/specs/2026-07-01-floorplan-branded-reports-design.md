@@ -66,10 +66,17 @@ Deferred to PR4 (not blocking the report): the **freshness edge** — a user who
 flush before downloading the report gets the last flushed render. Options: render on a throttled autosave,
 or a Supabase CDN cache-bust (`?v=updatedAt`) if overwrite staleness is observed.
 
-### PR3 — Photos in the report
-- Shared photo-grid layer: fetch inspection photos, lay out a captioned grid (per affected area), bounded
-  resolution/size; embed into the canonical report after the assessment section.
-- Tests: report with photos embeds them (image count / size assertion); empty-photos path renders cleanly.
+### PR3 — Photos in the report  — BUILT (feat/branded-reports-pr3-2026-07-01)
+Same post-process pattern as PR2 (pure mapper + pdf-lib appender, wired into the report route):
+- `lib/reports/inspection-photos-to-images.ts`: maps `InspectionPhoto` rows → `{bytes,isPng,caption}`.
+  **Prefers `thumbnailUrl`** over `url` so embedded bytes stay bounded (bloat control without server resize);
+  sniffs PNG vs JPG from the bytes (robust to stale `mimeType`); caption = description → location → roomType;
+  a no-url / failed-fetch photo is skipped (never fails the report).
+- `lib/reports/append-photo-pages.ts`: A4 2×3 captioned grid, `embedPng`/`embedJpg`, paginates (6/page); a
+  single un-decodable image is skipped, not fatal; no photos → original bytes unchanged.
+- Report route: selects `inspection.photos` (ordered by timestamp) and appends the grid after the sketch pages.
+- Tests (TDD, 10 cases): mapper (fetch/thumbnail-pref/caption/format-sniff/skip), real-PDF grid pagination
+  (incl. JPG path + corrupt-skip), end-to-end route page growth. tsc clean; standards + no-verbatim + lint green.
 
 ### PR4 — Floorplan feature completeness
 - Add `ClaimSketch.backgroundImageOpacity Float?`; persist + restore per floor (fixes the data-loss bug).
