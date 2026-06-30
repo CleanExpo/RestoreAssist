@@ -54,11 +54,12 @@ export const S500_FIELD_MAP = {
 
   /**
    * Water category classification
-   * Source: IICRC S500 §7.1–7.3
+   * Source: IICRC S500 §10.4.1 (Category of Water — defined in §10 Inspections,
+   * Preliminary Determinations, and Pre-Restoration Evaluations)
    * Cat 1: Clean/potable water  Cat 2: Grey water  Cat 3: Black/contaminated water
    */
   waterCategory: {
-    clauseRef: "S500:2021 §7.1–7.3",
+    clauseRef: "S500:2021 §10.4.1",
     definitions: {
       category1: {
         label: "Clean Water",
@@ -81,7 +82,7 @@ export const S500_FIELD_MAP = {
       },
     },
     timeEscalation:
-      "Cat 1 degrades to Cat 2 after 48 hrs standing (S500:2021 §7.1 note)",
+      "Cat 1 degrades to Cat 2 after 48 hrs standing (S500:2021 §10.4.1 note)",
     engineLogic:
       "Map observed water source to category. Cat 3 triggers mandatory containment protocol and PPE requirement in scope items.",
     adjusterValue:
@@ -90,10 +91,10 @@ export const S500_FIELD_MAP = {
 
   /**
    * Water class classification (evaporation load)
-   * Source: IICRC S500 §8.1–8.4
+   * Source: IICRC S500 §10.4.3 (Class of Water Intrusion — defined in §10)
    */
   waterClass: {
-    clauseRef: "S500:2021 §8.1–8.4",
+    clauseRef: "S500:2021 §10.4.3",
     definitions: {
       class1: {
         label: "Slow Evaporation",
@@ -124,21 +125,22 @@ export const S500_FIELD_MAP = {
 
   /**
    * Structural drying equipment adequacy
-   * Source: IICRC S500 §14 — Equipment placement and air movement requirements
+   * Source: IICRC S500 §6 — Equipment, Instruments, and Tools (selection and sizing)
    */
   dryingEquipment: {
-    clauseRef: "S500:2021 §14",
+    clauseRef: "S500:2021 §6",
     engineLogic:
-      "Validate equipment selection and quantity against S500 §14 formulas for affected area and class. Flag if proposed equipment is undersized.",
+      "Validate equipment selection and quantity against S500 §6 guidance for affected area and class. Flag if proposed equipment is undersized.",
     adjusterValue: "Equipment adequacy is verifiable — audit trail available.",
   },
 
   /**
    * Photo documentation standard
-   * Source: IICRC S500 §5.3 — Documentation requirements for insurance claims
+   * Source: IICRC S500 §9 — Administrative Procedures, Project Documentation,
+   * and Risk Management (documentation requirements for insurance claims)
    */
   photoDocumentation: {
-    clauseRef: "S500:2021 §5.3",
+    clauseRef: "S500:2021 §9",
     requirements: [
       "Auto-timestamp on every photo",
       "GPS geotag on every photo",
@@ -146,7 +148,7 @@ export const S500_FIELD_MAP = {
       "Minimum coverage: overview, affected areas, moisture meter placement, equipment placement",
     ],
     engineLogic:
-      "Auto-timestamp, geo-stamp, and sequence photos per S500 §5.3 documentation standard. Flag incomplete coverage.",
+      "Auto-timestamp, geo-stamp, and sequence photos per S500 §9 documentation standard. Flag incomplete coverage.",
     adjusterValue:
       "Photos are court-admissible documentation in the correct format.",
   },
