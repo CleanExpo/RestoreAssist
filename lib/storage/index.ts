@@ -6,7 +6,6 @@
 
 import { prisma } from "@/lib/prisma";
 import { SupabaseStorageProvider } from "./supabase-provider";
-import { ExternalS3Provider } from "./s3-provider";
 import { GoogleDriveStorageProvider } from "./google-drive-provider";
 import type { StorageProvider } from "./types";
 
@@ -44,7 +43,12 @@ export async function getStorageProvider(
     case "S3":
     case "GCS":
     case "AZURE":
-      return new ExternalS3Provider(org.storageBucketUrl ?? "");
+      // BYOS (RA-409) is not implemented. Fail fast at resolution rather than
+      // returning a provider that rejects on every call — a misconfigured org
+      // must surface immediately, not silently on the first upload.
+      throw new Error(
+        `Storage provider "${org.storageProvider}" (bring-your-own-storage) is not implemented yet (RA-409). Configure SUPABASE or GOOGLE_DRIVE.`,
+      );
     case "GOOGLE_DRIVE":
     case "ONEDRIVE":
     case "LOCAL":
