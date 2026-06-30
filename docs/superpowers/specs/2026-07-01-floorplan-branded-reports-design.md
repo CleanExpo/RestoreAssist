@@ -39,11 +39,32 @@ included in Premium) with an upgrade CTA.
 - Make the client-facing download use the IICRC (clean) report.
 - Tests: PDF smoke asserts logo bytes embedded + business name in header + non-default colour when theme supplied.
 
-### PR2 — Floorplan in the report
-- Include the underlay in the sketch raster: when exporting the canvas PNG, composite the `backgroundImage`
-  (underlay) under the strokes (`SketchEditorV2` export path / server raster).
-- Call `embedSketchesInPdf()` from the canonical report, one page/section per floor, with the underlay visible.
-- Tests: given a report with N floors + underlays, the PDF gains N sketch pages; snapshot byte-size > baseline.
+### PR2 — Floorplan in the report  — BUILT (feat/branded-reports-pr2-2026-07-01)
+**Premise correction (verified 2026-07-01):** the earlier audit claimed the Fabric `backgroundImage`
+(underlay) is excluded from `canvas.toDataURL()`. That is **wrong** for Fabric v7 — `toDataURL` renders
+background → objects → overlay into the bitmap, so the underlay IS already in the export. Proof: the
+shipping `POST /api/inspections/[id]/sketches/pdf` route already builds standalone floor-plan PDFs from
+that exact `toDataURL` output; if the underlay were dropped, those PDFs would be blank floor plans.
+→ No client-side raster compositing was needed. The real gaps were *persisting* the composited PNG and
+*embedding* it in the canonical report.
+
+Implemented:
+- Schema `ClaimSketch.renderedPngUrl String?` (migration `20260701000000_claimsketch_rendered_png`).
+- Client (`SketchEditorV2.performSave`): on **flush** saves only (floor switch / PDF export / scope gen),
+  rasterise each floor via `toDataURL({format:'png',multiplier:2})` and upload through
+  `uploadRenderedSketch()` (stable `exports/floor-{n}.png` path → overwrite, no churn). Best-effort —
+  never blocks the authoritative `sketchData` save.
+- Save route `POST /api/inspections/[id]/sketches`: persists `renderedPngUrl`.
+- `lib/reports/claim-sketch-floors.ts`: maps stored sketches → `SketchFloor[]` (filter renderedPngUrl,
+  sort by floor, fetch URL→data-URL; a failed fetch skips that floor, never fails the report).
+- `lib/reports/append-sketch-pages.ts`: re-opens the IICRC report bytes and calls `embedSketchesInPdf()`.
+- Report route `GET /api/reports/[id]/pdf`: fetches `inspection.claimSketches`, appends a page per floor.
+- Tests (TDD, 11 new cases): floor mapping, real-PDF page-append, end-to-end route page-count growth,
+  save-route persistence, stable upload path. tsc clean on touched files; standards + no-verbatim green.
+
+Deferred to PR4 (not blocking the report): the **freshness edge** — a user who draws but never triggers a
+flush before downloading the report gets the last flushed render. Options: render on a throttled autosave,
+or a Supabase CDN cache-bust (`?v=updatedAt`) if overwrite staleness is observed.
 
 ### PR3 — Photos in the report
 - Shared photo-grid layer: fetch inspection photos, lay out a captioned grid (per affected area), bounded

@@ -195,6 +195,24 @@ export async function uploadSketchExport(
   });
 }
 
+/**
+ * Upload a floor's rendered PNG (underlay + annotations) for report embedding
+ * — RA-120 (PR2). Unlike {@link uploadSketchExport}, the path is stable per
+ * (inspection, floor) so each save overwrites the previous render rather than
+ * accumulating timestamped files. No resize — the report needs full quality.
+ */
+export async function uploadRenderedSketch(
+  blob: Blob,
+  inspectionId: string,
+  floorNumber: number,
+): Promise<UploadResult> {
+  return uploadSketchMedia(
+    blob,
+    exportPath(inspectionId, `floor-${floorNumber}.png`),
+    { resize: false },
+  );
+}
+
 // ── Delete ────────────────────────────────────────────────
 
 /** Remove a file from sketch-media by its storage path. */

@@ -54,6 +54,7 @@ import { SketchScaleModal } from "./SketchScaleModal";
 import type { ScaleConfig } from "./SketchScaleModal";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
+import { uploadRenderedSketch, dataUrlToBlob } from "@/lib/sketch-storage";
 
 const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
   ssr: false,
@@ -309,7 +310,7 @@ export function SketchEditorV2({
   // it immediately and resolves after server acknowledgment — call flushSaveNow
   // before a floor switch, PDF export, or scope generation so no edits are lost
   // (RA-6762: the old `await scheduleSave()` returned void and never waited).
-  const performSave = useCallback(async () => {
+  const performSave = useCallback(async (renderImage = false) => {
     setSaving(true);
     let queuedThisTick = 0;
     let succeededOnline = 0;
@@ -324,6 +325,27 @@ export function SketchEditorV2({
         scaleConfig: fd.scaleConfig,
       };
       const clientUpdatedAt = Date.now();
+
+      // RA-120 (PR2): on flush saves (floor switch / PDF export / scope gen),
+      // rasterise the floor (underlay + annotations are both captured by Fabric
+      // toDataURL) and upload it so the canonical report can embed the floor
+      // plan. Best-effort: the sketchData save below stays authoritative, so a
+      // failed render/upload must never block the save or surface an error.
+      let renderedPngUrl: string | undefined;
+      if (renderImage && inspectionId && !captureMode) {
+        try {
+          const dataUrl = canvas.toDataURL({ format: "png", multiplier: 2 });
+          const uploaded = await uploadRenderedSketch(
+            dataUrlToBlob(dataUrl),
+            inspectionId,
+            fd.floor.floorNumber,
+          );
+          renderedPngUrl = uploaded.publicUrl;
+        } catch {
+          // leave renderedPngUrl undefined → Prisma keeps the prior render
+        }
+      }
+
       const body = {
         floorNumber: fd.floor.floorNumber,
         floorLabel: fd.floor.floorLabel,
@@ -331,6 +353,7 @@ export function SketchEditorV2({
         sketchData,
         moisturePoints: fd.moisturePins,
         backgroundImageUrl: fd.backgroundUrl,
+        renderedPngUrl,
         country,
       };
 
@@ -423,7 +446,7 @@ export function SketchEditorV2({
     }
     if (readonly) return;
     if (!inspectionId && !captureToken) return;
-    await performSave();
+    await performSave(true);
   }, [readonly, inspectionId, captureToken, performSave]);
 
   // RA-1762 / RA-1769 — keep the offline-pending count + failed-entry
