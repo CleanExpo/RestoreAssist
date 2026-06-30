@@ -5,6 +5,11 @@
  * IICRC references cite edition and section: `S500:2021 §7.1` — never abbreviate or omit version.
  */
 
+import { getS500Section } from "@/lib/standards/s500-sections";
+
+/** Matches an S500:2021 clause ref and captures the bare section number. */
+const S500_CLAUSE = /^S500:2021\s+§?\s*([\d.]+)$/;
+
 export const CLAUSE_DESCRIPTIONS: Record<string, string> = {
   // IICRC S500:2021 (Australian edition)
   "S500:2021 §3.1": "Scope and application of the standard",
@@ -61,8 +66,26 @@ export const CLAUSE_DESCRIPTIONS: Record<string, string> = {
 /**
  * Return a human-readable description for a standards clause reference.
  * Normalises leading/trailing whitespace before lookup.
- * Falls back to "Standards reference" for any unrecognised clause.
+ *
+ * Resolution order:
+ *   1. The hand-authored CLAUSE_DESCRIPTIONS table (richest, takes precedence).
+ *   2. For an S500:2021 ref not in the table, the verified S500 section index
+ *      (titles only — copyright-safe), so valid citations recall their real
+ *      title instead of the placeholder. This is what wires the report citation
+ *      path to the single verified source of truth.
+ *   3. "Standards reference" for anything still unrecognised.
  */
 export function describeClause(clauseRef: string): string {
-  return CLAUSE_DESCRIPTIONS[clauseRef.trim()] ?? "Standards reference";
+  const normalised = clauseRef.trim();
+
+  const explicit = CLAUSE_DESCRIPTIONS[normalised];
+  if (explicit !== undefined) return explicit;
+
+  const s500 = S500_CLAUSE.exec(normalised);
+  if (s500) {
+    const section = getS500Section(s500[1]);
+    if (section) return section.title;
+  }
+
+  return "Standards reference";
 }
