@@ -6,7 +6,7 @@
  * AdjusterRecommendation object. Does NOT persist AI output.
  *
  * Legal references:
- *   - ANSI/IICRC S500:2021 §4.1 (water category), §5.1 (water class), §7.1 (drying)
+ *   - ANSI/IICRC S500:2021 §10.4.1 (water category), §10.4.3 (water class), §12.5 (drying)
  *   - ICA Code of Practice §3 (claims handling), §6 (make-safe obligations)
  *   - Insurance Contracts Act 1984 (Cth) §13 (duty of utmost good faith)
  */
@@ -52,7 +52,7 @@ const ADJUSTER_SYSTEM_PROMPT = `You are an expert insurance adjuster AI for Aust
 Your task: perform a single-pass structured audit of the provided claim data and return a JSON object matching the schema exactly.
 
 Legal framework:
-- ANSI/IICRC S500:2021 (Water Damage Restoration Standard): §4.1 water category, §5.1 water class, §7.1 drying targets, §8 documentation requirements
+- ANSI/IICRC S500:2021 (Water Damage Restoration Standard): §10.4.1 water category, §10.4.3 water class, §12.5.7 drying targets, §9 documentation requirements
 - ICA Code of Practice §3.1 (claims handling timeliness), §6 (make-safe / stabilisation obligations)
 - Insurance Contracts Act 1984 (Cth) §13 (duty of utmost good faith)
 
@@ -61,7 +61,7 @@ Decision rules:
 - recommendation = "query-contractor" when: minor gaps (missing SWMS on Cat 1/2, missing auth ref on variation), cost 10–25% over, plateau moisture trend
 - recommendation = "escalate" when: Cat 3 + no SWMS, duplicate job detected, cost >25% over scope, ascending moisture trend, missing make-safe on hazard actions
 - costReasonableness = "within-range" when total cost is within ±10% of scope baseline, "high" when >10% over, "low" when >10% under
-- Include a clauseCompliance entry for each of §4.1, §5.1, §7.1, §8 — mark "not-applicable" if data is absent rather than guessing
+- Include a clauseCompliance entry for each of §10.4.1, §10.4.3, §12.5.7, §9 — mark "not-applicable" if data is absent rather than guessing
 - suggestedQuestions should be actionable questions an adjuster would send to the contractor
 
 Return ONLY valid JSON with this exact shape:
@@ -170,7 +170,7 @@ function detectAnomalies(
         .reduce((s, r) => s + r.moistureLevel, 0) / 4;
     if (avgRecent > avgEarly * 1.05) {
       anomalies.push(
-        "Moisture readings show ascending trend — drying not progressing (ANSI/IICRC S500:2021 §7.1)",
+        "Moisture readings show ascending trend — drying not progressing (ANSI/IICRC S500:2021 §12.5)",
       );
     }
   }
@@ -212,7 +212,7 @@ Count: ${inspection.scopeVariations.length}
 Net delta: ${(variationNetCents / 100).toFixed(2)} AUD
 Details: ${JSON.stringify(inspection.scopeVariations)}
 
-MOISTURE READINGS (ANSI/IICRC S500:2021 §7.1)
+MOISTURE READINGS (ANSI/IICRC S500:2021 §10)
 Count: ${inspection.moistureReadings.length}
 Readings: ${JSON.stringify(inspection.moistureReadings.slice(-20))}
 

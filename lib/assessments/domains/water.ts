@@ -84,7 +84,7 @@ function classFromClassification(c: {
 }
 
 /**
- * S500 §13: drying days expected from class. Class 1 typically 3–5 days,
+ * S500 §12.5: drying days expected from class. Class 1 typically 3–5 days,
  * class 4 specialty up to 14+. We use upper-conservative midpoints so
  * the estimate doesn't under-call labour.
  */
@@ -190,11 +190,11 @@ function buildReport(args: {
     heading: "Situation",
     body:
       `Inspection of ${args.propertyAddress} identified water-damage of ` +
-      `Category ${args.category} (S500 §10.5) and Class ${args.damageClass} ` +
-      `(S500 §10.6) over an affected area of ${args.affectedAreaM2.toFixed(1)} m². ` +
+      `Category ${args.category} (S500 §10.4.1) and Class ${args.damageClass} ` +
+      `(S500 §10.4.3) over an affected area of ${args.affectedAreaM2.toFixed(1)} m². ` +
       `The classification drives the scope of works under the IICRC S500 ` +
       `Standard for Professional Water Damage Restoration.`,
-    citations: [cite("§10.5"), cite("§10.6")],
+    citations: [cite("§10.4.1"), cite("§10.4.3")],
   });
 
   sections.push({
@@ -202,15 +202,15 @@ function buildReport(args: {
     body:
       args.moistureSummary.total === 0
         ? `No moisture readings have been logged for this inspection. ` +
-          `Per S500 §12.1 baseline psychrometric readings must be taken on ` +
+          `Per S500 §5 baseline psychrometric readings must be taken on ` +
           `entry and at least daily until the dry-standard is reached.`
         : `${args.moistureSummary.total} moisture readings logged: ` +
           `${args.moistureSummary.wet} above wet-standard, ` +
           `${args.moistureSummary.drying} in drying band, ` +
           `${args.moistureSummary.dry} at or below the IICRC dry-standard. ` +
           `Drying continues until all monitored materials are at or below ` +
-          `the dry-standard for the material type (S500 §13).`,
-    citations: [cite("§12.1"), cite("§13")],
+          `the dry-standard for the material type (S500 §12.5.7).`,
+    citations: [cite("§5"), cite("§12.5.7")],
   });
 
   sections.push({
@@ -220,9 +220,9 @@ function buildReport(args: {
       `pathway. Equipment quantities are ratio-driven, not estimated: ` +
       `air-mover and dehumidifier counts derive from affected area and ` +
       `psychrometric load. Antimicrobial application is included for ` +
-      `Category 2/3 events (S500 §10.5.2 / §10.5.3) where biological ` +
+      `Category 2/3 events (S500 §10.4.1 / §10.4.1) where biological ` +
       `contamination is presumed.`,
-    citations: [cite("§10.5.2"), cite("§10.5.3"), cite("§13")],
+    citations: [cite("§10.4.1"), cite("§10.4.1"), cite("§12.5")],
   });
 
   sections.push({
@@ -233,7 +233,7 @@ function buildReport(args: {
       `(ambient ~24 °C / 50% RH). Actual duration is governed by daily ` +
       `psychrometric monitoring; equipment is removed only when the ` +
       `dry-standard is met for every monitored material.`,
-    citations: [cite("§13")],
+    citations: [cite("§12.5")],
   });
 
   // Dry-standard reference table (S500 baseline).
@@ -245,7 +245,7 @@ function buildReport(args: {
     body:
       `Material targets used for verification: ${drySnippet}. ` +
       `Full table mirrored from lib/iicrc-dry-standards.ts.`,
-    citations: [cite("§13", "Material-specific dry standards")],
+    citations: [cite("§12.5.7", "Material-specific dry standards")],
   });
 
   const citations: StandardCitation[] = sections
@@ -334,11 +334,11 @@ export const waterDomain: DomainPlugin = {
         quantity: d.quantity ?? 1,
         unit: d.unit ?? "ea",
         // Some prelims items don't carry a clause ref upstream — for audit
-        // we fall back to S500 §13 (general drying / restoration) so every
+        // we fall back to S500 §12.5 (general drying / restoration) so every
         // line on the scope has a defensible standard reference.
         iicrcRef: d.iicrcReference?.trim()
           ? d.iicrcReference
-          : "IICRC S500:2021 §13",
+          : "IICRC S500:2021 §12.5",
         notes: d.justification,
       }));
 

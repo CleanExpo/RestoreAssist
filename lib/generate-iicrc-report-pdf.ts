@@ -4,13 +4,13 @@
  *
  * Sections:
  *   1. Header + property details
- *   2. Water damage classification (S500 §3, §7.1)
+ *   2. Water damage classification (S500 §10.4)
  *   3. Affected areas / rooms
- *   4. Moisture readings table (S500 §8)
- *   5. Equipment deployment log (S500 §14)
- *   6. Psychrometric data (S500 §6)
+ *   4. Moisture readings table (S500 §10)
+ *   5. Equipment deployment log (S500 §6)
+ *   6. Psychrometric data (S500 §5)
  *   7. Inspection report narrative
- *   8. Drying goals reference (S500 §12)
+ *   8. Drying goals reference (S500 §12.5.7)
  *   9. Signed declaration
  */
 
@@ -80,16 +80,16 @@ const C_AMBER = rgb(0.7, 0.4, 0.0);
 const C_RED = rgb(0.75, 0.1, 0.1);
 
 const WATER_CATEGORIES: Record<string, string> = {
-  "1": "Category 1 — Clean Water (S500:2021 §3.2)",
-  "2": "Category 2 — Significantly Contaminated (S500:2021 §3.3)",
-  "3": "Category 3 — Grossly Contaminated (S500:2021 §3.4)",
+  "1": "Category 1 — Clean Water (S500:2021 §10.4.1)",
+  "2": "Category 2 — Significantly Contaminated (S500:2021 §10.4.1)",
+  "3": "Category 3 — Grossly Contaminated (S500:2021 §10.4.1)",
 };
 
 const DAMAGE_CLASSES: Record<string, string> = {
-  "1": "Class 1 — Least Amount of Water Absorption (S500:2021 §7.1.1)",
-  "2": "Class 2 — Significant Amount of Absorption (S500:2021 §7.1.2)",
-  "3": "Class 3 — Greatest Amount of Absorption (S500:2021 §7.1.3)",
-  "4": "Class 4 — Specialty Drying Situations (S500:2021 §7.1.4)",
+  "1": "Class 1 — Least Amount of Water Absorption (S500:2021 §10.4.3)",
+  "2": "Class 2 — Significant Amount of Absorption (S500:2021 §10.4.3)",
+  "3": "Class 3 — Greatest Amount of Absorption (S500:2021 §10.4.3)",
+  "4": "Class 4 — Specialty Drying Situations (S500:2021 §10.4.3)",
 };
 
 // ─── PDF Helper Class ─────────────────────────────────────────────────────────
@@ -474,7 +474,7 @@ export async function generateIICRCReportPDF(
 
   // ── SECTION 2: Water Damage Classification ───────────────────────────────────
   w.sectionHeader(
-    "SECTION 2 — WATER DAMAGE CLASSIFICATION (S500:2021 §3, §7.1)",
+    "SECTION 2 — WATER DAMAGE CLASSIFICATION (S500:2021 §10.4)",
   );
   w.gap(4);
 
@@ -563,7 +563,7 @@ export async function generateIICRCReportPDF(
     w.gap(8);
   }
 
-  // ── SECTION 4: Moisture Readings (S500:2021 §8) ──────────────────────────────
+  // ── SECTION 4: Moisture Readings (S500:2021 §10) ──────────────────────────────
   const moistureArr = Array.isArray(data.moistureReadings)
     ? data.moistureReadings
     : data.moistureReadings && typeof data.moistureReadings === "object"
@@ -571,10 +571,10 @@ export async function generateIICRCReportPDF(
       : [];
 
   if (moistureArr.length > 0) {
-    w.sectionHeader("SECTION 4 — MOISTURE READINGS (S500:2021 §8)");
+    w.sectionHeader("SECTION 4 — MOISTURE READINGS (S500:2021 §10)");
     w.gap(2);
     w.text(
-      "Moisture content measured per IICRC S500:2021 §8 using calibrated moisture meter equipment.",
+      "Moisture content measured per IICRC S500:2021 §10 using calibrated moisture meter equipment.",
       {
         size: 8,
         color: C_MUTED,
@@ -632,7 +632,7 @@ export async function generateIICRCReportPDF(
     });
     w.gap(4);
     w.text(
-      "Drying goal: all affected materials must achieve equilibrium moisture content per S500:2021 §12.",
+      "Drying goal: all affected materials must achieve equilibrium moisture content per S500:2021 §12.5.7.",
       {
         size: 8,
         color: C_MUTED,
@@ -642,14 +642,14 @@ export async function generateIICRCReportPDF(
     w.gap(8);
   }
 
-  // ── SECTION 5: Equipment Deployment Log (S500:2021 §14) ─────────────────────
+  // ── SECTION 5: Equipment Deployment Log (S500:2021 §6) ─────────────────────
   const eqData = data.equipmentSelection;
   const eqArr: any[] = Array.isArray(eqData)
     ? eqData
     : (eqData?.equipment ?? eqData?.items ?? eqData?.selected ?? []);
 
   if (eqArr.length > 0) {
-    w.sectionHeader("SECTION 5 — EQUIPMENT DEPLOYMENT LOG (S500:2021 §14)");
+    w.sectionHeader("SECTION 5 — EQUIPMENT DEPLOYMENT LOG (S500:2021 §6)");
     w.gap(4);
     const eCols = [
       "Equipment Type",
@@ -680,13 +680,13 @@ export async function generateIICRCReportPDF(
     w.gap(8);
   }
 
-  // ── SECTION 6: Psychrometric Data (S500:2021 §6) ────────────────────────────
+  // ── SECTION 6: Psychrometric Data (S500:2021 §5) ────────────────────────────
   const psychArr = Array.isArray(data.psychrometricReadings)
     ? data.psychrometricReadings
     : (data.psychrometricAssessment?.readings ?? []);
 
   if (psychArr.length > 0) {
-    w.sectionHeader("SECTION 6 — PSYCHROMETRIC CONDITIONS (S500:2021 §6)");
+    w.sectionHeader("SECTION 6 — PSYCHROMETRIC CONDITIONS (S500:2021 §5)");
     w.gap(4);
     const pCols = [
       "Location",
@@ -819,15 +819,15 @@ export async function generateIICRCReportPDF(
 
   // ── SECTION 9: IICRC Drying Goals Reference ──────────────────────────────────
   w.ensureSpace(80);
-  w.sectionHeader("SECTION 9 — IICRC S500:2021 DRYING GOALS REFERENCE (§12)");
+  w.sectionHeader("SECTION 9 — IICRC S500:2021 DRYING GOALS REFERENCE (§12.5.7)");
   w.gap(4);
   const dryingGoals = [
-    ["Hardwood flooring (solid)", "≤12% MC", "§12.3.1"],
-    ["Softwood / structural timber", "≤19% MC", "§12.3.2"],
-    ["Plasterboard (gypsum)", "≤1% MC", "§12.3.3"],
-    ["Concrete (slab, block)", "≤5% MC", "§12.3.4"],
-    ["Relative humidity (interior)", "≤50% RH", "§6.2.1"],
-    ["Indoor temperature", "21–27°C", "§6.2.2"],
+    ["Hardwood flooring (solid)", "≤12% MC", "§12.5.7"],
+    ["Softwood / structural timber", "≤19% MC", "§12.5.7"],
+    ["Plasterboard (gypsum)", "≤1% MC", "§12.5.7"],
+    ["Concrete (slab, block)", "≤5% MC", "§12.5.7"],
+    ["Relative humidity (interior)", "≤50% RH", "§5"],
+    ["Indoor temperature", "21–27°C", "§5"],
   ];
   w.tableRow(
     ["Material / Condition", "Drying Goal", "S500:2021 Ref."],

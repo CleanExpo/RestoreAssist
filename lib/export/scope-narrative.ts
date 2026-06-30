@@ -99,7 +99,7 @@ export function buildScopeNarrative(scope: ScopeExport): string {
   lines.push("");
 
   // ── Drying equipment ──
-  lines.push("## Drying equipment (ANSI/IICRC S500:2021 §8.3 — indicative)");
+  lines.push("## Drying equipment (ANSI/IICRC S500:2021 §6 — indicative)");
   lines.push(`- Dehumidifiers: ${scope.dryingEquipment.dehumidifier}`);
   lines.push(`- Air movers: ${scope.dryingEquipment.airMover}`);
   lines.push(`- Air scrubbers: ${scope.dryingEquipment.airScrubber}`);

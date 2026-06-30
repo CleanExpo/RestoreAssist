@@ -21,11 +21,11 @@
 export const S500_FIELD_MAP = {
   /**
    * Moisture content thresholds per material type
-   * Source: IICRC S500 §12.3 — Elevated moisture defined as >16% in wood,
+   * Source: IICRC S500 §10 — Elevated moisture defined as >16% in wood,
    * >0.5% in concrete substrates
    */
   moistureContent: {
-    clauseRef: "S500:2021 §12.3",
+    clauseRef: "S500:2021 §10",
     thresholds: {
       wood: { normal: 12, elevated: 16, critical: 25 },
       drywall: { normal: 0.5, elevated: 1.0, critical: 2.0 },
@@ -40,11 +40,11 @@ export const S500_FIELD_MAP = {
 
   /**
    * Relative humidity — drying target calculation
-   * Source: IICRC S500 §12.4 — Drying goal: RH at or below ambient outdoor
+   * Source: IICRC S500 §5 — Drying goal: RH at or below ambient outdoor
    * conditions for the region
    */
   relativeHumidity: {
-    clauseRef: "S500:2021 §12.4",
+    clauseRef: "S500:2021 §5",
     drinkTarget: "Match or below ambient outdoor RH at time of inspection",
     engineLogic:
       "Compute drying target from recorded outdoor RH. Target is calculated, not estimated.",
@@ -136,11 +136,11 @@ export const S500_FIELD_MAP = {
 
   /**
    * Photo documentation standard
-   * Source: IICRC S500 §9 — Administrative Procedures, Project Documentation,
+   * Source: IICRC S500 §9.2.5 — Administrative Procedures, Project Documentation,
    * and Risk Management (documentation requirements for insurance claims)
    */
   photoDocumentation: {
-    clauseRef: "S500:2021 §9",
+    clauseRef: "S500:2021 §9.2.5",
     requirements: [
       "Auto-timestamp on every photo",
       "GPS geotag on every photo",
@@ -148,7 +148,7 @@ export const S500_FIELD_MAP = {
       "Minimum coverage: overview, affected areas, moisture meter placement, equipment placement",
     ],
     engineLogic:
-      "Auto-timestamp, geo-stamp, and sequence photos per S500 §9 documentation standard. Flag incomplete coverage.",
+      "Auto-timestamp, geo-stamp, and sequence photos per S500 §9.2.5 documentation standard. Flag incomplete coverage.",
     adjusterValue:
       "Photos are court-admissible documentation in the correct format.",
   },
