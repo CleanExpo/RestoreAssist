@@ -5988,6 +5988,9 @@ model ClaimSketch {
   // client-side via Fabric canvas.toDataURL and uploaded to sketch-media/exports.
   // The canonical IICRC report embeds this per floor (server can't render Fabric).
   renderedPngUrl     String?
+  // RA-120 (PR4): per-floor underlay opacity (0..1). Without this the slider
+  // value lived in React state only and reset to the default on every reload.
+  backgroundImageOpacity Float?
   moisturePoints     Json?
   equipmentPoints    Json?
   // Homeowner self-capture quarantine (D4): unauthenticated submissions land

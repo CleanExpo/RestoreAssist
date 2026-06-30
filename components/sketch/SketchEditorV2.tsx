@@ -225,6 +225,7 @@ export function SketchEditorV2({
             floorLabel: string;
             sketchData: Record<string, unknown> | null;
             backgroundImageUrl?: string | null;
+            backgroundImageOpacity?: number | null;
             moisturePoints?: unknown[] | null;
             country?: "AU" | "NZ" | null;
           }>;
@@ -244,7 +245,12 @@ export function SketchEditorV2({
             canvasRef,
             moisturePins: (s.moisturePoints as MoisturePin[] | null) ?? [],
             backgroundUrl: s.backgroundImageUrl ?? null,
-            backgroundOpacity: 0.35,
+            // RA-120 (PR4): restore the persisted opacity instead of resetting
+            // to the default on every reload (was a per-floor data-loss bug).
+            backgroundOpacity:
+              typeof s.backgroundImageOpacity === "number"
+                ? s.backgroundImageOpacity
+                : 0.35,
             scaleConfig:
               ((s.sketchData as Record<string, unknown> | null)
                 ?.scaleConfig as ScaleConfig | null) ?? null,
@@ -359,6 +365,7 @@ export function SketchEditorV2({
         sketchData,
         moisturePoints: fd.moisturePins,
         backgroundImageUrl: fd.backgroundUrl,
+        backgroundImageOpacity: fd.backgroundOpacity,
         renderedPngUrl,
         country,
       };

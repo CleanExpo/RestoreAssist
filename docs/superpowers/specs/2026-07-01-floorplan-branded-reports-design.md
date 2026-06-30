@@ -78,11 +78,22 @@ Same post-process pattern as PR2 (pure mapper + pdf-lib appender, wired into the
 - Tests (TDD, 10 cases): mapper (fetch/thumbnail-pref/caption/format-sniff/skip), real-PDF grid pagination
   (incl. JPG path + corrupt-skip), end-to-end route page growth. tsc clean; standards + no-verbatim + lint green.
 
-### PR4 — Floorplan feature completeness
-- Add `ClaimSketch.backgroundImageOpacity Float?`; persist + restore per floor (fixes the data-loss bug).
-- Validate manual uploads (type allow-list, size cap) and store server-side (Supabase) instead of base64.
-- Add underlay reposition/scale (+ lock-aspect) controls.
-- Tests: opacity round-trips through save/load; oversized/invalid upload rejected; multi-floor isolation.
+### PR4 — Floorplan feature completeness  — BUILT (feat/floorplan-completeness-pr4-2026-07-01)
+Scoped to the two highest-value, fully-testable items (the data-loss fix + upload safety):
+- **Opacity persistence (fixes the data-loss bug):** `ClaimSketch.backgroundImageOpacity Float?`
+  (migration `20260701000100_…`); POST `/sketches` persists it **clamped 0..1**; GET already returns it
+  (include returns all scalars); `SketchEditorV2` sends `fd.backgroundOpacity` on save and **restores**
+  `s.backgroundImageOpacity ?? 0.35` on hydrate (was hardcoded `0.35` → reset every reload).
+- **Upload validation:** pure `lib/sketch/validate-underlay-upload.ts` (allow-list png/jpeg/webp + 10 MB cap),
+  wired into `FloorPlanUnderlayLoader.handleFileUpload` (rejects with a message) + `accept` tightened.
+- Tests (TDD, 8 cases): opacity persist + clamp + omit; validator allow-list/size/boundary.
+  tsc clean; standards + no-verbatim green; lint clean (one pre-existing unrelated img warning left as-is).
+
+**Deferred to a PR4b follow-up** (separable, UI-heavy / lower-risk-to-leave; noted, not silently dropped):
+- Base64 → Supabase **server-side storage** of manual uploads (the `uploadFloorPlanUnderlay` helper exists;
+  needs an async upload-on-apply path + handling). Validation (above) already gates the input.
+- Underlay **reposition/scale (+ lock-aspect) controls** (pure Fabric/React UI).
+- The PR2 **freshness edge** (draw-without-flush serves last flushed render) — fold in with the upload-on-apply work.
 
 ### PR5 — Upgrade gating
 - `hasFloorPlanUnderlay(org)` entitlement (plan tier, extensible to add-on); gate `/api/properties/scrape`
