@@ -45,7 +45,7 @@ export interface CompletenessCheckInput {
     | "chemical_spill"
     | "blood_trauma"
     | null;
-  /** For mould — Class ≥ 2 requires clearance testing (S520:2015 §7.2). */
+  /** For mould — Class ≥ 2 requires clearance testing (S520:2024 §7.2). */
   mouldContaminationClass?: 1 | 2 | 3 | 4 | null;
 }
 
@@ -73,7 +73,7 @@ export function checkBillingCompleteness(
       code: "MISSING_MOBILISATION",
       severity: "warning",
       message:
-        "No mobilisation / site attendance line item. Every job should carry a mobilisation fee (IICRC S500:2025 §4.1).",
+        "No mobilisation / site attendance line item. Every job should carry a mobilisation fee (IICRC S500:2021 §4.1).",
       suggestedRate: 180,
     });
   }
@@ -86,7 +86,7 @@ export function checkBillingCompleteness(
       code: "MISSING_MONITORING",
       severity: "warning",
       message:
-        "No daily monitoring visit line item. Multi-day drying jobs require documented daily psychrometric readings (S500:2025 §8.3).",
+        "No daily monitoring visit line item. Multi-day drying jobs require documented daily psychrometric readings (S500:2021 §8.3).",
       suggestedRate: 165,
     });
   }
@@ -155,7 +155,7 @@ export function checkBillingCompleteness(
         code: "MISSING_CLEARANCE_TESTING",
         severity: "warning",
         message:
-          "Biohazard remediation should include post-remediation clearance testing (IICRC S540:2021 §5).",
+          "Biohazard remediation should include post-remediation clearance testing (IICRC S540:2023 §5).",
       });
     }
   }
@@ -170,7 +170,7 @@ export function checkBillingCompleteness(
       code: "MISSING_CLEARANCE_TESTING",
       severity: "warning",
       message:
-        "Mould remediation at Class ≥ 2 requires post-remediation clearance testing before re-occupancy (S520:2015 §7.2).",
+        "Mould remediation at Class ≥ 2 requires post-remediation clearance testing before re-occupancy (S520:2024 §7.2).",
     });
   }
 

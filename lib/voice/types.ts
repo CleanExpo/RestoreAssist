@@ -64,7 +64,7 @@ export interface ParsedObservation {
   s500Section?: string;
 }
 
-// ─── S500:2025 Completion Checking ────────────────────────────────────────────
+// ─── S500:2021 Completion Checking ────────────────────────────────────────────
 
 export type S500CompletionItemId =
   | "psychrometric_per_room"

@@ -68,7 +68,7 @@ interface DryingProgressChartProps {
   /**
    * Optional target-curve parameters. When provided, a dashed target curve
    * is overlaid and a projected completion badge is shown.
-   * Per AS-IICRC S500:2025 §12.2.2.
+   * Per ANSI/IICRC S500:2021 §12.2.2.
    */
   targetCurveParams?: {
     materialType: string;
@@ -324,7 +324,7 @@ export default function DryingProgressChart({
     "other";
   const primaryStd = getDryStandard(primaryMaterial);
 
-  // ── Target curve computation (S500:2025 §12.2.2) ─────────────────
+  // ── Target curve computation (S500:2021 §12.2.2) ─────────────────
   // Use the highest initial reading across all series as the curve starting point
   const maxInitialMC = Math.max(...readings.map((r) => r.moistureLevel));
   const targetCurve: TargetCurveResult | null = targetCurveParams
@@ -408,7 +408,7 @@ export default function DryingProgressChart({
           </span>
         )}
 
-        {/* Projected completion badge — S500:2025 §12.2.2 */}
+        {/* Projected completion badge — S500:2021 §12.2.2 */}
         {targetCurve && targetCurve.projectedCompletionDay > 0 && (
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-brand-navy/10 text-brand-navy dark:bg-brand-gold/10 dark:text-brand-gold border border-brand-navy/20 dark:border-brand-gold/30">
             <Calendar size={12} />
@@ -445,7 +445,7 @@ export default function DryingProgressChart({
               Drying Progress Curve
             </h4>
             <p className="text-xs text-neutral-500 dark:text-slate-500 mt-0.5">
-              AS-IICRC S500:2025 §12.2.2 — moisture % per location over drying
+              ANSI/IICRC S500:2021 §12.2.2 — moisture % per location over drying
               period
               {targetCurve && " · dashed = target curve"}
             </p>
@@ -500,7 +500,7 @@ export default function DryingProgressChart({
               }}
             />
 
-            {/* Target curve overlay — dashed navy line (S500:2025 §12.2.2) */}
+            {/* Target curve overlay — dashed navy line (S500:2021 §12.2.2) */}
             {targetCurve && (
               <>
                 {/* Gap shading between target and actual (warm brand colour) */}
@@ -521,7 +521,7 @@ export default function DryingProgressChart({
                 <Line
                   type="monotone"
                   dataKey="__target"
-                  name="Target curve (S500:2025 §12.2.2)"
+                  name="Target curve (S500:2021 §12.2.2)"
                   stroke="#1C2E47"
                   strokeWidth={2}
                   strokeDasharray="8 4"

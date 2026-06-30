@@ -54,12 +54,12 @@ export interface EnhanceProseResult {
 
 const DOMAIN_TONE: Record<AssessmentDomain, string> = {
   WATER:
-    "IICRC S500:2025 water-damage restoration assessor for an Australian insurer",
-  MOULD: "IICRC S520:2015 mould remediation Indoor Environmental Professional",
-  BIOHAZARD: "IICRC S540:2021 trauma & biohazard remediation lead in Australia",
-  FIRE_SMOKE: "IICRC S700:2015 fire & smoke damage restoration assessor",
+    "IICRC S500:2021 water-damage restoration assessor for an Australian insurer",
+  MOULD: "IICRC S520:2024 mould remediation Indoor Environmental Professional",
+  BIOHAZARD: "IICRC S540:2023 trauma & biohazard remediation lead in Australia",
+  FIRE_SMOKE: "IICRC S700:2025 fire & smoke damage restoration assessor",
   STORM:
-    "Australian storm-damage restoration assessor (S500:2025 + NCC Vol 2 Part 3.5)",
+    "Australian storm-damage restoration assessor (S500:2021 + NCC Vol 2 Part 3.5)",
   HVAC: "NADCA ACR 2021 + AS/NZS 3666 HVAC hygiene assessor",
   AUSTRALIAN_COMPLIANCE:
     "Australian compliance lead (WHS Act 2011, GICOP 2020, Privacy Act 1988, Fair Work Act 2009)",
@@ -71,7 +71,7 @@ Hard rules:
 1. Output ONLY a JSON object: {"body": "..."} — no prose, no code fences.
 2. Australian English (metres, colour, organisation, programme).
 3. 2–5 sentences, 60–180 words. No bullet lists in this rewrite — flowing prose only.
-4. Preserve every standards reference shown in the input citations array EXACTLY (e.g. "IICRC S500:2025 §13.2"). You may quote the section number inline.
+4. Preserve every standards reference shown in the input citations array EXACTLY (e.g. "IICRC S500:2021 §13.2"). You may quote the section number inline.
 5. Never invent new standards references, certifications, postcodes, equipment models, or quantitative readings. If a number is not in the input, do not introduce one.
 6. Never change the technical conclusion. If the input states "Cat 3 black water", you must not soften to "potentially contaminated".
 7. Do not include cost figures unless they appear verbatim in the input body.

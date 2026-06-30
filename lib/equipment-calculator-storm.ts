@@ -7,7 +7,7 @@
  * equipment counts from measured affected area, standing-water volume, and
  * expected drying duration.
  *
- * Ratios follow IICRC S500:2025 §7 (bulk extraction) + §9.3/§9.4 (evaporative
+ * Ratios follow IICRC S500:2021 §7 (bulk extraction) + §9.3/§9.4 (evaporative
  * drying) with AU field practice for storm-scale extraction throughput.
  * Air mover + LGR dehumidifier ratios match the standard water calculator.
  */
@@ -42,7 +42,7 @@ const SUBMERSIBLE_LITRES_PER_UNIT = 500;
 const SUBMERSIBLE_MAX = 8;
 /** 1 truck-mount per 200 m² for storm-scale bulk extraction. */
 const TRUCK_MOUNT_AREA_PER_UNIT = 200;
-/** 1 air mover per 14 m² — IICRC S500:2025 §9.3.2. */
+/** 1 air mover per 14 m² — IICRC S500:2021 §9.3.2. */
 const AIR_MOVER_AREA_PER_UNIT = 14;
 /** 1 LGR dehumidifier per 80 m² per day of drying. */
 const LGR_AREA_PER_UNIT_PER_DAY = 80;

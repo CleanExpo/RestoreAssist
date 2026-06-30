@@ -200,8 +200,8 @@ describe("POST /api/live-teacher/turn", () => {
       .mockResolvedValueOnce({ id: "utt-user-1" }) // user turn
       .mockResolvedValueOnce({ id: "utt-asst-1" }); // assistant turn
     mockInvokeClaudeCloud.mockResolvedValue({
-      content: "Category 2 water. [S500:2025 §10.5.4]",
-      clauseRefs: ["[S500:2025 §10.5.4]"],
+      content: "Category 2 water. [S500:2021 §10.5.4]",
+      clauseRefs: ["[S500:2021 §10.5.4]"],
       confidence: 86,
       toolCalls: [],
       inputTokens: 10,

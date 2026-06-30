@@ -6,7 +6,7 @@
  * AdjusterRecommendation object. Does NOT persist AI output.
  *
  * Legal references:
- *   - AS-IICRC S500:2025 §4.1 (water category), §5.1 (water class), §7.1 (drying)
+ *   - ANSI/IICRC S500:2021 §4.1 (water category), §5.1 (water class), §7.1 (drying)
  *   - ICA Code of Practice §3 (claims handling), §6 (make-safe obligations)
  *   - Insurance Contracts Act 1984 (Cth) §13 (duty of utmost good faith)
  */
@@ -24,7 +24,7 @@ export const FindingSchema = z.object({
 });
 
 export const ClauseComplianceSchema = z.object({
-  citation: z.string(), // e.g. "AS-IICRC S500:2025 §4.1"
+  citation: z.string(), // e.g. "ANSI/IICRC S500:2021 §4.1"
   status: z.enum(["compliant", "non-compliant", "not-applicable"]),
   note: z.string().optional(),
 });
@@ -52,7 +52,7 @@ const ADJUSTER_SYSTEM_PROMPT = `You are an expert insurance adjuster AI for Aust
 Your task: perform a single-pass structured audit of the provided claim data and return a JSON object matching the schema exactly.
 
 Legal framework:
-- AS-IICRC S500:2025 (Water Damage Restoration Standard): §4.1 water category, §5.1 water class, §7.1 drying targets, §8 documentation requirements
+- ANSI/IICRC S500:2021 (Water Damage Restoration Standard): §4.1 water category, §5.1 water class, §7.1 drying targets, §8 documentation requirements
 - ICA Code of Practice §3.1 (claims handling timeliness), §6 (make-safe / stabilisation obligations)
 - Insurance Contracts Act 1984 (Cth) §13 (duty of utmost good faith)
 
@@ -170,7 +170,7 @@ function detectAnomalies(
         .reduce((s, r) => s + r.moistureLevel, 0) / 4;
     if (avgRecent > avgEarly * 1.05) {
       anomalies.push(
-        "Moisture readings show ascending trend — drying not progressing (AS-IICRC S500:2025 §7.1)",
+        "Moisture readings show ascending trend — drying not progressing (ANSI/IICRC S500:2021 §7.1)",
       );
     }
   }
@@ -212,7 +212,7 @@ Count: ${inspection.scopeVariations.length}
 Net delta: ${(variationNetCents / 100).toFixed(2)} AUD
 Details: ${JSON.stringify(inspection.scopeVariations)}
 
-MOISTURE READINGS (AS-IICRC S500:2025 §7.1)
+MOISTURE READINGS (ANSI/IICRC S500:2021 §7.1)
 Count: ${inspection.moistureReadings.length}
 Readings: ${JSON.stringify(inspection.moistureReadings.slice(-20))}
 

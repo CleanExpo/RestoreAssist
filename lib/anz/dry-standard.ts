@@ -1,5 +1,5 @@
 /**
- * AS-IICRC S500:2025 drying validation (spec §5.2, §12 `SketchMoistureReading`).
+ * ANSI/IICRC S500:2021 drying validation (spec §5.2, §12 `SketchMoistureReading`).
  *
  * Compares a moisture-content reading against the dry standard for the material
  * (or an explicit target) and reports whether the dry standard is met. Per spec

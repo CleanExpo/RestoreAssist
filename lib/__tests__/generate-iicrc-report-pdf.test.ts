@@ -6,7 +6,7 @@ import {
 } from "../generate-iicrc-report-pdf";
 
 // RA-6687: Focused unit tests for the PURE, DB-free helpers that shape and
-// format report data before it is drawn into the IICRC S500:2025 PDF. These
+// format report data before it is drawn into the IICRC S500:2021 PDF. These
 // helpers guard against user-supplied text crashing pdf-lib and ensure
 // Australian-locale date/currency formatting in the client-facing report.
 

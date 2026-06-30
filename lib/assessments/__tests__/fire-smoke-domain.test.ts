@@ -131,7 +131,7 @@ describe("fireSmokeDomain — char level surfaces in report", () => {
 });
 
 describe("fireSmokeDomain — citations + scope", () => {
-  it("aggregates only IICRC S700:2015 citations", async () => {
+  it("aggregates only IICRC S700:2025 citations", async () => {
     inspectionFindUnique.mockResolvedValueOnce(baseInspection);
     const r = await fireSmokeDomain.generate({
       ...baseInput,
@@ -140,7 +140,7 @@ describe("fireSmokeDomain — citations + scope", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
     expect(
-      r.data.citations.every((c) => c.standard === "IICRC S700:2015"),
+      r.data.citations.every((c) => c.standard === "IICRC S700:2025"),
     ).toBe(true);
     expect(r.data.citations.length).toBeGreaterThan(2);
   });

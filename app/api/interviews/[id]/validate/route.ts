@@ -13,7 +13,7 @@ import {
  * RA-1214 — POST /api/interviews/[id]/validate
  *
  * Uses Claude Haiku to validate a guided interview's answers against
- * IICRC S500:2025 water-damage restoration standards. Returns an
+ * IICRC S500:2021 water-damage restoration standards. Returns an
  * advisory-only finding list — does NOT block report generation.
  *
  * Guards:

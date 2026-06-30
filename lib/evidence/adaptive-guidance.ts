@@ -198,7 +198,7 @@ export const STEP_GUIDANCE: Record<string, StepGuidance> = {
       },
     ],
     tips: [
-      "Use a ruler or tape measure in close-up photos for scale — S500:2025 requires measurable damage evidence.",
+      "Use a ruler or tape measure in close-up photos for scale — S500:2021 requires measurable damage evidence.",
       "Photograph damage progression from source outward to show the path of water travel.",
     ],
     commonMistakes: [
@@ -256,7 +256,7 @@ export const STEP_GUIDANCE: Record<string, StepGuidance> = {
       },
     ],
     tips: [
-      "S500:2025 §7.3 requires environmental readings at each monitoring visit — not just the initial inspection.",
+      "S500:2021 §7.3 requires environmental readings at each monitoring visit — not just the initial inspection.",
       "Record readings before turning on any drying equipment to establish a true baseline.",
     ],
     commonMistakes: [
@@ -307,7 +307,7 @@ export const STEP_GUIDANCE: Record<string, StepGuidance> = {
       },
     ],
     tips: [
-      "S500:2025 §10.2 requires moisture readings at material-appropriate depths — plasterboard at 12mm, timber framing at 50mm.",
+      "S500:2021 §10.2 requires moisture readings at material-appropriate depths — plasterboard at 12mm, timber framing at 50mm.",
       "Always take readings on the 'dry' side of the boundary too — proves where damage stops.",
     ],
     commonMistakes: [
@@ -404,7 +404,7 @@ export const STEP_GUIDANCE: Record<string, StepGuidance> = {
       },
     ],
     tips: [
-      "S500:2025 §12.1 requires documented evidence of equipment deployment — serial numbers are non-negotiable for insurers.",
+      "S500:2021 §12.1 requires documented evidence of equipment deployment — serial numbers are non-negotiable for insurers.",
     ],
     commonMistakes: [
       "Deploying equipment without photographing serial numbers — you will need to return to site to collect this evidence.",
@@ -498,7 +498,7 @@ export const STEP_GUIDANCE: Record<string, StepGuidance> = {
       },
     ],
     tips: [
-      "S500:2025 requires monitoring at least every 24 hours for the first 72 hours of drying.",
+      "S500:2021 requires monitoring at least every 24 hours for the first 72 hours of drying.",
     ],
     commonMistakes: [
       "Missing monitoring visits — gaps in the drying record weaken the claim and can void insurance coverage.",
@@ -514,7 +514,7 @@ export const STEP_GUIDANCE: Record<string, StepGuidance> = {
         id: "ct_1",
         label: "Identify contamination source and category",
         detail:
-          "Category 1 (clean), Category 2 (grey), or Category 3 (black/sewage). S500:2025 §3 definitions apply.",
+          "Category 1 (clean), Category 2 (grey), or Category 3 (black/sewage). S500:2021 §3 definitions apply.",
       },
       {
         id: "ct_2",
@@ -542,7 +542,7 @@ export const STEP_GUIDANCE: Record<string, StepGuidance> = {
       },
     ],
     tips: [
-      "Water that has been standing for more than 48 hours automatically escalates to Category 3 per S500:2025.",
+      "Water that has been standing for more than 48 hours automatically escalates to Category 3 per S500:2021.",
     ],
     commonMistakes: [
       "Under-classifying contamination — Cat 2 left untreated for 48+ hours becomes Cat 3, changing the entire scope.",

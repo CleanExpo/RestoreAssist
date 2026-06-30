@@ -136,7 +136,7 @@ export default function TermsPage() {
               incomplete, inaccurate, or subtly wrong. You are responsible for
               reviewing all AI-generated content before relying on it, and for
               ensuring the final report complies with the applicable
-              professional standards (IICRC S500:2025, NCC, state-specific
+              professional standards (IICRC S500:2021, NCC, state-specific
               building codes, etc.). RestoreAssist is a tool for qualified
               technicians, not a substitute for one.
             </p>

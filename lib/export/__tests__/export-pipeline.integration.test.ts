@@ -3,7 +3,7 @@
  *
  * Runs a realistic multi-floor sketch through the ENTIRE export pipeline —
  * structured contract + scope narrative + PDF — for both AU and NZ, asserting the
- * whole AS-IICRC S500:2025 DoD chain composes end to end. This is the demo path;
+ * whole ANSI/IICRC S500:2021 DoD chain composes end to end. This is the demo path;
  * if any cross-module wiring breaks, this fails.
  */
 import { describe, expect, it } from "vitest";
@@ -107,7 +107,7 @@ describe("export pipeline — AU end to end", () => {
     const md = buildScopeNarrative(structured);
     for (const needle of [
       "# Scope of Works",
-      "AS-IICRC S500:2025",
+      "ANSI/IICRC S500:2021",
       "SUSPECTED ASBESTOS",
       "Category 3",
       "NOT YET DRY",

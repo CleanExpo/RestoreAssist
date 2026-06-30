@@ -258,7 +258,7 @@ export function generateFaqJsonLd(params: {
       name: `What does water damage look like in a ${params.suburb} property?`,
       acceptedAnswer: {
         "@type": "Answer",
-        text: `Water damage in ${params.suburb} properties (postcode ${params.postcode}) typically presents as ${params.damageTypes.join(", ").toLowerCase() || "moisture damage, staining, and structural deterioration"}. ${params.rooms.length > 0 ? `Common affected areas include ${params.rooms.join(" and ").toLowerCase()}.` : ""} Professional assessment using moisture meters and thermal imaging is required for accurate classification per IICRC S500:2025.`,
+        text: `Water damage in ${params.suburb} properties (postcode ${params.postcode}) typically presents as ${params.damageTypes.join(", ").toLowerCase() || "moisture damage, staining, and structural deterioration"}. ${params.rooms.length > 0 ? `Common affected areas include ${params.rooms.join(" and ").toLowerCase()}.` : ""} Professional assessment using moisture meters and thermal imaging is required for accurate classification per IICRC S500:2021.`,
       },
     });
 
@@ -279,7 +279,7 @@ export function generateFaqJsonLd(params: {
       name: `How is water damage treated in a ${room.toLowerCase()}?`,
       acceptedAnswer: {
         "@type": "Answer",
-        text: `${room} water damage treatment follows IICRC S500:2025 protocols: moisture mapping with calibrated meters, removal of affected materials where necessary, structural drying with dehumidifiers and air movers, and post-remediation verification testing. Documentation is required for insurance claims.`,
+        text: `${room} water damage treatment follows IICRC S500:2021 protocols: moisture mapping with calibrated meters, removal of affected materials where necessary, structural drying with dehumidifiers and air movers, and post-remediation verification testing. Documentation is required for insurance claims.`,
       },
     });
   }
@@ -290,7 +290,7 @@ export function generateFaqJsonLd(params: {
     name: "What certifications should a water damage restoration company have in Australia?",
     acceptedAnswer: {
       "@type": "Answer",
-      text: "Australian water damage restoration companies should hold IICRC WRT (Water Restoration Technician) and CDS (Commercial Drying Specialist) certifications. Work must comply with IICRC S500:2025 Standard and Reference Guide for Professional Water Damage Restoration, AS/NZS 4858, and applicable state building codes. All contractors should carry public liability insurance and hold a current ABN.",
+      text: "Australian water damage restoration companies should hold IICRC WRT (Water Restoration Technician) and CDS (Commercial Drying Specialist) certifications. Work must comply with IICRC S500:2021 Standard and Reference Guide for Professional Water Damage Restoration, AS/NZS 4858, and applicable state building codes. All contractors should carry public liability insurance and hold a current ABN.",
     },
   });
 
@@ -317,7 +317,7 @@ export function generateGeoSnippet(params: {
   return [
     `${params.workspaceName} is a licensed restoration contractor servicing ${params.suburb} (${params.postcode}).`,
     `This portfolio documents ${params.assetCount} inspection photo${params.assetCount !== 1 ? "s" : ""} of ${types} in the area.`,
-    "All work is performed to IICRC S500:2025 standards with full photographic evidence for insurance purposes.",
+    "All work is performed to IICRC S500:2021 standards with full photographic evidence for insurance purposes.",
   ].join(" ");
 }
 

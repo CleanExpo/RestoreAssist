@@ -2,12 +2,12 @@
  * RA-864 — scope-mould.ts
  *
  * Deterministic scope generation for mould remediation jobs following
- * IICRC S520:2015. Each returned item carries its S520 clause reference,
+ * IICRC S520:2024. Each returned item carries its S520 clause reference,
  * quantity, unit, and — where mappable — the unit cost from the company
  * pricing config.
  *
  * Driving factors:
- *   - contaminationClass — S520:2015 §4.2 contamination classification
+ *   - contaminationClass — S520:2024 §4.2 contamination classification
  *     drives containment + filtration intensity.
  *   - affectedAreaM2     — quantity scaling for area-based items.
  *   - estimatedDays      — drives daily-rated equipment (air scrubber).
@@ -21,15 +21,15 @@ import type { ScopeItemDraft } from "./scope-fire";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-/** IICRC S520:2015 §4.2 — Contamination classification */
+/** IICRC S520:2024 §4.2 — Contamination classification */
 export type ContaminationClass = 1 | 2 | 3 | 4;
 
 // ─── S520 CLAUSE REFS ────────────────────────────────────────────────────────
 
-const S520_CLASSIFICATION = "S520:2015 §4.2";
-const S520_CONTAINMENT = "S520:2015 §5.3";
-const S520_HEPA_FILTRATION = "S520:2015 §6.1";
-const S520_CLEARANCE = "S520:2015 §7.2";
+const S520_CLASSIFICATION = "S520:2024 §4.2";
+const S520_CONTAINMENT = "S520:2024 §5.3";
+const S520_HEPA_FILTRATION = "S520:2024 §6.1";
+const S520_CLEARANCE = "S520:2024 §7.2";
 
 /** NADCA ACR 2021 is the industry standard for HVAC inspection + cleaning. */
 const NADCA_HVAC = "NADCA ACR:2021 §5";
@@ -69,7 +69,7 @@ export function generateMouldScope(params: {
     itemType: "hepa_vacuum",
     description: "HEPA vacuum contaminated surfaces",
     justification:
-      "HEPA vacuuming removes settled spores and fine particulate per IICRC S520:2015 §6.1 (HEPA filtration).",
+      "HEPA vacuuming removes settled spores and fine particulate per IICRC S520:2024 §6.1 (HEPA filtration).",
     iicrcReference: S520_HEPA_FILTRATION,
     quantity: area,
     unit: "m²",
@@ -80,7 +80,7 @@ export function generateMouldScope(params: {
     itemType: "antimicrobial_wipe",
     description: "Antimicrobial wipe-down",
     justification:
-      "Apply EPA-registered antimicrobial to remediated surfaces to inhibit regrowth (S520:2015 §4.2 Class control measures).",
+      "Apply EPA-registered antimicrobial to remediated surfaces to inhibit regrowth (S520:2024 §4.2 Class control measures).",
     iicrcReference: S520_CLASSIFICATION,
     quantity: area,
     unit: "m²",
@@ -98,8 +98,8 @@ export function generateMouldScope(params: {
           : "Critical barrier containment",
       justification:
         contaminationClass >= 3
-          ? "Class 3 (>10 m²) requires full containment under negative pressure to prevent cross-contamination during remediation (S520:2015 §5.3)."
-          : "Class 2 (1-10 m²) requires critical barriers to isolate the work area (S520:2015 §5.3).",
+          ? "Class 3 (>10 m²) requires full containment under negative pressure to prevent cross-contamination during remediation (S520:2024 §5.3)."
+          : "Class 2 (1-10 m²) requires critical barriers to isolate the work area (S520:2024 §5.3).",
       iicrcReference: S520_CONTAINMENT,
       quantity: 1,
       unit: "job",
@@ -110,7 +110,7 @@ export function generateMouldScope(params: {
       itemType: "hepa_air_scrubber",
       description: "HEPA air scrubber",
       justification:
-        "Continuous HEPA air filtration during remediation maintains containment integrity and captures airborne spores per IICRC S520:2015 §6.1.",
+        "Continuous HEPA air filtration during remediation maintains containment integrity and captures airborne spores per IICRC S520:2024 §6.1.",
       iicrcReference: S520_HEPA_FILTRATION,
       quantity: days,
       unit: "day",
@@ -124,7 +124,7 @@ export function generateMouldScope(params: {
       itemType: "clearance_testing",
       description: "Post-remediation clearance testing",
       justification:
-        "Independent visual inspection + air sampling verifies remediation success before re-occupancy per IICRC S520:2015 §7.2.",
+        "Independent visual inspection + air sampling verifies remediation success before re-occupancy per IICRC S520:2024 §7.2.",
       iicrcReference: S520_CLEARANCE,
       quantity: 1,
       unit: "job",
@@ -138,7 +138,7 @@ export function generateMouldScope(params: {
       itemType: "negative_air_machine",
       description: "Negative air machine",
       justification:
-        "Negative air machine maintains pressure differential across containment during Class 3 remediation (S520:2015 §5.3 + §6.1).",
+        "Negative air machine maintains pressure differential across containment during Class 3 remediation (S520:2024 §5.3 + §6.1).",
       iicrcReference: S520_CONTAINMENT,
       quantity: days,
       unit: "day",
@@ -150,7 +150,7 @@ export function generateMouldScope(params: {
       itemType: "worker_decon",
       description: "Worker decontamination setup",
       justification:
-        "Decontamination chamber between contaminated zone and clean zone limits cross-contamination during Class 3 remediation (S520:2015 §5.3).",
+        "Decontamination chamber between contaminated zone and clean zone limits cross-contamination during Class 3 remediation (S520:2024 §5.3).",
       iicrcReference: S520_CONTAINMENT,
       quantity: 1,
       unit: "job",

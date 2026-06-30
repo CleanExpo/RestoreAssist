@@ -1,7 +1,7 @@
 /**
  * RA-437: Vision prompts for moisture meter reading extraction.
  * Supports Delmhorst, Protimeter, and Tramex meters — common in Australian
- * water damage restoration (IICRC S500:2025 §8).
+ * water damage restoration (IICRC S500:2021 §8).
  */
 
 export type MeterBrand = "delmhorst" | "protimeter" | "tramex" | "unknown";
@@ -20,7 +20,7 @@ export interface MeterReadingResult {
 /**
  * System prompt for moisture meter reading extraction via Claude Vision.
  */
-export const METER_EXTRACTION_SYSTEM_PROMPT = `You are an expert at reading moisture meter displays used in water damage restoration (IICRC S500:2025 §8).
+export const METER_EXTRACTION_SYSTEM_PROMPT = `You are an expert at reading moisture meter displays used in water damage restoration (IICRC S500:2021 §8).
 
 You specialise in these brands:
 - Delmhorst (BD-2100, J-2000, Navigator Pro): displays %MC (moisture content) on LCD

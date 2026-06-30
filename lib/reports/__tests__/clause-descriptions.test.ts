@@ -3,7 +3,7 @@ import { CLAUSE_DESCRIPTIONS, describeClause } from "../clause-descriptions";
 
 describe("describeClause", () => {
   it("returns the description for a known clause", () => {
-    expect(describeClause("S500:2025 §7.1")).toBe(
+    expect(describeClause("S500:2021 §7.1")).toBe(
       "General health and safety obligations for restorers",
     );
   });
@@ -13,7 +13,7 @@ describe("describeClause", () => {
   });
 
   it("normalises leading and trailing whitespace before lookup", () => {
-    expect(describeClause("  S500:2025 §10.5  ")).toBe(
+    expect(describeClause("  S500:2021 §10.5  ")).toBe(
       "Category 2 water — greywater characteristics and response",
     );
   });

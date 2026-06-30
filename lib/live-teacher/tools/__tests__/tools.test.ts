@@ -175,7 +175,7 @@ describe("fillScopeItem", () => {
       description: "Remove and dispose of water-damaged carpet",
       quantity: 25,
       unit: "sqm",
-      clauseRef: "S500:2025 §7.1",
+      clauseRef: "S500:2021 §7.1",
     });
 
     const result = await fillScopeItem({
@@ -184,12 +184,12 @@ describe("fillScopeItem", () => {
       description: "Remove and dispose of water-damaged carpet",
       quantity: 25,
       unit: "sqm",
-      clauseRef: "S500:2025 §7.1",
+      clauseRef: "S500:2021 §7.1",
     });
 
     expect(mockPrisma.scopeItem.create).toHaveBeenCalledOnce();
     expect(result.id).toBe("si-1");
-    expect(result.clauseRef).toBe("S500:2025 §7.1");
+    expect(result.clauseRef).toBe("S500:2021 §7.1");
   });
 });
 
@@ -411,7 +411,7 @@ describe("TOOL_HANDLERS dispatcher", () => {
       description: "Remove carpet",
       quantity: 10,
       unit: "sqm",
-      clauseRef: "S500:2025 §7.1",
+      clauseRef: "S500:2021 §7.1",
     });
 
     // Context is ignored by tools that don't consume it; call still succeeds.
@@ -422,7 +422,7 @@ describe("TOOL_HANDLERS dispatcher", () => {
         description: "Remove carpet",
         quantity: 10,
         unit: "sqm",
-        clauseRef: "S500:2025 §7.1",
+        clauseRef: "S500:2021 §7.1",
       },
       { userId: "user-dispatch-9" },
     )) as { id: string };

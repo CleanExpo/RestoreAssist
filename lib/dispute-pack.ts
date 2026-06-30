@@ -2,7 +2,7 @@
  * Dispute Defence Pack PDF Generator
  *
  * Generates a professionally formatted PDF containing all evidence for a
- * completed inspection with IICRC S500:2025 citations. Used when an insurer
+ * completed inspection with IICRC S500:2021 citations. Used when an insurer
  * disputes a claim and the contractor needs a single consolidated evidence pack.
  *
  * Follows existing pdf-lib patterns from generate-enhanced-report-pdf.ts.
@@ -186,23 +186,23 @@ function evidenceClassLabel(cls: string): string {
 /** S500 section reference for evidence class */
 function s500SectionForEvidenceClass(cls: string): string {
   const refs: Record<string, string> = {
-    MOISTURE_READING: "IICRC S500:2025 \u00A77.2",
-    THERMAL_IMAGE: "IICRC S500:2025 \u00A77.3",
-    AMBIENT_ENVIRONMENTAL: "IICRC S500:2025 \u00A77.1",
-    PHOTO_DAMAGE: "IICRC S500:2025 \u00A710.2",
-    PHOTO_EQUIPMENT: "IICRC S500:2025 \u00A712.4",
-    PHOTO_PROGRESS: "IICRC S500:2025 \u00A710.3",
-    PHOTO_COMPLETION: "IICRC S500:2025 \u00A710.4",
-    VIDEO_WALKTHROUGH: "IICRC S500:2025 \u00A710.2",
-    FLOOR_PLAN: "IICRC S500:2025 \u00A710.1",
-    SCOPE_DOCUMENT: "IICRC S500:2025 \u00A711.1",
-    LAB_RESULT: "IICRC S500:2025 \u00A78.5",
-    AUTHORITY_FORM: "IICRC S500:2025 \u00A79.1",
-    EQUIPMENT_LOG: "IICRC S500:2025 \u00A712.3",
-    TECHNICIAN_NOTE: "IICRC S500:2025 \u00A710.5",
-    VOICE_MEMO: "IICRC S500:2025 \u00A710.5",
+    MOISTURE_READING: "IICRC S500:2021 \u00A77.2",
+    THERMAL_IMAGE: "IICRC S500:2021 \u00A77.3",
+    AMBIENT_ENVIRONMENTAL: "IICRC S500:2021 \u00A77.1",
+    PHOTO_DAMAGE: "IICRC S500:2021 \u00A710.2",
+    PHOTO_EQUIPMENT: "IICRC S500:2021 \u00A712.4",
+    PHOTO_PROGRESS: "IICRC S500:2021 \u00A710.3",
+    PHOTO_COMPLETION: "IICRC S500:2021 \u00A710.4",
+    VIDEO_WALKTHROUGH: "IICRC S500:2021 \u00A710.2",
+    FLOOR_PLAN: "IICRC S500:2021 \u00A710.1",
+    SCOPE_DOCUMENT: "IICRC S500:2021 \u00A711.1",
+    LAB_RESULT: "IICRC S500:2021 \u00A78.5",
+    AUTHORITY_FORM: "IICRC S500:2021 \u00A79.1",
+    EQUIPMENT_LOG: "IICRC S500:2021 \u00A712.3",
+    TECHNICIAN_NOTE: "IICRC S500:2021 \u00A710.5",
+    VOICE_MEMO: "IICRC S500:2021 \u00A710.5",
   };
-  return refs[cls] ?? "IICRC S500:2025";
+  return refs[cls] ?? "IICRC S500:2021";
 }
 
 /** Moisture standard target for a surface type */
@@ -607,7 +607,7 @@ export async function generateDisputePack(
   // ── Build the PDF ────────────────────────────────────────────────────────
   const pdfDoc = await PDFDocument.create();
   pdfDoc.setTitle(`Dispute Defence Pack - ${data.inspection.inspectionNumber}`);
-  pdfDoc.setSubject("IICRC S500:2025 Compliant Dispute Evidence Package");
+  pdfDoc.setSubject("IICRC S500:2021 Compliant Dispute Evidence Package");
   pdfDoc.setCreator("RestoreAssist");
   pdfDoc.setProducer("RestoreAssist (pdf-lib)");
 
@@ -753,7 +753,7 @@ function drawCoverPage(w: PDFWriter, data: DisputePackData): void {
     color: SECONDARY,
   });
   w.drawText(
-    "Prepared in accordance with IICRC S500:2025 Standard and Reference Guide for Professional Water Damage Restoration",
+    "Prepared in accordance with IICRC S500:2021 Standard and Reference Guide for Professional Water Damage Restoration",
     { size: 8, color: SECONDARY },
   );
   w.drawText(
@@ -768,18 +768,18 @@ function drawExecutiveSummary(w: PDFWriter, data: DisputePackData): void {
   // Classification details
   if (data.classifications.length > 0) {
     const primary = data.classifications[0];
-    w.subHeading("Damage Classification (IICRC S500:2025)");
+    w.subHeading("Damage Classification (IICRC S500:2021)");
 
     const catDesc: Record<string, string> = {
-      "1": "Category 1 - Clean Water (IICRC S500:2025 \u00A76.1.1)",
-      "2": "Category 2 - Grey Water (IICRC S500:2025 \u00A76.1.2)",
-      "3": "Category 3 - Black Water (IICRC S500:2025 \u00A76.1.3)",
+      "1": "Category 1 - Clean Water (IICRC S500:2021 \u00A76.1.1)",
+      "2": "Category 2 - Grey Water (IICRC S500:2021 \u00A76.1.2)",
+      "3": "Category 3 - Black Water (IICRC S500:2021 \u00A76.1.3)",
     };
     const classDesc: Record<string, string> = {
-      "1": "Class 1 - Least amount of water absorption (IICRC S500:2025 \u00A76.2.1)",
-      "2": "Class 2 - Significant water absorption (IICRC S500:2025 \u00A76.2.2)",
-      "3": "Class 3 - Greatest amount of water absorption (IICRC S500:2025 \u00A76.2.3)",
-      "4": "Class 4 - Specialty drying situations (IICRC S500:2025 \u00A76.2.4)",
+      "1": "Class 1 - Least amount of water absorption (IICRC S500:2021 \u00A76.2.1)",
+      "2": "Class 2 - Significant water absorption (IICRC S500:2021 \u00A76.2.2)",
+      "3": "Class 3 - Greatest amount of water absorption (IICRC S500:2021 \u00A76.2.3)",
+      "4": "Class 4 - Specialty drying situations (IICRC S500:2021 \u00A76.2.4)",
     };
 
     w.kvPair(
@@ -846,7 +846,7 @@ function drawEvidenceTimeline(w: PDFWriter, data: DisputePackData): void {
 
   w.heading("Evidence Timeline");
   w.drawText(
-    "All evidence items captured during the inspection, ordered chronologically. Each item includes IICRC S500:2025 section references and chain-of-custody hash.",
+    "All evidence items captured during the inspection, ordered chronologically. Each item includes IICRC S500:2021 section references and chain-of-custody hash.",
     { size: 8, color: SECONDARY },
   );
   w.skip(8);
@@ -901,7 +901,7 @@ function drawMoistureProgression(w: PDFWriter, data: DisputePackData): void {
 
   w.heading("Moisture Reading Progression");
   w.drawText(
-    "Moisture readings grouped by location/room, showing progression over time against IICRC S500:2025 target levels (S500:2025 \u00A77.2).",
+    "Moisture readings grouped by location/room, showing progression over time against IICRC S500:2021 target levels (S500:2021 \u00A77.2).",
     { size: 8, color: SECONDARY },
   );
   w.skip(8);
@@ -963,7 +963,7 @@ function drawScopeOfWorks(w: PDFWriter, data: DisputePackData): void {
 
   w.heading("Scope of Works");
   w.drawText(
-    "All selected scope items with quantities, rates, and IICRC S500:2025 references. Rates sourced from cost library or manual entry.",
+    "All selected scope items with quantities, rates, and IICRC S500:2021 references. Rates sourced from cost library or manual entry.",
     { size: 8, color: SECONDARY },
   );
   w.skip(8);
@@ -1000,7 +1000,7 @@ function drawScopeOfWorks(w: PDFWriter, data: DisputePackData): void {
         { text: fmtCurrency(item.rate), x: cols[3].x, width: cols[3].width },
         { text: fmtCurrency(item.total), x: cols[4].x, width: cols[4].width },
         {
-          text: scopeMatch?.justification ?? "IICRC S500:2025",
+          text: scopeMatch?.justification ?? "IICRC S500:2021",
           x: cols[5].x,
           width: cols[5].width,
         },
@@ -1067,10 +1067,10 @@ function drawStandardsAttestation(w: PDFWriter, data: DisputePackData): void {
   w.skip(8);
 
   const attestation =
-    "This report was prepared in accordance with IICRC S500:2025 Standard and Reference Guide " +
+    "This report was prepared in accordance with IICRC S500:2021 Standard and Reference Guide " +
     "for Professional Water Damage Restoration. All evidence items are time-stamped, GPS-tagged " +
     "where device capabilities permit, and cryptographically hashed (SHA-256) for chain-of-custody " +
-    "integrity. The inspection methodology follows the procedures outlined in IICRC S500:2025 " +
+    "integrity. The inspection methodology follows the procedures outlined in IICRC S500:2021 " +
     "\u00A710 (Documentation) and \u00A77 (Monitoring and Evaluation).";
 
   w.drawText(attestation, { size: 9, color: TEXT_COLOR });
@@ -1078,11 +1078,11 @@ function drawStandardsAttestation(w: PDFWriter, data: DisputePackData): void {
 
   w.subHeading("Applicable Standards");
   w.drawText(
-    "- IICRC S500:2025 Standard and Reference Guide for Professional Water Damage Restoration",
+    "- IICRC S500:2021 Standard and Reference Guide for Professional Water Damage Restoration",
     { size: 8 },
   );
   w.drawText(
-    "- IICRC S520:2015 Standard for Professional Mould Remediation (where applicable)",
+    "- IICRC S520:2024 Standard for Professional Mould Remediation (where applicable)",
     { size: 8 },
   );
   w.drawText(
@@ -1096,7 +1096,7 @@ function drawStandardsAttestation(w: PDFWriter, data: DisputePackData): void {
     `I, ${sanitize(data.inspection.technicianName) || "[Technician Name]"}, declare that the information ` +
       "contained in this Dispute Defence Pack is true and correct to the best of my knowledge. " +
       "All measurements were taken using calibrated instruments in accordance with manufacturer " +
-      "specifications and IICRC S500:2025 \u00A77 guidelines.",
+      "specifications and IICRC S500:2021 \u00A77 guidelines.",
     { size: 9 },
   );
 
@@ -1118,7 +1118,7 @@ function drawChainOfCustody(w: PDFWriter, data: DisputePackData): void {
   w.heading("Appendix: Chain of Custody — SHA-256 Hashes");
   w.drawText(
     "Full cryptographic hashes for all evidence items. These hashes can be used to verify " +
-      "that evidence has not been modified since capture (IICRC S500:2025 \u00A710.6).",
+      "that evidence has not been modified since capture (IICRC S500:2021 \u00A710.6).",
     { size: 8, color: SECONDARY },
   );
   w.skip(8);

@@ -58,7 +58,7 @@ describe("validateInterviewResponse", () => {
     vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
       ok: true,
       data: mockTextMessage(
-        '{"findings":[{"questionId":"q1","severity":"error","message":"Category 3 water requires PPE per S500:2025 §10.6","suggestedFix":"Document PPE used"}]}',
+        '{"findings":[{"questionId":"q1","severity":"error","message":"Category 3 water requires PPE per S500:2021 §10.6","suggestedFix":"Document PPE used"}]}',
       ) as any,
     });
 
@@ -73,7 +73,7 @@ describe("validateInterviewResponse", () => {
       expect(r.data.findings[0]).toEqual({
         questionId: "q1",
         severity: "error",
-        message: "Category 3 water requires PPE per S500:2025 §10.6",
+        message: "Category 3 water requires PPE per S500:2021 §10.6",
         suggestedFix: "Document PPE used",
       });
     }
@@ -168,7 +168,7 @@ describe("validateInterviewResponse", () => {
       apiKey: "sk-preserve",
       request: {
         system: expect.stringContaining(
-          "You are an IICRC S500:2025 compliance reviewer",
+          "You are an IICRC S500:2021 compliance reviewer",
         ),
         max_tokens: 1200,
         temperature: 0.2,
@@ -176,7 +176,7 @@ describe("validateInterviewResponse", () => {
           {
             role: "user",
             content: expect.stringContaining(
-              "Validate these answers against IICRC S500:2025 and return findings.",
+              "Validate these answers against IICRC S500:2021 and return findings.",
             ),
           },
         ],

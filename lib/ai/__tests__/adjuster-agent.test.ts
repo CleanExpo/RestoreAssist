@@ -99,17 +99,17 @@ function aiJson(recommendation: string, extras?: object): string {
     ],
     clauseCompliance: [
       {
-        citation: "AS-IICRC S500:2025 §4.1",
+        citation: "ANSI/IICRC S500:2021 §4.1",
         status: "compliant",
         note: "Cat 1 clean water",
       },
-      { citation: "AS-IICRC S500:2025 §5.1", status: "compliant" },
+      { citation: "ANSI/IICRC S500:2021 §5.1", status: "compliant" },
       {
-        citation: "AS-IICRC S500:2025 §7.1",
+        citation: "ANSI/IICRC S500:2021 §7.1",
         status: "compliant",
         note: "Drying targets met",
       },
-      { citation: "AS-IICRC S500:2025 §8", status: "compliant" },
+      { citation: "ANSI/IICRC S500:2021 §8", status: "compliant" },
     ],
     anomalies: [],
     costReasonableness: "within-range",
@@ -197,13 +197,13 @@ describe("runAdjusterAgent", () => {
         ],
         clauseCompliance: [
           {
-            citation: "AS-IICRC S500:2025 §4.1",
+            citation: "ANSI/IICRC S500:2021 §4.1",
             status: "non-compliant",
             note: "Cat 3 — containment required",
           },
-          { citation: "AS-IICRC S500:2025 §5.1", status: "not-applicable" },
-          { citation: "AS-IICRC S500:2025 §7.1", status: "not-applicable" },
-          { citation: "AS-IICRC S500:2025 §8", status: "non-compliant" },
+          { citation: "ANSI/IICRC S500:2021 §5.1", status: "not-applicable" },
+          { citation: "ANSI/IICRC S500:2021 §7.1", status: "not-applicable" },
+          { citation: "ANSI/IICRC S500:2021 §8", status: "non-compliant" },
         ],
         suggestedQuestions: ["When will mould containment be completed?"],
       }),
@@ -322,7 +322,7 @@ describe("runAdjusterAgent", () => {
     mockAiResponse(
       aiJson("escalate", {
         anomalies: [
-          "Moisture readings show ascending trend — drying not progressing (AS-IICRC S500:2025 §7.1)",
+          "Moisture readings show ascending trend — drying not progressing (ANSI/IICRC S500:2021 §7.1)",
         ],
         findings: [
           {

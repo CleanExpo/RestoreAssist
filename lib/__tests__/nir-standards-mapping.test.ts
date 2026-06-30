@@ -16,13 +16,13 @@ import {
   CLAIM_TYPE_PICKER_OPTIONS,
 } from "@/lib/nir-standards-mapping";
 
-describe("S500_FIELD_MAP — IICRC S500:2025 edition standardisation (RA-6793)", () => {
-  it("every S500 clause reference uses the canonical 'S500:2025 §X' format", () => {
+describe("S500_FIELD_MAP — IICRC S500:2021 edition standardisation (RA-6793)", () => {
+  it("every S500 clause reference uses the canonical 'S500:2021 §X' format", () => {
     for (const [key, field] of Object.entries(S500_FIELD_MAP)) {
       expect(
         field.clauseRef,
-        `${key}.clauseRef must cite the S500:2025 edition (RA-6793)`,
-      ).toMatch(/^S500:2025 §/);
+        `${key}.clauseRef must cite the S500:2021 edition (RA-6793)`,
+      ).toMatch(/^S500:2021 §/);
     }
   });
 
@@ -32,8 +32,8 @@ describe("S500_FIELD_MAP — IICRC S500:2025 edition standardisation (RA-6793)",
     }
   });
 
-  it("the moisture-content clause is exactly 'S500:2025 §12.3'", () => {
-    expect(S500_FIELD_MAP.moistureContent.clauseRef).toBe("S500:2025 §12.3");
+  it("the moisture-content clause is exactly 'S500:2021 §12.3'", () => {
+    expect(S500_FIELD_MAP.moistureContent.clauseRef).toBe("S500:2021 §12.3");
   });
 });
 
@@ -113,7 +113,7 @@ describe("CLAIM_TYPE_PICKER_OPTIONS — the 4 options rendered by the picker", (
 
   it("each option labels its standard with edition+year per CLAUDE.md rule #14", () => {
     const expectedEditions: Record<string, RegExp> = {
-      WATER: /S500:2025/,
+      WATER: /S500:2021/,
       MOULD: /S520:2024/,
       BIOHAZARD: /S540:2023/,
       FIRE: /S700:2025/,

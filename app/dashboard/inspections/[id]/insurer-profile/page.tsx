@@ -639,7 +639,7 @@ export default function InsurerProfilePage({
                   <div className="flex items-center gap-2">
                     <Shield size={18} className="text-cyan-600" />
                     <span className="text-base font-semibold text-neutral-900 dark:text-white">
-                      S500:2025 Emphasis Areas
+                      S500:2021 Emphasis Areas
                     </span>
                   </div>
                   {expandedSections.s500 ? (

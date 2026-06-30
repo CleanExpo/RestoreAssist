@@ -1,9 +1,9 @@
 /**
- * RA-1214 — IICRC S500:2025 Validation Panel
+ * RA-1214 — IICRC S500:2021 Validation Panel
  *
  * Advisory-only panel rendered on the interview summary screen. User presses
  * "Run IICRC validation" to POST their answers to Claude Haiku, which returns
- * findings with S500:2025 section citations. Red alerts for errors, amber for
+ * findings with S500:2021 section citations. Red alerts for errors, amber for
  * warnings. Empty findings list shows a clean confirmation.
  *
  * Does NOT block report generation — purely guidance.
@@ -115,7 +115,7 @@ export function InterviewValidationPanel({
               id="iicrc-validation-heading"
               className="text-sm font-semibold text-slate-900 dark:text-white"
             >
-              IICRC S500:2025 compliance check
+              IICRC S500:2021 compliance check
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-400">
               Advisory only — does not block report generation.
@@ -127,7 +127,7 @@ export function InterviewValidationPanel({
           onClick={runValidation}
           disabled={isLoading || questionsAndAnswers.length === 0}
           className="gap-2"
-          aria-label="Run IICRC S500:2025 validation on interview answers"
+          aria-label="Run IICRC S500:2021 validation on interview answers"
         >
           {isLoading ? (
             <>
@@ -158,10 +158,10 @@ export function InterviewValidationPanel({
             aria-hidden="true"
           />
           <AlertTitle className="text-success">
-            No IICRC S500:2025 issues detected
+            No IICRC S500:2021 issues detected
           </AlertTitle>
           <AlertDescription className="text-success/90">
-            Your answers look consistent with IICRC S500:2025. Review remains
+            Your answers look consistent with IICRC S500:2021. Review remains
             advisory — final compliance is the technician&apos;s responsibility.
             {validatedAt && (
               <span className="block mt-1 text-xs opacity-80">

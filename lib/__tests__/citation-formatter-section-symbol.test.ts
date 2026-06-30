@@ -3,7 +3,7 @@
  *
  * RA-6793: the AGLC4 validator historically flagged the '§' symbol as invalid
  * for ALL citations. That conflicts with the IICRC mandate (CLAUDE.md rule #14)
- * to cite technical standards with '§' (e.g. 'S500:2025 §12.3'). The § rejection
+ * to cite technical standards with '§' (e.g. 'S500:2021 §12.3'). The § rejection
  * is now scoped to AGLC4 *legal* citations only; standard references opt out via
  * { kind: "standard" }.
  */
@@ -23,14 +23,14 @@ describe("validateAGLC4Format — § symbol scoping (RA-6793)", () => {
   });
 
   it("does NOT flag § for IICRC standard references (kind: 'standard')", () => {
-    const result = validateAGLC4Format("S500:2025 §12.3", { kind: "standard" });
+    const result = validateAGLC4Format("S500:2021 §12.3", { kind: "standard" });
     expect(result.issues.some((i) => i.includes("§"))).toBe(false);
     expect(result.isValid).toBe(true);
   });
 
   it("still flags genuine format errors on standard references", () => {
     // Double space is a real issue regardless of citation kind.
-    const result = validateAGLC4Format("S500:2025  §12.3", { kind: "standard" });
+    const result = validateAGLC4Format("S500:2021  §12.3", { kind: "standard" });
     expect(result.isValid).toBe(false);
     expect(result.issues.some((i) => i.includes("Double spaces"))).toBe(true);
   });

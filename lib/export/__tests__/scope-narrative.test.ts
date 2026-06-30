@@ -49,7 +49,7 @@ describe("buildScopeNarrative (AU)", () => {
     expect(md).toContain("# Scope of Works");
     expect(md).toContain("1 Test St, Brisbane");
     expect(md).toContain("RA-0001");
-    expect(md).toContain("AS-IICRC S500:2025");
+    expect(md).toContain("ANSI/IICRC S500:2021");
   });
 
   it("lists affected areas with metric areas + materials", () => {

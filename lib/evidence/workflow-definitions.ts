@@ -1,7 +1,7 @@
 /**
  * Sprint G: Job-Type Workflow Definitions
  * Required evidence per claim type for 13 job types
- * IICRC S500:2025 compliant workflow configurations
+ * IICRC S500:2021 compliant workflow configurations
  *
  * Each job type defines a sequence of workflow steps.
  * Each step specifies required and optional evidence classes,
@@ -126,7 +126,7 @@ const STEP_ENVIRONMENTAL_READINGS: WorkflowStepDefinition = {
     "Record ambient temperature, relative humidity, and dew point for each affected room " +
     "and at least one unaffected reference room. Use a calibrated hygrometer. " +
     "Note air circulation status (HVAC, windows). These readings establish the " +
-    "psychrometric baseline per IICRC S500:2025 §7.3.",
+    "psychrometric baseline per IICRC S500:2021 §7.3.",
   stepDescriptionShort: "Temp/RH/dew point per room + reference room.",
   requiredEvidenceClasses: ["AMBIENT_ENVIRONMENTAL"],
   optionalEvidenceClasses: ["TECHNICIAN_NOTE"],
@@ -143,7 +143,7 @@ const STEP_MOISTURE_SURVEY: WorkflowStepDefinition = {
     "Use both pin-type and pinless moisture meters. Record readings on " +
     "walls (at 150mm, 600mm, and 1200mm heights), floors, and ceilings. " +
     "Map the moisture boundary — the line between wet and dry. " +
-    "Per IICRC S500:2025 §10.2.",
+    "Per IICRC S500:2021 §10.2.",
   stepDescriptionShort: "Pin + pinless readings. Map moisture boundary.",
   requiredEvidenceClasses: ["MOISTURE_READING"],
   optionalEvidenceClasses: ["THERMAL_IMAGE", "FLOOR_PLAN"],
@@ -161,7 +161,7 @@ const STEP_THERMAL_IMAGING: WorkflowStepDefinition = {
     "Use an infrared camera to identify hidden moisture behind walls, ceilings, " +
     "and under floors. Capture thermal images of each affected area alongside " +
     "a standard photo of the same view for comparison. " +
-    "Per IICRC S500:2025 §10.2.4.",
+    "Per IICRC S500:2021 §10.2.4.",
   stepDescriptionShort:
     "IR camera scan of all affected areas + comparison photos.",
   requiredEvidenceClasses: ["THERMAL_IMAGE"],
@@ -193,7 +193,7 @@ const STEP_EQUIPMENT_DEPLOYMENT: WorkflowStepDefinition = {
     "Deploy drying equipment (dehumidifiers, air movers, HEPA units). " +
     "Photograph each piece of equipment in position showing serial number/asset tag. " +
     "Record equipment type, serial number, and placement location. " +
-    "Per IICRC S500:2025 §11.1.",
+    "Per IICRC S500:2021 §11.1.",
   stepDescriptionShort: "Deploy + photo each unit with serial visible.",
   requiredEvidenceClasses: ["PHOTO_EQUIPMENT", "EQUIPMENT_LOG"],
   optionalEvidenceClasses: ["FLOOR_PLAN"],
@@ -224,7 +224,7 @@ const STEP_COMPLETION_VERIFICATION: WorkflowStepDefinition = {
     "Final moisture readings confirming materials have reached target drying goals. " +
     "Photograph restored areas showing completion standard. " +
     "Obtain client sign-off on completed works. " +
-    "Per IICRC S500:2025 §12.6.",
+    "Per IICRC S500:2021 §12.6.",
   stepDescriptionShort:
     "Final readings at goal + completion photos + client sign-off.",
   requiredEvidenceClasses: [
@@ -251,7 +251,7 @@ const STEP_CONTAMINATION_ASSESSMENT: WorkflowStepDefinition = {
     "Assess contamination level. For Category 2 (grey water) or Category 3 (black water), " +
     "document the contamination source, affected materials, and required PPE level. " +
     "Take samples for lab analysis if contamination type is uncertain. " +
-    "Per IICRC S500:2025 §7.3.",
+    "Per IICRC S500:2021 §7.3.",
   stepDescriptionShort: "Contamination source + PPE level + samples if needed.",
   requiredEvidenceClasses: ["PHOTO_DAMAGE", "TECHNICIAN_NOTE"],
   optionalEvidenceClasses: ["LAB_RESULT", "VIDEO_WALKTHROUGH"],
@@ -374,7 +374,7 @@ const STEP_PROGRESS_MONITORING: WorkflowStepDefinition = {
     "Record daily moisture readings at all mapped points. " +
     "Check equipment is running and positioned correctly. " +
     "Photograph any changes in conditions. Record environmental readings. " +
-    "Per IICRC S500:2025 §12.4.",
+    "Per IICRC S500:2021 §12.4.",
   stepDescriptionShort:
     "Daily moisture + environmental readings + equipment check.",
   requiredEvidenceClasses: ["MOISTURE_READING", "AMBIENT_ENVIRONMENTAL"],

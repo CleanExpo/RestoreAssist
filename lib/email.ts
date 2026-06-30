@@ -1210,7 +1210,7 @@ export async function sendWinbackEmail(data: WinbackEmailData) {
           </p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
-            Since you left, we've shipped a lot: the new Progress framework that stage-gates every claim from make-safe through to invoice, carrier-ready audit bundles with cryptographic evidence, and a drying-certification workflow that keeps your IICRC S500:2025 compliance watertight.
+            Since you left, we've shipped a lot: the new Progress framework that stage-gates every claim from make-safe through to invoice, carrier-ready audit bundles with cryptographic evidence, and a drying-certification workflow that keeps your IICRC S500:2021 compliance watertight.
           </p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 32px;">

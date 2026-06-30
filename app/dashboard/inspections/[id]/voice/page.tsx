@@ -195,7 +195,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
         </Button>
         <div className="flex-1">
           <p className="text-sm font-semibold text-white">Voice Copilot</p>
-          <p className="text-xs text-white/50">IICRC S500:2025</p>
+          <p className="text-xs text-white/50">IICRC S500:2021</p>
         </div>
         {session && (
           <Badge
@@ -215,7 +215,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
               Voice Copilot
             </h1>
             <p className="text-white/60 text-sm max-w-xs">
-              Captures S500:2025 evidence hands-free while you work on site.
+              Captures S500:2021 evidence hands-free while you work on site.
             </p>
           </div>
 
@@ -326,7 +326,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
                         )}
                       {obs.parsed.s500Section && (
                         <p className="text-xs text-white/30 mt-0.5">
-                          S500:2025 {obs.parsed.s500Section}
+                          S500:2021 {obs.parsed.s500Section}
                         </p>
                       )}
                     </div>

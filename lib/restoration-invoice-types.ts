@@ -27,12 +27,12 @@ export const RESTORATION_INVOICE_TYPES: RestorationInvoiceTypeConfig[] = [
     label: "Water Damage Restoration",
     title: "Water Damage Restoration — Tax Invoice (Cost Incurred)",
     subtitle: "Cost Incurred",
-    standardApplied: "AS-IICRC S500:2025",
-    applicableStandards: ["AS-IICRC S500:2025"],
+    standardApplied: "ANSI/IICRC S500:2021",
+    applicableStandards: ["ANSI/IICRC S500:2021"],
     defaultLineItems: [
       {
         description:
-          "Emergency Response & Site Assessment — Initial attendance, moisture mapping, hazard assessment, containment setup, and emergency water extraction per AS-IICRC S500:2025 §1.2",
+          "Emergency Response & Site Assessment — Initial attendance, moisture mapping, hazard assessment, containment setup, and emergency water extraction per ANSI/IICRC S500:2021 §1.2",
         qty: "1",
         unit: "EA",
         rate: "550.00",
@@ -53,7 +53,7 @@ export const RESTORATION_INVOICE_TYPES: RestorationInvoiceTypeConfig[] = [
       },
       {
         description:
-          "Antimicrobial Treatment — Application of antimicrobial solution to all affected surfaces to prevent microbial amplification per AS-IICRC S500:2025",
+          "Antimicrobial Treatment — Application of antimicrobial solution to all affected surfaces to prevent microbial amplification per ANSI/IICRC S500:2021",
         qty: "45",
         unit: "m²",
         rate: "8.50",
@@ -89,7 +89,7 @@ export const RESTORATION_INVOICE_TYPES: RestorationInvoiceTypeConfig[] = [
     standardApplied: "BSR/IICRC S700 (Fire & Smoke)",
     applicableStandards: [
       "BSR/IICRC S700",
-      "AS-IICRC S500:2025 where applicable",
+      "ANSI/IICRC S500:2021 where applicable",
     ],
     defaultLineItems: [
       {
@@ -149,7 +149,7 @@ export const RESTORATION_INVOICE_TYPES: RestorationInvoiceTypeConfig[] = [
     title: "Mould Remediation — Tax Invoice (Cost Incurred)",
     subtitle: "Cost Incurred",
     standardApplied: "IICRC S520 (Mould)",
-    applicableStandards: ["IICRC S520", "AS-IICRC S500:2025 where applicable"],
+    applicableStandards: ["IICRC S520", "ANSI/IICRC S500:2021 where applicable"],
     defaultLineItems: [
       {
         description:
@@ -259,8 +259,8 @@ export const RESTORATION_INVOICE_TYPES: RestorationInvoiceTypeConfig[] = [
     label: "Fire + Water (Combined)",
     title: "Fire & Water Damage Restoration — Tax Invoice (Cost Incurred)",
     subtitle: "Cost Incurred",
-    standardApplied: "BSR/IICRC S700, AS-IICRC S500:2025",
-    applicableStandards: ["BSR/IICRC S700", "AS-IICRC S500:2025"],
+    standardApplied: "BSR/IICRC S700, ANSI/IICRC S500:2021",
+    applicableStandards: ["BSR/IICRC S700", "ANSI/IICRC S500:2021"],
     defaultLineItems: [
       {
         description:
@@ -318,8 +318,8 @@ export const RESTORATION_INVOICE_TYPES: RestorationInvoiceTypeConfig[] = [
     label: "Water + Mould",
     title: "Water Damage & Mould Remediation — Tax Invoice (Cost Incurred)",
     subtitle: "Cost Incurred",
-    standardApplied: "AS-IICRC S500:2025, IICRC S520",
-    applicableStandards: ["AS-IICRC S500:2025", "IICRC S520"],
+    standardApplied: "ANSI/IICRC S500:2021, IICRC S520",
+    applicableStandards: ["ANSI/IICRC S500:2021", "IICRC S520"],
     defaultLineItems: [
       {
         description:
@@ -377,8 +377,8 @@ export const RESTORATION_INVOICE_TYPES: RestorationInvoiceTypeConfig[] = [
     label: "Biohazard Structural Drying",
     title: "Biohazard / Structural Drying — Tax Invoice (Cost Incurred)",
     subtitle: "Cost Incurred",
-    standardApplied: "IICRC S540, AS-IICRC S500:2025",
-    applicableStandards: ["IICRC S540", "AS-IICRC S500:2025", "AS/NZS 4145"],
+    standardApplied: "IICRC S540, ANSI/IICRC S500:2021",
+    applicableStandards: ["IICRC S540", "ANSI/IICRC S500:2021", "AS/NZS 4145"],
     defaultLineItems: [
       {
         description:
@@ -429,12 +429,12 @@ export const RESTORATION_INVOICE_TYPES: RestorationInvoiceTypeConfig[] = [
     label: "Storm / Wind / Hail",
     title: "Storm Damage Restoration — Tax Invoice (Cost Incurred)",
     subtitle: "Cost Incurred",
-    standardApplied: "AS-IICRC S500:2025 (water), industry best practice",
-    applicableStandards: ["AS-IICRC S500:2025", "Building Code of Australia"],
+    standardApplied: "ANSI/IICRC S500:2021 (water), industry best practice",
+    applicableStandards: ["ANSI/IICRC S500:2021", "Building Code of Australia"],
     defaultLineItems: [
       {
         description:
-          "Emergency Response & Tarping — Stabilisation activities per AS-IICRC S500:2025, roof tarping, board-up to prevent further water ingress",
+          "Emergency Response & Tarping — Stabilisation activities per ANSI/IICRC S500:2021, roof tarping, board-up to prevent further water ingress",
         qty: "1",
         unit: "EA",
         rate: "620.00",

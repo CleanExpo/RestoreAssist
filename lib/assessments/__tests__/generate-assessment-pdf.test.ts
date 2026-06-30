@@ -12,7 +12,7 @@ const baseInput: AssessmentPdfInput = {
       {
         heading: "Situation",
         body: "Cat 2 water damage; Class 2 affected area 32 m².",
-        citations: [{ standard: "IICRC S500:2025", section: "§13" }],
+        citations: [{ standard: "IICRC S500:2021", section: "§13" }],
       },
       {
         heading: "Scope rationale",
@@ -27,14 +27,14 @@ const baseInput: AssessmentPdfInput = {
         quantity: 1,
         unit: "job",
         category: "LABOUR",
-        iicrcRef: "S500:2025 §8.1",
+        iicrcRef: "S500:2021 §8.1",
       },
       {
         description: "LGR dehumidifier",
         quantity: 14,
         unit: "unit-days",
         category: "EQUIPMENT",
-        iicrcRef: "S500:2025 §11.3",
+        iicrcRef: "S500:2021 §11.3",
       },
     ],
   },
@@ -64,7 +64,7 @@ const baseInput: AssessmentPdfInput = {
     },
   },
   citations: [
-    { standard: "IICRC S500:2025", section: "§13", note: "Drying standard" },
+    { standard: "IICRC S500:2021", section: "§13", note: "Drying standard" },
   ],
   meta: {
     assessmentGenerationId: "ag_123",
@@ -107,7 +107,7 @@ describe("generateAssessmentPdf", () => {
       quantity: i + 1,
       unit: "ea",
       category: "LABOUR" as const,
-      iicrcRef: "S500:2025",
+      iicrcRef: "S500:2021",
     }));
     const manyLines = Array.from({ length: 60 }, (_, i) => ({
       description: `Estimate line ${i + 1}`,

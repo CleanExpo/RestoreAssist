@@ -1363,7 +1363,7 @@ export default function ScopingEngine({
         <p className="text-sm text-slate-400 mt-2">
           <strong>Standard Compliance Statement:</strong>
           <br />
-          "All scoping calculations are derived from the IICRC S500:2025
+          "All scoping calculations are derived from the IICRC S500:2021
           Standard and relevant Australian building, electrical, and HVAC
           regulations. Data cross-checked for accuracy and site conditions."
         </p>

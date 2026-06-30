@@ -1,7 +1,7 @@
 /**
  * Sprint G: Inspection Intelligence — Evidence Types
  * 17 evidence classes with chain-of-custody metadata
- * IICRC S500:2025 compliant evidence tracking
+ * IICRC S500:2021 compliant evidence tracking
  */
 
 /** 17 evidence classes covering all restoration inspection documentation */
@@ -48,7 +48,7 @@ export const EVIDENCE_CLASS_LABELS: Record<EvidenceClass, string> = {
   COMPLIANCE_CERTIFICATE: "Compliance Certificate",
 };
 
-/** IICRC S500:2025 section references for evidence classes */
+/** IICRC S500:2021 section references for evidence classes */
 export const EVIDENCE_S500_REFS: Partial<Record<EvidenceClass, string>> = {
   MOISTURE_READING: "S500 §10.2 — Moisture assessment and monitoring",
   THERMAL_IMAGE: "S500 §10.2.4 — Infrared thermography",

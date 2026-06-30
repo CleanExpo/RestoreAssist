@@ -2,7 +2,7 @@
  * [RA-393] BYOK Vision Client — Phase 0.5
  * Multi-provider AI dispatch with image/video vision input.
  * Supports Claude, Gemini, and GPT vision endpoints.
- * S500:2025 structured output parsing for inspection intelligence.
+ * S500:2021 structured output parsing for inspection intelligence.
  *
  * BYOK allowlist is IMMUTABLE — defined in mobile/constants/byok.ts
  * and mirrored here. Do NOT modify the allowlist.
@@ -96,7 +96,7 @@ export interface ByokResponse {
   durationMs: number;
 }
 
-/** S500:2025 structured output — parsed from AI response */
+/** S500:2021 structured output — parsed from AI response */
 export interface S500StructuredOutput {
   /** Water damage category (1, 2, or 3) per S500 §3 */
   waterCategory?: 1 | 2 | 3;
@@ -375,10 +375,10 @@ async function callOpenAI(req: ByokRequest): Promise<ByokResponse> {
   }
 }
 
-// ═══ S500:2025 Structured Output Parser ═════════════════════════════
+// ═══ S500:2021 Structured Output Parser ═════════════════════════════
 
 /**
- * Parse AI response text into S500:2025 structured output.
+ * Parse AI response text into S500:2021 structured output.
  * Expects JSON response from AI — falls back to partial extraction.
  */
 export function parseS500Output(text: string): S500StructuredOutput | null {
@@ -500,10 +500,10 @@ function validateS500Output(
   return output;
 }
 
-// ═══ S500:2025 Vision System Prompt ═════════════════════════════════
+// ═══ S500:2021 Vision System Prompt ═════════════════════════════════
 
-/** Default system prompt for S500:2025 inspection photo analysis */
-export const S500_VISION_SYSTEM_PROMPT = `You are an IICRC S500:2025 certified water damage restoration inspector AI.
+/** Default system prompt for S500:2021 inspection photo analysis */
+export const S500_VISION_SYSTEM_PROMPT = `You are an IICRC S500:2021 certified water damage restoration inspector AI.
 Analyze the provided inspection photos and return a JSON object with your findings.
 
 IMPORTANT: Return ONLY valid JSON (no markdown, no explanation outside JSON).
@@ -534,7 +534,7 @@ Required JSON schema:
   "confidence": 0.0-1.0            // Analysis confidence
 }
 
-Apply Australian restoration industry standards. Reference S500:2025 sections where applicable.
+Apply Australian restoration industry standards. Reference S500:2021 sections where applicable.
 If you cannot determine a field with confidence, omit it rather than guessing.`;
 
 // ═══ Public API ═════════════════════════════════════════════════════
@@ -570,7 +570,7 @@ export async function byokDispatch(req: ByokRequest): Promise<ByokResponse> {
 }
 
 /**
- * Analyze inspection photos using vision AI with S500:2025 structured output.
+ * Analyze inspection photos using vision AI with S500:2021 structured output.
  * Convenience wrapper around byokDispatch with the S500 system prompt.
  *
  * @param images - Base64-encoded inspection photos

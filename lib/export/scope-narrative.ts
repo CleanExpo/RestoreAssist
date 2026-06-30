@@ -2,7 +2,7 @@
  * Scope-of-works narrative generator (spec §11 — the human deliverable).
  *
  * Deterministically renders the versioned scope contract (`ScopeExport`) into a
- * plain-English, AS-IICRC S500:2025-grounded scope-of-works document (Markdown).
+ * plain-English, ANSI/IICRC S500:2021-grounded scope-of-works document (Markdown).
  * It is a FAITHFUL rendering of already-verified contract data — no LLM, no
  * inference, nothing fabricated. ANZ-native: AU reinstatement cites the NCC; NZ
  * routes via NHCover (Natural Hazards Insurance Act 2023). It references no
@@ -22,7 +22,7 @@ export function buildScopeNarrative(scope: ScopeExport): string {
     `Report: ${scope.property.reportNumber || "—"} · Jurisdiction: ${scope.jurisdiction} · Contract v${scope.schemaVersion}`,
   );
   lines.push(
-    "Standard: AS-IICRC S500:2025 — Professional Water Damage Restoration",
+    "Standard: ANSI/IICRC S500:2021 — Professional Water Damage Restoration",
   );
   lines.push("");
 
@@ -64,7 +64,7 @@ export function buildScopeNarrative(scope: ScopeExport): string {
   lines.push("");
 
   // ── Water category ──
-  lines.push("## Water category (AS-IICRC S500:2025)");
+  lines.push("## Water category (ANSI/IICRC S500:2021)");
   if (scope.compliance.waterCategories.length === 0) {
     lines.push("No water category assigned.");
   }
@@ -85,7 +85,7 @@ export function buildScopeNarrative(scope: ScopeExport): string {
   lines.push("");
 
   // ── Drying scope ──
-  lines.push("## Drying scope (AS-IICRC S500:2025)");
+  lines.push("## Drying scope (ANSI/IICRC S500:2021)");
   if (scope.compliance.dryingLog.length === 0) {
     lines.push("No moisture readings recorded.");
   }
@@ -99,7 +99,7 @@ export function buildScopeNarrative(scope: ScopeExport): string {
   lines.push("");
 
   // ── Drying equipment ──
-  lines.push("## Drying equipment (AS-IICRC S500:2025 §8.3 — indicative)");
+  lines.push("## Drying equipment (ANSI/IICRC S500:2021 §8.3 — indicative)");
   lines.push(`- Dehumidifiers: ${scope.dryingEquipment.dehumidifier}`);
   lines.push(`- Air movers: ${scope.dryingEquipment.airMover}`);
   lines.push(`- Air scrubbers: ${scope.dryingEquipment.airScrubber}`);

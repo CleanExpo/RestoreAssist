@@ -54,7 +54,7 @@ const JOB_TYPES = [
     id: "water",
     label: "Water Damage",
     icon: Droplets,
-    standard: "AS-IICRC S500:2025",
+    standard: "ANSI/IICRC S500:2021",
     color: "text-blue-500",
   },
   {
@@ -75,7 +75,7 @@ const JOB_TYPES = [
     id: "storm",
     label: "Storm Damage",
     icon: Wind,
-    standard: "AS-IICRC S500:2025",
+    standard: "ANSI/IICRC S500:2021",
     color: "text-cyan-500",
   },
   {

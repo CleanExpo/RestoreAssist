@@ -1,5 +1,5 @@
 /**
- * IICRC S500:2025-Compliant Report PDF Generator (RA-428)
+ * IICRC S500:2021-Compliant Report PDF Generator (RA-428)
  * Produces a professional, insurer-grade PDF from RestoreAssist report data.
  *
  * Sections:
@@ -80,16 +80,16 @@ const C_AMBER = rgb(0.7, 0.4, 0.0);
 const C_RED = rgb(0.75, 0.1, 0.1);
 
 const WATER_CATEGORIES: Record<string, string> = {
-  "1": "Category 1 — Clean Water (S500:2025 §3.2)",
-  "2": "Category 2 — Significantly Contaminated (S500:2025 §3.3)",
-  "3": "Category 3 — Grossly Contaminated (S500:2025 §3.4)",
+  "1": "Category 1 — Clean Water (S500:2021 §3.2)",
+  "2": "Category 2 — Significantly Contaminated (S500:2021 §3.3)",
+  "3": "Category 3 — Grossly Contaminated (S500:2021 §3.4)",
 };
 
 const DAMAGE_CLASSES: Record<string, string> = {
-  "1": "Class 1 — Least Amount of Water Absorption (S500:2025 §7.1.1)",
-  "2": "Class 2 — Significant Amount of Absorption (S500:2025 §7.1.2)",
-  "3": "Class 3 — Greatest Amount of Absorption (S500:2025 §7.1.3)",
-  "4": "Class 4 — Specialty Drying Situations (S500:2025 §7.1.4)",
+  "1": "Class 1 — Least Amount of Water Absorption (S500:2021 §7.1.1)",
+  "2": "Class 2 — Significant Amount of Absorption (S500:2021 §7.1.2)",
+  "3": "Class 3 — Greatest Amount of Absorption (S500:2021 §7.1.3)",
+  "4": "Class 4 — Specialty Drying Situations (S500:2021 §7.1.4)",
 };
 
 // ─── PDF Helper Class ─────────────────────────────────────────────────────────
@@ -302,7 +302,7 @@ function drawPageHeader(
     font: w.bold,
     color: C_WHITE,
   });
-  p.drawText("IICRC S500:2025 Compliant Inspection Report", {
+  p.drawText("IICRC S500:2021 Compliant Inspection Report", {
     x: MARGIN + 105,
     y: A4_H - 22,
     size: 8,
@@ -325,7 +325,7 @@ function drawPageFooter(
   const p = w.page;
   p.drawRectangle({ x: 0, y: 0, width: A4_W, height: 28, color: accent });
   p.drawText(
-    "Compliant with IICRC S500:2025 | Australian Water Damage Restoration Standard",
+    "Compliant with IICRC S500:2021 | Australian Water Damage Restoration Standard",
     {
       x: MARGIN,
       y: 10,
@@ -361,7 +361,7 @@ export interface GenerateIICRCReportOptions {
 }
 
 /**
- * Generate an IICRC S500:2025-compliant PDF from RestoreAssist report data.
+ * Generate an IICRC S500:2021-compliant PDF from RestoreAssist report data.
  * Returns a Uint8Array ready to stream as application/pdf.
  */
 export async function generateIICRCReportPDF(
@@ -474,7 +474,7 @@ export async function generateIICRCReportPDF(
 
   // ── SECTION 2: Water Damage Classification ───────────────────────────────────
   w.sectionHeader(
-    "SECTION 2 — WATER DAMAGE CLASSIFICATION (S500:2025 §3, §7.1)",
+    "SECTION 2 — WATER DAMAGE CLASSIFICATION (S500:2021 §3, §7.1)",
   );
   w.gap(4);
 
@@ -563,7 +563,7 @@ export async function generateIICRCReportPDF(
     w.gap(8);
   }
 
-  // ── SECTION 4: Moisture Readings (S500:2025 §8) ──────────────────────────────
+  // ── SECTION 4: Moisture Readings (S500:2021 §8) ──────────────────────────────
   const moistureArr = Array.isArray(data.moistureReadings)
     ? data.moistureReadings
     : data.moistureReadings && typeof data.moistureReadings === "object"
@@ -571,10 +571,10 @@ export async function generateIICRCReportPDF(
       : [];
 
   if (moistureArr.length > 0) {
-    w.sectionHeader("SECTION 4 — MOISTURE READINGS (S500:2025 §8)");
+    w.sectionHeader("SECTION 4 — MOISTURE READINGS (S500:2021 §8)");
     w.gap(2);
     w.text(
-      "Moisture content measured per IICRC S500:2025 §8 using calibrated moisture meter equipment.",
+      "Moisture content measured per IICRC S500:2021 §8 using calibrated moisture meter equipment.",
       {
         size: 8,
         color: C_MUTED,
@@ -632,7 +632,7 @@ export async function generateIICRCReportPDF(
     });
     w.gap(4);
     w.text(
-      "Drying goal: all affected materials must achieve equilibrium moisture content per S500:2025 §12.",
+      "Drying goal: all affected materials must achieve equilibrium moisture content per S500:2021 §12.",
       {
         size: 8,
         color: C_MUTED,
@@ -642,14 +642,14 @@ export async function generateIICRCReportPDF(
     w.gap(8);
   }
 
-  // ── SECTION 5: Equipment Deployment Log (S500:2025 §14) ─────────────────────
+  // ── SECTION 5: Equipment Deployment Log (S500:2021 §14) ─────────────────────
   const eqData = data.equipmentSelection;
   const eqArr: any[] = Array.isArray(eqData)
     ? eqData
     : (eqData?.equipment ?? eqData?.items ?? eqData?.selected ?? []);
 
   if (eqArr.length > 0) {
-    w.sectionHeader("SECTION 5 — EQUIPMENT DEPLOYMENT LOG (S500:2025 §14)");
+    w.sectionHeader("SECTION 5 — EQUIPMENT DEPLOYMENT LOG (S500:2021 §14)");
     w.gap(4);
     const eCols = [
       "Equipment Type",
@@ -680,13 +680,13 @@ export async function generateIICRCReportPDF(
     w.gap(8);
   }
 
-  // ── SECTION 6: Psychrometric Data (S500:2025 §6) ────────────────────────────
+  // ── SECTION 6: Psychrometric Data (S500:2021 §6) ────────────────────────────
   const psychArr = Array.isArray(data.psychrometricReadings)
     ? data.psychrometricReadings
     : (data.psychrometricAssessment?.readings ?? []);
 
   if (psychArr.length > 0) {
-    w.sectionHeader("SECTION 6 — PSYCHROMETRIC CONDITIONS (S500:2025 §6)");
+    w.sectionHeader("SECTION 6 — PSYCHROMETRIC CONDITIONS (S500:2021 §6)");
     w.gap(4);
     const pCols = [
       "Location",
@@ -819,7 +819,7 @@ export async function generateIICRCReportPDF(
 
   // ── SECTION 9: IICRC Drying Goals Reference ──────────────────────────────────
   w.ensureSpace(80);
-  w.sectionHeader("SECTION 9 — IICRC S500:2025 DRYING GOALS REFERENCE (§12)");
+  w.sectionHeader("SECTION 9 — IICRC S500:2021 DRYING GOALS REFERENCE (§12)");
   w.gap(4);
   const dryingGoals = [
     ["Hardwood flooring (solid)", "≤12% MC", "§12.3.1"],
@@ -830,7 +830,7 @@ export async function generateIICRCReportPDF(
     ["Indoor temperature", "21–27°C", "§6.2.2"],
   ];
   w.tableRow(
-    ["Material / Condition", "Drying Goal", "S500:2025 Ref."],
+    ["Material / Condition", "Drying Goal", "S500:2021 Ref."],
     [170, 120, 100],
     true,
   );
@@ -846,7 +846,7 @@ export async function generateIICRCReportPDF(
   w.text(
     "I declare that the information contained in this report is accurate and complete to the best of my " +
       "knowledge, and that all restoration work has been, or will be, carried out in accordance with the " +
-      "IICRC S500:2025 Standard and Reference Guide for Professional Water Damage Restoration and applicable " +
+      "IICRC S500:2021 Standard and Reference Guide for Professional Water Damage Restoration and applicable " +
       "Australian standards. This report has been prepared for insurance claims purposes.",
     { size: 9, maxWidth: COL_W },
   );

@@ -7,7 +7,7 @@ import ClaimTypePicker from "../ClaimTypePicker";
 describe("ClaimTypePicker — inspection-start IICRC standard selector (RA-1029 P1 #7)", () => {
   it("renders all 4 IICRC-governed claim types as radio options", () => {
     render(<ClaimTypePicker value={null} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Water Damage \(IICRC S500:2025\)/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Water Damage \(IICRC S500:2021\)/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Mould Remediation \(IICRC S520:2024\)/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Trauma \/ Biohazard \(IICRC S540:2023\)/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Fire & Smoke \(IICRC S700:2025\)/)).toBeInTheDocument();

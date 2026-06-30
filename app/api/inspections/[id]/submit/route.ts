@@ -197,7 +197,7 @@ export async function POST(
         return NextResponse.json(
           {
             error:
-              "Stabilisation checklist incomplete — required per AS-IICRC S500:2025",
+              "Stabilisation checklist incomplete — required per ANSI/IICRC S500:2021",
             blockers: makeSafeResult.blockers,
           },
           { status: 422 },
@@ -229,7 +229,7 @@ export async function POST(
       // ── RA-1131: Moisture trend anomaly detection ───────────────────────────────
       // WARN-ONLY — flags plateau / rising / stuck-high patterns for early warning
       // of hidden moisture sources, HVAC faults, and imminent mould risk.
-      // Per IICRC S500:2025 moisture monitoring concern zone (>20% on Day 3+).
+      // Per IICRC S500:2021 moisture monitoring concern zone (>20% on Day 3+).
       const moistureTrendResult = await detectMoistureTrendAnomalies(id);
 
       const duplicateCheck = await detectDuplicateJob(id);
@@ -568,7 +568,7 @@ async function processInspectionComplete(
 
   // Update status to ESTIMATED — terminal state of the AI submit
   // pipeline. Promotion to the COMPLETED terminal state is owned by
-  // the explicit user CloseJobPrompt flow (SP-A close gate, S500:2025
+  // the explicit user CloseJobPrompt flow (SP-A close gate, S500:2021
   // §5.3 Editability invariant); auto-promoting here races the user's
   // close action and strips editability before they confirm. Do NOT
   // re-introduce a terminal-state write in this route — guarded by

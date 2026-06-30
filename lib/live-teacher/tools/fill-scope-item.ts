@@ -70,7 +70,7 @@ export const fillScopeItemDefinition = {
       unit: { type: "string", description: "e.g. sq ft, days, units" },
       clauseRef: {
         type: "string",
-        description: "IICRC clause reference e.g. S500:2025 §7.1",
+        description: "IICRC clause reference e.g. S500:2021 §7.1",
       },
     },
     required: ["inspectionId", "itemType", "description"],

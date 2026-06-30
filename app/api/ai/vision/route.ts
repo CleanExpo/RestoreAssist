@@ -2,7 +2,7 @@
  * POST /api/ai/vision
  *
  * Analyse a base64-encoded image using the authenticated user's BYOK AI provider.
- * Returns IICRC S500:2025-structured damage assessment that populates inspection fields.
+ * Returns IICRC S500:2021-structured damage assessment that populates inspection fields.
  *
  * Auth: getServerSession required — no anonymous access.
  * Provider: whichever of Claude / GPT / Gemini the user has connected via BYOK.

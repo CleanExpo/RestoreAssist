@@ -40,7 +40,7 @@ export async function seedDemoDataForNewUser(userId: string): Promise<void> {
         clientId: client.id,
         title: "Sample — Water Damage, Kitchen Supply Line Burst",
         description:
-          "A demo report to help you explore RestoreAssist. It walks through the AS-IICRC S500:2025 stabilisation pathway for a Category 1 water event affecting a single room. Delete from the Reports page when you're ready to start your first real job.",
+          "A demo report to help you explore RestoreAssist. It walks through the ANSI/IICRC S500:2021 stabilisation pathway for a Category 1 water event affecting a single room. Delete from the Reports page when you're ready to start your first real job.",
         status: "DRAFT",
         clientName: "Sample — Mrs Jane Smith",
         propertyAddress: "42 Example Street, Sydney NSW 2000",

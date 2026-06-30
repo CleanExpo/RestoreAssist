@@ -96,7 +96,7 @@ Your analysis must be thorough and identify:
 
 ${standardsContext ? `\n**RELEVANT STANDARDS FROM IICRC GOOGLE DRIVE:**\n${standardsContext}\n` : ""}
 
-**IICRC S500 Compliance Requirements (AS-IICRC S500:2025):**
+**IICRC S500 Compliance Requirements (ANSI/IICRC S500:2021):**
 - Water category classification (Category 1, 2, or 3) with source identification
 - Water class determination (Class 1, 2, 3, or 4) with affected area calculations
 - Source of water identification and contamination assessment
@@ -112,8 +112,8 @@ ${standardsContext ? `\n**RELEVANT STANDARDS FROM IICRC GOOGLE DRIVE:**\n${stand
 - Content handling and restoration procedures
 
 **Australian Standards Compliance:**
-- AS-IICRC S500:2025 - Standard for Professional Water Damage Restoration
-- AS-IICRC S520 - Standard for Professional Mold Remediation (if applicable)
+- ANSI/IICRC S500:2021 - Standard for Professional Water Damage Restoration
+- ANSI/IICRC S520 - Standard for Professional Mold Remediation (if applicable)
 - AS/NZS 3000:2018 - Electrical Installations (Wiring Rules) - for equipment power requirements
 - AS/NZS 3500 - Plumbing and Drainage Standards
 - AS 1668 - The use of ventilation and airconditioning in buildings
@@ -202,7 +202,7 @@ Return ONLY a valid JSON object with comprehensive analysis.`;
   const userPrompt = `Perform comprehensive gap analysis on this completed claim report PDF: ${file.name}
 
 Analyze this report against:
-1. IICRC Standards (AS-IICRC S500:2025, S520, etc.) - identify ALL missing compliance elements
+1. IICRC Standards (ANSI/IICRC S500:2021, S520, etc.) - identify ALL missing compliance elements
 2. Australian Standards (AS/NZS 3000, AS 1668, AS/NZS 3666, NCC, state codes) - identify ALL missing compliance
 3. Australian OH&S/WHS Requirements (Work Health and Safety Act, Safe Work Australia) - identify ALL missing safety protocols
 4. Scope of Works - identify ALL missing work items, procedures, and specifications
@@ -210,7 +210,7 @@ Analyze this report against:
 6. Documentation Requirements - identify ALL missing documentation, photos, logs, and records
 
 For EACH missing element, provide:
-- Specific standard reference (e.g., "AS-IICRC S500 Section 14.3.2", "AS/NZS 3000:2018", "Work Health and Safety Act 2011")
+- Specific standard reference (e.g., "ANSI/IICRC S500 Section 14.3.2", "AS/NZS 3000:2018", "Work Health and Safety Act 2011")
 - Why it's required and what risk it poses if missing
 - Whether it's billable and estimated cost in AUD
 - Severity level based on compliance risk
@@ -243,10 +243,10 @@ Return JSON with this exact structure:
   "issues": [
     {
       "category": "IICRC_COMPLIANCE|AUSTRALIAN_STANDARD|OH_S_POLICY|WHS_REQUIREMENT|SCOPE_OF_WORKS|BILLING_ITEM|DOCUMENTATION|EQUIPMENT_SPECIFICATION|MONITORING_PROCEDURE",
-      "elementName": "Specific missing element name (e.g., 'Water Category Classification per AS-IICRC S500:2025 Section 10.2')",
+      "elementName": "Specific missing element name (e.g., 'Water Category Classification per ANSI/IICRC S500:2021 Section 10.2')",
       "description": "Detailed description of what is missing, why it's important, and what standard requires it",
       "severity": "CRITICAL|HIGH|MEDIUM|LOW",
-      "standardReference": "Exact standard reference (e.g., 'AS-IICRC S500:2025 Section 14.3.2', 'AS/NZS 3000:2018', 'Work Health and Safety Act 2011')",
+      "standardReference": "Exact standard reference (e.g., 'ANSI/IICRC S500:2021 Section 14.3.2', 'AS/NZS 3000:2018', 'Work Health and Safety Act 2011')",
       "isBillable": true/false,
       "estimatedCost": 0.00,
       "estimatedHours": 0.0,

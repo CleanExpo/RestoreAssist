@@ -8,7 +8,7 @@
  *   - Preferred evidence classes (what strengthens the claim)
  *   - Report formatting requirements (section order, mandatory sections, branding)
  *   - Claim submission preferences (file formats, naming conventions, portals)
- *   - S500:2025 compliance emphasis areas per insurer
+ *   - S500:2021 compliance emphasis areas per insurer
  *
  * The guided capture workflow (Sprint G) adapts dynamically based on
  * the selected insurer profile — surfacing insurer-specific requirements
@@ -81,7 +81,7 @@ export const REPORT_SECTION_LABELS: Record<ReportSection, string> = {
   DRYING_PLAN: "Drying Plan & Goals",
   CONTENTS_ASSESSMENT: "Contents Assessment",
   HEALTH_SAFETY: "Health & Safety Compliance",
-  COMPLIANCE_STATEMENT: "IICRC S500:2025 Compliance Statement",
+  COMPLIANCE_STATEMENT: "IICRC S500:2021 Compliance Statement",
   PHOTO_APPENDIX: "Photo Evidence Appendix",
   FLOOR_PLANS: "Floor Plans & Diagrams",
   LAB_RESULTS: "Laboratory Results",
@@ -113,7 +113,7 @@ export interface InsurerEvidenceRequirement {
   minimumCount: number;
   /** Insurer-specific instructions for this evidence type */
   instructions: string;
-  /** S500:2025 section reference relevant to this requirement */
+  /** S500:2021 section reference relevant to this requirement */
   s500Reference?: string;
 }
 
@@ -131,7 +131,7 @@ export interface InsurerReportSpec {
   headerText: string;
   /** Maximum report length guidance (pages) — 0 = no limit */
   maxPagesGuidance: number;
-  /** Whether to include the IICRC S500:2025 compliance matrix */
+  /** Whether to include the IICRC S500:2021 compliance matrix */
   includeComplianceMatrix: boolean;
   /** Photo requirements */
   photoRequirements: {
@@ -189,7 +189,7 @@ export interface InsurerProfileTemplate {
   submissionSpec: InsurerSubmissionSpec;
   /** Job-type-specific overrides */
   jobTypeOverrides: InsurerJobTypeOverride[];
-  /** S500:2025 compliance emphasis areas this insurer cares most about */
+  /** S500:2021 compliance emphasis areas this insurer cares most about */
   s500EmphasisAreas: string[];
   /** General notes about working with this insurer */
   notes: string;

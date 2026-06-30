@@ -215,7 +215,7 @@ export async function GET() {
         required: false, // Informational — produced from an inspection
         title: "Generate your first report",
         description:
-          "Turn an inspection into an IICRC S500:2025 compliance report",
+          "Turn an inspection into an IICRC S500:2021 compliance report",
         route: "/dashboard/reports/new",
       },
       business_profile: {

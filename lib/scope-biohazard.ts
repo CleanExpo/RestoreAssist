@@ -18,7 +18,7 @@
  *   - AS/NZS 4360:2004 — risk management (superseded by ISO 31000:2018 in
  *     most jurisdictions, cited for historical continuity with insurer
  *     protocols that still reference AS/NZS 4360)
- *   - IICRC S540:2021 — trauma + crime-scene cleaning
+ *   - IICRC S540:2023 — trauma + crime-scene cleaning
  */
 
 import { CompanyPricingRates } from "./nir-cost-estimation";
@@ -48,9 +48,9 @@ export type AustralianState =
 const SAFEWORK_BIOHAZARD = "Safe Work Australia — Biological hazards CoP";
 const SAFEWORK_PPE = "Safe Work Australia — PPE Model Code of Practice";
 const AS_NZS_4360 = "AS/NZS 4360:2004 §3.2 (risk controls)";
-const S500_CAT3 = "S500:2025 §6.3 (Category 3 treatment)";
-const S540_TRAUMA = "IICRC S540:2021 §5";
-const S520_HEPA = "S520:2015 §6.1";
+const S500_CAT3 = "S500:2021 §6.3 (Category 3 treatment)";
+const S540_TRAUMA = "IICRC S540:2023 §5";
+const S520_HEPA = "S520:2024 §6.1";
 
 // Each state's primary EPA regulator reference used in the manifest item.
 const STATE_EPA_REF: Record<AustralianState, string> = {
@@ -119,7 +119,7 @@ export function generateBiohazardScope(params: {
     itemType: "hepa_vacuum",
     description: "HEPA vacuum contaminated surfaces",
     justification:
-      "HEPA vacuuming removes settled particulate, dried tissue, and airborne spores before wet-cleaning per IICRC S520:2015 §6.1.",
+      "HEPA vacuuming removes settled particulate, dried tissue, and airborne spores before wet-cleaning per IICRC S520:2024 §6.1.",
     iicrcReference: S520_HEPA,
     quantity: area,
     unit: "m²",
@@ -133,7 +133,7 @@ export function generateBiohazardScope(params: {
       itemType: "cat3_sanitation",
       description: "Category 3 sanitation (sewage)",
       justification:
-        "Sewage overflow is Category 3 water per IICRC S500:2025 §6.3 — full sanitation treatment of all affected surfaces.",
+        "Sewage overflow is Category 3 water per IICRC S500:2021 §6.3 — full sanitation treatment of all affected surfaces.",
       iicrcReference: S500_CAT3,
       quantity: area,
       unit: "m²",
@@ -144,7 +144,7 @@ export function generateBiohazardScope(params: {
       itemType: "antimicrobial_pass_1",
       description: "Antimicrobial treatment — first pass",
       justification:
-        "Initial antimicrobial application reduces surface bioburden ahead of mechanical cleaning per S500:2025 §6.3.",
+        "Initial antimicrobial application reduces surface bioburden ahead of mechanical cleaning per S500:2021 §6.3.",
       iicrcReference: S500_CAT3,
       quantity: area,
       unit: "m²",
@@ -155,7 +155,7 @@ export function generateBiohazardScope(params: {
       itemType: "antimicrobial_pass_2",
       description: "Antimicrobial treatment — second pass",
       justification:
-        "Secondary antimicrobial application after mechanical cleaning, per S500:2025 §6.3 two-pass sewage protocol.",
+        "Secondary antimicrobial application after mechanical cleaning, per S500:2021 §6.3 two-pass sewage protocol.",
       iicrcReference: S500_CAT3,
       quantity: area,
       unit: "m²",
@@ -166,7 +166,7 @@ export function generateBiohazardScope(params: {
       itemType: "hepa_air_scrubber",
       description: "HEPA air scrubber",
       justification:
-        "Continuous HEPA air filtration during sewage remediation captures airborne bacteria per IICRC S520:2015 §6.1.",
+        "Continuous HEPA air filtration during sewage remediation captures airborne bacteria per IICRC S520:2024 §6.1.",
       iicrcReference: S520_HEPA,
       quantity: 1,
       unit: "job",
@@ -180,7 +180,7 @@ export function generateBiohazardScope(params: {
       itemType: "enzyme_treatment",
       description: "Enzyme digestion treatment",
       justification:
-        "Enzyme digestion breaks down proteinaceous residue from decomposition per IICRC S540:2021 §5.",
+        "Enzyme digestion breaks down proteinaceous residue from decomposition per IICRC S540:2023 §5.",
       iicrcReference: S540_TRAUMA,
       quantity: area,
       unit: "m²",
@@ -191,7 +191,7 @@ export function generateBiohazardScope(params: {
       itemType: "odour_bomb",
       description: "Hydroxyl / ozone odour neutralisation",
       justification:
-        "Volatile odour compounds from decomposition must be neutralised at the molecular level before reoccupancy per S540:2021 §5.",
+        "Volatile odour compounds from decomposition must be neutralised at the molecular level before reoccupancy per S540:2023 §5.",
       iicrcReference: S540_TRAUMA,
       quantity: 1,
       unit: "job",
@@ -201,7 +201,7 @@ export function generateBiohazardScope(params: {
       itemType: "porous_removal",
       description: "Removal + disposal of contaminated porous materials",
       justification:
-        "Carpet, underlay, plasterboard that has absorbed decomposition fluids cannot be remediated — remove and dispose per S540:2021 §5.",
+        "Carpet, underlay, plasterboard that has absorbed decomposition fluids cannot be remediated — remove and dispose per S540:2023 §5.",
       iicrcReference: S540_TRAUMA,
       quantity: area,
       unit: "m²",
@@ -269,7 +269,7 @@ export function generateBiohazardScope(params: {
       itemType: "pathogen_treatment",
       description: "Broad-spectrum pathogen treatment (bloodborne)",
       justification:
-        "EPA-registered pathogen treatment rated against HIV/HBV/HCV per IICRC S540:2021 §5.",
+        "EPA-registered pathogen treatment rated against HIV/HBV/HCV per IICRC S540:2023 §5.",
       iicrcReference: S540_TRAUMA,
       quantity: area,
       unit: "m²",
@@ -300,7 +300,7 @@ export function generateBiohazardScope(params: {
       itemType: "scene_decontamination",
       description: "Scene decontamination + clearance",
       justification:
-        "Crime-scene / trauma decontamination per IICRC S540:2021 §5 with clearance verification before family re-entry.",
+        "Crime-scene / trauma decontamination per IICRC S540:2023 §5 with clearance verification before family re-entry.",
       iicrcReference: S540_TRAUMA,
       quantity: area,
       unit: "m²",
@@ -338,7 +338,7 @@ export function generateBiohazardScope(params: {
       itemType: "clearance_testing",
       description: "Post-remediation clearance testing",
       justification:
-        "Independent verification that bioburden is reduced below action thresholds before re-occupancy per IICRC S540:2021 §5.",
+        "Independent verification that bioburden is reduced below action thresholds before re-occupancy per IICRC S540:2023 §5.",
       iicrcReference: S540_TRAUMA,
       quantity: 1,
       unit: "job",

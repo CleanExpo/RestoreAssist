@@ -126,8 +126,8 @@ describe("llmClassify — happy path", () => {
       class: 3,
       confidence: 0.92,
       reasoning:
-        "Grey water ingress from dishwasher overflow per S500:2025 §10.5.2 and §10.6.3.",
-      clauseRefs: ["S500:2025 §10.5.2", "S500:2025 §10.6.3"],
+        "Grey water ingress from dishwasher overflow per S500:2021 §10.5.2 and §10.6.3.",
+      clauseRefs: ["S500:2021 §10.5.2", "S500:2021 §10.6.3"],
       humanReviewRequired: false,
     };
 
@@ -147,8 +147,8 @@ describe("llmClassify — happy path", () => {
     expect(result.confidence).toBe("high"); // 0.92 → high
     expect(result.llmConfidence).toBeCloseTo(0.92);
     expect(result.clauseRefs).toEqual([
-      "S500:2025 §10.5.2",
-      "S500:2025 §10.6.3",
+      "S500:2021 §10.5.2",
+      "S500:2021 §10.6.3",
     ]);
     expect(result.humanReviewRequired).toBe(false);
     expect(typeof result.reasoning).toBe("string");
@@ -162,8 +162,8 @@ describe("llmClassify — happy path", () => {
       class: 2,
       confidence: 0.55,
       reasoning:
-        "Ambiguous storm and water damage; roof damaged by wind per S500:2025 §10.5.1.",
-      clauseRefs: ["S500:2025 §10.5.1"],
+        "Ambiguous storm and water damage; roof damaged by wind per S500:2021 §10.5.1.",
+      clauseRefs: ["S500:2021 §10.5.1"],
       humanReviewRequired: false, // LLM says false, but confidence < 0.7 should override
     };
 
@@ -187,8 +187,8 @@ describe("llmClassify — happy path", () => {
       class: 1,
       confidence: 0.88,
       reasoning:
-        "Mould contamination consistent with S500:2025 §10.5 category 1 assessment.",
-      clauseRefs: ["S500:2025 §10.5"],
+        "Mould contamination consistent with S500:2021 §10.5 category 1 assessment.",
+      clauseRefs: ["S500:2021 §10.5"],
       humanReviewRequired: false,
     };
 

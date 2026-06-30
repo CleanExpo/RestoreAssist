@@ -429,7 +429,7 @@ export function buildStandardsContextPrompt(
   prompt += "You MUST adhere to the following when generating this report:\n\n";
   prompt += "1. **STANDARD CITATIONS**:\n";
   prompt +=
-    '   - Reference EXACT section numbers from the extracted standards (e.g., "IICRC S500 Section 14.3.2", "AS-IICRC S500:2025 Section 12.4")\n';
+    '   - Reference EXACT section numbers from the extracted standards (e.g., "IICRC S500 Section 14.3.2", "ANSI/IICRC S500:2021 Section 12.4")\n';
   prompt +=
     "   - Include standard references in ALL procedural recommendations\n";
   prompt +=

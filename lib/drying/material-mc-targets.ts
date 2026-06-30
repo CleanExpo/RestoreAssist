@@ -4,11 +4,11 @@
  * finalMC  — the target equilibrium MC% the material must reach (dry standard).
  * baseK    — exponential decay rate constant (per day) under standard conditions
  *            (Cat 1, Class 2, 50 L/day dehumidifier, ~25 m³ room).
- *            Derived from field data and S500:2025 §12.2.2 drying rate guidance.
+ *            Derived from field data and S500:2021 §12.2.2 drying rate guidance.
  *
  * References:
- *   AS-IICRC S500:2025 §12.2.2 — Restoration drying rate factors
- *   AS-IICRC S500:2025 Appendix C — Per-material dry standard references
+ *   ANSI/IICRC S500:2021 §12.2.2 — Restoration drying rate factors
+ *   ANSI/IICRC S500:2021 Appendix C — Per-material dry standard references
  */
 
 export interface MaterialTarget {
@@ -24,11 +24,11 @@ export interface MaterialTarget {
 
 /**
  * Lookup table keyed by material string (matches lib/iicrc-dry-standards.ts).
- * S500:2025 §12.2.2 lists drying rate factors; these k values are calibrated
+ * S500:2021 §12.2.2 lists drying rate factors; these k values are calibrated
  * to produce completion days consistent with IICRC Class 2 standard conditions.
  */
 export const MATERIAL_TARGETS: Record<string, MaterialTarget> = {
-  timber: { finalMC: 19, baseK: 0.25 }, // S500:2025 §12.2.2, Appendix C
+  timber: { finalMC: 19, baseK: 0.25 }, // S500:2021 §12.2.2, Appendix C
   softwood: { finalMC: 19, baseK: 0.28 }, // Softwood dries slightly faster than hardwood
   plasterboard: { finalMC: 1.5, baseK: 0.35 }, // Gypsum board — high surface area
   concrete: { finalMC: 3.5, baseK: 0.12 }, // Dense — slowest drying material

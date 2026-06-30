@@ -108,7 +108,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
-                IICRC S500:2025 Compliant Inspection Report
+                IICRC S500:2021 Compliant Inspection Report
               </p>
               <h1 className="text-xl font-bold text-slate-900">
                 {report.reportNumber ??
@@ -144,7 +144,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
           <h2 className="text-sm font-semibold text-slate-700 mb-3">
             Water Damage Classification
             <span className="ml-2 text-xs font-normal text-slate-400">
-              IICRC S500:2025 §3, §7.1
+              IICRC S500:2021 §3, §7.1
             </span>
           </h2>
           <div className="grid grid-cols-2 gap-3">
@@ -229,12 +229,12 @@ export default async function InsurerPortalPage({ params }: PageProps) {
             <h2 className="text-sm font-semibold text-slate-700 mb-1">
               Moisture Readings
               <span className="ml-2 text-xs font-normal text-slate-400">
-                IICRC S500:2025 §8
+                IICRC S500:2021 §8
               </span>
             </h2>
             <p className="text-xs text-slate-400 mb-3">
               Drying goal: all affected materials must reach equilibrium MC per
-              S500:2025 §12.
+              S500:2021 §12.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
@@ -309,7 +309,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Equipment Deployment Log
               <span className="ml-2 text-xs font-normal text-slate-400">
-                IICRC S500:2025 §14
+                IICRC S500:2021 §14
               </span>
             </h2>
             <div className="overflow-x-auto">
@@ -374,7 +374,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
               Full PDF Report Available
             </p>
             <p className="text-xs text-slate-400 mt-0.5">
-              Download the complete IICRC S500:2025 compliant report for your
+              Download the complete IICRC S500:2021 compliant report for your
               records.
             </p>
           </div>
@@ -390,7 +390,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
       <footer className="max-w-3xl mx-auto px-4 py-6 text-center mt-4">
         <p className="text-xs text-slate-400">
           This report has been prepared in accordance with{" "}
-          <span className="font-semibold">IICRC S500:2025</span> — Standard and
+          <span className="font-semibold">IICRC S500:2021</span> — Standard and
           Reference Guide for Professional Water Damage Restoration.
         </p>
         <p className="text-xs text-slate-300 mt-1">

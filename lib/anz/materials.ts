@@ -7,7 +7,7 @@
  *
  * `dryStandardMc` values are sensible starting defaults expressed as a moisture
  * content (%). They are intended to be org-overridable and reconciled against the
- * AS-IICRC S500:2025 dry-standard tables — the drying *logic* (see `dry-standard.ts`)
+ * ANSI/IICRC S500:2021 dry-standard tables — the drying *logic* (see `dry-standard.ts`)
  * is what is authoritative; these are seed defaults, not a published standard.
  */
 

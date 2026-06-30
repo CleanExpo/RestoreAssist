@@ -47,7 +47,7 @@ const STEPS: ChecklistStep[] = [
     icon: <FileText size={16} />,
     title: "Create your first report",
     description:
-      "Start a new inspection and let RestoreAssist guide you through the IICRC S500:2025 workflow.",
+      "Start a new inspection and let RestoreAssist guide you through the IICRC S500:2021 workflow.",
     href: "/dashboard/reports/new",
     cta: "New Report",
   },

@@ -1,23 +1,23 @@
 /**
  * Clause description lookup for standards cited in RestoreAssist PDF reports.
- * Source: scripts/data/standards-corpus.json + IICRC S500:2025 Australian edition.
+ * Source: scripts/data/standards-corpus.json + IICRC S500:2021 Australian edition.
  *
- * IICRC references cite edition and section: `S500:2025 §7.1` — never abbreviate or omit version.
+ * IICRC references cite edition and section: `S500:2021 §7.1` — never abbreviate or omit version.
  */
 
 export const CLAUSE_DESCRIPTIONS: Record<string, string> = {
-  // IICRC S500:2025 (Australian edition)
-  "S500:2025 §3.1": "Scope and application of the standard",
-  "S500:2025 §3.2": "Definitions of key restoration terms",
-  "S500:2025 §7.1": "General health and safety obligations for restorers",
-  "S500:2025 §7.3": "Electrical hazard management during water intrusion",
-  "S500:2025 §7.5": "Mould and microbial risk during water damage response",
-  "S500:2025 §10.1": "Water category classification framework",
-  "S500:2025 §10.5":
+  // IICRC S500:2021 (Australian edition)
+  "S500:2021 §3.1": "Scope and application of the standard",
+  "S500:2021 §3.2": "Definitions of key restoration terms",
+  "S500:2021 §7.1": "General health and safety obligations for restorers",
+  "S500:2021 §7.3": "Electrical hazard management during water intrusion",
+  "S500:2021 §7.5": "Mould and microbial risk during water damage response",
+  "S500:2021 §10.1": "Water category classification framework",
+  "S500:2021 §10.5":
     "Category 2 water — greywater characteristics and response",
-  "S500:2025 §10.5.4": "Category 2 water — greywater classification",
-  "S500:2025 §12.1": "Drying system design principles",
-  "S500:2025 §13.5.6": "Porous material remediation requirements by category",
+  "S500:2021 §10.5.4": "Category 2 water — greywater classification",
+  "S500:2021 §12.1": "Drying system design principles",
+  "S500:2021 §13.5.6": "Porous material remediation requirements by category",
 
   // AS/NZS 4849.1:2019 — Moisture measurement
   "AS/NZS 4849.1:2019 §4.2": "Moisture content thresholds for timber framing",

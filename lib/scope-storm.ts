@@ -2,7 +2,7 @@
  * RA-865 — scope-storm.ts
  *
  * Deterministic scope generation for storm damage jobs. Storm damage
- * combines water intrusion (S500:2025), potential Category 3 contamination,
+ * combines water intrusion (S500:2021), potential Category 3 contamination,
  * and physical debris — the generator composes all three concerns driven
  * by the water entry-point type.
  *
@@ -19,7 +19,7 @@
  *   - flash_flood → mud/silt removal + automatic Category 3 protocol
  *
  * Category 3 water (either explicit or flash_flood / stormwater_ingress)
- * always adds sanitation + antimicrobial line items per S500:2025 §6.3.
+ * always adds sanitation + antimicrobial line items per S500:2021 §6.3.
  */
 
 import { CompanyPricingRates } from "./nir-cost-estimation";
@@ -37,12 +37,12 @@ export type StormWaterCategory = 1 | 2 | 3;
 
 // ─── IICRC CLAUSE REFS ───────────────────────────────────────────────────────
 
-const S500_WATER_CATEGORY = "S500:2025 §3.1";
-const S500_CAT3_TREATMENT = "S500:2025 §6.3";
-const S500_EXTRACTION = "S500:2025 §5.2";
-const S500_DRYING = "S500:2025 §8.1";
-const S500_MOISTURE_MAPPING = "S500:2025 §7.3";
-const S500_WASTE_HANDLING = "S500:2025 §6.5";
+const S500_WATER_CATEGORY = "S500:2021 §3.1";
+const S500_CAT3_TREATMENT = "S500:2021 §6.3";
+const S500_EXTRACTION = "S500:2021 §5.2";
+const S500_DRYING = "S500:2021 §8.1";
+const S500_MOISTURE_MAPPING = "S500:2021 §7.3";
+const S500_WASTE_HANDLING = "S500:2021 §6.5";
 
 // ─── SCOPE GENERATION ────────────────────────────────────────────────────────
 
@@ -92,7 +92,7 @@ export function generateStormScope(params: {
     itemType: "water_extraction",
     description: "Water extraction",
     justification:
-      "Bulk water removal from structural surfaces and contents via truck-mount or electric extraction per IICRC S500:2025 §5.2.",
+      "Bulk water removal from structural surfaces and contents via truck-mount or electric extraction per IICRC S500:2021 §5.2.",
     iicrcReference: S500_EXTRACTION,
     quantity: area,
     unit: "m²",
@@ -104,7 +104,7 @@ export function generateStormScope(params: {
     itemType: "structural_drying",
     description: "Structural drying (air movers + dehumidification)",
     justification:
-      "Air movers + dehumidification to dry the structure to industry-accepted moisture content per IICRC S500:2025 §8.1.",
+      "Air movers + dehumidification to dry the structure to industry-accepted moisture content per IICRC S500:2021 §8.1.",
     iicrcReference: S500_DRYING,
     quantity: days,
     unit: "day",
@@ -116,7 +116,7 @@ export function generateStormScope(params: {
     itemType: "moisture_mapping",
     description: "Moisture mapping + daily psychrometric readings",
     justification:
-      "Document initial moisture content + daily readings to validate drying progress per IICRC S500:2025 §7.3.",
+      "Document initial moisture content + daily readings to validate drying progress per IICRC S500:2021 §7.3.",
     iicrcReference: S500_MOISTURE_MAPPING,
     quantity: 1,
     unit: "job",
@@ -128,7 +128,7 @@ export function generateStormScope(params: {
     itemType: "debris_removal",
     description: "Debris removal",
     justification:
-      "Removal of saturated/damaged materials, branches and wind-borne debris per IICRC S500:2025 §6.5.",
+      "Removal of saturated/damaged materials, branches and wind-borne debris per IICRC S500:2021 §6.5.",
     iicrcReference: S500_WASTE_HANDLING,
     quantity: 1,
     unit: "job",
@@ -165,7 +165,7 @@ export function generateStormScope(params: {
       itemType: "cavity_drying",
       description: "Cavity structural dry-out (wall + ceiling voids)",
       justification:
-        "Wind-driven rain penetrates wall/ceiling cavities; cavity drying targets trapped moisture behind cladding per IICRC S500:2025 §8.1.",
+        "Wind-driven rain penetrates wall/ceiling cavities; cavity drying targets trapped moisture behind cladding per IICRC S500:2021 §8.1.",
       iicrcReference: S500_DRYING,
       quantity: days,
       unit: "day",
@@ -179,7 +179,7 @@ export function generateStormScope(params: {
       itemType: "mud_silt_removal",
       description: "Mud and silt removal",
       justification:
-        "Flash-flood events deposit mud, silt, and sediment that must be removed before drying can commence per IICRC S500:2025 §6.3.",
+        "Flash-flood events deposit mud, silt, and sediment that must be removed before drying can commence per IICRC S500:2021 §6.3.",
       iicrcReference: S500_CAT3_TREATMENT,
       quantity: area,
       unit: "m²",
@@ -195,7 +195,7 @@ export function generateStormScope(params: {
       itemType: "cat3_sanitation",
       description: "Category 3 sanitation treatment",
       justification:
-        "Category 3 (grossly contaminated) water requires sanitation treatment of all affected porous/semi-porous surfaces per IICRC S500:2025 §6.3.",
+        "Category 3 (grossly contaminated) water requires sanitation treatment of all affected porous/semi-porous surfaces per IICRC S500:2021 §6.3.",
       iicrcReference: S500_CAT3_TREATMENT,
       quantity: area,
       unit: "m²",
@@ -206,7 +206,7 @@ export function generateStormScope(params: {
       itemType: "cat3_antimicrobial",
       description: "EPA-registered antimicrobial application",
       justification:
-        "Antimicrobial application to all surfaces after sanitation to inhibit microbial regrowth per IICRC S500:2025 §6.3.",
+        "Antimicrobial application to all surfaces after sanitation to inhibit microbial regrowth per IICRC S500:2021 §6.3.",
       iicrcReference: S500_CAT3_TREATMENT,
       quantity: area,
       unit: "m²",
@@ -217,7 +217,7 @@ export function generateStormScope(params: {
       itemType: "cat3_category_documentation",
       description: "Water category documentation + photo evidence",
       justification:
-        "Category 3 classification must be documented with photos + readings per IICRC S500:2025 §3.1 for insurer audit.",
+        "Category 3 classification must be documented with photos + readings per IICRC S500:2021 §3.1 for insurer audit.",
       iicrcReference: S500_WATER_CATEGORY,
       quantity: 1,
       unit: "job",

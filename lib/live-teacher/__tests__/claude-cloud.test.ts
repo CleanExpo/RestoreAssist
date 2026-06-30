@@ -87,8 +87,8 @@ beforeEach(() => {
 describe("invokeClaudeCloud", () => {
   it("returns ClaudeCloudResult with clauseRefs parsed from response text", async () => {
     const responseText =
-      "Category 2 water (Grey Water) has a moisture reading above 20% WME [S500:2025 §10.3.2]. " +
-      "Always verify with a penetrating probe meter [S500:2025 §7.1].";
+      "Category 2 water (Grey Water) has a moisture reading above 20% WME [S500:2021 §10.3.2]. " +
+      "Always verify with a penetrating probe meter [S500:2021 §7.1].";
 
     anthropicMock.create.mockResolvedValueOnce(
       makeSuccessResponse(responseText),
@@ -97,8 +97,8 @@ describe("invokeClaudeCloud", () => {
     const result: ClaudeCloudResult = await invokeClaudeCloud(baseInput);
 
     expect(result.content).toBe(responseText);
-    expect(result.clauseRefs).toContain("[S500:2025 §10.3.2]");
-    expect(result.clauseRefs).toContain("[S500:2025 §7.1]");
+    expect(result.clauseRefs).toContain("[S500:2021 §10.3.2]");
+    expect(result.clauseRefs).toContain("[S500:2021 §7.1]");
     expect(result.clauseRefs).toHaveLength(2);
     expect(result.confidence).toBeGreaterThan(0);
     expect(result.toolCalls).toHaveLength(0);

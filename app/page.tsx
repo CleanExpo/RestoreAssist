@@ -312,7 +312,7 @@ export default function Home() {
               </span>
               <span>
                 <strong className="text-white">
-                  IICRC S500:2025 §7.1 cited correctly in every report footer.
+                  IICRC S500:2021 §7.1 cited correctly in every report footer.
                 </strong>{" "}
                 GST at 10%. ABN at 11 digits. State codes routed through the
                 correct jurisdictional authority.

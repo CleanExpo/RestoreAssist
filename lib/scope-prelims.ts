@@ -11,8 +11,8 @@
  * scope-mould, scope-biohazard, scope-storm) compose scopes ON TOP of
  * these prelims — they do not replace them.
  *
- * IICRC references: S500:2025 §4.1 (Attendance), §8.3 (Drying Monitoring),
- * §6.5 (Waste Handling). S520:2015 §5.4 for mould/contamination disposal.
+ * IICRC references: S500:2021 §4.1 (Attendance), §8.3 (Drying Monitoring),
+ * §6.5 (Waste Handling). S520:2024 §5.4 for mould/contamination disposal.
  */
 
 import { CompanyPricingRates } from "./nir-cost-estimation";
@@ -31,10 +31,10 @@ export type PrelimsDamageType =
 
 // ─── IICRC CLAUSE REFS ───────────────────────────────────────────────────────
 
-const S500_SITE_ATTENDANCE = "S500:2025 §4.1";
-const S500_MONITORING = "S500:2025 §8.3";
-const S500_WASTE_HANDLING = "S500:2025 §6.5";
-const S520_CONTAMINATED_WASTE = "S520:2015 §5.4";
+const S500_SITE_ATTENDANCE = "S500:2021 §4.1";
+const S500_MONITORING = "S500:2021 §8.3";
+const S500_WASTE_HANDLING = "S500:2021 §6.5";
+const S520_CONTAMINATED_WASTE = "S520:2024 §5.4";
 const SAFEWORK_PPE = "Safe Work Australia — Model Code of Practice (PPE)";
 
 // ─── MARKET-RATE PLACEHOLDERS ────────────────────────────────────────────────
@@ -71,8 +71,8 @@ function estimateWasteVolumeM3(
 }
 
 /**
- * Damage types that MUST use contaminated-waste disposal (S520:2015 §5.4)
- * rather than standard S500:2025 §6.5 disposal.
+ * Damage types that MUST use contaminated-waste disposal (S520:2024 §5.4)
+ * rather than standard S500:2021 §6.5 disposal.
  */
 function isContaminatedWaste(damageType: PrelimsDamageType): boolean {
   return (
@@ -126,7 +126,7 @@ export function generatePrelims(params: {
     itemType: "mobilisation",
     description: "Mobilisation / Site attendance",
     justification:
-      "Site attendance, travel, initial scope walk-through and risk review before work commences (IICRC S500:2025 §4.1).",
+      "Site attendance, travel, initial scope walk-through and risk review before work commences (IICRC S500:2021 §4.1).",
     iicrcReference: S500_SITE_ATTENDANCE,
     quantity: 1,
     unit: "job",
@@ -140,7 +140,7 @@ export function generatePrelims(params: {
       itemType: "daily_monitoring",
       description: "Daily monitoring visit",
       justification:
-        "Daily psychrometric readings, equipment check and drying progress documentation per IICRC S500:2025 §8.3.",
+        "Daily psychrometric readings, equipment check and drying progress documentation per IICRC S500:2021 §8.3.",
       iicrcReference: S500_MONITORING,
       quantity: estimatedDays,
       unit: "visit",
@@ -161,8 +161,8 @@ export function generatePrelims(params: {
         ? "Contaminated waste disposal"
         : "Waste disposal — water damage",
       justification: contaminated
-        ? "Contaminated materials (CAT3, mould, biohazard) require licensed disposal and additional containment per IICRC S520:2015 §5.4."
-        : "Removal and tipping of saturated carpet, underlay, and demolished materials per IICRC S500:2025 §6.5.",
+        ? "Contaminated materials (CAT3, mould, biohazard) require licensed disposal and additional containment per IICRC S520:2024 §5.4."
+        : "Removal and tipping of saturated carpet, underlay, and demolished materials per IICRC S500:2021 §6.5.",
       iicrcReference: contaminated
         ? S520_CONTAMINATED_WASTE
         : S500_WASTE_HANDLING,

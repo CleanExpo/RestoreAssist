@@ -1,5 +1,5 @@
 /**
- * Daily Drying Monitoring Report — IICRC S500:2025 §11.4
+ * Daily Drying Monitoring Report — IICRC S500:2021 §11.4
  *
  * GET  /api/inspections/[id]/monitoring-report
  *      Returns grouped daily log from all moisture readings for the inspection.
@@ -15,8 +15,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// ── IICRC S500:2025 §11.4 per-material dry MC% thresholds ───────────────────
-// Source: IICRC S500:2025 Standard for Professional Water Damage Restoration
+// ── IICRC S500:2021 §11.4 per-material dry MC% thresholds ───────────────────
+// Source: IICRC S500:2021 Standard for Professional Water Damage Restoration
 // All values represent the maximum acceptable moisture content % for "DRY" status
 const IICRC_TARGETS: Record<string, number> = {
   timber: 19, // Timber / hardwood
@@ -184,7 +184,7 @@ async function buildReport(
     if (aboveTargetCount === 0) {
       dryingStatus = "ACHIEVED";
       statusReason =
-        "All readings at or below IICRC S500:2025 §11.4 material targets";
+        "All readings at or below IICRC S500:2021 §11.4 material targets";
     } else if (idx === 0) {
       // First day — no comparison baseline
       dryingStatus = "PROGRESSING";
@@ -264,7 +264,7 @@ async function buildReport(
     technicianName: inspection.technicianName,
     inspectionDate:
       inspection.inspectionDate?.toISOString() ?? new Date().toISOString(),
-    iicrcReference: "IICRC S500:2025 §11.4",
+    iicrcReference: "IICRC S500:2021 §11.4",
     affectedAreas: inspection.affectedAreas,
     totalDaysMonitored: dailyLogs.length,
     currentAvgMoisture,

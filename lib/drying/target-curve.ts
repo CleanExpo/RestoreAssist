@@ -5,14 +5,14 @@
  *   MC(d) = finalMC + (initialMC − finalMC) × exp(−k × d)
  *
  * where k is adjusted for material type, water category, water class,
- * room volume, and dehumidifier capacity per AS-IICRC S500:2025 §12.2.2.
+ * room volume, and dehumidifier capacity per ANSI/IICRC S500:2021 §12.2.2.
  *
  * No persistence — this is a pure computation; results are not stored.
  * If persistence is required, STOP and discuss before adding a migration.
  *
  * References:
- *   AS-IICRC S500:2025 §12.2.2 — Restoration drying rate factors
- *   AS-IICRC S500:2025 Appendix C — Per-material dry standard references
+ *   ANSI/IICRC S500:2021 §12.2.2 — Restoration drying rate factors
+ *   ANSI/IICRC S500:2021 Appendix C — Per-material dry standard references
  */
 
 import {
@@ -57,7 +57,7 @@ export interface TargetCurveResult {
 /**
  * Reference dehumidifier capacity (L/day) and room volume (m³) used when
  * calibrating baseK values in material-mc-targets.ts.
- * Per S500:2025 §12.2.2: capacity-to-volume ratio drives drying rate.
+ * Per S500:2021 §12.2.2: capacity-to-volume ratio drives drying rate.
  */
 const REF_DEHU_LPD = 50;
 const REF_ROOM_M3 = 25;
@@ -72,7 +72,7 @@ const MAX_DAYS = 90; // Guard against infinite loops on very slow materials
  * Formula: MC(d) = finalMC + (initialMC − finalMC) × exp(−effectiveK × d)
  * effectiveK = baseK × categoryMult × classMult × (dehuLpd / refLpd) × (refM3 / roomM3)
  *
- * S500:2025 §12.2.2 recognises dehumidifier capacity, water category, and water
+ * S500:2021 §12.2.2 recognises dehumidifier capacity, water category, and water
  * class as the primary factors controlling drying rate.
  */
 export function computeTargetCurve(input: TargetCurveInput): TargetCurveResult {
@@ -98,7 +98,7 @@ export function computeTargetCurve(input: TargetCurveInput): TargetCurveResult {
       projectedCompletionDay: 0,
       effectiveK: baseK,
       finalMC,
-      standardsRef: "AS-IICRC S500:2025 §12.2.2",
+      standardsRef: "ANSI/IICRC S500:2021 §12.2.2",
     };
   }
 
@@ -106,7 +106,7 @@ export function computeTargetCurve(input: TargetCurveInput): TargetCurveResult {
   const classMult = CLASS_K_MULTIPLIER[waterClass] ?? 1.0;
 
   // Dehumidifier effectiveness: scale linearly relative to reference values
-  // (S500:2025 §12.2.2 — capacity/volume ratio)
+  // (S500:2021 §12.2.2 — capacity/volume ratio)
   const roomM3 = Math.max(roomVolumeM3, 1); // guard zero
   const dehuLpd = Math.max(dehumidifierCapacityLpd, 1); // guard zero
   const dehuMult = (dehuLpd / REF_DEHU_LPD) * (REF_ROOM_M3 / roomM3);
@@ -133,7 +133,7 @@ export function computeTargetCurve(input: TargetCurveInput): TargetCurveResult {
     projectedCompletionDay,
     effectiveK: round2(effectiveK),
     finalMC,
-    standardsRef: "AS-IICRC S500:2025 §12.2.2",
+    standardsRef: "ANSI/IICRC S500:2021 §12.2.2",
   };
 }
 

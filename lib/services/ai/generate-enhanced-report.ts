@@ -111,8 +111,8 @@ ${standardsContext}
 CRITICAL REQUIREMENTS - You MUST explicitly reference and comply with:
 
 **Australian Standards:**
-- AS-IICRC S500:2025 - Standard for Professional Water Damage Restoration
-- AS-IICRC S520 - Standard for Professional Mold Remediation
+- ANSI/IICRC S500:2021 - Standard for Professional Water Damage Restoration
+- ANSI/IICRC S520 - Standard for Professional Mold Remediation
 - AS/NZS 3000:2018 - Electrical Installations (Wiring Rules)
 - AS/NZS 3500 - Plumbing and Drainage Standards
 - AS 3959 - Construction of Buildings in Bushfire-Prone Areas (if applicable)
@@ -183,7 +183,7 @@ Generate a comprehensive Professional Inspection Report (Enhanced Version) that 
 4. **Weather/Seasonal Context**: Add relevant weather/seasonal information if applicable
 5. **Areas Affected**: Detailed breakdown of all affected areas (upstairs, downstairs, specific rooms, materials)
 6. **Standards & Compliance**:
-   - EXPLICITLY reference AS-IICRC S500:2025
+   - EXPLICITLY reference ANSI/IICRC S500:2021
    - EXPLICITLY reference relevant IICRC standards
    - EXPLICITLY reference National Construction Code (NCC) and state building codes (e.g., QDC 4.5)
    - EXPLICITLY reference Australian OH&S requirements
@@ -196,9 +196,9 @@ Generate a comprehensive Professional Inspection Report (Enhanced Version) that 
 7. **Material Identification**: Identify materials mentioned (e.g., Yellow tongue particleboard, floating timber, plasterboard, etc.) and drying requirements per Australian standards
 8. **Procedures Completed**:
    - Site risk assessment (per Australian OH&S requirements)
-   - Water category classification (per AS-IICRC S500:2025)
+   - Water category classification (per ANSI/IICRC S500:2021)
    - Moisture and thermal imaging (per IICRC standards)
-   - Extraction methods (per AS-IICRC S500:2025)
+   - Extraction methods (per ANSI/IICRC S500:2021)
    - Equipment deployed (with quantities)
 9. **Specific Drying Recommendations**: Detailed recommendations for each material type per Australian standards and IICRC guidelines
 10. **Equipment and Power Requirements**:
@@ -227,7 +227,7 @@ Generate a comprehensive Professional Inspection Report (Enhanced Version) that 
     - Circuit protection requirements
 15. **Monitoring & Documentation**:
     - Photo documentation per IICRC standards
-    - Moisture logs per AS-IICRC S500:2025
+    - Moisture logs per ANSI/IICRC S500:2021
     - Thermal images per IICRC standards
     - Compliance documentation
 16. **Conclusion & Risk Factors**:
@@ -239,7 +239,7 @@ Generate a comprehensive Professional Inspection Report (Enhanced Version) that 
 CRITICAL INSTRUCTIONS:
 - You MUST explicitly mention and reference specific standards, codes, and regulations throughout the report
 - Use proper Australian technical terminology and standards nomenclature
-- Include specific standard numbers (e.g., "AS-IICRC S500:2025", "AS/NZS 3000:2018", "NCC", "QDC 4.5")
+- Include specific standard numbers (e.g., "ANSI/IICRC S500:2021", "AS/NZS 3000:2018", "NCC", "QDC 4.5")
 - Reference Australian OH&S requirements by name (e.g., "Work Health and Safety Act 2011", "Safe Work Australia Guidelines")
 - Reference IICRC standards explicitly (e.g., "IICRC S500 Standard", "IICRC S520 Standard")
 - Include material-specific standards where applicable

@@ -1,5 +1,5 @@
 /**
- * AS-IICRC S500:2025 water categories (spec §5.2).
+ * ANSI/IICRC S500:2021 water categories (spec §5.2).
  *
  * Category describes contamination (clean / grey / black) and drives required
  * PPE, containment, and disposal scope. It is assessed on site, not derived from

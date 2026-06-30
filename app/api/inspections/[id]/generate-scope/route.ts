@@ -194,7 +194,7 @@ export async function POST(
         quantity: s.quantity ?? 1,
         iicrcReference:
           s.justification?.match(/IICRC S500:(?:2021|2025) §[\d.]+/)?.[0] ??
-          "IICRC S500:2025",
+          "IICRC S500:2021",
         justification: s.justification ?? s.description,
         estimatedAmpsTotal: parseFloat(
           s.specification?.match(/(\d+\.?\d*)A total/)?.[1] ?? "0",
@@ -420,7 +420,7 @@ export async function POST(
                     .slice(0, 50),
                   description: title,
                   autoDetermined: false,
-                  justification: iicrcRef ?? "AI-generated per IICRC S500:2025",
+                  justification: iicrcRef ?? "AI-generated per IICRC S500:2021",
                   isRequired: true,
                   isSelected: true,
                 };

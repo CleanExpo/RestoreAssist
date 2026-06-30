@@ -100,7 +100,7 @@ export default function AutoClassifyPanel({ inspectionId, onApply }: Props) {
           </h3>
           <p className="text-xs text-neutral-500 dark:text-slate-500">
             Uses moisture readings and affected-area data to suggest IICRC
-            S500:2025 Category and Class. Review before applying.
+            S500:2021 Category and Class. Review before applying.
           </p>
         </div>
         <Button

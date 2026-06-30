@@ -376,7 +376,7 @@ export function formatPinpoint(
  *
  * RA-6793: The `§` symbol is rejected only for AGLC4 *legal* citations (statutes,
  * cases, codes), where AGLC4 mandates "s" instead. IICRC technical standards
- * (S500:2025, S520, S540, S700) deliberately cite with `§` per CLAUDE.md rule #14,
+ * (S500:2021, S520, S540, S700) deliberately cite with `§` per CLAUDE.md rule #14,
  * so callers validating a standard reference must pass `kind: "standard"` to avoid
  * a false-positive on the mandated symbol. Defaults to "legal" to preserve the
  * historical strict-AGLC4 behaviour for existing call sites.
@@ -571,7 +571,7 @@ export function formatCitationSet(
 /**
  * Parse a single citation string and return a FormattedCitation.
  * Attempts to extract documentCode + sectionNumber from common patterns
- * (e.g. "IICRC S500:2025 §7.1", "NCC 2025 s3.2", "AS/NZS 1234 cl 5").
+ * (e.g. "IICRC S500:2021 §7.1", "NCC 2025 s3.2", "AS/NZS 1234 cl 5").
  */
 export function parseAndFormatCitation(raw: string): FormattedCitation {
   // Attempt to split "DOC SECTION" patterns
@@ -600,7 +600,7 @@ export function extractAndFormatCitations(text: string): FormattedCitation[] {
   const seen = new Set<string>();
 
   // Pattern: known code + optional year + optional section marker + section number
-  // e.g. "IICRC S500:2025 §7.1", "NCC 2025 s3.2.1", "AS/NZS 3000 cl 5"
+  // e.g. "IICRC S500:2021 §7.1", "NCC 2025 s3.2.1", "AS/NZS 3000 cl 5"
   const pattern =
     /\b((?:IICRC\s+)?[A-Z][A-Z0-9/-]+(?:\s+\d{4})?(?::\d{4})?)\s*(?:§|s\.\s*|s\s+|cl\.?\s+)?([0-9][0-9A-Za-z.]*)?/g;
 

@@ -283,7 +283,7 @@ export default function FieldModePage({ params }: PageProps) {
             {checklist.length === 0 ? (
               <div className="text-center py-12 text-white/30">
                 <p className="text-sm">
-                  Start an inspection to see the S500:2025 checklist
+                  Start an inspection to see the S500:2021 checklist
                 </p>
               </div>
             ) : (
@@ -291,7 +291,7 @@ export default function FieldModePage({ params }: PageProps) {
                 {/* Progress bar */}
                 <div className="bg-white/5 rounded-xl p-4 mb-4">
                   <div className="flex justify-between text-sm mb-2">
-                    <span className="text-white/60">S500:2025 completion</span>
+                    <span className="text-white/60">S500:2021 completion</span>
                     <span className="font-medium">
                       {completedCount}/{checklist.length}
                     </span>
@@ -360,7 +360,7 @@ export default function FieldModePage({ params }: PageProps) {
                                 {item.label}
                               </p>
                               <p className="text-xs text-white/30 mt-0.5">
-                                S500:2025 {item.s500Section}
+                                S500:2021 {item.s500Section}
                               </p>
                             </div>
                           </div>

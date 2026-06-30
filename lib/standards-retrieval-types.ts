@@ -37,7 +37,7 @@ export function determineRelevantStandards(query: RetrievalQuery): string[] {
   // Always include S500 for water damage
   if (query.reportType === "water") {
     standards.push("S500");
-    standards.push("AS-IICRC S500");
+    standards.push("ANSI/IICRC S500");
     standards.push("IICRC S500");
     standards.push("Water Damage Restoration");
   }
@@ -45,7 +45,7 @@ export function determineRelevantStandards(query: RetrievalQuery): string[] {
   // Include S520 for mould
   if (query.reportType === "mould") {
     standards.push("S520");
-    standards.push("AS-IICRC S520");
+    standards.push("ANSI/IICRC S520");
     standards.push("IICRC S520");
     standards.push("Mould Remediation");
     standards.push("Mold Remediation");

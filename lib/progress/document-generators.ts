@@ -316,7 +316,7 @@ export async function generateStabilisationCertificate(
     size: 18,
     bold: true,
   });
-  drawText(ctx, "AS-IICRC S500:2025 - Section 12 Stabilisation", {
+  drawText(ctx, "ANSI/IICRC S500:2021 - Section 12 Stabilisation", {
     size: 10,
     color: [0.4, 0.4, 0.4],
   });
