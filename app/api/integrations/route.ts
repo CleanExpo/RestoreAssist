@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 import { IntegrationProvider } from "@prisma/client";
 
 // RA-1345 — explicit allowlist of safe-to-return fields. Previously both
@@ -33,7 +34,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // RA-1376: bounded list query (CLAUDE.md rule 4).
@@ -50,11 +55,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ integrations });
   } catch (error) {
-    console.error("Error fetching integrations:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list" });
   }
 }
 
@@ -63,14 +64,22 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const body = await request.json();
     const { name, description, icon, apiKey, config, provider } = body;
 
     if (!name) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Name is required",
+        status: 400,
+      });
     }
 
     // Determine provider from name if not provided
@@ -106,12 +115,11 @@ export async function POST(request: NextRequest) {
       "ASCORA",
     ];
     if (!validProviders.includes(integrationProvider)) {
-      return NextResponse.json(
-        {
-          error: `Invalid provider. Must be one of: ${validProviders.join(", ")}`,
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Invalid provider. Must be one of: ${validProviders.join(", ")}`,
+        status: 400,
+      });
     }
 
     const integration = await prisma.integration.create({
@@ -130,10 +138,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(integration);
   } catch (error) {
-    console.error("Error creating integration:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "create" });
   }
 }
