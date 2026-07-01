@@ -5,6 +5,7 @@ import { BusinessDetailsCard } from './BusinessDetailsCard';
 import { BrandCard } from './BrandCard';
 import { PricingCard } from './PricingCard';
 import { StorageCard } from './StorageCard';
+import { DatabaseCard } from './DatabaseCard';
 import { IntegrationsCard } from './IntegrationsCard';
 import { FeatureHealthCard } from './FeatureHealthCard';
 import { VideoExplainer } from './VideoExplainer';
@@ -92,6 +93,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       <BrandCard />
       <PricingCard />
       <StorageCard />
+      <DatabaseCard />
       <IntegrationsCard />
       <FeatureHealthCard />
     </main>
