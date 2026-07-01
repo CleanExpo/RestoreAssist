@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 import {
   parseEquipmentParameters,
   parseSiteVariables,
@@ -15,7 +16,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -32,12 +37,17 @@ export async function POST(request: NextRequest) {
     try {
       let body: any;
       try {
-        body = rawBody ? JSON.parse(rawBody) : {};
+        const parsed = rawBody ? JSON.parse(rawBody) : {};
+        body =
+          parsed && typeof parsed === "object" && !Array.isArray(parsed)
+            ? parsed
+            : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const {
         reportId,
@@ -54,21 +64,21 @@ export async function POST(request: NextRequest) {
 
       // Validate required fields
       if (!reportId || !scopeType) {
-        return NextResponse.json(
-          { error: "Missing required fields: reportId, scopeType" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Missing required fields: reportId, scopeType",
+          status: 400,
+        });
       }
 
       // Verify prisma.scope exists
       if (!prisma || typeof prisma.scope === "undefined") {
-        console.error(
-          "Prisma Scope model not available. Please run: npx prisma generate",
-        );
-        return NextResponse.json(
-          { error: "Database models not initialized. Please contact support." },
-          { status: 500 },
-        );
+        return apiError(request, {
+          code: "INTERNAL",
+          message: "Database models not initialized. Please contact support.",
+          status: 500,
+          context: { reason: "prisma.scope model unavailable" },
+        });
       }
 
       // RA-6800: authorization — the caller must own the target report before
@@ -80,7 +90,11 @@ export async function POST(request: NextRequest) {
         select: { id: true },
       });
       if (!ownedReport) {
-        return NextResponse.json({ error: "Report not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Report not found",
+          status: 404,
+        });
       }
 
       // Check if scope already exists - using findFirst for better compatibility
@@ -153,23 +167,27 @@ export async function POST(request: NextRequest) {
         assumptions: scope.assumptions,
       });
     } catch (error: any) {
-      console.error("Error saving scope:", error);
-
       // Provide more detailed error messages
       if (error?.code === "P2002") {
-        return NextResponse.json(
-          { error: "A scope already exists for this report" },
-          { status: 409 },
-        );
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "A scope already exists for this report",
+          status: 409,
+        });
       }
 
       if (error?.code === "P2003") {
-        return NextResponse.json(
-          { error: "Invalid report ID. Report does not exist." },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid report ID. Report does not exist.",
+          status: 400,
+        });
       }
 
+      console.error("Error saving scope:", error);
+
+      // RA-1548 — the two 500s below carry a `details` sibling field, so they
+      // are left on raw NextResponse (envelope has no slot for it).
       if (
         error?.message?.includes("prisma.scope") ||
         error?.message?.includes("undefined")
@@ -185,13 +203,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      return NextResponse.json(
-        {
-          error: "Failed to save scope",
-          details: "An error occurred while saving the scope.",
-        },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "save" });
     }
   });
 }
@@ -201,7 +213,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -210,11 +226,12 @@ export async function GET(request: NextRequest) {
     if (reportId) {
       // Verify prisma.scope exists
       if (!prisma || typeof prisma.scope === "undefined") {
-        console.error("Prisma Scope model not available");
-        return NextResponse.json(
-          { error: "Database models not initialized" },
-          { status: 500 },
-        );
+        return apiError(request, {
+          code: "INTERNAL",
+          message: "Database models not initialized",
+          status: 500,
+          context: { reason: "prisma.scope model unavailable" },
+        });
       }
 
       // Get scope for specific report. RA-6800: scope the lookup to reports the
@@ -226,7 +243,11 @@ export async function GET(request: NextRequest) {
       });
 
       if (!scope) {
-        return NextResponse.json({ error: "Scope not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Scope not found",
+          status: 404,
+        });
       }
 
       return NextResponse.json({
@@ -317,12 +338,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      {
-        error: "Failed to fetch scopes",
-        details: "An error occurred while fetching scopes.",
-      },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list" });
   }
 }
