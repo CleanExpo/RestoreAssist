@@ -24,9 +24,9 @@ import {
 } from "@/lib/ai/byok-vision-client";
 import { z } from "zod";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError } from "@/lib/api-errors";
 
-const VISION_PROVIDER_CONFIGURATION_ERROR =
-  "Vision provider is not configured";
+const VISION_PROVIDER_CONFIGURATION_ERROR = "Vision provider is not configured";
 
 // ─── Request validation ───────────────────────────────────────────────────────
 
@@ -52,7 +52,11 @@ const VisionRequestSchema = z.object({
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorised",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -73,11 +77,16 @@ export async function POST(request: NextRequest) {
     try {
       body = rawBody ? JSON.parse(rawBody) : {};
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
     }
 
     const parsed = VisionRequestSchema.safeParse(body);
     if (!parsed.success) {
+      // RA-1548 — left raw: rich 422 with `details` sibling (zod flatten()).
       return NextResponse.json(
         { error: "Validation error", details: parsed.error.flatten() },
         { status: 422 },
@@ -97,6 +106,8 @@ export async function POST(request: NextRequest) {
         error instanceof Error ? error.message : "Vision analysis failed";
 
       if (message.includes("No AI provider") || message.includes("API key")) {
+        // RA-1548 — left raw: BYOK provider-config 402; __tests__ pin the flat
+        // {error:"Vision provider is not configured"} shape.
         console.error("[vision] Provider configuration error:", error);
         return NextResponse.json(
           { error: VISION_PROVIDER_CONFIGURATION_ERROR },
@@ -104,8 +115,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.error("[vision] Analysis error:", error);
-      return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
+      return apiError(request, {
+        code: "INTERNAL",
+        message: "Analysis failed",
+        status: 500,
+        err: error,
+        stage: "vision",
+      });
     }
   });
 }
