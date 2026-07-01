@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 import { z } from "zod";
 import { withIdempotency } from "@/lib/idempotency";
 
@@ -55,42 +56,51 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(_req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true },
-  });
-  if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
-    );
+  try {
+    const inspection = await prisma.inspection.findUnique({
+      where: { id, userId: session.user.id },
+      select: { id: true },
+    });
+    if (!inspection) {
+      return apiError(_req, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
+
+    const readings = await prisma.psychrometricReading.findMany({
+      where: { inspectionId: id },
+      orderBy: { visitNumber: "asc" },
+      take: 365,
+    });
+
+    // Compute drying trend summary
+    const gppReadings = readings.filter((r: any) => r.grainsPerPound != null);
+    const summary = {
+      totalVisits: readings.length,
+      latestGPP: gppReadings.at(-1)?.grainsPerPound ?? null,
+      initialGPP: gppReadings[0]?.grainsPerPound ?? null,
+      targetGPP: 35, // IICRC S500 drying goal
+      dryingGoalAchieved:
+        gppReadings.length > 0 &&
+        (gppReadings.at(-1)?.grainsPerPound ?? 999) <= 35,
+      latestRH: readings.at(-1)?.relativeHumidity ?? null,
+    };
+
+    return NextResponse.json({ readings, summary });
+  } catch (error) {
+    return fromException(_req, error, { stage: "psychrometric-get" });
   }
-
-  const readings = await prisma.psychrometricReading.findMany({
-    where: { inspectionId: id },
-    orderBy: { visitNumber: "asc" },
-    take: 365,
-  });
-
-  // Compute drying trend summary
-  const gppReadings = readings.filter((r: any) => r.grainsPerPound != null);
-  const summary = {
-    totalVisits: readings.length,
-    latestGPP: gppReadings.at(-1)?.grainsPerPound ?? null,
-    initialGPP: gppReadings[0]?.grainsPerPound ?? null,
-    targetGPP: 35, // IICRC S500 drying goal
-    dryingGoalAchieved:
-      gppReadings.length > 0 &&
-      (gppReadings.at(-1)?.grainsPerPound ?? 999) <= 35,
-    latestRH: readings.at(-1)?.relativeHumidity ?? null,
-  };
-
-  return NextResponse.json({ readings, summary });
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -101,7 +111,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -109,63 +123,72 @@ export async function POST(
   // RA-1266: psychrometric readings are time-series — retry creates
   // duplicate data points.
   return withIdempotency(req, userId, async (rawBody) => {
-    const inspection = await prisma.inspection.findUnique({
-      where: { id, userId },
-      select: { id: true },
-    });
-    if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
-    }
-
-    let body: any;
     try {
-      body = rawBody ? JSON.parse(rawBody) : {};
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      const inspection = await prisma.inspection.findUnique({
+        where: { id, userId },
+        select: { id: true },
+      });
+      if (!inspection) {
+        return apiError(req, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
+
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return apiError(req, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
+      }
+      const parsed = readingSchema.safeParse(body);
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: "Invalid data", details: parsed.error.flatten() },
+          { status: 400 },
+        );
+      }
+
+      const data = parsed.data;
+
+      // Auto-calculate dew point if not provided
+      let dewPointC = data.dewPointC ?? null;
+      if (
+        dewPointC == null &&
+        data.dryBulbTempC != null &&
+        data.relativeHumidity != null
+      ) {
+        dewPointC =
+          Math.round(
+            calculateDewPoint(data.dryBulbTempC, data.relativeHumidity) * 10,
+          ) / 10;
+      }
+
+      const record = await prisma.psychrometricReading.create({
+        data: {
+          inspectionId: id,
+          visitDate: new Date(data.visitDate),
+          visitNumber: data.visitNumber,
+          technicianId: data.technicianId ?? null,
+          dryBulbTempC: data.dryBulbTempC ?? null,
+          wetBulbTempC: data.wetBulbTempC ?? null,
+          relativeHumidity: data.relativeHumidity ?? null,
+          dewPointC,
+          grainsPerPound: data.grainsPerPound ?? null,
+          gramsPerKilogram: data.gramsPerKilogram ?? null,
+          equipmentRunning: data.equipmentRunning,
+          notes: data.notes ?? null,
+        },
+      });
+
+      return NextResponse.json(record, { status: 201 });
+    } catch (error) {
+      return fromException(req, error, { stage: "psychrometric-post" });
     }
-    const parsed = readingSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid data", details: parsed.error.flatten() },
-        { status: 400 },
-      );
-    }
-
-    const data = parsed.data;
-
-    // Auto-calculate dew point if not provided
-    let dewPointC = data.dewPointC ?? null;
-    if (
-      dewPointC == null &&
-      data.dryBulbTempC != null &&
-      data.relativeHumidity != null
-    ) {
-      dewPointC =
-        Math.round(
-          calculateDewPoint(data.dryBulbTempC, data.relativeHumidity) * 10,
-        ) / 10;
-    }
-
-    const record = await prisma.psychrometricReading.create({
-      data: {
-        inspectionId: id,
-        visitDate: new Date(data.visitDate),
-        visitNumber: data.visitNumber,
-        technicianId: data.technicianId ?? null,
-        dryBulbTempC: data.dryBulbTempC ?? null,
-        wetBulbTempC: data.wetBulbTempC ?? null,
-        relativeHumidity: data.relativeHumidity ?? null,
-        dewPointC,
-        grainsPerPound: data.grainsPerPound ?? null,
-        gramsPerKilogram: data.gramsPerKilogram ?? null,
-        equipmentRunning: data.equipmentRunning,
-        notes: data.notes ?? null,
-      },
-    });
-
-    return NextResponse.json(record, { status: 201 });
   });
 }
