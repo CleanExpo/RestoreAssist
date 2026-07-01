@@ -31,6 +31,7 @@ export type ApiErrorCode =
   | "FORBIDDEN"
   | "NOT_FOUND"
   | "CONFLICT"
+  | "PAYMENT_REQUIRED"
   | "RATE_LIMITED"
   | "UPSTREAM_FAILED"
   | "INTERNAL";

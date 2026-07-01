@@ -65,6 +65,8 @@ export function FloorPlanUnderlayLoader({
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [opacity, setOpacity] = useState(0.35);
   const [applying, setApplying] = useState(false);
+  // PR5: set when the scrape route returns 402 (feature is Premium-only).
+  const [upgradeRequired, setUpgradeRequired] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Track whether we've already auto-applied so we don't re-trigger on re-renders
   const autoAppliedRef = useRef(false);
@@ -104,6 +106,7 @@ export function FloorPlanUnderlayLoader({
     if (!q) return;
     setLoading(true);
     setError(null);
+    setUpgradeRequired(false);
     setResults(null);
     setSelectedImage(null);
 
@@ -120,6 +123,12 @@ export function FloorPlanUnderlayLoader({
           fallbackSources: ["domain"],
         }),
       });
+      // PR5: 402 means the floor-plan underlay isn't on the caller's plan.
+      if (res.status === 402) {
+        setUpgradeRequired(true);
+        return;
+      }
+
       const json = await res.json();
 
       if (!res.ok || !json.data) {
@@ -288,6 +297,24 @@ export function FloorPlanUnderlayLoader({
             <div className="flex items-start gap-2 p-2 rounded-lg bg-destructive-subtle text-destructive-subtle-foreground text-xs">
               <AlertCircle size={13} className="flex-shrink-0 mt-0.5" />
               {error}
+            </div>
+          )}
+
+          {/* PR5 — Premium upgrade CTA (shown when the scrape returns 402) */}
+          {upgradeRequired && (
+            <div className="flex flex-col gap-1.5 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-xs">
+              <p className="font-medium text-cyan-600 dark:text-cyan-300">
+                Floor plan underlay is a Premium feature
+              </p>
+              <p className="text-neutral-500 dark:text-slate-400">
+                Upgrade your plan to fetch and trace property floor plans.
+              </p>
+              <a
+                href="/billing/upgrade"
+                className="inline-flex items-center justify-center gap-1.5 mt-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 transition-colors"
+              >
+                Upgrade to unlock
+              </a>
             </div>
           )}
 
