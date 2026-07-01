@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   request: NextRequest,
@@ -10,7 +11,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorised",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -24,10 +29,11 @@ export async function POST(
         where: { id, userId },
       });
       if (!library) {
-        return NextResponse.json(
-          { error: "Library not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Library not found",
+          status: 404,
+        });
       }
 
       let body: {
@@ -39,20 +45,26 @@ export async function POST(
         }>;
       } = {};
       try {
-        body = rawBody ? JSON.parse(rawBody) : {};
+        const parsed = rawBody ? JSON.parse(rawBody) : {};
+        body =
+          parsed && typeof parsed === "object" && !Array.isArray(parsed)
+            ? parsed
+            : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { items } = body;
 
       if (!Array.isArray(items) || items.length === 0) {
-        return NextResponse.json(
-          { error: "No items provided" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "No items provided",
+          status: 400,
+        });
       }
 
       const valid = items.filter(
@@ -77,11 +89,7 @@ export async function POST(
 
       return NextResponse.json({ imported: created.count, skipped });
     } catch (error) {
-      console.error("Error importing cost items:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "import" });
     }
   });
 }
