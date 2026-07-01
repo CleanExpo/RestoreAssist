@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateImageUpload } from "@/lib/media/validate-image-upload";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
 const ALLOWED_IMAGE_TYPES = [
@@ -18,7 +19,11 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // RA-1316: upload endpoint was uncapped. A compromised session could
@@ -37,7 +42,11 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File;
 
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "No file provided",
+        status: 400,
+      });
     }
 
     // Convert file to buffer
@@ -52,16 +61,18 @@ export async function POST(request: NextRequest) {
       allowedTypes: ALLOWED_IMAGE_TYPES,
     });
     if (!imageCheck.ok && imageCheck.reason === "too-large") {
-      return NextResponse.json(
-        { error: "File size exceeds 10MB limit." },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "File size exceeds 10MB limit.",
+        status: 400,
+      });
     }
     if (!imageCheck.ok) {
-      return NextResponse.json(
-        { error: "Invalid file type. Only images are allowed." },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid file type. Only images are allowed.",
+        status: 400,
+      });
     }
 
     // Upload to Cloudinary
@@ -83,12 +94,9 @@ export async function POST(request: NextRequest) {
       height: result.height,
       format: result.format,
     });
-  } catch (error: any) {
-    // Log full error server-side; never surface SDK internals (Cloudinary endpoint, credentials) to client
-    console.error("Error uploading file:", error);
-    return NextResponse.json(
-      { error: "Failed to upload file" },
-      { status: 500 },
-    );
+  } catch (error) {
+    // Never surface SDK internals (Cloudinary endpoint, credentials) to client
+    // — fromException emits a generic message; detail goes to reportError.
+    return fromException(request, error, { stage: "upload" });
   }
 }

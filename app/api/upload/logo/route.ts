@@ -2,20 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { uploadImage } from "@/lib/cloudinary";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "No file provided",
+        status: 400,
+      });
     }
 
     // Validate file type
@@ -27,24 +36,22 @@ export async function POST(request: NextRequest) {
       "image/webp",
     ];
     if (!validTypes.includes(file.type)) {
-      return NextResponse.json(
-        {
-          error:
-            "Invalid file type. Please upload a JPEG, PNG, GIF, or WebP image.",
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "Invalid file type. Please upload a JPEG, PNG, GIF, or WebP image.",
+        status: 400,
+      });
     }
 
     // Validate file size (max 5MB)
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
-      return NextResponse.json(
-        {
-          error: "File too large. Maximum size is 5MB.",
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "File too large. Maximum size is 5MB.",
+        status: 400,
+      });
     }
 
     // Read bytes and validate magic bytes — prevents Content-Type spoofing
@@ -72,10 +79,11 @@ export async function POST(request: NextRequest) {
       buffer[10] === 0x42 &&
       buffer[11] === 0x50;
     if (!isJpeg && !isPng && !isGif && !isWebp) {
-      return NextResponse.json(
-        { error: "Invalid file type. Only images are allowed." },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid file type. Only images are allowed.",
+        status: 400,
+      });
     }
 
     const base64 = buffer.toString("base64");
@@ -96,12 +104,6 @@ export async function POST(request: NextRequest) {
       publicId: result.public_id,
     });
   } catch (error) {
-    console.error("Error uploading logo:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to upload logo",
-      },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "upload-logo" });
   }
 }
