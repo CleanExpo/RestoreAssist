@@ -5991,6 +5991,12 @@ model ClaimSketch {
   // RA-120 (PR4): per-floor underlay opacity (0..1). Without this the slider
   // value lived in React state only and reset to the default on every reload.
   backgroundImageOpacity Float?
+  // RA-120 (PR4b): per-floor underlay reposition/scale. NULL = the legacy
+  // fit-to-width baseline (scale 1, no offset, aspect locked). Applied via
+  // lib/sketch/underlay-transform so canvas + report share one transform.
+  backgroundImageScale   Float?
+  backgroundImageOffsetX Float?
+  backgroundImageOffsetY Float?
   moisturePoints     Json?
   equipmentPoints    Json?
   // Homeowner self-capture quarantine (D4): unauthenticated submissions land

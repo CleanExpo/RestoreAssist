@@ -53,6 +53,7 @@ import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchScaleModal } from "./SketchScaleModal";
 import type { ScaleConfig } from "./SketchScaleModal";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
+import { UnderlayTransformControls } from "./UnderlayTransformControls";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
 
 const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
@@ -90,6 +91,11 @@ interface FloorData {
   moisturePins: MoisturePin[];
   backgroundUrl: string | null;
   backgroundOpacity: number;
+  // PR4b: underlay transform. null scale/offset = legacy fit-to-width baseline.
+  backgroundScale: number | null;
+  backgroundOffsetX: number | null;
+  backgroundOffsetY: number | null;
+  backgroundLockAspect: boolean;
   scaleConfig: ScaleConfig | null;
 }
 
@@ -172,6 +178,10 @@ export function SketchEditorV2({
       moisturePins: [],
       backgroundUrl: null,
       backgroundOpacity: 0.35,
+      backgroundScale: null,
+      backgroundOffsetX: null,
+      backgroundOffsetY: null,
+      backgroundLockAspect: true,
       scaleConfig: null,
     },
   ]);
@@ -226,6 +236,9 @@ export function SketchEditorV2({
             sketchData: Record<string, unknown> | null;
             backgroundImageUrl?: string | null;
             backgroundImageOpacity?: number | null;
+            backgroundImageScale?: number | null;
+            backgroundImageOffsetX?: number | null;
+            backgroundImageOffsetY?: number | null;
             moisturePoints?: unknown[] | null;
             country?: "AU" | "NZ" | null;
           }>;
@@ -251,6 +264,19 @@ export function SketchEditorV2({
               typeof s.backgroundImageOpacity === "number"
                 ? s.backgroundImageOpacity
                 : 0.35,
+            backgroundScale:
+              typeof s.backgroundImageScale === "number"
+                ? s.backgroundImageScale
+                : null,
+            backgroundOffsetX:
+              typeof s.backgroundImageOffsetX === "number"
+                ? s.backgroundImageOffsetX
+                : null,
+            backgroundOffsetY:
+              typeof s.backgroundImageOffsetY === "number"
+                ? s.backgroundImageOffsetY
+                : null,
+            backgroundLockAspect: true,
             scaleConfig:
               ((s.sketchData as Record<string, unknown> | null)
                 ?.scaleConfig as ScaleConfig | null) ?? null,
@@ -366,6 +392,9 @@ export function SketchEditorV2({
         moisturePoints: fd.moisturePins,
         backgroundImageUrl: fd.backgroundUrl,
         backgroundImageOpacity: fd.backgroundOpacity,
+        backgroundImageScale: fd.backgroundScale ?? undefined,
+        backgroundImageOffsetX: fd.backgroundOffsetX ?? undefined,
+        backgroundImageOffsetY: fd.backgroundOffsetY ?? undefined,
         renderedPngUrl,
         country,
       };
@@ -634,6 +663,10 @@ export function SketchEditorV2({
       moisturePins: [],
       backgroundUrl: null,
       backgroundOpacity: 0.35,
+      backgroundScale: null,
+      backgroundOffsetX: null,
+      backgroundOffsetY: null,
+      backgroundLockAspect: true,
       scaleConfig: null,
     };
     setFloorsData((prev) => [...prev, newFloor]);
@@ -655,9 +688,34 @@ export function SketchEditorV2({
       setFloorsData((prev) =>
         prev.map((fd, i) =>
           i === activeIdx
-            ? { ...fd, backgroundUrl: url, backgroundOpacity: opacity }
+            ? {
+                ...fd,
+                backgroundUrl: url,
+                backgroundOpacity: opacity,
+                // A freshly applied underlay starts at the fit-to-width baseline.
+                backgroundScale: null,
+                backgroundOffsetX: null,
+                backgroundOffsetY: null,
+                backgroundLockAspect: true,
+              }
             : fd,
         ),
+      );
+      scheduleSave();
+    },
+    [activeIdx, scheduleSave],
+  );
+
+  // PR4b: reposition/scale controls patch the active floor's underlay transform.
+  const handleAdjustBackground = useCallback(
+    (patch: Partial<{
+      backgroundScale: number | null;
+      backgroundOffsetX: number | null;
+      backgroundOffsetY: number | null;
+      backgroundLockAspect: boolean;
+    }>) => {
+      setFloorsData((prev) =>
+        prev.map((fd, i) => (i === activeIdx ? { ...fd, ...patch } : fd)),
       );
       scheduleSave();
     },
@@ -1070,6 +1128,10 @@ export function SketchEditorV2({
               pxPerMetre={fd.scaleConfig?.pxPerMetre}
               backgroundImageUrl={fd.backgroundUrl}
               backgroundImageOpacity={fd.backgroundOpacity}
+              backgroundImageScale={fd.backgroundScale}
+              backgroundImageOffsetX={fd.backgroundOffsetX}
+              backgroundImageOffsetY={fd.backgroundOffsetY}
+              backgroundImageLockAspect={fd.backgroundLockAspect}
               readonly={readonly}
               onReady={(canvas) => handleCanvasReady(fd.floor.id, canvas)}
               onModified={() => {
@@ -1335,6 +1397,18 @@ export function SketchEditorV2({
             autoFetch={autoFetchFloorPlan && !!propertyAddress}
             className="border-white/10"
           />
+          {activeFloor?.backgroundUrl && (
+            <UnderlayTransformControls
+              value={{
+                backgroundScale: activeFloor.backgroundScale,
+                backgroundOffsetX: activeFloor.backgroundOffsetX,
+                backgroundOffsetY: activeFloor.backgroundOffsetY,
+                backgroundLockAspect: activeFloor.backgroundLockAspect,
+              }}
+              onChange={handleAdjustBackground}
+              className="mt-3 rounded-xl border border-white/10 bg-brand-navy/40 p-3"
+            />
+          )}
         </div>
       )}
 
