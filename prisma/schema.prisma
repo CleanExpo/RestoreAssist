@@ -5587,6 +5587,13 @@ model Workspace {
   ownerId              String
   owner                User            @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   status               WorkspaceStatus @default(PROVISIONING)
+  // Cutover onboarding (G1): tenant-DB lifecycle. "none" = uses the shared DB
+  // exactly as today; "ready" gates first-claim onto the workspace's own DB.
+  // Values: none | provisioning | ready | error (lib/tenant/onboarding-helpers).
+  tenantDbStatus       String          @default("none")
+  // The tenant DB connection string, AES-256-GCM encrypted (credential-vault).
+  // Server-side only; never sent to the client. Null until connected.
+  tenantDbConnectionEnc String?        @db.Text
   stripeCustomerId     String?         @unique
   stripeSubscriptionId String?         @unique
 
