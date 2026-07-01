@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { fromException } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 type ExperienceMode = "APPRENTICE" | "EXPERIENCED";
 
 // GET — return the current user's experience mode
@@ -10,7 +10,11 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(undefined, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -31,17 +35,22 @@ export async function PATCH(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const body = await request.json().catch(() => ({}));
     const { experienceMode } = body as { experienceMode?: ExperienceMode };
 
     if (experienceMode !== "APPRENTICE" && experienceMode !== "EXPERIENCED") {
-      return NextResponse.json(
-        { error: "experienceMode must be APPRENTICE or EXPERIENCED" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "experienceMode must be APPRENTICE or EXPERIENCED",
+        status: 400,
+      });
     }
 
     await prisma.user.update({
