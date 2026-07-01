@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { track, isFirstTime } from "@/lib/analytics/track";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET - Get single interview session by ID
 export async function GET(
@@ -12,7 +13,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Get user from database to get userId
@@ -22,16 +27,21 @@ export async function GET(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const { id } = await params;
 
     if (!id) {
-      return NextResponse.json(
-        { error: "Interview ID is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Interview ID is required",
+        status: 400,
+      });
     }
 
     // First check if session exists
@@ -60,17 +70,18 @@ export async function GET(
     });
 
     if (!interviewSession) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Session not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json({ session: interviewSession });
   } catch (error) {
-    // RA-786: do not leak error.message to clients
-    console.error("Error fetching interview session:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    // RA-786: do not leak error.message to clients (fromException emits a
+    // generic message; detail goes to reportError only).
+    return fromException(request, error, { stage: "get" });
   }
 }
 
@@ -82,7 +93,11 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -91,15 +106,20 @@ export async function PATCH(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const { id } = await params;
     if (!id) {
-      return NextResponse.json(
-        { error: "Interview ID is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Interview ID is required",
+        status: 400,
+      });
     }
 
     const existing = await prisma.interviewSession.findFirst({
@@ -108,7 +128,11 @@ export async function PATCH(
     });
 
     if (!existing) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Session not found",
+        status: 404,
+      });
     }
 
     const body = await request.json().catch(() => ({}));
@@ -167,11 +191,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, sessionId: id });
   } catch (error) {
-    console.error("Error updating interview session:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "update" });
   }
 }
 
@@ -183,7 +203,11 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -192,16 +216,21 @@ export async function DELETE(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const { id } = await params;
 
     if (!id) {
-      return NextResponse.json(
-        { error: "Interview ID is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Interview ID is required",
+        status: 400,
+      });
     }
 
     const interviewSession = await prisma.interviewSession.findFirst({
@@ -210,10 +239,11 @@ export async function DELETE(
     });
 
     if (!interviewSession) {
-      return NextResponse.json(
-        { error: "Interview session not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Interview session not found",
+        status: 404,
+      });
     }
 
     await prisma.interviewSession.delete({
@@ -222,10 +252,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting interview session:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "delete" });
   }
 }

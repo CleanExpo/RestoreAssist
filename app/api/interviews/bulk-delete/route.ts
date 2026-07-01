@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Delete multiple interview sessions (user must own all).
 // DELETE is the canonical verb (REST); POST kept for backwards compatibility.
@@ -9,7 +10,11 @@ async function handleBulkDelete(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -18,17 +23,36 @@ async function handleBulkDelete(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
-    const body = await request.json();
+    let body: { ids?: unknown };
+    try {
+      const parsedBody = await request.json();
+      body =
+        parsedBody && typeof parsedBody === "object"
+          ? (parsedBody as { ids?: unknown })
+          : {};
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
+    }
+
     const ids = Array.isArray(body.ids) ? body.ids : [];
 
     if (ids.length === 0) {
-      return NextResponse.json(
-        { error: "At least one session id is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "At least one session id is required",
+        status: 400,
+      });
     }
 
     const deleted = await prisma.interviewSession.deleteMany({
@@ -43,11 +67,7 @@ async function handleBulkDelete(request: NextRequest) {
       deletedCount: deleted.count,
     });
   } catch (error) {
-    console.error("Error bulk deleting interview sessions:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "bulk-delete" });
   }
 }
 

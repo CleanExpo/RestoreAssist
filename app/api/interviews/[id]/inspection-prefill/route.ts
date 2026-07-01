@@ -9,6 +9,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { interviewFieldsToInspectionPrefill } from "@/lib/forms/interview-to-inspection-prefill";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -17,7 +18,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -26,15 +31,20 @@ export async function GET(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const { id } = await params;
     if (!id) {
-      return NextResponse.json(
-        { error: "Interview ID is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Interview ID is required",
+        status: 400,
+      });
     }
 
     const interviewSession = await prisma.interviewSession.findFirst({
@@ -43,7 +53,11 @@ export async function GET(
     });
 
     if (!interviewSession) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Session not found",
+        status: 404,
+      });
     }
 
     if (!interviewSession.autoPopulatedFields) {
@@ -63,10 +77,6 @@ export async function GET(
     const prefill = interviewFieldsToInspectionPrefill(fields);
     return NextResponse.json({ prefill });
   } catch (error) {
-    console.error("Error fetching inspection prefill:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "prefill" });
   }
 }

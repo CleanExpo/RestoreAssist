@@ -8,6 +8,7 @@ import {
   validateInterviewResponse,
   type ValidationFinding,
 } from "@/lib/services/ai/validate-interview-response";
+import { apiError } from "@/lib/api-errors";
 
 /**
  * RA-1214 — POST /api/interviews/[id]/validate
@@ -49,7 +50,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -63,17 +68,22 @@ export async function POST(
   try {
     const { id } = await params;
     if (!id) {
-      return NextResponse.json(
-        { error: "Interview ID is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Interview ID is required",
+        status: 400,
+      });
     }
 
     let body: ValidateRequestBody;
     try {
       body = (await request.json()) as ValidateRequestBody;
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
     }
 
     const answered = Array.isArray(body.answeredQuestions)
@@ -81,10 +91,11 @@ export async function POST(
       : [];
 
     if (answered.length === 0) {
-      return NextResponse.json(
-        { error: "No answered questions provided" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "No answered questions provided",
+        status: 400,
+      });
     }
 
     // Verify session ownership + subscription
@@ -93,15 +104,20 @@ export async function POST(
       select: { id: true, subscriptionStatus: true },
     });
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
     if (
       !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
     ) {
-      return NextResponse.json(
-        { error: "Active subscription required" },
-        { status: 402 },
-      );
+      return apiError(request, {
+        code: "PAYMENT_REQUIRED",
+        message: "Active subscription required",
+        status: 402,
+      });
     }
 
     const interviewSession = await prisma.interviewSession.findFirst({
@@ -109,10 +125,11 @@ export async function POST(
       select: { id: true },
     });
     if (!interviewSession) {
-      return NextResponse.json(
-        { error: "Interview session not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Interview session not found",
+        status: 404,
+      });
     }
 
     // Resolve API key (env or BYOK)
@@ -120,10 +137,11 @@ export async function POST(
     try {
       anthropicApiKey = await getAnthropicApiKey(userId);
     } catch {
-      return NextResponse.json(
-        { error: "Failed to get Anthropic API key" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Failed to get Anthropic API key",
+        status: 400,
+      });
     }
 
     const result = await validateInterviewResponse({
@@ -132,6 +150,9 @@ export async function POST(
     });
 
     if (!result.ok) {
+      // RA-1548 — left raw: dynamic status (429/503/500) with a Retry-After
+      // header apiError() cannot emit. The final catch below is also left raw
+      // (pinned by an exact-shape __tests__ assertion).
       console.error("[interview-validate]", {
         interviewId: id,
         userId,
