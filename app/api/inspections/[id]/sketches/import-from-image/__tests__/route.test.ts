@@ -101,7 +101,9 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
-    expect(body).toEqual({ error: "Unsupported file type — use JPEG or PNG" });
+    // RA-1548: unified error envelope — { error: { code, message, eventId } }.
+    expect(body.error.code).toBe("VALIDATION");
+    expect(body.error.message).toBe("Unsupported file type — use JPEG or PNG");
     expect(importSketchFromImage).not.toHaveBeenCalled();
   });
 });
