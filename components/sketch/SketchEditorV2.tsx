@@ -55,6 +55,7 @@ import type { ScaleConfig } from "./SketchScaleModal";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
 import { UnderlayTransformControls } from "./UnderlayTransformControls";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
+import { createRenderFreshnessTracker } from "@/lib/sketch/render-freshness";
 
 const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
   ssr: false,
@@ -469,9 +470,15 @@ export function SketchEditorV2({
     setSaving(false);
   }, [inspectionId, floorsData, country, captureMode, captureToken]);
 
+  // PR4b freshness: debounced saves persist sketchData but NOT a fresh render
+  // (performSave(false)), so after an edit the stored renderedPngUrl is stale
+  // until the next flush. Track that so we can flush one render on unmount.
+  const freshnessRef = useRef(createRenderFreshnessTracker());
+
   const scheduleSave = useCallback(() => {
     if (readonly) return;
     if (!inspectionId && !captureToken) return;
+    freshnessRef.current.markEdited();
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       void performSave();
@@ -489,7 +496,26 @@ export function SketchEditorV2({
     if (readonly) return;
     if (!inspectionId && !captureToken) return;
     await performSave(true);
+    // A render was just captured — edits are no longer un-rendered.
+    freshnessRef.current.markRendered();
   }, [readonly, inspectionId, captureToken, performSave]);
+
+  // PR4b freshness: flush one render on unmount when edits happened since the
+  // last render, so navigating away (e.g. to download the canonical report)
+  // doesn't leave the report embedding a stale floor image. Refs keep the
+  // unmount effect stable while always calling the latest flushSaveNow.
+  const flushRef = useRef(flushSaveNow);
+  useEffect(() => {
+    flushRef.current = flushSaveNow;
+  }, [flushSaveNow]);
+  useEffect(() => {
+    // The tracker is created once and never reassigned, so capturing it at
+    // mount is identical to reading it at cleanup (and satisfies the lint rule).
+    const freshness = freshnessRef.current;
+    return () => {
+      if (freshness.shouldFlushOnLeave()) void flushRef.current();
+    };
+  }, []);
 
   // RA-1762 / RA-1769 — keep the offline-pending count + failed-entry
   // list fresh. Pending changes when sibling tabs or the SW drain
