@@ -135,12 +135,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    const rawBody = await request.json().catch(() => null);
-    const body =
-      rawBody && typeof rawBody === "object" && !Array.isArray(rawBody)
-        ? (rawBody as Record<string, any>)
-        : {};
-    const { name, description, formType } = body;
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Request body must be valid JSON",
+        status: 400,
+      });
+    }
+    if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Request body must be a JSON object",
+        status: 400,
+      });
+    }
+    const { name, description, formType } = rawBody as Record<string, any>;
 
     // Validate required fields
     if (name !== undefined && typeof name !== "string") {
