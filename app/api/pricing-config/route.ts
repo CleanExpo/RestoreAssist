@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET - Retrieve pricing configuration for current user
 export async function GET(request: NextRequest) {
@@ -10,7 +11,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -19,7 +24,11 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     // Check if user has a connected API key
@@ -63,11 +72,7 @@ export async function GET(request: NextRequest) {
       hasApiKey,
     });
   } catch (error) {
-    console.error("Error fetching pricing config:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch pricing configuration" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "get" });
   }
 }
 
@@ -77,7 +82,11 @@ export async function PUT(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -85,21 +94,37 @@ export async function PUT(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     // Lock pricing configuration for free users
     if (user.subscriptionStatus === "TRIAL") {
-      return NextResponse.json(
-        {
-          error:
-            "Pricing configuration is locked for free users. Upgrade to unlock this feature.",
-        },
-        { status: 403 },
-      );
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message:
+          "Pricing configuration is locked for free users. Upgrade to unlock this feature.",
+        status: 403,
+      });
     }
 
-    const data = await request.json();
+    let data: any;
+    try {
+      const parsed = await request.json();
+      data =
+        parsed && typeof parsed === "object" && !Array.isArray(parsed)
+          ? parsed
+          : {};
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
+    }
 
     // Validate required fields
     const requiredFields = [
@@ -130,19 +155,23 @@ export async function PUT(request: NextRequest) {
 
     for (const field of requiredFields) {
       if (data[field] === undefined || data[field] === null) {
-        return NextResponse.json(
-          { error: `Missing required field: ${field}` },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Missing required field: ${field}`,
+          status: 400,
+        });
       }
       if (typeof data[field] !== "number" || data[field] < 0) {
-        return NextResponse.json(
-          { error: `Invalid value for ${field}: must be a positive number` },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Invalid value for ${field}: must be a positive number`,
+          status: 400,
+        });
       }
 
       // NRPG hard boundary validation
+      // RA-1548 — left raw: rich 400 with field/min/max siblings (the client
+      // uses them to highlight the offending input and show the range).
       const range = NRPG_RATE_RANGES[field];
       if (range && (data[field] < range.min || data[field] > range.max)) {
         return NextResponse.json(
@@ -166,35 +195,35 @@ export async function PUT(request: NextRequest) {
 
       for (const category of Object.keys(customFieldsObj)) {
         if (!validCategories.includes(category)) {
-          return NextResponse.json(
-            {
-              error: `Invalid category: ${category}. Must be one of: ${validCategories.join(", ")}`,
-            },
-            { status: 400 },
-          );
+          return apiError(request, {
+            code: "VALIDATION",
+            message: `Invalid category: ${category}. Must be one of: ${validCategories.join(", ")}`,
+            status: 400,
+          });
         }
 
         if (!Array.isArray(customFieldsObj[category])) {
-          return NextResponse.json(
-            { error: `Custom fields for ${category} must be an array` },
-            { status: 400 },
-          );
+          return apiError(request, {
+            code: "VALIDATION",
+            message: `Custom fields for ${category} must be an array`,
+            status: 400,
+          });
         }
 
         for (const field of customFieldsObj[category]) {
           if (!field.name || typeof field.name !== "string") {
-            return NextResponse.json(
-              { error: `Each custom field must have a valid name` },
-              { status: 400 },
-            );
+            return apiError(request, {
+              code: "VALIDATION",
+              message: `Each custom field must have a valid name`,
+              status: 400,
+            });
           }
           if (typeof field.value !== "number" || field.value < 0) {
-            return NextResponse.json(
-              {
-                error: `Custom field "${field.name}" must have a valid positive number value`,
-              },
-              { status: 400 },
-            );
+            return apiError(request, {
+              code: "VALIDATION",
+              message: `Custom field "${field.name}" must have a valid positive number value`,
+              status: 400,
+            });
           }
         }
       }
@@ -279,11 +308,7 @@ export async function PUT(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error saving pricing config:", error);
-    return NextResponse.json(
-      { error: "Failed to save pricing configuration" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "save" });
   }
 }
 
