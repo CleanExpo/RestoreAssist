@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Database, Loader2, AlertCircle, ShieldCheck } from "lucide-react";
 
 /**
  * DatabaseCard — cutover onboarding (gate G1).
@@ -47,10 +46,7 @@ export function DatabaseCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Database size={16} className="text-cyan-500" />
-          Connect your database
-        </CardTitle>
+        <CardTitle>Connect your database</CardTitle>
       </CardHeader>
       <CardContent>
         {phase === "provisioning" ? (
@@ -58,7 +54,6 @@ export function DatabaseCard() {
             role="status"
             className="flex items-start gap-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 p-3 text-sm"
           >
-            <ShieldCheck size={16} className="mt-0.5 flex-shrink-0 text-cyan-500" />
             <span>
               Connecting your database — your customer data will live in{" "}
               <strong>your own database</strong>. We&apos;ll confirm once it&apos;s
@@ -90,11 +85,6 @@ export function DatabaseCard() {
               disabled={phase === "submitting" || !connectionString.trim()}
               className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-cyan-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              {phase === "submitting" ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Database size={14} />
-              )}
               {phase === "submitting" ? "Connecting…" : "Connect"}
             </button>
             {phase === "error" && error && (
@@ -102,7 +92,6 @@ export function DatabaseCard() {
                 role="alert"
                 className="flex items-start gap-2 rounded-lg bg-destructive-subtle text-destructive-subtle-foreground p-2 text-xs"
               >
-                <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
                 {error}
               </div>
             )}

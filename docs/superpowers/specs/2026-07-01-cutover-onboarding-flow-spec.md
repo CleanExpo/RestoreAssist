@@ -96,7 +96,7 @@ Any phase fails → surface the phase + reason + a Retry that resumes from the f
 Disconnect → mark not-ready, drop the encrypted string (confirmed); tenant DB droppable; shared DB untouched.
 
 ## 10. UX requirements
-Entry: a `DatabaseCard` in the setup wizard. States: **empty** (not connected, two options), **testing/migrating** (per-phase progress, not a bare spinner), **error** (phase + reason + Retry-from-phase), **connected** (green "Isolated — your database" badge + VideoExplainer). Confidence signals: show the tested connection host (masked) + "migrated ✓". First-claim CTA disabled with a tooltip until ready. Accessibility: labelled inputs, `aria-live` on phase changes, reason reachable by assistive tech.
+Entry: a `DatabaseCard` in the setup wizard. States: **empty** (not connected, two options), **testing/migrating** (per-phase progress, not a bare spinner), **error** (phase + reason + Retry-from-phase), **connected** (green "Isolated — your database" badge + VideoExplainer). Confidence signals: show the tested connection host (masked) + a "migrated" confirmation. First-claim CTA disabled with a tooltip until ready. Accessibility: labelled inputs, `aria-live` on phase changes, reason reachable by assistive tech.
 
 ## 11. Technical requirements
 - **New:** `components/setup/DatabaseCard.tsx`; `app/api/onboarding/database/route.ts` (state machine); `lib/tenant/provision.ts` (test + migrate + store); `lib/learn/db-tutorials.ts` (`dbType → tutorial ids`).
