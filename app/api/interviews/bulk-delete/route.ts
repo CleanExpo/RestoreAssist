@@ -30,7 +30,21 @@ async function handleBulkDelete(request: NextRequest) {
       });
     }
 
-    const body = await request.json();
+    let body: { ids?: unknown };
+    try {
+      const parsedBody = await request.json();
+      body =
+        parsedBody && typeof parsedBody === "object"
+          ? (parsedBody as { ids?: unknown })
+          : {};
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
+    }
+
     const ids = Array.isArray(body.ids) ? body.ids : [];
 
     if (ids.length === 0) {
