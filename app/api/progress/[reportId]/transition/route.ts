@@ -22,6 +22,7 @@ import type { TransitionKey } from "@/lib/progress/service";
 import { resolveProgressRole } from "@/lib/progress/permissions";
 import { withIdempotency } from "@/lib/idempotency";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   request: NextRequest,
@@ -32,7 +33,11 @@ export async function POST(
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -55,19 +60,19 @@ export async function POST(
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
 
       if (!body.key || !TRANSITION_KEYS.includes(body.key as TransitionKey)) {
-        return NextResponse.json(
-          {
-            error: `key must be one of: ${TRANSITION_KEYS.join(", ")}`,
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `key must be one of: ${TRANSITION_KEYS.join(", ")}`,
+          status: 400,
+        });
       }
 
       // RA-1443 / M-16: the Junior Technician ring-fence only fires if
@@ -118,11 +123,7 @@ export async function POST(
       }
       return NextResponse.json({ data: result.data });
     } catch (error) {
-      console.error("[progress.transition] error", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "transition" });
     }
   });
 }

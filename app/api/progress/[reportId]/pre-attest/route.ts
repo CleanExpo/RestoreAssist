@@ -31,6 +31,7 @@ import { prisma } from "@/lib/prisma";
 import { canAttest, resolveProgressRole } from "@/lib/progress/permissions";
 import { assertReportOwnership } from "@/lib/progress/service";
 import { computeContentHash } from "@/lib/progress/signature";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const ALLOWED_TYPES = new Set([
   "TECHNICIAN_SIGN_OFF",
@@ -54,7 +55,11 @@ export async function POST(
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -76,37 +81,38 @@ export async function POST(
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Invalid JSON body",
+      status: 400,
+    });
   }
 
   if (!body.attestationType || !ALLOWED_TYPES.has(body.attestationType)) {
-    return NextResponse.json(
-      {
-        error: `attestationType must be one of ${[...ALLOWED_TYPES].join(", ")}`,
-      },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message: `attestationType must be one of ${[...ALLOWED_TYPES].join(", ")}`,
+      status: 400,
+    });
   }
   if (body.consentAcknowledged !== true) {
-    return NextResponse.json(
-      {
-        error:
-          "consentAcknowledged must be literally true — the user must have clicked the consent control",
-      },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message:
+        "consentAcknowledged must be literally true — the user must have clicked the consent control",
+      status: 400,
+    });
   }
   if (
     typeof body.contentSummary !== "string" ||
     body.contentSummary.length < MIN_CONTENT_LENGTH ||
     body.contentSummary.length > MAX_CONTENT_LENGTH
   ) {
-    return NextResponse.json(
-      {
-        error: `contentSummary must be a string between ${MIN_CONTENT_LENGTH} and ${MAX_CONTENT_LENGTH} chars`,
-      },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message: `contentSummary must be a string between ${MIN_CONTENT_LENGTH} and ${MAX_CONTENT_LENGTH} chars`,
+      status: 400,
+    });
   }
 
   // Confirm a ClaimProgress exists for this report and the user has
@@ -117,10 +123,11 @@ export async function POST(
     select: { id: true, currentState: true },
   });
   if (!cp) {
-    return NextResponse.json(
-      { error: "ClaimProgress not found" },
-      { status: 404 },
-    );
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "ClaimProgress not found",
+      status: 404,
+    });
   }
   const userRow = await prisma.user.findUnique({
     where: { id: userId },
@@ -137,16 +144,19 @@ export async function POST(
   // existence of another tenant's report.
   const access = await assertReportOwnership(reportId, userId, role);
   if (!access.ok) {
-    return NextResponse.json({ error: "Report not found" }, { status: 404 });
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "Report not found",
+      status: 404,
+    });
   }
 
   if (!canAttest(role, cp.currentState)) {
-    return NextResponse.json(
-      {
-        error: `Role ${role} cannot attest in state ${cp.currentState}`,
-      },
-      { status: 403 },
-    );
+    return apiError(request, {
+      code: "FORBIDDEN",
+      message: `Role ${role} cannot attest in state ${cp.currentState}`,
+      status: 403,
+    });
   }
 
   const contentHash = computeContentHash(body.contentSummary);
@@ -174,10 +184,6 @@ export async function POST(
       contentHash,
     });
   } catch (err) {
-    console.error("[pre-attest] failed", err);
-    return NextResponse.json(
-      { error: "Failed to issue consent token" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "pre-attest" });
   }
 }

@@ -23,6 +23,7 @@ import {
   generateStabilisationCertificate,
   loadClaimDataGraph,
 } from "@/lib/progress/document-generators";
+import { apiError } from "@/lib/api-errors";
 
 const GENERATORS = {
   "stabilisation-certificate": {
@@ -51,7 +52,11 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -66,12 +71,11 @@ export async function GET(
   const { reportId, type } = await params;
 
   if (!(type in GENERATORS)) {
-    return NextResponse.json(
-      {
-        error: `type must be one of ${Object.keys(GENERATORS).join(", ")}`,
-      },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message: `type must be one of ${Object.keys(GENERATORS).join(", ")}`,
+      status: 400,
+    });
   }
   const docType = type as DocType;
 
@@ -81,7 +85,11 @@ export async function GET(
     select: { id: true, userId: true },
   });
   if (!report) {
-    return NextResponse.json({ error: "Report not found" }, { status: 404 });
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "Report not found",
+      status: 404,
+    });
   }
   // Tenancy gate (CLAUDE.md rule 3): the report owner always has access.
   // For non-owners, the admin override must be re-validated against the DB
@@ -94,18 +102,24 @@ export async function GET(
 
   const loaded = await loadClaimDataGraph(reportId);
   if (!loaded.ok) {
-    return NextResponse.json({ error: loaded.error }, { status: 404 });
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: loaded.error,
+      status: 404,
+    });
   }
 
   let bytes: Uint8Array;
   try {
     bytes = await GENERATORS[docType].fn(loaded.data);
   } catch (err) {
-    console.error(`[progress.docs.${docType}] generation failed`, err);
-    return NextResponse.json(
-      { error: "PDF generation failed" },
-      { status: 500 },
-    );
+    return apiError(request, {
+      code: "INTERNAL",
+      message: "PDF generation failed",
+      status: 500,
+      err,
+      stage: `docs:${docType}`,
+    });
   }
 
   return new NextResponse(bytes as unknown as BodyInit, {
