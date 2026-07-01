@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import type { ScrapedPropertyData } from "@/lib/property-data-parser";
 import { validateUnderlayUpload } from "@/lib/sketch/validate-underlay-upload";
+import { persistUnderlayImage } from "@/lib/sketch/persist-underlay-image";
 
 export interface FloorPlanUnderlayLoaderProps {
   /** Pass the inspection's address to pre-fill the search. */
@@ -63,6 +64,7 @@ export function FloorPlanUnderlayLoader({
   const [results, setResults] = useState<ScrapedPropertyData | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [opacity, setOpacity] = useState(0.35);
+  const [applying, setApplying] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Track whether we've already auto-applied so we don't re-trigger on re-renders
   const autoAppliedRef = useRef(false);
@@ -166,10 +168,28 @@ export function FloorPlanUnderlayLoader({
     e.target.value = "";
   };
 
-  const handleApply = () => {
-    if (!selectedImage) return;
-    onApply(selectedImage, opacity);
-    setExpanded(false);
+  const handleApply = async () => {
+    if (!selectedImage || applying) return;
+    // PR4b: manual uploads arrive as base64 `data:` URLs. Persist them to
+    // storage first so the sketch (and the report PDF) references a hosted URL
+    // instead of inlining megabytes of base64. Hosted/scraped URLs pass through.
+    setApplying(true);
+    setError(null);
+    try {
+      const { dataUrlToBlob, uploadFloorPlanUnderlay } = await import(
+        "@/lib/sketch-storage"
+      );
+      const imageUrl = await persistUnderlayImage(selectedImage, inspectionId, {
+        toBlob: dataUrlToBlob,
+        upload: uploadFloorPlanUnderlay,
+      });
+      onApply(imageUrl, opacity);
+      setExpanded(false);
+    } catch {
+      setError("Couldn't save the floor plan — please try again.");
+    } finally {
+      setApplying(false);
+    }
   };
 
   const handleClear = () => {
@@ -346,11 +366,15 @@ export function FloorPlanUnderlayLoader({
             <button
               type="button"
               onClick={handleApply}
-              disabled={!selectedImage}
+              disabled={!selectedImage || applying}
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              <Layers size={13} />
-              Apply to Canvas
+              {applying ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Layers size={13} />
+              )}
+              {applying ? "Saving…" : "Apply to Canvas"}
             </button>
             {hasBackground && (
               <button
