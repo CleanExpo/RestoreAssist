@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // PUT /api/inspections/[id]/sketches/[sketchId] — update sketch
 export async function PUT(
@@ -11,7 +12,11 @@ export async function PUT(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id, sketchId } = await params;
@@ -20,7 +25,11 @@ export async function PUT(
       where: { id: sketchId, inspection: { id, userId: session.user.id } },
     });
     if (!sketch) {
-      return NextResponse.json({ error: "Sketch not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Sketch not found",
+        status: 404,
+      });
     }
 
     const body = await request.json();
@@ -59,11 +68,7 @@ export async function PUT(
 
     return NextResponse.json(updated);
   } catch (error) {
-    console.error("PUT sketch error:", error);
-    return NextResponse.json(
-      { error: "Failed to update sketch" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "sketch:update" });
   }
 }
 
@@ -75,7 +80,11 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id, sketchId } = await params;
@@ -84,16 +93,16 @@ export async function DELETE(
       where: { id: sketchId, inspection: { id, userId: session.user.id } },
     });
     if (!sketch) {
-      return NextResponse.json({ error: "Sketch not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Sketch not found",
+        status: 404,
+      });
     }
 
     await (prisma as any).claimSketch.delete({ where: { id: sketchId } });
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("DELETE sketch error:", error);
-    return NextResponse.json(
-      { error: "Failed to delete sketch" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "sketch:delete" });
   }
 }

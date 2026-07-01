@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { apiError, fromException } from "@/lib/api-errors";
 import { decomposeElements } from "@/lib/sketch/decompose-elements";
 import { pinsToMoistureReadingInputs } from "@/lib/sketch/moisture-readings-sync";
 
@@ -14,7 +15,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -22,10 +27,11 @@ export async function GET(
     // RA-1711 batch 4 — adopt shared tenancy helper.
     const tenancy = await assertInspectionTenancy(session, id);
     if (!tenancy.ok) {
-      return NextResponse.json(
-        { error: tenancy.reason },
-        { status: tenancy.status },
-      );
+      return apiError(request, {
+        code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+        message: tenancy.reason ?? "Forbidden",
+        status: tenancy.status,
+      });
     }
 
     const sketches = await (prisma as any).claimSketch.findMany({
@@ -49,11 +55,7 @@ export async function GET(
 
     return NextResponse.json({ sketches });
   } catch (error) {
-    console.error("GET /api/inspections/[id]/sketches error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch sketches" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "sketches:list" });
   }
 }
 
@@ -65,7 +67,11 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -73,10 +79,11 @@ export async function POST(
     // RA-1711 batch 4 — adopt shared tenancy helper.
     const tenancy = await assertInspectionTenancy(session, id);
     if (!tenancy.ok) {
-      return NextResponse.json(
-        { error: tenancy.reason },
-        { status: tenancy.status },
-      );
+      return apiError(request, {
+        code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+        message: tenancy.reason ?? "Forbidden",
+        status: tenancy.status,
+      });
     }
 
     const body = await request.json();
@@ -263,10 +270,6 @@ export async function POST(
 
     return NextResponse.json(sketch, { status: 201 });
   } catch (error) {
-    console.error("POST /api/inspections/[id]/sketches error:", error);
-    return NextResponse.json(
-      { error: "Failed to save sketch" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "sketches:save" });
   }
 }
