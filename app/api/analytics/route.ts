@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Helper function to get date range filter
 function getDateFilter(dateRange: string) {
@@ -94,7 +95,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -109,13 +114,12 @@ export async function GET(request: NextRequest) {
 
       // Only Admins and Managers can view other users' analytics
       if (!isAdmin && !isManager) {
-        return NextResponse.json(
-          {
-            error:
-              "Only Admins and Managers can view other team members' analytics",
-          },
-          { status: 403 },
-        );
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message:
+            "Only Admins and Managers can view other team members' analytics",
+          status: 403,
+        });
       }
 
       // Verify the target user is in the same organization
@@ -125,10 +129,11 @@ export async function GET(request: NextRequest) {
       });
 
       if (!currentUser?.organizationId) {
-        return NextResponse.json(
-          { error: "You are not part of an organization" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "You are not part of an organization",
+          status: 400,
+        });
       }
 
       const targetUser = await prisma.user.findUnique({
@@ -142,33 +147,40 @@ export async function GET(request: NextRequest) {
       });
 
       if (!targetUser) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       if (targetUser.organizationId !== currentUser.organizationId) {
-        return NextResponse.json(
-          { error: "User is not in your organization" },
-          { status: 403 },
-        );
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "User is not in your organization",
+          status: 403,
+        });
       }
 
       // Admin: Can view Managers and Technicians (not other Admins)
       if (isAdmin) {
         if (targetUser.role === "ADMIN" && targetUser.id !== session.user.id) {
-          return NextResponse.json(
-            { error: "Cannot view other Admin accounts" },
-            { status: 403 },
-          );
+          return apiError(request, {
+            code: "FORBIDDEN",
+            message: "Cannot view other Admin accounts",
+            status: 403,
+          });
         }
       }
 
       // Manager: Can only view Technicians (all Technicians in the organization)
       if (isManager) {
         if (targetUser.role !== "USER") {
-          return NextResponse.json(
-            { error: "Managers can only view Technicians' analytics" },
-            { status: 403 },
-          );
+          return apiError(request, {
+            code: "FORBIDDEN",
+            message: "Managers can only view Technicians' analytics",
+            status: 403,
+          });
         }
         // Managers can view any Technician in their organization (not just the ones they manage)
         // This allows them to see analytics for all Technicians, similar to how Admins see all team members
@@ -579,10 +591,6 @@ export async function GET(request: NextRequest) {
       periodComparison,
     });
   } catch (error) {
-    console.error("Error fetching analytics:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "load" });
   }
 }

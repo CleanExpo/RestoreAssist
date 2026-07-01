@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { fromException } from "@/lib/api-errors";
 
 // RA-1320 — module-scope response cache. billing-overview fires 11
 // parallel queries, 3 of which groupBy/aggregate over the full User
@@ -296,10 +297,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(responseBody, { headers: { "X-Cache": "MISS" } });
   } catch (error) {
-    console.error("Error fetching billing overview:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch billing overview" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "load" });
   }
 }
