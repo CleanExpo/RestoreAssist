@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { z } from "zod";
+import { apiError, fromException } from "@/lib/api-errors";
 import {
   analyseSupportTicket,
   type SupportTicketAnalysis,
@@ -106,11 +107,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ tickets, nextCursor, total });
   } catch (error) {
-    console.error("[support/tickets GET]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list" });
   }
 }
 
@@ -120,10 +117,20 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const rawBody = await request.json();
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
+    }
     const parsed = createTicketSchema.safeParse(rawBody);
 
     if (!parsed.success) {
+      // RA-1548 — left raw: rich 422 with `issues` array sibling (zod details).
       return NextResponse.json(
         { error: "Validation failed", issues: parsed.error.issues },
         { status: 422 },
@@ -168,10 +175,6 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
-    console.error("[support/tickets POST]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "create" });
   }
 }
