@@ -37,6 +37,20 @@ export function validateConnectionString(raw: string): ValidationResult {
   return { ok: true };
 }
 
+/**
+ * The hostname a connection string points at, with credentials stripped — a
+ * safe "connected to <host>" confidence signal for the onboarding UI. Never
+ * returns the user or password. Null when the string can't be parsed.
+ */
+export function hostFromConnectionString(raw: string): string | null {
+  try {
+    const { hostname } = new URL((raw ?? "").trim());
+    return hostname || null;
+  } catch {
+    return null;
+  }
+}
+
 /** First claim may only deploy once the workspace's own DB is ready. */
 export function canDeployFirstClaim(status: TenantDbStatus): boolean {
   return status === "ready";

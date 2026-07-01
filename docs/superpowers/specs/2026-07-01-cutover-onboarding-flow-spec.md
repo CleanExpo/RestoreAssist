@@ -4,6 +4,30 @@
 > (`lib/tenant/*`, `prisma/tenant/*`) into the client-facing onboarding a restoration
 > company walks before deploying their first claim on their own database.
 
+## Grill outcome (2026-07-01) — v1 reduced scope (supersedes conflicting detail below)
+
+Grilled in `docs/superpowers/grills/2026-07-01-tenant-db-onboarding-grill.md`; a `/judge`
+convergence pass (82/100 → REDUCE SCOPE) reshaped v1. **Decided v1:**
+- **Supabase, client-owned + client-paid**, linked by **guided create + paste connection
+  string** (the shipped `DatabaseCard`). Provisioner = Supabase; we are the automation, not the landlord.
+- **Sticky-free guided flow with NO LLM tool-execution:** surface the DB-type `db-tutorials`
+  (YouTube/doc links) inline + inline validation + masked "connected to host X" signal +
+  clear error + Retry + **confirm-before-migrate**. This is the "easiest for non-technical
+  people, assisted by YouTube" path — ~80% already built in G1.
+- **Provisioning worker** = Vercel-cron: `$connect`-test + **direct-SQL** tenant-baseline
+  apply → `ready`/`error` (resumable). Never spawn `prisma migrate deploy` in serverless.
+- **G2 (narrow):** first-claim create + its detail view route via one
+  `resolveInspectionDb(workspace)` accessor gated by `tenantDbStatus`; ~145 other read sites incremental.
+
+**Deferred → EXPERIMENT / RABBIT HOLE (NOT v1):** in-app **BYOK LLM assistant** + shared
+setup-tools layer + **MCP** — the BYOK layer has **no tool-calling** (`lib/ai/` grep = zero),
+so this is net-new agentic infra; build + prove it *after* v1, and only if the plain guided
+flow proves insufficient. Also deferred: OAuth auto-provision, CLI, the full 145-site read cutover.
+
+**No-gos:** LLM autonomously executing DB-mutating tools; G2 write-only; provisioning we absorb.
+
+**Appetite:** ~1w (guided-flow polish 2–3d; worker + G2 gated on owner shared-DB creds + the pilot's real parity run).
+
 ## 1. Task being planned
 - **Original request:** spec the cutover onboarding flow (authority to author/revise the spec granted).
 - **Interpreted task:** the client-facing wizard step where a tenant **connects/provisions their own CRM database**, sees it's isolated, and reaches **their first claim** — wiring the merged pilot core into a real UI.
