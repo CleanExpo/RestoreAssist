@@ -10,6 +10,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getWorkflowTemplate, buildWorkflowStepsData } from "@/lib/evidence";
 import type { JobType } from "@/lib/evidence";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -17,7 +18,7 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
   }
 
   const { id: inspectionId } = await params;
@@ -30,10 +31,7 @@ export async function GET(
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, { code: "NOT_FOUND", message: "Inspection not found", status: 404 });
     }
 
     // Check for existing workflow
@@ -70,11 +68,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("[workflow GET]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "load" });
   }
 }
 
@@ -84,7 +78,7 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
   }
 
   const { id: inspectionId } = await params;
@@ -100,10 +94,7 @@ export async function POST(
       where: { id: inspectionId, userId: session.user.id },
     });
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, { code: "NOT_FOUND", message: "Inspection not found", status: 404 });
     }
 
     // Validate job type
@@ -165,11 +156,7 @@ export async function POST(
 
     return NextResponse.json({ workflow }, { status: 201 });
   } catch (error) {
-    console.error("[workflow POST]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "create" });
   }
 }
 
@@ -179,7 +166,7 @@ export async function PATCH(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
   }
 
   const { id: inspectionId } = await params;
@@ -197,10 +184,7 @@ export async function PATCH(
       where: { id: inspectionId, userId: session.user.id },
     });
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, { code: "NOT_FOUND", message: "Inspection not found", status: 404 });
     }
 
     const workflow = await prisma.inspectionWorkflow.findUnique({
@@ -232,10 +216,7 @@ export async function PATCH(
       },
     });
     if (!workflow) {
-      return NextResponse.json(
-        { error: "Workflow not found" },
-        { status: 404 },
-      );
+      return apiError(request, { code: "NOT_FOUND", message: "Workflow not found", status: 404 });
     }
 
     // Update step status. RA-6800: scope the write to the workflow we just
@@ -246,10 +227,7 @@ export async function PATCH(
       data: { status, updatedAt: new Date() },
     });
     if (stepUpdate.count === 0) {
-      return NextResponse.json(
-        { error: "Workflow step not found" },
-        { status: 404 },
-      );
+      return apiError(request, { code: "NOT_FOUND", message: "Workflow step not found", status: 404 });
     }
 
     // Recalculate workflow totals
@@ -324,10 +302,6 @@ export async function PATCH(
 
     return NextResponse.json({ workflow: updated });
   } catch (error) {
-    console.error("[workflow PATCH]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "update" });
   }
 }

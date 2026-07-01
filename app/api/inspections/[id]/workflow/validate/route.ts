@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 import {
   validateWorkflowEvidence,
   formatValidationSummary,
@@ -20,7 +21,7 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const { id } = await params;
@@ -52,10 +53,11 @@ export async function GET(
     });
 
     if (!workflow) {
-      return NextResponse.json(
-        { error: "No workflow found for this inspection" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "No workflow found for this inspection",
+        status: 404,
+      });
     }
 
     // Map to validation format
@@ -85,10 +87,6 @@ export async function GET(
       summary: formatValidationSummary(result),
     });
   } catch (error) {
-    console.error("Error validating workflow:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "workflow-validate" });
   }
 }

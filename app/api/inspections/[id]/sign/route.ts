@@ -21,6 +21,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { withIdempotency } from "@/lib/idempotency";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
+import { apiError, fromException } from "@/lib/api-errors";
 import { InspectionStatus } from "@prisma/client";
 
 interface RouteParams {
@@ -30,7 +31,11 @@ interface RouteParams {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id: inspectionId } = await params;
@@ -45,10 +50,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { signatoryName, signatureUrl, role } = body as {
         signatoryName?: string;
@@ -57,10 +63,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       };
 
       if (!signatoryName?.trim()) {
-        return NextResponse.json(
-          { error: "signatoryName is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "signatoryName is required",
+          status: 400,
+        });
       }
 
       const displayName = role
@@ -103,18 +110,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           select: { id: true },
         });
         if (!exists) {
-          return NextResponse.json(
-            { error: "Inspection not found" },
-            { status: 404 },
-          );
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "Inspection not found",
+            status: 404,
+          });
         }
-        return NextResponse.json(
-          {
-            error:
-              "Inspection has already been signed. Contact admin to reset.",
-          },
-          { status: 409 },
-        );
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "Inspection has already been signed. Contact admin to reset.",
+          status: 409,
+        });
       }
 
       return NextResponse.json({
@@ -125,11 +131,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         status: "SUBMITTED",
       });
     } catch (error) {
-      console.error("[inspections/sign POST]", error);
-      return NextResponse.json(
-        { error: "Failed to save signature" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "sign-post" });
     }
   });
 }
@@ -154,10 +156,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("[inspections/sign DELETE]", error);
-    return NextResponse.json(
-      { error: "Failed to reset signature" },
-      { status: 500 },
-    );
+    return fromException(_request, error, { stage: "sign-delete" });
   }
 }
