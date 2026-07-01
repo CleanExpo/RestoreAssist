@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { createSession, endSession } from "@/lib/voice/session";
 import { checkCompletion, buildGreeting } from "@/lib/voice/completion-checker";
 import type { VoiceCopilotMode } from "@/lib/voice/types";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   req: NextRequest,
@@ -21,7 +22,11 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -31,14 +36,19 @@ export async function POST(
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     if (inspection.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(req, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     let body: { mode?: VoiceCopilotMode } = {};
@@ -49,7 +59,11 @@ export async function POST(
     }
 
     const mode: VoiceCopilotMode = body.mode ?? "assisted";
-    const voiceSession = await createSession(inspection.id, session.user.id, mode);
+    const voiceSession = await createSession(
+      inspection.id,
+      session.user.id,
+      mode,
+    );
 
     // Check what's missing
     const completionItems = await checkCompletion(inspection.id);
@@ -68,11 +82,7 @@ export async function POST(
       pendingItems,
     });
   } catch (error) {
-    console.error("[POST /api/inspections/[id]/voice/session] Error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(req, error, { stage: "voice-session-create" });
   }
 }
 
@@ -87,34 +97,36 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { sessionId } = (await req.json().catch(() => ({}))) as {
       sessionId?: string;
     };
     if (!sessionId) {
-      return NextResponse.json(
-        { error: "sessionId required" },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "sessionId required",
+        status: 400,
+      });
     }
 
     const { id: inspectionId } = await params;
     const ended = await endSession(sessionId, session.user.id, inspectionId);
     if (!ended) {
-      return NextResponse.json(
-        { error: "Session not found or already ended" },
-        { status: 404 },
-      );
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "Session not found or already ended",
+        status: 404,
+      });
     }
 
     return NextResponse.json({ status: "ended" });
   } catch (error) {
-    console.error("[DELETE /api/inspections/[id]/voice/session] Error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(req, error, { stage: "voice-session-end" });
   }
 }

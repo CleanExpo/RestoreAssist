@@ -22,6 +22,7 @@ import {
 } from "@/lib/voice/transcript-parser";
 import { checkCompletion } from "@/lib/voice/completion-checker";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   req: NextRequest,
@@ -29,7 +30,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -42,29 +47,36 @@ export async function POST(
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(req, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
 
       if (!body.sessionId || !body.transcript) {
-        return NextResponse.json(
-          { error: "sessionId and transcript are required" },
-          { status: 400 },
-        );
+        return apiError(req, {
+          code: "VALIDATION",
+          message: "sessionId and transcript are required",
+          status: 400,
+        });
       }
 
       const voiceSession = await getSession(body.sessionId);
       if (!voiceSession) {
-        return NextResponse.json(
-          { error: "Session not found or expired" },
-          { status: 404 },
-        );
+        return apiError(req, {
+          code: "NOT_FOUND",
+          message: "Session not found or expired",
+          status: 404,
+        });
       }
 
       if (voiceSession.userId !== userId) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return apiError(req, {
+          code: "FORBIDDEN",
+          message: "Forbidden",
+          status: 403,
+        });
       }
 
       // Update session state to processing
@@ -86,7 +98,11 @@ export async function POST(
       );
 
       if (!observation) {
-        return NextResponse.json({ error: "Session error" }, { status: 500 });
+        return apiError(req, {
+          code: "INTERNAL",
+          message: "Session error",
+          status: 500,
+        });
       }
 
       // Build the confirmation prompt
@@ -118,14 +134,7 @@ export async function POST(
         updatedMissingItems: updatedItems.filter((i) => !i.complete),
       });
     } catch (error) {
-      console.error(
-        "[POST /api/inspections/[id]/voice/observation] Error:",
-        error,
-      );
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(req, error, { stage: "voice-observation" });
     }
   });
 }
