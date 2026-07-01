@@ -4,6 +4,7 @@ import {
   cleanupOldFiles,
 } from "@/lib/cron/cleanup-expired-files";
 import { verifyCronAuth } from "@/lib/cron/auth";
+import { fromException } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes
@@ -34,8 +35,7 @@ export async function GET(request: NextRequest) {
         old: oldResult,
       },
     });
-  } catch (error: any) {
-    console.error("[Cron API] Error in cleanup job:", error);
-    return NextResponse.json({ error: "Cleanup job failed" }, { status: 500 });
+  } catch (error) {
+    return fromException(request, error, { stage: "cleanup" });
   }
 }

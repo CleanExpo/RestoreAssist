@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron/auth";
+import { fromException } from "@/lib/api-errors";
 import { sweepDeadLetters } from "@/lib/lifecycle/subscribers/mirror-recovery";
 
 export const maxDuration = 60;
@@ -29,11 +30,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("[mirror-recovery cron] sweep failed", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "sweep" });
   }
 }
 
