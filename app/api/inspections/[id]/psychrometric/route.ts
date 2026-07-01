@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError } from "@/lib/api-errors";
 import { z } from "zod";
 import { withIdempotency } from "@/lib/idempotency";
 
@@ -55,7 +56,7 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(_req, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
   }
 
   const { id } = await params;
@@ -65,10 +66,7 @@ export async function GET(
     select: { id: true },
   });
   if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
-    );
+    return apiError(_req, { code: "NOT_FOUND", message: "Inspection not found", status: 404 });
   }
 
   const readings = await prisma.psychrometricReading.findMany({
@@ -101,7 +99,7 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -114,17 +112,14 @@ export async function POST(
       select: { id: true },
     });
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(req, { code: "NOT_FOUND", message: "Inspection not found", status: 404 });
     }
 
     let body: any;
     try {
       body = rawBody ? JSON.parse(rawBody) : {};
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      return apiError(req, { code: "VALIDATION", message: "Invalid JSON body", status: 400 });
     }
     const parsed = readingSchema.safeParse(body);
     if (!parsed.success) {

@@ -16,6 +16,7 @@ import { prisma } from "@/lib/prisma";
 import { IICRC_DRY_STANDARDS, getDryStandard } from "@/lib/iicrc-dry-standards";
 import { computeTargetCurve } from "@/lib/drying/target-curve";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Material EMC targets for the "Drying Goal: ACHIEVED" gate
 // These map the iicrc-dry-standards.ts values into the per-material target JSON
@@ -35,7 +36,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id: inspectionId } = await params;
@@ -46,10 +51,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       select: { id: true },
     });
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     const record = await (prisma as any).dryingGoalRecord.findUnique({
@@ -120,18 +126,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       projectedCompletion,
     });
   } catch (error) {
-    console.error("[drying-goal GET]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "drying-goal-get" });
   }
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id: inspectionId } = await params;
@@ -143,10 +149,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { targetCategory, targetClass } = body as {
         targetCategory: string;
@@ -170,24 +177,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           targetCategory as (typeof VALID_TARGET_CATEGORIES)[number],
         )
       ) {
-        return NextResponse.json(
-          {
-            error: `targetCategory must be one of: ${VALID_TARGET_CATEGORIES.join(", ")}`,
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `targetCategory must be one of: ${VALID_TARGET_CATEGORIES.join(", ")}`,
+          status: 400,
+        });
       }
       if (
         !VALID_TARGET_CLASSES.includes(
           targetClass as (typeof VALID_TARGET_CLASSES)[number],
         )
       ) {
-        return NextResponse.json(
-          {
-            error: `targetClass must be one of: ${VALID_TARGET_CLASSES.join(", ")}`,
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `targetClass must be one of: ${VALID_TARGET_CLASSES.join(", ")}`,
+          status: 400,
+        });
       }
 
       // Verify ownership + get classification
@@ -196,10 +201,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         select: { id: true },
       });
       if (!inspection) {
-        return NextResponse.json(
-          { error: "Inspection not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
       }
 
       // Use create-and-catch instead of findUnique+create to eliminate the TOCTOU
@@ -218,13 +224,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         });
       } catch (err: any) {
         if (err.code === "P2002") {
-          return NextResponse.json(
-            {
-              error:
-                "Drying goal already initialised for this inspection. Use PUT to evaluate.",
-            },
-            { status: 409 },
-          );
+          return apiError(request, {
+            code: "CONFLICT",
+            message:
+              "Drying goal already initialised for this inspection. Use PUT to evaluate.",
+            status: 409,
+          });
         }
         throw err;
       }
@@ -235,11 +240,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           "Drying goal initialised. POST moisture readings then PUT to evaluate.",
       });
     } catch (error) {
-      console.error("[drying-goal POST]", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "drying-goal-post" });
     }
   });
 }
@@ -248,7 +249,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id: inspectionId } = await params;
@@ -272,20 +277,22 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       },
     });
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     const record = await (prisma as any).dryingGoalRecord.findUnique({
       where: { inspectionId },
     });
     if (!record) {
-      return NextResponse.json(
-        { error: "No drying goal initialised. POST /drying-goal first." },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "No drying goal initialised. POST /drying-goal first.",
+        status: 404,
+      });
     }
 
     if (record.goalAchieved) {
@@ -388,10 +395,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       message: `All ${readings.length} moisture readings are at or below IICRC S500 target EMC. Drying complete in ${totalDryingDays} day(s).`,
     });
   } catch (error) {
-    console.error("[drying-goal PUT]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "drying-goal-put" });
   }
 }

@@ -25,6 +25,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { groupReadings } from "@/lib/services/ai/group-readings";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
 
@@ -50,7 +51,11 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
     const userId = session.user.id;
 
@@ -70,10 +75,11 @@ export async function POST(
       !user ||
       !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
     ) {
-      return NextResponse.json(
-        { error: "Active subscription required" },
-        { status: 402 },
-      );
+      return apiError(request, {
+        code: "PAYMENT_REQUIRED",
+        message: "Active subscription required",
+        status: 402,
+      });
     }
 
     const { id: inspectionId } = await context.params;
@@ -83,10 +89,11 @@ export async function POST(
       select: { id: true },
     });
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     const readings = await prisma.moistureReading.findMany({
@@ -160,11 +167,7 @@ export async function POST(
 
     return NextResponse.json(result.data satisfies GroupResponse);
   } catch (error) {
-    console.error("[group-readings POST]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "group-readings-post" });
   }
 }
 
@@ -183,7 +186,11 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
     const userId = session.user.id;
 
@@ -202,10 +209,11 @@ export async function PATCH(
       select: { id: true },
     });
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     let body: {
@@ -215,15 +223,20 @@ export async function PATCH(
     try {
       body = await request.json();
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
     }
 
     const assignments = Array.isArray(body.assignments) ? body.assignments : [];
     if (assignments.length === 0) {
-      return NextResponse.json(
-        { error: "assignments array is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "assignments array is required",
+        status: 400,
+      });
     }
 
     const touchedIds = new Set<string>();
@@ -292,10 +305,6 @@ export async function PATCH(
       groupCount: ops.length,
     });
   } catch (error) {
-    console.error("[group-readings PATCH]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "group-readings-patch" });
   }
 }

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // POST - Add or update environmental data
 export async function POST(
@@ -13,7 +14,11 @@ export async function POST(
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -24,10 +29,11 @@ export async function POST(
   });
 
   if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
-    );
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "Inspection not found",
+      status: 404,
+    });
   }
 
   // RA-1266: EnvironmentalData is a time-series (M-7) — each POST creates
@@ -42,27 +48,30 @@ export async function POST(
         try {
           body = rawBody ? JSON.parse(rawBody) : {};
         } catch {
-          return NextResponse.json(
-            { error: "Invalid JSON body" },
-            { status: 400 },
-          );
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Invalid JSON body",
+            status: 400,
+          });
         }
 
         if (body.ambientTemperature !== undefined) {
           if (body.ambientTemperature < -20 || body.ambientTemperature > 55) {
-            return NextResponse.json(
-              { error: "Temperature must be between -20°C and 55°C" },
-              { status: 400 },
-            );
+            return apiError(request, {
+              code: "VALIDATION",
+              message: "Temperature must be between -20°C and 55°C",
+              status: 400,
+            });
           }
         }
 
         if (body.humidityLevel !== undefined) {
           if (body.humidityLevel < 0 || body.humidityLevel > 100) {
-            return NextResponse.json(
-              { error: "Humidity must be between 0% and 100%" },
-              { status: 400 },
-            );
+            return apiError(request, {
+              code: "VALIDATION",
+              message: "Humidity must be between 0% and 100%",
+              status: 400,
+            });
           }
         }
 
@@ -105,11 +114,7 @@ export async function POST(
 
         return NextResponse.json({ environmentalData });
       } catch (error) {
-        console.error("Error saving environmental data:", error);
-        return NextResponse.json(
-          { error: "Internal server error" },
-          { status: 500 },
-        );
+        return fromException(request, error, { stage: "save" });
       }
     },
     inspection.workspaceId
