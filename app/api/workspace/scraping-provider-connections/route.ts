@@ -36,6 +36,7 @@ import { checkPaymentGate } from "@/lib/workspace/payment-gate";
 import { hasPermission } from "@/lib/workspace/permissions";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const VALID_PROVIDERS: ScrapingProvider[] = [
   "APIFY",
@@ -58,7 +59,11 @@ export async function GET(_req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(_req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const gate = await checkPaymentGate(session.user.id);
@@ -73,11 +78,7 @@ export async function GET(_req: NextRequest) {
       connections,
     });
   } catch (error) {
-    console.error("[GET /api/workspace/scraping-provider-connections]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(_req, error, { stage: "list" });
   }
 }
 
@@ -86,7 +87,11 @@ export async function GET(_req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -102,28 +107,34 @@ export async function POST(req: NextRequest) {
         "workspace.settings",
       );
       if (!allowed) {
-        return NextResponse.json(
-          {
-            error:
-              "Forbidden — only workspace owners and managers may configure scraping providers",
-          },
-          { status: 403 },
-        );
+        return apiError(req, {
+          code: "FORBIDDEN",
+          message:
+            "Forbidden — only workspace owners and managers may configure scraping providers",
+          status: 403,
+        });
       }
 
-      let body: { provider?: unknown; apiKey?: unknown; config?: unknown } | null = null;
+      let body: {
+        provider?: unknown;
+        apiKey?: unknown;
+        config?: unknown;
+      } | null = null;
       try {
         body = rawBody ? JSON.parse(rawBody) : null;
       } catch {
         body = null;
       }
       if (!body || typeof body !== "object") {
-        return NextResponse.json(
-          { error: "Invalid request body" },
-          { status: 400 },
-        );
+        return apiError(req, {
+          code: "VALIDATION",
+          message: "Invalid request body",
+          status: 400,
+        });
       }
 
+      // RA-1548 — left raw: this 400 carries a `validProviders` array sibling
+      // that the settings UI reads; the envelope has no field for it.
       if (!isValidProvider(body.provider)) {
         return NextResponse.json(
           { error: "Invalid provider", validProviders: VALID_PROVIDERS },
@@ -136,10 +147,11 @@ export async function POST(req: NextRequest) {
 
       // SHARED is the only provider that may have an empty key
       if (provider !== "SHARED" && !apiKey.trim()) {
-        return NextResponse.json(
-          { error: "apiKey is required for non-SHARED providers" },
-          { status: 400 },
-        );
+        return apiError(req, {
+          code: "VALIDATION",
+          message: "apiKey is required for non-SHARED providers",
+          status: 400,
+        });
       }
 
       const member = await prisma.workspaceMember.findFirst({
@@ -162,8 +174,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({ connection });
     } catch (error) {
-      console.error("[POST /api/workspace/scraping-provider-connections]", error);
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+      return fromException(req, error, { stage: "upsert" });
     }
   });
 }
@@ -174,7 +185,11 @@ export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const gate = await checkPaymentGate(session.user.id);
@@ -187,16 +202,16 @@ export async function DELETE(req: NextRequest) {
       "workspace.settings",
     );
     if (!allowed) {
-      return NextResponse.json(
-        {
-          error:
-            "Forbidden — only workspace owners and managers may configure scraping providers",
-        },
-        { status: 403 },
-      );
+      return apiError(req, {
+        code: "FORBIDDEN",
+        message:
+          "Forbidden — only workspace owners and managers may configure scraping providers",
+        status: 403,
+      });
     }
 
     const body = (await req.json()) as { provider?: unknown };
+    // RA-1548 — left raw: `validProviders` array sibling (see POST above).
     if (!isValidProvider(body.provider)) {
       return NextResponse.json(
         { error: "Invalid provider", validProviders: VALID_PROVIDERS },
@@ -208,10 +223,6 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ ok: true, provider: body.provider });
   } catch (error) {
-    console.error("[DELETE /api/workspace/scraping-provider-connections]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(req, error, { stage: "disable" });
   }
 }

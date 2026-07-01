@@ -16,12 +16,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getWorkspaceStatus } from "@/lib/workspace/payment-gate";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(_req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(_req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const statusResult = await getWorkspaceStatus(session.user.id);
@@ -46,10 +51,6 @@ export async function GET(_req: NextRequest) {
       retryAfterMs: statusResult.status === "PROVISIONING" ? 3000 : null,
     });
   } catch (error) {
-    console.error("[GET /api/workspace/status]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(_req, error, { stage: "status" });
   }
 }
