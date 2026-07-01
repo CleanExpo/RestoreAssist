@@ -21,6 +21,7 @@ export type ToolMode =
   | "pan"; // Pan/navigate
 
 import { fabricObjectToSelected } from "@/lib/sketch/selected-object";
+import { computeUnderlayTransform } from "@/lib/sketch/underlay-transform";
 import {
   describeToolObject,
   DEFAULT_PX_PER_METRE,
@@ -36,6 +37,11 @@ export interface SketchCanvasProps {
   pxPerMetre?: number;
   backgroundImageUrl?: string | null;
   backgroundImageOpacity?: number;
+  /** PR4b underlay transform. Null/undefined = legacy fit-to-width baseline. */
+  backgroundImageScale?: number | null;
+  backgroundImageOffsetX?: number | null;
+  backgroundImageOffsetY?: number | null;
+  backgroundImageLockAspect?: boolean;
   onReady?: (canvas: FabricCanvasRef) => void;
   onModified?: () => void;
   onSelect?: (obj: SelectedObject | null) => void;
@@ -89,6 +95,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       onSelect,
       backgroundImageUrl,
       backgroundImageOpacity = 0.4,
+      backgroundImageScale,
+      backgroundImageOffsetX,
+      backgroundImageOffsetY,
+      backgroundImageLockAspect = true,
       onReady,
       onModified,
       readonly = false,
@@ -530,13 +540,28 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             const imgEl = img as {
               set: (opts: object) => void;
               scaleToWidth: (w: number) => void;
+              width?: number;
+              height?: number;
             };
+            const t = computeUnderlayTransform({
+              imageWidth: imgEl.width ?? width,
+              imageHeight: imgEl.height ?? height,
+              canvasWidth: width,
+              canvasHeight: height,
+              scale: backgroundImageScale ?? 1,
+              offsetX: backgroundImageOffsetX ?? 0,
+              offsetY: backgroundImageOffsetY ?? 0,
+              lockAspect: backgroundImageLockAspect,
+            });
             imgEl.set({
               selectable: false,
               evented: false,
               opacity: backgroundImageOpacity,
+              scaleX: t.scaleX,
+              scaleY: t.scaleY,
+              left: t.left,
+              top: t.top,
             });
-            imgEl.scaleToWidth(width);
             (
               canvas as unknown as { backgroundImage: unknown }
             ).backgroundImage = img;
@@ -648,13 +673,28 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           const imgEl = img as {
             set: (opts: object) => void;
             scaleToWidth: (w: number) => void;
+            width?: number;
+            height?: number;
           };
+          const t = computeUnderlayTransform({
+            imageWidth: imgEl.width ?? width,
+            imageHeight: imgEl.height ?? height,
+            canvasWidth: width,
+            canvasHeight: height,
+            scale: backgroundImageScale ?? 1,
+            offsetX: backgroundImageOffsetX ?? 0,
+            offsetY: backgroundImageOffsetY ?? 0,
+            lockAspect: backgroundImageLockAspect,
+          });
           imgEl.set({
             selectable: false,
             evented: false,
             opacity: backgroundImageOpacity,
+            scaleX: t.scaleX,
+            scaleY: t.scaleY,
+            left: t.left,
+            top: t.top,
           });
-          imgEl.scaleToWidth(width);
           canvas.backgroundImage = img;
           // v6: requestRenderAll is preferred; fall back to renderAll
           if ("requestRenderAll" in (canvas as object)) {
@@ -668,7 +708,16 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           console.error("SketchCanvas: failed to load background image", e);
         }
       })();
-    }, [backgroundImageUrl, backgroundImageOpacity, width]);
+    }, [
+      backgroundImageUrl,
+      backgroundImageOpacity,
+      backgroundImageScale,
+      backgroundImageOffsetX,
+      backgroundImageOffsetY,
+      backgroundImageLockAspect,
+      width,
+      height,
+    ]);
 
     return (
       <div

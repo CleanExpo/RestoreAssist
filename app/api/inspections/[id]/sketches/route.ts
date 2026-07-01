@@ -88,6 +88,9 @@ export async function POST(
       backgroundImageUrl,
       renderedPngUrl,
       backgroundImageOpacity,
+      backgroundImageScale,
+      backgroundImageOffsetX,
+      backgroundImageOffsetY,
       moisturePoints,
       equipmentPoints,
       country,
@@ -99,6 +102,17 @@ export async function POST(
       typeof backgroundImageOpacity === "number"
         ? Math.max(0, Math.min(1, backgroundImageOpacity))
         : undefined;
+
+    // RA-120 (PR4b): underlay transform. Clamp scale to a sane range and drop
+    // non-finite offsets so a malformed client can't store NaN/Infinity that
+    // would blank the canvas. `undefined` leaves the column NULL (legacy fit).
+    const clampNumber = (v: unknown, min: number, max: number) =>
+      typeof v === "number" && Number.isFinite(v)
+        ? Math.max(min, Math.min(max, v))
+        : undefined;
+    const bgScale = clampNumber(backgroundImageScale, 0.1, 10);
+    const bgOffsetX = clampNumber(backgroundImageOffsetX, -100000, 100000);
+    const bgOffsetY = clampNumber(backgroundImageOffsetY, -100000, 100000);
 
     // If a sketch already exists for this floor, update it; otherwise create
     const existing = await (prisma as any).claimSketch.findFirst({
@@ -144,6 +158,9 @@ export async function POST(
             backgroundImageUrl: backgroundImageUrl ?? undefined,
             renderedPngUrl: renderedPngUrl ?? undefined,
             backgroundImageOpacity: opacity,
+            backgroundImageScale: bgScale,
+            backgroundImageOffsetX: bgOffsetX,
+            backgroundImageOffsetY: bgOffsetY,
             moisturePoints: moisturePoints ?? undefined,
             equipmentPoints: equipmentPoints ?? undefined,
             country: country ?? undefined,
@@ -159,6 +176,9 @@ export async function POST(
             backgroundImageUrl: backgroundImageUrl ?? undefined,
             renderedPngUrl: renderedPngUrl ?? undefined,
             backgroundImageOpacity: opacity,
+            backgroundImageScale: bgScale,
+            backgroundImageOffsetX: bgOffsetX,
+            backgroundImageOffsetY: bgOffsetY,
             moisturePoints: moisturePoints ?? undefined,
             equipmentPoints: equipmentPoints ?? undefined,
             country: country ?? undefined,
