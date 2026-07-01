@@ -11,6 +11,7 @@ import {
   reportReadyEmail,
 } from "@/lib/email-templates";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export const EVENTS = [
   "inspection_submitted",
@@ -40,7 +41,11 @@ interface PostBody {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -49,25 +54,36 @@ export async function POST(req: NextRequest) {
   return withIdempotency(req, userId, async (rawBody) => {
     let body: PostBody;
     try {
-      body = (rawBody ? JSON.parse(rawBody) : {}) as PostBody;
+      const parsed = rawBody ? JSON.parse(rawBody) : {};
+      body = (
+        parsed && typeof parsed === "object" && !Array.isArray(parsed)
+          ? parsed
+          : {}
+      ) as PostBody;
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
     }
 
     const { event, inspectionId, invoiceId, recipientEmail } = body;
 
     if (!event || !EVENTS.includes(event)) {
-      return NextResponse.json(
-        { error: `Invalid event. Must be one of: ${EVENTS.join(", ")}` },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: `Invalid event. Must be one of: ${EVENTS.join(", ")}`,
+        status: 400,
+      });
     }
 
     if (!recipientEmail) {
-      return NextResponse.json(
-        { error: "recipientEmail is required" },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "recipientEmail is required",
+        status: 400,
+      });
     }
 
     // Guard: RESEND_API_KEY check (no throw — return informative response)
@@ -87,10 +103,11 @@ export async function POST(req: NextRequest) {
       // ── invoice_generated uses Invoice record ──
       if (event === "invoice_generated") {
         if (!invoiceId) {
-          return NextResponse.json(
-            { error: "invoiceId is required for invoice_generated" },
-            { status: 400 },
-          );
+          return apiError(req, {
+            code: "VALIDATION",
+            message: "invoiceId is required for invoice_generated",
+            status: 400,
+          });
         }
         const invoice = await prisma.invoice.findFirst({
           where: { id: invoiceId, userId },
@@ -102,10 +119,11 @@ export async function POST(req: NextRequest) {
           },
         });
         if (!invoice) {
-          return NextResponse.json(
-            { error: "Invoice not found" },
-            { status: 404 },
-          );
+          return apiError(req, {
+            code: "NOT_FOUND",
+            message: "Invoice not found",
+            status: 404,
+          });
         }
         subject = `Invoice ${invoice.invoiceNumber} — RestoreAssist`;
         html = invoiceGeneratedEmail({
@@ -119,10 +137,11 @@ export async function POST(req: NextRequest) {
       } else {
         // All other events need an inspection
         if (!inspectionId) {
-          return NextResponse.json(
-            { error: "inspectionId is required for this event" },
-            { status: 400 },
-          );
+          return apiError(req, {
+            code: "VALIDATION",
+            message: "inspectionId is required for this event",
+            status: 400,
+          });
         }
         const inspection = await prisma.inspection.findFirst({
           where: { id: inspectionId, userId },
@@ -135,10 +154,11 @@ export async function POST(req: NextRequest) {
           },
         });
         if (!inspection) {
-          return NextResponse.json(
-            { error: "Inspection not found" },
-            { status: 404 },
-          );
+          return apiError(req, {
+            code: "NOT_FOUND",
+            message: "Inspection not found",
+            status: 404,
+          });
         }
 
         const baseUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
@@ -182,10 +202,11 @@ export async function POST(req: NextRequest) {
             break;
 
           default:
-            return NextResponse.json(
-              { error: "Unhandled event" },
-              { status: 400 },
-            );
+            return apiError(req, {
+              code: "VALIDATION",
+              message: "Unhandled event",
+              status: 400,
+            });
         }
       }
 
@@ -193,11 +214,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({ sent: true, event, to: recipientEmail });
     } catch (err) {
-      console.error("[notifications/email] Error:", err);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(req, err, { stage: "send-email" });
     }
   });
 }
