@@ -15,7 +15,11 @@ export async function POST(
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -29,13 +33,22 @@ export async function POST(
 
   const { id } = await params;
 
-  const inspection = await prisma.inspection.findFirst({
-    where: { id, userId },
-    select: { id: true, workspaceId: true },
-  });
+  let inspection;
+  try {
+    inspection = await prisma.inspection.findFirst({
+      where: { id, userId },
+      select: { id: true, workspaceId: true },
+    });
+  } catch (error) {
+    return fromException(request, error, { stage: "moisture-lookup" });
+  }
 
   if (!inspection) {
-    return apiError(request, { code: "NOT_FOUND", message: "Inspection not found", status: 404 });
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "Inspection not found",
+      status: 404,
+    });
   }
 
   // RA-1266: moisture readings are time-series — retry creates
@@ -49,16 +62,28 @@ export async function POST(
         try {
           body = rawBody ? JSON.parse(rawBody) : {};
         } catch {
-          return apiError(request, { code: "VALIDATION", message: "Invalid JSON body", status: 400 });
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Invalid JSON body",
+            status: 400,
+          });
         }
 
         // Validate required fields
         if (!body.location || !body.location.trim()) {
-          return apiError(request, { code: "VALIDATION", message: "Location is required", status: 400 });
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Location is required",
+            status: 400,
+          });
         }
 
         if (!body.surfaceType) {
-          return apiError(request, { code: "VALIDATION", message: "Surface type is required", status: 400 });
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Surface type is required",
+            status: 400,
+          });
         }
 
         // Explicit typeof + isNaN guards: JS comparisons on null/NaN both return false,
@@ -70,7 +95,11 @@ export async function POST(
           rawLevel < 0 ||
           rawLevel > 100
         ) {
-          return apiError(request, { code: "VALIDATION", message: "Moisture level must be a number between 0 and 100", status: 400 });
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Moisture level must be a number between 0 and 100",
+            status: 400,
+          });
         }
 
         // Create moisture reading
@@ -107,13 +136,21 @@ export async function POST(
         if (body.mapX !== undefined && body.mapX !== null) {
           const mx = parseFloat(body.mapX);
           if (!isFinite(mx))
-            return apiError(request, { code: "VALIDATION", message: "mapX must be a finite number", status: 400 });
+            return apiError(request, {
+              code: "VALIDATION",
+              message: "mapX must be a finite number",
+              status: 400,
+            });
           createData.mapX = Math.min(1, Math.max(0, mx));
         }
         if (body.mapY !== undefined && body.mapY !== null) {
           const my = parseFloat(body.mapY);
           if (!isFinite(my))
-            return apiError(request, { code: "VALIDATION", message: "mapY must be a finite number", status: 400 });
+            return apiError(request, {
+              code: "VALIDATION",
+              message: "mapY must be a finite number",
+              status: 400,
+            });
           createData.mapY = Math.min(1, Math.max(0, my));
         }
 

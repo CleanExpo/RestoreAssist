@@ -23,10 +23,15 @@ export async function POST(
   const userId = session.user.id;
   const { id } = await params;
 
-  const inspection = await prisma.inspection.findFirst({
-    where: { id, userId },
-    select: { id: true, workspaceId: true },
-  });
+  let inspection;
+  try {
+    inspection = await prisma.inspection.findFirst({
+      where: { id, userId },
+      select: { id: true, workspaceId: true },
+    });
+  } catch (error) {
+    return fromException(request, error, { stage: "environmental-lookup" });
+  }
 
   if (!inspection) {
     return apiError(request, {
