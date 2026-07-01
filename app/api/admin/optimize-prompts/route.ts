@@ -24,6 +24,7 @@ import {
   type OptimizationOptions,
 } from "@/lib/ai/prompt-optimizer";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError } from "@/lib/api-errors";
 
 const VALID_CLAIM_TYPES = [
   "water_damage",
@@ -51,10 +52,11 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const {
         claimType,
@@ -66,10 +68,11 @@ export async function POST(request: NextRequest) {
 
       // ── Validate claimType ──
       if (!claimType || typeof claimType !== "string") {
-        return NextResponse.json(
-          { error: "claimType is required (string)" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "claimType is required (string)",
+          status: 400,
+        });
       }
 
       if (
@@ -77,12 +80,11 @@ export async function POST(request: NextRequest) {
           claimType as (typeof VALID_CLAIM_TYPES)[number],
         )
       ) {
-        return NextResponse.json(
-          {
-            error: `Invalid claimType "${claimType}". Valid types: ${VALID_CLAIM_TYPES.join(", ")}`,
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Invalid claimType "${claimType}". Valid types: ${VALID_CLAIM_TYPES.join(", ")}`,
+          status: 400,
+        });
       }
 
       // ── Validate optional numeric params ──
@@ -90,30 +92,33 @@ export async function POST(request: NextRequest) {
         budget !== undefined &&
         (typeof budget !== "number" || budget < 1 || budget > 50)
       ) {
-        return NextResponse.json(
-          { error: "budget must be a number between 1 and 50" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "budget must be a number between 1 and 50",
+          status: 400,
+        });
       }
 
       if (
         threshold !== undefined &&
         (typeof threshold !== "number" || threshold < 0)
       ) {
-        return NextResponse.json(
-          { error: "threshold must be a non-negative number" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "threshold must be a non-negative number",
+          status: 400,
+        });
       }
 
       if (
         testCasesPerEval !== undefined &&
         (typeof testCasesPerEval !== "number" || testCasesPerEval < 1)
       ) {
-        return NextResponse.json(
-          { error: "testCasesPerEval must be a positive number" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "testCasesPerEval must be a positive number",
+          status: 400,
+        });
       }
 
       if (
@@ -121,10 +126,11 @@ export async function POST(request: NextRequest) {
         (typeof candidatesPerIteration !== "number" ||
           candidatesPerIteration < 1)
       ) {
-        return NextResponse.json(
-          { error: "candidatesPerIteration must be a positive number" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "candidatesPerIteration must be a positive number",
+          status: 400,
+        });
       }
 
       // ── Run optimizer ──
@@ -142,6 +148,10 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(result);
     } catch (error: unknown) {
+      // RA-1548 — this catch is intentionally left on raw NextResponse: the
+      // 503 "not configured" branch has no clean code in the envelope map, and
+      // both branches are pinned by exact-shape assertions in __tests__. Kept
+      // cohesive rather than half-migrated.
       const message =
         error instanceof Error
           ? error.message
