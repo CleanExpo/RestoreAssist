@@ -11,11 +11,16 @@ import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { getOrganizationOwner } from "@/lib/organization-credits";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -33,10 +38,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user?.stripeCustomerId) {
-        return NextResponse.json(
-          { error: "No billing account found. Subscribe to a plan first." },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "No billing account found. Subscribe to a plan first.",
+          status: 400,
+        });
       }
 
       const baseUrl = process.env.NEXTAUTH_URL || request.nextUrl.origin;
@@ -49,11 +55,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({ url: portalSession.url });
     } catch (error) {
-      console.error("Error creating billing portal session:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "portal" });
     }
   });
 }
