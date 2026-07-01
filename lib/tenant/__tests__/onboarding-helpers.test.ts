@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   validateConnectionString,
   canDeployFirstClaim,
+  hostFromConnectionString,
   type TenantDbStatus,
 } from "../onboarding-helpers";
 
@@ -24,6 +25,24 @@ describe("validateConnectionString", () => {
 
   it("rejects a Postgres URL with no host", () => {
     expect(validateConnectionString("postgres:///db").ok).toBe(false);
+  });
+});
+
+describe("hostFromConnectionString (confidence signal)", () => {
+  it("returns the hostname with credentials stripped", () => {
+    expect(
+      hostFromConnectionString("postgres://user:secret@db.abcdef.supabase.co:5432/postgres"),
+    ).toBe("db.abcdef.supabase.co");
+  });
+
+  it("never leaks the user or password", () => {
+    const out = hostFromConnectionString("postgres://admin:hunter2@h.example.com/db");
+    expect(out).not.toMatch(/admin|hunter2/);
+  });
+
+  it("returns null for an unparseable or empty string", () => {
+    expect(hostFromConnectionString("not a url")).toBeNull();
+    expect(hostFromConnectionString("")).toBeNull();
   });
 });
 
