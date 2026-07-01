@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Default unit price in cents ($50.00)
 const DEFAULT_UNIT_PRICE_CENTS = 5000;
@@ -10,13 +11,17 @@ const GST_RATE = 10.0;
 
 // GET — return existing invoice generated from this inspection (if any)
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -28,10 +33,11 @@ export async function GET(
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     // Look up invoice by notes containing inspectionNumber
@@ -71,11 +77,9 @@ export async function GET(
 
     return NextResponse.json({ invoice });
   } catch (error) {
-    console.error("Error fetching generated invoice:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "inspection-generate-invoice-get",
+    });
   }
 }
 
@@ -86,7 +90,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -112,20 +120,20 @@ export async function POST(
       });
 
       if (!inspection) {
-        return NextResponse.json(
-          { error: "Inspection not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
       }
 
       if (inspection.scopeItems.length === 0) {
-        return NextResponse.json(
-          {
-            error:
-              "No selected scope items found. Select at least one scope item before generating an invoice.",
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "No selected scope items found. Select at least one scope item before generating an invoice.",
+          status: 400,
+        });
       }
 
       // Get the user's first Client record for customer details
@@ -216,7 +224,10 @@ export async function POST(
             include: {
               // Only `lineItems.length` is read in the response (line below);
               // selecting `id` keeps the relation contract explicit.
-              lineItems: { orderBy: { sortOrder: "asc" }, select: { id: true } },
+              lineItems: {
+                orderBy: { sortOrder: "asc" },
+                select: { id: true },
+              },
             },
           });
 
@@ -280,11 +291,9 @@ export async function POST(
         { status: 201 },
       );
     } catch (error) {
-      console.error("Error generating invoice:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, {
+        stage: "inspection-generate-invoice-post",
+      });
     }
   });
 }

@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // ── IICRC S500:2021 §11.4 per-material dry MC% thresholds ───────────────────
 // Source: IICRC S500:2021 Standard for Professional Water Damage Restoration
@@ -279,11 +280,15 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(_request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id: inspectionId } = await params;
@@ -294,20 +299,19 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       select: { id: true },
     });
     if (!ownership) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     const report = await buildReport(inspectionId);
     return NextResponse.json({ report });
   } catch (error) {
-    console.error("[monitoring-report GET]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "inspection-monitoring-report-get",
+    });
   }
 }
 
@@ -315,7 +319,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id: inspectionId } = await params;
@@ -326,10 +334,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       select: { id: true },
     });
     if (!ownership) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     const body = (await request.json().catch(() => ({}))) as {
@@ -339,19 +348,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { date, notes } = body;
 
     if (!date || !notes) {
-      return NextResponse.json(
-        { error: "Both 'date' (YYYY-MM-DD) and 'notes' are required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Both 'date' (YYYY-MM-DD) and 'notes' are required",
+        status: 400,
+      });
     }
 
     const report = await buildReport(inspectionId, { date, notes });
     return NextResponse.json({ report });
   } catch (error) {
-    console.error("[monitoring-report POST]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "inspection-monitoring-report-post",
+    });
   }
 }

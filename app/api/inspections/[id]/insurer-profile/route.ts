@@ -16,6 +16,7 @@ import type { InsurerId } from "@/lib/insurer-profiles";
 import type { JobType } from "@/lib/evidence/workflow-definitions";
 import type { EvidenceClass } from "@/lib/types/evidence";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 /**
  * [RA-406] Insurer Profile API
  * GET  — Retrieve insurer profile for an inspection (or list all profiles)
@@ -31,118 +32,37 @@ interface RouteContext {
 export async function GET(request: NextRequest, { params }: RouteContext) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { id: inspectionId } = await params;
-
-  // If inspectionId is "list", return all available profiles
-  if (inspectionId === "list") {
-    const profiles = getAllInsurerProfiles().map((p) => ({
-      id: p.id,
-      name: p.name,
-      label: INSURER_LABELS[p.id],
-      brands: p.brands,
-      claimsSystem: p.claimsSystem,
-      marketShare: p.marketShare,
-    }));
-    return NextResponse.json({ profiles });
-  }
-
-  // Verify the inspection exists and belongs to user's org
-  const inspection = await prisma.inspection.findFirst({
-    where: {
-      id: inspectionId,
-      ...(session.user.organizationId
-        ? { userId: session.user.id }
-        : { userId: session.user.id }),
-    } as any,
-    select: {
-      id: true,
-      jobType: true,
-      metadata: true,
-    } as any,
-  });
-
-  if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
-    );
-  }
-
-  // Extract insurer ID from metadata
-  const metadata =
-    ((inspection as any).metadata as Record<string, unknown>) ?? {};
-  const insurerId = metadata.insurerProfileId as string | undefined;
-
-  if (!insurerId || !isValidInsurerId(insurerId)) {
-    return NextResponse.json({
-      insurerProfile: null,
-      message: "No insurer profile assigned to this inspection.",
-      availableProfiles: Object.entries(INSURER_LABELS).map(([id, label]) => ({
-        id,
-        label,
-      })),
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
     });
   }
 
-  const profile = getInsurerProfile(insurerId as InsurerId);
-  const jobType = ((inspection as any).jobType as JobType) ?? undefined;
-  const evidenceReqs = getEvidenceRequirements(insurerId as InsurerId, jobType);
-  const reportSections = getReportSections(insurerId as InsurerId, jobType);
-
-  return NextResponse.json({
-    insurerProfile: profile,
-    evidenceRequirements: evidenceReqs,
-    reportSections,
-    inspectionJobType: jobType,
-  });
-}
-// ━━━ POST: Set insurer profile + evidence gap analysis ━━━━━━━━━━━━━━━━━━
-
-export async function POST(request: NextRequest, { params }: RouteContext) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = session.user.id;
   const { id: inspectionId } = await params;
 
-  // RA-1266: setting insurer profile triggers evidence gap analysis —
-  // retry recomputes identical analysis unnecessarily.
-  return withIdempotency(request, userId, async (rawBody) => {
-    let body: {
-      insurerId: string;
-      claimRef?: string;
-    };
-
-    try {
-      body = (rawBody ? JSON.parse(rawBody) : {}) as {
-        insurerId: string;
-        claimRef?: string;
-      };
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  try {
+    // If inspectionId is "list", return all available profiles
+    if (inspectionId === "list") {
+      const profiles = getAllInsurerProfiles().map((p) => ({
+        id: p.id,
+        name: p.name,
+        label: INSURER_LABELS[p.id],
+        brands: p.brands,
+        claimsSystem: p.claimsSystem,
+        marketShare: p.marketShare,
+      }));
+      return NextResponse.json({ profiles });
     }
 
-    if (!body.insurerId || !isValidInsurerId(body.insurerId)) {
-      return NextResponse.json(
-        {
-          error: `Invalid insurer ID. Valid IDs: ${Object.keys(INSURER_LABELS).join(", ")}`,
-        },
-        { status: 400 },
-      );
-    }
-
-    const insurerId = body.insurerId as InsurerId;
-
-    // Verify inspection ownership
+    // Verify the inspection exists and belongs to user's org
     const inspection = await prisma.inspection.findFirst({
       where: {
         id: inspectionId,
-        userId,
-      },
+        ...(session.user.organizationId
+          ? { userId: session.user.id }
+          : { userId: session.user.id }),
+      } as any,
       select: {
         id: true,
         jobType: true,
@@ -151,68 +71,179 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
-    const jobType = ((inspection as any).jobType as JobType) ?? undefined;
-
-    // Update inspection metadata with insurer profile
-    const existingMetadata =
+    // Extract insurer ID from metadata
+    const metadata =
       ((inspection as any).metadata as Record<string, unknown>) ?? {};
-    const updatedMetadata = {
-      ...existingMetadata,
-      insurerProfileId: insurerId,
-      insurerClaimRef: body.claimRef ?? existingMetadata.insurerClaimRef,
-      insurerProfileSetAt: new Date().toISOString(),
-    };
+    const insurerId = metadata.insurerProfileId as string | undefined;
 
-    await prisma.inspection.update({
-      where: { id: inspectionId, userId },
-      data: { metadata: updatedMetadata } as any,
-    });
+    if (!insurerId || !isValidInsurerId(insurerId)) {
+      return NextResponse.json({
+        insurerProfile: null,
+        message: "No insurer profile assigned to this inspection.",
+        availableProfiles: Object.entries(INSURER_LABELS).map(
+          ([id, label]) => ({
+            id,
+            label,
+          }),
+        ),
+      });
+    }
 
-    // Get profile data for response
-    const profile = getInsurerProfile(insurerId);
-    const evidenceReqs = getEvidenceRequirements(insurerId, jobType);
-    const reportSections = getReportSections(insurerId, jobType);
-
-    // Run evidence gap analysis if evidence exists
-    const evidenceCounts = await (prisma as any).inspectionEvidence.groupBy({
-      by: ["evidenceClass"],
-      where: { inspectionId },
-      _count: { id: true },
-    });
-
-    const submittedEvidence = evidenceCounts.map((e: any) => ({
-      evidenceClass: e.evidenceClass as EvidenceClass,
-      count: e._count.id,
-    }));
-
-    const missingEvidence = jobType
-      ? getMissingMandatoryEvidence(insurerId, jobType, submittedEvidence)
-      : [];
-
-    // Format claim reference if provided
-    const formattedClaimRef = body.claimRef
-      ? formatClaimReference(insurerId, body.claimRef, new Date(), "REPORT")
-      : undefined;
+    const profile = getInsurerProfile(insurerId as InsurerId);
+    const jobType = ((inspection as any).jobType as JobType) ?? undefined;
+    const evidenceReqs = getEvidenceRequirements(
+      insurerId as InsurerId,
+      jobType,
+    );
+    const reportSections = getReportSections(insurerId as InsurerId, jobType);
 
     return NextResponse.json({
-      success: true,
       insurerProfile: profile,
       evidenceRequirements: evidenceReqs,
       reportSections,
-      evidenceGapAnalysis: {
-        totalMandatory: evidenceReqs.filter((r) => r.mandatory).length,
-        totalSubmitted: submittedEvidence.length,
-        missing: missingEvidence,
-        isComplete: missingEvidence.length === 0,
-      },
-      formattedClaimRef,
       inspectionJobType: jobType,
     });
+  } catch (error) {
+    return fromException(request, error, {
+      stage: "inspection-insurer-profile-get",
+    });
+  }
+}
+// ━━━ POST: Set insurer profile + evidence gap analysis ━━━━━━━━━━━━━━━━━━
+
+export async function POST(request: NextRequest, { params }: RouteContext) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
+  }
+  const userId = session.user.id;
+  const { id: inspectionId } = await params;
+
+  // RA-1266: setting insurer profile triggers evidence gap analysis —
+  // retry recomputes identical analysis unnecessarily.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let body: {
+        insurerId: string;
+        claimRef?: string;
+      };
+
+      try {
+        body = (rawBody ? JSON.parse(rawBody) : {}) as {
+          insurerId: string;
+          claimRef?: string;
+        };
+      } catch {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
+      }
+
+      if (!body.insurerId || !isValidInsurerId(body.insurerId)) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Invalid insurer ID. Valid IDs: ${Object.keys(INSURER_LABELS).join(", ")}`,
+          status: 400,
+        });
+      }
+
+      const insurerId = body.insurerId as InsurerId;
+
+      // Verify inspection ownership
+      const inspection = await prisma.inspection.findFirst({
+        where: {
+          id: inspectionId,
+          userId,
+        },
+        select: {
+          id: true,
+          jobType: true,
+          metadata: true,
+        } as any,
+      });
+
+      if (!inspection) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
+
+      const jobType = ((inspection as any).jobType as JobType) ?? undefined;
+
+      // Update inspection metadata with insurer profile
+      const existingMetadata =
+        ((inspection as any).metadata as Record<string, unknown>) ?? {};
+      const updatedMetadata = {
+        ...existingMetadata,
+        insurerProfileId: insurerId,
+        insurerClaimRef: body.claimRef ?? existingMetadata.insurerClaimRef,
+        insurerProfileSetAt: new Date().toISOString(),
+      };
+
+      await prisma.inspection.update({
+        where: { id: inspectionId, userId },
+        data: { metadata: updatedMetadata } as any,
+      });
+
+      // Get profile data for response
+      const profile = getInsurerProfile(insurerId);
+      const evidenceReqs = getEvidenceRequirements(insurerId, jobType);
+      const reportSections = getReportSections(insurerId, jobType);
+
+      // Run evidence gap analysis if evidence exists
+      const evidenceCounts = await (prisma as any).inspectionEvidence.groupBy({
+        by: ["evidenceClass"],
+        where: { inspectionId },
+        _count: { id: true },
+      });
+
+      const submittedEvidence = evidenceCounts.map((e: any) => ({
+        evidenceClass: e.evidenceClass as EvidenceClass,
+        count: e._count.id,
+      }));
+
+      const missingEvidence = jobType
+        ? getMissingMandatoryEvidence(insurerId, jobType, submittedEvidence)
+        : [];
+
+      // Format claim reference if provided
+      const formattedClaimRef = body.claimRef
+        ? formatClaimReference(insurerId, body.claimRef, new Date(), "REPORT")
+        : undefined;
+
+      return NextResponse.json({
+        success: true,
+        insurerProfile: profile,
+        evidenceRequirements: evidenceReqs,
+        reportSections,
+        evidenceGapAnalysis: {
+          totalMandatory: evidenceReqs.filter((r) => r.mandatory).length,
+          totalSubmitted: submittedEvidence.length,
+          missing: missingEvidence,
+          isComplete: missingEvidence.length === 0,
+        },
+        formattedClaimRef,
+        inspectionJobType: jobType,
+      });
+    } catch (error) {
+      return fromException(request, error, {
+        stage: "inspection-insurer-profile-post",
+      });
+    }
   });
 }
