@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -21,7 +22,11 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -30,16 +35,16 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       where: { id },
     });
     if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Profile not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json({ data: profile });
   } catch (error) {
-    console.error("Error fetching insurer profile:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "get" });
   }
 }
 
@@ -49,7 +54,11 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -57,11 +66,19 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       select: { role: true },
     });
     if (user?.role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     const { id } = await params;
-    const body = await request.json();
+    const rawBody = await request.json().catch(() => null);
+    const body: Record<string, unknown> =
+      rawBody && typeof rawBody === "object" && !Array.isArray(rawBody)
+        ? rawBody
+        : {};
 
     // RA-1338: allowlist editable fields. Previously `...updates` spread
     // accepted any body key, allowing mass-assignment to fields like
@@ -94,15 +111,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     });
 
     return NextResponse.json({ data: profile });
-  } catch (error: any) {
-    console.error("Error updating insurer profile:", error);
-    if (error.code === "P2025") {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-    }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+  } catch (error) {
+    // fromException maps Prisma P2025 (record-to-update not found) -> 404.
+    return fromException(request, error, { stage: "patch" });
   }
 }
 
@@ -112,7 +123,11 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -120,7 +135,11 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
       select: { role: true },
     });
     if (user?.role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     const { id } = await params;
@@ -129,26 +148,25 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
       where: { id },
     });
     if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Profile not found",
+        status: 404,
+      });
     }
 
     if (profile.isSystemProfile) {
-      return NextResponse.json(
-        {
-          error:
-            "System profiles cannot be deleted. Deactivate them instead by setting isActive=false.",
-        },
-        { status: 409 },
-      );
+      return apiError(request, {
+        code: "CONFLICT",
+        message:
+          "System profiles cannot be deleted. Deactivate them instead by setting isActive=false.",
+        status: 409,
+      });
     }
 
     await prisma.insurerProfile.delete({ where: { id } });
     return NextResponse.json({ data: { id } });
   } catch (error) {
-    console.error("Error deleting insurer profile:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "delete" });
   }
 }

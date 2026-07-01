@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // ─── GET — list profiles ─────────────────────────────────────────────────────
 
@@ -18,7 +19,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -32,11 +37,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: profiles });
   } catch (error) {
-    console.error("Error listing insurer profiles:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list" });
   }
 }
 
@@ -46,7 +47,11 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Only admins can create profiles
@@ -55,10 +60,18 @@ export async function POST(request: NextRequest) {
       select: { role: true },
     });
     if (user?.role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
-    const body = await request.json();
+    const rawBody = await request.json().catch(() => null);
+    const body =
+      rawBody && typeof rawBody === "object" && !Array.isArray(rawBody)
+        ? (rawBody as Record<string, any>)
+        : {};
 
     const {
       slug,
@@ -79,10 +92,11 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!slug || !name) {
-      return NextResponse.json(
-        { error: "slug and name are required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "slug and name are required",
+        status: 400,
+      });
     }
 
     const profile = await prisma.insurerProfile.create({
@@ -108,16 +122,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: profile }, { status: 201 });
   } catch (error: any) {
-    console.error("Error creating insurer profile:", error);
-    if (error.code === "P2002") {
-      return NextResponse.json(
-        { error: "A profile with that slug already exists" },
-        { status: 409 },
-      );
+    if (error?.code === "P2002") {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "A profile with that slug already exists",
+        status: 409,
+      });
     }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "create" });
   }
 }
