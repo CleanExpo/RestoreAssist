@@ -9,6 +9,7 @@ import {
   getWorkflowContext,
   executeBatch,
 } from "@/lib/agents";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * POST /api/agents/workflows/[id]/execute — Poll-based workflow executor
@@ -23,7 +24,11 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Rate limit: 30 execution polls per minute
@@ -48,10 +53,11 @@ export async function POST(
       },
     });
     if (!owned) {
-      return NextResponse.json(
-        { error: "Workflow not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Workflow not found",
+        status: 404,
+      });
     }
 
     // If workflow is already in a terminal state, return immediately
@@ -128,10 +134,6 @@ export async function POST(
       failedTasks: finalStatus?.failedTasks ?? 0,
     });
   } catch (error) {
-    console.error("Error executing workflow:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "agents-workflow-execute" });
   }
 }

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTaskLogs } from "@/lib/agents";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * GET /api/agents/tasks/[id] — Get task details with logs
@@ -14,7 +15,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id: taskId } = await params;
@@ -56,7 +61,11 @@ export async function GET(
     });
 
     if (!task) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Task not found",
+        status: 404,
+      });
     }
 
     // Parse JSON fields for response
@@ -88,10 +97,6 @@ export async function GET(
       logs,
     });
   } catch (error) {
-    console.error("Error fetching task details:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "agents-task-detail" });
   }
 }
