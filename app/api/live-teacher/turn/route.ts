@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { apiError } from "@/lib/api-errors";
 import {
   invokeClaudeCloud,
   type TeacherTurn,
@@ -26,9 +27,10 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
       status: 401,
-      headers: { "Content-Type": "application/json" },
     });
   }
 
@@ -53,6 +55,8 @@ export async function POST(request: NextRequest) {
     ALLOWED_SUBSCRIPTION_STATUSES.includes(subUser?.subscriptionStatus ?? "") ||
     subUser?.lifetimeAccess === true;
   if (!hasAccess) {
+    // RA-1548 — left raw: rich 402 with `upgradeRequired` sibling the client
+    // reads to drive the upgrade CTA; the envelope has no slot for it.
     return new Response(
       JSON.stringify({
         error: "Active subscription required for Live Teacher",
@@ -64,19 +68,26 @@ export async function POST(request: NextRequest) {
 
   let body: TurnBody;
   try {
-    body = await request.json();
+    const parsed = await request.json();
+    body = (
+      parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed
+        : {}
+    ) as TurnBody;
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Invalid JSON",
       status: 400,
-      headers: { "Content-Type": "application/json" },
     });
   }
 
   if (!body.sessionId || !body.utterance?.trim()) {
-    return new Response(
-      JSON.stringify({ error: "sessionId and utterance are required" }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "sessionId and utterance are required",
+      status: 400,
+    });
   }
 
   // Verify session ownership (Rule 4: explicit select)
@@ -86,9 +97,10 @@ export async function POST(request: NextRequest) {
   });
 
   if (!liveSession) {
-    return new Response(JSON.stringify({ error: "Session not found" }), {
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "Session not found",
       status: 404,
-      headers: { "Content-Type": "application/json" },
     });
   }
 
