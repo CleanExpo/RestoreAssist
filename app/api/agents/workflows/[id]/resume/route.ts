@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resumeWorkflow } from "@/lib/agents";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * POST /api/agents/workflows/[id]/resume — Resume a failed or paused workflow
@@ -16,7 +17,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id: workflowId } = await params;
@@ -30,19 +35,19 @@ export async function POST(
         select: { id: true, status: true },
       });
       if (!workflow) {
-        return NextResponse.json(
-          { error: "Workflow not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Workflow not found",
+          status: 404,
+        });
       }
 
       if (!["FAILED", "PARTIALLY_FAILED", "PAUSED"].includes(workflow.status)) {
-        return NextResponse.json(
-          {
-            error: `Cannot resume workflow with status: ${workflow.status}. Only FAILED, PARTIALLY_FAILED, or PAUSED workflows can be resumed.`,
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Cannot resume workflow with status: ${workflow.status}. Only FAILED, PARTIALLY_FAILED, or PAUSED workflows can be resumed.`,
+          status: 400,
+        });
       }
 
       const result = await resumeWorkflow(workflowId);
@@ -54,11 +59,7 @@ export async function POST(
         retriedTasks: result.retriedCount,
       });
     } catch (error) {
-      console.error("Error resuming workflow:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "agents-workflow-resume" });
     }
   });
 }
