@@ -12,6 +12,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 
 // ─── GET — list profiles ─────────────────────────────────────────────────────
 
@@ -46,32 +47,29 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    // Admin gate (coding guideline): re-validate role from the DB, never the
+    // JWT claim.
+    const auth = await verifyAdminFromDb(session);
+    if (auth.response) return auth.response;
+
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
       return apiError(request, {
-        code: "UNAUTHORIZED",
-        message: "Unauthorized",
-        status: 401,
+        code: "VALIDATION",
+        message: "Request body must be valid JSON",
+        status: 400,
       });
     }
-
-    // Only admins can create profiles
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true },
-    });
-    if (user?.role !== "ADMIN") {
+    if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
       return apiError(request, {
-        code: "FORBIDDEN",
-        message: "Forbidden",
-        status: 403,
+        code: "VALIDATION",
+        message: "Request body must be a JSON object",
+        status: 400,
       });
     }
-
-    const rawBody = await request.json().catch(() => null);
-    const body =
-      rawBody && typeof rawBody === "object" && !Array.isArray(rawBody)
-        ? (rawBody as Record<string, any>)
-        : {};
+    const body = rawBody as Record<string, any>;
 
     const {
       slug,

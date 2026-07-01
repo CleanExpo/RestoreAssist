@@ -13,6 +13,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -53,32 +54,29 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return apiError(request, {
-        code: "UNAUTHORIZED",
-        message: "Unauthorized",
-        status: 401,
-      });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true },
-    });
-    if (user?.role !== "ADMIN") {
-      return apiError(request, {
-        code: "FORBIDDEN",
-        message: "Forbidden",
-        status: 403,
-      });
-    }
+    // Admin gate (coding guideline): re-validate role from the DB.
+    const auth = await verifyAdminFromDb(session);
+    if (auth.response) return auth.response;
 
     const { id } = await params;
-    const rawBody = await request.json().catch(() => null);
-    const body: Record<string, unknown> =
-      rawBody && typeof rawBody === "object" && !Array.isArray(rawBody)
-        ? rawBody
-        : {};
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Request body must be valid JSON",
+        status: 400,
+      });
+    }
+    if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Request body must be a JSON object",
+        status: 400,
+      });
+    }
+    const body = rawBody as Record<string, unknown>;
 
     // RA-1338: allowlist editable fields. Previously `...updates` spread
     // accepted any body key, allowing mass-assignment to fields like
@@ -122,25 +120,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 export async function DELETE(request: NextRequest, { params }: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return apiError(request, {
-        code: "UNAUTHORIZED",
-        message: "Unauthorized",
-        status: 401,
-      });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true },
-    });
-    if (user?.role !== "ADMIN") {
-      return apiError(request, {
-        code: "FORBIDDEN",
-        message: "Forbidden",
-        status: 403,
-      });
-    }
+    // Admin gate (coding guideline): re-validate role from the DB.
+    const auth = await verifyAdminFromDb(session);
+    if (auth.response) return auth.response;
 
     const { id } = await params;
 
