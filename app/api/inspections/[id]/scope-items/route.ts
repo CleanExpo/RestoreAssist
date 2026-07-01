@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // POST - Add scope item
 export async function POST(
@@ -12,7 +13,11 @@ export async function POST(
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -24,10 +29,11 @@ export async function POST(
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
 
       const inspection = await prisma.inspection.findFirst({
@@ -35,35 +41,37 @@ export async function POST(
       });
 
       if (!inspection) {
-        return NextResponse.json(
-          { error: "Inspection not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
       }
 
       if (!body.itemType) {
-        return NextResponse.json(
-          { error: "Item type is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Item type is required",
+          status: 400,
+        });
       }
 
       if (!body.description) {
-        return NextResponse.json(
-          { error: "Description is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Description is required",
+          status: 400,
+        });
       }
 
       const qty = body.quantity != null ? Number(body.quantity) : null;
       if (qty !== null && (!isFinite(qty) || qty < 0 || qty > 100_000)) {
-        return NextResponse.json(
-          {
-            error:
-              "quantity must be a non-negative finite number up to 100,000",
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "quantity must be a non-negative finite number up to 100,000",
+          status: 400,
+        });
       }
 
       const scopeItem = await prisma.scopeItem.create({
@@ -104,11 +112,7 @@ export async function POST(
 
       return NextResponse.json({ scopeItem }, { status: 201 });
     } catch (error) {
-      console.error("Error saving scope item:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "scope-items-create" });
     }
   });
 }
