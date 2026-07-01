@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { fromException } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function PATCH(
   request: NextRequest,
@@ -11,7 +11,11 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
 
     const { id, itemId } = await params;
 
@@ -20,7 +24,11 @@ export async function PATCH(
       where: { id, userId: session.user.id },
     });
     if (!inspection)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Not found",
+        status: 404,
+      });
 
     const body = await request.json();
     // Update only provided fields
@@ -30,18 +38,21 @@ export async function PATCH(
       select: { id: true },
     });
     if (!item)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Not found",
+        status: 404,
+      });
 
     if (body.quantity !== undefined && body.quantity !== null) {
       const qty = Number(body.quantity);
       if (!isFinite(qty) || qty < 0 || qty > 100_000) {
-        return NextResponse.json(
-          {
-            error:
-              "quantity must be a non-negative finite number up to 100,000",
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "quantity must be a non-negative finite number up to 100,000",
+          status: 400,
+        });
       }
     }
 
@@ -80,7 +91,11 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
 
     const { id, itemId } = await params;
 
@@ -88,7 +103,11 @@ export async function DELETE(
       where: { id, userId: session.user.id },
     });
     if (!inspection)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Not found",
+        status: 404,
+      });
 
     // deleteMany scopes the delete to this inspection — prevents cross-inspection IDOR
     const deleted = await prisma.scopeItem.deleteMany({
@@ -99,7 +118,11 @@ export async function DELETE(
       },
     });
     if (deleted.count === 0)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Not found",
+        status: 404,
+      });
     return NextResponse.json({ success: true });
   } catch (err) {
     return fromException(request, err, { stage: "scope-items:delete" });
