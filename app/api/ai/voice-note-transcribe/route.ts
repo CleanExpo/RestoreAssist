@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { apiError, fromException } from "@/lib/api-errors";
 import OpenAI from "openai";
 
 export const maxDuration = 60;
@@ -44,7 +45,11 @@ function getOpenAI(): OpenAI {
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const rateLimited = await applyRateLimit(request, {
@@ -56,6 +61,8 @@ export async function POST(request: NextRequest) {
   if (rateLimited) return rateLimited;
 
   if (!process.env.OPENAI_API_KEY) {
+    // RA-1548 — the 503 here and the 413/415 below are left raw: those status
+    // codes have no slot in the apiError status->code map.
     return NextResponse.json(
       {
         error:
@@ -69,18 +76,20 @@ export async function POST(request: NextRequest) {
   try {
     formData = await request.formData();
   } catch {
-    return NextResponse.json(
-      { error: "Expected multipart/form-data" },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Expected multipart/form-data",
+      status: 400,
+    });
   }
 
   const audioRaw = formData.get("audio");
   if (!(audioRaw instanceof File)) {
-    return NextResponse.json(
-      { error: "`audio` file field is required" },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "`audio` file field is required",
+      status: 400,
+    });
   }
 
   if (audioRaw.size > MAX_AUDIO_BYTES) {
@@ -121,13 +130,6 @@ export async function POST(request: NextRequest) {
       transcribeDurationMs: durationMs,
     });
   } catch (err) {
-    console.error(
-      "[voice-note-transcribe]",
-      err instanceof Error ? err.message : err,
-    );
-    return NextResponse.json(
-      { error: "Transcription failed" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "transcribe" });
   }
 }
