@@ -15,6 +15,7 @@ import {
   type EvidenceItemForQA,
 } from "@/lib/evidence/qa-scorer";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -22,7 +23,11 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id: inspectionId } = await params;
@@ -79,10 +84,6 @@ export async function GET(
 
     return NextResponse.json({ data: result });
   } catch (error) {
-    console.error("[evidence/qa-scores GET]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "evidence-qa-scores-get" });
   }
 }

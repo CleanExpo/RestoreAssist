@@ -22,6 +22,7 @@ import {
   getIdempotencyKey,
   withIdempotencyFingerprint,
 } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET - List photos for inspection
 export async function GET(
@@ -31,7 +32,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -42,10 +47,11 @@ export async function GET(
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     const photos = await prisma.inspectionPhoto.findMany({
@@ -66,11 +72,7 @@ export async function GET(
 
     return NextResponse.json({ photos });
   } catch (error) {
-    console.error("Error fetching photos:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list" });
   }
 }
 
@@ -83,12 +85,20 @@ export async function POST(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const idempotencyKey = getIdempotencyKey(request);
     if (!idempotencyKey.ok) {
-      return NextResponse.json({ error: idempotencyKey.reason }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: idempotencyKey.reason ?? "Invalid idempotency key",
+        status: 400,
+      });
     }
 
     // Rate limit: 20 photo uploads per minute per user
@@ -111,10 +121,11 @@ export async function POST(
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     const formData = await request.formData();
@@ -162,17 +173,22 @@ export async function POST(
     );
 
     if (!file) {
-      return NextResponse.json({ error: "File is required" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "File is required",
+        status: 400,
+      });
     }
 
     // Guard before arrayBuffer() — multipart/form-data bypasses Next.js body size
     // limits, so an attacker can send a 2GB TIFF that loads into the function heap.
     const MAX_PHOTO_BYTES = 20 * 1024 * 1024; // 20 MB
     if (file.size > MAX_PHOTO_BYTES) {
-      return NextResponse.json(
-        { error: "File too large — maximum 20 MB per photo" },
-        { status: 413 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "File too large — maximum 20 MB per photo",
+        status: 413,
+      });
     }
 
     // Get user's org for storage provider resolution
@@ -208,10 +224,11 @@ export async function POST(
       buffer[10] === 0x42 &&
       buffer[11] === 0x50;
     if (!isJpeg && !isPng && !isGif && !isWebp) {
-      return NextResponse.json(
-        { error: "Invalid file type. Only images are allowed." },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid file type. Only images are allowed.",
+        status: 400,
+      });
     }
 
     // Chain-of-custody (rule 21) — only enforced when client supplies cocoaSha256
@@ -223,13 +240,12 @@ export async function POST(
 
     if (typeof clientSha256 === "string" && clientSha256.length > 0) {
       if (fileSha256.toLowerCase() !== clientSha256.toLowerCase()) {
-        return NextResponse.json(
-          {
-            error:
-              "Hash mismatch — file may have been tampered with in transit",
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "Hash mismatch — file may have been tampered with in transit",
+          status: 400,
+        });
       }
       cocoaSha256 = clientSha256;
 
@@ -388,10 +404,6 @@ export async function POST(
       },
     });
   } catch (error) {
-    console.error("Error uploading photo:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "upload" });
   }
 }

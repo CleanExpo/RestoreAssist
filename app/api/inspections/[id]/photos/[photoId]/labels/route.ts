@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 import {
   DamageCategory,
   DamageClass,
@@ -164,7 +165,11 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id: inspectionId, photoId } = await params;
@@ -175,10 +180,11 @@ export async function PATCH(
       select: { id: true },
     });
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     // Photo must exist and belong to this inspection
@@ -187,7 +193,11 @@ export async function PATCH(
       select: { id: true },
     });
     if (!existingPhoto) {
-      return NextResponse.json({ error: "Photo not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Photo not found",
+        status: 404,
+      });
     }
 
     const body = await request.json();
@@ -336,10 +346,11 @@ export async function PATCH(
     }
 
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(
-        { error: "No label fields provided" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "No label fields provided",
+        status: 400,
+      });
     }
 
     // Persist
@@ -374,10 +385,6 @@ export async function PATCH(
       { status: 200 },
     );
   } catch (error) {
-    console.error("Error updating photo labels:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "labels-update" });
   }
 }
