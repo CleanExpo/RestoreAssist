@@ -26,13 +26,18 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomBytes } from "crypto";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const DR_NRPG_BASE_URL = "https://api.dr-nrpg.com.au";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -40,26 +45,35 @@ export async function POST(request: NextRequest) {
   // (which would invalidate any link DR-NRPG already has).
   return withIdempotency(request, userId, async (rawBody) => {
     try {
-      let body: any;
+      let parsed: unknown;
       try {
-        body = rawBody ? JSON.parse(rawBody) : {};
+        parsed = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
-      const { drNrpgApiKey, drNrpgBaseUrl, webhookSecret } = body as {
-        drNrpgApiKey: string;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Request body must be a JSON object",
+          status: 400,
+        });
+      }
+      const { drNrpgApiKey, drNrpgBaseUrl, webhookSecret } = parsed as {
+        drNrpgApiKey?: string;
         drNrpgBaseUrl?: string;
         webhookSecret?: string;
       };
 
       if (!drNrpgApiKey?.trim()) {
-        return NextResponse.json(
-          { error: "drNrpgApiKey is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "drNrpgApiKey is required",
+          status: 400,
+        });
       }
 
       const resolvedBase = (drNrpgBaseUrl?.trim() || DR_NRPG_BASE_URL).replace(
@@ -103,11 +117,7 @@ export async function POST(request: NextRequest) {
           "DR-NRPG integration saved. Configure the webhookUrl and webhookSecret in DR-NRPG's outbound webhook settings.",
       });
     } catch (error) {
-      console.error("[dr-nrpg/connect POST]", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "connect" });
     }
   });
 }
@@ -116,7 +126,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const integration = await (prisma as any).drNrpgIntegration.findUnique({
@@ -145,11 +159,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[dr-nrpg/connect GET]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "status" });
   }
 }
 
@@ -157,7 +167,11 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     await (prisma as any).drNrpgIntegration.deleteMany({
@@ -169,10 +183,6 @@ export async function DELETE(request: NextRequest) {
       message: "DR-NRPG integration removed.",
     });
   } catch (error) {
-    console.error("[dr-nrpg/connect DELETE]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "disconnect" });
   }
 }
