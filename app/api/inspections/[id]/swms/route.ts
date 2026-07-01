@@ -14,6 +14,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateSwmsDraft } from "@/lib/swms/auto-generator";
+import { apiError, fromException } from "@/lib/api-errors";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -21,7 +22,11 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id: inspectionId } = await params;
@@ -32,10 +37,11 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       select: { id: true },
     });
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     // Generate SWMS draft
@@ -55,10 +61,6 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
     return NextResponse.json({ data: draft });
   } catch (err) {
-    console.error("[swms/route] GET error", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "inspection-swms" });
   }
 }

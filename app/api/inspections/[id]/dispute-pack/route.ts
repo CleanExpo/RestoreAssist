@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateDisputePack } from "@/lib/dispute-pack";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * POST /api/inspections/[id]/dispute-pack
@@ -22,7 +23,11 @@ export async function POST(
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -44,24 +49,28 @@ export async function POST(
       });
 
       if (!inspection) {
-        return NextResponse.json(
-          { error: "Inspection not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
       }
 
       if (inspection.userId !== userId) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Forbidden",
+          status: 403,
+        });
       }
 
       const allowedStatuses = ["SUBMITTED", "COMPLETED"];
       if (!allowedStatuses.includes(inspection.status)) {
-        return NextResponse.json(
-          {
-            error: `Dispute pack can only be generated for inspections with status SUBMITTED or COMPLETED. Current status: ${inspection.status}`,
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Dispute pack can only be generated for inspections with status SUBMITTED or COMPLETED. Current status: ${inspection.status}`,
+          status: 400,
+        });
       }
 
       const pdfBytes = await generateDisputePack(id, userId, prisma);
@@ -76,11 +85,9 @@ export async function POST(
         },
       });
     } catch (error: unknown) {
-      console.error("Error generating dispute pack:", error);
-      return NextResponse.json(
-        { error: "Failed to generate dispute pack" },
-        { status: 500 },
-      );
+      return fromException(request, error, {
+        stage: "inspection-dispute-pack",
+      });
     }
   });
 }
