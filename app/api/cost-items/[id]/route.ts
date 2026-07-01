@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function PUT(
   request: NextRequest,
@@ -12,28 +13,47 @@ export async function PUT(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
-    const body = await request.json();
+    let body: any;
+    try {
+      const parsed = await request.json();
+      body =
+        parsed && typeof parsed === "object" && !Array.isArray(parsed)
+          ? parsed
+          : {};
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
+    }
     const category = sanitizeString(body.category, 200);
     const description = sanitizeString(body.description, 1000);
     const rate = body.rate;
     const unit = sanitizeString(body.unit, 50);
 
     if (!category || !description || rate === undefined || !unit) {
-      return NextResponse.json(
-        { error: "All fields are required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "All fields are required",
+        status: 400,
+      });
     }
     const parsedRate = parseFloat(rate);
     if (!isFinite(parsedRate) || parsedRate < 0 || parsedRate > 1_000_000) {
-      return NextResponse.json(
-        { error: "Rate must be a non-negative number up to 1,000,000" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Rate must be a non-negative number up to 1,000,000",
+        status: 400,
+      });
     }
 
     // Check if item exists and belongs to user's library
@@ -47,10 +67,11 @@ export async function PUT(
     });
 
     if (!existingItem) {
-      return NextResponse.json(
-        { error: "Cost item not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Cost item not found",
+        status: 404,
+      });
     }
 
     const item = await prisma.costItem.update({
@@ -65,11 +86,7 @@ export async function PUT(
 
     return NextResponse.json(item);
   } catch (error) {
-    console.error("Error updating cost item:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "update" });
   }
 }
 
@@ -81,7 +98,11 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -97,10 +118,11 @@ export async function DELETE(
     });
 
     if (!existingItem) {
-      return NextResponse.json(
-        { error: "Cost item not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Cost item not found",
+        status: 404,
+      });
     }
 
     await prisma.costItem.delete({
@@ -109,10 +131,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting cost item:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "delete" });
   }
 }
