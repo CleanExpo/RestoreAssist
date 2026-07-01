@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { validateCsrf } from "@/lib/csrf";
 import { sanitizeString } from "@/lib/sanitize";
 import { isValidAbn } from "@/lib/abn/checksum";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * RA-1259: Capture the AU business details that the Google OAuth signup
@@ -41,17 +42,26 @@ export async function POST(request: NextRequest) {
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   let body: Record<string, unknown>;
   try {
-    body = await request.json();
+    const parsed = await request.json();
+    body =
+      parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : {};
   } catch {
-    return NextResponse.json(
-      { error: "Invalid request body" },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Invalid request body",
+      status: 400,
+    });
   }
 
   const businessName = sanitizeString(body.businessName, 200);
@@ -61,40 +71,44 @@ export async function POST(request: NextRequest) {
   const acceptedTerms = body.acceptedTerms === true;
 
   if (!businessName) {
-    return NextResponse.json(
-      { error: "Business name is required" },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Business name is required",
+      status: 400,
+    });
   }
   // RA-6793: enforce the ATO mod-89 checksum (not just digit count) so invalid
   // ABNs cannot pass onboarding. Matches /api/user/profile, which already gates
   // on the checksum — an invalid ABN on a tax invoice forces 47% PAYG withholding.
   if (!isValidAbn(abn)) {
-    return NextResponse.json(
-      { error: "Invalid ABN — please enter a valid 11-digit Australian Business Number" },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message:
+        "Invalid ABN — please enter a valid 11-digit Australian Business Number",
+      status: 400,
+    });
   }
   if (acnRaw && !/^\d{9}$/.test(acnRaw)) {
-    return NextResponse.json(
-      { error: "ACN must be 9 digits if supplied" },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "ACN must be 9 digits if supplied",
+      status: 400,
+    });
   }
   if (!AU_STATES.includes(state as AuState)) {
-    return NextResponse.json(
-      { error: "State must be one of: " + AU_STATES.join(", ") },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "State must be one of: " + AU_STATES.join(", "),
+      status: 400,
+    });
   }
   if (!acceptedTerms) {
-    return NextResponse.json(
-      {
-        error:
-          "You must accept the Terms of Service and Privacy Policy to continue",
-      },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message:
+        "You must accept the Terms of Service and Privacy Policy to continue",
+      status: 400,
+    });
   }
 
   try {
@@ -111,13 +125,6 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ data: { ok: true } });
   } catch (err) {
-    console.error(
-      "[onboarding.account-type] update failed:",
-      err instanceof Error ? err.message : String(err),
-    );
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "account-type" });
   }
 }

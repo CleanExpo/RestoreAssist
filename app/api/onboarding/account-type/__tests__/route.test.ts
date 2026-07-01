@@ -65,7 +65,7 @@ describe("POST /api/onboarding/account-type — ABN checksum gate (RA-6793)", ()
     const res = await POST(makeReq(validBody({ abn: INVALID_CHECKSUM_ABN })));
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/Invalid ABN/i);
+    expect(body.error.message).toMatch(/Invalid ABN/i);
     expect(userUpdate).not.toHaveBeenCalled();
   });
 
