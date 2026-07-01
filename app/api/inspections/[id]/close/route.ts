@@ -26,6 +26,7 @@ import { loadTransitionContext } from "@/lib/lifecycle/load-context";
 import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
 import { exportClosedJobToBYOKStorage } from "@/lib/queue/exportClosedJobToBYOKStorage";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
+import { apiError, fromException } from "@/lib/api-errors";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -38,7 +39,7 @@ interface CloseRequestBody {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
   }
   const userId = session.user.id;
   const { id: inspectionId } = await params;
@@ -48,17 +49,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
       body = rawBody ? JSON.parse(rawBody) : {};
     } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body" },
-        { status: 400 },
-      );
+      return apiError(request, { code: "VALIDATION", message: "Invalid JSON body", status: 400 });
     }
     const closeSummary = body.closeSummary?.trim();
     if (!closeSummary) {
-      return NextResponse.json(
-        { error: "closeSummary required" },
-        { status: 400 },
-      );
+      return apiError(request, { code: "VALIDATION", message: "closeSummary required", status: 400 });
     }
 
     // Tenancy gate before the transaction. Admin bypass handled inside.
@@ -185,11 +180,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         completedAt: result.completedAt,
       });
     } catch (err) {
-      console.error("[close] handler failed:", err);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, err, { stage: "close" });
     }
   });
 }

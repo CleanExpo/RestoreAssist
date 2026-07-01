@@ -21,6 +21,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { validateSubmissionPayload } from "@/lib/services/inspection/validate-submission";
+import { apiError, fromException } from "@/lib/api-errors";
 import { InspectionStatus } from "@prisma/client";
 
 // POST - Submit inspection for processing
@@ -31,7 +32,11 @@ export async function POST(
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -91,10 +96,11 @@ export async function POST(
       });
 
       if (!inspection) {
-        return NextResponse.json(
-          { error: "Inspection not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
       }
 
       // ── Service-layer submission gate (Task 8 / Runtime Reconciliation) ───────
@@ -263,13 +269,12 @@ export async function POST(
         );
       }
       if (submitGuard.count === 0) {
-        return NextResponse.json(
-          {
-            error:
-              "Inspection has already been submitted or is not in DRAFT state.",
-          },
-          { status: 409 },
-        );
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "Inspection has already been submitted or is not in DRAFT state.",
+          status: 409,
+        });
       }
 
       // Create audit log — includes supplementary field gaps for follow-up tracking
@@ -368,11 +373,7 @@ export async function POST(
         }),
       });
     } catch (error) {
-      console.error("Error submitting inspection:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "submit" });
     }
   });
 }

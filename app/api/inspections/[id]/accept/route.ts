@@ -25,6 +25,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -33,7 +34,11 @@ interface RouteParams {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id: inspectionId } = await params;
@@ -63,15 +68,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         select: { id: true },
       });
       if (!exists) {
-        return NextResponse.json(
-          { error: "Inspection not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
       }
-      return NextResponse.json(
-        { error: "Inspection already accepted" },
-        { status: 409 },
-      );
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "Inspection already accepted",
+        status: 409,
+      });
     }
 
     // Audit trail — record who accepted, when, and (best-effort) source IP.
@@ -107,10 +114,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       acceptedAt: acceptedAt.toISOString(),
     });
   } catch (error) {
-    console.error("[inspections/accept POST]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "inspection-accept" });
   }
 }
