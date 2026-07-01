@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 import {
   syncNIRToAllConnectedIntegrations,
   syncNIRToSpecificIntegration,
@@ -31,11 +32,19 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
 
     const { reportId, targetIntegrationId } = await request.json();
     if (!reportId)
-      return NextResponse.json({ error: "reportId required" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "reportId required",
+        status: 400,
+      });
 
     const report = await prisma.report.findUnique({
       where: { id: reportId },
@@ -56,9 +65,17 @@ export async function POST(request: NextRequest) {
     });
 
     if (!report)
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     if (report.userId !== session.user.id)
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
 
     const inspection = report.inspection;
     const classification = inspection?.classifications?.[0];
@@ -143,11 +160,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[NIR Sync API]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "nir-sync" });
   }
 }
 

@@ -6,6 +6,7 @@ import { getQueueStats } from "@/lib/jobs/webhook-queue";
 import { getSyncQueueStats } from "@/lib/integrations/sync-queue";
 import { circuitBreakerManager } from "@/lib/integrations/circuit-breaker";
 import { rateLimiterManager } from "@/lib/integrations/rate-limiter";
+import { apiError } from "@/lib/api-errors";
 
 const MAX_INTEGRATIONS_FOR_METRICS = 100;
 const MAX_SYNC_LOGS_FOR_METRICS = 1_000;
@@ -20,7 +21,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);

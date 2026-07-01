@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const VALID_STATES = new Set([
   "queued",
@@ -32,7 +33,11 @@ const VALID_ENTITY_TYPES = new Set([
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   // Subscription gate (rule #8) — sync-status is part of the paid integration
@@ -45,10 +50,11 @@ export async function GET(request: NextRequest) {
   const isPaid =
     user?.lifetimeAccess === true || status === "TRIAL" || status === "ACTIVE";
   if (!isPaid) {
-    return NextResponse.json(
-      { error: "Subscription required" },
-      { status: 402 },
-    );
+    return apiError(request, {
+      code: "PAYMENT_REQUIRED",
+      message: "Subscription required",
+      status: 402,
+    });
   }
 
   const { searchParams } = new URL(request.url);
@@ -56,10 +62,18 @@ export async function GET(request: NextRequest) {
   const entityType = searchParams.get("entityType");
 
   if (state && !VALID_STATES.has(state)) {
-    return NextResponse.json({ error: "Invalid state" }, { status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Invalid state",
+      status: 400,
+    });
   }
   if (entityType && !VALID_ENTITY_TYPES.has(entityType)) {
-    return NextResponse.json({ error: "Invalid entityType" }, { status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Invalid entityType",
+      status: 400,
+    });
   }
 
   try {
@@ -88,11 +102,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: rows });
   } catch (err) {
-    console.error("[xero-sync-status] list failed", err);
-    // Rule #7 — no raw error.message in 500s.
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    // Rule #7 — no raw error.message in 500s (fromException emits a generic
+    // "Internal server error" message; details go to reportError only).
+    return fromException(request, err, { stage: "list" });
   }
 }
