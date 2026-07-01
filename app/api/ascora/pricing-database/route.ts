@@ -17,12 +17,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -80,11 +85,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ items, total, limit });
   } catch (error) {
-    console.error("[ascora/pricing-database GET]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "pricing-list" });
   }
 }
 
@@ -101,26 +102,34 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
-    const body = await request.json();
-    const { partNumber, accepted } = body as {
-      partNumber: string;
-      accepted: boolean;
-    };
+    const parsed = await request.json().catch(() => null);
+    const body = (
+      parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed
+        : {}
+    ) as { partNumber?: string; accepted?: boolean };
+    const { partNumber, accepted } = body;
 
     if (!partNumber) {
-      return NextResponse.json(
-        { error: "partNumber is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "partNumber is required",
+        status: 400,
+      });
     }
     if (typeof accepted !== "boolean") {
-      return NextResponse.json(
-        { error: "accepted must be a boolean" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "accepted must be a boolean",
+        status: 400,
+      });
     }
 
     const existing = await (prisma as any).scopePricingDatabase.findUnique({
@@ -128,10 +137,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: "partNumber not found in pricing database" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "partNumber not found in pricing database",
+        status: 404,
+      });
     }
 
     const newAccepted = existing.acceptedCount + (accepted ? 1 : 0);
@@ -158,10 +168,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, item: updated });
   } catch (error) {
-    console.error("[ascora/pricing-database POST]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "pricing-accept" });
   }
 }

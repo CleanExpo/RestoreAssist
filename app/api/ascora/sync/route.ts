@@ -27,6 +27,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ruleBasedClassify } from "@/lib/ai/auto-classify";
 import { verifyCronAuth } from "@/lib/cron/auth";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // ============================================================
 // Ascora API types — actual camelCase structure from API
@@ -335,7 +336,11 @@ export async function POST(request: NextRequest) {
       // Fallback: accept CRON_SECRET for automated / CLI-triggered syncs
       const cronErr = verifyCronAuth(request);
       if (cronErr) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return apiError(request, {
+          code: "UNAUTHORIZED",
+          message: "Unauthorized",
+          status: 401,
+        });
       }
       // Cron auth passed — verify the migration-created Ascora tables exist.
       const tableCheck = (await prisma.$queryRaw(
@@ -344,6 +349,9 @@ export async function POST(request: NextRequest) {
         WHERE schemaname = 'public' AND tablename = 'AscoraIntegration'`,
       )) as any[];
       if (!tableCheck || tableCheck.length === 0) {
+        // RA-1548 — left raw: 503 has no mapping in the status->code table
+        // (service-unavailable / not-provisioned is neither a client nor an
+        // upstream error), so keep the ad-hoc shape.
         return NextResponse.json(
           {
             error:
@@ -359,13 +367,12 @@ export async function POST(request: NextRequest) {
         select: { userId: true },
       });
       if (!firstIntegration) {
-        return NextResponse.json(
-          {
-            error:
-              "No active Ascora integration found. Connect via Settings first.",
-          },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message:
+            "No active Ascora integration found. Connect via Settings first.",
+          status: 404,
+        });
       }
       userId = firstIntegration.userId;
     }
@@ -383,14 +390,13 @@ export async function POST(request: NextRequest) {
     if (!integration) {
       const envApiKey = process.env.ASCORA_API_KEY;
       if (!envApiKey) {
-        return NextResponse.json(
-          {
-            error:
-              "Ascora not connected. POST /api/ascora/connect first, " +
-              "or set ASCORA_API_KEY env var for system-level sync.",
-          },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message:
+            "Ascora not connected. POST /api/ascora/connect first, " +
+            "or set ASCORA_API_KEY env var for system-level sync.",
+          status: 404,
+        });
       }
       integration = await (prisma as any).ascoraIntegration.create({
         data: {
@@ -405,10 +411,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (!integration.isActive) {
-      return NextResponse.json(
-        { error: "Ascora integration is disabled." },
-        { status: 403 },
-      );
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Ascora integration is disabled.",
+        status: 403,
+      });
     }
 
     // Parse query params
@@ -706,8 +713,8 @@ export async function POST(request: NextRequest) {
       message,
     });
   } catch (error) {
-    // RA-786: do not leak error.message to clients
-    console.error("[ascora/sync POST]", error);
-    return NextResponse.json({ error: "Ascora sync failed" }, { status: 500 });
+    // RA-786: do not leak error.message to clients (fromException emits a
+    // generic message; detail goes to reportError only).
+    return fromException(request, error, { stage: "sync" });
   }
 }
