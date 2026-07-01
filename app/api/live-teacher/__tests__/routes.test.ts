@@ -137,7 +137,7 @@ describe("POST /api/live-teacher/session", () => {
     const res = await POST(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error.message).toBe("Unauthorized");
   });
 
   it("2. creates session row and returns sessionId on success", async () => {
@@ -181,7 +181,7 @@ describe("POST /api/live-teacher/turn", () => {
     const res = await POST(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error.message).toBe("Unauthorized");
   });
 
   it("4. persists user + assistant utterance and streams SSE", async () => {
@@ -325,6 +325,6 @@ describe("GET /api/live-teacher/audit/[sessionId]", () => {
     });
     expect(res.status).toBe(403);
     const json = await res.json();
-    expect(json.error).toBe("Forbidden");
+    expect(json.error.message).toBe("Forbidden");
   });
 });
