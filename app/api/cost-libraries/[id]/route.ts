@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -12,7 +13,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -37,19 +42,16 @@ export async function GET(
     });
 
     if (!library) {
-      return NextResponse.json(
-        { error: "Cost library not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Cost library not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json(library);
   } catch (error) {
-    console.error("Error fetching cost library:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "get" });
   }
 }
 
@@ -61,21 +63,39 @@ export async function PUT(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
-    const body = await request.json();
+    let body: any;
+    try {
+      const parsed = await request.json();
+      body =
+        parsed && typeof parsed === "object" && !Array.isArray(parsed)
+          ? parsed
+          : {};
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
+    }
     const name = sanitizeString(body.name, 200);
     const region = sanitizeString(body.region, 200);
     const description = sanitizeString(body.description, 1000);
     const isDefault = body.isDefault;
 
     if (!name || !region) {
-      return NextResponse.json(
-        { error: "Name and region are required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Name and region are required",
+        status: 400,
+      });
     }
 
     // Check if library exists and belongs to user
@@ -87,10 +107,11 @@ export async function PUT(
     });
 
     if (!existingLibrary) {
-      return NextResponse.json(
-        { error: "Cost library not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Cost library not found",
+        status: 404,
+      });
     }
 
     // If setting as default, unset other defaults
@@ -131,11 +152,7 @@ export async function PUT(
 
     return NextResponse.json(library);
   } catch (error) {
-    console.error("Error updating cost library:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "update" });
   }
 }
 
@@ -147,7 +164,11 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -161,10 +182,11 @@ export async function DELETE(
     });
 
     if (!existingLibrary) {
-      return NextResponse.json(
-        { error: "Cost library not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Cost library not found",
+        status: 404,
+      });
     }
 
     await prisma.costLibrary.delete({
@@ -173,10 +195,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting cost library:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "delete" });
   }
 }

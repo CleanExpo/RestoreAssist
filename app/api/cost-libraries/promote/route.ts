@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { z } from "zod";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * POST /api/cost-libraries/promote
@@ -29,7 +30,11 @@ const promoteSchema = z.object({
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -40,13 +45,16 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const parsed = promoteSchema.safeParse(body);
       if (!parsed.success) {
+        // RA-1548 — left raw: rich 422 with `issues` array sibling (zod
+        // error details the client renders per-field); envelope has no slot.
         return NextResponse.json(
           { error: "Validation failed", issues: parsed.error.issues },
           { status: 422 },
@@ -127,11 +135,7 @@ export async function POST(request: NextRequest) {
         created: !existing,
       });
     } catch (error) {
-      console.error("Error promoting line item to library:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "promote" });
     }
   });
 }
