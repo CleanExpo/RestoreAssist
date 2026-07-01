@@ -7,6 +7,7 @@ import {
   assertInspectionTenancy,
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
+import { apiError, fromException } from "@/lib/api-errors";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -276,7 +277,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // RA-1711 batch 5 — adopt shared tenancy helper for read.
@@ -469,19 +474,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json({ inspection });
   } catch (error) {
-    console.error("Error fetching inspection:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "inspection:get" });
   }
 }
 
@@ -490,7 +492,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await context.params;
@@ -521,10 +527,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (Object.keys(data).length === 0) {
-      return NextResponse.json(
-        { error: "No updatable fields provided" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "No updatable fields provided",
+        status: 400,
+      });
     }
 
     await prisma.inspection.update({
@@ -534,11 +541,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error patching inspection:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "inspection:patch" });
   }
 }
 
@@ -547,7 +550,11 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await context.params;
@@ -558,10 +565,11 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     await prisma.inspection.delete({
@@ -570,10 +578,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting inspection:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "inspection:delete" });
   }
 }

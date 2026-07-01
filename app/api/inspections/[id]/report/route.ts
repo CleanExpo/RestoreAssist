@@ -7,6 +7,7 @@ import {
   type NirReportInspectionData,
 } from "@/lib/nir-report-generation";
 import { generateVerificationChecklist } from "@/lib/nir-verification-checklist";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Dynamic import for ExcelJS to handle cases where it's not installed
 let ExcelJS: typeof import("exceljs") | null = null;
@@ -31,7 +32,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -139,17 +144,19 @@ export async function GET(
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     if (inspection.status !== "COMPLETED") {
-      return NextResponse.json(
-        { error: "Inspection must be completed before generating report" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Inspection must be completed before generating report",
+        status: 400,
+      });
     }
 
     // Shape the Prisma result into the typed NirReportInspectionData interface.
@@ -166,11 +173,7 @@ export async function GET(
         return generateJSONReport(data);
     }
   } catch (error) {
-    console.error("Error generating report:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "inspection:report" });
   }
 }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -12,7 +13,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await context.params;
@@ -29,10 +34,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     // Build dynamic where clause
@@ -69,10 +75,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ logs, total });
   } catch (error) {
-    console.error("Error fetching audit logs:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "inspection:audit" });
   }
 }
