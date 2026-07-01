@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recordMutationAudit } from "@/lib/audit-log";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * GET /api/estimates/[id] — fetch a single estimate with full line items
@@ -18,7 +19,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(_request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -34,16 +39,16 @@ export async function GET(
 
     if (!estimate || estimate.userId !== session.user.id) {
       // Return 404 (not 403) so we don't leak existence
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return apiError(_request, {
+        code: "NOT_FOUND",
+        message: "Not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json({ estimate });
   } catch (error) {
-    console.error("[estimates/[id] GET]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(_request, error, { stage: "get" });
   }
 }
 
@@ -61,7 +66,11 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -72,7 +81,11 @@ export async function DELETE(
     });
 
     if (!estimate || estimate.userId !== session.user.id) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Not found",
+        status: 404,
+      });
     }
 
     // Guard rail: block deletion of locked / approved estimates. If the
@@ -80,13 +93,12 @@ export async function DELETE(
     // (auditable transition). This prevents silent removal of estimates
     // that may already be referenced by an invoice.
     if (estimate.status === "LOCKED" || estimate.status === "APPROVED") {
-      return NextResponse.json(
-        {
-          error:
-            "Cannot delete a LOCKED or APPROVED estimate. Change its status first via the status workflow.",
-        },
-        { status: 409 },
-      );
+      return apiError(request, {
+        code: "CONFLICT",
+        message:
+          "Cannot delete a LOCKED or APPROVED estimate. Change its status first via the status workflow.",
+        status: 409,
+      });
     }
 
     await prisma.estimate.delete({ where: { id, userId: session.user.id } });
@@ -103,10 +115,6 @@ export async function DELETE(
 
     return NextResponse.json({ deleted: true, id });
   } catch (error) {
-    console.error("[estimates/[id] DELETE]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "delete" });
   }
 }
