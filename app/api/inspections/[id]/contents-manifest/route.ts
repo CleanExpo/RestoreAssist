@@ -18,6 +18,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { workspaceRouteAiRequest } from "@/lib/ai/workspace-byok-dispatch";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -56,7 +57,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -67,10 +72,11 @@ export async function GET(
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     if (!inspection.contentsManifestDraft) {
@@ -82,11 +88,7 @@ export async function GET(
     ) as ContentsManifestDraft;
     return NextResponse.json({ data: draft });
   } catch (error) {
-    console.error("Error fetching contents manifest:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "contents-manifest:get" });
   }
 }
 
@@ -98,7 +100,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -125,32 +131,31 @@ export async function POST(
       });
 
       if (!inspection) {
-        return NextResponse.json(
-          { error: "Inspection not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
       }
 
       if (!inspection.workspaceId) {
-        return NextResponse.json(
-          {
-            error:
-              "This inspection is not linked to a workspace. Configure AI Providers in Workspace Settings to use the contents manifest feature.",
-          },
-          { status: 422 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "This inspection is not linked to a workspace. Configure AI Providers in Workspace Settings to use the contents manifest feature.",
+          status: 422,
+        });
       }
 
       const contentItems = inspection.evidenceItems.filter((e) => e.fileUrl);
 
       if (contentItems.length === 0) {
-        return NextResponse.json(
-          {
-            error:
-              "No contents evidence photos found. Capture AFFECTED_CONTENTS photos in the evidence workflow first.",
-          },
-          { status: 422 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "No contents evidence photos found. Capture AFFECTED_CONTENTS photos in the evidence workflow first.",
+          status: 422,
+        });
       }
 
       // Build image list for AI context
@@ -217,14 +222,11 @@ Rules:
         const parsed = JSON.parse(result.text);
         items = Array.isArray(parsed.items) ? parsed.items : [];
       } catch {
-        console.error(
-          "[contents-manifest] Failed to parse AI JSON:",
-          result.text.substring(0, 200),
-        );
-        return NextResponse.json(
-          { error: "AI returned an unexpected format. Please try again." },
-          { status: 502 },
-        );
+        return apiError(request, {
+          code: "UPSTREAM_FAILED",
+          message: "AI returned an unexpected format. Please try again.",
+          status: 502,
+        });
       }
 
       const draft: ContentsManifestDraft = {
@@ -248,22 +250,20 @@ Rules:
 
       return NextResponse.json({ data: draft }, { status: 201 });
     } catch (error: any) {
-      console.error("Error generating contents manifest:", error);
-
       if (
         error.message?.includes("API key") ||
         error.message?.includes("Integrations")
       ) {
-        return NextResponse.json(
-          { error: "AI integration not configured. Check API key settings." },
-          { status: 422 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "AI integration not configured. Check API key settings.",
+          status: 422,
+        });
       }
 
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, {
+        stage: "contents-manifest:generate",
+      });
     }
   });
 }

@@ -8,7 +8,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
-import { fromException } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function DELETE(
   _req: NextRequest,
@@ -17,7 +17,11 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(_req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id, itemId } = await params;
@@ -38,7 +42,11 @@ export async function DELETE(
     });
 
     if (!item) {
-      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+      return apiError(_req, {
+        code: "NOT_FOUND",
+        message: "Item not found",
+        status: 404,
+      });
     }
 
     await prisma.contentsPackOutItem.delete({
