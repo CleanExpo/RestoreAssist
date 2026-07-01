@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { uploadToCloudinary } from "@/lib/cloudinary";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // POST - Upload floor plan image
 export async function POST(
@@ -13,7 +14,11 @@ export async function POST(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -27,17 +32,22 @@ export async function POST(
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
     if (!file) {
-      return NextResponse.json({ error: "File is required" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "File is required",
+        status: 400,
+      });
     }
 
     // Read bytes first so magic-byte check and upload share the same buffer.
@@ -67,10 +77,11 @@ export async function POST(
       buffer[10] === 0x42 &&
       buffer[11] === 0x50;
     if (!isJpeg && !isPng && !isGif && !isWebp) {
-      return NextResponse.json(
-        { error: "Invalid file type. Only images are allowed." },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid file type. Only images are allowed.",
+        status: 400,
+      });
     }
 
     const uploadResult = await uploadToCloudinary(buffer, {
@@ -79,10 +90,11 @@ export async function POST(
     });
 
     if (!uploadResult.url) {
-      return NextResponse.json(
-        { error: "Failed to upload floor plan" },
-        { status: 500 },
-      );
+      return apiError(request, {
+        code: "INTERNAL",
+        message: "Failed to upload floor plan",
+        status: 500,
+      });
     }
 
     // Update inspection with floor plan URL
@@ -109,11 +121,7 @@ export async function POST(
 
     return NextResponse.json({ imageUrl: uploadResult.url }, { status: 200 });
   } catch (error) {
-    console.error("Error uploading floor plan:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "upload" });
   }
 }
 
@@ -126,7 +134,11 @@ export async function PUT(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -140,20 +152,22 @@ export async function PUT(
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     const body = await request.json();
     const { imageUrl } = body;
 
     if (!imageUrl) {
-      return NextResponse.json(
-        { error: "Image URL is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Image URL is required",
+        status: 400,
+      });
     }
 
     // RA-1339: reject non-https or non-Cloudinary URLs. Previously any
@@ -165,13 +179,18 @@ export async function PUT(
         parsed.protocol !== "https:" ||
         parsed.hostname !== "res.cloudinary.com"
       ) {
-        return NextResponse.json(
-          { error: "Invalid image URL" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid image URL",
+          status: 400,
+        });
       }
     } catch {
-      return NextResponse.json({ error: "Invalid image URL" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid image URL",
+        status: 400,
+      });
     }
 
     // Update inspection with floor plan URL
@@ -184,10 +203,6 @@ export async function PUT(
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error("Error updating floor plan:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "update" });
   }
 }
