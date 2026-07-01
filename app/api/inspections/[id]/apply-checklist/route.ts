@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { IICRC_CHECKLISTS } from "@/lib/iicrc-checklists";
 import { withIdempotency } from "@/lib/idempotency";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // POST — apply an IICRC checklist template to an inspection's scope items
 export async function POST(
@@ -14,7 +15,11 @@ export async function POST(
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -28,36 +33,40 @@ export async function POST(
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { checklistId } = body;
 
       if (!checklistId) {
-        return NextResponse.json(
-          { error: "checklistId is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "checklistId is required",
+          status: 400,
+        });
       }
 
       // RA-1711 batch 4 — adopt shared tenancy helper.
       const tenancy = await assertInspectionTenancy(session, id);
       if (!tenancy.ok) {
-        return NextResponse.json(
-          { error: tenancy.reason },
-          { status: tenancy.status },
-        );
+        return apiError(request, {
+          code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+          message: tenancy.reason,
+          status: tenancy.status,
+        });
       }
 
       const template = IICRC_CHECKLISTS.find((c) => c.id === checklistId);
 
       if (!template) {
-        return NextResponse.json(
-          { error: "Checklist not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Checklist not found",
+          status: 404,
+        });
       }
 
       const existing = await prisma.scopeItem.findMany({
@@ -104,11 +113,9 @@ export async function POST(
         items: created,
       });
     } catch (error) {
-      console.error("Error applying checklist:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, {
+        stage: "inspection-apply-checklist",
+      });
     }
   });
 }
