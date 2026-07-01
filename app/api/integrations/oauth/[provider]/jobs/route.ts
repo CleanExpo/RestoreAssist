@@ -19,6 +19,7 @@ import {
   createSubscriptionRequiredResponse,
 } from "@/lib/integrations/subscription-guard";
 import { INTEGRATION_IMPORT_FAILURE_MESSAGE } from "@/lib/integrations/sync-error";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -27,7 +28,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Check subscription status - external integrations require paid subscription
@@ -44,10 +49,11 @@ export async function GET(
 
     // Validate provider
     if (!PROVIDER_CONFIG[provider]) {
-      return NextResponse.json(
-        { error: `Invalid provider: ${providerParam}` },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Invalid provider: ${providerParam}`,
+        status: 400,
+      });
     }
 
     // Find integration
@@ -59,10 +65,11 @@ export async function GET(
     });
 
     if (!integration) {
-      return NextResponse.json(
-        { error: "Integration not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Integration not found",
+        status: 404,
+      });
     }
 
     // Get synced jobs
@@ -108,11 +115,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Fetch jobs error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch jobs" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "integration-jobs-list" });
   }
 }
 
@@ -123,7 +126,11 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Check subscription status - external integrations require paid subscription
@@ -140,10 +147,11 @@ export async function POST(
 
     // Validate provider
     if (!PROVIDER_CONFIG[provider]) {
-      return NextResponse.json(
-        { error: `Invalid provider: ${providerParam}` },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Invalid provider: ${providerParam}`,
+        status: 400,
+      });
     }
 
     // Find integration
@@ -155,27 +163,30 @@ export async function POST(
     });
 
     if (!integration) {
-      return NextResponse.json(
-        { error: "Integration not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Integration not found",
+        status: 404,
+      });
     }
 
     const body = await request.json();
     const { jobIds } = body;
 
     if (!jobIds || !Array.isArray(jobIds) || jobIds.length === 0) {
-      return NextResponse.json(
-        { error: "jobIds array is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "jobIds array is required",
+        status: 400,
+      });
     }
 
     if (jobIds.length > 100) {
-      return NextResponse.json(
-        { error: "jobIds is limited to 100 entries per request" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "jobIds is limited to 100 entries per request",
+        status: 400,
+      });
     }
 
     // Get external jobs
@@ -244,11 +255,7 @@ export async function POST(
       message: `Imported ${imported.length} jobs as reports from ${PROVIDER_CONFIG[provider].name}`,
     });
   } catch (error) {
-    console.error("Import jobs error:", error);
-    return NextResponse.json(
-      { error: "Failed to import jobs" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "integration-jobs-import" });
   }
 }
 
