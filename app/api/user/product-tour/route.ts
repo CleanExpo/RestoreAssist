@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * RA-1238: In-app product tour state.
@@ -38,14 +39,22 @@ export async function GET(
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const body = await request.json().catch(() => ({}));
   const action = body?.action;
 
   if (action !== "dismiss" && action !== "complete") {
-    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Unknown action",
+      status: 400,
+    });
   }
 
   try {
@@ -55,10 +64,6 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("[product-tour POST] error", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "product-tour:post" });
   }
 }

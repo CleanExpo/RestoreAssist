@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET - Check Quick Fill credits
 export async function GET(request: NextRequest) {
@@ -10,7 +11,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -26,7 +31,11 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const isInvitedTeamMember =
@@ -50,11 +59,7 @@ export async function GET(request: NextRequest) {
       canUse: hasUnlimited || (creditsRemaining ?? 0) > 0,
     });
   } catch (error) {
-    console.error("Error checking Quick Fill credits:", error);
-    return NextResponse.json(
-      { error: "Failed to check credits" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "quick-fill:get" });
   }
 }
 
@@ -63,7 +68,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -84,7 +93,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       const isInvitedTeamMember =
@@ -107,6 +120,8 @@ export async function POST(request: NextRequest) {
 
       const creditsRemaining = user.quickFillCreditsRemaining ?? 0;
       if (creditsRemaining <= 0) {
+        // RA-1548 — left raw: rich shape with creditsRemaining/requiresUpgrade
+        // siblings the client reads to drive the upgrade CTA.
         return NextResponse.json(
           {
             error:
@@ -141,11 +156,7 @@ export async function POST(request: NextRequest) {
         totalUsed: updated.totalQuickFillUsed ?? 0,
       });
     } catch (error) {
-      console.error("Error deducting Quick Fill credit:", error);
-      return NextResponse.json(
-        { error: "Failed to deduct credit" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "quick-fill:post" });
     }
   });
 }

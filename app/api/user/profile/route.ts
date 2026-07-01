@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 import { stripe } from "@/lib/stripe";
 import { getUserReportLimits } from "@/lib/report-limits";
 import {
@@ -25,7 +26,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -250,7 +255,7 @@ export async function GET(request: NextRequest) {
         // For team members, get limits from owner's account
         const targetUserId = ownerId || user.id;
         reportLimits = await getUserReportLimits(targetUserId);
-      } catch (error: any) {
+      } catch {
         // Error fetching report limits
       }
     }
@@ -306,11 +311,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error fetching user profile:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "profile:get" });
   }
 }
 
@@ -322,7 +323,11 @@ export async function PUT(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Get user's role to check permissions
@@ -332,12 +337,26 @@ export async function PUT(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     const isAdmin = user.role === "ADMIN";
 
-    const body = await request.json();
+    let body: any;
+    try {
+      const parsed = await request.json();
+      body = parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
+    }
     const name = sanitizeString(body.name, 200);
     const email = body.email
       ? sanitizeString(body.email, 320).toLowerCase()
@@ -349,13 +368,12 @@ export async function PUT(request: NextRequest) {
     // Validate ABN using ATO weighted-sum checksum — invalid ABNs on tax invoices
     // require recipients to withhold 47% PAYG (GST Act compliance).
     if (businessABNRaw && !isValidABN(businessABNRaw)) {
-      return NextResponse.json(
-        {
-          error:
-            "Invalid ABN — please enter a valid 11-digit Australian Business Number",
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "Invalid ABN — please enter a valid 11-digit Australian Business Number",
+        status: 400,
+      });
     }
     const businessABN = businessABNRaw || "";
     const businessPhone = sanitizeString(body.businessPhone, 50);
@@ -378,10 +396,11 @@ export async function PUT(request: NextRequest) {
       });
 
       if (existingUser) {
-        return NextResponse.json(
-          { error: "Email already in use" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Email already in use",
+          status: 400,
+        });
       }
       updateData.email = email;
     }
@@ -489,10 +508,6 @@ export async function PUT(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error updating user profile:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "profile:put" });
   }
 }

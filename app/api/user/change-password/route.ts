@@ -4,11 +4,16 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorised",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -20,18 +25,27 @@ export async function POST(request: NextRequest) {
     try {
       parsed = rawBody ? JSON.parse(rawBody) : {};
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
     }
     const { currentPassword, newPassword } = parsed;
 
     if (!currentPassword || !newPassword) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Missing fields",
+        status: 400,
+      });
     }
     if (newPassword.length < 8) {
-      return NextResponse.json(
-        { error: "New password must be at least 8 characters" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "New password must be at least 8 characters",
+        status: 400,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -40,18 +54,20 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user?.password) {
-      return NextResponse.json(
-        { error: "Cannot change password for OAuth accounts" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Cannot change password for OAuth accounts",
+        status: 400,
+      });
     }
 
     const valid = await bcrypt.compare(currentPassword, user.password);
     if (!valid) {
-      return NextResponse.json(
-        { error: "Current password is incorrect" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Current password is incorrect",
+        status: 400,
+      });
     }
 
     const hashed = await bcrypt.hash(newPassword, 12);
