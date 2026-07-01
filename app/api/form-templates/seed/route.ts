@@ -1,18 +1,23 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_FORM_TEMPLATES } from "@/lib/form-templates-defaults";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * POST - Create default form templates for the current user.
  * Idempotent: skips templates that already exist by name for this user.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const userId = session.user.id;
@@ -55,10 +60,6 @@ export async function POST() {
       total: DEFAULT_FORM_TEMPLATES.length,
     });
   } catch (error) {
-    console.error("Error seeding form templates:", error);
-    return NextResponse.json(
-      { error: "Failed to create templates" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "seed" });
   }
 }
