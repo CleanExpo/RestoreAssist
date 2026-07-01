@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * GET / PATCH / DELETE /api/scopes/[id]
@@ -41,22 +42,26 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(_request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
     const { id } = await params;
 
     const result = await loadScopeForUser(id, session.user.id);
     if (result.kind !== "ok") {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return apiError(_request, {
+        code: "NOT_FOUND",
+        message: "Not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json({ scope: result.scope });
   } catch (error) {
-    console.error("[scopes/[id] GET]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(_request, error, { stage: "get" });
   }
 }
 
@@ -67,16 +72,28 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
     const { id } = await params;
 
     const result = await loadScopeForUser(id, session.user.id);
     if (result.kind !== "ok") {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Not found",
+        status: 404,
+      });
     }
 
-    const body = await request.json().catch(() => ({}));
+    const rawPatch = await request.json().catch(() => ({}));
+    const body: Record<string, unknown> =
+      rawPatch && typeof rawPatch === "object" && !Array.isArray(rawPatch)
+        ? rawPatch
+        : {};
 
     // Whitelist editable fields — never let client patch reportId or id.
     const editable = [
@@ -97,10 +114,11 @@ export async function PATCH(
     }
 
     if (Object.keys(data).length === 0) {
-      return NextResponse.json(
-        { error: "No editable fields provided" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "No editable fields provided",
+        status: 400,
+      });
     }
 
     const updated = await prisma.scope.update({
@@ -110,11 +128,7 @@ export async function PATCH(
 
     return NextResponse.json({ scope: updated });
   } catch (error) {
-    console.error("[scopes/[id] PATCH]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "patch" });
   }
 }
 
@@ -125,13 +139,21 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(_request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
     const { id } = await params;
 
     const result = await loadScopeForUser(id, session.user.id);
     if (result.kind !== "ok") {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return apiError(_request, {
+        code: "NOT_FOUND",
+        message: "Not found",
+        status: 404,
+      });
     }
 
     await prisma.scope.delete({
@@ -139,10 +161,6 @@ export async function DELETE(
     });
     return NextResponse.json({ deleted: true, id });
   } catch (error) {
-    console.error("[scopes/[id] DELETE]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(_request, error, { stage: "delete" });
   }
 }
