@@ -18,6 +18,7 @@ import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { embedText, buildJobEmbeddingText } from "@/lib/ai/embeddings";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError } from "@/lib/api-errors";
 
 const VECTORISE_JOB_FAILURE_ERROR = "Embedding failed";
 
@@ -66,10 +67,11 @@ export async function POST(request: NextRequest) {
     const tenantId = user.id;
 
     if (provider === "openai" && !process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { error: "provider=openai requires OPENAI_API_KEY to be set" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "provider=openai requires OPENAI_API_KEY to be set",
+        status: 400,
+      });
     }
 
     const [{ count: totalCount }] = await prisma.$queryRaw<

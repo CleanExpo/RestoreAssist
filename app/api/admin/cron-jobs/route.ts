@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-errors";
 
 const CRON_JOBS = [
   {
@@ -60,7 +61,11 @@ export async function POST(request: NextRequest) {
   const { jobId } = await request.json();
   const job = CRON_JOBS.find((j) => j.id === jobId);
   if (!job)
-    return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "Job not found",
+      status: 404,
+    });
 
   try {
     const res = await fetch(`${process.env.NEXTAUTH_URL}${job.path}`, {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { apiError, fromException } from "@/lib/api-errors";
 import { SignJWT, importPKCS8 } from "jose";
 
 const ASC_BASE_URL = "https://api.appstoreconnect.apple.com/v1";
@@ -106,11 +107,7 @@ export async function GET(_req: NextRequest) {
 
     return NextResponse.json({ data: apps });
   } catch (error) {
-    console.error("App Store Connect API error (GET):", error);
-    return NextResponse.json(
-      { error: "Failed to fetch App Store Connect app details" },
-      { status: 500 },
-    );
+    return fromException(_req, error, { stage: "app-store-get" });
   }
 }
 
@@ -131,19 +128,21 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json(
-      { error: "Invalid request body" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Invalid request body",
+      status: 400,
+    });
   }
 
   const { action, appId } = body;
 
   if (!action) {
-    return NextResponse.json(
-      { error: "Missing required field: action" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Missing required field: action",
+      status: 400,
+    });
   }
 
   try {
@@ -176,10 +175,11 @@ export async function POST(req: NextRequest) {
     if (action === "submit_review") {
       const resolvedAppId = appId;
       if (!resolvedAppId) {
-        return NextResponse.json(
-          { error: "appId is required for submit_review action" },
-          { status: 400 },
-        );
+        return apiError(req, {
+          code: "VALIDATION",
+          message: "appId is required for submit_review action",
+          status: 400,
+        });
       }
 
       // Fetch the latest app store version for the app
@@ -204,13 +204,12 @@ export async function POST(req: NextRequest) {
       const latestVersion = versionsData.data?.[0];
 
       if (!latestVersion) {
-        return NextResponse.json(
-          {
-            error:
-              "No version in PREPARE_FOR_SUBMISSION state found. Ensure the app version is ready for review.",
-          },
-          { status: 404 },
-        );
+        return apiError(req, {
+          code: "NOT_FOUND",
+          message:
+            "No version in PREPARE_FOR_SUBMISSION state found. Ensure the app version is ready for review.",
+          status: 404,
+        });
       }
 
       const versionId = latestVersion.id as string;
@@ -257,15 +256,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json(
-      { error: `Unknown action: ${action}` },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: `Unknown action: ${action}`,
+      status: 400,
+    });
   } catch (error) {
-    console.error("App Store Connect API error (POST):", error);
-    return NextResponse.json(
-      { error: "Failed to process App Store Connect request" },
-      { status: 500 },
-    );
+    return fromException(req, error, { stage: "app-store-post" });
   }
 }
