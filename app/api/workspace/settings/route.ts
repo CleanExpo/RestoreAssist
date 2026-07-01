@@ -14,6 +14,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkPaymentGate } from "@/lib/workspace/payment-gate";
 import { hasPermission } from "@/lib/workspace/permissions";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Whitelisted fields. Add new boolean flags here as they ship.
 const SETTING_KEYS = ["autoFetchFloorPlanOnInspection"] as const;
@@ -34,7 +35,11 @@ export async function GET(_req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(_req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const gate = await checkPaymentGate(session.user.id);
@@ -57,11 +62,7 @@ export async function GET(_req: NextRequest) {
       settings,
     });
   } catch (error) {
-    console.error("[GET /api/workspace/settings]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(_req, error, { stage: "settings-get" });
   }
 }
 
@@ -69,7 +70,11 @@ export async function PATCH(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
     const userId = session.user.id;
 
@@ -83,13 +88,12 @@ export async function PATCH(req: NextRequest) {
       "workspace.settings",
     );
     if (!allowed) {
-      return NextResponse.json(
-        {
-          error:
-            "Forbidden — only workspace owners and managers may change workspace settings",
-        },
-        { status: 403 },
-      );
+      return apiError(req, {
+        code: "FORBIDDEN",
+        message:
+          "Forbidden — only workspace owners and managers may change workspace settings",
+        status: 403,
+      });
     }
 
     const body = (await req.json().catch(() => null)) as Record<
@@ -97,10 +101,11 @@ export async function PATCH(req: NextRequest) {
       unknown
     > | null;
     if (!body || typeof body !== "object") {
-      return NextResponse.json(
-        { error: "Invalid request body" },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "Invalid request body",
+        status: 400,
+      });
     }
 
     const updates: Partial<Record<SettingKey, boolean>> = {};
@@ -112,19 +117,21 @@ export async function PATCH(req: NextRequest) {
         );
       }
       if (typeof value !== "boolean") {
-        return NextResponse.json(
-          { error: `Setting ${key} must be a boolean` },
-          { status: 400 },
-        );
+        return apiError(req, {
+          code: "VALIDATION",
+          message: `Setting ${key} must be a boolean`,
+          status: 400,
+        });
       }
       updates[key] = value;
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json(
-        { error: "No settings to update" },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "No settings to update",
+        status: 400,
+      });
     }
 
     const row = await prisma.workspace.update({
@@ -139,10 +146,6 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ workspaceId: workspace.id, settings });
   } catch (error) {
-    console.error("[PATCH /api/workspace/settings]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(req, error, { stage: "settings-patch" });
   }
 }

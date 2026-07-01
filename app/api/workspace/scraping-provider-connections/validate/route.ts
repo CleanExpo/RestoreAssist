@@ -16,6 +16,7 @@ import {
 } from "@/lib/workspace/scraping-provider-connections";
 import { checkPaymentGate } from "@/lib/workspace/payment-gate";
 import { hasPermission } from "@/lib/workspace/permissions";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const VALID_PROVIDERS: ScrapingProvider[] = [
   "APIFY",
@@ -36,7 +37,11 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const gate = await checkPaymentGate(session.user.id);
@@ -49,13 +54,12 @@ export async function POST(req: NextRequest) {
       "workspace.settings",
     );
     if (!allowed) {
-      return NextResponse.json(
-        {
-          error:
-            "Forbidden — only workspace owners and managers may configure scraping providers",
-        },
-        { status: 403 },
-      );
+      return apiError(req, {
+        code: "FORBIDDEN",
+        message:
+          "Forbidden — only workspace owners and managers may configure scraping providers",
+        status: 403,
+      });
     }
 
     const body = (await req.json()) as { provider?: unknown };
@@ -73,13 +77,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ result });
   } catch (error) {
-    console.error(
-      "[POST /api/workspace/scraping-provider-connections/validate]",
-      error,
-    );
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(req, error, { stage: "validate" });
   }
 }
