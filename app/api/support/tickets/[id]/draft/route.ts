@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { withIdempotency } from "@/lib/idempotency";
 import { draftSupportTicketReply } from "@/lib/services/ai/draft-support-ticket";
+import { apiError, fromException } from "@/lib/api-errors";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -38,19 +39,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
 
       if (!ticket) {
-        return NextResponse.json(
-          { error: "Ticket not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Ticket not found",
+          status: 404,
+        });
       }
 
       const apiKey = process.env.ANTHROPIC_API_KEY;
       if (!apiKey) {
-        console.error("[SupportTicketDraft]", "ANTHROPIC_API_KEY not set");
-        return NextResponse.json(
-          { error: "AI service not configured" },
-          { status: 500 },
-        );
+        return apiError(request, {
+          code: "INTERNAL",
+          message: "AI service not configured",
+          status: 500,
+          context: { reason: "ANTHROPIC_API_KEY not set" },
+        });
       }
 
       const result = await draftSupportTicketReply({
@@ -64,6 +67,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
 
       if (!result.ok) {
+        // RA-1548 — left raw: dynamic status (429/503/502/500) with a
+        // Retry-After header apiError() cannot emit; the `{error: result.reason}`
+        // shape (e.g. "API_ERROR") is pinned by __tests__.
         console.error("[SupportTicketDraft]", {
           ticketId: id,
           reason: result.reason,
@@ -83,10 +89,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           result.retryAfterMs != null
             ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
             : {};
-        return NextResponse.json(
-          { error: result.reason },
-          { status, headers },
-        );
+        return NextResponse.json({ error: result.reason }, { status, headers });
       }
 
       const responseDraft = result.data;
@@ -98,11 +101,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       return NextResponse.json({ responseDraft });
     } catch (error) {
-      console.error("[support/tickets/[id]/draft POST]", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "draft" });
     }
   });
 }
