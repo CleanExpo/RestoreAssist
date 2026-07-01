@@ -70,7 +70,7 @@ export async function GET(
 
   const { reportId, type } = await params;
 
-  if (!(type in GENERATORS)) {
+  if (!Object.prototype.hasOwnProperty.call(GENERATORS, type)) {
     return apiError(request, {
       code: "VALIDATION",
       message: `type must be one of ${Object.keys(GENERATORS).join(", ")}`,

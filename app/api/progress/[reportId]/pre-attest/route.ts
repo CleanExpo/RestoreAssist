@@ -79,7 +79,23 @@ export async function POST(
     consentAcknowledged?: unknown;
   };
   try {
-    body = await request.json();
+    const parsedBody: unknown = await request.json();
+    if (
+      typeof parsedBody !== "object" ||
+      parsedBody === null ||
+      Array.isArray(parsedBody)
+    ) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "JSON body must be an object",
+        status: 400,
+      });
+    }
+    body = parsedBody as {
+      attestationType?: string;
+      contentSummary?: string;
+      consentAcknowledged?: unknown;
+    };
   } catch {
     return apiError(request, {
       code: "VALIDATION",

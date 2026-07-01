@@ -58,7 +58,23 @@ export async function POST(
     try {
       let body: { key?: string; expectedVersion?: number; note?: string };
       try {
-        body = rawBody ? JSON.parse(rawBody) : {};
+        const parsedBody: unknown = rawBody ? JSON.parse(rawBody) : {};
+        if (
+          typeof parsedBody !== "object" ||
+          parsedBody === null ||
+          Array.isArray(parsedBody)
+        ) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "JSON body must be an object",
+            status: 400,
+          });
+        }
+        body = parsedBody as {
+          key?: string;
+          expectedVersion?: number;
+          note?: string;
+        };
       } catch {
         return apiError(request, {
           code: "VALIDATION",
