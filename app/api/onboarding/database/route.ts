@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { validateCsrf } from "@/lib/csrf";
 import { encrypt } from "@/lib/credential-vault";
 import { validateConnectionString } from "@/lib/tenant/onboarding-helpers";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * POST /api/onboarding/database — cutover onboarding, gate G1.
@@ -24,7 +25,11 @@ export async function POST(request: NextRequest) {
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   // Only the workspace owner may connect the database (G1 admin gate).
@@ -33,24 +38,37 @@ export async function POST(request: NextRequest) {
     select: { id: true },
   });
   if (!workspace) {
-    return NextResponse.json(
-      { error: "No workspace found for this account" },
-      { status: 404 },
-    );
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "No workspace found for this account",
+      status: 404,
+    });
   }
 
   let body: Record<string, unknown>;
   try {
-    body = await request.json();
+    const parsed = await request.json();
+    body =
+      parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : {};
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Invalid request body",
+      status: 400,
+    });
   }
 
   const connectionString =
     typeof body.connectionString === "string" ? body.connectionString : "";
   const check = validateConnectionString(connectionString);
   if (!check.ok) {
-    return NextResponse.json({ error: check.error }, { status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: check.error ?? "Invalid connection string",
+      status: 400,
+    });
   }
 
   try {
@@ -66,10 +84,6 @@ export async function POST(request: NextRequest) {
       { status: 202 },
     );
   } catch (err) {
-    console.error(
-      "[onboarding.database] store failed:",
-      err instanceof Error ? err.message : String(err),
-    );
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return fromException(request, err, { stage: "database" });
   }
 }
