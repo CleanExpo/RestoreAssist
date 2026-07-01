@@ -53,8 +53,9 @@ export async function POST(request: NextRequest) {
       parsed && typeof parsed === "object" && !Array.isArray(parsed)
         ? parsed
         : {}
-    ) as { apiKey?: string; baseUrl?: string };
-    const { apiKey, baseUrl } = body;
+    ) as { apiKey?: unknown; baseUrl?: unknown };
+    const apiKey = typeof body.apiKey === "string" ? body.apiKey : undefined;
+    const baseUrl = typeof body.baseUrl === "string" ? body.baseUrl : undefined;
 
     if (!apiKey?.trim()) {
       return apiError(request, {

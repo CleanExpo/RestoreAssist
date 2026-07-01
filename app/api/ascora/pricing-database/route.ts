@@ -114,8 +114,10 @@ export async function POST(request: NextRequest) {
       parsed && typeof parsed === "object" && !Array.isArray(parsed)
         ? parsed
         : {}
-    ) as { partNumber?: string; accepted?: boolean };
-    const { partNumber, accepted } = body;
+    ) as { partNumber?: unknown; accepted?: unknown };
+    const partNumber =
+      typeof body.partNumber === "string" ? body.partNumber : undefined;
+    const accepted = body.accepted;
 
     if (!partNumber) {
       return apiError(request, {
