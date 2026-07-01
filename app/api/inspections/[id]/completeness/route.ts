@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { validateSubmission } from "@/lib/evidence/submission-gate";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET - Check evidence completeness for an inspection
 export async function GET(
@@ -13,7 +14,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -27,10 +32,11 @@ export async function GET(
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     // Accept claimType from query param or default to "water_damage"
@@ -52,10 +58,6 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Error checking evidence completeness:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "completeness" });
   }
 }

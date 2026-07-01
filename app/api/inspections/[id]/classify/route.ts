@@ -28,6 +28,7 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { classifyInspection } from "@/lib/services/ai/classify-inspection";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
 
@@ -37,7 +38,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -57,15 +62,20 @@ export async function POST(
       select: { id: true, subscriptionStatus: true },
     });
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
     if (
       !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
     ) {
-      return NextResponse.json(
-        { error: "Active subscription required" },
-        { status: 402 },
-      );
+      return apiError(req, {
+        code: "PAYMENT_REQUIRED",
+        message: "Active subscription required",
+        status: 402,
+      });
     }
 
     // RA-1711 batch 3 — adopt shared tenancy helper (workspace-member + admin paths).
@@ -109,23 +119,23 @@ export async function POST(
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     if (
       inspection.moistureReadings.length === 0 &&
       inspection.affectedAreas.length === 0
     ) {
-      return NextResponse.json(
-        {
-          error:
-            "No moisture readings or affected areas recorded — add data before requesting a classification.",
-        },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message:
+          "No moisture readings or affected areas recorded — add data before requesting a classification.",
+        status: 400,
+      });
     }
 
     const result = await classifyInspection({
@@ -159,10 +169,7 @@ export async function POST(
         result.retryAfterMs != null
           ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
           : {};
-      return NextResponse.json(
-        { error: result.reason },
-        { status, headers },
-      );
+      return NextResponse.json({ error: result.reason }, { status, headers });
     }
 
     const parsed = result.data;
@@ -175,10 +182,11 @@ export async function POST(
       typeof parsed.confidence !== "number" ||
       typeof parsed.reasoning !== "string"
     ) {
-      return NextResponse.json(
-        { error: "Invalid classification shape from model" },
-        { status: 502 },
-      );
+      return apiError(req, {
+        code: "UPSTREAM_FAILED",
+        message: "Invalid classification shape from model",
+        status: 502,
+      });
     }
 
     return NextResponse.json({
@@ -193,10 +201,6 @@ export async function POST(
     });
   } catch (err) {
     // RA-786: never leak error.message
-    console.error("RA-1195 classify error:", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(req, err, { stage: "classify" });
   }
 }

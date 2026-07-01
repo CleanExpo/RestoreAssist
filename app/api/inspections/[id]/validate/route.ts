@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { validateSubmission } from "@/lib/evidence/submission-gate";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // POST - Validate whether an inspection meets submission gate requirements
 export async function POST(
@@ -13,7 +14,11 @@ export async function POST(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -38,10 +43,6 @@ export async function POST(
 
     return NextResponse.json({ data: validation });
   } catch (error) {
-    console.error("Error validating inspection submission:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "validate-submission" });
   }
 }
