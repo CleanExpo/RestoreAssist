@@ -21,6 +21,7 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError } from "@/lib/api-errors";
+import { hasFloorPlanUnderlay } from "@/lib/billing/floor-plan-entitlement";
 import {
   parseOnTheHouseHTML,
   parseOnTheHouseSearchResults,
@@ -168,6 +169,21 @@ export async function POST(req: NextRequest) {
     });
   }
   const userId = session.user.id;
+
+  // PR5: the floor-plan underlay (property scrape) is a Premium feature. Gate
+  // it here so unentitled users get a 402 the client turns into an "Upgrade to
+  // unlock" CTA, rather than silently consuming an outbound scrape.
+  const gateUser = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { subscriptionTier: true },
+  });
+  if (!hasFloorPlanUnderlay(gateUser?.subscriptionTier?.tierName)) {
+    return apiError(req, {
+      code: "PAYMENT_REQUIRED",
+      message: "The floor plan underlay is a Premium feature.",
+      status: 402,
+    });
+  }
 
   // RA-1281: throttle outbound scraping to OnTheHouse + domain.com.au.
   const rateLimited = await applyRateLimit(req, {

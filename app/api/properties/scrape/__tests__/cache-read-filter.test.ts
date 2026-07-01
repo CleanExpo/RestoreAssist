@@ -43,6 +43,9 @@ vi.mock("@/lib/idempotency", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    // PR5: the route now gates on the caller's subscription tier before the
+    // cache read — mock an entitled (Premium) user so these cache tests run.
+    user: { findUnique: vi.fn() },
     propertyLookup: {
       findFirst: vi.fn(),
       upsert: vi.fn(),
@@ -75,6 +78,13 @@ const mockUpsert = (
 beforeEach(() => {
   vi.clearAllMocks();
   mockSession.mockResolvedValue({ user: { id: "u_test" } });
+  // PR5 gate: default the caller to an entitled Premium user for these tests.
+  (
+    prisma as unknown as { user: { findUnique: ReturnType<typeof vi.fn> } }
+  ).user.findUnique.mockResolvedValue({
+    id: "u_test",
+    subscriptionTier: { tierName: "PREMIUM" },
+  });
   // Fail loudly if the test ever falls through to the scraper.
   vi.spyOn(global, "fetch").mockImplementation(async () => {
     throw new Error("fetch should not be called when cache hits");
