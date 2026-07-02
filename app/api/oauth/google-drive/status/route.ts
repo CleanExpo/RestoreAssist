@@ -6,17 +6,21 @@
  * <email>" success row.
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { fromException } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
     const org = await prisma.organization.findFirst({
       where: { ownerId: session.user.id },
@@ -36,6 +40,6 @@ export async function GET() {
       accountEmail: org.storageProviderAccountEmail,
     });
   } catch (err) {
-    return fromException(undefined, err, { stage: "google-drive/status:get" });
+    return fromException(request, err, { stage: "google-drive/status:get" });
   }
 }
