@@ -25,6 +25,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { apiError, fromException } from "@/lib/api-errors";
 import {
   validateObservation,
   type NewPilotObservation,
@@ -40,10 +41,14 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
-    const body = (await request.json()) as {
+    let body: {
       claimId?: string;
       observationType?: string;
       value?: number;
@@ -52,6 +57,15 @@ export async function POST(request: NextRequest) {
       context?: Record<string, unknown>;
       notes?: string;
     };
+    try {
+      body = await request.json();
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
+    }
 
     const obs: NewPilotObservation = {
       claimId: body.claimId ?? "",
@@ -82,10 +96,11 @@ export async function POST(request: NextRequest) {
         select: { id: true },
       });
       if (!inspection) {
-        return NextResponse.json(
-          { error: "Inspection not found or not accessible" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found or not accessible",
+          status: 404,
+        });
       }
     }
 
@@ -110,11 +125,7 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
-    console.error("Error recording pilot observation:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "create" });
   }
 }
 
@@ -153,10 +164,6 @@ export async function GET(request: NextRequest) {
       observations,
     });
   } catch (error) {
-    console.error("Error fetching pilot observations:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list" });
   }
 }
