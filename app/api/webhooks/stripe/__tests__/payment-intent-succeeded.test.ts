@@ -107,7 +107,7 @@ describe("payment_intent.succeeded webhook", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe("Missing invoiceId metadata");
+    expect(body.error.message).toBe("Missing invoiceId metadata");
   });
 
   it("returns 200 with warning when invoiceId is present but Invoice row not found", async () => {

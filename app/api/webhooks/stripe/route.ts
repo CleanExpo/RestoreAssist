@@ -8,6 +8,7 @@ import { sendSubscriptionActivatedEmail } from "@/lib/email";
 import { warnIfZeroRows } from "@/lib/prisma-assert";
 import { onInvoicePaid } from "@/lib/lifecycle/subscribers/invoice-paid";
 import { recordSubscriptionEvent } from "@/lib/billing/subscription-event";
+import { apiError } from "@/lib/api-errors";
 
 /**
  * Best-effort human-readable plan name from a Stripe Subscription.
@@ -44,23 +45,33 @@ export async function POST(request: NextRequest) {
   const signature = hdrs.get("stripe-signature");
 
   if (!signature) {
-    return NextResponse.json({ error: "No signature" }, { status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "No signature",
+      status: 400,
+    });
   }
 
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
-    return NextResponse.json(
-      { error: "Webhook secret not configured" },
-      { status: 500 },
-    );
+    return apiError(request, {
+      code: "INTERNAL",
+      message: "Webhook secret not configured",
+      status: 500,
+      stage: "stripe-webhook:config",
+    });
   }
 
   let event: Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-  } catch (err) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  } catch {
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Invalid signature",
+      status: 400,
+    });
   }
 
   // RA-913: Event deduplication — Stripe retries webhooks for up to 72h.
@@ -203,10 +214,11 @@ export async function POST(request: NextRequest) {
               paymentIntentId: paymentIntent.id,
             },
           );
-          return NextResponse.json(
-            { error: "Missing invoiceId metadata" },
-            { status: 400 },
-          );
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Missing invoiceId metadata",
+            status: 400,
+          });
         }
 
         // Idempotency guard — don't double-update if already reconciled
@@ -431,8 +443,7 @@ export async function handleCheckoutCompleted(event: Stripe.Event) {
   let subscriptionPlan: string | null = null;
   if (subscriptionId) {
     try {
-      const subscription =
-        await stripe.subscriptions.retrieve(subscriptionId);
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
       subscriptionEndsAt = new Date(
         (subscription.items.data[0]?.current_period_end ?? 0) * 1000,
       );
@@ -472,8 +483,7 @@ export async function handleCheckoutCompleted(event: Stripe.Event) {
     });
     if (user?.email) {
       const amountTotal = session.amount_total ?? 0;
-      const baseUrl =
-        process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
+      const baseUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
       void sendSubscriptionActivatedEmail({
         recipientEmail: user.email,
         recipientName: user.name ?? "there",
