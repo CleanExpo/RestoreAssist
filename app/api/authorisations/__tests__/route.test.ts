@@ -210,7 +210,9 @@ describe("POST /api/authorisations", () => {
     const res = await POST(makeReq(validBody));
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toBe("Internal server error");
-    expect(body.message).toBeUndefined();
+    expect(body.error.code).toBe("INTERNAL");
+    expect(body.error.message).toBe("Internal server error");
+    // rule 7: the raw exception detail must never leak to the client
+    expect(JSON.stringify(body)).not.toContain("DB exploded");
   });
 });
