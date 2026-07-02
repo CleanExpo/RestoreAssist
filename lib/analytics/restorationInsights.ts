@@ -32,6 +32,8 @@ export interface InsightCell {
   key: Record<string, string | null>;
   count: number;
   avgRemediationDays: number | null;
+  /** RA-6917 Phase 3 — avg derived floor area (operator-measured only). */
+  avgFloorAreaM2: number | null;
 }
 
 export interface RestorationInsights {
@@ -74,7 +76,7 @@ export async function getRestorationInsights(
     by: by as Prisma.RestorationIncidentScalarFieldEnum[],
     where,
     _count: { id: true },
-    _avg: { remediationDays: true },
+    _avg: { remediationDays: true, floorAreaM2: true },
   });
 
   let suppressedCells = 0;
@@ -83,7 +85,7 @@ export async function getRestorationInsights(
   for (const group of groups as Array<
     Record<string, unknown> & {
       _count: { id: number };
-      _avg: { remediationDays: number | null };
+      _avg: { remediationDays: number | null; floorAreaM2: number | null };
     }
   >) {
     const count = group._count.id;
@@ -100,6 +102,7 @@ export async function getRestorationInsights(
       key,
       count,
       avgRemediationDays: group._avg.remediationDays,
+      avgFloorAreaM2: group._avg.floorAreaM2,
     });
   }
 

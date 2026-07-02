@@ -22,6 +22,7 @@ interface InsightCell {
   key: Record<string, string | null>;
   count: number;
   avgRemediationDays: number | null;
+  avgFloorAreaM2: number | null;
 }
 interface ReportSection {
   breakdown: string;
@@ -219,8 +220,11 @@ export default function RestorationInsightsPage() {
                           <th className="py-2 pr-4 font-medium tabular-nums">
                             Incidents
                           </th>
-                          <th className="py-2 font-medium tabular-nums">
+                          <th className="py-2 pr-4 font-medium tabular-nums">
                             Avg remediation days
+                          </th>
+                          <th className="py-2 font-medium tabular-nums">
+                            Avg floor area (m²)
                           </th>
                         </tr>
                       </thead>
@@ -238,10 +242,15 @@ export default function RestorationInsightsPage() {
                             <td className="py-2 pr-4 tabular-nums">
                               {cell.count.toLocaleString()}
                             </td>
-                            <td className="py-2 tabular-nums">
+                            <td className="py-2 pr-4 tabular-nums">
                               {cell.avgRemediationDays === null
                                 ? "—"
                                 : (Math.round(cell.avgRemediationDays * 10) / 10).toFixed(1)}
+                            </td>
+                            <td className="py-2 tabular-nums">
+                              {cell.avgFloorAreaM2 === null
+                                ? "—"
+                                : Math.round(cell.avgFloorAreaM2)}
                             </td>
                           </tr>
                         ))}

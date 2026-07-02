@@ -116,5 +116,52 @@ describe("deriveRestorationIncident", () => {
     expect(written.waterCategory).toBeNull();
     expect(written.hazards).toEqual([]);
     expect(written.outcome).toBe("completed");
+    // no sketches → geometry is null
+    expect(written.roomCount).toBeNull();
+    expect(written.floorAreaM2).toBeNull();
+  });
+
+  it("derives geometry from operator_measured room elements only (Phase 3)", async () => {
+    inspectionFindUnique.mockResolvedValue({
+      propertyPostcode: NSW_POSTCODE,
+      inspectionDate: new Date("2026-06-01T00:00:00Z"),
+      completedAt: new Date("2026-06-03T00:00:00Z"),
+      waterDamageClassification: null,
+      // two floors; the query pre-filters to operator_measured room elements
+      claimSketches: [
+        { elements: [{ dimensionsM: { areaM2: 24 } }, { dimensionsM: { areaM2: 18.5 } }] },
+        { elements: [{ dimensionsM: { areaM2: 30 } }] },
+      ],
+    });
+
+    await deriveRestorationIncident("insp_geo");
+
+    const arg = incidentUpsert.mock.calls[0][0];
+    const written = { ...arg.create, ...arg.update };
+    expect(written.roomCount).toBe(3);
+    // 24 + 18.5 + 30 = 72.5 → rounded to nearest 10 = 70
+    expect(written.floorAreaM2).toBe(70);
+
+    // the query restricts to the operator's OWN measurements — never underlay_reference
+    const select = inspectionFindUnique.mock.calls.at(-1)?.[0].select;
+    const elementWhere = select.claimSketches.select.elements.where;
+    expect(elementWhere).toEqual({ type: "room", provenance: "operator_measured" });
+  });
+
+  it("leaves geometry null when rooms have no area", async () => {
+    inspectionFindUnique.mockResolvedValue({
+      propertyPostcode: NSW_POSTCODE,
+      inspectionDate: new Date("2026-06-01T00:00:00Z"),
+      completedAt: new Date("2026-06-02T00:00:00Z"),
+      waterDamageClassification: null,
+      claimSketches: [{ elements: [{ dimensionsM: null }, { dimensionsM: {} }] }],
+    });
+
+    await deriveRestorationIncident("insp_noarea");
+
+    const arg = incidentUpsert.mock.calls[0][0];
+    const written = { ...arg.create, ...arg.update };
+    expect(written.roomCount).toBe(2); // rooms exist
+    expect(written.floorAreaM2).toBeNull(); // but no measurable area
   });
 });

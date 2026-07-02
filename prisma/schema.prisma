@@ -2327,6 +2327,14 @@ model RestorationIncident {
   remediationDays Int?
   outcome         String?
 
+  // RA-6917 Phase 3 — derived floor-plan geometry (the operator's OWN work
+  // product). Sourced ONLY from `operator_measured` sketch elements — never
+  // `underlay_reference` geometry traced over an imported portal image — so no
+  // third-party copyrighted drawing is persisted. Floor area is rounded to
+  // reduce re-identification.
+  floorAreaM2 Int?
+  roomCount   Int?
+
   // Truncated to the first of the month to reduce re-identification.
   capturedAt DateTime
 

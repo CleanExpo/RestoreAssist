@@ -43,8 +43,8 @@ describe("buildAnnualReport", () => {
     countMock.mockResolvedValue(120);
     // Every breakdown groupBy returns one publishable + one sub-threshold cell.
     groupByMock.mockResolvedValue([
-      { state: "NSW", waterCategory: "CAT_2", _count: { id: 40 }, _avg: { remediationDays: 4 } },
-      { state: "NT", waterCategory: "CAT_3", _count: { id: 2 }, _avg: { remediationDays: 8 } },
+      { state: "NSW", waterCategory: "CAT_2", _count: { id: 40 }, _avg: { remediationDays: 4, floorAreaM2: 140 } },
+      { state: "NT", waterCategory: "CAT_3", _count: { id: 2 }, _avg: { remediationDays: 8, floorAreaM2: 90 } },
     ]);
 
     const report = await buildAnnualReport(2026, { state: undefined });
@@ -78,8 +78,8 @@ describe("toAnnualReportCsv", () => {
           dimensions: ["state"],
           suppressedCells: 0,
           cells: [
-            { key: { state: "NSW" }, count: 30, avgRemediationDays: 4.25 },
-            { key: { state: "VIC" }, count: 12, avgRemediationDays: null },
+            { key: { state: "NSW" }, count: 30, avgRemediationDays: 4.25, avgFloorAreaM2: 132 },
+            { key: { state: "VIC" }, count: 12, avgRemediationDays: null, avgFloorAreaM2: null },
           ],
         },
       ],
@@ -87,10 +87,12 @@ describe("toAnnualReportCsv", () => {
 
     const lines = csv.trimEnd().split("\r\n");
     expect(lines[0]).toContain("breakdown");
+    expect(lines[0]).toContain("avgFloorAreaM2");
     expect(lines[1]).toContain('"total"');
     expect(lines[1]).toContain('"42"');
     expect(lines.some((l) => l.includes('"NSW"') && l.includes('"30"'))).toBe(true);
     expect(lines.some((l) => l.includes('"4.2"') || l.includes('"4.3"'))).toBe(true); // rounded
+    expect(lines.some((l) => l.includes('"132"'))).toBe(true); // avg floor area
   });
 
   it("neutralises spreadsheet formula injection in string fields", () => {
@@ -107,7 +109,7 @@ describe("toAnnualReportCsv", () => {
           dimensions: ["state"],
           suppressedCells: 0,
           // a hostile value that a spreadsheet might interpret as a formula
-          cells: [{ key: { state: "=cmd|calc" }, count: 7, avgRemediationDays: 1 }],
+          cells: [{ key: { state: "=cmd|calc" }, count: 7, avgRemediationDays: 1, avgFloorAreaM2: null }],
         },
       ],
     });

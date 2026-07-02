@@ -38,6 +38,18 @@ export async function deriveRestorationIncident(
           lossSourceType: true,
         },
       },
+      // RA-6917 Phase 3 — derive geometry ONLY from the operator's own
+      // `operator_measured` room elements. `underlay_reference` geometry (traced
+      // over an imported portal image) is deliberately excluded so no
+      // third-party copyrighted drawing is persisted into the asset.
+      claimSketches: {
+        select: {
+          elements: {
+            where: { type: "room", provenance: "operator_measured" },
+            select: { dimensionsM: true },
+          },
+        },
+      },
     },
   });
 
@@ -65,6 +77,26 @@ export async function deriveRestorationIncident(
   const hazards: string[] = [];
   if (cls?.waterCategory === WaterCategory.CAT_3) hazards.push("black_water");
 
+  // Derived geometry from operator_measured room elements only. Room count is a
+  // plain tally; floor area sums each room's areaM2 (from dimensionsM) and is
+  // rounded to the nearest 10 m2 to reduce re-identification. Both null when the
+  // job has no operator-measured rooms.
+  const roomElements = (inspection.claimSketches ?? []).flatMap(
+    (s) => s.elements,
+  );
+  const roomCount = roomElements.length > 0 ? roomElements.length : null;
+  let areaSum = 0;
+  let sawArea = false;
+  for (const el of roomElements) {
+    const dims = el.dimensionsM as { areaM2?: unknown } | null;
+    const area = typeof dims?.areaM2 === "number" ? dims.areaM2 : null;
+    if (area !== null && area > 0) {
+      areaSum += area;
+      sawArea = true;
+    }
+  }
+  const floorAreaM2 = sawArea ? Math.round(areaSum / 10) * 10 : null;
+
   // Truncate to the first of the month (UTC) to reduce re-identification.
   // inspectionDate is non-null on Inspection, so a basis always exists.
   const basis = inspection.completedAt ?? inspection.inspectionDate ?? new Date();
@@ -85,6 +117,8 @@ export async function deriveRestorationIncident(
     hazards,
     remediationDays,
     outcome: "completed",
+    floorAreaM2,
+    roomCount,
     capturedAt,
   };
 
