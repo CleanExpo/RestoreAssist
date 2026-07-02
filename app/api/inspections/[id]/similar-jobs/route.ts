@@ -30,7 +30,10 @@ import {
 } from "@/lib/ai/embeddings";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
-import { resolveWorkspaceAiKey } from "@/lib/ai/resolve-workspace-ai-key";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -134,7 +137,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         "OPENAI",
       );
       openaiApiKey = workspaceKey.apiKey;
-    } catch {
+    } catch (err) {
+      if (!(err instanceof NoWorkspaceKeyError)) throw err;
       // No workspace key configured — fall through to hash-fallback below.
     }
     const provider: "openai" | "hash-fallback" = openaiApiKey

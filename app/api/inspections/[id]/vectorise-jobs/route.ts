@@ -46,7 +46,10 @@ import {
   type EmbeddingProvider,
 } from "@/lib/ai/embeddings";
 import { apiError, fromException } from "@/lib/api-errors";
-import { resolveWorkspaceAiKey } from "@/lib/ai/resolve-workspace-ai-key";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,7 +113,8 @@ export async function POST(
           "OPENAI",
         );
         openaiApiKey = workspaceKey.apiKey;
-      } catch {
+      } catch (err) {
+        if (!(err instanceof NoWorkspaceKeyError)) throw err;
         // No workspace key configured — fall through to hash-fallback below.
       }
     }
