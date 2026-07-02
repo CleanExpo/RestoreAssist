@@ -21,6 +21,7 @@ import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { isUserInviteToken } from "@/lib/public-token-shape";
+import { apiError } from "@/lib/api-errors";
 
 interface RouteContext {
   params: Promise<{ token: string }>;
@@ -44,11 +45,19 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
   const { token } = await params;
   if (!token) {
-    return NextResponse.json({ error: "Token required" }, { status: 400 });
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Token required",
+      status: 400,
+    });
   }
 
   if (!isUserInviteToken(token)) {
-    return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+    return apiError(req, {
+      code: "NOT_FOUND",
+      message: "Invite not found",
+      status: 404,
+    });
   }
 
   const invite = await prisma.userInvite.findUnique({
@@ -65,21 +74,27 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   });
 
   if (!invite) {
-    return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+    return apiError(req, {
+      code: "NOT_FOUND",
+      message: "Invite not found",
+      status: 404,
+    });
   }
 
   if (invite.usedAt) {
-    return NextResponse.json(
-      { error: "This invite has already been used. Please sign in instead." },
-      { status: 410 },
-    );
+    return apiError(req, {
+      code: "GONE",
+      message: "This invite has already been used. Please sign in instead.",
+      status: 410,
+    });
   }
 
   if (invite.expiresAt < new Date()) {
-    return NextResponse.json(
-      { error: "This invite has expired. Ask the inviter to resend it." },
-      { status: 410 },
-    );
+    return apiError(req, {
+      code: "GONE",
+      message: "This invite has expired. Ask the inviter to resend it.",
+      status: 410,
+    });
   }
 
   return NextResponse.json({
@@ -107,11 +122,19 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
   const { token } = await params;
   if (!token) {
-    return NextResponse.json({ error: "Token required" }, { status: 400 });
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Token required",
+      status: 400,
+    });
   }
 
   if (!isUserInviteToken(token)) {
-    return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+    return apiError(req, {
+      code: "NOT_FOUND",
+      message: "Invite not found",
+      status: 404,
+    });
   }
 
   let body: {
@@ -126,17 +149,22 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json(
-      { error: "Invalid request body" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Invalid request body",
+      status: 400,
+    });
   }
 
   const name = sanitizeString(body.name, 200);
   const password = typeof body.password === "string" ? body.password : "";
 
   if (!name) {
-    return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Name is required",
+      status: 400,
+    });
   }
 
   // Google path skips password; email path keeps the existing length check.
@@ -144,17 +172,19 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
   // RA-1258 / RA-1342 — align with register + change-password min length.
   if (!isGoogle && password.length < 12) {
-    return NextResponse.json(
-      { error: "Password must be at least 12 characters" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Password must be at least 12 characters",
+      status: 400,
+    });
   }
 
   if (body.acceptedTerms !== true) {
-    return NextResponse.json(
-      { error: "You must accept the Terms of Service and Privacy Policy" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "You must accept the Terms of Service and Privacy Policy",
+      status: 400,
+    });
   }
 
   // Phone is required on both paths.
@@ -162,10 +192,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   const { normaliseAuMobile, isValidAuMobile } =
     await import("@/components/invite/phone-validator");
   if (!isValidAuMobile(rawPhone)) {
-    return NextResponse.json(
-      { error: "Enter a 10-digit Australian mobile (04…)" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Enter a 10-digit Australian mobile (04…)",
+      status: 400,
+    });
   }
   const phone = normaliseAuMobile(rawPhone);
 
@@ -176,16 +207,21 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     await import("@/lib/headshot/validate-data-url");
   const headshotCheck = validateHeadshotDataUrl(body.headshotDataUrl);
   if (!headshotCheck.ok) {
-    return NextResponse.json({ error: headshotCheck.error }, { status: 400 });
+    return apiError(req, {
+      code: "VALIDATION",
+      message: headshotCheck.error ?? "Invalid headshot image",
+      status: 400,
+    });
   }
   // Narrow for the rest of the function — the helper just confirmed it's a string.
   const headshotDataUrl: string = body.headshotDataUrl as string;
 
   if (body.acceptedChainOfCustody !== true) {
-    return NextResponse.json(
-      { error: "You must consent to evidence hashing" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "You must consent to evidence hashing",
+      status: 400,
+    });
   }
 
   const invite = await prisma.userInvite.findUnique({
@@ -202,21 +238,27 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   });
 
   if (!invite) {
-    return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+    return apiError(req, {
+      code: "NOT_FOUND",
+      message: "Invite not found",
+      status: 404,
+    });
   }
 
   if (invite.usedAt) {
-    return NextResponse.json(
-      { error: "This invite has already been used" },
-      { status: 410 },
-    );
+    return apiError(req, {
+      code: "GONE",
+      message: "This invite has already been used",
+      status: 410,
+    });
   }
 
   if (invite.expiresAt < new Date()) {
-    return NextResponse.json(
-      { error: "This invite has expired" },
-      { status: 410 },
-    );
+    return apiError(req, {
+      code: "GONE",
+      message: "This invite has expired",
+      status: 410,
+    });
   }
 
   // Google-OAuth completion path — the user record already exists (created
@@ -228,10 +270,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       select: { id: true },
     });
     if (!existingByEmail) {
-      return NextResponse.json(
-        { error: "Google user not found for this invite" },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "Google user not found for this invite",
+        status: 400,
+      });
     }
     const { uploadDataUrl } = await import("@/lib/cloudinary");
     let headshotUrl: string;
@@ -245,10 +288,13 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         "[POST /api/invites/[token]] Cloudinary upload failed",
         err,
       );
-      return NextResponse.json(
-        { error: "Failed to upload headshot" },
-        { status: 502 },
-      );
+      return apiError(req, {
+        code: "UPSTREAM_FAILED",
+        message: "Failed to upload headshot",
+        status: 502,
+        err,
+        stage: "invite-accept:headshot-upload",
+      });
     }
     await prisma.user.update({
       where: { id: existingByEmail.id },
@@ -269,13 +315,12 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     select: { id: true },
   });
   if (existing) {
-    return NextResponse.json(
-      {
-        error:
-          "An account with this email already exists. Sign in, then ask an admin to re-link you to the organization.",
-      },
-      { status: 409 },
-    );
+    return apiError(req, {
+      code: "CONFLICT",
+      message:
+        "An account with this email already exists. Sign in, then ask an admin to re-link you to the organization.",
+      status: 409,
+    });
   }
 
   const hashedPassword = await bcrypt.hash(password, 12);
