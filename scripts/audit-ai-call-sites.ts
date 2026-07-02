@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import type { AiTaskClass } from "../lib/ai/task-policy";
 
 export type AiProviderFamily =
@@ -24,6 +25,13 @@ export interface AiCallSiteFinding {
   executionMode: "synchronous" | "queued" | "background" | "unknown";
   sendsSensitiveDataExternally: boolean;
   policyWrapped: boolean;
+  /**
+   * RA-6921 (P0) — true when a `app/**` request-route handler reads a
+   * `process.env.*_API_KEY` (or a known env-fallback helper) directly instead
+   * of resolving the calling workspace's own BYOK key. This means the
+   * platform is spending its own provider key on a client's workload.
+   */
+  platformKeyFallback: boolean;
   evidence: string[];
   notes: string;
 }
@@ -32,6 +40,8 @@ export interface AiCallSiteGuardrailSummary {
   unknownTaskClassCount: number;
   policyWrappedCount: number;
   sensitiveExternalProviderCount: number;
+  platformKeyFallbackCount: number;
+  platformKeyFallbackFiles: string[];
   ignoredFilePatterns: string[];
   pass: boolean;
 }
@@ -242,6 +252,40 @@ export function classifyAiTask(file: string, content: string): AiTaskClass {
   return "unknown";
 }
 
+const PLATFORM_KEY_ENV_PATTERN = /process\.env\.[A-Z0-9_]*_API_KEY\b/;
+
+/**
+ * Sanctioned BYOK resolution markers. A route that reads a platform env-var
+ * key AND shows one of these is assumed to be using it only as a last-resort
+ * fallback path that is itself gated elsewhere (e.g. behind a feature flag) —
+ * a route with NEITHER marker is spending the platform's own key outright.
+ */
+const BYOK_MARKERS = [
+  "resolveWorkspaceAiKey(",
+  "byokDispatch(",
+  "workspace-byok-dispatch",
+  "workspaceByokDispatch(",
+  "workspaceRouteAiRequest(",
+  "getProviderApiKey(",
+  "resolveReportProvider(",
+];
+
+/**
+ * RA-6921 (P0) — detect a `app/**` route handler that reads a platform
+ * `process.env.*_API_KEY` directly (or via `lib/ai-provider.ts`'s
+ * `selectAnthropicApiKey` env-fallback helper) without resolving the calling
+ * workspace's own BYOK key anywhere in the file.
+ */
+function hasPlatformKeyFallback(file: string, content: string): boolean {
+  const normalized = normalisePath(file);
+  if (!normalized.startsWith("app/")) return false; // lib/ platform-ops call sites are out of scope
+  const readsEnvKey =
+    PLATFORM_KEY_ENV_PATTERN.test(content) ||
+    content.includes("selectAnthropicApiKey(");
+  if (!readsEnvKey) return false;
+  return !BYOK_MARKERS.some((marker) => content.includes(marker));
+}
+
 function detectExecutionMode(file: string, content: string): AiCallSiteFinding["executionMode"] {
   const target = `${file}\n${content}`.toLowerCase();
   if (includesAny(target, ["queue", "cron", "setimmediate", "background", "batch"])) {
@@ -305,6 +349,7 @@ export function auditAiCallSite(file: string, content: string): AiCallSiteFindin
         ["anthropic", "openai", "gemini", "byok"].includes(provider),
       ) && !normalized.includes("__tests__"),
     policyWrapped: hasTaskPolicyCall(content),
+    platformKeyFallback: hasPlatformKeyFallback(normalized, content),
     evidence,
     notes:
       taskClass === "unknown"
@@ -320,12 +365,20 @@ export function buildAiCallSiteGuardrailSummary(
     (finding) => finding.taskClass === "unknown",
   ).length;
 
+  const platformKeyFallbackFindings = findings.filter(
+    (finding) => finding.platformKeyFallback,
+  );
+
   return {
     unknownTaskClassCount,
     policyWrappedCount: findings.filter((finding) => finding.policyWrapped).length,
     sensitiveExternalProviderCount: findings.filter(
       (finding) => finding.sendsSensitiveDataExternally,
     ).length,
+    platformKeyFallbackCount: platformKeyFallbackFindings.length,
+    platformKeyFallbackFiles: platformKeyFallbackFindings
+      .map((finding) => finding.file)
+      .sort(),
     ignoredFilePatterns: getAiAuditIgnoredFilePatterns(),
     pass: unknownTaskClassCount === 0,
   };
@@ -393,6 +446,9 @@ function printTextReport(report: AiCallSiteAuditReport): void {
     `Sensitive external-provider surfaces: ${report.guardrailSummary.sensitiveExternalProviderCount}`,
   );
   console.log(`Unknown task classes: ${report.guardrailSummary.unknownTaskClassCount}`);
+  console.log(
+    `Platform-key-fallback routes: ${report.guardrailSummary.platformKeyFallbackCount}`,
+  );
   console.log("");
   console.log("Provider counts:");
   for (const [provider, count] of Object.entries(report.providerCounts)) {
@@ -413,6 +469,28 @@ function printTextReport(report: AiCallSiteAuditReport): void {
   }
 }
 
+const PLATFORM_KEY_FALLBACK_BASELINE_PATH = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "ai-platform-key-fallback-baseline.json",
+);
+
+/**
+ * RA-6921 (P0) ratchet baseline — routes still pending migration off a
+ * platform-key fallback onto workspace BYOK. Remove an entry here in the
+ * same PR that migrates it; never add new entries.
+ */
+export function readPlatformKeyFallbackBaseline(): string[] {
+  if (!existsSync(PLATFORM_KEY_FALLBACK_BASELINE_PATH)) return [];
+  try {
+    const raw = JSON.parse(
+      readFileSync(PLATFORM_KEY_FALLBACK_BASELINE_PATH, "utf8"),
+    );
+    return Array.isArray(raw.files) ? raw.files : [];
+  } catch {
+    return [];
+  }
+}
+
 if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
   const report = auditAiCallSites();
   if (process.argv.includes("--json")) {
@@ -420,10 +498,28 @@ if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
   } else {
     printTextReport(report);
   }
-  if (process.argv.includes("--gate") && !report.guardrailSummary.pass) {
-    console.error(
-      `AI guardrail audit failed: ${report.guardrailSummary.unknownTaskClassCount} unknown task class finding(s).`,
+  if (process.argv.includes("--gate")) {
+    let failed = false;
+    if (!report.guardrailSummary.pass) {
+      console.error(
+        `AI guardrail audit failed: ${report.guardrailSummary.unknownTaskClassCount} unknown task class finding(s).`,
+      );
+      failed = true;
+    }
+
+    const baseline = readPlatformKeyFallbackBaseline();
+    const netNew = report.guardrailSummary.platformKeyFallbackFiles.filter(
+      (file) => !baseline.includes(file),
     );
-    process.exitCode = 1;
+    if (netNew.length > 0) {
+      console.error(
+        `AI guardrail audit failed: ${netNew.length} NEW platform-key-fallback route(s) ` +
+          `(RA-6921 P0 — must resolve BYOK via resolveWorkspaceAiKey, not process.env):\n` +
+          netNew.map((file) => `  - ${file}`).join("\n"),
+      );
+      failed = true;
+    }
+
+    if (failed) process.exitCode = 1;
   }
 }

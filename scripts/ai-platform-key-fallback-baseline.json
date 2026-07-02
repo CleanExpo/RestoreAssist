@@ -1,0 +1,14 @@
+{
+  "_comment": "RA-6921 (P0) ratchet baseline. Routes below read a platform process.env.*_API_KEY directly instead of resolving the calling workspace's own BYOK key via resolveWorkspaceAiKey(). Remove an entry in the same PR that migrates it (or that documents it as platform-internal, non-tenant-billable, with an explicit comment in the route). Never add new entries — `pnpm audit:ai` fails CI on any file not already listed here.",
+  "_generatedFrom": "app/api/ai/voice-note-transcribe/route.ts fixed in RA-6921 batch 1 (this PR) and removed from this list.",
+  "files": [
+    "app/api/admin/vectorise/route.ts",
+    "app/api/chatbot/route.ts",
+    "app/api/inspections/[id]/similar-jobs/route.ts",
+    "app/api/inspections/[id]/vectorise-jobs/route.ts",
+    "app/api/margot/chat/route.ts",
+    "app/api/margot/corpus/status/route.ts",
+    "app/api/margot/hermes-proxy/route.ts",
+    "app/api/webhooks/github/route.ts"
+  ]
+}
