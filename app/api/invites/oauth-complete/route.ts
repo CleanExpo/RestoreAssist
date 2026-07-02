@@ -2,21 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { fromException } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const token = req.cookies.get("invite_token")?.value;
     if (!token) {
-      return NextResponse.json(
-        { error: "Missing invite token" },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "Missing invite token",
+        status: 400,
+      });
     }
 
     const invite = await prisma.userInvite.findUnique({
@@ -32,16 +37,25 @@ export async function GET(req: NextRequest) {
     });
 
     if (!invite) {
-      return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "Invite not found",
+        status: 404,
+      });
     }
     if (invite.usedAt) {
-      return NextResponse.json(
-        { error: "Invite already used" },
-        { status: 410 },
-      );
+      return apiError(req, {
+        code: "GONE",
+        message: "Invite already used",
+        status: 410,
+      });
     }
     if (invite.expiresAt < new Date()) {
-      return NextResponse.json({ error: "Invite expired" }, { status: 410 });
+      return apiError(req, {
+        code: "GONE",
+        message: "Invite expired",
+        status: 410,
+      });
     }
 
     // Override the OAuth signup defaults (which assumed this user owns their
