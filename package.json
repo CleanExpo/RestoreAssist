@@ -9,9 +9,12 @@
   "type": "module",
   "pnpm": {
     "overrides": {
-      "dompurify": "^3.4.5",
+      "dompurify": ">=3.4.11",
       "loader-utils": "^2.0.4",
-      "tar": "^7.5.13",
+      "js-yaml@<4": ">=3.15.0 <4",
+      "js-yaml@>=4": ">=4.2.0",
+      "@babel/core": ">=7.29.6",
+      "tar": ">=7.5.16",
       "tmp": ">=0.2.6",
       "ws": ">=8.21.0",
       "qs": ">=6.15.2",
