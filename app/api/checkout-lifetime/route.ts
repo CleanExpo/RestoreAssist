@@ -11,6 +11,7 @@ import {
 } from "@/lib/lifetime-pricing";
 import { withIdempotency } from "@/lib/idempotency";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
+import { apiError, fromException } from "@/lib/api-errors";
 
 function getBaseUrl(request: NextRequest): string {
   let baseUrl = process.env.NEXTAUTH_URL;
@@ -35,17 +36,22 @@ export async function POST(request: NextRequest) {
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || !session.user.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
   if (
     session.user.email.toLowerCase() !== LIFETIME_PRICING_EMAIL.toLowerCase()
   ) {
-    return NextResponse.json(
-      { error: "This offer is not available for your account." },
-      { status: 403 },
-    );
+    return apiError(request, {
+      code: "FORBIDDEN",
+      message: "This offer is not available for your account.",
+      status: 403,
+    });
   }
 
   const rateLimited = await applyRateLimit(request, {
@@ -65,10 +71,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (user?.lifetimeAccess) {
-        return NextResponse.json(
-          { error: "You already have lifetime access." },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "You already have lifetime access.",
+          status: 400,
+        });
       }
 
       let customerId = user?.stripeCustomerId;
@@ -130,11 +137,7 @@ export async function POST(request: NextRequest) {
         url: checkoutSession.url,
       });
     } catch (error) {
-      console.error("Checkout lifetime error:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "lifetime-checkout" });
     }
   });
 }
