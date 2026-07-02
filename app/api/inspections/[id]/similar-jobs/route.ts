@@ -30,6 +30,10 @@ import {
 } from "@/lib/ai/embeddings";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -123,12 +127,24 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const queryText = buildJobEmbeddingText(queryInput);
 
-    // Embed the query (use hash-fallback if no OpenAI key)
-    const provider: "openai" | "hash-fallback" = process.env.OPENAI_API_KEY
+    // RA-6921 (P0) — embed with the workspace's own OpenAI key when
+    // configured; degrade to the free hash-fallback rather than spend the
+    // platform's key on a client's workload.
+    let openaiApiKey = "";
+    try {
+      const workspaceKey = await resolveWorkspaceAiKey(
+        session.user.id,
+        "OPENAI",
+      );
+      openaiApiKey = workspaceKey.apiKey;
+    } catch (err) {
+      if (!(err instanceof NoWorkspaceKeyError)) throw err;
+      // No workspace key configured — fall through to hash-fallback below.
+    }
+    const provider: "openai" | "hash-fallback" = openaiApiKey
       ? "openai"
       : "hash-fallback";
-    const apiKey = process.env.OPENAI_API_KEY ?? "";
-    const queryVector = await embedText(queryText, provider, apiKey);
+    const queryVector = await embedText(queryText, provider, openaiApiKey);
 
     // Search for similar jobs
     const results = await findSimilarJobs({

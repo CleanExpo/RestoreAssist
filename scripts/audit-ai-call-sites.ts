@@ -475,9 +475,11 @@ const PLATFORM_KEY_FALLBACK_BASELINE_PATH = path.join(
 );
 
 /**
- * RA-6921 (P0) ratchet baseline — routes still pending migration off a
- * platform-key fallback onto workspace BYOK. Remove an entry here in the
- * same PR that migrates it; never add new entries.
+ * RA-6921 (P0) platform-key-fallback register — `pendingMigration` is a
+ * ratchet baseline (routes still owed a move to workspace BYOK);
+ * `platformInternalExceptions` are staff-only/webhook routes intentionally
+ * left on the platform key forever. Both suppress the gate; only
+ * `pendingMigration` should ever shrink toward zero.
  */
 export function readPlatformKeyFallbackBaseline(): string[] {
   if (!existsSync(PLATFORM_KEY_FALLBACK_BASELINE_PATH)) return [];
@@ -485,7 +487,15 @@ export function readPlatformKeyFallbackBaseline(): string[] {
     const raw = JSON.parse(
       readFileSync(PLATFORM_KEY_FALLBACK_BASELINE_PATH, "utf8"),
     );
-    return Array.isArray(raw.files) ? raw.files : [];
+    const pending = Array.isArray(raw.pendingMigration)
+      ? raw.pendingMigration
+      : [];
+    const exceptions =
+      raw.platformInternalExceptions &&
+      typeof raw.platformInternalExceptions === "object"
+        ? Object.keys(raw.platformInternalExceptions)
+        : [];
+    return [...pending, ...exceptions];
   } catch {
     return [];
   }
