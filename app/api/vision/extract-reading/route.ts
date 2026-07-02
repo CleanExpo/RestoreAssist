@@ -14,11 +14,16 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { extractMeterReading } from "@/lib/services/ai/extract-reading";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -42,26 +47,32 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       if (
         !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
       ) {
-        return NextResponse.json(
-          { error: "Active subscription required" },
-          { status: 402 },
-        );
+        return apiError(request, {
+          code: "PAYMENT_REQUIRED",
+          message: "Active subscription required",
+          status: 402,
+        });
       }
 
       let body: any;
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { image, mediaType: rawMediaType = "image/jpeg" } = body as {
         image?: string;
@@ -69,19 +80,21 @@ export async function POST(request: NextRequest) {
       };
 
       if (!image || typeof image !== "string") {
-        return NextResponse.json(
-          { error: "image (base64 string) is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "image (base64 string) is required",
+          status: 400,
+        });
       }
 
       // Validate base64 characters before hitting Anthropic — avoids a costly
       // external API call on obviously malformed input.
       if (!/^[A-Za-z0-9+/]+=*$/.test(image)) {
-        return NextResponse.json(
-          { error: "image must be a valid base64-encoded string" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "image must be a valid base64-encoded string",
+          status: 400,
+        });
       }
 
       // Runtime mediaType allowlist — TypeScript cast alone doesn't validate at runtime;
@@ -145,19 +158,14 @@ export async function POST(request: NextRequest) {
           result.retryAfterMs != null
             ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
             : {};
-        return NextResponse.json(
-          { error: result.reason },
-          { status, headers },
-        );
+        return NextResponse.json({ error: result.reason }, { status, headers });
       }
 
       return NextResponse.json({ reading: result.data });
     } catch (error) {
-      console.error("[POST /api/vision/extract-reading] Error:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, {
+        stage: "vision/extract-reading:post",
+      });
     }
   });
 }

@@ -12,6 +12,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { apiError } from "@/lib/api-errors";
 import {
   SESSION_COOKIE_NAME,
   forgeSessionJwt,
@@ -28,10 +29,11 @@ export async function POST(req: NextRequest) {
     process.env.ALLOW_TEST_HELPERS !== "true" ||
     process.env.VERCEL_ENV === "production"
   ) {
-    return NextResponse.json(
-      { error: "Test helpers are not enabled in this environment" },
-      { status: 404 },
-    );
+    return apiError(req, {
+      code: "NOT_FOUND",
+      message: "Test helpers are not enabled in this environment",
+      status: 404,
+    });
   }
 
   let body: { email?: string };
@@ -43,7 +45,11 @@ export async function POST(req: NextRequest) {
 
   const email = typeof body.email === "string" ? body.email.trim() : "";
   if (!email) {
-    return NextResponse.json({ error: "email is required" }, { status: 400 });
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "email is required",
+      status: 400,
+    });
   }
 
   let user = await prisma.user.findUnique({
