@@ -2305,6 +2305,42 @@ model WaterDamageClassification {
   @@index([damageClass])
 }
 
+/// RA-6917 Phase 1 — de-identified restoration incident for the permanent data
+/// asset (annual reports / industry intelligence). Derived from an Inspection on
+/// close. Carries NO street address, owner, technician, or free-text PII.
+/// Deliberately has NO relation to Inspection: it survives the Inspection's
+/// deletion (operational PII is cascade-deleted; the de-identified asset is kept).
+model RestorationIncident {
+  id String @id @default(cuid())
+
+  // Geography — postcode granularity only (never street address).
+  state    String
+  postcode String
+
+  // Classification (reuse existing IICRC enums).
+  waterCategory WaterCategory?
+  damageClass   DamageClass?
+  lossSource    LossSourceType?
+  hazards       String[]
+
+  // Outcome (the intelligence layer).
+  remediationDays Int?
+  outcome         String?
+
+  // Truncated to the first of the month to reduce re-identification.
+  capturedAt DateTime
+
+  // One-way hash of the source inspection id: idempotency + audit linkage
+  // WITHOUT storing identity. Unique so re-derivation upserts, never duplicates.
+  sourceInspectionHash String @unique
+
+  createdAt DateTime @default(now())
+
+  @@index([state, postcode])
+  @@index([waterCategory, damageClass])
+  @@index([capturedAt])
+}
+
 model PsychrometricReading {
   id           String     @id @default(uuid()) @db.Text
   inspectionId String

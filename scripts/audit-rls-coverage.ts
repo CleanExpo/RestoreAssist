@@ -143,6 +143,9 @@ export const SERVICE_ONLY = new Set<string>([
   "AuditLog",
   "ScheduledEmail",
   "PropertyLookup",
+  // RA-6917: de-identified cross-org restoration data asset. Server/service-role
+  // only; RLS-enabled default-deny (no tenant policy) is the whole point.
+  "RestorationIncident",
   "StorageMirrorJob",
   "StorageRestoreJob",
   "HydrationJob",
