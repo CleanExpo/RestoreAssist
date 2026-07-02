@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   // RA-1842 Path B — Apple guideline 3.1.1 compliance. iOS Capacitor
@@ -21,7 +22,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -50,20 +55,30 @@ export async function POST(request: NextRequest) {
 
       let parsed: { priceId?: string } = {};
       try {
-        parsed = rawBody ? JSON.parse(rawBody) : {};
+        const raw: unknown = rawBody ? JSON.parse(rawBody) : {};
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Request body must be a JSON object",
+            status: 400,
+          });
+        }
+        parsed = raw as { priceId?: string };
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { priceId } = parsed;
 
       if (!priceId) {
-        return NextResponse.json(
-          { error: "Price ID is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Price ID is required",
+          status: 400,
+        });
       }
 
       // Get user's Stripe customer ID
@@ -92,11 +107,13 @@ export async function POST(request: NextRequest) {
             data: { stripeCustomerId: customerId },
           });
         } catch (stripeError) {
-          console.error("Error creating Stripe customer:", stripeError);
-          return NextResponse.json(
-            { error: "Failed to create customer" },
-            { status: 500 },
-          );
+          return apiError(request, {
+            code: "UPSTREAM_FAILED",
+            message: "Failed to create customer",
+            status: 500,
+            err: stripeError,
+            stage: "create-stripe-customer",
+          });
         }
       }
 
@@ -192,11 +209,9 @@ export async function POST(request: NextRequest) {
         customerId: customerId,
       });
     } catch (error) {
-      console.error("Error creating checkout session:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, {
+        stage: "create-checkout-session",
+      });
     }
   });
 }
