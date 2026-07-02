@@ -46,7 +46,10 @@ describe("POST /api/admin/evaluation", () => {
     const body = await response.json();
 
     expect(response.status).toBe(503);
-    expect(body).toEqual({ error: "Evaluation service is not configured" });
+    expect(body.error.code).toBe("UPSTREAM_FAILED");
+    expect(body.error.message).toBe("Evaluation service is not configured");
+    // must not leak the raw provider-config detail
+    expect(JSON.stringify(body)).not.toContain("ANTHROPIC_API_KEY");
   });
 
   it("does not expose unexpected evaluation exception details", async () => {
@@ -58,6 +61,9 @@ describe("POST /api/admin/evaluation", () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: "Evaluation failed" });
+    expect(body.error.code).toBe("INTERNAL");
+    expect(body.error.message).toBe("Evaluation failed");
+    // must not leak the raw exception detail
+    expect(JSON.stringify(body)).not.toContain("abc123");
   });
 });
