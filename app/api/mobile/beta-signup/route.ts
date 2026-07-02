@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-errors";
 
 const BetaSignupSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -49,10 +50,11 @@ export async function POST(req: NextRequest) {
     const parsed = BetaSignupSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.errors[0].message },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: parsed.error.errors[0].message,
+        status: 400,
+      });
     }
 
     const { email, name, deviceType } = parsed.data;
@@ -91,10 +93,11 @@ export async function POST(req: NextRequest) {
       { status: 201 },
     );
   } catch {
-    return NextResponse.json(
-      { error: "Invalid request body" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Invalid request body",
+      status: 400,
+    });
   }
 }
 
