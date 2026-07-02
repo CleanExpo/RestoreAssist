@@ -29,9 +29,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { apiError, fromException } from "@/lib/api-errors";
 import {
   validateContentBeforePublish,
-  checkContentGate,
   getAllGateStatuses,
   ContentGateViolationError,
   type ContentMetadata,
@@ -109,19 +109,31 @@ function parseAndValidateBody(
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorised",
+      status: 401,
+    });
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Invalid JSON body",
+      status: 400,
+    });
   }
 
   const validated = parseAndValidateBody(body);
   if ("error" in validated) {
-    return NextResponse.json({ error: validated.error }, { status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: validated.error,
+      status: 400,
+    });
   }
 
   try {
@@ -182,11 +194,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error("[Content Gate] Unexpected error:", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "gate-check" });
   }
 }
 
@@ -195,33 +203,41 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorised",
+      status: 401,
+    });
   }
 
-  const clearance = getAllGateStatuses();
+  try {
+    const clearance = getAllGateStatuses();
 
-  return NextResponse.json(
-    {
-      overallApproved: clearance.approved,
-      approvedDomains: clearance.approvedDomains,
-      blockedDomains: clearance.blockedDomains,
-      checkedAt: clearance.checkedAt,
-      domains: Object.fromEntries(
-        Object.entries(clearance.results).map(([domain, result]) => [
-          domain,
-          {
-            gateStatus: result.gateStatus,
-            certificationMet: result.certificationMet,
-            blockReasonCount: result.blockReasons.length,
-            blockedClaimCount: result.blockedClaims.length,
-            allowedClaimCount: result.allowedClaims.length,
-            certificationOwner: result.certificationRecord.gateOwner,
-            certificationRequirement: result.certificationRecord.requirement,
-            requiredActions: result.requiredActions,
-          },
-        ]),
-      ),
-    },
-    { status: 200 },
-  );
+    return NextResponse.json(
+      {
+        overallApproved: clearance.approved,
+        approvedDomains: clearance.approvedDomains,
+        blockedDomains: clearance.blockedDomains,
+        checkedAt: clearance.checkedAt,
+        domains: Object.fromEntries(
+          Object.entries(clearance.results).map(([domain, result]) => [
+            domain,
+            {
+              gateStatus: result.gateStatus,
+              certificationMet: result.certificationMet,
+              blockReasonCount: result.blockReasons.length,
+              blockedClaimCount: result.blockedClaims.length,
+              allowedClaimCount: result.allowedClaims.length,
+              certificationOwner: result.certificationRecord.gateOwner,
+              certificationRequirement: result.certificationRecord.requirement,
+              requiredActions: result.requiredActions,
+            },
+          ]),
+        ),
+      },
+      { status: 200 },
+    );
+  } catch (err) {
+    return fromException(request, err, { stage: "dashboard" });
+  }
 }
