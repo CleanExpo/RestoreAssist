@@ -5587,6 +5587,13 @@ model Workspace {
   ownerId              String
   owner                User            @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   status               WorkspaceStatus @default(PROVISIONING)
+  // Cutover onboarding (G1): tenant-DB lifecycle. "none" = uses the shared DB
+  // exactly as today; "ready" gates first-claim onto the workspace's own DB.
+  // Values: none | provisioning | ready | error (lib/tenant/onboarding-helpers).
+  tenantDbStatus       String          @default("none")
+  // The tenant DB connection string, AES-256-GCM encrypted (credential-vault).
+  // Server-side only; never sent to the client. Null until connected.
+  tenantDbConnectionEnc String?        @db.Text
   stripeCustomerId     String?         @unique
   stripeSubscriptionId String?         @unique
 
@@ -5984,6 +5991,19 @@ model ClaimSketch {
   sketchType         String             @default("structural")
   sketchData         Json?
   backgroundImageUrl String?
+  // RA-120 (PR2): rasterised PNG of the floor (underlay + annotations) captured
+  // client-side via Fabric canvas.toDataURL and uploaded to sketch-media/exports.
+  // The canonical IICRC report embeds this per floor (server can't render Fabric).
+  renderedPngUrl     String?
+  // RA-120 (PR4): per-floor underlay opacity (0..1). Without this the slider
+  // value lived in React state only and reset to the default on every reload.
+  backgroundImageOpacity Float?
+  // RA-120 (PR4b): per-floor underlay reposition/scale. NULL = the legacy
+  // fit-to-width baseline (scale 1, no offset, aspect locked). Applied via
+  // lib/sketch/underlay-transform so canvas + report share one transform.
+  backgroundImageScale   Float?
+  backgroundImageOffsetX Float?
+  backgroundImageOffsetY Float?
   moisturePoints     Json?
   equipmentPoints    Json?
   // Homeowner self-capture quarantine (D4): unauthenticated submissions land

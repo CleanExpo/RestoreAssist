@@ -14,6 +14,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
+import { fromException } from "@/lib/api-errors";
 
 const DEMO_EMAIL = "demo@restoreassist.app";
 const DEMO_INSPECTION_NUMBER = "NIR-2026-04-DEMO";
@@ -251,10 +252,6 @@ export async function POST(_req: NextRequest) {
       demoEmail: DEMO_EMAIL,
     });
   } catch (error) {
-    console.error("[POST /api/admin/seed-demo]", error);
-    return NextResponse.json(
-      { error: "Failed to seed demo data" },
-      { status: 500 },
-    );
+    return fromException(_req, error, { stage: "seed-demo" });
   }
 }

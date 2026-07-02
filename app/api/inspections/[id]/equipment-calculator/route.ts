@@ -23,6 +23,7 @@ import {
   type DamageClass,
 } from "@/lib/equipment-calculator";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -31,7 +32,11 @@ interface RouteParams {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id: inspectionId } = await params;
@@ -52,20 +57,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
 
       if (!inspection) {
-        return NextResponse.json(
-          { error: "Inspection not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
       }
 
       let body: any;
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const {
         affectedAreaM2,
@@ -82,10 +89,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       };
 
       if (!affectedAreaM2 || affectedAreaM2 <= 0) {
-        return NextResponse.json(
-          { error: "affectedAreaM2 must be a positive number" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "affectedAreaM2 must be a positive number",
+          status: 400,
+        });
       }
 
       // Resolve category/class: body overrides → inspection classification record → error
@@ -100,13 +108,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           : undefined)) as DamageClass | undefined;
 
       if (!resolvedCategory || !resolvedClass) {
-        return NextResponse.json(
-          {
-            error:
-              "damageCategory and damageClass are required. Either pass them in the request body, or ensure the inspection has a Classification record.",
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "damageCategory and damageClass are required. Either pass them in the request body, or ensure the inspection has a Classification record.",
+          status: 400,
+        });
       }
 
       // Run the calculator
@@ -168,11 +175,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           : "Equipment calculated (not saved — pass saveScopeItems: true to persist).",
       });
     } catch (error) {
-      console.error("[equipment-calculator POST]", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, {
+        stage: "inspection-equipment-calculator",
+      });
     }
   });
 }

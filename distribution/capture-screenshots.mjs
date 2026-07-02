@@ -89,7 +89,17 @@ const FLOWS = [
 ];
 
 function assertSandbox(baseUrl) {
-  const PROD = [/^app\.restoreassist\.com\.au$/i, /^restoreassist\.com\.au$/i];
+  const PROD = [
+    // RA-6733: the guard previously listed only the legacy .com.au hostnames,
+    // which were never the live prod domain. Real prod is restoreassist.app
+    // (restoreassist.ai attached 2026-07-02), plus the Vercel prod alias.
+    /^(www\.)?restoreassist\.app$/i,
+    /^(www\.)?restoreassist\.ai$/i,
+    /^restoreassist\.vercel\.app$/i,
+    // Legacy hostnames kept for defence in depth.
+    /^app\.restoreassist\.com\.au$/i,
+    /^restoreassist\.com\.au$/i,
+  ];
   const SANDBOX_HINT = /sandbox|staging|preview|localhost|127\.0\.0\.1/i;
   let host;
   try {

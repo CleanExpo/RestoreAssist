@@ -18,6 +18,7 @@ import {
   type AiProvider,
 } from "@/lib/workspace/provider-connections";
 import { checkPaymentGate } from "@/lib/workspace/payment-gate";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const VALID_PROVIDERS: AiProvider[] = [
   "ANTHROPIC",
@@ -36,7 +37,11 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const gate = await checkPaymentGate(session.user.id);
@@ -47,22 +52,17 @@ export async function POST(req: NextRequest) {
     const { provider } = (body ?? {}) as Record<string, unknown>;
 
     if (!isValidProvider(provider)) {
-      return NextResponse.json(
-        {
-          error: `Invalid provider. Must be one of: ${VALID_PROVIDERS.join(", ")}`,
-        },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: `Invalid provider. Must be one of: ${VALID_PROVIDERS.join(", ")}`,
+        status: 400,
+      });
     }
 
     const result = await validateProviderKey(workspace.id, provider);
 
     return NextResponse.json(result, { status: result.valid ? 200 : 422 });
   } catch (error) {
-    console.error("[POST /api/workspace/provider-connections/validate]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(req, error, { stage: "validate" });
   }
 }

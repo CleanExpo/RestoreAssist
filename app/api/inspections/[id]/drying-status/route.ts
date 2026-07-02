@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { assessDryingReadiness } from "@/lib/inspections/drying-readiness";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET /api/inspections/[id]/drying-status — read-only S500 drying readiness:
 // is the job dry enough to sign off? Advisory for the close-confirm UI; it does
@@ -15,7 +16,7 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const { id } = await params;
@@ -53,10 +54,6 @@ export async function GET(
 
     return NextResponse.json({ data: readiness });
   } catch (error) {
-    console.error("[inspections/drying-status GET]", error);
-    return NextResponse.json(
-      { error: "Failed to assess drying status" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "inspections/drying-status GET" });
   }
 }

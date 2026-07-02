@@ -45,6 +45,7 @@ import {
   embedText,
   type EmbeddingProvider,
 } from "@/lib/ai/embeddings";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -79,13 +80,20 @@ interface HistoricalJobRow {
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(
+  request: NextRequest,
+  { params: _params }: RouteParams,
+) {
   const startTime = Date.now();
 
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const body: VectoriseBody = await request.json().catch(() => ({}));
@@ -97,13 +105,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Validate provider/key combo
     if (provider === "openai" && !openaiApiKey) {
-      return NextResponse.json(
-        {
-          error:
-            "provider=openai requires OPENAI_API_KEY env var or openaiApiKey in body",
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "provider=openai requires OPENAI_API_KEY env var or openaiApiKey in body",
+        status: 400,
+      });
     }
 
     const batchSize = Math.min(body.batchSize ?? 50, 200);
@@ -114,9 +121,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const tenantId = session.user.id;
 
     // ── Count total jobs (cheap) and fetch only un-embedded rows ─────────────
-    const [{ count: totalCount }] = await prisma.$queryRaw<
-      [{ count: bigint }]
-    >(
+    const [{ count: totalCount }] = await prisma.$queryRaw<[{ count: bigint }]>(
       Prisma.sql`SELECT COUNT(*) AS count FROM "HistoricalJob" WHERE "tenantId" = ${tenantId}`,
     );
     const total = Number(totalCount);
@@ -220,10 +225,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       durationMs,
     });
   } catch (err) {
-    console.error("[vectorise-jobs] Unexpected error:", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "inspection-vectorise-jobs" });
   }
 }

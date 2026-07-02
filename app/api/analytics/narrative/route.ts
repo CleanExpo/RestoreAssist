@@ -19,6 +19,7 @@ import { prisma } from "@/lib/prisma";
 import { getAnthropicApiKey } from "@/lib/ai-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { generateAnalyticsNarrative } from "@/lib/services/ai/analytics-narrative";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"] as const;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -136,7 +137,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
     const userId = session.user.id;
 
@@ -153,16 +158,18 @@ export async function GET(request: NextRequest) {
     const compareTo = searchParams.get("compareTo") || "previous";
 
     if (!["month", "quarter", "year"].includes(periodParam)) {
-      return NextResponse.json(
-        { error: "period must be month, quarter, or year" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "period must be month, quarter, or year",
+        status: 400,
+      });
     }
     if (compareTo !== "previous") {
-      return NextResponse.json(
-        { error: "only compareTo=previous is supported" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "only compareTo=previous is supported",
+        status: 400,
+      });
     }
 
     const cacheKey = `${userId}:${periodParam}:${compareTo}`;
@@ -181,7 +188,11 @@ export async function GET(request: NextRequest) {
       select: { subscriptionStatus: true },
     });
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
     if (
       !ALLOWED_SUBSCRIPTION_STATUSES.includes(
@@ -189,10 +200,11 @@ export async function GET(request: NextRequest) {
           "") as (typeof ALLOWED_SUBSCRIPTION_STATUSES)[number],
       )
     ) {
-      return NextResponse.json(
-        { error: "Active subscription required" },
-        { status: 402 },
-      );
+      return apiError(request, {
+        code: "PAYMENT_REQUIRED",
+        message: "Active subscription required",
+        status: 402,
+      });
     }
 
     // Cost-gate: if the user has no connected Anthropic key, skip generation.
@@ -284,6 +296,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!result.ok) {
+      // RA-1548 — this upstream-AI translation block is intentionally left on
+      // raw NextResponse: the 429/503 branches carry Retry-After headers that
+      // apiError() cannot emit, and 424/502 have no clean code in the envelope
+      // map. Kept cohesive rather than half-migrated.
       console.error("[analytics/narrative]", {
         userId,
         reason: result.reason,
@@ -295,7 +311,9 @@ export async function GET(request: NextRequest) {
           {
             status: 429,
             headers: {
-              "Retry-After": Math.ceil((result.retryAfterMs ?? 30000) / 1000).toString(),
+              "Retry-After": Math.ceil(
+                (result.retryAfterMs ?? 30000) / 1000,
+              ).toString(),
             },
           },
         );
@@ -306,7 +324,9 @@ export async function GET(request: NextRequest) {
           {
             status: 503,
             headers: {
-              "Retry-After": Math.ceil((result.retryAfterMs ?? 10000) / 1000).toString(),
+              "Retry-After": Math.ceil(
+                (result.retryAfterMs ?? 10000) / 1000,
+              ).toString(),
             },
           },
         );
@@ -336,11 +356,8 @@ export async function GET(request: NextRequest) {
       cacheHit: false,
     });
   } catch (error) {
-    // CLAUDE.md rule 7: do not leak error.message
-    console.error("Error generating analytics narrative:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    // CLAUDE.md rule 7: do not leak error.message (fromException emits a
+    // generic message; detail goes to reportError only).
+    return fromException(request, error, { stage: "narrative" });
   }
 }

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { z } from "zod";
+import { apiError, fromException } from "@/lib/api-errors";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -43,16 +44,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
     });
 
     if (!ticket) {
-      return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Ticket not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json({ ticket });
   } catch (error) {
-    console.error("[support/tickets/[id] GET]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "get" });
   }
 }
 
@@ -68,10 +69,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params;
 
-    const rawBody = await request.json();
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
+    }
     const parsed = patchTicketSchema.safeParse(rawBody);
 
     if (!parsed.success) {
+      // RA-1548 — left raw: rich 422 with `issues` array sibling (zod details).
       return NextResponse.json(
         { error: "Validation failed", issues: parsed.error.issues },
         { status: 422 },
@@ -82,10 +93,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     // Nothing to update
     if (!status && !priority && !category) {
-      return NextResponse.json(
-        { error: "No updatable fields provided" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "No updatable fields provided",
+        status: 400,
+      });
     }
 
     const resolvedAt =
@@ -106,19 +118,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     });
 
     return NextResponse.json({ ticket });
-  } catch (error: unknown) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as { code: string }).code === "P2025"
-    ) {
-      return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
-    }
-    console.error("[support/tickets/[id] PATCH]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+  } catch (error) {
+    // fromException maps Prisma P2025 (record-to-update not found) -> 404.
+    return fromException(request, error, { stage: "patch" });
   }
 }

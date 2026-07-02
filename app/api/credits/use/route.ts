@@ -8,12 +8,17 @@ import {
 } from "@/lib/organization-credits";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -28,35 +33,59 @@ export async function POST(request: NextRequest) {
   // idempotency would double-deduct.
   return withIdempotency(request, userId, async (rawBody) => {
     try {
-      let body: any;
+      let parsed: unknown;
       try {
-        body = rawBody ? JSON.parse(rawBody) : {};
+        parsed = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
-      const rawCredits = body.credits ?? 1;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Request body must be a JSON object",
+          status: 400,
+        });
+      }
+      // Only an omitted `credits` defaults to 1; an explicit null (or any
+      // non-integer) is rejected by the validation below.
+      const rawCredits = (parsed as { credits?: unknown }).credits;
+      const requestedCredits = rawCredits === undefined ? 1 : rawCredits;
       // Validate: credits must be a positive integer between 1 and 100
-      if (!Number.isInteger(rawCredits) || rawCredits < 1 || rawCredits > 100) {
-        return NextResponse.json(
-          { error: "credits must be an integer between 1 and 100" },
-          { status: 400 },
-        );
+      if (
+        typeof requestedCredits !== "number" ||
+        !Number.isInteger(requestedCredits) ||
+        requestedCredits < 1 ||
+        requestedCredits > 100
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "credits must be an integer between 1 and 100",
+          status: 400,
+        });
       }
-      const credits = rawCredits as number;
+      const credits = requestedCredits;
 
       // Get effective subscription (Admin's for Managers/Technicians)
       const effectiveSub = await getEffectiveSubscription(userId);
 
       if (!effectiveSub) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       // Only TRIAL, ACTIVE, and LIFETIME subscriptions may consume credits
       const ALLOWED_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
       if (!ALLOWED_STATUSES.includes(effectiveSub.subscriptionStatus ?? "")) {
+        // RA-1548 — the two 402s here carry an `upgradeRequired` (and
+        // `creditsRemaining`) sibling the client reads to drive the upgrade
+        // CTA, so they stay on raw NextResponse.
         return NextResponse.json(
           { error: "Active subscription required", upgradeRequired: true },
           { status: 402 },
@@ -128,11 +157,7 @@ export async function POST(request: NextRequest) {
         subscriptionStatus: updatedUser?.subscriptionStatus ?? null,
       });
     } catch (error) {
-      console.error("Error using credits:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "use-credits" });
     }
   });
 }

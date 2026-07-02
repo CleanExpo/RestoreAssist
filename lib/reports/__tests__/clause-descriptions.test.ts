@@ -40,7 +40,8 @@ describe("describeClause", () => {
 
   it("resolves the report's other hardcoded core ref §10.1 via the verified index", () => {
     // generate-forensic-report-pdf.ts also emits §10.1; it is not in the table
-    // but is a verified S500 section ("Introduction" to the Inspections chapter).
+    // but this branch adds it to the verified S500 index as "Introduction"
+    // (§10 Inspections chapter), so it resolves to the real title, not the placeholder.
     expect(describeClause("S500:2021 §10.1")).toBe("Introduction");
   });
 

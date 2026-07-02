@@ -205,10 +205,16 @@ export default function ReportsPage() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
+        // STORM #5 — was a silent console-only failure; surface it so the
+        // user knows the download didn't happen and can retry.
         console.error("Failed to download report");
+        toast.error("Couldn't download the report. Please try again.");
       }
     } catch (error) {
       console.error("Error downloading report:", error);
+      toast.error(
+        "Couldn't download the report. Check your connection and try again.",
+      );
     } finally {
       setDownloading(null);
     }
@@ -425,6 +431,7 @@ export default function ReportsPage() {
         <button
           onClick={() => setFilterOpen(!filterOpen)}
           className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
+          aria-label="Toggle filters"
         >
           <Filter size={20} />
         </button>
@@ -432,6 +439,11 @@ export default function ReportsPage() {
           onClick={handleBatchDownload}
           disabled={batchDownloading || selectedReports.length === 0}
           className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          aria-label={
+            selectedReports.length > 0
+              ? `Download ${selectedReports.length} selected report(s) as ZIP`
+              : "Download selected reports as ZIP"
+          }
           title={
             selectedReports.length > 0
               ? `Download ${selectedReports.length} selected report(s) as ZIP`
@@ -805,6 +817,12 @@ export default function ReportsPage() {
                           <button
                             onClick={() => toggleReportSelection(report.id)}
                             className="flex items-center gap-2 hover:text-white transition-colors"
+                            aria-label={
+                              selectedReports.includes(report.id)
+                                ? "Deselect report"
+                                : "Select report"
+                            }
+                            aria-pressed={selectedReports.includes(report.id)}
                           >
                             {selectedReports.includes(report.id) ? (
                               <CheckSquare
@@ -943,6 +961,7 @@ export default function ReportsPage() {
                               href={`/dashboard/reports/${report.id}`}
                               className="p-1 hover:bg-slate-700 rounded transition-colors"
                               title="View"
+                              aria-label="View report"
                             >
                               <Eye size={16} />
                             </Link>
@@ -950,6 +969,7 @@ export default function ReportsPage() {
                               href={`/dashboard/reports/${report.id}/edit`}
                               className="p-1 hover:bg-slate-700 rounded transition-colors"
                               title="Edit"
+                              aria-label="Edit report"
                             >
                               <Edit size={16} />
                             </Link>
@@ -958,6 +978,7 @@ export default function ReportsPage() {
                               disabled={duplicating === report.id}
                               className="p-1 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
                               title="Duplicate"
+                              aria-label="Duplicate report"
                             >
                               {duplicating === report.id ? (
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-500"></div>

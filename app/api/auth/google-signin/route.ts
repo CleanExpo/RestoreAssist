@@ -11,6 +11,7 @@ import { sendWithRetry } from "@/lib/email-retry";
 import { notifyWelcome } from "@/lib/notifications";
 import { seedDemoDataForNewUser } from "@/lib/demo-data";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
@@ -56,7 +57,11 @@ export async function POST(request: NextRequest) {
     const idToken = authHeader?.replace("Bearer ", "");
 
     if (!idToken) {
-      return NextResponse.json({ error: "No token provided" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "No token provided",
+        status: 401,
+      });
     }
 
     // Verify token with Firebase Admin - MANDATORY
@@ -67,45 +72,53 @@ export async function POST(request: NextRequest) {
       try {
         const decodedToken = await adminAuth.verifyIdToken(idToken);
         verifiedEmail = decodedToken.email;
-      } catch (error) {
-        console.error("Firebase token verification failed:", error);
-        return NextResponse.json(
-          {
-            error:
-              "Invalid or expired authentication token. Please try signing in again.",
-          },
-          { status: 401 },
-        );
+      } catch {
+        // Expected client error (forged/expired token) — 401s are not
+        // reported to observability per the apiError envelope design.
+        return apiError(request, {
+          code: "UNAUTHORIZED",
+          message:
+            "Invalid or expired authentication token. Please try signing in again.",
+          status: 401,
+        });
       }
     } else {
       // Firebase Admin SDK is not available — NEVER fall back to trusting the client-provided email.
       // The client-supplied body.email is completely attacker-controlled and could be set to any
       // existing user's address, granting full account takeover without any credential.
       // Return 503 so the client can show an appropriate error and retry later.
-      console.error(
-        "[google-signin] Firebase Admin SDK unavailable — rejecting request to prevent auth bypass",
-      );
-      return NextResponse.json(
-        {
-          error:
-            "Authentication service temporarily unavailable. Please try again.",
-        },
-        { status: 503 },
-      );
+      return apiError(request, {
+        code: "UPSTREAM_FAILED",
+        message:
+          "Authentication service temporarily unavailable. Please try again.",
+        status: 503,
+        stage: "firebase-admin-unavailable",
+      });
     }
 
-    const body = await request.json();
-    const email = body.email;
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
+    }
     const name = sanitizeString(body.name, 200);
     const image = sanitizeString(body.image, 2000);
-    const firebaseUid = body.firebaseUid;
     const emailVerified = body.emailVerified;
 
     // Always use the server-verified email from the Firebase token (never body.email)
     const userEmail = verifiedEmail;
 
     if (!userEmail) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Email is required",
+        status: 400,
+      });
     }
 
     // Check if user already exists
@@ -215,11 +228,7 @@ export async function POST(request: NextRequest) {
       ...newUser,
       googleAuthToken: generateGoogleAuthToken(userEmail),
     });
-  } catch (error: any) {
-    console.error("Error in Google sign-in:", error);
-    return NextResponse.json(
-      { error: "Authentication failed. Please try again." },
-      { status: 500 },
-    );
+  } catch (error) {
+    return fromException(request, error, { stage: "google-signin" });
   }
 }

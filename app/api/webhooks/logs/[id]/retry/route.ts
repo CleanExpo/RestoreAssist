@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * POST /api/webhooks/logs/[id]/retry
@@ -16,7 +17,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -32,17 +37,19 @@ export async function POST(
       });
 
       if (!webhookEvent) {
-        return NextResponse.json(
-          { error: "Webhook event not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Webhook event not found",
+          status: 404,
+        });
       }
 
       if (webhookEvent.status !== "FAILED") {
-        return NextResponse.json(
-          { error: "Only FAILED events can be retried" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Only FAILED events can be retried",
+          status: 400,
+        });
       }
 
       const updated = await prisma.webhookEvent.update({
@@ -57,11 +64,7 @@ export async function POST(
 
       return NextResponse.json({ success: true, event: updated });
     } catch (error) {
-      console.error("[Webhook Retry] POST error:", error);
-      return NextResponse.json(
-        { error: "Failed to retry webhook event" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "webhook-retry" });
     }
   });
 }

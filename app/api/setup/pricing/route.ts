@@ -1,51 +1,52 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { apiError } from "@/lib/api-errors";
 
 // Whitelist of fields the wizard is allowed to patch on OrganizationPricingConfig.
 // Names match the actual Prisma schema field names (snake_case converted to camelCase).
 const PATCHABLE_PRICING_FIELDS = [
   // Labour rates
-  'masterQualifiedNormalHours',
-  'masterQualifiedSaturday',
-  'masterQualifiedSunday',
-  'qualifiedTechnicianNormalHours',
-  'qualifiedTechnicianSaturday',
-  'qualifiedTechnicianSunday',
-  'labourerNormalHours',
-  'labourerSaturday',
-  'labourerSunday',
+  "masterQualifiedNormalHours",
+  "masterQualifiedSaturday",
+  "masterQualifiedSunday",
+  "qualifiedTechnicianNormalHours",
+  "qualifiedTechnicianSaturday",
+  "qualifiedTechnicianSunday",
+  "labourerNormalHours",
+  "labourerSaturday",
+  "labourerSunday",
   // Equipment daily rental
-  'airMoverAxialDailyRate',
-  'airMoverCentrifugalDailyRate',
-  'dehumidifierLGRDailyRate',
-  'dehumidifierDesiccantDailyRate',
-  'afdUnitLargeDailyRate',
-  'extractionTruckMountedHourlyRate',
-  'extractionElectricHourlyRate',
-  'injectionDryingSystemDailyRate',
+  "airMoverAxialDailyRate",
+  "airMoverCentrifugalDailyRate",
+  "dehumidifierLGRDailyRate",
+  "dehumidifierDesiccantDailyRate",
+  "afdUnitLargeDailyRate",
+  "extractionTruckMountedHourlyRate",
+  "extractionElectricHourlyRate",
+  "injectionDryingSystemDailyRate",
   // Optional equipment (nullable in schema)
-  'negativeAirMachineDailyRate',
-  'hepaVacuumDailyRate',
-  'monitoringVisitDailyRate',
-  'mobilisationFee',
-  'wasteDisposalPerBinRate',
-  'photoDocumentationFee',
+  "negativeAirMachineDailyRate",
+  "hepaVacuumDailyRate",
+  "monitoringVisitDailyRate",
+  "mobilisationFee",
+  "wasteDisposalPerBinRate",
+  "photoDocumentationFee",
   // Chemical treatment
-  'antimicrobialTreatmentRate',
-  'mouldRemediationTreatmentRate',
-  'biohazardTreatmentRate',
+  "antimicrobialTreatmentRate",
+  "mouldRemediationTreatmentRate",
+  "biohazardTreatmentRate",
   // Fees
-  'administrationFee',
-  'callOutFee',
-  'thermalCameraUseCostPerAssessment',
+  "administrationFee",
+  "callOutFee",
+  "thermalCameraUseCostPerAssessment",
   // Multipliers and percentages (have @default in schema)
-  'afterHoursMultiplier',
-  'saturdayMultiplier',
-  'sundayMultiplier',
-  'publicHolidayMultiplier',
-  'projectManagementPercent',
+  "afterHoursMultiplier",
+  "saturdayMultiplier",
+  "sundayMultiplier",
+  "publicHolidayMultiplier",
+  "projectManagementPercent",
 ] as const;
 
 // Required fields (non-nullable, no @default) not in a typical wizard PATCH.
@@ -79,14 +80,22 @@ const REQUIRED_DEFAULTS: Record<string, number> = {
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError(undefined, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return apiError(undefined, {
+      code: "VALIDATION",
+      message: "Invalid JSON body",
+      status: 400,
+    });
   }
 
   const org = await prisma.organization.findFirst({
@@ -94,26 +103,36 @@ export async function PATCH(req: Request) {
     select: { id: true, setupCompletedAt: true },
   });
   if (!org) {
-    return NextResponse.json({ error: 'No organization for this user' }, { status: 404 });
+    return apiError(undefined, {
+      code: "NOT_FOUND",
+      message: "No organization for this user",
+      status: 404,
+    });
   }
   if (org.setupCompletedAt) {
-    return NextResponse.json(
-      { error: 'Setup already complete; edit in Settings instead' },
-      { status: 409 },
-    );
+    return apiError(undefined, {
+      code: "CONFLICT",
+      message: "Setup already complete; edit in Settings instead",
+      status: 409,
+    });
   }
 
   const patch: Record<string, number> = {};
   for (const field of PATCHABLE_PRICING_FIELDS) {
     if (field in body) {
       const v = body[field];
-      const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN;
+      const n =
+        typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
       if (Number.isFinite(n) && n >= 0) patch[field] = n;
     }
   }
 
   if (Object.keys(patch).length === 0) {
-    return NextResponse.json({ error: 'No patchable pricing fields in body' }, { status: 400 });
+    return apiError(undefined, {
+      code: "VALIDATION",
+      message: "No patchable pricing fields in body",
+      status: 400,
+    });
   }
 
   // Merge required defaults with the patched values so the create branch always

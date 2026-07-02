@@ -19,6 +19,7 @@ import { logAiUsage, estimateCostUsd } from "@/lib/usage/log-usage";
 import { importSketchFromImage } from "@/lib/services/ai/import-sketch-from-image";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateImageUpload } from "@/lib/media/validate-image-upload";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // RA-1707 / P0-2 — Vision call costs roughly $0.005-0.012 per image at
 // claude-sonnet-4-x pricing (depends on image dimensions). We assume the
@@ -40,203 +41,217 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const userId = session.user.id;
-  const { id: inspectionId } = await params;
-
-  // Verify ownership
-  const inspection = await prisma.inspection.findFirst({
-    where: { id: inspectionId, userId },
-    select: { id: true },
-  });
-  if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
-    );
-  }
-
-  const rateLimited = await applyRateLimit(request, {
-    windowMs: RATE_LIMIT_WINDOW_MS,
-    maxRequests: RATE_LIMIT_MAX,
-    prefix: "sketch-import",
-    key: userId,
-  });
-  if (rateLimited) return rateLimited;
-
-  // RA-1707 / P0-2 — workspace AI daily budget check. Resolves the user's
-  // active workspace and rejects when this Vision call would tip the org
-  // over its daily ceiling. Defensive: when getWorkspaceForUser returns
-  // null (user has no workspace bound) we still allow — pilots in legacy
-  // user-scoped accounts continue to work.
-  const workspace = await getWorkspaceForUser(userId);
-  if (workspace) {
-    const budget = await checkWorkspaceBudget({
-      workspaceId: workspace.id,
-      estimatedCostUsd: VISION_COST_ESTIMATE_USD,
-    });
-    if (!budget.ok) {
-      return NextResponse.json(
-        {
-          error: budget.error,
-          remainingUsd: budget.remainingUsd,
-          budgetUsd: budget.budgetUsd,
-        },
-        { status: 429 },
-      );
-    }
-  }
-
-  // Parse multipart
-  let formData: FormData;
   try {
-    formData = await request.formData();
-  } catch {
-    return NextResponse.json(
-      { error: "Invalid multipart body" },
-      { status: 400 },
-    );
-  }
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
+    }
 
-  const file = formData.get("file");
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Missing file field" }, { status: 400 });
-  }
+    const userId = session.user.id;
+    const { id: inspectionId } = await params;
 
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  const imageCheck = validateImageUpload({
-    declaredType: file.type,
-    sizeBytes: file.size,
-    buffer,
-    maxBytes: MAX_FILE_BYTES,
-    allowedTypes: ALLOWED_TYPES,
-  });
-  if (!imageCheck.ok && imageCheck.reason === "too-large") {
-    return NextResponse.json(
-      { error: "File too large — maximum 10 MB" },
-      { status: 400 },
-    );
-  }
-  if (!imageCheck.ok) {
-    return NextResponse.json(
-      { error: "Unsupported file type — use JPEG or PNG" },
-      { status: 400 },
-    );
-  }
-  const mediaType = imageCheck.mediaType as (typeof ALLOWED_TYPES)[number];
-
-  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!apiKey) {
-    console.error("[InspectionsSketchImport]", {
-      userId,
-      inspectionId,
-      reason: "KEY_MISSING",
-      detail: "ANTHROPIC_API_KEY not configured",
+    // Verify ownership
+    const inspection = await prisma.inspection.findFirst({
+      where: { id: inspectionId, userId },
+      select: { id: true },
     });
-    return NextResponse.json(
-      { error: "AI service unavailable" },
-      { status: 402 },
-    );
-  }
+    if (!inspection) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
 
-  // Convert to base64
-  const base64 = buffer.toString("base64");
-
-  const callStart = Date.now();
-  const visionModel = "claude-sonnet-4-6";
-
-  const result = await importSketchFromImage({
-    apiKey,
-    base64Image: base64,
-    mediaType,
-  });
-
-  if (!result.ok) {
-    console.error("[InspectionsSketchImport]", {
-      userId,
-      inspectionId,
-      reason: result.reason,
-      detail: result.detail,
+    const rateLimited = await applyRateLimit(request, {
+      windowMs: RATE_LIMIT_WINDOW_MS,
+      maxRequests: RATE_LIMIT_MAX,
+      prefix: "sketch-import",
+      key: userId,
     });
-    // RA-1707 / P0-2 — log failure for workspace daily budget visibility.
+    if (rateLimited) return rateLimited;
+
+    // RA-1707 / P0-2 — workspace AI daily budget check. Resolves the user's
+    // active workspace and rejects when this Vision call would tip the org
+    // over its daily ceiling. Defensive: when getWorkspaceForUser returns
+    // null (user has no workspace bound) we still allow — pilots in legacy
+    // user-scoped accounts continue to work.
+    const workspace = await getWorkspaceForUser(userId);
     if (workspace) {
+      const budget = await checkWorkspaceBudget({
+        workspaceId: workspace.id,
+        estimatedCostUsd: VISION_COST_ESTIMATE_USD,
+      });
+      if (!budget.ok) {
+        return NextResponse.json(
+          {
+            error: budget.error,
+            remainingUsd: budget.remainingUsd,
+            budgetUsd: budget.budgetUsd,
+          },
+          { status: 429 },
+        );
+      }
+    }
+
+    // Parse multipart
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid multipart body",
+        status: 400,
+      });
+    }
+
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Missing file field",
+        status: 400,
+      });
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const imageCheck = validateImageUpload({
+      declaredType: file.type,
+      sizeBytes: file.size,
+      buffer,
+      maxBytes: MAX_FILE_BYTES,
+      allowedTypes: ALLOWED_TYPES,
+    });
+    if (!imageCheck.ok && imageCheck.reason === "too-large") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "File too large — maximum 10 MB",
+        status: 400,
+      });
+    }
+    if (!imageCheck.ok) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Unsupported file type — use JPEG or PNG",
+        status: 400,
+      });
+    }
+    const mediaType = imageCheck.mediaType as (typeof ALLOWED_TYPES)[number];
+
+    const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+    if (!apiKey) {
+      console.error("[InspectionsSketchImport]", {
+        userId,
+        inspectionId,
+        reason: "KEY_MISSING",
+        detail: "ANTHROPIC_API_KEY not configured",
+      });
+      return apiError(request, {
+        code: "PAYMENT_REQUIRED",
+        message: "AI service unavailable",
+        status: 402,
+      });
+    }
+
+    // Convert to base64
+    const base64 = buffer.toString("base64");
+
+    const callStart = Date.now();
+    const visionModel = "claude-sonnet-4-6";
+
+    const result = await importSketchFromImage({
+      apiKey,
+      base64Image: base64,
+      mediaType,
+    });
+
+    if (!result.ok) {
+      console.error("[InspectionsSketchImport]", {
+        userId,
+        inspectionId,
+        reason: result.reason,
+        detail: result.detail,
+      });
+      // RA-1707 / P0-2 — log failure for workspace daily budget visibility.
+      if (workspace) {
+        logAiUsage({
+          workspaceId: workspace.id,
+          provider: "ANTHROPIC",
+          model: visionModel,
+          taskType: "vision_sketch_import",
+          inputTokens: 0,
+          outputTokens: 0,
+          estimatedCostUsd: 0,
+          latencyMs: Date.now() - callStart,
+          success: false,
+          errorType: result.reason,
+          metadata: { inspectionId },
+        });
+      }
+      const status =
+        result.reason === "KEY_MISSING"
+          ? 402
+          : result.reason === "RATE_LIMITED"
+            ? 429
+            : result.reason === "MODEL_OVERLOADED"
+              ? 503
+              : result.reason === "PARSE_FAILED"
+                ? 502
+                : 500;
+      const headers: Record<string, string> =
+        result.retryAfterMs != null
+          ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
+          : {};
+      return NextResponse.json({ error: result.reason }, { status, headers });
+    }
+
+    // RA-1707 / P0-2 — log post-call cost so the workspace daily budget
+    // accumulates. Fire-and-forget; never blocks the response.
+    if (workspace) {
+      const { inputTokens, outputTokens } = result.data.usage;
       logAiUsage({
         workspaceId: workspace.id,
         provider: "ANTHROPIC",
         model: visionModel,
         taskType: "vision_sketch_import",
-        inputTokens: 0,
-        outputTokens: 0,
-        estimatedCostUsd: 0,
-        latencyMs: Date.now() - callStart,
-        success: false,
-        errorType: result.reason,
-        metadata: { inspectionId },
-      });
-    }
-    const status =
-      result.reason === "KEY_MISSING"
-        ? 402
-        : result.reason === "RATE_LIMITED"
-          ? 429
-          : result.reason === "MODEL_OVERLOADED"
-            ? 503
-            : result.reason === "PARSE_FAILED"
-              ? 502
-              : 500;
-    const headers: Record<string, string> =
-      result.retryAfterMs != null
-        ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
-        : {};
-    return NextResponse.json(
-      { error: result.reason },
-      { status, headers },
-    );
-  }
-
-  // RA-1707 / P0-2 — log post-call cost so the workspace daily budget
-  // accumulates. Fire-and-forget; never blocks the response.
-  if (workspace) {
-    const { inputTokens, outputTokens } = result.data.usage;
-    logAiUsage({
-      workspaceId: workspace.id,
-      provider: "ANTHROPIC",
-      model: visionModel,
-      taskType: "vision_sketch_import",
-      inputTokens,
-      outputTokens,
-      estimatedCostUsd: estimateCostUsd(
-        "ANTHROPIC",
-        visionModel,
         inputTokens,
         outputTokens,
-      ),
-      latencyMs: Date.now() - callStart,
-      success: true,
-      metadata: { inspectionId, mediaType },
-    });
+        estimatedCostUsd: estimateCostUsd(
+          "ANTHROPIC",
+          visionModel,
+          inputTokens,
+          outputTokens,
+        ),
+        latencyMs: Date.now() - callStart,
+        success: true,
+        metadata: { inspectionId, mediaType },
+      });
+    }
+
+    const rooms = result.data.rooms.filter(
+      (r): r is Room =>
+        typeof r.label === "string" &&
+        Array.isArray(r.vertices) &&
+        r.vertices.length >= 3 &&
+        r.vertices.every(
+          (v) =>
+            typeof v.x === "number" &&
+            typeof v.y === "number" &&
+            v.x >= 0 &&
+            v.x <= 1 &&
+            v.y >= 0 &&
+            v.y <= 1,
+        ),
+    );
+
+    return NextResponse.json({ rooms });
+  } catch (err) {
+    return fromException(request, err, { stage: "sketch:import-from-image" });
   }
-
-  const rooms = result.data.rooms.filter(
-    (r): r is Room =>
-      typeof r.label === "string" &&
-      Array.isArray(r.vertices) &&
-      r.vertices.length >= 3 &&
-      r.vertices.every(
-        (v) =>
-          typeof v.x === "number" &&
-          typeof v.y === "number" &&
-          v.x >= 0 &&
-          v.x <= 1 &&
-          v.y >= 0 &&
-          v.y <= 1,
-      ),
-  );
-
-  return NextResponse.json({ rooms });
 }

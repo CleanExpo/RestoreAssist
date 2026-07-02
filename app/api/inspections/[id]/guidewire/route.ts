@@ -33,6 +33,7 @@ import {
 import { getPropertyLocationFlags } from "@/lib/nir-location-services";
 import { withIdempotency } from "@/lib/idempotency";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // ─── STATE DERIVATION ─────────────────────────────────────────────────────────
 
@@ -358,7 +359,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -369,13 +374,15 @@ export async function GET(
 
     const tenancy = await assertInspectionTenancy(session, id);
     if (!tenancy.ok) {
-      return NextResponse.json(
-        { error: tenancy.reason },
-        { status: tenancy.status },
-      );
+      return apiError(request, {
+        code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+        message: tenancy.reason,
+        status: tenancy.status,
+      });
     }
 
     return await buildResponse(
+      request,
       id,
       session.user.id,
       session.user.name ?? "Technician",
@@ -383,11 +390,9 @@ export async function GET(
       insurerLossTypeCode,
     );
   } catch (error) {
-    console.error("Error generating Guidewire payload:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "inspection-guidewire-get",
+    });
   }
 }
 
@@ -404,7 +409,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -415,25 +424,28 @@ export async function POST(
     try {
       const tenancy = await assertInspectionTenancy(session, id);
       if (!tenancy.ok) {
-        return NextResponse.json(
-          { error: tenancy.reason },
-          { status: tenancy.status },
-        );
+        return apiError(request, {
+          code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+          message: tenancy.reason,
+          status: tenancy.status,
+        });
       }
 
       let body: { policyNumber?: string; insurerLossTypeCode?: string } = {};
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const policyNumber = body.policyNumber ?? "POL-UNKNOWN";
       const insurerLossTypeCode = body.insurerLossTypeCode ?? "PR_WaterDamage";
 
       return await buildResponse(
+        request,
         id,
         userId,
         session.user.name ?? "Technician",
@@ -441,11 +453,9 @@ export async function POST(
         insurerLossTypeCode,
       );
     } catch (error) {
-      console.error("Error generating Guidewire payload:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, {
+        stage: "inspection-guidewire-post",
+      });
     }
   });
 }
@@ -453,6 +463,7 @@ export async function POST(
 // ─── SHARED RESPONSE BUILDER ──────────────────────────────────────────────────
 
 async function buildResponse(
+  request: NextRequest,
   id: string,
   userId: string,
   technicianName: string,
@@ -462,10 +473,11 @@ async function buildResponse(
   const inspection = await fetchInspectionForGuidewire(id);
 
   if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
-    );
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "Inspection not found",
+      status: 404,
+    });
   }
 
   // Only COMPLETED/ESTIMATED inspections have enough data for a Guidewire payload

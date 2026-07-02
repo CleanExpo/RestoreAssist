@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
+import { apiError } from "@/lib/api-errors";
 
 /**
  * POST /api/webhooks/ascora — Receive inbound webhook events from Ascora.
@@ -29,10 +30,11 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("x-ascora-signature");
 
     if (!integrationId || !signature) {
-      return NextResponse.json(
-        { error: "Missing required headers" },
-        { status: 401 },
-      );
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Missing required headers",
+        status: 401,
+      });
     }
 
     const rawBody = await request.text();
@@ -57,17 +59,20 @@ export async function POST(request: NextRequest) {
 
     if (!integration || !integration.isActive) {
       // Don't leak whether the integration exists.
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     if (!integration.webhookSecret) {
-      return NextResponse.json(
-        {
-          error:
-            "Webhook secret not configured for this integration. Set it in integration settings to enable webhooks.",
-        },
-        { status: 412 },
-      );
+      return apiError(request, {
+        code: "PRECONDITION_FAILED",
+        message:
+          "Webhook secret not configured for this integration. Set it in integration settings to enable webhooks.",
+        status: 412,
+      });
     }
 
     const expected = createHmac("sha256", integration.webhookSecret)
@@ -86,14 +91,22 @@ export async function POST(request: NextRequest) {
     }
 
     if (!sigOk) {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Invalid signature",
+        status: 401,
+      });
     }
 
     let payload: { event?: string; data?: Record<string, unknown> };
     try {
       payload = JSON.parse(rawBody);
     } catch {
-      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON",
+        status: 400,
+      });
     }
 
     const eventType = payload.event ?? "unknown";

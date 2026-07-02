@@ -1,0 +1,48 @@
+// Tenant data-plane schema (read-shadow pilot).
+//
+// Lives separately from the shared control-plane schema (prisma/schema.prisma)
+// with its OWN migration history. Deployed per-tenant into the client's own
+// database. Single-tenant, so there is NO `workspaceId` — the database IS the
+// tenant boundary (this is what collapses the 71 cross-plane FKs). The only
+// cross-plane reference, "which staff member", resolves to a one-way `UserRef`
+// mirror synced from the control plane — an intra-DB relation, not a cross-DB FK.
+//
+// Pilot scope: Inspection only. Generated client is emitted to a distinct output
+// so it never clashes with the main PrismaClient.
+
+generator tenantClient {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/tenant-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("TENANT_DATABASE_URL")
+}
+
+/// One-way mirror of control-plane user identity (id, name, email, role).
+/// Authoritative source is the control plane; never written by tenant traffic.
+model UserRef {
+  id          String        @id
+  name        String?
+  email       String?
+  role        String?
+  inspections Inspection[]
+}
+
+/// Shadow of the control-plane Inspection row for this single tenant.
+/// `updatedAt` mirrors the source version (set during sync), not @updatedAt.
+model Inspection {
+  id               String   @id
+  inspectionNumber String   @unique
+  propertyAddress  String
+  propertyPostcode String
+  inspectionDate   DateTime
+  technicianName   String?
+  technicianId     String?
+  technician       UserRef? @relation(fields: [technicianId], references: [id])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+
+  @@index([technicianId])
+}

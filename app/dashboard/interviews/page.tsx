@@ -91,7 +91,11 @@ export default function InterviewsPage() {
     error: statsError,
   } = useFetch<any>("/api/forms/interview/analytics?type=aggregate");
 
-  const { data: templatesData, loading: loadingTemplates } = useFetch<{
+  const {
+    data: templatesData,
+    loading: loadingTemplates,
+    error: templatesError,
+  } = useFetch<{
     templates: any[];
   }>("/api/form-templates");
   const templates = templatesData?.templates ?? [];
@@ -255,6 +259,17 @@ export default function InterviewsPage() {
               Loading templates...
             </p>
           </div>
+        </div>
+      ) : templatesError ? (
+        /* RA — surface a failed /api/form-templates load instead of silently
+           rendering nothing once the spinner clears. */
+        <div
+          role="alert"
+          className="p-4 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10"
+        >
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Couldn&apos;t load form templates. Please refresh to try again.
+          </p>
         </div>
       ) : (
         <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-900/10">

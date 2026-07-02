@@ -5,6 +5,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { prisma } from "@/lib/prisma";
 import { createWorkflow, quickAssessmentWorkflow } from "@/lib/agents";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const WORKFLOW_TEMPLATES: Record<string, any> = {
   "quick-assessment": quickAssessmentWorkflow,
@@ -16,7 +17,11 @@ const WORKFLOW_TEMPLATES: Record<string, any> = {
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -34,28 +39,29 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { workflow: templateName, reportId, inspectionId, config } = body;
 
       if (!templateName) {
-        return NextResponse.json(
-          { error: "Workflow template name is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Workflow template name is required",
+          status: 400,
+        });
       }
 
       const template = WORKFLOW_TEMPLATES[templateName];
       if (!template) {
-        return NextResponse.json(
-          {
-            error: `Unknown workflow template: ${templateName}. Available: ${Object.keys(WORKFLOW_TEMPLATES).join(", ")}`,
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Unknown workflow template: ${templateName}. Available: ${Object.keys(WORKFLOW_TEMPLATES).join(", ")}`,
+          status: 400,
+        });
       }
 
       const result = await createWorkflow(template, {
@@ -67,11 +73,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(result, { status: 201 });
     } catch (error) {
-      console.error("Error creating workflow:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "agents-workflow-create" });
     }
   });
 }
@@ -83,7 +85,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const url = new URL(request.url);
@@ -113,10 +119,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ workflows, count: workflows.length });
   } catch (error) {
-    console.error("Error listing workflows:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "agents-workflow-list" });
   }
 }

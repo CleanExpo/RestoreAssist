@@ -17,13 +17,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-errors";
 import {
   runEvaluationSuite,
   type EvaluationOptions,
 } from "@/lib/ai/evaluation-harness";
 
-const EVALUATION_CONFIGURATION_ERROR =
-  "Evaluation service is not configured";
+const EVALUATION_CONFIGURATION_ERROR = "Evaluation service is not configured";
 const EVALUATION_FAILURE_ERROR = "Evaluation failed";
 
 export async function POST(request: NextRequest) {
@@ -57,21 +57,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(report);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Evaluation failed";
-    console.error("[admin/evaluation POST]", err);
 
     if (
       message.includes("ANTHROPIC_API_KEY") ||
       message.includes("Anthropic SDK")
     ) {
-      return NextResponse.json(
-        { error: EVALUATION_CONFIGURATION_ERROR },
-        { status: 503 },
-      );
+      // Genuine dependency-unavailable — auto-reports even at 503. The raw
+      // message (which names the missing key) is logged server-side only;
+      // the client body carries just code/message/eventId, never the detail.
+      return apiError(request, {
+        code: "UPSTREAM_FAILED",
+        message: EVALUATION_CONFIGURATION_ERROR,
+        status: 503,
+        err,
+        stage: "evaluate",
+      });
     }
 
-    return NextResponse.json(
-      { error: EVALUATION_FAILURE_ERROR },
-      { status: 500 },
-    );
+    return apiError(request, {
+      code: "INTERNAL",
+      message: EVALUATION_FAILURE_ERROR,
+      status: 500,
+      err,
+      stage: "evaluate",
+    });
   }
 }

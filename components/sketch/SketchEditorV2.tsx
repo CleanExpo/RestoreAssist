@@ -53,7 +53,9 @@ import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchScaleModal } from "./SketchScaleModal";
 import type { ScaleConfig } from "./SketchScaleModal";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
+import { UnderlayTransformControls } from "./UnderlayTransformControls";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
+import { createRenderFreshnessTracker } from "@/lib/sketch/render-freshness";
 
 const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
   ssr: false,
@@ -90,6 +92,11 @@ interface FloorData {
   moisturePins: MoisturePin[];
   backgroundUrl: string | null;
   backgroundOpacity: number;
+  // PR4b: underlay transform. null scale/offset = legacy fit-to-width baseline.
+  backgroundScale: number | null;
+  backgroundOffsetX: number | null;
+  backgroundOffsetY: number | null;
+  backgroundLockAspect: boolean;
   scaleConfig: ScaleConfig | null;
 }
 
@@ -172,6 +179,10 @@ export function SketchEditorV2({
       moisturePins: [],
       backgroundUrl: null,
       backgroundOpacity: 0.35,
+      backgroundScale: null,
+      backgroundOffsetX: null,
+      backgroundOffsetY: null,
+      backgroundLockAspect: true,
       scaleConfig: null,
     },
   ]);
@@ -225,6 +236,10 @@ export function SketchEditorV2({
             floorLabel: string;
             sketchData: Record<string, unknown> | null;
             backgroundImageUrl?: string | null;
+            backgroundImageOpacity?: number | null;
+            backgroundImageScale?: number | null;
+            backgroundImageOffsetX?: number | null;
+            backgroundImageOffsetY?: number | null;
             moisturePoints?: unknown[] | null;
             country?: "AU" | "NZ" | null;
           }>;
@@ -244,7 +259,25 @@ export function SketchEditorV2({
             canvasRef,
             moisturePins: (s.moisturePoints as MoisturePin[] | null) ?? [],
             backgroundUrl: s.backgroundImageUrl ?? null,
-            backgroundOpacity: 0.35,
+            // RA-120 (PR4): restore the persisted opacity instead of resetting
+            // to the default on every reload (was a per-floor data-loss bug).
+            backgroundOpacity:
+              typeof s.backgroundImageOpacity === "number"
+                ? s.backgroundImageOpacity
+                : 0.35,
+            backgroundScale:
+              typeof s.backgroundImageScale === "number"
+                ? s.backgroundImageScale
+                : null,
+            backgroundOffsetX:
+              typeof s.backgroundImageOffsetX === "number"
+                ? s.backgroundImageOffsetX
+                : null,
+            backgroundOffsetY:
+              typeof s.backgroundImageOffsetY === "number"
+                ? s.backgroundImageOffsetY
+                : null,
+            backgroundLockAspect: true,
             scaleConfig:
               ((s.sketchData as Record<string, unknown> | null)
                 ?.scaleConfig as ScaleConfig | null) ?? null,
@@ -309,7 +342,7 @@ export function SketchEditorV2({
   // it immediately and resolves after server acknowledgment — call flushSaveNow
   // before a floor switch, PDF export, or scope generation so no edits are lost
   // (RA-6762: the old `await scheduleSave()` returned void and never waited).
-  const performSave = useCallback(async () => {
+  const performSave = useCallback(async (renderImage = false) => {
     setSaving(true);
     let queuedThisTick = 0;
     let succeededOnline = 0;
@@ -324,6 +357,34 @@ export function SketchEditorV2({
         scaleConfig: fd.scaleConfig,
       };
       const clientUpdatedAt = Date.now();
+
+      // RA-120 (PR2): on flush saves (floor switch / PDF export / scope gen),
+      // rasterise the floor (underlay + annotations are both captured by Fabric
+      // toDataURL) and upload it so the canonical report can embed the floor
+      // plan. Best-effort: the sketchData save below stays authoritative, so a
+      // failed render/upload must never block the save or surface an error.
+      let renderedPngUrl: string | undefined;
+      if (renderImage && inspectionId && !captureMode) {
+        try {
+          // Lazy import so the Supabase client (instantiated at module load in
+          // lib/supabase) stays out of this component's import graph — eager
+          // import broke unit tests that load SketchEditorV2 without Supabase
+          // env, and it kept supabase out of the initial client chunk anyway.
+          const { uploadRenderedSketch, dataUrlToBlob } = await import(
+            "@/lib/sketch-storage"
+          );
+          const dataUrl = canvas.toDataURL({ format: "png", multiplier: 2 });
+          const uploaded = await uploadRenderedSketch(
+            dataUrlToBlob(dataUrl),
+            inspectionId,
+            fd.floor.floorNumber,
+          );
+          renderedPngUrl = uploaded.publicUrl;
+        } catch {
+          // leave renderedPngUrl undefined → Prisma keeps the prior render
+        }
+      }
+
       const body = {
         floorNumber: fd.floor.floorNumber,
         floorLabel: fd.floor.floorLabel,
@@ -331,6 +392,11 @@ export function SketchEditorV2({
         sketchData,
         moisturePoints: fd.moisturePins,
         backgroundImageUrl: fd.backgroundUrl,
+        backgroundImageOpacity: fd.backgroundOpacity,
+        backgroundImageScale: fd.backgroundScale ?? undefined,
+        backgroundImageOffsetX: fd.backgroundOffsetX ?? undefined,
+        backgroundImageOffsetY: fd.backgroundOffsetY ?? undefined,
+        renderedPngUrl,
         country,
       };
 
@@ -404,9 +470,15 @@ export function SketchEditorV2({
     setSaving(false);
   }, [inspectionId, floorsData, country, captureMode, captureToken]);
 
+  // PR4b freshness: debounced saves persist sketchData but NOT a fresh render
+  // (performSave(false)), so after an edit the stored renderedPngUrl is stale
+  // until the next flush. Track that so we can flush one render on unmount.
+  const freshnessRef = useRef(createRenderFreshnessTracker());
+
   const scheduleSave = useCallback(() => {
     if (readonly) return;
     if (!inspectionId && !captureToken) return;
+    freshnessRef.current.markEdited();
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       void performSave();
@@ -423,8 +495,27 @@ export function SketchEditorV2({
     }
     if (readonly) return;
     if (!inspectionId && !captureToken) return;
-    await performSave();
+    await performSave(true);
+    // A render was just captured — edits are no longer un-rendered.
+    freshnessRef.current.markRendered();
   }, [readonly, inspectionId, captureToken, performSave]);
+
+  // PR4b freshness: flush one render on unmount when edits happened since the
+  // last render, so navigating away (e.g. to download the canonical report)
+  // doesn't leave the report embedding a stale floor image. Refs keep the
+  // unmount effect stable while always calling the latest flushSaveNow.
+  const flushRef = useRef(flushSaveNow);
+  useEffect(() => {
+    flushRef.current = flushSaveNow;
+  }, [flushSaveNow]);
+  useEffect(() => {
+    // The tracker is created once and never reassigned, so capturing it at
+    // mount is identical to reading it at cleanup (and satisfies the lint rule).
+    const freshness = freshnessRef.current;
+    return () => {
+      if (freshness.shouldFlushOnLeave()) void flushRef.current();
+    };
+  }, []);
 
   // RA-1762 / RA-1769 — keep the offline-pending count + failed-entry
   // list fresh. Pending changes when sibling tabs or the SW drain
@@ -598,6 +689,10 @@ export function SketchEditorV2({
       moisturePins: [],
       backgroundUrl: null,
       backgroundOpacity: 0.35,
+      backgroundScale: null,
+      backgroundOffsetX: null,
+      backgroundOffsetY: null,
+      backgroundLockAspect: true,
       scaleConfig: null,
     };
     setFloorsData((prev) => [...prev, newFloor]);
@@ -619,9 +714,34 @@ export function SketchEditorV2({
       setFloorsData((prev) =>
         prev.map((fd, i) =>
           i === activeIdx
-            ? { ...fd, backgroundUrl: url, backgroundOpacity: opacity }
+            ? {
+                ...fd,
+                backgroundUrl: url,
+                backgroundOpacity: opacity,
+                // A freshly applied underlay starts at the fit-to-width baseline.
+                backgroundScale: null,
+                backgroundOffsetX: null,
+                backgroundOffsetY: null,
+                backgroundLockAspect: true,
+              }
             : fd,
         ),
+      );
+      scheduleSave();
+    },
+    [activeIdx, scheduleSave],
+  );
+
+  // PR4b: reposition/scale controls patch the active floor's underlay transform.
+  const handleAdjustBackground = useCallback(
+    (patch: Partial<{
+      backgroundScale: number | null;
+      backgroundOffsetX: number | null;
+      backgroundOffsetY: number | null;
+      backgroundLockAspect: boolean;
+    }>) => {
+      setFloorsData((prev) =>
+        prev.map((fd, i) => (i === activeIdx ? { ...fd, ...patch } : fd)),
       );
       scheduleSave();
     },
@@ -1034,6 +1154,10 @@ export function SketchEditorV2({
               pxPerMetre={fd.scaleConfig?.pxPerMetre}
               backgroundImageUrl={fd.backgroundUrl}
               backgroundImageOpacity={fd.backgroundOpacity}
+              backgroundImageScale={fd.backgroundScale}
+              backgroundImageOffsetX={fd.backgroundOffsetX}
+              backgroundImageOffsetY={fd.backgroundOffsetY}
+              backgroundImageLockAspect={fd.backgroundLockAspect}
               readonly={readonly}
               onReady={(canvas) => handleCanvasReady(fd.floor.id, canvas)}
               onModified={() => {
@@ -1299,6 +1423,18 @@ export function SketchEditorV2({
             autoFetch={autoFetchFloorPlan && !!propertyAddress}
             className="border-white/10"
           />
+          {activeFloor?.backgroundUrl && (
+            <UnderlayTransformControls
+              value={{
+                backgroundScale: activeFloor.backgroundScale,
+                backgroundOffsetX: activeFloor.backgroundOffsetX,
+                backgroundOffsetY: activeFloor.backgroundOffsetY,
+                backgroundLockAspect: activeFloor.backgroundLockAspect,
+              }}
+              onChange={handleAdjustBackground}
+              className="mt-3 rounded-xl border border-white/10 bg-brand-navy/40 p-3"
+            />
+          )}
         </div>
       )}
 

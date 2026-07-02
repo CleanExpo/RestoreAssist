@@ -28,6 +28,7 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { Prisma } from "@prisma/client";
 import { autoClassifyPhoto } from "@/lib/services/ai/auto-classify-photo";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export const maxDuration = 60;
 
@@ -44,7 +45,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -63,6 +68,8 @@ export async function POST(
       reason: "KEY_MISSING",
       detail: "ANTHROPIC_API_KEY not configured",
     });
+    // RA-1548 — left raw: {error:<reason-code>} contract (parallels the
+    // !result.ok block below); __tests__ pin {error:"KEY_MISSING"}.
     return NextResponse.json({ error: "KEY_MISSING" }, { status: 402 });
   }
 
@@ -74,7 +81,11 @@ export async function POST(
     select: { id: true, url: true, mimeType: true },
   });
   if (!photo) {
-    return NextResponse.json({ error: "Photo not found" }, { status: 404 });
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "Photo not found",
+      status: 404,
+    });
   }
 
   try {
@@ -84,6 +95,9 @@ export async function POST(
     });
 
     if (!result.ok) {
+      // RA-1548 — left raw: {error: result.reason} dynamic-status block
+      // (402/429/503/502/500) + Retry-After header; __tests__ pin
+      // {error:"API_ERROR"}.
       console.error("[AutoClassifyPhoto]", {
         userId,
         photoId: photo.id,
@@ -104,10 +118,7 @@ export async function POST(
         result.retryAfterMs != null
           ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
           : {};
-      return NextResponse.json(
-        { error: result.reason },
-        { status, headers },
-      );
+      return NextResponse.json({ error: result.reason }, { status, headers });
     }
 
     const { labels, confidence, model } = result.data;
@@ -132,13 +143,6 @@ export async function POST(
     };
     return NextResponse.json(response);
   } catch (err) {
-    console.error(
-      "[auto-classify-photo]",
-      err instanceof Error ? err.message : err,
-    );
-    return NextResponse.json(
-      { error: "Classification failed" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "classify" });
   }
 }

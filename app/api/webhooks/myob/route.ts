@@ -5,6 +5,7 @@ import {
   deriveExternalEventId,
   isUniqueConstraintError,
 } from "@/lib/webhook-idempotency";
+import { apiError } from "@/lib/api-errors";
 
 /**
  * POST /api/webhooks/myob - Receive webhook events from MYOB
@@ -23,7 +24,11 @@ export async function POST(request: NextRequest) {
 
     if (!signature) {
       console.error("[MYOB Webhook] Missing signature header");
-      return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Missing signature",
+        status: 401,
+      });
     }
 
     // Read raw body for signature verification
@@ -33,10 +38,12 @@ export async function POST(request: NextRequest) {
     const webhookSecret = process.env.MYOB_WEBHOOK_SECRET;
     if (!webhookSecret) {
       console.error("[MYOB Webhook] MYOB_WEBHOOK_SECRET not configured");
-      return NextResponse.json(
-        { error: "Webhook secret not configured" },
-        { status: 500 },
-      );
+      return apiError(request, {
+        code: "INTERNAL",
+        message: "Webhook secret not configured",
+        status: 500,
+        stage: "myob-webhook:config",
+      });
     }
 
     // Compute expected signature using HMAC-SHA256
@@ -48,7 +55,11 @@ export async function POST(request: NextRequest) {
     const expBuf = Buffer.from(expectedSignature, "hex");
     if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
       console.error("[MYOB Webhook] Invalid signature");
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Invalid signature",
+        status: 401,
+      });
     }
 
     // Parse webhook payload
@@ -68,10 +79,11 @@ export async function POST(request: NextRequest) {
           console.warn(
             `[MYOB Webhook] Stale event rejected (age: ${Math.round(eventAge / 1000)}s)`,
           );
-          return NextResponse.json(
-            { error: "Webhook event too old" },
-            { status: 400 },
-          );
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Webhook event too old",
+            status: 400,
+          });
         }
       }
     }
@@ -86,10 +98,11 @@ export async function POST(request: NextRequest) {
 
     if (!companyFileId) {
       console.error("[MYOB Webhook] Missing CompanyFileId in event");
-      return NextResponse.json(
-        { error: "Missing CompanyFileId" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Missing CompanyFileId",
+        status: 400,
+      });
     }
 
     // Find the integration for this company file

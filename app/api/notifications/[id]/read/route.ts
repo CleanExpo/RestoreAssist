@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   request: NextRequest,
@@ -11,7 +12,11 @@ export async function POST(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -30,10 +35,11 @@ export async function POST(
       });
 
       if (!notification) {
-        return NextResponse.json(
-          { error: "Notification not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Notification not found",
+          status: 404,
+        });
       }
 
       const updated = await prisma.notification.update({
@@ -46,10 +52,6 @@ export async function POST(
       return NextResponse.json({ success: true });
     }
   } catch (error) {
-    console.error("Error marking notification as read:", error);
-    return NextResponse.json(
-      { error: "Failed to mark notification as read" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "mark-read" });
   }
 }

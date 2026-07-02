@@ -21,6 +21,7 @@ import {
   assertInspectionTenancy,
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -72,45 +73,54 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(_req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
-  const { id } = await params;
+  try {
+    const { id } = await params;
 
-  // RA-1711 batch 3 — adopt shared tenancy helper.
-  const tenancy = await assertInspectionTenancy(session, id);
-  if (!tenancy.ok) {
-    return NextResponse.json(
-      { error: tenancy.reason },
-      { status: tenancy.status },
+    // RA-1711 batch 3 — adopt shared tenancy helper.
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
+      return NextResponse.json(
+        { error: tenancy.reason },
+        { status: tenancy.status },
+      );
+    }
+
+    const items = await prisma.contentsPackOutItem.findMany({
+      where: { inspectionId: id },
+      orderBy: { createdAt: "asc" },
+      take: 500,
+    });
+
+    const totalReplacementValueAud = items.reduce(
+      (sum, item) =>
+        item.packOutDecision === "TOTAL_LOSS"
+          ? sum + Number(item.replacementValueAud ?? 0)
+          : sum,
+      0,
     );
+
+    return NextResponse.json({
+      items,
+      summary: {
+        totalItems: items.length,
+        cleanOnsite: items.filter((i) => i.packOutDecision === "CLEAN_ONSITE")
+          .length,
+        packOut: items.filter((i) => i.packOutDecision === "PACK_OUT").length,
+        totalLoss: items.filter((i) => i.packOutDecision === "TOTAL_LOSS")
+          .length,
+        totalReplacementValueAud,
+      },
+    });
+  } catch (err) {
+    return fromException(_req, err, { stage: "contents-pack-out:list" });
   }
-
-  const items = await prisma.contentsPackOutItem.findMany({
-    where: { inspectionId: id },
-    orderBy: { createdAt: "asc" },
-    take: 500,
-  });
-
-  const totalReplacementValueAud = items.reduce(
-    (sum, item) =>
-      item.packOutDecision === "TOTAL_LOSS"
-        ? sum + Number(item.replacementValueAud ?? 0)
-        : sum,
-    0,
-  );
-
-  return NextResponse.json({
-    items,
-    summary: {
-      totalItems: items.length,
-      cleanOnsite: items.filter((i) => i.packOutDecision === "CLEAN_ONSITE")
-        .length,
-      packOut: items.filter((i) => i.packOutDecision === "PACK_OUT").length,
-      totalLoss: items.filter((i) => i.packOutDecision === "TOTAL_LOSS").length,
-      totalReplacementValueAud,
-    },
-  });
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -121,65 +131,77 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
 
   // RA-1266: prevents duplicate pack-out item rows on retry.
   return withIdempotency(req, userId, async (rawBody) => {
-    // RA-1711 batch 3 — adopt shared tenancy helper.
-    // RA-6800 — scope the write so ownership is re-asserted atomically.
-    const tenancy = await resolveInspectionWrite(session, id);
-    if (!tenancy.ok) {
-      return NextResponse.json(
-        { error: tenancy.reason },
-        { status: tenancy.status },
-      );
-    }
-
-    let body: any;
     try {
-      body = rawBody ? JSON.parse(rawBody) : {};
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      // RA-1711 batch 3 — adopt shared tenancy helper.
+      // RA-6800 — scope the write so ownership is re-asserted atomically.
+      const tenancy = await resolveInspectionWrite(session, id);
+      if (!tenancy.ok) {
+        return NextResponse.json(
+          { error: tenancy.reason },
+          { status: tenancy.status },
+        );
+      }
+
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return apiError(req, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
+      }
+      const parsed = packOutItemSchema.safeParse(body);
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: "Invalid data", details: parsed.error.flatten() },
+          { status: 400 },
+        );
+      }
+
+      const data = parsed.data;
+
+      const record = await prisma.contentsPackOutItem.create({
+        data: {
+          inspectionId: id,
+          itemDescription: data.itemDescription,
+          make: data.make ?? null,
+          model: data.model ?? null,
+          serialNumber: data.serialNumber ?? null,
+          ageYears: data.ageYears ?? null,
+          conditionPreLoss: data.conditionPreLoss ?? null,
+          conditionPostLoss: data.conditionPostLoss ?? null,
+          replacementValueAud: data.replacementValueAud ?? null,
+          restorationCostEstimate: data.restorationCostEstimate ?? null,
+          packOutDecision: data.packOutDecision ?? null,
+          packOutTag: data.packOutTag ?? null,
+          beforePhotoUrl: data.beforePhotoUrl ?? null,
+          afterPhotoUrl: data.afterPhotoUrl ?? null,
+          claimType: data.claimType ?? null,
+        },
+      });
+
+      // Stamp Inspection.claimType = CONTENTS if no claim type already set
+      await prisma.inspection.update({
+        where: tenancy.data.inspectionWhere,
+        data: { claimType: "CONTENTS" },
+      });
+
+      return NextResponse.json(record, { status: 201 });
+    } catch (err) {
+      return fromException(req, err, { stage: "contents-pack-out:create" });
     }
-    const parsed = packOutItemSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid data", details: parsed.error.flatten() },
-        { status: 400 },
-      );
-    }
-
-    const data = parsed.data;
-
-    const record = await prisma.contentsPackOutItem.create({
-      data: {
-        inspectionId: id,
-        itemDescription: data.itemDescription,
-        make: data.make ?? null,
-        model: data.model ?? null,
-        serialNumber: data.serialNumber ?? null,
-        ageYears: data.ageYears ?? null,
-        conditionPreLoss: data.conditionPreLoss ?? null,
-        conditionPostLoss: data.conditionPostLoss ?? null,
-        replacementValueAud: data.replacementValueAud ?? null,
-        restorationCostEstimate: data.restorationCostEstimate ?? null,
-        packOutDecision: data.packOutDecision ?? null,
-        packOutTag: data.packOutTag ?? null,
-        beforePhotoUrl: data.beforePhotoUrl ?? null,
-        afterPhotoUrl: data.afterPhotoUrl ?? null,
-        claimType: data.claimType ?? null,
-      },
-    });
-
-    // Stamp Inspection.claimType = CONTENTS if no claim type already set
-    await prisma.inspection.update({
-      where: tenancy.data.inspectionWhere,
-      data: { claimType: "CONTENTS" },
-    });
-
-    return NextResponse.json(record, { status: 201 });
   });
 }

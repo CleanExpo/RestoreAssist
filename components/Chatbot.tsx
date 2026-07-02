@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import {
   MessageCircle,
   X,
@@ -15,6 +16,13 @@ import {
 import toast from "react-hot-toast";
 import ReactMarkdown from "react-markdown";
 import { useSession } from "next-auth/react";
+import {
+  MARGOT_ACCENT,
+  MARGOT_AVATAR_PATH,
+  MARGOT_DISPLAY_NAME,
+  MARGOT_ROLE_LABEL,
+  MARGOT_WELCOME,
+} from "@/lib/margot-surface";
 
 interface Message {
   id: string;
@@ -95,6 +103,23 @@ interface SpeechRecognitionAlternative {
   confidence: number;
 }
 
+function MargotAvatarBubble({ size = 56 }: { size?: number }) {
+  return (
+    <Image
+      src={MARGOT_AVATAR_PATH}
+      alt={`${MARGOT_DISPLAY_NAME} avatar`}
+      width={size}
+      height={size}
+      className="rounded-full object-cover ring-2 ring-white/30"
+      priority
+    />
+  );
+}
+
+function buildWelcomeMessage(userName: string): string {
+  return `Hello ${userName}! ${MARGOT_WELCOME}`;
+}
+
 export default function Chatbot() {
   const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
@@ -165,7 +190,7 @@ export default function Chatbot() {
               {
                 id: "welcome",
                 role: "assistant",
-                content: `Hello ${welcomeName}! I'm your Restore Assist AI assistant. How can I help you today? I can assist with questions about water damage restoration, report generation, equipment selection, compliance standards, and more.`,
+                content: buildWelcomeMessage(welcomeName),
                 timestamp: new Date(),
               },
             ]);
@@ -177,7 +202,7 @@ export default function Chatbot() {
           {
             id: "welcome",
             role: "assistant",
-            content: `Hello ${welcomeName}! I'm your Restore Assist AI assistant. How can I help you today? I can assist with questions about water damage restoration, report generation, equipment selection, compliance standards, and more.`,
+            content: buildWelcomeMessage(welcomeName),
             timestamp: new Date(),
           },
         ]);
@@ -392,14 +417,31 @@ export default function Chatbot() {
       {/* Chat Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 flex items-center justify-center z-[100] group"
-        style={{ position: "fixed" }}
-        aria-label="Open chatbot"
+        className="fixed bottom-6 right-6 w-16 h-16 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 flex items-center justify-center z-[100] group p-1"
+        style={{
+          position: "fixed",
+          boxShadow: isOpen ? undefined : `0 8px 28px ${MARGOT_ACCENT}66`,
+        }}
+        aria-label={isOpen ? "Close chat" : `Open ${MARGOT_DISPLAY_NAME}`}
       >
         {isOpen ? (
-          <X className="text-white" size={24} />
+          <span
+            className="flex h-14 w-14 items-center justify-center rounded-full text-white"
+            style={{ background: MARGOT_ACCENT }}
+          >
+            <X size={24} />
+          </span>
         ) : (
-          <MessageCircle className="text-white" size={24} />
+          <span className="relative flex h-14 w-14 items-center justify-center">
+            <MargotAvatarBubble size={56} />
+            <span
+              className="absolute -right-0.5 -bottom-0.5 flex h-5 w-5 items-center justify-center rounded-full text-white ring-2 ring-white"
+              style={{ background: MARGOT_ACCENT }}
+              aria-hidden
+            >
+              <MessageCircle size={11} />
+            </span>
+          </span>
         )}
         {!isOpen && (
           <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full animate-pulse" />
@@ -415,15 +457,18 @@ export default function Chatbot() {
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 rounded-t-lg">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
-                <MessageCircle className="text-white" size={20} />
+              <div
+                className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center shrink-0"
+                style={{ border: `2px solid ${MARGOT_ACCENT}44` }}
+              >
+                <MargotAvatarBubble size={40} />
               </div>
               <div>
                 <h3 className="font-semibold text-slate-900 dark:text-white">
-                  AI Assistant
+                  {MARGOT_DISPLAY_NAME}
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-400">
-                  Restore Assist Support
+                  {MARGOT_ROLE_LABEL}
                 </p>
               </div>
             </div>

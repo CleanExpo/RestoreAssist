@@ -24,6 +24,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { apiError, fromException } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 import {
   buildScopeUserMessage,
@@ -46,7 +47,11 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
@@ -57,16 +62,21 @@ export async function POST(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     if (
       !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
     ) {
-      return NextResponse.json(
-        { error: "Active subscription required" },
-        { status: 402 },
-      );
+      return apiError(request, {
+        code: "PAYMENT_REQUIRED",
+        message: "Active subscription required",
+        status: 402,
+      });
     }
 
     const { id: inspectionId } = await context.params;
@@ -76,10 +86,11 @@ export async function POST(
     const ALLOWED_MODELS = ["claude-sonnet-4-6", "claude-haiku-4-5"] as const;
     const rawModel = body.model ?? "claude-sonnet-4-6";
     if (!ALLOWED_MODELS.includes(rawModel)) {
-      return NextResponse.json(
-        { error: `model must be one of: ${ALLOWED_MODELS.join(", ")}` },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `model must be one of: ${ALLOWED_MODELS.join(", ")}`,
+        status: 400,
+      });
     }
 
     const {
@@ -106,10 +117,11 @@ export async function POST(
     const isMultiClaim = effectiveClaimTypes.length > 1;
 
     if (!affectedAreaM2 || affectedAreaM2 <= 0) {
-      return NextResponse.json(
-        { error: "affectedAreaM2 is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "affectedAreaM2 is required",
+        status: 400,
+      });
     }
 
     // Load full inspection with all related data
@@ -158,18 +170,20 @@ export async function POST(
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     const classification = inspection.classifications[0];
     if (!classification) {
-      return NextResponse.json(
-        { error: "No classification found. Run equipment calculator first." },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "No classification found. Run equipment calculator first.",
+        status: 400,
+      });
     }
 
     // Build moisture readings input
@@ -489,10 +503,6 @@ export async function POST(
       },
     });
   } catch (error) {
-    console.error("[generate-scope POST]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "generate-scope" });
   }
 }

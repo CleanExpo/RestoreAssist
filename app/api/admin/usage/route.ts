@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -64,7 +65,11 @@ export async function GET(request: NextRequest) {
         _sum: { totalCost: true },
       }),
       prisma.$queryRaw<
-        Array<{ date: Date | string; eventType: string; totalCost: number | null }>
+        Array<{
+          date: Date | string;
+          eventType: string;
+          totalCost: number | null;
+        }>
       >`
         SELECT
           DATE(ue."timestamp") as date,
@@ -178,10 +183,6 @@ export async function GET(request: NextRequest) {
       dailyCosts,
     });
   } catch (error) {
-    console.error("[/api/admin/usage] Failed to fetch usage data:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch usage data" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "usage" });
   }
 }

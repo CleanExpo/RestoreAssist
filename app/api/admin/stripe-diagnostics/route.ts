@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { fromException } from "@/lib/api-errors";
 
 /**
  * GET /api/admin/stripe-diagnostics
@@ -88,10 +89,6 @@ export async function GET(_request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[admin/stripe-diagnostics] error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(_request, error, { stage: "stripe-diagnostics" });
   }
 }

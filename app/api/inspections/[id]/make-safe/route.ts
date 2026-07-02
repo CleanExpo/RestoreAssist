@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // RA-1136a: Make-Safe compliance gate
 // ICA Code of Practice §3.1 · AS/NZS 1170.0 · WHS Regulations 2011
@@ -26,7 +27,11 @@ async function authorise(request: NextRequest, inspectionId: string) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return {
-      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      error: apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      }),
     };
   }
 
@@ -44,10 +49,11 @@ async function authorise(request: NextRequest, inspectionId: string) {
   });
   if (!inspection) {
     return {
-      error: NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      ),
+      error: apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      }),
     };
   }
 
@@ -81,11 +87,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
     return NextResponse.json({ data: actions });
   } catch (err) {
-    console.error("[make-safe GET]", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "make-safe-get" });
   }
 }
 
@@ -105,10 +107,11 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { action, applicable, completed, notes } = body as {
         action: string;
@@ -121,12 +124,11 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         !action ||
         !(MAKE_SAFE_ACTIONS as readonly string[]).includes(action)
       ) {
-        return NextResponse.json(
-          {
-            error: `Invalid action. Must be one of: ${MAKE_SAFE_ACTIONS.join(", ")}`,
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Invalid action. Must be one of: ${MAKE_SAFE_ACTIONS.join(", ")}`,
+          status: 400,
+        });
       }
 
       // Read existing row to detect completed transition
@@ -173,11 +175,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
       return NextResponse.json({ data: result }, { status: 200 });
     } catch (err) {
-      console.error("[make-safe POST]", err);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, err, { stage: "make-safe-post" });
     }
   });
 }
@@ -201,10 +199,11 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     };
 
     if (!Array.isArray(actions) || actions.length === 0) {
-      return NextResponse.json(
-        { error: "Body must include a non-empty actions array" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Body must include a non-empty actions array",
+        status: 400,
+      });
     }
 
     // Validate all action names up-front before any DB writes
@@ -212,12 +211,11 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       (a) => !(MAKE_SAFE_ACTIONS as readonly string[]).includes(a.action),
     );
     if (invalid.length > 0) {
-      return NextResponse.json(
-        {
-          error: `Invalid action names: ${invalid.map((a) => a.action).join(", ")}. Must be one of: ${MAKE_SAFE_ACTIONS.join(", ")}`,
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Invalid action names: ${invalid.map((a) => a.action).join(", ")}. Must be one of: ${MAKE_SAFE_ACTIONS.join(", ")}`,
+        status: 400,
+      });
     }
 
     // Load existing rows to detect completed transitions
@@ -274,10 +272,6 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 
     return NextResponse.json({ data: results });
   } catch (err) {
-    console.error("[make-safe PATCH]", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "make-safe-patch" });
   }
 }

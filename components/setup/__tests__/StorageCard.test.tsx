@@ -51,6 +51,20 @@ describe('StorageCard', () => {
     expect(screen.getByLabelText(/onedrive/i)).toBeDisabled();
   });
 
+  it('STORM T6: disabled OneDrive option is aria-disabled and explains why to AT', async () => {
+    mockStatus({ connected: false, provider: null, accountEmail: null });
+    render(<StorageCard />);
+    const onedrive = await waitFor(() => screen.getByLabelText(/onedrive/i));
+    expect(onedrive).toHaveAttribute('aria-disabled', 'true');
+    // The reason ("coming soon") must reach screen-reader users via the name.
+    expect(onedrive).toHaveAccessibleName(/coming soon/i);
+    // The enabled option must NOT be marked aria-disabled.
+    expect(screen.getByLabelText(/google drive/i)).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+  });
+
   it('clicking Keep it local marks storage section as ready', async () => {
     mockStatus({ connected: false, provider: null, accountEmail: null });
     render(<StorageCard />);

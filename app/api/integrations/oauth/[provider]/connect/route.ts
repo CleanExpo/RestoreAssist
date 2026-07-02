@@ -23,6 +23,7 @@ import {
 } from "@/lib/integrations/subscription-guard";
 import { isIntegrationDevMode } from "@/lib/integrations/dev-mode";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   request: NextRequest,
@@ -30,7 +31,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -51,10 +56,11 @@ export async function POST(
 
       // Validate provider
       if (!PROVIDER_CONFIG[provider]) {
-        return NextResponse.json(
-          { error: `Invalid provider: ${providerParam}` },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Invalid provider: ${providerParam}`,
+          status: 400,
+        });
       }
 
       const config = PROVIDER_CONFIG[provider];
@@ -86,13 +92,12 @@ export async function POST(
       // marking the Integration record as CONNECTED so the orchestrator finds it.
       if (provider === "ASCORA") {
         if (!process.env.ASCORA_API_KEY) {
-          return NextResponse.json(
-            {
-              error:
-                "ASCORA_API_KEY is not configured. Add it in Vercel environment variables under Administration → API Settings in Ascora.",
-            },
-            { status: 500 },
-          );
+          return apiError(request, {
+            code: "INTERNAL",
+            message:
+              "ASCORA_API_KEY is not configured. Add it in Vercel environment variables under Administration → API Settings in Ascora.",
+            status: 500,
+          });
         }
 
         await prisma.integration.update({
@@ -162,11 +167,7 @@ export async function POST(
         integrationId: integration.id,
       });
     } catch (error) {
-      console.error("OAuth connect error:", error);
-      return NextResponse.json(
-        { error: "Failed to initiate OAuth flow" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "integration-connect" });
     }
   });
 }

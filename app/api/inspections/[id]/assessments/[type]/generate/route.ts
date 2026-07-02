@@ -25,6 +25,7 @@ import { generateAssessment } from "@/lib/assessments/generate";
 import { isRegisteredDomain, listDomainKeys } from "@/lib/assessments/registry";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import type { AssessmentDomain } from "@/lib/assessments/types";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   request: NextRequest,
@@ -35,7 +36,11 @@ export async function POST(
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -47,80 +52,87 @@ export async function POST(
   });
   if (rateLimited) return rateLimited;
 
-  const { id: inspectionId, type } = await params;
-
-  if (!isRegisteredDomain(type)) {
-    return NextResponse.json(
-      {
-        error: `Unknown assessment domain "${type}". Registered: ${listDomainKeys().join(", ")}`,
-      },
-      { status: 400 },
-    );
-  }
-
-  const tenancy = await assertInspectionTenancy(session, inspectionId);
-  if (!tenancy.ok) {
-    return NextResponse.json(
-      { error: tenancy.reason },
-      { status: tenancy.status },
-    );
-  }
-
-  // Optional domain-specific payload (e.g. MOULD reads `condition`,
-  // `ambientRelativeHumidity` from this). WATER ignores. Empty body
-  // is fine — plug-ins handle missing fields per their own contract.
-  // Special meta key `enhanceWithAi:true` toggles the prose rewrite
-  // pass; it's stripped from the domain options before dispatch.
-  let options: Record<string, unknown> | null = null;
-  let enhanceWithAi = false;
   try {
-    const text = await request.text();
-    if (text.trim().length > 0) {
-      const parsed = JSON.parse(text);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        const obj = parsed as Record<string, unknown>;
-        if (typeof obj.enhanceWithAi === "boolean") {
-          enhanceWithAi = obj.enhanceWithAi;
-        }
-        const { enhanceWithAi: _omit, ...domainOptions } = obj;
-        void _omit;
-        if (Object.keys(domainOptions).length > 0) {
-          options = domainOptions;
+    const { id: inspectionId, type } = await params;
+
+    if (!isRegisteredDomain(type)) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Unknown assessment domain "${type}". Registered: ${listDomainKeys().join(", ")}`,
+        status: 400,
+      });
+    }
+
+    const tenancy = await assertInspectionTenancy(session, inspectionId);
+    if (!tenancy.ok) {
+      return NextResponse.json(
+        { error: tenancy.reason },
+        { status: tenancy.status },
+      );
+    }
+
+    // Optional domain-specific payload (e.g. MOULD reads `condition`,
+    // `ambientRelativeHumidity` from this). WATER ignores. Empty body
+    // is fine — plug-ins handle missing fields per their own contract.
+    // Special meta key `enhanceWithAi:true` toggles the prose rewrite
+    // pass; it's stripped from the domain options before dispatch.
+    let options: Record<string, unknown> | null = null;
+    let enhanceWithAi = false;
+    try {
+      const text = await request.text();
+      if (text.trim().length > 0) {
+        const parsed = JSON.parse(text);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          const obj = parsed as Record<string, unknown>;
+          if (typeof obj.enhanceWithAi === "boolean") {
+            enhanceWithAi = obj.enhanceWithAi;
+          }
+          const { enhanceWithAi: _omit, ...domainOptions } = obj;
+          void _omit;
+          if (Object.keys(domainOptions).length > 0) {
+            options = domainOptions;
+          }
         }
       }
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
     }
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+
+    // Resolve workspace (best-effort) for budget tracking. Null is OK for
+    // legacy single-user accounts.
+    const workspace = await getWorkspaceForUser(userId);
+
+    const result = await generateAssessment({
+      inspectionId,
+      domain: type as AssessmentDomain,
+      workspaceId: workspace?.id ?? null,
+      userId,
+      options,
+      enhanceWithAi,
+    });
+
+    if (!result.ok) {
+      return NextResponse.json(
+        {
+          error:
+            result.status >= 500 ? "Internal server error" : result.message,
+          code: result.code,
+        },
+        { status: result.status },
+      );
+    }
+
+    return NextResponse.json({
+      assessmentGenerationId: result.persistedId,
+      ...result.result,
+    });
+  } catch (err) {
+    return fromException(request, err, { stage: "assessments:generate" });
   }
-
-  // Resolve workspace (best-effort) for budget tracking. Null is OK for
-  // legacy single-user accounts.
-  const workspace = await getWorkspaceForUser(userId);
-
-  const result = await generateAssessment({
-    inspectionId,
-    domain: type as AssessmentDomain,
-    workspaceId: workspace?.id ?? null,
-    userId,
-    options,
-    enhanceWithAi,
-  });
-
-  if (!result.ok) {
-    return NextResponse.json(
-      {
-        error:
-          result.status >= 500 ? "Internal server error" : result.message,
-        code: result.code,
-      },
-      { status: result.status },
-    );
-  }
-
-  return NextResponse.json({
-    assessmentGenerationId: result.persistedId,
-    ...result.result,
-  });
 }
 
 export async function GET(
@@ -129,34 +141,44 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(_request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
-  const { id: inspectionId, type } = await params;
-  if (!isRegisteredDomain(type)) {
-    return NextResponse.json(
-      { error: `Unknown assessment domain "${type}"` },
-      { status: 400 },
-    );
-  }
+  try {
+    const { id: inspectionId, type } = await params;
+    if (!isRegisteredDomain(type)) {
+      return apiError(_request, {
+        code: "VALIDATION",
+        message: `Unknown assessment domain "${type}"`,
+        status: 400,
+      });
+    }
 
-  const tenancy = await assertInspectionTenancy(session, inspectionId);
-  if (!tenancy.ok) {
-    return NextResponse.json(
-      { error: tenancy.reason },
-      { status: tenancy.status },
-    );
-  }
+    const tenancy = await assertInspectionTenancy(session, inspectionId);
+    if (!tenancy.ok) {
+      return NextResponse.json(
+        { error: tenancy.reason },
+        { status: tenancy.status },
+      );
+    }
 
-  const latest = await prisma.assessmentGeneration.findFirst({
-    where: { inspectionId, assessmentType: type },
-    orderBy: { generatedAt: "desc" },
-  });
-  if (!latest) {
-    return NextResponse.json(
-      { error: "No generation persisted yet for this assessment" },
-      { status: 404 },
-    );
+    const latest = await prisma.assessmentGeneration.findFirst({
+      where: { inspectionId, assessmentType: type },
+      orderBy: { generatedAt: "desc" },
+    });
+    if (!latest) {
+      return apiError(_request, {
+        code: "NOT_FOUND",
+        message: "No generation persisted yet for this assessment",
+        status: 404,
+      });
+    }
+    return NextResponse.json(latest);
+  } catch (err) {
+    return fromException(_request, err, { stage: "assessments:generate:get" });
   }
-  return NextResponse.json(latest);
 }

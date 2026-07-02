@@ -1,8 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
+import { resolveOrgBrandTheme } from "@/lib/clients/brand";
+import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
+import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
+import { inspectionPhotosToImages } from "@/lib/reports/inspection-photos-to-images";
+import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
 import { verifyInsurerToken } from "@/lib/portal-token";
 import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -74,6 +79,10 @@ export async function GET(
             businessName: true,
             businessAddress: true,
             businessABN: true,
+            // Firm branding (setup BrandCard) → drives the report's logo + accent.
+            organization: {
+              select: { logoUrl: true, primaryColor: true },
+            },
           },
         },
         client: {
@@ -82,6 +91,33 @@ export async function GET(
             email: true,
             phone: true,
             company: true,
+          },
+        },
+        // RA-120 (PR2): per-floor sketches (underlay + annotations) embedded
+        // into the report. Only floors with a rendered PNG can be drawn.
+        inspection: {
+          select: {
+            claimSketches: {
+              select: {
+                floorNumber: true,
+                floorLabel: true,
+                renderedPngUrl: true,
+                sketchData: true,
+              },
+            },
+            // RA-120 (PR3): inspection evidence photos → captioned grid at the
+            // end of the report.
+            photos: {
+              select: {
+                url: true,
+                thumbnailUrl: true,
+                description: true,
+                location: true,
+                roomType: true,
+                mimeType: true,
+              },
+              orderBy: { timestamp: "asc" },
+            },
           },
         },
       },
@@ -115,7 +151,31 @@ export async function GET(
         : null,
     };
 
-    const pdfBytes = await generateIICRCReportPDF(reportData as any);
+    // Brand the report with the contractor's own firm identity (logo + accent
+    // colour). Falls back to RestoreAssist defaults when the org has no branding.
+    const theme = resolveOrgBrandTheme(report.user?.organization);
+    let pdfBytes = await generateIICRCReportPDF(reportData as any, { theme });
+
+    // RA-120 (PR2): embed each floor's sketch (underlay + annotations) as its
+    // own page so the floor plan lives inside the canonical report. A failed
+    // image fetch skips that floor — it must never block the download.
+    const floors = await claimSketchesToFloors(
+      report.inspection?.claimSketches ?? [],
+    );
+    pdfBytes = await appendSketchPages(pdfBytes, floors, {
+      propertyAddress: report.propertyAddress ?? undefined,
+      reportNumber: report.reportNumber ?? undefined,
+    });
+
+    // RA-120 (PR3): append the inspection's evidence photos as a captioned
+    // grid. A broken image is skipped — it must never block the download.
+    const photos = await inspectionPhotosToImages(
+      report.inspection?.photos ?? [],
+    );
+    pdfBytes = await appendPhotoPages(pdfBytes, photos, {
+      propertyAddress: report.propertyAddress ?? undefined,
+      reportNumber: report.reportNumber ?? undefined,
+    });
 
     // RA-1331: guard against OOM on very large reports (embedded photos can
     // reach 20-50 MB). 60 MB is a generous cap — beyond that, the Vercel

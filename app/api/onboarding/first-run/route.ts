@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { fromException } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export interface FirstRunStep {
   id: string;
@@ -152,7 +152,11 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const body = await request.json().catch(() => ({}));
@@ -165,7 +169,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Unknown action",
+      status: 400,
+    });
   } catch (err) {
     return fromException(request, err, { stage: "first-run:post" });
   }

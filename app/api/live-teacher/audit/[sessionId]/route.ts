@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET — return full utterance + tool call audit trail for a session
 // Rule 1: getServerSession required
@@ -16,7 +17,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(_request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { sessionId } = await params;
@@ -36,7 +41,11 @@ export async function GET(
     });
 
     if (!liveSession) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+      return apiError(_request, {
+        code: "NOT_FOUND",
+        message: "Session not found",
+        status: 404,
+      });
     }
 
     // Owner-only OR admin check
@@ -48,7 +57,11 @@ export async function GET(
       if (adminAuth.response) {
         // verifyAdminFromDb returns 401 for unauthed and 403 for non-admin
         // Override to 403 since we already confirmed identity above
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return apiError(_request, {
+          code: "FORBIDDEN",
+          message: "Forbidden",
+          status: 403,
+        });
       }
       // adminAuth.user is set — proceed as admin
     }
@@ -97,10 +110,6 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("[live-teacher/audit GET]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(_request, error, { stage: "audit" });
   }
 }

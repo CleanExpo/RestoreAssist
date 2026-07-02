@@ -15,23 +15,27 @@
  *   5. Redirect to Google's auth endpoint with drive.file + drive.appdata.
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import crypto from "crypto";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generatePKCE } from "@/lib/integrations/oauth-handler";
 import { buildGoogleDriveAuthUrl } from "@/lib/storage/google-drive-oauth";
-import { fromException } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const SETUP_URL = (path: string) =>
   new URL(path, process.env.NEXTAUTH_URL ?? "http://localhost:3000");
 
-export async function GET(_request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const org = await prisma.organization.findFirst({
@@ -76,6 +80,6 @@ export async function GET(_request: Request) {
     });
     return NextResponse.redirect(authUrl);
   } catch (err) {
-    return fromException(undefined, err, { stage: "google-drive/start:get" });
+    return fromException(request, err, { stage: "google-drive/start:get" });
   }
 }

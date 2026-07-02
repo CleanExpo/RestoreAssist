@@ -16,6 +16,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { buildCloseSummary } from "@/lib/ai/lifecycle/on-close";
+import { apiError, fromException } from "@/lib/api-errors";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -24,7 +25,11 @@ interface RouteParams {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id: inspectionId } = await params;
@@ -55,16 +60,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (!result.ok) {
       if (result.code === "SUBSCRIPTION_REQUIRED") {
-        return NextResponse.json(
-          { error: "Subscription required" },
-          { status: 402 },
-        );
+        return apiError(request, {
+          code: "PAYMENT_REQUIRED",
+          message: "Subscription required",
+          status: 402,
+        });
       }
       // Rule 7 — never leak internal error.message.
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return apiError(request, {
+        code: "INTERNAL",
+        message: "Internal server error",
+        status: 500,
+      });
     }
 
     return NextResponse.json({
@@ -72,10 +79,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       source: result.source,
     });
   } catch (err) {
-    console.error("[close-summary] handler failed:", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "close-summary" });
   }
 }

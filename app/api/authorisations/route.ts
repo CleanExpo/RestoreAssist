@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { validateCsrf } from "@/lib/csrf";
 import { invalidateAuthorisationCache } from "@/lib/authorisations/most-recent";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // P1 #19 step 1 of 2 (CLAUDE.md rule #16 — two-step column rename).
 // Mirrors prisma/schema.prisma `enum AuthorisationLicenceClass`.
@@ -40,27 +41,40 @@ export async function POST(req: NextRequest) {
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   let body: PostBody;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Invalid request body",
+      status: 400,
+    });
   }
 
-  if (!body.subjectLicenceNumber || typeof body.subjectLicenceNumber !== "string") {
-    return NextResponse.json(
-      { error: "subjectLicenceNumber is required" },
-      { status: 400 },
-    );
+  if (
+    !body.subjectLicenceNumber ||
+    typeof body.subjectLicenceNumber !== "string"
+  ) {
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "subjectLicenceNumber is required",
+      status: 400,
+    });
   }
   if (!body.whsCardNumber || typeof body.whsCardNumber !== "string") {
-    return NextResponse.json(
-      { error: "whsCardNumber is required" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "whsCardNumber is required",
+      status: 400,
+    });
   }
   if (
     body.subjectLicenceClassEnum !== undefined &&
@@ -68,10 +82,11 @@ export async function POST(req: NextRequest) {
       body.subjectLicenceClassEnum as AuthorisationLicenceClass,
     )
   ) {
-    return NextResponse.json(
-      { error: "subjectLicenceClassEnum is not a valid licence class" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "subjectLicenceClassEnum is not a valid licence class",
+      status: 400,
+    });
   }
 
   try {
@@ -86,10 +101,11 @@ export async function POST(req: NextRequest) {
     });
 
     if (!userWithOrg?.organization) {
-      return NextResponse.json(
-        { error: "User is not attached to an organization" },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "User is not attached to an organization",
+        status: 400,
+      });
     }
 
     const subjectCompanyName =
@@ -123,7 +139,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, authorisationId: created.id });
   } catch (error) {
-    console.error("[POST /api/authorisations]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return fromException(req, error, { stage: "create" });
   }
 }

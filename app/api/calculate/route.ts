@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getRestorationInvoiceTypeById } from "@/lib/restoration-invoice-types";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { apiError, fromException } from "@/lib/api-errors";
 import { z } from "zod";
 
 /** Minimum charge enforced on all quotes (ex-GST). */
@@ -100,7 +101,11 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const rateLimited = await applyRateLimit(request, {
@@ -430,10 +435,6 @@ export async function POST(request: NextRequest) {
       jobDescription: input.jobDescription ?? "",
     });
   } catch (error) {
-    console.error("Quote calculation error:", error);
-    return NextResponse.json(
-      { error: "Failed to calculate quote" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "calculate" });
   }
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -7,15 +7,20 @@ import {
   getOrganizationOwner,
 } from "@/lib/organization-credits";
 import { hasActiveOperatingProviderConnection } from "@/lib/workspace/provider-connections";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export const AI_PROVIDER_ROUTE = "/dashboard/settings/ai-providers";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -34,7 +39,11 @@ export async function GET() {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     // Get effective subscription (Admin's for Managers/Technicians, own for Admins)
@@ -221,7 +230,9 @@ export async function GET() {
       business_profile: {
         completed: businessProfileCompleted, // Uses Admin's profile for team members
         required: !isTrial, // Only required for paid users
-        title: isTrial ? "Add business details (when you're ready)" : "Settings & Profile",
+        title: isTrial
+          ? "Add business details (when you're ready)"
+          : "Settings & Profile",
         description: "Setup Business Details",
         route: "/dashboard/settings",
       },
@@ -258,10 +269,6 @@ export async function GET() {
       nextStep: incompleteSteps.length > 0 ? incompleteSteps[0] : null,
     });
   } catch (error) {
-    console.error("Error checking onboarding status:", error);
-    return NextResponse.json(
-      { error: "Failed to check onboarding status" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "status" });
   }
 }

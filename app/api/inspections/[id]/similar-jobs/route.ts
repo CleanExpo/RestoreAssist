@@ -29,6 +29,7 @@ import {
   findSimilarJobs,
 } from "@/lib/ai/embeddings";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { apiError, fromException } from "@/lib/api-errors";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -38,7 +39,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id: inspectionId } = await params;
@@ -49,10 +54,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // RA-1711 batch 3 — adopt shared tenancy helper.
     const tenancy = await assertInspectionTenancy(session, inspectionId);
     if (!tenancy.ok) {
-      return NextResponse.json(
-        { error: tenancy.reason },
-        { status: tenancy.status },
-      );
+      return apiError(request, {
+        code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+        message: tenancy.reason,
+        status: tenancy.status,
+      });
     }
 
     const inspection = await prisma.inspection.findUnique({
@@ -75,10 +81,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     const classification = inspection.classifications[0];
@@ -138,10 +145,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       provider,
     });
   } catch (error) {
-    console.error("[similar-jobs] Error:", error);
-    return NextResponse.json(
-      { error: "Failed to retrieve similar jobs" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "inspection-similar-jobs" });
   }
 }

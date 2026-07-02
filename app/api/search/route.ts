@@ -2,16 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import { parseSearchQuery, toPostgresTsquery } from "@/lib/search-utils";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Rate limit: 60 searches per 15 minutes per user
@@ -29,10 +33,11 @@ export async function GET(request: NextRequest) {
     // Parse and validate query
     const query = parseSearchQuery(q || "");
     if (!query) {
-      return NextResponse.json(
-        { error: "Search query must be at least 2 characters" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Search query must be at least 2 characters",
+        status: 400,
+      });
     }
 
     const tsquery = toPostgresTsquery(query);
@@ -143,7 +148,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(results);
   } catch (error) {
-    console.error("Search error:", error);
-    return NextResponse.json({ error: "Search failed" }, { status: 500 });
+    return fromException(request, error, { stage: "search" });
   }
 }

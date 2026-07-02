@@ -16,6 +16,7 @@ import { validateCsrf } from "@/lib/csrf";
 import { init } from "@/lib/progress/service";
 import { resolveProgressRole } from "@/lib/progress/permissions";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   request: NextRequest,
@@ -26,7 +27,11 @@ export async function POST(
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -78,11 +83,7 @@ export async function POST(
       }
       return NextResponse.json({ data: result.data }, { status: 201 });
     } catch (error) {
-      console.error("[progress.init] error", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "init" });
     }
   });
 }

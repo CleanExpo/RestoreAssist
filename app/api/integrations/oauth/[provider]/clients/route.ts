@@ -19,6 +19,7 @@ import {
   createSubscriptionRequiredResponse,
 } from "@/lib/integrations/subscription-guard";
 import { INTEGRATION_IMPORT_FAILURE_MESSAGE } from "@/lib/integrations/sync-error";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -27,7 +28,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Check subscription status - external integrations require paid subscription
@@ -44,10 +49,11 @@ export async function GET(
 
     // Validate provider
     if (!PROVIDER_CONFIG[provider]) {
-      return NextResponse.json(
-        { error: `Invalid provider: ${providerParam}` },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Invalid provider: ${providerParam}`,
+        status: 400,
+      });
     }
 
     // Find integration
@@ -59,10 +65,11 @@ export async function GET(
     });
 
     if (!integration) {
-      return NextResponse.json(
-        { error: "Integration not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Integration not found",
+        status: 404,
+      });
     }
 
     // Get synced clients
@@ -103,11 +110,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Fetch clients error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch clients" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "integration-clients-list" });
   }
 }
 
@@ -118,7 +121,11 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Check subscription status - external integrations require paid subscription
@@ -135,10 +142,11 @@ export async function POST(
 
     // Validate provider
     if (!PROVIDER_CONFIG[provider]) {
-      return NextResponse.json(
-        { error: `Invalid provider: ${providerParam}` },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Invalid provider: ${providerParam}`,
+        status: 400,
+      });
     }
 
     // Find integration
@@ -150,27 +158,30 @@ export async function POST(
     });
 
     if (!integration) {
-      return NextResponse.json(
-        { error: "Integration not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Integration not found",
+        status: 404,
+      });
     }
 
     const body = await request.json();
     const { clientIds } = body;
 
     if (!clientIds || !Array.isArray(clientIds) || clientIds.length === 0) {
-      return NextResponse.json(
-        { error: "clientIds array is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "clientIds array is required",
+        status: 400,
+      });
     }
 
     if (clientIds.length > 100) {
-      return NextResponse.json(
-        { error: "clientIds is limited to 100 entries per request" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "clientIds is limited to 100 entries per request",
+        status: 400,
+      });
     }
 
     // Get external clients
@@ -222,10 +233,8 @@ export async function POST(
       message: `Imported ${imported.length} clients from ${PROVIDER_CONFIG[provider].name}`,
     });
   } catch (error) {
-    console.error("Import clients error:", error);
-    return NextResponse.json(
-      { error: "Failed to import clients" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "integration-clients-import",
+    });
   }
 }

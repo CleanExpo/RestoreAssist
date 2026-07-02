@@ -4,13 +4,18 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const libraries = await prisma.costLibrary.findMany({
@@ -39,11 +44,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ libraries });
   } catch (error) {
-    console.error("Error fetching cost libraries:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list" });
   }
 }
 
@@ -51,7 +52,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -61,12 +66,17 @@ export async function POST(request: NextRequest) {
     try {
       let body: any;
       try {
-        body = rawBody ? JSON.parse(rawBody) : {};
+        const parsed = rawBody ? JSON.parse(rawBody) : {};
+        body =
+          parsed && typeof parsed === "object" && !Array.isArray(parsed)
+            ? parsed
+            : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const name = sanitizeString(body.name, 200);
       const region = sanitizeString(body.region, 200);
@@ -74,10 +84,11 @@ export async function POST(request: NextRequest) {
       const isDefault = body.isDefault;
 
       if (!name || !region) {
-        return NextResponse.json(
-          { error: "Name and region are required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Name and region are required",
+          status: 400,
+        });
       }
 
       // If setting as default, unset other defaults
@@ -113,11 +124,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(library);
     } catch (error) {
-      console.error("Error creating cost library:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "create" });
     }
   });
 }

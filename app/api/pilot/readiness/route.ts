@@ -20,6 +20,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { fromException } from "@/lib/api-errors";
 import {
   generatePilotReport,
   deriveCycleTimeObservations,
@@ -142,10 +143,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error generating pilot readiness report:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "readiness" });
   }
 }

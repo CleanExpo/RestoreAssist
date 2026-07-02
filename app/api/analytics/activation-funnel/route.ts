@@ -5,11 +5,12 @@
  * relative to signup_completed.
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { fromException } from "@/lib/api-errors";
 
 const FUNNEL_STEPS = [
   "signup_completed",
@@ -19,7 +20,7 @@ const FUNNEL_STEPS = [
   "first_integration_connected",
 ] as const;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
@@ -55,10 +56,6 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("[activation-funnel] error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "load" });
   }
 }

@@ -21,6 +21,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { evaluateVariation } from "@/lib/compliance/variation-auto-approve";
 import { withIdempotency } from "@/lib/idempotency";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // RA-1383 v2: authorisationSource is now a Prisma enum. Accept both the
 // legacy lowercase strings (for backward compat with existing clients)
@@ -59,7 +60,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -89,11 +94,7 @@ export async function GET(
 
     return NextResponse.json({ data: variations });
   } catch (error) {
-    console.error("[scope-variations GET]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "scope-variations-get" });
   }
 }
 
@@ -105,7 +106,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -119,23 +124,29 @@ export async function POST(
     );
   }
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id },
-    select: {
-      user: {
-        select: {
-          organization: {
-            select: { country: true },
+  let inspection;
+  try {
+    inspection = await prisma.inspection.findUnique({
+      where: { id },
+      select: {
+        user: {
+          select: {
+            organization: {
+              select: { country: true },
+            },
           },
         },
       },
-    },
-  });
+    });
+  } catch (error) {
+    return fromException(request, error, { stage: "scope-variations-lookup" });
+  }
   if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
-    );
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "Inspection not found",
+      status: 404,
+    });
   }
 
   const rateLimitResponse = await applyRateLimit(request, {
@@ -154,10 +165,11 @@ export async function POST(
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
 
       // Validate required fields
@@ -173,31 +185,32 @@ export async function POST(
       } = body;
 
       if (!reason || typeof reason !== "string" || !reason.trim()) {
-        return NextResponse.json(
-          { error: "reason is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "reason is required",
+          status: 400,
+        });
       }
 
       const normalisedSource =
         normaliseAuthorisationSource(authorisationSource);
       if (!normalisedSource) {
-        return NextResponse.json(
-          {
-            error: `authorisationSource must be one of: ${VALID_AUTHORISATION_SOURCES.join(", ")}`,
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `authorisationSource must be one of: ${VALID_AUTHORISATION_SOURCES.join(", ")}`,
+          status: 400,
+        });
       }
 
       if (
         typeof costDeltaCents !== "number" ||
         !Number.isInteger(costDeltaCents)
       ) {
-        return NextResponse.json(
-          { error: "costDeltaCents must be an integer" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "costDeltaCents must be an integer",
+          status: 400,
+        });
       }
 
       // ── RA-1131: rules-engine auto-decision ──────────────────────────────────
@@ -244,11 +257,7 @@ export async function POST(
 
       return NextResponse.json({ data: variation }, { status: 201 });
     } catch (error) {
-      console.error("[scope-variations POST]", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "scope-variations-post" });
     }
   });
 }
@@ -262,7 +271,11 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Admin-only
@@ -283,17 +296,19 @@ export async function PATCH(
     const { variationId, status, notes } = body;
 
     if (!variationId || typeof variationId !== "string") {
-      return NextResponse.json(
-        { error: "variationId is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "variationId is required",
+        status: 400,
+      });
     }
 
     if (status !== "APPROVED" && status !== "REJECTED") {
-      return NextResponse.json(
-        { error: 'status must be "APPROVED" or "REJECTED"' },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: 'status must be "APPROVED" or "REJECTED"',
+        status: 400,
+      });
     }
 
     // Confirm variation belongs to this inspection
@@ -302,17 +317,19 @@ export async function PATCH(
       select: { id: true, status: true },
     });
     if (!existing) {
-      return NextResponse.json(
-        { error: "Variation not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Variation not found",
+        status: 404,
+      });
     }
 
     if (existing.status !== "PENDING") {
-      return NextResponse.json(
-        { error: "Only PENDING variations can be approved or rejected" },
-        { status: 409 },
-      );
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "Only PENDING variations can be approved or rejected",
+        status: 409,
+      });
     }
 
     const updated = await prisma.scopeVariation.update({
@@ -327,10 +344,6 @@ export async function PATCH(
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error("[scope-variations PATCH]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "scope-variations-patch" });
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { apiError, fromException } from "@/lib/api-errors";
 import { google } from "googleapis";
 
 function getAndroidPublisher() {
@@ -69,11 +70,7 @@ export async function GET(req: NextRequest) {
         });
     }
   } catch (error) {
-    console.error("Google Play API error (GET):", error);
-    return NextResponse.json(
-      { error: "Failed to fetch track data from Google Play" },
-      { status: 500 },
-    );
+    return fromException(req, error, { stage: "google-play-get" });
   }
 }
 
@@ -96,10 +93,11 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json(
-      { error: "Invalid request body" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Invalid request body",
+      status: 400,
+    });
   }
 
   const { fromTrack = "internal", toTrack = "alpha", versionCodes } = body;
@@ -127,10 +125,11 @@ export async function POST(req: NextRequest) {
       await androidpublisher.edits
         .delete({ packageName: PACKAGE_NAME, editId })
         .catch(() => {});
-      return NextResponse.json(
-        { error: `No releases found on track: ${fromTrack}` },
-        { status: 404 },
-      );
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: `No releases found on track: ${fromTrack}`,
+        status: 404,
+      });
     }
 
     // Determine version codes to promote
@@ -170,10 +169,6 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Google Play API error (POST):", error);
-    return NextResponse.json(
-      { error: "Failed to promote release on Google Play" },
-      { status: 500 },
-    );
+    return fromException(req, error, { stage: "google-play-post" });
   }
 }

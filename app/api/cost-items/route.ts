@@ -4,12 +4,17 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -18,12 +23,17 @@ export async function POST(request: NextRequest) {
     try {
       let body: any;
       try {
-        body = rawBody ? JSON.parse(rawBody) : {};
+        const parsed = rawBody ? JSON.parse(rawBody) : {};
+        body =
+          parsed && typeof parsed === "object" && !Array.isArray(parsed)
+            ? parsed
+            : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const libraryId = body.libraryId;
       const category = sanitizeString(body.category, 200);
@@ -38,17 +48,19 @@ export async function POST(request: NextRequest) {
         rate === undefined ||
         !unit
       ) {
-        return NextResponse.json(
-          { error: "All fields are required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "All fields are required",
+          status: 400,
+        });
       }
       const parsedRate = parseFloat(rate);
       if (!isFinite(parsedRate) || parsedRate < 0 || parsedRate > 1_000_000) {
-        return NextResponse.json(
-          { error: "Rate must be a non-negative number up to 1,000,000" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Rate must be a non-negative number up to 1,000,000",
+          status: 400,
+        });
       }
 
       const library = await prisma.costLibrary.findFirst({
@@ -56,10 +68,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!library) {
-        return NextResponse.json(
-          { error: "Cost library not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Cost library not found",
+          status: 404,
+        });
       }
 
       const item = await prisma.costItem.create({
@@ -74,11 +87,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(item);
     } catch (error) {
-      console.error("Error creating cost item:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "create" });
     }
   });
 }

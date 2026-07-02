@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export type ActivityType =
   | "report_created"
@@ -31,7 +32,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const searchParams = request.nextUrl.searchParams;
@@ -52,7 +57,11 @@ export async function GET(request: NextRequest) {
     });
 
     if (currentUser?.role !== "ADMIN" && currentUser?.role !== "MANAGER") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     if (!currentUser?.organizationId) {
@@ -399,10 +408,6 @@ export async function GET(request: NextRequest) {
       members: membersForFilter,
     });
   } catch (error) {
-    console.error("Error fetching team activity:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch team activity" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "team-activity" });
   }
 }

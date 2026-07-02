@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 import { withIdempotency } from "@/lib/idempotency";
 import {
   assertInspectionTenancy,
@@ -21,7 +22,11 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id: inspectionId } = await params;
@@ -44,11 +49,7 @@ export async function GET(
 
     return NextResponse.json({ evidenceItems });
   } catch (error) {
-    console.error("[evidence GET]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "evidence-get" });
   }
 }
 
@@ -58,7 +59,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id: inspectionId } = await params;
@@ -84,10 +89,11 @@ export async function POST(
         try {
           body = rawBody ? JSON.parse(rawBody) : {};
         } catch {
-          return NextResponse.json(
-            { error: "Invalid JSON body" },
-            { status: 400 },
-          );
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Invalid JSON body",
+            status: 400,
+          });
         }
 
         const {
@@ -132,14 +138,10 @@ export async function POST(
 
         return NextResponse.json({ evidenceItem }, { status: 201 });
       } catch (error) {
-        console.error("[evidence POST]", error);
-        return NextResponse.json(
-          { error: "Internal server error" },
-          { status: 500 },
-        );
+        return fromException(request, error, { stage: "evidence-post" });
       }
     },
-    (tenancy.data.workspaceId
+    tenancy.data.workspaceId
       ? {
           clientMutation: {
             workspaceId: tenancy.data.workspaceId,
@@ -148,7 +150,7 @@ export async function POST(
             mutationType: "evidence-item",
           },
         }
-      : undefined),
+      : undefined,
   );
 }
 
@@ -158,7 +160,11 @@ export async function DELETE(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id: inspectionId } = await params;
@@ -181,10 +187,11 @@ export async function DELETE(
     });
 
     if (!evidence) {
-      return NextResponse.json(
-        { error: "Evidence not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Evidence not found",
+        status: 404,
+      });
     }
 
     await prisma.evidenceItem.delete({
@@ -198,10 +205,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("[evidence DELETE]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "evidence-delete" });
   }
 }

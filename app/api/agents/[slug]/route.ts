@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getAgent, syncToDatabase } from "@/lib/agents";
 import type { AgentSlug } from "@/lib/agents";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * GET /api/agents/[slug] — Get agent details and capabilities
@@ -14,7 +15,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     await syncToDatabase();
@@ -23,7 +28,11 @@ export async function GET(
     const agent = getAgent(slug as AgentSlug);
 
     if (!agent) {
-      return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Agent not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json({
@@ -43,10 +52,6 @@ export async function GET(
       dependsOn: agent.dependsOn,
     });
   } catch (error) {
-    console.error("Error fetching agent:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "agent-detail" });
   }
 }

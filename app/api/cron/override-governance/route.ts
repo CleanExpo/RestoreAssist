@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron/auth";
+import { apiError } from "@/lib/api-errors";
 import { runCronJob } from "@/lib/cron/runner";
 import { runOverrideGovernance } from "@/lib/cron/override-governance";
 
@@ -23,10 +24,11 @@ export async function GET(request: NextRequest) {
   if (monthParam) {
     const parsed = parseYearMonth(monthParam);
     if (!parsed) {
-      return NextResponse.json(
-        { error: "month must be YYYY-MM" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "month must be YYYY-MM",
+        status: 400,
+      });
     }
     month = parsed;
   }

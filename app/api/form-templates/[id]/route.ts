@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -12,7 +13,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -40,10 +45,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!template) {
-      return NextResponse.json(
-        { error: "Template not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Template not found",
+        status: 404,
+      });
     }
 
     // Parse formSchema and extract questions/fields
@@ -94,11 +100,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("Error fetching form template:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "get" });
   }
 }
 
@@ -107,7 +109,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -122,27 +128,46 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: "Template not found or not editable" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Template not found or not editable",
+        status: 404,
+      });
     }
 
-    const body = await request.json();
-    const { name, description, formType } = body;
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Request body must be valid JSON",
+        status: 400,
+      });
+    }
+    if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Request body must be a JSON object",
+        status: 400,
+      });
+    }
+    const { name, description, formType } = rawBody as Record<string, any>;
 
     // Validate required fields
     if (name !== undefined && typeof name !== "string") {
-      return NextResponse.json(
-        { error: "name must be a string" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "name must be a string",
+        status: 400,
+      });
     }
     if (name !== undefined && name.trim().length === 0) {
-      return NextResponse.json(
-        { error: "name cannot be empty" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "name cannot be empty",
+        status: 400,
+      });
     }
 
     const updated = await prisma.formTemplate.update({
@@ -165,10 +190,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ template: updated });
   } catch (error) {
-    console.error("Error updating form template:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "patch" });
   }
 }

@@ -10,6 +10,7 @@ import { authOptions } from "@/lib/auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { getState } from "@/lib/progress/service";
 import { resolveProgressRole } from "@/lib/progress/permissions";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -18,7 +19,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const rateLimited = await applyRateLimit(request, {
@@ -49,10 +54,6 @@ export async function GET(
     }
     return NextResponse.json({ data: result.data });
   } catch (error) {
-    console.error("[progress.get] error", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "get-state" });
   }
 }

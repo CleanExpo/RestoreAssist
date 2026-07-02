@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // POST — create a new LiveTeacherSession
 // GET  — list current user's active sessions
@@ -21,7 +22,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -38,36 +43,45 @@ export async function POST(request: NextRequest) {
     try {
       let body: CreateSessionBody;
       try {
-        body = (rawBody ? JSON.parse(rawBody) : {}) as CreateSessionBody;
+        const parsed = rawBody ? JSON.parse(rawBody) : {};
+        body = (
+          parsed && typeof parsed === "object" && !Array.isArray(parsed)
+            ? parsed
+            : {}
+        ) as CreateSessionBody;
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
 
       // Validate required fields
       if (!body.inspectionId) {
-        return NextResponse.json(
-          { error: "inspectionId is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "inspectionId is required",
+          status: 400,
+        });
       }
 
       const validJurisdictions = ["AU", "NZ"] as const;
       if (!validJurisdictions.includes(body.jurisdiction)) {
-        return NextResponse.json(
-          { error: "jurisdiction must be AU or NZ" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "jurisdiction must be AU or NZ",
+          status: 400,
+        });
       }
 
       const validDeviceOs = ["ios", "android", "web"] as const;
       if (!validDeviceOs.includes(body.deviceOs)) {
-        return NextResponse.json(
-          { error: "deviceOs must be ios, android, or web" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "deviceOs must be ios, android, or web",
+          status: 400,
+        });
       }
 
       // Verify inspection belongs to user (Rule 4: explicit select + ownership check)
@@ -80,10 +94,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!inspection) {
-        return NextResponse.json(
-          { error: "Inspection not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
       }
 
       // Create session (Rule 4: explicit select on result)
@@ -103,11 +118,7 @@ export async function POST(request: NextRequest) {
         { status: 201 },
       );
     } catch (error) {
-      console.error("[live-teacher/session POST]", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "session-create" });
     }
   });
 }
@@ -117,7 +128,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Rule 10: rate-limit
@@ -149,10 +164,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: sessions });
   } catch (error) {
-    console.error("[live-teacher/session GET]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "session-list" });
   }
 }

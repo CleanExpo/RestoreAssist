@@ -105,7 +105,9 @@ describe("POST /api/inspections/[id]/close-summary", () => {
     const res = await POST(makeReq(), routeParams);
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toBe("Internal server error");
-    expect(body.error).not.toContain("DB exploded");
+    // RA-1548: error responses now use the { error: { code, message, eventId } } envelope.
+    expect(body.error.code).toBe("INTERNAL");
+    expect(body.error.message).toBe("Internal server error");
+    expect(JSON.stringify(body)).not.toContain("DB exploded");
   });
 });

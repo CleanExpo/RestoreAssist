@@ -1,11 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { fromException } from "@/lib/api-errors";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -63,7 +64,8 @@ export async function GET() {
       }),
 
       // Database health check
-      prisma.$queryRaw(Prisma.sql`SELECT 1 as health`)
+      prisma
+        .$queryRaw(Prisma.sql`SELECT 1 as health`)
         .then(() => "healthy" as const)
         .catch(() => "down" as const),
     ]);
@@ -82,10 +84,6 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("Error fetching admin stats:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch admin stats" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "stats" });
   }
 }

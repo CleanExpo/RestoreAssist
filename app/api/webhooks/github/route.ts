@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { NotificationType } from "@prisma/client";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
+import { apiError } from "@/lib/api-errors";
 
 function verifySignature(
   payload: string,
@@ -100,19 +101,32 @@ export async function POST(req: NextRequest) {
     // RA-1803: return 200 no-op instead of 500 — secret not configured means
     // webhook isn't actively wired; returning 500 pollutes the error feed on
     // every sandbox→main merge. GitHub will stop retrying on 200.
-    console.warn("[github-webhook] GITHUB_WEBHOOK_SECRET not set — request ignored");
-    return NextResponse.json({ ok: false, reason: "webhook not configured" }, { status: 200 });
+    console.warn(
+      "[github-webhook] GITHUB_WEBHOOK_SECRET not set — request ignored",
+    );
+    return NextResponse.json(
+      { ok: false, reason: "webhook not configured" },
+      { status: 200 },
+    );
   }
 
   const signature = req.headers.get("x-hub-signature-256");
   if (!signature) {
-    return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Missing signature",
+      status: 401,
+    });
   }
 
   const body = await req.text();
 
   if (!verifySignature(body, signature, secret)) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Invalid signature",
+      status: 401,
+    });
   }
 
   const event = req.headers.get("x-github-event");
@@ -143,7 +157,11 @@ export async function POST(req: NextRequest) {
   try {
     payload = JSON.parse(body);
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Invalid JSON",
+      status: 400,
+    });
   }
 
   // Only process pushes to main

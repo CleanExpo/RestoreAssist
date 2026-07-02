@@ -30,7 +30,11 @@ export type ApiErrorCode =
   | "UNAUTHORIZED"
   | "FORBIDDEN"
   | "NOT_FOUND"
+  | "GONE"
+  | "PRECONDITION_FAILED"
+  | "PAYLOAD_TOO_LARGE"
   | "CONFLICT"
+  | "PAYMENT_REQUIRED"
   | "RATE_LIMITED"
   | "UPSTREAM_FAILED"
   | "INTERNAL";

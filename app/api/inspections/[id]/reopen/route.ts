@@ -30,6 +30,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { ClaimState, InspectionStatus, Prisma } from "@prisma/client";
+import { apiError } from "@/lib/api-errors";
 import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
@@ -78,18 +79,21 @@ export async function POST(
   try {
     body = (await request.json()) as ReopenBody;
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Invalid JSON body",
+      status: 400,
+    });
   }
 
   const reason =
     typeof body.reason === "string" ? body.reason.trim() : undefined;
   if (!reason || reason.length < MIN_REASON_LENGTH) {
-    return NextResponse.json(
-      {
-        error: `Field 'reason' is required and must be at least ${MIN_REASON_LENGTH} characters — this is logged for compliance.`,
-      },
-      { status: 422 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message: `Field 'reason' is required and must be at least ${MIN_REASON_LENGTH} characters — this is logged for compliance.`,
+      status: 422,
+    });
   }
 
   // Read with explicit select (CLAUDE.md rule #4).
@@ -99,20 +103,20 @@ export async function POST(
   });
 
   if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
-    );
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "Inspection not found",
+      status: 404,
+    });
   }
 
   const currentStatus = inspection.status as InspectionStatus;
   if (!isTerminalStatus(currentStatus)) {
-    return NextResponse.json(
-      {
-        error: `Cannot reopen inspection in status '${inspection.status}'. Only ${TERMINAL_STATUSES.join(" / ")} inspections may be reopened.`,
-      },
-      { status: 409 },
-    );
+    return apiError(request, {
+      code: "CONFLICT",
+      message: `Cannot reopen inspection in status '${inspection.status}'. Only ${TERMINAL_STATUSES.join(" / ")} inspections may be reopened.`,
+      status: 409,
+    });
   }
 
   const gate = canTransition(currentStatus, REOPENED_STATUS, {
