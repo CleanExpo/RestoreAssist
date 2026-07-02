@@ -114,10 +114,11 @@ export async function POST(request: NextRequest) {
       // Guard: Claude Vision accepts up to ~5MB base64
       const byteSize = Math.ceil((image.length * 3) / 4);
       if (byteSize > 5 * 1024 * 1024) {
-        return NextResponse.json(
-          { error: "Image too large — maximum 5MB" },
-          { status: 413 },
-        );
+        return apiError(request, {
+          code: "PAYLOAD_TOO_LARGE",
+          message: "Image too large — maximum 5MB",
+          status: 413,
+        });
       }
 
       const apiKey = process.env.ANTHROPIC_API_KEY?.trim();

@@ -67,13 +67,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (!integration.webhookSecret) {
-      return NextResponse.json(
-        {
-          error:
-            "Webhook secret not configured for this integration. Set it in integration settings to enable webhooks.",
-        },
-        { status: 412 },
-      );
+      return apiError(request, {
+        code: "PRECONDITION_FAILED",
+        message:
+          "Webhook secret not configured for this integration. Set it in integration settings to enable webhooks.",
+        status: 412,
+      });
     }
 
     const expected = createHmac("sha256", integration.webhookSecret)
