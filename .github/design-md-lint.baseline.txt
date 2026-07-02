@@ -43,4 +43,11 @@
 # for the new Simple-mode sidebar items, consistent with the existing nav in
 # app/dashboard/layout.tsx. Migration to src/components/ui/marks.tsx remains
 # a separate cleanup tracked outside this PR.
-icon_imports=364
+#
+# 2026-07-02 (RA-6917): bumped 364 -> 365. PR #1632 added the admin data-asset
+# page app/dashboard/admin/restoration-insights/page.tsx, which imports
+# { Lock, Download, BarChart3, ShieldCheck } from lucide-react, consistent with
+# the rest of the app/dashboard/admin/* surface (usage, users, etc.). The bump
+# was missed on that merge and surfaced on the follow-up PR #1633; recorded
+# here. Migration to src/components/ui/marks.tsx remains a separate cleanup.
+icon_imports=365
