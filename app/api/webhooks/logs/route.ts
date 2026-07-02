@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { IntegrationProvider, WebhookEventStatus } from "@prisma/client";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * GET /api/webhooks/logs
@@ -21,7 +22,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -89,10 +94,6 @@ export async function GET(request: NextRequest) {
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
-    console.error("[Webhook Logs] GET error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch webhook events" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "webhook-logs:list" });
   }
 }
