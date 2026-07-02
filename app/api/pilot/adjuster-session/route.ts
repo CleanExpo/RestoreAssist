@@ -21,6 +21,7 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { runAdjusterAgent } from "@/lib/ai/adjuster-agent";
 import { deductCreditsAndTrackUsage } from "@/lib/report-limits";
+import { apiError } from "@/lib/api-errors";
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"] as const;
 
@@ -29,7 +30,11 @@ export async function POST(request: NextRequest) {
     // ── 1. Auth ───────────────────────────────────────────────────────────────
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
     const userId = session.user.id;
 
@@ -47,26 +52,32 @@ export async function POST(request: NextRequest) {
       select: { id: true, subscriptionStatus: true },
     });
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
     if (
       !ALLOWED_SUBSCRIPTION_STATUSES.includes(
         user.subscriptionStatus as (typeof ALLOWED_SUBSCRIPTION_STATUSES)[number],
       )
     ) {
-      return NextResponse.json(
-        { error: "Active subscription required" },
-        { status: 402 },
-      );
+      return apiError(request, {
+        code: "PAYMENT_REQUIRED",
+        message: "Active subscription required",
+        status: 402,
+      });
     }
 
     // ── 4. Parse body ─────────────────────────────────────────────────────────
     const body = (await request.json()) as { inspectionId?: unknown };
     if (!body.inspectionId || typeof body.inspectionId !== "string") {
-      return NextResponse.json(
-        { error: "inspectionId is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "inspectionId is required",
+        status: 400,
+      });
     }
     const { inspectionId } = body;
 
@@ -78,10 +89,11 @@ export async function POST(request: NextRequest) {
         creditError instanceof Error &&
         creditError.message === "INSUFFICIENT_CREDITS"
       ) {
-        return NextResponse.json(
-          { error: "No credits remaining. Please subscribe to continue." },
-          { status: 402 },
-        );
+        return apiError(request, {
+          code: "PAYMENT_REQUIRED",
+          message: "No credits remaining. Please subscribe to continue.",
+          status: 402,
+        });
       }
       throw creditError;
     }
@@ -91,18 +103,20 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: recommendation }, { status: 200 });
   } catch (error) {
-    console.error("[adjuster-session] error:", error);
-
     if (error instanceof Error && error.message.includes("not found")) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return apiError(request, {
+      code: "INTERNAL",
+      message: "Internal server error",
+      status: 500,
+      err: error,
+      stage: "adjuster-session:post",
+    });
   }
 }

@@ -83,7 +83,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error.message).toBe("Unauthorized");
   });
 
   it("canceled subscription → 402", async () => {
@@ -97,7 +97,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
     expect(res.status).toBe(402);
     const json = await res.json();
-    expect(json.error).toMatch(/subscription/i);
+    expect(json.error.message).toMatch(/subscription/i);
   });
 
   it("no credits remaining → 402", async () => {
@@ -112,7 +112,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
     expect(res.status).toBe(402);
     const json = await res.json();
-    expect(json.error).toMatch(/credits/i);
+    expect(json.error.message).toMatch(/credits/i);
   });
 
   it("missing inspectionId → 400", async () => {
@@ -126,7 +126,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toMatch(/inspectionId/i);
+    expect(json.error.message).toMatch(/inspectionId/i);
   });
 
   it("inspection not found → 404", async () => {
@@ -181,7 +181,7 @@ describe("POST /api/pilot/adjuster-session", () => {
     const json = await res.json();
 
     expect(res.status).toBe(500);
-    expect(json.error).toBe("Internal server error");
+    expect(json.error.message).toBe("Internal server error");
     expect(JSON.stringify(json)).not.toContain("Internal AI failure detail");
   });
 });
