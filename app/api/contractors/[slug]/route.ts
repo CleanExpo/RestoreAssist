@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -79,10 +80,11 @@ export async function GET(
     });
 
     if (!contractor) {
-      return NextResponse.json(
-        { error: "Contractor not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Contractor not found",
+        status: 404,
+      });
     }
 
     // Calculate rating breakdown
@@ -171,11 +173,7 @@ export async function GET(
       },
       requiresAuthForContact: !isAuthenticated,
     });
-  } catch (error: any) {
-    console.error("Error fetching contractor profile:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch contractor profile" },
-      { status: 500 },
-    );
+  } catch (error) {
+    return fromException(request, error, { stage: "fetch" });
   }
 }

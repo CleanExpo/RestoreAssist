@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { fromException } from "@/lib/api-errors";
 
 // Public endpoint — returns only isPubliclyVisible contractor profiles.
 // No auth required by design; rate-limited to prevent directory scraping.
@@ -155,11 +156,7 @@ export async function GET(request: NextRequest) {
         pages: Math.ceil(total / limit),
       },
     });
-  } catch (error: any) {
-    console.error("Error fetching contractors:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch contractors" },
-      { status: 500 },
-    );
+  } catch (error) {
+    return fromException(request, error, { stage: "list" });
   }
 }
