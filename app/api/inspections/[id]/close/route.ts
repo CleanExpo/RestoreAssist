@@ -25,6 +25,7 @@ import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
 import { loadTransitionContext } from "@/lib/lifecycle/load-context";
 import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
 import { exportClosedJobToBYOKStorage } from "@/lib/queue/exportClosedJobToBYOKStorage";
+import { deriveRestorationIncident } from "@/lib/analytics/deriveRestorationIncident";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -155,6 +156,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       // P1 #11.1 — fire-and-forget next-action nudge ("ready to hand over").
       void onNextAction(inspectionId, InspectionStatus.CLOSED).catch((err) =>
         console.error("[next-action] CLOSED nudge failed:", err),
+      );
+
+      // RA-6917 Phase 1 — fire-and-forget de-identified incident derivation for
+      // the permanent restoration data asset. Never blocks or fails job close.
+      void deriveRestorationIncident(inspectionId).catch((err) =>
+        console.error(
+          `[data-asset] incident derivation failed for ${inspectionId}:`,
+          err,
+        ),
       );
 
       // Fire-and-forget SP-E export (rule 13). On success, persist the
