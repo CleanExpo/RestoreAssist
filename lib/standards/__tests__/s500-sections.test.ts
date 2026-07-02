@@ -32,4 +32,21 @@ describe("getS500Section — verified S500-2021 recall", () => {
   it("has a meaningful index", () => {
     expect(Object.keys(S500_SECTIONS).length).toBeGreaterThanOrEqual(35);
   });
+
+  it("recalls the §10 inspection subsections verified from the licensed chapter PDF", () => {
+    // Source: "016 - Inspections, Preliminary Determinations, and Pre-Restoration
+    // Evaluations.pdf" (licensed S500-2021 chapter), read 2026-06-30.
+    expect(getS500Section("10.1")?.title).toBe("Introduction");
+    expect(getS500Section("10.3")?.title).toBe("Documentation");
+    expect(getS500Section("10.6.6")?.title).toBe("Dry Standards and Drying Goals");
+    expect(getS500Section("10.7")?.title).toBe(
+      "Pre-Remediation and Pre-Restoration Evaluation",
+    );
+  });
+
+  it("uses the verified full §10.6 title (not the earlier truncated 'Initial Response')", () => {
+    expect(getS500Section("10.6")?.title).toBe(
+      "Initial Response, Inspection, and Preliminary Determination",
+    );
+  });
 });

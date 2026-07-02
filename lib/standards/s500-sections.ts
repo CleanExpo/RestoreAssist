@@ -3,8 +3,9 @@
  * section→title recall.
  *
  * Values transcribed from the owner's LICENSED per-chapter PDFs (verified
- * 2026-06-30): §10 "016 - Inspections", §12 "018 - Structural Restoration",
- * §7/§8/§9/§13 chapter PDFs. This is the persistent store behind consistent
+ * 2026-06-30): §10 "016 - Inspections" (full §10.1–§10.9 subsection ToC),
+ * §12 "018 - Structural Restoration", §7/§8/§9/§13 chapter PDFs. This is the
+ * persistent store behind consistent
  * citation recall — it replaces ad-hoc per-file hardcoding.
  *
  * COPYRIGHT: this holds only section NUMBERS and short TITLES (facts / a table
@@ -36,11 +37,32 @@ export const S500_SECTIONS: Readonly<Record<string, string>> = {
   "9.2.5": "Recommended Documentation",
   "9.3": "Risk Management",
   "10": "Inspections, Preliminary Determinations, and Pre-Restoration Evaluations",
+  "10.1": "Introduction",
+  "10.2": "Qualifications",
+  "10.3": "Documentation",
   "10.4": "Definitions of Category and Class",
   "10.4.1": "Category of Water",
+  "10.4.2": "Regulated, Hazardous Materials, and Mold",
   "10.4.3": "Class of Water Intrusion",
+  "10.4.4": "Other Factors Necessary to Estimate Humidity Control",
   "10.5": "Initial Contact and Information Gathering",
-  "10.6": "Initial Response",
+  "10.6": "Initial Response, Inspection, and Preliminary Determination",
+  "10.6.1": "Safety and Health Hazards",
+  "10.6.2": "Identify Priorities and Concerns",
+  "10.6.3": "Extent of Water Migration",
+  "10.6.4": "Pre-existing Damage",
+  "10.6.5": "Secondary Damage",
+  "10.6.6": "Dry Standards and Drying Goals",
+  "10.6.7": "Preliminary Determination",
+  "10.6.8": "Performing the Initial Moisture Inspection",
+  "10.7": "Pre-Remediation and Pre-Restoration Evaluation",
+  "10.7.1": "Evaluating Emergency Response Actions",
+  "10.7.2": "Evaluating Building Materials and Assemblies",
+  "10.7.3": "Evaluating Contents",
+  "10.7.4": "Evaluating HVAC Systems",
+  "10.7.5": "Evaluating Below-Grade, Substructure and Unfinished Spaces",
+  "10.8": "Project Work Plans",
+  "10.9": "Ongoing Inspections and Monitoring",
   "11": "Limitations, Complexities, Complications, and Conflicts",
   "12": "Structural Restoration",
   "12.3.2": "Engineering Controls",
