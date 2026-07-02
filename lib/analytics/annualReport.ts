@@ -124,6 +124,7 @@ export function toAnnualReportCsv(report: AnnualReport): string {
     "lossSource",
     "incidentCount",
     "avgRemediationDays",
+    "avgFloorAreaM2",
   ];
   const rows: string[] = [header.map(csvField).join(",")];
 
@@ -136,6 +137,7 @@ export function toAnnualReportCsv(report: AnnualReport): string {
       "",
       "",
       csvField(report.totalIncidents),
+      "",
       "",
     ].join(","),
   );
@@ -154,6 +156,11 @@ export function toAnnualReportCsv(report: AnnualReport): string {
             cell.avgRemediationDays === null
               ? ""
               : Math.round(cell.avgRemediationDays * 10) / 10,
+          ),
+          csvField(
+            cell.avgFloorAreaM2 === null
+              ? ""
+              : Math.round(cell.avgFloorAreaM2),
           ),
         ].join(","),
       );

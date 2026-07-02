@@ -75,3 +75,52 @@ we can tighten on your advice before launch.
 
 _Prepared by the RestoreAssist build team. This brief states facts + our lay
 understanding only; we are seeking your formal Australian IP opinion._
+
+---
+
+## 6. SECOND QUESTION (RA-6917) — persisting a de-identified data asset
+
+**Status:** the code is built behind a gate and DOES NOT persist any third-party
+drawing; we want your opinion before treating the retained geometry as an asset
+we can publish aggregate statistics from.
+
+### 6.1 What we now retain (the facts)
+
+On job close, RestoreAssist derives a **de-identified** `RestorationIncident`
+record for a permanent internal data asset used to produce **aggregate** industry
+statistics (annual reports). Per record we keep, at most:
+
+- Geography at **postcode** granularity (no street address, no owner, no names).
+- Damage classification (water category, damage class, loss source).
+- **Derived floor geometry: a room count and a total floor area, rounded to the
+  nearest 10 m².** This is computed **only** from sketch elements tagged
+  `operator_measured` — i.e. the operator's **own on-site measurements**.
+  Geometry tagged `underlay_reference` (anything traced over an imported plan)
+  is **excluded from the asset entirely**.
+- **No floor-plan image, no vector drawing, no coordinates** are stored in the
+  asset — only the two scalar metrics above.
+- Published outputs suppress any group with fewer than 5 incidents (k-anonymity).
+
+### 6.2 Specific questions
+
+1. Given we retain only **scalar metrics** (room count, rounded area) derived from
+   the **operator's own measurements** — and never the source plan, image, or
+   coordinate geometry — is there any residual copyright interest of a third-party
+   floor-plan author in that retained data?
+2. Does excluding all `underlay_reference`-derived geometry from the asset (i.e.
+   only the independently-measured layer contributes) put this cleanly on the
+   "independent creation" side of the _Look_ line for the retained metrics?
+3. **Privacy (APPs), not copyright:** with postcode-level geography, rounded area,
+   month-level dates, no address/owner, and 5-incident suppression on outputs, do
+   you agree the aggregate asset falls outside "personal information", and is there
+   any additional de-identification control you would require before we publish?
+4. If you advise it, we can (a) coarsen area rounding further, (b) drop area/room
+   count entirely and keep classification only, or (c) raise the suppression
+   threshold. Which controls, if any, do you require for the **publishable**
+   (annual-report) use as distinct from the **internal** retained data?
+
+### 6.3 What we can change if advised
+
+Area rounding granularity, the suppression threshold, whether geometry is retained
+at all, and whether the asset is used only internally vs published — all
+configurable before any external annual report is issued.

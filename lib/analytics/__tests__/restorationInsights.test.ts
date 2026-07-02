@@ -22,10 +22,10 @@ beforeEach(() => vi.clearAllMocks());
 describe("getRestorationInsights", () => {
   it("suppresses cells below the anonymity threshold and keeps the rest", async () => {
     groupByMock.mockResolvedValue([
-      { state: "NSW", _count: { id: 12 }, _avg: { remediationDays: 4 } },
-      { state: "VIC", _count: { id: MIN_CELL_COUNT }, _avg: { remediationDays: 3 } },
-      { state: "NT", _count: { id: MIN_CELL_COUNT - 1 }, _avg: { remediationDays: 9 } }, // suppressed
-      { state: "TAS", _count: { id: 1 }, _avg: { remediationDays: 2 } }, // suppressed
+      { state: "NSW", _count: { id: 12 }, _avg: { remediationDays: 4, floorAreaM2: 130 } },
+      { state: "VIC", _count: { id: MIN_CELL_COUNT }, _avg: { remediationDays: 3, floorAreaM2: 90 } },
+      { state: "NT", _count: { id: MIN_CELL_COUNT - 1 }, _avg: { remediationDays: 9, floorAreaM2: null } }, // suppressed
+      { state: "TAS", _count: { id: 1 }, _avg: { remediationDays: 2, floorAreaM2: 200 } }, // suppressed
     ]);
 
     const result = await getRestorationInsights(["state"]);
@@ -35,11 +35,13 @@ describe("getRestorationInsights", () => {
     expect(result.suppressedCells).toBe(2);
     expect(result.totalIncidents).toBe(12 + MIN_CELL_COUNT); // surviving cells only
     expect(result.minCellCount).toBe(MIN_CELL_COUNT);
+    // Phase 3 geometry passes through on surviving cells
+    expect(result.cells.find((c) => c.key.state === "NSW")?.avgFloorAreaM2).toBe(130);
   });
 
   it("never emits a cell that could identify a single job (count of 1)", async () => {
     groupByMock.mockResolvedValue([
-      { state: "NSW", postcode: "2000", _count: { id: 1 }, _avg: { remediationDays: 5 } },
+      { state: "NSW", postcode: "2000", _count: { id: 1 }, _avg: { remediationDays: 5, floorAreaM2: 110 } },
     ]);
 
     const result = await getRestorationInsights(["state", "postcode"]);
