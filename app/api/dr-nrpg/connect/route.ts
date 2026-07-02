@@ -62,11 +62,21 @@ export async function POST(request: NextRequest) {
           status: 400,
         });
       }
-      const { drNrpgApiKey, drNrpgBaseUrl, webhookSecret } = parsed as {
-        drNrpgApiKey?: string;
-        drNrpgBaseUrl?: string;
-        webhookSecret?: string;
-      };
+      // Validate field types at runtime — a JSON cast does not enforce them,
+      // so {drNrpgApiKey:123} would otherwise reach .trim() and 500.
+      const bodyObj = parsed as Record<string, unknown>;
+      const drNrpgApiKey =
+        typeof bodyObj.drNrpgApiKey === "string"
+          ? bodyObj.drNrpgApiKey
+          : undefined;
+      const drNrpgBaseUrl =
+        typeof bodyObj.drNrpgBaseUrl === "string"
+          ? bodyObj.drNrpgBaseUrl
+          : undefined;
+      const webhookSecret =
+        typeof bodyObj.webhookSecret === "string"
+          ? bodyObj.webhookSecret
+          : undefined;
 
       if (!drNrpgApiKey?.trim()) {
         return apiError(request, {
@@ -80,6 +90,32 @@ export async function POST(request: NextRequest) {
         /\/$/,
         "",
       );
+
+      // SSRF guard: this base URL is persisted and later used by the DR-NRPG
+      // liveness cron for outbound requests. Constrain it to an https origin
+      // under the DR-NRPG domain so a user cannot store an arbitrary target.
+      let baseHost: string;
+      try {
+        const parsedUrl = new URL(resolvedBase);
+        baseHost = parsedUrl.hostname;
+        if (parsedUrl.protocol !== "https:") throw new Error("not https");
+      } catch {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "drNrpgBaseUrl must be a valid https URL",
+          status: 400,
+        });
+      }
+      if (
+        baseHost !== "api.dr-nrpg.com.au" &&
+        !baseHost.endsWith(".dr-nrpg.com.au")
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "drNrpgBaseUrl must be a host under dr-nrpg.com.au",
+          status: 400,
+        });
+      }
 
       // Auto-generate a secure webhook secret if not provided
       // This is used to verify inbound webhooks from DR-NRPG

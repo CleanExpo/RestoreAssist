@@ -50,16 +50,24 @@ export async function POST(request: NextRequest) {
           status: 400,
         });
       }
-      const rawCredits = (parsed as { credits?: number }).credits ?? 1;
+      // Only an omitted `credits` defaults to 1; an explicit null (or any
+      // non-integer) is rejected by the validation below.
+      const rawCredits = (parsed as { credits?: unknown }).credits;
+      const requestedCredits = rawCredits === undefined ? 1 : rawCredits;
       // Validate: credits must be a positive integer between 1 and 100
-      if (!Number.isInteger(rawCredits) || rawCredits < 1 || rawCredits > 100) {
+      if (
+        typeof requestedCredits !== "number" ||
+        !Number.isInteger(requestedCredits) ||
+        requestedCredits < 1 ||
+        requestedCredits > 100
+      ) {
         return apiError(request, {
           code: "VALIDATION",
           message: "credits must be an integer between 1 and 100",
           status: 400,
         });
       }
-      const credits = rawCredits as number;
+      const credits = requestedCredits;
 
       // Get effective subscription (Admin's for Managers/Technicians)
       const effectiveSub = await getEffectiveSubscription(userId);
