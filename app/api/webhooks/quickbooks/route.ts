@@ -6,6 +6,7 @@ import {
   isUniqueConstraintError,
 } from "@/lib/webhook-idempotency";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
+import { apiError } from "@/lib/api-errors";
 
 /**
  * POST /api/webhooks/quickbooks - Receive webhook events from QuickBooks
@@ -24,7 +25,11 @@ export async function POST(request: NextRequest) {
 
     if (!signature) {
       console.error("[QuickBooks Webhook] Missing signature header");
-      return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Missing signature",
+        status: 401,
+      });
     }
 
     // Read raw body for signature verification
@@ -36,10 +41,12 @@ export async function POST(request: NextRequest) {
       console.error(
         "[QuickBooks Webhook] QUICKBOOKS_WEBHOOK_TOKEN not configured",
       );
-      return NextResponse.json(
-        { error: "Webhook token not configured" },
-        { status: 500 },
-      );
+      return apiError(request, {
+        code: "INTERNAL",
+        message: "Webhook token not configured",
+        status: 500,
+        stage: "quickbooks-webhook:config",
+      });
     }
 
     // Compute expected signature using HMAC-SHA256
@@ -51,7 +58,11 @@ export async function POST(request: NextRequest) {
     const expBuf = Buffer.from(expectedSignature, "base64");
     if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
       console.error("[QuickBooks Webhook] Invalid signature");
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Invalid signature",
+        status: 401,
+      });
     }
 
     // Parse webhook payload

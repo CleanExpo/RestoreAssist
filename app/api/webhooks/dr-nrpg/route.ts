@@ -33,6 +33,7 @@ import { createHmac, timingSafeEqual, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
 import { mapPayloadToInspection } from "@/lib/dr-nrpg/inbound-mapper";
+import { apiError } from "@/lib/api-errors";
 
 const MAX_ACTIVE_DRNRPG_INTEGRATIONS = 100;
 
@@ -146,7 +147,11 @@ export async function POST(request: NextRequest) {
     console.error(
       "[dr-nrpg webhook] Signature verification failed — rejecting",
     );
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Invalid signature",
+      status: 401,
+    });
   }
 
   // ── Parse payload ──
@@ -155,7 +160,11 @@ export async function POST(request: NextRequest) {
     payload = JSON.parse(rawBody);
   } catch {
     console.error("[dr-nrpg webhook] Invalid JSON body");
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Invalid JSON",
+      status: 400,
+    });
   }
 
   const { event, jobId, claimNumber } = payload;
@@ -166,10 +175,11 @@ export async function POST(request: NextRequest) {
       jobId,
       claimNumber,
     });
-    return NextResponse.json(
-      { error: "event, jobId, and claimNumber are required" },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "event, jobId, and claimNumber are required",
+      status: 400,
+    });
   }
 
   const newStatus = mapEventToStatus(event as DrNrpgEventType, payload);

@@ -6,6 +6,7 @@ import {
   isUniqueConstraintError,
 } from "@/lib/webhook-idempotency";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
+import { apiError } from "@/lib/api-errors";
 
 /**
  * POST /api/webhooks/servicem8
@@ -28,7 +29,11 @@ export async function POST(request: NextRequest) {
 
     if (!signature) {
       // Missing signature;
-      return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Missing signature",
+        status: 401,
+      });
     }
 
     const rawBody = await request.text();
@@ -36,10 +41,12 @@ export async function POST(request: NextRequest) {
     const webhookSecret = process.env.SERVICEM8_WEBHOOK_SECRET;
     if (!webhookSecret) {
       // SERVICEM8_WEBHOOK_SECRET env var not set;
-      return NextResponse.json(
-        { error: "Webhook secret not configured" },
-        { status: 500 },
-      );
+      return apiError(request, {
+        code: "INTERNAL",
+        message: "Webhook secret not configured",
+        status: 500,
+        stage: "servicem8-webhook:config",
+      });
     }
 
     // Verify HMAC-SHA256 signature
@@ -51,7 +58,11 @@ export async function POST(request: NextRequest) {
     const expBuf = Buffer.from(expectedSignature, "hex");
     if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
       console.error("[ServiceM8 Webhook] Invalid signature");
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Invalid signature",
+        status: 401,
+      });
     }
 
     const payload = JSON.parse(rawBody);
