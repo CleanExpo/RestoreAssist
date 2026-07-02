@@ -4,6 +4,8 @@
 **Status:** Finalised for owner decision. Not yet built — the build is gated on ADR-001 (§7).
 **Author:** Claude (Nexus) · 2026-07-02
 
+> **Reframed 2026-07-02:** the owner's direction is to build a **proprietary restoration data asset** (incidents + outcomes for annual reports / industry intelligence), not just a pre-load convenience. Under that framing, floor-plan acquisition (scrape *or* Vision import) is a **transient input to a job**, and the durable value is the first-party incident data. See **`docs/mapping-v2/restoration-data-asset-spec.md`** — that is now the primary spec; this document is the narrow "which floor-plan source" sub-decision within it. Key consequence: portal floor-plan *images* are used transiently (underlay_reference) and **not** hoarded; only technician-derived geometry + incident data are kept.
+
 ---
 
 ## 0. What already exists (read first — do not re-litigate)
