@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
@@ -6,6 +6,7 @@ const applyRateLimit = vi.fn();
 const inspectionPhotoFindFirst = vi.fn();
 const inspectionPhotoUpdate = vi.fn();
 const autoClassifyPhoto = vi.fn();
+const resolveWorkspaceAiKey = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -25,10 +26,19 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/services/ai/auto-classify-photo", () => ({
   autoClassifyPhoto: (...args: unknown[]) => autoClassifyPhoto(...args),
 }));
+vi.mock("@/lib/ai/resolve-workspace-ai-key", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/ai/resolve-workspace-ai-key")
+  >("@/lib/ai/resolve-workspace-ai-key");
+  return {
+    ...actual,
+    resolveWorkspaceAiKey: (...args: unknown[]) =>
+      resolveWorkspaceAiKey(...args),
+  };
+});
 
 import { POST } from "../route";
-
-const ORIGINAL_ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+import { NoWorkspaceKeyError } from "@/lib/ai/resolve-workspace-ai-key";
 
 beforeEach(() => {
   getServerSession.mockReset();
@@ -36,8 +46,12 @@ beforeEach(() => {
   inspectionPhotoFindFirst.mockReset();
   inspectionPhotoUpdate.mockReset();
   autoClassifyPhoto.mockReset();
+  resolveWorkspaceAiKey.mockReset();
 
-  process.env.ANTHROPIC_API_KEY = "anthropic-key";
+  resolveWorkspaceAiKey.mockResolvedValue({
+    workspaceId: "ws_1",
+    apiKey: "anthropic-key",
+  });
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
   applyRateLimit.mockResolvedValue(null);
   inspectionPhotoFindFirst.mockResolvedValue({
@@ -45,10 +59,6 @@ beforeEach(() => {
     url: "https://example.com/photo.jpg",
     mimeType: "image/jpeg",
   });
-});
-
-afterAll(() => {
-  process.env.ANTHROPIC_API_KEY = ORIGINAL_ANTHROPIC_API_KEY;
 });
 
 function postRequest() {
@@ -59,8 +69,10 @@ function postRequest() {
 }
 
 describe("POST /api/ai/auto-classify-photo/[photoId]", () => {
-  it("does not expose configured key details when the platform key is missing", async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+  it("does not expose configured key details when no workspace key is configured", async () => {
+    resolveWorkspaceAiKey.mockRejectedValueOnce(
+      new NoWorkspaceKeyError("ANTHROPIC"),
+    );
 
     const response = await POST(postRequest(), {
       params: Promise.resolve({ photoId: "photo_1" }),

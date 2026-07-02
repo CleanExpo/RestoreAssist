@@ -9,6 +9,10 @@ import {
   analyseSupportTicket,
   type SupportTicketAnalysis,
 } from "@/lib/services/ai/analyse-support-ticket";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 // ---------------------------------------------------------------------------
 // Validation schema for POST
@@ -37,14 +41,23 @@ const createTicketSchema = z.object({
 // ---------------------------------------------------------------------------
 
 async function analyseTicketWithClaude(
+  userId: string | null,
   subject: string,
   body: string,
 ): Promise<SupportTicketAnalysis | null> {
-  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!apiKey) {
+  // RA-6921 (P0) — resolve the submitter's workspace BYOK key. Anonymous
+  // submitters (no session) and workspaces without a configured key both
+  // degrade gracefully to the caller-provided category + priority "normal" —
+  // this best-effort triage must never spend the platform's ANTHROPIC_API_KEY.
+  if (!userId) return null;
+  let apiKey: string;
+  try {
+    apiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC")).apiKey;
+  } catch (err) {
+    if (!(err instanceof NoWorkspaceKeyError)) throw err;
     console.error("[SupportTicketsAnalyse]", {
       reason: "KEY_MISSING",
-      detail: "ANTHROPIC_API_KEY not configured (non-fatal — degrading)",
+      detail: "No workspace Anthropic key configured (non-fatal — degrading)",
     });
     return null;
   }
@@ -150,7 +163,7 @@ export async function POST(request: NextRequest) {
     const userId = session?.user?.id ?? null;
 
     // Run Claude analysis — gracefully degrade if unavailable
-    const aiResult = await analyseTicketWithClaude(subject, body);
+    const aiResult = await analyseTicketWithClaude(userId, subject, body);
 
     const ticket = await prisma.supportTicket.create({
       data: {

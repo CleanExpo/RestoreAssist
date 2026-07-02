@@ -1,10 +1,11 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
 const applyRateLimit = vi.fn();
 const userFindUnique = vi.fn();
 const extractMeterReading = vi.fn();
+const resolveWorkspaceAiKey = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -30,28 +31,37 @@ vi.mock("@/lib/idempotency", () => ({
 vi.mock("@/lib/services/ai/extract-reading", () => ({
   extractMeterReading: (...args: unknown[]) => extractMeterReading(...args),
 }));
+vi.mock("@/lib/ai/resolve-workspace-ai-key", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/ai/resolve-workspace-ai-key")
+  >("@/lib/ai/resolve-workspace-ai-key");
+  return {
+    ...actual,
+    resolveWorkspaceAiKey: (...args: unknown[]) =>
+      resolveWorkspaceAiKey(...args),
+  };
+});
 
 import { POST } from "../route";
-
-const ORIGINAL_ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+import { NoWorkspaceKeyError } from "@/lib/ai/resolve-workspace-ai-key";
 
 beforeEach(() => {
   getServerSession.mockReset();
   applyRateLimit.mockReset();
   userFindUnique.mockReset();
   extractMeterReading.mockReset();
+  resolveWorkspaceAiKey.mockReset();
 
-  process.env.ANTHROPIC_API_KEY = "anthropic-key";
+  resolveWorkspaceAiKey.mockResolvedValue({
+    workspaceId: "ws_1",
+    apiKey: "anthropic-key",
+  });
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
   applyRateLimit.mockResolvedValue(null);
   userFindUnique.mockResolvedValue({
     id: "user_1",
     subscriptionStatus: "ACTIVE",
   });
-});
-
-afterAll(() => {
-  process.env.ANTHROPIC_API_KEY = ORIGINAL_ANTHROPIC_API_KEY;
 });
 
 function postRequest() {
@@ -65,8 +75,10 @@ function postRequest() {
 }
 
 describe("POST /api/vision/extract-reading", () => {
-  it("does not expose configured key details when the platform key is missing", async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+  it("does not expose configured key details when no workspace key is configured", async () => {
+    resolveWorkspaceAiKey.mockRejectedValueOnce(
+      new NoWorkspaceKeyError("ANTHROPIC"),
+    );
 
     const response = await POST(postRequest());
     const body = await response.json();

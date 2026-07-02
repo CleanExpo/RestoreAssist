@@ -10,6 +10,7 @@ const getServerSession = vi.fn();
 const verifyAdminFromDb = vi.fn();
 const supportTicketCreate = vi.fn();
 const analyseSupportTicket = vi.fn();
+const resolveWorkspaceAiKey = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -28,8 +29,19 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/services/ai/analyse-support-ticket", () => ({
   analyseSupportTicket: (...args: unknown[]) => analyseSupportTicket(...args),
 }));
+vi.mock("@/lib/ai/resolve-workspace-ai-key", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/ai/resolve-workspace-ai-key")
+  >("@/lib/ai/resolve-workspace-ai-key");
+  return {
+    ...actual,
+    resolveWorkspaceAiKey: (...args: unknown[]) =>
+      resolveWorkspaceAiKey(...args),
+  };
+});
 
 import { POST } from "../route";
+import { NoWorkspaceKeyError } from "@/lib/ai/resolve-workspace-ai-key";
 
 function postRequest(body: unknown): NextRequest {
   return new NextRequest("http://localhost/api/support/tickets", {
@@ -52,6 +64,7 @@ beforeEach(() => {
   verifyAdminFromDb.mockReset();
   supportTicketCreate.mockReset();
   analyseSupportTicket.mockReset();
+  resolveWorkspaceAiKey.mockReset();
 
   // Anonymous public submitter by default.
   getServerSession.mockResolvedValue(null);
@@ -61,7 +74,10 @@ beforeEach(() => {
       ...data,
     }),
   );
-  delete process.env.ANTHROPIC_API_KEY;
+  resolveWorkspaceAiKey.mockResolvedValue({
+    workspaceId: "ws_1",
+    apiKey: "byok-key",
+  });
 });
 
 describe("POST /api/support/tickets (public contact submission)", () => {
@@ -83,8 +99,9 @@ describe("POST /api/support/tickets (public contact submission)", () => {
   });
 
   it("creates a ticket and returns 201 when AI is unavailable (degraded path)", async () => {
-    // No ANTHROPIC_API_KEY -> analyseTicketWithClaude returns null before the
-    // service is ever called; category falls back to the provided value.
+    // Anonymous submitter -> no workspace to resolve a BYOK key from, so
+    // analyseTicketWithClaude returns null before the service is ever
+    // called; category falls back to the provided value.
     const res = await POST(postRequest(validPayload));
 
     expect(res.status).toBe(201);
@@ -110,7 +127,8 @@ describe("POST /api/support/tickets (public contact submission)", () => {
   });
 
   it("uses Claude triage (category/priority) when the AI service succeeds", async () => {
-    process.env.ANTHROPIC_API_KEY = "test-key";
+    // Claude triage requires a resolvable workspace BYOK key -> authenticate.
+    getServerSession.mockResolvedValue({ user: { id: "user_1" } });
     analyseSupportTicket.mockResolvedValue({
       ok: true,
       data: {
@@ -133,11 +151,31 @@ describe("POST /api/support/tickets (public contact submission)", () => {
 
   it("attaches userId when an authenticated user submits", async () => {
     getServerSession.mockResolvedValue({ user: { id: "user_42" } });
+    // Exercises the auth/userId plumbing only — not AI triage — so keep the
+    // AI path on its degraded branch, same as the anonymous-submitter test.
+    resolveWorkspaceAiKey.mockRejectedValueOnce(
+      new NoWorkspaceKeyError("ANTHROPIC"),
+    );
 
     const res = await POST(postRequest(validPayload));
 
     expect(res.status).toBe(201);
     const createArg = supportTicketCreate.mock.calls[0][0].data;
     expect(createArg.userId).toBe("user_42");
+  });
+
+  it("RA-6921: degrades gracefully — never spends a platform key — for an authenticated user with no workspace BYOK key", async () => {
+    getServerSession.mockResolvedValue({ user: { id: "user_42" } });
+    resolveWorkspaceAiKey.mockRejectedValueOnce(
+      new NoWorkspaceKeyError("ANTHROPIC"),
+    );
+
+    const res = await POST(postRequest(validPayload));
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.category).toBe("general");
+    expect(json.priority).toBe("normal");
+    expect(analyseSupportTicket).not.toHaveBeenCalled();
   });
 });
