@@ -3,9 +3,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
-import { getAnthropicApiKey } from "@/lib/ai-provider";
+import { getLatestAIIntegration } from "@/lib/ai-provider";
 import { generateReportSynopsis } from "@/lib/services/ai/report-synopsis";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 /**
  * RA-1192: POST /api/reports/[id]/synopsis
@@ -106,14 +110,21 @@ export async function POST(
       });
     }
 
-    // Resolve an API key. Prefer user's connected Anthropic integration; fall
-    // back to the platform ANTHROPIC_API_KEY env var if present. If neither is
-    // available, return a helpful 400 per ticket spec.
+    // RA-6921 (P0) — resolve an API key. Prefer the new workspace BYOK key;
+    // fall back to a legacy Settings -> Integrations Anthropic key for users
+    // who configured BYOK before the workspace model existed. Never falls
+    // through to the platform ANTHROPIC_API_KEY env var — that was the
+    // platform-spend leak this ticket closes. If neither exists, return a
+    // helpful 400 per ticket spec.
     let apiKey: string | null = null;
     try {
-      apiKey = await getAnthropicApiKey(userId);
-    } catch {
-      apiKey = process.env.ANTHROPIC_API_KEY || null;
+      apiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC")).apiKey;
+    } catch (err) {
+      if (!(err instanceof NoWorkspaceKeyError)) throw err;
+      const legacyIntegration = await getLatestAIIntegration(userId);
+      if (legacyIntegration?.provider === "anthropic") {
+        apiKey = legacyIntegration.apiKey;
+      }
     }
     if (!apiKey) {
       return apiError(request, {

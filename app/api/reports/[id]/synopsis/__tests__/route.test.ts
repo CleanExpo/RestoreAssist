@@ -6,8 +6,9 @@ const applyRateLimit = vi.fn();
 const userFindUnique = vi.fn();
 const reportFindFirst = vi.fn();
 const reportUpdate = vi.fn();
-const getAnthropicApiKey = vi.fn();
+const getLatestAIIntegration = vi.fn();
 const generateReportSynopsis = vi.fn();
+const resolveWorkspaceAiKey = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -28,14 +29,26 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/lib/ai-provider", () => ({
-  getAnthropicApiKey: (...args: unknown[]) => getAnthropicApiKey(...args),
+  getLatestAIIntegration: (...args: unknown[]) =>
+    getLatestAIIntegration(...args),
 }));
 vi.mock("@/lib/services/ai/report-synopsis", () => ({
   generateReportSynopsis: (...args: unknown[]) =>
     generateReportSynopsis(...args),
 }));
+vi.mock("@/lib/ai/resolve-workspace-ai-key", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/ai/resolve-workspace-ai-key")
+  >("@/lib/ai/resolve-workspace-ai-key");
+  return {
+    ...actual,
+    resolveWorkspaceAiKey: (...args: unknown[]) =>
+      resolveWorkspaceAiKey(...args),
+  };
+});
 
 import { POST } from "../route";
+import { NoWorkspaceKeyError } from "@/lib/ai/resolve-workspace-ai-key";
 
 beforeEach(() => {
   getServerSession.mockReset();
@@ -43,13 +56,17 @@ beforeEach(() => {
   userFindUnique.mockReset();
   reportFindFirst.mockReset();
   reportUpdate.mockReset();
-  getAnthropicApiKey.mockReset();
+  getLatestAIIntegration.mockReset();
   generateReportSynopsis.mockReset();
+  resolveWorkspaceAiKey.mockReset();
 
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
   applyRateLimit.mockResolvedValue(null);
   userFindUnique.mockResolvedValue({ subscriptionStatus: "ACTIVE" });
-  getAnthropicApiKey.mockResolvedValue("anthropic-key");
+  resolveWorkspaceAiKey.mockResolvedValue({
+    workspaceId: "ws_1",
+    apiKey: "anthropic-key",
+  });
   reportFindFirst.mockResolvedValue({
     id: "report_1",
     clientName: "Client",
@@ -87,5 +104,44 @@ describe("POST /api/reports/[id]/synopsis", () => {
 
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: "API_ERROR" });
+  });
+
+  it("RA-6921: falls back to a legacy Settings -> Integrations Anthropic key when no workspace BYOK key is configured", async () => {
+    resolveWorkspaceAiKey.mockRejectedValueOnce(
+      new NoWorkspaceKeyError("ANTHROPIC"),
+    );
+    getLatestAIIntegration.mockResolvedValueOnce({
+      id: "integration_1",
+      name: "Anthropic Claude",
+      apiKey: "legacy-anthropic-key",
+      provider: "anthropic",
+    });
+    generateReportSynopsis.mockResolvedValueOnce({
+      ok: true,
+      data: "A concise synopsis.",
+    });
+
+    const response = await POST(postRequest(), {
+      params: Promise.resolve({ id: "report_1" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(generateReportSynopsis).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "legacy-anthropic-key" }),
+    );
+  });
+
+  it("RA-6921: returns 400 (never the platform key) when neither a workspace nor a legacy key exists", async () => {
+    resolveWorkspaceAiKey.mockRejectedValueOnce(
+      new NoWorkspaceKeyError("ANTHROPIC"),
+    );
+    getLatestAIIntegration.mockResolvedValueOnce(null);
+
+    const response = await POST(postRequest(), {
+      params: Promise.resolve({ id: "report_1" }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(generateReportSynopsis).not.toHaveBeenCalled();
   });
 });

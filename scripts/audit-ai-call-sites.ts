@@ -122,6 +122,7 @@ function detectProviderFamilies(content: string): AiProviderFamily[] {
       "callAnthropic(",
       "callAnthropicWithFallback(",
       "callAnthropicStream(",
+      "https://api.anthropic.com/",
     ])
   ) {
     providers.push("anthropic");
@@ -255,6 +256,15 @@ export function classifyAiTask(file: string, content: string): AiTaskClass {
 const PLATFORM_KEY_ENV_PATTERN = /process\.env\.[A-Z0-9_]*_API_KEY\b/;
 
 /**
+ * Named AI-provider env keys only — deliberately narrower than
+ * PLATFORM_KEY_ENV_PATTERN so a route reading an unrelated *_API_KEY
+ * (RESEND_API_KEY, ASCORA_API_KEY, LINEAR_API_KEY, ...) isn't misclassified
+ * as an AI call site just for having "API_KEY" in the name.
+ */
+const AI_PROVIDER_KEY_ENV_PATTERN =
+  /process\.env\.(ANTHROPIC|OPENAI|GEMINI|GOOGLE_GENERATIVE_AI)_API_KEY\b/;
+
+/**
  * Sanctioned BYOK resolution markers. A route that reads a platform env-var
  * key AND shows one of these is assumed to be using it only as a last-resort
  * fallback path that is itself gated elsewhere (e.g. behind a feature flag) —
@@ -310,7 +320,13 @@ export function auditAiCallSite(file: string, content: string): AiCallSiteFindin
       "streamText(",
       "AiUsageLog",
       "aiUsageLog",
-    ]);
+    ]) ||
+    // A bare AI-provider-key read is itself an AI surface — a route reading
+    // process.env.ANTHROPIC_API_KEY etc. directly is spending platform AI
+    // budget even when it doesn't go through a recognised SDK/helper call
+    // pattern above (e.g. a raw fetch()).
+    AI_PROVIDER_KEY_ENV_PATTERN.test(content) ||
+    content.includes("selectAnthropicApiKey(");
 
   if (!hasAiSurface) return null;
 

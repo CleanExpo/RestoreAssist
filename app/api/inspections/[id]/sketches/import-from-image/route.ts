@@ -20,6 +20,10 @@ import { importSketchFromImage } from "@/lib/services/ai/import-sketch-from-imag
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateImageUpload } from "@/lib/media/validate-image-upload";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 // RA-1707 / P0-2 — Vision call costs roughly $0.005-0.012 per image at
 // claude-sonnet-4-x pricing (depends on image dimensions). We assume the
@@ -144,13 +148,18 @@ export async function POST(
     }
     const mediaType = imageCheck.mediaType as (typeof ALLOWED_TYPES)[number];
 
-    const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
-    if (!apiKey) {
+    // RA-6921 (P0) — resolve the workspace's own BYOK key; never spend the
+    // platform's ANTHROPIC_API_KEY on a client's sketch-import workload.
+    let apiKey: string;
+    try {
+      apiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC")).apiKey;
+    } catch (err) {
+      if (!(err instanceof NoWorkspaceKeyError)) throw err;
       console.error("[InspectionsSketchImport]", {
         userId,
         inspectionId,
         reason: "KEY_MISSING",
-        detail: "ANTHROPIC_API_KEY not configured",
+        detail: "No workspace Anthropic key configured",
       });
       return apiError(request, {
         code: "PAYMENT_REQUIRED",

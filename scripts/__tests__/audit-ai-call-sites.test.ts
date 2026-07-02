@@ -158,6 +158,58 @@ describe("platform-key-fallback detection (RA-6921 P0)", () => {
     expect(finding?.platformKeyFallback).toBe(false);
   });
 
+  it("flags a raw fetch() to api.anthropic.com as an AI surface even without the SDK", () => {
+    // Regression test for the blind spot found in batch 3: a route that
+    // calls the Anthropic HTTP API directly (bypassing @anthropic-ai/sdk)
+    // was previously invisible to auditAiCallSite entirely (hasAiSurface
+    // returned false), so it never reached the platformKeyFallback check.
+    const finding = auditAiCallSite(
+      "app/api/reports/[id]/download/route.ts",
+      `
+        const resp = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "x-api-key": process.env.ANTHROPIC_API_KEY as string },
+        });
+      `,
+    );
+
+    expect(finding).not.toBeNull();
+    expect(finding?.providerFamilies).toContain("anthropic");
+    expect(finding?.platformKeyFallback).toBe(true);
+  });
+
+  it("flags a bare process.env.ANTHROPIC_API_KEY read as an AI surface with no recognised SDK call", () => {
+    // Regression test for the same blind spot: a route that reads the key
+    // and hands it to a lib/services/ai/* helper (rather than calling the
+    // SDK inline) has no recognisable provider marker in the route file
+    // itself, so hasAiSurface must treat the bare key read as the surface.
+    const finding = auditAiCallSite(
+      "app/api/vision/extract-reading/route.ts",
+      `
+        const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+        const result = await extractMeterReading({ apiKey, image });
+      `,
+    );
+
+    expect(finding).not.toBeNull();
+    expect(finding?.platformKeyFallback).toBe(true);
+  });
+
+  it("does not misclassify an unrelated *_API_KEY env var (e.g. RESEND_API_KEY) as an AI surface", () => {
+    // Regression test: the fix must scope to named AI-provider keys only —
+    // broadening to any *_API_KEY pattern previously false-positived on
+    // email/CRM/OAuth integrations that have nothing to do with AI spend.
+    const finding = auditAiCallSite(
+      "app/api/notifications/email/route.ts",
+      `
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({ to, subject, html });
+      `,
+    );
+
+    expect(finding).toBeNull();
+  });
+
   it("keeps the live audit's platform-key-fallback findings pinned to the ratchet baseline", () => {
     const report = auditAiCallSites();
     const baseline = readPlatformKeyFallbackBaseline();

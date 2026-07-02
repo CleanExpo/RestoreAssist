@@ -6,6 +6,7 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import fs from "fs/promises";
 import path from "path";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveWorkspaceAiKey } from "@/lib/ai/resolve-workspace-ai-key";
 
 export async function GET(
   request: NextRequest,
@@ -362,7 +363,15 @@ export async function GET(
     // Optional AI Executive Summary
     let executiveSummary: string | null = null;
     try {
-      if (process.env.ANTHROPIC_API_KEY) {
+      // RA-6921 (P0) — resolve the workspace's own BYOK key; never spend the
+      // platform's ANTHROPIC_API_KEY on a client's report-generation workload.
+      // A missing key just omits this optional section, same as any other
+      // failure in this best-effort block.
+      const workspaceKey = await resolveWorkspaceAiKey(
+        session.user.id,
+        "ANTHROPIC",
+      ).catch(() => null);
+      if (workspaceKey) {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 4500);
         const body = {
@@ -384,7 +393,7 @@ Estimate: ${JSON.stringify(estimate)}`,
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": process.env.ANTHROPIC_API_KEY as string,
+            "x-api-key": workspaceKey.apiKey,
             "anthropic-version": "2023-06-01",
           },
           body: JSON.stringify(body),

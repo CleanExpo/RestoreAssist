@@ -15,6 +15,10 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { extractMeterReading } from "@/lib/services/ai/extract-reading";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -121,12 +125,17 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
-      if (!apiKey) {
+      // RA-6921 (P0) — resolve the workspace's own BYOK key; never spend the
+      // platform's ANTHROPIC_API_KEY on a client's vision-extraction workload.
+      let apiKey: string;
+      try {
+        apiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC")).apiKey;
+      } catch (err) {
+        if (!(err instanceof NoWorkspaceKeyError)) throw err;
         console.error("[VisionExtractReading]", {
           userId,
           reason: "KEY_MISSING",
-          detail: "ANTHROPIC_API_KEY not configured",
+          detail: "No workspace Anthropic key configured",
         });
         return NextResponse.json({ error: "KEY_MISSING" }, { status: 402 });
       }
