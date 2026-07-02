@@ -6,6 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 export async function GET(request: NextRequest) {
   try {
@@ -142,24 +146,28 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Use ANTHROPIC_API_KEY from environment variables
-      const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
-
-      if (!anthropicApiKey) {
-        return apiError(request, {
-          code: "INTERNAL",
-          message:
-            "ANTHROPIC_API_KEY is not configured. Please set it in your environment variables.",
-          status: 500,
-          stage: "chatbot-config",
-        });
+      // RA-6921 (P0) — resolve the workspace's own BYOK key; never spend the
+      // platform's ANTHROPIC_API_KEY on a client's chat workload.
+      let workspaceKey: { apiKey: string };
+      try {
+        workspaceKey = await resolveWorkspaceAiKey(userId, "ANTHROPIC");
+      } catch (err) {
+        if (err instanceof NoWorkspaceKeyError) {
+          return apiError(request, {
+            code: "PAYMENT_REQUIRED",
+            message:
+              "Margot chat requires your own Anthropic API key — add one in Workspace Settings -> AI Providers.",
+            status: 402,
+          });
+        }
+        throw err;
       }
 
       // Create integration object for Anthropic
       const integration = {
-        id: "env-anthropic",
-        name: "Anthropic Claude (Environment)",
-        apiKey: anthropicApiKey,
+        id: "byok-anthropic",
+        name: "Anthropic Claude (BYOK)",
+        apiKey: workspaceKey.apiKey,
         provider: "anthropic" as const,
       };
 

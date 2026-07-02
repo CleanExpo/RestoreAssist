@@ -1,14 +1,11 @@
 {
-  "_comment": "RA-6921 (P0) ratchet baseline. Routes below read a platform process.env.*_API_KEY directly instead of resolving the calling workspace's own BYOK key via resolveWorkspaceAiKey(). Remove an entry in the same PR that migrates it (or that documents it as platform-internal, non-tenant-billable, with an explicit comment in the route). Never add new entries — `pnpm audit:ai` fails CI on any file not already listed here.",
-  "_generatedFrom": "app/api/ai/voice-note-transcribe/route.ts fixed in RA-6921 batch 1 (this PR) and removed from this list.",
-  "files": [
-    "app/api/admin/vectorise/route.ts",
-    "app/api/chatbot/route.ts",
-    "app/api/inspections/[id]/similar-jobs/route.ts",
-    "app/api/inspections/[id]/vectorise-jobs/route.ts",
-    "app/api/margot/chat/route.ts",
-    "app/api/margot/corpus/status/route.ts",
-    "app/api/margot/hermes-proxy/route.ts",
-    "app/api/webhooks/github/route.ts"
-  ]
+  "_comment": "RA-6921 (P0) platform-key-fallback register. `pendingMigration` is a ratchet baseline — remove an entry in the same PR that migrates it to resolveWorkspaceAiKey(); never add new entries. `platformInternalExceptions` are routes gated by verifyAdminFromDb (staff-only) or a signature-verified webhook (no end-user session at all) — they are never invoked as part of a client's $99/month workload, so they are intentionally left on the platform key permanently. Re-classify an entry here only if its auth gate changes.",
+  "pendingMigration": [],
+  "platformInternalExceptions": {
+    "app/api/admin/vectorise/route.ts": "verifyAdminFromDb-gated — staff-only corpus indexing tool",
+    "app/api/margot/chat/route.ts": "verifyAdminFromDb-gated — Phill's internal ops assistant, not the customer-facing client-help bubble",
+    "app/api/margot/corpus/status/route.ts": "verifyAdminFromDb-gated — staff-only status probe",
+    "app/api/margot/hermes-proxy/route.ts": "verifyAdminFromDb-gated — Phill's internal ops assistant proxy",
+    "app/api/webhooks/github/route.ts": "GitHub webhook handler — no end-user session, triggered by repo events only"
+  }
 }

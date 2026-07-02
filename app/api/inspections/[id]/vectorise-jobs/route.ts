@@ -10,9 +10,9 @@
  *
  * Body (all optional):
  *   {
- *     provider?: "openai" | "hash-fallback"   // default: "openai" if OPENAI_API_KEY set,
- *                                              //          else "hash-fallback"
- *     openaiApiKey?: string                    // override env var at runtime
+ *     provider?: "openai" | "hash-fallback"   // default: "openai" if the workspace has an
+ *                                              //          active OpenAI BYOK key, else "hash-fallback"
+ *     openaiApiKey?: string                    // explicit override, bypasses BYOK resolution
  *     batchSize?: number                       // rows per batch (default 50)
  *     tenantId?: string                        // admin override; defaults to session user's tenantId
  *   }
@@ -46,6 +46,7 @@ import {
   type EmbeddingProvider,
 } from "@/lib/ai/embeddings";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveWorkspaceAiKey } from "@/lib/ai/resolve-workspace-ai-key";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -98,8 +99,21 @@ export async function POST(
 
     const body: VectoriseBody = await request.json().catch(() => ({}));
 
-    // Resolve embedding provider
-    const openaiApiKey = body.openaiApiKey ?? process.env.OPENAI_API_KEY;
+    // RA-6921 (P0) — resolve the workspace's own OpenAI key rather than the
+    // platform env var; degrade to hash-fallback when the workspace has none.
+    // An explicit body.openaiApiKey override remains supported.
+    let openaiApiKey = body.openaiApiKey;
+    if (!openaiApiKey) {
+      try {
+        const workspaceKey = await resolveWorkspaceAiKey(
+          session.user.id,
+          "OPENAI",
+        );
+        openaiApiKey = workspaceKey.apiKey;
+      } catch {
+        // No workspace key configured — fall through to hash-fallback below.
+      }
+    }
     const provider: EmbeddingProvider =
       body.provider ?? (openaiApiKey ? "openai" : "hash-fallback");
 
@@ -108,7 +122,7 @@ export async function POST(
       return apiError(request, {
         code: "VALIDATION",
         message:
-          "provider=openai requires OPENAI_API_KEY env var or openaiApiKey in body",
+          "provider=openai requires a workspace OpenAI key (Workspace Settings -> AI Providers) or an explicit openaiApiKey in body",
         status: 400,
       });
     }
