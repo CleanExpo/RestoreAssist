@@ -10,6 +10,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError } from "@/lib/api-errors";
 
 /**
  * Generate submission number (e.g., "WO-2026-001")
@@ -28,7 +29,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -49,17 +54,29 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       let body: any;
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
+      }
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Request body must be a JSON object",
+          status: 400,
+        });
       }
       const {
         templateId,
@@ -70,17 +87,19 @@ export async function POST(request: NextRequest) {
       } = body;
 
       if (!templateId) {
-        return NextResponse.json(
-          { error: "Template ID is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Template ID is required",
+          status: 400,
+        });
       }
 
       if (!formData) {
-        return NextResponse.json(
-          { error: "Form data is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Form data is required",
+          status: 400,
+        });
       }
 
       // Verify template exists
@@ -89,10 +108,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!template) {
-        return NextResponse.json(
-          { error: "Form template not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Form template not found",
+          status: 404,
+        });
       }
 
       // RA-1711 — verify report ownership (not just existence) so a
@@ -107,10 +127,11 @@ export async function POST(request: NextRequest) {
         });
 
         if (!report || report.userId !== userId) {
-          return NextResponse.json(
-            { error: "Report not found" },
-            { status: 404 },
-          );
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "Report not found",
+            status: 404,
+          });
         }
       }
 
