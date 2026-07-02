@@ -548,7 +548,7 @@ importers:
         specifier: ^29.1.1
         version: 29.1.1(@noble/hashes@2.2.0)(canvas@3.2.3)
       postcss:
-        specifier: ^8.5.16
+        specifier: '>=8.5.10'
         version: 8.5.16
       prisma:
         specifier: ^6.19.3
