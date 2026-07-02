@@ -1,22 +1,26 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { runAllChecks } from "@/lib/setup/checks";
 import { sendWelcomeEmail } from "@/lib/email";
 import { TRIAL_DAYS } from "@/lib/billing/constants";
-import { fromException } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // TODO(setup-wizard Phase 7+): wire to existing analytics if one emerges
 function recordActivationAnalytics(payload: Record<string, unknown>): void {
   console.log("[setup] activation analytics", payload);
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const userId = session.user.id;
@@ -34,22 +38,27 @@ export async function POST() {
       },
     });
     if (!org) {
-      return NextResponse.json(
-        { error: "No organization for this user" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "No organization for this user",
+        status: 404,
+      });
     }
     if (org.setupCompletedAt) {
-      return NextResponse.json(
-        { error: "Setup already activated" },
-        { status: 409 },
-      );
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "Setup already activated",
+        status: 409,
+      });
     }
 
     // 1. Re-run pre-flight checks (defence-in-depth — UI already checked but server is authoritative)
     const checks = await runAllChecks(org.id);
     const reds = checks.filter((c) => c.status === "red");
     if (reds.length > 0) {
+      // RA-1548 — kept raw: carries a top-level `failedChecks` sibling array
+      // the setup wizard reads to render which capabilities blocked activation
+      // (test-pinned to `json.failedChecks`), so it stays off the envelope.
       return NextResponse.json(
         {
           error: "Pre-flight checks failed",
@@ -164,6 +173,6 @@ export async function POST() {
       },
     });
   } catch (err) {
-    return fromException(undefined, err, { stage: "setup/activate:post" });
+    return fromException(request, err, { stage: "setup/activate:post" });
   }
 }
