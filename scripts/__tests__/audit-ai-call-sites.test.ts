@@ -5,6 +5,7 @@ import {
   buildAiCallSiteGuardrailSummary,
   classifyAiTask,
   getAiAuditIgnoredFilePatterns,
+  readPlatformKeyFallbackBaseline,
   type AiCallSiteFinding,
 } from "../audit-ai-call-sites";
 import { getAiTaskPolicy } from "../../lib/ai/task-policy";
@@ -115,6 +116,59 @@ describe("auditAiCallSite", () => {
   });
 });
 
+describe("platform-key-fallback detection (RA-6921 P0)", () => {
+  it("flags an app/ route that reads process.env.*_API_KEY with no BYOK resolution", () => {
+    const finding = auditAiCallSite(
+      "app/api/chatbot/route.ts",
+      `
+        import Anthropic from "@anthropic-ai/sdk";
+        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        await anthropic.messages.create({ model: "claude-haiku-4-5", max_tokens: 300 });
+      `,
+    );
+
+    expect(finding?.platformKeyFallback).toBe(true);
+  });
+
+  it("does not flag a route that resolves the workspace BYOK key", () => {
+    const finding = auditAiCallSite(
+      "app/api/ai/voice-note-transcribe/route.ts",
+      `
+        import OpenAI from "openai";
+        import { resolveWorkspaceAiKey } from "@/lib/ai/resolve-workspace-ai-key";
+        const key = await resolveWorkspaceAiKey(session.user.id, "OPENAI");
+        const openai = new OpenAI({ apiKey: key.apiKey });
+        await openai.audio.transcriptions.create({ model: "whisper-1" });
+      `,
+    );
+
+    expect(finding?.platformKeyFallback).toBe(false);
+  });
+
+  it("does not flag lib/ platform-ops call sites (out of scope by design)", () => {
+    const finding = auditAiCallSite(
+      "lib/rag/embed.ts",
+      `
+        import OpenAI from "openai";
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        await openai.embeddings.create({ model: "text-embedding-3-small" });
+      `,
+    );
+
+    expect(finding?.platformKeyFallback).toBe(false);
+  });
+
+  it("keeps the live audit's platform-key-fallback findings pinned to the ratchet baseline", () => {
+    const report = auditAiCallSites();
+    const baseline = readPlatformKeyFallbackBaseline();
+    const netNew = report.guardrailSummary.platformKeyFallbackFiles.filter(
+      (file) => !baseline.includes(file),
+    );
+
+    expect(netNew).toEqual([]);
+  });
+});
+
 describe("classifyAiTask", () => {
   it("classifies voice paths before generic report wording", () => {
     expect(
@@ -176,6 +230,7 @@ describe("AI guardrail gate summary", () => {
       executionMode: "synchronous",
       sendsSensitiveDataExternally: true,
       policyWrapped: false,
+      platformKeyFallback: false,
       evidence: [],
       notes: "AI/provider surface detected but task class could not be inferred from filename/content.",
     };

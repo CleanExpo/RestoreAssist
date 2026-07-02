@@ -18,6 +18,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 import OpenAI from "openai";
 
 export const maxDuration = 60;
@@ -32,15 +36,6 @@ const ALLOWED_MIME = new Set([
   "audio/m4a",
   "audio/x-m4a",
 ]);
-
-let _openai: OpenAI | null = null;
-function getOpenAI(): OpenAI {
-  if (_openai) return _openai;
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error("OPENAI_API_KEY not set");
-  _openai = new OpenAI({ apiKey: key });
-  return _openai;
-}
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -60,16 +55,19 @@ export async function POST(request: NextRequest) {
   });
   if (rateLimited) return rateLimited;
 
-  if (!process.env.OPENAI_API_KEY) {
-    // RA-1548 — the 503 here and the 413/415 below are left raw: those status
-    // codes have no slot in the apiError status->code map.
-    return NextResponse.json(
-      {
-        error:
-          "Voice transcription unavailable — OPENAI_API_KEY not configured. The client should fall back to Web Speech API.",
-      },
-      { status: 503 },
-    );
+  let workspaceKey: { apiKey: string };
+  try {
+    workspaceKey = await resolveWorkspaceAiKey(session.user.id, "OPENAI");
+  } catch (err) {
+    if (err instanceof NoWorkspaceKeyError) {
+      return apiError(request, {
+        code: "PAYMENT_REQUIRED",
+        message:
+          "Voice transcription requires your own OpenAI API key — add one in Workspace Settings -> AI Providers. The client should fall back to Web Speech API.",
+        status: 402,
+      });
+    }
+    throw err;
   }
 
   let formData: FormData;
@@ -110,7 +108,8 @@ export async function POST(request: NextRequest) {
 
   const started = Date.now();
   try {
-    const result = await getOpenAI().audio.transcriptions.create({
+    const openai = new OpenAI({ apiKey: workspaceKey.apiKey });
+    const result = await openai.audio.transcriptions.create({
       file: audioRaw,
       model: "whisper-1",
       language: "en",
