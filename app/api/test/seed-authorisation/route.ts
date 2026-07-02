@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError } from "@/lib/api-errors";
 
 // P1 #19 step 1 of 2: enum mirror of prisma `enum AuthorisationLicenceClass`.
 const AUTHORISATION_LICENCE_CLASSES = [
@@ -43,15 +44,20 @@ export async function POST(req: NextRequest) {
   // NODE_ENV to gate. The sandbox Vercel project sets ALLOW_TEST_HELPERS=true;
   // prod does not. Local dev sets it via .env.local for the E2E suite to work.
   if (process.env.ALLOW_TEST_HELPERS !== "true") {
-    return NextResponse.json(
-      { error: "Test helpers are not enabled in this environment" },
-      { status: 404 },
-    );
+    return apiError(req, {
+      code: "NOT_FOUND",
+      message: "Test helpers are not enabled in this environment",
+      status: 404,
+    });
   }
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   let body: SeedAuthBody;

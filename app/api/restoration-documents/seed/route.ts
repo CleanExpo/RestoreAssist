@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 /**
  * GET: Return profile (business) + optional report data for auto-filling
  * the Restoration Tax Invoice. Query: ?reportId=xxx
@@ -10,7 +11,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -101,10 +106,8 @@ export async function GET(request: NextRequest) {
       defaultDueDate: dueDateStr,
     });
   } catch (error) {
-    console.error("Error fetching restoration seed data:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "restoration-documents/seed:get",
+    });
   }
 }
