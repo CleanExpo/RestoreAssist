@@ -18,6 +18,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { verifyCronAuth } from "@/lib/cron/auth";
+import { apiError } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   // RA-1283: defence-in-depth. CRON_SECRET gates access but this endpoint
@@ -31,13 +32,12 @@ export async function POST(request: NextRequest) {
     console.warn(
       "[admin/migrate-v2] Rejected: ADMIN_MIGRATE_V2_ENABLED not set. Set to 'true' in env, run, then unset.",
     );
-    return NextResponse.json(
-      {
-        error:
-          "Endpoint disabled. Set ADMIN_MIGRATE_V2_ENABLED=true in env to enable, run migration, then unset.",
-      },
-      { status: 403 },
-    );
+    return apiError(request, {
+      code: "FORBIDDEN",
+      message:
+        "Endpoint disabled. Set ADMIN_MIGRATE_V2_ENABLED=true in env to enable, run migration, then unset.",
+      status: 403,
+    });
   }
 
   const cronErr = verifyCronAuth(request);
