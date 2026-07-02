@@ -105,6 +105,9 @@ describe("POST /api/inspections/contents-manifest", () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: "Contents manifest generation failed" });
+    expect(body.error.code).toBe("INTERNAL");
+    expect(body.error.message).toBe("Contents manifest generation failed");
+    // must not leak the raw provider exception (which names the resolved key)
+    expect(JSON.stringify(body)).not.toContain("server-resolved-key");
   });
 });
