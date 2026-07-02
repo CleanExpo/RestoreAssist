@@ -41,7 +41,7 @@ This is the **consolidated launch package**. It does not replace the prior asset
 >
 > Built for Australian and New Zealand conditions: GST at 10%, 11-digit ABN validation, state-based references, regional cost libraries. Sign-up starts with your ABN and takes under 90 seconds.
 >
-> 👉 https://restoreassist.app/setup
+> → https://restoreassist.app/setup
 
 ### LinkedIn — Variant B (business-owner)
 > **The real cost centre in a restoration business isn't the drying equipment. It's the documentation.**
@@ -57,37 +57,37 @@ This is the **consolidated launch package**. It does not replace the prior asset
 >
 > One system. Fewer gaps. More confidence. Onboarding starts with your ABN — under 90 seconds.
 >
-> 👉 https://restoreassist.app/setup
+> → https://restoreassist.app/setup
 
 ### Facebook — Variant A (field-tech)
-> You know the drill. Big water job, you've done everything right on site — and then you spend your evening turning photos and scribbled readings into a report the client can actually use. 😮‍💨
+> You know the drill. Big water job, you've done everything right on site — and then you spend your evening turning photos and scribbled readings into a report the client can actually use.
 >
 > We built RestoreAssist to kill that second job.
 >
-> 📱 Capture evidence on site, on whatever device is in your pocket
-> 📋 Inspection, scope and estimate in one flow — IICRC S500 references built in
-> 🤖 AI helps with the damage analysis and the write-up. You make the calls.
-> 📄 Client-ready report out the end. PDF or Excel. Done.
+> Capture evidence on site, on whatever device is in your pocket
+> Inspection, scope and estimate in one flow — IICRC S500 references built in
+> AI helps with the damage analysis and the write-up. You make the calls.
+> Client-ready report out the end. PDF or Excel. Done.
 >
 > Made in Australia for Aussie and Kiwi restorers — GST, ABN, state references, regional pricing all handled. Live today, sign-up with your ABN in under 90 seconds.
-> 👉 restoreassist.app/setup
+> → restoreassist.app/setup
 
 ### Facebook — Variant B (business-owner)
-> How many hours did your team spend last week re-typing field notes into reports? 🤔
+> How many hours did your team spend last week re-typing field notes into reports?
 >
 > That's the gap RestoreAssist closes — Australia's first Australian-designed CRM built just for the restoration industry, office and field in the one system.
 >
-> ✅ Field capture flows straight through to scoping, estimating and the final report
-> ✅ IICRC frameworks, WHS policies and NCC 2022 references inbuilt
-> ✅ Regional cost libraries with proper Aussie pricing — GST done right
-> ✅ AI assists your admin team and your techs. It never replaces them.
-> ✅ Works on any device your crew already carries
+> Field capture flows straight through to scoping, estimating and the final report
+> IICRC frameworks, WHS policies and NCC 2022 references inbuilt
+> Regional cost libraries with proper Aussie pricing — GST done right
+> AI assists your admin team and your techs. It never replaces them.
+> Works on any device your crew already carries
 >
 > One system. Fewer gaps. More confidence. Live now — get started with just your ABN.
-> 👉 restoreassist.app/setup
+> → restoreassist.app/setup
 
 ### Instagram — Variant A (field-tech)
-> POV: it's 7pm and you're still writing up this morning's water job. 📝
+> POV: it's 7pm and you're still writing up this morning's water job.
 >
 > RestoreAssist is live. Capture the evidence on site, on your phone — inspection, scope and estimate flow into one client-ready report. IICRC S500 references built in. AI does the heavy lifting on the write-up; you make the calls.
 >
@@ -96,7 +96,7 @@ This is the **consolidated launch package**. It does not replace the prior asset
 Hashtags: #RestoreAssist #WaterDamageRestoration #RestorationIndustry #IICRC #RestorationTech #AustralianTrades #FieldService #TradesOfInstagram #RestorationLife #AussieTrades #NZTrades
 
 ### Instagram — Variant B (business-owner)
-> Your techs are great on the tools. So why is documentation still the slowest part of every job? 🚧
+> Your techs are great on the tools. So why is documentation still the slowest part of every job?
 >
 > RestoreAssist launches today — Australia's first Australian-designed CRM for the restoration industry. Office + field in one system. Field capture flows straight into scoping, estimating and a client-ready report. IICRC, WHS and NCC 2022 references inbuilt. AI assists; your team decides.
 >
@@ -169,7 +169,7 @@ Hashtags: #RestoreAssist #RestorationBusiness #WaterDamageRestoration #Restorati
 > https://restoreassist.app
 
 **Facebook — Engagement**
-> Worst part of restoration documentation? Wrong answers only. 👇 (We'll go first: re-typing the same site notes into three different places.) Tell us yours — we're building for exactly this stuff. https://restoreassist.app
+> Worst part of restoration documentation? Wrong answers only. (We'll go first: re-typing the same site notes into three different places.) Tell us yours — we're building for exactly this stuff. https://restoreassist.app
 
 **Instagram — Quote card "AI assists. It never replaces."**
 - Card text: "AI assists. It never replaces."
@@ -228,7 +228,7 @@ Hashtags: #RestoreAssist #RestorationBusiness #WaterDamageRestoration #Restorati
 > https://restoreassist.app
 
 **Facebook — NZ shout-out**
-> A quick one for our neighbours across the ditch. 🇳🇿 RestoreAssist is built for New Zealand too — not an afterthought bolted onto an Australian tool, but part of how it's made. Same one system: office and field together, inspection through to estimate in one flow, works on any device. Kiwi restorers — we built this with you in mind as well. https://restoreassist.app
+> A quick one for our neighbours across the ditch. RestoreAssist is built for New Zealand too — not an afterthought bolted onto an Australian tool, but part of how it's made. Same one system: office and field together, inspection through to estimate in one flow, works on any device. Kiwi restorers — we built this with you in mind as well. https://restoreassist.app
 
 **Instagram — "Evening report" reel (overlays + caption)**
 - Overlays: (1) End of the day. Last job's done. (2) Old way: now you start the paperwork. (3) New way: the report's already coming together. (4) Because you captured it as you worked. (5) Home a bit earlier.
@@ -274,7 +274,7 @@ The **paid ad sets** (LinkedIn + Facebook) and their targeting/UTMs live in the 
 ## 4. Creative asset list
 
 Ready as text-only (publish immediately): all Day-0 + LinkedIn/Facebook daily posts, and the two Instagram **quote cards** (typography only — cheapest to produce, brand palette `#1C2E47` / `#8A6B4E` / `#D4A574`).
-Needs a brand asset before its post runs (🎨): Day-1 IG 'One flow' carousel, Day-2 IG capture reel, Day-4 IG onboarding story, Day-5 IG report carousel, Day-6 IG evening-report reel. App screenshots must use **demo data only** — no client-identifiable content. The site's own OG share card (`restoreassist.app/opengraph-image`) renders on LI/FB link posts — verify render before Day 0.
+Needs a brand asset before its post runs (): Day-1 IG 'One flow' carousel, Day-2 IG capture reel, Day-4 IG onboarding story, Day-5 IG report carousel, Day-6 IG evening-report reel. App screenshots must use **demo data only** — no client-identifiable content. The site's own OG share card (`restoreassist.app/opengraph-image`) renders on LI/FB link posts — verify render before Day 0.
 **Fallback rule:** every day has at least one channel that works text-only, so the schedule survives even if no brand assets are produced in week one.
 
 ## 5. Approval gates (before anything publishes)
