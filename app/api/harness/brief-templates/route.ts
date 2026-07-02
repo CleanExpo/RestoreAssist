@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -229,22 +230,33 @@ const TEMPLATES: BriefTemplate[] = [
 // ── Route handlers ─────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const tier = searchParams.get("tier");
+
+    if (tier && !["basic", "detailed", "advanced"].includes(tier)) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "tier must be one of: basic, detailed, advanced",
+        status: 400,
+      });
+    }
+
+    const templates = tier
+      ? TEMPLATES.filter((t) => t.tier === tier)
+      : TEMPLATES;
+
+    return NextResponse.json({ data: templates });
+  } catch (err) {
+    return fromException(request, err, { stage: "list" });
   }
-
-  const { searchParams } = new URL(request.url);
-  const tier = searchParams.get("tier");
-
-  if (tier && !["basic", "detailed", "advanced"].includes(tier)) {
-    return NextResponse.json(
-      { error: "tier must be one of: basic, detailed, advanced" },
-      { status: 400 },
-    );
-  }
-
-  const templates = tier ? TEMPLATES.filter((t) => t.tier === tier) : TEMPLATES;
-
-  return NextResponse.json({ data: templates });
 }
