@@ -1,10 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const {
-  getServerSession,
-  retryRestoreJob,
-  db,
-} = vi.hoisted(() => {
+const { getServerSession, retryRestoreJob, db } = vi.hoisted(() => {
   const db = {
     user: { findUnique: vi.fn() },
     organization: { findUnique: vi.fn() },
@@ -26,6 +22,14 @@ vi.mock("@/lib/queue/storage-restore", () => ({
   retryRestoreJob: (...a: unknown[]) => retryRestoreJob(...a),
 }));
 vi.mock("@/lib/api-errors", () => ({
+  apiError: (
+    _req: unknown,
+    input: { code: string; message: string; status: number },
+  ) =>
+    new Response(
+      JSON.stringify({ error: { code: input.code, message: input.message } }),
+      { status: input.status, headers: { "content-type": "application/json" } },
+    ),
   fromException: (_req: unknown, err: unknown) => {
     throw err;
   },
@@ -50,7 +54,9 @@ beforeEach(() => {
 describe("POST /api/storage/restore/[jobId]/retry", () => {
   it("returns 401 when no session", async () => {
     getServerSession.mockResolvedValue(null);
-    const res = await POST(req(), { params: Promise.resolve({ jobId: "job-1" }) });
+    const res = await POST(req(), {
+      params: Promise.resolve({ jobId: "job-1" }),
+    });
     expect(res.status).toBe(401);
   });
 
@@ -58,7 +64,9 @@ describe("POST /api/storage/restore/[jobId]/retry", () => {
     getServerSession.mockResolvedValue({ user: { id: "u1" } });
     db.user.findUnique.mockResolvedValue({ organizationId: "org1" });
     db.organization.findUnique.mockResolvedValue({ ownerId: "someone-else" });
-    const res = await POST(req(), { params: Promise.resolve({ jobId: "job-1" }) });
+    const res = await POST(req(), {
+      params: Promise.resolve({ jobId: "job-1" }),
+    });
     expect(res.status).toBe(403);
   });
 
@@ -67,7 +75,9 @@ describe("POST /api/storage/restore/[jobId]/retry", () => {
     db.user.findUnique.mockResolvedValue({ organizationId: "org1" });
     db.organization.findUnique.mockResolvedValue({ ownerId: "owner" });
     db.storageRestoreJob.findUnique.mockResolvedValue({ orgId: "org-other" });
-    const res = await POST(req(), { params: Promise.resolve({ jobId: "job-1" }) });
+    const res = await POST(req(), {
+      params: Promise.resolve({ jobId: "job-1" }),
+    });
     expect(res.status).toBe(404);
   });
 
@@ -76,7 +86,9 @@ describe("POST /api/storage/restore/[jobId]/retry", () => {
     db.user.findUnique.mockResolvedValue({ organizationId: "org1" });
     db.organization.findUnique.mockResolvedValue({ ownerId: "owner" });
     db.storageRestoreJob.findUnique.mockResolvedValue(null);
-    const res = await POST(req(), { params: Promise.resolve({ jobId: "job-1" }) });
+    const res = await POST(req(), {
+      params: Promise.resolve({ jobId: "job-1" }),
+    });
     expect(res.status).toBe(404);
   });
 
@@ -87,7 +99,9 @@ describe("POST /api/storage/restore/[jobId]/retry", () => {
     db.storageRestoreJob.findUnique.mockResolvedValue({ orgId: "org1" });
     retryRestoreJob.mockResolvedValue(true);
 
-    const res = await POST(req(), { params: Promise.resolve({ jobId: "job-1" }) });
+    const res = await POST(req(), {
+      params: Promise.resolve({ jobId: "job-1" }),
+    });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ data: { retried: true } });
     expect(retryRestoreJob).toHaveBeenCalledWith("job-1");
