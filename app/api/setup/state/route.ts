@@ -1,18 +1,33 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { apiError } from "@/lib/api-errors";
 
 const PATCHABLE_FIELDS = [
-  'legalName', 'tradingName', 'acn', 'state', 'address', 'phone', 'email',
-  'website', 'logoUrl', 'primaryColor', 'accentColor', 'aboutCopy',
+  "legalName",
+  "tradingName",
+  "acn",
+  "state",
+  "address",
+  "phone",
+  "email",
+  "website",
+  "logoUrl",
+  "primaryColor",
+  "accentColor",
+  "aboutCopy",
 ] as const;
-type PatchableField = typeof PATCHABLE_FIELDS[number];
+type PatchableField = (typeof PATCHABLE_FIELDS)[number];
 
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError(undefined, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const org = await prisma.organization.findFirst({
@@ -38,25 +53,36 @@ export async function GET() {
       setupMode: true,
       pricingConfig: true,
       hydrationJobs: {
-        select: { kind: true, status: true, errorMessage: true, completedAt: true },
+        select: {
+          kind: true,
+          status: true,
+          errorMessage: true,
+          completedAt: true,
+        },
       },
     },
   });
 
   if (!org) {
-    return NextResponse.json({ error: 'No organization for this user' }, { status: 404 });
+    return apiError(undefined, {
+      code: "NOT_FOUND",
+      message: "No organization for this user",
+      status: 404,
+    });
   }
 
   // Derive per-section status from hydration jobs (default PENDING if no job row)
-  const jobByKind = Object.fromEntries(org.hydrationJobs.map((j) => [j.kind, j.status]));
+  const jobByKind = Object.fromEntries(
+    org.hydrationJobs.map((j) => [j.kind, j.status]),
+  );
 
   return NextResponse.json({
     data: {
       organization: org,
       sections: {
-        businessDetails: jobByKind.ABR ?? 'PENDING',
-        branding:        jobByKind.WEBSITE ?? 'PENDING',
-        pricing:         jobByKind.PRICING ?? 'PENDING',
+        businessDetails: jobByKind.ABR ?? "PENDING",
+        branding: jobByKind.WEBSITE ?? "PENDING",
+        pricing: jobByKind.PRICING ?? "PENDING",
       },
     },
   });
@@ -65,14 +91,22 @@ export async function GET() {
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError(undefined, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return apiError(undefined, {
+      code: "VALIDATION",
+      message: "Invalid JSON body",
+      status: 400,
+    });
   }
 
   const org = await prisma.organization.findFirst({
@@ -80,24 +114,36 @@ export async function PATCH(req: Request) {
     select: { id: true, setupCompletedAt: true },
   });
   if (!org) {
-    return NextResponse.json({ error: 'No organization for this user' }, { status: 404 });
+    return apiError(undefined, {
+      code: "NOT_FOUND",
+      message: "No organization for this user",
+      status: 404,
+    });
   }
   if (org.setupCompletedAt) {
-    return NextResponse.json({ error: 'Setup already complete; edit in Settings instead' }, { status: 409 });
+    return apiError(undefined, {
+      code: "CONFLICT",
+      message: "Setup already complete; edit in Settings instead",
+      status: 409,
+    });
   }
 
   const patch: Record<string, string | null> = {};
   for (const field of PATCHABLE_FIELDS) {
     if (field in body) {
       const v = body[field];
-      if (v === null || v === undefined || v === '') patch[field] = null;
-      else if (typeof v === 'string') patch[field] = v;
+      if (v === null || v === undefined || v === "") patch[field] = null;
+      else if (typeof v === "string") patch[field] = v;
       // Silently ignore non-string non-null values — don't 400 on every typo
     }
   }
 
   if (Object.keys(patch).length === 0) {
-    return NextResponse.json({ error: 'No patchable fields in body' }, { status: 400 });
+    return apiError(undefined, {
+      code: "VALIDATION",
+      message: "No patchable fields in body",
+      status: 400,
+    });
   }
 
   await prisma.organization.update({ where: { id: org.id }, data: patch });

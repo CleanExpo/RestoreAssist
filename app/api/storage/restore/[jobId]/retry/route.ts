@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { retryRestoreJob } from "@/lib/queue/storage-restore";
-import { fromException } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 import { requireOwner } from "@/app/api/storage/restore/route";
 
 export async function POST(
@@ -27,12 +27,18 @@ export async function POST(
       select: { orgId: true },
     });
     if (!job || job.orgId !== auth.orgId) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return apiError(_request, {
+        code: "NOT_FOUND",
+        message: "Not found",
+        status: 404,
+      });
     }
 
     const retried = await retryRestoreJob(jobId);
     return NextResponse.json({ data: { retried } });
   } catch (err) {
-    return fromException(_request, err, { stage: "storage-restore/retry:post" });
+    return fromException(_request, err, {
+      stage: "storage-restore/retry:post",
+    });
   }
 }
