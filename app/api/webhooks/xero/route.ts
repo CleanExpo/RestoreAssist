@@ -6,6 +6,7 @@ import {
   isUniqueConstraintError,
 } from "@/lib/webhook-idempotency";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
+import { apiError } from "@/lib/api-errors";
 
 /**
  * POST /api/webhooks/xero - Receive webhook events from Xero
@@ -24,7 +25,11 @@ export async function POST(request: NextRequest) {
 
     if (!signature) {
       // Missing signature;
-      return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Missing signature",
+        status: 401,
+      });
     }
 
     // Read raw body for signature verification
@@ -34,15 +39,21 @@ export async function POST(request: NextRequest) {
     const webhookKey = process.env.XERO_WEBHOOK_KEY;
     if (!webhookKey) {
       // XERO_WEBHOOK_KEY env var not set;
-      return NextResponse.json(
-        { error: "Webhook key not configured" },
-        { status: 500 },
-      );
+      return apiError(request, {
+        code: "INTERNAL",
+        message: "Webhook key not configured",
+        status: 500,
+        stage: "xero-webhook:config",
+      });
     }
 
     // RA-871: Timing-safe HMAC-SHA256 verification via shared helper
     if (!verifyXeroWebhookSignature(rawBody, signature, webhookKey)) {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Invalid signature",
+        status: 401,
+      });
     }
 
     // Parse webhook payload
@@ -62,10 +73,11 @@ export async function POST(request: NextRequest) {
           console.warn(
             `[Xero Webhook] Stale event rejected (age: ${Math.round(eventAge / 1000)}s)`,
           );
-          return NextResponse.json(
-            { error: "Webhook event too old" },
-            { status: 400 },
-          );
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Webhook event too old",
+            status: 400,
+          });
         }
       }
     }
@@ -80,7 +92,11 @@ export async function POST(request: NextRequest) {
 
     if (!tenantId) {
       console.error("[Xero Webhook] Missing tenantId in event");
-      return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Missing tenantId",
+        status: 400,
+      });
     }
 
     // Find the integration for this tenant
