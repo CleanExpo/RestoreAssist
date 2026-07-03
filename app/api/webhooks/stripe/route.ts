@@ -81,6 +81,10 @@ export async function POST(request: NextRequest) {
 
   // RA-913: Event deduplication — Stripe retries webhooks for up to 72h.
   // Record the event ID before processing; bail out silently if already seen.
+  // RA-6962 (review): set true when a FAILED/stale-PENDING row is reprocessed,
+  // so the money-path handlers re-apply their idempotent state writes even when
+  // their inner SubscriptionEvent dedupe reports the event as already seen.
+  let reprocessing = false;
   try {
     await prisma.stripeWebhookEvent.create({
       data: {
@@ -130,6 +134,7 @@ export async function POST(request: NextRequest) {
       // Flip the row back to PENDING and fall through to the processing switch
       // below. RA-1302 — log if the audit update itself fails so operators
       // keep a trail, but do not block reprocessing on it.
+      reprocessing = true;
       await prisma.stripeWebhookEvent
         .updateMany({
           where: { stripeEventId: event.id },
@@ -150,7 +155,7 @@ export async function POST(request: NextRequest) {
   try {
     switch (event.type) {
       case "checkout.session.completed": {
-        await handleCheckoutCompleted(event);
+        await handleCheckoutCompleted(event, reprocessing);
         break;
       }
 
@@ -186,12 +191,12 @@ export async function POST(request: NextRequest) {
       }
 
       case "customer.subscription.updated": {
-        await handleSubscriptionUpdated(event);
+        await handleSubscriptionUpdated(event, reprocessing);
         break;
       }
 
       case "customer.subscription.deleted": {
-        await handleSubscriptionDeleted(event);
+        await handleSubscriptionDeleted(event, reprocessing);
         break;
       }
 
@@ -430,7 +435,10 @@ export async function POST(request: NextRequest) {
  *
  * Exported so unit tests can call it directly with synthetic events.
  */
-export async function handleCheckoutCompleted(event: Stripe.Event) {
+export async function handleCheckoutCompleted(
+  event: Stripe.Event,
+  reprocessing = false,
+) {
   const session = event.data.object as Stripe.Checkout.Session;
 
   // F4 / R4 — one-time (payment-mode) fulfillment now happens HERE on the
@@ -474,7 +482,7 @@ export async function handleCheckoutCompleted(event: Stripe.Event) {
       ? "SUBSCRIPTION_REACTIVATED"
       : "SUBSCRIPTION_ACTIVATED";
 
-  // Idempotency: record event first, bail on replay.
+  // Idempotency: record event first.
   const recorded = await recordSubscriptionEvent({
     userId: metadataUserId,
     eventType,
@@ -485,7 +493,14 @@ export async function handleCheckoutCompleted(event: Stripe.Event) {
       subscriptionId,
     },
   });
-  if (recorded.kind === "deduped") return;
+  // RA-6962 (review): on a genuine reprocess (the OUTER webhook row was
+  // FAILED/stale) the inner SubscriptionEvent row may already exist from the
+  // failed first delivery, so recordSubscriptionEvent reports "deduped". The
+  // activation + signup-bonus writes below are idempotent (updateMany with an
+  // atomic signupBonusApplied guard), so we must still apply them. Only a
+  // NORMAL replay (not a reprocess) short-circuits here.
+  const dedupedReplay = recorded.kind === "deduped";
+  if (dedupedReplay && !reprocessing) return;
 
   // Best-effort: retrieve full subscription for accurate period end + plan
   // name. A failure here (e.g. fake sub ID in tests) must not block the
@@ -538,6 +553,11 @@ export async function handleCheckoutCompleted(event: Stripe.Event) {
       signupBonusApplied: true,
     },
   });
+
+  // RA-6962 (review): on a reprocess of an already-recorded event the
+  // idempotent state writes above have been re-applied; skip the
+  // non-idempotent activation receipt so a duplicate email is not sent.
+  if (dedupedReplay) return;
 
   // RA-1261: best-effort branded activation receipt.
   try {
@@ -605,7 +625,10 @@ function stripeStatusToOurs(
  * subscriptionEndsAt and nextBillingDate from the SubscriptionItem's
  * current_period_end when available.
  */
-export async function handleSubscriptionUpdated(event: Stripe.Event) {
+export async function handleSubscriptionUpdated(
+  event: Stripe.Event,
+  reprocessing = false,
+) {
   const sub = event.data.object as Stripe.Subscription;
   const subscriptionId = sub.id;
   const stripeStatus = sub.status;
@@ -625,7 +648,9 @@ export async function handleSubscriptionUpdated(event: Stripe.Event) {
     stripeEventId: event.id,
     payload: { stripeStatus, previousStatus: user.subscriptionStatus },
   });
-  if (recorded.kind === "deduped") return;
+  // RA-6962 (review): the status-flip write below is idempotent, so a genuine
+  // reprocess must still apply it even when the inner dedupe reports "seen".
+  if (recorded.kind === "deduped" && !reprocessing) return;
 
   // Preserve RA-907/RA-893: refresh period-end fields if present.
   const periodEnd = sub.items?.data?.[0]?.current_period_end;
@@ -693,7 +718,10 @@ async function customerEmailFromSubscription(
  * customer's email so the cancellation is not silently dropped — otherwise
  * the user keeps premium access after cancelling.
  */
-export async function handleSubscriptionDeleted(event: Stripe.Event) {
+export async function handleSubscriptionDeleted(
+  event: Stripe.Event,
+  reprocessing = false,
+) {
   const sub = event.data.object as Stripe.Subscription;
   let user = await prisma.user.findFirst({
     where: { subscriptionId: sub.id },
@@ -718,7 +746,9 @@ export async function handleSubscriptionDeleted(event: Stripe.Event) {
     stripeEventId: event.id,
     payload: { subscriptionId: sub.id },
   });
-  if (recorded.kind === "deduped") return;
+  // RA-6962 (review): downgradeUserToCanceled is idempotent, so a genuine
+  // reprocess must still apply it even when the inner dedupe reports "seen".
+  if (recorded.kind === "deduped" && !reprocessing) return;
 
   await downgradeUserToCanceled(user.id);
 }
