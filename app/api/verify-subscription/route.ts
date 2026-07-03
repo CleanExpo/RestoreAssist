@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { fulfillLifetimeFromSession } from "@/lib/billing/fulfill-one-time";
 import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
@@ -90,23 +91,15 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // One-time lifetime payment (no Stripe subscription)
+        // One-time lifetime payment (no Stripe subscription). F4 — delegate to
+        // the shared fulfillment helper so the browser verify path and the
+        // webhook path apply the exact same idempotent write. This endpoint is
+        // now a redundant self-heal, not the primary fulfillment path.
         if (
           checkoutSession.mode === "payment" &&
           checkoutSession.metadata?.type === "lifetime"
         ) {
-          await prisma.user.update({
-            where: { id: session.user.id },
-            data: {
-              lifetimeAccess: true,
-              subscriptionStatus: "ACTIVE",
-              subscriptionPlan: "Lifetime",
-              creditsRemaining: 999999,
-              ...(checkoutSession.customer
-                ? { stripeCustomerId: checkoutSession.customer as string }
-                : {}),
-            },
-          });
+          await fulfillLifetimeFromSession(checkoutSession);
           return NextResponse.json({
             success: true,
             subscription: {

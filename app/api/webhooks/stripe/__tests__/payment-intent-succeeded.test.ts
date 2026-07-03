@@ -98,8 +98,8 @@ describe("payment_intent.succeeded webhook", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
-  it("returns 400 when invoiceId metadata is missing", async () => {
-    // Event has no invoiceId in metadata
+  it("returns 400 when invoiceId metadata is missing (genuine invoice PI)", async () => {
+    // A RestoreAssist-invoice PI with no invoiceId AND no one-time markers.
     const event = makePaymentIntentEvent({});
     vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(event as never);
 
@@ -108,6 +108,29 @@ describe("payment_intent.succeeded webhook", () => {
 
     expect(response.status).toBe(400);
     expect(body.error.message).toBe("Missing invoiceId metadata");
+  });
+
+  // R6 — one-time addon/lifetime PIs legitimately carry no invoiceId and must
+  // NOT 400 (they are fulfilled via checkout.session.completed).
+  it("returns 2xx for an addon payment_intent with no invoiceId", async () => {
+    const event = makePaymentIntentEvent({ type: "addon", userId: "u1" });
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(event as never);
+
+    const response = await POST(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.received).toBe(true);
+    // No invoice reconciliation attempted for a one-time-product PI.
+    expect(prisma.invoice.update).not.toHaveBeenCalled();
+  });
+
+  it("returns 2xx for a lifetime payment_intent with no invoiceId", async () => {
+    const event = makePaymentIntentEvent({ type: "lifetime", userId: "u1" });
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(event as never);
+
+    const response = await POST(makeRequest());
+    expect(response.status).toBe(200);
   });
 
   it("returns 200 with warning when invoiceId is present but Invoice row not found", async () => {

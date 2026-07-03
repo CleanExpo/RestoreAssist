@@ -8,6 +8,10 @@ import { sendSubscriptionActivatedEmail } from "@/lib/email";
 import { warnIfZeroRows } from "@/lib/prisma-assert";
 import { onInvoicePaid } from "@/lib/lifecycle/subscribers/invoice-paid";
 import { recordSubscriptionEvent } from "@/lib/billing/subscription-event";
+import {
+  fulfillLifetimeFromSession,
+  fulfillAddonFromSession,
+} from "@/lib/billing/fulfill-one-time";
 import { apiError } from "@/lib/api-errors";
 
 /**
@@ -204,9 +208,19 @@ export async function POST(request: NextRequest) {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         const invoiceId = paymentIntent.metadata?.invoiceId;
 
-        // RA-1139: Missing invoiceId → 400 so Stripe retries and ops are alerted.
-        // (Previously was a silent break → 200, causing Stripe to stop retrying.)
+        // R6 — one-time addon/lifetime payment intents legitimately carry NO
+        // invoiceId (they are fulfilled via checkout.session.completed). Return
+        // 2xx for them instead of 400, so Stripe does not enter a retry loop on
+        // a payment that is not a RestoreAssist-invoice payment.
         if (!invoiceId) {
+          const piType = paymentIntent.metadata?.type;
+          const piUserId = paymentIntent.metadata?.userId;
+          if (piType === "addon" || piType === "lifetime" || piUserId) {
+            // Fulfilled elsewhere (the checkout.session.completed handler).
+            break;
+          }
+          // Genuine RestoreAssist-invoice PI that should have carried an
+          // invoiceId → 400 so Stripe retries and ops are alerted.
           console.error(
             "[stripe-webhook] payment_intent.succeeded missing invoiceId metadata",
             {
@@ -394,6 +408,19 @@ export async function POST(request: NextRequest) {
  */
 export async function handleCheckoutCompleted(event: Stripe.Event) {
   const session = event.data.object as Stripe.Checkout.Session;
+
+  // F4 / R4 — one-time (payment-mode) fulfillment now happens HERE on the
+  // webhook, browser-independent. Replay-safety comes from the StripeWebhookEvent
+  // event-id dedupe at the top of POST plus the helpers' own idempotency.
+  if (session.mode === "payment") {
+    if (session.metadata?.type === "lifetime") {
+      await fulfillLifetimeFromSession(session);
+    } else if (session.metadata?.type === "addon") {
+      await fulfillAddonFromSession(session);
+    }
+    return;
+  }
+
   if (session.mode !== "subscription") return;
 
   const metadataUserId = session.metadata?.userId ?? null;
