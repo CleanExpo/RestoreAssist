@@ -40,6 +40,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
         user: {
           select: { id: true, name: true, email: true, role: true },
         },
+        // RA-6936 — replies emailed to the requester, oldest first.
+        replies: {
+          orderBy: { createdAt: "asc" },
+          take: 100,
+        },
       },
     });
 

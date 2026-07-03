@@ -238,6 +238,9 @@ model User {
   // Support tickets (RA-163)
   supportTickets SupportTicket[]
 
+  // Support ticket replies sent by this admin (RA-6936)
+  supportTicketReplies SupportTicketReply[]
+
   // Release notifications — tracks which releases this user has dismissed
   releaseSeen UserReleaseSeen[]
 
@@ -5215,12 +5218,37 @@ model SupportTicket {
   responseDraft String?   @db.Text // Claude-generated response draft
   resolvedAt    DateTime?
 
+  replies SupportTicketReply[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([userId])
   @@index([email])
+}
+
+// RA-6936: a reply emailed to the ticket requester — closes the
+// write-only-inbox gap. Additive only.
+model SupportTicketReply {
+  id       String        @id @default(cuid())
+  ticketId String
+  ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  // The reply text as emailed (plain text; typically the accepted AI draft).
+  body String @db.Text
+
+  // Address the reply was emailed to (snapshot — the ticket email can change).
+  sentToEmail String
+
+  // Admin who sent the reply.
+  sentById String?
+  sentBy   User?   @relation(fields: [sentById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([sentById])
 }
 
 // ============================================

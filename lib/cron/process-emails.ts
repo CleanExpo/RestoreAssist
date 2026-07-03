@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
+import { withEmailTimeout } from "@/lib/email";
 import { logEmailAudit } from "@/lib/email-audit";
 import type { CronJobResult } from "./runner";
 
@@ -58,15 +59,24 @@ export async function processScheduledEmails(): Promise<CronJobResult> {
 
     try {
       const resend = new Resend(process.env.RESEND_API_KEY!);
-      await resend.emails.send({
-        from:
-          process.env.RESEND_FROM_EMAIL ||
-          "RestoreAssist <noreply@restoreassist.com>",
-        to: email.recipient,
-        subject: email.subject || `Report: ${email.report.title}`,
-        html: email.htmlBody || generateDefaultEmailHtml(email),
-        text: email.textBody || undefined,
-      });
+      const result = await withEmailTimeout(
+        resend.emails.send({
+          from:
+            process.env.RESEND_FROM_EMAIL ||
+            "RestoreAssist <noreply@restoreassist.com>",
+          to: email.recipient,
+          subject: email.subject || `Report: ${email.report.title}`,
+          html: email.htmlBody || generateDefaultEmailHtml(email),
+          text: email.textBody || undefined,
+        }),
+      );
+      // The Resend SDK never throws — surface API failures so this email
+      // is marked failed/retried instead of falsely audited as sent.
+      if (result.error) {
+        throw new Error(
+          `Resend send failed: ${result.error.name ?? "unknown_error"} — ${result.error.message ?? "no message"}`,
+        );
+      }
 
       await prisma.scheduledEmail.update({
         where: { id: email.id },
