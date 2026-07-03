@@ -618,17 +618,71 @@ export async function handleSubscriptionUpdated(event: Stripe.Event) {
 }
 
 /**
+ * Shared downgrade write. Flips a user to CANCELED and stamps the
+ * cancellation time. Exported so the Stripe-reconciliation cron
+ * (app/api/cron/reconcile-stripe) can apply the identical downgrade for
+ * subscriptions Stripe reports canceled but that are still active locally.
+ */
+export async function downgradeUserToCanceled(userId: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      subscriptionStatus: "CANCELED",
+      subscriptionEndsAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Resolves the Stripe customer's email from a subscription event's customer
+ * reference. Uses the expanded customer object when present, otherwise
+ * retrieves it. Returns null when the customer is missing or deleted.
+ */
+async function customerEmailFromSubscription(
+  sub: Stripe.Subscription,
+): Promise<string | null> {
+  const customer = sub.customer;
+  if (!customer) return null;
+
+  if (typeof customer === "object") {
+    return "deleted" in customer && customer.deleted
+      ? null
+      : (customer as Stripe.Customer).email ?? null;
+  }
+
+  const retrieved = await stripe.customers.retrieve(customer);
+  if (retrieved.deleted) return null;
+  return retrieved.email ?? null;
+}
+
+/**
  * SP-3 T8 — customer.subscription.deleted handler.
  *
  * Flips User.subscriptionStatus to CANCELED and writes a CANCELED
  * SubscriptionEvent. Dedupes by stripeEventId.
+ *
+ * RA-6939: the primary lookup is by local subscriptionId. When that misses
+ * (e.g. the subscriptionId was never persisted), fall back to the Stripe
+ * customer's email so the cancellation is not silently dropped — otherwise
+ * the user keeps premium access after cancelling.
  */
 export async function handleSubscriptionDeleted(event: Stripe.Event) {
   const sub = event.data.object as Stripe.Subscription;
-  const user = await prisma.user.findFirst({
+  let user = await prisma.user.findFirst({
     where: { subscriptionId: sub.id },
     select: { id: true },
   });
+
+  if (!user) {
+    const email = await customerEmailFromSubscription(sub).catch(() => null);
+    if (email) {
+      user = await prisma.user.findFirst({
+        where: { email },
+        select: { id: true },
+      });
+    }
+  }
+
   if (!user) return;
 
   const recorded = await recordSubscriptionEvent({
@@ -639,11 +693,5 @@ export async function handleSubscriptionDeleted(event: Stripe.Event) {
   });
   if (recorded.kind === "deduped") return;
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      subscriptionStatus: "CANCELED",
-      subscriptionEndsAt: new Date(),
-    },
-  });
+  await downgradeUserToCanceled(user.id);
 }
