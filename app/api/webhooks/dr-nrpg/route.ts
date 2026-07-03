@@ -37,6 +37,13 @@ import { apiError } from "@/lib/api-errors";
 
 const MAX_ACTIVE_DRNRPG_INTEGRATIONS = 100;
 
+// Replay-freshness window. The HMAC signature covers the raw body, which
+// includes `timestamp`, so a captured request cannot have its timestamp
+// forged forward. Reject events whose signed timestamp is older than this
+// tolerance to defeat replay of an old captured request. Mirrors Stripe's
+// signature-tolerance pattern.
+const DRNRPG_REPLAY_TOLERANCE_MS = 5 * 60 * 1000; // 5 minutes
+
 // ============================================================
 // HMAC-SHA256 signature verification
 // ============================================================
@@ -179,6 +186,30 @@ export async function POST(request: NextRequest) {
       code: "VALIDATION",
       message: "event, jobId, and claimNumber are required",
       status: 400,
+    });
+  }
+
+  // ── Replay-freshness check ──
+  // `timestamp` is inside the HMAC-signed body, so it is tamper-evident.
+  // Reject stale (replayed) events outside the tolerance window.
+  const eventTimeMs = Date.parse(payload.timestamp);
+  if (Number.isNaN(eventTimeMs)) {
+    console.error("[dr-nrpg webhook] Missing or invalid timestamp");
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Valid timestamp is required",
+      status: 400,
+    });
+  }
+  if (Math.abs(Date.now() - eventTimeMs) > DRNRPG_REPLAY_TOLERANCE_MS) {
+    console.error("[dr-nrpg webhook] Stale event rejected (replay window):", {
+      jobId,
+      timestamp: payload.timestamp,
+    });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Event timestamp outside allowed window",
+      status: 401,
     });
   }
 
