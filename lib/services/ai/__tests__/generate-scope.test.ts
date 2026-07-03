@@ -9,6 +9,7 @@ import { callAnthropicStream } from "@/lib/services/ai/anthropic-gateway";
 
 const baseArgs = {
   userId: "user-1",
+  apiKey: "sk-ant-workspace",
   systemPrompt: "You are an IICRC certified scope writer.",
   userMessage: "Inspection payload: {...}",
   model: "claude-sonnet-4-6" as const,
@@ -49,6 +50,9 @@ describe("generateScopeStream", () => {
     expect(vi.mocked(callAnthropicStream)).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user-1",
+        // RA-6971 — the workspace's own key must be threaded to the gateway so
+        // it is preferred over the platform ANTHROPIC_API_KEY.
+        apiKey: "sk-ant-workspace",
         request: expect.objectContaining({
           model: "claude-sonnet-4-6",
           max_tokens: 2000,

@@ -87,6 +87,25 @@ function postRequest() {
 }
 
 describe("POST /api/inspections/[id]/classify", () => {
+  it("returns 402 with the NoWorkspaceKeyError shape when the workspace has no key", async () => {
+    const { NoWorkspaceKeyError } = await import(
+      "@/lib/ai/resolve-workspace-ai-key"
+    );
+    resolveWorkspaceAiKey.mockRejectedValueOnce(
+      new NoWorkspaceKeyError("ANTHROPIC"),
+    );
+
+    const response = await POST(postRequest(), {
+      params: Promise.resolve({ id: "inspection_1" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(402);
+    expect(body.error.code).toBe("PAYMENT_REQUIRED");
+    // The customer workload must never reach the provider on no key.
+    expect(classifyInspection).not.toHaveBeenCalled();
+  });
+
   it("does not expose provider failure details", async () => {
     classifyInspection.mockResolvedValueOnce({
       ok: false,
