@@ -7,6 +7,8 @@ import {
   shoelaceAreaPx2,
   snapAngleDeg,
   snapToGrid,
+  snapPointToGrid,
+  snapSegmentEnd,
 } from "../geometry-utils";
 
 describe("geometry-utils — distance", () => {
@@ -123,5 +125,46 @@ describe("geometry-utils — snapAngleDeg", () => {
   it("respects a custom snap interval", () => {
     expect(snapAngleDeg(40, 90)).toBe(0);
     expect(snapAngleDeg(50, 90)).toBe(90);
+  });
+});
+
+// RA-6844 [A5]: grid + right-angle snap for the draw path.
+describe("geometry-utils — snapPointToGrid", () => {
+  it("snaps both axes to the nearest grid multiple", () => {
+    expect(snapPointToGrid({ x: 23, y: 48 }, 25)).toEqual({ x: 25, y: 50 });
+  });
+
+  it("is a no-op when the grid is disabled (<= 0)", () => {
+    const p = { x: 23, y: 48 };
+    expect(snapPointToGrid(p, 0)).toBe(p);
+    expect(snapPointToGrid(p, -10)).toBe(p);
+  });
+});
+
+describe("geometry-utils — snapSegmentEnd", () => {
+  const start = { x: 100, y: 100 };
+
+  it("squares a near-horizontal drag onto the axis, preserving length", () => {
+    // 300px right, 12px up → locks to a clean horizontal wall.
+    const end = snapSegmentEnd(start, { x: 400, y: 88 }, 0, 45);
+    expect(end.x).toBeCloseTo(400.24, 1); // 100 + hypot(300,12) ≈ 300.24 along 0°
+    expect(end.y).toBeCloseTo(100, 5);
+  });
+
+  it("locks a near-45° drag onto the diagonal", () => {
+    const end = snapSegmentEnd(start, { x: 200, y: 210 }, 0, 45);
+    // equal dx/dy after the lock → a true 45° ray
+    expect(end.x - start.x).toBeCloseTo(end.y - start.y, 5);
+  });
+
+  it("grid-snaps the endpoint after the angle lock", () => {
+    const end = snapSegmentEnd(start, { x: 218, y: 103 }, 25, 45);
+    expect(end.x % 25).toBe(0);
+    expect(end.y % 25).toBe(0);
+  });
+
+  it("skips the angle lock when angleStep >= 360 (grid only)", () => {
+    const end = snapSegmentEnd(start, { x: 218, y: 103 }, 25, 360);
+    expect(end).toEqual({ x: 225, y: 100 });
   });
 });

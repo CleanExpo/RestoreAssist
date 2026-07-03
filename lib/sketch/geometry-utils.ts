@@ -68,6 +68,48 @@ export function snapAngleDeg(angleDeg: number, snap = 45): number {
 }
 
 /**
+ * RA-6844 [A5] — snap a single drawn point to the grid on both axes.
+ * `gridPx <= 0` is a no-op (snap disabled).
+ */
+export function snapPointToGrid(
+  p: { x: number; y: number },
+  gridPx: number,
+): { x: number; y: number } {
+  if (!(gridPx > 0)) return p;
+  return { x: snapToGrid(p.x, gridPx), y: snapToGrid(p.y, gridPx) };
+}
+
+/**
+ * RA-6844 [A5] — right-angle assist for drag tools (wall / measure / arrow).
+ * Locks the segment onto the nearest `angleStepDeg` ray from `start` (so walls
+ * square up), then grid-snaps the resulting endpoint. Preserving the drawn
+ * length before the axis grid-snap keeps near-orthogonal drags reading as
+ * clean horizontals/verticals. `gridPx <= 0` skips the grid step; passing the
+ * raw end with a full step (e.g. 360) skips the angle lock.
+ */
+export function snapSegmentEnd(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  gridPx: number,
+  angleStepDeg = 45,
+): { x: number; y: number } {
+  let ex = end.x;
+  let ey = end.y;
+  if (angleStepDeg > 0 && angleStepDeg < 360) {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 0) {
+      const snappedDeg = snapAngleDeg((Math.atan2(dy, dx) * 180) / Math.PI, angleStepDeg);
+      const rad = (snappedDeg * Math.PI) / 180;
+      ex = start.x + dist * Math.cos(rad);
+      ey = start.y + dist * Math.sin(rad);
+    }
+  }
+  return snapPointToGrid({ x: ex, y: ey }, gridPx);
+}
+
+/**
  * Format a pixel distance as a human-readable measurement string.
  * e.g. 250px @ 100px/m → "2.50 m"
  */
