@@ -10,7 +10,11 @@ vi.mock("@/lib/prisma", () => {
 });
 
 import { prisma } from "@/lib/prisma";
-import { __BUDGET_GUARD_INTERNAL, checkWorkspaceBudget } from "../budget-guard";
+import {
+  __BUDGET_GUARD_INTERNAL,
+  checkWorkspaceBudget,
+  BudgetExceededError,
+} from "../budget-guard";
 
 const wsFind = (
   prisma as unknown as {
@@ -197,8 +201,9 @@ describe("checkWorkspaceBudget — multi-tenancy", () => {
   });
 });
 
-describe("checkWorkspaceBudget — defensive paths", () => {
-  it("allows the call when the workspace lookup throws (never blocks pilots)", async () => {
+describe("checkWorkspaceBudget — fail-closed paths", () => {
+  it("blocks the call when the workspace lookup throws (fails closed)", async () => {
+    process.env.AI_DEFAULT_DAILY_BUDGET_USD = "40";
     wsFind.mockRejectedValueOnce(new Error("DB down"));
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -207,12 +212,18 @@ describe("checkWorkspaceBudget — defensive paths", () => {
       estimatedCostUsd: 1,
     });
 
-    expect(r.ok).toBe(true);
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.error).toMatch(/budget check unavailable/i);
+    // Treated as at-cap: spent === budget, nothing remaining.
+    expect(r.budgetUsd).toBe(40);
+    expect(r.spentTodayUsd).toBe(40);
+    expect(r.remainingUsd).toBe(0);
     expect(errSpy).toHaveBeenCalled();
     errSpy.mockRestore();
   });
 
-  it("allows the call when the aggregate query throws", async () => {
+  it("blocks the call when the aggregate query throws (fails closed)", async () => {
     wsFind.mockResolvedValueOnce({ aiDailyBudgetUsd: 5 });
     aggregate.mockRejectedValueOnce(new Error("DB down"));
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -222,7 +233,13 @@ describe("checkWorkspaceBudget — defensive paths", () => {
       estimatedCostUsd: 1,
     });
 
-    expect(r.ok).toBe(true);
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.error).toMatch(/budget check unavailable/i);
+    // budgetUsd is the resolved workspace budget; treated as at-cap.
+    expect(r.budgetUsd).toBe(5);
+    expect(r.spentTodayUsd).toBe(5);
+    expect(r.remainingUsd).toBe(0);
     errSpy.mockRestore();
   });
 
@@ -236,5 +253,24 @@ describe("checkWorkspaceBudget — defensive paths", () => {
     });
 
     expect(r.ok).toBe(true);
+  });
+});
+
+describe("BudgetExceededError", () => {
+  it("carries the numbers, reason, and a stable name", () => {
+    const err = new BudgetExceededError({
+      message: "blocked",
+      budgetUsd: 10,
+      spentTodayUsd: 10,
+      remainingUsd: 0,
+      reason: "over_budget",
+    });
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe("BudgetExceededError");
+    expect(err.message).toBe("blocked");
+    expect(err.budgetUsd).toBe(10);
+    expect(err.spentTodayUsd).toBe(10);
+    expect(err.remainingUsd).toBe(0);
+    expect(err.reason).toBe("over_budget");
   });
 });

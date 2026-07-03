@@ -18,8 +18,12 @@
  *
  * Defaults: AI_DEFAULT_DAILY_BUDGET_USD env (fallback 50.0) when the
  * workspace row has no per-org override. checkWorkspaceBudget never
- * throws; on any internal error it returns ok:true to keep pilots
- * unblocked (telemetry will log the issue separately).
+ * throws, but it FAILS CLOSED: on any datastore error (workspace lookup
+ * or usage aggregate) it returns ok:false and treats the workspace as
+ * at-cap (spentTodayUsd = budgetUsd, remainingUsd = 0). A spend guard
+ * that stops enforcing the moment the DB hiccups is worse than useless —
+ * a DB blip must not become a window for uncapped spend. The underlying
+ * error is surfaced via Vercel runtime logs.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -49,6 +53,33 @@ export type BudgetCheckResult =
       remainingUsd: number;
     };
 
+/**
+ * Thrown by the central AI dispatch chokepoint when a request must be blocked
+ * on cost grounds. Carries the budget numbers so callers can surface a precise
+ * message, and a machine-readable `reason`.
+ */
+export class BudgetExceededError extends Error {
+  readonly budgetUsd: number;
+  readonly spentTodayUsd: number;
+  readonly remainingUsd: number;
+  readonly reason: "over_budget" | "check_unavailable" | "per_call_cap";
+
+  constructor(args: {
+    message: string;
+    budgetUsd: number;
+    spentTodayUsd: number;
+    remainingUsd: number;
+    reason: "over_budget" | "check_unavailable" | "per_call_cap";
+  }) {
+    super(args.message);
+    this.name = "BudgetExceededError";
+    this.budgetUsd = args.budgetUsd;
+    this.spentTodayUsd = args.spentTodayUsd;
+    this.remainingUsd = args.remainingUsd;
+    this.reason = args.reason;
+  }
+}
+
 export async function checkWorkspaceBudget(
   args: CheckWorkspaceBudgetArgs,
 ): Promise<BudgetCheckResult> {
@@ -69,14 +100,16 @@ export async function checkWorkspaceBudget(
       workspaceBudget = ws?.aiDailyBudgetUsd ?? null;
     } catch (err) {
       console.error("[ai.budget-guard] workspace lookup failed", err);
-      // Defensive: if we can't read the budget, allow the call. The pilot
-      // path stays unblocked; the underlying error gets surfaced via
-      // Vercel runtime logs.
+      // Fail closed: if the budget can't be read, block the call rather than
+      // grant uncapped spend. Treat the workspace as at-cap.
+      const envBudget = parseEnvBudget();
       return {
-        ok: true,
-        budgetUsd: parseEnvBudget(),
-        spentTodayUsd: 0,
-        remainingUsd: parseEnvBudget(),
+        ok: false,
+        error:
+          "AI budget check unavailable (datastore error); request blocked to prevent uncapped spend",
+        budgetUsd: envBudget,
+        spentTodayUsd: envBudget,
+        remainingUsd: 0,
       };
     }
     budgetUsd = workspaceBudget ?? parseEnvBudget();
@@ -97,12 +130,15 @@ export async function checkWorkspaceBudget(
     spentTodayUsd = aggregate._sum.estimatedCostUsd ?? 0;
   } catch (err) {
     console.error("[ai.budget-guard] usage aggregate failed", err);
-    // Same defensive policy — never block on observability failures.
+    // Fail closed: without today's spend total the guard can't prove the
+    // request stays under budget. Block it and treat the workspace as at-cap.
     return {
-      ok: true,
+      ok: false,
+      error:
+        "AI budget check unavailable (datastore error); request blocked to prevent uncapped spend",
       budgetUsd,
-      spentTodayUsd: 0,
-      remainingUsd: budgetUsd,
+      spentTodayUsd: budgetUsd,
+      remainingUsd: 0,
     };
   }
 
