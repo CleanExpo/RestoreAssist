@@ -65,13 +65,26 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Find customer
-      const customers = await stripe.customers.list({
-        email: session.user.email!,
-        limit: 1,
+      // RA-6939: resolve the customer from the authenticated user's stored
+      // stripeCustomerId, not a first-hit email lookup — a shared email can
+      // map to multiple Stripe customers and cancel the wrong subscription.
+      const dbUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { stripeCustomerId: true, subscriptionId: true },
       });
 
-      if (customers.data.length === 0) {
+      let customerId = dbUser?.stripeCustomerId ?? null;
+
+      // Back-compat: fall back to email lookup only when no stored id exists.
+      if (!customerId) {
+        const customers = await stripe.customers.list({
+          email: session.user.email!,
+          limit: 1,
+        });
+        customerId = customers.data[0]?.id ?? null;
+      }
+
+      if (!customerId) {
         return apiError(request, {
           code: "NOT_FOUND",
           message: "Customer not found",
@@ -79,14 +92,19 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const customer = customers.data[0];
-      const subscriptions = await stripe.subscriptions.list({
-        customer: customer.id,
-        status: "active",
-        limit: 1,
-      });
+      // Prefer the user's stored subscriptionId; otherwise resolve the active
+      // subscription for THIS customer id.
+      let subscriptionId = dbUser?.subscriptionId ?? null;
+      if (!subscriptionId) {
+        const subscriptions = await stripe.subscriptions.list({
+          customer: customerId,
+          status: "active",
+          limit: 1,
+        });
+        subscriptionId = subscriptions.data[0]?.id ?? null;
+      }
 
-      if (subscriptions.data.length === 0) {
+      if (!subscriptionId) {
         return apiError(request, {
           code: "NOT_FOUND",
           message: "No active subscription found",
@@ -94,11 +112,17 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const subscription = subscriptions.data[0];
-
       // Cancel subscription at period end
-      await stripe.subscriptions.update(subscription.id, {
+      await stripe.subscriptions.update(subscriptionId, {
         cancel_at_period_end: true,
+      });
+
+      // RA-6939: sync local DB so the app reflects the scheduled cancel
+      // without waiting for the webhook. Matches the status the subscription
+      // route reads as cancelAtPeriodEnd.
+      await prisma.user.update({
+        where: { id: userId },
+        data: { subscriptionStatus: "CANCELED" },
       });
 
       // Persist churn feedback (best-effort — never block the cancel on this).
