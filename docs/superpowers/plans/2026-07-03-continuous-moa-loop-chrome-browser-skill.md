@@ -381,7 +381,7 @@ gh pr create --repo CleanExpo/Pi-Dev-Ops \
 - [ ] `skills/README.md` link to `chrome-browser/SKILL.md` resolves
 - [ ] CI required checks pass (Python pytest+ruff, Frontend tsc+eslint+build, Pi CEO API smoke test)
 
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
+Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```

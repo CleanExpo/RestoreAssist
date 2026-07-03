@@ -219,7 +219,7 @@ gh pr create \
 - [x] `skills/nexus/references/NEXUS_PROMPT.md` untouched (diff --stat shows only SKILL.md changed)
 - [ ] Required status checks pass: Python (pytest + ruff), Frontend (tsc + eslint + build), Pi CEO API smoke test (28 checks)
 
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
+Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```

@@ -635,7 +635,7 @@ Closes RA-XXX
 - [ ] pnpm lint passes
 - [ ] [specific user-facing verification steps]
 
-🤖 Opened by the continuous-linear-loop agent (AGENTS.md rule 19)
+Opened by the continuous-linear-loop agent (AGENTS.md rule 19)
 EOF
 )"
 ```
