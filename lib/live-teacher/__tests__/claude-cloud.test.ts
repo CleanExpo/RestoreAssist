@@ -55,6 +55,8 @@ import {
 
 const baseInput: ClaudeCloudInput = {
   sessionId: "session-001",
+  // RA-6963 (BYOK) — per-call workspace key; the mocked SDK ignores it.
+  apiKey: "sk-ant-test",
   context: {
     inspectionId: "insp-001",
     userId: "user-001",

@@ -4,8 +4,8 @@ vi.mock("@/lib/ai/budget-guard", () => ({
   checkWorkspaceBudget: vi.fn(),
 }));
 
-vi.mock("@/lib/ai-provider", () => ({
-  getAnthropicApiKey: vi.fn(),
+vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
+  resolveWorkspaceAiKey: vi.fn(),
 }));
 
 const messagesCreate = vi.fn();
@@ -18,14 +18,16 @@ vi.mock("@anthropic-ai/sdk", () => ({
 }));
 
 import { checkWorkspaceBudget } from "@/lib/ai/budget-guard";
-import { getAnthropicApiKey } from "@/lib/ai-provider";
+import { resolveWorkspaceAiKey } from "@/lib/ai/resolve-workspace-ai-key";
 import { enhanceReportProse } from "../ai-prose";
 import type { ReportSection } from "../types";
 
 const mockedBudget = checkWorkspaceBudget as unknown as ReturnType<
   typeof vi.fn
 >;
-const mockedKey = getAnthropicApiKey as unknown as ReturnType<typeof vi.fn>;
+// RA-6963 (BYOK) — enhanceReportProse now reads `.apiKey` off the resolver
+// result, so resolved values are objects, not bare strings.
+const mockedKey = resolveWorkspaceAiKey as unknown as ReturnType<typeof vi.fn>;
 
 const sampleSections: ReportSection[] = [
   {
@@ -96,7 +98,7 @@ describe("enhanceReportProse", () => {
       spentTodayUsd: 0,
       remainingUsd: 50,
     });
-    mockedKey.mockResolvedValueOnce("sk-ant-test");
+    mockedKey.mockResolvedValueOnce({ workspaceId: "ws_1", apiKey: "sk-ant-test" });
     messagesCreate
       .mockResolvedValueOnce({
         content: [
@@ -135,7 +137,7 @@ describe("enhanceReportProse", () => {
       spentTodayUsd: 0,
       remainingUsd: 50,
     });
-    mockedKey.mockResolvedValueOnce("sk-ant-test");
+    mockedKey.mockResolvedValueOnce({ workspaceId: "ws_1", apiKey: "sk-ant-test" });
     messagesCreate
       .mockResolvedValueOnce({
         content: [{ type: "text", text: "this is not valid JSON" }],
@@ -169,7 +171,7 @@ describe("enhanceReportProse", () => {
       spentTodayUsd: 0,
       remainingUsd: 50,
     });
-    mockedKey.mockResolvedValueOnce("sk-ant-test");
+    mockedKey.mockResolvedValueOnce({ workspaceId: "ws_1", apiKey: "sk-ant-test" });
     messagesCreate.mockResolvedValue({
       content: [
         {
@@ -192,7 +194,7 @@ describe("enhanceReportProse", () => {
   });
 
   it("skips the budget check when workspaceId is null", async () => {
-    mockedKey.mockResolvedValueOnce("sk-ant-test");
+    mockedKey.mockResolvedValueOnce({ workspaceId: "ws_1", apiKey: "sk-ant-test" });
     messagesCreate.mockResolvedValue({
       content: [{ type: "text", text: '{"body":"ok"}' }],
       usage: { input_tokens: 10, output_tokens: 10 },

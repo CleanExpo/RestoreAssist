@@ -29,9 +29,14 @@ export async function GET(request: NextRequest) {
     const limitParam = searchParams.get("limit");
     // Only apply pagination if explicitly requested, otherwise fetch all (up to 10000)
     const shouldPaginate = pageParam !== null || limitParam !== null;
-    const page = pageParam ? parseInt(pageParam) : 1;
+    // RA-6963 (rule 3/14) — clamp caller-supplied page/limit (pattern
+    // clients/route.ts:26-29) so ?limit=1e9 can't force an unbounded read and
+    // ?page=-1 can't force a negative skip (Prisma throws). With no pagination
+    // params, retain the bounded fetch-all the reports list, dashboard, and
+    // completeness-check pages depend on (all call /api/reports with no params).
+    const page = Math.max(1, parseInt(pageParam || "1") || 1);
     const limit = limitParam
-      ? parseInt(limitParam)
+      ? Math.min(100, Math.max(1, parseInt(limitParam) || 10))
       : shouldPaginate
         ? 10
         : 10000;
@@ -55,18 +60,27 @@ export async function GET(request: NextRequest) {
       where.waterClass = waterClass;
     }
 
+    // RA-6963 (rule 3) — explicit select (pattern analytics/route.ts:205-229):
+    // only the columns the reports list, dashboard, and completeness-check pages
+    // actually render, instead of the default full-row spread. Drops the unused
+    // `user` include. `estimatedCost`/`policyType` are not columns (mapped/absent
+    // downstream); `aiSynopsis` is the cached per-row one-liner the list renders.
     const reports = await prisma.report.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip: shouldPaginate ? (page - 1) * limit : 0,
       take: limit,
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
+      select: {
+        id: true,
+        reportNumber: true,
+        title: true,
+        clientName: true,
+        propertyAddress: true,
+        status: true,
+        waterCategory: true,
+        totalCost: true,
+        aiSynopsis: true,
+        createdAt: true,
         estimates: {
           take: 1,
           orderBy: { createdAt: "desc" },

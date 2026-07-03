@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getAnthropicApiKey } from "@/lib/ai-provider";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import {
   validateInterviewResponse,
@@ -21,7 +24,8 @@ import { apiError } from "@/lib/api-errors";
  *  - getServerSession (Rule 1)
  *  - Subscription allowlist TRIAL/ACTIVE/LIFETIME (Rule 8)
  *  - Rate limit 10/min/user (Rule 10)
- *  - getAnthropicApiKey for BYOK cost gate
+ *  - resolveWorkspaceAiKey for the workspace's own BYOK Anthropic key
+ *    (RA-6963) — never spends the platform ANTHROPIC_API_KEY
  */
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
@@ -133,16 +137,21 @@ export async function POST(
       });
     }
 
-    // Resolve API key (env or BYOK)
+    // RA-6963 (BYOK, P1) — resolve the workspace's own Anthropic key; never the
+    // platform ANTHROPIC_API_KEY. On no key, return the 402 NoWorkspaceKeyError
+    // shape (chatbot sibling pattern).
     let anthropicApiKey: string;
     try {
-      anthropicApiKey = await getAnthropicApiKey(userId);
-    } catch {
-      return apiError(request, {
-        code: "VALIDATION",
-        message: "Failed to get Anthropic API key",
-        status: 400,
-      });
+      anthropicApiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC")).apiKey;
+    } catch (err) {
+      if (err instanceof NoWorkspaceKeyError) {
+        return apiError(request, {
+          code: "PAYMENT_REQUIRED",
+          message: err.message,
+          status: 402,
+        });
+      }
+      throw err;
     }
 
     const result = await validateInterviewResponse({

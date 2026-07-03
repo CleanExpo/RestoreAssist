@@ -33,12 +33,6 @@ export type TeacherContext = {
 };
 
 // ---------------------------------------------------------------------------
-// SDK client — matches the canonical pattern in lib/anthropic.ts
-// ---------------------------------------------------------------------------
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-// ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
@@ -47,6 +41,13 @@ export type ClaudeCloudInput = {
   context: TeacherContext;
   history: TeacherTurn[];
   userUtterance: string;
+  /**
+   * RA-6963 (BYOK, P1) — the calling workspace's own Anthropic key, resolved by
+   * the turn route via resolveWorkspaceAiKey. Live Teacher is a customer AI
+   * workload; it must never spend the platform ANTHROPIC_API_KEY, so there is
+   * no module-level client and the key is required per call.
+   */
+  apiKey: string;
 };
 
 export type ClaudeCloudResult = {
@@ -190,6 +191,11 @@ function buildMessages(
 export async function invokeClaudeCloud(
   input: ClaudeCloudInput,
 ): Promise<ClaudeCloudResult> {
+  // RA-6963 (BYOK, P1) — construct the Anthropic client per call from the
+  // workspace-resolved key. No module-level platform client; a customer
+  // workload never spends the platform ANTHROPIC_API_KEY.
+  const anthropic = new Anthropic({ apiKey: input.apiKey });
+
   // TODO: wire tool definitions from lib/live-teacher/tools/ once RA-1132f lands
   const tools: Anthropic.Tool[] = [];
 
