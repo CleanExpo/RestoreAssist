@@ -34,3 +34,27 @@ export interface ClassificationResult {
   /** "label" when a Linear label directly matched a bucket; "text" when free-text keywords decided it. */
   confidence: "label" | "text";
 }
+
+export type ModelTier = "fable-5" | "opus-4.8" | "sonnet-5" | "haiku-4.5";
+
+/**
+ * Model-tier SELECTION function. The tier-selection RULE (spec §5) is owned
+ * by a separate Pi-Dev-Ops PR to the `nexus` skill — this type is the
+ * integration seam this plan consumes it through. See
+ * lib/agents/routing/dispatch.ts's `defaultTierSelector` for the temporary
+ * placeholder used until that PR lands.
+ */
+export type TierSelector = (context: {
+  bucket: WorkTypeBucket;
+  skill: string;
+  fanOut: boolean;
+}) => ModelTier;
+
+export interface DispatchPlan {
+  mode: "single-agent" | "moa";
+  /** Primary skill (single-agent mode) or synthesiser skill label (MOA mode: always "boardroom"). */
+  skill: string;
+  /** Nexus-wrapped prompt ready to hand to the Agent tool or boardroom_query. */
+  prompt: string;
+  tier: ModelTier;
+}
