@@ -26,19 +26,34 @@ import { routeToSkills } from "./routing-table";
 export { wrapWithNexus };
 
 /**
- * PLACEHOLDER tier selector. The real tier-SELECTION rule (spec §5) is
- * defined by a separate Pi-Dev-Ops PR to the `nexus` skill (tracked
- * externally as "Plan 4"). Until that PR lands and a real TierSelector is
- * wired in by the loop caller, every dispatch runs at sonnet-5 — safe,
- * cheap, and never silently escalates to Fable 5 spend. Replace the
- * `selectTier` argument at the call site once Plan 4 ships; do not edit
- * this function to add tier logic — that logic belongs in Plan 4's PR.
+ * Real tier-SELECTION rule (spec §5, Plan 4 / Pi-Dev-Ops nexus/SKILL.md's
+ * "Tier selection" subsection), encoded against the actual TierSelector
+ * context this loop has available: { bucket, skill, fanOut }.
+ *
+ * Order matters — checked top to bottom, first match wins:
+ *   1. fable-5  — fanOut === true (MOA synthesis/arbiter role) OR
+ *                 skill === "judge" (judge/spec-gate decision).
+ *   2. opus-4.8 — single-specialist dispatch with real ambiguity, mapped to
+ *                 bucket === "design" || bucket === "security"
+ *                 (architecture-adjacent / security-sensitive ambiguity),
+ *                 when not already fable-5.
+ *   3. sonnet-5 — default for everything else (routine dev/copy/dispatch).
+ *
+ * haiku-4.5 (mechanical/routine work) is intentionally NOT selected here:
+ * the current { bucket, skill, fanOut } context carries no mechanical
+ * signal to key off, and fabricating one (e.g. inferring "mechanical" from
+ * bucket) would be a dead branch that can never really distinguish
+ * mechanical work from any other single-agent dispatch. Add a haiku-4.5
+ * branch once the loop passes an explicit mechanical/routine signal into
+ * this context.
  */
-export function defaultTierSelector(_context: {
+export function defaultTierSelector(context: {
   bucket: WorkTypeBucket;
   skill: string;
   fanOut: boolean;
 }): ModelTier {
+  if (context.fanOut || context.skill === "judge") return "fable-5";
+  if (context.bucket === "design" || context.bucket === "security") return "opus-4.8";
   return "sonnet-5";
 }
 
