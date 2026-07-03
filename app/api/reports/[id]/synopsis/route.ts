@@ -128,12 +128,16 @@ export async function POST(
       }
     }
     if (!apiKey) {
-      return apiError(request, {
-        code: "VALIDATION",
-        message:
-          "Connect an AI integration first. Add your Anthropic API key in Settings → Integrations to generate AI summaries.",
-        status: 400,
+      // RA-6941 — standardise the no-key case to 402 KEY_MISSING to match the
+      // sibling AI routes (vision/extract-reading, ai/auto-classify-photo)
+      // instead of the old bespoke 400. Raw {error:"KEY_MISSING"} envelope
+      // parallels the !result.ok block below.
+      console.error("[reports/synopsis]", {
+        userId,
+        reason: "KEY_MISSING",
+        detail: "No workspace or legacy Anthropic key configured",
       });
+      return NextResponse.json({ error: "KEY_MISSING" }, { status: 402 });
     }
 
     const totalCost =

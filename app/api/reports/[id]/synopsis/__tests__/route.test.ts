@@ -131,7 +131,7 @@ describe("POST /api/reports/[id]/synopsis", () => {
     );
   });
 
-  it("RA-6921: returns 400 (never the platform key) when neither a workspace nor a legacy key exists", async () => {
+  it("RA-6941: returns 402 KEY_MISSING (never the platform key) when neither a workspace nor a legacy key exists", async () => {
     resolveWorkspaceAiKey.mockRejectedValueOnce(
       new NoWorkspaceKeyError("ANTHROPIC"),
     );
@@ -140,8 +140,10 @@ describe("POST /api/reports/[id]/synopsis", () => {
     const response = await POST(postRequest(), {
       params: Promise.resolve({ id: "report_1" }),
     });
+    const body = await response.json();
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(402);
+    expect(body).toEqual({ error: "KEY_MISSING" });
     expect(generateReportSynopsis).not.toHaveBeenCalled();
   });
 });
