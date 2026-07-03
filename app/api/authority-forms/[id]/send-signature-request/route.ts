@@ -95,9 +95,13 @@ export async function POST(
         });
       }
 
-      // Get the signature record
-      const signature = await prisma.authorityFormSignature.findUnique({
-        where: { id: signatureId },
+      // Get the signature record — scope by instanceId (matches formId
+      // from the URL). signatureId is client-supplied; without this guard
+      // a caller who owns formId could pass a foreign signatureId and
+      // trigger a signature-request email (and token mutation) for a
+      // signature belonging to another tenant's form.
+      const signature = await prisma.authorityFormSignature.findFirst({
+        where: { id: signatureId, instanceId: formId },
       });
 
       if (!signature) {
@@ -127,15 +131,25 @@ export async function POST(
       // Generate token
       const token = randomUUID();
 
-      // Update signature record
-      await prisma.authorityFormSignature.update({
-        where: { id: signatureId },
+      // Update signature record — same instanceId scope as the read above,
+      // so a signature deleted/reassigned between the two calls can't be
+      // mutated either.
+      const updateResult = await prisma.authorityFormSignature.updateMany({
+        where: { id: signatureId, instanceId: formId },
         data: {
           signatureRequestToken: token,
           signatureRequestSent: true,
           signatureRequestSentAt: new Date(),
         },
       });
+
+      if (updateResult.count === 0) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Signature not found",
+          status: 404,
+        });
+      }
 
       // Update form status
       if (form.status === "DRAFT") {
