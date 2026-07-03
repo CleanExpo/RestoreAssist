@@ -6,6 +6,16 @@
 
 import { prisma } from "@/lib/prisma";
 
+/**
+ * RA-6968 — hard cap on the number of InterviewSession rows loaded per
+ * analytics query. These previously ran unbounded `findMany` calls (one had
+ * no `where` clause at all) with `include: { responses: true }`, pulling
+ * every session's full row — including several large `@db.Text` JSON blobs
+ * — plus every nested response, for the entire history. Ordered
+ * most-recent-first so a capped result still reflects current usage.
+ */
+const MAX_SESSIONS_PER_ANALYTICS_QUERY = 5000;
+
 interface SessionMetadata {
   totalDurationSeconds?: number;
   averageConfidence?: number;
@@ -224,7 +234,9 @@ export class InterviewAnalyticsService {
     try {
       const sessions = await prisma.interviewSession.findMany({
         where: { userId },
-        include: { responses: true },
+        select: { status: true, formTemplateId: true },
+        orderBy: { createdAt: "desc" },
+        take: MAX_SESSIONS_PER_ANALYTICS_QUERY,
       });
 
       if (sessions.length === 0) {
@@ -336,7 +348,12 @@ export class InterviewAnalyticsService {
     try {
       const sessions = await prisma.interviewSession.findMany({
         where: { formTemplateId: templateId },
-        include: { responses: true },
+        select: {
+          status: true,
+          responses: { select: { questionId: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: MAX_SESSIONS_PER_ANALYTICS_QUERY,
       });
 
       if (sessions.length === 0) {
@@ -509,7 +526,9 @@ export class InterviewAnalyticsService {
     try {
       const sessions = await prisma.interviewSession.findMany({
         where: { userId },
-        include: { responses: true },
+        select: { status: true, formTemplateId: true },
+        orderBy: { createdAt: "desc" },
+        take: MAX_SESSIONS_PER_ANALYTICS_QUERY,
       });
 
       const completedSessions = sessions.filter(
@@ -608,7 +627,9 @@ export class InterviewAnalyticsService {
   }> {
     try {
       const sessions = await prisma.interviewSession.findMany({
-        include: { responses: true },
+        select: { status: true, formTemplateId: true },
+        orderBy: { createdAt: "desc" },
+        take: MAX_SESSIONS_PER_ANALYTICS_QUERY,
       });
 
       const completedSessions = sessions.filter(

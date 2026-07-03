@@ -73,6 +73,37 @@ export async function GET(request: NextRequest) {
 
     // Get template performance analytics
     if (templateId) {
+      // RA-6968: previously any authenticated user could pass an arbitrary
+      // templateId and pull aggregate performance data (completion rate,
+      // average session duration, most-difficult-questions) for another
+      // user's private FormTemplate — no ownership check at all. Scope to
+      // templates the caller owns, shared system templates, or admins.
+      const template = await prisma.formTemplate.findUnique({
+        where: { id: templateId },
+        select: { userId: true, isSystemTemplate: true },
+      });
+
+      if (!template) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Form template not found",
+          status: 404,
+        });
+      }
+
+      const canView =
+        template.isSystemTemplate ||
+        template.userId === user.id ||
+        user.role === "ADMIN";
+
+      if (!canView) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Forbidden",
+          status: 403,
+        });
+      }
+
       const analytics =
         await InterviewAnalyticsService.getTemplatePerformanceAnalytics(
           templateId,
