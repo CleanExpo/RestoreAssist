@@ -28,6 +28,10 @@ import {
   type Point,
 } from "@/lib/sketch/tool-objects";
 import { snapPointToGrid, snapSegmentEnd } from "@/lib/sketch/geometry-utils";
+import {
+  exportSketchPng,
+  type ExportableCanvas,
+} from "@/lib/sketch/export-sketch-png";
 import type { SelectedObject } from "./SketchSelectionPanel";
 
 export interface SketchCanvasProps {
@@ -210,10 +214,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           c.renderAll();
         },
         toDataURL: (opts) => {
-          const c = fabricRef.current as {
-            toDataURL: (o?: object) => string;
-          } | null;
-          return c?.toDataURL(opts) ?? "";
+          const c = fabricRef.current as ExportableCanvas | null;
+          // RA-6847 [C1]: strip the underlay so the export never leaks it.
+          return c ? exportSketchPng(c, opts) : "";
         },
         clear: () => {
           const c = fabricRef.current as {
@@ -666,7 +669,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             ]),
           loadFromJSON: (data) =>
             new Promise((resolve) => canvas.loadFromJSON(data, resolve)),
-          toDataURL: (opts) => canvas.toDataURL(opts),
+          // RA-6847 [C1]: strip the underlay so the export never leaks it.
+          toDataURL: (opts) =>
+            exportSketchPng(canvas as unknown as ExportableCanvas, opts),
           clear: () => {
             (canvas as unknown as { clear: () => void }).clear();
             canvas.renderAll();

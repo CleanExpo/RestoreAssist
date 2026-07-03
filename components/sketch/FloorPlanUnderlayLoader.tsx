@@ -27,6 +27,7 @@ import {
   validateUnderlayUpload,
   isPdfUnderlay,
 } from "@/lib/sketch/validate-underlay-upload";
+import { watermarkImageDataUrl } from "@/lib/sketch/underlay-watermark";
 import { persistUnderlayImage } from "@/lib/sketch/persist-underlay-image";
 
 export interface FloorPlanUnderlayLoaderProps {
@@ -68,8 +69,9 @@ export function FloorPlanUnderlayLoader({
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [opacity, setOpacity] = useState(0.35);
   const [applying, setApplying] = useState(false);
-  // RA-6849 [C3]: true while a PDF upload is being rasterised to a PNG.
-  const [rasterising, setRasterising] = useState(false);
+  // RA-6849 [C3] / RA-6847 [C1]: true while an uploaded plan is being prepared
+  // (PDF rasterised + the reference watermark baked in).
+  const [preparingUnderlay, setPreparingUnderlay] = useState(false);
   // PR5: set when the scrape route returns 402 (feature is Premium-only).
   const [upgradeRequired, setUpgradeRequired] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -172,33 +174,47 @@ export function FloorPlanUnderlayLoader({
     // Reset so the same file can be re-selected
     e.target.value = "";
     // RA-6849 [C3]: a PDF can't be embedded directly — rasterise page 1 to a PNG
-    // data URL first, then feed it through the same preview/persist path.
+    // data URL first. RA-6847 [C1]: every imported underlay is then watermarked
+    // as a reference-only layer before it enters the preview/persist path.
     if (isPdfUnderlay(file.type)) {
       setError(null);
-      setRasterising(true);
+      setPreparingUnderlay(true);
       (async () => {
         try {
           const { pdfFileToPngDataUrl } = await import(
             "@/lib/sketch/pdf-to-raster"
           );
           const png = await pdfFileToPngDataUrl(file);
-          setSelectedImage(png);
+          const marked = await watermarkImageDataUrl(png);
+          setSelectedImage(marked);
           setResults(null);
         } catch {
           setError("Couldn't read that PDF — try exporting page 1 as an image.");
         } finally {
-          setRasterising(false);
+          setPreparingUnderlay(false);
         }
       })();
       return;
     }
+    // RA-6847 [C1]: uploaded images are watermarked before use, same as PDFs.
+    setError(null);
+    setPreparingUnderlay(true);
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      if (ev.target?.result) {
-        setSelectedImage(ev.target.result as string);
+    reader.onload = async (ev) => {
+      try {
+        if (!ev.target?.result) throw new Error("read failed");
+        const marked = await watermarkImageDataUrl(ev.target.result as string);
+        setSelectedImage(marked);
         setResults(null);
-        setError(null);
+      } catch {
+        setError("Couldn't prepare that image — please try another file.");
+      } finally {
+        setPreparingUnderlay(false);
       }
+    };
+    reader.onerror = () => {
+      setError("Couldn't read that file — please try again.");
+      setPreparingUnderlay(false);
     };
     reader.readAsDataURL(file);
   };
@@ -304,15 +320,15 @@ export function FloorPlanUnderlayLoader({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={rasterising}
+              disabled={preparingUnderlay}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-dashed border-neutral-300 dark:border-slate-600 text-neutral-500 dark:text-slate-400 hover:border-cyan-400 hover:text-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              {rasterising ? (
+              {preparingUnderlay ? (
                 <Loader2 size={13} className="animate-spin" />
               ) : (
                 <Upload size={13} />
               )}
-              {rasterising ? "Reading PDF…" : "Choose image or PDF…"}
+              {preparingUnderlay ? "Preparing underlay…" : "Choose image or PDF…"}
             </button>
             <input
               ref={fileInputRef}
