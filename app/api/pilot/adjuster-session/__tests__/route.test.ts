@@ -18,12 +18,16 @@ vi.mock("@/lib/rate-limiter", () => ({
 }));
 vi.mock("@/lib/report-limits", () => ({ deductCreditsAndTrackUsage: vi.fn() }));
 vi.mock("@/lib/ai/adjuster-agent", () => ({ runAdjusterAgent: vi.fn() }));
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  assertInspectionTenancy: vi.fn(),
+}));
 
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { deductCreditsAndTrackUsage } from "@/lib/report-limits";
 import { runAdjusterAgent } from "@/lib/ai/adjuster-agent";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { POST } from "../route";
 
 const mockSession = getServerSession as ReturnType<typeof vi.fn>;
@@ -33,6 +37,9 @@ const mockDeductCredits = deductCreditsAndTrackUsage as ReturnType<
   typeof vi.fn
 >;
 const mockRunAgent = runAdjusterAgent as ReturnType<typeof vi.fn>;
+const mockAssertInspectionTenancy = assertInspectionTenancy as ReturnType<
+  typeof vi.fn
+>;
 
 function makeRequest(body: object) {
   return new NextRequest("http://localhost/api/pilot/adjuster-session", {
@@ -58,6 +65,12 @@ beforeEach(() => {
   mockRateLimit.mockResolvedValue(null);
   mockDeductCredits.mockResolvedValue(undefined);
   mockRunAgent.mockResolvedValue(sampleRecommendation);
+  // Owns-the-inspection by default; individual tests override to simulate
+  // a cross-tenant inspectionId.
+  mockAssertInspectionTenancy.mockResolvedValue({
+    ok: true,
+    data: { id: "insp-001", userId: "user-1", workspaceId: null },
+  });
 });
 
 describe("POST /api/pilot/adjuster-session", () => {
@@ -74,6 +87,35 @@ describe("POST /api/pilot/adjuster-session", () => {
     expect(res.status).toBe(200);
     expect(json.data.recommendation).toBe("approve");
     expect(mockRunAgent).toHaveBeenCalledWith("insp-001");
+    expect(mockAssertInspectionTenancy).toHaveBeenCalledWith(
+      { user: { id: "user-1" } },
+      "insp-001",
+    );
+  });
+
+  it("cross-tenant inspectionId (RA-6961) — tenancy denied → 404, mutates nothing", async () => {
+    mockSession.mockResolvedValueOnce({ user: { id: "user-9" } });
+    mockFindUnique.mockResolvedValueOnce({
+      id: "user-9",
+      subscriptionStatus: "ACTIVE",
+    });
+    mockAssertInspectionTenancy.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      reason: "Inspection not found",
+    });
+
+    const res = await POST(
+      makeRequest({ inspectionId: "insp-belongs-to-another-tenant" }),
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(json.error).toBe("Inspection not found");
+    // The tenancy gate must run BEFORE the credit deduction and the agent
+    // call — neither side effect may fire for a foreign inspectionId.
+    expect(mockDeductCredits).not.toHaveBeenCalled();
+    expect(mockRunAgent).not.toHaveBeenCalled();
   });
 
   it("unauthorized — no session", async () => {

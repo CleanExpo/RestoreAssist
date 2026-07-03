@@ -128,4 +128,49 @@ describe("POST /api/reports/generate-enhanced", () => {
       error: "AI service temporarily unavailable. Please try again.",
     });
   });
+
+  it("RA-6961: scopes the report update by userId, not just id", async () => {
+    generateEnhancedReport.mockResolvedValueOnce({
+      ok: true,
+      data: { enhancedReport: "Enhanced report body" },
+    });
+    reportUpdate.mockResolvedValueOnce({ id: "report-foreign" });
+
+    await POST(
+      makeRequest({
+        reportId: "report-foreign",
+        technicianNotes: "Water damage to bedroom wall.",
+      }),
+    );
+
+    expect(reportUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "report-foreign", userId: "user-1" },
+      }),
+    );
+  });
+
+  it("RA-6961: a foreign reportId (P2025) returns 404 and mutates nothing else", async () => {
+    generateEnhancedReport.mockResolvedValueOnce({
+      ok: true,
+      data: { enhancedReport: "Enhanced report body" },
+    });
+    const notFound = Object.assign(new Error("Record not found"), {
+      code: "P2025",
+    });
+    reportUpdate.mockRejectedValueOnce(notFound);
+
+    const res = await POST(
+      makeRequest({
+        reportId: "report-belongs-to-another-tenant",
+        technicianNotes: "Water damage to bedroom wall.",
+      }),
+    );
+
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error.code).toBe("NOT_FOUND");
+    // The scoped update is what threw P2025 — nothing downstream ran.
+    expect(reportCreate).not.toHaveBeenCalled();
+  });
 });

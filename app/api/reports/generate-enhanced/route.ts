@@ -262,8 +262,12 @@ export async function POST(request: NextRequest) {
       let savedReport;
       if (reportId) {
         // Update existing report - don't deduct credits
+        // RA-6961: scope by userId — an unscoped `where: { id: reportId }`
+        // let any authenticated caller overwrite another tenant's report.
+        // A foreign/missing id now throws P2025, mapped to 404 by the
+        // fromException handler below.
         savedReport = await prisma.report.update({
-          where: { id: reportId },
+          where: { id: reportId, userId },
           data: {
             detailedReport: enhancedReport,
             ...(clientName && { clientName }),

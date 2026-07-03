@@ -131,9 +131,11 @@ export async function POST(
         "unknown";
       const userAgent = request.headers.get("user-agent") || "unknown";
 
-      // Update signature
-      const signature = await prisma.authorityFormSignature.update({
-        where: { id: signatureId },
+      // Update signature — scope by instanceId (RA-6961). signatureId is
+      // client-supplied; without this guard a caller who owns formId could
+      // pass a foreign signatureId and overwrite another tenant's signature.
+      const updateResult = await prisma.authorityFormSignature.updateMany({
+        where: { id: signatureId, instanceId: formId },
         data: {
           signatureData,
           signatoryName: signatoryName || undefined,
@@ -142,6 +144,19 @@ export async function POST(
           userAgent,
         },
       });
+
+      if (updateResult.count === 0) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Signature not found",
+          status: 404,
+        });
+      }
+
+      // updateMany does not return the row — re-fetch for the response.
+      const signature = await prisma.authorityFormSignature.findUniqueOrThrow(
+        { where: { id: signatureId } },
+      );
 
       // Check if all signatures are complete
       const allSignatures = await prisma.authorityFormSignature.findMany({
