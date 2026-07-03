@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { IntegrationProvider, WebhookEventStatus } from "@prisma/client";
+import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-processor";
 
 /**
  * Webhook Event Processor
@@ -36,6 +37,18 @@ export async function processWebhookEvent(eventId: string): Promise<void> {
 
   if (!event) {
     console.error(`[Webhook Processor] Event ${eventId} not found`);
+    return;
+  }
+
+  // RA-6965 — XERO events must be resolved through the Xero batch processor,
+  // which fetches the real settled amount from the Xero Payments API. The
+  // generic handler below read amounts off the webhook ID-stub and recorded
+  // $0 "reconciled" payments. Delegate the whole XERO event to
+  // processXeroWebhookBatch — it self-claims PENDING rows atomically, so this
+  // is race-safe with the sync-xero-payments cron — and return before the
+  // generic claim/route runs.
+  if (event.provider === "XERO") {
+    await processXeroWebhookBatch();
     return;
   }
 
@@ -162,29 +175,41 @@ async function handlePaymentCreated(event: any): Promise<void> {
   let paymentDate: Date = new Date();
   let paymentReference: string | null = null;
 
-  // Extract payment details based on provider
-  if (event.provider === "XERO") {
-    externalInvoiceId = payload.resourceId; // Invoice ID
-    externalPaymentId = payload.resourceId; // Payment ID (would be different in real implementation)
-    paymentAmount = payload.Amount || 0;
-    paymentDate = new Date(payload.eventDateUtc || Date.now());
-    paymentReference = payload.Reference;
-  } else if (event.provider === "QUICKBOOKS") {
-    externalInvoiceId = payload.LinkedTxn?.[0]?.TxnId; // Invoice ID from linked transaction
-    externalPaymentId = payload.Id;
-    paymentAmount = payload.TotalAmt || 0;
+  // RA-6965 — XERO is delegated to processXeroWebhookBatch upstream (it
+  // resolves the real payment via the Xero Payments API), so it never reaches
+  // here. QUICKBOOKS/MYOB webhooks deliver ID-stubs — the amount on the
+  // payload is not the real settled amount. Extract what the stub carries;
+  // if a real invoice id, payment id and positive amount cannot be resolved,
+  // skip rather than fabricate a $0 / mismatched payment.
+  if (event.provider === "QUICKBOOKS") {
+    externalInvoiceId = payload.LinkedTxn?.[0]?.TxnId ?? null; // Invoice ID from linked transaction
+    externalPaymentId = payload.Id ?? null;
+    paymentAmount = typeof payload.TotalAmt === "number" ? payload.TotalAmt : 0;
     paymentDate = new Date(payload.TxnDate || Date.now());
-    paymentReference = payload.PaymentRefNum;
+    paymentReference = payload.PaymentRefNum ?? null;
   } else if (event.provider === "MYOB") {
-    externalInvoiceId = payload.InvoiceUID || payload.ResourceUID;
-    externalPaymentId = payload.UID;
-    paymentAmount = payload.Amount || 0;
+    externalInvoiceId = payload.InvoiceUID ?? payload.ResourceUID ?? null;
+    externalPaymentId = payload.UID ?? null;
+    paymentAmount = typeof payload.Amount === "number" ? payload.Amount : 0;
     paymentDate = new Date(payload.Date || Date.now());
-    paymentReference = payload.Memo;
+    paymentReference = payload.Memo ?? null;
+  } else {
+    console.warn(
+      `[Webhook Processor] Unsupported provider ${event.provider} for payment recording — skipping`,
+    );
+    return;
   }
 
-  if (!externalInvoiceId) {
-    throw new Error("Missing external invoice ID in payment event");
+  // Guard against webhook ID-stubs: never record a $0 or unresolved payment.
+  // A stub with no resolvable invoice/payment id or a non-positive amount is
+  // skipped (not recorded, not thrown) — this replaces the old blanket throw
+  // that made every QUICKBOOKS payment event fail.
+  if (!externalInvoiceId || !externalPaymentId || paymentAmount <= 0) {
+    console.warn(
+      `[Webhook Processor] ${event.provider} payment event unresolvable from webhook stub ` +
+        `(invoiceId=${externalInvoiceId}, paymentId=${externalPaymentId}, amount=${paymentAmount}) — skipping without recording`,
+    );
+    return;
   }
 
   // Find the invoice by external ID

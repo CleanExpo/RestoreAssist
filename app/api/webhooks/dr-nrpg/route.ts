@@ -124,7 +124,6 @@ export async function POST(request: NextRequest) {
   // Read raw body for HMAC verification (must happen before any parsing)
   const rawBody = await request.text();
   const signature = request.headers.get("x-drnrpg-signature") ?? "";
-  const eventTimestamp = request.headers.get("x-drnrpg-timestamp") ?? "";
 
   // ── Find the active integration by looking for any active DrNrpgIntegration ──
   // DR-NRPG sends to a single endpoint per RestoreAssist instance.
@@ -221,13 +220,53 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // ── Idempotency / replay marker ──
+  // The (integrationId, drNrpgJobId) row records the last processed event's
+  // timestamp in `lastEventAt`. DR-NRPG retries redeliver an identical signed
+  // body — same timestamp — so an event whose timestamp is not strictly newer
+  // than the last one we recorded is a replay (or a stale, out-of-order
+  // redelivery). Reject it as an idempotent no-op. Combined with the
+  // tenant-scoped compound upsert below, this makes redelivery safe rather
+  // than a double-apply. `lastEventAt` is the durable marker — no extra table.
+  const existingJob = await (prisma as any).drNrpgJobSync.findUnique({
+    where: {
+      integrationId_drNrpgJobId: {
+        integrationId: matchedIntegration.id,
+        drNrpgJobId: jobId,
+      },
+    },
+    select: { id: true, lastEventAt: true },
+  });
+
+  if (
+    existingJob?.lastEventAt &&
+    eventTimeMs <= new Date(existingJob.lastEventAt).getTime()
+  ) {
+    console.warn(
+      "[dr-nrpg webhook] Duplicate/stale event ignored (idempotency):",
+      { jobId, timestamp: payload.timestamp },
+    );
+    return NextResponse.json({
+      received: true,
+      eventType: event,
+      jobSyncId: existingJob.id,
+      status: "duplicate_ignored",
+      deduplicated: true,
+    });
+  }
+
   const newStatus = mapEventToStatus(event as DrNrpgEventType, payload);
 
-  // ── Upsert DrNrpgJobSync ──
+  // ── Upsert DrNrpgJobSync (tenant-scoped compound key) ──
   let jobSync: { id: string };
   try {
     jobSync = await (prisma as any).drNrpgJobSync.upsert({
-      where: { drNrpgJobId: jobId },
+      where: {
+        integrationId_drNrpgJobId: {
+          integrationId: matchedIntegration.id,
+          drNrpgJobId: jobId,
+        },
+      },
       create: {
         integrationId: matchedIntegration.id,
         drNrpgJobId: jobId,
