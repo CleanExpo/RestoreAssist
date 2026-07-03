@@ -35,6 +35,15 @@ import {
   getProviderApiKey,
   type AiProvider as ConnectionAiProvider,
 } from "../workspace/provider-connections";
+import {
+  checkWorkspaceBudget,
+  BudgetExceededError,
+} from "./budget-guard";
+import {
+  getAiTaskPolicy,
+  type AiTaskClass,
+  type AiTaskPolicy,
+} from "./task-policy";
 
 // ─── Provider Mapping ────────────────────────────────────────────────────────
 
@@ -83,6 +92,64 @@ function classifyError(err: unknown): string {
   return "unknown";
 }
 
+// ─── Central Budget Enforcement ──────────────────────────────────────────────
+
+/**
+ * Rough token estimate from prompt text (~4 chars/token). Conservative and
+ * cheap — used only to feed the pre-call cost estimate, never billed.
+ */
+function estimateInputTokensFromText(...parts: (string | undefined)[]): number {
+  const chars = parts.reduce((n, p) => n + (p ? p.length : 0), 0);
+  return Math.ceil(chars / 4);
+}
+
+/**
+ * Central budget enforcement, run BEFORE dispatch/logging at every workspace
+ * chokepoint. Throws BudgetExceededError when a call must be blocked.
+ *
+ * - Per-call cap: if a policy exists and the pre-call estimate exceeds
+ *   policy.maxEstimatedCostUsd, block (reason "per_call_cap").
+ * - Daily workspace budget: run when policy is null OR requiresBudgetCheck.
+ *   A policy with requiresBudgetCheck === false skips the daily check.
+ */
+async function enforceBudget(args: {
+  workspaceId: string;
+  policy: AiTaskPolicy | null;
+  estimatedCostUsd: number;
+}): Promise<void> {
+  const { workspaceId, policy, estimatedCostUsd } = args;
+
+  // Per-call cap (policy-driven).
+  if (policy && estimatedCostUsd > policy.maxEstimatedCostUsd) {
+    throw new BudgetExceededError({
+      message: `AI per-call cost cap exceeded for ${policy.taskClass}: estimate $${estimatedCostUsd.toFixed(4)} exceeds cap $${policy.maxEstimatedCostUsd.toFixed(4)}.`,
+      budgetUsd: policy.maxEstimatedCostUsd,
+      spentTodayUsd: 0,
+      remainingUsd: 0,
+      reason: "per_call_cap",
+    });
+  }
+
+  // Daily workspace budget. Skip only when a policy explicitly opts out.
+  if (policy && policy.requiresBudgetCheck === false) {
+    return;
+  }
+
+  const result = await checkWorkspaceBudget({ workspaceId, estimatedCostUsd });
+  if (!result.ok) {
+    const reason = /budget exceeded/i.test(result.error)
+      ? "over_budget"
+      : "check_unavailable";
+    throw new BudgetExceededError({
+      message: result.error,
+      budgetUsd: result.budgetUsd,
+      spentTodayUsd: result.spentTodayUsd,
+      remainingUsd: result.remainingUsd,
+      reason,
+    });
+  }
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface WorkspaceByokRequest extends Omit<ByokRequest, "apiKey"> {
@@ -124,6 +191,28 @@ export async function workspaceByokDispatch(
         `Please add your API key in Workspace Settings → AI Providers.`,
     );
   }
+
+  // 1b. Central budget enforcement (before dispatch and before logging).
+  const policy = taskType
+    ? getAiTaskPolicy(taskType as AiTaskClass) ?? null
+    : null;
+  const preCallLogProvider = connectionProviderToLogProvider(provider);
+  const estInputTokens = estimateInputTokensFromText(
+    req.systemPrompt,
+    req.userPrompt,
+  );
+  const estOutputTokens = policy?.maxOutputTokens ?? 1024;
+  const preCallEstimateUsd = estimateCostUsd(
+    preCallLogProvider,
+    req.model,
+    estInputTokens,
+    estOutputTokens,
+  );
+  await enforceBudget({
+    workspaceId,
+    policy,
+    estimatedCostUsd: preCallEstimateUsd,
+  });
 
   // 2. Dispatch via the primitive (allowlist enforced inside)
   const start = Date.now();
@@ -246,6 +335,34 @@ export async function workspaceRouteAiRequest(
         `Please add at least one API key in Workspace Settings → AI Providers.`,
     );
   }
+
+  // Central budget enforcement (before dispatch and before logging).
+  const policy =
+    getAiTaskPolicy(req.taskType as unknown as AiTaskClass) ?? null;
+  let preCallLogProvider: LogAiProvider;
+  try {
+    preCallLogProvider = connectionProviderToLogProvider(
+      modelToConnectionProvider(config.byokModel),
+    );
+  } catch {
+    preCallLogProvider = "GEMMA";
+  }
+  const estInputTokens = estimateInputTokensFromText(
+    req.systemPrompt,
+    req.userPrompt,
+  );
+  const estOutputTokens = policy?.maxOutputTokens ?? 1024;
+  const preCallEstimateUsd = estimateCostUsd(
+    preCallLogProvider,
+    config.byokModel,
+    estInputTokens,
+    estOutputTokens,
+  );
+  await enforceBudget({
+    workspaceId,
+    policy,
+    estimatedCostUsd: preCallEstimateUsd,
+  });
 
   const start = Date.now();
   let response: RoutedAiResponse | undefined;
