@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import * as crypto from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
@@ -212,7 +212,7 @@ export async function POST(req: NextRequest) {
 
   // Fire-and-forget: generate real notes + fan-out notifications in background.
   // Failures are logged but must never block the webhook response.
-  void (async () => {
+  after(async () => {
     try {
       const { title, notes } = await generateReleaseNotes(commits, version);
 
@@ -258,7 +258,7 @@ export async function POST(req: NextRequest) {
         details: { version, releaseId: release.id },
       });
     }
-  })();
+  });
 
   return NextResponse.json({
     data: { releaseId: release.id, version },

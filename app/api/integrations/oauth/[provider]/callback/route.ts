@@ -59,6 +59,11 @@ export async function GET(
       return redirectWithError("Invalid or expired state", providerParam);
     }
 
+    // Verify state provider matches URL provider (RA-6967: state/provider mismatch)
+    if (stateData.provider !== provider) {
+      return redirectWithError("State/provider mismatch", providerParam);
+    }
+
     // Find integration by user and provider
     const integration = await prisma.integration.findFirst({
       where: {

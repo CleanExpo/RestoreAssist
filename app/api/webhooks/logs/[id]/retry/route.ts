@@ -56,7 +56,7 @@ export async function POST(
         where: { id },
         data: {
           status: "PENDING",
-          retryCount: { increment: 1 },
+          retryCount: 0,
           errorMessage: null,
           processedAt: null,
         },

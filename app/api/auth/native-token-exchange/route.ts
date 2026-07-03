@@ -274,37 +274,49 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Find-or-create user. PrismaAdapter normally handles this for OAuth;
   // for our native flow we replicate the same shape — including the
   // exact field set events.createUser stamps in lib/auth.ts:317-338.
-  let user = await prisma.user.findUnique({ where: { email } });
+  let user: any;
   let isNewUser = false;
-  if (!user) {
-    isNewUser = true;
-    try {
-      user = await prisma.user.create({
-        data: {
+  try {
+    user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      isNewUser = true;
+      try {
+        user = await prisma.user.create({
+          data: {
+            email,
+            name: claims.name,
+            image: claims.picture,
+            needsOnboarding: true,
+            role: "ADMIN",
+            subscriptionStatus: "TRIAL",
+            creditsRemaining: TRIAL_REPORT_CREDITS,
+            totalCreditsUsed: 0,
+            trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS),
+            quickFillCreditsRemaining: TRIAL_QUICK_FILL_CREDITS,
+            totalQuickFillUsed: 0,
+            emailVerified: claims.emailVerified ? new Date() : null,
+          } as any,
+        });
+      } catch (err) {
+        console.error("[native-token-exchange] user create failed:", err);
+        return jsonError(
+          request,
+          500,
+          "USER_CREATE_FAILED",
+          USER_CREATE_FAILED_MESSAGE,
           email,
-          name: claims.name,
-          image: claims.picture,
-          needsOnboarding: true,
-          role: "ADMIN",
-          subscriptionStatus: "TRIAL",
-          creditsRemaining: TRIAL_REPORT_CREDITS,
-          totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS),
-          quickFillCreditsRemaining: TRIAL_QUICK_FILL_CREDITS,
-          totalQuickFillUsed: 0,
-          emailVerified: claims.emailVerified ? new Date() : null,
-        } as any,
-      });
-    } catch (err) {
-      console.error("[native-token-exchange] user create failed:", err);
-      return jsonError(
-        request,
-        500,
-        "USER_CREATE_FAILED",
-        USER_CREATE_FAILED_MESSAGE,
-        email,
-      );
+        );
+      }
     }
+  } catch (err) {
+    console.error("[native-token-exchange] user lookup failed:", err);
+    return jsonError(
+      request,
+      500,
+      "USER_CREATE_FAILED",
+      USER_CREATE_FAILED_MESSAGE,
+      email,
+    );
   }
 
   // Stamp setupCompletedAt the SAME way the jwt() callback does in
