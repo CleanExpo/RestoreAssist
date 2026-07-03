@@ -198,6 +198,28 @@ describe("POST /api/live-teacher/turn", () => {
     expect(json.error.message).toBe("Unauthorized");
   });
 
+  it("returns 402 with the NoWorkspaceKeyError shape when the workspace has no key", async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: "user-1", email: "test@example.com" },
+    } as any);
+    mockResolveWorkspaceAiKey.mockRejectedValueOnce(
+      new MockNoWorkspaceKeyError("ANTHROPIC"),
+    );
+
+    const { POST } = await import("../turn/route");
+    const req = makeRequest("POST", "http://localhost/api/live-teacher/turn", {
+      sessionId: "sess-1",
+      utterance: "What is the drying category?",
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(402);
+    const json = await res.json();
+    expect(json.error.code).toBe("PAYMENT_REQUIRED");
+    // The customer workload must never reach the cloud client on no key.
+    expect(mockInvokeClaudeCloud).not.toHaveBeenCalled();
+  });
+
   it("4. persists user + assistant utterance and streams SSE", async () => {
     mockGetServerSession.mockResolvedValue({
       user: { id: "user-1", email: "test@example.com" },

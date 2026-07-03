@@ -39,6 +39,10 @@ import {
   type ClaimType,
 } from "@/lib/ai/claim-type-prompts";
 import { generateScopeStream } from "@/lib/services/ai/generate-scope";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 export async function POST(
   request: NextRequest,
@@ -264,12 +268,36 @@ export async function POST(
       : getClaimTypePrompt(claimType as ClaimType, promptOptions);
 
     // ============================================================
-    // Pre-stream gateway call: resolve key + open upstream stream BEFORE
-    // we hand the client a ReadableStream. Lets us map KEY_MISSING /
-    // RATE_LIMITED / MODEL_OVERLOADED to proper HTTP status codes.
+    // RA-6971 (BYOK, P1) — resolve the workspace's own Anthropic key and pass
+    // it through to generateScopeStream; never spend the platform
+    // ANTHROPIC_API_KEY on a client's scope generation. Resolve BEFORE opening
+    // the ReadableStream so a missing key is a clean 402 JSON response, not a
+    // mid-stream error event (chatbot sibling pattern).
+    // ============================================================
+    let anthropicApiKey: string;
+    try {
+      anthropicApiKey = (
+        await resolveWorkspaceAiKey(session.user.id, "ANTHROPIC")
+      ).apiKey;
+    } catch (err) {
+      if (err instanceof NoWorkspaceKeyError) {
+        return apiError(request, {
+          code: "PAYMENT_REQUIRED",
+          message: err.message,
+          status: 402,
+        });
+      }
+      throw err;
+    }
+
+    // ============================================================
+    // Pre-stream gateway call: open upstream stream BEFORE we hand the client
+    // a ReadableStream. Lets us map KEY_MISSING / RATE_LIMITED /
+    // MODEL_OVERLOADED to proper HTTP status codes.
     // ============================================================
     const credResult = await generateScopeStream({
       userId: session.user.id,
+      apiKey: anthropicApiKey,
       systemPrompt: effectiveSystemPrompt,
       userMessage,
       model,

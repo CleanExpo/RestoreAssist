@@ -21,6 +21,13 @@ import type { ServiceResult } from "@/lib/services/_shared/result";
 
 export type GenerateScopeStreamArgs = {
   userId: string;
+  /**
+   * RA-6971 (BYOK, P1) — the calling workspace's own Anthropic key, resolved by
+   * the generate-scope route via resolveWorkspaceAiKey and passed through as the
+   * gateway override so this streaming customer workload never spends the
+   * platform ANTHROPIC_API_KEY.
+   */
+  apiKey: string;
   systemPrompt: string;
   userMessage: string;
   model: string;
@@ -31,6 +38,7 @@ export async function generateScopeStream(
 ): Promise<ServiceResult<MessageStream, AnthropicReason>> {
   return callAnthropicStream({
     userId: args.userId,
+    apiKey: args.apiKey,
     request: {
       model: args.model,
       max_tokens: 2000,

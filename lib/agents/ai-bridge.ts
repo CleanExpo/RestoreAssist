@@ -6,7 +6,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { getAnthropicApiKey } from "@/lib/ai-provider";
+import { resolveWorkspaceAiKey } from "@/lib/ai/resolve-workspace-ai-key";
 import { tryClaudeModels, getClaudeModels } from "@/lib/anthropic-models";
 import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache";
 import type { AgentSlug, AIProviderType } from "./types";
@@ -45,8 +45,13 @@ export async function callAI(params: AIBridgeParams): Promise<AIBridgeResult> {
     throw new Error("Local agents do not use the AI bridge");
   }
 
-  // Currently only Anthropic is wired up via the existing infrastructure
-  const apiKey = await getAnthropicApiKey(userId);
+  // RA-6971 (BYOK, P1) — resolve the owning workspace's own Anthropic key.
+  // This is a customer-reachable agent workload (POST
+  // /api/agents/workflows/[id]/execute), so it must NEVER spend the platform
+  // ANTHROPIC_API_KEY. resolveWorkspaceAiKey throws NoWorkspaceKeyError when the
+  // workspace has no key; we let it propagate so the executor fails the task
+  // (fail-closed) instead of silently billing the platform.
+  const { apiKey } = await resolveWorkspaceAiKey(userId, "ANTHROPIC");
   const client = new Anthropic({ apiKey });
 
   const models = overrides?.model
