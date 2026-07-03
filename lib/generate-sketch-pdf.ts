@@ -15,7 +15,7 @@ import {
   type MoisturePinInput,
 } from "@/lib/sketch/pdf-scope";
 import type { DamageCause } from "@/lib/nz/nhcover";
-import { extractRooms } from "@/lib/sketch/extract-rooms";
+import { extractRooms, PX_PER_METRE } from "@/lib/sketch/extract-rooms";
 import { recommendedEquipment } from "@/lib/sketch/iicrc-utils";
 
 // ── Constants ─────────────────────────────────────────────
@@ -72,6 +72,23 @@ export function dataUrlToBytes(dataUrl: string): Uint8Array {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
+}
+
+// ── Floor sub-header line ─────────────────────────────────
+// RA-6846 [A7] / RA-6843 [A4]: the floor sub-header carries the total measured
+// area and the calibrated drawing scale. `totalAreaM2` is measured-geometry
+// only (the caller passes extractRooms()'s sum, which already excludes
+// underlay_reference per the A0 firewall). Pure + exported for unit testing.
+export function formatFloorMeta(input: {
+  totalAreaM2: number;
+  pxPerMetre: number;
+}): string {
+  const parts: string[] = [];
+  if (input.totalAreaM2 > 0) {
+    parts.push(`Total measured area: ${input.totalAreaM2.toFixed(1)} m²`);
+  }
+  parts.push(`Scale: 1 m = ${Math.round(input.pxPerMetre)} px`);
+  return parts.join("   ·   ");
 }
 
 // ── PDF building blocks ───────────────────────────────────
@@ -157,6 +174,27 @@ async function addSketchPage(
 
   // ── Room legend ──
   const rooms = extractRooms(floor.fabricJson);
+
+  // ── Floor sub-header: total measured area + calibrated scale (RA-6846/6843) ──
+  // scaleConfig is stored at the top level of the sketch blob (SketchScaleModal);
+  // it survives measuredSketchData()'s spread, so it is readable here. Area is the
+  // measured-only sum from the legend rooms above.
+  const scaleCfg = (
+    floor.fabricJson as { scaleConfig?: { pxPerMetre?: number } } | null | undefined
+  )?.scaleConfig;
+  const metaLine = formatFloorMeta({
+    totalAreaM2: rooms.reduce((a, r) => a + r.areaM2, 0),
+    pxPerMetre: scaleCfg?.pxPerMetre ?? PX_PER_METRE,
+  });
+  const metaText = safe(metaLine);
+  const metaW = helvetica.widthOfTextAtSize(metaText, 8);
+  page.drawText(metaText, {
+    x: (PAGE_W - metaW) / 2,
+    y: PAGE_H - MARGIN - 50,
+    size: 8,
+    font: helvetica,
+    color: BRAND_CYAN,
+  });
   let legendW = 0;
 
   if (rooms.length > 0) {
