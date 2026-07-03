@@ -32,15 +32,38 @@ import {
 } from "./file-extraction";
 import {
   StandardsContext,
+  StandardsDegradedReason,
   RetrievalQuery,
   determineRelevantStandards,
 } from "./standards-retrieval-types";
 import { analyzeStandardsFolder } from "./services/ai/standards/analyze-standards-folder";
 import { extractStandardsSections } from "./services/ai/standards/extract-standards-sections";
+import { reportError } from "./observability";
 
 // Re-export public types so existing callers (`import { StandardsContext }
 // from '@/lib/standards-retrieval'`) keep working.
 export type { StandardsContext, RetrievalQuery };
+
+/**
+ * Build a degraded StandardsContext AND emit a loud, queryable ops alert.
+ *
+ * RA-6934: when standards can't be grounded from the Drive folder the report
+ * free-generates IICRC content from general knowledge. That must never happen
+ * silently — this fires a `[error]` observability event (Vercel alert rules key
+ * on it) so ops is paged, and stamps `degraded`/`degradedReason` so callers can
+ * refuse or banner the ungrounded report.
+ */
+function degradedStandards(
+  reason: StandardsDegradedReason,
+  summary: string,
+): StandardsContext {
+  reportError(new Error(`Standards retrieval degraded: ${reason}`), {
+    route: "lib/standards-retrieval",
+    stage: "standards-retrieval-degraded",
+    degradedReason: reason,
+  });
+  return { documents: [], summary, degraded: true, degradedReason: reason };
+}
 
 /**
  * Resolve the Anthropic API key for the composer's downstream service calls.
@@ -171,11 +194,10 @@ export async function retrieveRelevantStandards(
       console.error(
         `[Standards Retrieval] No Anthropic API key available for composer`,
       );
-      return {
-        documents: [],
-        summary:
-          "Unable to initialize Anthropic API client. Report will be generated using general knowledge.",
-      };
+      return degradedStandards(
+        "no_ai_key",
+        "Unable to initialize Anthropic API client. Report will be generated using general knowledge.",
+      );
     }
 
     // Get all files from the standards folder
@@ -230,18 +252,17 @@ export async function retrieveRelevantStandards(
         `[Standards Retrieval] Error accessing Google Drive:`,
         error.message,
       );
-      return {
-        documents: [],
-        summary: `Unable to access Google Drive folder "IICRC Standards": ${error.message}. Please check your Google Drive credentials and ensure the service account has access to the folder.`,
-      };
+      return degradedStandards(
+        "drive_access_error",
+        `Unable to access Google Drive folder "IICRC Standards": ${error.message}. Please check your Google Drive credentials and ensure the service account has access to the folder.`,
+      );
     }
 
     if (allFiles.length === 0) {
-      return {
-        documents: [],
-        summary:
-          'No standards files found in Google Drive folder "IICRC Standards". Please ensure the folder contains PDF, DOCX, or TXT files.',
-      };
+      return degradedStandards(
+        "empty_standards_folder",
+        'No standards files found in Google Drive folder "IICRC Standards". Please ensure the folder contains PDF, DOCX, or TXT files.',
+      );
     }
 
     // Score and rank files by relevance
@@ -350,6 +371,7 @@ export async function retrieveRelevantStandards(
     return {
       documents: documentsWithSections,
       summary,
+      degraded: false,
     };
   } catch (error: any) {
     console.error(
@@ -357,10 +379,10 @@ export async function retrieveRelevantStandards(
       error.message,
       error.stack,
     );
-    return {
-      documents: [],
-      summary: `Unable to retrieve standards documents from Google Drive: ${error.message}. Report will be generated using general knowledge.`,
-    };
+    return degradedStandards(
+      "retrieval_fatal_error",
+      `Unable to retrieve standards documents from Google Drive: ${error.message}. Report will be generated using general knowledge.`,
+    );
   }
 }
 

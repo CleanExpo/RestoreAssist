@@ -234,10 +234,38 @@ export async function POST(request: NextRequest) {
         standardsApiKey,
       );
 
-      standardsContext = buildStandardsContextPrompt(retrievedStandards);
+      // RA-6934: never degrade silently. If standards could not be grounded from
+      // the IICRC Standards Drive folder, the report free-generates standards
+      // content from general knowledge — surface that loudly for ops instead of
+      // proceeding quietly. (The composer also fires its own alert; this records
+      // it against this report/route so the ungrounded report is traceable.)
+      if (retrievedStandards.degraded) {
+        const { reportError } = await import("@/lib/observability");
+        reportError(
+          new Error(
+            `Report generated WITHOUT grounded IICRC standards (${retrievedStandards.degradedReason})`,
+          ),
+          {
+            route: "/api/reports/generate-inspection-report",
+            stage: "standards-ungrounded-report",
+            reportId: report.id,
+            reportType,
+            degradedReason: retrievedStandards.degradedReason,
+          },
+        );
+      }
 
+      standardsContext = buildStandardsContextPrompt(retrievedStandards);
     } catch (error: any) {
-      // Continue without standards - report will use general knowledge
+      // Retrieval threw before returning a degraded context (e.g. dynamic import
+      // failure) — still never swallow silently. RA-6934.
+      const { reportError } = await import("@/lib/observability");
+      reportError(error, {
+        route: "/api/reports/generate-inspection-report",
+        stage: "standards-retrieval-threw",
+        reportId: report.id,
+        reportType,
+      });
     }
 
     // Get NIR data from Report model (stored in moistureReadings field as JSON)
