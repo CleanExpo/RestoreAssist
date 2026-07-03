@@ -75,11 +75,39 @@ describe("wrapWithNexus", () => {
 });
 
 describe("defaultTierSelector", () => {
-  it("returns sonnet-5 for every context as a placeholder until Plan 4 lands", () => {
+  it("selects fable-5 when fanOut is true (MOA synthesis/arbiter role)", () => {
+    expect(defaultTierSelector({ bucket: "bug", skill: "linear-task-processor", fanOut: true })).toBe(
+      "fable-5",
+    );
+  });
+
+  it("selects fable-5 for a judge/spec-gate decision (skill === 'judge'), even without fan-out", () => {
+    expect(defaultTierSelector({ bucket: "feature", skill: "judge", fanOut: false })).toBe("fable-5");
+  });
+
+  it("prefers fable-5 over opus-4.8 when both fanOut and a design/security bucket are present", () => {
+    expect(defaultTierSelector({ bucket: "security", skill: "security-audit", fanOut: true })).toBe(
+      "fable-5",
+    );
+  });
+
+  it("selects opus-4.8 for a single-specialist design-bucket dispatch (architecture-adjacent ambiguity)", () => {
+    expect(defaultTierSelector({ bucket: "design", skill: "design-audit", fanOut: false })).toBe(
+      "opus-4.8",
+    );
+  });
+
+  it("selects opus-4.8 for a single-specialist security-bucket dispatch", () => {
+    expect(defaultTierSelector({ bucket: "security", skill: "security-audit", fanOut: false })).toBe(
+      "opus-4.8",
+    );
+  });
+
+  it("defaults to sonnet-5 for routine dev/copy/dispatch buckets with no fan-out", () => {
     expect(defaultTierSelector({ bucket: "bug", skill: "linear-task-processor", fanOut: false })).toBe(
       "sonnet-5",
     );
-    expect(defaultTierSelector({ bucket: "security", skill: "security-audit", fanOut: true })).toBe(
+    expect(defaultTierSelector({ bucket: "copy", skill: "marketing-copywriter", fanOut: false })).toBe(
       "sonnet-5",
     );
   });
@@ -127,7 +155,10 @@ describe("buildMoaDispatch", () => {
 
     expect(plan.mode).toBe("moa");
     expect(plan.skill).toBe("boardroom");
-    expect(plan.tier).toBe("sonnet-5");
+    // MOA fan-out dispatches are the synthesis/arbiter role, so the real
+    // defaultTierSelector routes them to fable-5 (spec §5) — updated from
+    // the old placeholder expectation of an always-sonnet-5 tier.
+    expect(plan.tier).toBe("fable-5");
     expect(plan.prompt).not.toContain("{TASK}");
     expect(plan.prompt).toContain("boardroom");
     expect(plan.prompt).toContain("use-railway");
