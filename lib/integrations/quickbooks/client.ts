@@ -212,7 +212,7 @@ export class QuickBooksClient extends BaseIntegrationClient {
       throw new Error("No QuickBooks realm connected");
     }
 
-    const tokens = await getTokens(this.integrationId);
+    let tokens = await getTokens(this.integrationId);
     if (!tokens.accessToken) {
       throw new Error("No access token available");
     }
@@ -225,6 +225,11 @@ export class QuickBooksClient extends BaseIntegrationClient {
         tokens.tokenExpiresAt.getTime() - Date.now() < FIVE_MINUTES_MS);
     if (needsRefresh && tokens.refreshToken) {
       await this.refreshAccessToken();
+      // Re-fetch tokens after refresh so the request uses the NEW access token
+      tokens = await getTokens(this.integrationId);
+      if (!tokens.accessToken) {
+        throw new Error("Token refresh failed — no access token after refresh");
+      }
     }
 
     const url = `${this.config.apiBaseUrl}/${this.realmId}${endpoint}`;
