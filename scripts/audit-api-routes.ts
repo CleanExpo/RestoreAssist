@@ -349,7 +349,6 @@ if (
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
   const json = process.argv.includes("--json");
-  const strict = process.argv.includes("--strict");
   const report = auditApiRoutes();
 
   if (json) {
@@ -358,7 +357,10 @@ if (
     printTextReport(report);
   }
 
-  if (strict && report.errorCount > 0) {
+  // Errors are always fatal so the gate actually bites in CI (RA-6937);
+  // warnings stay non-fatal. `--strict` is retained as a no-op for
+  // backwards compatibility with existing invocations.
+  if (report.errorCount > 0) {
     process.exitCode = 1;
   }
 }

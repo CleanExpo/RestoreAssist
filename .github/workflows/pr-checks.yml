@@ -151,6 +151,13 @@ jobs:
       - name: AI guardrail audit
         run: pnpm audit:ai
 
+      # RA-6937 — API route auth/safety audit. Static scan of app/api routes
+      # (scripts/audit-api-routes.ts). Errors are fatal; warnings are not.
+      # Previously the script always exited 0, so [error] findings never
+      # failed CI.
+      - name: API route audit
+        run: pnpm audit:api
+
       # RA-6685 — apply migrations BEFORE the unit tests so the DB-gated suites
       # (described with `describe.skipIf(!process.env.DATABASE_URL)`:
       # trial-handling, setup checks, subscription-event, google-drive oauth,
