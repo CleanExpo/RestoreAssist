@@ -13,6 +13,7 @@ import {
   fulfillAddonFromSession,
 } from "@/lib/billing/fulfill-one-time";
 import { apiError } from "@/lib/api-errors";
+import { PRICING_CONFIG } from "@/lib/pricing";
 
 /**
  * Best-effort human-readable plan name from a Stripe Subscription.
@@ -90,32 +91,60 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    // P2002 = unique constraint violation — event already processed
+    // P2002 = unique constraint violation — an event row already exists.
     if (
       typeof err === "object" &&
       err !== null &&
       "code" in err &&
       (err as { code: string }).code === "P2002"
     ) {
-      // Mark as SKIPPED in the audit table for visibility.
-      // RA-1302 — log if the audit update itself fails so operators have
-      // a trail; don't fail the webhook response (Stripe would retry and
-      // trigger another round of P2002 duplicates).
+      // RA-6962: a duplicate row is NOT always a "successfully processed"
+      // event. Inspect the existing row's status before acknowledging:
+      //   - FAILED               → a prior delivery threw; reprocess.
+      //   - PENDING & stale(>5m) → a prior delivery crashed before COMPLETED;
+      //                            reprocess (the handlers are idempotent:
+      //                            event-id dedupe + atomic guards).
+      //   - COMPLETED / SKIPPED / fresh-PENDING → genuinely already handled or
+      //                            in-flight; acknowledge 200 without reprocessing.
+      const STALE_PENDING_MS = 5 * 60 * 1000;
+      const existing = await prisma.stripeWebhookEvent
+        .findUnique({
+          where: { stripeEventId: event.id },
+          select: { status: true, createdAt: true },
+        })
+        .catch(() => null);
+
+      const isStalePending =
+        existing?.status === "PENDING" &&
+        Date.now() - existing.createdAt.getTime() > STALE_PENDING_MS;
+      const shouldReprocess =
+        existing?.status === "FAILED" || isStalePending;
+
+      if (!shouldReprocess) {
+        // Already COMPLETED/SKIPPED, or a fresh PENDING delivery is in flight.
+        // Acknowledge without touching the row so a COMPLETED audit trail is
+        // preserved and Stripe stops retrying.
+        return NextResponse.json({ received: true });
+      }
+
+      // Flip the row back to PENDING and fall through to the processing switch
+      // below. RA-1302 — log if the audit update itself fails so operators
+      // keep a trail, but do not block reprocessing on it.
       await prisma.stripeWebhookEvent
         .updateMany({
           where: { stripeEventId: event.id },
-          data: { status: "SKIPPED", processedAt: new Date() },
+          data: { status: "PENDING", errorMessage: null },
         })
         .catch((auditErr) => {
           console.error(
-            `[Stripe] Audit update FAILED for duplicate event ${event.id}:`,
+            `[Stripe] Audit reset FAILED for reprocessed event ${event.id}:`,
             auditErr instanceof Error ? auditErr.message : auditErr,
           );
         });
-      return NextResponse.json({ received: true });
+    } else {
+      // Any other DB error — still attempt processing (don't block on audit table)
+      console.error("[Stripe] Failed to record webhook event:", event.id);
     }
-    // Any other DB error — still attempt processing (don't block on audit table)
-    console.error("[Stripe] Failed to record webhook event:", event.id);
   }
 
   try {
@@ -495,6 +524,19 @@ export async function handleCheckoutCompleted(event: Stripe.Event) {
     customerId,
     subscriptionId,
     userId: metadataUserId,
+  });
+
+  // RA-6962: grant the advertised first-signup bonus (+10 reports) exactly
+  // once, atomically. The signupBonusApplied guard makes this idempotent — a
+  // replayed event (already deduped above) or a reactivation of a user who
+  // already claimed the bonus is a no-op. This is now the SOLE granter; the
+  // browser verify/check paths no longer grant it (double-grant class removed).
+  await prisma.user.updateMany({
+    where: { id: metadataUserId, signupBonusApplied: false },
+    data: {
+      addonReports: { increment: PRICING_CONFIG.pricing.monthly.signupBonus },
+      signupBonusApplied: true,
+    },
   });
 
   // RA-1261: best-effort branded activation receipt.

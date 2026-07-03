@@ -106,3 +106,91 @@ describe("POST /api/verify-subscription — lifetime fulfillment (RA-6791)", () 
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/verify-subscription — subscription activation (RA-6962)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "u1", email: "owner@example.com" },
+    } as any);
+    vi.mocked(prisma.user.update).mockResolvedValue({
+      subscriptionStatus: "ACTIVE",
+      subscriptionPlan: "Monthly Plan",
+      creditsRemaining: 0,
+    } as any);
+  });
+
+  function subSession() {
+    return {
+      id: "cs_sub_1",
+      mode: "subscription",
+      payment_status: "paid",
+      customer: "cus_1",
+      subscription: "sub_new",
+      metadata: { userId: "u1" },
+    };
+  }
+  function stripeSub(periodEnd: number, periodStart: number) {
+    return {
+      id: "sub_new",
+      items: {
+        data: [
+          {
+            current_period_end: periodEnd,
+            current_period_start: periodStart,
+            price: { recurring: { interval: "month" } },
+          },
+        ],
+      },
+    };
+  }
+
+  it("resets monthly usage + reads period end from items.data on a new activation, and does NOT grant the signup bonus", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue(
+      subSession() as any,
+    );
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue(
+      stripeSub(2_000_000_000, 1_990_000_000) as any,
+    );
+    // Was on TRIAL with no stored subscription id -> genuine new activation.
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionStatus: "TRIAL",
+      subscriptionId: null,
+    } as any);
+
+    const res = await POST(makeRequest({ sessionId: "cs_sub_1" }));
+    expect(res.status).toBe(200);
+
+    const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as any;
+    expect(data.subscriptionStatus).toBe("ACTIVE");
+    expect(data.monthlyReportsUsed).toBe(0);
+    expect(data.monthlyResetDate).toBeInstanceOf(Date);
+    // Period end/start read from the SubscriptionItem (no `as any` on the sub).
+    expect(data.subscriptionEndsAt).toEqual(new Date(2_000_000_000 * 1000));
+    expect(data.lastBillingDate).toEqual(new Date(1_990_000_000 * 1000));
+    // Bonus is now webhook-only — the browser path must not touch these.
+    expect(data.addonReports).toBeUndefined();
+    expect(data.signupBonusApplied).toBeUndefined();
+  });
+
+  it("does NOT reset monthly usage when re-verifying the same active subscription", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue(
+      subSession() as any,
+    );
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue(
+      stripeSub(2_000_000_000, 1_990_000_000) as any,
+    );
+    // Already ACTIVE on the SAME subscription id -> not a new activation.
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionStatus: "ACTIVE",
+      subscriptionId: "sub_new",
+    } as any);
+
+    const res = await POST(makeRequest({ sessionId: "cs_sub_1" }));
+    expect(res.status).toBe(200);
+
+    const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as any;
+    expect(data.monthlyReportsUsed).toBeUndefined();
+    expect(data.monthlyResetDate).toBeUndefined();
+  });
+});
