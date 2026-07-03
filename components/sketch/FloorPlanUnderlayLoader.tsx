@@ -29,6 +29,13 @@ import {
 } from "@/lib/sketch/validate-underlay-upload";
 import { watermarkImageDataUrl } from "@/lib/sketch/underlay-watermark";
 import { persistUnderlayImage } from "@/lib/sketch/persist-underlay-image";
+import { isUnderlayUrlImportEnabled } from "@/lib/sketch/underlay-import-flag";
+import {
+  evaluateUnderlayAttestation,
+  buildUnderlayAttestationRecord,
+  UNDERLAY_RIGHTS_STATEMENT,
+  type UnderlaySource,
+} from "@/lib/sketch/underlay-attestation";
 
 export interface FloorPlanUnderlayLoaderProps {
   /** Pass the inspection's address to pre-fill the search. */
@@ -74,13 +81,35 @@ export function FloorPlanUnderlayLoader({
   const [preparingUnderlay, setPreparingUnderlay] = useState(false);
   // PR5: set when the scrape route returns 402 (feature is Premium-only).
   const [upgradeRequired, setUpgradeRequired] = useState(false);
+  // RA-6848 [C2] / RA-6849 [C3]: the operator must affirm the client holds the
+  // rights + the import complies with the source's terms before any imported
+  // plan is applied. Reset per selected plan (below).
+  const [holdsRights, setHoldsRights] = useState(false);
+  const [compliesTerms, setCompliesTerms] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Track whether we've already auto-applied so we don't re-trigger on re-renders
   const autoAppliedRef = useRef(false);
 
-  // Auto-fetch on mount when autoFetch=true and an address is available
+  // RA-6848 [C2]: legal kill-switch for the URL scrape path (RA-6850 sign-off).
+  // OFF unless explicitly enabled — the upload path is unaffected.
+  const urlImportEnabled = isUnderlayUrlImportEnabled();
+  const attestation = evaluateUnderlayAttestation({
+    holdsRights,
+    compliesWithSourceTerms: compliesTerms,
+  });
+
+  // Re-arm the attestation whenever the chosen plan changes, so one plan's
+  // attestation can never carry over to a different imported plan.
   useEffect(() => {
-    if (!autoFetch || !defaultAddress || hasBackground) return;
+    setHoldsRights(false);
+    setCompliesTerms(false);
+  }, [selectedImage]);
+
+  // Auto-fetch on mount when autoFetch=true and an address is available.
+  // RA-6848 [C2]: only when the URL import path is legally enabled.
+  useEffect(() => {
+    if (!autoFetch || !defaultAddress || hasBackground || !urlImportEnabled)
+      return;
     // Small delay so the canvas is fully mounted before the background is set
     const timer = setTimeout(() => {
       fetchListing();
@@ -89,7 +118,9 @@ export function FloorPlanUnderlayLoader({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // mount-only — intentionally omitting deps to avoid re-triggering
 
-  // After results arrive from auto-fetch, apply the best image automatically
+  // After results arrive from auto-fetch, surface the best image for review.
+  // RA-6848 [C2]: a scraped third-party plan is NEVER applied silently — the
+  // operator must record the rights attestation and apply it manually.
   useEffect(() => {
     if (!autoFetch || autoAppliedRef.current) return;
     if (!results) return;
@@ -97,9 +128,8 @@ export function FloorPlanUnderlayLoader({
       results.floorPlanImages[0] ?? results.propertyImages[0] ?? null;
     if (autoSelect) {
       autoAppliedRef.current = true;
-      onApply(autoSelect, opacity);
-      // Collapse the panel once applied — the Active indicator will appear
-      setExpanded(false);
+      setSelectedImage(autoSelect);
+      setExpanded(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [results]);
@@ -221,6 +251,12 @@ export function FloorPlanUnderlayLoader({
 
   const handleApply = async () => {
     if (!selectedImage || applying) return;
+    // RA-6848 [C2] / RA-6849 [C3]: an imported plan can never be applied until
+    // the operator affirms rights + source-ToS compliance.
+    if (!attestation.ok) {
+      setError(attestation.reason ?? "Confirm the rights attestation first.");
+      return;
+    }
     // PR4b: manual uploads arrive as base64 `data:` URLs. Persist them to
     // storage first so the sketch (and the report PDF) references a hosted URL
     // instead of inlining megabytes of base64. Hosted/scraped URLs pass through.
@@ -234,6 +270,23 @@ export function FloorPlanUnderlayLoader({
         toBlob: dataUrlToBlob,
         upload: uploadFloorPlanUnderlay,
       });
+      // RA-6848 [C2]: record the attestation before applying. A recording
+      // failure must NOT silently apply an unattested third-party plan — surface
+      // it and stop. `results` present ⇒ this came from the URL scrape path.
+      const source: UnderlaySource = results ? "url" : "upload";
+      const record = buildUnderlayAttestationRecord(
+        { holdsRights, compliesWithSourceTerms: compliesTerms },
+        source,
+      );
+      const res = await fetch("/api/sketch/underlay-attestation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...record, inspectionId: inspectionId ?? null }),
+      });
+      if (!res.ok) {
+        setError("Couldn't record the rights attestation — please try again.");
+        return;
+      }
       onApply(imageUrl, opacity);
       setExpanded(false);
     } catch {
@@ -282,35 +335,38 @@ export function FloorPlanUnderlayLoader({
       {/* Expanded body */}
       {expanded && (
         <div className="px-3 pb-3 pt-1 border-t border-neutral-100 dark:border-slate-700/50 space-y-3">
-          {/* Fetch from listing */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wide">
-              Fetch from OnTheHouse
-            </label>
-            <div className="flex gap-1.5">
-              <input
-                type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Enter property address…"
-                className="flex-1 min-w-0 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400"
-              />
-              <button
-                type="button"
-                onClick={fetchListing}
-                disabled={loading || !address.trim()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-              >
-                {loading ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <MapPin size={13} />
-                )}
-                Fetch
-              </button>
+          {/* Fetch from listing — RA-6848 [C2]: hidden until the URL import
+              path is legally enabled (RA-6850 sign-off). Upload still works. */}
+          {urlImportEnabled && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wide">
+                Fetch from OnTheHouse
+              </label>
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Enter property address…"
+                  className="flex-1 min-w-0 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400"
+                />
+                <button
+                  type="button"
+                  onClick={fetchListing}
+                  disabled={loading || !address.trim()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                >
+                  {loading ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <MapPin size={13} />
+                  )}
+                  Fetch
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Upload option */}
           <div>
@@ -432,12 +488,43 @@ export function FloorPlanUnderlayLoader({
             </div>
           )}
 
+          {/* Rights attestation — RA-6848 [C2] / RA-6849 [C3]. Required before
+              any imported plan is applied; re-armed per selected plan. */}
+          {selectedImage && (
+            <div className="space-y-1.5 rounded-lg border border-amber-300/50 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10 p-2.5">
+              <p className="text-[11px] leading-snug text-neutral-600 dark:text-slate-300">
+                {UNDERLAY_RIGHTS_STATEMENT}
+              </p>
+              <label className="flex items-start gap-2 text-xs text-neutral-700 dark:text-slate-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={holdsRights}
+                  onChange={(e) => setHoldsRights(e.target.checked)}
+                  className="mt-0.5 accent-cyan-500"
+                />
+                The client holds the rights to use this plan.
+              </label>
+              <label className="flex items-start gap-2 text-xs text-neutral-700 dark:text-slate-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={compliesTerms}
+                  onChange={(e) => setCompliesTerms(e.target.checked)}
+                  className="mt-0.5 accent-cyan-500"
+                />
+                Importing it complies with the source&rsquo;s terms of use.
+              </label>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex gap-2 pt-1">
             <button
               type="button"
               onClick={handleApply}
-              disabled={!selectedImage || applying}
+              disabled={!selectedImage || applying || !attestation.ok}
+              title={
+                selectedImage && !attestation.ok ? attestation.reason : undefined
+              }
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {applying ? (
