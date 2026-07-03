@@ -49,6 +49,7 @@ export async function POST(
     windowMs: 60 * 1000,
     prefix: "assessments:generate",
     key: userId,
+    failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
   });
   if (rateLimited) return rateLimited;
 

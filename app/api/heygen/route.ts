@@ -23,11 +23,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { fromException } from "@/lib/api-errors";
+import { applyRateLimit } from "@/lib/rate-limiter";
+import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import {
   generateAvatarVideo,
   getVideoStatus,
   withBrandVoice,
 } from "@/lib/synthex/client";
+
+// RA-6940 — paid proxy hardening. Avatar video generation spends real HeyGen/
+// ElevenLabs credit via Synthex, so a bare session is not enough: gate on an
+// active subscription and rate limit fail-closed. No in-repo caller exists
+// today (grep app/ components/ finds none) — de-exposing entirely is the
+// better end-state, but the route stays functional-and-gated for now because
+// an out-of-repo Remotion pipeline may consume it.
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,6 +44,18 @@ export async function POST(request: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const rateLimited = await applyRateLimit(request, {
+      windowMs: 60 * 1000,
+      maxRequests: 5,
+      prefix: "heygen",
+      key: session.user.id,
+      failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
+    });
+    if (rateLimited) return rateLimited;
+
+    const subscriptionGate = await requireActiveSubscription(session.user.id);
+    if (subscriptionGate) return subscriptionGate;
 
     const body = await request.json();
     const { avatar_id, voice_id, script, aspect_ratio } = body;
@@ -97,6 +118,18 @@ export async function GET(request: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const rateLimited = await applyRateLimit(request, {
+      windowMs: 60 * 1000,
+      maxRequests: 30,
+      prefix: "heygen-status",
+      key: session.user.id,
+      failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
+    });
+    if (rateLimited) return rateLimited;
+
+    const subscriptionGate = await requireActiveSubscription(session.user.id);
+    if (subscriptionGate) return subscriptionGate;
 
     const { searchParams } = new URL(request.url);
     const videoId = searchParams.get("video_id");

@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       maxRequests: 5,
       prefix: "analyze-batch",
       key: session.user.id,
+      failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
     });
     if (rateLimited) return rateLimited;
 

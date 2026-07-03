@@ -46,6 +46,18 @@ describe("POST /api/test/seed-org-with-manager", () => {
     vi.unstubAllEnvs();
   });
 
+  it("RA-6940: returns 404 in production even when ALLOW_TEST_HELPERS=true", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.resetModules();
+    const { POST } = await import("../seed-org-with-manager/route");
+    const res = await POST(makeReq({}));
+    expect(res.status).toBe(404);
+    expect(userCreate).not.toHaveBeenCalled();
+    expect(orgCreate).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
   it("returns 200 happy path when ALLOW_TEST_HELPERS=true", async () => {
     vi.stubEnv("ALLOW_TEST_HELPERS", "true");
     vi.resetModules();

@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
     const ipLimited = await applyRateLimit(request, {
       maxRequests: 5,
       prefix: "reset-password",
+      failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
     });
     if (ipLimited) return ipLimited;
 
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
       windowMs: 60 * 60 * 1000,
       prefix: "reset-password:email",
       key: email,
+      failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
     });
     if (emailLimited) return emailLimited;
 

@@ -150,6 +150,7 @@ export async function GET(request: NextRequest) {
       maxRequests: 30,
       prefix: "analytics-narrative",
       key: userId,
+      failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
     });
     if (rateLimited) return rateLimited;
 

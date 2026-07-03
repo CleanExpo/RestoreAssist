@@ -30,6 +30,7 @@ import {
   type ScrapedPropertyData,
 } from "@/lib/property-data-parser";
 import { fetchHtmlViaWorkspaceProvider } from "@/lib/scraping/dispatch";
+import { fetchWithValidatedRedirect } from "@/lib/scraping/safe-fetch";
 
 const OTH_BASE = "https://www.onthehouse.com.au";
 const DOMAIN_BASE = "https://www.domain.com.au";
@@ -133,9 +134,11 @@ async function fetchHtml(
   }
 
   try {
-    const res = await fetch(url, {
+    // RA-6940 — redirect: "manual" + allowlist re-validation (one hop max)
+    // so an upstream 302 can never bounce this server-side fetch off the
+    // allowlisted hosts (SSRF via redirect).
+    const res = await fetchWithValidatedRedirect(url, {
       headers: SCRAPE_HEADERS,
-      redirect: "follow",
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     const html = await res.text();
