@@ -1,8 +1,47 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { mkdtempSync, writeFileSync, rmSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import { wrapWithNexus, buildSingleAgentDispatch, defaultTierSelector } from "../dispatch";
+import { __resetNexusPromptCacheForTests } from "../nexus-wrap";
 import { classifyWorkItem } from "../classifier";
 import { routeToSkills } from "../routing-table";
 import type { LinearIssueInput } from "../types";
+
+// Hermetic fixture: nexus-wrap.ts resolves NEXUS_PROMPT_PATH from the env
+// (falling back to ~/.claude/skills/nexus/... otherwise), so tests must not
+// depend on a real file existing on the machine running the suite. We write
+// our own minimal fixture and point NEXUS_PROMPT_PATH at it before the first
+// call to wrapWithNexus, then reset nexus-wrap's module-level cache so the
+// fixture is actually read (the cache only helps after a successful read).
+const FIXTURE_MARKER = "## Fixture prompt marker — dispatch.test.ts";
+let fixtureDir: string;
+let fixturePath: string;
+let originalNexusPromptPath: string | undefined;
+
+beforeAll(() => {
+  fixtureDir = mkdtempSync(join(tmpdir(), "nexus-prompt-fixture-"));
+  fixturePath = join(fixtureDir, "NEXUS_PROMPT.md");
+  writeFileSync(
+    fixturePath,
+    `${FIXTURE_MARKER}\n\nTask: {TASK}\n`,
+    "utf-8",
+  );
+
+  originalNexusPromptPath = process.env.NEXUS_PROMPT_PATH;
+  process.env.NEXUS_PROMPT_PATH = fixturePath;
+  __resetNexusPromptCacheForTests();
+});
+
+afterAll(() => {
+  if (originalNexusPromptPath === undefined) {
+    delete process.env.NEXUS_PROMPT_PATH;
+  } else {
+    process.env.NEXUS_PROMPT_PATH = originalNexusPromptPath;
+  }
+  __resetNexusPromptCacheForTests();
+  rmSync(fixtureDir, { recursive: true, force: true });
+});
 
 function issue(overrides: Partial<LinearIssueInput>): LinearIssueInput {
   return {
@@ -22,10 +61,9 @@ describe("wrapWithNexus", () => {
     expect(wrapped).toContain("Fix the equipment calculator divide-by-zero bug in RA-7004.");
   });
 
-  it("preserves the Nexus prompt's Operating identity section verbatim", () => {
+  it("preserves the Nexus prompt's body verbatim", () => {
     const wrapped = wrapWithNexus("Some task.");
-    expect(wrapped).toContain("## Operating identity");
-    expect(wrapped).toContain("## Model calibration");
+    expect(wrapped).toContain(FIXTURE_MARKER);
   });
 });
 
@@ -60,6 +98,6 @@ describe("buildSingleAgentDispatch", () => {
     expect(plan.tier).toBe("sonnet-5");
     expect(plan.prompt).not.toContain("{TASK}");
     expect(plan.prompt).toContain("RA-7004");
-    expect(plan.prompt).toContain("## Operating identity");
+    expect(plan.prompt).toContain(FIXTURE_MARKER);
   });
 });
