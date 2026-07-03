@@ -325,29 +325,14 @@ export async function POST(request: NextRequest) {
       }
 
       case "charge.refunded": {
-        // R11 — scoped revocation. Only cancel the subscription when the
-        // refunded charge is SUBSCRIPTION-LINKED (carries an invoice or a
-        // subscription reference). A refunded one-time addon/lifetime charge on
-        // a customer who also holds an active subscription must NOT cancel that
-        // subscription. Partial refunds are ignored (require full refund).
-        const refundedCharge = event.data.object as Stripe.Charge;
-        const chargeInvoice = (refundedCharge as { invoice?: unknown }).invoice;
-        const chargeSubscription = (
-          refundedCharge as { subscription?: unknown }
-        ).subscription;
-        const isSubscriptionLinked = Boolean(chargeInvoice || chargeSubscription);
-
-        if (
-          refundedCharge.refunded &&
-          isSubscriptionLinked &&
-          refundedCharge.customer &&
-          typeof refundedCharge.customer === "string"
-        ) {
-          await prisma.user.updateMany({
-            where: { stripeCustomerId: refundedCharge.customer },
-            data: { subscriptionStatus: SubscriptionStatus.CANCELED },
-          });
-        }
+        // RA-6939 — scoped revocation. A refunded charge only warrants
+        // subscription revocation when it is tied to a SUBSCRIPTION INVOICE.
+        // Having an invoice is not enough (one-off charges can be invoiced);
+        // the invoice must carry a `subscription` reference. A refunded
+        // one-time addon/lifetime charge on a customer who also holds an
+        // active subscription must NOT cancel that subscription. Partial
+        // refunds are ignored (require full refund).
+        await handleChargeRefunded(event);
         break;
       }
 
@@ -618,17 +603,71 @@ export async function handleSubscriptionUpdated(event: Stripe.Event) {
 }
 
 /**
+ * Shared downgrade write. Flips a user to CANCELED and stamps the
+ * cancellation time. Exported so the Stripe-reconciliation cron
+ * (app/api/cron/reconcile-stripe) can apply the identical downgrade for
+ * subscriptions Stripe reports canceled but that are still active locally.
+ */
+export async function downgradeUserToCanceled(userId: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      subscriptionStatus: "CANCELED",
+      subscriptionEndsAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Resolves the Stripe customer's email from a subscription event's customer
+ * reference. Uses the expanded customer object when present, otherwise
+ * retrieves it. Returns null when the customer is missing or deleted.
+ */
+async function customerEmailFromSubscription(
+  sub: Stripe.Subscription,
+): Promise<string | null> {
+  const customer = sub.customer;
+  if (!customer) return null;
+
+  if (typeof customer === "object") {
+    return "deleted" in customer && customer.deleted
+      ? null
+      : (customer as Stripe.Customer).email ?? null;
+  }
+
+  const retrieved = await stripe.customers.retrieve(customer);
+  if (retrieved.deleted) return null;
+  return retrieved.email ?? null;
+}
+
+/**
  * SP-3 T8 — customer.subscription.deleted handler.
  *
  * Flips User.subscriptionStatus to CANCELED and writes a CANCELED
  * SubscriptionEvent. Dedupes by stripeEventId.
+ *
+ * RA-6939: the primary lookup is by local subscriptionId. When that misses
+ * (e.g. the subscriptionId was never persisted), fall back to the Stripe
+ * customer's email so the cancellation is not silently dropped — otherwise
+ * the user keeps premium access after cancelling.
  */
 export async function handleSubscriptionDeleted(event: Stripe.Event) {
   const sub = event.data.object as Stripe.Subscription;
-  const user = await prisma.user.findFirst({
+  let user = await prisma.user.findFirst({
     where: { subscriptionId: sub.id },
     select: { id: true },
   });
+
+  if (!user) {
+    const email = await customerEmailFromSubscription(sub).catch(() => null);
+    if (email) {
+      user = await prisma.user.findFirst({
+        where: { email },
+        select: { id: true },
+      });
+    }
+  }
+
   if (!user) return;
 
   const recorded = await recordSubscriptionEvent({
@@ -639,11 +678,67 @@ export async function handleSubscriptionDeleted(event: Stripe.Event) {
   });
   if (recorded.kind === "deduped") return;
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      subscriptionStatus: "CANCELED",
-      subscriptionEndsAt: new Date(),
-    },
+  await downgradeUserToCanceled(user.id);
+}
+
+/**
+ * RA-6939 — charge.refunded handler with subscription-scoped revocation.
+ *
+ * A full refund only revokes access when the refunded charge belongs to a
+ * SUBSCRIPTION invoice. The charge → subscription path is:
+ *   charge.invoice (invoice id) → invoice.subscription (subscription ref).
+ * A charge with no invoice, or an invoice with no `subscription`, is a one-off
+ * (addon / lifetime / manual) refund and must leave the subscription untouched.
+ *
+ * Exported so unit tests can drive it with synthetic events.
+ */
+export async function handleChargeRefunded(event: Stripe.Event) {
+  const refundedCharge = event.data.object as Stripe.Charge;
+
+  // Only full refunds revoke. Partial refunds leave access in place.
+  if (!refundedCharge.refunded) return;
+
+  const customerId =
+    typeof refundedCharge.customer === "string" ? refundedCharge.customer : null;
+  if (!customerId) return;
+
+  // A charge with no invoice is a one-off (e.g. a bare PaymentIntent addon).
+  const invoiceRef = (refundedCharge as { invoice?: string | null }).invoice;
+  if (!invoiceRef || typeof invoiceRef !== "string") {
+    console.log(
+      "[stripe-webhook] charge.refunded ignored — no invoice (one-off refund)",
+      { eventId: event.id, chargeId: refundedCharge.id },
+    );
+    return;
+  }
+
+  // Resolve the invoice to test for a subscription linkage. In this SDK version
+  // `subscription` is not on the typed Invoice surface, so read it the same way
+  // the invoice.* handlers above do.
+  const invoice = await stripe.invoices.retrieve(invoiceRef);
+  const invoiceSubscriptionId = (invoice as { subscription?: string })
+    .subscription;
+
+  if (!invoiceSubscriptionId) {
+    console.log(
+      "[stripe-webhook] charge.refunded ignored — invoice not subscription-linked (one-off refund)",
+      { eventId: event.id, chargeId: refundedCharge.id, invoiceId: invoiceRef },
+    );
+    return;
+  }
+
+  // Subscription invoice refund — revoke the matching user's subscription.
+  const user = await prisma.user.findFirst({
+    where: { stripeCustomerId: customerId },
+    select: { id: true },
   });
+  if (!user) {
+    console.error(
+      "[stripe-webhook] charge.refunded — no user for stripeCustomerId",
+      { eventId: event.id, customerId },
+    );
+    return;
+  }
+
+  await downgradeUserToCanceled(user.id);
 }
