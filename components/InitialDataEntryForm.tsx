@@ -19,6 +19,12 @@ import {
   type EquipmentSelection,
 } from "@/lib/equipment-matrix";
 import {
+  calculateCircuitRequirements,
+  calculateElectricityCostPerDay,
+  calculateTotalKwhPerDay,
+  DEFAULT_ELECTRICITY_TARIFF_C_PER_KWH,
+} from "@/lib/equipment-power";
+import {
   calculateAFDUnitsRequired,
   calculateAirMoversRequired,
   calculateDryingPotential,
@@ -1089,6 +1095,13 @@ export default function InitialDataEntryForm({
   );
 
   const totalAmps = calculateTotalAmps(equipmentSelections);
+  // Power + running-cost model (sourced 230V specs; AS/NZS 3012:2019 80% rule)
+  const totalKwhPerDay = calculateTotalKwhPerDay(equipmentSelections);
+  const electricityCostPerDay =
+    calculateElectricityCostPerDay(equipmentSelections);
+  const gpoCircuitsRequired =
+    calculateCircuitRequirements(totalAmps).find((c) => c.ratingA === 10)
+      ?.circuitsRequired ?? 0;
   const totalDailyCost = calculateTotalDailyCost(
     equipmentSelections,
     pricingConfig,
@@ -4697,6 +4710,15 @@ export default function InitialDataEntryForm({
                     </div>
                     <div className="text-sm text-neutral-600 dark:text-neutral-400">
                       Total Draw: {totalAmps.toFixed(1)} Amps
+                    </div>
+                    <div className="text-sm text-neutral-600 dark:text-neutral-400">
+                      Energy: {totalKwhPerDay.toFixed(1)} kWh/day ($
+                      {electricityCostPerDay.toFixed(2)}/day at{" "}
+                      {DEFAULT_ELECTRICITY_TARIFF_C_PER_KWH}c/kWh)
+                    </div>
+                    <div className="text-sm text-neutral-600 dark:text-neutral-400">
+                      Min. 10A GPO circuits: {gpoCircuitsRequired} (AS/NZS 3012
+                      80% rule)
                     </div>
                   </div>
                 </div>

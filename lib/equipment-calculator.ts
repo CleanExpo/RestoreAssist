@@ -2,13 +2,32 @@
  * IICRC S500 Equipment Calculator
  * Converts room dimensions + damage classification → defensible equipment list.
  *
- * Every quantity is justified by an IICRC S500 ratio applied to measured area.
- * Equipment counts are rounded UP (ceiling) per IICRC S500 §9.3.1 note.
+ * Quantities use industry-standard area ratios consistent with IICRC S500:2021
+ * drying practice, rounded UP (ceiling). Ratio subsection numbers are NOT cited
+ * because they are not present in the verified section corpus
+ * (lib/standards/s500-sections.ts) — citations degrade to the nearest
+ * corpus-verified section instead of fabricating subsection numbers:
+ *   - Dehumidification sizing  → S500:2021 §12.4.2 (Controlling Humidity and Stabilization)
+ *   - Airflow / drying         → S500:2021 §12.5 (Drying)
+ *   - AFD / negative air       → S500:2021 §12.3.2 (Engineering Controls)
+ *   - Category / Class         → S500:2021 §10.4 (Definitions of Category and Class)
  *
- * Electrical load validation per AS/NZS 3012:2019 80% continuous-load rule.
+ * Electrical data comes from lib/equipment-matrix.ts (sourced 230 V specs).
+ * Electrical load validation per AS/NZS 3012:2019 80% continuous-load rule,
+ * reported against standard Australian 10 A GPO circuits (15 A / 20 A options
+ * included via lib/equipment-power.ts).
  */
 
-import { lgrDehumidifiers } from "@/lib/equipment-matrix";
+import {
+  getEquipmentGroupById,
+  type EquipmentGroup,
+} from "@/lib/equipment-matrix";
+import {
+  calculateCircuitRequirements,
+  DEFAULT_ELECTRICITY_TARIFF_C_PER_KWH,
+  wattsToKwhPerDay,
+  type CircuitRequirement,
+} from "@/lib/equipment-power";
 
 // ============================================================
 // Types
@@ -22,16 +41,20 @@ export interface EquipmentLineItem {
   label: string;
   quantity: number;
   iicrcRatio: string; // e.g. "1 per 15m²"
-  iicrcReference: string; // e.g. "IICRC S500:2021 §9.3.2"
+  iicrcReference: string; // e.g. "IICRC S500:2021 §12.4.2"
   justification: string; // e.g. "23.5m² ÷ 15m² = 2 air movers required"
-  suggestedModel: string; // from equipment-matrix.ts
-  estimatedAmpsEach: number; // nominal amp draw per unit
+  suggestedModel: string; // from equipment-matrix.ts (sourced 230V models)
+  estimatedAmpsEach: number; // amp draw per unit @ 230V (equipment-matrix)
   estimatedAmpsTotal: number;
+  estimatedWattsEach: number; // rated power per unit, W (equipment-matrix)
+  estimatedWattsTotal: number;
+  kwhPerDayTotal: number; // 24 h continuous operation
 }
 
 export type EquipmentType =
   | "air_mover"
   | "lgr_dehumidifier"
+  | "desiccant_dehumidifier"
   | "air_scrubber"
   | "negative_air_machine"
   | "hepa_vacuum";
@@ -42,24 +65,46 @@ export interface EquipmentCalculatorInput {
   damageCategory: DamageCategory;
   /** Number of affected floors — multiplied into equipment count (default 1) */
   floorCount?: number;
+  /**
+   * Ambient temperature at the site, Celsius. Below 15°C, LGR (refrigerant)
+   * extraction efficiency collapses and desiccant dehumidification is
+   * substituted (adsorption units are rated to -15°C — see equipment-matrix).
+   */
+  ambientTempC?: number;
+  /** Electricity tariff, cents/kWh. Defaults to the sourced national average. */
+  tariffCentsPerKwh?: number;
 }
 
 export interface EquipmentCalculatorResult {
   equipmentList: EquipmentLineItem[];
   totalEstimatedAmps: number;
+  totalEstimatedWatts: number;
+  /** Total energy for 24 h continuous operation, kWh/day. */
+  totalKwhPerDay: number;
+  /** Electricity running cost per day, AUD, at the applied tariff. */
+  energyCostPerDay: number;
+  /** Tariff applied (cents/kWh). */
+  tariffCentsPerKwh: number;
   /** AS/NZS 3012:2019: total load must not exceed 80% of circuit rating */
   circuitLoadWarning?: string;
-  /** Recommended minimum number of 20A circuits */
+  /**
+   * Recommended minimum number of standard Australian 10 A GPO circuits
+   * (AS/NZS 3012:2019 80% rule → 8 A continuous per 10 A circuit).
+   */
   recommendedCircuits: number;
+  /** Circuit counts for each standard AU rating (10 A GPO / 15 A / 20 A). */
+  circuitOptions: CircuitRequirement[];
   summary: string;
   iicrcClassification: string;
 }
 
 // ============================================================
-// IICRC S500 Ratios
+// IICRC S500-consistent sizing ratios (m² per unit)
+// The exact ratio subsections are not in the verified corpus, so references
+// degrade to the nearest corpus-verified section (see file header).
 // ============================================================
 
-// Air mover ratios (m² per unit) — IICRC S500:2021 §9.3.2
+// Air mover ratios (m² per unit) — S500:2021 §12.5 (Drying)
 const AIR_MOVER_RATIO: Record<DamageClass, number> = {
   CLASS_1: 15, // 1 per 15m²
   CLASS_2: 15, // 1 per 15m²
@@ -67,7 +112,8 @@ const AIR_MOVER_RATIO: Record<DamageClass, number> = {
   CLASS_4: 10, // 1 per 10m² (specialty drying)
 };
 
-// LGR dehumidifier ratios (m² per unit) — IICRC S500:2021 §9.4.1
+// Dehumidifier ratios (m² per unit) — S500:2021 §12.4.2 (Controlling Humidity
+// and Stabilization)
 const DEHU_RATIO: Record<DamageClass, number> = {
   CLASS_1: 40,
   CLASS_2: 40,
@@ -75,8 +121,8 @@ const DEHU_RATIO: Record<DamageClass, number> = {
   CLASS_4: 30,
 };
 
-// Air scrubber ratios (m² per unit) — IICRC S500:2021 §9.5.1
-// Required for all Cat 2/3; optional for Cat 1 at Class 3/4
+// Air scrubber (AFD) ratios (m² per unit) — S500:2021 §12.3.2 (Engineering
+// Controls). Required for all Cat 2/3; optional for Cat 1 at Class 3/4.
 const AIR_SCRUBBER_RATIO: Record<DamageClass, number> = {
   CLASS_1: 100,
   CLASS_2: 100,
@@ -84,38 +130,81 @@ const AIR_SCRUBBER_RATIO: Record<DamageClass, number> = {
   CLASS_4: 50,
 };
 
-// Negative air required for Cat 3 — IICRC S500:2021 §9.5.3
+// Negative air required for Cat 3 — S500:2021 §12.3.2 (Engineering Controls)
 const NEGATIVE_AIR_RATIO_M2_PER_UNIT = 50;
 
+/** LGRs lose extraction efficiency in cool spaces; desiccants are rated to
+ * -15°C (equipment-matrix temp ranges). Below this, substitute desiccant. */
+const LOW_TEMP_DESICCANT_THRESHOLD_C = 15;
+
 // ============================================================
-// Nominal amp draw per unit (from equipment-matrix.ts averages)
+// Electrical data per unit — sourced from equipment-matrix.ts group averages.
+// Representative group per equipment type (mid-size deployment standard):
 // ============================================================
 
-const AMPS: Record<EquipmentType, number> = {
-  air_mover: 1.5, // typical 1/4HP Axial air mover
-  lgr_dehumidifier: 5.02, // lgr-85 average (most common AU site size)
-  air_scrubber: 3.0, // 500-700 CFM average
-  negative_air_machine: 9.0, // typically 8-12A
-  hepa_vacuum: 10.0, // commercial HEPA vacuum
+// Resolved by stable matrix id, not array position — reordering
+// lib/equipment-matrix.ts must never silently swap the representative model.
+function requireGroup(id: string): EquipmentGroup {
+  const group = getEquipmentGroupById(id);
+  if (!group) {
+    throw new Error(
+      `equipment-calculator: matrix group "${id}" not found — REPRESENTATIVE_GROUP is out of sync with lib/equipment-matrix.ts`,
+    );
+  }
+  return group;
+}
+
+const REPRESENTATIVE_GROUP: Record<
+  Exclude<EquipmentType, "hepa_vacuum">,
+  EquipmentGroup
+> = {
+  // Low-profile axial is the standard structural-drying air mover (Velo Pro / Zeus 900).
+  air_mover: requireGroup("airmover-800"),
+  // 85L/Day class is the most common AU site size (AlorAir Storm Pro).
+  lgr_dehumidifier: requireGroup("lgr-85"),
+  // Mid-size desiccant class (Corroventa A4 ES / Trotec TTR 400 D).
+  desiccant_dehumidifier: requireGroup("desiccant-35"),
+  // 500 CFM AFD (Dri-Eaz DefendAir HEPA 500 230V).
+  air_scrubber: requireGroup("afd-500"),
+  // Same AFD chassis ducted for negative-pressure configuration.
+  negative_air_machine: requireGroup("afd-500"),
 };
 
-// Suggested model labels (display only)
-const SUGGESTED_MODEL: Record<EquipmentType, string> = {
-  air_mover: "Axial Air Mover (any 1/4HP+)",
-  lgr_dehumidifier: "85L/Day Ave LGR (Dri-Eaz LGR 7000 / ThorAir 85L Pro)",
-  air_scrubber: "500 CFM Air Scrubber (HEPA)",
-  negative_air_machine: "Negative Air Machine w/ HEPA",
-  hepa_vacuum: "Commercial HEPA Vacuum",
-};
+// HEPA vacuum is not emitted by this water calculator (kept in the type union
+// for scope-item compatibility). Nameplate figures below are typical commercial
+// values and are intentionally excluded from any emitted line item.
+const HEPA_VACUUM_FALLBACK = { amps: 10, watts: 2300 };
+
+function unitElectrical(type: EquipmentType): { amps: number; watts: number } {
+  if (type === "hepa_vacuum") return HEPA_VACUUM_FALLBACK;
+  const group = REPRESENTATIVE_GROUP[type];
+  return { amps: group.amps, watts: group.watts };
+}
+
+function suggestedModel(type: EquipmentType): string {
+  if (type === "hepa_vacuum") return "Commercial HEPA Vacuum";
+  const group = REPRESENTATIVE_GROUP[type];
+  const models = group.models.map((m) => m.name).join(" / ");
+  return `${group.capacity} (${models})`;
+}
 
 // ============================================================
 // Core Calculator
 // ============================================================
 
 function calcQty(areaM2: number, ratioM2PerUnit: number): number {
-  // IICRC S500 §9.3.1 note: always round UP
+  // Equipment counts always round UP — under-drying is never defensible.
   return Math.ceil(areaM2 / ratioM2PerUnit);
 }
+
+const LABELS: Record<EquipmentType, string> = {
+  air_mover: "Air Mover",
+  lgr_dehumidifier: "LGR Dehumidifier",
+  desiccant_dehumidifier: "Desiccant Dehumidifier",
+  air_scrubber: "Air Scrubber (HEPA AFD)",
+  negative_air_machine: "Negative Air Machine",
+  hepa_vacuum: "HEPA Vacuum",
+};
 
 function buildItem(
   type: EquipmentType,
@@ -123,36 +212,43 @@ function buildItem(
   ratio: number,
   areaM2: number,
   iicrcRef: string,
+  justificationSuffix = "",
 ): EquipmentLineItem {
-  const labels: Record<EquipmentType, string> = {
-    air_mover: "Air Mover",
-    lgr_dehumidifier: "LGR Dehumidifier",
-    air_scrubber: "Air Scrubber (HEPA)",
-    negative_air_machine: "Negative Air Machine",
-    hepa_vacuum: "HEPA Vacuum",
-  };
-  const amps = AMPS[type];
+  const { amps, watts } = unitElectrical(type);
+  const wattsTotal = watts * quantity;
   return {
     type,
-    label: labels[type],
+    label: LABELS[type],
     quantity,
     iicrcRatio: `1 per ${ratio}m²`,
     iicrcReference: iicrcRef,
-    justification: `${areaM2.toFixed(1)}m² ÷ ${ratio}m² = ${quantity} ${labels[type].toLowerCase()}${quantity !== 1 ? "s" : ""} required (IICRC rounds up)`,
-    suggestedModel: SUGGESTED_MODEL[type],
+    justification:
+      `${areaM2.toFixed(1)}m² ÷ ${ratio}m² = ${quantity} ${LABELS[type].toLowerCase()}${quantity !== 1 ? "s" : ""} required (rounded up)` +
+      justificationSuffix,
+    suggestedModel: suggestedModel(type),
     estimatedAmpsEach: amps,
     estimatedAmpsTotal: parseFloat((amps * quantity).toFixed(2)),
+    estimatedWattsEach: watts,
+    estimatedWattsTotal: wattsTotal,
+    kwhPerDayTotal: parseFloat(wattsToKwhPerDay(wattsTotal).toFixed(2)),
   };
 }
 
 /**
- * Calculate IICRC S500-compliant equipment list for a water damage job.
- * All quantities are defensible by IICRC ratios applied to measured area.
+ * Calculate IICRC S500-consistent equipment list for a water damage job.
+ * All quantities are defensible by area ratios; all electrical figures trace
+ * to sourced 230 V manufacturer specs in lib/equipment-matrix.ts.
  */
 export function calculateEquipment(
   input: EquipmentCalculatorInput,
 ): EquipmentCalculatorResult {
-  const { damageClass, damageCategory, floorCount = 1 } = input;
+  const {
+    damageClass,
+    damageCategory,
+    floorCount = 1,
+    ambientTempC,
+    tariffCentsPerKwh = DEFAULT_ELECTRICITY_TARIFF_C_PER_KWH,
+  } = input;
   const areaM2 = input.affectedAreaM2 * floorCount;
 
   const items: EquipmentLineItem[] = [];
@@ -166,24 +262,48 @@ export function calculateEquipment(
       airMoverQty,
       airMoverRatio,
       areaM2,
-      "IICRC S500:2021 §9.3.2",
+      "IICRC S500:2021 §12.5 (Drying)",
     ),
   );
 
-  // 2. LGR dehumidifiers — always required
+  // 2. Dehumidification — always required.
+  // Desiccant substitutes for LGR on Class 4 (specialty drying of dense,
+  // low-permeance materials needs the very low humidity ratios adsorption
+  // delivers) and in cool spaces where LGR extraction efficiency collapses.
   const dehuRatio = DEHU_RATIO[damageClass];
   const dehuQty = calcQty(areaM2, dehuRatio);
-  items.push(
-    buildItem(
-      "lgr_dehumidifier",
-      dehuQty,
-      dehuRatio,
-      areaM2,
-      "IICRC S500:2021 §9.4.1",
-    ),
-  );
+  const lowTemp =
+    ambientTempC !== undefined && ambientTempC < LOW_TEMP_DESICCANT_THRESHOLD_C;
+  const useDesiccant = damageClass === "CLASS_4" || lowTemp;
 
-  // 3. Air scrubbers — Cat 2/3 mandatory; Cat 1 at Class 3/4
+  if (useDesiccant) {
+    const reason =
+      damageClass === "CLASS_4"
+        ? " — desiccant selected for Class 4 specialty drying (dense/low-permeance materials require low-humidity-ratio air)"
+        : ` — desiccant selected for low ambient temperature (${ambientTempC}°C < ${LOW_TEMP_DESICCANT_THRESHOLD_C}°C; adsorption units operate to -15°C)`;
+    items.push(
+      buildItem(
+        "desiccant_dehumidifier",
+        dehuQty,
+        dehuRatio,
+        areaM2,
+        "IICRC S500:2021 §12.4.2 (Controlling Humidity and Stabilization)",
+        reason,
+      ),
+    );
+  } else {
+    items.push(
+      buildItem(
+        "lgr_dehumidifier",
+        dehuQty,
+        dehuRatio,
+        areaM2,
+        "IICRC S500:2021 §12.4.2 (Controlling Humidity and Stabilization)",
+      ),
+    );
+  }
+
+  // 3. Air scrubbers (AFDs) — Cat 2/3 mandatory; Cat 1 at Class 3/4
   const requiresScrubber =
     damageCategory === "CAT_2" ||
     damageCategory === "CAT_3" ||
@@ -199,7 +319,7 @@ export function calculateEquipment(
         scrubberQty,
         scrubberRatio,
         areaM2,
-        "IICRC S500:2021 §9.5.1",
+        "IICRC S500:2021 §12.3.2 (Engineering Controls)",
       ),
     );
   }
@@ -216,26 +336,39 @@ export function calculateEquipment(
         negAirQty,
         NEGATIVE_AIR_RATIO_M2_PER_UNIT,
         areaM2,
-        "IICRC S500:2021 §9.5.3",
+        "IICRC S500:2021 §12.3.2 (Engineering Controls)",
       ),
     );
   }
 
   // ============================================================
-  // Electrical load check — AS/NZS 3012:2019 80% rule
-  // Standard 20A circuit × 80% = 16A maximum continuous load
+  // Electrical load — AS/NZS 3012:2019 80% continuous-load rule.
+  // Standard Australian domestic GPOs are 10 A → 8 A continuous max each.
+  // 15 A / 20 A dedicated-circuit options reported alongside.
   // ============================================================
   const totalAmps = parseFloat(
     items.reduce((sum, e) => sum + e.estimatedAmpsTotal, 0).toFixed(2),
   );
-  const maxAmpsPerCircuit = 16; // 20A × 80%
-  const recommendedCircuits = Math.ceil(totalAmps / maxAmpsPerCircuit);
+  const totalWatts = items.reduce((sum, e) => sum + e.estimatedWattsTotal, 0);
+  const totalKwhPerDay = parseFloat(wattsToKwhPerDay(totalWatts).toFixed(2));
+  // Same negative-tariff clamp as calculateElectricityCostPerDay in
+  // lib/equipment-power.ts — a bad tariff input must never produce a
+  // negative dollar figure in a persisted scope item.
+  const energyCostPerDay = parseFloat(
+    ((totalKwhPerDay * Math.max(0, tariffCentsPerKwh)) / 100).toFixed(2),
+  );
+
+  const circuitOptions = calculateCircuitRequirements(totalAmps);
+  const gpo10A = circuitOptions.find((c) => c.ratingA === 10);
+  const recommendedCircuits = gpo10A?.circuitsRequired ?? 0;
 
   let circuitLoadWarning: string | undefined;
-  if (totalAmps > maxAmpsPerCircuit) {
+  if (gpo10A && totalAmps > gpo10A.maxContinuousA) {
     circuitLoadWarning =
-      `Total estimated load ${totalAmps}A exceeds AS/NZS 3012:2019 80% continuous-load rule ` +
-      `(16A max per 20A circuit). Use ${recommendedCircuits} separate circuits minimum. ` +
+      `Total estimated load ${totalAmps}A exceeds the AS/NZS 3012:2019 80% continuous-load rule ` +
+      `(${gpo10A.maxContinuousA}A max per standard 10A GPO circuit). Distribute across ${recommendedCircuits} separate 10A circuits minimum ` +
+      `(or ${circuitOptions.find((c) => c.ratingA === 15)?.circuitsRequired} × 15A / ` +
+      `${circuitOptions.find((c) => c.ratingA === 20)?.circuitsRequired} × 20A dedicated circuits). ` +
       `Confirm circuit breaker ratings on-site before energising equipment.`;
   }
 
@@ -247,8 +380,10 @@ export function calculateEquipment(
   const summaryParts = items.map((e) => `${e.quantity}× ${e.label}`);
   const summary =
     `IICRC S500 Category ${catNum} / Class ${classNum}: ` +
-    summaryParts.join(" + ");
+    summaryParts.join(" + ") +
+    ` · ${totalKwhPerDay} kWh/day ≈ $${energyCostPerDay.toFixed(2)}/day electricity`;
 
+  // Category/Class definitions per S500:2021 §10.4
   const iicrcClassification = `Category ${catNum} (${
     catNum === "1"
       ? "Clean Water"
@@ -268,8 +403,13 @@ export function calculateEquipment(
   return {
     equipmentList: items,
     totalEstimatedAmps: totalAmps,
+    totalEstimatedWatts: totalWatts,
+    totalKwhPerDay,
+    energyCostPerDay,
+    tariffCentsPerKwh,
     circuitLoadWarning,
     recommendedCircuits,
+    circuitOptions,
     summary,
     iicrcClassification,
   };
