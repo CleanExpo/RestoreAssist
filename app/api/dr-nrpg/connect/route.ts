@@ -127,19 +127,26 @@ export async function POST(request: NextRequest) {
       // persist the raw third-party key. The liveness cron decrypts on use.
       const encryptedApiKey = encrypt(drNrpgApiKey.trim());
 
+      // Encrypt the webhook HMAC secret at rest too — it is the sole
+      // authentication for inbound DR-NRPG webhooks, so a DB dump must not
+      // expose a value an attacker could sign forged events with. The webhook
+      // receiver decrypts on read. The plaintext resolvedSecret is still
+      // returned once in the response below so it can be configured in DR-NRPG.
+      const encryptedSecret = encrypt(resolvedSecret);
+
       const integration = await (prisma as any).drNrpgIntegration.upsert({
         where: { userId: userId },
         create: {
           userId: userId,
           drNrpgApiKey: encryptedApiKey,
           drNrpgBaseUrl: resolvedBase,
-          webhookSecret: resolvedSecret,
+          webhookSecret: encryptedSecret,
           isActive: true,
         },
         update: {
           drNrpgApiKey: encryptedApiKey,
           drNrpgBaseUrl: resolvedBase,
-          webhookSecret: resolvedSecret,
+          webhookSecret: encryptedSecret,
           isActive: true,
           updatedAt: new Date(),
         },

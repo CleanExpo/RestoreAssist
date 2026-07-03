@@ -15,8 +15,10 @@
  * INTEGRATION_ENCRYPTION_KEY, or NEXTAUTH_SECRET) — the same 32-byte key the
  * running app uses, or decryption later will fail.
  *
- * Scope: only encrypts the API-key columns (AscoraIntegration.apiKey and
- * DrNrpgIntegration.drNrpgApiKey). Webhook secrets are out of scope for RA-6935.
+ * Scope: encrypts the API-key columns (AscoraIntegration.apiKey and
+ * DrNrpgIntegration.drNrpgApiKey) plus the DR-NRPG webhook HMAC secret
+ * (DrNrpgIntegration.webhookSecret), which is the sole authentication for
+ * inbound DR-NRPG webhooks and must not sit plaintext in a DB dump.
  */
 import { PrismaClient } from "@prisma/client";
 import { encrypt } from "@/lib/credential-vault";
@@ -84,6 +86,22 @@ async function main() {
       (prisma as any).drNrpgIntegration.update({
         where: { id },
         data: { drNrpgApiKey: cipher },
+      }),
+  );
+
+  const drNrpgSecrets = await (prisma as any).drNrpgIntegration.findMany({
+    select: { id: true, webhookSecret: true },
+  });
+  await backfillModel(
+    "DrNrpgIntegration.webhookSecret",
+    drNrpgSecrets.map((r: { id: string; webhookSecret: string | null }) => ({
+      id: r.id,
+      key: r.webhookSecret,
+    })),
+    (id, cipher) =>
+      (prisma as any).drNrpgIntegration.update({
+        where: { id },
+        data: { webhookSecret: cipher },
       }),
   );
 }
