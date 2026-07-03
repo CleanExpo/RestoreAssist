@@ -14,13 +14,24 @@ import { join } from "node:path";
 
 const CLI_PATH = join(__dirname, "..", "linear-loop-decide.ts");
 
+// The CLI's dispatch path Nexus-wraps every non-owner-gated task, which reads
+// NEXUS_PROMPT.md. That file lives in the `nexus` skill (~/.claude/skills/nexus)
+// and is absent on CI runners, so point NEXUS_PROMPT_PATH at a committed fixture
+// to keep this subprocess hermetic — the test must not depend on a file outside
+// the repo.
+const NEXUS_PROMPT_FIXTURE = join(__dirname, "fixtures", "nexus-prompt.fixture.md");
+
 function runCli(issue: unknown): string {
   // Pass the issue JSON via an env var (not shell-interpolated into the
   // command string) so payload content — quotes, apostrophes, etc. — can
   // never break shell argument parsing.
   return execSync(`npx tsx "${CLI_PATH}" --issue-json "$ISSUE_JSON"`, {
     encoding: "utf-8",
-    env: { ...process.env, ISSUE_JSON: JSON.stringify(issue) },
+    env: {
+      ...process.env,
+      ISSUE_JSON: JSON.stringify(issue),
+      NEXUS_PROMPT_PATH: NEXUS_PROMPT_FIXTURE,
+    },
   });
 }
 
