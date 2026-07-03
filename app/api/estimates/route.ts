@@ -90,9 +90,14 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Check if estimate already exists (by reportId or scopeId)
+      // Check if estimate already exists (by reportId or scopeId).
+      // RA-6961: `userId` constrains BOTH branches of the OR — without it
+      // a caller could supply their own (already-verified) reportId
+      // alongside a foreign scopeId, and the OR would resolve to another
+      // tenant's estimate, which the code below then overwrites.
       const existingEstimate = await prisma.estimate.findFirst({
         where: {
+          userId,
           OR: [{ reportId }, ...(scopeId ? [{ scopeId }] : [])],
         },
         include: {

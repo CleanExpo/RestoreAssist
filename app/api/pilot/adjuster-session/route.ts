@@ -22,6 +22,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { runAdjusterAgent } from "@/lib/ai/adjuster-agent";
 import { deductCreditsAndTrackUsage } from "@/lib/report-limits";
 import { apiError } from "@/lib/api-errors";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"] as const;
 
@@ -80,6 +81,18 @@ export async function POST(request: NextRequest) {
       });
     }
     const { inspectionId } = body;
+
+    // ── 4b. Tenancy check (RA-6961) ───────────────────────────────────────────
+    // Must run BEFORE credit deduction — otherwise a caller can burn their
+    // own credit to run the agent (and read the analysis) against another
+    // tenant's inspection.
+    const tenancy = await assertInspectionTenancy(session, inspectionId);
+    if (!tenancy.ok) {
+      return NextResponse.json(
+        { error: tenancy.reason },
+        { status: tenancy.status },
+      );
+    }
 
     // ── 5. Atomic credit deduction (rule 9) ───────────────────────────────────
     try {
