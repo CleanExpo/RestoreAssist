@@ -7,6 +7,10 @@ import { withIdempotency } from "@/lib/idempotency";
 import { track, isFirstTime } from "@/lib/analytics/track";
 import { parseDate } from "@/lib/parse-date";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 export async function GET(request: NextRequest) {
   try {
@@ -224,6 +228,25 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // RA-6932 (P0) — resolve the workspace's own BYOK Anthropic key BEFORE the
+      // credit deduction, so a keyless workspace gets a hard 402 without ever
+      // being charged a credit. Never falls through to the platform
+      // ANTHROPIC_API_KEY; the resolved key is passed into generateDetailedReport.
+      let anthropicApiKey: string;
+      try {
+        anthropicApiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC"))
+          .apiKey;
+      } catch (error) {
+        if (error instanceof NoWorkspaceKeyError) {
+          return apiError(request, {
+            code: "PAYMENT_REQUIRED",
+            message: error.message,
+            status: 402,
+          });
+        }
+        throw error;
+      }
+
       // RA-1377 — the deduct happens here, BEFORE the slow/external AI call and
       // before the report row is persisted, and is deliberately NOT in a
       // transaction. Mark `charged` so a post-deduct, pre-create failure can be
@@ -264,23 +287,26 @@ export async function POST(request: NextRequest) {
       // Generate detailed report using AI
       let detailedReport = null;
       try {
-        detailedReport = await generateDetailedReport({
-          basicInfo: {
-            title: body.title,
-            clientName: body.clientName,
-            propertyAddress: body.propertyAddress,
-            dateOfLoss: body.dateOfLoss,
-            waterCategory: body.waterCategory,
-            waterClass: body.waterClass,
-            hazardType: body.hazardType,
-            insuranceType: body.insuranceType,
+        detailedReport = await generateDetailedReport(
+          {
+            basicInfo: {
+              title: body.title,
+              clientName: body.clientName,
+              propertyAddress: body.propertyAddress,
+              dateOfLoss: body.dateOfLoss,
+              waterCategory: body.waterCategory,
+              waterClass: body.waterClass,
+              hazardType: body.hazardType,
+              insuranceType: body.insuranceType,
+            },
+            remediationData: body.remediationData,
+            dryingPlan: body.dryingPlan,
+            equipmentSizing: body.equipmentSizing,
+            monitoringData: body.monitoringData,
+            insuranceData: body.insuranceData,
           },
-          remediationData: body.remediationData,
-          dryingPlan: body.dryingPlan,
-          equipmentSizing: body.equipmentSizing,
-          monitoringData: body.monitoringData,
-          insuranceData: body.insuranceData,
-        });
+          anthropicApiKey,
+        );
       } catch (aiError) {
         console.error("Error generating detailed report:", aiError);
         console.error("AI Error details:", {

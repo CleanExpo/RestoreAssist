@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getAnthropicApiKey } from "@/lib/ai-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import {
@@ -10,6 +9,10 @@ import {
   type GenerateEnhancedInput,
 } from "@/lib/services/ai/generate-enhanced-report";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 // Helper functions for standards retrieval query building
 function determineReportType(notes: string): string {
@@ -154,16 +157,22 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Get API key (required for all users in Integrations; trial has unlimited reports during 15-day period)
+      // RA-6932 (P0) — resolve the calling workspace's own BYOK Anthropic key.
+      // Never falls through to the platform ANTHROPIC_API_KEY — a workspace
+      // without a configured key gets a hard 402 PAYMENT_REQUIRED.
       let anthropicApiKey: string;
       try {
-        anthropicApiKey = await getAnthropicApiKey(userId);
-      } catch (error: any) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: "Failed to get Anthropic API key",
-          status: 400,
-        });
+        anthropicApiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC"))
+          .apiKey;
+      } catch (error) {
+        if (error instanceof NoWorkspaceKeyError) {
+          return apiError(request, {
+            code: "PAYMENT_REQUIRED",
+            message: error.message,
+            status: 402,
+          });
+        }
+        throw error;
       }
 
       // STAGE 1: Retrieve relevant standards from Google Drive (IICRC Standards folder)

@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 const getServerSession = vi.fn();
 const applyRateLimit = vi.fn();
 const userFindUnique = vi.fn();
-const getAnthropicApiKey = vi.fn();
+const resolveWorkspaceAiKey = vi.fn();
 const generateInterviewQuestion = vi.fn();
 
 vi.mock("next-auth", () => ({
@@ -21,8 +21,10 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
-vi.mock("@/lib/ai-provider", () => ({
-  getAnthropicApiKey: (...args: unknown[]) => getAnthropicApiKey(...args),
+vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
+  resolveWorkspaceAiKey: (...args: unknown[]) =>
+    resolveWorkspaceAiKey(...args),
+  NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
 }));
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: async (
@@ -42,7 +44,7 @@ beforeEach(() => {
   getServerSession.mockReset();
   applyRateLimit.mockReset();
   userFindUnique.mockReset();
-  getAnthropicApiKey.mockReset();
+  resolveWorkspaceAiKey.mockReset();
   generateInterviewQuestion.mockReset();
 
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
@@ -51,7 +53,10 @@ beforeEach(() => {
     id: "user_1",
     subscriptionStatus: "ACTIVE",
   });
-  getAnthropicApiKey.mockResolvedValue("anthropic-key");
+  resolveWorkspaceAiKey.mockResolvedValue({
+    workspaceId: "ws_1",
+    apiKey: "anthropic-key",
+  });
 });
 
 function postRequest() {

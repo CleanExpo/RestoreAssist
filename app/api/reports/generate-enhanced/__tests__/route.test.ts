@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 const getServerSession = vi.fn();
 const applyRateLimit = vi.fn();
 const withIdempotency = vi.fn();
-const getAnthropicApiKey = vi.fn();
+const resolveWorkspaceAiKey = vi.fn();
 const generateEnhancedReport = vi.fn();
 const userFindUnique = vi.fn();
 const reportCreate = vi.fn();
@@ -24,8 +24,10 @@ vi.mock("@/lib/idempotency", () => ({
     fn: (rawBody: string) => Promise<Response>,
   ) => withIdempotency(req, userId, fn),
 }));
-vi.mock("@/lib/ai-provider", () => ({
-  getAnthropicApiKey: (...args: unknown[]) => getAnthropicApiKey(...args),
+vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
+  resolveWorkspaceAiKey: (...args: unknown[]) =>
+    resolveWorkspaceAiKey(...args),
+  NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
 }));
 vi.mock("@/lib/services/ai/generate-enhanced-report", () => ({
   generateEnhancedReport: (...args: unknown[]) =>
@@ -55,7 +57,7 @@ beforeEach(() => {
   getServerSession.mockReset();
   applyRateLimit.mockReset();
   withIdempotency.mockReset();
-  getAnthropicApiKey.mockReset();
+  resolveWorkspaceAiKey.mockReset();
   generateEnhancedReport.mockReset();
   userFindUnique.mockReset();
   reportCreate.mockReset();
@@ -78,7 +80,10 @@ beforeEach(() => {
     creditsRemaining: 10,
     totalCreditsUsed: 0,
   });
-  getAnthropicApiKey.mockResolvedValue("anthropic-key");
+  resolveWorkspaceAiKey.mockResolvedValue({
+    workspaceId: "ws-1",
+    apiKey: "anthropic-key",
+  });
 });
 
 describe("POST /api/reports/generate-enhanced", () => {

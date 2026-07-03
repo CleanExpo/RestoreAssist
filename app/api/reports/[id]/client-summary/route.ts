@@ -3,12 +3,15 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
-import { getAnthropicApiKey } from "@/lib/ai-provider";
 import {
   generateClientSummaryService,
   type ClientSummaryInput,
 } from "@/lib/services/ai/generate-client-summary";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 /**
  * RA-1461: POST /api/reports/[id]/client-summary
@@ -122,6 +125,23 @@ export async function POST(
       });
     }
 
+    // RA-6932 (P0) — resolve the workspace's own BYOK Anthropic key BEFORE any
+    // credit deduction, so a keyless workspace gets a hard 402 without ever
+    // being charged a credit. Never falls through to the platform key.
+    let apiKey: string;
+    try {
+      apiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC")).apiKey;
+    } catch (error) {
+      if (error instanceof NoWorkspaceKeyError) {
+        return apiError(request, {
+          code: "PAYMENT_REQUIRED",
+          message: error.message,
+          status: 402,
+        });
+      }
+      throw error;
+    }
+
     // Rule 9 — atomic credit deduction for TRIAL users.
     // ACTIVE/LIFETIME users are not charged per-summary (same pattern as
     // the rest of the AI endpoints in this repo).
@@ -142,19 +162,6 @@ export async function POST(
           { status: 402 },
         );
       }
-    }
-
-    // Resolve BYOK Anthropic key.
-    let apiKey: string;
-    try {
-      apiKey = await getAnthropicApiKey(userId);
-    } catch {
-      return apiError(request, {
-        code: "VALIDATION",
-        message:
-          "Connect an AI integration first. Add your Anthropic API key in Settings → Integrations to generate summaries.",
-        status: 400,
-      });
     }
 
     const input: ClientSummaryInput = {

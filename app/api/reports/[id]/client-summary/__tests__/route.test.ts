@@ -7,7 +7,7 @@ const userFindUnique = vi.fn();
 const userUpdateMany = vi.fn();
 const reportFindFirst = vi.fn();
 const reportUpdate = vi.fn();
-const getAnthropicApiKey = vi.fn();
+const resolveWorkspaceAiKey = vi.fn();
 const generateClientSummaryService = vi.fn();
 
 vi.mock("next-auth", () => ({
@@ -29,8 +29,10 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
-vi.mock("@/lib/ai-provider", () => ({
-  getAnthropicApiKey: (...args: unknown[]) => getAnthropicApiKey(...args),
+vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
+  resolveWorkspaceAiKey: (...args: unknown[]) =>
+    resolveWorkspaceAiKey(...args),
+  NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
 }));
 vi.mock("@/lib/services/ai/generate-client-summary", () => ({
   generateClientSummaryService: (...args: unknown[]) =>
@@ -46,13 +48,16 @@ beforeEach(() => {
   userUpdateMany.mockReset();
   reportFindFirst.mockReset();
   reportUpdate.mockReset();
-  getAnthropicApiKey.mockReset();
+  resolveWorkspaceAiKey.mockReset();
   generateClientSummaryService.mockReset();
 
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
   applyRateLimit.mockResolvedValue(null);
   userFindUnique.mockResolvedValue({ subscriptionStatus: "ACTIVE" });
-  getAnthropicApiKey.mockResolvedValue("anthropic-key");
+  resolveWorkspaceAiKey.mockResolvedValue({
+    workspaceId: "ws_1",
+    apiKey: "anthropic-key",
+  });
   reportFindFirst.mockResolvedValue({
     id: "report_1",
     propertyAddress: "1 Test St",

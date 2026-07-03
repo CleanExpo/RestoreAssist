@@ -4,6 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { extractReportFromUpload } from "@/lib/services/ai/extract-report-from-upload";
 import { apiError } from "@/lib/api-errors";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 // Configuration constants
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -188,22 +192,22 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Get appropriate API key based on subscription status
-    // Free users: uses ANTHROPIC_API_KEY from .env
-    // Upgraded users: uses API key from integrations
-    const { getAnthropicApiKey } = await import("@/lib/ai-provider");
+    // RA-6932 (P0) — resolve the workspace's own BYOK Anthropic key. Never
+    // falls through to the platform ANTHROPIC_API_KEY; a keyless workspace
+    // gets a hard 402 PAYMENT_REQUIRED.
     let anthropicApiKey: string;
     try {
-      anthropicApiKey = await getAnthropicApiKey(userId);
-    } catch (error: any) {
-      return NextResponse.json(
-        {
-          error: "Failed to get Anthropic API key",
-          details:
-            "Please connect an Anthropic API key in the Integrations page or ensure ANTHROPIC_API_KEY is set in environment variables.",
-        },
-        { status: 400 },
-      );
+      anthropicApiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC"))
+        .apiKey;
+    } catch (error) {
+      if (error instanceof NoWorkspaceKeyError) {
+        return apiError(request, {
+          code: "PAYMENT_REQUIRED",
+          message: error.message,
+          status: 402,
+        });
+      }
+      throw error;
     }
 
     const formData = await request.formData();
@@ -309,8 +313,8 @@ export async function POST(request: NextRequest) {
       }
 
       if (result.reason === "KEY_MISSING") {
-        // Unreachable in practice — the route already returns 400 from
-        // the getAnthropicApiKey try/catch above — but mapped for
+        // Unreachable in practice — a keyless workspace already returns 402
+        // from the resolveWorkspaceAiKey block above — but mapped for
         // completeness.
         return NextResponse.json(
           {

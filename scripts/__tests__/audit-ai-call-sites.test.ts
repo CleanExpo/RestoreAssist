@@ -195,6 +195,49 @@ describe("platform-key-fallback detection (RA-6921 P0)", () => {
     expect(finding?.platformKeyFallback).toBe(true);
   });
 
+  it("flags an app/ route that delegates to lib/ai-provider's getAnthropicApiKey helper (RA-6932 P0)", () => {
+    // Regression test for RA-6932: getAnthropicApiKey() reads the legacy
+    // Integration store then silently falls back to the platform
+    // ANTHROPIC_API_KEY. A route that resolves its key through that helper
+    // has no `process.env.*_API_KEY` string in its own text, so the leak was
+    // invisible to the gate. The audit must now treat the helper call itself
+    // as a platform-key-fallback AI surface unless the route also resolves
+    // via resolveWorkspaceAiKey.
+    const finding = auditAiCallSite(
+      "app/api/reports/generate-question/route.ts",
+      `
+        import { getAnthropicApiKey } from "@/lib/ai-provider";
+        const anthropicApiKey = await getAnthropicApiKey(userId);
+        await generateInterviewQuestion({ apiKey: anthropicApiKey, conversation });
+      `,
+    );
+
+    expect(finding).not.toBeNull();
+    expect(finding?.platformKeyFallback).toBe(true);
+  });
+
+  it("does not flag an app/ route that migrated getAnthropicApiKey to resolveWorkspaceAiKey (RA-6932 P0)", () => {
+    // The migrated form of the route above: it no longer references the
+    // getAnthropicApiKey helper and resolves the workspace's own BYOK key.
+    // The BYOK marker suppresses the fallback flag — this route is inline a
+    // helper-delegating surface too (getAnthropicApiKey present alongside the
+    // BYOK resolver), proving migration overrides the helper-fallback signal.
+    const finding = auditAiCallSite(
+      "app/api/reports/generate-question/route.ts",
+      `
+        import { resolveWorkspaceAiKey } from "@/lib/ai/resolve-workspace-ai-key";
+        // superseded getAnthropicApiKey() path removed under RA-6932
+        const anthropicApiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC")).apiKey;
+        await generateInterviewQuestion({ apiKey: anthropicApiKey, conversation });
+      `,
+    );
+
+    // A helper-delegating surface (getAnthropicApiKey( token present) that ALSO
+    // resolves BYOK must NOT be flagged — the BYOK marker wins.
+    expect(finding).not.toBeNull();
+    expect(finding?.platformKeyFallback).toBe(false);
+  });
+
   it("does not misclassify an unrelated *_API_KEY env var (e.g. RESEND_API_KEY) as an AI surface", () => {
     // Regression test: the fix must scope to named AI-provider keys only —
     // broadening to any *_API_KEY pattern previously false-positived on

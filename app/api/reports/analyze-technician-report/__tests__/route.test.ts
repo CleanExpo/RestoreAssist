@@ -6,7 +6,7 @@ const applyRateLimit = vi.fn();
 const userFindUnique = vi.fn();
 const reportFindUnique = vi.fn();
 const reportUpdate = vi.fn();
-const getAnthropicApiKey = vi.fn();
+const resolveWorkspaceAiKey = vi.fn();
 const analyseTechnicianReport = vi.fn();
 
 vi.mock("next-auth", () => ({
@@ -34,8 +34,10 @@ vi.mock("@/lib/idempotency", () => ({
     handler: (body: string) => Promise<Response>,
   ) => handler(await request.text()),
 }));
-vi.mock("@/lib/ai-provider", () => ({
-  getAnthropicApiKey: (...args: unknown[]) => getAnthropicApiKey(...args),
+vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
+  resolveWorkspaceAiKey: (...args: unknown[]) =>
+    resolveWorkspaceAiKey(...args),
+  NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
 }));
 vi.mock("@/lib/services/ai/analyse-technician-report", () => ({
   analyseTechnicianReport: (...args: unknown[]) =>
@@ -50,7 +52,7 @@ beforeEach(() => {
   userFindUnique.mockReset();
   reportFindUnique.mockReset();
   reportUpdate.mockReset();
-  getAnthropicApiKey.mockReset();
+  resolveWorkspaceAiKey.mockReset();
   analyseTechnicianReport.mockReset();
 
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
@@ -59,7 +61,10 @@ beforeEach(() => {
     id: "user_1",
     subscriptionStatus: "ACTIVE",
   });
-  getAnthropicApiKey.mockResolvedValue("anthropic-key");
+  resolveWorkspaceAiKey.mockResolvedValue({
+    workspaceId: "ws_1",
+    apiKey: "anthropic-key",
+  });
   reportFindUnique.mockResolvedValue({
     id: "report_1",
     technicianFieldReport: "Technician notes",

@@ -4,12 +4,15 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
-import { getAnthropicApiKey } from "@/lib/ai-provider";
 import {
   analyseTechnicianReport,
   type TechReportAnalysis,
 } from "@/lib/services/ai/analyse-technician-report";
 import { apiError } from "@/lib/api-errors";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 // POST - Analyze technician report using AI
 export async function POST(request: NextRequest) {
@@ -100,18 +103,22 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Get appropriate API key based on subscription status
-      // Free users: uses ANTHROPIC_API_KEY from .env
-      // Upgraded users: uses API key from integrations
+      // RA-6932 (P0) — resolve the calling workspace's own BYOK Anthropic key.
+      // Never falls through to the platform ANTHROPIC_API_KEY — a workspace
+      // without a configured key gets a hard 402 PAYMENT_REQUIRED.
       let anthropicApiKey: string;
       try {
-        anthropicApiKey = await getAnthropicApiKey(user.id);
-      } catch (error: any) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: "Failed to get Anthropic API key",
-          status: 400,
-        });
+        anthropicApiKey = (await resolveWorkspaceAiKey(user.id, "ANTHROPIC"))
+          .apiKey;
+      } catch (error) {
+        if (error instanceof NoWorkspaceKeyError) {
+          return apiError(request, {
+            code: "PAYMENT_REQUIRED",
+            message: error.message,
+            status: 402,
+          });
+        }
+        throw error;
       }
 
       const result = await analyseTechnicianReport({

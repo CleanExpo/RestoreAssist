@@ -2,11 +2,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { tryClaudeModels } from "./anthropic-models";
 import { createCachedSystemPrompt } from "./anthropic/features/prompt-cache";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
-export { anthropic };
+// RA-6932 (P0): no module-level platform Anthropic client. The customer report
+// path must run on the calling workspace's own BYOK key, so the caller resolves
+// the key and passes it into generateDetailedReport, which constructs the client
+// per-request. Never spend the platform ANTHROPIC_API_KEY on a client workload.
 
 export interface ReportGenerationRequest {
   basicInfo: {
@@ -28,9 +27,14 @@ export interface ReportGenerationRequest {
 
 export async function generateDetailedReport(
   data: ReportGenerationRequest,
+  apiKey: string,
 ): Promise<string> {
   try {
     const prompt = createReportPrompt(data);
+
+    // RA-6932 (P0): construct the Anthropic client per-request from the
+    // workspace-resolved BYOK key. No platform-key fallback.
+    const anthropic = new Anthropic({ apiKey });
 
     // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await tryClaudeModels(

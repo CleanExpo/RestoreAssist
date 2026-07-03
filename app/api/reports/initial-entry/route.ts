@@ -405,11 +405,16 @@ export async function POST(request: NextRequest) {
         const { retrieveRelevantStandards } =
           await import("@/lib/standards-retrieval");
 
-        // Get appropriate API key based on subscription status
-        // Free users: uses ANTHROPIC_API_KEY from .env
-        // Upgraded users: uses API key from integrations
-        const { getAnthropicApiKey } = await import("@/lib/ai-provider");
-        const anthropicApiKey = await getAnthropicApiKey(user.id);
+        // RA-6932 (P0) — resolve the workspace's own BYOK Anthropic key.
+        // Never falls through to the platform ANTHROPIC_API_KEY. This is a
+        // best-effort background pre-fetch: if the workspace has no key,
+        // resolveWorkspaceAiKey throws and the surrounding catch simply skips
+        // the pre-fetch (standards are still fetched on-demand at generation).
+        const { resolveWorkspaceAiKey } =
+          await import("@/lib/ai/resolve-workspace-ai-key");
+        const anthropicApiKey = (
+          await resolveWorkspaceAiKey(user.id, "ANTHROPIC")
+        ).apiKey;
 
         // Build intelligent query from submitted data
         const retrievalQuery = {
