@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateAuthorityFormPDF } from "@/lib/generate-authority-form-pdf";
 import { sendSignedFormEmail } from "@/lib/email";
+import { sendWithRetry } from "@/lib/email-retry";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -120,20 +121,27 @@ export async function POST(
           signedAt: s.signedAt!.toISOString(),
         }));
 
-      // Send to each recipient
+      // Send to each recipient. PDF generation already succeeded at this point,
+      // so email failure must not propagate as a 500 — Promise.allSettled
+      // captures individual outcomes. sendWithRetry adds bounded retry (3
+      // attempts, ~200ms / ~600ms backoff) before allSettled sees a rejection.
       const results = await Promise.allSettled(
         recipients.map((r) =>
-          sendSignedFormEmail({
-            recipientEmail: r.signatoryEmail!,
-            recipientName: r.signatoryName,
-            formName: form.template.name,
-            clientName: form.clientName,
-            clientAddress: form.clientAddress,
-            companyName: form.companyName,
-            signatories: signedSignatories,
-            pdfBase64,
-            pdfFilename,
-          }),
+          sendWithRetry(
+            () =>
+              sendSignedFormEmail({
+                recipientEmail: r.signatoryEmail!,
+                recipientName: r.signatoryName,
+                formName: form.template.name,
+                clientName: form.clientName,
+                clientAddress: form.clientAddress,
+                companyName: form.companyName,
+                signatories: signedSignatories,
+                pdfBase64,
+                pdfFilename,
+              }),
+            { stage: "signed-form-send" },
+          ),
         ),
       );
 
