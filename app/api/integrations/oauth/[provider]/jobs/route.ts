@@ -213,7 +213,7 @@ export async function POST(
               externalId: externalJob.clientExternalId,
             },
           });
-          clientId = (linkedClient as any)?.contactId || undefined;
+          clientId = linkedClient?.contactId || undefined;
         }
 
         // Create a report for this job

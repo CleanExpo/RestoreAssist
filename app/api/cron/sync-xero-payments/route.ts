@@ -15,7 +15,9 @@ const MAX_XERO_INTEGRATIONS_PER_CRON_RUN = 100;
  *   1. Processes any PENDING WebhookEvent rows via the webhook-processor (RA-871).
  *   2. Polls Xero for AUTHORISED invoices that should now be PAID (up to 50 per run).
  *
- * Called by Vercel Cron (every 4h): 0 * /4 * * *
+ * Called by Vercel Cron (every 15 min): * /15 * * * * (RA-6964 — wired into
+ * vercel.json; the route existed but was never scheduled, so this queue
+ * only drained on a manual trigger).
  * Secured by CRON_SECRET bearer token via verifyCronAuth (timing-safe comparison).
  *
  * Integration rule: sync failures NEVER block user-facing operations.
