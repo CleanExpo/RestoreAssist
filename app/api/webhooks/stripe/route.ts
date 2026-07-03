@@ -325,11 +325,21 @@ export async function POST(request: NextRequest) {
       }
 
       case "charge.refunded": {
-        // Revoke access on refund. Only if the charge is fully refunded —
-        // partial refunds may or may not be material to the subscription.
+        // R11 — scoped revocation. Only cancel the subscription when the
+        // refunded charge is SUBSCRIPTION-LINKED (carries an invoice or a
+        // subscription reference). A refunded one-time addon/lifetime charge on
+        // a customer who also holds an active subscription must NOT cancel that
+        // subscription. Partial refunds are ignored (require full refund).
         const refundedCharge = event.data.object as Stripe.Charge;
+        const chargeInvoice = (refundedCharge as { invoice?: unknown }).invoice;
+        const chargeSubscription = (
+          refundedCharge as { subscription?: unknown }
+        ).subscription;
+        const isSubscriptionLinked = Boolean(chargeInvoice || chargeSubscription);
+
         if (
           refundedCharge.refunded &&
+          isSubscriptionLinked &&
           refundedCharge.customer &&
           typeof refundedCharge.customer === "string"
         ) {

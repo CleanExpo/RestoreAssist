@@ -94,6 +94,13 @@ describe("POST /api/create-checkout-session", () => {
     expect(stripeMock.checkout.sessions.create).toHaveBeenCalledTimes(1);
     // No dynamic price is ever created.
     expect(stripeMock.prices.create).not.toHaveBeenCalled();
+    // AC8 — AU GST handling on the subscription checkout path.
+    expect(stripeMock.checkout.sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        automatic_tax: { enabled: true },
+        tax_id_collection: { enabled: true },
+      }),
+    );
   });
 
   it("E1: blocks a second subscription (409) and returns the portal URL when a live Stripe sub exists", async () => {
