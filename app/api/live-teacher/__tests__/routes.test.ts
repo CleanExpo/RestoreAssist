@@ -64,6 +64,20 @@ vi.mock("@/lib/live-teacher/claude-cloud", () => ({
   invokeClaudeCloud: (...args: unknown[]) => mockInvokeClaudeCloud(...args),
 }));
 
+// RA-6963 (BYOK) — the turn route resolves the workspace key after the
+// subscription gate. Default to a resolved key (survives vi.clearAllMocks, like
+// mockUserFindUnique) so streaming tests stay offline/key-free.
+const mockResolveWorkspaceAiKey = vi.fn().mockResolvedValue({
+  workspaceId: "ws-1",
+  apiKey: "sk-ant-test",
+});
+class MockNoWorkspaceKeyError extends Error {}
+vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
+  resolveWorkspaceAiKey: (...args: unknown[]) =>
+    mockResolveWorkspaceAiKey(...args),
+  NoWorkspaceKeyError: MockNoWorkspaceKeyError,
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: {

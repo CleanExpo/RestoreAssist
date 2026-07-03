@@ -3,12 +3,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
-import { apiError } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 import {
   invokeClaudeCloud,
   type TeacherTurn,
 } from "@/lib/live-teacher/claude-cloud";
 import { buildTeacherContext } from "@/lib/live-teacher/build-teacher-context";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 // POST — stream an SSE response for a user utterance turn
 // Rule 1: getServerSession required
@@ -65,6 +69,24 @@ export async function POST(request: NextRequest) {
       }),
       { status: 402, headers: { "Content-Type": "application/json" } },
     );
+  }
+
+  // RA-6963 (BYOK, P1) — Live Teacher is a customer AI workload; resolve the
+  // workspace's own Anthropic key after the subscription gate and pass it into
+  // invokeClaudeCloud. Never spend the platform ANTHROPIC_API_KEY. On no key,
+  // return the 402 NoWorkspaceKeyError shape (chatbot sibling pattern).
+  let workspaceKey: { workspaceId: string; apiKey: string };
+  try {
+    workspaceKey = await resolveWorkspaceAiKey(session.user.id, "ANTHROPIC");
+  } catch (err) {
+    if (err instanceof NoWorkspaceKeyError) {
+      return apiError(request, {
+        code: "PAYMENT_REQUIRED",
+        message: err.message,
+        status: 402,
+      });
+    }
+    return fromException(request, err, { stage: "turn-key" });
   }
 
   let body: TurnBody;
@@ -164,6 +186,7 @@ export async function POST(request: NextRequest) {
           context,
           history,
           userUtterance: body.utterance.trim(),
+          apiKey: workspaceKey.apiKey,
         });
 
         // invokeClaudeCloud grades confidence 0–100; TeacherUtterance.confidence
