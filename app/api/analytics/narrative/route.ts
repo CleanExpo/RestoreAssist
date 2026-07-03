@@ -16,7 +16,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getAnthropicApiKey } from "@/lib/ai-provider";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { generateAnalyticsNarrative } from "@/lib/services/ai/analytics-narrative";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -208,18 +211,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Cost-gate: if the user has no connected Anthropic key, skip generation.
+    // RA-6963 (BYOK, P1) — resolve the workspace's own Anthropic key; never the
+    // platform ANTHROPIC_API_KEY. On no key, return 402 (chatbot sibling
+    // pattern). The flat `{ error }` envelope is retained here (not apiError's
+    // nested shape) because AINarrativeCard reads `body.error` as a string.
     let anthropicApiKey: string;
     try {
-      anthropicApiKey = await getAnthropicApiKey(userId);
-    } catch {
-      return NextResponse.json(
-        {
-          error:
-            "Connect your Anthropic API key in Settings → Integrations to enable AI narratives.",
-        },
-        { status: 424 },
-      );
+      anthropicApiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC")).apiKey;
+    } catch (err) {
+      if (err instanceof NoWorkspaceKeyError) {
+        return NextResponse.json({ error: err.message }, { status: 402 });
+      }
+      throw err;
     }
 
     const { currentStart, currentEnd, previousStart, previousEnd } =

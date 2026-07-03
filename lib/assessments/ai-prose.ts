@@ -21,7 +21,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { getAnthropicApiKey } from "@/lib/ai-provider";
+import { resolveWorkspaceAiKey } from "@/lib/ai/resolve-workspace-ai-key";
 import { checkWorkspaceBudget } from "@/lib/ai/budget-guard";
 import type { ReportSection, AssessmentDomain } from "./types";
 
@@ -137,10 +137,12 @@ export async function enhanceReportProse(
     }
   }
 
-  // 2. Resolve API key (BYOK first, env fallback).
+  // 2. Resolve the workspace's own BYOK Anthropic key (RA-6963, P1). Never the
+  // platform ANTHROPIC_API_KEY. No key (NoWorkspaceKeyError) degrades to the
+  // original sections, exactly as before — no HTTP change.
   let apiKey: string;
   try {
-    apiKey = await getAnthropicApiKey(args.userId);
+    apiKey = (await resolveWorkspaceAiKey(args.userId, "ANTHROPIC")).apiKey;
   } catch {
     return {
       sections: original,

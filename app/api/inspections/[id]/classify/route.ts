@@ -18,7 +18,8 @@
  *   - getServerSession (CLAUDE.md rule 1)
  *   - Subscription allowlist TRIAL/ACTIVE/LIFETIME (rule 8)
  *   - Rate-limit 20/min keyed on session.user.id (rule 10)
- *   - Anthropic key via getAnthropicApiKey(userId) with env fallback
+ *   - Anthropic key via resolveWorkspaceAiKey(userId, "ANTHROPIC") (RA-6963) —
+ *     the workspace's own BYOK key, never the platform ANTHROPIC_API_KEY
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -28,6 +29,10 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { classifyInspection } from "@/lib/services/ai/classify-inspection";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 import { apiError, fromException } from "@/lib/api-errors";
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
@@ -138,8 +143,26 @@ export async function POST(
       });
     }
 
+    // RA-6963 (BYOK, P1) — resolve the workspace's own Anthropic key and pass it
+    // through to classifyInspection; never spend the platform ANTHROPIC_API_KEY.
+    // On no key, return the 402 NoWorkspaceKeyError shape (chatbot pattern).
+    let anthropicApiKey: string;
+    try {
+      anthropicApiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC")).apiKey;
+    } catch (err) {
+      if (err instanceof NoWorkspaceKeyError) {
+        return apiError(req, {
+          code: "PAYMENT_REQUIRED",
+          message: err.message,
+          status: 402,
+        });
+      }
+      throw err;
+    }
+
     const result = await classifyInspection({
       userId,
+      apiKey: anthropicApiKey,
       payload: {
         inspectionNumber: inspection.inspectionNumber,
         propertyPostcode: inspection.propertyPostcode,

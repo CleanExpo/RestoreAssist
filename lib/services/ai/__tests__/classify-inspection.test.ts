@@ -38,6 +38,7 @@ describe("classifyInspection", () => {
 
     const r = await classifyInspection({
       userId: "user-1",
+      apiKey: "sk-ant-test",
       payload: samplePayload,
     });
     expect(r.ok).toBe(true);
@@ -45,6 +46,11 @@ describe("classifyInspection", () => {
       expect(r.data.waterCategory).toBe("CATEGORY_2");
       expect(r.data.confidence).toBe(82);
     }
+    // RA-6963 (BYOK) — the caller-supplied key is threaded to the gateway as the
+    // override, so this customer workload never spends the platform key.
+    expect(vi.mocked(callAnthropic)).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "sk-ant-test" }),
+    );
   });
 
   it("propagates gateway RATE_LIMITED reason", async () => {
@@ -56,6 +62,7 @@ describe("classifyInspection", () => {
     });
     const r = await classifyInspection({
       userId: "user-1",
+      apiKey: "sk-ant-test",
       payload: samplePayload,
     });
     expect(r.ok).toBe(false);
@@ -88,6 +95,7 @@ describe("classifyInspection", () => {
     });
     const r = await classifyInspection({
       userId: "user-1",
+      apiKey: "sk-ant-test",
       payload: samplePayload,
     });
     expect(r.ok).toBe(true);
@@ -104,6 +112,7 @@ describe("classifyInspection", () => {
     });
     const r = await classifyInspection({
       userId: "user-1",
+      apiKey: "sk-ant-test",
       payload: samplePayload,
     });
     expect(r.ok).toBe(false);

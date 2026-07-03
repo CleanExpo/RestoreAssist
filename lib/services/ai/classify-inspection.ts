@@ -73,10 +73,18 @@ export interface ClassifyResult {
 
 export async function classifyInspection(args: {
   userId: string;
+  /**
+   * RA-6963 (BYOK, P1) — the calling workspace's own Anthropic key, resolved by
+   * the classify route via resolveWorkspaceAiKey and passed through as the
+   * gateway override so this customer workload never spends the platform
+   * ANTHROPIC_API_KEY.
+   */
+  apiKey: string;
   payload: ClassifyPayload;
 }): Promise<ServiceResult<ClassifyResult, ClassifyReason>> {
   const gatewayResult = await callAnthropic({
     userId: args.userId,
+    apiKey: args.apiKey,
     request: {
       model: "claude-haiku-4-5-20251001",
       max_tokens: 600,

@@ -6,6 +6,7 @@ const applyRateLimit = vi.fn();
 const userFindUnique = vi.fn();
 const inspectionFindUnique = vi.fn();
 const assertInspectionTenancy = vi.fn();
+const resolveWorkspaceAiKey = vi.fn();
 const classifyInspection = vi.fn();
 
 vi.mock("next-auth", () => ({
@@ -29,6 +30,10 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: (...args: unknown[]) =>
     assertInspectionTenancy(...args),
 }));
+vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
+  resolveWorkspaceAiKey: (...args: unknown[]) => resolveWorkspaceAiKey(...args),
+  NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
+}));
 vi.mock("@/lib/services/ai/classify-inspection", () => ({
   classifyInspection: (...args: unknown[]) => classifyInspection(...args),
 }));
@@ -41,6 +46,7 @@ beforeEach(() => {
   userFindUnique.mockReset();
   inspectionFindUnique.mockReset();
   assertInspectionTenancy.mockReset();
+  resolveWorkspaceAiKey.mockReset();
   classifyInspection.mockReset();
 
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
@@ -50,6 +56,10 @@ beforeEach(() => {
     subscriptionStatus: "ACTIVE",
   });
   assertInspectionTenancy.mockResolvedValue({ ok: true });
+  resolveWorkspaceAiKey.mockResolvedValue({
+    workspaceId: "ws_1",
+    apiKey: "sk-ant-test",
+  });
   inspectionFindUnique.mockResolvedValue({
     id: "inspection_1",
     inspectionNumber: "INS-001",
