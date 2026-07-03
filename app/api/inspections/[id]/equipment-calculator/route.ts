@@ -79,12 +79,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         damageClass: bodyClass,
         damageCategory: bodyCategory,
         floorCount = 1,
+        ambientTempC,
+        tariffCentsPerKwh,
         saveScopeItems = true,
       } = body as {
         affectedAreaM2: number;
         damageClass?: DamageClass;
         damageCategory?: DamageCategory;
         floorCount?: number;
+        ambientTempC?: number;
+        tariffCentsPerKwh?: number;
         saveScopeItems?: boolean;
       };
 
@@ -122,6 +126,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         damageClass: resolvedClass,
         damageCategory: resolvedCategory,
         floorCount,
+        ambientTempC,
+        tariffCentsPerKwh,
       });
 
       // Persist as ScopeItem records (autoDetermined)
@@ -136,6 +142,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               in: [
                 "air_mover",
                 "lgr_dehumidifier",
+                "desiccant_dehumidifier",
                 "air_scrubber",
                 "negative_air_machine",
               ],
@@ -152,7 +159,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           description: `${item.label} — ${item.suggestedModel}`,
           quantity: item.quantity,
           unit: "unit/day",
-          specification: `Estimated amps: ${item.estimatedAmpsEach}A each (${item.estimatedAmpsTotal}A total)`,
+          specification: `Estimated load: ${item.estimatedAmpsEach}A / ${item.estimatedWattsEach}W each (${item.estimatedAmpsTotal}A total, ${item.kwhPerDayTotal} kWh/day)`,
           autoDetermined: true,
           justification: `${item.justification} — ${item.iicrcReference}`,
           isRequired: true,
