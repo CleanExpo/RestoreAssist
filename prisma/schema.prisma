@@ -6378,7 +6378,7 @@ model DrNrpgJobSync {
   integration     DrNrpgIntegration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
   inspectionId    String?            @unique
   inspection      Inspection?        @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
-  drNrpgJobId     String             @unique
+  drNrpgJobId     String
   claimNumber     String
   insurer         String?
   policyHolder    String?
@@ -6392,6 +6392,7 @@ model DrNrpgJobSync {
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
+  @@unique([integrationId, drNrpgJobId]) // RA-6968 tenant-scoped job identity — a DR-NRPG jobId is only unique within an integration
   @@index([integrationId])
   @@index([status])
   @@index([lastEventAt])
