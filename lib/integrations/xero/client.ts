@@ -15,6 +15,7 @@ import {
   getTokens,
   storeTokens,
   markIntegrationError,
+  disconnectIntegration,
   generatePKCE,
   PROVIDER_CONFIG,
 } from "../oauth-handler";
@@ -206,10 +207,22 @@ export class XeroClient extends BaseIntegrationClient {
 
     if (!response.ok) {
       const error = await response.text();
-      await markIntegrationError(
-        this.integrationId,
-        `Token refresh failed: ${error}`,
-      );
+      // RA-6942 — 400 invalid_grant / 401 / 403 means the refresh token is
+      // permanently dead (user revoked app, reauth needed). DISCONNECT so the
+      // UI can prompt reconnect. Other failures (5xx, network) stay in ERROR
+      // so retry can recover.
+      const isTerminal =
+        response.status === 401 ||
+        response.status === 403 ||
+        (response.status === 400 && /invalid_grant/i.test(error));
+      if (isTerminal) {
+        await disconnectIntegration(this.integrationId);
+      } else {
+        await markIntegrationError(
+          this.integrationId,
+          `Token refresh failed: ${error}`,
+        );
+      }
       throw new Error(`Token refresh failed: ${error}`);
     }
 
