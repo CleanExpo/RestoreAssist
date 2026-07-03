@@ -9,6 +9,7 @@
  *
  * Reasons:
  *  - KEY_MISSING        — no usable Anthropic key for this user
+ *  - KEY_INVALID        — SDK returned 401 (bad/expired BYOK key)
  *  - RATE_LIMITED       — SDK returned 429
  *  - MODEL_OVERLOADED   — SDK returned 529 / overloaded
  *  - API_ERROR          — any other SDK failure (5xx, network, parse)
@@ -29,6 +30,7 @@ import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
 
 export type AnthropicReason =
   | "KEY_MISSING"
+  | "KEY_INVALID"
   | "RATE_LIMITED"
   | "MODEL_OVERLOADED"
   | "API_ERROR";
@@ -71,6 +73,13 @@ export async function callAnthropic(
     const message = await client.messages.create(args.request);
     return ok(message as Anthropic.Message);
   } catch (err) {
+    if (err instanceof Anthropic.AuthenticationError) {
+      return fail("KEY_INVALID", {
+        detail:
+          "Anthropic API key is invalid or expired. Re-add it in Workspace Settings → AI Providers.",
+        cause: err,
+      });
+    }
     if (err instanceof Anthropic.RateLimitError) {
       return fail("RATE_LIMITED", {
         detail: err.message,
@@ -165,6 +174,13 @@ export async function callAnthropicWithFallback(
     );
     return ok(message as Anthropic.Message);
   } catch (err) {
+    if (err instanceof Anthropic.AuthenticationError) {
+      return fail("KEY_INVALID", {
+        detail:
+          "Anthropic API key is invalid or expired. Re-add it in Workspace Settings → AI Providers.",
+        cause: err,
+      });
+    }
     const status =
       err instanceof Anthropic.APIError ? err.status : (err as any)?.status;
     if (status === 429) {
@@ -235,6 +251,13 @@ export async function callAnthropicStream(
     const stream = client.messages.stream(args.request);
     return ok(stream);
   } catch (err) {
+    if (err instanceof Anthropic.AuthenticationError) {
+      return fail("KEY_INVALID", {
+        detail:
+          "Anthropic API key is invalid or expired. Re-add it in Workspace Settings → AI Providers.",
+        cause: err,
+      });
+    }
     if (err instanceof Anthropic.RateLimitError) {
       return fail("RATE_LIMITED", {
         detail: err.message,

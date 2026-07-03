@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import Anthropic from "@anthropic-ai/sdk";
 import { authOptions } from "@/lib/auth";
 import { callAIProvider } from "@/lib/ai-provider";
 import { prisma } from "@/lib/prisma";
@@ -10,6 +11,7 @@ import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
+import { markProviderConnectionFailed } from "@/lib/workspace/provider-connections";
 
 export async function GET(request: NextRequest) {
   try {
@@ -103,6 +105,9 @@ export async function POST(request: NextRequest) {
   // RA-1266: chatbot burns AI provider calls — retry doubles the bill
   // for identical conversation state.
   return withIdempotency(request, userId, async (rawBody) => {
+    // Declared out here so the outer catch can mark the connection FAILED on a
+    // 401 (RA-6941). Undefined until the BYOK key resolves.
+    let workspaceKey: { workspaceId: string; apiKey: string } | undefined;
     try {
       const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -149,7 +154,6 @@ export async function POST(request: NextRequest) {
 
       // RA-6921 (P0) — resolve the workspace's own BYOK key; never spend the
       // platform's ANTHROPIC_API_KEY on a client's chat workload.
-      let workspaceKey: { apiKey: string };
       try {
         workspaceKey = await resolveWorkspaceAiKey(userId, "ANTHROPIC");
       } catch (err) {
@@ -349,6 +353,37 @@ Remember: You are a Restore Assist expert, not a generic restoration advisor. Al
       return NextResponse.json({ response });
     } catch (error: any) {
       console.error("Chatbot error:", error);
+
+      // RA-6941 — a 401 from the workspace's own key means the BYOK key is
+      // dead. Mark the ProviderConnection FAILED so the settings UI reflects
+      // it, and surface a clear KEY_INVALID message instead of a generic 500.
+      // Never flip FAILED for a rate-limit (429/529) — that isn't an auth
+      // failure and the key is still valid. `callAIProvider` routes through
+      // `tryClaudeModels`, which re-wraps the SDK error into a plain Error
+      // whose message preserves `authentication_error`, so match both the raw
+      // SDK type and that wrapped signature.
+      const isAuthFailure =
+        error instanceof Anthropic.AuthenticationError ||
+        error?.status === 401 ||
+        error?.error?.type === "authentication_error" ||
+        (typeof error?.message === "string" &&
+          error.message.includes("authentication_error"));
+      if (isAuthFailure && workspaceKey) {
+        await markProviderConnectionFailed(
+          workspaceKey.workspaceId,
+          "ANTHROPIC",
+          "Anthropic API key rejected (401) during Margot chat",
+        ).catch((markErr) => {
+          console.error("Failed to mark ProviderConnection FAILED:", markErr);
+        });
+        return apiError(request, {
+          code: "PAYMENT_REQUIRED",
+          message:
+            "Your Anthropic API key is invalid or expired. Re-add it in Workspace Settings -> AI Providers.",
+          status: 402,
+        });
+      }
+
       return NextResponse.json(
         {
           error: "Failed to process chat message",

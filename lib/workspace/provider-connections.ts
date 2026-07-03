@@ -263,6 +263,29 @@ export async function upsertProviderConnection(
 }
 
 /**
+ * Mark a provider connection FAILED after a genuine auth failure (401 /
+ * KEY_INVALID) surfaced at dispatch time, so the settings UI and onboarding
+ * gate reflect the dead key instead of silently returning an error every call.
+ *
+ * Only call this for authentication failures — never for a transient
+ * rate-limit (429/529), which does not mean the key is invalid.
+ */
+export async function markProviderConnectionFailed(
+  workspaceId: string,
+  provider: AiProvider,
+  errorMessage?: string,
+): Promise<void> {
+  await prisma.providerConnection.updateMany({
+    where: { workspaceId, provider },
+    data: {
+      status: CONNECTION_FAILED_STATUS,
+      lastError: errorMessage ?? "Authentication failed (401) at dispatch time",
+      lastValidatedAt: new Date(),
+    },
+  });
+}
+
+/**
  * Mark a provider connection as disabled (without deleting it).
  */
 export async function disableProviderConnection(

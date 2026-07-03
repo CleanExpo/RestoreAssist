@@ -6,7 +6,7 @@ vi.mock("@/lib/ai-provider", () => ({
 
 // vi.mock factory is hoisted above top-level vars — use vi.hoisted() so the
 // mock fn + error classes are also hoisted and reachable from the factory.
-const { mockMessagesCreate, MockRateLimitError, MockAPIError } = vi.hoisted(() => {
+const { mockMessagesCreate, MockRateLimitError, MockAPIError, MockAuthenticationError } = vi.hoisted(() => {
   class MockRateLimitError extends Error {
     status = 429;
   }
@@ -17,10 +17,14 @@ const { mockMessagesCreate, MockRateLimitError, MockAPIError } = vi.hoisted(() =
       this.status = status;
     }
   }
+  class MockAuthenticationError extends Error {
+    status = 401;
+  }
   return {
     mockMessagesCreate: vi.fn(),
     MockRateLimitError,
     MockAPIError,
+    MockAuthenticationError,
   };
 });
 
@@ -31,6 +35,7 @@ vi.mock("@anthropic-ai/sdk", () => {
   });
   Anthropic.RateLimitError = MockRateLimitError;
   Anthropic.APIError = MockAPIError;
+  Anthropic.AuthenticationError = MockAuthenticationError;
   return { default: Anthropic };
 });
 
@@ -79,6 +84,18 @@ describe("callAnthropic", () => {
     const r = await callAnthropic(baseReq);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe("KEY_MISSING");
+  });
+
+  it("returns KEY_INVALID when SDK throws AuthenticationError", async () => {
+    vi.mocked(getAnthropicApiKey).mockResolvedValueOnce("sk-test");
+    mockMessagesCreate.mockRejectedValueOnce(new MockAuthenticationError("auth failed"));
+
+    const r = await callAnthropic(baseReq);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toBe("KEY_INVALID");
+      expect(r.detail).toContain("invalid or expired");
+    }
   });
 
   it("returns RATE_LIMITED when SDK throws RateLimitError", async () => {
