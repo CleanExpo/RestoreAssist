@@ -230,17 +230,67 @@ Return `{ outcome: "pr-opened", issueId: "<issue identifier>", prUrl: "<prUrl>" 
 This ends the cycle. Do not proceed to the next issue within this same agent invocation —
 that is the `/loop` skill's job (Task 6).
 
-## Loop wiring
+## Loop wiring (how /loop drives this procedure)
 
-This file describes a single cycle only. The `/loop` skill (Task 6 of
-`docs/superpowers/plans/2026-07-03-continuous-moa-loop-core.md`) is responsible for
-invoking this procedure repeatedly, inspecting the returned outcome after each cycle, and
-deciding whether to schedule the next cycle or stop:
+This agent procedure runs **one cycle**. Repetition, pacing, and the between-cycle wait are
+the `/loop` skill's job — it self-paces using `ScheduleWakeup` internally (a Claude Code
+Skill-tool mechanism, not something this procedure calls directly).
 
-- `{ outcome: "pr-opened", ... }` or `{ outcome: "skipped", ... }` → schedule the next cycle.
-- `{ outcome: "no-issues" }` → stop; nothing left to do.
-- `{ outcome: "stop-guard-tripped", ... }` → stop the loop entirely and surface `detail` to
-  a human. Do not auto-retry a tripped stop guard.
+### Starting the loop
+
+A human starts the loop by invoking, in a RestoreAssist session:
+
+```
+/loop Run the continuous-linear-loop agent procedure for one cycle
+(.claude/agents/continuous-linear-loop.md). Daily budget ceiling: $<N> USD
+— construct the StopGuardTracker (lib/linear-loop/stop-guards.ts) with
+{ dailyBudgetCeilingUsd: <N> } on the first cycle only; on every subsequent
+cycle, restore it via StopGuardTracker.fromState() using the state JSON
+carried over from the previous cycle's report. After each cycle: if the
+outcome is "stop-guard-tripped" or "no-issues", stop the loop and report
+why. Otherwise carry the tracker's toState() JSON forward and continue.
+Concurrency is 1 — never start a new cycle before the previous one's
+outcome is known.
+```
+
+`<N>` is supplied by the human at invocation time — there is no default ceiling value
+baked into this procedure or into `StopGuardTracker` (spec §3 stop guards, spec §8: "Daily
+token/cost budget ceiling value is unset — must be specified at loop-invocation time, not
+hardcoded here"). If the human omits `<N>`, ask for it before starting — do not assume a
+number.
+
+### Per-cycle continuation
+
+Between cycles, `/loop`'s self-paced wakeup re-invokes the same instruction with the prior
+cycle's carried-forward `StopGuardTracker` state substituted in. Each cycle:
+
+1. Restore (or construct, on cycle 1) the `StopGuardTracker`.
+2. Run Cycle Steps 1–7 (this file's "Per-cycle procedure" section) exactly once.
+3. Based on the returned outcome:
+   - `"pr-opened"`: call `tracker.recordActionableCycle()`, report the PR URL (open,
+     awaiting human review — a human always merges), continue the loop.
+   - `"skipped"` with `reason: "owner-gated"`: this path already returned
+     `"stop-guard-tripped"` at Cycle Step 2/4 per this file's own procedure — a plain
+     `"skipped"`/`"owner-gated"` combination should not occur; if it does, treat it as
+     `"stop-guard-tripped"` defensively and stop.
+   - `"skipped"` with `reason: "unactionable"`: call `tracker.recordUnactionableSkip()`; if
+     `tripped: true`, stop the loop and report. Otherwise continue.
+   - `"no-issues"`: stop the loop and report "board is clear" — do not treat this as a
+     stop-guard trip (it isn't one), just a natural end.
+   - `"stop-guard-tripped"`: stop the loop immediately, surface a notification with
+     `tracker.getTripReason()` (or the `detail` field from the outcome) to the human. Do not
+     start another cycle.
+4. Concurrency is always 1: the next cycle's Cycle Step 1 only runs after the current
+   cycle's outcome (and any tracker update) is fully resolved — never dispatch Cycle Step 4
+   for a second issue while a first issue's cycle is still in flight.
+
+### Session-bound property
+
+`/loop`'s pacing lives entirely inside the invoking session. When the session ends, the
+loop ends with it — there is no cron, no re-spawn, no persisted schedule outside this
+session (`AGENTS.md` rule 19; `.claude/RULES.md` "Multi-agent orchestration" stop-guard
+addendum). This is the property that distinguishes this design from the paused Shipit
+continuous-execution cron (commit `8f739e53`).
 
 This procedure never merges a PR, never re-runs itself for a second issue, and never
 treats a green `pnpm type-check && pnpm lint` as authorization to merge — Rule 18
