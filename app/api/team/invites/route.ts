@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
 import { sendInviteEmail } from "@/lib/email";
 import { sendWithRetry } from "@/lib/email-retry";
+import { getAppUrl } from "@/lib/app-url";
 import { notifyTeamMemberJoined } from "@/lib/notifications";
 import { sanitizeString } from "@/lib/sanitize";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -216,7 +217,7 @@ export async function POST(req: NextRequest) {
       const inviterName = inviter?.name || "Administrator";
 
       // Send notification email
-      const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login`;
+      const loginUrl = `${getAppUrl()}/login`;
 
       try {
         await sendWithRetry(
@@ -234,7 +235,7 @@ export async function POST(req: NextRequest) {
         );
       } catch (emailError: any) {
         console.error(
-          "❌ [INVITE] Email sending failed:",
+          "[invite] Email sending failed:",
           emailError?.message || "Unknown error",
         );
         // Don't fail the request - the user is already updated
@@ -309,7 +310,7 @@ export async function POST(req: NextRequest) {
     const inviterName = inviter?.name || "Administrator";
 
     // Send notification email (without password since they already have one)
-    const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login`;
+    const loginUrl = `${getAppUrl()}/login`;
 
     try {
       // Send a different email for transferred users (they already have an account)
@@ -328,11 +329,11 @@ export async function POST(req: NextRequest) {
       );
     } catch (emailError: any) {
       console.error(
-        "❌ [INVITE] Email sending failed for transferred user:",
+        "[invite] Email sending failed for transferred user:",
         updatedUser.id,
       );
       console.error(
-        "❌ [INVITE] Email error:",
+        "[invite] Email error:",
         emailError?.message || "Unknown error",
       );
       // Don't fail the request - the user is already transferred
@@ -404,7 +405,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const appUrl = getAppUrl();
     const inviteLink = `${appUrl}/invite/${token}`;
     const loginUrl = `${appUrl}/login`;
 
@@ -422,9 +423,9 @@ export async function POST(req: NextRequest) {
         { stage: "invite-new-user" },
       );
     } catch (emailError: any) {
-      console.error("[INVITE] Email sending failed for invite:", invite.id);
+      console.error("[invite] Email sending failed for invite:", invite.id);
       console.error(
-        "❌ [INVITE] Email error:",
+        "[invite] Email error:",
         emailError?.message || "Unknown error",
       );
       // Don't throw — surface the invite link in the response so the
