@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { FloorPlanUnderlayLoader } from "../FloorPlanUnderlayLoader";
 
 beforeEach(() => vi.restoreAllMocks());
@@ -14,6 +14,9 @@ beforeEach(() => vi.restoreAllMocks());
 const UPGRADE_PATH = "/billing/" + "upgrade";
 describe("FloorPlanUnderlayLoader — 402 handling (F2)", () => {
   beforeEach(() => {
+    // RA-6848 [C2]: the 402 note is on the URL scrape path, which is legally
+    // gated (RA-6850). Enable the flag so auto-fetch exercises that branch.
+    vi.stubEnv("NEXT_PUBLIC_UNDERLAY_URL_IMPORT", "1");
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -23,6 +26,8 @@ describe("FloorPlanUnderlayLoader — 402 handling (F2)", () => {
       }),
     );
   });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   it("shows a neutral unavailable note on 402, with no upgrade link", async () => {
     const { container } = render(
