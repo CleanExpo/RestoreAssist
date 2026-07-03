@@ -18,6 +18,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { encrypt } from "@/lib/credential-vault";
 
 const ASCORA_BASE_URL = "https://api.ascora.com.au";
 
@@ -81,17 +82,21 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Encrypt the API key at rest (AES-256-GCM credential vault) — never
+    // persist the raw third-party key. Read paths decrypt on use.
+    const encryptedApiKey = encrypt(apiKey.trim());
+
     // Upsert the integration record
     const integration = await (prisma as any).ascoraIntegration.upsert({
       where: { userId: session.user.id },
       create: {
         userId: session.user.id,
-        apiKey: apiKey.trim(),
+        apiKey: encryptedApiKey,
         baseUrl: resolvedBase,
         isActive: true,
       },
       update: {
-        apiKey: apiKey.trim(),
+        apiKey: encryptedApiKey,
         baseUrl: resolvedBase,
         isActive: true,
         updatedAt: new Date(),

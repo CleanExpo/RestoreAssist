@@ -34,6 +34,8 @@ import { prisma } from "@/lib/prisma";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
 import { mapPayloadToInspection } from "@/lib/dr-nrpg/inbound-mapper";
 import { apiError } from "@/lib/api-errors";
+import { decrypt } from "@/lib/credential-vault";
+import { isEncryptedToken } from "@/lib/auth/account-tokens";
 
 const MAX_ACTIVE_DRNRPG_INTEGRATIONS = 100;
 
@@ -145,10 +147,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Try each integration's webhookSecret until we find the matching one
-  const matchedIntegration = integrations.find((i: any) =>
-    verifySignature(rawBody, signature, i.webhookSecret),
-  );
+  // Try each integration's webhookSecret until we find the matching one.
+  // Secrets are encrypted at rest (AES-256-GCM credential vault); decrypt
+  // before HMAC verification. Legacy plaintext rows (pre-backfill) aren't in
+  // cipher shape, so verify against them unchanged until the backfill runs.
+  const matchedIntegration = integrations.find((i: any) => {
+    const secret = isEncryptedToken(i.webhookSecret)
+      ? decrypt(i.webhookSecret)
+      : i.webhookSecret;
+    return verifySignature(rawBody, signature, secret);
+  });
 
   if (!matchedIntegration) {
     console.error(
