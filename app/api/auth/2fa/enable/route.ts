@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
     maxRequests: 5,
     windowMs: 5 * 60 * 1000,
     prefix: "2fa-enable",
+    failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
   });
   if (rateLimited) return rateLimited;
 

@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     windowMs: 60_000,
     key: session.user.id,
     prefix: "live-teacher-turn",
+    failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
   });
   if (rateLimited) return rateLimited;
 

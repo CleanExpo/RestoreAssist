@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
     maxRequests: 30, // 30 transcripts/min/user — field workflow doesn't exceed this
     prefix: "voice-note-transcribe",
     key: session.user.id,
+    failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
   });
   if (rateLimited) return rateLimited;
 

@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
     const rateLimited = await applyRateLimit(request, {
       maxRequests: 10,
       prefix: "google-signin",
+      failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
     });
     if (rateLimited) return rateLimited;
 

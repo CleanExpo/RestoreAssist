@@ -53,6 +53,7 @@ export async function POST(
     maxRequests: 30,
     prefix: "interview-suggest-next",
     key: userId,
+    failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
   });
   if (rateLimited) return rateLimited;
 

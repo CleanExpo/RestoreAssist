@@ -35,6 +35,7 @@ export async function GET(
       maxRequests: 5,
       prefix: "gen-forensic",
       key: session.user.id,
+      failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
     });
     if (rateLimited) return rateLimited;
 

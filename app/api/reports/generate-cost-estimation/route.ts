@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
     maxRequests: 10,
     prefix: "gen-cost",
     key: userId,
+    failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
   });
   if (rateLimited) return rateLimited;
 

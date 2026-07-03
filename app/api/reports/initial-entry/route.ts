@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     maxRequests: 5,
     prefix: "report-create",
     key: userId,
+    failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
   });
   if (rateLimited) return rateLimited;
 
