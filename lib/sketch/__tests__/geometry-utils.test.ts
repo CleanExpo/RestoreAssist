@@ -9,6 +9,9 @@ import {
   snapToGrid,
   snapPointToGrid,
   snapSegmentEnd,
+  formatDimension,
+  segmentLabelPosition,
+  footprintDimensions,
 } from "../geometry-utils";
 
 describe("geometry-utils — distance", () => {
@@ -166,5 +169,122 @@ describe("geometry-utils — snapSegmentEnd", () => {
   it("skips the angle lock when angleStep >= 360 (grid only)", () => {
     const end = snapSegmentEnd(start, { x: 218, y: 103 }, 25, 360);
     expect(end).toEqual({ x: 225, y: 100 });
+  });
+});
+
+// RA-6842 [A3]: auto dimension strings — per-wall + overall footprint.
+describe("geometry-utils — formatDimension", () => {
+  it("formats px to metres at the default scale", () => {
+    expect(formatDimension(100)).toBe("1.00 m");
+    expect(formatDimension(470)).toBe("4.70 m");
+  });
+
+  it("respects a custom pxPerMetre scale", () => {
+    expect(formatDimension(100, 50)).toBe("2.00 m");
+    expect(formatDimension(100, 200)).toBe("0.50 m");
+  });
+
+  it("renders imperial feet-and-inches when useImperial=true", () => {
+    // 100px / 100pxPerM = 1m = 3.28084ft → 3'-3"
+    expect(formatDimension(100, 100, true)).toBe("3'-3\"");
+    // 0px → 0'-0"
+    expect(formatDimension(0, 100, true)).toBe("0'-0\"");
+  });
+
+  it("metric is the default (useImperial defaults to false)", () => {
+    expect(formatDimension(300)).toBe("3.00 m");
+  });
+});
+
+describe("geometry-utils — segmentLabelPosition", () => {
+  it("places the midpoint halfway between the two endpoints", () => {
+    const { mid } = segmentLabelPosition({ x: 0, y: 0 }, { x: 200, y: 0 });
+    expect(mid).toEqual({ x: 100, y: 0 });
+  });
+
+  it("offsets perpendicular to a horizontal segment", () => {
+    // Segment pointing right (dx=200, dy=0): perp CCW = (0, +1) → below (+y)
+    const { labelPos } = segmentLabelPosition(
+      { x: 0, y: 100 },
+      { x: 200, y: 100 },
+      20,
+    );
+    expect(labelPos.x).toBeCloseTo(100, 5);
+    expect(labelPos.y).toBeCloseTo(120, 5); // 100 + 20
+  });
+
+  it("offsets perpendicular to a vertical segment", () => {
+    // Segment pointing down (dx=0, dy=200): perp CCW = (-1, 0) → left (-x)
+    const { labelPos } = segmentLabelPosition(
+      { x: 100, y: 0 },
+      { x: 100, y: 200 },
+      20,
+    );
+    expect(labelPos.x).toBeCloseTo(80, 5); // 100 - 20
+    expect(labelPos.y).toBeCloseTo(100, 5);
+  });
+
+  it("is a no-op on a degenerate (zero-length) segment", () => {
+    const p = { x: 50, y: 50 };
+    const { mid, labelPos } = segmentLabelPosition(p, p, 20);
+    expect(mid).toEqual(p);
+    expect(labelPos).toEqual(p);
+  });
+});
+
+describe("geometry-utils — footprintDimensions", () => {
+  const SQUARE = [
+    { x: 100, y: 100 },
+    { x: 300, y: 100 },
+    { x: 300, y: 250 },
+    { x: 100, y: 250 },
+  ];
+
+  it("computes the correct bounding box", () => {
+    const r = footprintDimensions(SQUARE);
+    expect(r.minX).toBe(100);
+    expect(r.minY).toBe(100);
+    expect(r.maxX).toBe(300);
+    expect(r.maxY).toBe(250);
+    expect(r.widthPx).toBe(200);
+    expect(r.heightPx).toBe(150);
+  });
+
+  it("places the top dimension line above the plan by the margin", () => {
+    const r = footprintDimensions(SQUARE, 30);
+    // topTick y = minY - margin = 100 - 30 = 70
+    expect(r.topTick[0].y).toBe(70);
+    expect(r.topTick[1].y).toBe(70);
+    // topTick x spans minX to maxX
+    expect(r.topTick[0].x).toBe(100);
+    expect(r.topTick[1].x).toBe(300);
+  });
+
+  it("places the left dimension line left of the plan by the margin", () => {
+    const r = footprintDimensions(SQUARE, 30);
+    // leftTick x = minX - margin = 100 - 30 = 70
+    expect(r.leftTick[0].x).toBe(70);
+    expect(r.leftTick[1].x).toBe(70);
+    // leftTick y spans minY to maxY
+    expect(r.leftTick[0].y).toBe(100);
+    expect(r.leftTick[1].y).toBe(250);
+  });
+
+  it("centers the width label above the dimension line", () => {
+    const r = footprintDimensions(SQUARE, 30);
+    expect(r.widthLabelPos.x).toBe(200); // (100+300)/2
+    expect(r.widthLabelPos.y).toBe(58);  // dimY(70) - 12
+  });
+
+  it("centers the height label left of the dimension line", () => {
+    const r = footprintDimensions(SQUARE, 30);
+    expect(r.heightLabelPos.x).toBe(58);  // dimX(70) - 12
+    expect(r.heightLabelPos.y).toBe(175); // (100+250)/2
+  });
+
+  it("handles an empty points array gracefully", () => {
+    const r = footprintDimensions([]);
+    expect(r.widthPx).toBe(0);
+    expect(r.heightPx).toBe(0);
   });
 });
