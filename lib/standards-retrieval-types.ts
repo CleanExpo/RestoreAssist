@@ -15,7 +15,24 @@ export interface StandardsContext {
     extractedContent?: string;
   }>;
   summary: string;
+  /**
+   * True when retrieval failed and `documents` is empty because standards could
+   * NOT be grounded from the IICRC Standards Drive folder (missing service-account
+   * creds, Drive error, empty folder, or no AI key). In that state the report
+   * free-generates standards content from the model's general knowledge, so
+   * callers MUST surface this loudly (admin alert / report banner) instead of
+   * silently proceeding. RA-6934.
+   */
+  degraded: boolean;
+  /** Machine-readable reason for the degradation, used for alert grouping. */
+  degradedReason?: StandardsDegradedReason;
 }
+
+export type StandardsDegradedReason =
+  | "no_ai_key"
+  | "drive_access_error"
+  | "empty_standards_folder"
+  | "retrieval_fatal_error";
 
 export interface RetrievalQuery {
   reportType: "water" | "mould" | "fire" | "commercial" | "general";
