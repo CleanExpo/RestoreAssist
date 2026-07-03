@@ -57,6 +57,18 @@ Non-negotiable engineering constraints on every `lib/progress/**` and related su
 27. **Deterministic integration fan-out** — at most one outbound event per (`transitionId`, `integrationKey`); retries and replays are idempotent.
 28. **Engagement-time licence verification** — IICRC / WHS / state licences verified against `Authorisation` (M-7) at the moment a user is attached to an attestation, NOT at login.
 
+### Owner-action gated (human sign-off required before execution)
+
+These actions require explicit owner/human authorization before any agent — loop-dispatched or interactive — may execute them. Preparing the plan, runbook, or PR is allowed; running the action is not.
+
+29. **Production database migrations / cutovers** — `prisma migrate deploy` against prod, pilot cutover phases, and any schema change applied outside local/preview.
+30. **Secret and credential rotation** — API keys, OAuth client secrets, service-role tokens, signing keys, `.env` values in any deployed environment.
+31. **Spend above a real-money threshold** — any action that provisions paid infrastructure, upgrades a paid tier, or otherwise commits spend over **$50 AUD** in a single action.
+32. **Deleting or cancelling production resources** — dropping a prod database/branch, deleting a prod deployment, cancelling a subscription, revoking a domain, deleting user data outside a documented data-subject request.
+33. **Merging into `main`** — see rule 18 (AGENTS.md); restated here for completeness of the owner-gated list.
+
+An agent that reaches an owner-gated action must stop, state exactly what it would do and why, and wait for explicit human go-ahead in that session. It must not infer prior approval from a Linear ticket status, a runbook's existence, or a prior session's notes.
+
 ## Multi-agent orchestration
 
 When spawning `Agent` with `isolation: "worktree"`, the main thread's CWD **must** be inside a git repo. If invoked from a non-repo directory (e.g. `/Users/phill-mac/Pi-CEO`) Claude Code errors with `Cannot create agent worktree: not in a git repository`. Fix: `cd <repo>` before the `Agent` call, or pass an explicit repo-rooted `cwd` in the Agent prompt.
@@ -66,6 +78,8 @@ Without worktree isolation, parallel code-modifying agents share the working tre
 Every Agent prompt must open with a **mandatory existing-code audit**: grep for the primitive / component it intends to create, and skip the scaffold if one already exists. Past sessions have shipped duplicates (`PWAInstallPrompt.tsx` vs pre-existing `pwa-install-prompt.tsx`) when this step was skipped.
 
 Agents must **checkpoint-commit every ~3 edits** with `git commit --allow-empty -m "checkpoint: <scope>"`. If the agent is killed mid-run, the last checkpoint becomes the recovery point instead of orphaned uncommitted state on the shared tree.
+
+The Linear-driven continuous loop is **session-bound, not a standing cron**: it runs only for the lifetime of the invoking session and must not schedule, daemonize, or re-trigger itself after the session ends. (A prior autonomous "Shipit continuous-execution cron" was paused after it opened conflicting PRs into `main` unattended — this constraint exists to prevent a repeat.) Each backlog item dispatched by the loop follows the same one-code-modifying-agent-at-a-time / worktree-isolation / checkpoint-commit rules above, and every item's terminus is a single PR-open — never a merge, never a chain of dependent unmerged PRs assumed to land together.
 
 ## Karpathy recall (you know these — write code that reflects them)
 
