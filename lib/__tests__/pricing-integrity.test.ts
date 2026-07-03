@@ -53,6 +53,20 @@ describe("RA-1585 pricing-config integrity", () => {
     expect(Object.keys(PRICING_CONFIG.pricing).length).toBeGreaterThan(0);
   });
 
+  // RA-6929/6930/6931 — single-catalog collapse (C1/C3). The catalog is the
+  // ONE $99 Monthly Plan; the Yearly $1188 SKU is retired from both the
+  // display catalog and the Stripe price map so no page can offer it.
+  it("catalog is a single $99 Monthly Plan (yearly retired)", () => {
+    expect(Object.keys(PRICING_CONFIG.pricing)).toEqual(["monthly"]);
+    expect(PRICING_CONFIG.pricing).not.toHaveProperty("yearly");
+    expect(PRICING_CONFIG.pricing.monthly.amount).toBe(99.0);
+  });
+
+  it("the Stripe price map exposes only the monthly price (no yearly)", () => {
+    expect(Object.keys(PRICING_CONFIG.prices)).toEqual(["monthly"]);
+    expect(PRICING_CONFIG.prices).not.toHaveProperty("yearly");
+  });
+
   it("every paid tier is priced in AUD", () => {
     for (const [key, plan] of Object.entries(PRICING_CONFIG.pricing)) {
       expect(plan.currency, `tier ${key} currency`).toBe("AUD");

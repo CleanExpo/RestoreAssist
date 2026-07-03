@@ -300,21 +300,18 @@ export function FloorPlanUnderlayLoader({
             </div>
           )}
 
-          {/* PR5 — Premium upgrade CTA (shown when the scrape returns 402) */}
+          {/* F2 (RA-6929/6930/6931) — the underlay fetch has no entitlement
+              source until RA-6922, so the scrape returns 402. Show a neutral
+              "unavailable" note instead of an upsell for a nonexistent plan.
+              Manual upload below still works. */}
           {upgradeRequired && (
-            <div className="flex flex-col gap-1.5 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-xs">
-              <p className="font-medium text-cyan-600 dark:text-cyan-300">
-                Floor plan underlay is a Premium feature
+            <div className="flex flex-col gap-1.5 p-3 rounded-lg bg-neutral-500/10 border border-neutral-400/30 text-xs">
+              <p className="font-medium text-neutral-600 dark:text-slate-300">
+                Automatic floor plan fetch is not available yet
               </p>
               <p className="text-neutral-500 dark:text-slate-400">
-                Upgrade your plan to fetch and trace property floor plans.
+                You can still upload a floor plan image manually below.
               </p>
-              <a
-                href="/billing/upgrade"
-                className="inline-flex items-center justify-center gap-1.5 mt-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 transition-colors"
-              >
-                Upgrade to unlock
-              </a>
             </div>
           )}
 

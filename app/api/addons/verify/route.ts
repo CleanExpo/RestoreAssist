@@ -5,6 +5,7 @@ import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { withIdempotency } from "@/lib/idempotency";
+import { fulfillAddonFromSession } from "@/lib/billing/fulfill-one-time";
 import { apiError, fromException } from "@/lib/api-errors";
 
 /**
@@ -108,85 +109,29 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Check if already processed
+        // F4 — delegate to the shared fulfillment helper so this browser verify
+        // path and the webhook path apply the exact same idempotent write,
+        // deduped on the AddonPurchase.stripeSessionId marker. Redundant
+        // self-heal, not the primary path.
+        const result = await fulfillAddonFromSession(checkoutSession);
+
         const user = await prisma.user.findUnique({
           where: { id: userId },
           select: { addonReports: true },
         });
 
-        // Check if purchase record already exists
-        let existingPurchase = null;
-        try {
-          existingPurchase = await prisma.addonPurchase.findFirst({
-            where: {
-              stripeSessionId: checkoutSession.id,
-            },
-          });
-        } catch (error: any) {
-          // Table not available
-        }
-
-        if (existingPurchase) {
+        if (result.deduped) {
           return NextResponse.json({
             success: true,
-            message: "Add-on already processed",
-            addonReports: user?.addonReports,
+            message: "Add-on purchase already processed",
+            addonReports: user?.addonReports || 0,
           });
-        }
-
-        // Process the add-on purchase
-        const paymentIntentId = checkoutSession.payment_intent as
-          | string
-          | undefined;
-
-        // Atomically create purchase record + increment user's addonReports.
-        // Without a transaction, a server crash between the two writes leaves the
-        // user with a purchase record but no reports credited (unrecoverable without
-        // manual intervention). P2002 on the unique stripeSessionId means already processed.
-        let updatedUser: { addonReports: number | null };
-        try {
-          const [_, updated] = await prisma.$transaction([
-            prisma.addonPurchase.create({
-              data: {
-                userId: userId,
-                addonKey: addonKey,
-                addonName: addon.name,
-                reportLimit: addonReports,
-                amount: addon.amount,
-                currency: addon.currency,
-                stripeSessionId: checkoutSession.id,
-                stripePaymentIntentId: paymentIntentId,
-                status: "COMPLETED",
-              },
-            }),
-            prisma.user.update({
-              where: { id: userId },
-              data: { addonReports: { increment: addonReports } },
-              select: { addonReports: true },
-            }),
-          ]);
-          updatedUser = updated;
-        } catch (error: any) {
-          // Unique constraint on stripeSessionId — already processed
-          if (
-            error.code === "P2002" ||
-            error.message?.includes("Unique constraint") ||
-            error.message?.includes("unique")
-          ) {
-            return NextResponse.json({
-              success: true,
-              message: "Add-on purchase already processed",
-              addonReports: user?.addonReports || 0,
-            });
-          }
-          console.warn("Could not process AddonPurchase:", error.message);
-          throw error;
         }
 
         return NextResponse.json({
           success: true,
           message: "Add-on purchase processed successfully",
-          addonReports: updatedUser.addonReports,
+          addonReports: user?.addonReports || 0,
           increment: addonReports,
         });
       } catch (stripeError) {

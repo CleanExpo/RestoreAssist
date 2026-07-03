@@ -12,6 +12,7 @@ import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { SketchToolbar } from "./SketchToolbar";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
+import { hasFloorPlanUnderlay } from "@/lib/billing/floor-plan-entitlement";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
 import {
   Plus,
@@ -705,8 +706,9 @@ export function SketchEditor({
         </div>
       </div>
 
-      {/* Floor plan underlay loader */}
-      {!readonly && (
+      {/* Floor plan underlay loader — F2: hidden until RA-6922 provisions the
+          entitlement (hasFloorPlanUnderlay is always false today). */}
+      {!readonly && hasFloorPlanUnderlay(null) && (
         <FloorPlanUnderlayLoader
           defaultAddress={propertyAddress}
           defaultPostcode={propertyPostcode}

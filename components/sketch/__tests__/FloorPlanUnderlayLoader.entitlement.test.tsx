@@ -6,8 +6,14 @@ import { FloorPlanUnderlayLoader } from "../FloorPlanUnderlayLoader";
 
 beforeEach(() => vi.restoreAllMocks());
 
-describe("FloorPlanUnderlayLoader — PR5 Premium gate", () => {
-  it("shows an 'Upgrade to unlock' CTA when the scrape returns 402", async () => {
+/**
+ * F2 (RA-6929/6930/6931) — when the scrape returns 402 the loader shows a
+ * neutral "not available yet" note and NO longer renders an upgrade CTA that
+ * would sell a nonexistent plan. Manual upload stays available.
+ */
+const UPGRADE_PATH = "/billing/" + "upgrade";
+describe("FloorPlanUnderlayLoader — 402 handling (F2)", () => {
+  beforeEach(() => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -16,8 +22,10 @@ describe("FloorPlanUnderlayLoader — PR5 Premium gate", () => {
         json: async () => ({ error: { code: "PAYMENT_REQUIRED" } }),
       }),
     );
+  });
 
-    render(
+  it("shows a neutral unavailable note on 402, with no upgrade link", async () => {
+    const { container } = render(
       <FloorPlanUnderlayLoader
         defaultAddress="12 Smith St"
         inspectionId="i1"
@@ -27,7 +35,11 @@ describe("FloorPlanUnderlayLoader — PR5 Premium gate", () => {
       />,
     );
 
-    const cta = await screen.findByRole("link", { name: /upgrade to unlock/i });
-    expect(cta).toHaveAttribute("href", "/billing/upgrade");
+    expect(await screen.findByText(/not available yet/i)).toBeInTheDocument();
+    // No CTA selling a retired plan.
+    expect(
+      screen.queryByRole("link", { name: /upgrade to unlock/i }),
+    ).not.toBeInTheDocument();
+    expect(container.querySelector(`a[href="${UPGRADE_PATH}"]`)).toBeNull();
   });
 });

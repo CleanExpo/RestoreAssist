@@ -43,14 +43,21 @@ vi.mock("@/lib/idempotency", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    // PR5: the route now gates on the caller's subscription tier before the
-    // cache read — mock an entitled (Premium) user so these cache tests run.
+    // The route gates on entitlement before the cache read — mock a user so
+    // these cache tests run.
     user: { findUnique: vi.fn() },
     propertyLookup: {
       findFirst: vi.fn(),
       upsert: vi.fn(),
     },
   },
+}));
+
+// F2 (RA-6929/6930/6931): the entitlement is gated off for everyone until
+// RA-6922, so the real predicate always 402s. These tests target the RA-1761
+// cache-read FILTER in isolation, so bypass the gate to reach that code path.
+vi.mock("@/lib/billing/floor-plan-entitlement", () => ({
+  hasFloorPlanUnderlay: () => true,
 }));
 
 import { getServerSession } from "next-auth";

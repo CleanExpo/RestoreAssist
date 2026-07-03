@@ -8,6 +8,16 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { apiError, fromException } from "@/lib/api-errors";
+import { PRICING_CONFIG } from "@/lib/pricing";
+
+// R3 — server-authoritative price allowlist. The client may only ask for a
+// priceId that is in this fixed set (the single $99 Monthly Plan). Any other
+// id is rejected 400 and NO Stripe price/session is created. There is no
+// dynamic price creation: an unset STRIPE_PRICE_MONTHLY fails closed at Stripe
+// rather than fabricating a price.
+const ALLOWED_PRICE_IDS = new Set<string>(
+  [PRICING_CONFIG.prices.monthly].filter(Boolean),
+);
 
 export async function POST(request: NextRequest) {
   // RA-1842 Path B — Apple guideline 3.1.1 compliance. iOS Capacitor
@@ -81,6 +91,17 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // R3 — reject any priceId outside the fixed server allowlist BEFORE any
+      // Stripe call. A client cannot supply an arbitrary price and the server
+      // never creates a dynamic price.
+      if (!ALLOWED_PRICE_IDS.has(priceId)) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Unknown or unsupported plan",
+          status: 400,
+        });
+      }
+
       // Get user's Stripe customer ID
       const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -117,91 +138,67 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Create Stripe checkout session
-      let checkoutSession;
-      try {
-        checkoutSession = await stripe.checkout.sessions.create({
-          mode: "subscription",
-          payment_method_types: ["card"],
-          customer: customerId,
-          line_items: [
-            {
-              price: priceId,
-              quantity: 1,
-            },
-          ],
-          success_url: `${baseUrl}/dashboard/success?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
-          metadata: {
-            userId: userId,
-          },
-          // RA-1351 — AU GST compliance. Stripe Tax auto-applies 10 % GST
-          // to AU customers / 15 % to NZ. Plan prices are GST-inclusive,
-          // so tax_behavior=inclusive prevents double-charging. ABN
-          // collection lets AU business customers claim input credits.
-          automatic_tax: { enabled: true },
-          tax_id_collection: { enabled: true },
-          customer_update: { name: "auto", address: "auto" },
-        });
-      } catch (priceError: any) {
-        // If price doesn't exist, create it dynamically
-        if (priceError.code === "resource_missing") {
-          // Create price based on the priceId
-          let priceData;
-          if (priceId === "MONTHLY_PLAN" || priceId.includes("MONTHLY")) {
-            priceData = {
-              unit_amount: 9900, // $99.00 in cents (GST-inclusive per AU convention)
-              currency: "aud",
-              // RA-1351 — mark prices GST-inclusive so Stripe Tax doesn't
-              // add 10 % on top of the displayed amount. Pricing page shows
-              // customer-facing GST-inclusive figures; ATO-compliant tax
-              // invoices break out the GST component automatically.
-              tax_behavior: "inclusive" as const,
-              recurring: { interval: "month" as const },
-              product_data: {
-                name: "Monthly Plan - 50 Reports",
-              },
-            };
-          } else if (priceId === "YEARLY_PLAN" || priceId.includes("YEARLY")) {
-            priceData = {
-              unit_amount: 118800, // $1188.00 in cents (GST-inclusive)
-              currency: "aud",
-              tax_behavior: "inclusive" as const,
-              recurring: { interval: "year" as const },
-              product_data: {
-                name: "Yearly Plan - 70 Reports/Month",
-              },
-            };
-          } else {
-            throw new Error("Invalid price ID", { cause: priceError });
-          }
-
-          const newPrice = await stripe.prices.create(priceData as any);
-
-          checkoutSession = await stripe.checkout.sessions.create({
-            mode: "subscription",
-            payment_method_types: ["card"],
+      // R7 / F4 — double-subscription guard. Read Stripe (not the drifted
+      // local subscriptionStatus): if the customer already has a live
+      // active/trialing subscription, do NOT create a second one — route them
+      // to the billing portal to change plans instead. This covers users
+      // whose local status is TRIAL/PAST_DUE but who hold a live Stripe sub.
+      const existingSubs = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "all",
+      });
+      const hasLiveSub = existingSubs.data.some(
+        (sub) => sub.status === "active" || sub.status === "trialing",
+      );
+      if (hasLiveSub) {
+        let portalUrl: string | null = null;
+        try {
+          const portalSession = await stripe.billingPortal.sessions.create({
             customer: customerId,
-            line_items: [
-              {
-                price: newPrice.id,
-                quantity: 1,
-              },
-            ],
-            success_url: `${baseUrl}/dashboard/success`,
-            cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
-            metadata: {
-              userId: userId,
-            },
-            // RA-1351 — same GST + ABN collection on the dynamic-price path
-            automatic_tax: { enabled: true },
-            tax_id_collection: { enabled: true },
-            customer_update: { name: "auto", address: "auto" },
+            return_url: `${baseUrl}/dashboard/subscription`,
           });
-        } else {
-          throw priceError;
+          portalUrl = portalSession.url;
+        } catch (portalErr) {
+          console.error(
+            "[create-checkout-session] portal session create failed (non-fatal):",
+            portalErr instanceof Error ? portalErr.message : portalErr,
+          );
         }
+        return NextResponse.json(
+          {
+            error: "You already have an active subscription.",
+            portalRequired: true,
+            url: portalUrl,
+          },
+          { status: 409 },
+        );
       }
+
+      // Create Stripe checkout session. The price is a fixed allowlisted id —
+      // no dynamic price creation (R3).
+      const checkoutSession = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        payment_method_types: ["card"],
+        customer: customerId,
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        success_url: `${baseUrl}/dashboard/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
+        metadata: {
+          userId: userId,
+        },
+        // RA-1351 — AU GST compliance. Stripe Tax auto-applies 10 % GST
+        // to AU customers / 15 % to NZ. Plan prices are GST-inclusive,
+        // so tax_behavior=inclusive prevents double-charging. ABN
+        // collection lets AU business customers claim input credits.
+        automatic_tax: { enabled: true },
+        tax_id_collection: { enabled: true },
+        customer_update: { name: "auto", address: "auto" },
+      });
 
       return NextResponse.json({
         sessionId: checkoutSession.id,
