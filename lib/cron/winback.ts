@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendWinbackEmail } from "@/lib/email";
+import { sendWithRetry } from "@/lib/email-retry";
 import type { CronJobResult } from "./runner";
 
 /**
@@ -58,12 +59,16 @@ export async function sendWinback(): Promise<CronJobResult> {
     );
 
     try {
-      await sendWinbackEmail({
-        recipientEmail: user.email,
-        recipientName: user.name ?? "there",
-        resubscribeUrl,
-        daysSinceExpired,
-      });
+      await sendWithRetry(
+        () =>
+          sendWinbackEmail({
+            recipientEmail: user.email,
+            recipientName: user.name ?? "there",
+            resubscribeUrl,
+            daysSinceExpired,
+          }),
+        { stage: "cron-winback" },
+      );
       sent++;
     } catch (err) {
       failed++;
