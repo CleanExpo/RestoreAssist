@@ -34,6 +34,7 @@ TypeScript / Next.js 15 App Router compliance platform for Australian water dama
 16. **Read before modify.** 120+ Prisma models, 800+ files — never assume.
 17. **Progress Framework (RA-1376 Epic) is non-negotiable.** Full constraints in `.claude/RULES.md`.
 18. **Never auto-open PRs into `main`.** `main` is protected (strict up-to-date + required conversation resolution). Autonomous/agent runs land work on a dedicated feature branch or `sandbox` — never a full-tree `sandbox → main` or `<branch> → main` merge PR. PRs into `main` are human-authored only. Any stray agent-opened `→ main` PR is noise: close it on sight, don't resolve its conflicts.
+19. **Continuous Linear-driven agent loop is sanctioned — implement → PR-open → stop.** A session-bound (not standing-cron) loop that pulls TODO items from the Linear RestoreAssist backlog, dispatches sub-agents to implement each, and opens a PR per item is an approved pattern. Its boundary is absolute: the loop implements, verifies, and opens a PR — then stops. It never merges, never rebases past a merge conflict on `main`, and never re-spawns itself outside the current session. Rule 18 applies to this loop in full and without exception — a human merges. If the loop cannot open a clean PR (conflicts, failing gate), it stops and reports — it does not attempt to resolve by merging.
 
 ## Package source — use opensrc, don't fabricate APIs
 
