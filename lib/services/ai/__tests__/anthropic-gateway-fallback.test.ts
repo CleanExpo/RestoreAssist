@@ -4,7 +4,7 @@ vi.mock("@/lib/ai-provider", () => ({
   getAnthropicApiKey: vi.fn(),
 }));
 
-const { mockTryClaudeModels, MockAPIError } = vi.hoisted(() => {
+const { mockTryClaudeModels, MockAPIError, MockAuthenticationError } = vi.hoisted(() => {
   class MockAPIError extends Error {
     status: number;
     constructor(message: string, status: number) {
@@ -12,9 +12,13 @@ const { mockTryClaudeModels, MockAPIError } = vi.hoisted(() => {
       this.status = status;
     }
   }
+  class MockAuthenticationError extends Error {
+    status = 401;
+  }
   return {
     mockTryClaudeModels: vi.fn(),
     MockAPIError,
+    MockAuthenticationError,
   };
 });
 
@@ -34,6 +38,7 @@ vi.mock("@anthropic-ai/sdk", () => {
   Anthropic.RateLimitError = class MockRateLimitError extends Error {
     status = 429;
   };
+  Anthropic.AuthenticationError = MockAuthenticationError;
   return { default: Anthropic };
 });
 
@@ -82,6 +87,18 @@ describe("callAnthropicWithFallback", () => {
     const r = await callAnthropicWithFallback(baseReq);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe("KEY_MISSING");
+  });
+
+  it("returns KEY_INVALID when tryClaudeModels throws AuthenticationError", async () => {
+    vi.mocked(getAnthropicApiKey).mockResolvedValueOnce("sk-test");
+    mockTryClaudeModels.mockRejectedValueOnce(new MockAuthenticationError("auth failed"));
+
+    const r = await callAnthropicWithFallback(baseReq);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toBe("KEY_INVALID");
+      expect(r.detail).toContain("invalid or expired");
+    }
   });
 
   it("returns RATE_LIMITED for 429 status throws", async () => {

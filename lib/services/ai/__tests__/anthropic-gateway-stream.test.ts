@@ -13,7 +13,10 @@ const hoisted = vi.hoisted(() => {
       this.status = status;
     }
   }
-  return { MockRateLimitError, MockAPIError };
+  class MockAuthenticationError extends Error {
+    status = 401;
+  }
+  return { MockRateLimitError, MockAPIError, MockAuthenticationError };
 });
 
 vi.mock("@/lib/ai-provider", () => ({
@@ -27,6 +30,7 @@ vi.mock("@anthropic-ai/sdk", () => {
   });
   Anthropic.RateLimitError = hoisted.MockRateLimitError;
   Anthropic.APIError = hoisted.MockAPIError;
+  Anthropic.AuthenticationError = hoisted.MockAuthenticationError;
   return { default: Anthropic };
 });
 
@@ -95,6 +99,20 @@ describe("callAnthropicStream", () => {
     const r = await callAnthropicStream({ ...baseReq, apiKey: "sk-override" });
     expect(r.ok).toBe(true);
     expect(vi.mocked(getAnthropicApiKey)).not.toHaveBeenCalled();
+  });
+
+  it("returns KEY_INVALID when SDK throws synchronously with AuthenticationError", async () => {
+    vi.mocked(getAnthropicApiKey).mockResolvedValueOnce("sk-test");
+    mockMessagesStream.mockImplementationOnce(() => {
+      throw new hoisted.MockAuthenticationError("auth failed");
+    });
+
+    const r = await callAnthropicStream(baseReq);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toBe("KEY_INVALID");
+      expect(r.detail).toContain("invalid or expired");
+    }
   });
 
   it("returns RATE_LIMITED when SDK throws synchronously with RateLimitError", async () => {

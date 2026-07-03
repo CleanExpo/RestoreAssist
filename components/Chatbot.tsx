@@ -360,7 +360,7 @@ export default function Chatbot() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to get response");
+        throw new Error(error?.error?.message || error?.message || "Failed to get response");
       }
 
       const data = await response.json();
