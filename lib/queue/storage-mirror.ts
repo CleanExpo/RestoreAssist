@@ -299,6 +299,23 @@ async function handleJobFailure(
   const isPermanent = isInvalidGrant || newAttempts >= MAX_ATTEMPTS;
 
   if (isPermanent) {
+    // `invalid_grant` means the org's Drive refresh token is dead. Clear the
+    // stored token fields so the storage settings UI stops showing a stale
+    // "Connected as …" and prompts a reconnect. Reverts to SUPABASE so the
+    // mirror queue no longer targets a provider the org can't reach.
+    if (isInvalidGrant) {
+      await prisma.organization.update({
+        where: { id: job.orgId },
+        data: {
+          storageProvider: "SUPABASE",
+          storageProviderAccessToken: null,
+          storageProviderRefreshToken: null,
+          storageProviderTokenExpiresAt: null,
+          storageProviderAccountEmail: null,
+        },
+      });
+    }
+
     await prisma.storageMirrorJob.update({
       where: { id: job.id },
       data: {
