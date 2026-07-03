@@ -11,9 +11,16 @@ import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { getOrganizationOwner } from "@/lib/organization-credits";
 import { withIdempotency } from "@/lib/idempotency";
+import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
+  // RA-6939 — Apple guideline 3.1.1 compliance. iOS Capacitor shell sends
+  // X-Capacitor-Platform: ios on every same-origin fetch; reject with 403
+  // before any Stripe call.
+  const iosBlocked = rejectIfIOSCapacitor(request);
+  if (iosBlocked) return iosBlocked;
+
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return apiError(request, {
