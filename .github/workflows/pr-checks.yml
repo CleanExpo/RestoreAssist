@@ -130,6 +130,21 @@ jobs:
       - name: Emoji guard
         run: pnpm check:no-emoji
 
+      # UTF-8 encoding guard (RA-6938). Fails if CLAUDE.md, AGENTS.md, or any
+      # .claude/rules/*.md is committed as invalid-UTF-8 "data" (mojibake). The
+      # primary agent brief was silently corrupted from the Commands section
+      # onward on main; this cheap check stops that trust-damage class before merge.
+      - name: Encoding guard
+        run: pnpm check:encoding
+
+      # Standards-citation integrity gate (STORM #7 / RA-6934). Fails on stale
+      # IICRC editions (source literals + scripts/data/*.json corpus) and on
+      # fabricated S500 section numbers whose top-level chapter does not exist in
+      # the verified section index. Previously only defined in package.json and
+      # never enforced in CI — wired here to close the blind spot.
+      - name: Standards citation gate
+        run: pnpm check:standards
+
       # Phase 2 AI guardrail gate. Static only: no provider calls, no DB
       # writes, and no runtime routing changes. Fails if a new AI/provider/RAG
       # surface cannot be classified into a known task class.
