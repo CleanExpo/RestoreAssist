@@ -13,7 +13,16 @@ function verifySignature(
 ): boolean {
   const hmac = crypto.createHmac("sha256", secret);
   const digest = "sha256=" + hmac.update(payload).digest("hex");
-  return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature));
+  const digestBuf = Buffer.from(digest);
+  const signatureBuf = Buffer.from(signature);
+  // RA-6940 — timingSafeEqual THROWS on length mismatch, turning any
+  // wrong-length x-hub-signature-256 header into a 500 instead of a 401.
+  // Length is not secret (the digest length is public), so a plain
+  // pre-check is safe.
+  if (digestBuf.length !== signatureBuf.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(digestBuf, signatureBuf);
 }
 
 function deriveVersion(commits: Array<{ message: string }>): string {
