@@ -1166,12 +1166,18 @@ model ExternalClient {
   address    String?
   rawData    Json // Full response from external API
 
+  // RA-6964: link to the RestoreAssist Client created when this external
+  // record is imported. Nullable + no @relation (loose reference, matches
+  // ExternalJob.claimId) so imports remain idempotent without an FK cascade.
+  contactId String?
+
   lastSyncedAt DateTime @default(now())
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@unique([integrationId, externalId])
   @@index([integrationId])
+  @@index([contactId])
 }
 
 // External Job from integration (synced data)

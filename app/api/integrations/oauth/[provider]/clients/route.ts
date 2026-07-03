@@ -199,19 +199,47 @@ export async function POST(
 
     for (const externalClient of externalClients) {
       try {
-        // Create a client record
-        const client = await prisma.client.create({
-          data: {
+        // Idempotent re-import: if this external record is already linked to
+        // a Client that still exists, don't create another one.
+        if (externalClient.contactId) {
+          const existingLink = await prisma.client.findFirst({
+            where: { id: externalClient.contactId, userId: session.user.id },
+            select: { id: true },
+          });
+          if (existingLink) {
+            imported.push(externalClient.externalId);
+            continue;
+          }
+        }
+
+        // Client.email is required and unique per (userId, email). External
+        // records without an email would otherwise all collide on "" - give
+        // each one a stable per-record placeholder instead.
+        const email =
+          externalClient.email && externalClient.email.trim()
+            ? externalClient.email.trim()
+            : `ext-${integration.id}-${externalClient.externalId}@client.local`;
+
+        // Find-or-create so re-syncing the same external contact (by email)
+        // links back to the same Client rather than duplicating it.
+        const client = await prisma.client.upsert({
+          where: { userId_email: { userId: session.user.id, email } },
+          update: {
+            name: externalClient.name,
+            phone: externalClient.phone,
+            address: externalClient.address,
+          },
+          create: {
             userId: session.user.id,
             name: externalClient.name,
-            email: externalClient.email ?? "",
+            email,
             phone: externalClient.phone,
             address: externalClient.address,
           },
         });
 
         // Link external client to the client record
-        await (prisma.externalClient as any).update({
+        await prisma.externalClient.update({
           where: { id: externalClient.id },
           data: { contactId: client.id },
         });
