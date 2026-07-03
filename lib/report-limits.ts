@@ -1,10 +1,42 @@
 import { prisma } from "@/lib/prisma";
-import { PRICING_CONFIG } from "@/lib/pricing";
 import {
   getEffectiveSubscription,
   getOrganizationOwner,
 } from "@/lib/organization-credits";
 import { checkAndUpdateTrialStatus } from "@/lib/trial-handling";
+
+/**
+ * F3 (RA-6929/6930/6931) — stable, self-contained base report limits keyed on
+ * the free-text `subscriptionPlan` string stored on the user row.
+ *
+ * This map is DELIBERATELY decoupled from `PRICING_CONFIG`. The billing-catalog
+ * collapse retired the Yearly SKU from `PRICING_CONFIG.pricing`, but existing
+ * ACTIVE subscribers are grandfathered (clarification C4) and still carry
+ * `subscriptionPlan = "Yearly Plan"` / `"Lifetime"`. If the resolver read the
+ * catalog, those users would silently drop to 50 the moment `pricing.yearly`
+ * was deleted. Resolving from this stable map preserves 70/999 forever;
+ * unknown/null plans fall back to the base 50 (never a lower silent value).
+ */
+export const PLAN_REPORT_LIMITS: Record<string, number> = {
+  Lifetime: 999,
+  "Yearly Plan": 70,
+  "Monthly Plan": 50,
+};
+
+/** Base monthly report limit for any plan not in {@link PLAN_REPORT_LIMITS}. */
+export const DEFAULT_REPORT_LIMIT = 50;
+
+/**
+ * Resolve the base monthly report limit for a stored `subscriptionPlan` string.
+ * Grandfathered legacy plans keep their historical limit; anything unknown or
+ * null resolves to the base 50 — never a silent drop below it.
+ */
+export function resolveBaseReportLimit(
+  subscriptionPlan: string | null | undefined,
+): number {
+  if (!subscriptionPlan) return DEFAULT_REPORT_LIMIT;
+  return PLAN_REPORT_LIMITS[subscriptionPlan] ?? DEFAULT_REPORT_LIMIT;
+}
 
 export interface ReportLimitInfo {
   baseLimit: number;
@@ -91,14 +123,10 @@ export async function getUserReportLimits(
 
   // For active subscribers, calculate limits
   if (user.subscriptionStatus === "ACTIVE") {
-    const isLifetime = user.subscriptionPlan === "Lifetime";
-    const plan = isLifetime
-      ? { reportLimit: 999 }
-      : user.subscriptionPlan === "Yearly Plan"
-        ? PRICING_CONFIG.pricing.yearly
-        : PRICING_CONFIG.pricing.monthly;
-
-    const baseLimit = plan.reportLimit || 0;
+    // F3 — resolve the base limit from the stable PLAN_REPORT_LIMITS map so
+    // grandfathered "Yearly Plan" (70) and "Lifetime" (999) users survive the
+    // catalog collapse instead of silently dropping to 50.
+    const baseLimit = resolveBaseReportLimit(user.subscriptionPlan);
 
     // Calculate add-on reports: sum of all completed purchases from AddonPurchase table
     // This is the source of truth for purchased add-ons

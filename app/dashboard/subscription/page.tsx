@@ -558,11 +558,11 @@ function SubscriptionPageContent() {
                   )}
 
                   {/* Best Value Badge */}
-                  {"badge" in plan && plan.badge && (
+                  {(plan as { badge?: string }).badge && (
                     <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                       <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
                         <Award className="w-4 h-4" />
-                        {plan.badge}
+                        {(plan as { badge?: string }).badge}
                       </div>
                     </div>
                   )}

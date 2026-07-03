@@ -29,14 +29,13 @@ export default async function UpgradePage({
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
-    select: { subscriptionStatus: true, subscriptionPlan: true },
+    select: { subscriptionStatus: true },
   });
 
-  const initialTier = reason === "feature" ? "PREMIUM" : undefined;
-  const currentTier =
-    user.subscriptionStatus === "ACTIVE" && user.subscriptionPlan
-      ? (user.subscriptionPlan as "STANDARD" | "PREMIUM" | "ENTERPRISE")
-      : null;
+  // Single $99 catalog (C1) — the paywall no longer casts the free-text
+  // subscriptionPlan to a tier enum. "Current plan" simply reflects whether
+  // the user already holds an active subscription.
+  const isCurrentPlan = user.subscriptionStatus === "ACTIVE";
 
   return (
     <main className="container mx-auto max-w-5xl p-8">
@@ -46,7 +45,7 @@ export default async function UpgradePage({
         </p>
       )}
       <UpgradeHeader reason={reason} feature={feature} />
-      <TierGrid initialTier={initialTier} currentTier={currentTier} />
+      <TierGrid isCurrentPlan={isCurrentPlan} />
     </main>
   );
 }

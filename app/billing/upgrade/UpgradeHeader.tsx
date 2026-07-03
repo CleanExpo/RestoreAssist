@@ -26,7 +26,7 @@ export default function UpgradeHeader({ reason, feature }: { reason: Reason; fea
       <header className="mb-8 rounded border border-purple-300 bg-purple-50 p-6">
         <h1 className="text-2xl font-semibold">Unlock {feature ?? "this feature"}</h1>
         <p className="mt-2 text-muted-foreground">
-          This feature is included in the PREMIUM and ENTERPRISE plans.
+          Subscribe to unlock this feature.
         </p>
       </header>
     );

@@ -36,7 +36,20 @@ function PricingPageContent() {
   }, []);
 
   const freeCfg = PRICING_CONFIG.free;
-  const freePlan = {
+  type DisplayPlan = {
+    name: string;
+    price: string;
+    period: string;
+    description: string;
+    features: readonly string[];
+    popular: boolean;
+    badge: string | null;
+    monthlyEquivalent: number | null;
+    reportLimit: number;
+    signupBonus: number | null;
+    isFree: boolean;
+  };
+  const freePlan: DisplayPlan = {
     name: freeCfg.displayName,
     price: "$0",
     period: "",
@@ -51,7 +64,7 @@ function PricingPageContent() {
   };
 
   // Map pricing config to display format
-  const plans = Object.values(PRICING_CONFIG.pricing).map((plan) => {
+  const plans: DisplayPlan[] = Object.values(PRICING_CONFIG.pricing).map((plan) => {
     const price =
       plan.amount % 1 === 0 ? `$${plan.amount}` : `$${plan.amount.toFixed(2)}`;
 
@@ -70,11 +83,14 @@ function PricingPageContent() {
       description,
       features: plan.features,
       popular: plan.popular,
-      badge: "badge" in plan ? plan.badge : null,
+      // The single $99 catalog has no badge / monthlyEquivalent (those were
+      // yearly-only); type the optional accessors explicitly so the collapse
+      // to one SKU keeps these display fields as string|null / number|null.
+      badge: (plan as { badge?: string }).badge ?? null,
       monthlyEquivalent:
-        "monthlyEquivalent" in plan ? plan.monthlyEquivalent : null,
+        (plan as { monthlyEquivalent?: number }).monthlyEquivalent ?? null,
       reportLimit: plan.reportLimit,
-      signupBonus: "signupBonus" in plan ? plan.signupBonus : null,
+      signupBonus: (plan as { signupBonus?: number }).signupBonus ?? null,
       isFree: false,
     };
   });

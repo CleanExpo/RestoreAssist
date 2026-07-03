@@ -163,10 +163,13 @@ export async function GET(request: NextRequest) {
       ),
     ]);
 
-    // Calculate MRR
+    // Calculate MRR. The Yearly SKU was retired from the catalog
+    // (RA-6929/6930/6931 collapse), but grandfathered "Yearly Plan"
+    // subscribers still bill at the legacy $1188/yr — count their MRR from a
+    // stable local constant rather than the removed PRICING_CONFIG.pricing.yearly.
+    const LEGACY_YEARLY_AMOUNT_AUD = 1188;
     const monthlyMRR = activeMonthly * PRICING_CONFIG.pricing.monthly.amount;
-    const yearlyMRR =
-      activeYearly * (PRICING_CONFIG.pricing.yearly.amount / 12);
+    const yearlyMRR = activeYearly * (LEGACY_YEARLY_AMOUNT_AUD / 12);
     const totalMRR = monthlyMRR + yearlyMRR;
 
     // Calculate ARR

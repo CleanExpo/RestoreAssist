@@ -44,13 +44,17 @@ export const PRICING_CONFIG = {
     ],
   },
 
-  // Stripe Price IDs - Use environment variables or fallback to dynamic creation
+  // Stripe Price IDs — the single source-of-truth catalog is the one $99
+  // Monthly Plan (RA-6929/6930/6931 billing-correctness collapse; C1/C3).
+  // The Yearly $1188 SKU was retired: a fixed server allowlist rejects any
+  // priceId not listed here, so there is no client-set or dynamic price path.
   prices: {
     monthly: process.env.STRIPE_PRICE_MONTHLY || "MONTHLY_PLAN",
-    yearly: process.env.STRIPE_PRICE_YEARLY || "YEARLY_PLAN",
   },
 
-  // Pricing Details (for display)
+  // Pricing Details (for display) — one catalog, one card. Every checkout
+  // entry point (public pricing, dashboard pricing, the expired-trial
+  // hard-paywall) sells from this single $99 Monthly Plan.
   pricing: {
     monthly: {
       name: "Monthly Plan",
@@ -69,28 +73,6 @@ export const PRICING_CONFIG = {
         "All integrations",
         "IICRC S500 compliant",
         "Priority processing",
-      ],
-    },
-    yearly: {
-      name: "Yearly Plan",
-      displayName: "Yearly",
-      amount: 1188.0,
-      currency: "AUD",
-      interval: "year",
-      reportLimit: 70, // Reports per month
-      monthlyEquivalent: 99,
-      popular: false,
-      badge: "Best Value",
-      signupBonus: 10, // Additional 10 reports on first month signup
-      features: [
-        "70 inspection reports per month",
-        "First month signup bonus: +10 reports",
-        "PDF & Excel export",
-        "Priority support",
-        "All integrations",
-        "IICRC S500 compliant",
-        "Priority processing",
-        "Best value - More reports per month",
       ],
     },
   },
