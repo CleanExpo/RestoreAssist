@@ -1,6 +1,6 @@
 ---
 name: continuous-linear-loop
-description: Runs one cycle of the continuous Linear-driven agent loop (AGENTS.md rule 19) — pulls the next actionable RA Todo/Backlog issue, skips owner-gated work, dispatches implementation via a main-targeted adaptation of linear-task-processor, verifies, opens a PR, moves the issue to In Review, then stops. Invoked repeatedly by the /loop skill (see Task 6 of docs/superpowers/plans/2026-07-03-continuous-moa-loop-core.md). Single-agent dispatch only — no MOA fan-out, no multi-discipline routing (that is Phase 2, a separate design).
+description: Runs one cycle of the continuous Linear-driven agent loop (AGENTS.md rule 19) — pulls the next actionable RA Todo/Backlog issue, skips owner-gated work, dispatches implementation via a main-targeted adaptation of linear-task-processor, verifies, opens a PR, moves the issue to In Review, then stops. Invoked repeatedly by the /loop skill (see Task 6 of docs/superpowers/plans/2026-07-03-continuous-moa-loop-core.md). Owner-gate and dispatch routing (single-agent vs MOA fan-out via the `boardroom` skill) are decided by `scripts/linear-loop-decide.ts`, not by this procedure.
 model: sonnet
 tools:
   - Read
@@ -68,24 +68,28 @@ Otherwise, take the single highest-priority issue as `<issue>`. Fetch its full l
 the issue detail fields returned by `list_issues` (or a follow-up `get_issue` call if
 labels aren't included in the list response).
 
-### Cycle Step 2 — Owner-gated skip check
+### Cycle Step 2 — Owner-gated skip check (via the decision CLI)
 
-Apply the same check as `lib/linear-loop/owner-gated.ts`'s `isOwnerGated()` function:
+Run the decision CLI once for this issue, passing the fetched issue (identifier, labels,
+description, and any other fields `LinearIssueInput` expects — see
+`lib/agents/routing/types.ts`) as a single JSON argument:
 
-```typescript
-import { isOwnerGated } from "@/lib/linear-loop/owner-gated";
-
-const gated = isOwnerGated({
-  labels: issue.labels, // string[] of label names, not label objects
-  description: issue.description, // string | null
-});
+```bash
+npx tsx scripts/linear-loop-decide.ts --issue-json '<issue-as-json>'
 ```
 
-You do not run this as live TypeScript inside the agent session — you apply the same two
-checks by hand against the fetched issue: (1) does `issue.labels` include the string
-`"owner-gated"` (`OWNER_GATED_LABEL_NAME` in `lib/linear-loop/owner-gated.ts`)? (2) does
-`/owner[- ]?(action[- ]?)?gated/i` match `issue.description`? If either is true, this
-issue is owner-gated.
+This prints exactly one JSON line to stdout. Parse it:
+
+- `{ "ownerGated": true, "issueId": "<id>" }` — the issue is owner-gated. Follow the
+  skip-and-comment path below (unchanged from before).
+- `{ "ownerGated": false, "mode": "single-agent" | "moa", "skill": "<skillname>", "tier":
+  "<fable-5|opus-4.8|sonnet-5|haiku-4.5>", "prompt": "<nexus-wrapped prompt>" }` — not
+  owner-gated. Keep this full decision object — Cycle Step 4 consumes it directly and
+  must not re-run the CLI or re-derive routing itself.
+
+The CLI internally applies the same check as `lib/linear-loop/owner-gated.ts`'s
+`isOwnerGated()` function — you do not need to apply the label/description checks by hand
+any more; the CLI is the single source of truth for this decision.
 
 If owner-gated:
 
@@ -105,68 +109,67 @@ If not owner-gated, proceed to Cycle Step 3.
 Update the issue state to "In Progress" (`3ff96a21-7e90-4126-942f-034e09ebc3b6`) immediately
 — same as `linear-task-processor.md` Step 2. This claims the issue for this cycle.
 
-### Cycle Step 4 — Dispatch implementation (Nexus-wrapped, main-targeted)
+### Cycle Step 4 — Dispatch implementation (via the decision CLI's output, main-targeted)
 
-Dispatch a fresh `Agent` call (general-purpose or a code-capable agent type) wrapping the
-task in the Nexus Prompt (`nexus` skill: read
-`~/Pi-Dev-Ops/skills/nexus/references/NEXUS_PROMPT.md`, replace `{TASK}` with the filled
-task body below, dispatch verbatim). The wrapped task body reuses
-`linear-task-processor.md`'s Steps 3–7 verbatim (Understand the task → Branch → Implement →
-Validate → Commit), with these two overrides:
+Using Cycle Step 2's parsed decision object (`mode`, `skill`, `tier`, `prompt`) — do not
+re-derive routing, MOA fan-out, or tier selection here; the CLI already computed all of
+that via `dispatchWorkItem`. `prompt` is already a complete Nexus-wrapped task body (see
+`scripts/linear-loop-decide.ts`), so it is dispatched verbatim, not re-wrapped.
 
-1. **Branch naming and base**: branch from `main`, not `sandbox`:
+Branch setup happens first and is identical regardless of `mode`:
 
-   ```bash
-   git fetch origin
-   git checkout main
-   git pull origin main
-   git checkout -b feat/ra-XXX-short-description
-   ```
-
-   (If the branch already exists, append `-v2`, `-v3`, etc. — same rule as
-   `linear-task-processor.md`.)
-
-2. **Validate step is unchanged**: `pnpm type-check` then `pnpm lint`, zero tolerance, same
-   3-attempt/2-attempt fix-and-retry rule as `linear-task-processor.md` Step 6.
-
-The `{TASK}` body passed to the Nexus wrapper is:
-
+```bash
+git fetch origin
+git checkout main
+git pull origin main
+git checkout -b feat/ra-XXX-short-description
 ```
-Implement Linear issue <issue identifier>: <issue title>.
 
-<issue description verbatim>
+(If the branch already exists, append `-v2`, `-v3`, etc. — same rule as
+`linear-task-processor.md`.)
 
-Context: this is one cycle of RestoreAssist's continuous Linear-driven agent loop
-(AGENTS.md rule 19). You are implementing a single, scoped change — the same pattern
-used for RA-6921 batches 1-3. Branch from main (not sandbox), following
-.claude/agents/linear-task-processor.md Steps 3-7 for the implementation flow itself
-(read CLAUDE.md, .claude/ARCHITECTURE.md, .claude/STANDARDS.md; follow all auth/Prisma/
-IICRC/shadcn rules; run pnpm type-check && pnpm lint with zero tolerance before finishing).
+**Validate step is unchanged**: `pnpm type-check` then `pnpm lint`, zero tolerance, same
+3-attempt/2-attempt fix-and-retry rule as `linear-task-processor.md` Step 6 — this
+expectation is already embedded in `prompt`.
 
-Hard constraints:
-- Do not open a PR yourself — the calling procedure (Cycle Step 5) does that.
+**If `mode` is `"single-agent"`:** dispatch a fresh `Agent` call (general-purpose or a
+code-capable agent type) with `prompt` as the task body verbatim, at model tier `tier`.
+This is the same single-dispatch shape this procedure always used — only the
+routing/tier decision has moved into the CLI.
+
+**If `mode` is `"moa"`:** invoke the `boardroom` skill (multi-model triangulation for
+high-stakes decisions) with `prompt` as the base task for the synthesis/arbiter role, run
+at model tier `tier`. Boardroom fans out its own panellists per its own configuration and
+produces one synthesized answer; treat that synthesized answer the same way a
+single-agent dispatch's report would be treated when carrying results into Cycle Step 5.
+
+In both branches, `prompt` already embeds the hard constraints this procedure has always
+required of dispatched work:
+
+- Do not open a PR yourself — the calling procedure (Cycle Step 6) does that.
 - Do not merge anything.
-- If you hit an owner-gated action (.claude/RULES.md rules 29-33) or discover the issue
+- If you hit an owner-gated action (`.claude/RULES.md` rules 29-33) or discover the issue
   is broader/more ambiguous than a single scoped PR should be, stop and report that
   instead of proceeding.
-- Commit with specific files only (never git add -A), following
-  linear-task-processor.md Step 7's commit message format.
+- Commit with specific files only (never `git add -A`), following
+  `linear-task-processor.md` Step 7's commit message format.
 
 Report back: the branch name, the list of files changed, and confirmation that
-pnpm type-check and pnpm lint both passed.
-```
+`pnpm type-check` and `pnpm lint` both passed.
 
-If the dispatched agent reports an owner-gated blocker or unresolvable ambiguity instead
-of completing implementation: treat this the same as Cycle Step 2's owner-gated path —
+If the dispatched agent (or boardroom's synthesized result) reports an owner-gated
+blocker or unresolvable ambiguity instead of completing implementation: treat this the
+same as Cycle Step 2's owner-gated path —
 comment on the issue, leave its state alone, increment the stop-guard tracker's
 owner-gated trip, and return `{ outcome: "stop-guard-tripped", guard: "owner-gated",
 detail: "<issue identifier>: <reported blocker>" }`.
 
 ### Cycle Step 5 — Confirm verification
 
-The dispatched agent (Cycle Step 4) already ran `pnpm type-check && pnpm lint` to zero
-tolerance as part of its own Validate step. Before opening a PR, independently confirm
-by re-running both commands yourself against the resulting branch:
+The dispatched work (Cycle Step 4 — either the single-agent dispatch or boardroom's
+synthesized result) already ran `pnpm type-check && pnpm lint` to zero tolerance as part
+of its own Validate step. Before opening a PR, independently confirm by re-running both
+commands yourself against the resulting branch:
 
 ```bash
 pnpm type-check
