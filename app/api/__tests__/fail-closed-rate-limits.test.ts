@@ -57,6 +57,13 @@ const HARDENED_SITES: Record<string, string[]> = {
   "app/api/inspections/[id]/assessments/[type]/generate/route.ts": [
     "assessments:generate",
   ],
+  // Paid third-party proxies (HeyGen / ElevenLabs via Synthex).
+  "app/api/heygen/route.ts": ["heygen", "heygen-status"],
+  "app/api/elevenlabs/voice/route.ts": [
+    "elevenlabs-voice",
+    "elevenlabs-voices-list",
+  ],
+  "app/api/elevenlabs/sfx/route.ts": ["elevenlabs-sfx"],
 };
 
 const ROOT = resolve(__dirname, "../../..");
