@@ -147,64 +147,46 @@ export async function POST(request: NextRequest) {
         nextReset.setDate(1);
         nextReset.setHours(0, 0, 0, 0);
 
-        // Check if this is the user's first subscription (signup bonus eligibility)
+        // A genuine new activation is when the stored subscription id differs
+        // from the one just paid for, OR the user was not already ACTIVE. Only
+        // then reset the monthly usage window — a redundant re-verify of the
+        // same active subscription must not zero monthlyReportsUsed and re-gift
+        // the monthly allowance.
         const userBefore = await prisma.user.findUnique({
           where: { id: session.user.id },
           select: {
             subscriptionStatus: true,
-            lastBillingDate: true,
-            addonReports: true,
+            subscriptionId: true,
           },
         });
+        const isNewActivation =
+          userBefore?.subscriptionId !== (subscriptionId as string) ||
+          userBefore?.subscriptionStatus !== "ACTIVE";
 
-        // Check if signupBonusApplied field exists (may not exist if migration not run)
-        let signupBonusApplied = false;
-        try {
-          const userWithBonus = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: {
-              signupBonusApplied: true,
-            },
-          });
-          signupBonusApplied = userWithBonus?.signupBonusApplied || false;
-        } catch {
-          // Field doesn't exist yet, assume false
-          signupBonusApplied = false;
-        }
+        // RA-907: current_period_end/start live on the SubscriptionItem in this
+        // SDK version — read them there (no `as any` cast on the Subscription).
+        const periodEnd =
+          stripeSubscription.items.data[0]?.current_period_end ?? 0;
+        const periodStart =
+          stripeSubscription.items.data[0]?.current_period_start ?? 0;
 
-        // Determine if this is first-time subscription (never had ACTIVE status before)
-        const isFirstSubscription =
-          !signupBonusApplied &&
-          (userBefore?.subscriptionStatus !== "ACTIVE" ||
-            !userBefore?.lastBillingDate);
-
-        // Prepare update data
+        // Prepare update data. The signup bonus is granted exactly once by the
+        // checkout.session.completed webhook (atomic, guarded on
+        // signupBonusApplied) — this browser path no longer grants it.
         const updateData: any = {
           subscriptionStatus: "ACTIVE",
           subscriptionPlan: subscriptionPlan,
           stripeCustomerId: checkoutSession.customer as string,
           subscriptionId: subscriptionId as string,
-          subscriptionEndsAt: new Date(
-            (stripeSubscription as any).current_period_end * 1000,
-          ),
-          nextBillingDate: new Date(
-            (stripeSubscription as any).current_period_end * 1000,
-          ),
-          lastBillingDate: new Date(
-            (stripeSubscription as any).current_period_start * 1000,
-          ),
-          monthlyReportsUsed: 0,
-          monthlyResetDate: nextReset,
+          subscriptionEndsAt: new Date(periodEnd * 1000),
+          nextBillingDate: new Date(periodEnd * 1000),
+          lastBillingDate: new Date(periodStart * 1000),
           // Don't set creditsRemaining for active subscriptions - they use monthly limits
         };
 
-        // Grant signup bonus (10 reports) if first subscription.
-        // Writing signupBonusApplied=true prevents the +10 being re-granted on
-        // every subsequent /verify-subscription call (the bug before this fix).
-        if (isFirstSubscription) {
-          const currentAddonReports = userBefore?.addonReports || 0;
-          updateData.addonReports = currentAddonReports + 10;
-          updateData.signupBonusApplied = true;
+        if (isNewActivation) {
+          updateData.monthlyReportsUsed = 0;
+          updateData.monthlyResetDate = nextReset;
         }
 
         // Update user subscription in database

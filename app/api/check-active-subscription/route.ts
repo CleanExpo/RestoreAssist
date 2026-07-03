@@ -3,8 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
-import { PRICING_CONFIG } from "@/lib/pricing";
 import { LIFETIME_PRICING_EMAIL } from "@/lib/lifetime-pricing";
+import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 
 function subPeriodEnd(sub: import("stripe").Stripe.Subscription): number {
@@ -33,6 +33,16 @@ export async function POST(request: NextRequest) {
         status: 401,
       });
     }
+
+    // Rate-limit per authenticated user (session.user.id — IP keys are
+    // bypassable on serverless cold starts). This endpoint writes subscription
+    // state, so it is not a free read; cap polling/replay abuse.
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 30,
+      prefix: "check-active-sub",
+      key: session.user.id,
+    });
+    if (rateLimited) return rateLimited;
 
     // Get user from database
     const user = await prisma.user.findUnique({
@@ -134,38 +144,18 @@ export async function POST(request: NextRequest) {
         nextReset.setDate(1);
         nextReset.setHours(0, 0, 0, 0);
 
-        // Check if this is the user's first subscription (signup bonus eligibility)
-        const userBefore = await prisma.user.findUnique({
-          where: { id: session.user.id },
-          select: {
-            subscriptionStatus: true,
-            lastBillingDate: true,
-            addonReports: true,
-          },
-        });
+        // A genuine new activation is when the stored subscription id differs
+        // from the live active one, OR the user was not already ACTIVE. Only
+        // then do we reset the monthly usage window — otherwise every poll of
+        // this endpoint would zero monthlyReportsUsed and hand the user their
+        // full monthly allowance again (the revenue-losing bug being fixed).
+        const isNewActivation =
+          user.subscriptionId !== activeSubscription.id ||
+          user.subscriptionStatus !== "ACTIVE";
 
-        // Check if signupBonusApplied field exists (may not exist if migration not run)
-        let signupBonusApplied = false;
-        try {
-          const userWithBonus = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: {
-              signupBonusApplied: true,
-            },
-          });
-          signupBonusApplied = userWithBonus?.signupBonusApplied || false;
-        } catch (e) {
-          // Field doesn't exist yet, assume false
-          signupBonusApplied = false;
-        }
-
-        // Determine if this is first-time subscription (never had ACTIVE status before)
-        const isFirstSubscription =
-          !signupBonusApplied &&
-          (userBefore?.subscriptionStatus !== "ACTIVE" ||
-            !userBefore?.lastBillingDate);
-
-        // Prepare update data
+        // Prepare update data. The signup bonus is granted exactly once by the
+        // checkout.session.completed webhook (atomic, guarded on
+        // signupBonusApplied) — this browser path no longer grants it.
         const updateData: any = {
           subscriptionStatus: "ACTIVE",
           subscriptionPlan: subscriptionPlan,
@@ -174,16 +164,12 @@ export async function POST(request: NextRequest) {
           subscriptionEndsAt: new Date(subPeriodEnd(activeSubscription) * 1000),
           nextBillingDate: new Date(subPeriodEnd(activeSubscription) * 1000),
           lastBillingDate: new Date(subPeriodStart(activeSubscription) * 1000),
-          monthlyReportsUsed: 0,
-          monthlyResetDate: nextReset,
           // Don't set creditsRemaining for active subscriptions - they use monthly limits
         };
 
-        // Grant signup bonus (10 reports) if first subscription
-        // Note: signupBonusApplied field will be set after migration is run
-        if (isFirstSubscription) {
-          const currentAddonReports = userBefore?.addonReports || 0;
-          updateData.addonReports = currentAddonReports + 10;
+        if (isNewActivation) {
+          updateData.monthlyReportsUsed = 0;
+          updateData.monthlyResetDate = nextReset;
         }
 
         // Update user subscription in database
