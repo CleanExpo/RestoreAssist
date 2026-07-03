@@ -15,26 +15,38 @@ export interface DryingPotentialResult {
 }
 
 /**
- * Calculate Grains Per Pound (GPP) of moisture in air
- * IICRC S500 standard measurement for moisture content
- * Formula: GPP = (RH/100) * (7000 / (7000 - RH)) * (0.622 * Pws / (P - Pws))
- * Simplified for practical use: GPP ≈ (RH/100) * (7000 / (7000 - RH)) * (0.622 * Pws / (P - Pws))
+ * Calculate Grains Per Pound (GPP) — the humidity ratio expressed as grains of
+ * water vapour per pound of dry air. This is the standard psychrometric moisture
+ * measure used in IICRC S500 drying work.
+ *
+ * Correct psychrometric identity:
+ *   humidity ratio  W = 0.62198 × Pw / (P − Pw)   [lb water / lb dry air]
+ *   GPP = 7000 × W = 7000 × 0.62198 × Pw / (P − Pw)   (7000 grains per pound)
+ * where Pw = actual vapour pressure = RH × Pws, and Pws is the saturation
+ * vapour pressure from the Magnus formula.
+ *
+ * Reference point: 25°C / 50% RH ≈ 69 GPP (standard psychrometric chart value).
+ *
+ * NOTE: the previous implementation multiplied by (0.622 / 0.378) ≈ 1.645 instead
+ * of the mole-mass ratio 0.62198, overstating GPP by ~2.6× (a real bug).
  */
-function calculateGPP(temperature: number, humidity: number): number {
+export function calculateGPP(temperature: number, humidity: number): number {
   // Atmospheric pressure at sea level (kPa) - adjust for altitude if needed
   const P = 101.325; // kPa
 
-  // Saturation vapor pressure using Magnus formula (IICRC standard)
-  // Pws in kPa = 0.611 * exp((17.27 * T) / (T + 237.3))
+  // Saturation vapour pressure using Magnus formula (kPa)
+  // Pws = 0.611 * exp((17.27 * T) / (T + 237.3))
   const Pws = 0.611 * Math.exp((17.27 * temperature) / (temperature + 237.3));
 
-  // Actual vapor pressure
+  // Actual vapour pressure (kPa)
   const Pw = Pws * (humidity / 100);
 
-  // Grains Per Pound calculation (simplified IICRC formula)
-  // 1 grain = 1/7000 pound
-  // GPP = 7000 * (Pw / (P - Pw)) * (0.622 / 0.378)
-  const GPP = 7000 * (Pw / (P - Pw)) * (0.622 / 0.378);
+  // Ratio of molar masses of water vapour to dry air (18.015 / 28.966)
+  const MASS_RATIO = 0.62198;
+  const GRAINS_PER_POUND = 7000;
+
+  // GPP = 7000 × 0.62198 × Pw / (P − Pw)
+  const GPP = (GRAINS_PER_POUND * MASS_RATIO * Pw) / (P - Pw);
 
   return GPP;
 }
