@@ -38,7 +38,7 @@ const {
     count: vi.fn(),
     deleteMany: vi.fn(),
   },
-  organizationMock: { findUnique: vi.fn() },
+  organizationMock: { findUnique: vi.fn(), update: vi.fn() },
   inspectionMock: { findUnique: vi.fn() },
   reportMock: { findUnique: vi.fn() },
   inspectionPhotoMock: { findUnique: vi.fn() },

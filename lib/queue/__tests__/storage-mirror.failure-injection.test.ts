@@ -28,7 +28,7 @@ const {
     update: vi.fn(),
     count: vi.fn(),
   },
-  organizationMock: { findUnique: vi.fn() },
+  organizationMock: { findUnique: vi.fn(), update: vi.fn() },
   notificationMock: { create: vi.fn() },
   getMirrorStorageProviderMock: vi.fn(),
   uploadToDriveMock: vi.fn(),
@@ -142,5 +142,19 @@ describe("failure injection — revoked Google Drive scope", () => {
     // 3. Copy nudges the user to reconnect (vs generic transient-fail copy)
     expect(notif.title).toMatch(/access revoked/i);
     expect(notif.message.toLowerCase()).toContain("reconnect");
+
+    // 4. RA-6942: the dead Drive grant is cleared so the storage settings UI
+    //    stops showing a stale "Connected as …" and reverts to SUPABASE.
+    const clearUpdate = organizationMock.update.mock.calls.find(
+      ([arg]) => arg?.data?.storageProviderRefreshToken === null,
+    );
+    expect(clearUpdate).toBeDefined();
+    expect(clearUpdate?.[0].data).toMatchObject({
+      storageProvider: "SUPABASE",
+      storageProviderAccessToken: null,
+      storageProviderRefreshToken: null,
+      storageProviderTokenExpiresAt: null,
+      storageProviderAccountEmail: null,
+    });
   });
 });

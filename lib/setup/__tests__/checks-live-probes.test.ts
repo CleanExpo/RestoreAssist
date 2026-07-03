@@ -34,6 +34,10 @@ vi.mock("@/lib/ai/model-router", () => ({
   routeBasic: vi.fn(),
 }));
 
+vi.mock("@/lib/credential-vault", () => ({
+  decrypt: vi.fn((v: string) => v.replace(/^enc:/, "")),
+}));
+
 import { runAllChecks } from "../checks";
 import { prisma } from "@/lib/prisma";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
@@ -65,7 +69,10 @@ beforeEach(() => {
   // prior test's call. reset clears history + impl + once-queues; defaults are
   // re-established below.
   vi.resetAllMocks();
-  // Default: org exists with owner u1; business profile + branding green
+  // Default: org exists with owner u1; business profile + branding green.
+  // Superset of every check's `select` — the real query narrows, but each
+  // check only reads the fields it needs, so a combined object is safe here.
+  // storageProvider defaults to SUPABASE (Drive not connected).
   mocks.orgFindUnique.mockResolvedValue({
     id: "o1",
     ownerId: "u1",
@@ -75,6 +82,8 @@ beforeEach(() => {
     tradingStatus: "TRADING",
     logoUrl: "https://example.com/logo.png",
     primaryColor: "#1C2E47",
+    storageProvider: "SUPABASE",
+    storageProviderAccessToken: null,
   });
   mocks.pricingFindUnique.mockResolvedValue({
     masterQualifiedNormalHours: 110,
@@ -97,10 +106,25 @@ beforeEach(() => {
 // ─── cloud_storage ──────────────────────────────────────────────────────────
 
 describe.skipIf(!process.env.DATABASE_URL)("cloud_storage check", () => {
-  it("green when google account exists and Drive responds 200", async () => {
-    mocks.accountFindFirst.mockResolvedValueOnce({
-      access_token: "ya29.live-access-token",
-    });
+  // RA-6942: cloud_storage reads the Organization BYOK Drive fields
+  // (storageProvider + storageProviderAccessToken), NOT the next-auth Account
+  // row. `decrypt` is mocked to strip an "enc:" prefix so the Bearer value is
+  // predictable.
+  const connectedOrg = {
+    id: "o1",
+    ownerId: "u1",
+    legalName: "Test Co",
+    abn: "53004085616",
+    state: "NSW",
+    tradingStatus: "TRADING",
+    logoUrl: "https://example.com/logo.png",
+    primaryColor: "#1C2E47",
+    storageProvider: "GOOGLE_DRIVE",
+    storageProviderAccessToken: "enc:ya29.live-access-token",
+  };
+
+  it("green when Drive is connected and Drive responds 200", async () => {
+    mocks.orgFindUnique.mockResolvedValue(connectedOrg);
     globalThis.fetch = vi.fn(async () => ({
       ok: true,
       status: 200,
@@ -119,16 +143,16 @@ describe.skipIf(!process.env.DATABASE_URL)("cloud_storage check", () => {
     );
   });
 
-  it("yellow when no google account is connected", async () => {
-    mocks.accountFindFirst.mockResolvedValueOnce(null);
+  it("yellow when Drive is not connected (default SUPABASE org)", async () => {
     const results = await runAllChecks("o1");
     const cs = results.find((r) => r.capability === "cloud_storage");
     expect(cs?.status).toBe("yellow");
   });
 
-  it("red when google account exists but Drive returns 401", async () => {
-    mocks.accountFindFirst.mockResolvedValueOnce({
-      access_token: "ya29.dead-token",
+  it("red when Drive is connected but Drive returns 401", async () => {
+    mocks.orgFindUnique.mockResolvedValue({
+      ...connectedOrg,
+      storageProviderAccessToken: "enc:ya29.dead-token",
     });
     globalThis.fetch = vi.fn(async () => ({
       ok: false,
@@ -142,7 +166,7 @@ describe.skipIf(!process.env.DATABASE_URL)("cloud_storage check", () => {
   });
 
   it("yellow when org does not exist", async () => {
-    mocks.orgFindUnique.mockResolvedValueOnce(null);
+    mocks.orgFindUnique.mockResolvedValue(null);
     const results = await runAllChecks("missing-org");
     const cs = results.find((r) => r.capability === "cloud_storage");
     expect(cs?.status).toBe("yellow");

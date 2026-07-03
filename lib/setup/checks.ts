@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
-import { decryptAccountTokens } from "@/lib/auth/account-tokens";
+import { decrypt } from "@/lib/credential-vault";
 import { routeBasic } from "@/lib/ai/model-router";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import {
@@ -235,37 +235,29 @@ const chainOfCustodyCheck: Check = async () => {
 
 // ─── cloud_storage ──────────────────────────────────────────────────────────
 //
-// Google Drive tokens live on the next-auth `Account` row attached to the org
-// owner (provider='google'). We only attempt a token probe when an account
-// row with a non-null access_token exists; otherwise the workspace simply
-// hasn't connected Drive yet (yellow). A single `files.list?pageSize=1` call
-// confirms the access token is still live without listing real files.
+// The BYOK Google Drive integration stores tokens on the `Organization`
+// storage-provider fields (RA-408 / SP-1), NOT the next-auth `Account` row —
+// that is a separate sign-in credential the Drive mirror never reads. We only
+// attempt a token probe when the org has selected GOOGLE_DRIVE and holds a
+// non-null access token; otherwise the workspace simply hasn't connected Drive
+// yet (yellow). A single `files.list?pageSize=1` call confirms the access
+// token is still live without listing real files.
 const cloudStorageCheck: Check = async (orgId) => {
   const capability = "cloud_storage";
   const label = "Cloud storage";
 
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
-    select: { ownerId: true },
-  });
-  if (!org) {
-    return {
-      capability,
-      label,
-      status: "yellow",
-      note: "Not connected — optional",
-    };
-  }
-
-  const account = await prisma.account.findFirst({
-    where: {
-      userId: org.ownerId,
-      provider: "google",
-      access_token: { not: null },
+    select: {
+      storageProvider: true,
+      storageProviderAccessToken: true,
     },
-    select: { access_token: true },
   });
-  if (!account?.access_token) {
+  if (
+    !org ||
+    org.storageProvider !== "GOOGLE_DRIVE" ||
+    !org.storageProviderAccessToken
+  ) {
     return {
       capability,
       label,
@@ -274,8 +266,9 @@ const cloudStorageCheck: Check = async (orgId) => {
     };
   }
 
-  // access_token is encrypted at rest (B3) — decrypt before using it as a Bearer.
-  const accessToken = decryptAccountTokens(account).access_token;
+  // storageProviderAccessToken is encrypted at rest via lib/credential-vault —
+  // decrypt before using it as a Bearer.
+  const accessToken = decrypt(org.storageProviderAccessToken);
 
   try {
     const res = await fetch(

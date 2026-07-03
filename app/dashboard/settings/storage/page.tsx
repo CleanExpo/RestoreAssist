@@ -18,6 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { MirrorJobsTable } from "@/components/settings/MirrorJobsTable";
 import { RestoreFromDrivePanel } from "@/components/settings/RestoreFromDrivePanel";
 import { RestoreJobsTable } from "@/components/settings/RestoreJobsTable";
+import { StorageConnectionActions } from "@/components/settings/StorageConnectionActions";
 
 export const dynamic = "force-dynamic";
 
@@ -78,10 +79,15 @@ export default async function StorageSettingsPage() {
             </span>
           ) : (
             <span className="text-muted-foreground">
-              Not connected — visit the setup wizard to link Google Drive.
+              Not connected — link Google Drive to mirror closed-job evidence.
             </span>
           )}
         </div>
+        {isOwner && (
+          <div className="mt-4">
+            <StorageConnectionActions connected={connected} />
+          </div>
+        )}
       </section>
 
       <section className="rounded-lg border bg-card p-4">
