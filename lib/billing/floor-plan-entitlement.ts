@@ -1,23 +1,22 @@
 /**
- * Floor-plan underlay entitlement (PR5).
+ * Floor-plan underlay entitlement.
  *
- * The floor-plan underlay capability (property scrape + underlay panel) is a
- * paid feature included on the Premium tier and above. STANDARD (and orgs with
- * no tier yet) get an "Upgrade to unlock" CTA instead.
+ * F2 (RA-6929/6930/6931): the retired STANDARD/PREMIUM/ENTERPRISE tier catalog
+ * was the ONLY source that could grant this entitlement, and no code path ever
+ * wrote `subscriptionTierId`, so the feature was already unreachable for every
+ * user. With the tier catalog retired, there is NO entitlement source until the
+ * RA-6922 add-on layer ships. This predicate therefore returns `false` for
+ * every input — the server keeps its fail-closed 402 and the client CTA is
+ * hidden — so we never sell a plan (a "Premium" tier) that does not exist.
  *
- * Kept as a tiny pure predicate so the server route and the client can agree,
- * and so it's trivial to extend later (e.g. a per-org add-on entitlement).
+ * The `tier` argument is retained for call-site compatibility but is now
+ * deprecated and ignored; re-enable real entitlement resolution under RA-6922.
  */
 export type TierName = "STANDARD" | "PREMIUM" | "ENTERPRISE";
 
-/** Tiers at or above Premium that include the floor-plan underlay. */
-const ENTITLED_TIERS: ReadonlySet<TierName> = new Set<TierName>([
-  "PREMIUM",
-  "ENTERPRISE",
-]);
-
 export function hasFloorPlanUnderlay(
-  tier: TierName | string | null | undefined,
+  _tier?: TierName | string | null | undefined,
 ): boolean {
-  return tier != null && ENTITLED_TIERS.has(tier as TierName);
+  // No entitlement source until RA-6922 — always false (F2).
+  return false;
 }

@@ -1,8 +1,10 @@
 /**
- * PR5 — floor-plan underlay is gated behind the Premium tier.
+ * Floor-plan underlay gate.
  *
- * Unentitled users (Standard / no tier) get a 402 so the client can show an
- * "Upgrade to unlock" CTA; entitled users (Premium+) proceed as before.
+ * F2 (RA-6929/6930/6931): with the tier catalog retired, the underlay has no
+ * entitlement source until RA-6922, so EVERY user — including a would-be
+ * Premium user — gets a fail-closed 402. This is the money-safety fix: we no
+ * longer sell a "Premium" plan that never provisions the feature.
  */
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
@@ -81,24 +83,20 @@ describe("PR5 — floor-plan underlay Premium gate", () => {
     expect(res.status).toBe(402);
   });
 
-  it("lets a Premium-tier user through (serves cached data, not 402)", async () => {
+  it("returns 402 even for a would-be Premium user (feature gated off pending RA-6922)", async () => {
     mockUser.mockResolvedValueOnce({
       id: "u_test",
       subscriptionTier: { tierName: "PREMIUM" },
-    });
-    mockFindFirst.mockResolvedValueOnce({
-      id: "pl_1",
-      propertyAddress: "12 SMITH ST",
-      propertyPostcode: "4000",
-      dataSource: "onthehouse",
-      expiresAt: new Date(Date.now() + 86_400_000),
-      propertyData: { address: "12 SMITH ST", floorPlanImages: [] },
     });
 
     const res = await POST(
       makePost({ address: "12 Smith St", postcode: "4000" }),
     );
 
-    expect(res.status).not.toBe(402);
+    expect(res.status).toBe(402);
+    const json = await res.json();
+    expect(json.error.code).toBe("PAYMENT_REQUIRED");
+    // The scraper/cache must never be reached for a gated request.
+    expect(mockFindFirst).not.toHaveBeenCalled();
   });
 });

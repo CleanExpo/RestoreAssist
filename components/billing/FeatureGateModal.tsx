@@ -14,7 +14,7 @@ export default function FeatureGateModal({
       <div className="w-full max-w-md rounded-lg bg-white p-6">
         <h2 className="text-xl font-semibold">Unlock {feature}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          {feature} is included in PREMIUM and ENTERPRISE plans.
+          Subscribe to unlock {feature}.
         </p>
         <div className="mt-6 flex gap-3">
           <Link
