@@ -101,6 +101,9 @@ scripts/__pycache__/
 .claude/verifier-reports/
 .claude/PROGRESS.md
 
+# session-handoff Phase 0 gate logs (durable handoffs go in docs/session-handoffs/, tracked)
+.handoff-logs/
+
 # Build artefacts
 public/help-index.json
 release-gate-report.json

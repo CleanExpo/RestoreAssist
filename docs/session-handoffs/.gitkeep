@@ -1,0 +1,5 @@
+# Durable session-handoff reports live here.
+#
+# /session-handoff writes handoff-<ts>.md into this directory; /resume-from-handoff
+# reads the most recent one. This .gitkeep exists so the directory is tracked even
+# when no handoff has been written yet — do not delete it.

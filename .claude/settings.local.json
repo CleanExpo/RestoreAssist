@@ -73,8 +73,25 @@
             "command": "echo \"== Post-Compaction Context ==\" && echo \"Branch: $(git branch --show-current 2>/dev/null)\" && echo \"Recent commits:\" && git log --oneline -5 2>/dev/null && echo \"Modified files:\" && git diff --name-only HEAD~3 2>/dev/null | head -20 && echo \"== End Context ==\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/session-start-resume-nudge.sh"
+          }
+        ]
       }
     ],
-    "Stop": []
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/stop-handoff-nudge.sh"
+          }
+        ]
+      }
+    ]
   }
 }
