@@ -120,10 +120,29 @@ export async function POST(request: NextRequest) {
       data: { lastWebhookAt: new Date() },
     });
 
-    console.log(
-      `[Ascora Webhook] Received ${eventType} for integration ${integration.id}`,
-      { dataKeys: payload.data ? Object.keys(payload.data) : [] },
-    );
+    // Dispatch the verified event. Ascora's inbound push has no dedicated
+    // consumer yet — the push-only nir-sync layer (syncNIRJobToAscora) writes
+    // RestoreAssist → Ascora, not the reverse — so there is no downstream
+    // record-mutation to route into without inventing business logic. Each
+    // event family is acknowledged distinctly and durably logged here (the
+    // lastWebhookAt bump above is the persisted freshness marker the cron
+    // reconciler reads). Mirrors the ServiceM8 route's per-event dispatch.
+    switch (eventType) {
+      case "job.updated":
+      case "job.completed":
+      case "customer.updated":
+      case "invoice.synced":
+        console.log(
+          `[Ascora Webhook] Received ${eventType} for integration ${integration.id}`,
+          { dataKeys: payload.data ? Object.keys(payload.data) : [] },
+        );
+        break;
+      default:
+        console.warn(
+          `[Ascora Webhook] Unhandled event type "${eventType}" for integration ${integration.id}`,
+        );
+        break;
+    }
 
     return NextResponse.json({ received: true, eventType });
   } catch (error) {

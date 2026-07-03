@@ -83,6 +83,19 @@ export async function processWebhookEvent(eventId: string): Promise<void> {
         await handleCustomerUpdated(event);
         break;
 
+      case "job.created":
+      case "job.updated":
+      case "job.completed":
+      case "job.cancelled":
+      case "job.status_updated":
+        await handleJobEvent(event);
+        break;
+
+      case "contact.created":
+      case "contact.updated":
+        await handleContactUpdated(event);
+        break;
+
       default:
         console.log(
           `[Webhook Processor] Unhandled event type: ${event.eventType}`,
@@ -410,6 +423,35 @@ async function handleCustomerUpdated(event: any): Promise<void> {
   // In a full two-way sync, we might want to update client records
   console.log(
     `[Webhook Processor] Customer ${event.eventType} in ${event.provider}:`,
+    event.payload,
+  );
+}
+
+/**
+ * Handle job lifecycle events (ServiceM8 Job / GeoActivity).
+ *
+ * ServiceM8 is a field-service system, not an accounting system, so job
+ * events carry no invoice/payment mutation to apply — the invoice sync
+ * lives in the nir-sync push layer. These events are acknowledged and
+ * logged so they leave PENDING and are marked COMPLETED by the caller,
+ * matching how handleCustomerUpdated treats non-financial signals.
+ */
+async function handleJobEvent(event: any): Promise<void> {
+  console.log(
+    `[Webhook Processor] Job ${event.eventType} in ${event.provider}:`,
+    event.payload,
+  );
+}
+
+/**
+ * Handle contact created/updated events (ServiceM8 JobContact).
+ *
+ * No downstream client-record mutation today — logged and acknowledged so
+ * the event completes rather than being silently SKIPPED.
+ */
+async function handleContactUpdated(event: any): Promise<void> {
+  console.log(
+    `[Webhook Processor] Contact ${event.eventType} in ${event.provider}:`,
     event.payload,
   );
 }
