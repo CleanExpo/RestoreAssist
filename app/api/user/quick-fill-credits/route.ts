@@ -118,8 +118,19 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const creditsRemaining = user.quickFillCreditsRemaining ?? 0;
-      if (creditsRemaining <= 0) {
+      // Atomic: deduct credit only if remaining >= 1
+      const r = await prisma.user.updateMany({
+        where: {
+          id: userId,
+          quickFillCreditsRemaining: { gte: 1 },
+        },
+        data: {
+          quickFillCreditsRemaining: { decrement: 1 },
+          totalQuickFillUsed: { increment: 1 },
+        },
+      });
+
+      if (r.count === 0) {
         // RA-1548 — left raw: rich shape with creditsRemaining/requiresUpgrade
         // siblings the client reads to drive the upgrade CTA.
         return NextResponse.json(
@@ -133,17 +144,9 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Deduct credit and increment usage
-      const updated = await prisma.user.update({
+      // Fetch updated state for response
+      const updated = await prisma.user.findUnique({
         where: { id: userId },
-        data: {
-          quickFillCreditsRemaining: {
-            decrement: 1,
-          },
-          totalQuickFillUsed: {
-            increment: 1,
-          },
-        },
         select: {
           quickFillCreditsRemaining: true,
           totalQuickFillUsed: true,
@@ -152,8 +155,8 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        creditsRemaining: updated.quickFillCreditsRemaining ?? 0,
-        totalUsed: updated.totalQuickFillUsed ?? 0,
+        creditsRemaining: updated?.quickFillCreditsRemaining ?? 0,
+        totalUsed: updated?.totalQuickFillUsed ?? 0,
       });
     } catch (error) {
       return fromException(request, error, { stage: "quick-fill:post" });
