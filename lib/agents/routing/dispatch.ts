@@ -19,6 +19,9 @@ import type {
 import type { RoutedSkill } from "./routing-table";
 import type { MoaDecision } from "./moa-trigger";
 import { wrapWithNexus } from "./nexus-wrap";
+import { shouldFanOut } from "./moa-trigger";
+import { classifyWorkItem } from "./classifier";
+import { routeToSkills } from "./routing-table";
 
 export { wrapWithNexus };
 
@@ -136,4 +139,50 @@ export function buildMoaDispatch(
   const prompt = wrapWithNexus(task);
 
   return { mode: "moa", skill: "boardroom", prompt, tier };
+}
+
+/**
+ * Integration point for Plan 1 (Core Loop Mechanics).
+ *
+ * Plan 1's single-cycle loop is assumed to call a dispatch function at its
+ * dispatch step (spec §3 steps 3-5) shaped like:
+ *   async function dispatchWorkItem(issue: LinearIssueInput): Promise<PrResult>
+ * as a placeholder doing simple single-agent dispatch with no routing table
+ * or MOA. This function does NOT match that signature — it is synchronous
+ * and returns a DispatchPlan (what to dispatch, not the dispatch's result),
+ * by design: this plan computes routing + fan-out decisions; Plan 1 owns
+ * the actual Agent-tool/boardroom_query call, worktree isolation, and
+ * PR-open mechanics. Whoever reconciles the two plans must update Plan 1's
+ * loop body to call this function, branch on `plan.mode`, perform the real
+ * dispatch using `plan.prompt` + `plan.tier`, and produce Plan 1's own
+ * PrResult from that dispatch's outcome.
+ *
+ * `moaContext` carries the two signals this module cannot derive from the
+ * issue alone: cross-cutting bucket membership and open-spec-question
+ * status. Plan 1's loop should pass these when available (e.g. from a
+ * multi-label issue, or from a preceding spm/spec-writing pass); omitting
+ * them just means those two specific MOA triggers never fire for that
+ * issue — the other three (architecture-level, hard-to-reverse, judge-gate)
+ * are still detected from issue text alone.
+ */
+export function dispatchWorkItem(
+  issue: LinearIssueInput,
+  selectTier: TierSelector = defaultTierSelector,
+  moaContext?: { crossCuttingBuckets?: WorkTypeBucket[]; hasOpenSpecQuestions?: boolean },
+): DispatchPlan {
+  const classification = classifyWorkItem(issue);
+  const routedSkills = routeToSkills(classification.bucket);
+  const moaDecision = shouldFanOut({
+    bucket: classification.bucket,
+    routedSkills,
+    issue,
+    crossCuttingBuckets: moaContext?.crossCuttingBuckets,
+    hasOpenSpecQuestions: moaContext?.hasOpenSpecQuestions,
+  });
+
+  if (moaDecision.fanOut) {
+    return buildMoaDispatch(classification, routedSkills, moaDecision, selectTier, issue);
+  }
+
+  return buildSingleAgentDispatch(classification, routedSkills, selectTier, issue);
 }

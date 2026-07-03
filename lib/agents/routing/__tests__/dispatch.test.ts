@@ -2,7 +2,13 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { wrapWithNexus, buildSingleAgentDispatch, buildMoaDispatch, defaultTierSelector } from "../dispatch";
+import {
+  wrapWithNexus,
+  buildSingleAgentDispatch,
+  buildMoaDispatch,
+  defaultTierSelector,
+  dispatchWorkItem,
+} from "../dispatch";
 import { __resetNexusPromptCacheForTests } from "../nexus-wrap";
 import { classifyWorkItem } from "../classifier";
 import { routeToSkills } from "../routing-table";
@@ -162,5 +168,79 @@ describe("buildMoaDispatch", () => {
     expect(() =>
       buildMoaDispatch(classification, routedSkills, moaDecision, defaultTierSelector, testIssue),
     ).toThrow(/fanOut/);
+  });
+});
+
+describe("dispatchWorkItem (Plan 1 integration point)", () => {
+  it("routes a simple bug fix to the single-agent path", () => {
+    const plan = dispatchWorkItem(
+      issue({
+        identifier: "RA-9100",
+        title: "Fix off-by-one in the equipment-calculator-mould drying-day count",
+        description: "Simple arithmetic fix, single approach, fully reversible.",
+        labels: ["bug"],
+      }),
+    );
+    expect(plan.mode).toBe("single-agent");
+    expect(plan.skill).toBe("linear-task-processor");
+  });
+
+  it("routes an architecture-level infra decision to the MOA path", () => {
+    const plan = dispatchWorkItem(
+      issue({
+        identifier: "RA-9101",
+        title: "Choose between Railway multi-region and Vercel Edge for report-render latency",
+        description:
+          "Two materially different long-term architectures on the table: Railway regional " +
+          "replicas vs Vercel Edge Functions.",
+        labels: ["infra"],
+      }),
+    );
+    expect(plan.mode).toBe("moa");
+    expect(plan.skill).toBe("boardroom");
+  });
+
+  it("routes a cross-cutting design+copy+marketing issue to MOA when moaContext flags 3+ buckets", () => {
+    const plan = dispatchWorkItem(
+      issue({
+        identifier: "RA-9102",
+        title: "Relaunch the pricing page",
+        description: "Touches design, copy, and marketing simultaneously.",
+      }),
+      defaultTierSelector,
+      { crossCuttingBuckets: ["design", "copy", "marketing"] },
+    );
+    expect(plan.mode).toBe("moa");
+  });
+
+  it("accepts a custom TierSelector so Plan 4's real tier rule can be substituted", () => {
+    const customSelector = (_ctx: { bucket: string; skill: string; fanOut: boolean }) =>
+      "haiku-4.5" as const;
+    const plan = dispatchWorkItem(
+      issue({
+        identifier: "RA-9103",
+        title: "Fix off-by-one in the equipment-calculator-mould drying-day count",
+        description: "Simple arithmetic fix, single approach, fully reversible.",
+        labels: ["bug"],
+      }),
+      customSelector,
+    );
+    expect(plan.tier).toBe("haiku-4.5");
+  });
+
+  it("returns a fully Nexus-wrapped prompt with no {TASK} placeholder for either mode", () => {
+    const singlePlan = dispatchWorkItem(
+      issue({ identifier: "RA-9104", title: "Fix a bug", description: "Simple fix.", labels: ["bug"] }),
+    );
+    const moaPlan = dispatchWorkItem(
+      issue({
+        identifier: "RA-9105",
+        title: "Choose between two competing approaches for the migration",
+        description: "materially different long-term architectures, requires a schema migration",
+        labels: ["infra"],
+      }),
+    );
+    expect(singlePlan.prompt).not.toContain("{TASK}");
+    expect(moaPlan.prompt).not.toContain("{TASK}");
   });
 });
