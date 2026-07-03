@@ -197,7 +197,7 @@ export const rateLimiterManager = new RateLimiterManager();
 export const PROVIDER_RATE_LIMITS: Record<string, RateLimiterOptions> = {
   XERO: {
     tokensPerMinute: 60, // 60 requests per minute
-    maxBurst: 100, // Allow burst up to 100
+    maxBurst: 60, // RA-6942 — Xero enforces 60/min; burst ceiling must not exceed it
   },
   QUICKBOOKS: {
     tokensPerMinute: 100, // 100 requests per minute (500 per 5 minutes)
