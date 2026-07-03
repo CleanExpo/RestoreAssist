@@ -19,10 +19,7 @@
  */
 
 import {
-  afdUnits,
-  desiccantDehumidifiers,
-  lgrDehumidifiers,
-  airMovers,
+  getEquipmentGroupById,
   type EquipmentGroup,
 } from "@/lib/equipment-matrix";
 import {
@@ -145,20 +142,32 @@ const LOW_TEMP_DESICCANT_THRESHOLD_C = 15;
 // Representative group per equipment type (mid-size deployment standard):
 // ============================================================
 
+// Resolved by stable matrix id, not array position — reordering
+// lib/equipment-matrix.ts must never silently swap the representative model.
+function requireGroup(id: string): EquipmentGroup {
+  const group = getEquipmentGroupById(id);
+  if (!group) {
+    throw new Error(
+      `equipment-calculator: matrix group "${id}" not found — REPRESENTATIVE_GROUP is out of sync with lib/equipment-matrix.ts`,
+    );
+  }
+  return group;
+}
+
 const REPRESENTATIVE_GROUP: Record<
   Exclude<EquipmentType, "hepa_vacuum">,
   EquipmentGroup
 > = {
-  // Low-profile axial is the standard structural-drying air mover.
-  air_mover: airMovers[0], // airmover-800 (Velo Pro / Zeus 900)
-  // 85L/Day class is the most common AU site size.
-  lgr_dehumidifier: lgrDehumidifiers[2], // lgr-85 (AlorAir Storm Pro)
+  // Low-profile axial is the standard structural-drying air mover (Velo Pro / Zeus 900).
+  air_mover: requireGroup("airmover-800"),
+  // 85L/Day class is the most common AU site size (AlorAir Storm Pro).
+  lgr_dehumidifier: requireGroup("lgr-85"),
   // Mid-size desiccant class (Corroventa A4 ES / Trotec TTR 400 D).
-  desiccant_dehumidifier: desiccantDehumidifiers[1], // desiccant-35
+  desiccant_dehumidifier: requireGroup("desiccant-35"),
   // 500 CFM AFD (Dri-Eaz DefendAir HEPA 500 230V).
-  air_scrubber: afdUnits[0], // afd-500
+  air_scrubber: requireGroup("afd-500"),
   // Same AFD chassis ducted for negative-pressure configuration.
-  negative_air_machine: afdUnits[0], // afd-500
+  negative_air_machine: requireGroup("afd-500"),
 };
 
 // HEPA vacuum is not emitted by this water calculator (kept in the type union
@@ -342,8 +351,11 @@ export function calculateEquipment(
   );
   const totalWatts = items.reduce((sum, e) => sum + e.estimatedWattsTotal, 0);
   const totalKwhPerDay = parseFloat(wattsToKwhPerDay(totalWatts).toFixed(2));
+  // Same negative-tariff clamp as calculateElectricityCostPerDay in
+  // lib/equipment-power.ts — a bad tariff input must never produce a
+  // negative dollar figure in a persisted scope item.
   const energyCostPerDay = parseFloat(
-    ((totalKwhPerDay * tariffCentsPerKwh) / 100).toFixed(2),
+    ((totalKwhPerDay * Math.max(0, tariffCentsPerKwh)) / 100).toFixed(2),
   );
 
   const circuitOptions = calculateCircuitRequirements(totalAmps);
@@ -354,7 +366,7 @@ export function calculateEquipment(
   if (gpo10A && totalAmps > gpo10A.maxContinuousA) {
     circuitLoadWarning =
       `Total estimated load ${totalAmps}A exceeds the AS/NZS 3012:2019 80% continuous-load rule ` +
-      `(8A max per standard 10A GPO circuit). Distribute across ${recommendedCircuits} separate 10A circuits minimum ` +
+      `(${gpo10A.maxContinuousA}A max per standard 10A GPO circuit). Distribute across ${recommendedCircuits} separate 10A circuits minimum ` +
       `(or ${circuitOptions.find((c) => c.ratingA === 15)?.circuitsRequired} × 15A / ` +
       `${circuitOptions.find((c) => c.ratingA === 20)?.circuitsRequired} × 20A dedicated circuits). ` +
       `Confirm circuit breaker ratings on-site before energising equipment.`;
