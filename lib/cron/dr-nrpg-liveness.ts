@@ -11,6 +11,8 @@
  * The real gap is key-liveness: external rotation/revocation is silent today.
  */
 import { prisma } from "@/lib/prisma";
+import { decrypt } from "@/lib/credential-vault";
+import { isEncryptedToken } from "@/lib/auth/account-tokens";
 import type { CronJobResult } from "./runner";
 
 const PROBE_TIMEOUT_MS = 10_000;
@@ -62,7 +64,12 @@ export async function runDrNrpgLiveness(): Promise<CronJobResult> {
     drNrpgApiKey: string;
     drNrpgBaseUrl: string;
   }>) {
-    const outcome = await probeOne(integ.drNrpgBaseUrl, integ.drNrpgApiKey);
+    // Decrypt the stored API key for the outbound probe. Legacy plaintext rows
+    // (pre-backfill) aren't in cipher shape, so pass them through unchanged.
+    const drNrpgApiKey = isEncryptedToken(integ.drNrpgApiKey)
+      ? decrypt(integ.drNrpgApiKey)
+      : integ.drNrpgApiKey;
+    const outcome = await probeOne(integ.drNrpgBaseUrl, drNrpgApiKey);
 
     if (outcome.ok) {
       passed++;

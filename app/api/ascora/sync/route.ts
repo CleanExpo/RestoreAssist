@@ -28,6 +28,8 @@ import { prisma } from "@/lib/prisma";
 import { ruleBasedClassify } from "@/lib/ai/auto-classify";
 import { verifyCronAuth } from "@/lib/cron/auth";
 import { apiError, fromException } from "@/lib/api-errors";
+import { encrypt, decrypt } from "@/lib/credential-vault";
+import { isEncryptedToken } from "@/lib/auth/account-tokens";
 
 // ============================================================
 // Ascora API types — actual camelCase structure from API
@@ -401,7 +403,7 @@ export async function POST(request: NextRequest) {
       integration = await (prisma as any).ascoraIntegration.create({
         data: {
           userId: userId,
-          apiKey: envApiKey,
+          apiKey: encrypt(envApiKey),
           baseUrl: (
             process.env.ASCORA_BASE_URL ?? "https://api.ascora.com.au"
           ).replace(/\/$/, ""),
@@ -417,6 +419,12 @@ export async function POST(request: NextRequest) {
         status: 403,
       });
     }
+
+    // Decrypt the stored API key for outbound Ascora calls. Legacy plaintext
+    // rows (pre-backfill) aren't in cipher shape, so pass them through unchanged.
+    const apiKey = isEncryptedToken(integration.apiKey)
+      ? decrypt(integration.apiKey)
+      : integration.apiKey;
 
     // Parse query params
     const { searchParams } = new URL(request.url);
@@ -450,7 +458,7 @@ export async function POST(request: NextRequest) {
     // ------------------------------------------------------------------
     const allJobs = await fetchAllPages<AscoraJobRaw>(
       integration.baseUrl,
-      integration.apiKey,
+      apiKey,
       "/jobs",
     );
 
@@ -535,7 +543,7 @@ export async function POST(request: NextRequest) {
       endpoint: lineItemEndpoint,
       items: allLineItems,
       tried: endpointsTried,
-    } = await tryLineItemEndpoints(integration.baseUrl, integration.apiKey);
+    } = await tryLineItemEndpoints(integration.baseUrl, apiKey);
 
     // Filter to only line items belonging to our imported job set
     const importedJobIdSet = new Set(filteredJobs.map((j) => j.jobId));
