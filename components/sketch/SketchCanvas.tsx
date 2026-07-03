@@ -27,6 +27,7 @@ import {
   DEFAULT_PX_PER_METRE,
   type Point,
 } from "@/lib/sketch/tool-objects";
+import { snapPointToGrid, snapSegmentEnd } from "@/lib/sketch/geometry-utils";
 import type { SelectedObject } from "./SketchSelectionPanel";
 
 export interface SketchCanvasProps {
@@ -35,6 +36,10 @@ export interface SketchCanvasProps {
   toolMode?: ToolMode;
   /** Canvas pixels per real-world metre — drives measure-tool dimensions. */
   pxPerMetre?: number;
+  /** RA-6844 [A5]: grid + right-angle snap for the draw tools (default on). */
+  snapEnabled?: boolean;
+  /** RA-6844 [A5]: snap grid size in real-world metres (default 0.25 m). */
+  snapGridMetres?: number;
   backgroundImageUrl?: string | null;
   backgroundImageOpacity?: number;
   /** PR4b underlay transform. Null/undefined = legacy fit-to-width baseline. */
@@ -92,6 +97,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       height = 800,
       toolMode = "select",
       pxPerMetre = DEFAULT_PX_PER_METRE,
+      snapEnabled = true,
+      snapGridMetres = 0.25,
       onSelect,
       backgroundImageUrl,
       backgroundImageOpacity = 0.4,
@@ -114,6 +121,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
     // ── Drawing state for the click/drag tools (read inside Fabric handlers) ──
     const toolModeRef = useRef<ToolMode>(toolMode);
     const pxPerMetreRef = useRef<number>(pxPerMetre);
+    const snapEnabledRef = useRef<boolean>(snapEnabled);
+    const snapGridMetresRef = useRef<number>(snapGridMetres);
     const drawStartRef = useRef<Point | null>(null);
     const polygonPtsRef = useRef<Point[]>([]);
     const [historyState, setHistoryState] = useState({
@@ -319,7 +328,35 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         });
 
         // ── Object modified → save state ──
-        canvas.on("object:modified", () => {
+        // RA-6843 [A4]: keep a room's caption glued to its polygon. On move the
+        // linked "room-label" Text re-centers; the area text is left as the
+        // authoritative shoelace value (Fabric scale is ignored by
+        // decompose-elements, so the caption never disagrees with the PDF).
+        const syncRoomLabel = (target: unknown) => {
+          const t = target as {
+            data?: { type?: string; id?: string };
+            getCenterPoint?: () => { x: number; y: number };
+          } | null;
+          if (!t?.data || t.data.type !== "room" || !t.data.id) return;
+          if (!t.getCenterPoint) return;
+          const c = t.getCenterPoint();
+          const objs = (
+            canvas as unknown as { getObjects: () => unknown[] }
+          ).getObjects();
+          const label = objs.find(
+            (o) =>
+              (o as { data?: { type?: string; roomFor?: string } }).data
+                ?.type === "room-label" &&
+              (o as { data?: { roomFor?: string } }).data?.roomFor ===
+                t.data!.id,
+          ) as
+            | { set: (o: object) => void; setCoords: () => void }
+            | undefined;
+          label?.set({ left: c.x, top: c.y });
+          label?.setCoords();
+        };
+        canvas.on("object:modified", (opt: unknown) => {
+          syncRoomLabel((opt as { target?: unknown } | undefined)?.target);
           if (!isLoadingRef.current) {
             saveState();
             onModified?.();
@@ -370,6 +407,17 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           const p = c.getScenePoint ? c.getScenePoint(e) : c.getPointer(e);
           return { x: p.x, y: p.y };
         };
+
+        // RA-6844 [A5]: grid size in canvas px for the current scale.
+        const gridPx = () =>
+          snapEnabledRef.current
+            ? snapGridMetresRef.current * pxPerMetreRef.current
+            : 0;
+        // Snap a standalone drawn vertex (room corner) to the grid.
+        const snapVertex = (p: Point): Point => snapPointToGrid(p, gridPx());
+        // Snap a drag endpoint: right-angle assist around `start`, then grid.
+        const snapEnd = (start: Point, end: Point): Point =>
+          snapEnabledRef.current ? snapSegmentEnd(start, end, gridPx(), 45) : end;
 
         const materialize = (
           d: NonNullable<ReturnType<typeof describeToolObject>>,
@@ -436,9 +484,38 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           const obj = materialize(d);
           if (!obj) return;
           const c = canvas as unknown as {
-            add: (o: unknown) => void;
+            add: (...o: unknown[]) => void;
             setActiveObject: (o: unknown) => void;
           };
+          // RA-6843 [A4]: a room polygon carries a centered "Name · area" caption
+          // as a SEPARATE non-measured Text object (kept out of the polygon so
+          // decomposition still shoelaces the top-level `points`). The two are
+          // linked by a shared id so the resize sync below can keep them together.
+          if (d.kind === "polygon" && d.data.type === "room" && d.label) {
+            const roomId = `room-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+            (obj as { data?: Record<string, unknown> }).data = {
+              ...d.data,
+              id: roomId,
+            };
+            const labelObj = new F.Text(d.label.text, {
+              left: d.label.left,
+              top: d.label.top,
+              fontSize: 14,
+              fill: "#1C2E47",
+              originX: "center",
+              originY: "center",
+              selectable: false,
+              evented: false,
+            });
+            (labelObj as { data?: unknown }).data = {
+              type: "room-label",
+              roomFor: roomId,
+            };
+            c.add(obj, labelObj);
+            c.setActiveObject(obj);
+            canvas.renderAll();
+            return;
+          }
           c.add(obj);
           c.setActiveObject(obj);
           if (d.kind === "itext") {
@@ -462,7 +539,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             return;
           const p = scenePoint(e);
           if (tool === "room") {
-            polygonPtsRef.current.push(p); // closed on double-click
+            polygonPtsRef.current.push(snapVertex(p)); // closed on double-click
             return;
           }
           if (tool === "text") {
@@ -475,8 +552,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             );
             return;
           }
-          // drag tools: line / measure / arrow
-          drawStartRef.current = p;
+          // drag tools: line / measure / arrow — snap the start to the grid so
+          // the right-angle assist squares up from a clean origin.
+          drawStartRef.current = snapVertex(p);
         });
 
         canvas.on("mouse:up", (opt: unknown) => {
@@ -485,7 +563,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           if (!start) return;
           drawStartRef.current = null;
           if (tool === "line" || tool === "measure" || tool === "arrow") {
-            const end = scenePoint((opt as { e: MouseEvent }).e);
+            const end = snapEnd(start, scenePoint((opt as { e: MouseEvent }).e));
             addToolObject(
               describeToolObject({
                 tool,
@@ -631,6 +709,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       // (e.g. a half-finished room polygon) when the tool changes.
       toolModeRef.current = toolMode;
       pxPerMetreRef.current = pxPerMetre;
+      snapEnabledRef.current = snapEnabled;
+      snapGridMetresRef.current = snapGridMetres;
       drawStartRef.current = null;
       polygonPtsRef.current = [];
 
@@ -643,7 +723,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       }
 
       canvas.defaultCursor = toolMode === "pan" ? "grab" : "default";
-    }, [toolMode, readonly, pxPerMetre]);
+    }, [toolMode, readonly, pxPerMetre, snapEnabled, snapGridMetres]);
 
     // ── Update background image when URL/opacity changes (Fabric.js v6) ──
     useEffect(() => {

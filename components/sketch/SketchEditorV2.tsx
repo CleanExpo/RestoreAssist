@@ -25,6 +25,7 @@ import {
   Check,
   FileDown,
   Ruler,
+  Magnet,
   AlertTriangle,
   Download,
   RefreshCw,
@@ -57,6 +58,7 @@ import { hasFloorPlanUnderlay } from "@/lib/billing/floor-plan-entitlement";
 import { UnderlayTransformControls } from "./UnderlayTransformControls";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
 import { createRenderFreshnessTracker } from "@/lib/sketch/render-freshness";
+import { formatRoomLabel } from "@/lib/sketch/tool-objects";
 
 const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
   ssr: false,
@@ -191,6 +193,9 @@ export function SketchEditorV2({
 
   // ── UI state ───────────────────────────────────────────
   const [toolMode, setToolMode] = useState<ToolMode>("select");
+  // RA-6844 [A5]: grid + right-angle snap for the draw tools. On by default so
+  // walls square up and land on the grid; toggled off for freeform tracing.
+  const [snapEnabled, setSnapEnabled] = useState(true);
   const [selectedObj, setSelectedObj] = useState<SelectedObject | null>(null);
   // Seed with the offline-bundled ANZ materials so the picker + WHS gate work
   // with no connectivity (spec §4.1); the API replaces this when reachable.
@@ -954,6 +959,29 @@ export function SketchEditorV2({
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* RA-6844 [A5]: grid + right-angle snap toggle */}
+          {!readonly && (
+            <button
+              type="button"
+              onClick={() => setSnapEnabled((v) => !v)}
+              aria-pressed={snapEnabled}
+              title={
+                snapEnabled
+                  ? "Snap on — walls square up and land on the grid"
+                  : "Snap off — freeform drawing"
+              }
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors border",
+                snapEnabled
+                  ? "text-cyan-200 border-cyan-400 bg-cyan-500/15"
+                  : "text-white/50 border-white/10 hover:text-white hover:bg-white/5",
+              )}
+            >
+              <Magnet size={13} />
+              Snap
+            </button>
+          )}
+
           {/* Scale calibration button */}
           {!readonly && (
             <button
@@ -1153,6 +1181,7 @@ export function SketchEditorV2({
               height={height}
               toolMode={toolMode}
               pxPerMetre={fd.scaleConfig?.pxPerMetre}
+              snapEnabled={snapEnabled}
               backgroundImageUrl={fd.backgroundUrl}
               backgroundImageOpacity={fd.backgroundOpacity}
               backgroundImageScale={fd.backgroundScale}
@@ -1360,6 +1389,29 @@ export function SketchEditorV2({
                   )?.id === id,
               ) as Record<string, unknown> | undefined;
             if (obj?.data) (obj.data as Record<string, unknown>).label = label;
+            // RA-6843 [A4]: a measured room owns a linked "room-label" caption —
+            // rebuild it as "Name · 14.1 m²" so the rename reaches the canvas.
+            const objData = obj?.data as Record<string, unknown> | undefined;
+            if (objData?.type === "room") {
+              const roomLabel = fc
+                .getObjects()
+                .find(
+                  (o) =>
+                    (
+                      (o as Record<string, unknown>).data as
+                        | Record<string, unknown>
+                        | undefined
+                    )?.type === "room-label" &&
+                    (
+                      (o as Record<string, unknown>).data as
+                        | Record<string, unknown>
+                        | undefined
+                    )?.roomFor === id,
+                ) as { set: (o: object) => void } | undefined;
+              roomLabel?.set({
+                text: formatRoomLabel(label, (objData.areaM2 as number) ?? 0),
+              });
+            }
             fc.renderAll();
             scheduleSave();
           }}
