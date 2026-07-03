@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - PR target for every loop-dispatched PR is `main`, never `sandbox` — explicit override of `linear-task-processor.md`'s current `--base sandbox` default (spec §3 step 6).
-- Rule 19 (AGENTS.md), **revised 2026-07-03, owner-approved:** the loop may merge its own PR into `main` — but only when a strict 100%-green bar is met, checked fresh at merge time: every required CI check succeeds (none pending/skipped/red), the full test suite passes with zero failures, type-check/lint are clean, no unresolved review conversations, and no merge conflicts against current `main`. If any single item fails that bar, the loop does not merge — it stops and reports, exactly as the prior "never merges" policy required. This is a narrow, conditional exception to rule 18's "human-authored only" posture, scoped to this loop's own PRs only; the loop still never rebases past a merge conflict on `main`, never force-merges, never retries a merge blind, and never re-spawns itself outside the current session.
+- Rule 19 (AGENTS.md): the loop never merges. Its boundary is absolute: implement, verify, and open a PR — then stop. It never merges, never rebases past a merge conflict on `main`, and never re-spawns itself outside the current session. Rule 18 applies to this loop in full and without exception — a human merges.
 - Concurrency is exactly 1 issue in flight at a time (spec §3 "Concurrency").
 - No standing cron; the loop's lifetime is the invoking session's lifetime (spec §3 "Session-bound property", spec §2).
 - No MOA fan-out and no multi-discipline routing table in this plan — single-agent dispatch only (Phase 2 is a separate plan).
@@ -70,12 +70,7 @@ old_string:
 new_string:
 ```
 18. **Never auto-open PRs into `main`.** `main` is protected (strict up-to-date + required conversation resolution). Autonomous/agent runs land work on a dedicated feature branch or `sandbox` — never a full-tree `sandbox → main` or `<branch> → main` merge PR. PRs into `main` are human-authored only. Any stray agent-opened `→ main` PR is noise: close it on sight, don't resolve its conflicts.
-19. **Continuous Linear-driven agent loop is sanctioned — implement → PR-open → verify-to-100%-green → merge.** A session-bound (not standing-cron) loop that pulls TODO items from the Linear RestoreAssist backlog, dispatches sub-agents to implement each, and opens a PR per item is an approved pattern. **Revised 2026-07-03, owner-approved:** the loop may merge its own PR into `main` — a narrow, conditional exception to rule 18's "human-authored only" posture, scoped to this loop's own PRs only — but only when ALL of the following hold, checked fresh at merge time (never inferred from a prior cycle or session):
-    - Every required CI status check reports success — none pending, none skipped, none red.
-    - The full test suite passes with zero failures (not "mostly passing" — zero).
-    - Type-check and lint are clean.
-    - No unresolved review conversations and no merge conflicts against current `main`.
-    If any single item is red, pending, skipped, or unresolved, the loop does not merge — it stops and reports, exactly as before. It never retries a merge blind, never force-merges, and never re-spawns itself outside the current session. A PR that fails this bar sits open for human review, same as any other PR in this repo.
+19. **Continuous Linear-driven agent loop is sanctioned — implement → PR-open → stop.** A session-bound (not standing-cron) loop that pulls TODO items from the Linear RestoreAssist backlog, dispatches sub-agents to implement each, and opens a PR per item is an approved pattern. Its boundary is absolute: the loop implements, verifies, and opens a PR — then stops. It never merges, never rebases past a merge conflict on `main`, and never re-spawns itself outside the current session. Rule 18 applies to this loop in full and without exception — a human merges. If the loop cannot open a clean PR (conflicts, failing gate), it stops and reports — it does not attempt to resolve by merging.
 
 ## Package source — use opensrc, don't fabricate APIs
 ```
@@ -83,7 +78,7 @@ new_string:
 - [ ] **Step 2: Verify rule 19 landed correctly**
 
 Run: `grep -n "^19\." /Users/phillmcgurk/RestoreAssist/AGENTS.md`
-Expected output: `36:19. **Continuous Linear-driven agent loop is sanctioned — implement → PR-open → verify-to-100%-green → merge.** ...` (or nearby line number — confirm it's the line immediately after rule 18, and that `grep -c "^18\.\|^19\." AGENTS.md` returns `2`).
+Expected output: `36:19. **Continuous Linear-driven agent loop is sanctioned — implement → PR-open → stop.** ...` (or nearby line number — confirm it's the line immediately after rule 18, and that `grep -c "^18\.\|^19\." AGENTS.md` returns `2`).
 
 - [ ] **Step 3: Insert the "Owner-action gated" section into .claude/RULES.md after the Progress Framework section**
 
@@ -116,7 +111,7 @@ These actions require explicit owner/human authorization before any agent — lo
 30. **Secret and credential rotation** — API keys, OAuth client secrets, service-role tokens, signing keys, `.env` values in any deployed environment.
 31. **Spend above a real-money threshold** — any action that provisions paid infrastructure, upgrades a paid tier, or otherwise commits spend over **$50 AUD** in a single action.
 32. **Deleting or cancelling production resources** — dropping a prod database/branch, deleting a prod deployment, cancelling a subscription, revoking a domain, deleting user data outside a documented data-subject request.
-33. **Merging into `main`** — see rule 18 (AGENTS.md). Owner-gated by default, **except** the continuous loop's own PRs when they meet the 100%-green bar defined in rule 19 — that specific, narrow case may merge without a per-item human go-ahead. Any PR not meeting that bar remains owner-gated as normal.
+33. **Merging into `main`** — see rule 18 (AGENTS.md); restated here for completeness of the owner-gated list.
 
 An agent that reaches an owner-gated action must stop, state exactly what it would do and why, and wait for explicit human go-ahead in that session. It must not infer prior approval from a Linear ticket status, a runbook's existence, or a prior session's notes.
 
@@ -389,7 +384,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Consumes: `isOwnerGated(issue: OwnerGateCheckInput): boolean` and `OwnerGateCheckInput` from `lib/linear-loop/owner-gated.ts` (Task 3) — the procedure names this exact function/file so a human or future automation wires it mechanically; a `.claude/agents/*.md` file is markdown instructions an agent follows, not a Node.js module, so this is a documented call-out rather than an `import` statement.
 - Consumes: `StopGuardTracker` from `lib/linear-loop/stop-guards.ts` (Task 5) — same documented-call-out relationship.
 - Consumes: `.claude/agents/linear-task-processor.md`'s Step 4–9 (branch, implement, validate, commit, push+PR, mark In Review) as the base flow, with the explicit override described in Step 3 below.
-- Produces: a per-cycle procedure invoked by the `/loop` skill wiring in Task 6, expressed as numbered steps an agent executes once per cycle, returning one of four cycle outcomes: `{ outcome: "pr-opened", issueId, prUrl }`, `{ outcome: "pr-merged", issueId, prUrl }`, `{ outcome: "skipped", issueId, reason }`, or `{ outcome: "stop-guard-tripped", guard, detail }` (the exact string values Task 6 branches on). `"pr-merged"` is only returned when the new verify-to-green step (Cycle Step 8) confirms the 100%-green bar and merges; otherwise the cycle ends at `"pr-opened"` exactly as before.
+- Produces: a per-cycle procedure invoked by the `/loop` skill wiring in Task 6, expressed as numbered steps an agent executes once per cycle, returning one of three cycle outcomes: `{ outcome: "pr-opened", issueId, prUrl }`, `{ outcome: "skipped", issueId, reason }`, or `{ outcome: "stop-guard-tripped", guard, detail }` (the exact string values Task 6 branches on).
 
 This is not a TDD task — `.claude/agents/*.md` files are instructions, not testable TypeScript, matching the execution model of `linear-task-processor.md` and `pr-creator.md` (both plain markdown procedure files with no associated test suite in this repo).
 
@@ -404,7 +399,7 @@ Create `.claude/agents/continuous-linear-loop.md`:
 ````markdown
 ---
 name: continuous-linear-loop
-description: Runs one cycle of the continuous Linear-driven agent loop (AGENTS.md rule 19) — pulls the next actionable RA Todo/Backlog issue, skips owner-gated work, dispatches implementation via a main-targeted adaptation of linear-task-processor, verifies, opens a PR, moves the issue to In Review, then checks the 100%-green bar and merges into main if — and only if — every condition passes. Invoked repeatedly by the /loop skill (see Task 6 of docs/superpowers/plans/2026-07-03-continuous-moa-loop-core.md). Single-agent dispatch only — no MOA fan-out, no multi-discipline routing (that is Phase 2, a separate design).
+description: Runs one cycle of the continuous Linear-driven agent loop (AGENTS.md rule 19) — pulls the next actionable RA Todo/Backlog issue, skips owner-gated work, dispatches implementation via a main-targeted adaptation of linear-task-processor, verifies, opens a PR, moves the issue to In Review, then stops. Invoked repeatedly by the /loop skill (see Task 6 of docs/superpowers/plans/2026-07-03-continuous-moa-loop-core.md). Single-agent dispatch only — no MOA fan-out, no multi-discipline routing (that is Phase 2, a separate design).
 model: sonnet
 tools:
   - Read
@@ -429,7 +424,7 @@ is the `/loop` skill's job (Task 6), not this file's.
 
 This procedure is governed by `AGENTS.md` rule 19 and `.claude/RULES.md` rules 29–33. It
 adapts `.claude/agents/linear-task-processor.md`'s existing single-task implement flow
-with **two explicit overrides**:
+with **one explicit override**:
 
 1. Every PR opened by this procedure targets `main`, not `sandbox` (spec:
    `docs/superpowers/specs/2026-07-03-continuous-moa-agent-loop-design.md` §3 step 6).
@@ -437,20 +432,12 @@ with **two explicit overrides**:
    `pr-creator.md`'s `--base sandbox` default, do NOT apply when this procedure is the
    caller — this procedure's Cycle Step 6 below (`--base main`) is authoritative for
    loop-dispatched PRs.
-2. **Revised 2026-07-03, owner-approved (rule 19):** after the PR opens, this procedure
-   does not stop unconditionally — Cycle Step 8 below checks a strict 100%-green bar and
-   merges the PR into `main` if every condition passes. If any condition fails, Cycle
-   Step 8 does not merge; it stops and reports which condition failed, exactly as the
-   procedure's prior "always stop after PR-open" behavior did.
 
 ## Cycle outcome contract
 
 Every cycle ends by returning exactly one of:
 
-- `{ outcome: "pr-opened", issueId: string, prUrl: string }` — PR opened, but the
-  100%-green bar was not met (or not yet checked); a human reviews and merges as normal.
-- `{ outcome: "pr-merged", issueId: string, prUrl: string }` — PR opened AND the 100%-green
-  bar was met, so Cycle Step 8 merged it into `main` directly.
+- `{ outcome: "pr-opened", issueId: string, prUrl: string }`
 - `{ outcome: "skipped", issueId: string, reason: "owner-gated" | "unactionable" }`
 - `{ outcome: "no-issues" }` — board is clear.
 - `{ outcome: "stop-guard-tripped", guard: "ci-failures" | "owner-gated" | "budget-ceiling" | "consecutive-skips", detail: string }`
@@ -656,8 +643,7 @@ EOF
 **This is the one line in this entire procedure where `--base main` replaces
 `linear-task-processor.md`'s `--base sandbox` and `pr-creator.md`'s `--base sandbox`
 default — do not copy either of those files' base branch. Rule 18 / rule 19 (AGENTS.md)
-govern: this PR is opened for human review by default; it is only merged automatically if
-Cycle Step 8's 100%-green bar is met — see that step below.**
+govern: this PR is opened for human review — a human always merges.**
 
 Record the PR URL returned by `gh pr create` — this is `<prUrl>` for Cycle Step 7.
 ````
@@ -674,110 +660,15 @@ Update the issue state to "In Review" (`9c4a7737-55c0-47e9-9cf6-cbd430685698`) �
 as `linear-task-processor.md` Step 9.
 
 Add a comment to the issue with the PR URL: `"Opened <prUrl> — continuous-linear-loop cycle
-complete. Checking merge readiness (AGENTS.md rule 19)."`
+complete. A human reviews and merges (AGENTS.md rule 18, rule 19)."`
 
-Do not return an outcome yet — proceed to Cycle Step 8, which decides between `"pr-opened"`
-and `"pr-merged"`.
+Return `{ outcome: "pr-opened", issueId: "<issue identifier>", prUrl: "<prUrl>" }`.
+
+This ends the cycle. Do not proceed to the next issue within this same agent invocation —
+that is the `/loop` skill's job (Task 6).
 ````
 
-- [ ] **Step 9: Add Step 8 — verify-to-green, then conditionally merge**
-
-Append:
-
-````markdown
-
-### Cycle Step 8 — Verify-to-green, then conditionally merge
-
-**Revised 2026-07-03, owner-approved (AGENTS.md rule 19):** the loop may merge its own PR
-into `main`, but only when every one of the following holds, checked fresh right now —
-never inferred from Cycle Step 5's earlier `pnpm type-check`/`pnpm lint` run, never assumed
-from a prior cycle:
-
-1. **Poll CI status until it settles.** Run:
-
-   ```bash
-   gh pr checks <prUrl> --watch --fail-fast
-   ```
-
-   `--watch` polls until every check reports a terminal state instead of racing a
-   still-running check; `--fail-fast` exits as soon as any check fails so this step doesn't
-   hang waiting out the full matrix once the bar is already unmet. Capture the exit code.
-   Exit code `0` means every required check succeeded. Any non-zero exit code, or any
-   check listed as `pending`, `queued`, or `skipped` in the output, means the bar is not
-   met — go to the "If any condition fails" branch below with
-   `condition: "ci-checks-not-green"`.
-
-2. **Confirm the full test suite passed with zero failures and type-check/lint are clean.**
-   This is not "trust Cycle Step 5's earlier local run" — confirm it via the CI check
-   results from step 1 above (the CI-run type-check/lint/test jobs are the authoritative
-   source, since they run against the pushed commit, not a local working tree that could
-   have drifted). If `gh pr checks` step 1 already covered a check literally named
-   `test` / `type-check` / `lint` (or equivalent per this repo's CI workflow) and it
-   reported success, this condition is satisfied by step 1 — do not re-run local commands
-   as a substitute for a red or missing CI check.
-
-3. **Confirm no unresolved review conversations, no merge conflicts, and a clean merge
-   state.** Run:
-
-   ```bash
-   gh pr view <prUrl> --json reviewDecision,mergeable,mergeStateStatus
-   ```
-
-   The bar requires ALL of:
-   - `mergeable` is `"MERGEABLE"` (not `"CONFLICTING"` or `"UNKNOWN"`).
-   - `mergeStateStatus` is `"CLEAN"` or `"UNSTABLE"` is NOT acceptable — only `"CLEAN"`
-     passes; `"BLOCKED"`, `"DIRTY"`, `"BEHIND"`, `"UNSTABLE"`, or `"UNKNOWN"` all fail this
-     condition.
-   - `reviewDecision` is not `"CHANGES_REQUESTED"`. (`"REVIEW_REQUIRED"` with zero actual
-     review comments, or `null`/empty because no review is required by branch protection,
-     both pass — the explicit condition is "no unresolved review conversations", not "a
-     human must have approved"; if this repo's branch protection requires an approval,
-     `mergeStateStatus` will already reflect `"BLOCKED"` and condition 3 fails on that
-     basis instead.)
-
-   If any of these three checks fails, go to the "If any condition fails" branch below with
-   `condition: "unresolved-reviews-or-conflicts"`.
-
-**If ALL conditions pass:** merge with:
-
-```bash
-gh pr merge <prUrl> --merge
-```
-
-Use `--merge` (a plain merge commit), **not** `--auto`. `--auto` requires GitHub's
-"Allow auto-merge" repository setting to be enabled org-wide, which this repo has not
-confirmed is on — `--merge` merges immediately and gives an immediate, visible pass/fail
-from the command itself instead of silently queuing. If `gh pr merge --merge` itself
-returns a non-zero exit code (e.g. a race where `main` moved between the check in
-condition 3 and this call), treat that as a failed merge attempt: do NOT retry blindly.
-Comment on the issue: `"Merge attempt failed after the 100%-green bar was met — <gh error
-output>. Falling back to human review."`, and return
-`{ outcome: "pr-opened", issueId: "<issue identifier>", prUrl: "<prUrl>" }` (the PR stays
-open for a human, exactly as the non-merge path below does).
-
-On a successful merge:
-1. Add a comment to the issue: `"Merged <prUrl> into main — 100%-green bar met (CI checks
-   green, test suite zero failures, type-check/lint clean, no unresolved review threads,
-   no merge conflicts). AGENTS.md rule 19."`
-2. Return `{ outcome: "pr-merged", issueId: "<issue identifier>", prUrl: "<prUrl>" }`.
-
-**If any condition fails:** do NOT merge. Do not retry the merge. Do not force-merge.
-
-1. Add a comment to the issue naming the exact condition that failed, one of:
-   - `"100%-green bar not met — CI checks not green (pending/skipped/red). PR left open
-     for human review. AGENTS.md rule 19."`
-   - `"100%-green bar not met — unresolved review conversations or merge conflicts against
-     main (mergeable=<value>, mergeStateStatus=<value>, reviewDecision=<value>). PR left
-     open for human review. AGENTS.md rule 19."`
-2. Return `{ outcome: "pr-opened", issueId: "<issue identifier>", prUrl: "<prUrl>" }` — the
-   same non-merge cycle outcome this procedure always returned before rule 19 was revised.
-   This is not a stop-guard trip; it's the ordinary "PR is open, human reviews it" ending.
-
-This ends the cycle either way. Do not proceed to the next issue within this same agent
-invocation — that is the `/loop` skill's job (Task 6).
-````
-
-- [ ] **Step 10: Verify the file is well-formed and matches the existing agent-file convention**
+- [ ] **Step 9: Verify the file is well-formed and matches the existing agent-file convention**
 
 Run: `cat .claude/agents/continuous-linear-loop.md | head -20`
 Expected: valid YAML frontmatter block (`---` ... `---`) followed by markdown, structurally
@@ -785,23 +676,19 @@ matching `.claude/agents/linear-task-processor.md`'s frontmatter shape (same `to
 `mcpServers:` keys).
 
 Run: `grep -c "^### Cycle Step" .claude/agents/continuous-linear-loop.md`
-Expected: `8` (Cycle Steps 1 through 8).
+Expected: `7` (Cycle Steps 1 through 7).
 
-- [ ] **Step 11: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add .claude/agents/continuous-linear-loop.md
 git commit -m "feat(linear-loop): add continuous-linear-loop single-cycle agent procedure
 
-Adapts linear-task-processor's implement/verify/commit flow with two explicit
-overrides: PR target is main, not sandbox; and the loop may merge its own PR
-(gh pr merge --merge, never --auto) when a strict 100%-green bar is met —
-CI checks green, test suite zero failures, type-check/lint clean, no
-unresolved review threads, no merge conflicts (AGENTS.md rule 19, revised
-2026-07-03). If the bar isn't met, the PR is left open for human review,
-same as before. Wraps dispatch in the Nexus Prompt. Consumes isOwnerGated()
-(lib/linear-loop/owner-gated.ts) for the owner-gated skip check.
-Single-agent dispatch only, no MOA fan-out (Phase 2 is separate).
+Adapts linear-task-processor's implement/verify/commit flow with one explicit
+override: PR target is main, not sandbox. The loop always stops at PR-open —
+rule 18 applies in full, a human merges. Wraps dispatch in the Nexus Prompt.
+Consumes isOwnerGated() (lib/linear-loop/owner-gated.ts) for the owner-gated
+skip check. Single-agent dispatch only, no MOA fan-out (Phase 2 is separate).
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 ```
@@ -1083,7 +970,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Modify: `.claude/agents/continuous-linear-loop.md` (append the "Loop wiring" section)
 
 **Interfaces:**
-- Consumes: the cycle outcome contract from Task 4 (`{ outcome: "pr-opened" | "pr-merged" | "skipped" | "no-issues" | "stop-guard-tripped", ... }` — `"pr-merged"` added 2026-07-03 alongside Task 4's Cycle Step 8 verify-to-green addition).
+- Consumes: the cycle outcome contract from Task 4 (`{ outcome: "pr-opened" | "skipped" | "no-issues" | "stop-guard-tripped", ... }`).
 - Consumes: `StopGuardTracker` from Task 5 (`lib/linear-loop/stop-guards.ts`) — `recordCiFailure`, `recordOwnerGated`, `recordSpend`, `recordUnactionableSkip`, `recordActionableCycle`, `getTripReason`, `toState`/`fromState`.
 - Produces: the exact `/loop` invocation prompt text a human types to start the loop, and the per-cycle continuation prompt the `/loop` skill re-issues to itself between cycles.
 
@@ -1128,14 +1015,10 @@ Between cycles, `/loop`'s self-paced wakeup re-invokes the same instruction with
 cycle's carried-forward `StopGuardTracker` state substituted in. Each cycle:
 
 1. Restore (or construct, on cycle 1) the `StopGuardTracker`.
-2. Run Cycle Steps 1–8 (this file's "Per-cycle procedure" section) exactly once.
+2. Run Cycle Steps 1–7 (this file's "Per-cycle procedure" section) exactly once.
 3. Based on the returned outcome:
-   - `"pr-opened"`: call `tracker.recordActionableCycle()`, report the PR URL (open, awaiting
-     human review since the 100%-green bar wasn't met at Cycle Step 8), continue the loop.
-   - `"pr-merged"`: call `tracker.recordActionableCycle()`, report the PR URL and that it was
-     merged into `main` (Cycle Step 8's 100%-green bar was met), continue the loop. This is
-     the 2026-07-03 rule 19 revision's only new branch — everything else in this switch is
-     unchanged from the original plan.
+   - `"pr-opened"`: call `tracker.recordActionableCycle()`, report the PR URL (open,
+     awaiting human review — a human always merges), continue the loop.
    - `"skipped"` with `reason: "owner-gated"`: this path already returned
      `"stop-guard-tripped"` at Cycle Step 2/4 per this file's own procedure — a plain
      `"skipped"`/`"owner-gated"` combination should not occur; if it does, treat it as
@@ -1164,7 +1047,7 @@ continuous-execution cron (commit `8f739e53`).
 
 Run: `grep -n "^##\|^###" .claude/agents/continuous-linear-loop.md`
 Expected output includes, in order: `## Cycle outcome contract`, `## Per-cycle procedure`
-(with 8 `### Cycle Step N` subsections), `## Loop wiring (how /loop drives this procedure)`,
+(with 7 `### Cycle Step N` subsections), `## Loop wiring (how /loop drives this procedure)`,
 `### Starting the loop`, `### Per-cycle continuation`, `### Session-bound property`.
 
 - [ ] **Step 3: Commit**
@@ -1185,25 +1068,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ## Self-Review
 
-**Revision log.** 2026-07-03 (same day, later pass): spec §7 rule 19 was revised by the
-owner to allow the continuous loop to merge its own PR into `main` when a strict
-100%-green bar is met (every required CI check green — none pending/skipped/red; full
-test suite zero failures; type-check/lint clean; no unresolved review conversations; no
-merge conflicts). This plan was originally written against the OLD rule 19 text
-("implement → PR-open → stop", human always merges). This revision adds Task 4 Cycle
-Step 8 ("Verify-to-green, then conditionally merge") after the original PR-open step,
-updates the Global Constraints section, the embedded agent frontmatter/description, and
-the Cycle outcome contract (`"pr-merged"` added as a fourth outcome). Tasks 1, 2, 3, and 5
-are unchanged by this revision — they don't reference rule 19's merge boundary. Task 6
-required two small, mechanical consequential edits (Cycle Step count 7→8 in its "run
-exactly once" instruction and structure-verification grep; a `"pr-merged"` case added to
-its outcome switch) — these are direct, unavoidable consequences of Task 4 gaining an
-8th cycle step and a 4th outcome value, not independent redesign of Task 6's own logic;
-leaving Task 6 pointed at a stale 7-step/3-outcome contract would have made the plan
-internally inconsistent per this skill's own "type/interface consistency" self-review
-rule below.
-
-**1. Spec coverage (re-confirmed against the current, revised §7/rule-19 text).**
+**1. Spec coverage.**
 
 - §3 step 1 (query RA Todo/Backlog by priority) → Task 4 Cycle Step 1.
 - §3 step 2 (skip owner-gated, log-not-error; create the real Linear label) → Task 2 (label creation) + Task 3 (`isOwnerGated`) + Task 4 Cycle Step 2.
@@ -1211,24 +1076,24 @@ rule below.
 - §3 step 4 (single-agent vs MOA fan-out decision) → explicitly out of scope (Phase 2, §4/boardroom) — this plan hardcodes "always single-agent" per the task brief's instruction to use "SIMPLE single-agent dispatch (no MOA fan-out)".
 - §3 step 5 (Nexus-wrapped dispatch, model tier per §5) → Task 4 Cycle Step 4 wraps in the Nexus Prompt; model *tier selection* per §5 is explicitly Phase-2/separate-repo work per the spec itself ("lands as a separate, small PR to Pi-Dev-Ops's `nexus` skill") — Task 4 defaults to `model: sonnet` in its own frontmatter (matching this plan's "default execution tier for routine dev/copy/dispatch work" from spec §5, the only tier-selection statement that's actually Phase-1-relevant) without attempting the full tier-selection layer.
 - §3 step 6 (adapt linear-task-processor's flow, override PR target to `main`) → Task 4 Cycle Step 4 (branch/implement/validate) + Cycle Step 6 (`--base main`, explicit callout against both `linear-task-processor.md` and `pr-creator.md`'s `sandbox` defaults).
-- §3 step 7 (PR opens, issue → In Review, comment PR link, advance) → Task 4 Cycle Step 7, now followed by Cycle Step 8's conditional merge (see below) rather than terminating the cycle directly.
+- §3 step 7 (PR opens, issue → In Review, comment PR link, advance) → Task 4 Cycle Step 7, which returns `{ outcome: "pr-opened", issueId, prUrl }` directly and ends the cycle there.
 - §3 "Concurrency: 1" → Task 6 "Per-cycle continuation" point 4.
-- §3 stop guards (all 4) → Task 5 (`StopGuardTracker`) + Task 4 Cycle Step 2 (owner-gated), Cycle Step 5 (CI failures) + Task 6 (budget ceiling invocation, consecutive skips). Unaffected by the rule 19 revision — a merge outcome still calls `recordActionableCycle()` exactly like the original PR-opened outcome did.
+- §3 stop guards (all 4) → Task 5 (`StopGuardTracker`) + Task 4 Cycle Step 2 (owner-gated), Cycle Step 5 (CI failures) + Task 6 (budget ceiling invocation, consecutive skips).
 - §3 "Session-bound property" → Task 6 "Session-bound property" subsection + Task 1's stop-guard addendum in `.claude/RULES.md`.
-- §7 rule 19, current/revised text ("implement → PR-open → verify-to-100%-green → merge", conditional merge exception with the 5-item bar) → **Task 4 Cycle Step 8** (new): polls `gh pr checks <prUrl> --watch --fail-fast` for CI-green, confirms test-suite/type-check/lint cleanliness via the same CI check results, confirms `gh pr view <prUrl> --json reviewDecision,mergeable,mergeStateStatus` shows no unresolved reviews/conflicts, and merges with `gh pr merge <prUrl> --merge` (never `--auto`) only if all three hold; otherwise leaves the PR open, comments the specific failed condition, and returns `"pr-opened"` unchanged from the pre-revision behavior. Task 1's Global Constraints section and the embedded agent frontmatter/description were both updated to state the conditional-merge policy instead of the old "never merges" wording.
-- §7b (rules 29–33 exact text, including rule 33's "except the continuous loop's own PRs when they meet the 100%-green bar") → Task 1 Step 3, verbatim from spec (Task 1 itself is unchanged by this revision — it already carried the spec's rule 33 wording).
+- §7 rule 19 ("implement → PR-open → stop") → Task 4 Cycle Step 7 implements the PR-open-then-stop boundary directly: it comments the PR link, marks the issue In Review, and returns `"pr-opened"` — no merge behavior anywhere in the procedure.
+- §7b (rules 29–33 exact text) → Task 1 Step 3, verbatim from spec.
 - §7c (stop-guard addendum exact text) → Task 1 Step 5, verbatim from spec.
 - §8 "Create the owner-gated Linear label" → Task 2.
 - §8 "Daily budget ceiling value is unset — must be specified at loop-invocation time" → Task 5's `StopGuardConfig.dailyBudgetCeilingUsd` (constructor-required, no default) + Task 6's invocation prompt asking for `<N>` explicitly.
 - §8 "separate Pi-Dev-Ops PR adding tier-selection guidance to nexus" and "full routing table in §4" → correctly excluded per this plan's brief (different repo / Phase 2, respectively) — not silently dropped, explicitly named here as out of scope.
 
-**2. Placeholder scan.** No "TBD"/"add appropriate error handling"/"similar to Task N" patterns found, including in the new Cycle Step 8 content. Every code block is complete, runnable TypeScript or exact shell commands — the `gh pr checks`, `gh pr view --json ...`, and `gh pr merge --merge` invocations are exact, copy-pasteable commands, not described-but-unshown steps. The one spot that could look like a placeholder — `<RA_TEAM_ID>`, `<N>`, `<issue identifier>`, `<prUrl>` in Task 2/4/6 — are documented runtime values filled in during execution (the same convention `linear-task-processor.md` itself uses with `RA-XXX`), not missing plan content.
+**2. Placeholder scan.** No "TBD"/"add appropriate error handling"/"similar to Task N" patterns found. Every code block is complete, runnable TypeScript or exact shell commands. The one spot that could look like a placeholder — `<RA_TEAM_ID>`, `<N>`, `<issue identifier>`, `<prUrl>` in Task 2/4/6 — are documented runtime values filled in during execution (the same convention `linear-task-processor.md` itself uses with `RA-XXX`), not missing plan content.
 
 **3. Type/interface consistency.**
 - `isOwnerGated(issue: OwnerGateCheckInput): boolean` (Task 3) is called with the same shape (`{ labels: string[], description: string | null }`) in Task 4 Cycle Step 2 — confirmed matching field names (`labels`, `description`) and types.
 - `OWNER_GATED_LABEL_NAME` (Task 3, value `"owner-gated"`) matches the label name string used in Task 2's `create_issue_label` call and Task 4 Cycle Step 2's manual-check description.
 - `StopGuardTracker` methods (`recordCiFailure(issueId: string): StopGuardResult`, `recordOwnerGated(): StopGuardResult`, `recordSpend(usd: number): StopGuardResult`, `recordUnactionableSkip(): StopGuardResult`, `recordActionableCycle(): void`, `getTripReason(): string | null`, `toState()`, `fromState()`) as defined in Task 5 are referenced with identical names and signatures in Task 4 Cycle Step 5 (`recordCiFailure`) and Task 6 (`recordActionableCycle`, `recordUnactionableSkip`, `getTripReason`, `toState`/`fromState`). `StopGuardConfig.dailyBudgetCeilingUsd` (Task 5) matches the `{ dailyBudgetCeilingUsd: <N> }` construction shown in Task 6.
-- Cycle outcome contract (`{ outcome: "pr-opened" | "pr-merged" | "skipped" | "no-issues" | "stop-guard-tripped", ... }`) defined once in Task 4's "Cycle outcome contract" section is the exact vocabulary Task 6's "Per-cycle continuation" branches on — confirmed Task 6 now has a matching `"pr-merged"` case (calls `recordActionableCycle()`, same as `"pr-opened"`, then continues the loop) alongside its unchanged `"pr-opened"`, `"skipped"`, `"no-issues"`, `"stop-guard-tripped"` cases. Cycle Step count is consistently `8` across Task 4's own verification step and Task 6's structure-verification grep and "run exactly once" instruction.
+- Cycle outcome contract (`{ outcome: "pr-opened" | "skipped" | "no-issues" | "stop-guard-tripped", ... }`) defined once in Task 4's "Cycle outcome contract" section is the exact vocabulary Task 6's "Per-cycle continuation" branches on — confirmed Task 6's `"pr-opened"`, `"skipped"`, `"no-issues"`, `"stop-guard-tripped"` cases match exactly. Cycle Step count is consistently `7` across Task 4's own verification step and Task 6's structure-verification grep and "run exactly once" instruction.
 
 **Explicitly flagged — spec items this plan could NOT fully plan, and why (not papered over):**
 
