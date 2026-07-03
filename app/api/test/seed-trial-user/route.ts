@@ -20,7 +20,13 @@ const Body = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  if (process.env.ALLOW_TEST_HELPERS !== "true") {
+  // RA-6940 defence-in-depth (same hard-block as sign-in-as): even if
+  // ALLOW_TEST_HELPERS were ever true in a production deploy, VERCEL_ENV
+  // must prevent seeding users into the production database.
+  if (
+    process.env.ALLOW_TEST_HELPERS !== "true" ||
+    process.env.VERCEL_ENV === "production"
+  ) {
     return apiError(request, {
       code: "FORBIDDEN",
       message: "Test helpers disabled",
