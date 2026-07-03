@@ -1,7 +1,7 @@
 [
   {
     "standard": "IICRC_S500",
-    "edition": "2025",
+    "edition": "2021",
     "clause": "3.1",
     "title": "S500 — Scope and application of the standard",
     "jurisdiction": "AU",
@@ -9,7 +9,7 @@
   },
   {
     "standard": "IICRC_S500",
-    "edition": "2025",
+    "edition": "2021",
     "clause": "3.2",
     "title": "S500 — Definitions of key restoration terms",
     "jurisdiction": "AU",
@@ -17,7 +17,7 @@
   },
   {
     "standard": "IICRC_S500",
-    "edition": "2025",
+    "edition": "2021",
     "clause": "7.1",
     "title": "S500 — General health and safety obligations for restorers",
     "jurisdiction": "AU",
@@ -25,7 +25,7 @@
   },
   {
     "standard": "IICRC_S500",
-    "edition": "2025",
+    "edition": "2021",
     "clause": "7.3",
     "title": "S500 — Electrical hazard management during water intrusion",
     "jurisdiction": "AU",
@@ -33,7 +33,7 @@
   },
   {
     "standard": "IICRC_S500",
-    "edition": "2025",
+    "edition": "2021",
     "clause": "7.5",
     "title": "S500 — Mould and microbial risk during water damage response",
     "jurisdiction": "AU",
@@ -41,7 +41,7 @@
   },
   {
     "standard": "IICRC_S500",
-    "edition": "2025",
+    "edition": "2021",
     "clause": "10.1",
     "title": "S500 — Water category classification framework",
     "jurisdiction": "AU",
@@ -49,7 +49,7 @@
   },
   {
     "standard": "IICRC_S500",
-    "edition": "2025",
+    "edition": "2021",
     "clause": "10.5",
     "title": "S500 — Category 2 water — greywater characteristics and response",
     "jurisdiction": "AU",
@@ -57,7 +57,7 @@
   },
   {
     "standard": "IICRC_S500",
-    "edition": "2025",
+    "edition": "2021",
     "clause": "12.1",
     "title": "S500 — Drying system design principles",
     "jurisdiction": "AU",

@@ -1,5 +1,5 @@
 /**
- * IICRC S500:2025 Inspection Photo Label Schema — RA-446
+ * IICRC S500:2021 Inspection Photo Label Schema — RA-446
  * Do NOT modify enum values without updating schema.prisma and UI pickers.
  * All values stored as TEXT / TEXT[] in PostgreSQL (no DB-level enums).
  *
@@ -10,10 +10,10 @@
 // Enums (union types — stored as plain strings in DB)
 // ---------------------------------------------------------------------------
 
-/** S500:2025 §10 — Water contamination category */
+/** S500:2021 §10 — Water contamination category */
 export type DamageCategory = "CAT_1" | "CAT_2" | "CAT_3";
 
-/** S500:2025 §11 — Evaporative load class */
+/** S500:2021 §11 — Evaporative load class */
 export type DamageClass = "CLASS_1" | "CLASS_2" | "CLASS_3" | "CLASS_4";
 
 export type RoomType =
@@ -92,7 +92,7 @@ export type DamageExtentEstimate =
   | "FULL"
   | "UNCERTAIN";
 
-/** Multi-select — S500:2025 §16 secondary indicators; may be empty [] */
+/** Multi-select — S500:2021 §16 secondary indicators; may be empty [] */
 export type SecondaryDamageIndicator =
   | "MOULD_VISIBLE"
   | "MOULD_ODOUR"
@@ -214,7 +214,7 @@ export function hasStopWorkIndicator(
 // Validation helpers
 // ---------------------------------------------------------------------------
 
-/** S500:2025 §10.3 cross-field rule: sewage contamination → must be CAT_3 */
+/** S500:2021 §10.3 cross-field rule: sewage contamination → must be CAT_3 */
 export function validateCrossFieldRules(
   label: Partial<InspectionPhotoLabel>,
 ): string[] {
@@ -225,7 +225,7 @@ export function validateCrossFieldRules(
     label.damageCategory !== "CAT_3"
   ) {
     errors.push(
-      "CONTAMINATION_SEWAGE requires damageCategory CAT_3 (S500:2025 §10.3)",
+      "CONTAMINATION_SEWAGE requires damageCategory CAT_3 (S500:2021 §10.3)",
     );
   }
 

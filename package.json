@@ -57,6 +57,7 @@
     "check:no-verbatim": "tsx scripts/check-no-verbatim-standards.ts",
     "type-check": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsc --noEmit",
     "check:no-emoji": "node scripts/check-no-emoji.mjs",
+    "check:encoding": "node scripts/check-encoding.mjs",
     "test:parity": "node scripts/ci/check-test-parity.mjs",
     "test:db": "bash scripts/ci/test-with-db.sh",
     "audit:ai": "tsx scripts/audit-ai-call-sites.ts --gate",

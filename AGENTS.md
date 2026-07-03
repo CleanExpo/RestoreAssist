@@ -27,7 +27,7 @@ TypeScript / Next.js 15 App Router compliance platform for Australian water dama
 9. **No `error.message` in 500s.** Internal log; return `{ error: "Internal server error" }`.
 10. **Escape HTML before email-body interpolation** — `escapeHtml()` helper (`& < > " '`).
 11. **File uploads validate magic bytes**, not `Content-Type`. Canonical: `app/api/upload/route.ts`.
-12. **IICRC refs cite edition + section.** `S500:2025 §7.1`. Never abbreviate.
+12. **IICRC refs cite edition + section.** `S500:2021 §7.1`. Never abbreviate.
 13. **AU compliance:** GST = 10%, ABN = 11 digits, state codes via `lib/nir-jurisdictional-matrix.ts`.
 14. **shadcn/ui only** from `components/ui/`. Brand: navy `#1C2E47` · warm `#8A6B4E` · light `#D4A574` · bg `#050505`.
 15. **Secrets in `.env.local` only.** Reference `.env.example`.
