@@ -91,12 +91,7 @@ Composes three existing pieces rather than inventing a fourth:
 **(a) New rule 19 — `AGENTS.md`, immediately after rule 18:**
 
 ```markdown
-19. **Continuous Linear-driven agent loop is sanctioned — implement → PR-open → verify-to-100%-green → merge.** A session-bound (not standing-cron) loop that pulls TODO items from the Linear RestoreAssist backlog, dispatches sub-agents to implement each, and opens a PR per item is an approved pattern. **Revised 2026-07-03, owner-approved:** the loop may merge its own PR into `main` — a narrow, conditional exception to rule 18's "human-authored only" posture, scoped to this loop's own PRs only — but only when ALL of the following hold, checked fresh at merge time (never inferred from a prior cycle or session):
-    - Every required CI status check reports success — none pending, none skipped, none red.
-    - The full test suite passes with zero failures (not "mostly passing" — zero).
-    - Type-check and lint are clean.
-    - No unresolved review conversations and no merge conflicts against current `main`.
-    If any single item is red, pending, skipped, or unresolved, the loop does not merge — it stops and reports, exactly as before. It never retries a merge blind, never force-merges, and never re-spawns itself outside the current session. A PR that fails this bar sits open for human review, same as any other PR in this repo.
+19. **Continuous Linear-driven agent loop is sanctioned — implement → PR-open → stop.** A session-bound (not standing-cron) loop that pulls TODO items from the Linear RestoreAssist backlog, dispatches sub-agents to implement each, and opens a PR per item is an approved pattern. Its boundary is absolute: the loop implements, verifies, and opens a PR — then stops. It never merges, never rebases past a merge conflict on `main`, and never re-spawns itself outside the current session. Rule 18 applies to this loop in full and without exception — a human merges. If the loop cannot open a clean PR (conflicts, failing gate), it stops and reports — it does not attempt to resolve by merging.
 ```
 
 **(b) New "Owner-action gated" section — `.claude/RULES.md`, after the "Progress Framework" section:**
@@ -110,7 +105,7 @@ These actions require explicit owner/human authorization before any agent — lo
 30. **Secret and credential rotation** — API keys, OAuth client secrets, service-role tokens, signing keys, `.env` values in any deployed environment.
 31. **Spend above a real-money threshold** — any action that provisions paid infrastructure, upgrades a paid tier, or otherwise commits spend over **$50 AUD** in a single action.
 32. **Deleting or cancelling production resources** — dropping a prod database/branch, deleting a prod deployment, cancelling a subscription, revoking a domain, deleting user data outside a documented data-subject request.
-33. **Merging into `main`** — see rule 18 (AGENTS.md). Owner-gated by default, **except** the continuous loop's own PRs when they meet the 100%-green bar defined in rule 19 — that specific, narrow case may merge without a per-item human go-ahead. Any PR not meeting that bar remains owner-gated as normal.
+33. **Merging into `main`** — see rule 18 (AGENTS.md); restated here for completeness of the owner-gated list.
 
 An agent that reaches an owner-gated action must stop, state exactly what it would do and why, and wait for explicit human go-ahead in that session. It must not infer prior approval from a Linear ticket status, a runbook's existence, or a prior session's notes.
 ```
