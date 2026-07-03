@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   validateUnderlayUpload,
+  isPdfUnderlay,
   MAX_UNDERLAY_BYTES,
 } from "../validate-underlay-upload";
 
@@ -11,10 +12,19 @@ describe("validateUnderlayUpload", () => {
     }
   });
 
+  // RA-6849 [C3]: PDF is accepted and rasterised to PNG before embedding.
+  it("accepts a PDF (rasterised downstream)", () => {
+    expect(
+      validateUnderlayUpload({ type: "application/pdf", size: 1024 }),
+    ).toEqual({ ok: true });
+    expect(isPdfUnderlay("application/pdf")).toBe(true);
+    expect(isPdfUnderlay("image/png")).toBe(false);
+  });
+
   it("rejects a disallowed type with a helpful message", () => {
-    const r = validateUnderlayUpload({ type: "application/pdf", size: 1024 });
+    const r = validateUnderlayUpload({ type: "application/zip", size: 1024 });
     expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/PNG|JPG|WebP/i);
+    expect(r.error).toMatch(/PNG|JPG|WebP|PDF/i);
   });
 
   it("rejects a GIF (not in the allow-list)", () => {

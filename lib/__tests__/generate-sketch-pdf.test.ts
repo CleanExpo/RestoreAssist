@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { safe, dataUrlToBytes } from "../generate-sketch-pdf";
+import { safe, dataUrlToBytes, formatFloorMeta } from "../generate-sketch-pdf";
 
 // RA-6687: Focused unit tests for the PURE, DB-free helpers in the sketch PDF
 // pipeline. `safe()` keeps user-supplied labels/notes encodable by pdf-lib's
@@ -63,5 +63,27 @@ describe("dataUrlToBytes", () => {
     const a = dataUrlToBytes("data:image/png;base64,SGk=");
     const b = dataUrlToBytes("data:application/octet-stream;base64,SGk=");
     expect(Array.from(a)).toEqual(Array.from(b));
+  });
+});
+
+// RA-6846 [A7] / RA-6843 [A4]: the PDF floor sub-header shows total measured
+// area + the calibrated scale. This is the pure formatter behind that line.
+describe("formatFloorMeta", () => {
+  it("includes total measured area (1dp) and scale when area > 0", () => {
+    expect(formatFloorMeta({ totalAreaM2: 14.14, pxPerMetre: 100 })).toBe(
+      "Total measured area: 14.1 m²   ·   Scale: 1 m = 100 px",
+    );
+  });
+
+  it("omits the area clause when there is no measured geometry", () => {
+    expect(formatFloorMeta({ totalAreaM2: 0, pxPerMetre: 100 })).toBe(
+      "Scale: 1 m = 100 px",
+    );
+  });
+
+  it("reflects a calibrated (non-default) scale and rounds px", () => {
+    expect(formatFloorMeta({ totalAreaM2: 8, pxPerMetre: 128.4 })).toBe(
+      "Total measured area: 8.0 m²   ·   Scale: 1 m = 128 px",
+    );
   });
 });

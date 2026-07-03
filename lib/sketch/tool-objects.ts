@@ -17,6 +17,7 @@
  * object — all geometry/units/data logic lives here where it can be tested.
  */
 import type { ToolMode } from "@/components/sketch/SketchCanvas";
+import { shoelaceAreaPx2, px2ToM2, centroid } from "@/lib/sketch/geometry-utils";
 
 export interface Point {
   x: number;
@@ -90,6 +91,31 @@ export function formatMetres(m: number): string {
   return `${m.toFixed(2)} m`;
 }
 
+/**
+ * RA-6843 [A4] — on-canvas room caption. Auto-computed area (1dp m²) is always
+ * shown; an optional operator-set room name prefixes it as "Name · 14.1 m²".
+ * Kept pure so the live-resize sync in SketchCanvas and unit tests share it.
+ */
+export function formatRoomLabel(
+  name: string | null | undefined,
+  areaM2: number,
+): string {
+  const area = `${areaM2.toFixed(1)} m²`;
+  const trimmed = (name ?? "").trim();
+  return trimmed ? `${trimmed} · ${area}` : area;
+}
+
+/**
+ * RA-6843 [A4] — measured area for a drawn room polygon, in m². Shoelace over
+ * the centerline `points` (identical to decompose-elements / extract-rooms), so
+ * the caption can never disagree with the billed/scoped quantity. Returns 0 for
+ * degenerate (< 3 vertex) geometry.
+ */
+export function roomAreaM2(points: Point[], pxPerMetre = DEFAULT_PX_PER_METRE): number {
+  if (points.length < 3) return 0;
+  return px2ToM2(shoelaceAreaPx2(points), pxPerMetre || DEFAULT_PX_PER_METRE);
+}
+
 export function arrowAngleDeg(a: Point, b: Point): number {
   return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
 }
@@ -112,6 +138,13 @@ export function describeToolObject(
   switch (tool) {
     case "room": {
       if (points.length < 3) return null;
+      // RA-6843 [A4]: auto-computed measured area (shoelace) drives a centered
+      // "Name · 14.1 m²" caption. Area is persisted on `data` so the canvas
+      // live-resize sync and PDF can read it without re-deriving. Only
+      // operator_measured rooms get this — the A0 firewall keeps imported
+      // (underlay_reference) rooms out of measured quantities.
+      const areaM2 = round2(roomAreaM2(points, pxPerMetre));
+      const c = centroid(points);
       // RA-6840 [A1]: draw the perimeter as a filled wall band (thick mitred
       // stroke centered on the centerline) so the room reads as an
       // architectural floor plan, not a 2px wireframe. `points` stay the
@@ -128,7 +161,12 @@ export function describeToolObject(
           strokeUniform: true,
           objectCaching: false,
         },
-        data: { type: "room", provenance: "operator_measured" },
+        data: { type: "room", provenance: "operator_measured", areaM2 },
+        label: {
+          text: formatRoomLabel(input.text, areaM2),
+          left: c.x,
+          top: c.y,
+        },
       };
     }
 
