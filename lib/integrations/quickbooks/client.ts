@@ -237,9 +237,12 @@ export class QuickBooksClient extends BaseIntegrationClient {
     headers.set("Authorization", `Bearer ${tokens.accessToken}`);
     headers.set("Accept", "application/json");
 
+    // RA-6942 — bound the outbound provider call so a hung connection cannot
+    // stall the request indefinitely (mirrors the ABR lookup timeout pattern).
     const response = await fetch(url, {
       ...options,
       headers,
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
