@@ -221,13 +221,18 @@ export async function POST(
             : `ext-${integration.id}-${externalClient.externalId}@client.local`;
 
         // Find-or-create so re-syncing the same external contact (by email)
-        // links back to the same Client rather than duplicating it.
+        // links back to the same Client rather than duplicating it. When the
+        // upsert adopts a pre-existing Client the user created, preserve their
+        // curated phone/address: `?? undefined` tells Prisma "don't change"
+        // rather than writing NULL over their data (matches the preserve-
+        // existing convention in app/api/reports/initial-entry/route.ts).
+        // `name` is always supplied (ExternalClient.name is required).
         const client = await prisma.client.upsert({
           where: { userId_email: { userId: session.user.id, email } },
           update: {
             name: externalClient.name,
-            phone: externalClient.phone,
-            address: externalClient.address,
+            phone: externalClient.phone ?? undefined,
+            address: externalClient.address ?? undefined,
           },
           create: {
             userId: session.user.id,

@@ -187,4 +187,65 @@ describe("POST /api/integrations/oauth/[provider]/clients", () => {
       data: { contactId: "client_new" },
     });
   });
+
+  it("does not NULL a user's curated phone/address when the imported external lacks them", async () => {
+    // Adopting a pre-existing same-email Client the user created: the provider
+    // record has no phone/address. The update payload must send `undefined`
+    // (Prisma: "leave unchanged"), never null, so curated data is preserved.
+    externalClientFindMany.mockResolvedValue([
+      {
+        id: "ext_3",
+        externalId: "xero-3",
+        name: "Jane Doe",
+        email: "jane@example.com",
+        phone: null,
+        address: null,
+        contactId: null,
+      },
+    ]);
+    clientUpsert.mockResolvedValue({ id: "client_existing" });
+    externalClientUpdate.mockResolvedValue({});
+
+    const response = await POST(postRequest({ clientIds: ["xero-3"] }), routeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.imported).toBe(1);
+
+    const upsertArg = clientUpsert.mock.calls[0][0];
+    expect(upsertArg.update).toEqual({
+      name: "Jane Doe",
+      phone: undefined,
+      address: undefined,
+    });
+    // Explicit guard against the regression: null would overwrite the field.
+    expect(upsertArg.update.phone).not.toBeNull();
+    expect(upsertArg.update.address).not.toBeNull();
+  });
+
+  it("still refreshes phone/address in the update branch when the external supplies them", async () => {
+    externalClientFindMany.mockResolvedValue([
+      {
+        id: "ext_4",
+        externalId: "xero-4",
+        name: "Acme Restorations",
+        email: "acme@example.com",
+        phone: "0411111111",
+        address: "9 New Rd",
+        contactId: null,
+      },
+    ]);
+    clientUpsert.mockResolvedValue({ id: "client_acme" });
+    externalClientUpdate.mockResolvedValue({});
+
+    const response = await POST(postRequest({ clientIds: ["xero-4"] }), routeContext());
+    await response.json();
+
+    const upsertArg = clientUpsert.mock.calls[0][0];
+    expect(upsertArg.update).toEqual({
+      name: "Acme Restorations",
+      phone: "0411111111",
+      address: "9 New Rd",
+    });
+  });
 });
