@@ -23,7 +23,10 @@ import {
   AlertCircle,
 } from "lucide-react";
 import type { ScrapedPropertyData } from "@/lib/property-data-parser";
-import { validateUnderlayUpload } from "@/lib/sketch/validate-underlay-upload";
+import {
+  validateUnderlayUpload,
+  isPdfUnderlay,
+} from "@/lib/sketch/validate-underlay-upload";
 import { persistUnderlayImage } from "@/lib/sketch/persist-underlay-image";
 
 export interface FloorPlanUnderlayLoaderProps {
@@ -65,6 +68,8 @@ export function FloorPlanUnderlayLoader({
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [opacity, setOpacity] = useState(0.35);
   const [applying, setApplying] = useState(false);
+  // RA-6849 [C3]: true while a PDF upload is being rasterised to a PNG.
+  const [rasterising, setRasterising] = useState(false);
   // PR5: set when the scrape route returns 402 (feature is Premium-only).
   const [upgradeRequired, setUpgradeRequired] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -164,6 +169,29 @@ export function FloorPlanUnderlayLoader({
       e.target.value = "";
       return;
     }
+    // Reset so the same file can be re-selected
+    e.target.value = "";
+    // RA-6849 [C3]: a PDF can't be embedded directly — rasterise page 1 to a PNG
+    // data URL first, then feed it through the same preview/persist path.
+    if (isPdfUnderlay(file.type)) {
+      setError(null);
+      setRasterising(true);
+      (async () => {
+        try {
+          const { pdfFileToPngDataUrl } = await import(
+            "@/lib/sketch/pdf-to-raster"
+          );
+          const png = await pdfFileToPngDataUrl(file);
+          setSelectedImage(png);
+          setResults(null);
+        } catch {
+          setError("Couldn't read that PDF — try exporting page 1 as an image.");
+        } finally {
+          setRasterising(false);
+        }
+      })();
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (ev) => {
       if (ev.target?.result) {
@@ -173,8 +201,6 @@ export function FloorPlanUnderlayLoader({
       }
     };
     reader.readAsDataURL(file);
-    // Reset so the same file can be re-selected
-    e.target.value = "";
   };
 
   const handleApply = async () => {
@@ -278,15 +304,20 @@ export function FloorPlanUnderlayLoader({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-dashed border-neutral-300 dark:border-slate-600 text-neutral-500 dark:text-slate-400 hover:border-cyan-400 hover:text-cyan-500 transition-colors"
+              disabled={rasterising}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-dashed border-neutral-300 dark:border-slate-600 text-neutral-500 dark:text-slate-400 hover:border-cyan-400 hover:text-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              <Upload size={13} />
-              Choose image file…
+              {rasterising ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Upload size={13} />
+              )}
+              {rasterising ? "Reading PDF…" : "Choose image or PDF…"}
             </button>
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp"
+              accept="image/png,image/jpeg,image/webp,application/pdf"
               className="hidden"
               onChange={handleFileUpload}
             />
