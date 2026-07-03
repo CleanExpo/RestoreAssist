@@ -20,6 +20,7 @@ import {
   parseS500Output,
   S500_VISION_SYSTEM_PROMPT,
 } from "./byok-client";
+import { reportError } from "../observability";
 
 // ━━━ RestoreAssist AI Configuration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -94,6 +95,46 @@ let lastHealthCheck: { healthy: boolean; checkedAt: number } | null = null;
 const HEALTH_CACHE_TTL_MS = 60_000; // Re-check every 60s
 
 /**
+ * Edge-trigger latch for the "self-hosted tier is down" ops alert.
+ * True once we have alerted for the CURRENT down episode; reset on recovery.
+ * Prevents re-firing the alert every 60s health cycle while the tier stays down
+ * (per the alert-noise edge-trigger rule: alert on state CHANGE, not per cycle).
+ */
+let selfHostedDownAlerted = false;
+
+/**
+ * Record a health transition and emit an edge-triggered ops alert.
+ *
+ * When the self-hosted RestoreAssist AI tier goes unhealthy, every request
+ * silently falls back to BYOK premium pricing (5–50x the self-hosted cost)
+ * with no operator signal. This surfaces the healthy→unhealthy transition ONCE
+ * so ops can repair the endpoint, and logs the recovery transition once.
+ */
+function noteHealth(healthy: boolean, reason: string): void {
+  if (!healthy && !selfHostedDownAlerted) {
+    selfHostedDownAlerted = true;
+    reportError(
+      new Error(`RestoreAssist AI self-hosted tier is down: ${reason}`),
+      {
+        route: "lib/ai/restoreassist-ai-client",
+        stage: "restoreassist-ai-tier-down",
+        reason,
+      },
+    );
+  } else if (healthy && selfHostedDownAlerted) {
+    selfHostedDownAlerted = false;
+    console.log(
+      JSON.stringify({
+        level: "info",
+        route: "lib/ai/restoreassist-ai-client",
+        stage: "restoreassist-ai-tier-recovered",
+        message: "RestoreAssist AI self-hosted tier recovered",
+      }),
+    );
+  }
+}
+
+/**
  * Check if the self-hosted RestoreAssist AI endpoint is available.
  * Caches result for 60 seconds to avoid hammering the endpoint.
  */
@@ -109,6 +150,7 @@ export async function isRestoreAssistAiHealthy(): Promise<boolean> {
   // No endpoint configured
   if (!RESTOREASSIST_AI_ENDPOINT || !RESTOREASSIST_AI_API_KEY) {
     lastHealthCheck = { healthy: false, checkedAt: Date.now() };
+    noteHealth(false, "endpoint or API key not configured");
     return false;
   }
 
@@ -124,9 +166,11 @@ export async function isRestoreAssistAiHealthy(): Promise<boolean> {
 
     const healthy = res.ok;
     lastHealthCheck = { healthy, checkedAt: Date.now() };
+    noteHealth(healthy, `health probe HTTP ${res.status}`);
     return healthy;
   } catch {
     lastHealthCheck = { healthy: false, checkedAt: Date.now() };
+    noteHealth(false, "health probe fetch failed");
     return false;
   } finally {
     clearTimeout(timeout);
@@ -136,6 +180,7 @@ export async function isRestoreAssistAiHealthy(): Promise<boolean> {
 /** Reset health cache (useful for testing or after config change) */
 export function resetHealthCache(): void {
   lastHealthCheck = null;
+  selfHostedDownAlerted = false;
 }
 
 // ━━━ Self-hosted Dispatch ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
