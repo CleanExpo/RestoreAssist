@@ -193,4 +193,26 @@ describe("POST /api/verify-subscription — subscription activation (RA-6962)", 
     expect(data.monthlyReportsUsed).toBeUndefined();
     expect(data.monthlyResetDate).toBeUndefined();
   });
+
+  it("does NOT reset monthly usage when local status is CANCELED but the subscription id is unchanged (cancel->verify refill hole)", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue(
+      subSession() as any,
+    );
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue(
+      stripeSub(2_000_000_000, 1_990_000_000) as any,
+    );
+    // Post cancel_at_period_end: local CANCELED on the SAME still-active sub.
+    // Must NOT be treated as a new activation.
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionId: "sub_new",
+    } as any);
+
+    const res = await POST(makeRequest({ sessionId: "cs_sub_1" }));
+    expect(res.status).toBe(200);
+
+    const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as any;
+    expect(data.subscriptionStatus).toBe("ACTIVE");
+    expect(data.monthlyReportsUsed).toBeUndefined();
+    expect(data.monthlyResetDate).toBeUndefined();
+  });
 });

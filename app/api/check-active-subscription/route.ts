@@ -144,14 +144,16 @@ export async function POST(request: NextRequest) {
         nextReset.setDate(1);
         nextReset.setHours(0, 0, 0, 0);
 
-        // A genuine new activation is when the stored subscription id differs
-        // from the live active one, OR the user was not already ACTIVE. Only
-        // then do we reset the monthly usage window — otherwise every poll of
-        // this endpoint would zero monthlyReportsUsed and hand the user their
-        // full monthly allowance again (the revenue-losing bug being fixed).
-        const isNewActivation =
-          user.subscriptionId !== activeSubscription.id ||
-          user.subscriptionStatus !== "ACTIVE";
+        // RA-6962 (review): reset the monthly usage window ONLY when this is a
+        // genuinely DIFFERENT subscription id — never on a status flip. After
+        // cancel_at_period_end the local status is CANCELED while Stripe is
+        // still active on the SAME subscription; a `subscriptionStatus !==
+        // "ACTIVE"` signal would let a poll of this route zero
+        // monthlyReportsUsed and re-gift the full allowance with no new billing
+        // period (repeatable free reports). Rollover for a real renewal is
+        // handled by lib/report-limits.ts (guarded by monthlyResetDate), not
+        // here — so a same-subscription poll must NOT reset usage.
+        const isNewSubscription = user.subscriptionId !== activeSubscription.id;
 
         // Prepare update data. The signup bonus is granted exactly once by the
         // checkout.session.completed webhook (atomic, guarded on
@@ -167,7 +169,7 @@ export async function POST(request: NextRequest) {
           // Don't set creditsRemaining for active subscriptions - they use monthly limits
         };
 
-        if (isNewActivation) {
+        if (isNewSubscription) {
           updateData.monthlyReportsUsed = 0;
           updateData.monthlyResetDate = nextReset;
         }

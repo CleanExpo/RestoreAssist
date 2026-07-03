@@ -147,21 +147,20 @@ export async function POST(request: NextRequest) {
         nextReset.setDate(1);
         nextReset.setHours(0, 0, 0, 0);
 
-        // A genuine new activation is when the stored subscription id differs
-        // from the one just paid for, OR the user was not already ACTIVE. Only
-        // then reset the monthly usage window — a redundant re-verify of the
-        // same active subscription must not zero monthlyReportsUsed and re-gift
-        // the monthly allowance.
+        // RA-6962 (review): reset the monthly usage window ONLY on a genuinely
+        // DIFFERENT subscription id — never on a status flip. A CANCELED local
+        // status (post cancel_at_period_end) on the SAME still-active Stripe
+        // subscription must not zero monthlyReportsUsed and re-gift the monthly
+        // allowance. Rollover for a real renewal is handled by
+        // lib/report-limits.ts (guarded by monthlyResetDate), not here.
         const userBefore = await prisma.user.findUnique({
           where: { id: session.user.id },
           select: {
-            subscriptionStatus: true,
             subscriptionId: true,
           },
         });
-        const isNewActivation =
-          userBefore?.subscriptionId !== (subscriptionId as string) ||
-          userBefore?.subscriptionStatus !== "ACTIVE";
+        const isNewSubscription =
+          userBefore?.subscriptionId !== (subscriptionId as string);
 
         // RA-907: current_period_end/start live on the SubscriptionItem in this
         // SDK version — read them there (no `as any` cast on the Subscription).
@@ -184,7 +183,7 @@ export async function POST(request: NextRequest) {
           // Don't set creditsRemaining for active subscriptions - they use monthly limits
         };
 
-        if (isNewActivation) {
+        if (isNewSubscription) {
           updateData.monthlyReportsUsed = 0;
           updateData.monthlyResetDate = nextReset;
         }
