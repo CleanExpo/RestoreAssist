@@ -1,11 +1,17 @@
 /**
- * RA-6939 — scoped refund revocation.
+ * RA-6965 / RA-6939 — scoped refund revocation.
  *
- * `charge.refunded` must revoke access ONLY when the refunded charge is tied to
- * a SUBSCRIPTION INVOICE (charge.invoice → invoice.subscription is set). A
- * refunded one-time addon/lifetime charge — no invoice, or an invoice with no
- * subscription — on a customer who also holds an active subscription must NOT
- * cancel that subscription.
+ * The pinned 2026-05-27 API removed `Charge.invoice` / `Charge.subscription`,
+ * so the handler resolves the subscription via Stripe's documented path:
+ *   charge.payment_intent
+ *     -> invoicePayments.list({ payment: { payment_intent } })
+ *     -> InvoicePayment.invoice
+ *     -> invoice.parent.subscription_details.subscription
+ *
+ * `charge.refunded` must revoke access ONLY when the refunded charge resolves to
+ * a SUBSCRIPTION INVOICE. A refunded one-time addon/lifetime charge (no invoice
+ * payment) — or a one-off invoice with no subscription linkage — on a customer
+ * who also holds an active subscription must NOT cancel that subscription.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -28,6 +34,7 @@ vi.mock("@/lib/stripe", () => ({
   stripe: {
     webhooks: { constructEvent: vi.fn() },
     invoices: { retrieve: vi.fn() },
+    invoicePayments: { list: vi.fn() },
   },
 }));
 vi.mock("next/headers", () => ({
@@ -47,12 +54,24 @@ const userUpdate = (
 const invoicesRetrieve = (
   stripe as unknown as { invoices: { retrieve: ReturnType<typeof vi.fn> } }
 ).invoices.retrieve;
+const invoicePaymentsList = (
+  stripe as unknown as {
+    invoicePayments: { list: ReturnType<typeof vi.fn> };
+  }
+).invoicePayments.list;
 
 function makeChargeEvent(charge: Record<string, unknown>) {
   return {
     id: `evt_${Math.random().toString(36).slice(2)}`,
     type: "charge.refunded",
-    data: { object: { refunded: true, customer: "cus_x", ...charge } },
+    data: {
+      object: {
+        refunded: true,
+        customer: "cus_x",
+        payment_intent: "pi_x",
+        ...charge,
+      },
+    },
   };
 }
 
@@ -64,7 +83,7 @@ function makeRequest() {
   });
 }
 
-describe("charge.refunded — scoped revocation (RA-6939)", () => {
+describe("charge.refunded — scoped revocation (RA-6965/RA-6939)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (
@@ -79,25 +98,47 @@ describe("charge.refunded — scoped revocation (RA-6939)", () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
-  it("does NOT cancel the subscription for a refunded one-time addon charge (no invoice)", async () => {
-    // A one-time addon charge: no invoice at all.
+  it("does NOT cancel the subscription for a refunded one-time addon charge (no invoice payment)", async () => {
+    // A bare addon PaymentIntent has no InvoicePayment.
     vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(
-      makeChargeEvent({ invoice: null }) as never,
+      makeChargeEvent({ payment_intent: "pi_addon" }) as never,
     );
+    invoicePaymentsList.mockResolvedValue({ data: [] });
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
-    // No invoice → no retrieve, subscriptionStatus left untouched.
+    expect(invoicePaymentsList).toHaveBeenCalledWith({
+      payment: { type: "payment_intent", payment_intent: "pi_addon" },
+      limit: 1,
+    });
+    // No invoice payment → no invoice retrieve, subscription left untouched.
     expect(invoicesRetrieve).not.toHaveBeenCalled();
     expect(userUpdate).not.toHaveBeenCalled();
   });
 
-  it("does NOT cancel the subscription for a refunded one-off invoiced charge (invoice has no subscription)", async () => {
-    // Invoiced, but not a subscription invoice.
+  it("does NOT cancel the subscription when the charge has no payment_intent", async () => {
     vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(
-      makeChargeEvent({ invoice: "in_oneoff" }) as never,
+      makeChargeEvent({ payment_intent: null }) as never,
     );
-    invoicesRetrieve.mockResolvedValue({ id: "in_oneoff", subscription: null });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(invoicePaymentsList).not.toHaveBeenCalled();
+    expect(userUpdate).not.toHaveBeenCalled();
+  });
+
+  it("does NOT cancel the subscription for a refunded one-off invoiced charge (invoice has no subscription)", async () => {
+    // Invoiced, but the invoice is not subscription-linked.
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(
+      makeChargeEvent({ payment_intent: "pi_oneoff" }) as never,
+    );
+    invoicePaymentsList.mockResolvedValue({
+      data: [{ invoice: "in_oneoff" }],
+    });
+    invoicesRetrieve.mockResolvedValue({
+      id: "in_oneoff",
+      parent: { subscription_details: null },
+    });
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
@@ -107,9 +148,16 @@ describe("charge.refunded — scoped revocation (RA-6939)", () => {
 
   it("cancels the subscription for a refunded subscription-invoice charge", async () => {
     vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(
-      makeChargeEvent({ invoice: "in_123" }) as never,
+      makeChargeEvent({ payment_intent: "pi_sub" }) as never,
     );
-    invoicesRetrieve.mockResolvedValue({ id: "in_123", subscription: "sub_1" });
+    invoicePaymentsList.mockResolvedValue({
+      data: [{ invoice: "in_123" }],
+    });
+    // 2026-05-27 linkage: invoice.parent.subscription_details.subscription.
+    invoicesRetrieve.mockResolvedValue({
+      id: "in_123",
+      parent: { subscription_details: { subscription: "sub_1" } },
+    });
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);

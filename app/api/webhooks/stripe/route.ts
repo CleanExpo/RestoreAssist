@@ -44,6 +44,41 @@ function derivePlanNameFromSubscription(
   return null;
 }
 
+/**
+ * RA-6968 — extracts the subscription id from an Invoice using the 2026-05-27
+ * API shape. The root `invoice.subscription` field was removed; the linkage now
+ * lives at `invoice.parent.subscription_details.subscription`. Returns null for
+ * non-subscription (one-off) invoices.
+ */
+function subscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
+  const subRef = invoice.parent?.subscription_details?.subscription;
+  if (!subRef) return null;
+  return typeof subRef === "string" ? subRef : subRef.id;
+}
+
+/**
+ * RA-6968 — resolves a subscription's current period end (item-level in the
+ * 2026-05-27 API) as a Date for nextBillingDate. Best-effort: returns null on
+ * any Stripe failure so the caller's renewal write still applies.
+ */
+async function subscriptionPeriodEnd(
+  subscriptionId: string,
+): Promise<Date | null> {
+  try {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const periodEnd = subscription.items?.data?.[0]?.current_period_end;
+    return typeof periodEnd === "number" && periodEnd > 0
+      ? new Date(periodEnd * 1000)
+      : null;
+  } catch (err) {
+    console.error(
+      "[stripe-webhook] subscriptions.retrieve for renewal period failed (non-fatal):",
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.text();
   const hdrs = await headers();
@@ -201,16 +236,29 @@ export async function POST(request: NextRequest) {
       }
 
       case "invoice.payment_succeeded": {
+        // RA-6968: the pinned 2026-05-27 API removed the root
+        // `invoice.subscription` field — the linkage now lives at
+        // invoice.parent.subscription_details.subscription. Reading the old
+        // field returned undefined, so renewals silently never refreshed the
+        // billing dates or credits.
         const invoice = event.data.object as Stripe.Invoice;
-        const invoiceSubscriptionId = (invoice as { subscription?: string })
-          .subscription;
+        const invoiceSubscriptionId = subscriptionIdFromInvoice(invoice);
 
         if (invoiceSubscriptionId) {
+          // Prefer the subscription item-level current_period_end (the canonical
+          // next-renewal boundary in this API, matching the
+          // customer.subscription.created / .updated handlers). Fall back to the
+          // invoice's own period_end when the retrieve is unavailable so the
+          // renewal write still refreshes nextBillingDate.
+          const nextBillingDate =
+            (await subscriptionPeriodEnd(invoiceSubscriptionId)) ??
+            new Date(invoice.period_end * 1000);
+
           await prisma.user.updateMany({
             where: { subscriptionId: invoiceSubscriptionId },
             data: {
               lastBillingDate: new Date(),
-              nextBillingDate: new Date(invoice.period_end * 1000),
+              nextBillingDate,
               creditsRemaining: 999999,
             },
           });
@@ -219,10 +267,11 @@ export async function POST(request: NextRequest) {
       }
 
       case "invoice.payment_failed": {
+        // RA-6968: same removed-field fix — resolve the subscription from
+        // parent.subscription_details so a failed renewal actually flips the
+        // user to PAST_DUE instead of silently no-oping.
         const failedInvoice = event.data.object as Stripe.Invoice;
-        const failedSubscriptionId = (
-          failedInvoice as { subscription?: string }
-        ).subscription;
+        const failedSubscriptionId = subscriptionIdFromInvoice(failedInvoice);
 
         if (failedSubscriptionId) {
           await prisma.user.updateMany({
@@ -359,13 +408,12 @@ export async function POST(request: NextRequest) {
       }
 
       case "charge.refunded": {
-        // RA-6939 — scoped revocation. A refunded charge only warrants
-        // subscription revocation when it is tied to a SUBSCRIPTION INVOICE.
-        // Having an invoice is not enough (one-off charges can be invoiced);
-        // the invoice must carry a `subscription` reference. A refunded
-        // one-time addon/lifetime charge on a customer who also holds an
-        // active subscription must NOT cancel that subscription. Partial
-        // refunds are ignored (require full refund).
+        // RA-6965 / RA-6939 — scoped revocation. A refunded charge only warrants
+        // subscription revocation when it resolves (via the Invoice Payments API)
+        // to a SUBSCRIPTION INVOICE whose parent.subscription_details carries a
+        // subscription. A refunded one-time addon/lifetime charge on a customer
+        // who also holds an active subscription must NOT cancel that
+        // subscription. Partial refunds are ignored (require full refund).
         await handleChargeRefunded(event);
         break;
       }
@@ -754,13 +802,20 @@ export async function handleSubscriptionDeleted(
 }
 
 /**
- * RA-6939 — charge.refunded handler with subscription-scoped revocation.
+ * RA-6965 / RA-6939 — charge.refunded handler with subscription-scoped revocation.
  *
- * A full refund only revokes access when the refunded charge belongs to a
- * SUBSCRIPTION invoice. The charge → subscription path is:
- *   charge.invoice (invoice id) → invoice.subscription (subscription ref).
- * A charge with no invoice, or an invoice with no `subscription`, is a one-off
- * (addon / lifetime / manual) refund and must leave the subscription untouched.
+ * The pinned 2026-05-27 API removed `Charge.invoice` and `Charge.subscription`,
+ * so the old charge -> invoice -> subscription path read dead fields and never
+ * revoked. Follow Stripe's documented refund -> subscription path instead:
+ *   charge.payment_intent
+ *     -> invoicePayments.list({ payment: { payment_intent } })  (Invoice Payments API)
+ *     -> InvoicePayment.invoice
+ *     -> invoice.parent.subscription_details.subscription
+ *
+ * A full refund revokes access ONLY when the refunded charge resolves to a
+ * SUBSCRIPTION invoice. A bare one-time PaymentIntent (addon / lifetime) has no
+ * InvoicePayment, and a one-off invoice has no subscription linkage — both leave
+ * the customer's subscription untouched. Partial refunds are ignored.
  *
  * Exported so unit tests can drive it with synthetic events.
  */
@@ -774,27 +829,37 @@ export async function handleChargeRefunded(event: Stripe.Event) {
     typeof refundedCharge.customer === "string" ? refundedCharge.customer : null;
   if (!customerId) return;
 
-  // A charge with no invoice is a one-off (e.g. a bare PaymentIntent addon).
-  const invoiceRef = (refundedCharge as { invoice?: string | null }).invoice;
-  if (!invoiceRef || typeof invoiceRef !== "string") {
+  const paymentIntentId =
+    typeof refundedCharge.payment_intent === "string"
+      ? refundedCharge.payment_intent
+      : (refundedCharge.payment_intent?.id ?? null);
+
+  // No PaymentIntent → no invoice linkage to resolve → treat as one-off.
+  if (!paymentIntentId) {
     console.log(
-      "[stripe-webhook] charge.refunded ignored — no invoice (one-off refund)",
+      "[stripe-webhook] charge.refunded ignored — no payment_intent (one-off refund)",
       { eventId: event.id, chargeId: refundedCharge.id },
     );
     return;
   }
 
-  // Resolve the invoice to test for a subscription linkage. In this SDK version
-  // `subscription` is not on the typed Invoice surface, so read it the same way
-  // the invoice.* handlers above do.
-  const invoice = await stripe.invoices.retrieve(invoiceRef);
-  const invoiceSubscriptionId = (invoice as { subscription?: string })
-    .subscription;
+  // No invoice payment → a bare one-time charge (addon / lifetime PaymentIntent).
+  const invoiceId = await resolveInvoiceIdForPaymentIntent(paymentIntentId);
+  if (!invoiceId) {
+    console.log(
+      "[stripe-webhook] charge.refunded ignored — no invoice payment (one-off refund)",
+      { eventId: event.id, chargeId: refundedCharge.id, paymentIntentId },
+    );
+    return;
+  }
 
+  // Invoiced but not subscription-linked → one-off invoiced refund.
+  const invoice = await stripe.invoices.retrieve(invoiceId);
+  const invoiceSubscriptionId = subscriptionIdFromInvoice(invoice);
   if (!invoiceSubscriptionId) {
     console.log(
       "[stripe-webhook] charge.refunded ignored — invoice not subscription-linked (one-off refund)",
-      { eventId: event.id, chargeId: refundedCharge.id, invoiceId: invoiceRef },
+      { eventId: event.id, chargeId: refundedCharge.id, invoiceId },
     );
     return;
   }
@@ -813,4 +878,22 @@ export async function handleChargeRefunded(event: Stripe.Event) {
   }
 
   await downgradeUserToCanceled(user.id);
+}
+
+/**
+ * RA-6965 — resolves the invoice id backing a PaymentIntent via the 2026-05-27
+ * Invoice Payments API (Charge.invoice / PaymentIntent.invoice were removed).
+ * Returns null when the PaymentIntent has no invoice payment (e.g. a bare
+ * addon / lifetime one-time charge).
+ */
+async function resolveInvoiceIdForPaymentIntent(
+  paymentIntentId: string,
+): Promise<string | null> {
+  const payments = await stripe.invoicePayments.list({
+    payment: { type: "payment_intent", payment_intent: paymentIntentId },
+    limit: 1,
+  });
+  const invoiceRef = payments.data[0]?.invoice;
+  if (!invoiceRef) return null;
+  return typeof invoiceRef === "string" ? invoiceRef : invoiceRef.id;
 }
