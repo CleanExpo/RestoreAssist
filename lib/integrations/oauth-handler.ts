@@ -107,11 +107,112 @@ export async function markIntegrationError(
 }
 
 /**
+ * Best-effort env-var lookup for a provider's OAuth client credentials.
+ * Mirrors the non-dev-mode branch of getClientId/getClientSecret in
+ * lib/integrations/base-client.ts (kept local here to avoid a circular
+ * import — base-client.ts already imports from this module).
+ */
+function getProviderEnvCredential(
+  provider: string,
+  kind: "CLIENT_ID" | "CLIENT_SECRET",
+): string | null {
+  return process.env[`${provider}_${kind}`] || null;
+}
+
+/**
+ * Revoke a provider's OAuth tokens before we clear them locally (RA-6968).
+ * Previously "disconnect" only cleared local state — the access/refresh
+ * token remained live at the provider until it naturally expired, so a
+ * "disconnected" integration's token could still be used to call the
+ * provider's API. Best-effort: a revoke failure (network error, provider
+ * outage, unsupported provider) is logged and never blocks the local
+ * disconnect — a user must always be able to remove their own integration.
+ */
+async function revokeTokensAtProvider(
+  provider: string,
+  accessToken: string | null,
+  refreshToken: string | null,
+): Promise<void> {
+  if (!accessToken && !refreshToken) return;
+
+  try {
+    if (provider === "XERO") {
+      const clientId = getProviderEnvCredential("XERO", "CLIENT_ID");
+      const clientSecret = getProviderEnvCredential("XERO", "CLIENT_SECRET");
+      if (!clientId || !clientSecret) return;
+      const auth = Buffer.from(`${clientId}:${clientSecret}`).toString(
+        "base64",
+      );
+      for (const token of [refreshToken, accessToken].filter(
+        (t): t is string => !!t,
+      )) {
+        await fetch("https://identity.xero.com/connect/revocation", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization: `Basic ${auth}`,
+          },
+          body: new URLSearchParams({ token }).toString(),
+          signal: AbortSignal.timeout(8000),
+        });
+      }
+    } else if (provider === "QUICKBOOKS") {
+      const clientId = getProviderEnvCredential("QUICKBOOKS", "CLIENT_ID");
+      const clientSecret = getProviderEnvCredential(
+        "QUICKBOOKS",
+        "CLIENT_SECRET",
+      );
+      if (!clientId || !clientSecret) return;
+      const auth = Buffer.from(`${clientId}:${clientSecret}`).toString(
+        "base64",
+      );
+      const token = refreshToken || accessToken;
+      await fetch(
+        "https://developer.api.intuit.com/v2/oauth2/tokens/revoke",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Basic ${auth}`,
+          },
+          body: JSON.stringify({ token }),
+          signal: AbortSignal.timeout(8000),
+        },
+      );
+    }
+    // MYOB, SERVICEM8, ASCORA: no documented programmatic token-revocation
+    // endpoint. Tokens are still nulled locally below so this app can no
+    // longer use them; the provider-side token expires/rotates naturally.
+  } catch (err) {
+    console.error(
+      `[oauth-handler] Provider token revoke failed for ${provider}:`,
+      err,
+    );
+  }
+}
+
+/**
  * Mark integration as disconnected
  */
 export async function disconnectIntegration(
   integrationId: string,
 ): Promise<void> {
+  const integration = await prisma.integration.findUnique({
+    where: { id: integrationId },
+    select: { provider: true, accessToken: true, refreshToken: true },
+  });
+
+  if (integration) {
+    const accessToken = integration.accessToken
+      ? decryptToken(integration.accessToken)
+      : null;
+    const refreshToken = integration.refreshToken
+      ? decryptToken(integration.refreshToken)
+      : null;
+    await revokeTokensAtProvider(integration.provider, accessToken, refreshToken);
+  }
+
   await prisma.integration.update({
     where: { id: integrationId },
     data: {

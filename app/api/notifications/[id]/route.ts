@@ -118,8 +118,13 @@ export async function DELETE(
       });
 
       return NextResponse.json({ success: true });
-    } catch {
-      return NextResponse.json({ success: true });
+    } catch (err) {
+      // RA-6968: previously swallowed every delete failure and reported
+      // {success:true} regardless — a genuine write failure looked
+      // identical to a successful delete from the client's perspective.
+      // fromException maps a concurrent-delete race (P2025) to 404 and
+      // anything else to a generic 500, without leaking err.message.
+      return fromException(request, err, { stage: "delete" });
     }
   } catch (err) {
     return fromException(request, err, { stage: "delete" });

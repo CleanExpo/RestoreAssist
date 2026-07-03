@@ -204,6 +204,21 @@ export async function POST(
 
     for (const externalJob of externalJobs) {
       try {
+        // Idempotent re-import: if this external job is already linked to a
+        // Report that still exists, don't create a duplicate (RA-6968 — a
+        // re-POST of the same jobIds previously created a second Report
+        // every time).
+        if (externalJob.claimId) {
+          const existingReport = await prisma.report.findFirst({
+            where: { id: externalJob.claimId, userId: session.user.id },
+            select: { id: true },
+          });
+          if (existingReport) {
+            imported.push(externalJob.externalId);
+            continue;
+          }
+        }
+
         // Find linked client if exists
         let clientId: string | undefined;
         if (externalJob.clientExternalId) {

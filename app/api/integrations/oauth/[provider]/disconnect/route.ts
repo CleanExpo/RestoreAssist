@@ -1,9 +1,13 @@
 /**
  * Disconnect Integration Route
  * POST /api/integrations/oauth/[provider]/disconnect
- * Disconnects an integration and clears tokens
+ * Disconnects an integration, revokes tokens at the provider where
+ * supported, and clears local tokens.
  *
- * REQUIRES: Active paid subscription
+ * No subscription gate: RA-6968 — a user whose subscription has lapsed
+ * (CANCELED/PAST_DUE) must still be able to disconnect/delete their own
+ * integration data. Gating disconnect behind an active subscription trapped
+ * lapsed users' tokens connected indefinitely.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -15,10 +19,6 @@ import {
   PROVIDER_CONFIG,
   type IntegrationProvider,
 } from "@/lib/integrations/oauth-handler";
-import {
-  checkIntegrationAccess,
-  createSubscriptionRequiredResponse,
-} from "@/lib/integrations/subscription-guard";
 import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
@@ -33,15 +33,6 @@ export async function POST(
         message: "Unauthorized",
         status: 401,
       });
-    }
-
-    // Check subscription status - external integrations require paid subscription
-    const subscriptionCheck = await checkIntegrationAccess(session.user.id);
-    if (!subscriptionCheck.isAllowed) {
-      return NextResponse.json(
-        createSubscriptionRequiredResponse(subscriptionCheck),
-        { status: 403 },
-      );
     }
 
     const { provider: providerParam } = await params;

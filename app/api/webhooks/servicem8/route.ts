@@ -9,6 +9,79 @@ import { recordWebhookFailure } from "@/lib/webhook-audit";
 import { apiError } from "@/lib/api-errors";
 
 /**
+ * RA-6968 — resolve which CONNECTED SERVICEM8 integration a webhook event
+ * belongs to.
+ *
+ * ServiceM8 does not include an account/tenant id on webhook entries — every
+ * object it sends (Job, Client, JobContact, GeoActivity) is scoped to
+ * whichever account owns it, with no separate "this is account X" field.
+ * A Job entry's `company_uuid` references its linked customer (a "Client"
+ * record); a Client entry's own `uuid` IS that customer record. Both are
+ * ServiceM8-generated ids that are globally unique and — because a customer
+ * can only ever have been synced from the ServiceM8 account it lives in —
+ * matching one against our previously-synced ExternalClient rows tells us
+ * exactly which RestoreAssist user's ServiceM8 connection this event came
+ * from, without ServiceM8 needing to send an explicit account id.
+ *
+ * Resolution order:
+ *   1. Match a candidate company_uuid against ExternalClient rows scoped to
+ *      CONNECTED SERVICEM8 integrations. Exactly one distinct integration
+ *      match wins.
+ *   2. If there's no match (e.g. the very first event for a brand-new
+ *      customer, or an entry type with no company_uuid) AND exactly one
+ *      SERVICEM8 integration is CONNECTED, use it — there is no other
+ *      integration this could possibly be misattributed to.
+ *   3. Anything else (zero connected integrations, or an ambiguous /
+ *      multi-integration match) is unresolvable — reject rather than guess.
+ */
+async function resolveServiceM8Integration(
+  service: string,
+  entries: Record<string, unknown>[],
+): Promise<{ id: string } | null> {
+  const candidateCompanyUuids = new Set<string>();
+  for (const entry of entries) {
+    if (service === "Client") {
+      const uuid = entry.uuid as string | undefined;
+      if (uuid) candidateCompanyUuids.add(uuid);
+    } else {
+      const companyUuid = entry.company_uuid as string | undefined;
+      if (companyUuid) candidateCompanyUuids.add(companyUuid);
+    }
+  }
+
+  if (candidateCompanyUuids.size > 0) {
+    const matches = await prisma.externalClient.findMany({
+      where: {
+        externalId: { in: Array.from(candidateCompanyUuids) },
+        integration: { provider: "SERVICEM8", status: "CONNECTED" },
+      },
+      select: { integrationId: true },
+      distinct: ["integrationId"],
+      take: 2, // only need to know whether the match is unique
+    });
+
+    if (matches.length === 1) {
+      return { id: matches[0].integrationId };
+    }
+    if (matches.length > 1) {
+      // Ambiguous — the same company_uuid resolved to more than one
+      // integration. Should not happen (ServiceM8 ids are globally
+      // unique), but never guess.
+      return null;
+    }
+    // matches.length === 0 falls through to the single-integration fallback.
+  }
+
+  const connected = await prisma.integration.findMany({
+    where: { provider: "SERVICEM8", status: "CONNECTED" },
+    select: { id: true },
+    take: 2,
+  });
+
+  return connected.length === 1 ? { id: connected[0].id } : null;
+}
+
+/**
  * POST /api/webhooks/servicem8
  * Receive webhook events from ServiceM8.
  *
@@ -94,16 +167,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Find active ServiceM8 integration — use first CONNECTED one
-    // (ServiceM8 webhooks are per-account, not per-company-file like MYOB)
-    const integration = await prisma.integration.findFirst({
-      where: { provider: "SERVICEM8", status: "CONNECTED" },
-    });
+    // RA-6968: resolve the CONNECTED integration this event actually belongs
+    // to, instead of grabbing an arbitrary "first CONNECTED" row (previously
+    // cross-tenant misattribution — event data for user A could land on
+    // user B's integration once a second ServiceM8 connection existed).
+    // ServiceM8 does not stamp its own account id on webhook entries, so we
+    // resolve via the entry's own company_uuid (a Job's linked customer, or
+    // a Client entry's own uuid — both are globally unique ServiceM8 ids)
+    // against ExternalClient rows we've already synced per integration. If
+    // there's no unambiguous match, fall back to the sole CONNECTED
+    // integration when exactly one exists (nothing else it could be); any
+    // other outcome is rejected rather than guessed.
+    const integration = await resolveServiceM8Integration(service, entries);
 
     if (!integration) {
-      console.warn("[ServiceM8 Webhook] No active SERVICEM8 integration found");
-      // Return 200 — prevent ServiceM8 retrying
-      return NextResponse.json({ success: true, processed: 0 });
+      console.warn(
+        "[ServiceM8 Webhook] Could not resolve a unique CONNECTED integration for this event",
+      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Unable to resolve integration for event",
+        status: 400,
+      });
     }
 
     const queuedEvents: string[] = [];

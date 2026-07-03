@@ -7,6 +7,7 @@ const integrationFindFirst = vi.fn();
 const externalJobFindMany = vi.fn();
 const externalClientFindFirst = vi.fn();
 const reportCreate = vi.fn();
+const reportFindFirst = vi.fn();
 const externalJobUpdate = vi.fn();
 
 vi.mock("next-auth", () => ({
@@ -35,6 +36,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     report: {
       create: (...args: unknown[]) => reportCreate(...args),
+      findFirst: (...args: unknown[]) => reportFindFirst(...args),
     },
   },
 }));
@@ -62,6 +64,7 @@ beforeEach(() => {
   externalJobFindMany.mockReset();
   externalClientFindFirst.mockReset();
   reportCreate.mockReset();
+  reportFindFirst.mockReset();
   externalJobUpdate.mockReset();
 
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
@@ -128,5 +131,58 @@ describe("POST /api/integrations/oauth/[provider]/jobs", () => {
         data: expect.objectContaining({ clientId: undefined }),
       }),
     );
+  });
+
+  it("is idempotent on re-import — does not create a second Report for an already-linked job", async () => {
+    externalJobFindMany.mockResolvedValue([
+      {
+        id: "job_3",
+        externalId: "xero-job-3",
+        title: "Mould remediation",
+        status: "COMPLETED",
+        clientExternalId: null,
+        address: "3 Test St",
+        description: "Test job 3",
+        claimId: "report_existing", // already imported previously
+      },
+    ]);
+    reportFindFirst.mockResolvedValue({ id: "report_existing" }); // link still valid
+
+    const response = await POST(
+      postRequest({ jobIds: ["xero-job-3"] }),
+      routeContext(),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.imported).toBe(1);
+    expect(reportCreate).not.toHaveBeenCalled();
+    expect(externalJobUpdate).not.toHaveBeenCalled();
+  });
+
+  it("re-links an external job whose Report was deleted instead of leaving it orphaned", async () => {
+    externalJobFindMany.mockResolvedValue([
+      {
+        id: "job_4",
+        externalId: "xero-job-4",
+        title: "Fire damage",
+        status: "IN_PROGRESS",
+        clientExternalId: null,
+        address: "4 Test St",
+        description: "Test job 4",
+        claimId: "report_deleted",
+      },
+    ]);
+    reportFindFirst.mockResolvedValue(null); // stale link — Report no longer exists
+
+    const response = await POST(
+      postRequest({ jobIds: ["xero-job-4"] }),
+      routeContext(),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.imported).toBe(1);
+    expect(reportCreate).toHaveBeenCalledTimes(1);
   });
 });

@@ -62,9 +62,16 @@ export async function POST(request: NextRequest) {
     // Xero sends array of events
     const events = payload.events || [];
 
-    // Timestamp freshness check — reject replayed webhooks older than 5 minutes.
-    // Xero includes eventDateUtc on every event; check the newest event in the batch.
-    const WEBHOOK_MAX_AGE_MS = 5 * 60 * 1000;
+    // Timestamp freshness check — reject stale replays, not genuine provider
+    // retries. RA-6968: this was previously 5 minutes, which silently
+    // dropped Xero's OWN retries — Xero redelivers a failed/slow webhook for
+    // up to ~24 hours (RA-1269's top-level-error comment below references
+    // the same retry window), so a transient failure on our end within that
+    // window would have its retry rejected here too, permanently losing the
+    // event. Widened to 24h; the (provider, externalEventId) unique-index +
+    // P2002 idempotency guard below still prevents a retry from being
+    // double-processed once accepted.
+    const WEBHOOK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
     const now = Date.now();
     for (const evt of events) {
       if (evt.eventDateUtc) {

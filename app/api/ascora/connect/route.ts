@@ -21,6 +21,41 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { encrypt } from "@/lib/credential-vault";
 
 const ASCORA_BASE_URL = "https://api.ascora.com.au";
+const ASCORA_ALLOWED_HOST = "api.ascora.com.au";
+const ASCORA_ALLOWED_HOST_SUFFIX = ".ascora.com.au";
+
+/**
+ * SSRF guard for the user-supplied baseUrl (RA-6968): this value is
+ * persisted and later used by /api/ascora/sync for outbound requests, so an
+ * arbitrary user-supplied target (private IP, link-local, cloud metadata
+ * endpoint, etc.) must never be accepted. Enforces https + a host allowlist
+ * under ascora.com.au — mirrors the DR-NRPG connector's baseUrl guard
+ * (app/api/dr-nrpg/connect/route.ts).
+ */
+function validateAscoraBaseUrl(
+  value: string,
+): { ok: true; url: string } | { ok: false; reason: string } {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return { ok: false, reason: "baseUrl must be a valid https URL" };
+  }
+
+  if (parsed.protocol !== "https:") {
+    return { ok: false, reason: "baseUrl must be a valid https URL" };
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  if (
+    host !== ASCORA_ALLOWED_HOST &&
+    !host.endsWith(ASCORA_ALLOWED_HOST_SUFFIX)
+  ) {
+    return { ok: false, reason: "baseUrl must be a host under ascora.com.au" };
+  }
+
+  return { ok: true, url: value.replace(/\/$/, "") };
+}
 
 /** Verify the key is valid by hitting the Ascora health/jobs endpoint */
 async function verifyAscoraKey(
@@ -31,7 +66,14 @@ async function verifyAscoraKey(
     const res = await fetch(`${baseUrl}/jobs?page=1&pageSize=1`, {
       headers: { Auth: apiKey, "Content-Type": "application/json" },
       signal: AbortSignal.timeout(8000),
+      // SSRF guard: never auto-follow a redirect. The baseUrl is already
+      // host-allowlisted above, but a compromised/misconfigured upstream
+      // could still try to bounce the request off-allowlist.
+      redirect: "manual",
     });
+    if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) {
+      return false;
+    }
     return res.ok;
   } catch {
     return false;
@@ -66,10 +108,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const resolvedBase = (baseUrl?.trim() || ASCORA_BASE_URL).replace(
-      /\/$/,
-      "",
-    );
+    const rawBase = baseUrl?.trim() || ASCORA_BASE_URL;
+    const baseValidation = validateAscoraBaseUrl(rawBase);
+    if (!baseValidation.ok) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: baseValidation.reason,
+        status: 400,
+      });
+    }
+    const resolvedBase = baseValidation.url;
 
     // Verify key before saving
     const valid = await verifyAscoraKey(apiKey.trim(), resolvedBase);
