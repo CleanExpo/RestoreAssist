@@ -161,26 +161,12 @@ export async function POST(request: NextRequest) {
       const stateCode = detectStateFromPostcode(report.propertyPostcode || "");
       const stateInfo = getStateInfo(stateCode);
 
-      // Get appropriate API key based on subscription status
-      // Free users: uses ANTHROPIC_API_KEY from .env
-      // Upgraded users: uses API key from integrations
-      const { getAnthropicApiKey } = await import("@/lib/ai-provider");
-      let anthropicApiKey: string;
-      try {
-        anthropicApiKey = await getAnthropicApiKey(user.id);
-      } catch (error: any) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: "Failed to get Anthropic API key",
-          status: 400,
-        });
-      }
-
-      // (Anthropic client previously instantiated here was never invoked —
-      // this route does deterministic cost math. Dead import + instantiation
-      // removed 2026-05-18. The getAnthropicApiKey 400-affordance above stays
-      // until product decides whether AI narrative enhancement was intended.)
-      void anthropicApiKey;
+      // RA-6932 — this route computes the cost estimation deterministically and
+      // makes NO AI call, so it resolves no API key. The prior platform-key
+      // affordance (whose result was only `void`ed) delegated to a helper that
+      // falls back to the platform ANTHROPIC_API_KEY; removed to close that
+      // platform-spend leak. Re-add via resolveWorkspaceAiKey if AI narrative
+      // enhancement is ever introduced.
 
       // Build cost estimation data structure
       const costData = buildCostEstimationData({

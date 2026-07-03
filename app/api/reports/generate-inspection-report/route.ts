@@ -7,6 +7,10 @@ import { getLatestAIIntegration, callAIProvider } from "@/lib/ai-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { resolveReportProvider } from "./provider";
 import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
+import {
   hasValue,
   extractMaterialsFromReport,
 } from "@/lib/reports/extract-report-data";
@@ -140,7 +144,6 @@ export async function POST(request: NextRequest) {
     // Resolve AI provider — new ProviderConnection store (BYOK) takes priority
     // over the legacy Integration store, so clients who installed a key via
     // Settings → AI Providers are always routed to the provider they chose.
-    const { getAnthropicApiKey } = await import("@/lib/ai-provider");
 
     // Step 1: check the new BYOK store (ProviderConnection) — same store the
     //         setup gate (byokKeysCheck) validates, so a client who passes the
@@ -152,18 +155,29 @@ export async function POST(request: NextRequest) {
       aiIntegration = await getLatestAIIntegration(user.id);
     }
 
-    // Step 3: fall back to the platform ANTHROPIC_API_KEY env var (free tier)
+    // Step 3 (RA-6932 P0): NO platform-key fallback. If neither BYOK store
+    //         yields a key, resolve the workspace's own key — which itself
+    //         never falls through to the platform ANTHROPIC_API_KEY. A
+    //         workspace without a configured key gets a hard 402.
     let anthropicApiKey: string;
     if (!aiIntegration) {
       try {
-        anthropicApiKey = await getAnthropicApiKey(user.id);
+        anthropicApiKey = (await resolveWorkspaceAiKey(user.id, "ANTHROPIC"))
+          .apiKey;
         aiIntegration = {
-          id: "env-anthropic",
-          name: "Anthropic Claude (Free Tier)",
+          id: "workspace-anthropic",
+          name: "Anthropic Claude (Workspace Key)",
           apiKey: anthropicApiKey,
           provider: "anthropic" as const,
         };
       } catch (error: unknown) {
+        if (error instanceof NoWorkspaceKeyError) {
+          return apiError(request, {
+            code: "PAYMENT_REQUIRED",
+            message: error.message,
+            status: 402,
+          });
+        }
         // RA-786: do not leak error.message to clients
         console.error(
           "Generate-inspection-report: no working AI provider key:",

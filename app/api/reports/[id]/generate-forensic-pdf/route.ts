@@ -6,6 +6,10 @@ import { generateForensicReportPDF } from "@/lib/generate-forensic-report-pdf";
 import { detectStateFromPostcode, getStateInfo } from "@/lib/state-detection";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 
 /**
  * GET /api/reports/[id]/generate-forensic-pdf
@@ -145,15 +149,27 @@ export async function GET(
     const stateCode = detectStateFromPostcode(report.propertyPostcode || "");
     const stateInfo = getStateInfo(stateCode);
 
-    // Get appropriate API key based on subscription status for Google Drive standards retrieval
-    // Free users: uses ANTHROPIC_API_KEY from .env
-    // Upgraded users: uses API key from integrations
-    const { getAnthropicApiKey } = await import("@/lib/ai-provider");
+    // RA-6932 (P0) — resolve the workspace's own BYOK Anthropic key. Never
+    // falls through to the platform ANTHROPIC_API_KEY. A keyless workspace
+    // gets a hard 402 before any AI-backed standards retrieval runs.
+    let anthropicApiKey: string;
+    try {
+      anthropicApiKey = (await resolveWorkspaceAiKey(user.id, "ANTHROPIC"))
+        .apiKey;
+    } catch (error) {
+      if (error instanceof NoWorkspaceKeyError) {
+        return apiError(request, {
+          code: "PAYMENT_REQUIRED",
+          message: error.message,
+          status: 402,
+        });
+      }
+      throw error;
+    }
 
     // Retrieve standards from Google Drive
     let standardsContext = "";
     try {
-      const anthropicApiKey = await getAnthropicApiKey(user.id);
       const { retrieveRelevantStandards, buildStandardsContextPrompt } =
         await import("@/lib/standards-retrieval");
 

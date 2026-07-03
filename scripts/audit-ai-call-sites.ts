@@ -281,17 +281,29 @@ const BYOK_MARKERS = [
 ];
 
 /**
+ * Platform-fallback helper markers. A route that calls one of these
+ * `lib/ai-provider.ts` helpers delegates its key resolution to a helper that
+ * itself falls back to `process.env.ANTHROPIC_API_KEY` — so the platform-spend
+ * leak is invisible in the route's own text. Treat such a call the same as a
+ * bare env read: a platform-key fallback unless the route ALSO resolves BYOK.
+ */
+const PLATFORM_KEY_HELPER_MARKERS = [
+  "selectAnthropicApiKey(",
+  "getAnthropicApiKey(",
+];
+
+/**
  * RA-6921 (P0) — detect a `app/**` route handler that reads a platform
  * `process.env.*_API_KEY` directly (or via `lib/ai-provider.ts`'s
- * `selectAnthropicApiKey` env-fallback helper) without resolving the calling
- * workspace's own BYOK key anywhere in the file.
+ * `selectAnthropicApiKey` / `getAnthropicApiKey` env-fallback helpers) without
+ * resolving the calling workspace's own BYOK key anywhere in the file.
  */
 function hasPlatformKeyFallback(file: string, content: string): boolean {
   const normalized = normalisePath(file);
   if (!normalized.startsWith("app/")) return false; // lib/ platform-ops call sites are out of scope
   const readsEnvKey =
     PLATFORM_KEY_ENV_PATTERN.test(content) ||
-    content.includes("selectAnthropicApiKey(");
+    PLATFORM_KEY_HELPER_MARKERS.some((marker) => content.includes(marker));
   if (!readsEnvKey) return false;
   return !BYOK_MARKERS.some((marker) => content.includes(marker));
 }
@@ -326,7 +338,11 @@ export function auditAiCallSite(file: string, content: string): AiCallSiteFindin
     // budget even when it doesn't go through a recognised SDK/helper call
     // pattern above (e.g. a raw fetch()).
     AI_PROVIDER_KEY_ENV_PATTERN.test(content) ||
-    content.includes("selectAnthropicApiKey(");
+    content.includes("selectAnthropicApiKey(") ||
+    // A route that resolves its key via lib/ai-provider.ts's getAnthropicApiKey
+    // helper is likewise an AI surface — the helper falls back to the platform
+    // ANTHROPIC_API_KEY, so the leak is invisible in the route's own text.
+    content.includes("getAnthropicApiKey(");
 
   if (!hasAiSurface) return null;
 
