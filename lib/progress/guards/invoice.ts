@@ -42,6 +42,7 @@ export const initiateCloseoutGuard: GuardFn = async (db, ctx) => {
     prisma.scopeVariation.findMany({
       where: { inspectionId: ctx.inspectionId, status: "PENDING" },
       select: { id: true },
+      take: 100,
     }),
     prisma.wHSIncident.findMany({
       where: {
@@ -50,6 +51,7 @@ export const initiateCloseoutGuard: GuardFn = async (db, ctx) => {
         status: "OPEN",
       },
       select: { id: true, severity: true },
+      take: 100,
     }),
   ]);
 
