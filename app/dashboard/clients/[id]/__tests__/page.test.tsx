@@ -11,8 +11,22 @@ vi.mock("@/components/dashboard/PortalInvitationSection", () => ({
 vi.mock("react-hot-toast", () => ({
   default: { error: vi.fn(), success: vi.fn() },
 }));
+// Next 16 supplies route params via the router (useParams), not a synchronous
+// prop. Reading `params.id` off the prop returned `undefined` and 404'd every
+// client detail page in production; this mock drives the id the page reads.
+vi.mock("next/navigation", () => ({
+  useParams: vi.fn(() => ({ id: "client-a" })),
+}));
 
+import { useParams } from "next/navigation";
 import ClientDetailPage from "../page";
+
+const mockUseParams = vi.mocked(useParams);
+
+function renderPage(id: string) {
+  mockUseParams.mockReturnValue({ id });
+  return render(<ClientDetailPage />);
+}
 
 const CLIENT_A = {
   id: "client-a",
@@ -75,6 +89,35 @@ function routeFetch(handlers: {
   });
 }
 
+describe("ClientDetailPage — route params (Next 16 async-params regression)", () => {
+  it("loads the client using the real route id, not undefined", async () => {
+    // The server only answers for the real id. If the page read a synchronous
+    // params prop it would request /api/clients/undefined → 404 → "Client not
+    // found" — the exact production bug this guards against.
+    const fetchImpl = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/clients/client-a") return Promise.resolve(okJson(CLIENT_A));
+      if (url.startsWith("/api/inspections"))
+        return Promise.resolve(okJson({ inspections: [] }));
+      if (url.startsWith("/api/restoration-documents"))
+        return Promise.resolve(okJson({ documents: [] }));
+      return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+
+    renderPage("client-a");
+
+    await waitFor(() =>
+      expect(screen.getByText("Alpha Restorations")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("Client not found")).not.toBeInTheDocument();
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/clients/client-a",
+      expect.anything(),
+    );
+  });
+});
+
 describe("ClientDetailPage — fetch error states (Bugs 1 & 2)", () => {
   it("shows an inspections load-error (not the empty state) when the inspections fetch fails", async () => {
     vi.stubGlobal(
@@ -84,7 +127,7 @@ describe("ClientDetailPage — fetch error states (Bugs 1 & 2)", () => {
       }),
     );
 
-    render(<ClientDetailPage params={{ id: "client-a" }} />);
+    renderPage("client-a");
 
     await waitFor(() =>
       expect(screen.getByText("Couldn't load inspections.")).toBeInTheDocument(),
@@ -106,7 +149,7 @@ describe("ClientDetailPage — fetch error states (Bugs 1 & 2)", () => {
       }),
     );
 
-    render(<ClientDetailPage params={{ id: "client-a" }} />);
+    renderPage("client-a");
 
     await waitFor(() =>
       expect(screen.getByText("Couldn't load invoices.")).toBeInTheDocument(),
@@ -119,7 +162,7 @@ describe("ClientDetailPage — fetch error states (Bugs 1 & 2)", () => {
   it("still shows the genuine empty state when fetches succeed with zero results", async () => {
     vi.stubGlobal("fetch", routeFetch({}));
 
-    render(<ClientDetailPage params={{ id: "client-a" }} />);
+    renderPage("client-a");
 
     await waitFor(() =>
       expect(
@@ -188,12 +231,11 @@ describe("ClientDetailPage — race guard on fast client switch (Bug 3)", () => 
     });
     vi.stubGlobal("fetch", fetchImpl);
 
-    const { rerender } = render(
-      <ClientDetailPage params={{ id: "client-a" }} />,
-    );
+    const { rerender } = renderPage("client-a");
 
     // Switch to B before A's slow inspections resolve.
-    rerender(<ClientDetailPage params={{ id: "client-b" }} />);
+    mockUseParams.mockReturnValue({ id: "client-b" });
+    rerender(<ClientDetailPage />);
 
     await waitFor(() =>
       expect(screen.getByText("Bravo Restorations")).toBeInTheDocument(),

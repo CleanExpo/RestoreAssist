@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -105,9 +105,9 @@ function fmt(dateStr: string | null) {
 export default function ClientPortalPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const clientId = params.id;
+  const { id: clientId } = use(params);
 
   const [client, setClient] = useState<Client | null>(null);
   const [invitations, setInvitations] = useState<Invitation[]>([]);

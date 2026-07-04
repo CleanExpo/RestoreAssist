@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -240,9 +240,9 @@ function EmptyState() {
 export default function ReportVersionHistoryPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = params;
+  const { id } = use(params);
 
   const [versions, setVersions] = useState<VersionEntry[]>([]);
   const [reportTitle, setReportTitle] = useState<string | null>(null);

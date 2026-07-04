@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   Edit,
@@ -86,11 +87,8 @@ interface RestorationDoc {
   updatedAt: string;
 }
 
-export default function ClientDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function ClientDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [inspections, setInspections] = useState<LinkedInspection[]>([]);
@@ -100,7 +98,7 @@ export default function ClientDetailPage({
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [invoicesError, setInvoicesError] = useState<string | null>(null);
 
-  // Bug 3 (race guard): every fetch in the params.id effect runs against an
+  // Bug 3 (race guard): every fetch in the id effect runs against an
   // AbortController scoped to that id. When the id changes (fast A->B nav) or
   // the component unmounts, the controller is aborted so a slower batch for
   // client A can never resolve and overwrite client B's state. `isAborted()`
@@ -234,15 +232,15 @@ export default function ClientDetailPage({
   useEffect(() => {
     const controller = new AbortController();
     const isAborted = () => controller.signal.aborted;
-    void fetchClient(params.id, controller.signal, isAborted);
-    void fetchInspections(params.id, controller.signal, isAborted);
+    void fetchClient(id, controller.signal, isAborted);
+    void fetchInspections(id, controller.signal, isAborted);
     return () => controller.abort();
-  }, [params.id, fetchClient, fetchInspections]);
+  }, [id, fetchClient, fetchInspections]);
 
   const retryInspections = () => {
     const controller = new AbortController();
     void fetchInspections(
-      params.id,
+      id,
       controller.signal,
       () => controller.signal.aborted,
     );
