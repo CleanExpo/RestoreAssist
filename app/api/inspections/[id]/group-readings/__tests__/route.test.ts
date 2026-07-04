@@ -103,6 +103,37 @@ describe("POST /api/inspections/[id]/group-readings", () => {
     expect(groupReadings).not.toHaveBeenCalled();
   });
 
+  it("threads the resolved workspace key to the service on success", async () => {
+    groupReadings.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        groups: [
+          {
+            name: "Kitchen",
+            locations: ["Kitchen wall", "Kitchen floor"],
+            readingIds: ["reading_1", "reading_2"],
+            averageMoisture: 21,
+            elevatedCount: 2,
+          },
+        ],
+        unsortedReadingIds: [],
+      },
+    });
+
+    const response = await POST(postRequest(), {
+      params: Promise.resolve({ id: "inspection_1" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.groups).toHaveLength(1);
+    // RA-6960 (BYOK) — the workspace's own key resolved by resolveWorkspaceAiKey
+    // is what the service runs on, never the platform ANTHROPIC_API_KEY.
+    expect(groupReadings).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "sk-ant-test" }),
+    );
+  });
+
   it("does not expose provider failure details", async () => {
     groupReadings.mockResolvedValueOnce({
       ok: false,
