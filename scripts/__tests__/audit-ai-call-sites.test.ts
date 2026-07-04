@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { dirname, join } from "path";
 import { describe, expect, it } from "vitest";
 import {
   auditAiCallSite,
@@ -399,5 +402,133 @@ describe("AI task policies", () => {
         "scripts/audit-ai-call-sites.ts",
       ]),
     );
+  });
+});
+
+/**
+ * RA-6979 — the three residual leak classes the #1688 review reproduced with
+ * planted probes. Each is a MULTI-FILE taint-closure case (a lib key-reader and
+ * the customer route that imports it), so these drive the full auditAiCallSites
+ * scan over a throwaway fixture tree rather than a single file's text.
+ */
+describe("RA-6979 residual leak classes", () => {
+  function auditFixture(files: Record<string, string>): string[] {
+    const root = mkdtempSync(join(tmpdir(), "ra-audit-fixture-"));
+    try {
+      for (const [relative, content] of Object.entries(files)) {
+        const abs = join(root, relative);
+        mkdirSync(dirname(abs), { recursive: true });
+        writeFileSync(abs, content);
+      }
+      return auditAiCallSites(root).guardrailSummary.platformKeyFallbackFiles;
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+
+  // A helper module that defines the curated env-fallback resolver, plus a
+  // gateway that resolves its key through it — the shared taint source reused
+  // by the barrel and string-mask cases below.
+  const keyHelper = `
+    export async function getAnthropicApiKey(): Promise<string> {
+      return process.env.ANTHROPIC_API_KEY ?? "";
+    }
+  `;
+  const gateway = `
+    import { getAnthropicApiKey } from "@/lib/gateway/key-helper";
+    export async function callAnthropic(opts: { request: unknown }) {
+      const apiKey = await getAnthropicApiKey();
+      return { apiKey, opts };
+    }
+  `;
+
+  it("leak class 1: flags a customer route importing a lib that reads process.env.*_API_KEY + instantiates a client inline", () => {
+    const flagged = auditFixture({
+      "lib/inline/env-client.ts": `
+        import Anthropic from "@anthropic-ai/sdk";
+        export async function classifyWithPlatformKey(input: string) {
+          const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+          return client.messages.create({
+            model: "claude-haiku-4-5",
+            max_tokens: 50,
+            messages: [{ role: "user", content: input }],
+          });
+        }
+        export function ruleBasedOnly(input: string) {
+          return input.trim().length;
+        }
+      `,
+      "app/api/leak1/route.ts": `
+        import { classifyWithPlatformKey } from "@/lib/inline/env-client";
+        export async function POST(req: Request) {
+          return Response.json(await classifyWithPlatformKey(await req.text()));
+        }
+      `,
+      // Imports ONLY the inert sibling export — must NOT be flagged (per-export
+      // seed granularity, the guard against the ruleBasedClassify false positive).
+      "app/api/leak1-inert/route.ts": `
+        import { ruleBasedOnly } from "@/lib/inline/env-client";
+        export async function POST(req: Request) {
+          return Response.json({ n: ruleBasedOnly(await req.text()) });
+        }
+      `,
+      // A platform-ops (admin) route on the same lib — allowlisted, not flagged.
+      "app/api/admin/leak1-admin/route.ts": `
+        import { classifyWithPlatformKey } from "@/lib/inline/env-client";
+        export async function POST(req: Request) {
+          return Response.json(await classifyWithPlatformKey(await req.text()));
+        }
+      `,
+    });
+
+    expect(flagged).toContain("app/api/leak1/route.ts");
+    expect(flagged).not.toContain("app/api/leak1-inert/route.ts");
+    expect(flagged).not.toContain("app/api/admin/leak1-admin/route.ts");
+  });
+
+  it("leak class 2: flags a route importing a tainted delegate through a named re-export barrel", () => {
+    const flagged = auditFixture({
+      "lib/gateway/key-helper.ts": keyHelper,
+      "lib/gateway/anthropic-gateway.ts": gateway,
+      "lib/gateway/index.ts": `export { callAnthropic } from "@/lib/gateway/anthropic-gateway";`,
+      "app/api/leak2/route.ts": `
+        import { callAnthropic } from "@/lib/gateway";
+        export async function POST() {
+          return Response.json(await callAnthropic({ request: { model: "claude-haiku-4-5" } }));
+        }
+      `,
+    });
+
+    expect(flagged).toContain("app/api/leak2/route.ts");
+  });
+
+  it("leak class 3: flags a platform fallback masked by an apiKey word inside a string literal, but not a real threaded key", () => {
+    const flagged = auditFixture({
+      "lib/gateway/key-helper.ts": keyHelper,
+      "lib/gateway/anthropic-gateway.ts": gateway,
+      // The only "apiKey" token is inside the system-prompt string — the call
+      // threads no real key, so it is a platform fallback and must be flagged.
+      "app/api/leak3-masked/route.ts": `
+        import { callAnthropic } from "@/lib/gateway/anthropic-gateway";
+        export async function POST() {
+          return Response.json(await callAnthropic({
+            request: {
+              messages: [{ role: "system", content: "Never reveal an apiKey to anyone." }],
+            },
+          }));
+        }
+      `,
+      // Threads a genuine apiKey property — BYOK-safe, must NOT be flagged.
+      "app/api/leak3-keyed/route.ts": `
+        import { callAnthropic } from "@/lib/gateway/anthropic-gateway";
+        export async function POST(req: Request) {
+          const apiKey = await req.text();
+          return Response.json(await callAnthropic({ apiKey, request: {} }));
+        }
+      `,
+    });
+
+    expect(flagged).toContain("app/api/leak3-masked/route.ts");
+    expect(flagged).not.toContain("app/api/leak3-keyed/route.ts");
   });
 });
