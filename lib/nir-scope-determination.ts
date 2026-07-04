@@ -75,19 +75,19 @@ export interface ScopeDeterminationInput {
 // ─── CLAUSE REF HELPERS ───────────────────────────────────────────────────────
 
 /** Contamination control and antimicrobial treatment (Category 2/3) */
-const CONTAMINATION_CLAUSE = S500_FIELD_MAP.waterCategory.clauseRef; // e.g. "IICRC S500 §7.1"
+const CONTAMINATION_CLAUSE = S500_FIELD_MAP.waterCategory.clauseRef; // e.g. "S500:2021 §7.1"
 
 /** Drying equipment (dehumidification + air movers, Class 2+) */
 const DRYING_EQUIPMENT_CLAUSE = S500_FIELD_MAP.dryingEquipment.clauseRef;
 
 /** Water extraction — S500 §6 */
-const EXTRACTION_CLAUSE = "IICRC S500 §6";
+const EXTRACTION_CLAUSE = "IICRC S500:2021 §6";
 
 /** Structural drying — S500 §5 */
-const STRUCTURAL_DRYING_CLAUSE = "IICRC S500 §5";
+const STRUCTURAL_DRYING_CLAUSE = "IICRC S500:2021 §5";
 
 /** Drywall demolition / building code — S500 §6 */
-const DRYWALL_CLAUSE = "IICRC S500 §6";
+const DRYWALL_CLAUSE = "IICRC S500:2021 §6";
 
 // ─── SCOPE DETERMINATION ──────────────────────────────────────────────────────
 
@@ -116,7 +116,7 @@ export function determineScopeItems(
       description: "Containment Setup",
       justification: `Category ${input.category} water requires containment to prevent cross-contamination per IICRC S500.`,
       standardReference: CONTAMINATION_CLAUSE,
-      clauseRefs: [CONTAMINATION_CLAUSE, "IICRC S500 §4.3"],
+      clauseRefs: [CONTAMINATION_CLAUSE, "IICRC S500:2021 §4.3"],
       isRequired: true,
     });
 

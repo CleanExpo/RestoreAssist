@@ -267,7 +267,7 @@ export function buildNirReportOutput(
       longitude: p.gpsLongitude ?? 0,
       sequenceNumber: idx + 1,
       category: mapPhotoCategory(p.damageCategory),
-      standardRef: "IICRC S500 §12.2",
+      standardRef: "IICRC S500:2021 §12.2",
     })),
   };
 

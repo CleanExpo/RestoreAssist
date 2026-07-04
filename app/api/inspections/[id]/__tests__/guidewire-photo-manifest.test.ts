@@ -61,6 +61,9 @@ describe("Guidewire photo manifest", () => {
     expect(photo.photoId).toBe("photo_1");
     expect(photo.sequenceNumber).toBe(1);
     expect(photo.capturedAt).toBe("2026-01-01T10:30:00.000Z");
+    // Citation consistency: the insurer payload cites the S500:2021 edition, not
+    // the legacy year-less "IICRC S500 §12.2" form (CLAUDE.md rule #12, RA-6793).
+    expect(photo.standardRef).toBe("IICRC S500:2021 §12.2");
   });
 
   it("falls back to 0 only when GPS columns are genuinely null", () => {

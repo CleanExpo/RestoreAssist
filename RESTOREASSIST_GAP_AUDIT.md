@@ -224,3 +224,22 @@ were found in `.planning/` video docs.
   workspace for team members). No schema changes. Added
   `lib/workspace/__tests__/has-active-operating-provider.test.ts` (5/5). Verified:
   vitest (13/13 across the touched suites), eslint (0 errors), tsc (0 errors).
+- ✅ **IICRC S500 citation-year consistency (backlog — "IICRC S500 citation
+  consistency")** — RA-6793 standardised `S500_FIELD_MAP` to the canonical
+  `S500:2021 §X` form (guarded by `nir-standards-mapping.test.ts`), but several
+  hardcoded citation *data* strings still shipped the legacy year-less `IICRC S500 §X`
+  form into runtime output: report scope items (`lib/nir-scope-determination.ts`),
+  the tiered-completion field map (`lib/nir-tiered-completion.ts`), the jurisdictional
+  matrix (`lib/nir-jurisdictional-matrix.ts`), and — most consequentially — the
+  **Guidewire insurer claim payload** photo manifest
+  (`app/api/inspections/[id]/guidewire/route.ts`, `standardRef`). Injected the
+  mandated `:2021` edition year into the structured citation fields
+  (`clauseRef`/`regulationRef`/`standardRef`) per CLAUDE.md rule #12, leaving
+  free-text rationale prose untouched and preserving each site's existing `IICRC`
+  prefix (prefix style already varies codebase-wide; the missing edition year is the
+  compliance-critical part). No schema changes. Added
+  `lib/__tests__/iicrc-s500-citation-year.test.ts` (deep-scans the exported matrices +
+  tiered-completion maps to ban the legacy year-less form) and extended
+  `guidewire-photo-manifest.test.ts` to lock the insurer-payload `standardRef`.
+  Verified: vitest (44/44 across the touched suites), eslint (0 errors), full
+  `tsc --noEmit` (0 errors; pre-existing `prisma/seed-anz-materials.ts` excepted).

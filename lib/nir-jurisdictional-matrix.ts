@@ -246,7 +246,7 @@ export const JURISDICTIONAL_MATRIX: Record<string, JurisdictionConfig> = {
         triggerType: "structural",
         condition:
           "Arid climate (inland WA) — moisture readings require different baseline",
-        regulationRef: "IICRC S500 §12.4 — ambient-adjusted drying targets",
+        regulationRef: "IICRC S500:2021 §12.4 — ambient-adjusted drying targets",
         requiredAction:
           "Adjust drying targets for very low ambient humidity (inland WA). Standard RH targets may be unachievable — document site conditions.",
         scopeImpact:
@@ -315,7 +315,7 @@ export const JURISDICTIONAL_MATRIX: Record<string, JurisdictionConfig> = {
       {
         triggerType: "structural",
         condition: "Timber construction in cool/wet climate",
-        regulationRef: "IICRC S500 §12.4 + TBSA moisture requirements",
+        regulationRef: "IICRC S500:2021 §12.4 + TBSA moisture requirements",
         requiredAction:
           "Extended drying timeline required for timber structures. Standard 48–72 hrs insufficient in Tasmanian climate.",
         scopeImpact:
@@ -359,7 +359,7 @@ export const JURISDICTIONAL_MATRIX: Record<string, JurisdictionConfig> = {
         triggerType: "structural",
         condition:
           "Tropical climate — humidity baseline fundamentally changes drying calculations",
-        regulationRef: "IICRC S500 §12.4 — ambient-adjusted drying targets",
+        regulationRef: "IICRC S500:2021 §12.4 — ambient-adjusted drying targets",
         requiredAction:
           'NT ambient RH is 70–90% in wet season. Drying target of "match ambient" means different thresholds than southern states.',
         scopeImpact:
