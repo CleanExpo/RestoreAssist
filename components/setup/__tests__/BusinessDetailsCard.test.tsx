@@ -109,6 +109,57 @@ describe('BusinessDetailsCard', () => {
     });
   });
 
+  it('shows an alert and does not silently drop the value when the PATCH rejects a checksum-invalid ABN', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { code: 'VALIDATION', message: 'Invalid ABN' } }),
+    }) as never;
+
+    useSetupStore.getState().setSectionStatus('businessDetails', 'manual');
+    render(<BusinessDetailsCard />);
+    const input = screen.getByPlaceholderText(/^abn$/i);
+    // 11 digits — passes client-side shape checks — but fails the ABR checksum.
+    fireEvent.change(input, { target: { value: '12345678901' } });
+    fireEvent.blur(input);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/invalid abn/i);
+
+    // "Saving…" must not be left stuck on and must not silently disappear
+    // without ever surfacing the failure.
+    await vi.waitFor(() => {
+      expect(screen.queryByText(/saving…/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('clears a previous field error once a subsequent save for that field succeeds', async () => {
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: { code: 'VALIDATION', message: 'Invalid ABN' } }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: { updated: ['abn'] } }) }) as never;
+
+    useSetupStore.getState().setSectionStatus('businessDetails', 'manual');
+    render(<BusinessDetailsCard />);
+    const input = screen.getByPlaceholderText(/^abn$/i);
+
+    fireEvent.change(input, { target: { value: '12345678901' } });
+    fireEvent.blur(input);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/invalid abn/i);
+
+    fireEvent.change(input, { target: { value: '53004085616' } });
+    fireEvent.blur(input);
+
+    await vi.waitFor(() => {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+  });
+
   it('updates local store immediately on change even before blur', () => {
     useSetupStore.getState().setSectionStatus('businessDetails', 'error');
     render(<BusinessDetailsCard />);

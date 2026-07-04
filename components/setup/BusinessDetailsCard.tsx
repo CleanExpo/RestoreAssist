@@ -9,12 +9,22 @@ import { isValidAbn, normaliseAbn } from '@/lib/abn/checksum';
 
 // Persists a single manually-entered org field — same PATCH endpoint the
 // brand/pricing manual-fallback cards use (see BrandCard.tsx `patchState`).
-async function patchState(field: string, value: string | null): Promise<void> {
-  await fetch('/api/setup/state', {
+async function patchState(
+  field: string,
+  value: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch('/api/setup/state', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ [field]: value }),
   });
+  if (!res.ok) {
+    // PATCH /api/setup/state responds via `apiError` — nested `{ error: { message } }`,
+    // not the flat `{ error: string }` shape /api/setup/hydrate uses.
+    const body = await res.json().catch(() => null);
+    return { ok: false, error: body?.error?.message ?? `Request failed (${res.status})` };
+  }
+  return { ok: true };
 }
 
 export function BusinessDetailsCard() {
@@ -27,17 +37,28 @@ export function BusinessDetailsCard() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [fieldError, setFieldError] = useState<Record<string, string | null>>({});
 
   // Manual-fallback persistence: local store update is optimistic, the PATCH
   // is what actually saves it — without this the field silently reverts to
   // whatever the server has (or nothing) on the next hydrate/refresh.
+  //
+  // Must check response.ok: this route rejects checksum-invalid ABNs with
+  // 400 (see app/api/setup/state/route.ts), so an unchecked fetch here would
+  // silently discard a typo'd ABN with zero user-visible feedback — the same
+  // defect class this component was fixed to close. Mirrors handleSubmit's
+  // res.ok / body.error handling below.
   const persistManualField = async (
     field: 'legalName' | 'abn' | 'state',
     value: string,
   ) => {
     setSaving((p) => ({ ...p, [field]: true }));
+    setFieldError((p) => ({ ...p, [field]: null }));
     try {
-      await patchState(field, value || null);
+      const result = await patchState(field, value || null);
+      if (!result.ok) {
+        setFieldError((p) => ({ ...p, [field]: result.error ?? 'Failed to save' }));
+      }
     } finally {
       setSaving((p) => ({ ...p, [field]: false }));
     }
@@ -188,24 +209,45 @@ export function BusinessDetailsCard() {
             <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm">
               We couldn't reach the Business Register. Fill in your details manually below and we'll re-try in the background.
             </div>
-            <Input
-              placeholder="Legal name"
-              value={org?.legalName ?? ''}
-              onChange={(e) => updateOrgField('legalName', e.target.value)}
-              onBlur={(e) => void persistManualField('legalName', e.target.value)}
-            />
-            <Input
-              placeholder="ABN"
-              value={org?.abn ?? ''}
-              onChange={(e) => updateOrgField('abn', e.target.value)}
-              onBlur={(e) => void persistManualField('abn', e.target.value)}
-            />
-            <Input
-              placeholder="State (NSW, VIC, etc.)"
-              value={org?.state ?? ''}
-              onChange={(e) => updateOrgField('state', e.target.value)}
-              onBlur={(e) => void persistManualField('state', e.target.value)}
-            />
+            <div className="space-y-1">
+              <Input
+                placeholder="Legal name"
+                value={org?.legalName ?? ''}
+                onChange={(e) => updateOrgField('legalName', e.target.value)}
+                onBlur={(e) => void persistManualField('legalName', e.target.value)}
+              />
+              {fieldError.legalName && (
+                <p role="alert" className="text-xs text-destructive">
+                  {fieldError.legalName}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Input
+                placeholder="ABN"
+                value={org?.abn ?? ''}
+                onChange={(e) => updateOrgField('abn', e.target.value)}
+                onBlur={(e) => void persistManualField('abn', e.target.value)}
+              />
+              {fieldError.abn && (
+                <p role="alert" className="text-xs text-destructive">
+                  {fieldError.abn}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Input
+                placeholder="State (NSW, VIC, etc.)"
+                value={org?.state ?? ''}
+                onChange={(e) => updateOrgField('state', e.target.value)}
+                onBlur={(e) => void persistManualField('state', e.target.value)}
+              />
+              {fieldError.state && (
+                <p role="alert" className="text-xs text-destructive">
+                  {fieldError.state}
+                </p>
+              )}
+            </div>
             {(saving.legalName || saving.abn || saving.state) && (
               <span className="text-xs text-muted-foreground">Saving…</span>
             )}
