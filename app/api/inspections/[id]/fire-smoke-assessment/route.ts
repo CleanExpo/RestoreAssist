@@ -24,7 +24,7 @@ import {
   assertInspectionTenancy,
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
-import { apiError } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 
 function tenancyCode(
   status: 401 | 403 | 404,
@@ -82,33 +82,37 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return apiError(req, {
-      code: "UNAUTHORIZED",
-      message: "Unauthorized",
-      status: 401,
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return apiError(req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
+    }
+
+    const { id } = await params;
+
+    // RA-1711 batch 2 — shared tenancy helper (workspace-member + admin paths).
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
+      return apiError(req, {
+        code: tenancyCode(tenancy.status),
+        message: tenancy.reason,
+        status: tenancy.status,
+      });
+    }
+
+    const inspection = await prisma.inspection.findUnique({
+      where: { id },
+      select: { fireSmokeDamageAssessment: true },
     });
+
+    return NextResponse.json(inspection?.fireSmokeDamageAssessment ?? null);
+  } catch (err) {
+    return fromException(req, err, { stage: "fire-smoke-assessment:get" });
   }
-
-  const { id } = await params;
-
-  // RA-1711 batch 2 — shared tenancy helper (workspace-member + admin paths).
-  const tenancy = await assertInspectionTenancy(session, id);
-  if (!tenancy.ok) {
-    return apiError(req, {
-      code: tenancyCode(tenancy.status),
-      message: tenancy.reason,
-      status: tenancy.status,
-    });
-  }
-
-  const inspection = await prisma.inspection.findUnique({
-    where: { id },
-    select: { fireSmokeDamageAssessment: true },
-  });
-
-  return NextResponse.json(inspection?.fireSmokeDamageAssessment ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -117,127 +121,142 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return apiError(req, {
-      code: "UNAUTHORIZED",
-      message: "Unauthorized",
-      status: 401,
-    });
-  }
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return apiError(req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
+    }
 
-  const { id } = await params;
+    const { id } = await params;
 
-  const tenancy = await resolveInspectionWrite(session, id);
-  if (!tenancy.ok) {
-    return apiError(req, {
-      code: tenancyCode(tenancy.status),
-      message: tenancy.reason,
-      status: tenancy.status,
-    });
-  }
+    const tenancy = await resolveInspectionWrite(session, id);
+    if (!tenancy.ok) {
+      return apiError(req, {
+        code: tenancyCode(tenancy.status),
+        message: tenancy.reason,
+        status: tenancy.status,
+      });
+    }
 
-  const body = await req.json();
-  const parsed = fireSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid data", details: parsed.error.flatten() },
-      { status: 400 },
-    );
-  }
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
+    }
 
-  const data = parsed.data;
-  const gates = computeGates(data);
+    const parsed = fireSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid data", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
 
-  const record = await prisma.fireSmokeDamageAssessment.upsert({
-    where: { inspectionId: id },
-    create: {
-      inspectionId: id,
-      structuralStability: data.structuralStability ?? undefined,
-      electricalDisconnectVerified: data.electricalDisconnectVerified ?? false,
-      gasShutoffVerified: data.gasShutoffVerified ?? false,
-      charringDepthMm: data.charringDepthMm ?? undefined,
-      engineerClearanceRequired: data.engineerClearanceRequired ?? false,
-      smokeResidueType: data.smokeResidueType ?? undefined,
-      residueLocation: data.residueLocation ?? undefined,
-      surfacePH: data.surfacePH ?? undefined,
-      pHMeterModel: data.pHMeterModel ?? undefined,
-      odourSeverityScore: data.odourSeverityScore ?? undefined,
-      hvacAffected: data.hvacAffected ?? false,
-      odourType: data.odourType ?? undefined,
-      ozoneTreatmentDuration: data.ozoneTreatmentDuration ?? undefined,
-      ozoneConcentrationPpm: data.ozoneConcentrationPpm ?? undefined,
-      evacuationOrderTimestamp: data.evacuationOrderTimestamp
-        ? new Date(data.evacuationOrderTimestamp)
-        : undefined,
-      reentryApprovalTimestamp: data.reentryApprovalTimestamp
-        ? new Date(data.reentryApprovalTimestamp)
-        : undefined,
-      spaceVolumeM3: data.spaceVolumeM3 ?? undefined,
-      ...gates,
-    },
-    update: {
-      ...(data.structuralStability !== undefined && {
-        structuralStability: data.structuralStability,
-      }),
-      ...(data.electricalDisconnectVerified !== undefined && {
-        electricalDisconnectVerified: data.electricalDisconnectVerified,
-      }),
-      ...(data.gasShutoffVerified !== undefined && {
-        gasShutoffVerified: data.gasShutoffVerified,
-      }),
-      ...(data.charringDepthMm !== undefined && {
-        charringDepthMm: data.charringDepthMm,
-      }),
-      ...(data.engineerClearanceRequired !== undefined && {
-        engineerClearanceRequired: data.engineerClearanceRequired,
-      }),
-      ...(data.smokeResidueType !== undefined && {
-        smokeResidueType: data.smokeResidueType,
-      }),
-      ...(data.residueLocation !== undefined && {
-        residueLocation: data.residueLocation,
-      }),
-      ...(data.surfacePH !== undefined && { surfacePH: data.surfacePH }),
-      ...(data.pHMeterModel !== undefined && {
-        pHMeterModel: data.pHMeterModel,
-      }),
-      ...(data.odourSeverityScore !== undefined && {
-        odourSeverityScore: data.odourSeverityScore,
-      }),
-      ...(data.hvacAffected !== undefined && {
-        hvacAffected: data.hvacAffected,
-      }),
-      ...(data.odourType !== undefined && { odourType: data.odourType }),
-      ...(data.ozoneTreatmentDuration !== undefined && {
-        ozoneTreatmentDuration: data.ozoneTreatmentDuration,
-      }),
-      ...(data.ozoneConcentrationPpm !== undefined && {
-        ozoneConcentrationPpm: data.ozoneConcentrationPpm,
-      }),
-      ...(data.evacuationOrderTimestamp !== undefined && {
+    const data = parsed.data;
+    const gates = computeGates(data);
+
+    const record = await prisma.fireSmokeDamageAssessment.upsert({
+      where: { inspectionId: id },
+      create: {
+        inspectionId: id,
+        structuralStability: data.structuralStability ?? undefined,
+        electricalDisconnectVerified:
+          data.electricalDisconnectVerified ?? false,
+        gasShutoffVerified: data.gasShutoffVerified ?? false,
+        charringDepthMm: data.charringDepthMm ?? undefined,
+        engineerClearanceRequired: data.engineerClearanceRequired ?? false,
+        smokeResidueType: data.smokeResidueType ?? undefined,
+        residueLocation: data.residueLocation ?? undefined,
+        surfacePH: data.surfacePH ?? undefined,
+        pHMeterModel: data.pHMeterModel ?? undefined,
+        odourSeverityScore: data.odourSeverityScore ?? undefined,
+        hvacAffected: data.hvacAffected ?? false,
+        odourType: data.odourType ?? undefined,
+        ozoneTreatmentDuration: data.ozoneTreatmentDuration ?? undefined,
+        ozoneConcentrationPpm: data.ozoneConcentrationPpm ?? undefined,
         evacuationOrderTimestamp: data.evacuationOrderTimestamp
           ? new Date(data.evacuationOrderTimestamp)
-          : null,
-      }),
-      ...(data.reentryApprovalTimestamp !== undefined && {
+          : undefined,
         reentryApprovalTimestamp: data.reentryApprovalTimestamp
           ? new Date(data.reentryApprovalTimestamp)
-          : null,
-      }),
-      ...(data.spaceVolumeM3 !== undefined && {
-        spaceVolumeM3: data.spaceVolumeM3,
-      }),
-      ...gates,
-    },
-  });
+          : undefined,
+        spaceVolumeM3: data.spaceVolumeM3 ?? undefined,
+        ...gates,
+      },
+      update: {
+        ...(data.structuralStability !== undefined && {
+          structuralStability: data.structuralStability,
+        }),
+        ...(data.electricalDisconnectVerified !== undefined && {
+          electricalDisconnectVerified: data.electricalDisconnectVerified,
+        }),
+        ...(data.gasShutoffVerified !== undefined && {
+          gasShutoffVerified: data.gasShutoffVerified,
+        }),
+        ...(data.charringDepthMm !== undefined && {
+          charringDepthMm: data.charringDepthMm,
+        }),
+        ...(data.engineerClearanceRequired !== undefined && {
+          engineerClearanceRequired: data.engineerClearanceRequired,
+        }),
+        ...(data.smokeResidueType !== undefined && {
+          smokeResidueType: data.smokeResidueType,
+        }),
+        ...(data.residueLocation !== undefined && {
+          residueLocation: data.residueLocation,
+        }),
+        ...(data.surfacePH !== undefined && { surfacePH: data.surfacePH }),
+        ...(data.pHMeterModel !== undefined && {
+          pHMeterModel: data.pHMeterModel,
+        }),
+        ...(data.odourSeverityScore !== undefined && {
+          odourSeverityScore: data.odourSeverityScore,
+        }),
+        ...(data.hvacAffected !== undefined && {
+          hvacAffected: data.hvacAffected,
+        }),
+        ...(data.odourType !== undefined && { odourType: data.odourType }),
+        ...(data.ozoneTreatmentDuration !== undefined && {
+          ozoneTreatmentDuration: data.ozoneTreatmentDuration,
+        }),
+        ...(data.ozoneConcentrationPpm !== undefined && {
+          ozoneConcentrationPpm: data.ozoneConcentrationPpm,
+        }),
+        ...(data.evacuationOrderTimestamp !== undefined && {
+          evacuationOrderTimestamp: data.evacuationOrderTimestamp
+            ? new Date(data.evacuationOrderTimestamp)
+            : null,
+        }),
+        ...(data.reentryApprovalTimestamp !== undefined && {
+          reentryApprovalTimestamp: data.reentryApprovalTimestamp
+            ? new Date(data.reentryApprovalTimestamp)
+            : null,
+        }),
+        ...(data.spaceVolumeM3 !== undefined && {
+          spaceVolumeM3: data.spaceVolumeM3,
+        }),
+        ...gates,
+      },
+    });
 
-  await prisma.inspection.update({
-    where: tenancy.data.inspectionWhere,
-    data: { claimType: "FIRE" },
-  });
+    await prisma.inspection.update({
+      where: tenancy.data.inspectionWhere,
+      data: { claimType: "FIRE" },
+    });
 
-  return NextResponse.json(record);
+    return NextResponse.json(record);
+  } catch (err) {
+    return fromException(req, err, { stage: "fire-smoke-assessment:post" });
+  }
 }
 
 // ─── DELETE ───────────────────────────────────────────────────────────────────
@@ -246,47 +265,51 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return apiError(req, {
-      code: "UNAUTHORIZED",
-      message: "Unauthorized",
-      status: 401,
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return apiError(req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
+    }
+
+    const { id } = await params;
+
+    const tenancy = await resolveInspectionWrite(session, id);
+    if (!tenancy.ok) {
+      return apiError(req, {
+        code: tenancyCode(tenancy.status),
+        message: tenancy.reason,
+        status: tenancy.status,
+      });
+    }
+
+    await softDelete(
+      () =>
+        prisma.fireSmokeDamageAssessment.delete({
+          where: {
+            inspectionId: id,
+            ...(tenancy.data.childInspectionFilter && {
+              inspection: tenancy.data.childInspectionFilter,
+            }),
+          },
+        }),
+      {
+        route: "/api/inspections/[id]/fire-smoke-assessment",
+        stage: "delete",
+        inspectionId: id,
+      },
+    );
+
+    await prisma.inspection.update({
+      where: tenancy.data.inspectionWhere,
+      data: { claimType: null },
     });
+
+    return NextResponse.json({ deleted: true });
+  } catch (err) {
+    return fromException(req, err, { stage: "fire-smoke-assessment:delete" });
   }
-
-  const { id } = await params;
-
-  const tenancy = await resolveInspectionWrite(session, id);
-  if (!tenancy.ok) {
-    return apiError(req, {
-      code: tenancyCode(tenancy.status),
-      message: tenancy.reason,
-      status: tenancy.status,
-    });
-  }
-
-  await softDelete(
-    () =>
-      prisma.fireSmokeDamageAssessment.delete({
-        where: {
-          inspectionId: id,
-          ...(tenancy.data.childInspectionFilter && {
-            inspection: tenancy.data.childInspectionFilter,
-          }),
-        },
-      }),
-    {
-      route: "/api/inspections/[id]/fire-smoke-assessment",
-      stage: "delete",
-      inspectionId: id,
-    },
-  );
-
-  await prisma.inspection.update({
-    where: tenancy.data.inspectionWhere,
-    data: { claimType: null },
-  });
-
-  return NextResponse.json({ deleted: true });
 }
