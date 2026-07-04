@@ -616,3 +616,120 @@ describe("RA-6979 residual leak classes", () => {
     expect(flagged).not.toContain("app/api/leak3-keyed/route.ts");
   });
 });
+
+/**
+ * RA-6986 — two evasions of the RA-6979 module-scope singleton seed that the
+ * #1702 head still let through, both probe-verified:
+ *   1. helper indirection: the singleton's env read lives in a non-exported
+ *      helper the client closes over, so it is neither in the constructor args
+ *      nor a top-level statement; and
+ *   2. a regex literal with an unbalanced brace in a character class (/[{]/)
+ *      skews the depth-0 brace scan, hiding the module-scope instantiation.
+ * Both drive the full auditAiCallSites scan over a throwaway fixture tree.
+ */
+describe("RA-6986 module-scope seed evasions", () => {
+  function auditFixture(files: Record<string, string>): string[] {
+    const root = mkdtempSync(join(tmpdir(), "ra-6986-fixture-"));
+    try {
+      for (const [relative, content] of Object.entries(files)) {
+        const abs = join(root, relative);
+        mkdirSync(dirname(abs), { recursive: true });
+        writeFileSync(abs, content);
+      }
+      return auditAiCallSites(root).guardrailSummary.platformKeyFallbackFiles;
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+
+  it("seeds a module-scope singleton whose env read is wrapped in a non-exported helper", () => {
+    // The exact probe from RA-6986: the env read is neither in the constructor
+    // args nor a top-level statement — it sits inside a non-exported readKey()
+    // helper the module-scope client closes over. The seed must still fire so
+    // the customer route importing the exported spender is flagged.
+    const flagged = auditFixture({
+      "lib/inline/helper-indirection.ts": `
+        import Anthropic from "@anthropic-ai/sdk";
+        function readKey() {
+          return process.env.ANTHROPIC_API_KEY;
+        }
+        const client = new Anthropic({ apiKey: readKey() });
+        export async function classifyWithHelper(input: string) {
+          return client.messages.create({
+            model: "claude-haiku-4-5",
+            max_tokens: 50,
+            messages: [{ role: "user", content: input }],
+          });
+        }
+      `,
+      "app/api/leak-helper/route.ts": `
+        import { classifyWithHelper } from "@/lib/inline/helper-indirection";
+        export async function POST(req: Request) {
+          return Response.json(await classifyWithHelper(await req.text()));
+        }
+      `,
+    });
+
+    expect(flagged).toContain("app/api/leak-helper/route.ts");
+  });
+
+  it("strips a regex literal so an unbalanced brace in a char class can't skew the depth-0 scan", () => {
+    // /[{]/ carries an unbalanced `{` inside its character class. Unless the
+    // regex literal is stripped, the stray brace pushes the depth-0 scan to
+    // depth 1, the module-scope `new Anthropic(...)` reads as non-module-scope,
+    // and the singleton is never seeded — so the route would slip the gate.
+    const flagged = auditFixture({
+      "lib/inline/regex-brace.ts": `
+        import Anthropic from "@anthropic-ai/sdk";
+        const OPEN_BRACE = /[{]/;
+        const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        export async function classifyWithBraceRegex(input: string) {
+          const hasBrace = OPEN_BRACE.test(input);
+          return client.messages.create({
+            model: "claude-haiku-4-5",
+            max_tokens: 50,
+            messages: [{ role: "user", content: String(hasBrace) }],
+          });
+        }
+      `,
+      "app/api/leak-regex/route.ts": `
+        import { classifyWithBraceRegex } from "@/lib/inline/regex-brace";
+        export async function POST(req: Request) {
+          return Response.json(await classifyWithBraceRegex(await req.text()));
+        }
+      `,
+    });
+
+    expect(flagged).toContain("app/api/leak-regex/route.ts");
+  });
+
+  it("does not treat a division operator as a regex literal (depth scan stays balanced)", () => {
+    // Guards the regex-vs-division heuristic: `total / count` after an
+    // identifier is division, not a regex, so nothing between the two slashes
+    // is consumed and the module-scope singleton is still seeded normally.
+    const flagged = auditFixture({
+      "lib/inline/division.ts": `
+        import Anthropic from "@anthropic-ai/sdk";
+        const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        export function ratio(total: number, count: number) {
+          return total / count / 2;
+        }
+        export async function classifyWithDivision(input: string) {
+          return client.messages.create({
+            model: "claude-haiku-4-5",
+            max_tokens: 50,
+            messages: [{ role: "user", content: input }],
+          });
+        }
+      `,
+      "app/api/leak-division/route.ts": `
+        import { classifyWithDivision } from "@/lib/inline/division";
+        export async function POST(req: Request) {
+          return Response.json(await classifyWithDivision(await req.text()));
+        }
+      `,
+    });
+
+    expect(flagged).toContain("app/api/leak-division/route.ts");
+  });
+});

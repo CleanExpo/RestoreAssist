@@ -352,11 +352,64 @@ function escapeRegExp(value: string): string {
 }
 
 /**
- * Remove string literals (single/double/template) and comments from a source
- * fragment, best-effort, so a downstream token test can't be fooled by the same
- * token appearing inside a string or comment (e.g. an `apiKey` word buried in a
- * system-prompt literal). Balancing/brace scans over the result are also safe
- * from stray braces or parentheses inside strings.
+ * Keywords after which a `/` always opens a REGEX literal (an expression is
+ * required, division is impossible). Used by the regex-vs-division heuristic in
+ * stripStringsAndComments. Including a keyword is always safe — none of these
+ * can be followed by a division operator in valid code.
+ */
+const REGEX_PRECEDING_KEYWORDS = new Set([
+  "return",
+  "typeof",
+  "instanceof",
+  "new",
+  "delete",
+  "void",
+  "do",
+  "else",
+  "in",
+  "of",
+  "yield",
+  "await",
+  "case",
+  "throw",
+]);
+
+/**
+ * Regex-vs-division heuristic keyed on the preceding non-space token already
+ * emitted to `out`. A `/` opens a regex literal only in an expression position:
+ * at the start of input, right after an operator/opener (`(`, `[`, `{`, `,`,
+ * `;`, `:`, `=`, `!`, `&`, `|`, `?`, `+`, `-`, `*`, `%`, `^`, `~`), or after a
+ * REGEX_PRECEDING_KEYWORDS keyword (`return /.../`). After a value token
+ * (identifier, `)`, `]`, `}`, digit, or `<`/`>` which cover JSX tags and
+ * generics) it is treated as division and left as-is. Deliberately conservative
+ * about `<`/`>`: excluding them avoids misreading a JSX close tag (`</div>`) or
+ * a generic (`Array<T>`) as a regex, at the documented cost of not stripping a
+ * regex that directly follows `=>`/a comparison (harmless unless that regex
+ * carries an unbalanced brace — none in repo lib/ today).
+ */
+function precedingTokenExpectsRegex(out: string): boolean {
+  let j = out.length - 1;
+  while (j >= 0 && (out[j] === " " || out[j] === "\t" || out[j] === "\n" || out[j] === "\r")) {
+    j--;
+  }
+  if (j < 0) return true; // start of input — expression position
+  const lastChar = out[j];
+  if ("([{,;:=!&|?+-*%^~".includes(lastChar)) return true;
+  if (!/[A-Za-z0-9_$]/.test(lastChar)) return false; // e.g. ), ], }, ., <, > → value/division
+  let k = j;
+  while (k >= 0 && /[A-Za-z0-9_$]/.test(out[k])) k--;
+  return REGEX_PRECEDING_KEYWORDS.has(out.slice(k + 1, j + 1));
+}
+
+/**
+ * Remove string literals (single/double/template), comments, and REGEX literals
+ * from a source fragment, best-effort, so a downstream token test can't be
+ * fooled by the same token appearing inside a string, comment, or regex (e.g. an
+ * `apiKey` word buried in a system-prompt literal). Balancing/brace scans over
+ * the result are also safe from stray braces or parentheses inside strings OR
+ * inside a regex character class (e.g. an unbalanced `/[{]/` that would
+ * otherwise skew the depth-0 module-scope scan). Regex literals are told apart
+ * from the division operator by precedingTokenExpectsRegex.
  */
 function stripStringsAndComments(text: string): string {
   let out = "";
@@ -374,6 +427,31 @@ function stripStringsAndComments(text: string): string {
       i += 2;
       while (i < n && !(text[i] === "*" && text[i + 1] === "/")) i++;
       i += 2;
+      continue;
+    }
+    if (ch === "/" && precedingTokenExpectsRegex(out)) {
+      // Consume a regex literal whole. A `/` inside a `[...]` character class
+      // does NOT terminate the regex, so track class state; backslash escapes
+      // the next char. Bail on a raw newline (unterminated literal) so a stray
+      // division can't swallow the rest of the file.
+      i++; // past the opening `/`
+      let inClass = false;
+      while (i < n) {
+        const c = text[i];
+        if (c === "\\") {
+          i += 2;
+          continue;
+        }
+        if (c === "\n") break;
+        if (c === "[") inClass = true;
+        else if (c === "]") inClass = false;
+        else if (c === "/" && !inClass) {
+          i++;
+          break;
+        }
+        i++;
+      }
+      while (i < n && /[a-z]/i.test(text[i])) i++; // trailing regex flags
       continue;
     }
     if (ch === '"' || ch === "'" || ch === "`") {
@@ -730,23 +808,26 @@ const PROVIDER_CLIENT_NEW_PATTERN =
   /\bnew\s+(?:Anthropic|OpenAI|GoogleGenerativeAI)\s*\(/;
 
 /**
- * RA-6979 (leak class 1, module-scope variant) — detect the canonical SDK
- * singleton: a provider client instantiated at MODULE scope (curly-brace depth
- * 0 of the string/comment-stripped source — outside every function body,
- * exported or not) with the platform env key. `strippedContent` MUST be
- * pre-stripped so the brace-depth scan can't be fooled by braces inside
- * literals. The env-key read may sit inside the constructor arguments
- * (`new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })`) or in a
- * separate top-level statement (`const key = process.env...;`); both count.
- * A BYOK marker in the same module-scope text suppresses the match, mirroring
- * the body-scoped suppression used for per-export seeding. An instantiation
- * inside a NON-exported lazy helper (lib/testimonial/transcribe.ts's
- * defaultClient) sits at depth >= 1 and deliberately does NOT match — that
- * shape stays at per-export granularity.
+ * RA-6979 / RA-6986 (leak class 1, module-scope variant) — detect the canonical
+ * SDK singleton: a provider client instantiated at MODULE scope (curly-brace
+ * depth 0 of the string/comment/regex-stripped source — outside every function
+ * body, exported or not) in a module that reads the platform env key. Once a
+ * depth-0 instantiation is confirmed, the env-key read may sit ANYWHERE in the
+ * module body — the constructor arguments
+ * (`new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })`), a separate
+ * top-level statement (`const key = process.env...;`), OR a non-exported helper
+ * the singleton closes over (`new Anthropic({ apiKey: readKey() })` with
+ * `function readKey() { return process.env.ANTHROPIC_API_KEY; }`, RA-6986). A
+ * BYOK marker anywhere in the module suppresses the match. `strippedContent`
+ * MUST be pre-stripped (strings/comments/regex) so the brace-depth scan can't
+ * be fooled by braces inside literals — including an unbalanced `/[{]/` in a
+ * regex character class. An instantiation inside a NON-exported lazy helper
+ * (lib/testimonial/transcribe.ts's defaultClient) sits at depth >= 1 and
+ * deliberately does NOT match — that shape stays at per-export granularity.
  */
 function hasModuleScopeEnvClientSingleton(strippedContent: string): boolean {
   const instantiation = new RegExp(PROVIDER_CLIENT_NEW_PATTERN.source, "g");
-  let topLevelText: string | null = null;
+  let hasModuleScopeInstantiation = false;
   let match: RegExpExecArray | null;
   while ((match = instantiation.exec(strippedContent)) !== null) {
     let depth = 0;
@@ -755,40 +836,21 @@ function hasModuleScopeEnvClientSingleton(strippedContent: string): boolean {
       if (ch === "{") depth++;
       else if (ch === "}") depth--;
     }
-    if (depth !== 0) continue;
-
-    // Balanced-paren slice of the constructor arguments (they nest one object
-    // literal deep, so they are NOT part of the depth-0 text below).
-    let index = match.index + match[0].length;
-    const argsStart = index;
-    let parenDepth = 1;
-    while (index < strippedContent.length && parenDepth > 0) {
-      const ch = strippedContent[index];
-      if (ch === "(") parenDepth++;
-      else if (ch === ")") parenDepth--;
-      index++;
-    }
-    const args = strippedContent.slice(argsStart, index - 1);
-
-    if (topLevelText === null) {
-      topLevelText = "";
-      let braceDepth = 0;
-      for (const ch of strippedContent) {
-        if (ch === "{") braceDepth++;
-        else if (ch === "}") braceDepth--;
-        else if (braceDepth === 0) topLevelText += ch;
-      }
-    }
-
-    const moduleScope = `${topLevelText}\n${args}`;
-    if (
-      AI_PROVIDER_KEY_ENV_PATTERN.test(moduleScope) &&
-      !BYOK_MARKERS.some((marker) => moduleScope.includes(marker))
-    ) {
-      return true;
+    if (depth === 0) {
+      hasModuleScopeInstantiation = true;
+      break;
     }
   }
-  return false;
+  if (!hasModuleScopeInstantiation) return false;
+
+  // A module-scope client singleton exists — any provider env-key read in the
+  // module (top-level, constructor args, or a helper it closes over) means the
+  // singleton spends the platform key, unless a BYOK marker resolves a
+  // workspace key instead.
+  return (
+    AI_PROVIDER_KEY_ENV_PATTERN.test(strippedContent) &&
+    !BYOK_MARKERS.some((marker) => strippedContent.includes(marker))
+  );
 }
 
 /**
