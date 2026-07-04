@@ -817,6 +817,11 @@ export async function handleSubscriptionDeleted(
  * InvoicePayment, and a one-off invoice has no subscription linkage — both leave
  * the customer's subscription untouched. Partial refunds are ignored.
  *
+ * RA-6976: the resolved invoice's subscription must also match the user's
+ * CURRENT subscription id before revoking. Without this check, a late refund
+ * on an invoice from a subscription the user has since cancelled and replaced
+ * (re-subscribed) would revoke the unrelated current subscription.
+ *
  * Exported so unit tests can drive it with synthetic events.
  */
 export async function handleChargeRefunded(event: Stripe.Event) {
@@ -867,12 +872,29 @@ export async function handleChargeRefunded(event: Stripe.Event) {
   // Subscription invoice refund — revoke the matching user's subscription.
   const user = await prisma.user.findFirst({
     where: { stripeCustomerId: customerId },
-    select: { id: true },
+    select: { id: true, subscriptionId: true },
   });
   if (!user) {
     console.error(
       "[stripe-webhook] charge.refunded — no user for stripeCustomerId",
       { eventId: event.id, customerId },
+    );
+    return;
+  }
+
+  // RA-6976: a refund can land on a stale invoice belonging to a subscription
+  // the user has since replaced (cancelled, then re-subscribed). Only revoke
+  // when the refunded invoice's subscription matches the user's CURRENT
+  // subscription, or when the user has no current subscription id on file.
+  if (user.subscriptionId && user.subscriptionId !== invoiceSubscriptionId) {
+    console.log(
+      "[stripe-webhook] charge.refunded ignored — refund belongs to a superseded subscription",
+      {
+        eventId: event.id,
+        chargeId: refundedCharge.id,
+        invoiceSubscriptionId,
+        currentSubscriptionId: user.subscriptionId,
+      },
     );
     return;
   }

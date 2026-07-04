@@ -3,6 +3,8 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
 import { apiError } from "@/lib/api-errors";
+import { decrypt } from "@/lib/credential-vault";
+import { isEncryptedToken } from "@/lib/auth/account-tokens";
 
 /**
  * POST /api/webhooks/ascora — Receive inbound webhook events from Ascora.
@@ -75,7 +77,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const expected = createHmac("sha256", integration.webhookSecret)
+    // RA-6977: webhookSecret is encrypted at rest (AES-256-GCM credential
+    // vault); decrypt before HMAC verification. Legacy plaintext rows (or a
+    // secret set before any encrypting write-site exists) aren't in cipher
+    // shape, so they verify unchanged. NOTE FOR FUTURE WRITERS: any code that
+    // sets AscoraIntegration.webhookSecret MUST encrypt it via
+    // lib/credential-vault's `encrypt()` before persisting.
+    const secret = isEncryptedToken(integration.webhookSecret)
+      ? decrypt(integration.webhookSecret)
+      : integration.webhookSecret;
+
+    const expected = createHmac("sha256", secret)
       .update(rawBody)
       .digest("hex");
     const providedHex = signature.replace(/^sha256=/, "");
