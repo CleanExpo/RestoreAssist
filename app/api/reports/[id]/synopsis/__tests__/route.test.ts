@@ -106,6 +106,23 @@ describe("POST /api/reports/[id]/synopsis", () => {
     expect(body).toEqual({ error: "API_ERROR" });
   });
 
+  it("RA-6941: returns 402 KEY_INVALID (not a generic 500) when the resolved BYOK key is rejected by the provider", async () => {
+    generateReportSynopsis.mockResolvedValueOnce({
+      ok: false,
+      reason: "KEY_INVALID",
+      detail:
+        "Anthropic API key is invalid or expired. Re-add it in Workspace Settings → AI Providers.",
+    });
+
+    const response = await POST(postRequest(), {
+      params: Promise.resolve({ id: "report_1" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(402);
+    expect(body).toEqual({ error: "KEY_INVALID" });
+  });
+
   it("RA-6921: falls back to a legacy Settings -> Integrations Anthropic key when no workspace BYOK key is configured", async () => {
     resolveWorkspaceAiKey.mockRejectedValueOnce(
       new NoWorkspaceKeyError("ANTHROPIC"),
