@@ -338,6 +338,13 @@ interface ImportedBinding {
   specifier: string;
   exportedName: string;
   localName: string;
+  /**
+   * True for a named re-export (`export { a } from "x"`). A re-export threads a
+   * (possibly tainted) symbol straight back out of the module without ever
+   * calling it locally, so it must be matched by export-name resolution rather
+   * than by the call-site scan used for ordinary imports.
+   */
+  isReExport?: boolean;
 }
 
 function escapeRegExp(value: string): string {
@@ -345,9 +352,57 @@ function escapeRegExp(value: string): string {
 }
 
 /**
- * Extract the VALUE bindings a source file imports — named static imports
- * (`import { a, b as c } from "x"`) and destructured dynamic imports
- * (`const { a } = await import("x")`). Type-only imports are skipped (a type
+ * Remove string literals (single/double/template) and comments from a source
+ * fragment, best-effort, so a downstream token test can't be fooled by the same
+ * token appearing inside a string or comment (e.g. an `apiKey` word buried in a
+ * system-prompt literal). Balancing/brace scans over the result are also safe
+ * from stray braces or parentheses inside strings.
+ */
+function stripStringsAndComments(text: string): string {
+  let out = "";
+  let i = 0;
+  const n = text.length;
+  while (i < n) {
+    const ch = text[i];
+    const next = i + 1 < n ? text[i + 1] : "";
+    if (ch === "/" && next === "/") {
+      i += 2;
+      while (i < n && text[i] !== "\n") i++;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      i += 2;
+      while (i < n && !(text[i] === "*" && text[i + 1] === "/")) i++;
+      i += 2;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      const quote = ch;
+      i++;
+      while (i < n) {
+        if (text[i] === "\\") {
+          i += 2;
+          continue;
+        }
+        if (text[i] === quote) {
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+    out += ch;
+    i++;
+  }
+  return out;
+}
+
+/**
+ * Extract the VALUE bindings a source file imports or re-exports — named static
+ * imports (`import { a, b as c } from "x"`), destructured dynamic imports
+ * (`const { a } = await import("x")`), and named re-exports
+ * (`export { a } from "x"`). Type-only imports/re-exports are skipped (a type
  * cannot resolve or spend a key at runtime). Default and namespace imports are
  * intentionally NOT tracked (documented limit) — the platform-key helpers and
  * gateways are all consumed as named exports.
@@ -388,6 +443,26 @@ function extractValueImports(content: string): ImportedBinding[] {
         specifier,
         exportedName,
         localName: (local ?? exported).trim(),
+      });
+    }
+  }
+
+  const reExport =
+    /export\s+(type\s+)?\{([^}]*)\}\s*from\s*["']([^"']+)["']/g;
+  for (const match of content.matchAll(reExport)) {
+    if (match[1]) continue; // `export type { … } from` — type-only, no runtime binding
+    const specifier = match[3];
+    for (const raw of match[2].split(",")) {
+      const piece = raw.trim();
+      if (!piece || piece.startsWith("type ")) continue; // inline `type` modifier
+      const [exported, local] = piece.split(/\s+as\s+/);
+      const exportedName = exported.trim();
+      if (!exportedName || exportedName === "default") continue;
+      bindings.push({
+        specifier,
+        exportedName,
+        localName: (local ?? exported).trim(),
+        isReExport: true,
       });
     }
   }
@@ -490,6 +565,16 @@ function delegatesToPlatformKey(
   rootDir: string,
 ): boolean {
   for (const binding of extractValueImports(content)) {
+    // A named re-export threads a symbol straight back out without calling it —
+    // re-exporting a tainted export makes this module (a barrel) a delegate too.
+    if (binding.isReExport) {
+      if (PLATFORM_KEY_HELPER_NAMES.includes(binding.exportedName)) return true;
+      const target = resolveModuleSpecifier(fileAbs, binding.specifier, rootDir);
+      if (!target) continue;
+      const tainted = taintedExports.get(target);
+      if (tainted && tainted.has(binding.exportedName)) return true;
+      continue;
+    }
     const calls = findCallArgs(content, binding.localName);
     if (calls.length === 0) continue;
     if (PLATFORM_KEY_HELPER_NAMES.includes(binding.exportedName)) return true;
@@ -498,7 +583,11 @@ function delegatesToPlatformKey(
     const tainted = taintedExports.get(target);
     if (!tainted || !tainted.has(binding.exportedName)) continue;
     // A call that omits an explicit apiKey falls back to the platform key.
-    if (calls.some((argText) => !/apikey/i.test(argText))) return true;
+    // String literals and comments are stripped first so an `apiKey` word
+    // inside a prompt string or comment can't masquerade as a real key arg.
+    if (calls.some((argText) => !/apikey/i.test(stripStringsAndComments(argText)))) {
+      return true;
+    }
   }
   return false;
 }
@@ -547,6 +636,152 @@ function buildPlatformKeyDelegateExports(
     changed = false;
     for (const [abs, content] of fileContents) {
       if (definerModules.has(abs)) continue; // resolver source stays resolver-only
+      if (taintedExports.has(abs)) continue; // already a fully-tainted delegate
+      if (!delegatesToPlatformKey(abs, content, taintedExports, rootDir)) continue;
+      taintedExports.set(abs, extractExportedNames(content));
+      changed = true;
+    }
+  }
+
+  return taintedExports;
+}
+
+/**
+ * Platform-ops paths deliberately kept OUT of the env-key seed (RA-6979 leak
+ * class 1). A cron job / admin-gated tool / eval harness that reads the
+ * platform key inline for internal-only work is legitimate platform spend, not
+ * a per-client leak — seeding it would false-positive its callers. Mirrors the
+ * platform-internal exceptions the app-scoped detector already tolerates.
+ */
+function isPlatformOpsPath(normalisedRelPath: string): boolean {
+  return (
+    normalisedRelPath.includes("/cron/") ||
+    normalisedRelPath.includes("/admin/") ||
+    normalisedRelPath.includes("harness")
+  );
+}
+
+/**
+ * Best-effort extraction of the brace-delimited body of a function/arrow whose
+ * parameter list opens at `parenOpenIdx` (the `(` char). Balances the parameter
+ * parens, then balances the body braces. `content` MUST be pre-stripped of
+ * strings/comments so stray braces inside literals don't unbalance the scan.
+ * Returns null for an expression-bodied arrow (no block body).
+ */
+function extractBraceBodyAfterParen(content: string, parenOpenIdx: number): string | null {
+  let i = parenOpenIdx;
+  let depth = 0;
+  for (; i < content.length; i++) {
+    const ch = content[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") {
+      depth--;
+      if (depth === 0) {
+        i++;
+        break;
+      }
+    }
+  }
+  while (i < content.length && content[i] !== "{") {
+    if (content[i] === ";") return null; // no block body (e.g. expression arrow)
+    i++;
+  }
+  if (content[i] !== "{") return null;
+  const start = i;
+  let bodyDepth = 0;
+  for (; i < content.length; i++) {
+    const ch = content[i];
+    if (ch === "{") bodyDepth++;
+    else if (ch === "}") {
+      bodyDepth--;
+      if (bodyDepth === 0) {
+        i++;
+        break;
+      }
+    }
+  }
+  return content.slice(start, i);
+}
+
+/**
+ * Map each exported function / arrow-const to its (string/comment-stripped)
+ * body. Used to inspect what an individual export actually does, so a module
+ * that exports both a key-spending function and inert helpers is seeded at
+ * single-export granularity rather than tainting its whole surface.
+ */
+function extractExportedFunctionBodies(strippedContent: string): Map<string, string> {
+  const bodies = new Map<string, string>();
+  const headers = [
+    /export\s+(?:async\s+)?function\s+([A-Za-z0-9_$]+)\s*\(/g,
+    /export\s+(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s+)?(?:function\s*)?\(/g,
+  ];
+  for (const header of headers) {
+    let match: RegExpExecArray | null;
+    while ((match = header.exec(strippedContent)) !== null) {
+      const parenOpenIdx = match.index + match[0].length - 1; // the `(` the header ends on
+      const body = extractBraceBodyAfterParen(strippedContent, parenOpenIdx);
+      if (body) bodies.set(match[1], body);
+    }
+  }
+  return bodies;
+}
+
+/**
+ * RA-6979 (leak class 1) — the exported names of a lib module that instantiate
+ * an AI provider client with the PLATFORM env key inline (not via the curated
+ * getAnthropicApiKey/selectAnthropicApiKey helpers, and not resolving BYOK).
+ * Importing and calling such an export spends the platform key on the caller's
+ * workload; seeding only these names (never inert sibling exports) lets a
+ * customer route that imports one become a tainted delegate.
+ */
+function extractInlineEnvSpenderExports(content: string): Set<string> {
+  const stripped = stripStringsAndComments(content);
+  const spenders = new Set<string>();
+  for (const [name, body] of extractExportedFunctionBodies(stripped)) {
+    if (
+      AI_PROVIDER_KEY_ENV_PATTERN.test(body) &&
+      /\bnew\s+(?:Anthropic|OpenAI|GoogleGenerativeAI)\s*\(/.test(body) &&
+      !BYOK_MARKERS.some((marker) => body.includes(marker))
+    ) {
+      spenders.add(name);
+    }
+  }
+  return spenders;
+}
+
+/**
+ * RA-6979 (leak class 1) — build the INLINE-ENV-KEY delegate graph. Seed: lib
+ * modules (outside the platform-ops allowlist) whose exported function reads a
+ * `process.env.<PROVIDER>_API_KEY` and instantiates a provider client inline.
+ * Only those spending export names are seeded, so an inert sibling export (a
+ * rule-based classifier, a constant) never taints its callers. Propagation
+ * reuses the same import-graph closure as the helper-delegate graph: any module
+ * that imports and calls a tainted export (without threading an apiKey) becomes
+ * a full-surface delegate.
+ */
+function buildEnvSeedDelegateExports(
+  fileContents: Map<string, string>,
+  rootDir: string,
+): Map<string, Set<string>> {
+  const taintedExports = new Map<string, Set<string>>();
+  const seedModules = new Set<string>();
+
+  for (const [abs, content] of fileContents) {
+    const rel = normalisePath(path.relative(rootDir, abs));
+    if (!rel.startsWith("lib/")) continue; // leak class 1 is a lib key-reader imported by a route
+    if (isPlatformOpsPath(rel)) continue; // allowlist cron/admin/harness platform-ops
+    const spenders = extractInlineEnvSpenderExports(content);
+    if (spenders.size > 0) {
+      taintedExports.set(abs, spenders);
+      seedModules.add(abs);
+    }
+  }
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [abs, content] of fileContents) {
+      if (seedModules.has(abs)) continue; // seed stays at spender-export granularity
       if (taintedExports.has(abs)) continue; // already a fully-tainted delegate
       if (!delegatesToPlatformKey(abs, content, taintedExports, rootDir)) continue;
       taintedExports.set(abs, extractExportedNames(content));
@@ -684,15 +919,24 @@ export function auditAiCallSites(rootDir = process.cwd()): AiCallSiteAuditReport
   const fileContents = new Map<string, string>();
   for (const file of files) fileContents.set(file, readFileSync(file, "utf8"));
   const delegateExports = buildPlatformKeyDelegateExports(fileContents, rootDir);
+  const envSeedExports = buildEnvSeedDelegateExports(fileContents, rootDir);
 
   const findings = files
     .map((file) => {
       const relative = path.relative(rootDir, file);
       const content = fileContents.get(file) ?? "";
+      const normalizedRel = normalisePath(relative);
+      const isAppRoute = normalizedRel.startsWith("app/");
       const libDelegated =
-        normalisePath(relative).startsWith("app/") &&
-        delegatesToPlatformKey(file, content, delegateExports, rootDir);
-      return auditAiCallSite(relative, content, libDelegated);
+        isAppRoute && delegatesToPlatformKey(file, content, delegateExports, rootDir);
+      // RA-6979 leak class 1: a route importing a lib that spends the platform
+      // key inline. Platform-ops route paths (cron/admin/harness) are exempt —
+      // internal tools that legitimately run on the platform key.
+      const envDelegated =
+        isAppRoute &&
+        !isPlatformOpsPath(normalizedRel) &&
+        delegatesToPlatformKey(file, content, envSeedExports, rootDir);
+      return auditAiCallSite(relative, content, libDelegated || envDelegated);
     })
     .filter((finding): finding is AiCallSiteFinding => finding !== null);
 
