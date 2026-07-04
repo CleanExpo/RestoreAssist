@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { Search, X } from "lucide-react";
-import { debounce } from "@/lib/search-utils";
 
 interface SearchBarProps {
   placeholder?: string;
@@ -24,22 +23,22 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const [query, setQuery] = useState("");
   const [isFocused, setIsFocused] = useState(false);
 
-  // Debounce the search function
-  const debouncedSearch = useCallback(
-    debounce((searchQuery: string) => {
-      if (searchQuery.length >= minChars) {
-        onSearch(searchQuery);
-      } else if (searchQuery.length === 0) {
-        onClear?.();
-      }
-    }, 300),
-    [onSearch, onClear, minChars],
-  );
+  // Debounce the search — a persistent ref-based timer handle survives prop-identity
+  // churn (onSearch/onClear/minChars re-created on parent re-render), unlike a
+  // useCallback(debounce(...)) whose discarded closure leaks its pending timer.
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setQuery(value);
-    debouncedSearch(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      if (value.length >= minChars) {
+        onSearch(value);
+      } else if (value.length === 0) {
+        onClear?.();
+      }
+    }, 300);
   };
 
   const handleClear = () => {
