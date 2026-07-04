@@ -176,6 +176,14 @@ export interface TemplatePerformanceAnalytics {
 export class InterviewAnalyticsService {
   /**
    * Track interview session completion
+   *
+   * RA-6989: previously wrapped in a try/catch that swallowed every error
+   * (DB timeouts, connection resets, the update failing) and returned
+   * `null` — indistinguishable from the genuine "session not found" case,
+   * so the complete route 404'd a session that exists on a transient
+   * failure. `null` is now returned ONLY when the session genuinely
+   * doesn't exist; every other error propagates so the route's
+   * `fromException` maps it to a 500.
    */
   static async trackSessionCompletion(
     sessionId: string,
@@ -183,58 +191,71 @@ export class InterviewAnalyticsService {
     averageConfidence: number,
     conflictCount: number,
   ): Promise<InterviewSessionMetrics | null> {
-    try {
-      const session = await prisma.interviewSession.findUnique({
-        where: { id: sessionId },
-        include: { responses: true },
-      });
+    const session = await prisma.interviewSession.findUnique({
+      where: { id: sessionId },
+      include: { responses: true },
+    });
 
-      if (!session) {
-        return null;
-      }
-
-      const endTime = new Date();
-      const startTime = session.startedAt || new Date();
-      const totalDurationSeconds = Math.round(
-        (endTime.getTime() - startTime.getTime()) / 1000,
-      );
-      const completionRate = session.responses.length > 0 ? 100 : 0;
-
-      // RA-6983: this update previously also wrote a `metadata` object — a
-      // field that does not exist on InterviewSession — behind an `as any`
-      // cast. Prisma's runtime validation threw ("Unknown argument
-      // `metadata`"), the catch below swallowed it, and the method returned
-      // null: no session was ever marked COMPLETED and the complete route
-      // 404'd sessions that exist. Only real columns are written now, and
-      // the cast is gone so the compiler enforces that.
-      await prisma.interviewSession.update({
-        where: { id: sessionId },
-        data: {
-          completedAt: endTime,
-          status: "COMPLETED",
-        },
-      });
-
-      return {
-        sessionId,
-        userId: session.userId,
-        formTemplateId: session.formTemplateId,
-        startTime,
-        endTime,
-        totalDurationSeconds,
-        questionsAnswered: session.responses.length,
-        totalQuestions: 25, // Default, should be actual count
-        completionRate,
-        status: "completed",
-        autoPopulatedFieldsCount,
-        averageConfidence,
-        conflictCount,
-        reportId: session.reportId || undefined,
-      };
-    } catch (error) {
-      console.error("Error tracking session completion:", error);
+    if (!session) {
       return null;
     }
+
+    const endTime = new Date();
+    const startTime = session.startedAt || new Date();
+    const totalDurationSeconds = Math.round(
+      (endTime.getTime() - startTime.getTime()) / 1000,
+    );
+
+    // RA-6989: totalQuestions was hardcoded to 25. The real per-session
+    // total is already persisted on InterviewSession.totalQuestionsAsked —
+    // set from the tier/jobType-filtered question set at
+    // POST /api/forms/interview/start (see
+    // app/api/forms/interview/start/route.ts) and used the same way by
+    // POST /api/forms/interview/answer for its own progressPercentage. It
+    // is not derivable from FormTemplate.formSchema: that column belongs to
+    // the separate work-order form-builder system (sections of form
+    // fields) and has no relationship to the AI-guided interview's
+    // generated question set. Fall back to 25 only for legacy rows
+    // predating this column (default 0).
+    const questionsAnswered = session.responses.length;
+    const totalQuestions =
+      session.totalQuestionsAsked > 0 ? session.totalQuestionsAsked : 25;
+    const completionRate = Math.min(
+      100,
+      Math.round((questionsAnswered / totalQuestions) * 100),
+    );
+
+    // RA-6983: this update previously also wrote a `metadata` object — a
+    // field that does not exist on InterviewSession — behind an `as any`
+    // cast. Prisma's runtime validation threw ("Unknown argument
+    // `metadata`"), the catch swallowed it, and the method returned null:
+    // no session was ever marked COMPLETED and the complete route 404'd
+    // sessions that exist. Only real columns are written now, and the cast
+    // is gone so the compiler enforces that.
+    await prisma.interviewSession.update({
+      where: { id: sessionId },
+      data: {
+        completedAt: endTime,
+        status: "COMPLETED",
+      },
+    });
+
+    return {
+      sessionId,
+      userId: session.userId,
+      formTemplateId: session.formTemplateId,
+      startTime,
+      endTime,
+      totalDurationSeconds,
+      questionsAnswered,
+      totalQuestions,
+      completionRate,
+      status: "completed",
+      autoPopulatedFieldsCount,
+      averageConfidence,
+      conflictCount,
+      reportId: session.reportId || undefined,
+    };
   }
 
   /**
