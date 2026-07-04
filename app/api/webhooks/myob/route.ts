@@ -68,9 +68,16 @@ export async function POST(request: NextRequest) {
     // MYOB sends array of events
     const events = payload.Events || [];
 
-    // Timestamp freshness check — reject replayed webhooks older than 5 minutes.
-    // MYOB includes EventDateTime on each event.
-    const WEBHOOK_MAX_AGE_MS = 5 * 60 * 1000;
+    // Timestamp freshness check — reject stale replays, not genuine provider
+    // retries. RA-6973: this was previously 5 minutes, which silently
+    // dropped MYOB's OWN retries — MYOB redelivers a failed/slow webhook for
+    // up to ~24 hours (same retry window as Xero, see RA-6968's fix on the
+    // Xero route), so a transient failure on our end within that window
+    // would have its retry rejected here too, permanently losing the event.
+    // Widened to 24h; the (provider, externalEventId) unique-index + P2002
+    // idempotency guard below still prevents a retry from being
+    // double-processed once accepted.
+    const WEBHOOK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
     const now = Date.now();
     for (const evt of events) {
       if (evt.EventDateTime) {
@@ -165,6 +172,17 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
+        // RA-6974: a payment.created notification carries only the raw MYOB
+        // notification stub (CompanyFileId/EventType/ResourceType/ResourceUID)
+        // — never the Amount/InvoiceUID needed to resolve a real payment. The
+        // downstream processor's guard against fabricating a $0/unresolved
+        // payment simply returns without recording, so the generic completion
+        // path was marking every one of these events COMPLETED — invisible to
+        // FAILED-status monitoring even though nothing was ever reconciled.
+        // Mark it SKIPPED with an explanatory errorMessage at ingest instead,
+        // since this is permanently unresolvable, not a transient failure.
+        const isUnresolvablePaymentStub = standardEventType === "payment.created";
+
         // RA-1265: atomic idempotency via P2002 on (provider, externalEventId)
         try {
           const webhookEvent = await prisma.webhookEvent.create({
@@ -177,7 +195,14 @@ export async function POST(request: NextRequest) {
               externalEventId:
                 (event as { ResourceUID?: string }).ResourceUID ||
                 deriveExternalEventId(event),
-              status: "PENDING",
+              ...(isUnresolvablePaymentStub
+                ? {
+                    status: "SKIPPED" as const,
+                    processedAt: new Date(),
+                    errorMessage:
+                      "MYOB payment notification is a CDC stub with no Amount/InvoiceUID - cannot resolve a settled payment from the webhook payload alone",
+                  }
+                : { status: "PENDING" as const }),
             },
           });
           queuedEvents.push(webhookEvent.id);

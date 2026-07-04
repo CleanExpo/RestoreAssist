@@ -187,4 +187,60 @@ describe("POST /api/webhooks/dr-nrpg — replay protection", () => {
     expect(res.status).toBe(200);
     expect(drNrpgJobSyncUpsert).toHaveBeenCalled();
   });
+
+  it("does not drop a distinct event landing in the same second as the last (job.updated then job.completed)", async () => {
+    const ts = new Date().toISOString();
+    // Prior event recorded at the SAME instant but a DIFFERENT event type —
+    // e.g. job.updated and job.completed dispatched in the same second.
+    drNrpgJobSyncFindUnique.mockResolvedValue({
+      id: "sync-existing",
+      lastEventAt: new Date(ts),
+      lastEventType: "job.updated",
+    });
+    drNrpgJobSyncUpsert.mockResolvedValue({ id: "sync-existing" });
+
+    const res = await POST(
+      makeRequest({
+        event: "job.completed",
+        jobId: "job-same-second",
+        claimNumber: "CLM-5",
+        timestamp: ts,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.deduplicated).toBeFalsy();
+    expect(drNrpgJobSyncUpsert).toHaveBeenCalled();
+  });
+
+  it("writes a DrNrpgWebhookLog entry for a deduplicated replay before returning", async () => {
+    const ts = new Date().toISOString();
+    drNrpgJobSyncFindUnique.mockResolvedValue({
+      id: "sync-existing",
+      lastEventAt: new Date(ts),
+      lastEventType: "job.updated",
+    });
+
+    const res = await POST(
+      makeRequest({
+        event: "job.updated",
+        jobId: "job-replay-logged",
+        claimNumber: "CLM-6",
+        timestamp: ts,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.deduplicated).toBe(true);
+    expect(drNrpgWebhookLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          jobSyncId: "sync-existing",
+          eventType: "job.updated",
+        }),
+      }),
+    );
+  });
 });

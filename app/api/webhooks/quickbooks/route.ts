@@ -142,6 +142,18 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
+          // RA-6974: a Payment "Create" CDC notification only ever carries
+          // { name, id, operation, lastUpdated } — never LinkedTxn/TotalAmt.
+          // The downstream processor's guard against fabricating a $0/
+          // unresolved payment simply returns without recording, so the
+          // generic completion path was marking every one of these events
+          // COMPLETED — invisible to FAILED-status monitoring even though
+          // nothing was ever reconciled. Mark it SKIPPED with an explanatory
+          // errorMessage at ingest instead, since this is permanently
+          // unresolvable, not a transient failure.
+          const isUnresolvablePaymentStub =
+            entityName === "Payment" && operation === "Create";
+
           // RA-1265: atomic idempotency via P2002 on (provider, externalEventId)
           let webhookEvent;
           try {
@@ -153,7 +165,14 @@ export async function POST(request: NextRequest) {
                 payload: entity,
                 signature,
                 externalEventId: deriveExternalEventId(entity),
-                status: "PENDING",
+                ...(isUnresolvablePaymentStub
+                  ? {
+                      status: "SKIPPED" as const,
+                      processedAt: new Date(),
+                      errorMessage:
+                        "QuickBooks payment CDC notification has no LinkedTxn/TotalAmt - cannot resolve a settled payment from the webhook payload alone",
+                    }
+                  : { status: "PENDING" as const }),
               },
             });
           } catch (err) {

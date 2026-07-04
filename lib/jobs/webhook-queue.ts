@@ -149,18 +149,27 @@ export async function processWebhookQueue(
 /**
  * Retry failed webhook events
  * Resets status to PENDING for manual retry
+ *
+ * RA-6974: processXeroWebhookBatch marks FAILED on first error and never
+ * retries (regressed from the old generic path's 5x-with-backoff). This
+ * function has a caller now (the retry-failed-webhooks cron), so a
+ * `maxRetries` bound is required — otherwise a permanently-broken event
+ * would be reset to PENDING forever. `retryCount` is incremented atomically
+ * on every reset so the bound is enforced across repeated cron runs.
  */
 export async function retryFailedEvents(
   options: {
     eventIds?: string[];
     olderThan?: Date;
     limit?: number;
+    maxRetries?: number;
   } = {},
 ): Promise<number> {
-  const { eventIds, olderThan, limit = 100 } = options;
+  const { eventIds, olderThan, limit = 100, maxRetries = 5 } = options;
 
   const where: any = {
     status: "FAILED",
+    retryCount: { lt: maxRetries },
   };
 
   if (eventIds && eventIds.length > 0) {
@@ -171,12 +180,13 @@ export async function retryFailedEvents(
     where.createdAt = { lt: olderThan };
   }
 
-  // Reset status to PENDING and increment retry count
+  // Reset status to PENDING and atomically increment retry count
   const result = await prisma.webhookEvent.updateMany({
     where,
     data: {
       status: "PENDING",
       errorMessage: null,
+      retryCount: { increment: 1 },
     },
   });
 
