@@ -223,9 +223,14 @@ export async function POST(request: NextRequest) {
   // ── Idempotency / replay marker ──
   // The (integrationId, drNrpgJobId) row records the last processed event's
   // timestamp in `lastEventAt`. DR-NRPG retries redeliver an identical signed
-  // body — same timestamp — so an event whose timestamp is not strictly newer
-  // than the last one we recorded is a replay (or a stale, out-of-order
-  // redelivery). Reject it as an idempotent no-op. Combined with the
+  // body — same timestamp — so an event whose timestamp is strictly older
+  // than the last one we recorded is a stale, out-of-order redelivery.
+  // Reject it as an idempotent no-op. An event at the SAME instant is only a
+  // replay if it is also the SAME event type — two distinct events (e.g.
+  // job.updated then job.completed) can legitimately land in the same
+  // second and must not be dropped. `lastEventType` is the tiebreaker;
+  // legacy rows that predate it (no lastEventType stored) fall back to the
+  // old equal-timestamp-is-a-replay behaviour. Combined with the
   // tenant-scoped compound upsert below, this makes redelivery safe rather
   // than a double-apply. `lastEventAt` is the durable marker — no extra table.
   const existingJob = await (prisma as any).drNrpgJobSync.findUnique({
@@ -235,21 +240,47 @@ export async function POST(request: NextRequest) {
         drNrpgJobId: jobId,
       },
     },
-    select: { id: true, lastEventAt: true },
+    select: { id: true, lastEventAt: true, lastEventType: true },
   });
 
-  if (
-    existingJob?.lastEventAt &&
-    eventTimeMs <= new Date(existingJob.lastEventAt).getTime()
-  ) {
+  const lastEventAtMs = existingJob?.lastEventAt
+    ? new Date(existingJob.lastEventAt).getTime()
+    : null;
+  const isStaleReplay =
+    lastEventAtMs !== null &&
+    (eventTimeMs < lastEventAtMs ||
+      (eventTimeMs === lastEventAtMs &&
+        (!existingJob!.lastEventType || existingJob!.lastEventType === event)));
+
+  if (isStaleReplay) {
     console.warn(
       "[dr-nrpg webhook] Duplicate/stale event ignored (idempotency):",
       { jobId, timestamp: payload.timestamp },
     );
+
+    // RA-6974: write the audit trail for the deduped delivery too — a
+    // replay previously returned before this write, leaving no record that
+    // DR-NRPG ever redelivered the event.
+    await (prisma as any).drNrpgWebhookLog
+      .create({
+        data: {
+          jobSyncId: existingJob!.id,
+          direction: "inbound",
+          eventType: event,
+          payload: payload as unknown as Record<string, unknown>,
+          responseStatus: 200,
+          responseBody: "duplicate_ignored",
+          deliveredAt: new Date(),
+        },
+      })
+      .catch((e: any) =>
+        console.warn("[dr-nrpg webhook] Dedup log write failed:", e),
+      );
+
     return NextResponse.json({
       received: true,
       eventType: event,
-      jobSyncId: existingJob.id,
+      jobSyncId: existingJob!.id,
       status: "duplicate_ignored",
       deduplicated: true,
     });
