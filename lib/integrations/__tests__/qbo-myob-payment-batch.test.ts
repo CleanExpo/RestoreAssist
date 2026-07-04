@@ -16,9 +16,11 @@ const webhookEventFindMany = vi.fn();
 const webhookEventUpdateMany = vi.fn();
 const webhookEventUpdate = vi.fn();
 const invoiceFindFirst = vi.fn();
+const integrationFindUnique = vi.fn();
 const txInvoicePaymentCreate = vi.fn();
 const txInvoiceUpdate = vi.fn();
 const txInvoiceAuditLogCreate = vi.fn();
+const txInvoicePaymentFindFirst = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -30,9 +32,15 @@ vi.mock("@/lib/prisma", () => ({
     invoice: {
       findFirst: (...a: unknown[]) => invoiceFindFirst(...a),
     },
+    integration: {
+      findUnique: (...a: unknown[]) => integrationFindUnique(...a),
+    },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({
-        invoicePayment: { create: txInvoicePaymentCreate },
+        invoicePayment: {
+          create: txInvoicePaymentCreate,
+          findFirst: txInvoicePaymentFindFirst,
+        },
         invoice: { update: txInvoiceUpdate },
         invoiceAuditLog: { create: txInvoiceAuditLogCreate },
       }),
@@ -70,6 +78,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   webhookEventUpdateMany.mockResolvedValue({ count: 1 });
   webhookEventUpdate.mockResolvedValue({});
+  integrationFindUnique.mockResolvedValue({ userId: "user-1" });
+  txInvoicePaymentFindFirst.mockResolvedValue(null); // no prior allocation by default
   txInvoicePaymentCreate.mockResolvedValue({ id: "pay-1" });
   txInvoiceUpdate.mockResolvedValue({
     amountPaid: 50000,
@@ -257,7 +267,7 @@ describe("retryUnresolvedQboMyobPayments", () => {
     expect(result).toEqual({ processed: 1, failed: 0, skipped: 0 });
   });
 
-  it("keeps a still-unresolvable event SKIPPED (not FAILED) so it doesn't pollute FAILED monitoring", async () => {
+  it("on a transient failure restores the ORIGINAL provider stub marker (never the new error) and increments retryCount so the event stays eligible next run", async () => {
     webhookEventFindMany.mockResolvedValue([
       {
         id: "evt-skip-2",
@@ -268,7 +278,8 @@ describe("retryUnresolvedQboMyobPayments", () => {
         retryCount: 0,
       },
     ]);
-    qboGetPayment.mockRejectedValue(new Error("payment voided upstream"));
+    // A transient 429/timeout — the exact class that RA-6974 orphaned forever.
+    qboGetPayment.mockRejectedValue(new Error("QBO API 429 rate limited"));
 
     const result = await retryUnresolvedQboMyobPayments(50);
 
@@ -277,10 +288,47 @@ describe("retryUnresolvedQboMyobPayments", () => {
         where: { id: "evt-skip-2" },
         data: expect.objectContaining({
           status: "SKIPPED",
-          errorMessage: expect.stringContaining("payment voided upstream"),
+          retryCount: 1,
+          // The ORIGINAL QBO marker is restored so the errorMessage `in`
+          // filter re-selects it; overwriting it with the 429 would drop it
+          // out of the filter permanently (the RA-6974 pathology).
+          errorMessage:
+            "QuickBooks payment CDC notification has no LinkedTxn/TotalAmt - cannot resolve a settled payment from the webhook payload alone",
         }),
       }),
     );
+    const call = webhookEventUpdate.mock.calls.find(
+      (c) => (c[0] as { where?: { id?: string } })?.where?.id === "evt-skip-2",
+    );
+    expect(
+      (call?.[0] as { data?: { errorMessage?: string } })?.data?.errorMessage,
+    ).not.toContain("429");
     expect(result).toEqual({ processed: 0, failed: 0, skipped: 1 });
+  });
+
+  it("transitions a retroactive event to FAILED (visible to monitoring) once retryCount reaches the bound", async () => {
+    webhookEventFindMany.mockResolvedValue([
+      {
+        id: "evt-skip-3",
+        provider: "MYOB",
+        integrationId: "integ-6",
+        eventType: "payment.created",
+        payload: { ResourceUID: "myob-pay-dead" },
+        retryCount: 4,
+      },
+    ]);
+    myobGetCustomerPayment.mockRejectedValue(
+      new Error("integration disconnected"),
+    );
+
+    const result = await retryUnresolvedQboMyobPayments(50);
+
+    expect(webhookEventUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "evt-skip-3" },
+        data: expect.objectContaining({ status: "FAILED", retryCount: 5 }),
+      }),
+    );
+    expect(result).toEqual({ processed: 0, failed: 1, skipped: 0 });
   });
 });
