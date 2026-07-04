@@ -90,6 +90,25 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // RA-6970: a caller-supplied scopeId must belong to the caller's own
+      // tenancy before it can be linked to an Estimate. Without this check
+      // a foreign scopeId flows straight into estimateData.scopeId on both
+      // the create and update branches, squatting that Scope's @unique
+      // estimate slot and creating a cross-tenant reference.
+      if (scopeId) {
+        const scope = await prisma.scope.findFirst({
+          where: { id: scopeId, report: { userId } },
+          select: { id: true },
+        });
+        if (!scope) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "Scope not found",
+            status: 404,
+          });
+        }
+      }
+
       // Check if estimate already exists (by reportId or scopeId).
       // RA-6961: `userId` constrains BOTH branches of the OR — without it
       // a caller could supply their own (already-verified) reportId
