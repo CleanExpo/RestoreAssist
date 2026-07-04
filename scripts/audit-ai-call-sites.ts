@@ -293,19 +293,268 @@ const PLATFORM_KEY_HELPER_MARKERS = [
 ];
 
 /**
- * RA-6921 (P0) — detect a `app/**` route handler that reads a platform
- * `process.env.*_API_KEY` directly (or via `lib/ai-provider.ts`'s
- * `selectAnthropicApiKey` / `getAnthropicApiKey` env-fallback helpers) without
- * resolving the calling workspace's own BYOK key anywhere in the file.
+ * RA-6921 (P0) / RA-6932 / RA-6965 — detect a `app/**` route handler that
+ * reaches the platform Anthropic key without resolving the calling workspace's
+ * own BYOK key. The leak can surface three ways, all treated identically:
+ *   1. the route reads `process.env.*_API_KEY` in its own text;
+ *   2. the route calls the `selectAnthropicApiKey` / `getAnthropicApiKey`
+ *      env-fallback helpers in its own text; or
+ *   3. RA-6965 — the route delegates key resolution to a lib helper that (transitively)
+ *      falls back to the platform key, so nothing in the route's OWN text gives
+ *      it away (`libDelegated`, computed from the import graph in
+ *      `auditAiCallSites`).
+ * Any of these WITHOUT a BYOK resolution marker is a platform-key leak.
  */
-function hasPlatformKeyFallback(file: string, content: string): boolean {
+function hasPlatformKeyFallback(
+  file: string,
+  content: string,
+  libDelegated = false,
+): boolean {
   const normalized = normalisePath(file);
   if (!normalized.startsWith("app/")) return false; // lib/ platform-ops call sites are out of scope
   const readsEnvKey =
     PLATFORM_KEY_ENV_PATTERN.test(content) ||
-    PLATFORM_KEY_HELPER_MARKERS.some((marker) => content.includes(marker));
+    PLATFORM_KEY_HELPER_MARKERS.some((marker) => content.includes(marker)) ||
+    libDelegated;
   if (!readsEnvKey) return false;
   return !BYOK_MARKERS.some((marker) => content.includes(marker));
+}
+
+/**
+ * Env-fallback resolver helper NAMES (derived from PLATFORM_KEY_HELPER_MARKERS)
+ * — the lib/ai-provider.ts functions whose body resolves the platform
+ * ANTHROPIC_API_KEY as a last-resort fallback. A module that DEFINES one of
+ * these is the resolver source; a module that imports and CALLS one (directly,
+ * or an export of a module that does) is a "platform-key delegate" whose
+ * platform spend is invisible in the calling route's own text.
+ */
+const PLATFORM_KEY_HELPER_NAMES = PLATFORM_KEY_HELPER_MARKERS.map((marker) =>
+  marker.replace(/\($/, ""),
+);
+
+const MODULE_RESOLVE_EXTENSIONS = [".ts", ".tsx", ".js", ".mjs"];
+
+interface ImportedBinding {
+  specifier: string;
+  exportedName: string;
+  localName: string;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Extract the VALUE bindings a source file imports — named static imports
+ * (`import { a, b as c } from "x"`) and destructured dynamic imports
+ * (`const { a } = await import("x")`). Type-only imports are skipped (a type
+ * cannot resolve or spend a key at runtime). Default and namespace imports are
+ * intentionally NOT tracked (documented limit) — the platform-key helpers and
+ * gateways are all consumed as named exports.
+ */
+function extractValueImports(content: string): ImportedBinding[] {
+  const bindings: ImportedBinding[] = [];
+
+  const namedImport =
+    /import\s+(type\s+)?(?:[A-Za-z0-9_$]+\s*,\s*)?\{([^}]*)\}\s*from\s*["']([^"']+)["']/g;
+  for (const match of content.matchAll(namedImport)) {
+    if (match[1]) continue; // `import type { … }` — type-only, no runtime binding
+    const specifier = match[3];
+    for (const raw of match[2].split(",")) {
+      const piece = raw.trim();
+      if (!piece || piece.startsWith("type ")) continue; // inline `type` modifier
+      const [exported, local] = piece.split(/\s+as\s+/);
+      const exportedName = exported.trim();
+      if (!exportedName) continue;
+      bindings.push({
+        specifier,
+        exportedName,
+        localName: (local ?? exported).trim(),
+      });
+    }
+  }
+
+  const dynamicImport =
+    /(?:const|let|var)\s*\{([^}]*)\}\s*=\s*await\s+import\(\s*["']([^"']+)["']\s*\)/g;
+  for (const match of content.matchAll(dynamicImport)) {
+    const specifier = match[2];
+    for (const raw of match[1].split(",")) {
+      const piece = raw.trim();
+      if (!piece) continue;
+      const [exported, local] = piece.split(/\s*:\s*/); // destructure rename uses `:`
+      const exportedName = exported.trim();
+      if (!exportedName) continue;
+      bindings.push({
+        specifier,
+        exportedName,
+        localName: (local ?? exported).trim(),
+      });
+    }
+  }
+
+  return bindings;
+}
+
+/** Every value + type export name declared by a module. */
+function extractExportedNames(content: string): Set<string> {
+  const names = new Set<string>();
+  const declPatterns = [
+    /export\s+(?:async\s+)?function\s+([A-Za-z0-9_$]+)/g,
+    /export\s+(?:const|let|var)\s+([A-Za-z0-9_$]+)/g,
+    /export\s+(?:abstract\s+)?class\s+([A-Za-z0-9_$]+)/g,
+    /export\s+(?:type|interface|enum)\s+([A-Za-z0-9_$]+)/g,
+  ];
+  for (const pattern of declPatterns) {
+    for (const match of content.matchAll(pattern)) names.add(match[1]);
+  }
+  const exportList = /export\s*(?:type\s+)?\{([^}]*)\}/g;
+  for (const match of content.matchAll(exportList)) {
+    for (const raw of match[1].split(",")) {
+      const piece = raw.trim();
+      if (!piece) continue;
+      const parts = piece.split(/\s+as\s+/);
+      const name = (parts[1] ?? parts[0]).replace(/^type\s+/, "").trim();
+      if (name && name !== "default") names.add(name);
+    }
+  }
+  return names;
+}
+
+/** Resolve an import specifier to an absolute source file, or null for a bare package. */
+function resolveModuleSpecifier(
+  fromFileAbs: string,
+  specifier: string,
+  rootDir: string,
+): string | null {
+  let base: string;
+  if (specifier.startsWith("@/")) {
+    base = path.join(rootDir, specifier.slice(2)); // tsconfig paths: `@/*` -> `./*`
+  } else if (specifier.startsWith("./") || specifier.startsWith("../")) {
+    base = path.resolve(path.dirname(fromFileAbs), specifier);
+  } else {
+    return null;
+  }
+  const candidates = [
+    base,
+    ...MODULE_RESOLVE_EXTENSIONS.map((ext) => base + ext),
+    ...MODULE_RESOLVE_EXTENSIONS.map((ext) => path.join(base, `index${ext}`)),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Return the raw argument text of every call to `localName(` in `content`,
+ * balancing parentheses so nested calls/objects are captured whole. Best-effort
+ * and deterministic (string/comment literals are not specially parsed).
+ */
+function findCallArgs(content: string, localName: string): string[] {
+  const args: string[] = [];
+  const callToken = new RegExp(`\\b${escapeRegExp(localName)}\\s*\\(`, "g");
+  let match: RegExpExecArray | null;
+  while ((match = callToken.exec(content)) !== null) {
+    let index = match.index + match[0].length;
+    const start = index;
+    let depth = 1;
+    while (index < content.length && depth > 0) {
+      const ch = content[index];
+      if (ch === "(") depth++;
+      else if (ch === ")") depth--;
+      index++;
+    }
+    args.push(content.slice(start, index - 1));
+  }
+  return args;
+}
+
+/**
+ * True when `content` contains a call that (transitively) resolves the platform
+ * Anthropic key — the signal that a file delegates its key resolution to a
+ * helper that falls back to the platform key, invisible in the file's own text.
+ *
+ * Two call shapes count:
+ *   - an UNCONDITIONAL env-fallback resolver (getAnthropicApiKey /
+ *     selectAnthropicApiKey): every call resolves the platform key; and
+ *   - a CONDITIONAL delegate export (an export of a module already in
+ *     `taintedExports`, e.g. anthropic-gateway's callAnthropic) called WITHOUT
+ *     an explicit `apiKey` argument — a call that threads a key
+ *     (`callAnthropic({ apiKey })`, `retrieveRelevantStandards(q, key)`) is
+ *     BYOK-safe and deliberately does NOT count.
+ */
+function delegatesToPlatformKey(
+  fileAbs: string,
+  content: string,
+  taintedExports: Map<string, Set<string>>,
+  rootDir: string,
+): boolean {
+  for (const binding of extractValueImports(content)) {
+    const calls = findCallArgs(content, binding.localName);
+    if (calls.length === 0) continue;
+    if (PLATFORM_KEY_HELPER_NAMES.includes(binding.exportedName)) return true;
+    const target = resolveModuleSpecifier(fileAbs, binding.specifier, rootDir);
+    if (!target) continue;
+    const tainted = taintedExports.get(target);
+    if (!tainted || !tainted.has(binding.exportedName)) continue;
+    // A call that omits an explicit apiKey falls back to the platform key.
+    if (calls.some((argText) => !/apikey/i.test(argText))) return true;
+  }
+  return false;
+}
+
+/**
+ * RA-6965 — build the platform-key DELEGATE graph via a transitive closure over
+ * the lib import graph, returning each delegate module's tainted export names.
+ *
+ * Seed: modules that DEFINE an env-fallback resolver helper (getAnthropicApiKey
+ * / selectAnthropicApiKey). For a resolver SOURCE module only the resolver
+ * names are tainted, so sibling BYOK helpers exported from the same file (e.g.
+ * lib/ai-provider.ts's getIntegrationsForUser) are never treated as a leak
+ * vector. Every OTHER module that imports and CALLS a tainted export becomes a
+ * delegate whose ENTIRE export surface is tainted, because it resolves the
+ * platform key internally on its callers' behalf — this is what carries the
+ * taint down the anthropic-gateway -> group-readings service chain.
+ *
+ * The closure is anchored on the curated resolver helpers (the same
+ * PLATFORM_KEY_HELPER_MARKERS the in-file check uses) rather than on raw
+ * `process.env.*_API_KEY` reads, so platform-ops modules that read the env key
+ * directly for internal-only work (cron/admin/harness classifiers) stay out of
+ * scope — exactly as the existing in-file detector leaves them.
+ *
+ * Documented limits: single named-export granularity (default/namespace
+ * re-exports are not followed); a newly introduced env-fallback resolver must
+ * be added to PLATFORM_KEY_HELPER_MARKERS to anchor the closure.
+ */
+function buildPlatformKeyDelegateExports(
+  fileContents: Map<string, string>,
+  rootDir: string,
+): Map<string, Set<string>> {
+  const taintedExports = new Map<string, Set<string>>();
+  const definerModules = new Set<string>();
+
+  for (const [abs, content] of fileContents) {
+    const exported = extractExportedNames(content);
+    const defined = PLATFORM_KEY_HELPER_NAMES.filter((name) => exported.has(name));
+    if (defined.length > 0) {
+      taintedExports.set(abs, new Set(defined));
+      definerModules.add(abs);
+    }
+  }
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [abs, content] of fileContents) {
+      if (definerModules.has(abs)) continue; // resolver source stays resolver-only
+      if (taintedExports.has(abs)) continue; // already a fully-tainted delegate
+      if (!delegatesToPlatformKey(abs, content, taintedExports, rootDir)) continue;
+      taintedExports.set(abs, extractExportedNames(content));
+      changed = true;
+    }
+  }
+
+  return taintedExports;
 }
 
 function detectExecutionMode(file: string, content: string): AiCallSiteFinding["executionMode"] {
@@ -320,7 +569,11 @@ function detectExecutionMode(file: string, content: string): AiCallSiteFinding["
   return "unknown";
 }
 
-export function auditAiCallSite(file: string, content: string): AiCallSiteFinding | null {
+export function auditAiCallSite(
+  file: string,
+  content: string,
+  libDelegated = false,
+): AiCallSiteFinding | null {
   const normalized = normalisePath(file);
   const providerFamilies = detectProviderFamilies(content);
   const hasAiSurface =
@@ -342,7 +595,13 @@ export function auditAiCallSite(file: string, content: string): AiCallSiteFindin
     // A route that resolves its key via lib/ai-provider.ts's getAnthropicApiKey
     // helper is likewise an AI surface — the helper falls back to the platform
     // ANTHROPIC_API_KEY, so the leak is invisible in the route's own text.
-    content.includes("getAnthropicApiKey(");
+    content.includes("getAnthropicApiKey(") ||
+    // RA-6965 — a route that delegates key resolution to a lib helper which
+    // (transitively) falls back to the platform key is an AI surface even when
+    // NOTHING in its own text names a provider/key. Without this, removing the
+    // documentation comment from such a route would make the leak invisible
+    // again (the route would never reach the platform-key-fallback check).
+    libDelegated;
 
   if (!hasAiSurface) return null;
 
@@ -381,7 +640,7 @@ export function auditAiCallSite(file: string, content: string): AiCallSiteFindin
         ["anthropic", "openai", "gemini", "byok"].includes(provider),
       ) && !normalized.includes("__tests__"),
     policyWrapped: hasTaskPolicyCall(content),
-    platformKeyFallback: hasPlatformKeyFallback(normalized, content),
+    platformKeyFallback: hasPlatformKeyFallback(normalized, content, libDelegated),
     evidence,
     notes:
       taskClass === "unknown"
@@ -419,8 +678,22 @@ export function buildAiCallSiteGuardrailSummary(
 export function auditAiCallSites(rootDir = process.cwd()): AiCallSiteAuditReport {
   const files = SCAN_ROOTS.flatMap((root) => walkSourceFiles(path.join(rootDir, root)))
     .filter((file) => !shouldIgnoreFile(path.relative(rootDir, file)));
+
+  // Read every scanned file once, then resolve the platform-key delegate graph
+  // across them so a route's lib-delegated leak can be seen (RA-6965).
+  const fileContents = new Map<string, string>();
+  for (const file of files) fileContents.set(file, readFileSync(file, "utf8"));
+  const delegateExports = buildPlatformKeyDelegateExports(fileContents, rootDir);
+
   const findings = files
-    .map((file) => auditAiCallSite(path.relative(rootDir, file), readFileSync(file, "utf8")))
+    .map((file) => {
+      const relative = path.relative(rootDir, file);
+      const content = fileContents.get(file) ?? "";
+      const libDelegated =
+        normalisePath(relative).startsWith("app/") &&
+        delegatesToPlatformKey(file, content, delegateExports, rootDir);
+      return auditAiCallSite(relative, content, libDelegated);
+    })
     .filter((finding): finding is AiCallSiteFinding => finding !== null);
 
   const providerCounts = Object.fromEntries(
