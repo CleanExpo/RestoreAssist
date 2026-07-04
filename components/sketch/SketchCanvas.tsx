@@ -33,6 +33,8 @@ import {
 import {
   snapPointToGrid,
   snapSegmentEnd,
+  snapToNearbyEndpoint,
+  alignmentGuidesFor,
   formatDimension,
   segmentLabelPosition,
   footprintDimensions,
@@ -372,10 +374,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           label?.setCoords();
         };
         // Returns true if the Fabric object is a display-only decoration
-        // (dim-label or room-label) that must NOT enter the undo stack.
+        // (dim-label, room-label, or transient alignment guide) that must NOT
+        // enter the undo stack. Guides are added/removed on every mouse:move
+        // while dragging — without this exclusion each add/remove would push a
+        // full canvas.toJSON() snapshot onto the undo history.
         const isDecoration = (obj: unknown): boolean => {
           const t = (obj as { data?: { type?: string } } | undefined)?.data?.type;
-          return t === "dim-label" || t === "room-label";
+          return t === "dim-label" || t === "room-label" || t === "guide";
         };
 
         canvas.on("object:modified", (opt: unknown) => {
@@ -444,11 +449,64 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           snapEnabledRef.current
             ? snapGridMetresRef.current * pxPerMetreRef.current
             : 0;
-        // Snap a standalone drawn vertex (room corner) to the grid.
-        const snapVertex = (p: Point): Point => snapPointToGrid(p, gridPx());
-        // Snap a drag endpoint: right-angle assist around `start`, then grid.
-        const snapEnd = (start: Point, end: Point): Point =>
-          snapEnabledRef.current ? snapSegmentEnd(start, end, gridPx(), 45) : end;
+
+        // RA-6969 [A5b]: pixel radius within which a drawn point snaps exactly
+        // onto an existing endpoint (shares a corner) instead of grid-snapping.
+        const ENDPOINT_SNAP_PX = 12;
+
+        // RA-6969 [A5b]: absolute endpoints of the existing MEASURED geometry —
+        // wall/line endpoints (transformed to scene coords) + room polygon
+        // vertices. A0 firewall: `underlay_reference` geometry is never a snap
+        // target, so snapping only ever shares measured corners and can never
+        // promote an underlay anchor into measured geometry. Mirrors the
+        // "measured geometry" filter used by refreshFootprintDimensions().
+        const collectEndpoints = (): Point[] => {
+          const objs = (
+            canvas as unknown as { getObjects: () => unknown[] }
+          ).getObjects();
+          const eps: Point[] = [];
+          for (const o of objs) {
+            const d = (o as { data?: Record<string, unknown> }).data;
+            if (!d) continue;
+            if (d.provenance === "underlay_reference") continue;
+            const t = d.type as string | undefined;
+            if (
+              t === "dim-label" ||
+              t === "room-label" ||
+              t === "text" ||
+              t === "arrow" ||
+              t === "photo" ||
+              t === "guide"
+            )
+              continue;
+            const seg = wallAbsoluteSegment(o);
+            if (seg) {
+              eps.push(seg.a, seg.b);
+              continue;
+            }
+            const pts = polygonAbsolutePoints(o);
+            if (pts) for (const pt of pts) eps.push(pt);
+          }
+          return eps;
+        };
+
+        // Snap a standalone drawn vertex (room corner). Endpoint-proximity snap
+        // takes priority over grid so adjacent rooms share exact corners.
+        const snapVertex = (p: Point): Point => {
+          if (snapEnabledRef.current) {
+            const ep = snapToNearbyEndpoint(p, collectEndpoints(), ENDPOINT_SNAP_PX);
+            if (ep.snapped) return ep.point;
+          }
+          return snapPointToGrid(p, gridPx());
+        };
+        // Snap a drag endpoint: exact endpoint snap first (sharing a corner beats
+        // squaring), else right-angle assist around `start` + grid.
+        const snapEnd = (start: Point, end: Point): Point => {
+          if (!snapEnabledRef.current) return end;
+          const ep = snapToNearbyEndpoint(end, collectEndpoints(), ENDPOINT_SNAP_PX);
+          if (ep.snapped) return ep.point;
+          return snapSegmentEnd(start, end, gridPx(), 45);
+        };
 
         // RA-6841 [A2]: Collect all wall-type line segments from the canvas so
         // door/window tools can snap the placement anchor to the nearest wall.
@@ -649,6 +707,34 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           return null;
         };
 
+        // Absolute vertices of a (possibly moved/scaled/rotated) room polygon.
+        // Fabric keeps Polygon.points in the object's local frame relative to
+        // pathOffset — they never update on move/scale/rotate — so transform
+        // by the object's matrix to recover scene coordinates, same recovery
+        // wallAbsoluteSegment() does for lines. Objects without a transform
+        // (plain point bags) pass through unchanged.
+        const polygonAbsolutePoints = (polyObj: unknown): Point[] | null => {
+          type Mat = [number, number, number, number, number, number];
+          const po = polyObj as {
+            points?: Point[];
+            pathOffset?: Point;
+            calcTransformMatrix?: () => Mat;
+          };
+          const pts = po.points;
+          if (!pts) return null;
+          const off = po.pathOffset;
+          if (po.calcTransformMatrix && off) {
+            const m = po.calcTransformMatrix();
+            const tp = (
+              fabric as unknown as {
+                util: { transformPoint: (pt: Point, mat: Mat) => Point };
+              }
+            ).util.transformPoint;
+            return pts.map((pt) => tp({ x: pt.x - off.x, y: pt.y - off.y }, m));
+          }
+          return pts;
+        };
+
         // Re-anchor every opening bound to `wallObj` onto the wall's new segment.
         // Rebuilds each opening symbol from its stored width/hinge/parametric-t so
         // doors/windows ride with their wall. Openings without a hostWallId (e.g.
@@ -707,6 +793,69 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             );
             liveDimLabel = null;
           }
+        };
+
+        // ── RA-6969 [A5b] — transient alignment-guide overlay ──────────────────
+        // Guide lines drawn while dragging/drawing when the cursor lines up with
+        // an existing endpoint's axis. Non-selectable/non-evented and tagged
+        // `data.type: "guide"` so they are excluded from measured geometry,
+        // decomposition, export and the footprint pass. Removed on
+        // mouse:up/dblclick (never persisted).
+        let liveGuides: unknown[] = [];
+        const removeLiveGuides = () => {
+          if (liveGuides.length) {
+            (canvas as unknown as { remove: (...o: unknown[]) => void }).remove(
+              ...liveGuides,
+            );
+            liveGuides = [];
+          }
+        };
+        const drawAlignmentGuides = (cur: Point) => {
+          removeLiveGuides();
+          if (!snapEnabledRef.current) return;
+          const eps = collectEndpoints();
+          const guides = alignmentGuidesFor(cur, eps, ENDPOINT_SNAP_PX);
+          if (!guides.length) return;
+          const c = canvas as unknown as {
+            add: (...o: unknown[]) => void;
+            renderAll: () => void;
+          };
+          // Span each guide from the aligned endpoint(s) to the cursor so the
+          // line visibly connects the shared corner — only endpoints on the
+          // guide's own axis coordinate, not the bbox of every endpoint on the
+          // canvas (which would stretch guides across unrelated geometry).
+          // `g.coord` is copied verbatim from a collected endpoint by
+          // alignmentGuidesFor(), so exact equality is a safe membership test.
+          for (const g of guides) {
+            const matching = eps.filter((e) =>
+              g.type === "v" ? e.x === g.coord : e.y === g.coord,
+            );
+            const coords: [number, number, number, number] =
+              g.type === "v"
+                ? [
+                    g.coord,
+                    Math.min(cur.y, ...matching.map((e) => e.y)),
+                    g.coord,
+                    Math.max(cur.y, ...matching.map((e) => e.y)),
+                  ]
+                : [
+                    Math.min(cur.x, ...matching.map((e) => e.x)),
+                    g.coord,
+                    Math.max(cur.x, ...matching.map((e) => e.x)),
+                    g.coord,
+                  ];
+            const line = new F.Line(coords, {
+              stroke: "#00BAD4",
+              strokeWidth: 1,
+              strokeDashArray: [4, 4],
+              selectable: false,
+              evented: false,
+            });
+            (line as { data?: unknown }).data = { type: "guide" };
+            liveGuides.push(line);
+            c.add(line);
+          }
+          c.renderAll();
         };
 
         const makeDimText = (text: string, x: number, y: number): unknown => {
@@ -794,7 +943,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               d.type === "room-label" ||
               d.type === "text" ||
               d.type === "arrow" ||
-              d.type === "photo"
+              d.type === "photo" ||
+              d.type === "guide"
             )
               continue;
             // Polygon rooms: extract points
@@ -998,6 +1148,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           const start = drawStartRef.current;
           // RA-6842 [A3]: remove the live dim label on mouse:up regardless of tool.
           removeLiveDimLabel();
+          // RA-6969 [A5b]: clear transient alignment guides on release.
+          removeLiveGuides();
           if (!start) return;
           drawStartRef.current = null;
           if (tool === "line" || tool === "measure" || tool === "arrow") {
@@ -1015,6 +1167,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         canvas.on("mouse:dblclick", () => {
           // RA-6842 [A3]: remove the live dim label when room drawing closes.
           removeLiveDimLabel();
+          // RA-6969 [A5b]: clear transient alignment guides when room closes.
+          removeLiveGuides();
           if (
             toolModeRef.current === "room" &&
             polygonPtsRef.current.length >= 3
@@ -1051,6 +1205,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           ) {
             removeLiveDimLabel();
             const end = snapEnd(dragStart, cur);
+            // RA-6969 [A5b]: show alignment guides against the raw cursor.
+            drawAlignmentGuides(cur);
             const px = Math.hypot(end.x - dragStart.x, end.y - dragStart.y);
             if (px > 2) {
               const text = formatDimension(px, pxPerMetreRef.current);
@@ -1066,6 +1222,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           const pts = polygonPtsRef.current;
           if (tool === "room" && pts.length > 0) {
             removeLiveDimLabel();
+            // RA-6969 [A5b]: show alignment guides while drawing room edges.
+            drawAlignmentGuides(cur);
             const last = pts[pts.length - 1];
             const snapped = snapVertex(cur);
             const px = Math.hypot(snapped.x - last.x, snapped.y - last.y);
@@ -1088,7 +1246,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           // Skip if the changed object is a decoration (dim-label / room-label)
           const target = (opt as { target?: { data?: { type?: string } } } | undefined)?.target;
           const ttype = target?.data?.type;
-          if (ttype === "dim-label" || ttype === "room-label") return;
+          if (ttype === "dim-label" || ttype === "room-label" || ttype === "guide")
+            return;
           isRefreshingFootprint = true;
           refreshFootprintDimensions();
           isRefreshingFootprint = false;

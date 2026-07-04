@@ -117,6 +117,74 @@ export function formatMetres(px: number, pxPerMetre = 100): string {
   return `${(px / pxPerMetre).toFixed(2)} m`;
 }
 
+// ─── RA-6969 [A5b] — endpoint-proximity snap + alignment guides ─────────────
+
+/**
+ * Snap a drawn point exactly onto the nearest existing endpoint within
+ * `thresholdPx`, so adjacent rooms share a precise corner instead of a
+ * near-miss. Endpoint snap is exact and takes priority over the coarser grid
+ * snap. `thresholdPx <= 0` or an empty candidate list is a no-op — the point is
+ * returned unchanged. Pure — the caller supplies the candidate endpoints, so the
+ * A0 provenance firewall is enforced upstream (only measured geometry is passed
+ * as a snap target; snapping never mutates provenance).
+ */
+export function snapToNearbyEndpoint(
+  p: { x: number; y: number },
+  endpoints: ReadonlyArray<{ x: number; y: number }>,
+  thresholdPx: number,
+): { point: { x: number; y: number }; snapped: boolean } {
+  if (!(thresholdPx > 0) || endpoints.length === 0) {
+    return { point: p, snapped: false };
+  }
+  let best: { x: number; y: number } | null = null;
+  let bestD = thresholdPx;
+  for (const e of endpoints) {
+    const d = distance(p, e);
+    if (d <= bestD) {
+      bestD = d;
+      best = e;
+    }
+  }
+  return best ? { point: { x: best.x, y: best.y }, snapped: true } : { point: p, snapped: false };
+}
+
+/**
+ * Transient alignment guides for the point being dragged: a vertical guide when
+ * `p.x` lines up (within `thresholdPx`) with an existing endpoint's x, and a
+ * horizontal guide when `p.y` lines up with an existing endpoint's y. Returns at
+ * most one guide per axis (the nearest aligning endpoint). `thresholdPx <= 0` is
+ * a no-op. Guide `coord` is a canvas coordinate; `type` matches
+ * `SnapGuide` in useSketchSnap ("v" = vertical line at x=coord, "h" = horizontal
+ * line at y=coord).
+ */
+export function alignmentGuidesFor(
+  p: { x: number; y: number },
+  endpoints: ReadonlyArray<{ x: number; y: number }>,
+  thresholdPx: number,
+): { type: "h" | "v"; coord: number }[] {
+  if (!(thresholdPx > 0)) return [];
+  let vBest: number | null = null;
+  let vBestD = thresholdPx;
+  let hBest: number | null = null;
+  let hBestD = thresholdPx;
+  for (const e of endpoints) {
+    const dxA = Math.abs(p.x - e.x);
+    if (dxA <= vBestD) {
+      vBestD = dxA;
+      vBest = e.x;
+    }
+    const dyA = Math.abs(p.y - e.y);
+    if (dyA <= hBestD) {
+      hBestD = dyA;
+      hBest = e.y;
+    }
+  }
+  const guides: { type: "h" | "v"; coord: number }[] = [];
+  if (vBest !== null) guides.push({ type: "v", coord: vBest });
+  if (hBest !== null) guides.push({ type: "h", coord: hBest });
+  return guides;
+}
+
 // ─── RA-6842 [A3] — Auto dimension strings ─────────────────────────────────
 
 /**
