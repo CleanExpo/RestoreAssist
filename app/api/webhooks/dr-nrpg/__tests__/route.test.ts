@@ -31,6 +31,7 @@ const drNrpgJobSyncUpsert = vi.fn();
 const drNrpgJobSyncUpdate = vi.fn();
 const drNrpgWebhookLogCreate = vi.fn();
 const drNrpgWebhookEventCreate = vi.fn();
+const drNrpgWebhookEventDeleteMany = vi.fn();
 const inspectionCreate = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
@@ -50,6 +51,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     drNrpgWebhookEvent: {
       create: (...a: unknown[]) => drNrpgWebhookEventCreate(...a),
+      deleteMany: (...a: unknown[]) => drNrpgWebhookEventDeleteMany(...a),
     },
     inspection: {
       create: (...a: unknown[]) => inspectionCreate(...a),
@@ -113,6 +115,7 @@ beforeEach(() => {
   drNrpgIntegrationUpdate.mockResolvedValue({});
   drNrpgWebhookLogCreate.mockResolvedValue({});
   drNrpgWebhookEventCreate.mockResolvedValue({});
+  drNrpgWebhookEventDeleteMany.mockResolvedValue({ count: 1 });
 });
 
 describe("POST /api/webhooks/dr-nrpg — tenant scoping", () => {
@@ -463,6 +466,48 @@ describe("POST /api/webhooks/dr-nrpg — RA-6988 unique backstop (TOCTOU)", () =
     ).rejects.toBeTruthy();
 
     expect(drNrpgJobSyncUpsert).not.toHaveBeenCalled();
+    expect(inspectionCreate).not.toHaveBeenCalled();
+  });
+
+  it("releases the dedup marker when the durable upsert fails, so DR-NRPG's retry can re-claim (no silent event loss)", async () => {
+    // The marker create is a standalone claim committed BEFORE the durable
+    // jobSync upsert — not bound to it in a transaction. If the upsert throws a
+    // TRANSIENT error we return 500 so DR-NRPG retries, but the retry redelivers
+    // the identical signed body → collides with the orphaned marker (P2002) →
+    // duplicate_ignored → jobSync + job.dispatched Inspection are NEVER written.
+    // The catch must compensate by deleting the marker so the retry re-claims.
+    drNrpgJobSyncFindUnique.mockResolvedValue(null); // no prior row
+    drNrpgWebhookEventCreate.mockResolvedValue({}); // claim succeeds
+    drNrpgJobSyncUpsert.mockRejectedValue(
+      Object.assign(new Error("connection reset by peer"), { code: "P1001" }),
+    );
+
+    const ts = new Date().toISOString();
+    const res = await POST(
+      makeRequest({
+        event: "job.dispatched",
+        jobId: "job-upsert-transient",
+        claimNumber: "CLM-XIENT",
+        propertyAddress: "1 Test St, Brisbane QLD 4000",
+        timestamp: ts,
+      }),
+    );
+
+    // 500 so DR-NRPG retries…
+    expect(res.status).toBe(500);
+    // …and the marker for THIS exact event was released so the retry re-claims.
+    expect(drNrpgWebhookEventCreate).toHaveBeenCalledTimes(1);
+    expect(drNrpgWebhookEventDeleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          integrationId: INTEGRATION_ID,
+          drNrpgJobId: "job-upsert-transient",
+          eventTimestamp: new Date(ts),
+          eventType: "job.dispatched",
+        },
+      }),
+    );
+    // The job never got an inspection this attempt — the retry will create it.
     expect(inspectionCreate).not.toHaveBeenCalled();
   });
 

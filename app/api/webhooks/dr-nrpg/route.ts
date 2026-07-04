@@ -398,6 +398,35 @@ export async function POST(request: NextRequest) {
     });
   } catch (upsertErr) {
     console.error("[dr-nrpg webhook] DrNrpgJobSync upsert failed:", upsertErr);
+
+    // RA-6988 fix-forward: the dedup marker (drNrpgWebhookEvent) was committed
+    // as a standalone claim BEFORE this durable upsert, not bound to it in a
+    // transaction. We return 500 below so DR-NRPG retries — but the retry
+    // redelivers the identical signed body, which now collides with the
+    // orphaned marker (same integrationId, drNrpgJobId, eventTimestamp,
+    // eventType) → P2002 → the loser branch returns duplicate_ignored (200)
+    // and the jobSync + any job.dispatched Inspection are NEVER written. That
+    // is silent, permanent event loss on a single transient DB hiccup — no
+    // concurrency needed — and it regresses the pre-backstop self-healing
+    // (500 → retry → upsert succeeds). Release the claim before returning so
+    // the retry can re-claim and re-process. deleteMany (not delete) is a
+    // no-op if the marker is already gone, so it never throws on its own.
+    await (prisma as any).drNrpgWebhookEvent
+      .deleteMany({
+        where: {
+          integrationId: matchedIntegration.id,
+          drNrpgJobId: jobId,
+          eventTimestamp: new Date(payload.timestamp),
+          eventType: event,
+        },
+      })
+      .catch((releaseErr: any) =>
+        console.warn(
+          "[dr-nrpg webhook] Failed to release dedup marker after upsert failure — retry may be deduped:",
+          releaseErr,
+        ),
+      );
+
     await recordWebhookFailure({
       provider: "dr-nrpg",
       externalEventId: jobId,
