@@ -1,10 +1,12 @@
 /**
  * Moisture-reading AI auto-grouper.
  *
- * Composes lib/services/ai/anthropic-gateway.ts (platform-key flow) with the
- * S500:2021 §6 drying-chamber clustering prompt + tolerant JSON parser. Action
- * layer (app/api/inspections/[id]/group-readings/route.ts) maps result.reason
- * to HTTP, and is responsible for inspection-tenancy + readings fetch.
+ * Composes lib/services/ai/anthropic-gateway.ts with the S500:2021 §6
+ * drying-chamber clustering prompt + tolerant JSON parser. The action layer
+ * (app/api/inspections/[id]/group-readings/route.ts) resolves the workspace's
+ * own BYOK Anthropic key (RA-6960) and passes it through as the gateway
+ * override, maps result.reason to HTTP, and owns inspection-tenancy + the
+ * readings fetch.
  *
  * @see .claude/skills/service-layer-architecture/SKILL.md
  */
@@ -92,6 +94,13 @@ function normalize(readings: Array<Record<string, unknown>>): NormalizedReading[
 
 export async function groupReadings(args: {
   userId: string;
+  /**
+   * RA-6960 (BYOK, P1) — the calling workspace's own Anthropic key, resolved by
+   * the group-readings route via resolveWorkspaceAiKey and passed through as the
+   * gateway override so this customer workload never spends the platform
+   * ANTHROPIC_API_KEY.
+   */
+  apiKey: string;
   payload: GroupReadingsPayload;
 }): Promise<ServiceResult<GroupReadingsResult, GroupReadingsReason>> {
   const readings = normalize(args.payload.readings);
@@ -109,6 +118,7 @@ Group these into affected areas per IICRC S500:2021 §6. Respond with the strict
 
   const gatewayResult = await callAnthropic({
     userId: args.userId,
+    apiKey: args.apiKey,
     request: {
       model: "claude-haiku-4-5",
       max_tokens: 2000,

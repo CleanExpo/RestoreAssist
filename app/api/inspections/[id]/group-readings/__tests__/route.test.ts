@@ -6,6 +6,7 @@ const applyRateLimit = vi.fn();
 const userFindUnique = vi.fn();
 const inspectionFindFirst = vi.fn();
 const moistureReadingFindMany = vi.fn();
+const resolveWorkspaceAiKey = vi.fn();
 const groupReadings = vi.fn();
 
 vi.mock("next-auth", () => ({
@@ -28,6 +29,10 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
+vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
+  resolveWorkspaceAiKey: (...args: unknown[]) => resolveWorkspaceAiKey(...args),
+  NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
+}));
 vi.mock("@/lib/services/ai/group-readings", () => ({
   groupReadings: (...args: unknown[]) => groupReadings(...args),
 }));
@@ -40,12 +45,17 @@ beforeEach(() => {
   userFindUnique.mockReset();
   inspectionFindFirst.mockReset();
   moistureReadingFindMany.mockReset();
+  resolveWorkspaceAiKey.mockReset();
   groupReadings.mockReset();
 
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
   applyRateLimit.mockResolvedValue(null);
   userFindUnique.mockResolvedValue({ subscriptionStatus: "ACTIVE" });
   inspectionFindFirst.mockResolvedValue({ id: "inspection_1" });
+  resolveWorkspaceAiKey.mockResolvedValue({
+    workspaceId: "ws_1",
+    apiKey: "sk-ant-test",
+  });
   moistureReadingFindMany.mockResolvedValue([
     {
       id: "reading_1",
@@ -72,6 +82,27 @@ function postRequest() {
 }
 
 describe("POST /api/inspections/[id]/group-readings", () => {
+  it("returns 402 with the NoWorkspaceKeyError shape when the workspace has no key", async () => {
+    // RA-6960 (BYOK) — a keyless workspace must get a hard 402 and the AI
+    // grouper must never run on the platform ANTHROPIC_API_KEY.
+    const { NoWorkspaceKeyError } = await import(
+      "@/lib/ai/resolve-workspace-ai-key"
+    );
+    resolveWorkspaceAiKey.mockRejectedValueOnce(
+      new NoWorkspaceKeyError("ANTHROPIC"),
+    );
+
+    const response = await POST(postRequest(), {
+      params: Promise.resolve({ id: "inspection_1" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(402);
+    expect(body.error.code).toBe("PAYMENT_REQUIRED");
+    // The customer workload must never reach the provider on no key.
+    expect(groupReadings).not.toHaveBeenCalled();
+  });
+
   it("does not expose provider failure details", async () => {
     groupReadings.mockResolvedValueOnce({
       ok: false,
