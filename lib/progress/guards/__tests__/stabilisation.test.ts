@@ -199,3 +199,56 @@ describe("whsClearedGuard", () => {
     expect(res.reason).toContain("remain OPEN");
   });
 });
+
+describe("stabilisation guards — query bounds (rule 3)", () => {
+  function recordingDb() {
+    const calls: { makeSafe?: any; whs: any[] } = { whs: [] };
+    const db = {
+      makeSafeAction: {
+        findMany: async (opts?: any) => {
+          calls.makeSafe = opts;
+          return [];
+        },
+      },
+      swmsDraft: {
+        findFirst: async () => ({ id: "s_1", signedAt: new Date() }),
+      },
+      wHSIncident: {
+        findMany: async (opts?: any) => {
+          calls.whs.push(opts);
+          return [];
+        },
+      },
+      inspectionPhoto: { count: async () => 1 },
+    };
+    return { db, calls };
+  }
+
+  it("attest: bounds makeSafeAction.findMany with take + uncompleted-first order (fail-open guard)", async () => {
+    const { db, calls } = recordingDb();
+    await attestStabilisationGuard(db, baseCtx());
+    expect(typeof calls.makeSafe.take).toBe("number");
+    expect(calls.makeSafe.take).toBeGreaterThan(0);
+    // Ordering uncompleted rows first is what keeps the bound from hiding an
+    // unclosed action and failing the safety gate open.
+    expect(calls.makeSafe.orderBy).toEqual({ completed: "asc" });
+  });
+
+  it("attest: bounds the WHS incident findMany with take", async () => {
+    const { db, calls } = recordingDb();
+    await attestStabilisationGuard(db, baseCtx());
+    expect(typeof calls.whs[0].take).toBe("number");
+  });
+
+  it("whsIncidentRaisedGuard: bounds its findMany with take", async () => {
+    const { db, calls } = recordingDb();
+    await whsIncidentRaisedGuard(db, baseCtx());
+    expect(typeof calls.whs[0].take).toBe("number");
+  });
+
+  it("whsClearedGuard: bounds its findMany with take", async () => {
+    const { db, calls } = recordingDb();
+    await whsClearedGuard(db, baseCtx());
+    expect(typeof calls.whs[0].take).toBe("number");
+  });
+});
