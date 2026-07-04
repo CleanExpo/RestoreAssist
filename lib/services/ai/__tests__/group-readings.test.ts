@@ -56,7 +56,11 @@ describe("groupReadings", () => {
       } as never,
     });
 
-    const r = await groupReadings({ userId: "user-1", payload: samplePayload });
+    const r = await groupReadings({
+      userId: "user-1",
+      apiKey: "sk-ant-test",
+      payload: samplePayload,
+    });
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.data.groups).toHaveLength(2);
@@ -66,6 +70,11 @@ describe("groupReadings", () => {
       expect(r.data.groups[0].elevatedCount).toBe(2);
       expect(r.data.unsortedReadingIds).toEqual([]);
     }
+    // RA-6960 (BYOK) — the caller-supplied key is threaded to the gateway as the
+    // override, so this customer workload never spends the platform key.
+    expect(vi.mocked(callAnthropic)).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "sk-ant-test" }),
+    );
   });
 
   it("propagates gateway RATE_LIMITED reason", async () => {
@@ -75,7 +84,11 @@ describe("groupReadings", () => {
       detail: "from gateway",
       retryAfterMs: 30000,
     });
-    const r = await groupReadings({ userId: "user-1", payload: samplePayload });
+    const r = await groupReadings({
+      userId: "user-1",
+      apiKey: "sk-ant-test",
+      payload: samplePayload,
+    });
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.reason).toBe("RATE_LIMITED");
@@ -102,7 +115,11 @@ describe("groupReadings", () => {
         ],
       } as never,
     });
-    const r = await groupReadings({ userId: "user-1", payload: samplePayload });
+    const r = await groupReadings({
+      userId: "user-1",
+      apiKey: "sk-ant-test",
+      payload: samplePayload,
+    });
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.data.groups).toHaveLength(1);
@@ -119,7 +136,11 @@ describe("groupReadings", () => {
         content: [{ type: "text", text: "I cannot group these readings." }],
       } as never,
     });
-    const r = await groupReadings({ userId: "user-1", payload: samplePayload });
+    const r = await groupReadings({
+      userId: "user-1",
+      apiKey: "sk-ant-test",
+      payload: samplePayload,
+    });
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.reason).toBe("PARSE_FAILED");
