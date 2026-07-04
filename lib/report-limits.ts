@@ -76,6 +76,10 @@ export async function getUserReportLimits(
         reportLimit: true,
         purchasedAt: true,
       },
+      // Rule 3 — bound every findMany. This feeds a reduce-sum of add-on
+      // reportLimits; 1000 completed purchases for one user is unreachable, so
+      // the cap never truncates real data yet closes the unbounded-growth risk.
+      take: 1000,
     });
   } catch (error: any) {
     // If AddonPurchase model doesn't exist yet, just use addonReports field
@@ -436,6 +440,10 @@ export async function deductCreditsAndTrackUsage(
       const purchases = await prisma.addonPurchase.findMany({
         where: { userId: adminId, status: "COMPLETED" },
         select: { reportLimit: true },
+        // Rule 3 — bound every findMany. Runs on the paid-report-creation hot
+        // path; 1000 completed add-on purchases per admin is unreachable, so the
+        // cap leaves the reduce-sum semantics unchanged.
+        take: 1000,
       });
       addonFromPurchases = purchases.reduce((sum, p) => sum + p.reportLimit, 0);
     } catch {
