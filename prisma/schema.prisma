@@ -5702,6 +5702,9 @@ model Workspace {
   providerConnections ProviderConnection[] @relation("WorkspaceProviderConnections")
   aiUsageLogs         AiUsageLog[]         @relation("WorkspaceAiUsageLogs")
 
+  // RA-6922: BYOK monetisation add-on entitlements
+  featureEntitlements FeatureEntitlement[] @relation("WorkspaceFeatureEntitlements")
+
   // RA-2966: Scraping provider BYOK (Apify, Bright Data, Zyte, Firecrawl)
   scrapingProviderConnections ScrapingProviderConnection[] @relation("WorkspaceScrapingProviderConnections")
 
@@ -5957,6 +5960,42 @@ model ProviderConnection {
   @@index([workspaceId])
   @@index([provider])
   @@index([status])
+}
+
+// RA-6922: BYOK monetisation add-on SKUs (byok-monetisation-spec §2).
+// Five $11/month add-ons sold on top of the $99/month base plan. Mirrored in
+// lib/entitlements/types.ts (ADDON_SKUS) — keep the two in sync.
+enum AddonSku {
+  VOICE // ElevenLabs Voice (client's ElevenLabs key + Voice ID)
+  TECHNICIAN_SEATS // Field Technician seats (per-seat, enforced at job assignment)
+  BOOKKEEPING // Online Bookkeeping Connection (Xero / QuickBooks / MYOB)
+  SERVICE_CRM // Service CRM Connection (Ascora / DR-NRPG)
+  PAYMENTS // Payments Collection (Stripe Connect on the client's own account)
+}
+
+// FeatureEntitlement — per-workspace record of which add-on SKUs are active.
+// RA-6922 scaffold: the model + guard (lib/entitlements/requireAddon) exist but
+// are NOT yet enforced at any surface, so existing workspaces are unaffected.
+// Stripe linkage is nullable so the recurring Price/subscription can be wired
+// later (owner Stripe action, out of scope for this PR).
+model FeatureEntitlement {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation("WorkspaceFeatureEntitlements", fields: [workspaceId], references: [id], onDelete: Cascade)
+  sku         AddonSku
+  active      Boolean   @default(false)
+
+  // Stripe subscription-item + price linkage (nullable until billing is wired).
+  stripeSubscriptionId String?
+  stripePriceId        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, sku])
+  @@index([workspaceId])
+  @@index([sku])
+  @@index([active])
 }
 
 // RA-2966: Scraping provider BYOK — parallel to AiProvider for property-data scraping.
