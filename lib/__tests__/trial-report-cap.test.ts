@@ -201,9 +201,12 @@ describe("deductCreditsAndTrackUsage — credit spend per report", () => {
         monthlyReportsUsed: 0,
         monthlyResetDate: null,
       });
-    // ACTIVE path takes the monthly-reset updateMany; mark reset already done.
-    prismaMock.user.updateMany.mockResolvedValue({ count: 0 });
+    // ACTIVE path: monthlyResetDate is null, so the race-safe rollover
+    // updateMany matches (OR monthlyResetDate: null) and initialises the
+    // period — count 1, no guarded increment, no INSUFFICIENT_CREDITS.
+    prismaMock.user.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.user.update.mockResolvedValue({});
+    prismaMock.addonPurchase.findMany.mockResolvedValue([]);
 
     await deductCreditsAndTrackUsage("admin-1");
 
