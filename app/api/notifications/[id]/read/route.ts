@@ -48,8 +48,8 @@ export async function POST(
       });
 
       return NextResponse.json({ notification: updated });
-    } catch {
-      return NextResponse.json({ success: true });
+    } catch (err) {
+      return fromException(request, err, { stage: "mark-read" });
     }
   } catch (error) {
     return fromException(request, error, { stage: "mark-read" });
