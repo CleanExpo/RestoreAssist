@@ -57,9 +57,17 @@ export default async function InspectionAssessmentsPage({ params }: Props) {
   }
 
   // Latest persisted generation per domain, in one query.
+  // The generate endpoint always creates a new row (no upsert), so history
+  // accumulates over the inspection's life. Bound the query with a newest-first
+  // window: take 200 and dedupe to latest-per-domain in JS below. A domain's
+  // latest is only missed if 200+ newer generations of OTHER domains exist —
+  // far beyond real usage (7 domains). take must NOT be lowered near 7: Prisma
+  // applies it as SQL LIMIT before the in-memory dedupe, so a small take could
+  // return N rows of a single domain and silently hide other domains' latest.
   const generations = await prisma.assessmentGeneration.findMany({
     where: { inspectionId },
     orderBy: { generatedAt: "desc" },
+    take: 200,
     select: {
       id: true,
       assessmentType: true,
