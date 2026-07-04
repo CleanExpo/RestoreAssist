@@ -37,6 +37,7 @@ import { apiError } from "@/lib/api-errors";
 import { decrypt } from "@/lib/credential-vault";
 import { isEncryptedToken } from "@/lib/auth/account-tokens";
 import { isWebhookEventFresh } from "@/lib/integrations/webhook-freshness";
+import { isUniqueConstraintError } from "@/lib/webhook-idempotency";
 
 const MAX_ACTIVE_DRNRPG_INTEGRATIONS = 100;
 
@@ -298,6 +299,66 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // ── RA-6988: DB unique backstop — closes the dedup TOCTOU ──
+  // The findUnique + isStaleReplay guard above is read-then-decide, not atomic:
+  // two concurrent redeliveries of the SAME event can both read no/stale prior
+  // row and both fall through to the upsert + inspection.create below, writing
+  // TWO Inspection rows for one job. Claim the event atomically here FIRST, on
+  // a NEW empty table keyed on (integrationId, drNrpgJobId, eventTimestamp,
+  // eventType). eventTimestamp is the immutable payload.timestamp, so a true
+  // replay of one event collides (P2002) and the loser takes the same
+  // duplicate_ignored path as a stale replay — before ever reaching
+  // inspection.create; two distinct same-second events differ by eventType and
+  // both succeed. Mirrors the merged MYOB/Xero P2002 backstop (RA-1265). The
+  // retained staleness check above still rejects out-of-order OLDER
+  // redeliveries that this unique key alone would admit (different key).
+  try {
+    await (prisma as any).drNrpgWebhookEvent.create({
+      data: {
+        integrationId: matchedIntegration.id,
+        drNrpgJobId: jobId,
+        eventTimestamp: new Date(payload.timestamp),
+        eventType: event,
+      },
+    });
+  } catch (dedupErr) {
+    if (!isUniqueConstraintError(dedupErr)) throw dedupErr;
+
+    console.warn(
+      "[dr-nrpg webhook] Concurrent duplicate ignored (unique backstop):",
+      { jobId, timestamp: payload.timestamp },
+    );
+
+    // Audit the deduped delivery when we already have the job row to hang it
+    // off. In the concurrent-new-job race the loser has no prior jobSync yet
+    // (existingJob is null) — the winner owns the row + its logs — so skip.
+    if (existingJob) {
+      await (prisma as any).drNrpgWebhookLog
+        .create({
+          data: {
+            jobSyncId: existingJob.id,
+            direction: "inbound",
+            eventType: event,
+            payload: payload as unknown as Record<string, unknown>,
+            responseStatus: 200,
+            responseBody: "duplicate_ignored",
+            deliveredAt: new Date(),
+          },
+        })
+        .catch((e: any) =>
+          console.warn("[dr-nrpg webhook] Dedup log write failed:", e),
+        );
+    }
+
+    return NextResponse.json({
+      received: true,
+      eventType: event,
+      jobSyncId: existingJob?.id ?? null,
+      status: "duplicate_ignored",
+      deduplicated: true,
+    });
+  }
+
   const newStatus = mapEventToStatus(event as DrNrpgEventType, payload);
 
   // ── Upsert DrNrpgJobSync (tenant-scoped compound key) ──
@@ -337,6 +398,35 @@ export async function POST(request: NextRequest) {
     });
   } catch (upsertErr) {
     console.error("[dr-nrpg webhook] DrNrpgJobSync upsert failed:", upsertErr);
+
+    // RA-6988 fix-forward: the dedup marker (drNrpgWebhookEvent) was committed
+    // as a standalone claim BEFORE this durable upsert, not bound to it in a
+    // transaction. We return 500 below so DR-NRPG retries — but the retry
+    // redelivers the identical signed body, which now collides with the
+    // orphaned marker (same integrationId, drNrpgJobId, eventTimestamp,
+    // eventType) → P2002 → the loser branch returns duplicate_ignored (200)
+    // and the jobSync + any job.dispatched Inspection are NEVER written. That
+    // is silent, permanent event loss on a single transient DB hiccup — no
+    // concurrency needed — and it regresses the pre-backstop self-healing
+    // (500 → retry → upsert succeeds). Release the claim before returning so
+    // the retry can re-claim and re-process. deleteMany (not delete) is a
+    // no-op if the marker is already gone, so it never throws on its own.
+    await (prisma as any).drNrpgWebhookEvent
+      .deleteMany({
+        where: {
+          integrationId: matchedIntegration.id,
+          drNrpgJobId: jobId,
+          eventTimestamp: new Date(payload.timestamp),
+          eventType: event,
+        },
+      })
+      .catch((releaseErr: any) =>
+        console.warn(
+          "[dr-nrpg webhook] Failed to release dedup marker after upsert failure — retry may be deduped:",
+          releaseErr,
+        ),
+      );
+
     await recordWebhookFailure({
       provider: "dr-nrpg",
       externalEventId: jobId,

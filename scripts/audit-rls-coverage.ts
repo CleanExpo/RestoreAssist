@@ -163,6 +163,9 @@ export const SERVICE_ONLY = new Set<string>([
   "AscoraNote",
   "DrNrpgJobSync",
   "DrNrpgWebhookLog",
+  // RA-6988: DR-NRPG webhook idempotency ledger — server/service-role only,
+  // sibling of DrNrpgWebhookLog/DrNrpgJobSync.
+  "DrNrpgWebhookEvent",
   "ProgressTelemetryEvent",
   "ContentJob",
   "ContentPost",

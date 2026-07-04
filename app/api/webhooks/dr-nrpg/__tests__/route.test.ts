@@ -30,6 +30,8 @@ const drNrpgJobSyncFindUnique = vi.fn();
 const drNrpgJobSyncUpsert = vi.fn();
 const drNrpgJobSyncUpdate = vi.fn();
 const drNrpgWebhookLogCreate = vi.fn();
+const drNrpgWebhookEventCreate = vi.fn();
+const drNrpgWebhookEventDeleteMany = vi.fn();
 const inspectionCreate = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
@@ -46,6 +48,10 @@ vi.mock("@/lib/prisma", () => ({
     },
     drNrpgWebhookLog: {
       create: (...a: unknown[]) => drNrpgWebhookLogCreate(...a),
+    },
+    drNrpgWebhookEvent: {
+      create: (...a: unknown[]) => drNrpgWebhookEventCreate(...a),
+      deleteMany: (...a: unknown[]) => drNrpgWebhookEventDeleteMany(...a),
     },
     inspection: {
       create: (...a: unknown[]) => inspectionCreate(...a),
@@ -77,9 +83,16 @@ vi.mock("@/lib/api-errors", () => ({
 }));
 
 import { POST } from "../route";
+import { mapPayloadToInspection } from "@/lib/dr-nrpg/inbound-mapper";
 
 const SECRET = "test-drnrpg-secret";
 const INTEGRATION_ID = "integ-1";
+
+// A Prisma unique-constraint (P2002) rejection, as the DB emits under a
+// concurrent duplicate insert into DrNrpgWebhookEvent.
+const P2002 = Object.assign(new Error("Unique constraint failed"), {
+  code: "P2002",
+});
 
 function makeRequest(payload: Record<string, unknown>) {
   const body = JSON.stringify(payload);
@@ -101,6 +114,8 @@ beforeEach(() => {
   ]);
   drNrpgIntegrationUpdate.mockResolvedValue({});
   drNrpgWebhookLogCreate.mockResolvedValue({});
+  drNrpgWebhookEventCreate.mockResolvedValue({});
+  drNrpgWebhookEventDeleteMany.mockResolvedValue({ count: 1 });
 });
 
 describe("POST /api/webhooks/dr-nrpg — tenant scoping", () => {
@@ -337,5 +352,191 @@ describe("POST /api/webhooks/dr-nrpg — replay protection", () => {
         }),
       }),
     );
+  });
+});
+
+describe("POST /api/webhooks/dr-nrpg — RA-6988 unique backstop (TOCTOU)", () => {
+  it("closes the read-then-decide race: a concurrent duplicate job.dispatched creates only ONE inspection", async () => {
+    // Both deliveries pass the non-atomic findUnique+staleness guard (neither
+    // sees a committed prior row — the TOCTOU window). The DB unique backstop
+    // is the tiebreaker: the first create wins, the second raises P2002.
+    drNrpgJobSyncFindUnique.mockImplementation((args: any) =>
+      Promise.resolve(
+        // existingSync lookup (by row id) → no inspection linked yet;
+        // idempotency lookup (by compound key) → no prior row.
+        args?.where?.id ? { inspectionId: null } : null,
+      ),
+    );
+    drNrpgJobSyncUpsert.mockResolvedValue({ id: "sync-1" });
+    drNrpgJobSyncUpdate.mockResolvedValue({});
+    drNrpgIntegrationFindUnique.mockResolvedValue({ userId: "user-1" });
+    inspectionCreate.mockResolvedValue({ id: "insp-1" });
+    vi.mocked(mapPayloadToInspection).mockReturnValue({
+      inspectionNumber: "INS-1",
+      propertyAddress: "1 Test St, Brisbane QLD 4000",
+      propertyPostcode: "4000",
+      inspectionDate: new Date(),
+      status: "scheduled",
+      source: "dr-nrpg",
+      claimType: "water",
+      needsPostcodeReview: false,
+    } as any);
+
+    // Winner: create resolves; loser: create raises P2002.
+    drNrpgWebhookEventCreate
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(P2002);
+
+    const ts = new Date().toISOString();
+    const dispatched = {
+      event: "job.dispatched",
+      jobId: "job-race",
+      claimNumber: "CLM-RACE",
+      propertyAddress: "1 Test St, Brisbane QLD 4000",
+      timestamp: ts,
+    };
+
+    const first = await POST(makeRequest(dispatched));
+    const second = await POST(makeRequest(dispatched));
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    const secondJson = await second.json();
+    expect(secondJson.status).toBe("duplicate_ignored");
+    expect(secondJson.deduplicated).toBe(true);
+
+    // The core invariant: exactly one Inspection row for the one job.
+    expect(inspectionCreate).toHaveBeenCalledTimes(1);
+    expect(drNrpgWebhookEventCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not collapse two distinct same-second events — the unique key differs by eventType", async () => {
+    // job.updated then job.completed at the same instant: distinct eventType →
+    // distinct unique key → both creates succeed → both are processed.
+    drNrpgJobSyncFindUnique.mockResolvedValue(null);
+    drNrpgJobSyncUpsert.mockResolvedValue({ id: "sync-1" });
+    drNrpgWebhookEventCreate.mockResolvedValue({});
+
+    const ts = new Date().toISOString();
+
+    const updated = await POST(
+      makeRequest({
+        event: "job.updated",
+        jobId: "job-two-events",
+        claimNumber: "CLM-2E",
+        timestamp: ts,
+      }),
+    );
+    const completed = await POST(
+      makeRequest({
+        event: "job.completed",
+        jobId: "job-two-events",
+        claimNumber: "CLM-2E",
+        timestamp: ts,
+      }),
+    );
+
+    expect(updated.status).toBe(200);
+    expect(completed.status).toBe(200);
+    expect((await updated.json()).deduplicated).toBeFalsy();
+    expect((await completed.json()).deduplicated).toBeFalsy();
+    expect(drNrpgWebhookEventCreate).toHaveBeenCalledTimes(2);
+    expect(drNrpgJobSyncUpsert).toHaveBeenCalledTimes(2);
+  });
+
+  it("does NOT swallow a non-P2002 backstop error as a duplicate", async () => {
+    drNrpgJobSyncFindUnique.mockResolvedValue(null);
+    drNrpgJobSyncUpsert.mockResolvedValue({ id: "sync-1" });
+    // A transient DB failure (not a unique violation) must propagate so
+    // DR-NRPG retries — it must not be misread as an already-seen duplicate.
+    drNrpgWebhookEventCreate.mockRejectedValue(
+      Object.assign(new Error("connection reset"), { code: "P1001" }),
+    );
+
+    await expect(
+      POST(
+        makeRequest({
+          event: "job.dispatched",
+          jobId: "job-db-down",
+          claimNumber: "CLM-ERR",
+          propertyAddress: "1 Test St, Brisbane QLD 4000",
+          timestamp: new Date().toISOString(),
+        }),
+      ),
+    ).rejects.toBeTruthy();
+
+    expect(drNrpgJobSyncUpsert).not.toHaveBeenCalled();
+    expect(inspectionCreate).not.toHaveBeenCalled();
+  });
+
+  it("releases the dedup marker when the durable upsert fails, so DR-NRPG's retry can re-claim (no silent event loss)", async () => {
+    // The marker create is a standalone claim committed BEFORE the durable
+    // jobSync upsert — not bound to it in a transaction. If the upsert throws a
+    // TRANSIENT error we return 500 so DR-NRPG retries, but the retry redelivers
+    // the identical signed body → collides with the orphaned marker (P2002) →
+    // duplicate_ignored → jobSync + job.dispatched Inspection are NEVER written.
+    // The catch must compensate by deleting the marker so the retry re-claims.
+    drNrpgJobSyncFindUnique.mockResolvedValue(null); // no prior row
+    drNrpgWebhookEventCreate.mockResolvedValue({}); // claim succeeds
+    drNrpgJobSyncUpsert.mockRejectedValue(
+      Object.assign(new Error("connection reset by peer"), { code: "P1001" }),
+    );
+
+    const ts = new Date().toISOString();
+    const res = await POST(
+      makeRequest({
+        event: "job.dispatched",
+        jobId: "job-upsert-transient",
+        claimNumber: "CLM-XIENT",
+        propertyAddress: "1 Test St, Brisbane QLD 4000",
+        timestamp: ts,
+      }),
+    );
+
+    // 500 so DR-NRPG retries…
+    expect(res.status).toBe(500);
+    // …and the marker for THIS exact event was released so the retry re-claims.
+    expect(drNrpgWebhookEventCreate).toHaveBeenCalledTimes(1);
+    expect(drNrpgWebhookEventDeleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          integrationId: INTEGRATION_ID,
+          drNrpgJobId: "job-upsert-transient",
+          eventTimestamp: new Date(ts),
+          eventType: "job.dispatched",
+        },
+      }),
+    );
+    // The job never got an inspection this attempt — the retry will create it.
+    expect(inspectionCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects an out-of-order older redelivery via the retained staleness check — before the backstop create runs", async () => {
+    // The unique key alone would ADMIT a captured older event (different
+    // eventType → different key). The timestamp-ordering staleness check must
+    // still run first and reject it, without ever reaching the backstop.
+    const lastEventAt = new Date();
+    drNrpgJobSyncFindUnique.mockResolvedValue({
+      id: "sync-existing",
+      lastEventAt,
+      lastEventType: "job.updated",
+    });
+
+    const oneHourEarlier = new Date(
+      lastEventAt.getTime() - 60 * 60 * 1000,
+    ).toISOString();
+    const res = await POST(
+      makeRequest({
+        event: "job.completed",
+        jobId: "job-stale-redelivery",
+        claimNumber: "CLM-OOO",
+        timestamp: oneHourEarlier,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).deduplicated).toBe(true);
+    expect(drNrpgWebhookEventCreate).not.toHaveBeenCalled();
+    expect(drNrpgJobSyncUpsert).not.toHaveBeenCalled();
   });
 });
