@@ -23,6 +23,7 @@ const getServerSession = vi.fn();
 const applyRateLimit = vi.fn();
 const withIdempotency = vi.fn();
 const reportFindFirst = vi.fn();
+const scopeFindFirst = vi.fn();
 const estimateFindFirst = vi.fn();
 const estimateCreate = vi.fn();
 const estimateUpdate = vi.fn();
@@ -43,6 +44,9 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     report: {
       findFirst: (...args: unknown[]) => reportFindFirst(...args),
+    },
+    scope: {
+      findFirst: (...args: unknown[]) => scopeFindFirst(...args),
     },
     estimate: {
       findFirst: (...args: unknown[]) => estimateFindFirst(...args),
@@ -72,6 +76,7 @@ beforeEach(() => {
   applyRateLimit.mockReset();
   withIdempotency.mockReset();
   reportFindFirst.mockReset();
+  scopeFindFirst.mockReset();
   estimateFindFirst.mockReset();
   estimateCreate.mockReset();
   estimateUpdate.mockReset();
@@ -89,25 +94,29 @@ beforeEach(() => {
   );
   // Own report — passes the tenancy check at the top of the handler.
   reportFindFirst.mockResolvedValue({ id: "report-own" });
+  // No scope owned by the caller by default; tests that need a valid
+  // scopeId override this.
+  scopeFindFirst.mockResolvedValue(null);
 });
 
 describe("POST /api/estimates", () => {
   it("RA-6961: a foreign scopeId does not resolve to another tenant's estimate", async () => {
-    // No estimate owned by this caller matches reportId or scopeId — the
-    // foreign estimate that actually owns "scope-foreign" is excluded by
-    // the userId filter, so the lookup must return null.
+    // Own reportId + own scopeId — passes the RA-6970 ownership check —
+    // but no estimate owned by this caller matches reportId or scopeId
+    // yet, so the lookup must return null and fall through to create.
+    scopeFindFirst.mockResolvedValueOnce({ id: "scope-own" });
     estimateFindFirst.mockResolvedValueOnce(null);
     estimateCreate.mockResolvedValueOnce({
       id: "estimate-new",
       reportId: "report-own",
-      scopeId: "scope-foreign",
+      scopeId: "scope-own",
       status: "DRAFT",
       version: 1,
       lineItems: [],
     });
 
     const res = await POST(
-      makeRequest({ reportId: "report-own", scopeId: "scope-foreign" }),
+      makeRequest({ reportId: "report-own", scopeId: "scope-own" }),
     );
 
     expect(res.status).toBe(200);
@@ -118,7 +127,7 @@ describe("POST /api/estimates", () => {
       expect.objectContaining({
         where: {
           userId: "user-1",
-          OR: [{ reportId: "report-own" }, { scopeId: "scope-foreign" }],
+          OR: [{ reportId: "report-own" }, { scopeId: "scope-own" }],
         },
       }),
     );
@@ -147,5 +156,43 @@ describe("POST /api/estimates", () => {
     expect(res.status).toBe(404);
     expect(estimateFindFirst).not.toHaveBeenCalled();
     expect(estimateCreate).not.toHaveBeenCalled();
+  });
+
+  it("RA-6970: own reportId + foreign scopeId 404s before touching the estimate table (create branch)", async () => {
+    // scope-foreign belongs to another tenant's report — the ownership
+    // check must reject it before the create-vs-update lookup ever runs.
+    scopeFindFirst.mockResolvedValueOnce(null);
+
+    const res = await POST(
+      makeRequest({ reportId: "report-own", scopeId: "scope-foreign" }),
+    );
+
+    expect(res.status).toBe(404);
+    expect(scopeFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "scope-foreign", report: { userId: "user-1" } },
+      }),
+    );
+    // No cross-tenant reference is created, no @unique-scopeId squat, and
+    // no 409-vs-200 existence oracle for scopeId is exposed.
+    expect(estimateFindFirst).not.toHaveBeenCalled();
+    expect(estimateCreate).not.toHaveBeenCalled();
+    expect(estimateUpdate).not.toHaveBeenCalled();
+  });
+
+  it("RA-6970: own reportId + foreign scopeId 404s before touching the estimate table (update branch)", async () => {
+    // Even when the caller already has an estimate for this report (which
+    // would otherwise route through the update branch), a foreign scopeId
+    // must still be rejected before existingEstimate is ever looked up.
+    scopeFindFirst.mockResolvedValueOnce(null);
+
+    const res = await POST(
+      makeRequest({ reportId: "report-own", scopeId: "scope-foreign" }),
+    );
+
+    expect(res.status).toBe(404);
+    expect(estimateFindFirst).not.toHaveBeenCalled();
+    expect(estimateUpdate).not.toHaveBeenCalled();
+    expect(prismaTransaction).not.toHaveBeenCalled();
   });
 });
