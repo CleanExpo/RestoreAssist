@@ -15,8 +15,9 @@
  *      don't keep billing them after they've asked us to stop.
  *   2. Write a security audit log entry BEFORE the delete — after the
  *      cascade the user.id is gone.
- *   3. prisma.user.delete — onDelete: Cascade on relations handles the
- *      rest (Reports, Estimates, Inspections, Integrations, etc.).
+ *   3. Reassign statutory records (Invoice/Report/Estimate) onto the
+ *      dedicated PII-free retention owner, then prisma.user.delete — all
+ *      inside one transaction (see the delete block for the full rationale).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -31,6 +32,15 @@ import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
 const CONFIRMATION_PHRASE = "DELETE MY ACCOUNT";
+
+/**
+ * account-deletion-retention: statutory records freed by account deletion are
+ * reassigned onto this dedicated, PII-free system user rather than being
+ * cascade-destroyed. Seeded (idempotently) by the
+ * 20260705000000_account_delete_retention_owner migration — keep this literal
+ * in sync with that migration's INSERT.
+ */
+const RETENTION_OWNER_USER_ID = "system-retention-owner";
 
 export async function POST(request: NextRequest) {
   const csrfError = validateCsrf(request);
@@ -116,7 +126,30 @@ export async function POST(request: NextRequest) {
         console.error("[account-delete] audit log failed:", err),
       );
 
-      await prisma.user.delete({ where: { id: user.id } });
+      // account-deletion-retention: the account holder's PII is erased (the
+      // User row is deleted below), but the statutory financial/compliance
+      // records the Privacy Policy promises to retain (/privacy#retention) —
+      // tax invoices (7yr, Taxation Administration Act s.262A), restoration &
+      // building-defect reports (up to 10yr), and the estimates behind them —
+      // MUST survive account closure. Those relations are onDelete: Cascade,
+      // so a bare user.delete would destroy them: a direct self-contradiction
+      // of our own retention promise and an AU compliance exposure.
+      //
+      // So we DETACH them onto the PII-free system retention owner (the row is
+      // no longer linked to the deleted account holder) BEFORE deleting the
+      // user, leaving the cascade nothing to destroy. All in one transaction
+      // so it is strictly all-or-nothing — a mid-way failure can never orphan
+      // records or half-delete the user.
+      const reassignToRetentionOwner = {
+        where: { userId: user.id },
+        data: { userId: RETENTION_OWNER_USER_ID },
+      };
+      await prisma.$transaction(async (tx) => {
+        await tx.invoice.updateMany(reassignToRetentionOwner);
+        await tx.report.updateMany(reassignToRetentionOwner);
+        await tx.estimate.updateMany(reassignToRetentionOwner);
+        await tx.user.delete({ where: { id: user.id } });
+      });
 
       return NextResponse.json({ success: true });
     } catch (error) {
