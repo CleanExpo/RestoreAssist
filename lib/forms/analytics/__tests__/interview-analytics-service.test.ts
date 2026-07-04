@@ -2,21 +2,66 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const interviewSessionFindMany = vi.fn();
 const interviewSessionCount = vi.fn();
+const interviewSessionFindUnique = vi.fn();
+const interviewSessionUpdate = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     interviewSession: {
       findMany: (...args: unknown[]) => interviewSessionFindMany(...args),
       count: (...args: unknown[]) => interviewSessionCount(...args),
+      findUnique: (...args: unknown[]) => interviewSessionFindUnique(...args),
+      update: (...args: unknown[]) => interviewSessionUpdate(...args),
     },
   },
 }));
 
 import { InterviewAnalyticsService } from "../interview-analytics-service";
 
+// Writable fields on the InterviewSession model (prisma/schema.prisma).
+// The strict update mock below rejects anything else, mirroring Prisma's
+// runtime PrismaClientValidationError ("Unknown argument") — which a plain
+// resolved mock can never catch (RA-6983's repro requirement).
+const INTERVIEW_SESSION_WRITABLE_FIELDS = new Set([
+  "userId",
+  "formTemplateId",
+  "formSubmissionId",
+  "status",
+  "startedAt",
+  "completedAt",
+  "abandonedAt",
+  "totalQuestionsAsked",
+  "totalAnswersGiven",
+  "estimatedTimeMinutes",
+  "actualTimeMinutes",
+  "answers",
+  "autoPopulatedFields",
+  "standardsReferences",
+  "equipmentRecommendations",
+  "estimatedEquipmentCost",
+  "userTierLevel",
+  "technicianExperience",
+  "reportId",
+]);
+
+function strictInterviewSessionUpdate(args: { data: Record<string, unknown> }) {
+  for (const key of Object.keys(args.data)) {
+    if (!INTERVIEW_SESSION_WRITABLE_FIELDS.has(key)) {
+      return Promise.reject(
+        new Error(
+          `Unknown argument \`${key}\`. Available options are marked with ?.`,
+        ),
+      );
+    }
+  }
+  return Promise.resolve({});
+}
+
 beforeEach(() => {
   interviewSessionFindMany.mockReset();
   interviewSessionCount.mockReset();
+  interviewSessionFindUnique.mockReset();
+  interviewSessionUpdate.mockReset();
   interviewSessionFindMany.mockResolvedValue([]);
   interviewSessionCount.mockResolvedValue(0);
 });
@@ -253,5 +298,77 @@ describe("InterviewAnalyticsService — dead-metric fix (RA-6975)", () => {
       (q) => q.questionId === "q1",
     );
     expect(q1?.skipRate).toBe(100);
+  });
+});
+
+describe("InterviewAnalyticsService — write-side schema validity (RA-6983)", () => {
+  const SESSION = {
+    id: "sess_1",
+    userId: "user_1",
+    formTemplateId: "template_1",
+    startedAt: new Date(Date.now() - 5 * 60 * 1000),
+    reportId: null,
+    responses: [{ id: "resp_1" }],
+  };
+
+  it("trackSessionCompletion persists completion under a strict schema-validating client (no unknown `metadata` argument)", async () => {
+    interviewSessionFindUnique.mockResolvedValue(SESSION);
+    interviewSessionUpdate.mockImplementation(strictInterviewSessionUpdate);
+
+    const metrics = await InterviewAnalyticsService.trackSessionCompletion(
+      "sess_1",
+      3,
+      0.9,
+      0,
+    );
+
+    // Under the old write shape the strict client rejects `metadata`, the
+    // catch swallows it, and this returns null — the live complete route
+    // then 404s a session that exists.
+    expect(metrics).not.toBeNull();
+    expect(interviewSessionUpdate).toHaveBeenCalledTimes(1);
+
+    const { data } = interviewSessionUpdate.mock.calls[0][0];
+    expect(data.status).toBe("COMPLETED");
+    expect(data.completedAt).toBeInstanceOf(Date);
+    expect(data).not.toHaveProperty("metadata");
+    for (const key of Object.keys(data)) {
+      expect(INTERVIEW_SESSION_WRITABLE_FIELDS.has(key)).toBe(true);
+    }
+  });
+
+  it("trackSessionCompletion returns null only when the session is missing (the route's 404 must mean not-found)", async () => {
+    interviewSessionFindUnique.mockResolvedValue(null);
+    interviewSessionUpdate.mockImplementation(strictInterviewSessionUpdate);
+
+    const metrics = await InterviewAnalyticsService.trackSessionCompletion(
+      "sess_missing",
+      0,
+      0,
+      0,
+    );
+
+    expect(metrics).toBeNull();
+    expect(interviewSessionUpdate).not.toHaveBeenCalled();
+  });
+
+  it("computes duration and completion metrics from the real session row", async () => {
+    interviewSessionFindUnique.mockResolvedValue(SESSION);
+    interviewSessionUpdate.mockImplementation(strictInterviewSessionUpdate);
+
+    const metrics = await InterviewAnalyticsService.trackSessionCompletion(
+      "sess_1",
+      3,
+      0.9,
+      1,
+    );
+
+    expect(metrics?.userId).toBe("user_1");
+    expect(metrics?.formTemplateId).toBe("template_1");
+    expect(metrics?.questionsAnswered).toBe(1);
+    expect(metrics?.completionRate).toBe(100);
+    expect(metrics?.totalDurationSeconds).toBeGreaterThanOrEqual(299);
+    expect(metrics?.autoPopulatedFieldsCount).toBe(3);
+    expect(metrics?.conflictCount).toBe(1);
   });
 });

@@ -168,32 +168,12 @@ export interface TemplatePerformanceAnalytics {
 /**
  * Interview Analytics Service
  */
+// RA-6983: trackSessionStart and trackQuestionResponse were removed here —
+// both wrote fields that don't exist on the Prisma models (`metadata` on
+// InterviewSession; `answer`/`metadata` on InterviewResponse, whose real
+// column is `answerValue`) behind `as any` casts, so every invocation threw
+// at runtime and was swallowed. Neither had a caller anywhere in the app.
 export class InterviewAnalyticsService {
-  /**
-   * Track interview session start
-   */
-  static async trackSessionStart(
-    sessionId: string,
-    userId: string,
-    formTemplateId: string,
-    reportId?: string,
-  ): Promise<void> {
-    try {
-      await prisma.interviewSession.update({
-        where: { id: sessionId },
-        data: {
-          startedAt: new Date(),
-          metadata: {
-            startedAt: new Date().toISOString(),
-            analyticsEnabled: true,
-          },
-        } as any,
-      });
-    } catch (error) {
-      console.error("Error tracking session start:", error);
-    }
-  }
-
   /**
    * Track interview session completion
    */
@@ -220,20 +200,19 @@ export class InterviewAnalyticsService {
       );
       const completionRate = session.responses.length > 0 ? 100 : 0;
 
-      // Update session with completion metrics
+      // RA-6983: this update previously also wrote a `metadata` object — a
+      // field that does not exist on InterviewSession — behind an `as any`
+      // cast. Prisma's runtime validation threw ("Unknown argument
+      // `metadata`"), the catch below swallowed it, and the method returned
+      // null: no session was ever marked COMPLETED and the complete route
+      // 404'd sessions that exist. Only real columns are written now, and
+      // the cast is gone so the compiler enforces that.
       await prisma.interviewSession.update({
         where: { id: sessionId },
         data: {
           completedAt: endTime,
           status: "COMPLETED",
-          metadata: {
-            completedAt: endTime.toISOString(),
-            totalDurationSeconds,
-            autoPopulatedFieldsCount,
-            averageConfidence,
-            conflictCount,
-          },
-        } as any,
+        },
       });
 
       return {
@@ -255,36 +234,6 @@ export class InterviewAnalyticsService {
     } catch (error) {
       console.error("Error tracking session completion:", error);
       return null;
-    }
-  }
-
-  /**
-   * Track individual question response
-   */
-  static async trackQuestionResponse(
-    sessionId: string,
-    questionId: string,
-    answerValue: any,
-    timeToAnswerSeconds: number,
-    fieldsMappedCount: number = 0,
-    averageFieldConfidence: number = 0,
-  ): Promise<void> {
-    try {
-      await prisma.interviewResponse.create({
-        data: {
-          interviewSessionId: sessionId,
-          questionId,
-          answer: answerValue,
-          metadata: {
-            timeToAnswerSeconds,
-            fieldsMappedCount,
-            averageFieldConfidence,
-            trackedAt: new Date().toISOString(),
-          },
-        } as any,
-      });
-    } catch (error) {
-      console.error("Error tracking question response:", error);
     }
   }
 
