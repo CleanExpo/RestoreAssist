@@ -28,7 +28,9 @@ CREATE TABLE IF NOT EXISTS "DrNrpgWebhookEvent" (
 
 -- The atomic dedup key: a true replay of one event collides here; two distinct
 -- same-second events differ by eventType and both pass.
-CREATE UNIQUE INDEX IF NOT EXISTS "DrNrpgWebhookEvent_integrationId_drNrpgJobId_eventTimestamp_eventType_key"
+-- Short explicit name: the auto-derived name would exceed Postgres's 63-byte
+-- identifier limit and be silently truncated.
+CREATE UNIQUE INDEX IF NOT EXISTS "DrNrpgWebhookEvent_dedup_key"
     ON "DrNrpgWebhookEvent" ("integrationId", "drNrpgJobId", "eventTimestamp", "eventType");
 
 CREATE INDEX IF NOT EXISTS "DrNrpgWebhookEvent_integrationId_idx"
@@ -46,3 +48,11 @@ BEGIN
             ON DELETE CASCADE ON UPDATE CASCADE;
     END IF;
 END $$;
+
+-- Server/service-role-only idempotency ledger (SERVICE_ONLY): enable RLS
+-- default-deny (no tenant policy) so the table is invisible to any anon/
+-- authenticated client, matching the sibling operational tables
+-- (IdempotencyRecord, DrNrpgWebhookLog). Prisma's service-role connection
+-- bypasses RLS, so the webhook handler is unaffected. Satisfies the RA-6677
+-- schema-derived RLS-coverage gate.
+ALTER TABLE "DrNrpgWebhookEvent" ENABLE ROW LEVEL SECURITY;
