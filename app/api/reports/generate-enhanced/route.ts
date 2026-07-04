@@ -284,40 +284,60 @@ export async function POST(request: NextRequest) {
           },
         });
       } else {
-        // Create new report first; deduct credit only after it lands.
-        // RA-1298: previously deducted then created, so a post-deduct create
-        // failure wasted the user's credit with nothing to show for it.
-        savedReport = await prisma.report.create({
-          data: {
-            title: `WD-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
-            clientName: clientName || "To be completed",
-            propertyAddress: propertyAddress || "To be completed",
-            hazardType: "Water",
-            insuranceType: "Building and Contents Insurance",
-            status: "DRAFT",
-            userId: userId,
-            detailedReport: enhancedReport,
-            equipmentUsed: JSON.stringify({
-              technicianNotes,
-              dateOfAttendance,
-              clientContacted,
-              technicianName,
-              clientEmail,
-              clientPhone,
-              photos: photos || [],
-            }),
-          },
-        });
-
+        // RA-6982 — charge BEFORE creating the report. The canCreateReport
+        // pre-check above is advisory (and avoids burning AI tokens for an
+        // at-cap user); the authoritative atomic charge is here. At-cap, or in
+        // the race window past that gate, the atomic deduct throws
+        // INSUFFICIENT_CREDITS → 402 and NO report row is created — the previous
+        // "create then deduct, swallow the throw" gave a free report. A
+        // post-charge create failure is compensated with a single refund.
+        const { deductCreditsAndTrackUsage, refundCreditsAndTrackUsage } =
+          await import("@/lib/report-limits");
         try {
-          const { deductCreditsAndTrackUsage } =
-            await import("@/lib/report-limits");
           await deductCreditsAndTrackUsage(userId);
         } catch (creditError) {
-          console.error(
-            "[generate-enhanced] Credit deduction failed after report create",
-            { reportId: savedReport.id, error: creditError },
-          );
+          if (
+            creditError instanceof Error &&
+            creditError.message === "INSUFFICIENT_CREDITS"
+          ) {
+            return NextResponse.json(
+              {
+                error: "No credits remaining. Please subscribe to continue.",
+                upgradeRequired: true,
+              },
+              { status: 402 },
+            );
+          }
+          throw creditError;
+        }
+
+        try {
+          savedReport = await prisma.report.create({
+            data: {
+              title: `WD-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
+              clientName: clientName || "To be completed",
+              propertyAddress: propertyAddress || "To be completed",
+              hazardType: "Water",
+              insuranceType: "Building and Contents Insurance",
+              status: "DRAFT",
+              userId: userId,
+              detailedReport: enhancedReport,
+              equipmentUsed: JSON.stringify({
+                technicianNotes,
+                dateOfAttendance,
+                clientContacted,
+                technicianName,
+                clientEmail,
+                clientPhone,
+                photos: photos || [],
+              }),
+            },
+          });
+        } catch (createError) {
+          // Charged but the report never persisted — refund the slot
+          // (best-effort, never throws) before re-raising.
+          await refundCreditsAndTrackUsage(userId);
+          throw createError;
         }
       }
 

@@ -528,10 +528,11 @@ export async function deductCreditsAndTrackUsage(
  *    flag, never thrown — a failed refund must not mask the original error nor
  *    crash the request. Each leg is isolated so one failing leg doesn't abort
  *    the others.
- *  - Idempotent-friendly: counters are clamped at 0 so a stray double-refund
- *    (or a refund of a charge that hit the trial floor) can't push
- *    creditsRemaining above a sane state or drive monthlyReportsUsed /
- *    totalCreditsUsed negative.
+ *  - Idempotent-friendly: every leg is a guarded atomic decrement
+ *    (updateMany where counter gte 1). The DB-side guard — not a JS clamp —
+ *    means a stray double-refund (or a refund of a charge that hit the trial
+ *    floor) is a clean no-op: it can't drive a counter negative nor inflate
+ *    creditsRemaining above a sane state.
  *
  * @returns `{ refunded }` — true if every leg that was attempted succeeded.
  */
@@ -566,15 +567,12 @@ export async function refundCreditsAndTrackUsage(
     })
     .catch(() => null);
 
+  // Only the subscription status is read here — the counter values are never
+  // read-then-written; each leg below decrements atomically with a WHERE guard.
   const admin = await prisma.user
     .findUnique({
       where: { id: adminId },
-      select: {
-        subscriptionStatus: true,
-        creditsRemaining: true,
-        totalCreditsUsed: true,
-        monthlyReportsUsed: true,
-      },
+      select: { subscriptionStatus: true },
     })
     .catch(() => null);
 
@@ -586,78 +584,55 @@ export async function refundCreditsAndTrackUsage(
   }
 
   // --- Invert the admin-side charge ------------------------------------------
+  // Guarded atomic decrement (rule 6) — the `gte: 1` WHERE guard replaces the
+  // old JS clamp AND makes the refund race-safe: a concurrent create's atomic
+  // increment can no longer be clobbered by an absolute write, and a refund
+  // racing the monthly rollover can't stamp a stale prior-month value over the
+  // freshly-reset counter.
   if (admin.subscriptionStatus === "TRIAL") {
-    // Inverse of: creditsRemaining -1, totalCreditsUsed +1.
-    // Clamp totalCreditsUsed at 0 so a double-refund can't go negative.
-    const restoredTotal = Math.max(0, (admin.totalCreditsUsed ?? 0) - 1);
+    // Inverse of the trial charge: creditsRemaining +1, totalCreditsUsed -1.
+    // Both live in one guarded write so a stray double-refund (totalCreditsUsed
+    // already at the 0 floor) is a clean no-op — it can neither drive
+    // totalCreditsUsed negative nor inflate creditsRemaining above a sane state.
     await safe("trial-admin", () =>
-      prisma.user.update({
-        where: { id: adminId },
+      prisma.user.updateMany({
+        where: { id: adminId, totalCreditsUsed: { gte: 1 } },
         data: {
           creditsRemaining: { increment: 1 },
-          totalCreditsUsed: restoredTotal,
+          totalCreditsUsed: { decrement: 1 },
         },
       }),
     );
   } else if (admin.subscriptionStatus === "ACTIVE") {
-    // Inverse of the monthly-usage increment. The deduct may have *reset* the
-    // counter to 1 (start of a new period) or incremented it; either way the
-    // single charge we're refunding is worth exactly one slot. Clamp at 0 —
-    // never decrement a freshly-reset 0 into the negatives.
-    const restoredMonthly = Math.max(0, (admin.monthlyReportsUsed ?? 0) - 1);
+    // Inverse of the monthly-usage increment — worth exactly one slot. The
+    // `gte: 1` guard never decrements a freshly-reset 0 into the negatives.
     await safe("active-admin", () =>
-      prisma.user.update({
-        where: { id: adminId },
-        data: { monthlyReportsUsed: restoredMonthly },
+      prisma.user.updateMany({
+        where: { id: adminId, monthlyReportsUsed: { gte: 1 } },
+        data: { monthlyReportsUsed: { decrement: 1 } },
       }),
     );
   }
 
   // --- Invert the manager-side usage tracking --------------------------------
   if (creator && creator.role === "USER" && creator.managedById) {
-    const manager = await prisma.user
-      .findUnique({
-        where: { id: creator.managedById },
-        select: { totalCreditsUsed: true },
-      })
-      .catch(() => null);
-    if (manager) {
-      await safe("manager", () =>
-        prisma.user.update({
-          where: { id: creator.managedById as string },
-          data: {
-            totalCreditsUsed: Math.max(0, (manager.totalCreditsUsed ?? 0) - 1),
-          },
-        }),
-      );
-    } else {
-      allOk = false;
-    }
+    const managerId = creator.managedById;
+    await safe("manager", () =>
+      prisma.user.updateMany({
+        where: { id: managerId, totalCreditsUsed: { gte: 1 } },
+        data: { totalCreditsUsed: { decrement: 1 } },
+      }),
+    );
   }
 
   // --- Invert the creator-side usage tracking (only if creator != admin) -----
   if (creatorUserId !== adminId) {
-    const creatorRow = await prisma.user
-      .findUnique({
-        where: { id: creatorUserId },
-        select: { totalCreditsUsed: true },
-      })
-      .catch(() => null);
-    if (creatorRow) {
-      await safe("creator", () =>
-        prisma.user.update({
-          where: { id: creatorUserId },
-          data: {
-            totalCreditsUsed: Math.max(
-              0,
-              (creatorRow.totalCreditsUsed ?? 0) - 1,
-            ),
-          },
-        }),
-      );
-    } else {
-      allOk = false;
-    }
+    await safe("creator", () =>
+      prisma.user.updateMany({
+        where: { id: creatorUserId, totalCreditsUsed: { gte: 1 } },
+        data: { totalCreditsUsed: { decrement: 1 } },
+      }),
+    );
   }
 
   return { refunded: allOk };
