@@ -163,12 +163,17 @@ export async function POST(
         reason: result.reason,
         detail: result.detail,
       });
+      // RA-6941 — KEY_INVALID (provider 401, rotated/revoked BYOK key) must
+      // surface as a 4xx pointing the user at Settings -> AI Providers, not
+      // fall through to the generic 500 below.
       const status =
         result.reason === "RATE_LIMITED"
           ? 429
           : result.reason === "MODEL_OVERLOADED"
             ? 503
-            : 500;
+            : result.reason === "KEY_INVALID"
+              ? 402
+              : 500;
       const headers: Record<string, string> =
         result.retryAfterMs != null
           ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
