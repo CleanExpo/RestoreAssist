@@ -486,6 +486,90 @@ describe("RA-6979 residual leak classes", () => {
     expect(flagged).not.toContain("app/api/admin/leak1-admin/route.ts");
   });
 
+  it("leak class 1 (module-scope singleton): flags routes importing a lib whose env-key client is instantiated at module scope", () => {
+    const flagged = auditFixture({
+      // The canonical SDK pattern: the client singleton lives at file top,
+      // OUTSIDE every function body, so the per-export body scan alone never
+      // sees the env read. Every export can close over the singleton, so the
+      // module's WHOLE export surface must be seeded.
+      "lib/inline/env-singleton.ts": `
+        import Anthropic from "@anthropic-ai/sdk";
+        const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        export async function classifyWithSingleton(input: string) {
+          return client.messages.create({
+            model: "claude-haiku-4-5",
+            max_tokens: 50,
+            messages: [{ role: "user", content: input }],
+          });
+        }
+        export async function summariseWithSingleton(input: string) {
+          return client.messages.create({
+            model: "claude-haiku-4-5",
+            max_tokens: 100,
+            messages: [{ role: "user", content: input }],
+          });
+        }
+      `,
+      "app/api/leak1-singleton/route.ts": `
+        import { classifyWithSingleton } from "@/lib/inline/env-singleton";
+        export async function POST(req: Request) {
+          return Response.json(await classifyWithSingleton(await req.text()));
+        }
+      `,
+      // The sibling export closes over the same singleton — flagged too.
+      "app/api/leak1-singleton-sibling/route.ts": `
+        import { summariseWithSingleton } from "@/lib/inline/env-singleton";
+        export async function POST(req: Request) {
+          return Response.json(await summariseWithSingleton(await req.text()));
+        }
+      `,
+      // A platform-ops (admin) route on the same lib — allowlisted, not flagged.
+      "app/api/admin/leak1-singleton-admin/route.ts": `
+        import { classifyWithSingleton } from "@/lib/inline/env-singleton";
+        export async function POST(req: Request) {
+          return Response.json(await classifyWithSingleton(await req.text()));
+        }
+      `,
+    });
+
+    expect(flagged).toContain("app/api/leak1-singleton/route.ts");
+    expect(flagged).toContain("app/api/leak1-singleton-sibling/route.ts");
+    expect(flagged).not.toContain("app/api/admin/leak1-singleton-admin/route.ts");
+  });
+
+  it("leak class 1 (module-scope singleton): keeps an in-function lazy cache at per-export granularity", () => {
+    // The lib/testimonial/transcribe.ts pattern: the client is instantiated
+    // inside a NON-exported lazy helper — a FUNCTION body, not module scope.
+    // The module must NOT be full-surface seeded, so an importer of the inert
+    // sibling export stays clean.
+    const flagged = auditFixture({
+      "lib/inline/lazy-client.ts": `
+        import OpenAI from "openai";
+        let cached: OpenAI | null = null;
+        function defaultClient(): OpenAI {
+          if (!cached) {
+            cached = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+          }
+          return cached;
+        }
+        export async function transcribeWithLazyClient(audio: Buffer) {
+          return defaultClient().audio;
+        }
+        export function inertHelper(input: string) {
+          return input.trim().length;
+        }
+      `,
+      "app/api/lazy-inert/route.ts": `
+        import { inertHelper } from "@/lib/inline/lazy-client";
+        export async function POST(req: Request) {
+          return Response.json({ n: inertHelper(await req.text()) });
+        }
+      `,
+    });
+
+    expect(flagged).not.toContain("app/api/lazy-inert/route.ts");
+  });
+
   it("leak class 2: flags a route importing a tainted delegate through a named re-export barrel", () => {
     const flagged = auditFixture({
       "lib/gateway/key-helper.ts": keyHelper,

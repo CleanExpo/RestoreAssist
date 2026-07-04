@@ -726,13 +726,84 @@ function extractExportedFunctionBodies(strippedContent: string): Map<string, str
   return bodies;
 }
 
+const PROVIDER_CLIENT_NEW_PATTERN =
+  /\bnew\s+(?:Anthropic|OpenAI|GoogleGenerativeAI)\s*\(/;
+
+/**
+ * RA-6979 (leak class 1, module-scope variant) — detect the canonical SDK
+ * singleton: a provider client instantiated at MODULE scope (curly-brace depth
+ * 0 of the string/comment-stripped source — outside every function body,
+ * exported or not) with the platform env key. `strippedContent` MUST be
+ * pre-stripped so the brace-depth scan can't be fooled by braces inside
+ * literals. The env-key read may sit inside the constructor arguments
+ * (`new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })`) or in a
+ * separate top-level statement (`const key = process.env...;`); both count.
+ * A BYOK marker in the same module-scope text suppresses the match, mirroring
+ * the body-scoped suppression used for per-export seeding. An instantiation
+ * inside a NON-exported lazy helper (lib/testimonial/transcribe.ts's
+ * defaultClient) sits at depth >= 1 and deliberately does NOT match — that
+ * shape stays at per-export granularity.
+ */
+function hasModuleScopeEnvClientSingleton(strippedContent: string): boolean {
+  const instantiation = new RegExp(PROVIDER_CLIENT_NEW_PATTERN.source, "g");
+  let topLevelText: string | null = null;
+  let match: RegExpExecArray | null;
+  while ((match = instantiation.exec(strippedContent)) !== null) {
+    let depth = 0;
+    for (let i = 0; i < match.index; i++) {
+      const ch = strippedContent[i];
+      if (ch === "{") depth++;
+      else if (ch === "}") depth--;
+    }
+    if (depth !== 0) continue;
+
+    // Balanced-paren slice of the constructor arguments (they nest one object
+    // literal deep, so they are NOT part of the depth-0 text below).
+    let index = match.index + match[0].length;
+    const argsStart = index;
+    let parenDepth = 1;
+    while (index < strippedContent.length && parenDepth > 0) {
+      const ch = strippedContent[index];
+      if (ch === "(") parenDepth++;
+      else if (ch === ")") parenDepth--;
+      index++;
+    }
+    const args = strippedContent.slice(argsStart, index - 1);
+
+    if (topLevelText === null) {
+      topLevelText = "";
+      let braceDepth = 0;
+      for (const ch of strippedContent) {
+        if (ch === "{") braceDepth++;
+        else if (ch === "}") braceDepth--;
+        else if (braceDepth === 0) topLevelText += ch;
+      }
+    }
+
+    const moduleScope = `${topLevelText}\n${args}`;
+    if (
+      AI_PROVIDER_KEY_ENV_PATTERN.test(moduleScope) &&
+      !BYOK_MARKERS.some((marker) => moduleScope.includes(marker))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * RA-6979 (leak class 1) — the exported names of a lib module that instantiate
  * an AI provider client with the PLATFORM env key inline (not via the curated
  * getAnthropicApiKey/selectAnthropicApiKey helpers, and not resolving BYOK).
  * Importing and calling such an export spends the platform key on the caller's
- * workload; seeding only these names (never inert sibling exports) lets a
- * customer route that imports one become a tainted delegate.
+ * workload. HYBRID seed granularity:
+ *   - in-function instantiation: only the instantiating export name is seeded,
+ *     so inert sibling exports (a rule-based classifier, a constant) never
+ *     taint their callers; and
+ *   - module-scope singleton (`const client = new Anthropic({ apiKey:
+ *     process.env.ANTHROPIC_API_KEY })` at file top — the canonical SDK
+ *     pattern): EVERY export can close over the singleton, so the module's
+ *     whole export surface is seeded.
  */
 function extractInlineEnvSpenderExports(content: string): Set<string> {
   const stripped = stripStringsAndComments(content);
@@ -740,9 +811,14 @@ function extractInlineEnvSpenderExports(content: string): Set<string> {
   for (const [name, body] of extractExportedFunctionBodies(stripped)) {
     if (
       AI_PROVIDER_KEY_ENV_PATTERN.test(body) &&
-      /\bnew\s+(?:Anthropic|OpenAI|GoogleGenerativeAI)\s*\(/.test(body) &&
+      PROVIDER_CLIENT_NEW_PATTERN.test(body) &&
       !BYOK_MARKERS.some((marker) => body.includes(marker))
     ) {
+      spenders.add(name);
+    }
+  }
+  if (hasModuleScopeEnvClientSingleton(stripped)) {
+    for (const name of extractExportedNames(content)) {
       spenders.add(name);
     }
   }
