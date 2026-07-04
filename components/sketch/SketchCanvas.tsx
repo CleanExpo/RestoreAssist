@@ -947,17 +947,17 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               d.type === "guide"
             )
               continue;
-            // Polygon rooms: extract points
-            const pts = (o as { points?: Point[] }).points;
-            if (pts) {
-              for (const p of pts) allPoints.push(p);
+            // Polygon rooms: extract absolute points (account for move/scale/rotate)
+            const polyPts = polygonAbsolutePoints(o);
+            if (polyPts) {
+              for (const p of polyPts) allPoints.push(p);
               continue;
             }
-            // Lines: x1/y1/x2/y2
-            const lo = o as { x1?: number; y1?: number; x2?: number; y2?: number };
-            if (lo.x1 !== undefined) {
-              allPoints.push({ x: lo.x1, y: lo.y1 ?? 0 });
-              allPoints.push({ x: lo.x2 ?? 0, y: lo.y2 ?? 0 });
+            // Lines: absolute endpoints (account for move/scale/rotate)
+            const wallSeg = wallAbsoluteSegment(o);
+            if (wallSeg) {
+              allPoints.push(wallSeg.a);
+              allPoints.push(wallSeg.b);
             }
           }
           if (allPoints.length < 2) return;
