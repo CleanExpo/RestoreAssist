@@ -27,7 +27,13 @@ import {
   DEFAULT_PX_PER_METRE,
   type Point,
 } from "@/lib/sketch/tool-objects";
-import { snapPointToGrid, snapSegmentEnd } from "@/lib/sketch/geometry-utils";
+import {
+  snapPointToGrid,
+  snapSegmentEnd,
+  formatDimension,
+  segmentLabelPosition,
+  footprintDimensions,
+} from "@/lib/sketch/geometry-utils";
 import {
   exportSketchPng,
   type ExportableCanvas,
@@ -358,21 +364,31 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           label?.set({ left: c.x, top: c.y });
           label?.setCoords();
         };
+        // Returns true if the Fabric object is a display-only decoration
+        // (dim-label or room-label) that must NOT enter the undo stack.
+        const isDecoration = (obj: unknown): boolean => {
+          const t = (obj as { data?: { type?: string } } | undefined)?.data?.type;
+          return t === "dim-label" || t === "room-label";
+        };
+
         canvas.on("object:modified", (opt: unknown) => {
-          syncRoomLabel((opt as { target?: unknown } | undefined)?.target);
-          if (!isLoadingRef.current) {
+          const target = (opt as { target?: unknown } | undefined)?.target;
+          syncRoomLabel(target);
+          if (!isLoadingRef.current && !isDecoration(target)) {
             saveState();
             onModified?.();
           }
         });
-        canvas.on("object:added", () => {
-          if (!isLoadingRef.current) {
+        canvas.on("object:added", (opt: unknown) => {
+          const target = (opt as { target?: unknown } | undefined)?.target;
+          if (!isLoadingRef.current && !isDecoration(target)) {
             saveState();
             onModified?.();
           }
         });
-        canvas.on("object:removed", () => {
-          if (!isLoadingRef.current) {
+        canvas.on("object:removed", (opt: unknown) => {
+          const target = (opt as { target?: unknown } | undefined)?.target;
+          if (!isLoadingRef.current && !isDecoration(target)) {
             saveState();
             onModified?.();
           }
@@ -482,6 +498,175 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           return obj;
         };
 
+        // ── RA-6842 [A3] — Dimension string helpers ────────────────────────────
+        // `liveDimLabel` is a transient Text that shows the current drag length;
+        // it is replaced on every mouse:move and removed on mouse:up/dblclick.
+        // It is NOT added to the undo stack (not part of the measured geometry).
+        let liveDimLabel: unknown = null;
+
+        const removeLiveDimLabel = () => {
+          if (liveDimLabel) {
+            (canvas as unknown as { remove: (...o: unknown[]) => void }).remove(
+              liveDimLabel,
+            );
+            liveDimLabel = null;
+          }
+        };
+
+        const makeDimText = (text: string, x: number, y: number): unknown => {
+          const t = new F.Text(text, {
+            left: x,
+            top: y,
+            fontSize: 11,
+            fill: "#ffffff",
+            backgroundColor: "#1C2E47",
+            originX: "center",
+            originY: "center",
+            selectable: false,
+            evented: false,
+            padding: 2,
+          });
+          (t as { data?: unknown }).data = { type: "dim-label" };
+          return t;
+        };
+
+        /**
+         * Add per-edge dimension strings for a completed room polygon.
+         * Each edge gets one Text label placed perpendicular to the midpoint,
+         * outside the room. Labels are non-selectable/non-measured decoration.
+         */
+        const addRoomEdgeDimLabels = (
+          points: Point[],
+          roomId: string,
+        ) => {
+          const c = canvas as unknown as { add: (...o: unknown[]) => void };
+          const scale = pxPerMetreRef.current;
+          for (let i = 0; i < points.length; i++) {
+            const a = points[i];
+            const b = points[(i + 1) % points.length];
+            const px = Math.hypot(b.x - a.x, b.y - a.y);
+            const text = formatDimension(px, scale);
+            const { labelPos } = segmentLabelPosition(a, b, 18);
+            const lbl = makeDimText(text, labelPos.x, labelPos.y);
+            (lbl as { data?: unknown }).data = {
+              type: "dim-label",
+              dimFor: roomId,
+            };
+            c.add(lbl);
+          }
+        };
+
+        /**
+         * Remove all "dim-label" objects from the canvas (called before
+         * re-drawing overall footprint so stale labels never accumulate).
+         */
+        const removeFootprintLabels = () => {
+          const c = canvas as unknown as {
+            getObjects: () => unknown[];
+            remove: (...o: unknown[]) => void;
+          };
+          const toRemove = c
+            .getObjects()
+            .filter(
+              (o) =>
+                (o as { data?: { type?: string } }).data?.type === "dim-label" &&
+                !(o as { data?: { dimFor?: string } }).data?.dimFor,
+            );
+          if (toRemove.length) c.remove(...toRemove);
+        };
+
+        /**
+         * Recompute + redraw the overall footprint dimension strings (width × height)
+         * using all non-decoration canvas points. Draws two dimension lines with
+         * tick marks and labels, outside the plan bounding box.
+         */
+        const refreshFootprintDimensions = () => {
+          const c = canvas as unknown as {
+            getObjects: () => unknown[];
+            add: (...o: unknown[]) => void;
+            renderAll: () => void;
+          };
+          removeFootprintLabels();
+
+          // Collect all measured geometry points (ignore text/label decorations)
+          const allPoints: Point[] = [];
+          for (const o of c.getObjects()) {
+            const d = (o as { data?: Record<string, unknown> }).data;
+            if (
+              !d ||
+              d.type === "dim-label" ||
+              d.type === "room-label" ||
+              d.type === "text" ||
+              d.type === "arrow" ||
+              d.type === "photo"
+            )
+              continue;
+            // Polygon rooms: extract points
+            const pts = (o as { points?: Point[] }).points;
+            if (pts) {
+              for (const p of pts) allPoints.push(p);
+              continue;
+            }
+            // Lines: x1/y1/x2/y2
+            const lo = o as { x1?: number; y1?: number; x2?: number; y2?: number };
+            if (lo.x1 !== undefined) {
+              allPoints.push({ x: lo.x1, y: lo.y1 ?? 0 });
+              allPoints.push({ x: lo.x2 ?? 0, y: lo.y2 ?? 0 });
+            }
+          }
+          if (allPoints.length < 2) return;
+
+          const scale = pxPerMetreRef.current;
+          const fp = footprintDimensions(allPoints, 32);
+          if (fp.widthPx < 1 && fp.heightPx < 1) return;
+
+          // Width dimension line (top)
+          if (fp.widthPx > 0) {
+            const lineW = new F.Line(
+              [fp.topTick[0].x, fp.topTick[0].y, fp.topTick[1].x, fp.topTick[1].y],
+              {
+                stroke: "#64748b",
+                strokeWidth: 1,
+                strokeDashArray: [4, 3],
+                selectable: false,
+                evented: false,
+              },
+            );
+            (lineW as { data?: unknown }).data = { type: "dim-label" };
+            c.add(lineW);
+            const lblW = makeDimText(
+              formatDimension(fp.widthPx, scale),
+              fp.widthLabelPos.x,
+              fp.widthLabelPos.y,
+            );
+            c.add(lblW);
+          }
+
+          // Height dimension line (left)
+          if (fp.heightPx > 0) {
+            const lineH = new F.Line(
+              [fp.leftTick[0].x, fp.leftTick[0].y, fp.leftTick[1].x, fp.leftTick[1].y],
+              {
+                stroke: "#64748b",
+                strokeWidth: 1,
+                strokeDashArray: [4, 3],
+                selectable: false,
+                evented: false,
+              },
+            );
+            (lineH as { data?: unknown }).data = { type: "dim-label" };
+            c.add(lineH);
+            const lblH = makeDimText(
+              formatDimension(fp.heightPx, scale),
+              fp.heightLabelPos.x,
+              fp.heightLabelPos.y,
+            );
+            c.add(lblH);
+          }
+
+          c.renderAll();
+        };
+
         const addToolObject = (d: ReturnType<typeof describeToolObject>) => {
           if (!d) return;
           const obj = materialize(d);
@@ -514,7 +699,28 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               type: "room-label",
               roomFor: roomId,
             };
+            // RA-6842 [A3]: per-edge dimension labels for completed rooms.
             c.add(obj, labelObj);
+            addRoomEdgeDimLabels(
+              d.props.points as Point[],
+              roomId,
+            );
+            c.setActiveObject(obj);
+            canvas.renderAll();
+            return;
+          }
+          // RA-6842 [A3]: per-wall dimension label for standalone line/wall tool.
+          if (d.kind === "line" && d.data.type === "wall") {
+            c.add(obj);
+            const lp = d.props as { x1: number; y1: number; x2: number; y2: number };
+            const a = { x: lp.x1, y: lp.y1 };
+            const b = { x: lp.x2, y: lp.y2 };
+            const px = Math.hypot(b.x - a.x, b.y - a.y);
+            const text = formatDimension(px, pxPerMetreRef.current);
+            const { labelPos } = segmentLabelPosition(a, b, 18);
+            const dimLbl = makeDimText(text, labelPos.x, labelPos.y);
+            (dimLbl as { data?: unknown }).data = { type: "dim-label", dimFor: `wall-${Date.now()}` };
+            c.add(dimLbl);
             c.setActiveObject(obj);
             canvas.renderAll();
             return;
@@ -563,6 +769,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         canvas.on("mouse:up", (opt: unknown) => {
           const tool = toolModeRef.current;
           const start = drawStartRef.current;
+          // RA-6842 [A3]: remove the live dim label on mouse:up regardless of tool.
+          removeLiveDimLabel();
           if (!start) return;
           drawStartRef.current = null;
           if (tool === "line" || tool === "measure" || tool === "arrow") {
@@ -578,6 +786,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         });
 
         canvas.on("mouse:dblclick", () => {
+          // RA-6842 [A3]: remove the live dim label when room drawing closes.
+          removeLiveDimLabel();
           if (
             toolModeRef.current === "room" &&
             polygonPtsRef.current.length >= 3
@@ -592,6 +802,73 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           }
           polygonPtsRef.current = [];
         });
+
+        // ── RA-6842 [A3]: live dimension label on mouse:move ────────────────
+        // Shows a transient dim label during drag (line/wall/measure/arrow)
+        // and during room polygon construction (last vertex to current cursor).
+        canvas.on("mouse:move", (opt: unknown) => {
+          const tool = toolModeRef.current;
+          const c = canvas as unknown as {
+            add: (...o: unknown[]) => void;
+            remove: (...o: unknown[]) => void;
+            renderAll: () => void;
+          };
+          const e = (opt as { e: MouseEvent }).e;
+          const cur = scenePoint(e);
+
+          // Drag tools: line / wall / measure / arrow
+          const dragStart = drawStartRef.current;
+          if (
+            dragStart &&
+            (tool === "line" || tool === "measure" || tool === "arrow")
+          ) {
+            removeLiveDimLabel();
+            const end = snapEnd(dragStart, cur);
+            const px = Math.hypot(end.x - dragStart.x, end.y - dragStart.y);
+            if (px > 2) {
+              const text = formatDimension(px, pxPerMetreRef.current);
+              const { labelPos } = segmentLabelPosition(dragStart, end, 18);
+              liveDimLabel = makeDimText(text, labelPos.x, labelPos.y);
+              c.add(liveDimLabel);
+              c.renderAll();
+            }
+            return;
+          }
+
+          // Room drawing: show dim from the last clicked vertex to cursor
+          const pts = polygonPtsRef.current;
+          if (tool === "room" && pts.length > 0) {
+            removeLiveDimLabel();
+            const last = pts[pts.length - 1];
+            const snapped = snapVertex(cur);
+            const px = Math.hypot(snapped.x - last.x, snapped.y - last.y);
+            if (px > 2) {
+              const text = formatDimension(px, pxPerMetreRef.current);
+              const { labelPos } = segmentLabelPosition(last, snapped, 18);
+              liveDimLabel = makeDimText(text, labelPos.x, labelPos.y);
+              c.add(liveDimLabel);
+              c.renderAll();
+            }
+          }
+        });
+
+        // ── RA-6842 [A3]: refresh overall footprint on geometry changes ──────
+        // `isRefreshingFootprint` prevents the footprint re-draw (which calls
+        // canvas.add/remove) from re-triggering itself indefinitely.
+        let isRefreshingFootprint = false;
+        const refreshFootprintOnChange = (opt: unknown) => {
+          if (isLoadingRef.current || isRefreshingFootprint) return;
+          // Skip if the changed object is a decoration (dim-label / room-label)
+          const target = (opt as { target?: { data?: { type?: string } } } | undefined)?.target;
+          const ttype = target?.data?.type;
+          if (ttype === "dim-label" || ttype === "room-label") return;
+          isRefreshingFootprint = true;
+          refreshFootprintDimensions();
+          isRefreshingFootprint = false;
+        };
+        canvas.on("object:added", refreshFootprintOnChange);
+        canvas.on("object:modified", refreshFootprintOnChange);
+        canvas.on("object:removed", refreshFootprintOnChange);
 
         // ── Keyboard shortcuts ──
         const handleKeyDown = (e: KeyboardEvent) => {
