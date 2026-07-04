@@ -15,7 +15,8 @@
  *  - getServerSession required (CLAUDE.md rule 1)
  *  - Subscription gate allowlist: TRIAL / ACTIVE / LIFETIME (rule 8)
  *  - Rate limit: 10/min/user (ticket)
- *  - Anthropic key via getAnthropicApiKey(userId) — no env fallback
+ *  - Anthropic key via resolveWorkspaceAiKey(userId, "ANTHROPIC") (RA-6960) —
+ *    the workspace's own BYOK key, never the platform ANTHROPIC_API_KEY
  *  - IICRC S500:2021 §6 (structural drying chambers) cited in prompt
  */
 
@@ -25,6 +26,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { groupReadings } from "@/lib/services/ai/group-readings";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 import { apiError, fromException } from "@/lib/api-errors";
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
@@ -133,8 +138,29 @@ export async function POST(
       } satisfies GroupResponse);
     }
 
+    // RA-6960 (BYOK, P1) — resolve the workspace's own Anthropic key and pass it
+    // through to groupReadings; never spend the platform ANTHROPIC_API_KEY. On
+    // no key, return the 402 NoWorkspaceKeyError shape (sibling classify
+    // pattern). Resolved after the 0/1-reading short-circuits above, which make
+    // no AI call and so need no key.
+    let anthropicApiKey: string;
+    try {
+      anthropicApiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC"))
+        .apiKey;
+    } catch (err) {
+      if (err instanceof NoWorkspaceKeyError) {
+        return apiError(request, {
+          code: "PAYMENT_REQUIRED",
+          message: err.message,
+          status: 402,
+        });
+      }
+      throw err;
+    }
+
     const result = await groupReadings({
       userId,
+      apiKey: anthropicApiKey,
       payload: { readings },
     });
 
