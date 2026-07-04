@@ -55,6 +55,68 @@ describe('BusinessDetailsCard', () => {
     expect(screen.getByPlaceholderText(/legal name/i)).toBeInTheDocument();
   });
 
+  it('persists manually-entered legal name to the server on blur', async () => {
+    useSetupStore.getState().setSectionStatus('businessDetails', 'error');
+    render(<BusinessDetailsCard />);
+    const input = screen.getByPlaceholderText(/^legal name$/i);
+    fireEvent.change(input, { target: { value: 'Acme Restoration Pty Ltd' } });
+    fireEvent.blur(input);
+
+    await vi.waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/setup/state',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ legalName: 'Acme Restoration Pty Ltd' }),
+        }),
+      );
+    });
+  });
+
+  it('persists manually-entered ABN to the server on blur', async () => {
+    useSetupStore.getState().setSectionStatus('businessDetails', 'manual');
+    render(<BusinessDetailsCard />);
+    const input = screen.getByPlaceholderText(/^abn$/i);
+    fireEvent.change(input, { target: { value: '53004085616' } });
+    fireEvent.blur(input);
+
+    await vi.waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/setup/state',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ abn: '53004085616' }),
+        }),
+      );
+    });
+  });
+
+  it('persists manually-entered state to the server on blur', async () => {
+    useSetupStore.getState().setSectionStatus('businessDetails', 'error');
+    render(<BusinessDetailsCard />);
+    const input = screen.getByPlaceholderText(/state \(nsw, vic, etc\.\)/i);
+    fireEvent.change(input, { target: { value: 'QLD' } });
+    fireEvent.blur(input);
+
+    await vi.waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/setup/state',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ state: 'QLD' }),
+        }),
+      );
+    });
+  });
+
+  it('updates local store immediately on change even before blur', () => {
+    useSetupStore.getState().setSectionStatus('businessDetails', 'error');
+    render(<BusinessDetailsCard />);
+    const input = screen.getByPlaceholderText(/^legal name$/i);
+    fireEvent.change(input, { target: { value: 'Acme Restoration Pty Ltd' } });
+    expect(useSetupStore.getState().org?.legalName).toBe('Acme Restoration Pty Ltd');
+  });
+
   it('shows running skeleton when status is running', () => {
     useSetupStore.getState().setSectionStatus('businessDetails', 'running');
     render(<BusinessDetailsCard />);

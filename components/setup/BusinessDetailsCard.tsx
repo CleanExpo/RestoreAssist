@@ -7,14 +7,41 @@ import { Input } from '@/components/ui/input';
 import { useSetupStore } from './store';
 import { isValidAbn, normaliseAbn } from '@/lib/abn/checksum';
 
+// Persists a single manually-entered org field — same PATCH endpoint the
+// brand/pricing manual-fallback cards use (see BrandCard.tsx `patchState`).
+async function patchState(field: string, value: string | null): Promise<void> {
+  await fetch('/api/setup/state', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ [field]: value }),
+  });
+}
+
 export function BusinessDetailsCard() {
   const status = useSetupStore((s) => s.sections.businessDetails);
   const org = useSetupStore((s) => s.org);
   const setSectionStatus = useSetupStore((s) => s.setSectionStatus);
+  const updateOrgField = useSetupStore((s) => s.updateOrgField);
   const [abn, setAbn] = useState<string>(org?.abn ?? '');
   const [website, setWebsite] = useState<string>(org?.website ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+
+  // Manual-fallback persistence: local store update is optimistic, the PATCH
+  // is what actually saves it — without this the field silently reverts to
+  // whatever the server has (or nothing) on the next hydrate/refresh.
+  const persistManualField = async (
+    field: 'legalName' | 'abn' | 'state',
+    value: string,
+  ) => {
+    setSaving((p) => ({ ...p, [field]: true }));
+    try {
+      await patchState(field, value || null);
+    } finally {
+      setSaving((p) => ({ ...p, [field]: false }));
+    }
+  };
 
   const normalised = normaliseAbn(abn);
   const canSubmit = !!normalised && isValidAbn(normalised) && !submitting;
@@ -164,19 +191,24 @@ export function BusinessDetailsCard() {
             <Input
               placeholder="Legal name"
               value={org?.legalName ?? ''}
-              onChange={(e) => useSetupStore.getState().updateOrgField('legalName', e.target.value)}
+              onChange={(e) => updateOrgField('legalName', e.target.value)}
+              onBlur={(e) => void persistManualField('legalName', e.target.value)}
             />
             <Input
               placeholder="ABN"
               value={org?.abn ?? ''}
-              onChange={(e) => useSetupStore.getState().updateOrgField('abn', e.target.value)}
+              onChange={(e) => updateOrgField('abn', e.target.value)}
+              onBlur={(e) => void persistManualField('abn', e.target.value)}
             />
             <Input
               placeholder="State (NSW, VIC, etc.)"
               value={org?.state ?? ''}
-              onChange={(e) => useSetupStore.getState().updateOrgField('state', e.target.value)}
+              onChange={(e) => updateOrgField('state', e.target.value)}
+              onBlur={(e) => void persistManualField('state', e.target.value)}
             />
-            {/* TODO(Phase 7+): PATCH /api/setup/state on blur to persist manual edits */}
+            {(saving.legalName || saving.abn || saving.state) && (
+              <span className="text-xs text-muted-foreground">Saving…</span>
+            )}
           </div>
         )}
       </CardContent>

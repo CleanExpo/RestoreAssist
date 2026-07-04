@@ -3,10 +3,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-errors";
+import { isValidAbn, normaliseAbn } from "@/lib/abn/checksum";
 
 const PATCHABLE_FIELDS = [
   "legalName",
   "tradingName",
+  "abn",
   "acn",
   "state",
   "address",
@@ -130,12 +132,31 @@ export async function PATCH(req: Request) {
 
   const patch: Record<string, string | null> = {};
   for (const field of PATCHABLE_FIELDS) {
-    if (field in body) {
-      const v = body[field];
-      if (v === null || v === undefined || v === "") patch[field] = null;
-      else if (typeof v === "string") patch[field] = v;
-      // Silently ignore non-string non-null values — don't 400 on every typo
+    if (!(field in body)) continue;
+    const v = body[field];
+
+    if (v === null || v === undefined || v === "") {
+      patch[field] = null;
+      continue;
     }
+    if (typeof v !== "string") continue; // Silently ignore non-string non-null values — don't 400 on every typo
+
+    if (field === "abn") {
+      // AU compliance: ABN is an 11-digit checksummed number — same validation
+      // as the ABR-lookup success path (POST /api/setup/hydrate).
+      const normalised = normaliseAbn(v);
+      if (!normalised || !isValidAbn(normalised)) {
+        return apiError(undefined, {
+          code: "VALIDATION",
+          message: "Invalid ABN",
+          status: 400,
+        });
+      }
+      patch.abn = normalised;
+      continue;
+    }
+
+    patch[field] = v;
   }
 
   if (Object.keys(patch).length === 0) {
