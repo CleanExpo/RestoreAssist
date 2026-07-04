@@ -12,6 +12,10 @@
  * a SUBSCRIPTION INVOICE. A refunded one-time addon/lifetime charge (no invoice
  * payment) — or a one-off invoice with no subscription linkage — on a customer
  * who also holds an active subscription must NOT cancel that subscription.
+ *
+ * RA-6976: revocation must also be scoped to the user's CURRENT subscription.
+ * A refund on a stale invoice from a subscription the user has since replaced
+ * (cancelled then re-subscribed) must NOT revoke the new, current subscription.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -93,7 +97,7 @@ describe("charge.refunded — scoped revocation (RA-6965/RA-6939)", () => {
     ).stripeWebhookEvent.create.mockResolvedValue({});
     (
       prisma as unknown as { user: { findFirst: ReturnType<typeof vi.fn> } }
-    ).user.findFirst.mockResolvedValue({ id: "user_1" });
+    ).user.findFirst.mockResolvedValue({ id: "user_1", subscriptionId: "sub_1" });
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
@@ -163,6 +167,62 @@ describe("charge.refunded — scoped revocation (RA-6965/RA-6939)", () => {
     expect(res.status).toBe(200);
     expect(invoicesRetrieve).toHaveBeenCalledWith("in_123");
     // downgradeUserToCanceled → prisma.user.update on the resolved user.
+    expect(userUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "user_1" },
+        data: expect.objectContaining({ subscriptionStatus: "CANCELED" }),
+      }),
+    );
+  });
+
+  it("RA-6976: does NOT cancel the CURRENT subscription when the refund belongs to a superseded (previous) subscription", async () => {
+    // The user cancelled sub_old and re-subscribed as sub_new. A late refund
+    // arrives on an invoice that still resolves to sub_old.
+    (
+      prisma as unknown as { user: { findFirst: ReturnType<typeof vi.fn> } }
+    ).user.findFirst.mockResolvedValue({
+      id: "user_1",
+      subscriptionId: "sub_new",
+    });
+
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(
+      makeChargeEvent({ payment_intent: "pi_sub_old" }) as never,
+    );
+    invoicePaymentsList.mockResolvedValue({
+      data: [{ invoice: "in_old" }],
+    });
+    invoicesRetrieve.mockResolvedValue({
+      id: "in_old",
+      parent: { subscription_details: { subscription: "sub_old" } },
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    // The current subscription (sub_new) must be left untouched.
+    expect(userUpdate).not.toHaveBeenCalled();
+  });
+
+  it("RA-6976: still cancels when the refund's invoice matches the user's CURRENT subscription", async () => {
+    (
+      prisma as unknown as { user: { findFirst: ReturnType<typeof vi.fn> } }
+    ).user.findFirst.mockResolvedValue({
+      id: "user_1",
+      subscriptionId: "sub_current",
+    });
+
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(
+      makeChargeEvent({ payment_intent: "pi_sub_current" }) as never,
+    );
+    invoicePaymentsList.mockResolvedValue({
+      data: [{ invoice: "in_current" }],
+    });
+    invoicesRetrieve.mockResolvedValue({
+      id: "in_current",
+      parent: { subscription_details: { subscription: "sub_current" } },
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
     expect(userUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "user_1" },
