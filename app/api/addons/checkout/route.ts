@@ -9,6 +9,12 @@ import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { getAppUrl } from "@/lib/app-url";
+import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import {
+  FLOORPLAN_UNDERLAY_SKU,
+  FLOORPLAN_ADDON_SUBSCRIPTION_TYPE,
+  FLOORPLAN_UNDERLAY_ADDON,
+} from "@/lib/billing/floorplan-underlay-addon";
 
 export async function POST(request: NextRequest) {
   // RA-1842 Path B — fail-closed for iOS Capacitor.
@@ -63,10 +69,17 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Validate addon key
-      const addon =
-        PRICING_CONFIG.addons[addonKey as keyof typeof PRICING_CONFIG.addons];
-      if (!addon) {
+      // RA-6922 — the floor-plan underlay is a RECURRING subscription add-on,
+      // not a one-time report pack. It is priced inline below (subscription
+      // mode) and is not in the PRICING_CONFIG.addons one-time catalog, so
+      // branch it around that validation.
+      const isFloorplanAddon = addonKey === FLOORPLAN_UNDERLAY_SKU;
+
+      // Validate the one-time add-on key (floorplan is priced separately below).
+      const addon = isFloorplanAddon
+        ? undefined
+        : PRICING_CONFIG.addons[addonKey as keyof typeof PRICING_CONFIG.addons];
+      if (!isFloorplanAddon && !addon) {
         return apiError(request, {
           code: "VALIDATION",
           message: "Invalid add-on",
@@ -126,6 +139,92 @@ export async function POST(request: NextRequest) {
             stage: "stripe-customer-create",
           });
         }
+      }
+
+      // RA-6922 — recurring subscription checkout for the floor-plan underlay
+      // add-on. Priced inline (subscription price_data) so no pre-created Stripe
+      // product/price is needed. The subscription is stamped with the workspace
+      // id + SKU so the webhook can toggle the FeatureEntitlement on lifecycle.
+      if (isFloorplanAddon) {
+        const workspace = await getWorkspaceForUser(userId);
+        if (!workspace) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "No workspace found for this account",
+            status: 404,
+          });
+        }
+
+        try {
+          const checkoutSession = await stripe.checkout.sessions.create({
+            mode: "subscription",
+            payment_method_types: ["card"],
+            customer: customerId,
+            line_items: [
+              {
+                price_data: {
+                  currency: FLOORPLAN_UNDERLAY_ADDON.currency.toLowerCase(),
+                  unit_amount: Math.round(FLOORPLAN_UNDERLAY_ADDON.amount * 100),
+                  // GST-inclusive (AU convention) — Stripe Tax breaks out the
+                  // 10% GST component rather than adding it on top of $11.
+                  tax_behavior: "inclusive" as const,
+                  recurring: { interval: "month" as const },
+                  product_data: {
+                    name: FLOORPLAN_UNDERLAY_ADDON.name,
+                    metadata: {
+                      sku: FLOORPLAN_UNDERLAY_SKU,
+                      addonKey,
+                    },
+                  },
+                },
+                quantity: 1,
+              },
+            ],
+            success_url: `${baseUrl}/dashboard/success?addon=${addonKey}&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
+            // Propagates onto the created Subscription so the webhook's
+            // customer.subscription.* handlers can identify this add-on and
+            // toggle the entitlement without touching the base-plan fields.
+            subscription_data: {
+              metadata: {
+                type: FLOORPLAN_ADDON_SUBSCRIPTION_TYPE,
+                sku: FLOORPLAN_UNDERLAY_SKU,
+                workspaceId: workspace.id,
+                userId: userId,
+              },
+            },
+            metadata: {
+              userId: userId,
+              addonKey: addonKey,
+              sku: FLOORPLAN_UNDERLAY_SKU,
+              workspaceId: workspace.id,
+              type: "addon_subscription",
+            },
+            // AU GST compliance — same as the one-time path.
+            automatic_tax: { enabled: true },
+            tax_id_collection: { enabled: true },
+            customer_update: { name: "auto", address: "auto" },
+          });
+
+          return NextResponse.json({
+            sessionId: checkoutSession.id,
+            url: checkoutSession.url,
+          });
+        } catch (stripeError) {
+          return fromException(request, stripeError, {
+            stage: "stripe-checkout-create",
+          });
+        }
+      }
+
+      // One-time report-pack path — `addon` is guaranteed defined here (the
+      // floorplan branch returned above and non-floorplan keys were validated).
+      if (!addon) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid add-on",
+          status: 400,
+        });
       }
 
       // Create one-time payment checkout session for add-on

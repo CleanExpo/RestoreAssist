@@ -54,7 +54,6 @@ import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchScaleModal } from "./SketchScaleModal";
 import type { ScaleConfig } from "./SketchScaleModal";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
-import { hasFloorPlanUnderlay } from "@/lib/billing/floor-plan-entitlement";
 import { UnderlayTransformControls } from "./UnderlayTransformControls";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
 import { createRenderFreshnessTracker } from "@/lib/sketch/render-freshness";
@@ -1464,8 +1463,9 @@ export function SketchEditorV2({
       </div>
 
       {/* ── Floor plan underlay panel ───────────────────────── */}
-      {/* F2: hidden until RA-6922 provisions the entitlement (always false today). */}
-      {!readonly && !guided && hasFloorPlanUnderlay(null) && (
+      {/* RA-6922: the scrape API (requireAddon → 402) is the authoritative gate,
+          surfaced by the loader as an upgrade CTA. Manual upload needs no add-on. */}
+      {!readonly && !guided && (
         <div className="px-4 pb-4 pt-2 border-t border-white/10 bg-brand-deep">
           <FloorPlanUnderlayLoader
             defaultAddress={propertyAddress}

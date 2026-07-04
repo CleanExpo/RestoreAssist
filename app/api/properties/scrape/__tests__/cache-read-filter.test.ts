@@ -43,9 +43,6 @@ vi.mock("@/lib/idempotency", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    // The route gates on entitlement before the cache read — mock a user so
-    // these cache tests run.
-    user: { findUnique: vi.fn() },
     propertyLookup: {
       findFirst: vi.fn(),
       upsert: vi.fn(),
@@ -53,11 +50,15 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-// F2 (RA-6929/6930/6931): the entitlement is gated off for everyone until
-// RA-6922, so the real predicate always 402s. These tests target the RA-1761
-// cache-read FILTER in isolation, so bypass the gate to reach that code path.
-vi.mock("@/lib/billing/floor-plan-entitlement", () => ({
-  hasFloorPlanUnderlay: () => true,
+// RA-6922: the route gates on requireAddon() before the cache read. These tests
+// target the RA-1761 cache-read FILTER in isolation, so grant the add-on so the
+// handler reaches that code path.
+vi.mock("@/lib/entitlements", () => ({
+  requireAddon: vi.fn(async () => ({
+    allowed: true,
+    sku: "FLOORPLAN_UNDERLAY",
+    workspaceId: "ws_test",
+  })),
 }));
 
 import { getServerSession } from "next-auth";
@@ -85,13 +86,6 @@ const mockUpsert = (
 beforeEach(() => {
   vi.clearAllMocks();
   mockSession.mockResolvedValue({ user: { id: "u_test" } });
-  // PR5 gate: default the caller to an entitled Premium user for these tests.
-  (
-    prisma as unknown as { user: { findUnique: ReturnType<typeof vi.fn> } }
-  ).user.findUnique.mockResolvedValue({
-    id: "u_test",
-    subscriptionTier: { tierName: "PREMIUM" },
-  });
   // Fail loudly if the test ever falls through to the scraper.
   vi.spyOn(global, "fetch").mockImplementation(async () => {
     throw new Error("fetch should not be called when cache hits");

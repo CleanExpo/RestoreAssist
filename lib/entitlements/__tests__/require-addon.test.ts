@@ -116,6 +116,20 @@ describe("requireAddon", () => {
     expect(mockFindUnique).not.toHaveBeenCalled();
   });
 
+  it("allows FLOORPLAN_UNDERLAY when entitled and 402s when not (RA-6922)", async () => {
+    mockFindUnique.mockResolvedValueOnce({ id: "fe_fp", active: true });
+    const allowed = await requireAddon("user_1", "FLOORPLAN_UNDERLAY");
+    expect(allowed.allowed).toBe(true);
+
+    mockFindUnique.mockResolvedValueOnce(null);
+    const denied = await requireAddon("user_1", "FLOORPLAN_UNDERLAY");
+    expect(denied.allowed).toBe(false);
+    if (!denied.allowed) {
+      expect(denied.reason).toBe("NOT_ENTITLED");
+      expect(denied.response.status).toBe(402);
+    }
+  });
+
   it("covers every declared add-on SKU as a valid key", async () => {
     mockFindUnique.mockResolvedValue({ id: "fe_x", active: true });
 

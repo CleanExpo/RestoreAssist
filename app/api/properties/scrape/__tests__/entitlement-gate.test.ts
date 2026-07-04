@@ -1,14 +1,14 @@
 /**
- * Floor-plan underlay gate.
+ * RA-6922 — floor-plan underlay add-on gate.
  *
- * F2 (RA-6929/6930/6931): with the tier catalog retired, the underlay has no
- * entitlement source until RA-6922, so EVERY user — including a would-be
- * Premium user — gets a fail-closed 402. This is the money-safety fix: we no
- * longer sell a "Premium" plan that never provisions the feature.
+ * The scrape route is gated by requireAddon(FLOORPLAN_UNDERLAY): a workspace
+ * with an ACTIVE FeatureEntitlement is allowed through; everyone else gets a
+ * fail-closed 402 the client turns into the upgrade CTA. requireAddon is mocked
+ * here so the test runs without a database.
  */
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
@@ -26,19 +26,20 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    user: { findUnique: vi.fn() },
     propertyLookup: { findFirst: vi.fn(), upsert: vi.fn() },
   },
+}));
+vi.mock("@/lib/entitlements", () => ({
+  requireAddon: vi.fn(),
 }));
 
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { requireAddon } from "@/lib/entitlements";
 import { POST } from "../route";
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
-const mockUser = (
-  prisma as unknown as { user: { findUnique: ReturnType<typeof vi.fn> } }
-).user.findUnique;
+const mockRequireAddon = requireAddon as unknown as ReturnType<typeof vi.fn>;
 const mockFindFirst = (
   prisma as unknown as {
     propertyLookup: { findFirst: ReturnType<typeof vi.fn> };
@@ -61,42 +62,48 @@ function makePost(body: object): NextRequest {
   });
 }
 
-describe("PR5 — floor-plan underlay Premium gate", () => {
-  it("returns 402 for a Standard-tier user", async () => {
-    mockUser.mockResolvedValueOnce({
-      id: "u_test",
-      subscriptionTier: { tierName: "STANDARD" },
+describe("RA-6922 — floor-plan underlay add-on gate", () => {
+  it("returns 402 when the workspace is not entitled to the add-on", async () => {
+    mockRequireAddon.mockResolvedValue({
+      allowed: false,
+      reason: "NOT_ENTITLED",
+      sku: "FLOORPLAN_UNDERLAY",
+      response: NextResponse.json(
+        { error: "add-on required", code: "ADDON_REQUIRED" },
+        { status: 402 },
+      ),
     });
 
     const res = await POST(makePost({ address: "12 Smith St" }));
 
     expect(res.status).toBe(402);
-    const json = await res.json();
-    expect(json.error.code).toBe("PAYMENT_REQUIRED");
-  });
-
-  it("returns 402 for a user with no tier", async () => {
-    mockUser.mockResolvedValueOnce({ id: "u_test", subscriptionTier: null });
-
-    const res = await POST(makePost({ address: "12 Smith St" }));
-
-    expect(res.status).toBe(402);
-  });
-
-  it("returns 402 even for a would-be Premium user (feature gated off pending RA-6922)", async () => {
-    mockUser.mockResolvedValueOnce({
-      id: "u_test",
-      subscriptionTier: { tierName: "PREMIUM" },
-    });
-
-    const res = await POST(
-      makePost({ address: "12 Smith St", postcode: "4000" }),
-    );
-
-    expect(res.status).toBe(402);
-    const json = await res.json();
-    expect(json.error.code).toBe("PAYMENT_REQUIRED");
+    expect(mockRequireAddon).toHaveBeenCalledWith("u_test", "FLOORPLAN_UNDERLAY");
     // The scraper/cache must never be reached for a gated request.
     expect(mockFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("returns 401 before checking the add-on when unauthenticated", async () => {
+    mockSession.mockResolvedValueOnce(null);
+
+    const res = await POST(makePost({ address: "12 Smith St" }));
+
+    expect(res.status).toBe(401);
+    expect(mockRequireAddon).not.toHaveBeenCalled();
+  });
+
+  it("passes the gate for an entitled workspace and proceeds to the handler", async () => {
+    mockRequireAddon.mockResolvedValue({
+      allowed: true,
+      sku: "FLOORPLAN_UNDERLAY",
+      workspaceId: "ws_1",
+    });
+    // No cache hit → the handler proceeds past the gate. A missing address/url
+    // yields a 400 from the handler body, proving the 402 gate was cleared.
+    mockFindFirst.mockResolvedValue(null);
+
+    const res = await POST(makePost({}));
+
+    expect(res.status).toBe(400);
+    expect(mockRequireAddon).toHaveBeenCalledWith("u_test", "FLOORPLAN_UNDERLAY");
   });
 });
