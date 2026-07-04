@@ -74,11 +74,20 @@ export async function getIntegrationsForUser(
     }));
   }
 
+  // RA-1376: bounded list query (CLAUDE.md rule 3). Only id/name/apiKey are
+  // ever read by callers; never over-fetch sensitive columns (accessToken,
+  // refreshToken, config).
   return await prisma.integration.findMany({
     where: whereClause,
     orderBy: {
       createdAt: "desc",
     },
+    select: {
+      id: true,
+      name: true,
+      apiKey: true,
+    },
+    take: 50,
   });
 }
 
