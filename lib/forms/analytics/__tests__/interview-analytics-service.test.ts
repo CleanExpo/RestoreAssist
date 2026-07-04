@@ -372,3 +372,26 @@ describe("InterviewAnalyticsService — write-side schema validity (RA-6983)", (
     expect(metrics?.conflictCount).toBe(1);
   });
 });
+
+describe("InterviewAnalyticsService — completion write failure (RA-6983 review F1)", () => {
+  it("returns null when the completion write fails, never a junk metrics object", async () => {
+    interviewSessionFindUnique.mockResolvedValue({
+      id: "sess_1",
+      userId: "user_1",
+      formTemplateId: "template_1",
+      startedAt: new Date(),
+      reportId: null,
+      responses: [],
+    });
+    interviewSessionUpdate.mockRejectedValue(new Error("db down"));
+
+    const metrics = await InterviewAnalyticsService.trackSessionCompletion(
+      "sess_1",
+      0,
+      0,
+      0,
+    );
+
+    expect(metrics).toBeNull();
+  });
+});
