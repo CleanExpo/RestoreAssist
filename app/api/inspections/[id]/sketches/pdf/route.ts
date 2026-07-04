@@ -53,7 +53,16 @@ export async function POST(
   try {
     const inspection = await prisma.inspection.findUnique({
       where: { id },
-      select: { id: true, propertyAddress: true },
+      // RA-6851 [A8]: pull the OWNER's business identity (via Inspection.userId)
+      // so the sketch header is white-labelled tenant-safely — never a global
+      // default or another workspace's branding.
+      select: {
+        id: true,
+        propertyAddress: true,
+        user: {
+          select: { businessName: true, businessLogo: true },
+        },
+      },
     });
     if (!inspection) {
       return apiError(req, {
@@ -146,6 +155,10 @@ export async function POST(
       country,
       nhCause: body.nhCause,
       estimatedRepairNzd: body.estimatedRepairNzd,
+      branding: {
+        businessName: inspection.user?.businessName,
+        businessLogo: inspection.user?.businessLogo,
+      },
     });
 
     const fileName = `floor-plan-${id.slice(-8)}.pdf`;
