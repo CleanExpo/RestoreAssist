@@ -301,3 +301,88 @@ describe("POST /api/verify-subscription — session replay guard (RA-6972)", () 
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/verify-subscription — stored-subscription retrieve failure (RA-6978)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "u1", email: "owner@example.com" },
+    } as any);
+    vi.mocked(prisma.user.update).mockResolvedValue({
+      subscriptionStatus: "ACTIVE",
+      subscriptionPlan: "Monthly Plan",
+      creditsRemaining: 0,
+    } as any);
+  });
+
+  function subSession() {
+    return {
+      id: "cs_sub_1",
+      mode: "subscription",
+      payment_status: "paid",
+      customer: "cus_1",
+      subscription: "sub_new",
+      metadata: { userId: "u1" },
+    };
+  }
+  function stripeSub(periodEnd: number, periodStart: number) {
+    return {
+      id: "sub_new",
+      status: "active",
+      created: 1_600_000_000,
+      items: {
+        data: [
+          {
+            current_period_end: periodEnd,
+            current_period_start: periodStart,
+            price: { recurring: { interval: "month" } },
+          },
+        ],
+      },
+    };
+  }
+
+  it("allows the advance when the stored subscription is genuinely deleted (resource_missing)", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue(
+      subSession() as any,
+    );
+    vi.mocked(stripe.subscriptions.retrieve).mockImplementation((id: any) => {
+      if (id === "sub_new") {
+        return Promise.resolve(stripeSub(2_000_000_000, 1_990_000_000) as any);
+      }
+      const err: any = new Error("No such subscription");
+      err.code = "resource_missing";
+      return Promise.reject(err);
+    });
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionId: "sub_deleted",
+    } as any);
+
+    const res = await POST(makeRequest({ sessionId: "cs_sub_1" }));
+    expect(res.status).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalledTimes(1);
+    const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as any;
+    expect(data.subscriptionId).toBe("sub_new");
+  });
+
+  it("fails closed (does not advance) when the stored-subscription lookup hits a transient Stripe error", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue(
+      subSession() as any,
+    );
+    vi.mocked(stripe.subscriptions.retrieve).mockImplementation((id: any) => {
+      if (id === "sub_new") {
+        return Promise.resolve(stripeSub(2_000_000_000, 1_990_000_000) as any);
+      }
+      const err: any = new Error("Rate limit exceeded");
+      err.statusCode = 429;
+      return Promise.reject(err);
+    });
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionId: "sub_still_active_but_unreachable",
+    } as any);
+
+    const res = await POST(makeRequest({ sessionId: "cs_sub_1" }));
+    expect(res.status).toBe(500);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+});

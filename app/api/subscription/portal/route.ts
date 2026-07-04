@@ -13,6 +13,7 @@ import { getOrganizationOwner } from "@/lib/organization-credits";
 import { withIdempotency } from "@/lib/idempotency";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { apiError, fromException } from "@/lib/api-errors";
+import { getAppUrl } from "@/lib/app-url";
 
 export async function POST(request: NextRequest) {
   // RA-6939 — Apple guideline 3.1.1 compliance. iOS Capacitor shell sends
@@ -52,8 +53,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const baseUrl = process.env.NEXTAUTH_URL || request.nextUrl.origin;
-      const returnUrl = `${baseUrl}/dashboard/subscription`;
+      const returnUrl = `${getAppUrl()}/dashboard/subscription`;
 
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,

@@ -196,9 +196,27 @@ export async function POST(request: NextRequest) {
               storedSubscription.status === "active" &&
               (storedSubscription.created ?? 0) >
                 (stripeSubscription.created ?? 0);
-          } catch {
-            // Stored subscription is no longer retrievable (deleted). Treat the
-            // incoming active subscription as current and allow the advance.
+          } catch (storedLookupError: unknown) {
+            // Only a genuinely missing resource means the stored subscription
+            // is deleted -- safe to allow the advance. A transient failure
+            // (5xx/network/rate-limit) must fail closed so an old-but-still
+            // -active subscription cannot be resurrected by a replay during
+            // a Stripe outage.
+            const isMissing =
+              typeof storedLookupError === "object" &&
+              storedLookupError !== null &&
+              "code" in storedLookupError &&
+              (storedLookupError as { code?: string }).code ===
+                "resource_missing";
+            if (!isMissing) {
+              return apiError(request, {
+                code: "INTERNAL",
+                message: "Failed to verify subscription",
+                status: 500,
+                err: storedLookupError,
+                stage: "verify-subscription:stored-lookup",
+              });
+            }
             storedIsCurrent = false;
           }
           if (storedIsCurrent) {
