@@ -12,7 +12,6 @@ import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { SketchToolbar } from "./SketchToolbar";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
-import { hasFloorPlanUnderlay } from "@/lib/billing/floor-plan-entitlement";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
 import {
   Plus,
@@ -706,9 +705,10 @@ export function SketchEditor({
         </div>
       </div>
 
-      {/* Floor plan underlay loader — F2: hidden until RA-6922 provisions the
-          entitlement (hasFloorPlanUnderlay is always false today). */}
-      {!readonly && hasFloorPlanUnderlay(null) && (
+      {/* Floor plan underlay loader — RA-6922: the scrape API is the authoritative
+          gate (requireAddon → 402), which the loader turns into an upgrade CTA.
+          Manual upload works without the add-on. */}
+      {!readonly && (
         <FloorPlanUnderlayLoader
           defaultAddress={propertyAddress}
           defaultPostcode={propertyPostcode}

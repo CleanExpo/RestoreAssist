@@ -5963,7 +5963,7 @@ model ProviderConnection {
 }
 
 // RA-6922: BYOK monetisation add-on SKUs (byok-monetisation-spec §2).
-// Five $11/month add-ons sold on top of the $99/month base plan. Mirrored in
+// $11/month add-ons sold on top of the $99/month base plan. Mirrored in
 // lib/entitlements/types.ts (ADDON_SKUS) — keep the two in sync.
 enum AddonSku {
   VOICE // ElevenLabs Voice (client's ElevenLabs key + Voice ID)
@@ -5971,6 +5971,7 @@ enum AddonSku {
   BOOKKEEPING // Online Bookkeeping Connection (Xero / QuickBooks / MYOB)
   SERVICE_CRM // Service CRM Connection (Ascora / DR-NRPG)
   PAYMENTS // Payments Collection (Stripe Connect on the client's own account)
+  FLOORPLAN_UNDERLAY // RA-6922: Floor Plan Underlay — recurring $11/mo internet-floorplan-overlay entitlement
 }
 
 // FeatureEntitlement — per-workspace record of which add-on SKUs are active.

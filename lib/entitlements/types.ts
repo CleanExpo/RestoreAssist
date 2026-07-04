@@ -13,8 +13,8 @@
  */
 
 /**
- * The five billable add-on SKUs (byok-monetisation-spec §2). Ordered array is
- * the runtime source of truth; the Prisma `AddonSku` enum mirrors these keys.
+ * The billable add-on SKUs (byok-monetisation-spec §2). Ordered array is the
+ * runtime source of truth; the Prisma `AddonSku` enum mirrors these keys.
  */
 export const ADDON_SKUS = [
   /** ElevenLabs Voice — client's own ElevenLabs API key + Voice ID. */
@@ -27,6 +27,8 @@ export const ADDON_SKUS = [
   "SERVICE_CRM",
   /** Payments Collection — Stripe Connect on the client's own account. */
   "PAYMENTS",
+  /** RA-6922: Floor Plan Underlay — recurring $11/mo internet-floorplan-overlay. */
+  "FLOORPLAN_UNDERLAY",
 ] as const;
 
 /** Mirrors the Prisma `AddonSku` enum. */

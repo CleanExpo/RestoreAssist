@@ -21,6 +21,7 @@ import {
   Layers,
   CheckCircle2,
   AlertCircle,
+  Sparkles,
 } from "lucide-react";
 import type { ScrapedPropertyData } from "@/lib/property-data-parser";
 import {
@@ -30,6 +31,7 @@ import {
 import { watermarkImageDataUrl } from "@/lib/sketch/underlay-watermark";
 import { persistUnderlayImage } from "@/lib/sketch/persist-underlay-image";
 import { isUnderlayUrlImportEnabled } from "@/lib/sketch/underlay-import-flag";
+import { FLOORPLAN_UNDERLAY_SKU } from "@/lib/billing/floorplan-underlay-addon";
 import {
   evaluateUnderlayAttestation,
   buildUnderlayAttestationRecord,
@@ -79,8 +81,10 @@ export function FloorPlanUnderlayLoader({
   // RA-6849 [C3] / RA-6847 [C1]: true while an uploaded plan is being prepared
   // (PDF rasterised + the reference watermark baked in).
   const [preparingUnderlay, setPreparingUnderlay] = useState(false);
-  // PR5: set when the scrape route returns 402 (feature is Premium-only).
+  // RA-6922: set when the scrape route returns 402 (add-on not entitled).
   const [upgradeRequired, setUpgradeRequired] = useState(false);
+  // RA-6922: true while the subscription checkout session is being created.
+  const [upgrading, setUpgrading] = useState(false);
   // RA-6848 [C2] / RA-6849 [C3]: the operator must affirm the client holds the
   // rights + the import complies with the source's terms before any imported
   // plan is applied. Reset per selected plan (below).
@@ -190,6 +194,32 @@ export function FloorPlanUnderlayLoader({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") fetchListing();
   };
+
+  // RA-6922: start the recurring $11/mo Floor Plan Underlay add-on checkout and
+  // redirect to Stripe. Mirrors app/dashboard/pricing/page.tsx's redirect flow.
+  const handleUpgrade = useCallback(async () => {
+    setUpgrading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/addons/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addonKey: FLOORPLAN_UNDERLAY_SKU }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.url) {
+        window.location.href = json.url as string;
+        return;
+      }
+      setError(
+        json?.error ?? "Couldn't start the upgrade — please try again.",
+      );
+    } catch {
+      setError("Couldn't start the upgrade — check your connection.");
+    } finally {
+      setUpgrading(false);
+    }
+  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -403,18 +433,31 @@ export function FloorPlanUnderlayLoader({
             </div>
           )}
 
-          {/* F2 (RA-6929/6930/6931) — the underlay fetch has no entitlement
-              source until RA-6922, so the scrape returns 402. Show a neutral
-              "unavailable" note instead of an upsell for a nonexistent plan.
-              Manual upload below still works. */}
+          {/* RA-6922 — the scrape returned 402 (no active Floor Plan Underlay
+              add-on). Offer the recurring $11/mo upgrade; manual upload below
+              still works without it. */}
           {upgradeRequired && (
-            <div className="flex flex-col gap-1.5 p-3 rounded-lg bg-neutral-500/10 border border-neutral-400/30 text-xs">
-              <p className="font-medium text-neutral-600 dark:text-slate-300">
-                Automatic floor plan fetch is not available yet
+            <div className="flex flex-col gap-2 p-3 rounded-lg bg-cyan-500/10 border border-cyan-400/30 text-xs">
+              <p className="font-medium text-neutral-700 dark:text-slate-200">
+                Automatic floor plan fetch needs the Floor Plan Underlay add-on
               </p>
               <p className="text-neutral-500 dark:text-slate-400">
-                You can still upload a floor plan image manually below.
+                Add it for $11/month (GST inclusive), or upload a floor plan
+                image manually below.
               </p>
+              <button
+                type="button"
+                onClick={handleUpgrade}
+                disabled={upgrading}
+                className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {upgrading ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Sparkles size={13} />
+                )}
+                {upgrading ? "Starting checkout…" : "Add Floor Plan Underlay"}
+              </button>
             </div>
           )}
 
