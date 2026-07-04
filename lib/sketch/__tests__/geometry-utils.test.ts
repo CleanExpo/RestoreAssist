@@ -12,6 +12,8 @@ import {
   formatDimension,
   segmentLabelPosition,
   footprintDimensions,
+  snapToNearbyEndpoint,
+  alignmentGuidesFor,
 } from "../geometry-utils";
 
 describe("geometry-utils — distance", () => {
@@ -286,5 +288,74 @@ describe("geometry-utils — footprintDimensions", () => {
     const r = footprintDimensions([]);
     expect(r.widthPx).toBe(0);
     expect(r.heightPx).toBe(0);
+  });
+});
+
+// ─── RA-6969 [A5b] — endpoint-proximity snap ───────────────────────────────
+
+describe("geometry-utils — snapToNearbyEndpoint", () => {
+  const endpoints = [
+    { x: 100, y: 100 },
+    { x: 300, y: 100 },
+    { x: 300, y: 250 },
+  ];
+
+  it("snaps exactly onto an endpoint within the threshold", () => {
+    const r = snapToNearbyEndpoint({ x: 104, y: 97 }, endpoints, 12);
+    expect(r.snapped).toBe(true);
+    expect(r.point).toEqual({ x: 100, y: 100 });
+  });
+
+  it("returns the original point untouched when nothing is within threshold", () => {
+    const p = { x: 200, y: 200 };
+    const r = snapToNearbyEndpoint(p, endpoints, 12);
+    expect(r.snapped).toBe(false);
+    expect(r.point).toEqual(p);
+  });
+
+  it("picks the nearest endpoint when several are within threshold", () => {
+    const near = [
+      { x: 100, y: 100 },
+      { x: 108, y: 100 },
+    ];
+    const r = snapToNearbyEndpoint({ x: 106, y: 100 }, near, 20);
+    expect(r.point).toEqual({ x: 108, y: 100 });
+  });
+
+  it("is a no-op for a non-positive threshold or empty list", () => {
+    const p = { x: 100, y: 100 };
+    expect(snapToNearbyEndpoint(p, endpoints, 0).snapped).toBe(false);
+    expect(snapToNearbyEndpoint(p, [], 12).snapped).toBe(false);
+  });
+});
+
+describe("geometry-utils — alignmentGuidesFor", () => {
+  const endpoints = [
+    { x: 100, y: 100 },
+    { x: 300, y: 250 },
+  ];
+
+  it("emits a vertical guide when x aligns with an existing endpoint", () => {
+    const guides = alignmentGuidesFor({ x: 103, y: 400 }, endpoints, 8);
+    expect(guides).toContainEqual({ type: "v", coord: 100 });
+  });
+
+  it("emits a horizontal guide when y aligns with an existing endpoint", () => {
+    const guides = alignmentGuidesFor({ x: 500, y: 252 }, endpoints, 8);
+    expect(guides).toContainEqual({ type: "h", coord: 250 });
+  });
+
+  it("emits both axes when the point aligns to a corner on both", () => {
+    const guides = alignmentGuidesFor({ x: 102, y: 98 }, endpoints, 8);
+    expect(guides).toContainEqual({ type: "v", coord: 100 });
+    expect(guides).toContainEqual({ type: "h", coord: 100 });
+  });
+
+  it("emits nothing when no endpoint axis is within threshold", () => {
+    expect(alignmentGuidesFor({ x: 500, y: 500 }, endpoints, 8)).toEqual([]);
+  });
+
+  it("is a no-op for a non-positive threshold", () => {
+    expect(alignmentGuidesFor({ x: 100, y: 100 }, endpoints, 0)).toEqual([]);
   });
 });
