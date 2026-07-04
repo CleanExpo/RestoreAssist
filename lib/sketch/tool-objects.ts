@@ -26,6 +26,7 @@ import {
   doorGeometry,
   doorArcPath,
   windowGeometry,
+  parametricPositionOnSegment,
   type HingeSide,
 } from "@/lib/sketch/opening-geometry";
 
@@ -110,6 +111,14 @@ export interface DescribeInput {
    * points[1]) so a standalone test can call the factory without a live canvas.
    */
   wallSegment?: { a: Point; b: Point };
+  /**
+   * RA-6980 [A2b] parent–child binding: the stable id of the host wall the
+   * opening is placed on. Stored on the opening's `data.hostWallId` so the
+   * canvas can re-anchor the opening when that wall is later moved/resized.
+   * The factory also derives `data.hostWallT` (parametric position along the
+   * wall) from the anchor so the re-anchor is a pure `pointAtParametric` lookup.
+   */
+  hostWallId?: string;
 }
 
 export function distancePx(a: Point, b: Point): number {
@@ -343,6 +352,13 @@ export function describeToolObject(
           provenance: "operator_measured",
           widthM,
           hingeSide: input.hingeSide ?? "left",
+          // RA-6980 [A2b]: parent–child binding to the host wall.
+          ...(input.hostWallId
+            ? {
+                hostWallId: input.hostWallId,
+                hostWallT: parametricPositionOnSegment(anchor, wall),
+              }
+            : {}),
         },
       };
     }
@@ -374,6 +390,13 @@ export function describeToolObject(
           openingKind: "window",
           provenance: "operator_measured",
           widthM,
+          // RA-6980 [A2b]: parent–child binding to the host wall.
+          ...(input.hostWallId
+            ? {
+                hostWallId: input.hostWallId,
+                hostWallT: parametricPositionOnSegment(anchor, wall),
+              }
+            : {}),
         },
       };
     }

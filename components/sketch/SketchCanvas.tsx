@@ -37,7 +37,10 @@ import {
   segmentLabelPosition,
   footprintDimensions,
 } from "@/lib/sketch/geometry-utils";
-import { snapToNearestWall } from "@/lib/sketch/opening-geometry";
+import {
+  snapToNearestWall,
+  pointAtParametric,
+} from "@/lib/sketch/opening-geometry";
 import {
   exportSketchPng,
   type ExportableCanvas,
@@ -378,6 +381,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         canvas.on("object:modified", (opt: unknown) => {
           const target = (opt as { target?: unknown } | undefined)?.target;
           syncRoomLabel(target);
+          // RA-6980 [A2b]: a moved wall drags its bound openings with it.
+          reanchorOpeningsForWall(target);
           if (!isLoadingRef.current && !isDecoration(target)) {
             saveState();
             onModified?.();
@@ -385,6 +390,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         });
         canvas.on("object:added", (opt: unknown) => {
           const target = (opt as { target?: unknown } | undefined)?.target;
+          // RA-6980 [A2b]: stamp a stable id on new walls (and lazily on walls
+          // loaded from pre-feature sketches) so openings can bind to them.
+          ensureWallId(target);
           if (!isLoadingRef.current && !isDecoration(target)) {
             saveState();
             onModified?.();
@@ -444,25 +452,20 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
         // RA-6841 [A2]: Collect all wall-type line segments from the canvas so
         // door/window tools can snap the placement anchor to the nearest wall.
-        const collectWallSegments = (): { a: Point; b: Point }[] => {
+        // RA-6980 [A2b]: collect wall objects with their absolute segments so a
+        // placed opening can bind to the specific wall (by id) it snapped to.
+        const collectWalls = (): { obj: unknown; seg: { a: Point; b: Point } }[] => {
           const objs = (
             canvas as unknown as { getObjects: () => unknown[] }
           ).getObjects();
-          const segs: { a: Point; b: Point }[] = [];
+          const walls: { obj: unknown; seg: { a: Point; b: Point } }[] = [];
           for (const o of objs) {
             const d = (o as { data?: Record<string, unknown> }).data;
-            if (!d) continue;
-            if (d.type === "wall") {
-              const lo = o as { x1?: number; y1?: number; x2?: number; y2?: number };
-              if (lo.x1 !== undefined) {
-                segs.push({
-                  a: { x: lo.x1, y: lo.y1 ?? 0 },
-                  b: { x: lo.x2 ?? 0, y: lo.y2 ?? 0 },
-                });
-              }
-            }
+            if (d?.type !== "wall") continue;
+            const seg = wallAbsoluteSegment(o);
+            if (seg) walls.push({ obj: o, seg });
           }
-          return segs;
+          return walls;
         };
 
         const materialize = (
@@ -589,6 +592,106 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           }
           if (obj) (obj as { data?: unknown }).data = d.data;
           return obj;
+        };
+
+        // ── RA-6980 [A2b]: parent–child binding (openings ↔ host wall) ────────
+        // Every wall carries a stable `data.wallId`. Openings placed on it store
+        // that id + their parametric position; when the wall moves we re-anchor.
+        const newWallId = (): string =>
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `wall-${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+
+        // Assign a wallId to any wall lacking one. Fires from object:added, so it
+        // covers freshly drawn walls AND lazily migrates walls loaded from a
+        // sketch saved before this feature existed.
+        const ensureWallId = (target: unknown): void => {
+          const t = target as { data?: Record<string, unknown> } | undefined;
+          if (t?.data?.type === "wall" && !t.data.wallId) {
+            t.data.wallId = newWallId();
+          }
+        };
+
+        // Absolute endpoints of a (possibly moved/scaled/rotated) wall line.
+        // Fabric keeps x1..y2 in the object's local frame; transform them by the
+        // object's matrix to recover scene coordinates after a drag/resize.
+        const wallAbsoluteSegment = (
+          wallObj: unknown,
+        ): { a: Point; b: Point } | null => {
+          type Mat = [number, number, number, number, number, number];
+          const lo = wallObj as {
+            calcLinePoints?: () => { x1: number; y1: number; x2: number; y2: number };
+            calcTransformMatrix?: () => Mat;
+            x1?: number;
+            y1?: number;
+            x2?: number;
+            y2?: number;
+          };
+          if (lo.calcLinePoints && lo.calcTransformMatrix) {
+            const p = lo.calcLinePoints();
+            const m = lo.calcTransformMatrix();
+            const tp = (
+              fabric as unknown as {
+                util: { transformPoint: (pt: Point, mat: Mat) => Point };
+              }
+            ).util.transformPoint;
+            return {
+              a: tp({ x: p.x1, y: p.y1 }, m),
+              b: tp({ x: p.x2, y: p.y2 }, m),
+            };
+          }
+          if (lo.x1 !== undefined) {
+            return {
+              a: { x: lo.x1, y: lo.y1 ?? 0 },
+              b: { x: lo.x2 ?? 0, y: lo.y2 ?? 0 },
+            };
+          }
+          return null;
+        };
+
+        // Re-anchor every opening bound to `wallObj` onto the wall's new segment.
+        // Rebuilds each opening symbol from its stored width/hinge/parametric-t so
+        // doors/windows ride with their wall. Openings without a hostWallId (e.g.
+        // placed before this feature) are left untouched — graceful degradation.
+        const reanchorOpeningsForWall = (wallObj: unknown): void => {
+          const wd = (wallObj as { data?: Record<string, unknown> } | undefined)
+            ?.data;
+          if (!wd || wd.type !== "wall" || !wd.wallId) return;
+          const newWall = wallAbsoluteSegment(wallObj);
+          if (!newWall) return;
+          const c = canvas as unknown as {
+            getObjects: () => unknown[];
+            remove: (o: unknown) => void;
+            add: (o: unknown) => void;
+            renderAll: () => void;
+          };
+          for (const o of c.getObjects()) {
+            const od = (o as { data?: Record<string, unknown> }).data;
+            if (
+              !od ||
+              od.type !== "opening" ||
+              od.hostWallId !== wd.wallId ||
+              typeof od.hostWallT !== "number"
+            )
+              continue;
+            const anchor = pointAtParametric(od.hostWallT as number, newWall);
+            const d = describeToolObject({
+              tool: od.openingKind as ToolMode,
+              points: [anchor],
+              pxPerMetre: pxPerMetreRef.current,
+              wallSegment: newWall,
+              wallThicknessPx: pxPerMetreRef.current * 0.11,
+              hingeSide: od.hingeSide as "left" | "right" | undefined,
+              openingWidthM: od.widthM as number | undefined,
+              hostWallId: wd.wallId as string,
+            });
+            if (!d) continue;
+            const fresh = materialize(d);
+            if (!fresh) continue;
+            c.remove(o);
+            c.add(fresh);
+          }
+          c.renderAll();
         };
 
         // ── RA-6842 [A3] — Dimension string helpers ────────────────────────────
@@ -858,12 +961,21 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           // The click is snapped to the nearest wall segment; the wall is
           // passed as `wallSegment` so the pure factory can compute the cut.
           if (tool === "door" || tool === "window") {
-            const walls = collectWallSegments();
-            const snapped = snapToNearestWall(p, walls);
-            const wallSeg = snapped
-              ? walls[snapped.wallIndex]
+            const walls = collectWalls();
+            const snapped = snapToNearestWall(
+              p,
+              walls.map((w) => w.seg),
+            );
+            const hostWall = snapped ? walls[snapped.wallIndex] : null;
+            const wallSeg = hostWall
+              ? hostWall.seg
               : { a: { x: p.x - 41, y: p.y }, b: { x: p.x + 41, y: p.y } };
             const anchor = snapped ? snapped.anchor : p;
+            // RA-6980 [A2b]: bind the opening to the wall it snapped to so it
+            // re-anchors when that wall later moves.
+            const hostWallId = (
+              hostWall?.obj as { data?: Record<string, unknown> } | undefined
+            )?.data?.wallId as string | undefined;
             addToolObject(
               describeToolObject({
                 tool,
@@ -871,6 +983,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
                 pxPerMetre: pxPerMetreRef.current,
                 wallSegment: wallSeg,
                 wallThicknessPx: pxPerMetreRef.current * 0.11,
+                hostWallId,
               }),
             );
             return;
