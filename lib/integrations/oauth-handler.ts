@@ -120,6 +120,22 @@ function getProviderEnvCredential(
 }
 
 /**
+ * Decrypt a stored token for the disconnect path, tolerating decrypt
+ * failure (e.g. an encryption-key rotation, or a corrupt/legacy token).
+ * A failure here must never block disconnect — the local null-out has to
+ * run regardless, so the unusable token is simply treated as unavailable
+ * and skipped for provider revocation.
+ */
+function safeDecryptToken(encryptedToken: string): string | null {
+  try {
+    return decryptToken(encryptedToken);
+  } catch (err) {
+    console.error("[oauth-handler] Token decrypt failed during disconnect:", err);
+    return null;
+  }
+}
+
+/**
  * Revoke a provider's OAuth tokens before we clear them locally (RA-6968).
  * Previously "disconnect" only cleared local state — the access/refresh
  * token remained live at the provider until it naturally expired, so a
@@ -204,11 +220,16 @@ export async function disconnectIntegration(
   });
 
   if (integration) {
+    // Decrypt failures (post key-rotation, or a corrupt/legacy token) must
+    // never block disconnect — a broken integration is exactly the case a
+    // user most needs to be able to disconnect. Treat an undecryptable
+    // token as unavailable and simply skip revoking it at the provider;
+    // the local null-out below still always runs.
     const accessToken = integration.accessToken
-      ? decryptToken(integration.accessToken)
+      ? safeDecryptToken(integration.accessToken)
       : null;
     const refreshToken = integration.refreshToken
-      ? decryptToken(integration.refreshToken)
+      ? safeDecryptToken(integration.refreshToken)
       : null;
     await revokeTokensAtProvider(integration.provider, accessToken, refreshToken);
   }

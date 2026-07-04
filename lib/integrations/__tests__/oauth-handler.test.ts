@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const integrationFindUnique = vi.fn();
 const integrationUpdate = vi.fn();
+const decryptMock = vi.fn((v: string) => v.replace(/^encrypted:/, ""));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -13,7 +14,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("@/lib/credential-vault", () => ({
   encrypt: (v: string) => `encrypted:${v}`,
-  decrypt: (v: string) => v.replace(/^encrypted:/, ""),
+  decrypt: (...args: [string]) => decryptMock(...args),
 }));
 
 import { disconnectIntegration } from "../oauth-handler";
@@ -24,6 +25,8 @@ beforeEach(() => {
   integrationFindUnique.mockReset();
   integrationUpdate.mockReset();
   integrationUpdate.mockResolvedValue({});
+  decryptMock.mockReset();
+  decryptMock.mockImplementation((v: string) => v.replace(/^encrypted:/, ""));
   vi.unstubAllGlobals();
 });
 
@@ -97,5 +100,37 @@ describe("disconnectIntegration", () => {
         data: expect.objectContaining({ accessToken: null }),
       }),
     );
+  });
+
+  it("still clears local tokens even if the stored token can't be decrypted (post key-rotation / corrupt token)", async () => {
+    integrationFindUnique.mockResolvedValue({
+      provider: "XERO",
+      accessToken: "encrypted:access-1",
+      refreshToken: "encrypted:refresh-1",
+    });
+    decryptMock.mockImplementation(() => {
+      throw new Error("Invalid encrypted value format");
+    });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(disconnectIntegration("integration_1")).resolves.not.toThrow();
+
+    // Undecryptable token means we can't revoke it at the provider — must
+    // skip the revoke call rather than throw.
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(integrationUpdate).toHaveBeenCalledWith({
+      where: { id: "integration_1" },
+      data: expect.objectContaining({
+        status: "DISCONNECTED",
+        accessToken: null,
+        refreshToken: null,
+        tokenExpiresAt: null,
+        tenantId: null,
+        realmId: null,
+        companyId: null,
+        syncError: null,
+      }),
+    });
   });
 });
