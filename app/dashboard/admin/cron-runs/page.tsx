@@ -4,14 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
-  Clock,
-  Shield,
-  AlertCircle,
-  CheckCircle,
-  Loader2,
-} from "lucide-react";
-import {
   Card,
   CardContent,
   CardDescription,
@@ -79,23 +71,21 @@ export default function CronRunsPage() {
   const getStatusBadge = (run: CronRun) => {
     if (run.status === "failed") {
       return (
-        <Badge className="gap-1 bg-red-500/10 text-red-600 dark:text-red-400">
-          <AlertCircle className="h-3 w-3" />
+        <Badge className="bg-red-500/10 text-red-600 dark:text-red-400">
           Failed
         </Badge>
       );
     }
     if (run.status === "completed") {
       return (
-        <Badge className="gap-1 bg-green-500/10 text-green-600 dark:text-green-400">
-          <CheckCircle className="h-3 w-3" />
+        <Badge className="bg-green-500/10 text-green-600 dark:text-green-400">
           Completed
         </Badge>
       );
     }
     return (
       <Badge className="gap-1 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-        <Loader2 className="h-3 w-3 animate-spin" />
+        <span className="inline-block h-3 w-3 rounded-full border-2 border-current/30 border-t-current animate-spin" />
         Running
       </Badge>
     );
@@ -112,7 +102,6 @@ export default function CronRunsPage() {
   if (session?.user?.role !== "ADMIN") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Shield className="h-12 w-12 text-neutral-400" />
         <p className="text-neutral-600 dark:text-neutral-400">
           Admin access required
         </p>
@@ -132,7 +121,6 @@ export default function CronRunsPage() {
           onClick={() => router.push("/dashboard/admin")}
           className="gap-2 text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
         >
-          <ArrowLeft className="h-4 w-4" />
           Back to Admin
         </Button>
       </div>
@@ -154,7 +142,6 @@ export default function CronRunsPage() {
               : "bg-green-500/10 text-green-600 dark:text-green-400",
           )}
         >
-          <AlertCircle className="h-3 w-3" />
           {data?.failedCount ?? 0} failed
         </Badge>
       </div>
@@ -180,7 +167,6 @@ export default function CronRunsPage() {
       <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-neutral-900 dark:text-white">
-            <Clock className="h-5 w-5 text-cyan-500" />
             Recent Runs
           </CardTitle>
           <CardDescription>
