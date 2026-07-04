@@ -425,6 +425,9 @@ export const PENDING_RLS = new Set<string>([
   "DeviceSigningKey",
   "EmailAudit",
   "EmailConnection",
+  // RA-6922: per-workspace add-on entitlement (tenant data). Scaffold table;
+  // RLS tenant policy to be added when the entitlement layer is wired live.
+  "FeatureEntitlement",
   "FloorPlan",
   "FormAttachment",
   "FormAuditLog",
