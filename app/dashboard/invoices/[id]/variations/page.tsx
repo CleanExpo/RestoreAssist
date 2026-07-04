@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, X, ExternalLink } from "lucide-react";
@@ -121,10 +121,10 @@ function PageSkeleton() {
 export default function InvoiceVariationsPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const router = useRouter();
-  const { id } = params;
+  const { id } = use(params);
 
   const [invoice, setInvoice] = useState<InvoiceSummary | null>(null);
   const [variations, setVariations] = useState<VariationInvoice[]>([]);

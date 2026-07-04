@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -107,8 +107,9 @@ function formatStatusLabel(status: string): string {
 export default function TeamMemberDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = use(params);
   const { data: session } = useSession();
   const [member, setMember] = useState<Member | null>(null);
   const [inspections, setInspections] = useState<Inspection[]>([]);
@@ -129,7 +130,7 @@ export default function TeamMemberDetailPage({
 
   useEffect(() => {
     fetchMember();
-  }, [params.id]);
+  }, [id]);
 
   const fetchMember = async () => {
     try {
@@ -142,7 +143,7 @@ export default function TeamMemberDetailPage({
       }
       const data = await res.json();
       const found = (data.members || []).find(
-        (m: Member) => m.id === params.id,
+        (m: Member) => m.id === id,
       );
       if (!found) {
         setNotFound(true);

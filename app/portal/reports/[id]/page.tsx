@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import PortalNav from "@/components/portal/PortalNav";
@@ -61,8 +61,9 @@ interface Report {
 export default function PortalReportDetail({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = use(params);
   const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
   const [report, setReport] = useState<Report | null>(null);
@@ -92,7 +93,7 @@ export default function PortalReportDetail({
 
   const fetchReport = async () => {
     try {
-      const response = await fetch(`/api/portal/reports/${params.id}`);
+      const response = await fetch(`/api/portal/reports/${id}`);
       if (!response.ok) {
         if (response.status === 404) {
           toast.error("Report not found");
@@ -123,7 +124,7 @@ export default function PortalReportDetail({
 
     try {
       const response = await fetch(
-        `/api/portal/reports/${params.id}/approvals`,
+        `/api/portal/reports/${id}/approvals`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
