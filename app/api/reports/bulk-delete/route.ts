@@ -17,10 +17,11 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
-    // Rate limit: 10 bulk deletes per 15 minutes per IP
+    // Rate limit: 10 bulk deletes per 15 minutes per user
     const rateLimited = await applyRateLimit(request, {
       maxRequests: 10,
       prefix: "reports-bulk-delete",
+      key: session.user.id,
     });
     if (rateLimited) return rateLimited;
 

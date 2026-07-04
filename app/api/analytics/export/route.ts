@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
   const rateLimited = await applyRateLimit(request, {
     maxRequests: 5,
     prefix: "analytics-export",
+    key: userId,
   });
   if (rateLimited) return rateLimited;
 
