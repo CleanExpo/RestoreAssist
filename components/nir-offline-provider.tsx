@@ -143,14 +143,20 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
   const [pendingEvidenceUploads, setPendingEvidenceUploads] = useState(0);
 
   const refreshStatus = useCallback(async () => {
-    const [status, stats, evidenceCount] = await Promise.all([
-      getSyncStatus(),
-      getQueueStats(),
-      getQueuedEvidenceCount(),
-    ]);
-    setSyncStatus(status);
-    setQueueStats(stats);
-    setPendingEvidenceUploads(evidenceCount);
+    try {
+      const [status, stats, evidenceCount] = await Promise.all([
+        getSyncStatus(),
+        getQueueStats(),
+        getQueuedEvidenceCount(),
+      ]);
+      setSyncStatus(status);
+      setQueueStats(stats);
+      setPendingEvidenceUploads(evidenceCount);
+    } catch (err) {
+      // Leave the badge at its last known-good values rather than
+      // producing a recurring unhandled rejection every 30s.
+      console.warn("[NIR Offline] Failed to refresh sync status:", err);
+    }
   }, []);
 
   const triggerSync = useCallback(async () => {
