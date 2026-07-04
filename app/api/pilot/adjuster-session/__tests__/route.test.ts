@@ -16,7 +16,10 @@ vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique: vi.fn() } } }));
 vi.mock("@/lib/rate-limiter", () => ({
   applyRateLimit: vi.fn().mockResolvedValue(null),
 }));
-vi.mock("@/lib/report-limits", () => ({ deductCreditsAndTrackUsage: vi.fn() }));
+vi.mock("@/lib/report-limits", () => ({
+  deductCreditsAndTrackUsage: vi.fn(),
+  refundCreditsAndTrackUsage: vi.fn(),
+}));
 vi.mock("@/lib/ai/adjuster-agent", () => ({ runAdjusterAgent: vi.fn() }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(),
@@ -25,7 +28,10 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
-import { deductCreditsAndTrackUsage } from "@/lib/report-limits";
+import {
+  deductCreditsAndTrackUsage,
+  refundCreditsAndTrackUsage,
+} from "@/lib/report-limits";
 import { runAdjusterAgent } from "@/lib/ai/adjuster-agent";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { POST } from "../route";
@@ -34,6 +40,9 @@ const mockSession = getServerSession as ReturnType<typeof vi.fn>;
 const mockFindUnique = prisma.user.findUnique as ReturnType<typeof vi.fn>;
 const mockRateLimit = applyRateLimit as ReturnType<typeof vi.fn>;
 const mockDeductCredits = deductCreditsAndTrackUsage as ReturnType<
+  typeof vi.fn
+>;
+const mockRefundCredits = refundCreditsAndTrackUsage as ReturnType<
   typeof vi.fn
 >;
 const mockRunAgent = runAdjusterAgent as ReturnType<typeof vi.fn>;
@@ -64,6 +73,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockRateLimit.mockResolvedValue(null);
   mockDeductCredits.mockResolvedValue(undefined);
+  mockRefundCredits.mockResolvedValue({ refunded: true });
   mockRunAgent.mockResolvedValue(sampleRecommendation);
   // Owns-the-inspection by default; individual tests override to simulate
   // a cross-tenant inspectionId.
@@ -91,6 +101,9 @@ describe("POST /api/pilot/adjuster-session", () => {
       { user: { id: "user-1" } },
       "insp-001",
     );
+    // Success path: the credit is consumed exactly once and never refunded.
+    expect(mockDeductCredits).toHaveBeenCalledTimes(1);
+    expect(mockRefundCredits).not.toHaveBeenCalled();
   });
 
   it("cross-tenant inspectionId (RA-6961) — tenancy denied → 404, mutates nothing", async () => {
@@ -184,6 +197,11 @@ describe("POST /api/pilot/adjuster-session", () => {
     const res = await POST(makeRequest({ inspectionId: "insp-999" }));
 
     expect(res.status).toBe(404);
+    // RA-6968 — a post-deduct agent failure must refund the charge (net-zero),
+    // so the user is never billed for a report they never received.
+    expect(mockDeductCredits).toHaveBeenCalledTimes(1);
+    expect(mockRefundCredits).toHaveBeenCalledTimes(1);
+    expect(mockRefundCredits).toHaveBeenCalledWith("user-5");
   });
 
   it("LIFETIME subscription → allowed through gate", async () => {
@@ -225,5 +243,28 @@ describe("POST /api/pilot/adjuster-session", () => {
     expect(res.status).toBe(500);
     expect(json.error.message).toBe("Internal server error");
     expect(JSON.stringify(json)).not.toContain("Internal AI failure detail");
+    // RA-6968 — even on an unexpected 500 the deducted credit is refunded, so
+    // a transient agent failure can't silently burn a paying user's quota.
+    expect(mockDeductCredits).toHaveBeenCalledTimes(1);
+    expect(mockRefundCredits).toHaveBeenCalledTimes(1);
+    expect(mockRefundCredits).toHaveBeenCalledWith("user-8");
+  });
+
+  it("agent failure refund is best-effort — a failed refund does not change the surfaced error", async () => {
+    mockSession.mockResolvedValueOnce({ user: { id: "user-10" } });
+    mockFindUnique.mockResolvedValueOnce({
+      id: "user-10",
+      subscriptionStatus: "ACTIVE",
+    });
+    mockRunAgent.mockRejectedValueOnce(new Error("Adjuster agent 404"));
+    // Even if the refund could not fully complete, the route must still return
+    // the original failure (never mask it, never crash).
+    mockRefundCredits.mockResolvedValueOnce({ refunded: false });
+
+    const res = await POST(makeRequest({ inspectionId: "insp-001" }));
+
+    expect(res.status).toBe(500);
+    expect(mockRefundCredits).toHaveBeenCalledTimes(1);
+    expect(mockRefundCredits).toHaveBeenCalledWith("user-10");
   });
 });
