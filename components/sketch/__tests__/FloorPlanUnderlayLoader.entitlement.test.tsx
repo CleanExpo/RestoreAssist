@@ -7,15 +7,15 @@ import { FloorPlanUnderlayLoader } from "../FloorPlanUnderlayLoader";
 beforeEach(() => vi.restoreAllMocks());
 
 /**
- * F2 (RA-6929/6930/6931) — when the scrape returns 402 the loader shows a
- * neutral "not available yet" note and NO longer renders an upgrade CTA that
- * would sell a nonexistent plan. Manual upload stays available.
+ * RA-6922 — when the scrape returns 402 (no active Floor Plan Underlay add-on)
+ * the loader now offers the recurring $11/mo add-on upgrade CTA. This supersedes
+ * the earlier F2 (RA-6929/6930/6931) "neutral note, no upgrade link" behaviour,
+ * which held only while there was no add-on to sell.
  */
-const UPGRADE_PATH = "/billing/" + "upgrade";
-describe("FloorPlanUnderlayLoader — 402 handling (F2)", () => {
+describe("FloorPlanUnderlayLoader — 402 handling (RA-6922 add-on)", () => {
   beforeEach(() => {
-    // RA-6848 [C2]: the 402 note is on the URL scrape path, which is legally
-    // gated (RA-6850). Enable the flag so auto-fetch exercises that branch.
+    // RA-6848 [C2]: the 402 path is the URL scrape, which is legally gated
+    // (RA-6850). Enable the flag so auto-fetch exercises that branch.
     vi.stubEnv("NEXT_PUBLIC_UNDERLAY_URL_IMPORT", "1");
     vi.stubGlobal(
       "fetch",
@@ -29,8 +29,8 @@ describe("FloorPlanUnderlayLoader — 402 handling (F2)", () => {
 
   afterEach(() => vi.unstubAllEnvs());
 
-  it("shows a neutral unavailable note on 402, with no upgrade link", async () => {
-    const { container } = render(
+  it("offers the recurring $11/mo add-on upgrade CTA on 402", async () => {
+    render(
       <FloorPlanUnderlayLoader
         defaultAddress="12 Smith St"
         inspectionId="i1"
@@ -40,11 +40,13 @@ describe("FloorPlanUnderlayLoader — 402 handling (F2)", () => {
       />,
     );
 
-    expect(await screen.findByText(/not available yet/i)).toBeInTheDocument();
-    // No CTA selling a retired plan.
+    // The upgrade CTA (a button, not a plan link) appears once the scrape 402s.
     expect(
-      screen.queryByRole("link", { name: /upgrade to unlock/i }),
-    ).not.toBeInTheDocument();
-    expect(container.querySelector(`a[href="${UPGRADE_PATH}"]`)).toBeNull();
+      await screen.findByRole("button", {
+        name: /add floor plan underlay/i,
+      }),
+    ).toBeInTheDocument();
+    // And it is priced as the recurring add-on.
+    expect(screen.getByText(/\$11\/month/i)).toBeInTheDocument();
   });
 });
