@@ -130,7 +130,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: recommendation }, { status: 200 });
   } catch (error) {
-    if (error instanceof Error && error.message.includes("not found")) {
+    // Narrow to the inspection-not-found case ONLY. runAdjusterAgent throws
+    // `Inspection not found: <id>` for a missing inspection. A broad
+    // includes("not found") also matched deduct failures like "Admin user not
+    // found", mislabelling an internal error as a 404 "Inspection not found".
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Inspection not found")
+    ) {
       return apiError(request, {
         code: "NOT_FOUND",
         message: "Inspection not found",

@@ -1,5 +1,6 @@
 /**
- * RA-1377 — Compensating refund when a report charge produces no report.
+ * RA-1377 / RA-6981 — Compensating refund when a report charge produces no
+ * report.
  *
  * `deductCreditsAndTrackUsage` charges a TRIAL credit / monthly-usage slot
  * BEFORE the slow external AI call and before the report row is persisted, and
@@ -8,12 +9,16 @@
  * no report — repeated transient failures silently burn paid quota.
  *
  * This suite asserts that `refundCreditsAndTrackUsage` is the exact inverse of
- * `deductCreditsAndTrackUsage`:
- *   - TRIAL: re-credits the admin's creditsRemaining and rolls back
- *     totalCreditsUsed (deduct restored to original).
- *   - ACTIVE: decrements the admin's monthlyReportsUsed back down.
- *   - Manager / creator usage-tracking increments are rolled back too.
- *   - Counters are clamped at 0 (no negative balances on a stray double-refund).
+ * `deductCreditsAndTrackUsage`, and (RA-6981) that EVERY leg is a guarded
+ * atomic decrement — `updateMany({ where: { id, <counter>: { gte: 1 } },
+ * data: { <counter>: { decrement: 1 } } })` — never a read-then-write of an
+ * absolute value (rule 6):
+ *   - TRIAL: re-credits the admin's creditsRemaining (atomic increment) and
+ *     decrements totalCreditsUsed, both under a `totalCreditsUsed >= 1` guard.
+ *   - ACTIVE: decrements the admin's monthlyReportsUsed under a `>= 1` guard.
+ *   - Manager / creator usage-tracking increments are rolled back the same way.
+ *   - The `gte: 1` WHERE guard (not a JS clamp) is what prevents a negative
+ *     counter on a stray double-refund.
  *   - It is best-effort: a failing prisma update is logged, surfaced via the
  *     returned flag, and never thrown.
  *
@@ -58,32 +63,29 @@ beforeEach(() => {
 });
 
 describe("refundCreditsAndTrackUsage — TRIAL admin (self-create)", () => {
-  it("re-credits creditsRemaining and rolls back totalCreditsUsed", async () => {
+  it("re-credits creditsRemaining and atomically decrements totalCreditsUsed", async () => {
     getOrganizationOwner.mockResolvedValue("admin-1");
-    // creator row (role/managedById) then admin row (balances)
+    // creator row (role/managedById) then admin row (subscriptionStatus)
     prismaMock.user.findUnique
       .mockResolvedValueOnce({ role: "ADMIN", managedById: null })
-      .mockResolvedValueOnce({
-        subscriptionStatus: "TRIAL",
-        creditsRemaining: 4,
-        totalCreditsUsed: 11,
-        monthlyReportsUsed: 0,
-      });
+      .mockResolvedValueOnce({ subscriptionStatus: "TRIAL" });
 
     const res = await refundCreditsAndTrackUsage("admin-1");
 
     expect(res.refunded).toBe(true);
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: "admin-1" },
+    // Guarded atomic decrement — never a read-then-write absolute value.
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: { id: "admin-1", totalCreditsUsed: { gte: 1 } },
       data: {
         creditsRemaining: { increment: 1 },
-        // totalCreditsUsed restored from 11 -> 10 (clamped at 0)
-        totalCreditsUsed: 10,
+        totalCreditsUsed: { decrement: 1 },
       },
     });
+    // The absolute-write API must never be used for the refund.
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
-  it("deduct-then-refund restores a TRIAL admin to the original balance", async () => {
+  it("deduct-then-refund is a net-zero pair of atomic operations", async () => {
     getOrganizationOwner.mockResolvedValue("admin-1");
 
     // ----- deduct leg -----
@@ -100,11 +102,10 @@ describe("refundCreditsAndTrackUsage — TRIAL admin (self-create)", () => {
         monthlyReportsUsed: 0,
         monthlyResetDate: null,
       });
-    prismaMock.user.updateMany.mockResolvedValue({ count: 1 });
 
     await deductCreditsAndTrackUsage("admin-1");
 
-    // Atomic deduct: creditsRemaining 5 -> 4, totalCreditsUsed 7 -> 8.
+    // Atomic deduct: creditsRemaining -1, totalCreditsUsed +1 (guarded gte 1).
     expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
       where: { id: "admin-1", creditsRemaining: { gte: 1 } },
       data: {
@@ -113,147 +114,107 @@ describe("refundCreditsAndTrackUsage — TRIAL admin (self-create)", () => {
       },
     });
 
-    // ----- refund leg (post-deduct state: credits 4, used 8) -----
+    // ----- refund leg -----
     prismaMock.user.findUnique
       .mockResolvedValueOnce({ role: "ADMIN", managedById: null })
-      .mockResolvedValueOnce({
-        subscriptionStatus: "TRIAL",
-        creditsRemaining: 4,
-        totalCreditsUsed: 8,
-        monthlyReportsUsed: 0,
-      });
+      .mockResolvedValueOnce({ subscriptionStatus: "TRIAL" });
 
     const res = await refundCreditsAndTrackUsage("admin-1");
 
     expect(res.refunded).toBe(true);
-    // creditsRemaining incremented back to 5, totalCreditsUsed restored to 7.
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: "admin-1" },
+    // Exact inverse: creditsRemaining +1, totalCreditsUsed -1 (guarded gte 1).
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: { id: "admin-1", totalCreditsUsed: { gte: 1 } },
       data: {
         creditsRemaining: { increment: 1 },
-        totalCreditsUsed: 7,
+        totalCreditsUsed: { decrement: 1 },
       },
     });
   });
 
-  it("clamps totalCreditsUsed at 0 (no negative on double-refund)", async () => {
+  it("the gte:1 guard (not a JS clamp) prevents a negative totalCreditsUsed", async () => {
     getOrganizationOwner.mockResolvedValue("admin-1");
     prismaMock.user.findUnique
       .mockResolvedValueOnce({ role: "ADMIN", managedById: null })
-      .mockResolvedValueOnce({
-        subscriptionStatus: "TRIAL",
-        creditsRemaining: 30,
-        totalCreditsUsed: 0,
-        monthlyReportsUsed: 0,
-      });
+      .mockResolvedValueOnce({ subscriptionStatus: "TRIAL" });
 
     await refundCreditsAndTrackUsage("admin-1");
 
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: "admin-1" },
-      data: { creditsRemaining: { increment: 1 }, totalCreditsUsed: 0 },
+    // No prior read of totalCreditsUsed; the DB-side guard blocks the write when
+    // the counter is already at the 0 floor (a stray double-refund is a no-op).
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: { id: "admin-1", totalCreditsUsed: { gte: 1 } },
+      data: {
+        creditsRemaining: { increment: 1 },
+        totalCreditsUsed: { decrement: 1 },
+      },
     });
   });
 });
 
 describe("refundCreditsAndTrackUsage — ACTIVE admin", () => {
-  it("decrements monthlyReportsUsed back down, clamped at 0", async () => {
+  it("atomically decrements monthlyReportsUsed under a gte:1 guard", async () => {
     getOrganizationOwner.mockResolvedValue("admin-1");
     prismaMock.user.findUnique
       .mockResolvedValueOnce({ role: "ADMIN", managedById: null })
-      .mockResolvedValueOnce({
-        subscriptionStatus: "ACTIVE",
-        creditsRemaining: 0,
-        totalCreditsUsed: 0,
-        monthlyReportsUsed: 3,
-      });
+      .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" });
 
     const res = await refundCreditsAndTrackUsage("admin-1");
 
     expect(res.refunded).toBe(true);
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: "admin-1" },
-      data: { monthlyReportsUsed: 2 },
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: { id: "admin-1", monthlyReportsUsed: { gte: 1 } },
+      data: { monthlyReportsUsed: { decrement: 1 } },
     });
     // Never touches creditsRemaining for an ACTIVE admin.
-    for (const call of prismaMock.user.update.mock.calls) {
+    for (const call of prismaMock.user.updateMany.mock.calls) {
       const arg = call[0] as { data?: Record<string, unknown> };
       expect(arg?.data ?? {}).not.toHaveProperty("creditsRemaining");
     }
   });
-
-  it("clamps a freshly-reset monthlyReportsUsed (1) without going negative", async () => {
-    getOrganizationOwner.mockResolvedValue("admin-1");
-    prismaMock.user.findUnique
-      .mockResolvedValueOnce({ role: "ADMIN", managedById: null })
-      .mockResolvedValueOnce({
-        subscriptionStatus: "ACTIVE",
-        creditsRemaining: 0,
-        totalCreditsUsed: 0,
-        monthlyReportsUsed: 1,
-      });
-
-    await refundCreditsAndTrackUsage("admin-1");
-
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: "admin-1" },
-      data: { monthlyReportsUsed: 0 },
-    });
-  });
 });
 
 describe("refundCreditsAndTrackUsage — team hierarchy (technician under manager)", () => {
-  it("rolls back admin, manager, and creator usage exactly once each", async () => {
+  it("rolls back admin, manager, and creator usage with a guarded decrement each", async () => {
     // creator (technician) != admin, has a manager
     getOrganizationOwner.mockResolvedValue("admin-1");
     prismaMock.user.findUnique
-      // creator row (refund resolution)
+      // creator row (refund resolution: role/managedById)
       .mockResolvedValueOnce({ role: "USER", managedById: "mgr-1" })
-      // admin row
-      .mockResolvedValueOnce({
-        subscriptionStatus: "ACTIVE",
-        creditsRemaining: 0,
-        totalCreditsUsed: 50,
-        monthlyReportsUsed: 5,
-      })
-      // manager row
-      .mockResolvedValueOnce({ totalCreditsUsed: 9 })
-      // creator row (usage)
-      .mockResolvedValueOnce({ totalCreditsUsed: 4 });
+      // admin row (subscriptionStatus)
+      .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" });
 
     const res = await refundCreditsAndTrackUsage("tech-1");
 
     expect(res.refunded).toBe(true);
-    // admin monthly usage rolled back
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: "admin-1" },
-      data: { monthlyReportsUsed: 4 },
+    // admin monthly usage rolled back (guarded)
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: { id: "admin-1", monthlyReportsUsed: { gte: 1 } },
+      data: { monthlyReportsUsed: { decrement: 1 } },
     });
-    // manager usage rolled back 9 -> 8
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: "mgr-1" },
-      data: { totalCreditsUsed: 8 },
+    // manager usage rolled back (guarded)
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: { id: "mgr-1", totalCreditsUsed: { gte: 1 } },
+      data: { totalCreditsUsed: { decrement: 1 } },
     });
-    // creator usage rolled back 4 -> 3
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: "tech-1" },
-      data: { totalCreditsUsed: 3 },
+    // creator usage rolled back (guarded)
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: { id: "tech-1", totalCreditsUsed: { gte: 1 } },
+      data: { totalCreditsUsed: { decrement: 1 } },
     });
+    // Three legs, three atomic writes — no absolute-value updates.
+    expect(prismaMock.user.updateMany).toHaveBeenCalledTimes(3);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 });
 
 describe("refundCreditsAndTrackUsage — best-effort failure handling", () => {
-  it("returns refunded:false and does NOT throw when a prisma update fails", async () => {
+  it("returns refunded:false and does NOT throw when a prisma write fails", async () => {
     getOrganizationOwner.mockResolvedValue("admin-1");
     prismaMock.user.findUnique
       .mockResolvedValueOnce({ role: "ADMIN", managedById: null })
-      .mockResolvedValueOnce({
-        subscriptionStatus: "TRIAL",
-        creditsRemaining: 4,
-        totalCreditsUsed: 11,
-        monthlyReportsUsed: 0,
-      });
-    prismaMock.user.update.mockRejectedValueOnce(new Error("DB down"));
+      .mockResolvedValueOnce({ subscriptionStatus: "TRIAL" });
+    prismaMock.user.updateMany.mockRejectedValueOnce(new Error("DB down"));
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -275,7 +236,7 @@ describe("refundCreditsAndTrackUsage — best-effort failure handling", () => {
     const res = await refundCreditsAndTrackUsage("admin-1");
 
     expect(res.refunded).toBe(false);
-    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(prismaMock.user.updateMany).not.toHaveBeenCalled();
     errorSpy.mockRestore();
   });
 });

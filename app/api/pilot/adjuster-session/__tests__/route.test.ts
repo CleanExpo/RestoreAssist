@@ -170,6 +170,29 @@ describe("POST /api/pilot/adjuster-session", () => {
     expect(json.error.message).toMatch(/credits/i);
   });
 
+  it("RA-6981: a deduct 'not found' error is NOT mislabelled 404 'Inspection not found'", async () => {
+    mockSession.mockResolvedValueOnce({ user: { id: "user-11" } });
+    mockFindUnique.mockResolvedValueOnce({
+      id: "user-11",
+      subscriptionStatus: "ACTIVE",
+    });
+    // deductCreditsAndTrackUsage can throw "Admin user not found" — a generic
+    // internal failure that must map to 500, not a misleading 404 about the
+    // inspection. The outer catch now narrows to `startsWith("Inspection not
+    // found")`, which this message does not match.
+    mockDeductCredits.mockRejectedValueOnce(new Error("Admin user not found"));
+
+    const res = await POST(makeRequest({ inspectionId: "insp-001" }));
+    const json = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(json.error.message).toBe("Internal server error");
+    expect(JSON.stringify(json)).not.toContain("Inspection not found");
+    // A pre-agent deduct failure never reaches the agent nor the refund path.
+    expect(mockRunAgent).not.toHaveBeenCalled();
+    expect(mockRefundCredits).not.toHaveBeenCalled();
+  });
+
   it("missing inspectionId → 400", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-4" } });
     mockFindUnique.mockResolvedValueOnce({
