@@ -23,7 +23,7 @@ import {
   assertInspectionTenancy,
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
-import { apiError } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -62,30 +62,34 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return apiError(req, {
-      code: "UNAUTHORIZED",
-      message: "Unauthorized",
-      status: 401,
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return apiError(req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
+    }
+
+    const { id } = await params;
+
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
+      return NextResponse.json(
+        { error: tenancy.reason },
+        { status: tenancy.status },
+      );
+    }
+
+    const record = await prisma.australianComplianceRecord.findUnique({
+      where: { inspectionId: id },
     });
+
+    return NextResponse.json(record ?? null);
+  } catch (err) {
+    return fromException(req, err, { stage: "australian-compliance:get" });
   }
-
-  const { id } = await params;
-
-  const tenancy = await assertInspectionTenancy(session, id);
-  if (!tenancy.ok) {
-    return NextResponse.json(
-      { error: tenancy.reason },
-      { status: tenancy.status },
-    );
-  }
-
-  const record = await prisma.australianComplianceRecord.findUnique({
-    where: { inspectionId: id },
-  });
-
-  return NextResponse.json(record ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -94,114 +98,132 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return apiError(req, {
-      code: "UNAUTHORIZED",
-      message: "Unauthorized",
-      status: 401,
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return apiError(req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
+    }
+
+    const { id } = await params;
+
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
+      return NextResponse.json(
+        { error: tenancy.reason },
+        { status: tenancy.status },
+      );
+    }
+
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
+    }
+
+    const parsed = auComplianceSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid data", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const data = parsed.data;
+
+    // Warn if asbestos risk is present in a pre-1990 property but not acknowledged
+    const asbestosWarning =
+      data.propertyYearBuilt != null &&
+      data.propertyYearBuilt < 1990 &&
+      data.asbestosRiskAcknowledged !== true
+        ? "Property built before 1990 — asbestos-containing materials must be assumed present until tested. Set asbestosRiskAcknowledged: true after review."
+        : null;
+
+    const record = await prisma.australianComplianceRecord.upsert({
+      where: { inspectionId: id },
+      create: {
+        inspectionId: id,
+        insurerName: data.insurerName ?? undefined,
+        claimNumber: data.claimNumber ?? undefined,
+        lossAdjusterName: data.lossAdjusterName ?? undefined,
+        lossAdjusterReference: data.lossAdjusterReference ?? undefined,
+        nrpgCategory: data.nrpgCategory ?? undefined,
+        iicrcCertifiedTechnician: data.iicrcCertifiedTechnician ?? false,
+        technicianCertification: data.technicianCertification ?? undefined,
+        technicianLicenseNumber: data.technicianLicenseNumber ?? undefined,
+        state: data.state ?? undefined,
+        propertyYearBuilt: data.propertyYearBuilt ?? undefined,
+        asbestosRiskAcknowledged: data.asbestosRiskAcknowledged ?? false,
+        friableAssessment: data.friableAssessment ?? undefined,
+        workHalted: data.workHalted ?? false,
+        licensedAssessorName: data.licensedAssessorName ?? undefined,
+        licensedAssessorLicense: data.licensedAssessorLicense ?? undefined,
+        removalQuoteAud: data.removalQuoteAud ?? undefined,
+        separateInvoiceRequired: data.separateInvoiceRequired ?? true,
+      },
+      update: {
+        ...(data.insurerName !== undefined && {
+          insurerName: data.insurerName,
+        }),
+        ...(data.claimNumber !== undefined && {
+          claimNumber: data.claimNumber,
+        }),
+        ...(data.lossAdjusterName !== undefined && {
+          lossAdjusterName: data.lossAdjusterName,
+        }),
+        ...(data.lossAdjusterReference !== undefined && {
+          lossAdjusterReference: data.lossAdjusterReference,
+        }),
+        ...(data.nrpgCategory !== undefined && {
+          nrpgCategory: data.nrpgCategory,
+        }),
+        ...(data.iicrcCertifiedTechnician !== undefined && {
+          iicrcCertifiedTechnician: data.iicrcCertifiedTechnician,
+        }),
+        ...(data.technicianCertification !== undefined && {
+          technicianCertification: data.technicianCertification,
+        }),
+        ...(data.technicianLicenseNumber !== undefined && {
+          technicianLicenseNumber: data.technicianLicenseNumber,
+        }),
+        ...(data.state !== undefined && { state: data.state }),
+        ...(data.propertyYearBuilt !== undefined && {
+          propertyYearBuilt: data.propertyYearBuilt,
+        }),
+        ...(data.asbestosRiskAcknowledged !== undefined && {
+          asbestosRiskAcknowledged: data.asbestosRiskAcknowledged,
+        }),
+        ...(data.friableAssessment !== undefined && {
+          friableAssessment: data.friableAssessment,
+        }),
+        ...(data.workHalted !== undefined && { workHalted: data.workHalted }),
+        ...(data.licensedAssessorName !== undefined && {
+          licensedAssessorName: data.licensedAssessorName,
+        }),
+        ...(data.licensedAssessorLicense !== undefined && {
+          licensedAssessorLicense: data.licensedAssessorLicense,
+        }),
+        ...(data.removalQuoteAud !== undefined && {
+          removalQuoteAud: data.removalQuoteAud,
+        }),
+        ...(data.separateInvoiceRequired !== undefined && {
+          separateInvoiceRequired: data.separateInvoiceRequired,
+        }),
+      },
     });
+
+    return NextResponse.json({ ...record, asbestosWarning });
+  } catch (err) {
+    return fromException(req, err, { stage: "australian-compliance:post" });
   }
-
-  const { id } = await params;
-
-  const tenancy = await assertInspectionTenancy(session, id);
-  if (!tenancy.ok) {
-    return NextResponse.json(
-      { error: tenancy.reason },
-      { status: tenancy.status },
-    );
-  }
-
-  const body = await req.json();
-  const parsed = auComplianceSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid data", details: parsed.error.flatten() },
-      { status: 400 },
-    );
-  }
-
-  const data = parsed.data;
-
-  // Warn if asbestos risk is present in a pre-1990 property but not acknowledged
-  const asbestosWarning =
-    data.propertyYearBuilt != null &&
-    data.propertyYearBuilt < 1990 &&
-    data.asbestosRiskAcknowledged !== true
-      ? "Property built before 1990 — asbestos-containing materials must be assumed present until tested. Set asbestosRiskAcknowledged: true after review."
-      : null;
-
-  const record = await prisma.australianComplianceRecord.upsert({
-    where: { inspectionId: id },
-    create: {
-      inspectionId: id,
-      insurerName: data.insurerName ?? undefined,
-      claimNumber: data.claimNumber ?? undefined,
-      lossAdjusterName: data.lossAdjusterName ?? undefined,
-      lossAdjusterReference: data.lossAdjusterReference ?? undefined,
-      nrpgCategory: data.nrpgCategory ?? undefined,
-      iicrcCertifiedTechnician: data.iicrcCertifiedTechnician ?? false,
-      technicianCertification: data.technicianCertification ?? undefined,
-      technicianLicenseNumber: data.technicianLicenseNumber ?? undefined,
-      state: data.state ?? undefined,
-      propertyYearBuilt: data.propertyYearBuilt ?? undefined,
-      asbestosRiskAcknowledged: data.asbestosRiskAcknowledged ?? false,
-      friableAssessment: data.friableAssessment ?? undefined,
-      workHalted: data.workHalted ?? false,
-      licensedAssessorName: data.licensedAssessorName ?? undefined,
-      licensedAssessorLicense: data.licensedAssessorLicense ?? undefined,
-      removalQuoteAud: data.removalQuoteAud ?? undefined,
-      separateInvoiceRequired: data.separateInvoiceRequired ?? true,
-    },
-    update: {
-      ...(data.insurerName !== undefined && { insurerName: data.insurerName }),
-      ...(data.claimNumber !== undefined && { claimNumber: data.claimNumber }),
-      ...(data.lossAdjusterName !== undefined && {
-        lossAdjusterName: data.lossAdjusterName,
-      }),
-      ...(data.lossAdjusterReference !== undefined && {
-        lossAdjusterReference: data.lossAdjusterReference,
-      }),
-      ...(data.nrpgCategory !== undefined && {
-        nrpgCategory: data.nrpgCategory,
-      }),
-      ...(data.iicrcCertifiedTechnician !== undefined && {
-        iicrcCertifiedTechnician: data.iicrcCertifiedTechnician,
-      }),
-      ...(data.technicianCertification !== undefined && {
-        technicianCertification: data.technicianCertification,
-      }),
-      ...(data.technicianLicenseNumber !== undefined && {
-        technicianLicenseNumber: data.technicianLicenseNumber,
-      }),
-      ...(data.state !== undefined && { state: data.state }),
-      ...(data.propertyYearBuilt !== undefined && {
-        propertyYearBuilt: data.propertyYearBuilt,
-      }),
-      ...(data.asbestosRiskAcknowledged !== undefined && {
-        asbestosRiskAcknowledged: data.asbestosRiskAcknowledged,
-      }),
-      ...(data.friableAssessment !== undefined && {
-        friableAssessment: data.friableAssessment,
-      }),
-      ...(data.workHalted !== undefined && { workHalted: data.workHalted }),
-      ...(data.licensedAssessorName !== undefined && {
-        licensedAssessorName: data.licensedAssessorName,
-      }),
-      ...(data.licensedAssessorLicense !== undefined && {
-        licensedAssessorLicense: data.licensedAssessorLicense,
-      }),
-      ...(data.removalQuoteAud !== undefined && {
-        removalQuoteAud: data.removalQuoteAud,
-      }),
-      ...(data.separateInvoiceRequired !== undefined && {
-        separateInvoiceRequired: data.separateInvoiceRequired,
-      }),
-    },
-  });
-
-  return NextResponse.json({ ...record, asbestosWarning });
 }
 
 // ─── DELETE ───────────────────────────────────────────────────────────────────
@@ -210,41 +232,45 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return apiError(req, {
-      code: "UNAUTHORIZED",
-      message: "Unauthorized",
-      status: 401,
-    });
-  }
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return apiError(req, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
+    }
 
-  const { id } = await params;
+    const { id } = await params;
 
-  const tenancy = await resolveInspectionWrite(session, id);
-  if (!tenancy.ok) {
-    return NextResponse.json(
-      { error: tenancy.reason },
-      { status: tenancy.status },
+    const tenancy = await resolveInspectionWrite(session, id);
+    if (!tenancy.ok) {
+      return NextResponse.json(
+        { error: tenancy.reason },
+        { status: tenancy.status },
+      );
+    }
+
+    await softDelete(
+      () =>
+        prisma.australianComplianceRecord.delete({
+          where: {
+            inspectionId: id,
+            ...(tenancy.data.childInspectionFilter && {
+              inspection: tenancy.data.childInspectionFilter,
+            }),
+          },
+        }),
+      {
+        route: "/api/inspections/[id]/australian-compliance",
+        stage: "delete",
+        inspectionId: id,
+      },
     );
+
+    return NextResponse.json({ deleted: true });
+  } catch (err) {
+    return fromException(req, err, { stage: "australian-compliance:delete" });
   }
-
-  await softDelete(
-    () =>
-      prisma.australianComplianceRecord.delete({
-        where: {
-          inspectionId: id,
-          ...(tenancy.data.childInspectionFilter && {
-            inspection: tenancy.data.childInspectionFilter,
-          }),
-        },
-      }),
-    {
-      route: "/api/inspections/[id]/australian-compliance",
-      stage: "delete",
-      inspectionId: id,
-    },
-  );
-
-  return NextResponse.json({ deleted: true });
 }

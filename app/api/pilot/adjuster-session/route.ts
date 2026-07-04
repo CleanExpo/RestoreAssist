@@ -20,7 +20,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { runAdjusterAgent } from "@/lib/ai/adjuster-agent";
-import { deductCreditsAndTrackUsage } from "@/lib/report-limits";
+import {
+  deductCreditsAndTrackUsage,
+  refundCreditsAndTrackUsage,
+} from "@/lib/report-limits";
 import { apiError } from "@/lib/api-errors";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
@@ -112,7 +115,18 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 6. Run adjuster agent ─────────────────────────────────────────────────
-    const recommendation = await runAdjusterAgent(inspectionId);
+    // The credit was deducted above, BEFORE this slow external call. If the
+    // agent 404s/throws, the user has been charged for a result they never
+    // received (RA-6968) — refund the deducted credit before surfacing the
+    // error. refundCreditsAndTrackUsage is best-effort and never throws, so it
+    // cannot mask the original failure nor double-charge the happy path.
+    let recommendation: Awaited<ReturnType<typeof runAdjusterAgent>>;
+    try {
+      recommendation = await runAdjusterAgent(inspectionId);
+    } catch (agentError) {
+      await refundCreditsAndTrackUsage(userId);
+      throw agentError;
+    }
 
     return NextResponse.json({ data: recommendation }, { status: 200 });
   } catch (error) {

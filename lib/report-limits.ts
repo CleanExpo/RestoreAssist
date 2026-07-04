@@ -394,6 +394,8 @@ export async function deductCreditsAndTrackUsage(
     where: { id: adminId },
     select: {
       subscriptionStatus: true,
+      subscriptionPlan: true,
+      addonReports: true,
       creditsRemaining: true,
       totalCreditsUsed: true,
       monthlyReportsUsed: true,
@@ -421,9 +423,32 @@ export async function deductCreditsAndTrackUsage(
       throw new Error("INSUFFICIENT_CREDITS");
     }
   } else if (admin.subscriptionStatus === "ACTIVE") {
-    // RA-1313 — same race-safe pattern as incrementMonthlyUsage above.
-    // Two team members creating reports on the 1st of the month must not
-    // both observe shouldReset=true and clobber each other's increment.
+    // RA-6968 — the paid monthly cap is enforced ATOMICALLY here, not by the
+    // caller's earlier canCreateReport() check. That check-then-increment split
+    // is a TOCTOU: two concurrent creates both read availableReports > 0 and
+    // both increment, pushing a paid account past its monthly limit.
+    //
+    // Resolve the cap (base plan + purchased add-on packs) the same way
+    // getUserReportLimits does, so the check and the write never disagree.
+    const baseLimit = resolveBaseReportLimit(admin.subscriptionPlan);
+    let addonFromPurchases = 0;
+    try {
+      const purchases = await prisma.addonPurchase.findMany({
+        where: { userId: adminId, status: "COMPLETED" },
+        select: { reportLimit: true },
+      });
+      addonFromPurchases = purchases.reduce((sum, p) => sum + p.reportLimit, 0);
+    } catch {
+      // AddonPurchase model may not exist in every deployment — fall back to
+      // the denormalised addonReports field, matching getUserReportLimits.
+    }
+    const addonReports = Math.max(addonFromPurchases, admin.addonReports ?? 0);
+    const totalLimit = baseLimit + addonReports;
+
+    // RA-1313 — race-safe monthly rollover. Two team members creating on the
+    // 1st must not both observe shouldReset=true and clobber each other's
+    // increment. A fresh period's first report is always under the cap, so the
+    // reset writes monthlyReportsUsed = 1 unconditionally.
     const now = new Date();
     const nextReset = new Date(now);
     nextReset.setMonth(nextReset.getMonth() + 1);
@@ -442,12 +467,17 @@ export async function deductCreditsAndTrackUsage(
     });
 
     if (resetResult.count === 0) {
-      await prisma.user.update({
-        where: { id: adminId },
-        data: {
-          monthlyReportsUsed: { increment: 1 },
-        },
+      // No rollover this call — atomically increment ONLY while strictly under
+      // the cap (rule 6, never read-then-write). count === 0 means the limit is
+      // already reached: block by throwing the shared INSUFFICIENT_CREDITS
+      // sentinel every caller already maps to HTTP 402.
+      const incResult = await prisma.user.updateMany({
+        where: { id: adminId, monthlyReportsUsed: { lt: totalLimit } },
+        data: { monthlyReportsUsed: { increment: 1 } },
       });
+      if (incResult.count === 0) {
+        throw new Error("INSUFFICIENT_CREDITS");
+      }
     }
   }
 
