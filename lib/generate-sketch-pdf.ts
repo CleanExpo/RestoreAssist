@@ -714,10 +714,16 @@ async function embedBrandLogo(
   logoUrl: string | null,
 ): Promise<Awaited<ReturnType<PDFDocument["embedPng"]>> | null> {
   if (!logoUrl || !logoUrl.startsWith("https://")) return null;
+  // Bound the fetch: a tenant-controlled URL must not hang the export or pull an
+  // oversized asset. Cap wall-clock at 5s and payload at 5 MB.
+  const MAX_LOGO_BYTES = 5 * 1024 * 1024;
   try {
-    const res = await fetch(logoUrl);
+    const res = await fetch(logoUrl, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
+    const declared = Number(res.headers.get("content-length"));
+    if (Number.isFinite(declared) && declared > MAX_LOGO_BYTES) return null;
     const bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes.byteLength > MAX_LOGO_BYTES) return null;
     const ct = (res.headers.get("content-type") ?? "").toLowerCase();
     return ct.includes("png")
       ? await doc.embedPng(bytes)

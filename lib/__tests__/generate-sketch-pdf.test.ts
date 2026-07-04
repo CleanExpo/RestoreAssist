@@ -123,7 +123,7 @@ describe("parseHexColor", () => {
     expect(parseHexColor("nope")).toBeNull();
     expect(parseHexColor("#12")).toBeNull();
     expect(parseHexColor("#12345")).toBeNull();
-    // @ts-expect-error — exercising the nullish guard
+    // parseHexColor accepts string | null | undefined, so null is type-safe.
     expect(parseHexColor(null)).toBeNull();
   });
 });
