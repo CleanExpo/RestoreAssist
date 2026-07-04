@@ -374,10 +374,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           label?.setCoords();
         };
         // Returns true if the Fabric object is a display-only decoration
-        // (dim-label or room-label) that must NOT enter the undo stack.
+        // (dim-label, room-label, or transient alignment guide) that must NOT
+        // enter the undo stack. Guides are added/removed on every mouse:move
+        // while dragging — without this exclusion each add/remove would push a
+        // full canvas.toJSON() snapshot onto the undo history.
         const isDecoration = (obj: unknown): boolean => {
           const t = (obj as { data?: { type?: string } } | undefined)?.data?.type;
-          return t === "dim-label" || t === "room-label";
+          return t === "dim-label" || t === "room-label" || t === "guide";
         };
 
         canvas.on("object:modified", (opt: unknown) => {
@@ -481,7 +484,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               eps.push(seg.a, seg.b);
               continue;
             }
-            const pts = (o as { points?: Point[] }).points;
+            const pts = polygonAbsolutePoints(o);
             if (pts) for (const pt of pts) eps.push(pt);
           }
           return eps;
@@ -704,6 +707,34 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           return null;
         };
 
+        // Absolute vertices of a (possibly moved/scaled/rotated) room polygon.
+        // Fabric keeps Polygon.points in the object's local frame relative to
+        // pathOffset — they never update on move/scale/rotate — so transform
+        // by the object's matrix to recover scene coordinates, same recovery
+        // wallAbsoluteSegment() does for lines. Objects without a transform
+        // (plain point bags) pass through unchanged.
+        const polygonAbsolutePoints = (polyObj: unknown): Point[] | null => {
+          type Mat = [number, number, number, number, number, number];
+          const po = polyObj as {
+            points?: Point[];
+            pathOffset?: Point;
+            calcTransformMatrix?: () => Mat;
+          };
+          const pts = po.points;
+          if (!pts) return null;
+          const off = po.pathOffset;
+          if (po.calcTransformMatrix && off) {
+            const m = po.calcTransformMatrix();
+            const tp = (
+              fabric as unknown as {
+                util: { transformPoint: (pt: Point, mat: Mat) => Point };
+              }
+            ).util.transformPoint;
+            return pts.map((pt) => tp({ x: pt.x - off.x, y: pt.y - off.y }, m));
+          }
+          return pts;
+        };
+
         // Re-anchor every opening bound to `wallObj` onto the wall's new segment.
         // Rebuilds each opening symbol from its stored width/hinge/parametric-t so
         // doors/windows ride with their wall. Openings without a hostWallId (e.g.
@@ -789,19 +820,30 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             add: (...o: unknown[]) => void;
             renderAll: () => void;
           };
-          // Span each guide across the bbox of the cursor + existing endpoints so
-          // the line visibly connects the aligned corner to the cursor.
-          const xs = [cur.x, ...eps.map((e) => e.x)];
-          const ys = [cur.y, ...eps.map((e) => e.y)];
-          const minX = Math.min(...xs);
-          const maxX = Math.max(...xs);
-          const minY = Math.min(...ys);
-          const maxY = Math.max(...ys);
+          // Span each guide from the aligned endpoint(s) to the cursor so the
+          // line visibly connects the shared corner — only endpoints on the
+          // guide's own axis coordinate, not the bbox of every endpoint on the
+          // canvas (which would stretch guides across unrelated geometry).
+          // `g.coord` is copied verbatim from a collected endpoint by
+          // alignmentGuidesFor(), so exact equality is a safe membership test.
           for (const g of guides) {
+            const matching = eps.filter((e) =>
+              g.type === "v" ? e.x === g.coord : e.y === g.coord,
+            );
             const coords: [number, number, number, number] =
               g.type === "v"
-                ? [g.coord, minY, g.coord, maxY]
-                : [minX, g.coord, maxX, g.coord];
+                ? [
+                    g.coord,
+                    Math.min(cur.y, ...matching.map((e) => e.y)),
+                    g.coord,
+                    Math.max(cur.y, ...matching.map((e) => e.y)),
+                  ]
+                : [
+                    Math.min(cur.x, ...matching.map((e) => e.x)),
+                    g.coord,
+                    Math.max(cur.x, ...matching.map((e) => e.x)),
+                    g.coord,
+                  ];
             const line = new F.Line(coords, {
               stroke: "#00BAD4",
               strokeWidth: 1,
