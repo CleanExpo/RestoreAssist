@@ -7,7 +7,14 @@
  *     event can no longer overwrite another tenant's job.
  *   - A replayed event (timestamp not newer than the last recorded event for
  *     that job) is an idempotent no-op — not double-processed.
- *   - A stale event (timestamp outside the ±5-minute window) is rejected.
+ *   - A stale event (timestamp outside the ±24h freshness window) is rejected.
+ *
+ * RA-6985: the freshness window was previously ±5 minutes, which rejected
+ * DR-NRPG's own late retries (a retry redelivers the identical signed body —
+ * same timestamp), permanently dropping the event after a transient failure
+ * on our end. Widened to the provider retry horizon (24h), mirroring the
+ * merged MYOB/Xero fixes (RA-6973/RA-6968); the lastEventAt/lastEventType
+ * dedup + DrNrpgWebhookLog audit remain the actual replay guards.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -128,14 +135,34 @@ describe("POST /api/webhooks/dr-nrpg — tenant scoping", () => {
 });
 
 describe("POST /api/webhooks/dr-nrpg — replay protection", () => {
-  it("rejects an event older than the ±5-minute freshness window", async () => {
-    const stale = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  it("accepts the provider's own retry hours after the event (previously rejected at the 5-minute gate)", async () => {
+    drNrpgJobSyncFindUnique.mockResolvedValue(null); // transient failure meant we never recorded it
+    drNrpgJobSyncUpsert.mockResolvedValue({ id: "sync-retry" });
+
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const res = await POST(
+      makeRequest({
+        event: "job.updated",
+        jobId: "job-late-retry",
+        claimNumber: "CLM-2",
+        timestamp: twoHoursAgo,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(drNrpgJobSyncUpsert).toHaveBeenCalled();
+  });
+
+  it("still rejects an event older than the 24h retry window", async () => {
+    const twoDaysAgo = new Date(
+      Date.now() - 48 * 60 * 60 * 1000,
+    ).toISOString();
     const res = await POST(
       makeRequest({
         event: "job.updated",
         jobId: "job-stale",
         claimNumber: "CLM-2",
-        timestamp: stale,
+        timestamp: twoDaysAgo,
       }),
     );
 
@@ -212,6 +239,37 @@ describe("POST /api/webhooks/dr-nrpg — replay protection", () => {
     const json = await res.json();
     expect(json.deduplicated).toBeFalsy();
     expect(drNrpgJobSyncUpsert).toHaveBeenCalled();
+  });
+
+  it("dedupes an out-of-order redelivery whose timestamp is older than the last recorded event", async () => {
+    // The strictly-older branch of the idempotency guard is what stops a
+    // replayed old event (e.g. a captured job.completed redelivered after a
+    // later job.updated) from regressing status now that the freshness
+    // window admits 24h of history — pin it independently of the
+    // equal-timestamp tiebreaker.
+    const lastEventAt = new Date();
+    drNrpgJobSyncFindUnique.mockResolvedValue({
+      id: "sync-existing",
+      lastEventAt,
+      lastEventType: "job.updated",
+    });
+
+    const oneHourEarlier = new Date(
+      lastEventAt.getTime() - 60 * 60 * 1000,
+    ).toISOString();
+    const res = await POST(
+      makeRequest({
+        event: "job.completed",
+        jobId: "job-out-of-order",
+        claimNumber: "CLM-7",
+        timestamp: oneHourEarlier,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.deduplicated).toBe(true);
+    expect(drNrpgJobSyncUpsert).not.toHaveBeenCalled();
   });
 
   it("writes a DrNrpgWebhookLog entry for a deduplicated replay before returning", async () => {
