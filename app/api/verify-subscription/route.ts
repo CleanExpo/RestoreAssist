@@ -129,6 +129,19 @@ export async function POST(request: NextRequest) {
           subscriptionId as string,
         );
 
+        // RA-6972: a replayed old success-page session_id can point at a
+        // subscription that has since been superseded or cancelled. Only a
+        // live (active) subscription may (re)activate the account and reset the
+        // usage window — reject anything else so an old session cannot
+        // resurrect a cancelled/incomplete subscription or re-gift usage.
+        if (stripeSubscription.status !== "active") {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Subscription is not active",
+            status: 400,
+          });
+        }
+
         // Determine subscription plan from price
         let subscriptionPlan = "Monthly Plan"; // Default
         if (stripeSubscription.items.data[0]?.price) {
@@ -159,8 +172,46 @@ export async function POST(request: NextRequest) {
             subscriptionId: true,
           },
         });
+
+        const incomingSubscriptionId = subscriptionId as string;
+        const storedSubscriptionId = userBefore?.subscriptionId ?? null;
+
+        // RA-6972: never regress subscriptionId to an older subscription. When
+        // the user already has a DIFFERENT stored subscription, only advance
+        // when the session's subscription is at least as recent as the stored
+        // one. Replaying an old paid session for a since-changed subscription
+        // must not overwrite the current subscriptionId nor re-open the monthly
+        // usage window. The "current live sub" is the most recently created of
+        // the two active subscriptions.
+        if (
+          storedSubscriptionId &&
+          storedSubscriptionId !== incomingSubscriptionId
+        ) {
+          let storedIsCurrent = false;
+          try {
+            const storedSubscription = await stripe.subscriptions.retrieve(
+              storedSubscriptionId,
+            );
+            storedIsCurrent =
+              storedSubscription.status === "active" &&
+              (storedSubscription.created ?? 0) >
+                (stripeSubscription.created ?? 0);
+          } catch {
+            // Stored subscription is no longer retrievable (deleted). Treat the
+            // incoming active subscription as current and allow the advance.
+            storedIsCurrent = false;
+          }
+          if (storedIsCurrent) {
+            return apiError(request, {
+              code: "CONFLICT",
+              message: "Subscription is no longer current",
+              status: 409,
+            });
+          }
+        }
+
         const isNewSubscription =
-          userBefore?.subscriptionId !== (subscriptionId as string);
+          storedSubscriptionId !== incomingSubscriptionId;
 
         // RA-907: current_period_end/start live on the SubscriptionItem in this
         // SDK version — read them there (no `as any` cast on the Subscription).

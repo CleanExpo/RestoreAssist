@@ -12,22 +12,7 @@ import {
 import { withIdempotency } from "@/lib/idempotency";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { apiError, fromException } from "@/lib/api-errors";
-
-function getBaseUrl(request: NextRequest): string {
-  let baseUrl = process.env.NEXTAUTH_URL;
-  if (!baseUrl) {
-    const origin = request.headers.get("origin");
-    const host = request.headers.get("host");
-    if (origin) baseUrl = origin;
-    else if (host) {
-      const protocol =
-        request.headers.get("x-forwarded-proto") ||
-        (host.includes("localhost") ? "http" : "https");
-      baseUrl = `${protocol}://${host}`;
-    } else baseUrl = "http://localhost:3000";
-  }
-  return baseUrl;
-}
+import { getAppUrl } from "@/lib/app-url";
 
 export async function POST(request: NextRequest) {
   // RA-1842 Path B — fail-closed for iOS Capacitor.
@@ -92,7 +77,9 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const baseUrl = getBaseUrl(request);
+      // RA-6967 — build success/cancel URLs from a trusted base, never from
+      // the attacker-influencable Origin/Host request headers.
+      const baseUrl = getAppUrl();
 
       const checkoutSession = await stripe.checkout.sessions.create({
         mode: "payment",
@@ -121,6 +108,15 @@ export async function POST(request: NextRequest) {
         metadata: {
           userId: userId,
           type: "lifetime",
+        },
+        // RA-6967 — mirror userId/type onto the PaymentIntent so the webhook's
+        // one-time-PI handling can key on payment_intent.metadata (a bare
+        // PaymentIntent event has no Checkout Session metadata to read).
+        payment_intent_data: {
+          metadata: {
+            userId: userId,
+            type: "lifetime",
+          },
         },
         // RA-6791 — AU GST compliance for one-time purchases. Stripe Tax
         // auto-applies 10 % GST to AU customers; tax_id_collection captures

@@ -8,6 +8,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
+import { getAppUrl } from "@/lib/app-url";
 
 export async function POST(request: NextRequest) {
   // RA-1842 Path B — fail-closed for iOS Capacitor.
@@ -37,24 +38,10 @@ export async function POST(request: NextRequest) {
   // Stripe sessions on client retry.
   return withIdempotency(request, userId, async (rawBody) => {
     try {
-      // Get the base URL from the request headers
-      let baseUrl = process.env.NEXTAUTH_URL;
-
-      if (!baseUrl) {
-        const origin = request.headers.get("origin");
-        const host = request.headers.get("host");
-
-        if (origin) {
-          baseUrl = origin;
-        } else if (host) {
-          const protocol =
-            request.headers.get("x-forwarded-proto") ||
-            (host.includes("localhost") ? "http" : "https");
-          baseUrl = `${protocol}://${host}`;
-        } else {
-          baseUrl = "http://localhost:3000";
-        }
-      }
+      // RA-6967/6968: build success/cancel URLs from a trusted base, never
+      // from the attacker-influencable Origin/Host request headers (which
+      // could redirect the buyer to a phishing origin after payment).
+      const baseUrl = getAppUrl();
 
       let parsedBody: { addonKey?: string } = {};
       try {
@@ -143,33 +130,32 @@ export async function POST(request: NextRequest) {
 
       // Create one-time payment checkout session for add-on
       try {
-        // Create price for add-on (one-time payment)
-        const priceData = {
-          unit_amount: Math.round(addon.amount * 100), // Convert to cents
-          currency: addon.currency.toLowerCase(),
-          // RA-6791 — addon prices are GST-inclusive (AU convention), so
-          // Stripe Tax breaks out the 10 % GST component rather than adding
-          // it on top of the displayed amount.
-          tax_behavior: "inclusive" as const,
-          product_data: {
-            name: addon.name,
-            metadata: {
-              description: addon.description,
-              addonKey: addonKey,
-              reportLimit: addon.reportLimit.toString(),
-            },
-          },
-        };
-
-        const price = await stripe.prices.create(priceData);
-
         const checkoutSession = await stripe.checkout.sessions.create({
           mode: "payment", // One-time payment, not subscription
           payment_method_types: ["card"],
           customer: customerId,
+          // RA-6967 — price the add-on inline instead of creating a new
+          // Stripe Price object on every checkout (that leaked an unbounded
+          // number of one-off Prices into the account). Mirrors the
+          // checkout-lifetime inline price_data pattern.
           line_items: [
             {
-              price: price.id,
+              price_data: {
+                currency: addon.currency.toLowerCase(),
+                unit_amount: Math.round(addon.amount * 100), // Convert to cents
+                // RA-6791 — addon prices are GST-inclusive (AU convention), so
+                // Stripe Tax breaks out the 10 % GST component rather than
+                // adding it on top of the displayed amount.
+                tax_behavior: "inclusive" as const,
+                product_data: {
+                  name: addon.name,
+                  metadata: {
+                    description: addon.description,
+                    addonKey: addonKey,
+                    reportLimit: addon.reportLimit.toString(),
+                  },
+                },
+              },
               quantity: 1,
             },
           ],

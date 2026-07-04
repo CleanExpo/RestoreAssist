@@ -133,6 +133,8 @@ describe("POST /api/verify-subscription — subscription activation (RA-6962)", 
   function stripeSub(periodEnd: number, periodStart: number) {
     return {
       id: "sub_new",
+      status: "active",
+      created: 1_500_000_000,
       items: {
         data: [
           {
@@ -214,5 +216,88 @@ describe("POST /api/verify-subscription — subscription activation (RA-6962)", 
     expect(data.subscriptionStatus).toBe("ACTIVE");
     expect(data.monthlyReportsUsed).toBeUndefined();
     expect(data.monthlyResetDate).toBeUndefined();
+  });
+});
+
+describe("POST /api/verify-subscription — session replay guard (RA-6972)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "u1", email: "owner@example.com" },
+    } as any);
+    vi.mocked(prisma.user.update).mockResolvedValue({
+      subscriptionStatus: "ACTIVE",
+      subscriptionPlan: "Monthly Plan",
+      creditsRemaining: 0,
+    } as any);
+  });
+
+  it("rejects a paid session whose subscription is no longer active (does not reset usage or regress subscriptionId)", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue({
+      id: "cs_old",
+      mode: "subscription",
+      payment_status: "paid",
+      customer: "cus_1",
+      subscription: "sub_old",
+      metadata: { userId: "u1" },
+    } as any);
+    // The replayed session points at a since-cancelled subscription.
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({
+      id: "sub_old",
+      status: "canceled",
+      created: 1_000_000_000,
+      items: { data: [{ current_period_end: 1, current_period_start: 0 }] },
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionId: "sub_new",
+    } as any);
+
+    const res = await POST(makeRequest({ sessionId: "cs_old" }));
+    expect(res.status).toBe(400);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses to regress subscriptionId to an older still-active subscription (replay of a changed sub)", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue({
+      id: "cs_old",
+      mode: "subscription",
+      payment_status: "paid",
+      customer: "cus_1",
+      subscription: "sub_old",
+      metadata: { userId: "u1" },
+    } as any);
+    // Both subscriptions are active, but the stored one is newer -> the
+    // incoming (older) session must not overwrite it or re-open the window.
+    vi.mocked(stripe.subscriptions.retrieve).mockImplementation((id: any) => {
+      if (id === "sub_old") {
+        return Promise.resolve({
+          id: "sub_old",
+          status: "active",
+          created: 1_000_000_000,
+          items: {
+            data: [
+              {
+                current_period_end: 2_000_000_000,
+                current_period_start: 1_990_000_000,
+                price: { recurring: { interval: "month" } },
+              },
+            ],
+          },
+        } as any);
+      }
+      return Promise.resolve({
+        id: "sub_new",
+        status: "active",
+        created: 1_600_000_000,
+        items: { data: [{ current_period_end: 3, current_period_start: 2 }] },
+      } as any);
+    });
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionId: "sub_new",
+    } as any);
+
+    const res = await POST(makeRequest({ sessionId: "cs_old" }));
+    expect(res.status).toBe(409);
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });
