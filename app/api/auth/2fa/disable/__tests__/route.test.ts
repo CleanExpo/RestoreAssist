@@ -66,6 +66,16 @@ describe("POST /api/auth/2fa/disable", () => {
     expect(res.status).toBe(401);
   });
 
+  it("rate-limits per user (session.user.id), not per IP", async () => {
+    userFindUnique.mockResolvedValue({ password: passwordHash });
+
+    await POST(makeRequest({ currentPassword: PASSWORD }));
+
+    expect(applyRateLimit).toHaveBeenCalledTimes(1);
+    const opts = applyRateLimit.mock.calls[0][1] as { key?: string };
+    expect(opts.key).toBe("u1");
+  });
+
   it("400 when currentPassword is missing", async () => {
     const res = await POST(makeRequest({}));
 

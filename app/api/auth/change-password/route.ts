@@ -15,14 +15,6 @@ export async function POST(request: NextRequest) {
   const csrfError = validateCsrf(request);
   if (csrfError) return csrfError;
 
-  // Rate limit: 5 attempts per 15 minutes per IP
-  const rateLimited = await applyRateLimit(request, {
-    maxRequests: 5,
-    prefix: "change-password",
-    failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
-  });
-  if (rateLimited) return rateLimited;
-
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return apiError(request, {
@@ -32,6 +24,17 @@ export async function POST(request: NextRequest) {
     });
   }
   const userId = session.user.id;
+
+  // Rate limit: 5 attempts per 15 minutes per user. Keyed on session.user.id
+  // (CLAUDE.md rule 8) so rotating source IPs can't multiply the per-user
+  // attempt budget.
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 5,
+    prefix: "change-password",
+    key: userId,
+    failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
+  });
+  if (rateLimited) return rateLimited;
 
   // RA-1266: retry replays the bcrypt hash + update — expensive, and
   // the cached response saves the ~250ms hash cost on idempotent retry.
