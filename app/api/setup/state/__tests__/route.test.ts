@@ -173,6 +173,38 @@ describe.skipIf(!process.env.DATABASE_URL)("PATCH /api/setup/state", () => {
     expect(updated?.primaryColor).toBe("#aabbcc");
   });
 
+  it("patches a manually-entered ABN, normalising it the same way the ABR-lookup success path does", async () => {
+    const req = new Request("http://localhost/api/setup/state", {
+      method: "PATCH",
+      body: JSON.stringify({ abn: "53 004 085 616" }),
+    });
+    const res = await PATCH(req);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.data.updated).toContain("abn");
+    const updated = await prisma.organization.findUnique({
+      where: { id: testOrgId },
+      select: { abn: true },
+    });
+    expect(updated?.abn).toBe("53004085616");
+  });
+
+  it("rejects an invalid ABN with 400 and does not persist it", async () => {
+    const req = new Request("http://localhost/api/setup/state", {
+      method: "PATCH",
+      body: JSON.stringify({ abn: "not-an-abn" }),
+    });
+    const res = await PATCH(req);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error.message).toMatch(/invalid abn/i);
+    const updated = await prisma.organization.findUnique({
+      where: { id: testOrgId },
+      select: { abn: true },
+    });
+    expect(updated?.abn).toBe("53004085616"); // unchanged from beforeAll seed
+  });
+
   it("returns 409 when setup is already completed", async () => {
     await prisma.organization.update({
       where: { id: testOrgId },
