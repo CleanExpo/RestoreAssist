@@ -68,6 +68,8 @@ export async function validateSubmission(
   // 1. Get all evidence items for this inspection
   const evidenceItems = await prisma.evidenceItem.findMany({
     where: { inspectionId },
+    orderBy: { capturedAt: "desc" },
+    take: 500,
     select: { evidenceClass: true, status: true },
   });
 
