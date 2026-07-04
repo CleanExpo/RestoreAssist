@@ -80,21 +80,21 @@ export const CRITICAL_FIELDS: TieredField[] = [
   {
     fieldName: "affectedAreas",
     label: "At least one affected area",
-    clauseRef: "IICRC S500 §8.1–8.4",
+    clauseRef: "IICRC S500:2021 §8.1–8.4",
     rationale:
       "Affected area is required to determine water class. No area = no scope = report is incomplete.",
   },
   {
     fieldName: "waterSource",
     label: "Water source / loss type",
-    clauseRef: "IICRC S500 §7.1–7.3",
+    clauseRef: "IICRC S500:2021 §7.1–7.3",
     rationale:
       "Water source determines Category (1/2/3). Absent = no classification possible = no scope.",
   },
   {
     fieldName: "photos",
     label: "At least one photo",
-    clauseRef: "IICRC S500 §5.3",
+    clauseRef: "IICRC S500:2021 §5.3",
     rationale:
       "S500 §5.3 requires photo documentation as a minimum. One photo is the absolute floor for a submittable report.",
   },
@@ -109,21 +109,21 @@ export const SUPPLEMENTARY_FIELDS: TieredField[] = [
   {
     fieldName: "environmentalData",
     label: "Environmental data (temperature, humidity)",
-    clauseRef: "IICRC S500 §12.4",
+    clauseRef: "IICRC S500:2021 §12.4",
     rationale:
       "Required for drying target calculation (S500 §12.4) but can be captured at reinspection if equipment unavailable.",
   },
   {
     fieldName: "moistureReadings",
     label: "Moisture readings",
-    clauseRef: "IICRC S500 §12.3",
+    clauseRef: "IICRC S500:2021 §12.3",
     rationale:
       "Critical for classification accuracy but a partial set is acceptable in emergency conditions. Flagged for follow-up.",
   },
   {
     fieldName: "equipmentSerialNumbers",
     label: "Equipment serial numbers",
-    clauseRef: "IICRC S500 §14",
+    clauseRef: "IICRC S500:2021 §14",
     rationale:
       "S500 §14 requires equipment documentation but serial numbers can be recorded at placement.",
   },
