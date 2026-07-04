@@ -25,17 +25,6 @@ export async function POST(req: NextRequest) {
   const csrfError = validateCsrf(req);
   if (csrfError) return csrfError;
 
-  // RA-1260 — rate-limit code-verify attempts to blunt online brute force.
-  // At 5 tries per 5 min and 6-digit codes, expected-guess count to crack
-  // stays in the hundreds-of-years range.
-  const rateLimited = await applyRateLimit(req, {
-    maxRequests: 5,
-    windowMs: 5 * 60 * 1000,
-    prefix: "2fa-enable",
-    failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
-  });
-  if (rateLimited) return rateLimited;
-
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return apiError(req, {
@@ -44,6 +33,19 @@ export async function POST(req: NextRequest) {
       status: 401,
     });
   }
+
+  // RA-1260 — rate-limit code-verify attempts to blunt online brute force.
+  // At 5 tries per 5 min and 6-digit codes, expected-guess count to crack
+  // stays in the hundreds-of-years range. Keyed on session.user.id (CLAUDE.md
+  // rule 8) so rotating source IPs can't multiply the per-user attempt budget.
+  const rateLimited = await applyRateLimit(req, {
+    maxRequests: 5,
+    windowMs: 5 * 60 * 1000,
+    prefix: "2fa-enable",
+    key: session.user.id,
+    failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
+  });
+  if (rateLimited) return rateLimited;
 
   let body: { code?: string };
   try {

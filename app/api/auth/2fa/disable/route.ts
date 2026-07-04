@@ -20,14 +20,6 @@ export async function POST(req: NextRequest) {
   const csrfError = validateCsrf(req);
   if (csrfError) return csrfError;
 
-  const rateLimited = await applyRateLimit(req, {
-    maxRequests: 5,
-    windowMs: 15 * 60 * 1000,
-    prefix: "2fa-disable",
-    failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
-  });
-  if (rateLimited) return rateLimited;
-
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return apiError(req, {
@@ -36,6 +28,18 @@ export async function POST(req: NextRequest) {
       status: 401,
     });
   }
+
+  // RA-1260 — rate-limit password-check attempts. Keyed on session.user.id
+  // (CLAUDE.md rule 8) so rotating source IPs can't multiply the per-user
+  // attempt budget.
+  const rateLimited = await applyRateLimit(req, {
+    maxRequests: 5,
+    windowMs: 15 * 60 * 1000,
+    prefix: "2fa-disable",
+    key: session.user.id,
+    failClosedOnUpstashError: true, // RA-6940 — fail closed on limiter-store outage
+  });
+  if (rateLimited) return rateLimited;
 
   let body: { currentPassword?: string };
   try {

@@ -85,7 +85,18 @@ describe("POST /api/auth/2fa/enable", () => {
     const res = await POST(makeRequest({ code: "123456" }));
 
     expect(res.status).toBe(429);
-    expect(getServerSession).not.toHaveBeenCalled();
+    // No code verification happens once the limit is hit.
+    expect(userUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rate-limits per user (session.user.id), not per IP", async () => {
+    userFindUnique.mockResolvedValue({ twoFactorSecret: secretBase32 });
+
+    await POST(makeRequest({ code: "123456" }));
+
+    expect(applyRateLimit).toHaveBeenCalledTimes(1);
+    const opts = applyRateLimit.mock.calls[0][1] as { key?: string };
+    expect(opts.key).toBe("u1");
   });
 
   it("400 on a malformed code (not 6 digits)", async () => {
