@@ -12,6 +12,8 @@ import {
   doorGeometry,
   doorArcPath,
   windowGeometry,
+  parametricPositionOnSegment,
+  pointAtParametric,
   type WallSegment,
 } from "../opening-geometry";
 import { decomposeElements } from "../decompose-elements";
@@ -79,6 +81,114 @@ describe("snapToNearestWall", () => {
     expect(result!.wallIndex).toBe(1); // VWALL
     expect(result!.anchor.x).toBeCloseTo(100, 5);
     expect(result!.anchor.y).toBeCloseTo(100, 5);
+  });
+});
+
+// ─── parametricPositionOnSegment (RA-6980 [A2b]) ─────────────────────────────
+
+describe("parametricPositionOnSegment", () => {
+  it("returns 0.5 for the midpoint of a horizontal wall", () => {
+    expect(parametricPositionOnSegment({ x: 250, y: 200 }, HWALL)).toBeCloseTo(0.5, 5);
+  });
+
+  it("returns 0 at the segment start", () => {
+    expect(parametricPositionOnSegment({ x: 0, y: 200 }, HWALL)).toBeCloseTo(0, 5);
+  });
+
+  it("returns 1 at the segment end", () => {
+    expect(parametricPositionOnSegment({ x: 500, y: 200 }, HWALL)).toBeCloseTo(1, 5);
+  });
+
+  it("clamps to 0 when the projection falls before the start", () => {
+    expect(parametricPositionOnSegment({ x: -100, y: 190 }, HWALL)).toBeCloseTo(0, 5);
+  });
+
+  it("clamps to 1 when the projection falls past the end", () => {
+    expect(parametricPositionOnSegment({ x: 900, y: 190 }, HWALL)).toBeCloseTo(1, 5);
+  });
+
+  it("projects off-wall points onto the parametric axis (uses the projection)", () => {
+    // (250, 260) projects to (250, 200) on HWALL → t = 0.5 regardless of the offset
+    expect(parametricPositionOnSegment({ x: 250, y: 260 }, HWALL)).toBeCloseTo(0.5, 5);
+  });
+
+  it("works on a vertical wall", () => {
+    expect(parametricPositionOnSegment({ x: 100, y: 100 }, VWALL)).toBeCloseTo(0.25, 5);
+  });
+
+  it("returns 0 for a zero-length segment", () => {
+    const dot: WallSegment = { a: { x: 50, y: 50 }, b: { x: 50, y: 50 } };
+    expect(parametricPositionOnSegment({ x: 90, y: 90 }, dot)).toBe(0);
+  });
+});
+
+// ─── pointAtParametric (RA-6980 [A2b]) ───────────────────────────────────────
+
+describe("pointAtParametric", () => {
+  it("returns the midpoint at t=0.5", () => {
+    expect(pointAtParametric(0.5, HWALL)).toEqual({ x: 250, y: 200 });
+  });
+
+  it("returns the start at t=0", () => {
+    expect(pointAtParametric(0, HWALL)).toEqual({ x: 0, y: 200 });
+  });
+
+  it("returns the end at t=1", () => {
+    expect(pointAtParametric(1, HWALL)).toEqual({ x: 500, y: 200 });
+  });
+
+  it("works on a vertical wall", () => {
+    expect(pointAtParametric(0.25, VWALL)).toEqual({ x: 100, y: 100 });
+  });
+
+  it("round-trips with parametricPositionOnSegment (== projection onto segment)", () => {
+    const p = { x: 317, y: 244 };
+    const t = parametricPositionOnSegment(p, HWALL);
+    const back = pointAtParametric(t, HWALL);
+    expect(back).toEqual(projectPointOntoSegment(p, HWALL));
+  });
+});
+
+// ─── RA-6980 [A2b] re-anchor: opening follows its host wall ──────────────────
+
+describe("RA-6980 [A2b] — opening re-anchors when the host wall moves", () => {
+  it("preserves the opening's relative position after the wall is translated", () => {
+    // Place a door at the midpoint of HWALL and capture its parametric t.
+    const anchor = { x: 250, y: 200 };
+    const t = parametricPositionOnSegment(anchor, HWALL);
+
+    // The wall is dragged down by 150px (a → (0,350), b → (500,350)).
+    const movedWall: WallSegment = { a: { x: 0, y: 350 }, b: { x: 500, y: 350 } };
+    const newAnchor = pointAtParametric(t, movedWall);
+
+    // Anchor rides with the wall: same relative position, new absolute point.
+    expect(newAnchor).toEqual({ x: 250, y: 350 });
+
+    // The recomputed door symbol sits on the moved wall centerline.
+    const geom = doorGeometry(newAnchor, movedWall, 0.82, PX, "left");
+    expect(geom.cutStart.y).toBeCloseTo(350, 5);
+    expect(geom.cutEnd.y).toBeCloseTo(350, 5);
+  });
+
+  it("preserves relative position after the wall is rotated/resized", () => {
+    // Door at 1/4 along a horizontal wall.
+    const t = parametricPositionOnSegment({ x: 125, y: 200 }, HWALL);
+    expect(t).toBeCloseTo(0.25, 5);
+
+    // Wall becomes a diagonal of a different length.
+    const diag: WallSegment = { a: { x: 0, y: 0 }, b: { x: 400, y: 400 } };
+    const newAnchor = pointAtParametric(t, diag);
+    // 0.25 along (0,0)→(400,400) = (100,100).
+    expect(newAnchor.x).toBeCloseTo(100, 5);
+    expect(newAnchor.y).toBeCloseTo(100, 5);
+
+    const win = windowGeometry(newAnchor, diag, 1, PX, 11);
+    // Window midpoint stays on the diagonal (x ≈ y).
+    const mid = {
+      x: (win.cutStart.x + win.cutEnd.x) / 2,
+      y: (win.cutStart.y + win.cutEnd.y) / 2,
+    };
+    expect(mid.x).toBeCloseTo(mid.y, 5);
   });
 });
 

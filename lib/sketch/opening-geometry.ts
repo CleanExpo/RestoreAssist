@@ -67,6 +67,35 @@ export function snapToNearestWall(
   return { anchor: bestAnchor, wallIndex: bestIdx };
 }
 
+/**
+ * RA-6980 [A2b] — parametric position of `p` along `seg`, clamped to [0, 1].
+ *
+ * `p` is first projected onto the segment, so off-wall points map to the
+ * position of their nearest point on the wall. Stored on an opening at
+ * placement time so the opening can re-anchor when its host wall later moves.
+ * Returns 0 for a zero-length segment.
+ */
+export function parametricPositionOnSegment(p: Point, seg: WallSegment): number {
+  const dx = seg.b.x - seg.a.x;
+  const dy = seg.b.y - seg.a.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return 0;
+  const t = ((p.x - seg.a.x) * dx + (p.y - seg.a.y) * dy) / lenSq;
+  return Math.max(0, Math.min(1, t));
+}
+
+/**
+ * RA-6980 [A2b] — the point at parametric position `t` along `seg`.
+ * Inverse of {@link parametricPositionOnSegment}: re-derives an opening's
+ * anchor on the host wall's new segment after the wall is moved/resized.
+ */
+export function pointAtParametric(t: number, seg: WallSegment): Point {
+  return {
+    x: seg.a.x + t * (seg.b.x - seg.a.x),
+    y: seg.a.y + t * (seg.b.y - seg.a.y),
+  };
+}
+
 // ─── Opening cut (shared by door + window) ────────────────────────────────────
 
 /**
