@@ -36,6 +36,7 @@ import { mapPayloadToInspection } from "@/lib/dr-nrpg/inbound-mapper";
 import { apiError } from "@/lib/api-errors";
 import { decrypt } from "@/lib/credential-vault";
 import { isEncryptedToken } from "@/lib/auth/account-tokens";
+import { isWebhookEventFresh } from "@/lib/integrations/webhook-freshness";
 
 const MAX_ACTIVE_DRNRPG_INTEGRATIONS = 100;
 
@@ -49,7 +50,13 @@ const MAX_ACTIVE_DRNRPG_INTEGRATIONS = 100;
 // the merged MYOB/Xero fixes (RA-6973/RA-6968). The lastEventAt/lastEventType
 // idempotency guard + DrNrpgWebhookLog audit below remain the actual replay
 // protections once an event is accepted.
-const DRNRPG_REPLAY_TOLERANCE_MS = 24 * 60 * 60 * 1000; // 24 hours
+//
+// RA-6987: that 24h widening was applied symmetrically (`Math.abs`), so a
+// future-dated event was accepted up to +24h ahead — writing a future
+// `lastEventAt` that then deduped every genuine older event as a stale
+// replay until wall-clock caught up. Now shares one shape with MYOB/Xero:
+// reject events older than the 24h horizon AND events more than a small
+// clock-skew allowance in the future (see webhook-freshness.ts).
 
 // ============================================================
 // HMAC-SHA256 signature verification
@@ -213,7 +220,7 @@ export async function POST(request: NextRequest) {
       status: 400,
     });
   }
-  if (Math.abs(Date.now() - eventTimeMs) > DRNRPG_REPLAY_TOLERANCE_MS) {
+  if (!isWebhookEventFresh(eventTimeMs)) {
     console.error("[dr-nrpg webhook] Stale event rejected (replay window):", {
       jobId,
       timestamp: payload.timestamp,

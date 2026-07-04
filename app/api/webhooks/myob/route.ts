@@ -6,6 +6,7 @@ import {
   isUniqueConstraintError,
 } from "@/lib/webhook-idempotency";
 import { apiError } from "@/lib/api-errors";
+import { isWebhookEventFresh } from "@/lib/integrations/webhook-freshness";
 
 /**
  * POST /api/webhooks/myob - Receive webhook events from MYOB
@@ -77,18 +78,22 @@ export async function POST(request: NextRequest) {
     // Widened to 24h; the (provider, externalEventId) unique-index + P2002
     // idempotency guard below still prevents a retry from being
     // double-processed once accepted.
-    const WEBHOOK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+    //
+    // RA-6987: the age check above was one-sided — a future-dated timestamp
+    // was accepted unbounded. Now shares one shape with Xero/DR-NRPG: reject
+    // events older than the 24h horizon AND events more than a small
+    // clock-skew allowance in the future (see webhook-freshness.ts).
     const now = Date.now();
     for (const evt of events) {
       if (evt.EventDateTime) {
-        const eventAge = now - new Date(evt.EventDateTime).getTime();
-        if (eventAge > WEBHOOK_MAX_AGE_MS) {
+        const eventTimeMs = new Date(evt.EventDateTime).getTime();
+        if (!isWebhookEventFresh(eventTimeMs, now)) {
           console.warn(
-            `[MYOB Webhook] Stale event rejected (age: ${Math.round(eventAge / 1000)}s)`,
+            `[MYOB Webhook] Stale event rejected (age: ${Math.round((now - eventTimeMs) / 1000)}s)`,
           );
           return apiError(request, {
             code: "VALIDATION",
-            message: "Webhook event too old",
+            message: "Webhook event outside freshness window",
             status: 400,
           });
         }
