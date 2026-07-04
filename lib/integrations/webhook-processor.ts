@@ -215,27 +215,33 @@ async function handleQuickBooksPaymentCreated(event: any): Promise<void> {
   const client = await createQuickBooksClient(event.integrationId);
   const payment = await client.getPayment(paymentId);
 
-  const linkedInvoiceTxn = (payment.Line ?? [])
-    .flatMap((line) => line.LinkedTxn ?? [])
-    .find((txn) => txn.TxnType === "Invoice");
-  const externalInvoiceId = linkedInvoiceTxn?.TxnId ?? null;
-  const paymentAmount =
-    typeof payment.TotalAmt === "number" ? payment.TotalAmt : 0;
+  // A QBO Payment carries one Line per invoice it settles, each with its own
+  // Amount and Invoice LinkedTxn. Credit each invoice its OWN line Amount — not
+  // the whole TotalAmt to the first invoice — so a payment split across N
+  // invoices allocates correctly (RA-6984).
+  const allocations = (payment.Line ?? []).flatMap((line) => {
+    const invoiceTxn = (line.LinkedTxn ?? []).find(
+      (txn) => txn.TxnType === "Invoice",
+    );
+    if (!invoiceTxn || typeof line.Amount !== "number" || line.Amount <= 0) {
+      return [];
+    }
+    return [{ externalInvoiceId: invoiceTxn.TxnId, amount: line.Amount }];
+  });
 
-  if (!externalInvoiceId || paymentAmount <= 0) {
+  if (allocations.length === 0) {
     console.warn(
       `[Webhook Processor] QUICKBOOKS payment ${paymentId} resolved via API but has no invoice ` +
-        `LinkedTxn or positive TotalAmt — skipping without recording`,
+        `LinkedTxn with a positive line amount — skipping without recording`,
     );
     return;
   }
 
   await recordExternalPayment(event, {
-    externalInvoiceId,
     externalPaymentId: paymentId,
-    paymentAmount,
     paymentDate: new Date(payment.TxnDate || Date.now()),
     paymentReference: payment.PaymentRefNum ?? null,
+    allocations,
   });
 }
 
@@ -263,29 +269,90 @@ async function handleMyobPaymentCreated(event: any): Promise<void> {
   const client = await createMYOBClient(event.integrationId);
   const payment = await client.getCustomerPayment(resourceUid);
 
-  const firstInvoice = (payment.Invoices ?? [])[0];
-  const externalInvoiceId = firstInvoice?.UID ?? null;
-  const paymentAmount =
-    typeof payment.AmountReceived === "number" ? payment.AmountReceived : 0;
+  // Each applied invoice carries its OWN AmountApplied — credit that, not the
+  // whole AmountReceived to Invoices[0] — so a payment split across N invoices
+  // allocates correctly (RA-6984).
+  const allocations = (payment.Invoices ?? []).flatMap((inv) => {
+    if (
+      !inv.UID ||
+      typeof inv.AmountApplied !== "number" ||
+      inv.AmountApplied <= 0
+    ) {
+      return [];
+    }
+    return [{ externalInvoiceId: inv.UID, amount: inv.AmountApplied }];
+  });
 
-  if (!externalInvoiceId || paymentAmount <= 0) {
+  if (allocations.length === 0) {
     console.warn(
       `[Webhook Processor] MYOB payment ${resourceUid} resolved via API but has no applied ` +
-        `invoice or positive AmountReceived — skipping without recording`,
+        `invoice with a positive amount — skipping without recording`,
     );
     return;
   }
 
   await recordExternalPayment(event, {
-    externalInvoiceId,
     externalPaymentId: resourceUid,
-    paymentAmount,
     paymentDate: new Date(payment.Date || Date.now()),
     paymentReference: null,
+    allocations,
   });
 }
 
+interface PaymentAllocation {
+  externalInvoiceId: string;
+  amount: number; // dollars applied to THIS invoice, provider-native
+}
+
 interface ResolvedPayment {
+  externalPaymentId: string;
+  paymentDate: Date;
+  paymentReference: string | null;
+  allocations: PaymentAllocation[];
+}
+
+/**
+ * Records a resolved external payment against the invoice(s) it was applied
+ * to — split out of handlePaymentCreated (RA-6984) so both the QuickBooks and
+ * MYOB API resolvers share the same recording path.
+ *
+ * CRITICAL tenant scoping (RA-6984): QBO TxnIds and MYOB UIDs are per-tenant
+ * identifiers, and the Invoice (externalSyncProvider, externalInvoiceId)
+ * unique key is GLOBAL — so an unscoped lookup could match a DIFFERENT
+ * tenant's invoice and post a payment onto their ledger. Every invoice lookup
+ * is scoped to the integration's owning userId so a payment can only ever
+ * settle an invoice owned by the same tenant.
+ */
+async function recordExternalPayment(
+  event: any,
+  resolved: ResolvedPayment,
+): Promise<void> {
+  const { externalPaymentId, paymentDate, paymentReference, allocations } =
+    resolved;
+
+  const integration = await prisma.integration.findUnique({
+    where: { id: event.integrationId },
+    select: { userId: true },
+  });
+  if (!integration) {
+    console.warn(
+      `[Webhook Processor] Integration ${event.integrationId} not found — skipping payment recording`,
+    );
+    return;
+  }
+
+  for (const allocation of allocations) {
+    await recordInvoiceAllocation(event, integration.userId, {
+      externalInvoiceId: allocation.externalInvoiceId,
+      externalPaymentId,
+      paymentAmount: allocation.amount,
+      paymentDate,
+      paymentReference,
+    });
+  }
+}
+
+interface ResolvedInvoiceAllocation {
   externalInvoiceId: string;
   externalPaymentId: string;
   paymentAmount: number; // dollars, provider-native
@@ -294,16 +361,15 @@ interface ResolvedPayment {
 }
 
 /**
- * Atomic create + increment of a resolved external payment — split out of
- * handlePaymentCreated (RA-6984) so both the QuickBooks and MYOB API
- * resolvers above share the same recording logic. Prevents TOCTOU duplicate
- * payment and ensures amountPaid/amountDue are updated with correct
- * concurrent values. P2002 on externalPaymentId unique constraint is the
- * last-resort dedup guard.
+ * Atomic create + increment of a single invoice allocation. Prevents TOCTOU
+ * duplicate payment and ensures amountPaid/amountDue update with correct
+ * concurrent values. The invoice lookup is scoped to `ownerUserId` (resolved
+ * in recordExternalPayment) so a cross-tenant invoice can never match.
  */
-async function recordExternalPayment(
+async function recordInvoiceAllocation(
   event: any,
-  resolved: ResolvedPayment,
+  ownerUserId: string,
+  resolved: ResolvedInvoiceAllocation,
 ): Promise<void> {
   const {
     externalInvoiceId,
@@ -313,11 +379,12 @@ async function recordExternalPayment(
     paymentReference,
   } = resolved;
 
-  // Find the invoice by external ID
+  // Find the invoice by external ID, scoped to the owning tenant
   const invoice = await prisma.invoice.findFirst({
     where: {
       externalInvoiceId,
       externalSyncProvider: event.provider,
+      userId: ownerUserId,
     },
   });
 
@@ -617,18 +684,25 @@ export interface ProviderPaymentBatchResult {
   skipped: number;
 }
 
-// RA-6974 / #1699 — the exact errorMessage strings the QUICKBOOKS and MYOB
-// webhook routes write when marking a payment.created stub SKIPPED at
-// ingest, because at the time neither provider's webhook payload alone could
-// resolve a settled payment. RA-6984 resolves both via the provider API
-// instead, so events carrying these markers are retried, not permanently
-// stuck. Kept in sync with app/api/webhooks/quickbooks/route.ts and
-// app/api/webhooks/myob/route.ts (reserved for a parallel ticket — not
-// touched here).
-const RA_1699_UNRESOLVABLE_STUB_MARKERS = [
-  "QuickBooks payment CDC notification has no LinkedTxn/TotalAmt - cannot resolve a settled payment from the webhook payload alone",
-  "MYOB payment notification is a CDC stub with no Amount/InvoiceUID - cannot resolve a settled payment from the webhook payload alone",
-];
+// RA-6974 / #1699 — the exact errorMessage each provider's webhook route
+// writes when marking a payment.created stub SKIPPED at ingest, because at the
+// time neither provider's webhook payload alone could resolve a settled
+// payment. RA-6984 resolves both via the provider API instead, so events
+// carrying these markers are retried, not permanently stuck.
+// retryUnresolvedQboMyobPayments re-selects events by these markers, so on a
+// transient resolution failure it MUST restore the event's ORIGINAL provider
+// marker (never the transient error) — otherwise the event drops out of this
+// filter forever, the RA-6974 orphaning pathology. Kept in sync with
+// app/api/webhooks/quickbooks/route.ts and app/api/webhooks/myob/route.ts.
+const RA_1699_STUB_MARKER_BY_PROVIDER: Record<string, string> = {
+  QUICKBOOKS:
+    "QuickBooks payment CDC notification has no LinkedTxn/TotalAmt - cannot resolve a settled payment from the webhook payload alone",
+  MYOB: "MYOB payment notification is a CDC stub with no Amount/InvoiceUID - cannot resolve a settled payment from the webhook payload alone",
+};
+
+const RA_1699_UNRESOLVABLE_STUB_MARKERS = Object.values(
+  RA_1699_STUB_MARKER_BY_PROVIDER,
+);
 
 const QBO_MYOB_PAYMENT_EVENT_SELECT = {
   id: true,
@@ -712,11 +786,14 @@ export async function processQboMyobPendingPayments(
  * via the real QBO/MYOB API instead of trusting the webhook stub, those
  * events are no longer permanently unresolvable — re-attempt them here.
  *
- * A resolution that still fails (e.g. the payment was voided upstream, or
- * the integration is disconnected) restores SKIPPED rather than FAILED —
- * matching the RA-6974/#1699 rationale for marking these SKIPPED in the
- * first place: it is not a transient failure worth surfacing to
- * FAILED-status monitoring, and the next cron run naturally retries it.
+ * On a transient failure (e.g. a 429/timeout, or the payment not yet visible
+ * upstream) the event is restored to SKIPPED with its ORIGINAL provider stub
+ * marker so it stays eligible for the next cron run, and retryCount is
+ * incremented. Once retryCount reaches the bound the event transitions to
+ * FAILED so a genuinely unresolvable payment surfaces to monitoring instead
+ * of retrying forever. (Persisting the transient error as errorMessage
+ * instead would drop the event out of the RA-1699 marker filter permanently —
+ * the RA-6974 orphaning bug.)
  *
  * Called by /api/cron/sync-qbo-myob-payments.
  */
@@ -759,11 +836,32 @@ export async function retryUnresolvedQboMyobPayments(
       result.processed++;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      await prisma.webhookEvent.update({
-        where: { id: event.id },
-        data: { status: "SKIPPED", errorMessage: message },
-      });
-      result.skipped++;
+      const retryCount = event.retryCount + 1;
+      const maxRetries = 5;
+      if (retryCount >= maxRetries) {
+        // Exhausted — surface to FAILED monitoring instead of silently
+        // retrying forever. Terminal, so it leaves the SKIPPED marker filter.
+        await prisma.webhookEvent.update({
+          where: { id: event.id },
+          data: { status: "FAILED", errorMessage: message, retryCount },
+        });
+        result.failed++;
+      } else {
+        // Transient — restore the ORIGINAL provider stub marker (NOT the
+        // transient error) so the errorMessage `in` filter re-selects it next
+        // run, and bound the attempts via retryCount. Overwriting the marker
+        // here would orphan the payment forever (RA-6974).
+        await prisma.webhookEvent.update({
+          where: { id: event.id },
+          data: {
+            status: "SKIPPED",
+            errorMessage:
+              RA_1699_STUB_MARKER_BY_PROVIDER[event.provider] ?? message,
+            retryCount,
+          },
+        });
+        result.skipped++;
+      }
     }
   }
 

@@ -99,6 +99,10 @@ beforeEach(() => {
   (prisma.webhookEvent.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue(
     { count: 1 },
   );
+  // RA-6984 — QBO/MYOB payment recording resolves the integration's owning
+  // userId to scope the invoice lookup (cross-tenant guard). Default to a
+  // resolvable tenant; the XERO delegation test overrides with its own shape.
+  mockFindUniqueIntegration.mockResolvedValue({ userId: "user-x" });
 });
 
 // ─── XERO delegation ──────────────────────────────────────────────────────────
@@ -289,6 +293,146 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
       }),
     );
   });
+
+  // RA-6984 CRITICAL — QBO TxnIds are per-realm sequential integers and the
+  // Invoice (externalSyncProvider, externalInvoiceId) unique key is GLOBAL, so
+  // an unscoped lookup could resolve a DIFFERENT tenant's invoice. The lookup
+  // MUST be scoped to the integration's owning userId.
+  it("scopes the invoice lookup to the integration's owning userId (cross-tenant corruption guard)", async () => {
+    mockFindUniqueEvent.mockResolvedValue({
+      id: "evt-qbo-scope",
+      provider: "QUICKBOOKS",
+      integrationId: "integ-tenant-a",
+      eventType: "payment.created",
+      payload: { id: "qbo-pay-scope" },
+      status: "PENDING",
+      retryCount: 0,
+      integration: { id: "integ-tenant-a" },
+    });
+    mockFindUniqueIntegration.mockResolvedValue({ userId: "tenant-a" });
+    qboGetPayment.mockResolvedValue({
+      Id: "qbo-pay-scope",
+      TotalAmt: 300,
+      TxnDate: "2026-07-01",
+      // TxnId "145" — a value another realm could equally mint.
+      Line: [{ Amount: 300, LinkedTxn: [{ TxnId: "145", TxnType: "Invoice" }] }],
+    });
+    mockFindFirstInvoice.mockResolvedValue({
+      id: "inv-a",
+      currency: "AUD",
+      userId: "tenant-a",
+    });
+    txInvoicePaymentCreate.mockResolvedValue({ id: "pay-scope" });
+    txInvoiceUpdate.mockResolvedValue({
+      amountPaid: 30000,
+      amountDue: 0,
+      totalIncGST: 30000,
+    });
+    txInvoiceAuditLogCreate.mockResolvedValue({});
+
+    await processWebhookEvent("evt-qbo-scope");
+
+    expect(mockFindUniqueIntegration).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "integ-tenant-a" } }),
+    );
+    expect(mockFindFirstInvoice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          externalInvoiceId: "145",
+          externalSyncProvider: "QUICKBOOKS",
+          userId: "tenant-a",
+        }),
+      }),
+    );
+  });
+
+  it("skips recording (no unscoped invoice lookup) when the owning integration cannot be resolved", async () => {
+    mockFindUniqueEvent.mockResolvedValue({
+      id: "evt-qbo-noint",
+      provider: "QUICKBOOKS",
+      integrationId: "integ-gone",
+      eventType: "payment.created",
+      payload: { id: "qbo-pay-noint" },
+      status: "PENDING",
+      retryCount: 0,
+      integration: { id: "integ-gone" },
+    });
+    mockFindUniqueIntegration.mockResolvedValue(null);
+    qboGetPayment.mockResolvedValue({
+      Id: "qbo-pay-noint",
+      TotalAmt: 100,
+      TxnDate: "2026-07-01",
+      Line: [{ Amount: 100, LinkedTxn: [{ TxnId: "1", TxnType: "Invoice" }] }],
+    });
+
+    await processWebhookEvent("evt-qbo-noint");
+
+    expect(mockFindFirstInvoice).not.toHaveBeenCalled();
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(txInvoicePaymentCreate).not.toHaveBeenCalled();
+  });
+
+  // RA-6984 — a payment split across invoices must credit each invoice its OWN
+  // line Amount, not the whole TotalAmt to the first invoice.
+  it("allocates each LinkedTxn its own line Amount across multiple invoices", async () => {
+    mockFindUniqueEvent.mockResolvedValue({
+      id: "evt-qbo-multi",
+      provider: "QUICKBOOKS",
+      integrationId: "integ-q",
+      eventType: "payment.created",
+      payload: { id: "qbo-pay-multi" },
+      status: "PENDING",
+      retryCount: 0,
+      integration: { id: "integ-q" },
+    });
+    mockFindUniqueIntegration.mockResolvedValue({ userId: "user-q" });
+    // One $300 payment split $200 → invoice A, $100 → invoice B.
+    qboGetPayment.mockResolvedValue({
+      Id: "qbo-pay-multi",
+      TotalAmt: 300,
+      TxnDate: "2026-07-01",
+      Line: [
+        { Amount: 200, LinkedTxn: [{ TxnId: "inv-a", TxnType: "Invoice" }] },
+        { Amount: 100, LinkedTxn: [{ TxnId: "inv-b", TxnType: "Invoice" }] },
+      ],
+    });
+    mockFindFirstInvoice
+      .mockResolvedValueOnce({ id: "local-a", currency: "AUD", userId: "user-q" })
+      .mockResolvedValueOnce({ id: "local-b", currency: "AUD", userId: "user-q" });
+    txInvoicePaymentCreate
+      .mockResolvedValueOnce({ id: "pay-a" })
+      .mockResolvedValueOnce({ id: "pay-b" });
+    txInvoiceUpdate.mockResolvedValue({
+      amountPaid: 20000,
+      amountDue: 0,
+      totalIncGST: 20000,
+    });
+    txInvoiceAuditLogCreate.mockResolvedValue({});
+
+    await processWebhookEvent("evt-qbo-multi");
+
+    expect(txInvoicePaymentCreate).toHaveBeenCalledTimes(2);
+    expect(txInvoicePaymentCreate).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          amount: 20000, // $200 → cents, invoice A's OWN line amount
+          invoiceId: "local-a",
+          externalPaymentId: "qbo-pay-multi",
+        }),
+      }),
+    );
+    expect(txInvoicePaymentCreate).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          amount: 10000, // $100 → cents, invoice B's OWN line amount
+          invoiceId: "local-b",
+          externalPaymentId: "qbo-pay-multi",
+        }),
+      }),
+    );
+  });
 });
 
 describe("processWebhookEvent — MYOB payment resolution via the MYOB API", () => {
@@ -398,5 +542,67 @@ describe("processWebhookEvent — MYOB payment resolution via the MYOB API", () 
 
     expect(mockTransaction).not.toHaveBeenCalled();
     expect(txInvoicePaymentCreate).not.toHaveBeenCalled();
+  });
+
+  // RA-6984 — MYOB credits each applied invoice its OWN AmountApplied, not the
+  // whole AmountReceived to Invoices[0].
+  it("allocates each applied invoice its own AmountApplied across multiple invoices", async () => {
+    mockFindUniqueEvent.mockResolvedValue({
+      id: "evt-myob-multi",
+      provider: "MYOB",
+      integrationId: "integ-m",
+      eventType: "payment.created",
+      payload: { ResourceUID: "myob-pay-multi" },
+      status: "PENDING",
+      retryCount: 0,
+      integration: { id: "integ-m" },
+    });
+    mockFindUniqueIntegration.mockResolvedValue({ userId: "user-m" });
+    // One $900 payment split $600 → invoice A, $300 → invoice B.
+    myobGetCustomerPayment.mockResolvedValue({
+      UID: "myob-pay-multi",
+      Date: "2026-07-01T00:00:00",
+      AmountReceived: 900,
+      Invoices: [
+        { UID: "minv-a", Number: "INV-A", AmountApplied: 600 },
+        { UID: "minv-b", Number: "INV-B", AmountApplied: 300 },
+      ],
+    });
+    mockFindFirstInvoice
+      .mockResolvedValueOnce({ id: "mlocal-a", currency: "AUD", userId: "user-m" })
+      .mockResolvedValueOnce({ id: "mlocal-b", currency: "AUD", userId: "user-m" });
+    txInvoicePaymentCreate
+      .mockResolvedValueOnce({ id: "mpay-a" })
+      .mockResolvedValueOnce({ id: "mpay-b" });
+    txInvoiceUpdate.mockResolvedValue({
+      amountPaid: 60000,
+      amountDue: 0,
+      totalIncGST: 60000,
+    });
+    txInvoiceAuditLogCreate.mockResolvedValue({});
+
+    await processWebhookEvent("evt-myob-multi");
+
+    expect(txInvoicePaymentCreate).toHaveBeenCalledTimes(2);
+    expect(txInvoicePaymentCreate).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          amount: 60000, // $600 → cents, invoice A's OWN applied amount
+          invoiceId: "mlocal-a",
+          externalPaymentId: "myob-pay-multi",
+        }),
+      }),
+    );
+    expect(txInvoicePaymentCreate).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          amount: 30000, // $300 → cents, invoice B's OWN applied amount
+          invoiceId: "mlocal-b",
+          externalPaymentId: "myob-pay-multi",
+        }),
+      }),
+    );
   });
 });
