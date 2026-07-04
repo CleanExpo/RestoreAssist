@@ -1315,67 +1315,94 @@ export default function NIRTechnicianInputForm({
 
       // Step 1b: Persist loss description if provided
       if (damageDescription.trim()) {
-        await fetch(`/api/inspections/${currentInspectionId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ lossDescription: damageDescription.trim() }),
-        });
+        const lossDescRes = await fetch(
+          `/api/inspections/${currentInspectionId}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              lossDescription: damageDescription.trim(),
+            }),
+          },
+        );
+        if (!lossDescRes.ok) throw new Error("Failed to save loss description");
       }
 
       // Step 2: Save environmental data
-      await fetch(`/api/inspections/${currentInspectionId}/environmental`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(environmentalData),
-      });
+      const environmentalRes = await fetch(
+        `/api/inspections/${currentInspectionId}/environmental`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(environmentalData),
+        },
+      );
+      if (!environmentalRes.ok)
+        throw new Error("Failed to save environmental data");
 
       // Step 3: Save moisture readings with coordinates
       for (const reading of moistureReadings) {
         // Find corresponding point in map if exists
         const mapPoint = moistureMapPoints.find((p) => p.id === reading.id);
 
-        await fetch(`/api/inspections/${currentInspectionId}/moisture`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: reading.location,
-            surfaceType: reading.surfaceType,
-            moistureLevel: reading.moistureLevel,
-            depth: reading.depth,
-            mapX: mapPoint?.x || null,
-            mapY: mapPoint?.y || null,
-          }),
-        });
+        const moistureRes = await fetch(
+          `/api/inspections/${currentInspectionId}/moisture`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              location: reading.location,
+              surfaceType: reading.surfaceType,
+              moistureLevel: reading.moistureLevel,
+              depth: reading.depth,
+              mapX: mapPoint?.x || null,
+              mapY: mapPoint?.y || null,
+            }),
+          },
+        );
+        if (!moistureRes.ok)
+          throw new Error(
+            `Failed to save moisture reading for ${reading.location}`,
+          );
       }
 
       // Step 3.5: Save floor plan image URL if exists
       if (floorPlanImageUrl) {
-        await fetch(`/api/inspections/${currentInspectionId}/floor-plan`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            imageUrl: floorPlanImageUrl,
-          }),
-        });
+        const floorPlanRes = await fetch(
+          `/api/inspections/${currentInspectionId}/floor-plan`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageUrl: floorPlanImageUrl,
+            }),
+          },
+        );
+        if (!floorPlanRes.ok) throw new Error("Failed to save floor plan");
       }
 
       // Step 4: Save affected areas
       for (const area of affectedAreas) {
-        await fetch(`/api/inspections/${currentInspectionId}/affected-areas`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            roomZoneId: area.roomZoneId,
-            affectedSquareFootage: area.affectedSquareFootage,
-            waterSource: area.waterSource,
-            timeSinceLoss: area.timeSinceLoss,
-            length: area.length,
-            width: area.width,
-            height: area.height,
-            materials: area.materials,
-            description: `Dimensions: ${area.length}m × ${area.width}m × ${area.height}m. Materials: ${area.materials.join(", ")}`,
-          }),
-        });
+        const affectedAreaRes = await fetch(
+          `/api/inspections/${currentInspectionId}/affected-areas`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              roomZoneId: area.roomZoneId,
+              affectedSquareFootage: area.affectedSquareFootage,
+              waterSource: area.waterSource,
+              timeSinceLoss: area.timeSinceLoss,
+              length: area.length,
+              width: area.width,
+              height: area.height,
+              materials: area.materials,
+              description: `Dimensions: ${area.length}m × ${area.width}m × ${area.height}m. Materials: ${area.materials.join(", ")}`,
+            }),
+          },
+        );
+        if (!affectedAreaRes.ok)
+          throw new Error("Failed to save affected area");
       }
 
       // Step 5: Photos are already uploaded to Cloudinary via handlePhotoUpload
@@ -1385,15 +1412,20 @@ export default function NIRTechnicianInputForm({
       for (const itemId of selectedScopeItems) {
         const item = SCOPE_ITEM_TYPES.find((i) => i.id === itemId);
         if (item) {
-          await fetch(`/api/inspections/${currentInspectionId}/scope-items`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              itemType: itemId,
-              description: item.label,
-              specification: scopeItemSpecs[itemId] || undefined,
-            }),
-          });
+          const scopeItemRes = await fetch(
+            `/api/inspections/${currentInspectionId}/scope-items`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                itemType: itemId,
+                description: item.label,
+                specification: scopeItemSpecs[itemId] || undefined,
+              }),
+            },
+          );
+          if (!scopeItemRes.ok)
+            throw new Error(`Failed to save scope item: ${item.label}`);
         }
       }
 
