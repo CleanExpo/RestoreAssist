@@ -308,6 +308,7 @@ describe("InterviewAnalyticsService — write-side schema validity (RA-6983)", (
     formTemplateId: "template_1",
     startedAt: new Date(Date.now() - 5 * 60 * 1000),
     reportId: null,
+    totalQuestionsAsked: 4,
     responses: [{ id: "resp_1" }],
   };
 
@@ -366,32 +367,115 @@ describe("InterviewAnalyticsService — write-side schema validity (RA-6983)", (
     expect(metrics?.userId).toBe("user_1");
     expect(metrics?.formTemplateId).toBe("template_1");
     expect(metrics?.questionsAnswered).toBe(1);
-    expect(metrics?.completionRate).toBe(100);
+    // SESSION.totalQuestionsAsked is 4 -> 1/4 answered = 25%, not the old
+    // any-response-means-100% shortcut.
+    expect(metrics?.totalQuestions).toBe(4);
+    expect(metrics?.completionRate).toBe(25);
     expect(metrics?.totalDurationSeconds).toBeGreaterThanOrEqual(299);
     expect(metrics?.autoPopulatedFieldsCount).toBe(3);
     expect(metrics?.conflictCount).toBe(1);
   });
 });
 
-describe("InterviewAnalyticsService — completion write failure (RA-6983 review F1)", () => {
-  it("returns null when the completion write fails, never a junk metrics object", async () => {
+describe("InterviewAnalyticsService — real totalQuestions + completionRate (RA-6989)", () => {
+  it("derives totalQuestions from the session's own totalQuestionsAsked (set at interview start), not a hardcoded 25", async () => {
+    interviewSessionFindUnique.mockResolvedValue({
+      id: "sess_2",
+      userId: "user_1",
+      formTemplateId: "template_1",
+      startedAt: new Date(),
+      reportId: null,
+      totalQuestionsAsked: 12,
+      responses: [{ id: "r1" }, { id: "r2" }, { id: "r3" }],
+    });
+    interviewSessionUpdate.mockImplementation(strictInterviewSessionUpdate);
+
+    const metrics = await InterviewAnalyticsService.trackSessionCompletion(
+      "sess_2",
+      0,
+      0,
+      0,
+    );
+
+    expect(metrics?.totalQuestions).toBe(12);
+    expect(metrics?.questionsAnswered).toBe(3);
+    expect(metrics?.completionRate).toBe(25); // 3/12
+  });
+
+  it("falls back to 25 when totalQuestionsAsked is 0 (legacy session predating the column)", async () => {
+    interviewSessionFindUnique.mockResolvedValue({
+      id: "sess_3",
+      userId: "user_1",
+      formTemplateId: "template_1",
+      startedAt: new Date(),
+      reportId: null,
+      totalQuestionsAsked: 0,
+      responses: [{ id: "r1" }],
+    });
+    interviewSessionUpdate.mockImplementation(strictInterviewSessionUpdate);
+
+    const metrics = await InterviewAnalyticsService.trackSessionCompletion(
+      "sess_3",
+      0,
+      0,
+      0,
+    );
+
+    expect(metrics?.totalQuestions).toBe(25);
+    expect(metrics?.completionRate).toBe(4); // round(1/25 * 100)
+  });
+
+  it("clamps completionRate at 100 when questionsAnswered exceeds totalQuestionsAsked", async () => {
+    interviewSessionFindUnique.mockResolvedValue({
+      id: "sess_4",
+      userId: "user_1",
+      formTemplateId: "template_1",
+      startedAt: new Date(),
+      reportId: null,
+      totalQuestionsAsked: 2,
+      responses: [{ id: "r1" }, { id: "r2" }, { id: "r3" }],
+    });
+    interviewSessionUpdate.mockImplementation(strictInterviewSessionUpdate);
+
+    const metrics = await InterviewAnalyticsService.trackSessionCompletion(
+      "sess_4",
+      0,
+      0,
+      0,
+    );
+
+    expect(metrics?.completionRate).toBe(100);
+  });
+});
+
+describe("InterviewAnalyticsService — completion write failure (RA-6989 — was RA-6983 review F1)", () => {
+  it("rethrows when the completion write fails, so the route's fromException yields a 500 instead of a false 404", async () => {
     interviewSessionFindUnique.mockResolvedValue({
       id: "sess_1",
       userId: "user_1",
       formTemplateId: "template_1",
       startedAt: new Date(),
       reportId: null,
+      totalQuestionsAsked: 5,
       responses: [],
     });
     interviewSessionUpdate.mockRejectedValue(new Error("db down"));
 
-    const metrics = await InterviewAnalyticsService.trackSessionCompletion(
-      "sess_1",
-      0,
-      0,
-      0,
-    );
+    // RA-6989: a transient write failure is not the same as "session not
+    // found" — the old catch swallowed every error into `null`, which the
+    // route mapped to a false 404. It must now propagate so the route's
+    // `fromException` maps it to a 500.
+    await expect(
+      InterviewAnalyticsService.trackSessionCompletion("sess_1", 0, 0, 0),
+    ).rejects.toThrow("db down");
+  });
 
-    expect(metrics).toBeNull();
+  it("still returns null (not a throw) for the genuine not-found case", async () => {
+    interviewSessionFindUnique.mockResolvedValue(null);
+
+    await expect(
+      InterviewAnalyticsService.trackSessionCompletion("sess_missing", 0, 0, 0),
+    ).resolves.toBeNull();
+    expect(interviewSessionUpdate).not.toHaveBeenCalled();
   });
 });
