@@ -91,6 +91,91 @@ export function formatFloorMeta(input: {
   return parts.join("   ·   ");
 }
 
+// ── White-label branding (RA-6851 [A8]) ───────────────────
+// The sketch header carries the inspection owner's business identity, not a
+// hardcoded RestoreAssist label. `resolveSketchBranding` is a pure function of
+// its per-inspection input (resolved server-side from `Inspection.userId`), so
+// branding can never bleed across workspaces — the caller always passes one
+// tenant's data and gets a fresh object back. Pure + exported for unit testing.
+
+/** Raw branding input, sourced from the owning `User.business*` fields. */
+export interface SketchBrandingInput {
+  businessName?: string | null;
+  /** Cloudinary logo URL (https only). */
+  businessLogo?: string | null;
+  /** Hex colour that tints the header band when set. */
+  primaryColor?: string | null;
+  showLogo?: boolean | null;
+  showCompanyName?: boolean | null;
+  logoPosition?: string | null;
+}
+
+/** Normalised branding with defaults applied. */
+export interface ResolvedSketchBranding {
+  businessName: string;
+  logoUrl: string | null;
+  primaryColorHex: string | null;
+  showLogo: boolean;
+  showCompanyName: boolean;
+  logoPosition: "left" | "center" | "right";
+}
+
+const DEFAULT_BUSINESS_NAME = "RestoreAssist";
+
+/**
+ * Parse a hex colour (`#1C2E47`, `#fff`, or bare `00BAD4`) into 0–1 rgb
+ * components for pdf-lib. Returns null for any malformed input so a bad
+ * workspace colour never crashes the export. Pure — exported for unit testing.
+ */
+export function parseHexColor(
+  hex: string | null | undefined,
+): { r: number; g: number; b: number } | null {
+  if (!hex) return null;
+  let h = hex.trim().replace(/^#/, "");
+  if (h.length === 3) {
+    h = h
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  return {
+    r: parseInt(h.slice(0, 2), 16) / 255,
+    g: parseInt(h.slice(2, 4), 16) / 255,
+    b: parseInt(h.slice(4, 6), 16) / 255,
+  };
+}
+
+/**
+ * Resolve raw workspace branding into a normalised, render-ready shape.
+ * Fallbacks: no name → "RestoreAssist"; non-https / hidden logo → none;
+ * invalid colour → none. Always returns a fresh object (no shared singleton).
+ */
+export function resolveSketchBranding(
+  input?: SketchBrandingInput | null,
+): ResolvedSketchBranding {
+  const name = input?.businessName?.trim();
+  const showLogo = input?.showLogo ?? true;
+  const showCompanyName = input?.showCompanyName ?? true;
+  const logo = input?.businessLogo?.trim();
+  const logoUrl =
+    showLogo && logo && logo.startsWith("https://") ? logo : null;
+  const primaryColorHex =
+    input?.primaryColor && parseHexColor(input.primaryColor)
+      ? input.primaryColor.trim()
+      : null;
+  const pos = input?.logoPosition;
+  const logoPosition = pos === "center" || pos === "right" ? pos : "left";
+  return {
+    businessName: name && name.length > 0 ? name : DEFAULT_BUSINESS_NAME,
+    logoUrl,
+    primaryColorHex,
+    showLogo,
+    showCompanyName,
+    logoPosition,
+  };
+}
+
 // ── PDF building blocks ───────────────────────────────────
 
 async function addSketchPage(
@@ -107,35 +192,76 @@ async function addSketchPage(
     reportNumber: string;
     pageNum: number;
     totalPages: number;
+    branding: ResolvedSketchBranding;
+    logoImage: Awaited<ReturnType<PDFDocument["embedPng"]>> | null;
   },
 ) {
   const page = doc.addPage([PAGE_W, PAGE_H]);
-  const { helvetica, bold } = shared;
+  const { helvetica, bold, branding, logoImage } = shared;
 
   // ── Header ──
+  // Band tinted by the workspace primaryColor when set (RA-6851 [A8]);
+  // otherwise the RestoreAssist default.
+  const bandRgb = branding.primaryColorHex
+    ? parseHexColor(branding.primaryColorHex)
+    : null;
   page.drawRectangle({
     x: 0,
     y: PAGE_H - MARGIN - HEADER_H,
     width: PAGE_W,
     height: HEADER_H,
-    color: BRAND_DARK,
+    color: bandRgb ? rgb(bandRgb.r, bandRgb.g, bandRgb.b) : BRAND_DARK,
   });
 
-  // Brand label
-  page.drawText("RestoreAssist", {
-    x: MARGIN,
-    y: PAGE_H - MARGIN - 22,
-    size: 14,
-    font: bold,
-    color: rgb(1, 1, 1),
-  });
-  page.drawText("Floor Plan", {
-    x: MARGIN,
-    y: PAGE_H - MARGIN - 40,
-    size: 9,
-    font: helvetica,
-    color: BRAND_CYAN,
-  });
+  // Brand zone (left): white-label logo + business name, with graceful
+  // fallbacks. Logo lives in the left brand zone so it never collides with the
+  // centred address or the right-aligned floor label.
+  let brandX = MARGIN;
+  if (logoImage && branding.showLogo) {
+    const logoH = 28;
+    const logoScale = logoH / logoImage.height;
+    const logoW = logoImage.width * logoScale;
+    page.drawImage(logoImage, {
+      x: MARGIN,
+      y: PAGE_H - MARGIN - HEADER_H / 2 - logoH / 2,
+      width: logoW,
+      height: logoH,
+    });
+    brandX = MARGIN + logoW + 8;
+  }
+  if (branding.showCompanyName) {
+    page.drawText(safe(branding.businessName), {
+      x: brandX,
+      y: PAGE_H - MARGIN - 22,
+      size: 14,
+      font: bold,
+      color: rgb(1, 1, 1),
+    });
+    page.drawText("Floor Plan", {
+      x: brandX,
+      y: PAGE_H - MARGIN - 40,
+      size: 9,
+      font: helvetica,
+      color: BRAND_CYAN,
+    });
+  } else if (!logoImage) {
+    // Neither name nor logo — fall back to the default so the header is never
+    // empty.
+    page.drawText(DEFAULT_BUSINESS_NAME, {
+      x: brandX,
+      y: PAGE_H - MARGIN - 22,
+      size: 14,
+      font: bold,
+      color: rgb(1, 1, 1),
+    });
+    page.drawText("Floor Plan", {
+      x: brandX,
+      y: PAGE_H - MARGIN - 40,
+      size: 9,
+      font: helvetica,
+      color: BRAND_CYAN,
+    });
+  }
 
   // Address (centred)
   if (shared.propertyAddress) {
@@ -571,6 +697,34 @@ export interface SketchPdfOptions {
   nhCause?: DamageCause;
   /** NZ estimated building repair (NZ$) for the NHCover claim calc. */
   estimatedRepairNzd?: number;
+  /**
+   * White-label branding (RA-6851 [A8]) — resolved server-side from the
+   * inspection owner's business identity. Omit for the RestoreAssist default.
+   */
+  branding?: SketchBrandingInput;
+}
+
+/**
+ * Fetch + embed a workspace logo into `doc`, reusing the report-PDF pattern:
+ * https-only, content-type sniff for PNG vs JPG, and a silent fallback so a
+ * broken brand asset can never block the export.
+ */
+async function embedBrandLogo(
+  doc: PDFDocument,
+  logoUrl: string | null,
+): Promise<Awaited<ReturnType<PDFDocument["embedPng"]>> | null> {
+  if (!logoUrl || !logoUrl.startsWith("https://")) return null;
+  try {
+    const res = await fetch(logoUrl);
+    if (!res.ok) return null;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    const ct = (res.headers.get("content-type") ?? "").toLowerCase();
+    return ct.includes("png")
+      ? await doc.embedPng(bytes)
+      : await doc.embedJpg(bytes);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -600,6 +754,10 @@ export async function generateSketchPdf(
   const helvetica = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
 
+  // White-label branding — resolved once, logo fetched once (RA-6851 [A8]).
+  const branding = resolveSketchBranding(options.branding);
+  const logoImage = await embedBrandLogo(doc, branding.logoUrl);
+
   const shared = {
     helvetica,
     bold,
@@ -607,6 +765,8 @@ export async function generateSketchPdf(
     reportNumber,
     totalPages: floors.length + (hasAnnex ? 1 : 0),
     pageNum: 0,
+    branding,
+    logoImage,
   };
 
   for (const floor of floors) {
@@ -655,12 +815,19 @@ export async function generateSketchPdf(
 export async function embedSketchesInPdf(
   doc: PDFDocument,
   floors: SketchFloor[],
-  options: { propertyAddress?: string; reportNumber?: string } = {},
+  options: {
+    propertyAddress?: string;
+    reportNumber?: string;
+    branding?: SketchBrandingInput;
+  } = {},
 ): Promise<void> {
   if (!floors.length) return;
 
   const helvetica = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+
+  const branding = resolveSketchBranding(options.branding);
+  const logoImage = await embedBrandLogo(doc, branding.logoUrl);
 
   const shared = {
     helvetica,
@@ -669,6 +836,8 @@ export async function embedSketchesInPdf(
     reportNumber: options.reportNumber ?? "",
     totalPages: floors.length,
     pageNum: 0,
+    branding,
+    logoImage,
   };
 
   for (const floor of floors) {
