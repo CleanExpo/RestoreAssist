@@ -159,6 +159,27 @@ describe("initiateCloseoutGuard", () => {
     expect(res.passed).toBe(false);
     expect(res.reason).toContain("WHSIncident");
   });
+
+  it("caps both findMany queries with an explicit take (rule 3)", async () => {
+    const seen: Array<{ take?: number }> = [];
+    const capturingDb = {
+      scopeVariation: {
+        findMany: async (q: { take?: number }) => {
+          seen.push(q);
+          return [];
+        },
+      },
+      wHSIncident: {
+        findMany: async (q: { take?: number }) => {
+          seen.push(q);
+          return [];
+        },
+      },
+    };
+    await initiateCloseoutGuard(capturingDb, ctx({ key: "initiate_closeout" }));
+    expect(seen).toHaveLength(2);
+    expect(seen.every((q) => q.take === 100)).toBe(true);
+  });
 });
 
 // ── issue_invoice ───────────────────────────────────────────────────────────
