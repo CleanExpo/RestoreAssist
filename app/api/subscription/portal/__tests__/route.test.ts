@@ -35,8 +35,14 @@ vi.mock("@/lib/prisma", () => ({
   prisma: { user: { findUnique: vi.fn() } },
 }));
 
+vi.mock("@/lib/app-url", () => ({
+  getAppUrl: vi.fn(() => "https://restoreassist.app"),
+}));
+
 import { POST } from "../route";
 import { getServerSession } from "next-auth";
+import { prisma } from "@/lib/prisma";
+import { getAppUrl } from "@/lib/app-url";
 
 function makeRequest(headers: Record<string, string> = {}) {
   return new NextRequest("http://localhost/api/subscription/portal", {
@@ -62,5 +68,37 @@ describe("POST /api/subscription/portal — iOS Capacitor guard (RA-6968)", () =
     // No Capacitor header -> guard passes -> unauthenticated -> 401, not 403.
     expect(res.status).toBe(401);
     expect(stripeMock.billingPortal.sessions.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/subscription/portal — return_url source (RA-6978)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("builds return_url from the trusted getAppUrl() helper, never the request origin", async () => {
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "u1", email: "owner@example.com" },
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      stripeCustomerId: "cus_1",
+    } as any);
+    vi.mocked(stripeMock.billingPortal.sessions.create).mockResolvedValue({
+      url: "https://billing.stripe.com/session/abc",
+    } as any);
+
+    // Attacker-controlled Host header should be ignored.
+    const res = await POST(
+      new NextRequest("http://localhost/api/subscription/portal", {
+        method: "POST",
+        headers: { host: "evil.example.com" },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(getAppUrl).toHaveBeenCalled();
+    expect(stripeMock.billingPortal.sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        return_url: "https://restoreassist.app/dashboard/subscription",
+      }),
+    );
   });
 });
