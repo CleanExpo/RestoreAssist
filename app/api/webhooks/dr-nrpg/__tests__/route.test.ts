@@ -170,6 +170,43 @@ describe("POST /api/webhooks/dr-nrpg — replay protection", () => {
     expect(drNrpgJobSyncUpsert).not.toHaveBeenCalled();
   });
 
+  it("rejects an event dated more than 5 minutes in the future (RA-6987 clock-skew bound — previously accepted up to +24h ahead)", async () => {
+    const sixMinutesAhead = new Date(
+      Date.now() + 6 * 60 * 1000,
+    ).toISOString();
+    const res = await POST(
+      makeRequest({
+        event: "job.updated",
+        jobId: "job-future",
+        claimNumber: "CLM-8",
+        timestamp: sixMinutesAhead,
+      }),
+    );
+
+    expect(res.status).toBe(401);
+    expect(drNrpgJobSyncUpsert).not.toHaveBeenCalled();
+  });
+
+  it("accepts an event within the 5 minute future clock-skew allowance", async () => {
+    drNrpgJobSyncFindUnique.mockResolvedValue(null);
+    drNrpgJobSyncUpsert.mockResolvedValue({ id: "sync-future-ok" });
+
+    const twoMinutesAhead = new Date(
+      Date.now() + 2 * 60 * 1000,
+    ).toISOString();
+    const res = await POST(
+      makeRequest({
+        event: "job.updated",
+        jobId: "job-future-ok",
+        claimNumber: "CLM-9",
+        timestamp: twoMinutesAhead,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(drNrpgJobSyncUpsert).toHaveBeenCalled();
+  });
+
   it("does not double-process a replayed event (idempotency)", async () => {
     const ts = new Date().toISOString();
     // A prior row already recorded THIS event's timestamp.

@@ -98,6 +98,47 @@ describe("POST /api/webhooks/myob — freshness gate", () => {
     expect(webhookEventCreate).not.toHaveBeenCalled();
   });
 
+  it("rejects an event dated more than 5 minutes in the future (RA-6987 clock-skew bound)", async () => {
+    const sixMinutesAhead = new Date(
+      Date.now() + 6 * 60 * 1000,
+    ).toISOString();
+
+    const response = await POST(
+      requestWithEvents([
+        {
+          CompanyFileId: "cf_1",
+          EventDateTime: sixMinutesAhead,
+          EventType: "Created",
+          ResourceType: "Contact.Customer",
+        },
+      ]),
+    );
+
+    expect(response.status).toBe(400);
+    expect(webhookEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("accepts an event within the 5 minute future clock-skew allowance", async () => {
+    const twoMinutesAhead = new Date(
+      Date.now() + 2 * 60 * 1000,
+    ).toISOString();
+
+    const response = await POST(
+      requestWithEvents([
+        {
+          CompanyFileId: "cf_1",
+          EventDateTime: twoMinutesAhead,
+          EventType: "Created",
+          ResourceType: "Contact.Customer",
+        },
+      ]),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.processed).toBe(1);
+  });
+
   it("relies on the idempotency guard so an accepted retry within the window is not double-processed", async () => {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const err = Object.assign(new Error("dup"), { code: "P2002" });
