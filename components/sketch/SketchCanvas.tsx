@@ -44,6 +44,11 @@ import {
   pointAtParametric,
 } from "@/lib/sketch/opening-geometry";
 import {
+  wallAbsoluteSegment,
+  polygonAbsolutePoints,
+  footprintAbsolutePoints,
+} from "@/lib/sketch/fabric-absolute";
+import {
   exportSketchPng,
   type ExportableCanvas,
 } from "@/lib/sketch/export-sketch-png";
@@ -670,71 +675,6 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           }
         };
 
-        // Absolute endpoints of a (possibly moved/scaled/rotated) wall line.
-        // Fabric keeps x1..y2 in the object's local frame; transform them by the
-        // object's matrix to recover scene coordinates after a drag/resize.
-        const wallAbsoluteSegment = (
-          wallObj: unknown,
-        ): { a: Point; b: Point } | null => {
-          type Mat = [number, number, number, number, number, number];
-          const lo = wallObj as {
-            calcLinePoints?: () => { x1: number; y1: number; x2: number; y2: number };
-            calcTransformMatrix?: () => Mat;
-            x1?: number;
-            y1?: number;
-            x2?: number;
-            y2?: number;
-          };
-          if (lo.calcLinePoints && lo.calcTransformMatrix) {
-            const p = lo.calcLinePoints();
-            const m = lo.calcTransformMatrix();
-            const tp = (
-              fabric as unknown as {
-                util: { transformPoint: (pt: Point, mat: Mat) => Point };
-              }
-            ).util.transformPoint;
-            return {
-              a: tp({ x: p.x1, y: p.y1 }, m),
-              b: tp({ x: p.x2, y: p.y2 }, m),
-            };
-          }
-          if (lo.x1 !== undefined) {
-            return {
-              a: { x: lo.x1, y: lo.y1 ?? 0 },
-              b: { x: lo.x2 ?? 0, y: lo.y2 ?? 0 },
-            };
-          }
-          return null;
-        };
-
-        // Absolute vertices of a (possibly moved/scaled/rotated) room polygon.
-        // Fabric keeps Polygon.points in the object's local frame relative to
-        // pathOffset — they never update on move/scale/rotate — so transform
-        // by the object's matrix to recover scene coordinates, same recovery
-        // wallAbsoluteSegment() does for lines. Objects without a transform
-        // (plain point bags) pass through unchanged.
-        const polygonAbsolutePoints = (polyObj: unknown): Point[] | null => {
-          type Mat = [number, number, number, number, number, number];
-          const po = polyObj as {
-            points?: Point[];
-            pathOffset?: Point;
-            calcTransformMatrix?: () => Mat;
-          };
-          const pts = po.points;
-          if (!pts) return null;
-          const off = po.pathOffset;
-          if (po.calcTransformMatrix && off) {
-            const m = po.calcTransformMatrix();
-            const tp = (
-              fabric as unknown as {
-                util: { transformPoint: (pt: Point, mat: Mat) => Point };
-              }
-            ).util.transformPoint;
-            return pts.map((pt) => tp({ x: pt.x - off.x, y: pt.y - off.y }, m));
-          }
-          return pts;
-        };
-
         // Re-anchor every opening bound to `wallObj` onto the wall's new segment.
         // Rebuilds each opening symbol from its stored width/hinge/parametric-t so
         // doors/windows ride with their wall. Openings without a hostWallId (e.g.
@@ -933,33 +873,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           };
           removeFootprintLabels();
 
-          // Collect all measured geometry points (ignore text/label decorations)
-          const allPoints: Point[] = [];
-          for (const o of c.getObjects()) {
-            const d = (o as { data?: Record<string, unknown> }).data;
-            if (
-              !d ||
-              d.type === "dim-label" ||
-              d.type === "room-label" ||
-              d.type === "text" ||
-              d.type === "arrow" ||
-              d.type === "photo" ||
-              d.type === "guide"
-            )
-              continue;
-            // Polygon rooms: extract absolute points (account for move/scale/rotate)
-            const polyPts = polygonAbsolutePoints(o);
-            if (polyPts) {
-              for (const p of polyPts) allPoints.push(p);
-              continue;
-            }
-            // Lines: absolute endpoints (account for move/scale/rotate)
-            const wallSeg = wallAbsoluteSegment(o);
-            if (wallSeg) {
-              allPoints.push(wallSeg.a);
-              allPoints.push(wallSeg.b);
-            }
-          }
+          // Collect all measured geometry points (ignore text/label decorations),
+          // transform-corrected to absolute scene coords (RA-6990 — pinned by
+          // lib/sketch/__tests__/fabric-absolute.test.ts)
+          const allPoints = footprintAbsolutePoints(c.getObjects());
           if (allPoints.length < 2) return;
 
           const scale = pxPerMetreRef.current;
