@@ -18,7 +18,10 @@ export type ToolMode =
   | "arrow" // Arrow annotation
   | "measure" // Measurement tool
   | "photo" // Photo marker placement
-  | "pan"; // Pan/navigate
+  | "pan" // Pan/navigate
+  // RA-6841 [A2]: architectural opening symbols
+  | "door" // Door — opening cut + leaf line + swing arc
+  | "window"; // Window — opening cut + glazing lines
 
 import { fabricObjectToSelected } from "@/lib/sketch/selected-object";
 import { computeUnderlayTransform } from "@/lib/sketch/underlay-transform";
@@ -34,6 +37,7 @@ import {
   segmentLabelPosition,
   footprintDimensions,
 } from "@/lib/sketch/geometry-utils";
+import { snapToNearestWall } from "@/lib/sketch/opening-geometry";
 import {
   exportSketchPng,
   type ExportableCanvas,
@@ -438,6 +442,29 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         const snapEnd = (start: Point, end: Point): Point =>
           snapEnabledRef.current ? snapSegmentEnd(start, end, gridPx(), 45) : end;
 
+        // RA-6841 [A2]: Collect all wall-type line segments from the canvas so
+        // door/window tools can snap the placement anchor to the nearest wall.
+        const collectWallSegments = (): { a: Point; b: Point }[] => {
+          const objs = (
+            canvas as unknown as { getObjects: () => unknown[] }
+          ).getObjects();
+          const segs: { a: Point; b: Point }[] = [];
+          for (const o of objs) {
+            const d = (o as { data?: Record<string, unknown> }).data;
+            if (!d) continue;
+            if (d.type === "wall") {
+              const lo = o as { x1?: number; y1?: number; x2?: number; y2?: number };
+              if (lo.x1 !== undefined) {
+                segs.push({
+                  a: { x: lo.x1, y: lo.y1 ?? 0 },
+                  b: { x: lo.x2 ?? 0, y: lo.y2 ?? 0 },
+                });
+              }
+            }
+          }
+          return segs;
+        };
+
         const materialize = (
           d: NonNullable<ReturnType<typeof describeToolObject>>,
         ): unknown => {
@@ -493,6 +520,72 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               originX: "center",
               originY: "center",
             });
+          } else if (d.kind === "door-opening") {
+            // RA-6841 [A2]: Door symbol — opening cut line (white gap), leaf
+            // line, and a quarter-circle swing arc rendered as a Fabric Path.
+            const p = d.props as {
+              cutStart: { x: number; y: number };
+              cutEnd: { x: number; y: number };
+              hingePoint: { x: number; y: number };
+              freeCorner: { x: number; y: number };
+              arcPath: string;
+              arcRadiusPx: number;
+              stroke: string;
+              strokeWidth: number;
+              wallThicknessPx: number;
+            };
+            const cutLine = new F.Line(
+              [p.cutStart.x, p.cutStart.y, p.cutEnd.x, p.cutEnd.y],
+              {
+                stroke: "#ffffff",
+                strokeWidth: p.wallThicknessPx,
+                strokeLineCap: "butt",
+                selectable: false,
+                evented: false,
+              },
+            );
+            const leafLine = new F.Line(
+              [p.hingePoint.x, p.hingePoint.y, p.freeCorner.x, p.freeCorner.y],
+              { stroke: p.stroke, strokeWidth: p.strokeWidth },
+            );
+            const arc = new F.Path(p.arcPath, {
+              stroke: p.stroke,
+              strokeWidth: p.strokeWidth,
+              fill: "transparent",
+            });
+            obj = new F.Group([cutLine, leafLine, arc]);
+          } else if (d.kind === "window-opening") {
+            // RA-6841 [A2]: Window symbol — opening cut line (white gap) and
+            // three glazing lines perpendicular to the wall band.
+            const p = d.props as {
+              cutStart: { x: number; y: number };
+              cutEnd: { x: number; y: number };
+              glazingLines: [[{ x: number; y: number }, { x: number; y: number }]];
+              stroke: string;
+              strokeWidth: number;
+              wallThicknessPx: number;
+            };
+            const members: unknown[] = [];
+            const cutLine = new F.Line(
+              [p.cutStart.x, p.cutStart.y, p.cutEnd.x, p.cutEnd.y],
+              {
+                stroke: "#ffffff",
+                strokeWidth: p.wallThicknessPx,
+                strokeLineCap: "butt",
+                selectable: false,
+                evented: false,
+              },
+            );
+            members.push(cutLine);
+            for (const [s, e] of p.glazingLines) {
+              members.push(
+                new F.Line([s.x, s.y, e.x, e.y], {
+                  stroke: p.stroke,
+                  strokeWidth: p.strokeWidth,
+                }),
+              );
+            }
+            obj = new F.Group(members);
           }
           if (obj) (obj as { data?: unknown }).data = d.data;
           return obj;
@@ -757,6 +850,27 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
                 tool,
                 points: [p],
                 pxPerMetre: pxPerMetreRef.current,
+              }),
+            );
+            return;
+          }
+          // RA-6841 [A2]: Door + window are single-click placement tools.
+          // The click is snapped to the nearest wall segment; the wall is
+          // passed as `wallSegment` so the pure factory can compute the cut.
+          if (tool === "door" || tool === "window") {
+            const walls = collectWallSegments();
+            const snapped = snapToNearestWall(p, walls);
+            const wallSeg = snapped
+              ? walls[snapped.wallIndex]
+              : { a: { x: p.x - 41, y: p.y }, b: { x: p.x + 41, y: p.y } };
+            const anchor = snapped ? snapped.anchor : p;
+            addToolObject(
+              describeToolObject({
+                tool,
+                points: [anchor],
+                pxPerMetre: pxPerMetreRef.current,
+                wallSegment: wallSeg,
+                wallThicknessPx: pxPerMetreRef.current * 0.11,
               }),
             );
             return;

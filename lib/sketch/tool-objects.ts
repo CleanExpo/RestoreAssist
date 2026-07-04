@@ -15,9 +15,19 @@
  *
  * The canvas only has to materialize the returned descriptor into a Fabric
  * object — all geometry/units/data logic lives here where it can be tested.
+ *
+ * RA-6841 [A2]: door + window tools added. Opening descriptors carry
+ * `data.type: "opening"` and are EXCLUDED from measured area (the
+ * totalMeasuredFloorAreaM2 guard only sums type === "room" elements).
  */
 import type { ToolMode } from "@/components/sketch/SketchCanvas";
 import { shoelaceAreaPx2, px2ToM2, centroid } from "@/lib/sketch/geometry-utils";
+import {
+  doorGeometry,
+  doorArcPath,
+  windowGeometry,
+  type HingeSide,
+} from "@/lib/sketch/opening-geometry";
 
 export interface Point {
   x: number;
@@ -55,7 +65,10 @@ export type ToolObjectKind =
   | "itext"
   | "arrow"
   | "measure"
-  | "photo-marker";
+  | "photo-marker"
+  // RA-6841 [A2]: architectural opening symbols
+  | "door-opening"
+  | "window-opening";
 
 export interface ToolObjectDescriptor {
   kind: ToolObjectKind;
@@ -73,6 +86,30 @@ export interface DescribeInput {
   pxPerMetre?: number;
   /** Initial text for the text tool (defaults to a placeholder). */
   text?: string;
+  /**
+   * RA-6841 [A2] door tool: which side the hinge is on (default "left").
+   * "left" = hinge at the first endpoint along the wall direction; "right" = second.
+   */
+  hingeSide?: HingeSide;
+  /**
+   * RA-6841 [A2] door + window: opening width in metres (default 0.82m for
+   * doors, 1.0m for windows). Converted to px via pxPerMetre.
+   */
+  openingWidthM?: number;
+  /**
+   * RA-6841 [A2] door + window: rendered wall band thickness in px (used to
+   * size the glazing lines and opening cut). Defaults to the internal wall
+   * thickness (WALL_THICKNESS_INTERNAL_M × pxPerMetre).
+   */
+  wallThicknessPx?: number;
+  /**
+   * RA-6841 [A2] door + window: the host wall segment that the opening is
+   * placed on. The canvas resolves this by snapping the click point to the
+   * nearest wall line and passing its endpoints here. When absent the first
+   * two points are treated as the wall segment (wallA = points[0], wallB =
+   * points[1]) so a standalone test can call the factory without a live canvas.
+   */
+  wallSegment?: { a: Point; b: Point };
 }
 
 export function distancePx(a: Point, b: Point): number {
@@ -265,6 +302,79 @@ export function describeToolObject(
           strokeWidth: 2,
         },
         data: { type: "photo" },
+      };
+    }
+
+    // RA-6841 [A2]: Door — opening cut + leaf line + quarter-circle swing arc.
+    // points[0] = anchor on the wall. The host wall segment is supplied via
+    // `input.wallSegment` (canvas-resolved) or inferred as points[0..1].
+    // data.type = "opening" → excluded from measured area by provenance guard.
+    case "door": {
+      if (points.length < 1) return null;
+      const anchor = points[0];
+      const wall = input.wallSegment ??
+        (points.length >= 2
+          ? { a: points[0], b: points[1] }
+          : { a: { x: anchor.x, y: anchor.y }, b: { x: anchor.x + 1, y: anchor.y } });
+      const widthM = input.openingWidthM ?? 0.82;
+      const thick = input.wallThicknessPx ?? metresToPx(WALL_THICKNESS_INTERNAL_M, pxPerMetre);
+      const geom = doorGeometry(anchor, wall, widthM, pxPerMetre, input.hingeSide ?? "left");
+      const arcPath = doorArcPath(geom);
+      return {
+        kind: "door-opening",
+        props: {
+          // Opening cut line (rendered as a gap / highlight on the wall)
+          cutStart: geom.cutStart,
+          cutEnd: geom.cutEnd,
+          // Door leaf line
+          hingePoint: geom.hingePoint,
+          freeCorner: geom.freeCorner,
+          // Swing arc SVG path
+          arcPath,
+          arcRadiusPx: geom.arcRadiusPx,
+          // Visual styling
+          stroke: PRIMARY,
+          strokeWidth: 2,
+          wallThicknessPx: thick,
+        },
+        data: {
+          type: "opening",
+          openingKind: "door",
+          provenance: "operator_measured",
+          widthM,
+          hingeSide: input.hingeSide ?? "left",
+        },
+      };
+    }
+
+    // RA-6841 [A2]: Window — opening cut + three glazing lines.
+    // data.type = "opening" → excluded from measured area.
+    case "window": {
+      if (points.length < 1) return null;
+      const anchor = points[0];
+      const wall = input.wallSegment ??
+        (points.length >= 2
+          ? { a: points[0], b: points[1] }
+          : { a: { x: anchor.x, y: anchor.y }, b: { x: anchor.x + 1, y: anchor.y } });
+      const widthM = input.openingWidthM ?? 1.0;
+      const thick = input.wallThicknessPx ?? metresToPx(WALL_THICKNESS_INTERNAL_M, pxPerMetre);
+      const geom = windowGeometry(anchor, wall, widthM, pxPerMetre, thick);
+      return {
+        kind: "window-opening",
+        props: {
+          cutStart: geom.cutStart,
+          cutEnd: geom.cutEnd,
+          glazingLines: geom.glazingLines,
+          stroke: PRIMARY,
+          strokeWidth: 2,
+          wallThicknessPx: thick,
+        },
+        data: {
+          type: "opening",
+          openingKind: "window",
+          provenance: "operator_measured",
+          widthM,
+        },
       };
     }
 
