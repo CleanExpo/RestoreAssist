@@ -23,6 +23,16 @@ if (process.env.NODE_ENV !== "development") {
   // Module-level trap: if somehow imported in prod, all handlers return 404
 }
 
+/** Escape user-provided content before interpolating into HTML. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function gauthToken(email: string, secret: string): string {
   const timestamp = Date.now().toString();
   const hmac = crypto
@@ -52,6 +62,8 @@ export async function GET(request: NextRequest) {
   const secret = process.env.NEXTAUTH_SECRET!;
 
   const gauthProof = gauthToken(email, secret);
+  const safeEmail = escapeHtml(email);
+  const safeCallbackUrl = escapeHtml(callbackUrl);
 
   // CSRF must be fetched client-side so the cookie is set in the browser context.
   // A server-side fetch sets the cookie on the server request, not the browser.
@@ -59,12 +71,12 @@ export async function GET(request: NextRequest) {
 <html>
 <head><title>Dev Sign In…</title></head>
 <body>
-  <p style="font-family:monospace;color:#06b6d4;padding:32px">Signing in as ${email}…</p>
+  <p style="font-family:monospace;color:#06b6d4;padding:32px">Signing in as ${safeEmail}…</p>
   <form id="f" method="POST" action="/api/auth/callback/credentials">
     <input id="csrf" type="hidden" name="csrfToken" value="" />
-    <input type="hidden" name="email" value="${email}" />
+    <input type="hidden" name="email" value="${safeEmail}" />
     <input type="hidden" name="password" value="${gauthProof}" />
-    <input type="hidden" name="callbackUrl" value="${callbackUrl}" />
+    <input type="hidden" name="callbackUrl" value="${safeCallbackUrl}" />
     <input type="hidden" name="json" value="true" />
   </form>
   <script>
