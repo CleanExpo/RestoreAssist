@@ -47,7 +47,9 @@ export async function GET(
     }
 
     // ra-query-ok: floors scoped to one token-resolved inspection (one
-    // ClaimSketch per floor); the full set is needed to render the capture view.
+    // ClaimSketch per floor), capped at 50 floors to bound the payload on this
+    // unauthenticated surface — matching the authenticated sibling
+    // (app/api/inspections/[id]/sketches/route.ts take: 50).
     const floors = await prisma.claimSketch.findMany({
       where: { inspectionId: resolved.inspectionId },
       select: {
@@ -57,6 +59,7 @@ export async function GET(
         pendingHomeownerCapture: true,
       },
       orderBy: { floorNumber: "asc" },
+      take: 50,
     });
 
     return NextResponse.json({

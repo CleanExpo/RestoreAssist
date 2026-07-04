@@ -74,4 +74,15 @@ describe("GET /api/capture/[token]", () => {
       inspectionId: "i_1",
     });
   });
+
+  it("caps the floors query at 50 rows on this unauthenticated surface", async () => {
+    verifyCaptureToken.mockResolvedValueOnce({ inspectionId: "i_1" });
+    inspectionFindUnique.mockResolvedValueOnce({ propertyAddress: "12 Test St" });
+    claimSketchFindMany.mockResolvedValueOnce([]);
+
+    await GET(req(), ctx());
+    // Bound the payload so a buggy/abusive client can't grow it without limit,
+    // matching the authenticated sibling route's take: 50 cap.
+    expect(claimSketchFindMany.mock.calls[0][0].take).toBe(50);
+  });
 });
