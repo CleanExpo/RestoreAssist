@@ -6368,6 +6368,7 @@ model DrNrpgIntegration {
   isActive      Boolean         @default(true)
   lastSyncAt    DateTime?
   jobSyncs      DrNrpgJobSync[]
+  webhookEvents DrNrpgWebhookEvent[]
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 }
@@ -6414,6 +6415,35 @@ model DrNrpgWebhookLog {
   @@index([jobSyncId])
   @@index([eventType])
   @@index([direction])
+}
+
+// RA-6988 — DB unique backstop against the inbound-webhook dedup TOCTOU.
+//
+// The route's findUnique(DrNrpgJobSync)+isStaleReplay dedup guard is a
+// read-then-decide check, not atomic: two concurrent redeliveries of the same
+// event can both read no/stale prior row and both fall through to the
+// job.dispatched auto-create → two Inspection rows for one job. This is a NEW,
+// deliberately EMPTY table whose unique key lets the DB reject the second
+// insert (P2002), closing the race — mirroring the merged MYOB/Xero P2002
+// backstop (RA-1265). It is intentionally NOT an index over DrNrpgWebhookLog,
+// which stores a row per duplicate delivery on purpose (a unique index there
+// would fail on existing prod data).
+//
+// Key = (integrationId, drNrpgJobId, eventTimestamp, eventType). eventTimestamp
+// is the parsed, immutable payload.timestamp; this mirrors the lastEventAt/
+// lastEventType dedup semantics — two distinct same-second events differ by
+// eventType and both pass, while a true replay of one event collapses.
+model DrNrpgWebhookEvent {
+  id             String            @id @default(cuid())
+  integrationId  String
+  integration    DrNrpgIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  drNrpgJobId    String
+  eventTimestamp DateTime
+  eventType      String
+  createdAt      DateTime          @default(now())
+
+  @@unique([integrationId, drNrpgJobId, eventTimestamp, eventType])
+  @@index([integrationId])
 }
 
 // ─── V2: Drying Goal Validation (RA-260 Phase 5) ─────────────────────────────
