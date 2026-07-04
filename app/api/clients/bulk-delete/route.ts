@@ -20,6 +20,7 @@ export async function DELETE(request: NextRequest) {
     const rateLimited = await applyRateLimit(request, {
       maxRequests: 10,
       prefix: "clients-bulk-delete",
+      key: session.user.id,
     });
     if (rateLimited) return rateLimited;
 
