@@ -67,6 +67,22 @@ interface QuickBooksQueryResponse<T> {
   };
 }
 
+/**
+ * RA-6984 — full Payment entity, as returned by GET .../payment/{id}.
+ * The webhook CDC notification never carries Line/LinkedTxn/TotalAmt; only
+ * this fetched-by-id entity does.
+ */
+export interface QuickBooksPaymentResponse {
+  Id: string;
+  TotalAmt: number;
+  TxnDate: string;
+  PaymentRefNum?: string;
+  Line?: Array<{
+    Amount: number;
+    LinkedTxn?: Array<{ TxnId: string; TxnType: string }>;
+  }>;
+}
+
 export class QuickBooksClient extends BaseIntegrationClient {
   private realmId: string | null = null;
 
@@ -398,6 +414,22 @@ export class QuickBooksClient extends BaseIntegrationClient {
     }
 
     return synced;
+  }
+
+  /**
+   * Fetch a Payment entity by its QuickBooks ID (RA-6984).
+   *
+   * The Payment CDC webhook notification only ever carries
+   * { name, id, operation, lastUpdated } — never LinkedTxn/TotalAmt (RA-6974
+   * item 1 / #1699). This fetches the full Payment entity by the CDC
+   * entity's id so the caller can resolve the real settled amount and the
+   * invoice it was applied to.
+   */
+  async getPayment(paymentId: string): Promise<QuickBooksPaymentResponse> {
+    const response = await this.makeRequest<{
+      Payment: QuickBooksPaymentResponse;
+    }>(`/payment/${paymentId}`);
+    return response.Payment;
   }
 
   private formatAddress(customer: QuickBooksCustomer): string | undefined {

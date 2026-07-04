@@ -70,6 +70,23 @@ interface MYOBPagedResponse<T> {
   NextPageLink?: string;
 }
 
+/**
+ * RA-6984 — full CustomerPayment resource, as returned by
+ * GET .../Sale/CustomerPayment/{uid}. The Sale.CustomerPayment "Created"
+ * notification never carries Amount/InvoiceUID; only this fetched-by-UID
+ * resource does.
+ */
+export interface MYOBCustomerPaymentResponse {
+  UID: string;
+  Date: string;
+  AmountReceived: number;
+  Invoices?: Array<{
+    UID: string;
+    Number?: string;
+    AmountApplied: number;
+  }>;
+}
+
 export class MYOBClient extends BaseIntegrationClient {
   private companyFileUri: string | null = null;
 
@@ -420,6 +437,23 @@ export class MYOBClient extends BaseIntegrationClient {
     }
 
     return synced;
+  }
+
+  /**
+   * Fetch a CustomerPayment resource by its MYOB UID (RA-6984).
+   *
+   * The Sale.CustomerPayment "Created" notification only ever carries the
+   * raw stub { CompanyFileId, EventType, ResourceType, ResourceUID } — never
+   * Amount/InvoiceUID (RA-6974 item 1 / #1699). This fetches the full
+   * CustomerPayment resource by the notification's ResourceUID so the caller
+   * can resolve the real settled amount and the invoice(s) it was applied to.
+   */
+  async getCustomerPayment(
+    uid: string,
+  ): Promise<MYOBCustomerPaymentResponse> {
+    return this.makeRequest<MYOBCustomerPaymentResponse>(
+      `/Sale/CustomerPayment/${uid}`,
+    );
   }
 
   private formatAddress(contact: MYOBContact): string | undefined {

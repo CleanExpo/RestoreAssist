@@ -55,6 +55,25 @@ vi.mock("@/lib/services/xero/credentials", () => ({
     .mockResolvedValue({ ok: true, data: "test-token" }),
 }));
 
+// RA-6984 — QUICKBOOKS/MYOB payment resolution now calls the provider API
+// (mirroring the Xero Payments API call above) instead of trusting the
+// webhook stub. Mock the client factories/instances rather than fetch, since
+// the real clients live behind OAuth/token-refresh plumbing out of scope here.
+const qboGetPayment = vi.fn();
+const myobGetCustomerPayment = vi.fn();
+
+vi.mock("@/lib/integrations/quickbooks/client", () => ({
+  createQuickBooksClient: vi.fn(async (_integrationId: string) => ({
+    getPayment: (...args: unknown[]) => qboGetPayment(...args),
+  })),
+}));
+vi.mock("@/lib/integrations/myob/client", () => ({
+  createMYOBClient: vi.fn(async (_integrationId: string) => ({
+    getCustomerPayment: (...args: unknown[]) =>
+      myobGetCustomerPayment(...args),
+  })),
+}));
+
 import { prisma } from "@/lib/prisma";
 import { processWebhookEvent } from "../webhook-processor";
 
@@ -152,10 +171,10 @@ describe("processWebhookEvent — XERO payment delegates to the Xero batch", () 
   });
 });
 
-// ─── QUICKBOOKS / MYOB guard ──────────────────────────────────────────────────
+// ─── QUICKBOOKS / MYOB — RA-6984 API resolution ────────────────────────────────
 
-describe("processWebhookEvent — QUICKBOOKS/MYOB stub guard", () => {
-  it("skips an unresolvable QuickBooks stub without recording a $0 payment", async () => {
+describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API", () => {
+  it("skips without recording when the event carries no entity id", async () => {
     mockFindUniqueEvent.mockResolvedValue({
       id: "evt-qbo-1",
       provider: "QUICKBOOKS",
@@ -163,13 +182,13 @@ describe("processWebhookEvent — QUICKBOOKS/MYOB stub guard", () => {
       eventType: "payment.created",
       status: "PENDING",
       retryCount: 0,
-      payload: { Id: "qbo-pay-1", Operation: "Create" }, // CDC stub: no LinkedTxn, no TotalAmt
+      payload: {}, // no id — cannot even attempt resolution
       integration: { id: "integ-q" },
     });
 
     await expect(processWebhookEvent("evt-qbo-1")).resolves.toBeUndefined();
 
-    // No payment fabricated, no throw — event acknowledged as COMPLETED.
+    expect(qboGetPayment).not.toHaveBeenCalled();
     expect(mockTransaction).not.toHaveBeenCalled();
     expect(txInvoicePaymentCreate).not.toHaveBeenCalled();
     expect(mockUpdateEvent).toHaveBeenCalledWith(
@@ -180,22 +199,30 @@ describe("processWebhookEvent — QUICKBOOKS/MYOB stub guard", () => {
     );
   });
 
-  it("records the real amount when a QuickBooks stub is resolvable", async () => {
+  it("calls the QBO Payments API with the CDC entity id and records the REAL resolved amount", async () => {
     mockFindUniqueEvent.mockResolvedValue({
       id: "evt-qbo-2",
       provider: "QUICKBOOKS",
       integrationId: "integ-q",
       eventType: "payment.created",
+      // The CDC webhook stub for a Payment "Create" only ever carries this —
+      // never LinkedTxn/TotalAmt (RA-6974 / #1699).
+      payload: { name: "Payment", id: "qbo-pay-2", operation: "Create" },
       status: "PENDING",
       retryCount: 0,
-      payload: {
-        Id: "qbo-pay-2",
-        LinkedTxn: [{ TxnId: "qbo-inv-2" }],
-        TotalAmt: 500, // $500
-        TxnDate: "2026-07-01",
-        PaymentRefNum: "REF-1",
-      },
       integration: { id: "integ-q" },
+    });
+    qboGetPayment.mockResolvedValue({
+      Id: "qbo-pay-2",
+      TotalAmt: 500, // $500 — the REAL settled amount, resolved via the API
+      TxnDate: "2026-07-01",
+      PaymentRefNum: "REF-1",
+      Line: [
+        {
+          Amount: 500,
+          LinkedTxn: [{ TxnId: "qbo-inv-2", TxnType: "Invoice" }],
+        },
+      ],
     });
     mockFindFirstInvoice.mockResolvedValue({
       id: "local-q",
@@ -203,7 +230,6 @@ describe("processWebhookEvent — QUICKBOOKS/MYOB stub guard", () => {
       userId: "user-q",
     });
     txInvoicePaymentCreate.mockResolvedValue({ id: "pay-q" });
-    // First tx invoice.update returns balances (amountDue 0 → mark PAID).
     txInvoiceUpdate.mockResolvedValue({
       amountPaid: 50000,
       amountDue: 0,
@@ -213,6 +239,15 @@ describe("processWebhookEvent — QUICKBOOKS/MYOB stub guard", () => {
 
     await processWebhookEvent("evt-qbo-2");
 
+    expect(qboGetPayment).toHaveBeenCalledWith("qbo-pay-2");
+    expect(mockFindFirstInvoice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          externalInvoiceId: "qbo-inv-2",
+          externalSyncProvider: "QUICKBOOKS",
+        }),
+      }),
+    );
     expect(txInvoicePaymentCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -222,5 +257,146 @@ describe("processWebhookEvent — QUICKBOOKS/MYOB stub guard", () => {
         }),
       }),
     );
+  });
+
+  it("skips without recording when the resolved payment has no invoice LinkedTxn", async () => {
+    mockFindUniqueEvent.mockResolvedValue({
+      id: "evt-qbo-3",
+      provider: "QUICKBOOKS",
+      integrationId: "integ-q",
+      eventType: "payment.created",
+      payload: { name: "Payment", id: "qbo-pay-3", operation: "Create" },
+      status: "PENDING",
+      retryCount: 0,
+      integration: { id: "integ-q" },
+    });
+    // Resolved payment with no LinkedTxn at all — e.g. an unapplied credit.
+    qboGetPayment.mockResolvedValue({
+      Id: "qbo-pay-3",
+      TotalAmt: 200,
+      TxnDate: "2026-07-01",
+      Line: [{ Amount: 200 }],
+    });
+
+    await processWebhookEvent("evt-qbo-3");
+
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(txInvoicePaymentCreate).not.toHaveBeenCalled();
+    expect(mockUpdateEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "evt-qbo-3" },
+        data: expect.objectContaining({ status: "COMPLETED" }),
+      }),
+    );
+  });
+});
+
+describe("processWebhookEvent — MYOB payment resolution via the MYOB API", () => {
+  it("skips without recording when the event carries no ResourceUID", async () => {
+    mockFindUniqueEvent.mockResolvedValue({
+      id: "evt-myob-1",
+      provider: "MYOB",
+      integrationId: "integ-m",
+      eventType: "payment.created",
+      status: "PENDING",
+      retryCount: 0,
+      payload: {}, // no ResourceUID — cannot even attempt resolution
+      integration: { id: "integ-m" },
+    });
+
+    await expect(processWebhookEvent("evt-myob-1")).resolves.toBeUndefined();
+
+    expect(myobGetCustomerPayment).not.toHaveBeenCalled();
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(txInvoicePaymentCreate).not.toHaveBeenCalled();
+  });
+
+  it("calls the MYOB API with the notification's ResourceUID and records the REAL resolved amount", async () => {
+    mockFindUniqueEvent.mockResolvedValue({
+      id: "evt-myob-2",
+      provider: "MYOB",
+      integrationId: "integ-m",
+      eventType: "payment.created",
+      // The raw Sale.CustomerPayment "Created" notification only ever
+      // carries this — never Amount/InvoiceUID (RA-6974 / #1699).
+      payload: {
+        CompanyFileId: "cf_1",
+        EventType: "Created",
+        ResourceType: "Sale.CustomerPayment",
+        ResourceUID: "myob-pay-2",
+      },
+      status: "PENDING",
+      retryCount: 0,
+      integration: { id: "integ-m" },
+    });
+    myobGetCustomerPayment.mockResolvedValue({
+      UID: "myob-pay-2",
+      Date: "2026-07-01T00:00:00",
+      AmountReceived: 550, // the REAL settled amount, resolved via the API
+      Invoices: [{ UID: "myob-inv-2", Number: "INV-2", AmountApplied: 550 }],
+    });
+    mockFindFirstInvoice.mockResolvedValue({
+      id: "local-m",
+      currency: "AUD",
+      userId: "user-m",
+    });
+    txInvoicePaymentCreate.mockResolvedValue({ id: "pay-m" });
+    txInvoiceUpdate.mockResolvedValue({
+      amountPaid: 55000,
+      amountDue: 0,
+      totalIncGST: 55000,
+    });
+    txInvoiceAuditLogCreate.mockResolvedValue({});
+
+    await processWebhookEvent("evt-myob-2");
+
+    expect(myobGetCustomerPayment).toHaveBeenCalledWith("myob-pay-2");
+    expect(mockFindFirstInvoice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          externalInvoiceId: "myob-inv-2",
+          externalSyncProvider: "MYOB",
+        }),
+      }),
+    );
+    expect(txInvoicePaymentCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          amount: 55000, // $550 → cents, the REAL amount (not $0)
+          externalPaymentId: "myob-pay-2",
+          invoiceId: "local-m",
+        }),
+      }),
+    );
+  });
+
+  it("skips without recording when the resolved payment has no applied invoices", async () => {
+    mockFindUniqueEvent.mockResolvedValue({
+      id: "evt-myob-3",
+      provider: "MYOB",
+      integrationId: "integ-m",
+      eventType: "payment.created",
+      payload: {
+        CompanyFileId: "cf_1",
+        EventType: "Created",
+        ResourceType: "Sale.CustomerPayment",
+        ResourceUID: "myob-pay-3",
+      },
+      status: "PENDING",
+      retryCount: 0,
+      integration: { id: "integ-m" },
+    });
+    // Resolved payment applied to nothing yet (e.g. on-account payment).
+    myobGetCustomerPayment.mockResolvedValue({
+      UID: "myob-pay-3",
+      Date: "2026-07-01T00:00:00",
+      AmountReceived: 100,
+      Invoices: [],
+    });
+
+    await processWebhookEvent("evt-myob-3");
+
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(txInvoicePaymentCreate).not.toHaveBeenCalled();
   });
 });

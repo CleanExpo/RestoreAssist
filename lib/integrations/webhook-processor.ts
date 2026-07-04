@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { IntegrationProvider, WebhookEventStatus } from "@prisma/client";
 import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-processor";
+import { createQuickBooksClient } from "@/lib/integrations/quickbooks/client";
+import { createMYOBClient } from "@/lib/integrations/myob/client";
 
 /**
  * Webhook Event Processor
@@ -165,52 +167,151 @@ export async function processWebhookEvent(eventId: string): Promise<void> {
 
 /**
  * Handle payment created / invoice paid events
+ *
+ * RA-6965 — XERO is delegated to processXeroWebhookBatch upstream (it
+ * resolves the real payment via the Xero Payments API), so it never reaches
+ * here.
+ *
+ * RA-6984 — QUICKBOOKS/MYOB webhooks deliver ID-stubs (RA-6974 / #1699): the
+ * CDC/raw-notification payload never carries the settled amount or the
+ * invoice it was applied to. Rather than trusting the stub (and skipping
+ * when it inevitably lacks what's needed), resolve the real payment via the
+ * provider API using the identifier the stub DOES carry — mirroring how
+ * processXeroWebhookBatch calls the Xero Payments API.
  */
 async function handlePaymentCreated(event: any): Promise<void> {
-  const payload = event.payload;
-
-  let externalInvoiceId: string | null = null;
-  let externalPaymentId: string | null = null;
-  let paymentAmount: number = 0;
-  let paymentDate: Date = new Date();
-  let paymentReference: string | null = null;
-
-  // RA-6965 — XERO is delegated to processXeroWebhookBatch upstream (it
-  // resolves the real payment via the Xero Payments API), so it never reaches
-  // here. QUICKBOOKS/MYOB webhooks deliver ID-stubs — the amount on the
-  // payload is not the real settled amount. Extract what the stub carries;
-  // if a real invoice id, payment id and positive amount cannot be resolved,
-  // skip rather than fabricate a $0 / mismatched payment.
   if (event.provider === "QUICKBOOKS") {
-    externalInvoiceId = payload.LinkedTxn?.[0]?.TxnId ?? null; // Invoice ID from linked transaction
-    externalPaymentId = payload.Id ?? null;
-    paymentAmount = typeof payload.TotalAmt === "number" ? payload.TotalAmt : 0;
-    paymentDate = new Date(payload.TxnDate || Date.now());
-    paymentReference = payload.PaymentRefNum ?? null;
-  } else if (event.provider === "MYOB") {
-    externalInvoiceId = payload.InvoiceUID ?? payload.ResourceUID ?? null;
-    externalPaymentId = payload.UID ?? null;
-    paymentAmount = typeof payload.Amount === "number" ? payload.Amount : 0;
-    paymentDate = new Date(payload.Date || Date.now());
-    paymentReference = payload.Memo ?? null;
-  } else {
+    await handleQuickBooksPaymentCreated(event);
+    return;
+  }
+  if (event.provider === "MYOB") {
+    await handleMyobPaymentCreated(event);
+    return;
+  }
+  console.warn(
+    `[Webhook Processor] Unsupported provider ${event.provider} for payment recording — skipping`,
+  );
+}
+
+/**
+ * Resolves a QuickBooks Payment CDC stub via the QBO Payments API.
+ *
+ * The Payment "Create"/"Update" CDC notification only ever carries
+ * { name, id, operation, lastUpdated } — never LinkedTxn/TotalAmt. Fetch the
+ * full Payment entity by that id to get the real settled amount and the
+ * invoice it was applied to.
+ */
+async function handleQuickBooksPaymentCreated(event: any): Promise<void> {
+  const payload = event.payload;
+  const paymentId: string | null = payload?.id ?? payload?.Id ?? null;
+
+  if (!paymentId) {
     console.warn(
-      `[Webhook Processor] Unsupported provider ${event.provider} for payment recording — skipping`,
+      `[Webhook Processor] QUICKBOOKS payment event missing entity id — skipping without recording`,
     );
     return;
   }
 
-  // Guard against webhook ID-stubs: never record a $0 or unresolved payment.
-  // A stub with no resolvable invoice/payment id or a non-positive amount is
-  // skipped (not recorded, not thrown) — this replaces the old blanket throw
-  // that made every QUICKBOOKS payment event fail.
-  if (!externalInvoiceId || !externalPaymentId || paymentAmount <= 0) {
+  const client = await createQuickBooksClient(event.integrationId);
+  const payment = await client.getPayment(paymentId);
+
+  const linkedInvoiceTxn = (payment.Line ?? [])
+    .flatMap((line) => line.LinkedTxn ?? [])
+    .find((txn) => txn.TxnType === "Invoice");
+  const externalInvoiceId = linkedInvoiceTxn?.TxnId ?? null;
+  const paymentAmount =
+    typeof payment.TotalAmt === "number" ? payment.TotalAmt : 0;
+
+  if (!externalInvoiceId || paymentAmount <= 0) {
     console.warn(
-      `[Webhook Processor] ${event.provider} payment event unresolvable from webhook stub ` +
-        `(invoiceId=${externalInvoiceId}, paymentId=${externalPaymentId}, amount=${paymentAmount}) — skipping without recording`,
+      `[Webhook Processor] QUICKBOOKS payment ${paymentId} resolved via API but has no invoice ` +
+        `LinkedTxn or positive TotalAmt — skipping without recording`,
     );
     return;
   }
+
+  await recordExternalPayment(event, {
+    externalInvoiceId,
+    externalPaymentId: paymentId,
+    paymentAmount,
+    paymentDate: new Date(payment.TxnDate || Date.now()),
+    paymentReference: payment.PaymentRefNum ?? null,
+  });
+}
+
+/**
+ * Resolves a MYOB Sale.CustomerPayment "Created" notification via the MYOB
+ * CustomerPayment API.
+ *
+ * The raw notification only ever carries
+ * { CompanyFileId, EventType, ResourceType, ResourceUID } — never
+ * Amount/InvoiceUID. Fetch the full CustomerPayment resource by the
+ * notification's ResourceUID to get the real settled amount and the
+ * invoice(s) it was applied to.
+ */
+async function handleMyobPaymentCreated(event: any): Promise<void> {
+  const payload = event.payload;
+  const resourceUid: string | null = payload?.ResourceUID ?? null;
+
+  if (!resourceUid) {
+    console.warn(
+      `[Webhook Processor] MYOB payment event missing ResourceUID — skipping without recording`,
+    );
+    return;
+  }
+
+  const client = await createMYOBClient(event.integrationId);
+  const payment = await client.getCustomerPayment(resourceUid);
+
+  const firstInvoice = (payment.Invoices ?? [])[0];
+  const externalInvoiceId = firstInvoice?.UID ?? null;
+  const paymentAmount =
+    typeof payment.AmountReceived === "number" ? payment.AmountReceived : 0;
+
+  if (!externalInvoiceId || paymentAmount <= 0) {
+    console.warn(
+      `[Webhook Processor] MYOB payment ${resourceUid} resolved via API but has no applied ` +
+        `invoice or positive AmountReceived — skipping without recording`,
+    );
+    return;
+  }
+
+  await recordExternalPayment(event, {
+    externalInvoiceId,
+    externalPaymentId: resourceUid,
+    paymentAmount,
+    paymentDate: new Date(payment.Date || Date.now()),
+    paymentReference: null,
+  });
+}
+
+interface ResolvedPayment {
+  externalInvoiceId: string;
+  externalPaymentId: string;
+  paymentAmount: number; // dollars, provider-native
+  paymentDate: Date;
+  paymentReference: string | null;
+}
+
+/**
+ * Atomic create + increment of a resolved external payment — split out of
+ * handlePaymentCreated (RA-6984) so both the QuickBooks and MYOB API
+ * resolvers above share the same recording logic. Prevents TOCTOU duplicate
+ * payment and ensures amountPaid/amountDue are updated with correct
+ * concurrent values. P2002 on externalPaymentId unique constraint is the
+ * last-resort dedup guard.
+ */
+async function recordExternalPayment(
+  event: any,
+  resolved: ResolvedPayment,
+): Promise<void> {
+  const {
+    externalInvoiceId,
+    externalPaymentId,
+    paymentAmount,
+    paymentDate,
+    paymentReference,
+  } = resolved;
 
   // Find the invoice by external ID
   const invoice = await prisma.invoice.findFirst({
@@ -508,4 +609,163 @@ export async function processPendingWebhookEvents(
   for (const event of pendingEvents) {
     await processWebhookEvent(event.id);
   }
+}
+
+export interface ProviderPaymentBatchResult {
+  processed: number;
+  failed: number;
+  skipped: number;
+}
+
+// RA-6974 / #1699 — the exact errorMessage strings the QUICKBOOKS and MYOB
+// webhook routes write when marking a payment.created stub SKIPPED at
+// ingest, because at the time neither provider's webhook payload alone could
+// resolve a settled payment. RA-6984 resolves both via the provider API
+// instead, so events carrying these markers are retried, not permanently
+// stuck. Kept in sync with app/api/webhooks/quickbooks/route.ts and
+// app/api/webhooks/myob/route.ts (reserved for a parallel ticket — not
+// touched here).
+const RA_1699_UNRESOLVABLE_STUB_MARKERS = [
+  "QuickBooks payment CDC notification has no LinkedTxn/TotalAmt - cannot resolve a settled payment from the webhook payload alone",
+  "MYOB payment notification is a CDC stub with no Amount/InvoiceUID - cannot resolve a settled payment from the webhook payload alone",
+];
+
+const QBO_MYOB_PAYMENT_EVENT_SELECT = {
+  id: true,
+  provider: true,
+  integrationId: true,
+  eventType: true,
+  payload: true,
+  retryCount: true,
+} as const;
+
+/**
+ * RA-6984 — drains PENDING QUICKBOOKS/MYOB payment webhook events via the
+ * API-resolving handlePaymentCreated. Mirrors processXeroWebhookBatch's
+ * atomic claim (updateMany CAS: PENDING → PROCESSING, count 0 means another
+ * worker already claimed it). Nothing else currently processes these events
+ * — unlike XERO, which processWebhookEvent delegates to
+ * processXeroWebhookBatch inline (RA-6965).
+ *
+ * Called by /api/cron/sync-qbo-myob-payments.
+ */
+export async function processQboMyobPendingPayments(
+  maxEvents = 50,
+): Promise<ProviderPaymentBatchResult> {
+  const result: ProviderPaymentBatchResult = {
+    processed: 0,
+    failed: 0,
+    skipped: 0,
+  };
+
+  const events = await prisma.webhookEvent.findMany({
+    where: {
+      provider: { in: ["QUICKBOOKS", "MYOB"] },
+      eventType: { in: ["invoice.paid", "payment.created"] },
+      status: "PENDING",
+    },
+    select: QBO_MYOB_PAYMENT_EVENT_SELECT,
+    take: maxEvents,
+    orderBy: { createdAt: "asc" },
+  });
+
+  for (const event of events) {
+    const claim = await prisma.webhookEvent.updateMany({
+      where: { id: event.id, status: "PENDING" },
+      data: { status: "PROCESSING" },
+    });
+    if (claim.count === 0) {
+      // Another worker claimed this event between our SELECT and now.
+      result.skipped++;
+      continue;
+    }
+
+    try {
+      await handlePaymentCreated(event);
+      await prisma.webhookEvent.update({
+        where: { id: event.id },
+        data: { status: "COMPLETED", processedAt: new Date(), errorMessage: null },
+      });
+      result.processed++;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const retryCount = event.retryCount + 1;
+      const maxRetries = 5;
+      await prisma.webhookEvent.update({
+        where: { id: event.id },
+        data: {
+          status: retryCount >= maxRetries ? "FAILED" : "PENDING",
+          errorMessage: message,
+          retryCount,
+        },
+      });
+      result.failed++;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * RA-6984 — retroactive pickup for events RA-6974/#1699 marked SKIPPED with
+ * an unresolvable-stub errorMessage. Now that handlePaymentCreated resolves
+ * via the real QBO/MYOB API instead of trusting the webhook stub, those
+ * events are no longer permanently unresolvable — re-attempt them here.
+ *
+ * A resolution that still fails (e.g. the payment was voided upstream, or
+ * the integration is disconnected) restores SKIPPED rather than FAILED —
+ * matching the RA-6974/#1699 rationale for marking these SKIPPED in the
+ * first place: it is not a transient failure worth surfacing to
+ * FAILED-status monitoring, and the next cron run naturally retries it.
+ *
+ * Called by /api/cron/sync-qbo-myob-payments.
+ */
+export async function retryUnresolvedQboMyobPayments(
+  maxEvents = 50,
+): Promise<ProviderPaymentBatchResult> {
+  const result: ProviderPaymentBatchResult = {
+    processed: 0,
+    failed: 0,
+    skipped: 0,
+  };
+
+  const events = await prisma.webhookEvent.findMany({
+    where: {
+      provider: { in: ["QUICKBOOKS", "MYOB"] },
+      status: "SKIPPED",
+      errorMessage: { in: RA_1699_UNRESOLVABLE_STUB_MARKERS },
+    },
+    select: QBO_MYOB_PAYMENT_EVENT_SELECT,
+    take: maxEvents,
+    orderBy: { createdAt: "asc" },
+  });
+
+  for (const event of events) {
+    const claim = await prisma.webhookEvent.updateMany({
+      where: { id: event.id, status: "SKIPPED" },
+      data: { status: "PROCESSING" },
+    });
+    if (claim.count === 0) {
+      result.skipped++;
+      continue;
+    }
+
+    try {
+      await handlePaymentCreated(event);
+      await prisma.webhookEvent.update({
+        where: { id: event.id },
+        data: { status: "COMPLETED", processedAt: new Date(), errorMessage: null },
+      });
+      result.processed++;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await prisma.webhookEvent.update({
+        where: { id: event.id },
+        data: { status: "SKIPPED", errorMessage: message },
+      });
+      result.skipped++;
+    }
+  }
+
+  return result;
 }
