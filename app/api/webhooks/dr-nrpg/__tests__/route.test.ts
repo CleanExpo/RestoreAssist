@@ -241,6 +241,37 @@ describe("POST /api/webhooks/dr-nrpg — replay protection", () => {
     expect(drNrpgJobSyncUpsert).toHaveBeenCalled();
   });
 
+  it("dedupes an out-of-order redelivery whose timestamp is older than the last recorded event", async () => {
+    // The strictly-older branch of the idempotency guard is what stops a
+    // replayed old event (e.g. a captured job.completed redelivered after a
+    // later job.updated) from regressing status now that the freshness
+    // window admits 24h of history — pin it independently of the
+    // equal-timestamp tiebreaker.
+    const lastEventAt = new Date();
+    drNrpgJobSyncFindUnique.mockResolvedValue({
+      id: "sync-existing",
+      lastEventAt,
+      lastEventType: "job.updated",
+    });
+
+    const oneHourEarlier = new Date(
+      lastEventAt.getTime() - 60 * 60 * 1000,
+    ).toISOString();
+    const res = await POST(
+      makeRequest({
+        event: "job.completed",
+        jobId: "job-out-of-order",
+        claimNumber: "CLM-7",
+        timestamp: oneHourEarlier,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.deduplicated).toBe(true);
+    expect(drNrpgJobSyncUpsert).not.toHaveBeenCalled();
+  });
+
   it("writes a DrNrpgWebhookLog entry for a deduplicated replay before returning", async () => {
     const ts = new Date().toISOString();
     drNrpgJobSyncFindUnique.mockResolvedValue({
