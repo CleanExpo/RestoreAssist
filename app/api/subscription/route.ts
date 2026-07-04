@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
@@ -55,42 +56,47 @@ export async function GET(request: NextRequest) {
           subscription.items.data[0].price.id,
         );
 
+        // RA-6968/6967: the billing period lives on the SubscriptionItem in
+        // this SDK version (dahlia removed the Subscription-root fields). Read
+        // it there — never from a removed root field — and when Stripe omits a
+        // value, leave the stored date untouched rather than fabricating
+        // now()+30d, which previously wrote a false renewal date.
+        const item = subscription.items.data[0];
+        const periodEnd = item?.current_period_end ?? null;
+        const periodStart = item?.current_period_start ?? null;
+
+        const updateData: Prisma.UserUpdateInput = {
+          subscriptionStatus:
+            subscription.status === "active"
+              ? "ACTIVE"
+              : subscription.status === "canceled"
+                ? "CANCELED"
+                : subscription.status === "past_due"
+                  ? "PAST_DUE"
+                  : "EXPIRED",
+          creditsRemaining:
+            subscription.status === "active" ? 999999 : user.creditsRemaining,
+        };
+        if (periodEnd !== null) {
+          updateData.subscriptionEndsAt = new Date(periodEnd * 1000);
+          updateData.nextBillingDate = new Date(periodEnd * 1000);
+        }
+        if (periodStart !== null) {
+          updateData.lastBillingDate = new Date(periodStart * 1000);
+        }
+
         // Update database with latest subscription data
         await prisma.user.update({
           where: { id: session.user.id },
-          data: {
-            subscriptionStatus:
-              subscription.status === "active"
-                ? "ACTIVE"
-                : subscription.status === "canceled"
-                  ? "CANCELED"
-                  : subscription.status === "past_due"
-                    ? "PAST_DUE"
-                    : "EXPIRED",
-            subscriptionEndsAt: new Date(
-              ((subscription as any).current_period_end ??
-                Math.floor(Date.now() / 1000 + 30 * 24 * 3600)) * 1000,
-            ),
-            nextBillingDate: new Date(
-              ((subscription as any).current_period_end ??
-                Math.floor(Date.now() / 1000 + 30 * 24 * 3600)) * 1000,
-            ),
-            lastBillingDate: new Date(
-              ((subscription as any).current_period_start ??
-                Math.floor(Date.now() / 1000)) * 1000,
-            ),
-            creditsRemaining:
-              subscription.status === "active" ? 999999 : user.creditsRemaining,
-          },
+          data: updateData,
         });
 
         return NextResponse.json({
           subscription: {
             id: subscription.id,
             status: subscription.status,
-            currentPeriodStart:
-              (subscription as any).current_period_start ?? null,
-            currentPeriodEnd: (subscription as any).current_period_end ?? null,
+            currentPeriodStart: periodStart,
+            currentPeriodEnd: periodEnd,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
             plan: {
               name: price.nickname || user.subscriptionPlan || "Subscription",
