@@ -41,10 +41,15 @@ const MAX_ACTIVE_DRNRPG_INTEGRATIONS = 100;
 
 // Replay-freshness window. The HMAC signature covers the raw body, which
 // includes `timestamp`, so a captured request cannot have its timestamp
-// forged forward. Reject events whose signed timestamp is older than this
-// tolerance to defeat replay of an old captured request. Mirrors Stripe's
-// signature-tolerance pattern.
-const DRNRPG_REPLAY_TOLERANCE_MS = 5 * 60 * 1000; // 5 minutes
+// forged forward. RA-6985: this was previously 5 minutes, which rejected
+// DR-NRPG's OWN retries — a retry redelivers the identical signed body
+// (same timestamp), so a redelivery landing more than 5 minutes after the
+// event was 401'd forever, permanently dropping the event after a transient
+// failure on our end. Widened to the provider retry horizon (24h), matching
+// the merged MYOB/Xero fixes (RA-6973/RA-6968). The lastEventAt/lastEventType
+// idempotency guard + DrNrpgWebhookLog audit below remain the actual replay
+// protections once an event is accepted.
+const DRNRPG_REPLAY_TOLERANCE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // ============================================================
 // HMAC-SHA256 signature verification

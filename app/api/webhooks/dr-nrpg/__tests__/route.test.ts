@@ -7,7 +7,14 @@
  *     event can no longer overwrite another tenant's job.
  *   - A replayed event (timestamp not newer than the last recorded event for
  *     that job) is an idempotent no-op — not double-processed.
- *   - A stale event (timestamp outside the ±5-minute window) is rejected.
+ *   - A stale event (timestamp outside the ±24h freshness window) is rejected.
+ *
+ * RA-6985: the freshness window was previously ±5 minutes, which rejected
+ * DR-NRPG's own late retries (a retry redelivers the identical signed body —
+ * same timestamp), permanently dropping the event after a transient failure
+ * on our end. Widened to the provider retry horizon (24h), mirroring the
+ * merged MYOB/Xero fixes (RA-6973/RA-6968); the lastEventAt/lastEventType
+ * dedup + DrNrpgWebhookLog audit remain the actual replay guards.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -128,14 +135,34 @@ describe("POST /api/webhooks/dr-nrpg — tenant scoping", () => {
 });
 
 describe("POST /api/webhooks/dr-nrpg — replay protection", () => {
-  it("rejects an event older than the ±5-minute freshness window", async () => {
-    const stale = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  it("accepts the provider's own retry hours after the event (previously rejected at the 5-minute gate)", async () => {
+    drNrpgJobSyncFindUnique.mockResolvedValue(null); // transient failure meant we never recorded it
+    drNrpgJobSyncUpsert.mockResolvedValue({ id: "sync-retry" });
+
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const res = await POST(
+      makeRequest({
+        event: "job.updated",
+        jobId: "job-late-retry",
+        claimNumber: "CLM-2",
+        timestamp: twoHoursAgo,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(drNrpgJobSyncUpsert).toHaveBeenCalled();
+  });
+
+  it("still rejects an event older than the 24h retry window", async () => {
+    const twoDaysAgo = new Date(
+      Date.now() - 48 * 60 * 60 * 1000,
+    ).toISOString();
     const res = await POST(
       makeRequest({
         event: "job.updated",
         jobId: "job-stale",
         claimNumber: "CLM-2",
-        timestamp: stale,
+        timestamp: twoDaysAgo,
       }),
     );
 
