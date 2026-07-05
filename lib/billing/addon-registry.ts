@@ -12,13 +12,13 @@
  *   - app/api/webhooks/stripe/route.ts  looks up the descriptor by the
  *     subscription metadata marker and upserts/expires its FeatureEntitlement.
  *
- * Adding a new recurring add-on (SERVICE_CRM, VOICE, BOOKKEEPING, PAYMENTS) is
- * a ONE-LINE change here — drop in its `lib/billing/*-addon.ts` SSOT and register
- * it below — with ZERO edits to the two route files.
+ * Adding a new recurring add-on (VOICE, BOOKKEEPING, PAYMENTS) is a ONE-LINE
+ * change here — drop in its `lib/billing/*-addon.ts` SSOT and register it
+ * below — with ZERO edits to the two route files.
  *
- * FLOORPLAN_UNDERLAY (shipped in #1728) is the first and currently only entry,
- * sourced directly from its existing SSOT so its SKU, price and metadata marker
- * never drift.
+ * FLOORPLAN_UNDERLAY (shipped in #1728) and SERVICE_CRM (RA-6920 B1) are each
+ * sourced directly from their own SSOT so their SKU, price and metadata
+ * marker never drift.
  */
 
 import type { AddonSku } from "@/lib/entitlements/types";
@@ -30,6 +30,10 @@ import {
   BOOKKEEPING_ADDON,
   BOOKKEEPING_ADDON_SUBSCRIPTION_TYPE,
 } from "./bookkeeping-addon";
+import {
+  SERVICE_CRM_ADDON,
+  SERVICE_CRM_ADDON_SUBSCRIPTION_TYPE,
+} from "./service-crm-addon";
 
 /**
  * The data-driven descriptor for one recurring add-on. Everything the checkout
@@ -83,6 +87,15 @@ export const RECURRING_ADDONS: Readonly<
     currency: BOOKKEEPING_ADDON.currency,
     interval: BOOKKEEPING_ADDON.interval,
     subscriptionType: BOOKKEEPING_ADDON_SUBSCRIPTION_TYPE,
+  },
+  [SERVICE_CRM_ADDON.sku]: {
+    sku: SERVICE_CRM_ADDON.sku,
+    name: SERVICE_CRM_ADDON.name,
+    description: SERVICE_CRM_ADDON.description,
+    amount: SERVICE_CRM_ADDON.amount,
+    currency: SERVICE_CRM_ADDON.currency,
+    interval: SERVICE_CRM_ADDON.interval,
+    subscriptionType: SERVICE_CRM_ADDON_SUBSCRIPTION_TYPE,
   },
 };
 
