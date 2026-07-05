@@ -100,6 +100,7 @@ export async function GET(
         roomZoneId: a.roomZoneId,
         category: a.category,
         class: a.class,
+        affectedAreaSqm: a.affectedAreaSqm,
         affectedSquareFootage: a.affectedSquareFootage,
       })),
       scopeItems: inspection.scopeItems.map((s) => ({

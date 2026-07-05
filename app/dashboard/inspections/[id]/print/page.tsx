@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { resolveAreaSqm } from "@/lib/units";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,7 @@ interface MoistureReading {
 interface AffectedArea {
   id: string;
   roomZoneId: string;
+  affectedAreaSqm: number | null;
   affectedSquareFootage: number;
   waterSource: string;
   timeSinceLoss: number | null;
@@ -495,7 +497,7 @@ export default function InspectionPrintPage({
                     <div>
                       <span className="text-neutral-400">Size: </span>
                       <span className="font-medium">
-                        {area.affectedSquareFootage} sq ft
+                        {resolveAreaSqm(area).toFixed(1)} m²
                       </span>
                     </div>
                     <div>

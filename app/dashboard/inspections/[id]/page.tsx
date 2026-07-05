@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { EngagementLicenceModal } from "@/components/attestation/EngagementLicenceModal";
 import { cn } from "@/lib/utils";
+import { resolveAreaSqm } from "@/lib/units";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { NirPilotSurvey } from "@/components/nir-pilot-survey";
@@ -193,6 +194,7 @@ interface Inspection {
   affectedAreas: {
     id: string;
     roomZoneId: string;
+    affectedAreaSqm: number | null;
     affectedSquareFootage: number;
     waterSource: string;
     timeSinceLoss: number | null;
@@ -388,7 +390,7 @@ export default function InspectionDetailPage({
   const [showAddAreaForm, setShowAddAreaForm] = useState(false);
   const [areaForm, setAreaForm] = useState({
     roomZoneId: "",
-    affectedSquareFootage: "",
+    affectedAreaSqm: "",
     waterSource: "",
     timeSinceLoss: "",
     description: "",
@@ -756,8 +758,8 @@ export default function InspectionDetailPage({
       toast.error("Room / Zone ID is required");
       return;
     }
-    const sqft = parseFloat(areaForm.affectedSquareFootage);
-    if (!sqft || sqft <= 0) {
+    const sqm = parseFloat(areaForm.affectedAreaSqm);
+    if (!sqm || sqm <= 0) {
       toast.error("Affected area must be greater than 0");
       return;
     }
@@ -774,7 +776,7 @@ export default function InspectionDetailPage({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             roomZoneId: areaForm.roomZoneId.trim(),
-            affectedSquareFootage: sqft,
+            affectedAreaSqm: sqm,
             waterSource: areaForm.waterSource.trim(),
             timeSinceLoss: areaForm.timeSinceLoss
               ? parseFloat(areaForm.timeSinceLoss)
@@ -793,7 +795,7 @@ export default function InspectionDetailPage({
       setAffectedAreas((prev) => [...prev, data.affectedArea]);
       setAreaForm({
         roomZoneId: "",
-        affectedSquareFootage: "",
+        affectedAreaSqm: "",
         waterSource: "",
         timeSinceLoss: "",
         description: "",
@@ -1231,9 +1233,9 @@ export default function InspectionDetailPage({
                 <div className="text-xs text-neutral-500 mt-1">
                   Total:{" "}
                   {inspection.affectedAreas
-                    .reduce((s, a) => s + a.affectedSquareFootage, 0)
-                    .toFixed(0)}{" "}
-                  sq ft
+                    .reduce((s, a) => s + resolveAreaSqm(a), 0)
+                    .toFixed(1)}{" "}
+                  m²
                 </div>
               )}
             </div>
@@ -1840,19 +1842,19 @@ export default function InspectionDetailPage({
                   </div>
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
-                      Affected Sq Ft *
+                      Affected Area (m²) *
                     </label>
                     <input
                       type="number"
-                      value={areaForm.affectedSquareFootage}
+                      value={areaForm.affectedAreaSqm}
                       onChange={(e) =>
                         setAreaForm((f) => ({
                           ...f,
-                          affectedSquareFootage: e.target.value,
+                          affectedAreaSqm: e.target.value,
                         }))
                       }
                       className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
-                      placeholder="e.g. 200"
+                      placeholder="e.g. 20"
                     />
                   </div>
                   <div>
@@ -1960,7 +1962,7 @@ export default function InspectionDetailPage({
                       <div>
                         <span className="text-neutral-400 text-xs">Area</span>
                         <p className="font-medium">
-                          {area.affectedSquareFootage} sq ft
+                          {resolveAreaSqm(area).toFixed(1)} m²
                         </p>
                       </div>
                       <div>
@@ -2219,7 +2221,7 @@ export default function InspectionDetailPage({
                       onChange={(e) =>
                         setAddScopeForm((f) => ({ ...f, unit: e.target.value }))
                       }
-                      placeholder="e.g. sq ft"
+                      placeholder="e.g. m²"
                       className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     />
                   </div>

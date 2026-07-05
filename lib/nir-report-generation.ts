@@ -20,6 +20,7 @@ import {
   type InspectionForChecklist,
   type VerificationChecklistItem,
 } from "./nir-verification-checklist";
+import { resolveAreaSqm } from "./units";
 
 // ─── SHARED TYPED INTERFACE ───────────────────────────────────────────────────
 //
@@ -52,10 +53,9 @@ export interface NirMoistureReading {
 export interface NirAffectedArea {
   id: string;
   roomZoneId: string;
-  /**
-   * Area in m² — preferred.
-   * Legacy records may have been entered in sq ft; display label accounts for this.
-   */
+  /** Canonical affected area in m² (RA-7001). Null on un-backfilled legacy rows. */
+  affectedAreaSqm?: number | null;
+  /** @deprecated Legacy sq-ft value; kept for the fallback path via resolveAreaSqm. */
   affectedSquareFootage: number;
   waterSource?: string | null;
   timeSinceLoss?: number | null;
@@ -291,7 +291,7 @@ export async function generateNIRPDF(
     section("Affected Areas");
     inspection.affectedAreas.forEach((area, i) => {
       text(
-        `${i + 1}. ${area.roomZoneId}: ${area.affectedSquareFootage} m²`,
+        `${i + 1}. ${area.roomZoneId}: ${resolveAreaSqm(area).toFixed(1)} m²`,
         10,
       );
       text(`   Water source: ${area.waterSource ?? "—"}`, 10);

@@ -12,13 +12,14 @@
  * Triggers:
  *   1. Asbestos suspected: building pre-2004 (AU) / pre-2000 (NZ) AND
  *      WHSIncident with incidentType containing "asbestos"
- *   2. Mould Cat 3 >10 m²: AffectedArea category === "3" AND affectedSquareFootage > 10
- *      NOTE: AffectedArea uses affectedSquareFootage (sq ft), so we convert:
- *            10 m² ≈ 107.6 sq ft. TODO RA-XXXX: migrate AffectedArea to SI units.
+ *   2. Mould Cat 3 ≥10 m²: AffectedArea category === "3" AND affectedAreaSqm >= 10 (RA-7001).
+ *      affectedAreaSqm (m²) is the canonical unit; legacy rows fall back to
+ *      converting the deprecated affectedSquareFootage (sq ft) via resolveAreaSqm.
  *   3. Biohazard: WHSIncident with incidentType containing "biohazard", "sewage", or "blood"
  */
 
 import { prisma } from "@/lib/prisma";
+import { resolveAreaSqm } from "@/lib/units";
 
 // TODO RA-1120: add propertyCountry to Inspection model. Until then, default AU.
 type Jurisdiction =
@@ -93,7 +94,11 @@ export async function checkSafeworkGate(
       propertyYearBuilt: true,
       // TODO RA-1120: select propertyCountry once added to schema
       affectedAreas: {
-        select: { category: true, affectedSquareFootage: true },
+        select: {
+          category: true,
+          affectedAreaSqm: true,
+          affectedSquareFootage: true,
+        },
         take: 200,
       },
       whsIncidents: {
@@ -141,11 +146,11 @@ export async function checkSafeworkGate(
     );
   }
 
-  // ── Trigger 2: Mould Cat 3 > 10 m² ────────────────────────────────────────
-  // AffectedArea.affectedSquareFootage is sq ft; 10 m² ≈ 107.6 sq ft
-  const MOULD_THRESHOLD_SQFT = 107.6;
+  // ── Trigger 2: Mould Cat 3 ≥ 10 m² ────────────────────────────────────────
+  // Canonical unit is m² (affectedAreaSqm). RA-7001 removed the sq-ft literal.
+  const MOULD_THRESHOLD_SQM = 10;
   const hasMouldTrigger = inspection.affectedAreas.some(
-    (a) => a.category === "3" && a.affectedSquareFootage > MOULD_THRESHOLD_SQFT,
+    (a) => a.category === "3" && resolveAreaSqm(a) >= MOULD_THRESHOLD_SQM,
   );
   if (hasMouldTrigger) {
     notifications.push({

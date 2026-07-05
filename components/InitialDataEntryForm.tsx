@@ -453,7 +453,7 @@ export default function InitialDataEntryForm({
     Array<{
       id: string;
       roomZoneId: string;
-      affectedSquareFootage: number;
+      affectedAreaSqm: number;
       waterSource: string;
       timeSinceLoss: number;
     }>
@@ -461,7 +461,7 @@ export default function InitialDataEntryForm({
 
   const [newNirAffectedArea, setNewNirAffectedArea] = useState({
     roomZoneId: "",
-    affectedSquareFootage: 0,
+    affectedAreaSqm: 0,
     waterSource: "Clean Water",
     timeSinceLoss: 0,
   });
@@ -617,7 +617,13 @@ export default function InitialDataEntryForm({
                 (a: any, idx: number) => ({
                   id: `aa-${Date.now()}-${idx}`,
                   roomZoneId: a.roomZoneId || "",
-                  affectedSquareFootage: a.affectedSquareFootage || 0,
+                  // RA-7001: prefer m²; legacy drafts carried sq ft under the
+                  // old key — convert them so old drafts still load.
+                  affectedAreaSqm:
+                    a.affectedAreaSqm ??
+                    (a.affectedSquareFootage
+                      ? a.affectedSquareFootage * 0.09290304
+                      : 0),
                   waterSource: a.waterSource || "Clean Water",
                   timeSinceLoss: a.timeSinceLoss || 0,
                 }),
@@ -730,10 +736,14 @@ export default function InitialDataEntryForm({
           (a: any, idx: number) => ({
             id: `aa-upload-${Date.now()}-${idx}`,
             roomZoneId: a.roomZoneId || "",
-            affectedSquareFootage:
-              typeof a.affectedSquareFootage === "number"
-                ? a.affectedSquareFootage
-                : parseFloat(a.affectedSquareFootage) || 0,
+            // RA-7001: prefer m²; fall back to converting a legacy sq-ft value.
+            affectedAreaSqm:
+              typeof a.affectedAreaSqm === "number"
+                ? a.affectedAreaSqm
+                : parseFloat(a.affectedAreaSqm) ||
+                  (a.affectedSquareFootage
+                    ? (parseFloat(a.affectedSquareFootage) || 0) * 0.09290304
+                    : 0),
             waterSource: a.waterSource || "Clean Water",
             timeSinceLoss:
               typeof a.timeSinceLoss === "number"
@@ -1371,7 +1381,7 @@ export default function InitialDataEntryForm({
           nirAffectedAreas.length > 0
             ? nirAffectedAreas.map((a) => ({
                 roomZoneId: a.roomZoneId,
-                affectedSquareFootage: a.affectedSquareFootage,
+                affectedAreaSqm: a.affectedAreaSqm,
                 waterSource: a.waterSource,
                 timeSinceLoss: a.timeSinceLoss,
               }))
@@ -1608,21 +1618,21 @@ export default function InitialDataEntryForm({
         {
           id: "1",
           roomZoneId: "Master Bedroom",
-          affectedSquareFootage: 180,
+          affectedAreaSqm: 16.7,
           waterSource: "Clean Water",
           timeSinceLoss: 24,
         },
         {
           id: "2",
           roomZoneId: "Ensuite",
-          affectedSquareFootage: 45,
+          affectedAreaSqm: 4.2,
           waterSource: "Clean Water",
           timeSinceLoss: 24,
         },
         {
           id: "3",
           roomZoneId: "Hallway",
-          affectedSquareFootage: 30,
+          affectedAreaSqm: 2.8,
           waterSource: "Clean Water",
           timeSinceLoss: 24,
         },
@@ -1777,21 +1787,21 @@ export default function InitialDataEntryForm({
         {
           id: "1",
           roomZoneId: "3rd Floor - Office Area",
-          affectedSquareFootage: 450,
+          affectedAreaSqm: 41.8,
           waterSource: "Clean Water",
           timeSinceLoss: 12,
         },
         {
           id: "2",
           roomZoneId: "3rd Floor - Server Room",
-          affectedSquareFootage: 120,
+          affectedAreaSqm: 11.1,
           waterSource: "Clean Water",
           timeSinceLoss: 12,
         },
         {
           id: "3",
           roomZoneId: "2nd Floor - Office Area",
-          affectedSquareFootage: 380,
+          affectedAreaSqm: 35.3,
           waterSource: "Clean Water",
           timeSinceLoss: 14,
         },
@@ -1937,21 +1947,21 @@ export default function InitialDataEntryForm({
         {
           id: "1",
           roomZoneId: "Bathroom",
-          affectedSquareFootage: 65,
+          affectedAreaSqm: 6.0,
           waterSource: "Grey Water",
           timeSinceLoss: 720,
         },
         {
           id: "2",
           roomZoneId: "Laundry",
-          affectedSquareFootage: 45,
+          affectedAreaSqm: 4.2,
           waterSource: "Grey Water",
           timeSinceLoss: 720,
         },
         {
           id: "3",
           roomZoneId: "Bedroom",
-          affectedSquareFootage: 120,
+          affectedAreaSqm: 11.1,
           waterSource: "Grey Water",
           timeSinceLoss: 720,
         },
@@ -2096,14 +2106,14 @@ export default function InitialDataEntryForm({
         {
           id: "1",
           roomZoneId: "Living Room",
-          affectedSquareFootage: 250,
+          affectedAreaSqm: 23.2,
           waterSource: "Grey Water",
           timeSinceLoss: 18,
         },
         {
           id: "2",
           roomZoneId: "Attic Space",
-          affectedSquareFootage: 180,
+          affectedAreaSqm: 16.7,
           waterSource: "Grey Water",
           timeSinceLoss: 18,
         },
@@ -2249,28 +2259,28 @@ export default function InitialDataEntryForm({
         {
           id: "1",
           roomZoneId: "Kitchen",
-          affectedSquareFootage: 180,
+          affectedAreaSqm: 16.7,
           waterSource: "Black Water",
           timeSinceLoss: 48,
         },
         {
           id: "2",
           roomZoneId: "Family Room",
-          affectedSquareFootage: 320,
+          affectedAreaSqm: 29.7,
           waterSource: "Black Water",
           timeSinceLoss: 48,
         },
         {
           id: "3",
           roomZoneId: "Dining Room",
-          affectedSquareFootage: 150,
+          affectedAreaSqm: 13.9,
           waterSource: "Black Water",
           timeSinceLoss: 48,
         },
         {
           id: "4",
           roomZoneId: "Garage",
-          affectedSquareFootage: 280,
+          affectedAreaSqm: 26.0,
           waterSource: "Black Water",
           timeSinceLoss: 48,
         },
@@ -3982,17 +3992,17 @@ export default function InitialDataEntryForm({
                 </div>
                 <div>
                   <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
-                    Square Footage
+                    Affected Area (m²)
                   </label>
                   <input
                     type="number"
                     min="0"
                     step="0.1"
-                    value={newNirAffectedArea.affectedSquareFootage}
+                    value={newNirAffectedArea.affectedAreaSqm}
                     onChange={(e) =>
                       setNewNirAffectedArea((prev) => ({
                         ...prev,
-                        affectedSquareFootage: parseFloat(e.target.value) || 0,
+                        affectedAreaSqm: parseFloat(e.target.value) || 0,
                       }))
                     }
                     className={cn(
@@ -4060,8 +4070,8 @@ export default function InitialDataEntryForm({
                         toast.error("Please enter a room/zone ID");
                         return;
                       }
-                      if (newNirAffectedArea.affectedSquareFootage <= 0) {
-                        toast.error("Square footage must be greater than 0");
+                      if (newNirAffectedArea.affectedAreaSqm <= 0) {
+                        toast.error("Affected area (m²) must be greater than 0");
                         return;
                       }
                       setNirAffectedAreas([
@@ -4073,7 +4083,7 @@ export default function InitialDataEntryForm({
                       ]);
                       setNewNirAffectedArea({
                         roomZoneId: "",
-                        affectedSquareFootage: 0,
+                        affectedAreaSqm: 0,
                         waterSource: WATER_SOURCES[0],
                         timeSinceLoss: 0,
                       });
@@ -4103,7 +4113,7 @@ export default function InitialDataEntryForm({
                           "text-neutral-800 dark:text-neutral-50",
                         )}
                       >
-                        {area.roomZoneId}: {area.affectedSquareFootage} sq ft -{" "}
+                        {area.roomZoneId}: {area.affectedAreaSqm} m² -{" "}
                         {area.waterSource}
                       </span>
                       <button

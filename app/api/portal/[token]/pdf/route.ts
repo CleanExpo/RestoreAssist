@@ -3,6 +3,7 @@ import { verifyPortalToken } from "@/lib/portal-token";
 import { prisma } from "@/lib/prisma";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { SQFT_TO_SQM, resolveAreaSqm } from "@/lib/units";
 
 const MAX_PORTAL_PDF_MOISTURE_READINGS = 500;
 const MAX_PORTAL_PDF_AFFECTED_AREAS = 100;
@@ -426,7 +427,11 @@ export async function GET(
       `IICRC S500:2021 §12.2  —  Affected Areas  (${affectedAreaCount} zones)`,
     );
     if (affectedAreaCount > 0) {
-      const totalArea = affectedAreaTotal._sum.affectedSquareFootage ?? 0;
+      // RA-7001: legacy _sum is in sq ft; convert to canonical m². Because we
+      // dual-write affectedSquareFootage = affectedAreaSqm / 0.09290304, the
+      // converted sq-ft sum equals the true m² total for every row.
+      const totalArea =
+        (affectedAreaTotal._sum.affectedSquareFootage ?? 0) * SQFT_TO_SQM;
       row("Total Affected Area", `${totalArea.toFixed(1)} m²`);
       for (const area of inspection.affectedAreas) {
         if (y < 80) newPage();
@@ -434,7 +439,7 @@ export async function GET(
         const clsLabel = area.class ? ` / Class ${area.class}` : "";
         row(
           area.roomZoneId,
-          `${area.affectedSquareFootage} m²${catLabel}${clsLabel}`,
+          `${resolveAreaSqm(area).toFixed(1)} m²${catLabel}${clsLabel}`,
         );
       }
       if (affectedAreaCount > inspection.affectedAreas.length) {
