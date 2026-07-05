@@ -10,11 +10,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { getAppUrl } from "@/lib/app-url";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
-import {
-  FLOORPLAN_UNDERLAY_SKU,
-  FLOORPLAN_ADDON_SUBSCRIPTION_TYPE,
-  FLOORPLAN_UNDERLAY_ADDON,
-} from "@/lib/billing/floorplan-underlay-addon";
+import { getRecurringAddon } from "@/lib/billing/addon-registry";
 
 export async function POST(request: NextRequest) {
   // RA-1842 Path B — fail-closed for iOS Capacitor.
@@ -69,17 +65,18 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // RA-6922 — the floor-plan underlay is a RECURRING subscription add-on,
-      // not a one-time report pack. It is priced inline below (subscription
-      // mode) and is not in the PRICING_CONFIG.addons one-time catalog, so
-      // branch it around that validation.
-      const isFloorplanAddon = addonKey === FLOORPLAN_UNDERLAY_SKU;
+      // RA-6920 B0 — recurring subscription add-ons (floor-plan underlay and,
+      // in later phases, SERVICE_CRM / VOICE / BOOKKEEPING / PAYMENTS) are
+      // data-driven via the registry. A registry hit is priced inline below in
+      // subscription mode; it is not in the PRICING_CONFIG.addons one-time
+      // catalog, so branch it around that validation.
+      const recurringAddon = getRecurringAddon(addonKey);
 
-      // Validate the one-time add-on key (floorplan is priced separately below).
-      const addon = isFloorplanAddon
+      // Validate the one-time add-on key (recurring add-ons are priced below).
+      const addon = recurringAddon
         ? undefined
         : PRICING_CONFIG.addons[addonKey as keyof typeof PRICING_CONFIG.addons];
-      if (!isFloorplanAddon && !addon) {
+      if (!recurringAddon && !addon) {
         return apiError(request, {
           code: "VALIDATION",
           message: "Invalid add-on",
@@ -141,11 +138,13 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // RA-6922 — recurring subscription checkout for the floor-plan underlay
-      // add-on. Priced inline (subscription price_data) so no pre-created Stripe
-      // product/price is needed. The subscription is stamped with the workspace
-      // id + SKU so the webhook can toggle the FeatureEntitlement on lifecycle.
-      if (isFloorplanAddon) {
+      // RA-6920 B0 — recurring subscription checkout, built entirely from the
+      // registry descriptor (no per-SKU branch). Priced inline (subscription
+      // price_data) so no pre-created Stripe product/price is needed. The
+      // subscription is stamped with the workspace id + SKU + the descriptor's
+      // metadata marker so the webhook can toggle the FeatureEntitlement on
+      // lifecycle.
+      if (recurringAddon) {
         const workspace = await getWorkspaceForUser(userId);
         if (!workspace) {
           return apiError(request, {
@@ -163,16 +162,16 @@ export async function POST(request: NextRequest) {
             line_items: [
               {
                 price_data: {
-                  currency: FLOORPLAN_UNDERLAY_ADDON.currency.toLowerCase(),
-                  unit_amount: Math.round(FLOORPLAN_UNDERLAY_ADDON.amount * 100),
+                  currency: recurringAddon.currency.toLowerCase(),
+                  unit_amount: Math.round(recurringAddon.amount * 100),
                   // GST-inclusive (AU convention) — Stripe Tax breaks out the
-                  // 10% GST component rather than adding it on top of $11.
+                  // 10% GST component rather than adding it on top of the price.
                   tax_behavior: "inclusive" as const,
-                  recurring: { interval: "month" as const },
+                  recurring: { interval: recurringAddon.interval },
                   product_data: {
-                    name: FLOORPLAN_UNDERLAY_ADDON.name,
+                    name: recurringAddon.name,
                     metadata: {
-                      sku: FLOORPLAN_UNDERLAY_SKU,
+                      sku: recurringAddon.sku,
                       addonKey,
                     },
                   },
@@ -187,8 +186,8 @@ export async function POST(request: NextRequest) {
             // toggle the entitlement without touching the base-plan fields.
             subscription_data: {
               metadata: {
-                type: FLOORPLAN_ADDON_SUBSCRIPTION_TYPE,
-                sku: FLOORPLAN_UNDERLAY_SKU,
+                type: recurringAddon.subscriptionType,
+                sku: recurringAddon.sku,
                 workspaceId: workspace.id,
                 userId: userId,
               },
@@ -196,7 +195,7 @@ export async function POST(request: NextRequest) {
             metadata: {
               userId: userId,
               addonKey: addonKey,
-              sku: FLOORPLAN_UNDERLAY_SKU,
+              sku: recurringAddon.sku,
               workspaceId: workspace.id,
               type: "addon_subscription",
             },
