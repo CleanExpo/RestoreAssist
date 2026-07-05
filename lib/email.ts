@@ -118,7 +118,7 @@ function sanitiseEmailField(value: string, maxLength = 255): string {
 }
 
 /** Escape user-provided content before interpolating into HTML email bodies. */
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
