@@ -7,6 +7,7 @@ const commsCreate = vi.fn();
 const commsUpdate = vi.fn();
 const sendPulseUpdateEmail = vi.fn();
 const reportError = vi.fn();
+const requireAddon = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -18,6 +19,10 @@ vi.mock("@/lib/prisma", () => ({
       update: (...args: unknown[]) => commsUpdate(...args),
     },
   },
+}));
+
+vi.mock("@/lib/entitlements", () => ({
+  requireAddon: (...args: unknown[]) => requireAddon(...args),
 }));
 
 // Keep the real templates (and escapeHtml) — only stub the network sender.
@@ -86,6 +91,7 @@ function jobFixture(
   const c = opts.client ?? {};
   return {
     id: "insp_1",
+    userId: "user_1",
     pulseEnabled: opts.pulseEnabled ?? true,
     report: {
       client: {
@@ -118,6 +124,7 @@ beforeEach(() => {
   });
   commsUpdate.mockResolvedValue({});
   sendPulseUpdateEmail.mockResolvedValue("resend_msg_1");
+  requireAddon.mockResolvedValue({ allowed: true, sku: "CLIENT_COMMS", workspaceId: "ws_1" });
   process.env.RESEND_API_KEY = "re_test";
   process.env.RESEND_FROM_EMAIL = "updates@restoreassist.app";
   process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
@@ -344,5 +351,66 @@ describe("dispatchPulseNotification — suppressions", () => {
       where: { id: "log_1" },
       data: { status: "SUPPRESSED", suppressionReason: "SEND_FAILED" },
     });
+  });
+});
+
+describe("dispatchPulseNotification — CLIENT_COMMS entitlement gate (RA-6954)", () => {
+  it("suppresses with NOT_ENTITLED when the workspace lacks the CLIENT_COMMS add-on (no send)", async () => {
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+    requireAddon.mockResolvedValue({
+      allowed: false,
+      reason: "NOT_ENTITLED",
+      sku: "CLIENT_COMMS",
+      response: new Response(null, { status: 402 }),
+    });
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: STEP_EVENT,
+    });
+
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "NOT_ENTITLED",
+    });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+    expect(requireAddon).toHaveBeenCalledWith("user_1", "CLIENT_COMMS");
+  });
+
+  it("sends once the workspace is entitled to CLIENT_COMMS", async () => {
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+    requireAddon.mockResolvedValue({
+      allowed: true,
+      sku: "CLIENT_COMMS",
+      workspaceId: "ws_1",
+    });
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: STEP_EVENT,
+    });
+
+    expect(result.status).toBe("SENT");
+    expect(sendPulseUpdateEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("checks the entitlement gate before checking the Resend/app env", async () => {
+    delete process.env.RESEND_FROM_EMAIL;
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+    requireAddon.mockResolvedValue({
+      allowed: false,
+      reason: "NOT_ENTITLED",
+      sku: "CLIENT_COMMS",
+      response: new Response(null, { status: 402 }),
+    });
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: STEP_EVENT,
+    });
+
+    // NOT_ENTITLED wins over MISSING_ENV — the gate is checked first.
+    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "NOT_ENTITLED" });
+    expect(reportError).not.toHaveBeenCalled();
   });
 });

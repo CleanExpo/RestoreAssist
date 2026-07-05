@@ -29,6 +29,8 @@ export const ADDON_SKUS = [
   "PAYMENTS",
   /** RA-6922: Floor Plan Underlay — recurring $11/mo internet-floorplan-overlay. */
   "FLOORPLAN_UNDERLAY",
+  /** RA-6954: Restoration Pulse client-comms — recurring $11/mo client-facing email updates. */
+  "CLIENT_COMMS",
 ] as const;
 
 /** Mirrors the Prisma `AddonSku` enum. */

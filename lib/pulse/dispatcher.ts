@@ -10,9 +10,10 @@
  *   - a SUPPRESSED row (with a machine-readable reason) when it does not.
  *
  * Suppression reasons: the per-job Pulse toggle is off (mid-dispute kill
- * switch, judge AC6), the homeowner opted out, no recipient, the Resend/app
- * env is unset (fail-closed with connector-health visibility, mirroring
- * lib/email.ts), or the logical event was already dispatched (duplicate).
+ * switch, judge AC6), the homeowner opted out, no recipient, the workspace
+ * lacks the CLIENT_COMMS entitlement (RA-6954), the Resend/app env is unset
+ * (fail-closed with connector-health visibility, mirroring lib/email.ts), or
+ * the logical event was already dispatched (duplicate).
  *
  * Curated states only: the dispatcher accepts only the curated portal
  * projections (ClientFeed / AreaDryingState[] / DailyDigestData) — raw
@@ -24,6 +25,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { reportError } from "@/lib/observability";
 import { sendPulseUpdateEmail } from "@/lib/email";
+import { requireAddon } from "@/lib/entitlements";
 import {
   renderCodeOfPracticeUpdateEmail,
   renderDailyDigestEmail,
@@ -54,6 +56,7 @@ export type PulseSuppressionReason =
   | "TOGGLE_OFF"
   | "OPT_OUT"
   | "NO_RECIPIENT"
+  | "NOT_ENTITLED"
   | "MISSING_ENV"
   | "DUPLICATE"
   | "SEND_FAILED";
@@ -138,6 +141,7 @@ export async function dispatchPulseNotification(
     where: { id: inspectionId },
     select: {
       id: true,
+      userId: true,
       pulseEnabled: true,
       report: {
         select: {
@@ -194,6 +198,11 @@ export async function dispatchPulseNotification(
   if (!job.pulseEnabled) return suppress("TOGGLE_OFF");
   if (client?.pulseOptOut) return suppress("OPT_OUT");
   if (!recipient) return suppress("NO_RECIPIENT");
+  // RA-6954 — client-comms send requires the CLIENT_COMMS entitlement.
+  // Internal status reads (the portal feed itself) are never gated — only
+  // this SEND path is.
+  const addonGate = await requireAddon(job.userId, "CLIENT_COMMS");
+  if (!addonGate.allowed) return suppress("NOT_ENTITLED");
   if (!pulseEnvConfigured()) {
     reportError(
       new Error(
