@@ -50,7 +50,8 @@ const DEFAULT_AU_PRICING = {
   extractionElectricHourlyRate: 90,
   injectionDryingSystemDailyRate: 180,
   antimicrobialTreatmentRate: 6.5, // per m² — biohazard rate higher than water
-  mouldRemediationTreatmentRate: 28,
+  // RA-7001: floor of the NRPG $65-145/m² range (founder-approved 2026-07-06).
+  mouldRemediationTreatmentRate: 65,
   biohazardTreatmentRate: 65, // per m²
   administrationFee: 220, // higher for biohazard documentation
   callOutFee: 320,

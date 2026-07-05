@@ -146,8 +146,8 @@ export const NRPG_RATE_RANGES: Record<string, NRPGRateRange> = {
     label: "Antimicrobial Treatment",
   },
   mouldRemediationTreatmentRate: {
-    min: 10,
-    max: 32,
+    min: 65,
+    max: 145,
     unit: "$/m²",
     label: "Mould Remediation Treatment",
   },

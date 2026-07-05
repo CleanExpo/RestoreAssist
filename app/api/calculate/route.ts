@@ -64,7 +64,9 @@ function getDefaultRates() {
     extractionElectricHourlyRate: 80.0,
     injectionDryingSystemDailyRate: 150.0,
     antimicrobialTreatmentRate: 8.5,
-    mouldRemediationTreatmentRate: 15.0,
+    // RA-7001: floor of the NRPG $65-145/m² range (founder-approved 2026-07-06).
+    // Set to the conservative low end, not the midpoint — flag for founder tuning.
+    mouldRemediationTreatmentRate: 65.0,
     biohazardTreatmentRate: 25.0,
     administrationFee: 250.0,
     callOutFee: 150.0,
