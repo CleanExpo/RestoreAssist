@@ -19,19 +19,22 @@ export interface ModelConfig {
 }
 
 /**
- * Opus 4.7 rejects any non-default `temperature`, `top_p`, `top_k`
- * with a 400 error — the model's adaptive-thinking mode is the only
- * sampling path supported. `tryClaudeModels()` strips these params
- * when the target model is Opus 4.7 so callers tuning sampling don't
- * hard-fail on the newest flagship while the same params still apply
- * on Sonnet / Haiku / Opus 4.6.
+ * Opus 4.7+ and Sonnet 5 reject any non-default `temperature`, `top_p`,
+ * `top_k` with a 400 error — adaptive-thinking mode is the only sampling
+ * path supported on these generations. `tryClaudeModels()` strips these
+ * params when the target model matches so callers tuning sampling don't
+ * hard-fail on the newest models while the same params still apply on
+ * Haiku / older Sonnet / Opus.
  *
  * Keep in sync with Anthropic's breaking-change list:
  * https://docs.anthropic.com/en/docs/about-claude/models/whats-new-claude-4-7
  */
 function modelRejectsSamplingParams(model: string): boolean {
-  // Forward-compatible — matches opus-4-7 and any later 4.x opus.
-  return /^claude-opus-4-(7|8|9|1\d)/.test(model);
+  // Forward-compatible — matches opus-4-7+ (incl. opus-4-8) and sonnet-5+.
+  return (
+    /^claude-opus-4-(7|8|9|1\d)/.test(model) ||
+    /^claude-sonnet-(5|6|7|8|9)(-|$)/.test(model)
+  );
 }
 
 /**
@@ -44,19 +47,19 @@ function modelRejectsSamplingParams(model: string): boolean {
  * mean any 404 from 3.5 Sonnet cascades into the 3.0 Opus fallback,
  * which is either itself retired or soon will be.
  *
- * Refreshed 2026-04-22 after Anthropic's Opus 4.7 GA:
- *   - Opus 4.7 is the new flagship (agentic, 1M ctx).
- *   - Sonnet 4.6 remains the value/reasoning workhorse.
+ * Refreshed 2026-07-05 for Wave 2's tier doctrine:
+ *   - Sonnet 5 is the value workhorse — first, cheapest strong model.
+ *   - Opus 4.8 is the flagship escalation for tasks Sonnet 5 can't close.
  *   - Haiku 4.5 is the cheap/fast path.
- *   - Opus 4.6 retained as a cool-off fallback in case 4.7 has an
- *     availability blip; removed once a week clean.
+ *   - Sonnet 4.6 retained as a cool-off fallback in case the new
+ *     generation has an availability blip; removed once a week clean.
  */
 export function getClaudeModels(maxTokens: number = 8000): ModelConfig[] {
   return [
-    { name: "claude-opus-4-7", maxTokens }, // Flagship — 1M ctx, agentic
-    { name: "claude-sonnet-4-6", maxTokens }, // Value workhorse
+    { name: "claude-sonnet-5", maxTokens }, // Value workhorse — first
+    { name: "claude-opus-4-8", maxTokens }, // Flagship escalation
     { name: "claude-haiku-4-5-20251001", maxTokens }, // Fast + cheap
-    { name: "claude-opus-4-6", maxTokens }, // Legacy-only fallback
+    { name: "claude-sonnet-4-6", maxTokens }, // Cool-off fallback
   ];
 }
 
@@ -98,7 +101,7 @@ export async function tryClaudeModels(
         messages: requestConfig.messages,
       };
 
-      // Opus 4.7+ guard — drop sampling params the model would 400 on.
+      // Opus 4.7+ / Sonnet 5+ guard — drop sampling params the model would 400 on.
       const stripSampling = modelRejectsSamplingParams(modelConfig.name);
       const hasSampling =
         requestConfig.temperature !== undefined ||
@@ -119,7 +122,7 @@ export async function tryClaudeModels(
         console.info(
           "[claude-models] stripped sampling params for",
           modelConfig.name,
-          "(Opus 4.7+ adaptive-thinking only)",
+          "(Opus 4.7+ / Sonnet 5+ adaptive-thinking only)",
         );
       }
 

@@ -313,6 +313,12 @@ export function estimateRoutingSavings(
   const byokRates: Record<string, number> = {
     "claude-opus-4-6": 45.0,
     "claude-sonnet-4-6": 9.0,
+    // Official prices (avg of input+output per MTok):
+    //   sonnet-5 $2/$10 intro window, $3/$15 from 2026-09-01 — using intro rate.
+    //   opus-4-8 $5/$25. haiku-4-5 $1/$5.
+    "claude-sonnet-5": 6.0,
+    "claude-opus-4-8": 15.0,
+    "claude-haiku-4-5-20251001": 3.0,
     "gemini-3.1-pro": 3.0,
     "gemini-3.1-flash": 0.5,
     "gpt-5.4": 10.0,
