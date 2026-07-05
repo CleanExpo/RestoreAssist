@@ -7,9 +7,10 @@
  *   1. Tap mic → MediaRecorder starts (webm/opus by default)
  *   2. Tap stop → blob uploaded to /api/ai/voice-note-transcribe (Whisper)
  *   3. Transcript returned → passed to onTranscript callback
- *   4. On server 503 (no OPENAI_API_KEY), falls back to Web Speech API
- *      if the browser supports it (Chrome/Edge/Safari desktop, not mobile
- *      Firefox). Signals via onTranscriptStatus so caller can inform user.
+ *   4. RA-1609: if offline, or the upload fails with a 503 or network
+ *      error, the blob is queued (lib/voice-note-queue.ts) instead of
+ *      hard-failing — it's drained and transcribed automatically once
+ *      connectivity returns (see components/nir-offline-provider.tsx).
  *
  * Keeps state simple: idle → recording → uploading → done.
  */
@@ -18,6 +19,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { queueVoiceNote } from "@/lib/voice-note-queue";
 
 type Status = "idle" | "recording" | "uploading";
 
@@ -29,6 +31,10 @@ interface Props {
   maxSeconds?: number;
   /** Compact mode hides the status label. */
   compact?: boolean;
+  /** Inspection this note belongs to — tags the queue entry (RA-1609). */
+  inspectionId?: string;
+  /** Which field the note is for — tags the queue entry (RA-1609). */
+  fieldLabel?: string;
 }
 
 export function VoiceNoteButton({
@@ -37,9 +43,12 @@ export function VoiceNoteButton({
   disabled,
   maxSeconds = 90,
   compact = false,
+  inspectionId = "unassigned",
+  fieldLabel = "voice-note",
 }: Props) {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [queued, setQueued] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -61,6 +70,7 @@ export function VoiceNoteButton({
 
   async function start() {
     setError(null);
+    setQueued(false);
     try {
       if (
         typeof navigator === "undefined" ||
@@ -114,6 +124,11 @@ export function VoiceNoteButton({
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
 
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      await queueForLater(blob);
+      return;
+    }
+
     try {
       const form = new FormData();
       form.append("audio", blob, "voice-note.webm");
@@ -123,8 +138,8 @@ export function VoiceNoteButton({
       });
 
       if (res.status === 503) {
-        // Server has no Whisper key — try Web Speech API fallback
-        await webSpeechFallback(blob);
+        // Transient upstream unavailability — queue and retry on reconnect.
+        await queueForLater(blob);
         return;
       }
 
@@ -136,22 +151,31 @@ export function VoiceNoteButton({
       const data = (await res.json()) as { transcript?: string };
       if (!data.transcript) throw new Error("Empty transcript");
       onTranscript(data.transcript.trim());
+      setStatus("idle");
     } catch (err) {
+      if (err instanceof TypeError) {
+        // fetch() throws TypeError on network failure (offline mid-flight,
+        // DNS/connection drop) — queue instead of hard-failing.
+        await queueForLater(blob);
+        return;
+      }
       const msg = err instanceof Error ? err.message : "Transcription failed";
       setError(msg);
-    } finally {
       setStatus("idle");
     }
   }
 
-  async function webSpeechFallback(_blob: Blob) {
-    // Web Speech API requires live microphone — can't transcribe a
-    // recorded blob. Record-then-transcribe fallback is limited here.
-    // For truly offline support we queue the audio locally (RA-1124).
-    // Return a soft error that tells the user to retry with connectivity.
-    setError(
-      "Voice transcription is unavailable offline. Try again when connected, or type your note.",
-    );
+  /** RA-1609: queue the recorded blob for transcription on reconnect. */
+  async function queueForLater(blob: Blob) {
+    try {
+      await queueVoiceNote(blob, { inspectionId, fieldLabel });
+      setQueued(true);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to queue voice note";
+      setError(msg);
+    } finally {
+      setStatus("idle");
+    }
   }
 
   const recording = status === "recording";
@@ -182,6 +206,11 @@ export function VoiceNoteButton({
       </Button>
       {error && (
         <span className="text-xs text-destructive max-w-[200px]">{error}</span>
+      )}
+      {!error && queued && (
+        <span className="text-xs text-muted-foreground max-w-[200px]">
+          Queued — will transcribe when back online.
+        </span>
       )}
     </div>
   );

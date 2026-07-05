@@ -44,6 +44,11 @@ import {
   getQueuedEvidenceCount,
   initEvidenceSyncOnReconnect,
 } from "@/lib/evidence-upload-queue";
+import {
+  getQueuedVoiceNoteCount,
+  initVoiceNoteSyncOnReconnect,
+  pruneVoiceNoteQueue,
+} from "@/lib/voice-note-queue";
 
 // ─── CONTEXT ──────────────────────────────────────────────────────────────────
 
@@ -53,6 +58,8 @@ interface NirOfflineContextValue {
   isServiceWorkerReady: boolean;
   /** Count of evidence (photo) uploads pending upload — RA-1462 */
   pendingEvidenceUploads: number;
+  /** Count of voice notes queued/transcribed/errored, not yet consumed — RA-1609 */
+  pendingVoiceNotes: number;
   /** Manually trigger a sync drain (e.g. on pull-to-refresh) */
   triggerSync: () => Promise<void>;
 }
@@ -62,6 +69,7 @@ const NirOfflineContext = createContext<NirOfflineContextValue>({
   queueStats: { pending: 0, failed: 0, conflicts: 0, status: "OFFLINE" },
   isServiceWorkerReady: false,
   pendingEvidenceUploads: 0,
+  pendingVoiceNotes: 0,
   triggerSync: async () => {},
 });
 
@@ -102,9 +110,11 @@ const STATUS_CONFIG: Record<
  * Satisfies OFFLINE_REQUIREMENTS.syncStatusIndicator: "Always visible — persistent status bar element"
  */
 export function NirSyncStatusBadge() {
-  const { syncStatus, queueStats, pendingEvidenceUploads } = useNirOffline();
+  const { syncStatus, queueStats, pendingEvidenceUploads, pendingVoiceNotes } =
+    useNirOffline();
   const config = STATUS_CONFIG[syncStatus];
-  const totalPending = queueStats.pending + pendingEvidenceUploads;
+  const totalPending =
+    queueStats.pending + pendingEvidenceUploads + pendingVoiceNotes;
 
   return (
     <div
@@ -141,17 +151,20 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
   });
   const [isServiceWorkerReady, setIsServiceWorkerReady] = useState(false);
   const [pendingEvidenceUploads, setPendingEvidenceUploads] = useState(0);
+  const [pendingVoiceNotes, setPendingVoiceNotes] = useState(0);
 
   const refreshStatus = useCallback(async () => {
     try {
-      const [status, stats, evidenceCount] = await Promise.all([
+      const [status, stats, evidenceCount, voiceNoteCount] = await Promise.all([
         getSyncStatus(),
         getQueueStats(),
         getQueuedEvidenceCount(),
+        getQueuedVoiceNoteCount(),
       ]);
       setSyncStatus(status);
       setQueueStats(stats);
       setPendingEvidenceUploads(evidenceCount);
+      setPendingVoiceNotes(voiceNoteCount);
     } catch (err) {
       // Leave the badge at its last known-good values rather than
       // producing a recurring unhandled rejection every 30s.
@@ -182,6 +195,10 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
     // 2. Initialise reconnect listeners (returns cleanup fns)
     const cleanupSync = initSyncOnReconnect();
     const cleanupEvidenceSync = initEvidenceSyncOnReconnect();
+    const cleanupVoiceNoteSync = initVoiceNoteSyncOnReconnect();
+
+    // 2b. Drop consumed/stale voice notes on init (RA-1609)
+    void pruneVoiceNoteQueue();
 
     // 3. Initial status read
     refreshStatus();
@@ -210,6 +227,7 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
     return () => {
       cleanupSync();
       cleanupEvidenceSync();
+      cleanupVoiceNoteSync();
       clearInterval(interval);
       window.removeEventListener("online", onlineHandler);
       window.removeEventListener("offline", offlineHandler);
@@ -229,6 +247,7 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
         queueStats,
         isServiceWorkerReady,
         pendingEvidenceUploads,
+        pendingVoiceNotes,
         triggerSync,
       }}
     >

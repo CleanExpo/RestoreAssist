@@ -14,6 +14,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 const getSyncStatus = vi.fn();
 const getQueueStats = vi.fn();
 const getQueuedEvidenceCount = vi.fn();
+const getQueuedVoiceNoteCount = vi.fn();
 
 vi.mock("@/lib/nir-sync-queue", () => ({
   getSyncStatus: () => getSyncStatus(),
@@ -25,6 +26,12 @@ vi.mock("@/lib/nir-sync-queue", () => ({
 vi.mock("@/lib/evidence-upload-queue", () => ({
   getQueuedEvidenceCount: () => getQueuedEvidenceCount(),
   initEvidenceSyncOnReconnect: () => () => {},
+}));
+
+vi.mock("@/lib/voice-note-queue", () => ({
+  getQueuedVoiceNoteCount: () => getQueuedVoiceNoteCount(),
+  initVoiceNoteSyncOnReconnect: () => () => {},
+  pruneVoiceNoteQueue: vi.fn(),
 }));
 
 import {
@@ -42,6 +49,7 @@ describe("NirOfflineProvider refreshStatus resilience", () => {
     getSyncStatus.mockReset();
     getQueueStats.mockReset();
     getQueuedEvidenceCount.mockReset();
+    getQueuedVoiceNoteCount.mockReset();
   });
 
   afterEach(() => {
@@ -54,6 +62,7 @@ describe("NirOfflineProvider refreshStatus resilience", () => {
     getSyncStatus.mockRejectedValue(new Error("IndexedDB connection invalidated"));
     getQueueStats.mockRejectedValue(new Error("db.transaction threw"));
     getQueuedEvidenceCount.mockRejectedValue(new Error("countByStatus onerror"));
+    getQueuedVoiceNoteCount.mockRejectedValue(new Error("voice note count read failed"));
 
     render(
       <NirOfflineProvider>
@@ -86,6 +95,7 @@ describe("NirOfflineProvider refreshStatus resilience", () => {
       status: "PENDING_SYNC",
     });
     getQueuedEvidenceCount.mockResolvedValue(1);
+    getQueuedVoiceNoteCount.mockResolvedValue(1);
 
     render(
       <NirOfflineProvider>
@@ -97,8 +107,30 @@ describe("NirOfflineProvider refreshStatus resilience", () => {
     await waitFor(() =>
       expect(badge).toHaveAttribute("aria-label", "Sync status: Pending sync"),
     );
-    // pending (2) + evidence (1) = 3
-    expect(badge).toHaveTextContent("(3)");
+    // pending (2) + evidence (1) + voice notes (1) = 4
+    expect(badge).toHaveTextContent("(4)");
+    expect(unhandled).toHaveLength(0);
+  });
+
+  it("RA-1609: reflects pendingVoiceNotes count on its own in the badge total", async () => {
+    getSyncStatus.mockResolvedValue("SYNCED");
+    getQueueStats.mockResolvedValue({
+      pending: 0,
+      failed: 0,
+      conflicts: 0,
+      status: "SYNCED",
+    });
+    getQueuedEvidenceCount.mockResolvedValue(0);
+    getQueuedVoiceNoteCount.mockResolvedValue(3);
+
+    render(
+      <NirOfflineProvider>
+        <NirSyncStatusBadge />
+      </NirOfflineProvider>,
+    );
+
+    const badge = await screen.findByRole("status");
+    await waitFor(() => expect(badge).toHaveTextContent("(3)"));
     expect(unhandled).toHaveLength(0);
   });
 });
