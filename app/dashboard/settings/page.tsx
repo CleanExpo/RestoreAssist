@@ -76,6 +76,53 @@ export default function SettingsPage() {
   useEffect(() => {
     setHideBillingEntry(isCapacitorIOS());
   }, []);
+  // RA-6952 — the firm's Google review link (Restoration Pulse review-ask).
+  const [reviewUrl, setReviewUrl] = useState("");
+  const [reviewUrlDraft, setReviewUrlDraft] = useState("");
+  const [editingReviewUrl, setEditingReviewUrl] = useState(false);
+  const [reviewUrlSaving, setReviewUrlSaving] = useState(false);
+  const [reviewUrlError, setReviewUrlError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    fetch("/api/organization/review-link")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const url = json?.data?.googleReviewUrl ?? "";
+        setReviewUrl(url);
+        setReviewUrlDraft(url);
+      })
+      .catch(() => {});
+  }, [status]);
+
+  async function handleSaveReviewUrl() {
+    setReviewUrlSaving(true);
+    setReviewUrlError(null);
+    try {
+      const res = await fetch("/api/organization/review-link", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          googleReviewUrl: reviewUrlDraft.trim() || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setReviewUrlError(json?.error?.message || "Failed to save");
+        return;
+      }
+      const saved = json?.data?.googleReviewUrl ?? "";
+      setReviewUrl(saved);
+      setReviewUrlDraft(saved);
+      setEditingReviewUrl(false);
+      toast.success("Google review link saved");
+    } catch {
+      setReviewUrlError("Failed to save");
+    } finally {
+      setReviewUrlSaving(false);
+    }
+  }
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -420,6 +467,59 @@ export default function SettingsPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* RA-6952 — Restoration Pulse review-ask link */}
+          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold">Google review link</h2>
+              <button
+                onClick={() => {
+                  setReviewUrlDraft(reviewUrl);
+                  setReviewUrlError(null);
+                  setEditingReviewUrl(!editingReviewUrl);
+                }}
+                className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+              >
+                {editingReviewUrl ? "Cancel" : "Edit"}
+              </button>
+            </div>
+            <p className="text-sm text-slate-400 mb-4">
+              When set, a one-off review-ask email is sent to the client after
+              a job closes, linking here. Leave blank to keep this off.
+            </p>
+            {editingReviewUrl ? (
+              <div className="space-y-3">
+                <Input
+                  type="url"
+                  placeholder="https://g.page/r/your-listing/review"
+                  value={reviewUrlDraft}
+                  onChange={(e) => setReviewUrlDraft(e.target.value)}
+                />
+                {reviewUrlError && (
+                  <p className="text-sm text-red-400">{reviewUrlError}</p>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleSaveReviewUrl}
+                    disabled={reviewUrlSaving}
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50"
+                  >
+                    {reviewUrlSaving ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    onClick={() => setEditingReviewUrl(false)}
+                    className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-slate-300 break-all">
+                {reviewUrl || "Not set"}
+              </p>
+            )}
           </div>
 
           {/* Account Actions */}

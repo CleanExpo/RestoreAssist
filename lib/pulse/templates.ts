@@ -214,3 +214,64 @@ This is an automated update from ${BRAND_NAME}. Please do not reply to this emai
 
   return { templateKey: "pulse-cop-update", subject, html: shell("Scheduled claim update", bodyHtml, portalUrl), text };
 }
+
+// ── Review-ask (RA-6952, epic RA-6948) ──
+//
+// Fired once per job on close. Deliberately separate from RenderedPulseEmail
+// above: no portal-CTA shell (there is no portal link here, only the firm's
+// external Google review link), and a distinct template key namespace.
+
+export type ReviewAskTemplateKey = "pulse-review-ask";
+
+export interface RenderedReviewAskEmail {
+  templateKey: ReviewAskTemplateKey;
+  subject: string;
+  html: string;
+  text: string;
+}
+
+/**
+ * Founder-voice review ask. Neutral "we'd value your feedback" — no
+ * fabricated urgency, no incentives (review-gating is prohibited by Google's
+ * policies). Carries only the firm name and the job reference; never any
+ * job/claim detail beyond that.
+ */
+export function renderReviewAskEmail(
+  orgName: string,
+  jobReference: string,
+  reviewUrl: string,
+): RenderedReviewAskEmail {
+  const subject = `How did we do, from the team at ${orgName}?`;
+  const safeOrg = escapeHtml(orgName);
+  const safeRef = escapeHtml(jobReference);
+  const safeUrl = escapeHtml(reviewUrl);
+
+  const html = `<!DOCTYPE html>
+<html>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
+    <div style="background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); padding: 32px; border-radius: 16px 16px 0 0; text-align: center;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">${safeOrg}</h1>
+    </div>
+    <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 32px;">
+      <p style="margin: 0 0 16px;">Hello,</p>
+      <p style="margin: 0 0 16px;">Your job (ref ${safeRef}) with ${safeOrg} is now complete. We'd value your feedback — if you have a moment, a Google review helps other homeowners find us.</p>
+      <div style="text-align: center; margin: 32px 0 8px;">
+        <a href="${safeUrl}" style="display: inline-block; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px;">Leave a review</a>
+      </div>
+      <p style="font-size: 13px; color: #64748b; margin-top: 24px;">This is an automated message from ${safeOrg}. Please do not reply to this email.</p>
+    </div>
+  </body>
+</html>`;
+
+  const text = `${orgName} — ${subject}
+
+Hello,
+
+Your job (ref ${jobReference}) with ${orgName} is now complete. We'd value your feedback — if you have a moment, a Google review helps other homeowners find us.
+
+Leave a review: ${reviewUrl}
+
+This is an automated message from ${orgName}. Please do not reply to this email.`;
+
+  return { templateKey: "pulse-review-ask", subject, html, text };
+}

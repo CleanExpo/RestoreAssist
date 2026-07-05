@@ -27,6 +27,7 @@ import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
 import { exportClosedJobToBYOKStorage } from "@/lib/queue/exportClosedJobToBYOKStorage";
 import { deriveRestorationIncident } from "@/lib/analytics/deriveRestorationIncident";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
+import { dispatchReviewAskNotification } from "@/lib/pulse/review-ask";
 import { apiError, fromException } from "@/lib/api-errors";
 
 interface RouteParams {
@@ -163,6 +164,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       void deriveRestorationIncident(inspectionId).catch((err) =>
         console.error(
           `[data-asset] incident derivation failed for ${inspectionId}:`,
+          err,
+        ),
+      );
+
+      // RA-6952 (Pulse P0) — fire-and-forget one-shot review-ask. Fired
+      // synchronously from this close transition, so "within 24h of close"
+      // is immediate; suppressed (not sent) when the toggle is off, the
+      // client opted out, no recipient, no review URL is configured, or the
+      // Resend env is unset — never blocks or fails job close.
+      void dispatchReviewAskNotification(inspectionId).catch((err) =>
+        console.error(
+          `[pulse] review-ask dispatch failed for ${inspectionId}:`,
           err,
         ),
       );
