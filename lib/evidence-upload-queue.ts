@@ -13,7 +13,16 @@
  * Sibling to lib/nir-sync-queue.ts (which handles inspection JSON writes).
  * Kept separate because photo uploads are multipart/form-data + File blobs,
  * incompatible with that module's JSON-payload queue schema.
+ *
+ * RA-1610: photos are compressed (downscale + WebP) before being written to
+ * IndexedDB — see lib/image-compression.ts. This shrinks both the on-device
+ * queue footprint and the eventual upload payload. Compression happens here,
+ * before any chain-of-custody hash is computed by the caller, so the
+ * cocoaSha256 the caller sends alongside the queued entry's bytes (see
+ * cocoa-client.ts) stays consistent with what actually gets uploaded.
  */
+
+import { compressImageForUpload } from "./image-compression";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -40,6 +49,10 @@ export interface EvidenceQueueEntry {
   /** ISO timestamp when queued */
   queuedAt: string;
   retryCount: number;
+  /** RA-1610 — bytes before client-side compression, for telemetry */
+  originalSize: number;
+  /** RA-1610 — bytes actually queued (post-compression), for telemetry */
+  compressedSize: number;
 }
 
 // ─── DATABASE ─────────────────────────────────────────────────────────────────
@@ -75,10 +88,21 @@ function generateId(): string {
   return `ev-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+/** Swaps (or appends) a `.webp` extension once a photo has been re-encoded. */
+function renameToWebp(filename: string): string {
+  const dot = filename.lastIndexOf(".");
+  const base = dot === -1 ? filename : filename.slice(0, dot);
+  return `${base}.webp`;
+}
+
 // ─── PUBLIC API ───────────────────────────────────────────────────────────────
 
 /**
- * Queue an evidence blob for upload when connectivity returns.
+ * Queue an evidence blob for upload when connectivity returns. Compresses
+ * (downscale + WebP, see lib/image-compression.ts) before writing to
+ * IndexedDB — see RA-1610 note at the top of this file for why compression
+ * runs before any custody hash the caller computes.
+ *
  * Returns the entry id (also used as Idempotency-Key).
  *
  * Throws if the queue is already at MAX_QUEUE_SIZE — the caller should
@@ -100,15 +124,21 @@ export async function queueEvidenceUpload(input: {
     );
   }
 
+  const compressed = await compressImageForUpload(input.blob);
+
   const entry: EvidenceQueueEntry = {
     id: generateId(),
     inspectionId: input.inspectionId,
-    blob: input.blob,
-    filename: input.filename,
-    mimeType: input.mimeType,
+    blob: compressed.blob,
+    filename: compressed.skipped
+      ? input.filename
+      : renameToWebp(input.filename),
+    mimeType: compressed.format,
     location: input.location,
     queuedAt: new Date().toISOString(),
     retryCount: 0,
+    originalSize: compressed.originalSize,
+    compressedSize: compressed.compressedSize,
   };
 
   await new Promise<void>((resolve, reject) => {
