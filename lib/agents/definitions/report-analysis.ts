@@ -70,7 +70,7 @@ export const reportAnalysisConfig: AgentConfig = {
   dependsOn: [],
 };
 
-const SYSTEM_PROMPT = `You are a restoration industry expert specializing in water damage, mold, and fire damage assessment. Analyze the technician's field report and extract structured information.
+const SYSTEM_PROMPT = `You are a restoration industry expert specializing in water damage, mould, and fire damage assessment. Analyze the technician's field report and extract structured information.
 
 Return a JSON object with these fields:
 - affectedAreas: array of room/zone names that are affected
@@ -81,6 +81,8 @@ Return a JSON object with these fields:
 - hazardsIdentified: array of safety hazards noted
 - moistureReadings: array of {location, reading, unit} objects if any mentioned
 - observations: summary of key observations
+
+Use Australian English (mould, not mold).
 
 Return ONLY valid JSON, no markdown.`;
 

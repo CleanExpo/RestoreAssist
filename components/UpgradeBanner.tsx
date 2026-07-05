@@ -72,7 +72,7 @@ function UpgradeBannerContent({
     },
     {
       icon: FileText,
-      title: "Enhanced & Optimized Reports",
+      title: "Enhanced & Optimised Reports",
       description: "Access to all report types with advanced features",
     },
     {

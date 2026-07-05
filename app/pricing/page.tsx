@@ -478,7 +478,7 @@ function PricingPageContent() {
                         }}
                       >
                         <span className="text-brand-bronze mt-1">✓</span>
-                        <span>Enhanced & Optimized report types</span>
+                        <span>Enhanced & Optimised report types</span>
                       </li>
                       <li
                         className={`flex items-start gap-2 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}

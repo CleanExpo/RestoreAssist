@@ -431,7 +431,7 @@ export default function ContractorProfileDashboard() {
               type="text"
               value={specializations}
               onChange={(e) => setSpecializations(e.target.value)}
-              placeholder="e.g. Water Damage, Fire Restoration, Mold Remediation"
+              placeholder="e.g. Water Damage, Fire Restoration, Mould Remediation"
               className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
             />
           </div>

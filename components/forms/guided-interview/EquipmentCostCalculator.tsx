@@ -114,7 +114,7 @@ export function EquipmentCostCalculatorComponent({
               </p>
             </div>
             <div className="bg-slate-50 rounded-lg p-3">
-              <p className="text-xs text-slate-600">Labor</p>
+              <p className="text-xs text-slate-600">Labour</p>
               <p className="text-lg font-bold text-slate-900">
                 {EquipmentCostCalculator.formatCost(
                   estimate.breakdown.laborCost,
@@ -231,7 +231,7 @@ export function EquipmentCostCalculatorComponent({
 
             {/* Labor Cost */}
             <div className="space-y-2">
-              <Label htmlFor="laborCost">Daily Labor Rate</Label>
+              <Label htmlFor="laborCost">Daily Labour Rate</Label>
               <div className="flex gap-2">
                 <span className="flex items-center px-3 bg-slate-100 rounded-md text-sm text-slate-600">
                   $
@@ -280,7 +280,7 @@ export function EquipmentCostCalculatorComponent({
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-600 mb-1">Labor</p>
+                  <p className="text-xs text-slate-600 mb-1">Labour</p>
                   <p className="font-semibold text-slate-900">
                     {EquipmentCostCalculator.formatCost(
                       estimate.breakdown.laborCost,
@@ -365,11 +365,11 @@ export function EquipmentCostCalculatorComponent({
             {/* Labor */}
             {(estimate.laborCost ?? 0) > 0 && (
               <div>
-                <h3 className="font-semibold mb-3 mt-4">Labor</h3>
+                <h3 className="font-semibold mb-3 mt-4">Labour</h3>
                 <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
                   <div>
                     <p className="text-sm font-medium text-slate-900">
-                      Technician Labor
+                      Technician Labour
                     </p>
                     <p className="text-xs text-slate-600">
                       {EquipmentCostCalculator.formatCost(laborCostPerDay)}/day

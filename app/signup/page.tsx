@@ -283,7 +283,7 @@ export default function SignupPage() {
                 </p>
                 <ul className="list-disc list-inside space-y-1 text-slate-400 ml-2">
                   <li>Unlimited Quick Fill (AI-powered form auto-fill)</li>
-                  <li>Enhanced & Optimized report types</li>
+                  <li>Enhanced & Optimised report types</li>
                   <li>PDF upload and processing</li>
                   <li>Full profile and pricing configuration</li>
                   <li>Premium API integrations</li>
