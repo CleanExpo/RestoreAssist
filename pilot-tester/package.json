@@ -16,7 +16,7 @@
   "dependencies": {
     "dotenv": "^17.4.2",
     "tough-cookie": "^6.0.1",
-    "undici": "^6.21.0"
+    "undici": "^8.7.0"
   },
   "devDependencies": {
     "@types/tough-cookie": "^4.0.5",
