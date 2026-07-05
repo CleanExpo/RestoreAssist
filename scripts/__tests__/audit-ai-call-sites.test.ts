@@ -733,3 +733,189 @@ describe("RA-6986 module-scope seed evasions", () => {
     expect(flagged).toContain("app/api/leak-division/route.ts");
   });
 });
+
+/**
+ * RA-6991 — the next hardening rung after RA-6986, from the adversarial review
+ * of PR #1709. Three probe-verified edges of the module-scope singleton seed:
+ *   1. RA-6986 widened the BYOK-marker suppression to the WHOLE module, so a
+ *      BYOK marker buried in an unrelated function body now suppresses an
+ *      import-time singleton it never gates — a new evasion.
+ *   2. Mutation M4 SURVIVED_ACCEPTABLE: no fixture pinned the suppression term,
+ *      so deleting it passed the whole suite. This block pins it.
+ *   3. A TS non-null assertion before division (`sum! / count`) was mis-lexed as
+ *      a regex-open, letting the false regex swallow a brace and skew the
+ *      depth-0 scan so the module-scope singleton was never seeded.
+ * All drive the full auditAiCallSites scan over a throwaway fixture tree.
+ */
+describe("RA-6991 module-scope seed hardening", () => {
+  function auditFixture(files: Record<string, string>): string[] {
+    const root = mkdtempSync(join(tmpdir(), "ra-6991-fixture-"));
+    try {
+      for (const [relative, content] of Object.entries(files)) {
+        const abs = join(root, relative);
+        mkdirSync(dirname(abs), { recursive: true });
+        writeFileSync(abs, content);
+      }
+      return auditAiCallSites(root).guardrailSummary.platformKeyFallbackFiles;
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+
+  it("seeds a module-scope singleton despite a BYOK marker buried in an unrelated function body (evasion 1)", () => {
+    // The reviewer's probe: the module-scope `client` singleton spends the
+    // platform key at import time, but an unrelated exported helper names a BYOK
+    // marker inside ITS body. Under RA-6986's whole-module suppression that
+    // marker suppressed the seed, so the customer route importing the real
+    // spender slipped the gate. The marker gates nothing the singleton runs, so
+    // the seed must still fire.
+    const flagged = auditFixture({
+      "lib/inline/byok-in-unrelated-body.ts": `
+        import Anthropic from "@anthropic-ai/sdk";
+        const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        export async function classifyWithSingleton(input: string) {
+          return client.messages.create({
+            model: "claude-haiku-4-5",
+            max_tokens: 50,
+            messages: [{ role: "user", content: input }],
+          });
+        }
+        export async function unusedWorkspacePath(workspaceId: string) {
+          return resolveWorkspaceAiKey(workspaceId, "ANTHROPIC");
+        }
+      `,
+      "app/api/leak-buried-byok/route.ts": `
+        import { classifyWithSingleton } from "@/lib/inline/byok-in-unrelated-body";
+        export async function POST(req: Request) {
+          return Response.json(await classifyWithSingleton(await req.text()));
+        }
+      `,
+    });
+
+    expect(flagged).toContain("app/api/leak-buried-byok/route.ts");
+  });
+
+  it("still suppresses a module-scope singleton whose BYOK marker resolves at MODULE scope (pins mutation M4)", () => {
+    // The counterpart that keeps the suppression term honest: the singleton
+    // reads the platform env key but a BYOK resolution runs at module-evaluation
+    // scope (top-level statement), so it genuinely gates the import-time client
+    // and the route must NOT be flagged. If the `!BYOK_MARKERS.some(...)`
+    // suppression term is deleted (mutation M4), the env read alone seeds the
+    // module and this route is flagged — so this expectation fails, pinning the
+    // term.
+    const flagged = auditFixture({
+      "lib/inline/module-scope-byok.ts": `
+        import Anthropic from "@anthropic-ai/sdk";
+        const apiKey = resolveWorkspaceAiKey(workspaceId) ?? process.env.ANTHROPIC_API_KEY;
+        const client = new Anthropic({ apiKey });
+        export async function classifyWithModuleByok(input: string) {
+          return client.messages.create({
+            model: "claude-haiku-4-5",
+            max_tokens: 50,
+            messages: [{ role: "user", content: input }],
+          });
+        }
+      `,
+      "app/api/module-scope-byok/route.ts": `
+        import { classifyWithModuleByok } from "@/lib/inline/module-scope-byok";
+        export async function POST(req: Request) {
+          return Response.json(await classifyWithModuleByok(await req.text()));
+        }
+      `,
+    });
+
+    expect(flagged).not.toContain("app/api/module-scope-byok/route.ts");
+  });
+
+  it("still honours a BYOK resolution inside the singleton's own constructor args (pins M4 args scope)", () => {
+    // The other half of the module-evaluation suppression scope: the BYOK
+    // resolution sits in the constructor object literal (depth >= 1, excluded
+    // from the depth-0 text scan). It runs at import time, so it must still
+    // suppress — the route must NOT be flagged.
+    const flagged = auditFixture({
+      "lib/inline/ctor-args-byok.ts": `
+        import Anthropic from "@anthropic-ai/sdk";
+        const client = new Anthropic({
+          apiKey: getProviderApiKey() ?? process.env.ANTHROPIC_API_KEY,
+        });
+        export async function classifyWithCtorByok(input: string) {
+          return client.messages.create({
+            model: "claude-haiku-4-5",
+            max_tokens: 50,
+            messages: [{ role: "user", content: input }],
+          });
+        }
+      `,
+      "app/api/ctor-args-byok/route.ts": `
+        import { classifyWithCtorByok } from "@/lib/inline/ctor-args-byok";
+        export async function POST(req: Request) {
+          return Response.json(await classifyWithCtorByok(await req.text()));
+        }
+      `,
+    });
+
+    expect(flagged).not.toContain("app/api/ctor-args-byok/route.ts");
+  });
+
+  it("seeds a module-scope singleton across a TS non-null assertion before division (evasion 3)", () => {
+    // `sum! / count }` on one line: the `!` before `/` was mis-lexed as a
+    // regex-open, so the false regex swallowed the arrow body's closing `}`,
+    // leaving the depth scan at 1 and hiding the module-scope `new Anthropic`.
+    // Treating the postfix `!` as a value (division follows) keeps the depth
+    // scan balanced so the singleton is seeded and the route is flagged.
+    const flagged = auditFixture({
+      "lib/inline/non-null-division.ts": `
+        import Anthropic from "@anthropic-ai/sdk";
+        export const ratio = (sum: number, count: number) => { return sum! / count };
+        const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        export async function classifyAfterNonNull(input: string) {
+          return client.messages.create({
+            model: "claude-haiku-4-5",
+            max_tokens: 50,
+            messages: [{ role: "user", content: input }],
+          });
+        }
+      `,
+      "app/api/leak-non-null/route.ts": `
+        import { classifyAfterNonNull } from "@/lib/inline/non-null-division";
+        export async function POST(req: Request) {
+          return Response.json(await classifyAfterNonNull(await req.text()));
+        }
+      `,
+    });
+
+    expect(flagged).toContain("app/api/leak-non-null/route.ts");
+  });
+
+  it("keeps a prefix logical-NOT regex stripped so its braces can't skew the scan (non-null fix guard)", () => {
+    // Guards evasion 3's fix against over-correction: `return !/[{]/.test(x)` is
+    // a prefix logical-NOT of a regex whose char class holds an unbalanced `{`.
+    // The `!` must stay an operator (regex position) so the regex is stripped;
+    // if it were misread as a non-null (division), the `{` would survive and
+    // skew the depth-0 scan, hiding the singleton and dropping the route.
+    const flagged = auditFixture({
+      "lib/inline/logical-not-regex.ts": `
+        import Anthropic from "@anthropic-ai/sdk";
+        const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        export function hasOpenBrace(input: string) {
+          return !/[{]/.test(input);
+        }
+        export async function classifyAfterLogicalNot(input: string) {
+          return client.messages.create({
+            model: "claude-haiku-4-5",
+            max_tokens: 50,
+            messages: [{ role: "user", content: input }],
+          });
+        }
+      `,
+      "app/api/leak-logical-not/route.ts": `
+        import { classifyAfterLogicalNot } from "@/lib/inline/logical-not-regex";
+        export async function POST(req: Request) {
+          return Response.json(await classifyAfterLogicalNot(await req.text()));
+        }
+      `,
+    });
+
+    expect(flagged).toContain("app/api/leak-logical-not/route.ts");
+  });
+});
