@@ -932,6 +932,10 @@ model Organization {
   tradingStatus    TradingStatus @default(ACTIVE)
   setupStartedAt   DateTime?
   setupCompletedAt DateTime?
+
+  // RA-6952 (Pulse P0): the firm's Google review link. Null = review-ask
+  // notification suppressed (NO_URL) rather than sent with a broken/missing link.
+  googleReviewUrl String?
   setupMode        SetupMode     @default(AI)
 
   // Relations to new models
