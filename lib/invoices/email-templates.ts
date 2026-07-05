@@ -81,7 +81,7 @@ export function generateInvoiceSentEmail(data: InvoiceEmailData): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invoice ${invoiceNumber}</title>
+  <title>Invoice ${escapeHtml(invoiceNumber)}</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
@@ -194,7 +194,7 @@ export function generateInvoiceSentEmail(data: InvoiceEmailData): string {
 <body>
   <div class="container">
     <div class="header">
-      <h1>Invoice ${invoiceNumber}</h1>
+      <h1>Invoice ${escapeHtml(invoiceNumber)}</h1>
       <p>from ${escapeHtml(businessName)}</p>
     </div>
 
@@ -207,7 +207,7 @@ export function generateInvoiceSentEmail(data: InvoiceEmailData): string {
         <h3>Invoice Details</h3>
         <div class="detail-row">
           <span class="detail-label">Invoice Number:</span>
-          <span class="detail-value">${invoiceNumber}</span>
+          <span class="detail-value">${escapeHtml(invoiceNumber)}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Invoice Date:</span>
@@ -268,7 +268,7 @@ export function generatePaymentReceivedEmail(data: PaymentEmailData): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Received - ${invoiceNumber}</title>
+  <title>Payment Received - ${escapeHtml(invoiceNumber)}</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
@@ -372,7 +372,7 @@ export function generatePaymentReceivedEmail(data: PaymentEmailData): string {
   <div class="container">
     <div class="header">
       <h1>✓ Payment Received</h1>
-      <p>Invoice ${invoiceNumber}</p>
+      <p>Invoice ${escapeHtml(invoiceNumber)}</p>
     </div>
 
     <div class="content">
@@ -384,7 +384,7 @@ export function generatePaymentReceivedEmail(data: PaymentEmailData): string {
         <h3>Payment Confirmation</h3>
         <div class="detail-row">
           <span class="detail-label">Invoice Number:</span>
-          <span class="detail-value">${invoiceNumber}</span>
+          <span class="detail-value">${escapeHtml(invoiceNumber)}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Payment Date:</span>
@@ -479,7 +479,7 @@ export function generateOverdueReminderEmail(data: ReminderEmailData): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Reminder - ${invoiceNumber}</title>
+  <title>Payment Reminder - ${escapeHtml(invoiceNumber)}</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
@@ -613,20 +613,20 @@ export function generateOverdueReminderEmail(data: ReminderEmailData): string {
   <div class="container">
     <div class="header">
       <h1>Payment Overdue</h1>
-      <p>Invoice ${invoiceNumber}</p>
+      <p>Invoice ${escapeHtml(invoiceNumber)}</p>
       <div class="urgency-badge">${urgencyText}</div>
     </div>
 
     <div class="content">
       <p class="greeting">Dear ${escapeHtml(customerName)},</p>
 
-      <p>This is a friendly reminder that payment for invoice ${invoiceNumber} is now overdue.</p>
+      <p>This is a friendly reminder that payment for invoice ${escapeHtml(invoiceNumber)} is now overdue.</p>
 
       <div class="overdue-details">
         <h3>Invoice Details</h3>
         <div class="detail-row">
           <span class="detail-label">Invoice Number:</span>
-          <span class="detail-value">${invoiceNumber}</span>
+          <span class="detail-value">${escapeHtml(invoiceNumber)}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Original Due Date:</span>
@@ -703,7 +703,7 @@ export function generateUpcomingPaymentReminderEmail(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Due Soon - ${invoiceNumber}</title>
+  <title>Payment Due Soon - ${escapeHtml(invoiceNumber)}</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
@@ -819,19 +819,19 @@ export function generateUpcomingPaymentReminderEmail(
   <div class="container">
     <div class="header">
       <h1>Payment Due Soon</h1>
-      <p>Invoice ${invoiceNumber}</p>
+      <p>Invoice ${escapeHtml(invoiceNumber)}</p>
     </div>
 
     <div class="content">
       <p class="greeting">Dear ${escapeHtml(customerName)},</p>
 
-      <p>This is a friendly reminder that payment for invoice ${invoiceNumber} is due ${daysUntilDue === 1 ? "tomorrow" : `in ${daysUntilDue} days`}.</p>
+      <p>This is a friendly reminder that payment for invoice ${escapeHtml(invoiceNumber)} is due ${daysUntilDue === 1 ? "tomorrow" : `in ${daysUntilDue} days`}.</p>
 
       <div class="reminder-details">
         <h3>Invoice Details</h3>
         <div class="detail-row">
           <span class="detail-label">Invoice Number:</span>
-          <span class="detail-value">${invoiceNumber}</span>
+          <span class="detail-value">${escapeHtml(invoiceNumber)}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Due Date:</span>
