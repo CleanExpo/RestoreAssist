@@ -129,7 +129,7 @@ Propose ONE follow-up question, or null if all covered.`;
     },
     models: [
       { name: "claude-haiku-4-5-20251001", maxTokens: 250 },
-      { name: "claude-3-5-haiku-20241022", maxTokens: 250 },
+      { name: "claude-haiku-4-5-20251001", maxTokens: 250 },
     ],
     agentName: "InterviewSuggestNext",
   });

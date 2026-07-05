@@ -50,7 +50,7 @@ export interface AutoClassifyPhotoResult {
   model: string;
 }
 
-const MODEL = "claude-sonnet-4-5";
+const MODEL = "claude-sonnet-4-6";
 
 export async function autoClassifyPhoto(args: {
   apiKey: string;
