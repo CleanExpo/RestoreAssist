@@ -24,6 +24,7 @@ import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { generateAssessment } from "@/lib/assessments/generate";
 import { isRegisteredDomain, listDomainKeys } from "@/lib/assessments/registry";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import type { AssessmentDomain } from "@/lib/assessments/types";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -43,6 +44,13 @@ export async function POST(
     });
   }
   const userId = session.user.id;
+
+  // RA rule 5 — subscription gate before any AI-bound work. generateAssessment
+  // can invoke Anthropic (enhanceWithAi prose pass, AI-based MOULD/BIOHAZARD/
+  // FIRE_SMOKE plug-ins); CANCELED/PAST_DUE/EXPIRED users must be blocked at 402
+  // before that spend. Mirrors the report-generation routes.
+  const gateErr = await requireActiveSubscription(userId);
+  if (gateErr) return gateErr;
 
   const rateLimited = await applyRateLimit(request, {
     maxRequests: 10,
