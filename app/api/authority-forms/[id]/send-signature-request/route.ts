@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { Resend } from "resend";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { escapeHtml } from "@/lib/email";
 
 let resend: Resend | null = null;
 function getResendClient(): Resend {
@@ -177,16 +178,16 @@ export async function POST(
         <html>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
           <div style="background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">${form.companyName}</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">${escapeHtml(form.companyName)}</h1>
             <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0;">Signature Request</p>
           </div>
           <div style="background: white; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
-            <p>Hello ${signature.signatoryName},</p>
+            <p>Hello ${escapeHtml(signature.signatoryName)},</p>
             <p>You have been requested to sign the following authority form:</p>
             <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin: 16px 0;">
-              <p style="margin: 0 0 8px;"><strong>Form:</strong> ${form.template.name}</p>
-              <p style="margin: 0 0 8px;"><strong>Client:</strong> ${form.clientName}</p>
-              <p style="margin: 0;"><strong>Address:</strong> ${form.clientAddress}</p>
+              <p style="margin: 0 0 8px;"><strong>Form:</strong> ${escapeHtml(form.template.name)}</p>
+              <p style="margin: 0 0 8px;"><strong>Client:</strong> ${escapeHtml(form.clientName)}</p>
+              <p style="margin: 0;"><strong>Address:</strong> ${escapeHtml(form.clientAddress)}</p>
             </div>
             <p>Please click the button below to review and sign the form:</p>
             <div style="text-align: center; margin: 24px 0;">
