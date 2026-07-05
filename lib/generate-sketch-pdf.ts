@@ -17,6 +17,7 @@ import {
 import type { DamageCause } from "@/lib/nz/nhcover";
 import { extractRooms, PX_PER_METRE } from "@/lib/sketch/extract-rooms";
 import { recommendedEquipment } from "@/lib/sketch/iicrc-utils";
+import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
 
 // ── Constants ─────────────────────────────────────────────
 
@@ -713,7 +714,11 @@ async function embedBrandLogo(
   doc: PDFDocument,
   logoUrl: string | null,
 ): Promise<Awaited<ReturnType<PDFDocument["embedPng"]>> | null> {
-  if (!logoUrl || !logoUrl.startsWith("https://")) return null;
+  if (!logoUrl) return null;
+  // SSRF guard: require https and a host that resolves to a public address
+  // (defeats DNS rebinding to loopback / RFC1918 / 169.254.169.254 metadata)
+  // before any server-side fetch of this tenant-controlled URL.
+  if (!(await isSafePublicHttpsUrl(logoUrl))) return null;
   // Bound the fetch: a tenant-controlled URL must not hang the export or pull an
   // oversized asset. Cap wall-clock at 5s and payload at 5 MB.
   const MAX_LOGO_BYTES = 5 * 1024 * 1024;
