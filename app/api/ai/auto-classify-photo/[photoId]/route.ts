@@ -26,6 +26,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import { Prisma } from "@prisma/client";
 import { autoClassifyPhoto } from "@/lib/services/ai/auto-classify-photo";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -56,6 +57,11 @@ export async function POST(
     });
   }
   const userId = session.user.id;
+
+  // RA-6940 — subscription gate before any paid Claude Vision spend.
+  // CANCELED / PAST_DUE users must not trigger autoClassifyPhoto (402).
+  const subscriptionGate = await requireActiveSubscription(userId);
+  if (subscriptionGate) return subscriptionGate;
 
   const rateLimited = await applyRateLimit(request, {
     windowMs: 60 * 1000,

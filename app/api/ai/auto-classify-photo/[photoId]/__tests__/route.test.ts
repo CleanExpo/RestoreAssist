@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const getServerSession = vi.fn();
 const applyRateLimit = vi.fn();
+const requireActiveSubscription = vi.fn();
 const inspectionPhotoFindFirst = vi.fn();
 const inspectionPhotoUpdate = vi.fn();
 const autoClassifyPhoto = vi.fn();
@@ -14,6 +15,10 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/rate-limiter", () => ({
   applyRateLimit: (...args: unknown[]) => applyRateLimit(...args),
+}));
+vi.mock("@/lib/billing/subscription-gate", () => ({
+  requireActiveSubscription: (...args: unknown[]) =>
+    requireActiveSubscription(...args),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -43,6 +48,7 @@ import { NoWorkspaceKeyError } from "@/lib/ai/resolve-workspace-ai-key";
 beforeEach(() => {
   getServerSession.mockReset();
   applyRateLimit.mockReset();
+  requireActiveSubscription.mockReset();
   inspectionPhotoFindFirst.mockReset();
   inspectionPhotoUpdate.mockReset();
   autoClassifyPhoto.mockReset();
@@ -54,6 +60,7 @@ beforeEach(() => {
   });
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
   applyRateLimit.mockResolvedValue(null);
+  requireActiveSubscription.mockResolvedValue(null);
   inspectionPhotoFindFirst.mockResolvedValue({
     id: "photo_1",
     url: "https://example.com/photo.jpg",
@@ -69,6 +76,29 @@ function postRequest() {
 }
 
 describe("POST /api/ai/auto-classify-photo/[photoId]", () => {
+  it("blocks users without an active subscription before spending Vision API budget (402)", async () => {
+    requireActiveSubscription.mockResolvedValueOnce(
+      NextResponse.json(
+        { error: "Active subscription required", upgradeRequired: true },
+        { status: 402 },
+      ),
+    );
+
+    const response = await POST(postRequest(), {
+      params: Promise.resolve({ photoId: "photo_1" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(402);
+    expect(body).toEqual({
+      error: "Active subscription required",
+      upgradeRequired: true,
+    });
+    // The gate must short-circuit before any paid provider work.
+    expect(resolveWorkspaceAiKey).not.toHaveBeenCalled();
+    expect(autoClassifyPhoto).not.toHaveBeenCalled();
+  });
+
   it("does not expose configured key details when no workspace key is configured", async () => {
     resolveWorkspaceAiKey.mockRejectedValueOnce(
       new NoWorkspaceKeyError("ANTHROPIC"),
