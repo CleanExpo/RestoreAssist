@@ -5672,6 +5672,12 @@ model Workspace {
   // The tenant DB connection string, AES-256-GCM encrypted (credential-vault).
   // Server-side only; never sent to the client. Null until connected.
   tenantDbConnectionEnc String?        @db.Text
+  // Resumable phase marker for the provisioning worker (RA-6873). Null on a clean
+  // workspace or once `ready`. When a provisioning attempt lands in `error`, the
+  // worker records the phase it failed at (validate|test|migrate|store|ready) so
+  // the next run resumes from there instead of restarting. Persisted because
+  // tenantDbStatus alone cannot carry the failed phase. Cleared on success.
+  tenantDbProvisionPhase String?
   stripeCustomerId     String?         @unique
   stripeSubscriptionId String?         @unique
 
