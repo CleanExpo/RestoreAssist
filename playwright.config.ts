@@ -26,6 +26,15 @@ export default defineConfig({
 
     /* Screenshot on failure */
     screenshot: "only-on-failure",
+
+    /* RA-4987: prod smoke bypass for Vercel BotID. GitHub Actions egress IPs
+     * are flagged as bots on https://restoreassist.app, so smoke-prod injects
+     * a secret-gated header that verifyBotId() timing-safe-compares against
+     * SMOKE_TEST_BOT_BYPASS_SECRET (Vercel prod env). Only present when the
+     * CI secret is set — local/unset runs send no header (real BotID). */
+    extraHTTPHeaders: process.env.SMOKE_TEST_BOT_BYPASS_SECRET
+      ? { "x-smoke-test-token": process.env.SMOKE_TEST_BOT_BYPASS_SECRET }
+      : undefined,
   },
 
   /* Configure projects for major browsers */
