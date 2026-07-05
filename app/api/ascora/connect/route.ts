@@ -19,6 +19,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { encrypt } from "@/lib/credential-vault";
+import { requireAddon } from "@/lib/entitlements";
+import { SERVICE_CRM_SKU } from "@/lib/billing/service-crm-addon";
 
 const ASCORA_BASE_URL = "https://api.ascora.com.au";
 const ASCORA_ALLOWED_HOST = "api.ascora.com.au";
@@ -90,6 +92,12 @@ export async function POST(request: NextRequest) {
         status: 401,
       });
     }
+
+    // RA-6920 B1: connecting a service CRM (Ascora) is gated by the recurring
+    // SERVICE_CRM add-on. Existing users who connected before this gate
+    // shipped are grandfathered (scripts/backfill-grandfather-service-crm-addon.ts).
+    const addonGate = await requireAddon(session.user.id, SERVICE_CRM_SKU);
+    if (!addonGate.allowed) return addonGate.response;
 
     const parsed = await request.json().catch(() => null);
     const body = (

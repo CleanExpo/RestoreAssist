@@ -19,6 +19,16 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
+// RA-6920 B1: these tests exercise the SSRF guard, not the SERVICE_CRM
+// add-on gate — stub it as always-allowed. The gate itself is covered in
+// entitlement-gate.test.ts.
+vi.mock("@/lib/entitlements", () => ({
+  requireAddon: vi.fn(async () => ({
+    allowed: true,
+    sku: "SERVICE_CRM",
+    workspaceId: "ws_test",
+  })),
+}));
 
 import { POST } from "../route";
 

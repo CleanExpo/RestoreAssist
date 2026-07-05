@@ -188,3 +188,72 @@ describe("POST /api/addons/checkout — FLOORPLAN_UNDERLAY recurring add-on (RA-
     expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/addons/checkout — SERVICE_CRM recurring add-on (RA-6920 B1)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "u1", email: "owner@example.com", name: "Owner" },
+    } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionStatus: "ACTIVE",
+      stripeCustomerId: "cus_1",
+      subscriptionId: "sub_base_1",
+    } as never);
+    vi.mocked(getWorkspaceForUser).mockResolvedValue({
+      id: "ws_1",
+      name: "Acme Restoration",
+    });
+    stripeMock.checkout.sessions.create.mockResolvedValue({
+      id: "cs_service_crm_1",
+      url: "https://checkout.stripe.com/service-crm",
+    });
+  });
+
+  it("builds a subscription-mode session priced inline at $11/mo GST-inclusive — proves the registry entry alone drives a working checkout", async () => {
+    const res = await POST(makeRequest({ addonKey: "SERVICE_CRM" }));
+    expect(res.status).toBe(200);
+
+    expect(stripeMock.prices.create).not.toHaveBeenCalled();
+    const arg = stripeMock.checkout.sessions.create.mock.calls[0][0];
+    expect(arg.mode).toBe("subscription");
+
+    const lineItem = arg.line_items[0];
+    expect(lineItem.price).toBeUndefined();
+    expect(lineItem.price_data.unit_amount).toBe(1100); // $11.00
+    expect(lineItem.price_data.currency).toBe("aud");
+    expect(lineItem.price_data.tax_behavior).toBe("inclusive");
+    expect(lineItem.price_data.recurring).toEqual({ interval: "month" });
+    expect(lineItem.price_data.product_data.name).toBe("Service CRM Connection");
+
+    // GST compliance preserved on the subscription session.
+    expect(arg.automatic_tax).toEqual({ enabled: true });
+    expect(arg.tax_id_collection).toEqual({ enabled: true });
+  });
+
+  it("stamps the subscription with the workspace id + SKU + service_crm_addon marker for the webhook", async () => {
+    await POST(makeRequest({ addonKey: "SERVICE_CRM" }));
+
+    const arg = stripeMock.checkout.sessions.create.mock.calls[0][0];
+    expect(arg.subscription_data.metadata).toMatchObject({
+      type: "service_crm_addon",
+      sku: "SERVICE_CRM",
+      workspaceId: "ws_1",
+      userId: "u1",
+    });
+    expect(arg.metadata).toMatchObject({
+      sku: "SERVICE_CRM",
+      workspaceId: "ws_1",
+      type: "addon_subscription",
+    });
+  });
+
+  it("returns 404 when the user has no workspace to attach the entitlement to", async () => {
+    vi.mocked(getWorkspaceForUser).mockResolvedValue(null);
+
+    const res = await POST(makeRequest({ addonKey: "SERVICE_CRM" }));
+
+    expect(res.status).toBe(404);
+    expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
+  });
+});

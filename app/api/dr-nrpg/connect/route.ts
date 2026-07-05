@@ -28,6 +28,8 @@ import { randomBytes } from "crypto";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { encrypt } from "@/lib/credential-vault";
+import { requireAddon } from "@/lib/entitlements";
+import { SERVICE_CRM_SKU } from "@/lib/billing/service-crm-addon";
 
 const DR_NRPG_BASE_URL = "https://api.dr-nrpg.com.au";
 
@@ -41,6 +43,12 @@ export async function POST(request: NextRequest) {
     });
   }
   const userId = session.user.id;
+
+  // RA-6920 B1: connecting a service CRM (DR-NRPG) is gated by the recurring
+  // SERVICE_CRM add-on. Existing users who connected before this gate
+  // shipped are grandfathered (scripts/backfill-grandfather-service-crm-addon.ts).
+  const addonGate = await requireAddon(userId, SERVICE_CRM_SKU);
+  if (!addonGate.allowed) return addonGate.response;
 
   // RA-1266: prevents double-regenerating the webhook secret on retry
   // (which would invalidate any link DR-NRPG already has).

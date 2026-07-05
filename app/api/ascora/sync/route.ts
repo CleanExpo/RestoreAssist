@@ -30,6 +30,8 @@ import { verifyCronAuth } from "@/lib/cron/auth";
 import { apiError, fromException } from "@/lib/api-errors";
 import { encrypt, decrypt } from "@/lib/credential-vault";
 import { isEncryptedToken } from "@/lib/auth/account-tokens";
+import { requireAddon } from "@/lib/entitlements";
+import { SERVICE_CRM_SKU } from "@/lib/billing/service-crm-addon";
 
 // ============================================================
 // Ascora API types — actual camelCase structure from API
@@ -333,6 +335,16 @@ export async function POST(request: NextRequest) {
     // ── Dual auth: NextAuth session OR CRON_SECRET bearer token ──────────
     const session = await getServerSession(authOptions);
     let userId = session?.user?.id;
+
+    // RA-6920 B1: a user-triggered sync (session auth) is gated by the
+    // recurring SERVICE_CRM add-on. The CRON_SECRET path below is an
+    // automated system-level sync, not a user action, so it is intentionally
+    // left ungated. Existing users who connected before this gate shipped
+    // are grandfathered (scripts/backfill-grandfather-service-crm-addon.ts).
+    if (userId) {
+      const addonGate = await requireAddon(userId, SERVICE_CRM_SKU);
+      if (!addonGate.allowed) return addonGate.response;
+    }
 
     if (!userId) {
       // Fallback: accept CRON_SECRET for automated / CLI-triggered syncs
