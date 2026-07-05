@@ -67,6 +67,17 @@ export const RA_SKETCH_MIGRATION = resolve(
   REPO,
   "prisma/migrations/20260615120000_ra_sketch_capture_rls/migration.sql",
 );
+/**
+ * RA-6949/RA-6922 — enables RLS (default-deny) on ClientCommsLog and
+ * FeatureEntitlement, closing the anon-key exposure the Supabase advisor
+ * flagged. Picked up automatically by allRlsEnabledTables()'s directory walk;
+ * exported here (mirroring the RA_SKETCH_MIGRATION precedent) so the file's
+ * role in the RLS posture is discoverable from this module.
+ */
+export const RA_RLS_CLIENTCOMMSLOG_FEATUREENTITLEMENT_MIGRATION = resolve(
+  REPO,
+  "supabase/migrations/20260705040000_ra6949_ra6922_enable_rls_clientcommslog_featureentitlement.sql",
+);
 
 /**
  * The 119 tables the Supabase advisor flagged as RLS-disabled (the audit set).
@@ -425,16 +436,9 @@ export const PENDING_RLS = new Set<string>([
   "CancellationFeedback",
   "ClaimProgress",
   "ClaimSketch",
-  // RA-6949 (Pulse): per-job client-comms audit log (tenant data via inspection
-  // FK). Server-side Prisma access only today; RLS tenant policy to be added
-  // with the rest of this list under RA-6677.
-  "ClientCommsLog",
   "DeviceSigningKey",
   "EmailAudit",
   "EmailConnection",
-  // RA-6922: per-workspace add-on entitlement (tenant data). Scaffold table;
-  // RLS tenant policy to be added when the entitlement layer is wired live.
-  "FeatureEntitlement",
   "FloorPlan",
   "FormAttachment",
   "FormAuditLog",
