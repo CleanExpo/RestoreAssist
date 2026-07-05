@@ -47,7 +47,30 @@ Formal response-time commitments for paying customers (Trial, Active, Lifetime).
 
 - **Outbound customer comms:** `docs/CUSTOMER_COMMS_TEMPLATE.md` — copy + adapt per incident
 - **Internal triage:** `docs/PILOT_CUTOVER_CHECKLIST.md` rollback decision tree
+- **Failure-class runbooks:** `docs/runbooks/` — symptom → detection query → triage → mitigation → escalation for auth outages, billing-webhook errors, report/restore-generation failures, and email delivery failures. Use these to find the P0/P1 trigger fast, then follow this document's response-time commitment.
+
+## The support-ticket system (2026-07-05 addition)
+
+The in-app support surface (`SupportTicket` model, `app/api/support/tickets`)
+is where most P2/P3 and a meaningful share of P0/P1 first arrive:
+
+- Public submission (`POST /api/support/tickets`) runs a best-effort Claude
+  triage (`analyseSupportTicket`, `lib/services/ai/analyse-support-ticket.ts`)
+  to suggest `category`/`priority`; it degrades gracefully to the
+  submitter-provided values if the workspace has no configured AI key
+  (RA-6921 — never spends the platform's own key on anonymous triage).
+- `priority` on the `SupportTicket` row (`low | normal | high | urgent`) is
+  the ticket's own severity signal — it is a useful triage aid but is not
+  automatically identical to the P0-P3 ladder above; an admin still makes
+  the call on which SLA tier applies, especially for `urgent` tickets that
+  may only be a single customer's P2, not a systemic P0/P1.
+- Admin replies go through `POST /api/support/tickets/[id]/reply`, which
+  sends the email before persisting the reply (see
+  `docs/CUSTOMER_COMMS_TEMPLATE.md` for the exact mechanics and its
+  escape/idempotency behaviour).
 
 ## Refresh cadence
 
-This SLA is reviewed quarterly. Most recent review: 2026-05-18 (initial publication).
+This SLA is reviewed quarterly. Most recent review: 2026-07-05 (added
+support-ticket-system grounding + runbook cross-reference; response-time
+commitments unchanged from 2026-05-18 initial publication).
