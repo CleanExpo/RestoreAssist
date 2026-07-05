@@ -143,4 +143,25 @@ describe("PUT /api/invoices/[id] line-item numeric validation", () => {
     expect(data.totalIncGST).toBe(18900);
     expect(data.amountDue).toBe(18900);
   });
+
+  it("rounds fractional-cent unit prices instead of truncating", async () => {
+    let captured: any;
+    txInvoiceUpdate.mockImplementation(async (arg: any) => {
+      captured = arg;
+      return { id: "inv_1", ...arg.data, lineItems: [] };
+    });
+
+    const res = await PUT(putReq({
+      // 1 x 1099.9 cents: parseInt truncated to 1099 (understated).
+      // Math.round(parseFloat(...)) rounds to 1100 cents (correct nearest cent).
+      lineItems: [{ description: "Drying", quantity: 1, unitPrice: 1099.9 }],
+    }), { params });
+
+    expect(res.status).toBe(200);
+    const data = captured.data;
+    expect(data.subtotalExGST).toBe(1100);
+    expect(data.gstAmount).toBe(110);
+    expect(data.totalIncGST).toBe(1210);
+    expect(data.amountDue).toBe(1210);
+  });
 });

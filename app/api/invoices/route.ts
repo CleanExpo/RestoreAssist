@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
 
       const processedLineItems = lineItems.map((item: any, index: number) => {
         const quantity = parseFloat(item.quantity);
-        const unitPrice = parseInt(item.unitPrice);
+        const unitPrice = Math.round(parseFloat(item.unitPrice));
         const subtotal = Math.round(quantity * unitPrice);
         const gstRate = item.gstRate ?? 10.0;
         const itemGst = Math.round(subtotal * (gstRate / 100));
