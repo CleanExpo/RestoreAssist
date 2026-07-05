@@ -82,7 +82,7 @@ async function retrieveSimilarJobsTextFallback(options: {
 }): Promise<SimilarJob[]> {
   // Use the HistoricalJob table if it exists, with a simple claimType filter
   try {
-    const jobs = await (prisma as any).historicalJob.findMany({
+    const jobs = await prisma.historicalJob.findMany({
       where: {
         tenantId: options.tenantId,
         claimType: options.claimType,

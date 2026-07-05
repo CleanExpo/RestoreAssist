@@ -6588,11 +6588,29 @@ model HistoricalJob {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  // RA-276: pgvector embedding columns — applied directly to prod
-  // (migration 20260330011409_add_pgvector_historical_job_embeddings) ahead
-  // of this schema declaration. HNSW cosine index idx_historical_job_embedding
-  // (m=16, ef=64) already exists on prod; see prisma/migrations/
-  // 20260705050000_ra276_historicaljob_embedding_columns for the reconciling migration.
+  // RA-276 / RA-274: columns applied directly to prod (Supabase
+  // udooysjajglluvuxkijp) ahead of this schema declaration — schema.prisma
+  // never caught up. Verified against prod 2026-07-05. See prisma/migrations/
+  // 20260705050000_ra276_historicaljob_embedding_columns for the reconciling,
+  // idempotent migration. RA-274's "CEO Board Hardening" fields
+  // (classificationSource/insurerName/claimNumber/scopeOfWorks/
+  // totalLabourHours/durationDays) DID ship to prod; the drift was purely
+  // that this schema file was behind.
+
+  // Similarity-search corpus counts (used by lib/ai RAG retrieval)
+  itemCount      Int @default(0)
+  equipmentCount Int @default(0)
+
+  // Classification + claim metadata
+  classificationSource String?
+  insurerName          String?
+  claimNumber          String?
+  scopeOfWorks         String?
+  totalLabourHours     Float?
+  durationDays         Int?
+
+  // pgvector embedding columns — HNSW cosine index idx_historical_job_embedding
+  // (m=16, ef_construction=64) also already exists on prod
   embeddingVector Unsupported("vector(1536)")?
   embeddingModel  String?
   embeddedAt      DateTime?                     @db.Timestamptz
