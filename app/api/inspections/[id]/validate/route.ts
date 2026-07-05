@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { validateSubmission } from "@/lib/evidence/submission-gate";
+import { normalizeClaimType } from "@/lib/evidence/claim-type";
+import { JOB_TYPES } from "@/lib/evidence/workflow-definitions";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -32,12 +34,22 @@ export async function POST(
       );
     }
 
-    // Determine claim type from request body or default
+    // Determine claim type from request body or default to "water_damage".
+    // RA-6994: WORKFLOW_TEMPLATES is keyed on uppercase JobType values
+    // (e.g. "WATER_DAMAGE") — normalise here so the requirements lookup
+    // actually matches instead of silently returning zero requirements.
     const body = await request.json().catch(() => ({}));
-    // NOTE: Inspection model does not have a claimType field directly.
-    // claimType lives on ScopeTemplate. For now we accept it from the
-    // request body or default to "water_damage".
-    const claimType = body.claimType ?? "water_damage";
+    const rawClaimType =
+      typeof body.claimType === "string" ? body.claimType : "water_damage";
+    const claimType = normalizeClaimType(rawClaimType);
+
+    if (!claimType) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Unknown claimType "${rawClaimType}". Accepted values: ${JOB_TYPES.join(", ")} (case-insensitive).`,
+        status: 400,
+      });
+    }
 
     const validation = await validateSubmission(id, claimType);
 

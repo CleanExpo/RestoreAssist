@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { validateSubmission } from "@/lib/evidence/submission-gate";
+import { normalizeClaimType } from "@/lib/evidence/claim-type";
+import { JOB_TYPES } from "@/lib/evidence/workflow-definitions";
 import { apiError, fromException } from "@/lib/api-errors";
 
 // GET - Check evidence completeness for an inspection
@@ -39,12 +41,21 @@ export async function GET(
       });
     }
 
-    // Accept claimType from query param or default to "water_damage"
-    // NOTE: Inspection model does not have a claimType field directly.
-    // claimType lives on ScopeTemplate. Future improvement: derive from
-    // the inspection's linked scope template.
+    // Accept claimType from query param or default to "water_damage".
+    // RA-6994: WORKFLOW_TEMPLATES is keyed on uppercase JobType values
+    // (e.g. "WATER_DAMAGE") — normalise here so the requirements lookup
+    // actually matches instead of silently returning zero requirements.
     const { searchParams } = new URL(request.url);
-    const claimType = searchParams.get("claimType") ?? "water_damage";
+    const rawClaimType = searchParams.get("claimType") ?? "water_damage";
+    const claimType = normalizeClaimType(rawClaimType);
+
+    if (!claimType) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Unknown claimType "${rawClaimType}". Accepted values: ${JOB_TYPES.join(", ")} (case-insensitive).`,
+        status: 400,
+      });
+    }
 
     const validation = await validateSubmission(id, claimType);
 

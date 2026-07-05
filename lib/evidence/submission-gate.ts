@@ -11,11 +11,15 @@
 
 import { prisma } from "@/lib/prisma";
 import { getWorkflowTemplate, JOB_TYPES, type JobType } from "@/lib/evidence";
-import { EVIDENCE_CLASSES } from "@/lib/evidence/evidence-classes";
+import {
+  EVIDENCE_CLASS_LABELS,
+  EVIDENCE_S500_REFS,
+  type EvidenceClass as RequiredEvidenceClass,
+} from "@/lib/types/evidence";
 import type { EvidenceClass } from "@prisma/client";
 
 export interface ValidationGap {
-  evidenceClass: EvidenceClass;
+  evidenceClass: RequiredEvidenceClass;
   displayName: string;
   phase: string;
   required: number;
@@ -75,7 +79,7 @@ export async function validateSubmission(
 
   // 2. Build submission gate requirements from workflow template
   type Requirement = {
-    evidenceClass: EvidenceClass;
+    evidenceClass: RequiredEvidenceClass;
     minCount: number;
     guidance: string;
   };
@@ -91,7 +95,9 @@ export async function validateSubmission(
           requirements.push({
             evidenceClass: cls,
             minCount: 1,
-            guidance: EVIDENCE_CLASSES[cls].description,
+            guidance:
+              EVIDENCE_S500_REFS[cls] ??
+              `Required evidence: ${EVIDENCE_CLASS_LABELS[cls]}`,
           });
         }
       }
@@ -120,10 +126,9 @@ export async function validateSubmission(
     totalCaptured += Math.min(captured, req.minCount);
 
     if (captured < req.minCount) {
-      const meta = EVIDENCE_CLASSES[req.evidenceClass];
       gaps.push({
         evidenceClass: req.evidenceClass,
-        displayName: meta.displayName,
+        displayName: EVIDENCE_CLASS_LABELS[req.evidenceClass],
         phase: phaseMap.get(req.evidenceClass) ?? "Unknown",
         required: req.minCount,
         captured,

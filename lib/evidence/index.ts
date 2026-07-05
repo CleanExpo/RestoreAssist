@@ -8,3 +8,4 @@ export * from "./workflow-definitions";
 export * from "./adaptive-guidance";
 export * from "./submission-validator";
 export * from "./qa-scorer";
+export * from "./claim-type";
