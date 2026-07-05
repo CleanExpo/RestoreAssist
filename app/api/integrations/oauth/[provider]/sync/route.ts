@@ -20,6 +20,11 @@ import {
   createSubscriptionRequiredResponse,
 } from "@/lib/integrations/subscription-guard";
 import { apiError, fromException } from "@/lib/api-errors";
+import { requireAddon } from "@/lib/entitlements";
+import {
+  BOOKKEEPING_SKU,
+  isBookkeepingProvider,
+} from "@/lib/billing/bookkeeping-addon";
 
 export async function POST(
   request: NextRequest,
@@ -54,6 +59,14 @@ export async function POST(
         message: `Invalid provider: ${providerParam}`,
         status: 400,
       });
+    }
+
+    // RA-6920 B3 — triggering a sync for Xero/QuickBooks/MYOB requires the
+    // BOOKKEEPING add-on. Existing connections are grandfathered (see
+    // scripts/grandfather-bookkeeping-addon.ts).
+    if (isBookkeepingProvider(provider)) {
+      const addonGate = await requireAddon(session.user.id, BOOKKEEPING_SKU);
+      if (!addonGate.allowed) return addonGate.response;
     }
 
     // Find integration
