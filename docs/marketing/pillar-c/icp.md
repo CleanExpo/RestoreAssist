@@ -18,7 +18,7 @@
 | Entity type | Sole Trader · Pty Ltd · Family Trust (mixed) |
 | ABN status | Active, GST-registered. Pre-trading mode is supported but rare in the ICP. |
 | Geography | All Australian states and territories. Volume skews NSW, QLD, VIC. |
-| Service mix | Water damage (S500:2025) primary; mould remediation (S520:2024) common; fire/smoke (S700) opportunistic. |
+| Service mix | Water damage (S500:2021) primary; mould remediation (S520:2024) common; fire/smoke (S700) opportunistic. |
 
 ### Roles in the buying group
 
@@ -31,7 +31,7 @@ There is no procurement department. There is no IT department. The owner signs u
 ### Pains (ranked)
 
 1. **Admin overhead is eating the night.** Two to three hours per evening typing job notes, building reports in Word, recalculating GST, and resizing site photos for insurer email attachments.
-2. **IICRC compliance burden is real but invisible.** They know the report needs to cite S500:2025 §7.1 — they don't remember where in the PDF the section is, and they cite "industry standards" instead, which the insurer then queries.
+2. **IICRC compliance burden is real but invisible.** They know the report needs to cite S500:2021 §7.1 — they don't remember where in the PDF the section is, and they cite "industry standards" instead, which the insurer then queries.
 3. **Insurer pushback on reports.** Missing photo timestamps, no GPS, ambiguous moisture readings, no clear scope-of-work. The insurer asks for clarification. The job stalls. Cash stops moving.
 4. **The "AI tools" they have bought before were AI-flavoured, not AI-driven.** They paid a A$99/month subscription, watched a demo, and discovered the AI was a single "Generate summary" button that wrote two paragraphs of marketing copy.
 5. **Re-keying line items into Xero.** They have a CRM, they have an accounting system, and they have a spreadsheet bridging them.
@@ -48,7 +48,7 @@ There is no procurement department. There is no IT department. The owner signs u
 
 ### Vocabulary they actually use
 
-- IICRC, S500:2025, S520:2024, S700, ANSI/IICRC
+- IICRC, S500:2021, S520:2024, S700, ANSI/IICRC
 - Water Damage Restoration Technician (WRT), Applied Microbial Remediation Technician (AMRT), Applied Structural Drying (ASD)
 - Class 1 / 2 / 3 / 4 water loss; Category 1 / 2 / 3 water
 - Psychrometric chart, GPP (grains per pound), specific humidity

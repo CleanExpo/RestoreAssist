@@ -1,6 +1,6 @@
 # RestoreAssist — Inspection Image Labelling Schema
 
-**Standard:** IICRC S500:2025
+**Standard:** IICRC S500:2021
 **Version:** 1.0
 **Effective:** 2026-04-07
 **Related issues:** RA-394, RA-396
@@ -12,7 +12,7 @@
 
 This schema defines the metadata fields applied to every inspection photo uploaded to RestoreAssist. It ensures:
 
-1. Every image is traceable to a specific S500:2025 section and damage classification
+1. Every image is traceable to a specific S500:2021 section and damage classification
 2. Australian material specificity is captured (brick veneer, slab-on-ground, fibre cement) — differentiating this dataset from US-trained generics
 3. Photos collected organically through pilot usage can train future vision models without rework
 4. Schema is complete before the first pilot inspection is captured
@@ -25,7 +25,7 @@ All fields are applied at AI analysis time (see [Labelling Integration Point](#l
 
 ### 1. Damage Category
 
-Maps to IICRC S500:2025 §7.1 — Water Category Classification.
+Maps to IICRC S500:2021 §7.1 — Water Category Classification.
 
 | Value     | Label      | Description                                                                                      |
 | --------- | ---------- | ------------------------------------------------------------------------------------------------ |
@@ -36,7 +36,7 @@ Maps to IICRC S500:2025 §7.1 — Water Category Classification.
 
 ### 2. Damage Class
 
-Maps to IICRC S500:2025 §7.2 — Water Damage Classification.
+Maps to IICRC S500:2021 §7.2 — Water Damage Classification.
 
 | Value    | Label   | Description                                                                       |
 | -------- | ------- | --------------------------------------------------------------------------------- |
@@ -45,7 +45,7 @@ Maps to IICRC S500:2025 §7.2 — Water Damage Classification.
 | `class3` | Class 3 | Fastest evaporation — moisture absorbed by ceilings, walls, insulation, carpet    |
 | `class4` | Class 4 | Specialty drying — low evaporation materials (hardwood, plaster, concrete, brick) |
 
-### 3. IICRC S500:2025 Section Reference
+### 3. IICRC S500:2021 Section Reference
 
 The primary section this image provides evidence for.
 
@@ -102,7 +102,7 @@ Captures the primary affected building material visible in the image. Australian
 | `brick_veneer`    | Brick veneer                  | Dominant external wall in QLD/NSW/VIC suburban builds                                 |
 | `concrete_slab`   | Concrete slab-on-ground       | Standard floor system, moisture retention characteristics differ from timber subfloor |
 | `fibre_cement`    | Fibre cement sheeting (FC)    | Common in wet areas, bathrooms, garages; brand names: Villaboard, Hardiflex, Scyon    |
-| `timber_frame`    | Timber framing                | Structural — critical if wet >48h (S500:2025 §10)                                     |
+| `timber_frame`    | Timber framing                | Structural — critical if wet >48h (S500:2021 §10)                                     |
 | `plasterboard`    | Plasterboard / gyprock        | Most common internal wall; absorbs moisture rapidly                                   |
 | `villaboard`      | Villaboard / compressed sheet | Wet area lining; more moisture-resistant than plasterboard                            |
 | `terracotta_tile` | Terracotta / ceramic tile     | Floor and wall tiles — adhesive failure indicator                                     |
@@ -143,7 +143,7 @@ Captures whether drying/extraction equipment is present in the image — used to
 
 Multi-select — all that apply.
 
-| Value                    | Label                                                | S500:2025 Reference            |
+| Value                    | Label                                                | S500:2021 Reference            |
 | ------------------------ | ---------------------------------------------------- | ------------------------------ |
 | `mould_visible`          | Mould visible                                        | §10.3 — microbiological growth |
 | `efflorescence`          | Efflorescence / salt deposit                         | Chronic moisture indicator     |
@@ -180,7 +180,7 @@ Background job triggers vision classification
 Labels written to MediaAsset.metadata JSON field
         ↓
 Report generation reads labels for:
-  - S500:2025 section citations
+  - S500:2021 section citations
   - PDF evidence appendix
   - Insurer portal display
 ```

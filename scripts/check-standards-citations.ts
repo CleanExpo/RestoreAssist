@@ -55,8 +55,14 @@ const ROOTS = [
   "prisma",
   "mobile",
   "__tests__",
+  "docs",
+  "distribution",
+  "PROJECTS",
 ];
-const EXT = /\.(ts|tsx)$/;
+// Code + prose + content files that can carry a citation. `.sql` is excluded on
+// purpose: applied migrations under prisma/migrations are immutable (editing them
+// breaks Prisma's checksum), so that directory is skipped entirely (see walk()).
+const EXT = /\.(ts|tsx|md|mdx|json|jsonl|txt|toml|prisma)$/;
 // Accept both `S###:YYYY` and the formal `S###-YYYY` designation form.
 const CITE = /\bS(100|500|520|540|700)[-:](\d{4})\b/gi;
 // Capture the FULL dotted section number so subsection depth can be validated.
@@ -163,7 +169,15 @@ function walk(dir: string, ext: RegExp, onFile: (f: string) => void): void {
     return; // root may not exist in some checkouts — skip
   }
   for (const entry of entries) {
-    if (entry === "node_modules" || entry === ".next" || entry === "dist") continue;
+    // Skip build/vendor dirs and prisma/migrations (immutable applied SQL — its
+    // inert historical comments must not fail or be edited).
+    if (
+      entry === "node_modules" ||
+      entry === ".next" ||
+      entry === "dist" ||
+      entry === "migrations"
+    )
+      continue;
     const full = join(dir, entry);
     const st = statSync(full);
     if (st.isDirectory()) walk(full, ext, onFile);
@@ -213,13 +227,12 @@ function scanJsonEditions(dir: string): void {
   }
 }
 
-// Source + content literal scan: .ts/.tsx across all roots, plus a prose scan of
-// the JSON content corpus (edition + section citations live inside string fields
-// there, not just in structured `edition` columns).
+// Literal scan across all roots: code (.ts/.tsx), docs/prose (.md/.mdx/.txt/.toml),
+// the Prisma schema (.prisma), and the JSON/JSONL content corpus — edition and
+// section citations live inside string fields there, not just structured columns.
 for (const root of ROOTS) {
   walk(root, EXT, (f) => scanText(f, readFileSync(f, "utf8")));
 }
-walk("content", /\.json$/, (f) => scanText(f, readFileSync(f, "utf8")));
 
 scanJsonEditions("scripts/data");
 

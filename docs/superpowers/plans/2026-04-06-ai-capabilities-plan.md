@@ -1635,7 +1635,7 @@
         content: [
           {
             type: "text",
-            text: "Per IICRC S500:2025 §7.1, Class 3 water loss affects walls.",
+            text: "Per IICRC S500:2021 §7.1, Class 3 water loss affects walls.",
           },
         ],
       });
@@ -1656,7 +1656,7 @@
       process.env.ELEVENLABS_API_KEY = "xi-test";
       process.env.ELEVENLABS_VOICE_ID = "voice-abc";
       mockMessagesCreate.mockResolvedValue({
-        content: [{ type: "text", text: "Per IICRC S500:2025 §7.1, Class 3." }],
+        content: [{ type: "text", text: "Per IICRC S500:2021 §7.1, Class 3." }],
       });
       const fakeAudio = new Uint8Array([1, 2, 3, 4]).buffer;
       mockFetch.mockResolvedValue({
@@ -1717,7 +1717,7 @@
 
   const SYSTEM_PROMPT = `You are a senior IICRC-certified water damage restoration technician providing on-site guidance.
   Answer questions concisely using the provided IICRC standards context. Always cite the specific standard and section
-  (e.g. "Per IICRC S500:2025 §7.3..."). Keep answers under 3 sentences — they will be spoken aloud to a technician in the field.`;
+  (e.g. "Per IICRC S500:2021 §7.3..."). Keep answers under 3 sentences — they will be spoken aloud to a technician in the field.`;
 
   export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
@@ -2084,7 +2084,7 @@
      - Expected: button shows "Processing..." briefly, then "Playing answer..."
      - Expected: ElevenLabs audio plays with the Claude-generated answer
      - Expected: the answer text appears below the button with the "IICRC Answer" badge
-     - Expected: answer cites `IICRC S500:2025` with a section number
+     - Expected: answer cites `IICRC S500:2021` with a section number
   4. Remove the temporary import from the page after verification.
 
 ---

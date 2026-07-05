@@ -26,7 +26,7 @@
 >
 > Then the dashboard opens with your own branding already on the report.
 >
-> If the next claim dispute lands on your desk at 9pm with a missing-evidence question, the report is already written, IICRC S500:2025 §7.1 in the footer, and the photo manifests verify on read.
+> If the next claim dispute lands on your desk at 9pm with a missing-evidence question, the report is already written, IICRC S500:2021 §7.1 in the footer, and the photo manifests verify on read.
 >
 > Try it. Tell me what's still wrong: `https://restoreassist.app/setup`
 
@@ -44,7 +44,7 @@ RestoreAssist is the Australian water-damage CRM that turns one field — your A
 
 - **One field in. Eleven fields out.** Your ABN drives parallel hydration jobs against the Australian Business Register, your website, and a 2026 Australian pricing dataset.
 - **Every advertised capability that's wired is checked before Activate.** Live checks on AI report generation and integration health. Chain-of-custody, sample-report render, and welcome-email gates ship in Phase 5+.
-- **IICRC S500:2025 §7.1 cited correctly in every report footer.** GST at 10%. ABN at 11 digits. State codes routed through the correct jurisdictional authority.
+- **IICRC S500:2021 §7.1 cited correctly in every report footer.** GST at 10%. ABN at 11 digits. State codes routed through the correct jurisdictional authority.
 
 ### Primary CTA
 **Start with your ABN — it takes under 90 seconds.**
@@ -98,7 +98,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 
 > Sixty seconds on how to create a RestoreAssist account: email, password, business name. No credit card. No long form. You land on the setup wizard the moment you sign up.
 >
-> RestoreAssist is an Australian water-damage restoration CRM. ABN-anchored setup. IICRC S500:2025 §7.1 references in every report. GST at 10%, calculated.
+> RestoreAssist is an Australian water-damage restoration CRM. ABN-anchored setup. IICRC S500:2021 §7.1 references in every report. GST at 10%, calculated.
 >
 > Watch the full setup wizard walkthrough: https://www.youtube.com/watch?v=G2CIyp-gDKA
 > Start your account: https://restoreassist.app/signup
@@ -231,7 +231,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 > 90 seconds.
 
 ### 5.4 Compliance specificity
-> Every RestoreAssist report cites IICRC S500:2025 §7.1 by edition and section. Not "industry standards".
+> Every RestoreAssist report cites IICRC S500:2021 §7.1 by edition and section. Not "industry standards".
 >
 > GST at 10%. ABN at 11 digits. State codes via the correct jurisdictional authority.
 >
@@ -265,6 +265,6 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 
 Words this pack avoids entirely: leverage, utilise, best-in-class, world-class, game-changer, revolutionary, seamless, powerful, unlock, journey, excited, thrilled, delighted, synergy, "in today's competitive landscape", "we are excited to announce".
 
-Plain-English-alongside-technical-term checks: "C2PA-style manifest (SHA-256 + UTC + GPS + device + user hash)", "Australian Business Register (ABR)", "IICRC S500:2025 §7.1" cited with edition and section.
+Plain-English-alongside-technical-term checks: "C2PA-style manifest (SHA-256 + UTC + GPS + device + user hash)", "Australian Business Register (ABR)", "IICRC S500:2021 §7.1" cited with edition and section.
 
 Active voice throughout. Reading level held to grade 4 by sentence length and vocabulary (one or two technical terms per paragraph, never stacked).

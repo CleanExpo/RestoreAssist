@@ -89,9 +89,9 @@ String-interpolating a plain `whereClause` variable (e.g. `WHERE ${whereClause}`
 | Concept                     | Code name                        | Notes                                                       |
 | --------------------------- | -------------------------------- | ----------------------------------------------------------- |
 | Inspection report           | NIR (National Inspection Report) | `lib/nir-*.ts`                                              |
-| IICRC water damage standard | S500                             | Always cite with year: `S500:2025`                          |
+| IICRC water damage standard | S500                             | Always cite with year: `S500:2021`                          |
 | IICRC mould standard        | S520                             | `S520:2024`                                                 |
-| Fire/smoke standard         | S700                             | `S700:2022`                                                 |
+| Fire/smoke standard         | S700                             | `S700:2025`                                                 |
 | Water damage classification | Category + Class                 | Category 1–3 (contamination), Class 1–4 (evaporation)       |
 | Moisture reading            | `MoistureReading` model          | Fields: `moistureLevel`, `surfaceType`, `depth`, `location` |
 | State jurisdiction          | Two-letter uppercase             | `NSW`, `VIC`, `QLD`, `SA`, `WA`, `TAS`, `NT`, `ACT`         |

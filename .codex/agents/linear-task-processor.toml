@@ -141,7 +141,7 @@ Go back to Step 1.
 
 - All API routes require `getServerSession` auth check
 - Use Prisma `include`/`select` — never unbounded `findMany`
-- IICRC references must cite edition and section (e.g., "IICRC S500:2025 §7.1")
+- IICRC references must cite edition and section (e.g., "IICRC S500:2021 §7.1")
 - Australian compliance: GST 10%, ABN 11 digits
 - Integration sync is fire-and-forget — never block user operations
 - Use shadcn/ui components from `components/ui/`

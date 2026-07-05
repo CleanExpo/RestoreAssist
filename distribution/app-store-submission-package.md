@@ -115,7 +115,7 @@ Source: `distribution/PRIVACY_DISCLOSURES.md` § "App Store Connect — Privacy 
 RestoreAssist is the all-in-one field and reporting platform built exclusively for Australian water damage, fire, and storm restoration professionals.
 
 IICRC-COMPLIANT WORKFLOW
-Conduct room-by-room inspections aligned with IICRC S500:2025, S520:2015, and S700:2015 standards. Record moisture readings, drying logs, equipment placements, and scope of works — all in a structured format that satisfies insurance and state building-authority requirements.
+Conduct room-by-room inspections aligned with IICRC S500:2021, S520:2024, and S700:2025 standards. Record moisture readings, drying logs, equipment placements, and scope of works — all in a structured format that satisfies insurance and state building-authority requirements.
 
 AI-POWERED EFFICIENCY
 Point your camera at a moisture meter and let RestoreAssist read the value automatically. AI photo analysis eliminates manual data entry and reduces errors on site.
@@ -130,10 +130,10 @@ SEAMLESS INTEGRATIONS
 Push jobs and invoices directly to Xero, MYOB, QuickBooks, Ascora, and ServiceM8. Eliminate double entry and keep your back-office in sync with every site visit.
 
 BUILT FOR AUSTRALIAN COMPLIANCE
-• IICRC S500:2025 water damage inspection workflows (5th edition)
-• IICRC S520:2015 mould remediation scope support
-• IICRC S540:2021 trauma & biohazard remediation
-• IICRC S700:2015 fire and smoke damage assessments
+• IICRC S500:2021 water damage inspection workflows (5th edition)
+• IICRC S520:2024 mould remediation scope support
+• IICRC S540:2023 trauma & biohazard remediation
+• IICRC S700:2025 fire and smoke damage assessments
 • NCC Volume 2 Part 3.5 storm-damage NCC compliance
 • NADCA ACR 2021 + AS/NZS 3666 HVAC hygiene
 • GST-compliant invoicing (10% Australian GST)

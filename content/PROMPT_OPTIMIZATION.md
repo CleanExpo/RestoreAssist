@@ -13,7 +13,7 @@ agents iterate within them.
 ## Citation Requirements
 
 - Every section must reference at least one IICRC standard
-- S500:2025 for water damage, S520 for mould, S770 for fire/smoke
+- S500:2021 for water damage, S520 for mould, S700:2025 for fire/smoke
 - Section references (§) must be specific (e.g. §4.2, not just "IICRC S500")
 - AS/NZS 3012:2019 must appear in equipment section for electrical load check
 

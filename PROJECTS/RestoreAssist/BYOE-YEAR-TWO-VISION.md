@@ -125,7 +125,7 @@ Allow enterprise customers to run inference locally using open-weight models (Ge
 
 ### Why this matters for the Australian market
 
-The IICRC S500:2025 compliance workflow involves processing detailed property data, personal information (property owner name, insurer claim number), and sometimes sensitive structural assessments. Several customer segments require that this data never leaves their network perimeter:
+The IICRC S500:2021 compliance workflow involves processing detailed property data, personal information (property owner name, insurer claim number), and sometimes sensitive structural assessments. Several customer segments require that this data never leaves their network perimeter:
 
 - **Defence contractor restoration:** Must comply with DSPF data handling requirements
 - **State emergency management agencies:** Data sovereignty under the Privacy Act 1988 and state equivalents

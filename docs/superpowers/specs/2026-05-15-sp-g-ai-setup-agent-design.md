@@ -200,7 +200,7 @@ Each tool is a Prisma transactional handler + Anthropic tool definition. Schemas
 
 ### 6.1 Tool: `lookup-iicrc`
 
-**Purpose:** Answer questions about IICRC S500:2025 clauses, cross-referenced with the SP-H knowledge substrate (once live).
+**Purpose:** Answer questions about IICRC S500:2021 clauses, cross-referenced with the SP-H knowledge substrate (once live).
 
 **Input schema:**
 ```typescript
@@ -214,7 +214,7 @@ const LookupIircInputSchema = z.object({
 **Output schema:**
 ```typescript
 const LookupIircOutputSchema = z.object({
-  clauseRef: z.string().describe("[S500:2025 §X.Y.Z]"),
+  clauseRef: z.string().describe("[S500:2021 §X.Y.Z]"),
   excerpt: z.string().describe("200-word extract from the clause"),
   fullCitation: z.string().describe("Full text of the clause (if <2KB)"),
   relatedClauses: z.array(z.string()).describe("List of other relevant clause refs"),
@@ -232,7 +232,7 @@ const LookupIircOutputSchema = z.object({
 ```typescript
 export const lookupIircDefinition = {
   name: "lookup_iicrc",
-  description: "Look up an IICRC S500:2025 clause, standard, or related guidance. Use this when the user asks about compliance, standards, or best-practice requirements.",
+  description: "Look up an IICRC S500:2021 clause, standard, or related guidance. Use this when the user asks about compliance, standards, or best-practice requirements.",
   input_schema: {
     type: "object",
     properties: {
@@ -381,7 +381,7 @@ model TeacherTurnRecord {
   toolResultContent String? @db.Text
 
   // Citation tracking
-  clauseRefs    String[] // e.g. ["S500:2025 §7.1", "AS/NZS 4360:2004 §4.3"]
+  clauseRefs    String[] // e.g. ["S500:2021 §7.1", "AS/NZS 4360:2004 §4.3"]
 
   // Model routing metadata
   routedTo      String? // "gemma_local" or "claude_cloud"
@@ -618,7 +618,7 @@ await prisma.auditLog.create({
     device: "web", // Or "ios" / "android" from request
     changes: JSON.stringify({
       costAudCents: 42,
-      clauseRefs: ["S500:2025 §7.1"],
+      clauseRefs: ["S500:2021 §7.1"],
       confidence: 0.92,
     }),
     timestamp: new Date(),
@@ -702,7 +702,7 @@ await prisma.auditLog.create({
 1. Tradie signs in → navigates to inspection detail page.
 2. Taps "Ask Sidekick" → bottom-sheet opens, text composer visible.
 3. Types "How do I check if this is Cat 3?" (moisture photo showing 12% readings).
-4. Sidekick responds: "Based on IICRC S500:2025 §10, Cat 3 requires readings >12% on wood — yours are exactly there, so yes, Cat 3. [Link to help article]"
+4. Sidekick responds: "Based on IICRC S500:2021 §10, Cat 3 requires readings >12% on wood — yours are exactly there, so yes, Cat 3. [Link to help article]"
 5. User taps "Take another photo" (from Sidekick suggestion) → camera opens, captures photo.
 6. Returns to Sidekick → Sidekick says "Got the photo; I'll analyse it" → calls `analyse-photo` tool → returns "Consistent with Cat 3 wood damage."
 7. User taps "I agree" → turn committed, logged to `TeacherTurnRecord`.
@@ -778,7 +778,7 @@ After SP-G merges and deploys to staging:
 3. **Unit + integration tests:** `npx vitest run` — ≥95% pass rate on live-teacher tests.
 4. **E2E happy path:** `npx playwright test e2e/sidekick-happy-path.spec.ts` on staging — green on Chrome + Safari.
 5. **Manual inspection detail page:** Navigate to `/dashboard/inspections/[id]` → "Ask Sidekick" button visible, bottom-sheet opens on tap.
-6. **Send a text query:** Type "What's IICRC Cat 3?" → Sidekick responds with clause citation `[S500:2025 §10.X]` within 3 seconds.
+6. **Send a text query:** Type "What's IICRC Cat 3?" → Sidekick responds with clause citation `[S500:2021 §10.X]` within 3 seconds.
 7. **Tool invocation:** Ask "Analyse this photo" (point to a captured photo URL) → `analyse-photo` tool called, result renders with damage type + severity + clauses.
 8. **Cost deduction:** Send 3 turns, each costing 50 AUD cents → verify `User.creditsRemaining` decremented by 150.
 9. **Audit trail:** Inspect `AuditLog` rows for `action LIKE 'AI_SIDEKICK_%'` — all 3 turns + 1 tool call logged.

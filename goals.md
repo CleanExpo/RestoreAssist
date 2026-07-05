@@ -159,9 +159,9 @@ Eliminate the always-true RLS policies on the 6 legacy commerce tables (tenant-i
 
 ### 16. Normalise IICRC S520 edition references to :2024 `[Compliance content]`
 ```
-/goal All user-facing S520 citations read S520:2024 (4th ed.), not S520:2015, with section numbers re-verified against the 2024 edition (NOT blind-replaced); end state = grep for 'S520:2015' across lib/scope-mould.ts, lib/iicrc-checklists.ts, lib/scope-prelims.ts, lib/scope-biohazard.ts, lib/dispute-pack.ts, lib/swms/auto-generator.ts, lib/assessments/domains/{mould,hvac,biohazard}.ts returns 0, and section-number review is complete. Or stop after 6 turns if section-numbering verification needs the source standard.
+/goal All user-facing S520 citations read S520:2024 (4th ed.), not S520:2024, with section numbers re-verified against the 2024 edition (NOT blind-replaced); end state = grep for 'S520:2024' across lib/scope-mould.ts, lib/iicrc-checklists.ts, lib/scope-prelims.ts, lib/scope-biohazard.ts, lib/dispute-pack.ts, lib/swms/auto-generator.ts, lib/assessments/domains/{mould,hvac,biohazard}.ts returns 0, and section-number review is complete. Or stop after 6 turns if section-numbering verification needs the source standard.
 ```
-- **Verify:** `grep -r 'S520:2015' lib/` → 0; spot-check 5 refs vs S520:2024
+- **Verify:** `grep -r 'S520:2024' lib/` → 0; spot-check 5 refs vs S520:2024
 - **Source:** Linear RA-6684 · **Status:** VERIFIED (Backlog). 50+ stale refs. WARNING: section numbering changed between editions — do not blind-replace.
 
 ### 17. Add unit tests for the report-generation pipeline `[Testing]`

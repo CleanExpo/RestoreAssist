@@ -1691,7 +1691,7 @@ From `/dashboard/inspections`, click **+ New inspection**.
 
 ## 2. Pick the claim type
 
-The picker shows four options: WATER (S500:2025), MOULD (S520:2024), TRAUMA (S540:2023), FIRE (S700:2025). The standard you pick determines which fields RestoreAssist gates as required before sign-off.
+The picker shows four options: WATER (S500:2021), MOULD (S520:2024), TRAUMA (S540:2023), FIRE (S700:2025). The standard you pick determines which fields RestoreAssist gates as required before sign-off.
 
 ## 3. Capture photos with chain-of-custody
 
@@ -1728,7 +1728,7 @@ updatedAt: "2026-05-15"
 status: "published"
 heroImage: "ra-help/inspections/cocoa-hero"
 relatedSlugs: ["first-inspection"]
-aiSummary: "Explains how the camera FAB on the inspection-detail page captures photos with SHA-256 hash + UTC timestamp + GPS + user id, satisfying IICRC S500:2025 §7.1 chain-of-custody requirements."
+aiSummary: "Explains how the camera FAB on the inspection-detail page captures photos with SHA-256 hash + UTC timestamp + GPS + user id, satisfying IICRC S500:2021 §7.1 chain-of-custody requirements."
 userIntents:
   - "how do I take a photo"
   - "what's chain-of-custody"
@@ -1740,7 +1740,7 @@ successCriteria:
   - "UTC timestamp captured"
 ---
 
-Every photo you take through RestoreAssist carries a cryptographic chain-of-custody record. This is what insurers and tribunals look for under IICRC `S500:2025 §7.1`.
+Every photo you take through RestoreAssist carries a cryptographic chain-of-custody record. This is what insurers and tribunals look for under IICRC `S500:2021 §7.1`.
 
 ## What gets captured
 

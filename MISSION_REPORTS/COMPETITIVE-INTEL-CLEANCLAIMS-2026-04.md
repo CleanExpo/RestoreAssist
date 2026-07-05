@@ -57,7 +57,7 @@ Clean Claims is an **all-in-one field documentation, remote monitoring, and mois
 - ESX file export to Xactimate (Instant ESX — March 2026, included in Plus)
 - 360-degree imaging (Advanced tier)
 
-**Compliance reference:** IICRC S500 cited (US edition — NOT AS-IICRC S500:2025 Australian edition)
+**Compliance reference:** IICRC S500 cited (US edition — NOT AS-IICRC S500:2021 Australian edition)
 
 ---
 
@@ -140,7 +140,7 @@ Clean Claims is an **all-in-one field documentation, remote monitoring, and mois
 - No Australian office, phone number, or support hours
 - No AUD pricing — Australian users pay USD
 - No Australian insurance carrier integrations
-- No AS-IICRC S500:2025 (Australian standard) alignment
+- No AS-IICRC S500:2021 (Australian standard) alignment
 - No ABN, no GST treatment
 
 ### Australian traction signals:
@@ -190,7 +190,7 @@ This is the central tension in the US market: **Clean Claims = compliance-first,
 ## 9. Weaknesses and Gaps
 
 1. **Rigid linear workflow** — Encircle's marketing explicitly calls this out as the product's core weakness. Placeholder data enters the system when techs are forced to advance through blocked steps.
-2. **No Australian localisation** — No AUD, no AS-IICRC S500:2025, no ABN/GST, no local phone support. Single training-school referral channel only.
+2. **No Australian localisation** — No AUD, no AS-IICRC S500:2021, no ABN/GST, no local phone support. Single training-school referral channel only.
 3. **No accounting integrations** — No Xero, MYOB, or QuickBooks. Xero is ~60–65% AU SMB share. This is a blocking issue.
 4. **No Australian field service integrations** — Ascora and ServiceM8 are the dominant AU trade platforms. Zero integration.
 5. **Thin mobile footprint** — 2 iOS ratings, 10+ Android downloads. Android launched September 2025. Neither is battle-tested.
@@ -212,7 +212,7 @@ This is the central tension in the US market: **Clean Claims = compliance-first,
 | Remote IoT sensor monitoring                    | ✅ (proprietary hardware) | Hardware-agnostic               |
 | Moisture mapping / floor plan sketch            | ✅ (Plus+)                | ✅                              |
 | ESX/Xactimate export                            | ✅ (March 2026)           | Scoped                          |
-| IICRC S500 compliance                           | US standard citation      | AS-IICRC S500:2025 (Australian) |
+| IICRC S500 compliance                           | US standard citation      | AS-IICRC S500:2021 (Australian) |
 | Australian insurance carrier integration        | ❌                        | Roadmap                         |
 | Xero/MYOB integration                           | ❌                        | ✅                              |
 | Ascora/ServiceM8 integration                    | ❌                        | Scoped                          |
@@ -244,7 +244,7 @@ This is the central tension in the US market: **Clean Claims = compliance-first,
 
 ### Where RestoreAssist has structural advantages Clean Claims cannot quickly close
 
-1. **AS-IICRC S500:2025 specificity** — The April 2025 Australian standard. Clean Claims cites the US source document. Australian compliance documentation citing "AS-IICRC S500:2025 §X.X" vs "IICRC S500" is a material difference adjusters will notice.
+1. **AS-IICRC S500:2021 specificity** — The April 2025 Australian standard. Clean Claims cites the US source document. Australian compliance documentation citing "AS-IICRC S500:2021 §X.X" vs "IICRC S500" is a material difference adjusters will notice.
 2. **Xero/MYOB integration** — Binary differentiator. Every Australian operator using Xero (majority) cannot close their workflow loop with Clean Claims.
 3. **No local support infrastructure** — US timezone, USD billing, Utah hardware. Real friction for AU operators.
 4. **Rigid workflow is a known vulnerability** — Encircle already markets against this. RestoreAssist should too.
@@ -256,10 +256,10 @@ This is the central tension in the US market: **Clean Claims = compliance-first,
 | Action                                                                                                                                                                                                      | Priority    |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | **Message against rigid workflows** — "compliance without coercion" — explicitly in sales/marketing                                                                                                         | High        |
-| **Own AS-IICRC S500:2025** — produce content marketing around the April 2025 Australian standard. Clean Claims cannot legitimately claim AU standard compliance without this citation.                      | High        |
+| **Own AS-IICRC S500:2021** — produce content marketing around the April 2025 Australian standard. Clean Claims cannot legitimately claim AU standard compliance without this citation.                      | High        |
 | **Target ACRA/Restore Solutions attendees** — Clean Claims' AU channel runs through these events. Presence at RIA Australia, ACRA-adjacent conferences, and Restore Solutions' network is a direct counter. | High        |
 | **Lead with Xero/MYOB in every sales conversation** — binary differentiator, cannot be replicated quickly                                                                                                   | High        |
-| **Generate AU-specific sample reports** showing AS-IICRC S500:2025 §X.X citations — make the standard difference tangible and visual                                                                        | Medium      |
+| **Generate AU-specific sample reports** showing AS-IICRC S500:2021 §X.X citations — make the standard difference tangible and visual                                                                        | Medium      |
 | **Develop relationships with Australian TPAs (IAG, Suncorp, Crawford AU)** before Helixco potentially expands AU presence                                                                                   | Medium      |
 | **Watch Helixco AU expansion** — monitor their LinkedIn/announcements for AU market entry signals                                                                                                           | Low/ongoing |
 
@@ -269,7 +269,7 @@ This is the central tension in the US market: **Clean Claims = compliance-first,
 
 Clean Claims is a legitimate, actively developing competitor with real traction in North America and a deliberate but shallow Australia strategy. Their remote monitoring hardware differentiator and flat-rate pricing are genuine strengths. March 2026 OCR + ESX launches show they are moving fast on automation. Helixco partnership is smart ecosystem building.
 
-However, their Australian presence is entirely dependent on one training-school relationship — no local support, USD billing, no accounting integrations, no AS-IICRC S500:2025 alignment, no Australian carrier relationships. Their product is documentation and monitoring only — no business management, no AI scoping, no jurisdictional compliance.
+However, their Australian presence is entirely dependent on one training-school relationship — no local support, USD billing, no accounting integrations, no AS-IICRC S500:2021 alignment, no Australian carrier relationships. Their product is documentation and monitoring only — no business management, no AI scoping, no jurisdictional compliance.
 
 **The threat is real but currently shallow in Australia. The window to establish RestoreAssist as the definitive Australian platform is open, but will not stay open indefinitely.**
 

@@ -35,7 +35,7 @@ Any dependency change:
 13. All sync is fire-and-forget — failures queue to dead-letter, never block user-facing requests.
 
 ### Compliance & UI
-14. IICRC references cite edition and section: `S500:2025 §7.1` — never abbreviate or omit version.
+14. IICRC references cite edition and section: `S500:2021 §7.1` — never abbreviate or omit version.
 15. Australian compliance: GST = 10%, ABN = 11 digits, state building codes via `lib/nir-jurisdictional-matrix.ts`.
 16. Use shadcn/ui from `components/ui/` — never create custom form controls or dialogs.
 17. Brand: navy `#1C2E47` · warm `#8A6B4E` · light `#D4A574` · dark bg `#050505`.

@@ -31,7 +31,7 @@ This catches outputs where the model produced plausible-sounding but uncertain t
 
 **Source:** `lib/harness/gate-check.ts` — `DimensionResult.reason` field
 
-Example lesson: _"compliance: IICRC reference missing edition number — use 'IICRC S500:2025 §7.1' format"_
+Example lesson: _"compliance: IICRC reference missing edition number — use 'IICRC S500:2021 §7.1' format"_
 
 ---
 

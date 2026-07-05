@@ -2371,7 +2371,7 @@ model WaterDamageClassification {
   lossSourceAddressed  Boolean @default(false)
   hoursOfExposure      Float?
 
-  // Compliance gate flags — IICRC S500:2025 §7
+  // Compliance gate flags — IICRC S500:2021 §7
   gateClassificationComplete Boolean @default(false)
   gateLossSourceComplete     Boolean @default(false)
   gatePhotosAttached         Boolean @default(false)
@@ -2918,7 +2918,7 @@ model ScopeItem {
   autoDetermined Boolean @default(false) // True if system auto-added this
   justification  String? @db.Text // Why this item is required (IICRC/building code reference)
 
-  // RA-1142: IICRC / building-code clause citation (e.g. "S500:2025 §7.1")
+  // RA-1142: IICRC / building-code clause citation (e.g. "S500:2021 §7.1")
   clauseRef String? // stops JSON-in-justification hack; unblocks RA-1131 PDF citations
 
   // Status
@@ -3278,12 +3278,12 @@ model InspectionPhoto {
   gpsLatitude  Float?
   gpsLongitude Float?
 
-  // --- RA-446: IICRC S500:2025 Label Schema Fields ---
+  // --- RA-446: IICRC S500:2021 Label Schema Fields ---
   // Spec: PROJECTS/RestoreAssist/INSPECTION-IMAGE-SCHEMA.md §6
   // Types: types/inspection-photo-labels.ts
   damageCategory            String? // Enum: CAT_1 | CAT_2 | CAT_3
   damageClass               String? // Enum: CLASS_1 | CLASS_2 | CLASS_3 | CLASS_4
-  s500SectionRef            String? // Pattern: §XX.X — IICRC S500:2025 section reference
+  s500SectionRef            String? // Pattern: §XX.X — IICRC S500:2021 section reference
   roomType                  String? // Enum: KITCHEN | BATHROOM | LAUNDRY | ...
   moistureSource            String? // Enum: FLEXI_HOSE | PIPE_BURST | ...
   affectedMaterial          String[] // Multi-select AU building materials (min 1 when labelled)
@@ -5403,7 +5403,7 @@ model UserReleaseSeen {
 // ============================================
 // Sprint G: Inspection Intelligence — Evidence Schema
 // 17 evidence classes with chain-of-custody metadata
-// IICRC S500:2025 compliant evidence tracking
+// IICRC S500:2021 compliant evidence tracking
 // ============================================
 
 // 17 evidence classes covering all restoration inspection documentation needs
@@ -6618,7 +6618,7 @@ model DryingGoalRecord {
   goalAchievedAt        DateTime?
   totalDryingDays       Int?
   finalReadingsSnapshot Json?
-  iicrcReference        String     @default("IICRC S500:2025 §11.4")
+  iicrcReference        String     @default("IICRC S500:2021 §12.5.7")
   signedOffBy           String?
   signedOffAt           DateTime?
   createdAt             DateTime   @default(now())
@@ -6791,7 +6791,7 @@ model TeacherUtterance {
   turnIndex      Int
   role           String // "user" | "assistant" | "system"
   content        String
-  clauseRefs     String[] // ["S500:2025 §10.5.4"]
+  clauseRefs     String[] // ["S500:2021 §10.4.1"]
   confidence     Float? // 0..1
   userOverride   Boolean            @default(false)
   overrideReason String?

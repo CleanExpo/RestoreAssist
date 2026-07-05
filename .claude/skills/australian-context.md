@@ -1,6 +1,6 @@
 ---
 name: australian-context
-description: Auto-loaded Australian compliance context for RestoreAssist — Privacy Act, IICRC AS S500:2025, GST, ABN, state building codes
+description: Auto-loaded Australian compliance context for RestoreAssist — Privacy Act, IICRC AS S500:2021, GST, ABN, state building codes
 type: context
 auto_load: true
 ---
@@ -20,9 +20,9 @@ This skill is auto-loaded on every session. It ensures all work on RestoreAssist
 
 ## IICRC Standards — Australian Edition
 
-- Current standard: **AS-IICRC S500:2025** (published February 2025 — Australian national standard)
-- Always cite with edition and section: `"IICRC S500:2025 §7.1"` — never omit the version
-- The US S500 and AS-IICRC S500:2025 differ — always use the Australian edition for AU claims
+- Current standard: **AS-IICRC S500:2021** (published February 2025 — Australian national standard)
+- Always cite with edition and section: `"IICRC S500:2021 §7.1"` — never omit the version
+- The US S500 and AS-IICRC S500:2021 differ — always use the Australian edition for AU claims
 - Related standards: AS-IICRC S520 (mould), AS-IICRC S700 (fire)
 
 ## APRA CPS 234 (Insurance Industry)
@@ -56,6 +56,6 @@ Building codes vary by jurisdiction — always use `lib/nir-jurisdictional-matri
 
 ## Key Competitors & Data Sovereignty
 
-- **Encircle** — Canadian HQ, but hosts AU data in Australia. Non-compliant with AS S500:2025 (uses US standard).
+- **Encircle** — Canadian HQ, but hosts AU data in Australia. Non-compliant with AS S500:2021 (uses US standard).
 - **DASH/Cotality** — US/Singapore servers. Full APP 8 exposure for contractors using it.
 - **Xactimate** — US servers. APP 8 exposure. Pricing tool only — not a documentation platform.

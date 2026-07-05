@@ -108,7 +108,7 @@ curl -s -X POST http://localhost:3000/api/harness/gate-check \
   -d '{
     "projectKey": "report-builder",
     "taskDescription": "Generate a one-paragraph summary of a water damage inspection.",
-    "taskOutput": "The property at 42 Smith Street sustained category 2 water damage to the kitchen and hallway. Affected area is approximately 18m². Drying equipment deployed: 2× LGR dehumidifiers, 1× air mover. IICRC S500:2025 §8.3 classification confirmed."
+    "taskOutput": "The property at 42 Smith Street sustained category 2 water damage to the kitchen and hallway. Affected area is approximately 18m². Drying equipment deployed: 2× LGR dehumidifiers, 1× air mover. IICRC S500:2021 §8.3 classification confirmed."
   }' | jq '{decision: .data.decision, quality: .data.qualityScore, confidence: .data.confidence}'
 ```
 

@@ -9,7 +9,7 @@ updatedAt: "2026-05-15"
 status: "published"
 heroImage: "ra-help/reports/first-ai-report-hero"
 relatedSlugs: ["photo-cocoa", "first-inspection"]
-aiSummary: "Walks a user through generating an AI-drafted IICRC S500:2025 water-damage report — what inputs are required (photos + readings + scope), how the model-router picks the model, expected turnaround, and how to review and edit before sign-off."
+aiSummary: "Walks a user through generating an AI-drafted IICRC S500:2021 water-damage report — what inputs are required (photos + readings + scope), how the model-router picks the model, expected turnaround, and how to review and edit before sign-off."
 userIntents:
   - "how do I generate an AI report"
   - "first AI report"
@@ -56,11 +56,11 @@ A premium task router (`lib/ai/model-router.ts`) picks the model based on claim 
 The generated report follows the IICRC structure for your claim type. For water it includes:
 
 1. **Property & loss overview** — address, date of loss, cause
-2. **Category & class determination** — per `S500:2025 §10` and `§11`
+2. **Category & class determination** — per `S500:2021 §10` and `§11`
 3. **Affected materials inventory** — with photo references
 4. **Moisture mapping** — readings table + interpretation
 5. **Scope of work** — line items mapped to drying / extraction / antimicrobial steps
-6. **Standards cited** — `S500:2025` sections referenced inline
+6. **Standards cited** — `S500:2021` sections referenced inline
 
 ## Review and edit
 

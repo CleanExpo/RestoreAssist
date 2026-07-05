@@ -36,7 +36,7 @@ The wizard ends with a live capability check. AI report generation. Cloud storag
 
 Then the dashboard opens with your own branding on a draft sample report.
 
-If the next claim dispute lands on your desk at 9pm, the report is already written. IICRC S500:2025 §7.1 in the footer. Photo evidence stamped with SHA-256 and a UTC timestamp at capture.
+If the next claim dispute lands on your desk at 9pm, the report is already written. IICRC S500:2021 §7.1 in the footer. Photo evidence stamped with SHA-256 and a UTC timestamp at capture.
 
 It is live today. Try it. Tell me what is still wrong.
 
@@ -58,7 +58,7 @@ Before the operator can hit Activate, a live capability check runs against every
 
 The dashboard then opens with the operator's own branding on a draft sample report.
 
-Every report cites IICRC S500:2025 §7.1 by edition and section. GST is calculated at 10%. ABN is validated at 11 digits. State building codes route through the correct jurisdictional authority — not a US zip-code regex.
+Every report cites IICRC S500:2021 §7.1 by edition and section. GST is calculated at 10%. ABN is validated at 11 digits. State building codes route through the correct jurisdictional authority — not a US zip-code regex.
 
 Photo evidence carries a SHA-256 hash and UTC timestamp at capture. A C2PA-style manifest with GPS, device, and user hash is the next milestone on the public roadmap.
 
@@ -156,7 +156,7 @@ RestoreAssist treats the first ninety seconds as the proof point. You type your 
 
 Before you activate, a live check runs against every advertised feature. AI report generation. Cloud storage. Accounting sync. Anything red, you cannot activate until you see what to fix.
 
-Every report cites IICRC S500:2025 §7.1 by edition and section. GST at 10%. ABN at 11 digits. State building codes route through the correct jurisdictional authority. Photo evidence carries a SHA-256 hash and UTC timestamp at capture.
+Every report cites IICRC S500:2021 §7.1 by edition and section. GST at 10%. ABN at 11 digits. State building codes route through the correct jurisdictional authority. Photo evidence carries a SHA-256 hash and UTC timestamp at capture.
 
 It is live now at https://restoreassist.app/setup. Built by a fellow operator. Honest feedback welcome.
 
@@ -172,7 +172,7 @@ Per T-6 in the runbook, four long-tail walk-throughs ship across the first 30 da
 
 ### Thumbnail 1 — Writing an IICRC S500-compliant water damage report
 
-Split-frame composition. Left half: an iPad held in landscape, showing a completed report with the IICRC S500:2025 §7.1 citation visible in the footer, photo evidence rendered in a 2 × 2 grid above the citation. Right half: a clipboard with a handwritten report scratched out in red marker. The overlay headline reads "STOP HANDWRITING S500 REPORTS" in white Inter ExtraBold on a candy-orange diagonal banner across the top third. A small lime accent badge bottom-right reads "IICRC S500:2025 §7.1". Phill's face is not in this thumbnail — the iPad is the protagonist. Avoid the over-used pointing-and-shocked-face pattern.
+Split-frame composition. Left half: an iPad held in landscape, showing a completed report with the IICRC S500:2021 §7.1 citation visible in the footer, photo evidence rendered in a 2 × 2 grid above the citation. Right half: a clipboard with a handwritten report scratched out in red marker. The overlay headline reads "STOP HANDWRITING S500 REPORTS" in white Inter ExtraBold on a candy-orange diagonal banner across the top third. A small lime accent badge bottom-right reads "IICRC S500:2021 §7.1". Phill's face is not in this thumbnail — the iPad is the protagonist. Avoid the over-used pointing-and-shocked-face pattern.
 
 ### Thumbnail 2 — Pushing a restoration job into Xero without re-keying
 

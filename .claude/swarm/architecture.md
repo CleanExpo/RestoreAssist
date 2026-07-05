@@ -96,7 +96,7 @@ Every specialist carries a named skill set. When a PM spawns a specialist it pas
 
 ### Domain specialists (from the board papers, reusable)
 
-1. **ops-director** — IICRC S500:2025 progression, scope authoring, psychrometrics, moisture discipline, WHS hazard register, labour-hire coordination, field ergonomics, jurisdictional codes
+1. **ops-director** — IICRC S500:2021 progression, scope authoring, psychrometrics, moisture discipline, WHS hazard register, labour-hire coordination, field ergonomics, jurisdictional codes
 2. **claims-carrier** — Carrier submission formats, scope approval thresholds, CAT codes, evidence classes, three-quote rules, make-safe authority, variation lifecycle, panel relationships
 3. **legal-litigation** — Chain-of-custody, ACL s18/54–62, Privacy Act APPs 1/3/6/11/12/13, contract formation, subrogation, limitation periods, expert-witness standards, privilege
 4. **accounting-ato** — GST per phase, tax invoices s.29-70, RCTIs, AASB 15 WIP, Fair Work sham-contracting, SG 12%, portable LSL, STP Phase 2, BAS

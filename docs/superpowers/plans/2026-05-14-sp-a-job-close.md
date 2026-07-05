@@ -123,7 +123,7 @@
 **Files:** `lib/ai/lifecycle/on-close.ts`, `lib/ai/lifecycle/__tests__/on-close.test.ts`.
 
 - [ ] **Step 1 (Red):** Tests cover the 4 paths: happy AI draft, CANCELED subscription returns 402-coded result, zero credits returns fallback template, BYOK provider configured routes through user key. Assert AuditLog action `AI_GENERATED_CLOSE_SUMMARY` written in all three success paths. Run: red.
-- [ ] **Step 2 (Green):** Implement `buildCloseSummary({ inspectionId, invoiceId, userId, orgId })`. Pulls inspection + invoice + report + organization (single Prisma query with `include`, bounded; rule 4). Builds prompt: "You are RestoreAssist's close-summary assistant. Draft a client-facing summary (max 200 words) of inspection {{number}} at {{address}}, completed {{signedAt}}. Cite IICRC S500:2025 §{{section}} where relevant. Include scope completed + total billed (GST 10%) + warranty period." Routes via `runLifecycleHook` with `feature: "close-summary"` and `fallback` returning a deterministic template.
+- [ ] **Step 2 (Green):** Implement `buildCloseSummary({ inspectionId, invoiceId, userId, orgId })`. Pulls inspection + invoice + report + organization (single Prisma query with `include`, bounded; rule 4). Builds prompt: "You are RestoreAssist's close-summary assistant. Draft a client-facing summary (max 200 words) of inspection {{number}} at {{address}}, completed {{signedAt}}. Cite IICRC S500:2021 §{{section}} where relevant. Include scope completed + total billed (GST 10%) + warranty period." Routes via `runLifecycleHook` with `feature: "close-summary"` and `fallback` returning a deterministic template.
 - [ ] **Step 3 (Refactor):** Add IICRC citation guard: scan returned draft for `S500:` token; if missing AND classification claims water damage, append a stock citation line (rule 14). Editability invariant per §5.3 — never auto-commit; this hook only produces a draft.
 - [ ] **Step 4 (Commit):** `feat(SP-A): on-close AI lifecycle hook`.
 
@@ -241,7 +241,7 @@ Per §8.2, the close prompt is "Sidekick-styled" — pulled, not pushed:
 
 - **Subscription gate:** allowlist `["TRIAL","ACTIVE","LIFETIME"]`; 402 with friendly renew CTA on `CANCELED`/`PAST_DUE` (rule 8).
 - **Atomic credit deduction:** via existing `updateMany({ where: { creditsRemaining: { gte: 1 } } })` helper; on zero, fallback template renders (NOT an error — §13.5).
-- **IICRC citations:** S500:2025 §X.Y inline; citation guard ensures format compliance (rule 14).
+- **IICRC citations:** S500:2021 §X.Y inline; citation guard ensures format compliance (rule 14).
 - **BYOK fallback:** if `Organization.byokAiProvider` set, route via user's own key, skip platform credit deduction.
 - **AuditLog row:** `AI_GENERATED_CLOSE_SUMMARY` written regardless of source (AI / BYOK / fallback template) so admins can later compare what the AI proposed vs what was sent (§5.4).
 - **Storage of AI artefacts (§5.4):** when SP-E export runs, it includes the AI draft JSON alongside the final close-summary the user sent. SP-A's responsibility ends at writing the draft + final to the DB; SP-E's `exportClosedJobToBYOKStorage` reads both and bundles them into `/jobs/{id}/drafts/close-summary-ai.json` + `/jobs/{id}/final/close-summary.txt`.

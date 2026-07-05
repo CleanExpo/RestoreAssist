@@ -24,7 +24,7 @@
 
 ### Australian Compliance
 
-- IICRC references must cite edition and section (e.g. "IICRC S500:2025 §7.1")
+- IICRC references must cite edition and section (e.g. "IICRC S500:2021 §7.1")
 - GST is always 10%, ABN format is 11 digits
 - Use lib/nir-jurisdictional-matrix.ts for state building code variations
 
