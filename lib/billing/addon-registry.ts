@@ -26,6 +26,10 @@ import {
   FLOORPLAN_UNDERLAY_ADDON,
   FLOORPLAN_ADDON_SUBSCRIPTION_TYPE,
 } from "./floorplan-underlay-addon";
+import {
+  BOOKKEEPING_ADDON,
+  BOOKKEEPING_ADDON_SUBSCRIPTION_TYPE,
+} from "./bookkeeping-addon";
 
 /**
  * The data-driven descriptor for one recurring add-on. Everything the checkout
@@ -70,6 +74,15 @@ export const RECURRING_ADDONS: Readonly<
     currency: FLOORPLAN_UNDERLAY_ADDON.currency,
     interval: FLOORPLAN_UNDERLAY_ADDON.interval,
     subscriptionType: FLOORPLAN_ADDON_SUBSCRIPTION_TYPE,
+  },
+  [BOOKKEEPING_ADDON.sku]: {
+    sku: BOOKKEEPING_ADDON.sku,
+    name: BOOKKEEPING_ADDON.name,
+    description: BOOKKEEPING_ADDON.description,
+    amount: BOOKKEEPING_ADDON.amount,
+    currency: BOOKKEEPING_ADDON.currency,
+    interval: BOOKKEEPING_ADDON.interval,
+    subscriptionType: BOOKKEEPING_ADDON_SUBSCRIPTION_TYPE,
   },
 };
 

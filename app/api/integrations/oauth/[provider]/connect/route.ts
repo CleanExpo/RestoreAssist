@@ -24,6 +24,11 @@ import {
 import { isIntegrationDevMode } from "@/lib/integrations/dev-mode";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { requireAddon } from "@/lib/entitlements";
+import {
+  BOOKKEEPING_SKU,
+  isBookkeepingProvider,
+} from "@/lib/billing/bookkeeping-addon";
 
 export async function POST(
   request: NextRequest,
@@ -64,6 +69,15 @@ export async function POST(
       }
 
       const config = PROVIDER_CONFIG[provider];
+
+      // RA-6920 B3 — connecting Xero/QuickBooks/MYOB requires the BOOKKEEPING
+      // add-on. Existing connections are grandfathered (see
+      // scripts/grandfather-bookkeeping-addon.ts) so this only blocks NEW
+      // connections for workspaces that never had one.
+      if (isBookkeepingProvider(provider)) {
+        const addonGate = await requireAddon(userId, BOOKKEEPING_SKU);
+        if (!addonGate.allowed) return addonGate.response;
+      }
 
       // Check if integration already exists for this user/provider
       let integration = await prisma.integration.findFirst({
