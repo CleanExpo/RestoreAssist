@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  renderCodeOfPracticeUpdateEmail,
+  renderDailyDigestEmail,
   renderDryingUpdateEmail,
   renderStepTransitionEmail,
 } from "../templates";
@@ -108,5 +110,56 @@ describe("renderDryingUpdateEmail", () => {
     expect(email.text).not.toMatch(/%/);
     expect(serialized.toLowerCase()).not.toContain("moisture");
     expect(serialized.toLowerCase()).not.toContain("mc%");
+  });
+});
+
+describe("renderDailyDigestEmail", () => {
+  it("renders the X-of-Y at-goal count and the portal deep link", () => {
+    const email = renderDailyDigestEmail(
+      { areasAtGoal: 1, totalAreas: 2, nextVisitLabel: null },
+      PORTAL_URL,
+    );
+
+    expect(email.templateKey).toBe("pulse-daily-digest");
+    expect(email.subject).toContain("1 of 2 areas at drying goal");
+    expect(email.html).toContain("1 of 2");
+    expect(email.html).toContain(PORTAL_URL);
+    expect(email.text).toContain("1 of 2");
+    // No next-visit line when unknown.
+    expect(email.html).not.toContain("Next visit");
+    expect(email.text).not.toContain("Next visit");
+  });
+
+  it("includes the next-visit line when known", () => {
+    const email = renderDailyDigestEmail(
+      {
+        areasAtGoal: 2,
+        totalAreas: 2,
+        nextVisitLabel: "Thursday, 10 July 2026",
+      },
+      PORTAL_URL,
+    );
+
+    expect(email.html).toContain("Next visit");
+    expect(email.html).toContain("Thursday, 10 July 2026");
+    expect(email.text).toContain("Next visit: Thursday, 10 July 2026");
+  });
+});
+
+describe("renderCodeOfPracticeUpdateEmail", () => {
+  it("renders the curated stage/progress as a scheduled update", () => {
+    const feed = buildClientStatusFeed({
+      status: "SCOPED",
+      workflow: null,
+      reportStatus: null,
+      pendingApprovals: [],
+    });
+    const email = renderCodeOfPracticeUpdateEmail(feed, PORTAL_URL);
+
+    expect(email.templateKey).toBe("pulse-cop-update");
+    expect(email.html).toContain("Scope prepared");
+    expect(email.html).toContain("75%");
+    expect(email.html).toContain(PORTAL_URL);
+    expect(email.text).toContain("Scope prepared");
   });
 });

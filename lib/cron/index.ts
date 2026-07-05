@@ -16,3 +16,4 @@ export { refreshGoogleTokens } from "./google-token-refresh";
 export { runDrNrpgLiveness } from "./dr-nrpg-liveness";
 export { pruneWebhookEvents } from "./prune-webhook-events";
 export { provisionPendingTenantDbs } from "./provision-tenant-db";
+export { runPulseDigest } from "./pulse-digest";

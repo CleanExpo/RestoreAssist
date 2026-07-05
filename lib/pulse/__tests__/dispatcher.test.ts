@@ -57,6 +57,23 @@ const DRYING_EVENT: PulseEvent = {
   ] satisfies AreaDryingState[],
 };
 
+const DIGEST_EVENT: PulseEvent = {
+  type: "DAILY_DIGEST",
+  digest: { areasAtGoal: 1, totalAreas: 2, nextVisitLabel: null },
+  date: "2026-07-05",
+};
+
+const COP_EVENT: PulseEvent = {
+  type: "COP_UPDATE",
+  feed: buildClientStatusFeed({
+    status: "SCOPED",
+    workflow: null,
+    reportStatus: null,
+    pendingApprovals: [],
+  }),
+  date: "2026-07-05",
+};
+
 interface ClientOverrides {
   email?: string;
   pulseOptOut?: boolean;
@@ -147,6 +164,80 @@ describe("dispatchPulseNotification — sends", () => {
 
     expect(result.status).toBe("SENT");
     expect(sentCreateCall().templateKey).toBe("pulse-drying-update");
+  });
+
+  it("sends the daily-digest template for a DAILY_DIGEST event", async () => {
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: DIGEST_EVENT,
+    });
+
+    expect(result.status).toBe("SENT");
+    expect(sentCreateCall().templateKey).toBe("pulse-daily-digest");
+    expect(sentCreateCall().eventType).toBe("DAILY_DIGEST");
+  });
+
+  it("sends the CoP-update template for a COP_UPDATE event", async () => {
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: COP_EVENT,
+    });
+
+    expect(result.status).toBe("SENT");
+    expect(sentCreateCall().templateKey).toBe("pulse-cop-update");
+    expect(sentCreateCall().eventType).toBe("COP_UPDATE");
+  });
+});
+
+describe("dispatchPulseNotification — daily digest once-per-day idempotency", () => {
+  it("suppresses a second digest dispatch for the same job on the same date", async () => {
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+
+    const first = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: DIGEST_EVENT,
+    });
+    const second = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: DIGEST_EVENT,
+    });
+
+    expect(first.status).toBe("SENT");
+    expect(second).toMatchObject({ status: "SUPPRESSED", reason: "DUPLICATE" });
+    expect(sendPulseUpdateEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends a new digest for the same job on a different date", async () => {
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+
+    const day1 = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: DIGEST_EVENT,
+    });
+    const day2 = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: { ...DIGEST_EVENT, date: "2026-07-06" },
+    });
+
+    expect(day1.status).toBe("SENT");
+    expect(day2.status).toBe("SENT");
+    expect(sendPulseUpdateEmail).toHaveBeenCalledTimes(2);
+  });
+
+  it("still suppresses a digest with TOGGLE_OFF when the per-job toggle is off", async () => {
+    inspectionFindUnique.mockResolvedValue(jobFixture({ pulseEnabled: false }));
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: DIGEST_EVENT,
+    });
+
+    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "TOGGLE_OFF" });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
   });
 });
 

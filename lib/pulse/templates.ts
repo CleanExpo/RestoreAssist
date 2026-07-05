@@ -13,8 +13,13 @@
 import { escapeHtml } from "@/lib/email";
 import type { ClientFeed } from "@/lib/portal/client-status-feed";
 import type { AreaDryingState } from "@/lib/portal/drying-timeline";
+import type { DailyDigestData } from "./digest";
 
-export type PulseTemplateKey = "pulse-step-transition" | "pulse-drying-update";
+export type PulseTemplateKey =
+  | "pulse-step-transition"
+  | "pulse-drying-update"
+  | "pulse-daily-digest"
+  | "pulse-cop-update";
 
 export interface RenderedPulseEmail {
   templateKey: PulseTemplateKey;
@@ -139,4 +144,73 @@ View live progress: ${portalUrl}
 This is an automated update from ${BRAND_NAME}. Please do not reply to this email.`;
 
   return { templateKey: "pulse-drying-update", subject, html: shell("Drying progress update", bodyHtml, portalUrl), text };
+}
+
+/**
+ * Daily digest (RA-6951). Curated "X of Y areas at drying goal" count only —
+ * `DailyDigestData` carries no raw reading, MC% or threshold. Next-visit line
+ * is included only when a future scheduling feature populates it.
+ */
+export function renderDailyDigestEmail(
+  digest: DailyDigestData,
+  portalUrl: string,
+): RenderedPulseEmail {
+  const subject = `Drying update — ${digest.areasAtGoal} of ${digest.totalAreas} areas at drying goal`;
+
+  const nextVisitHtml = digest.nextVisitLabel
+    ? `<p style="margin: 16px 0 0;"><strong>Next visit:</strong> ${escapeHtml(digest.nextVisitLabel)}</p>`
+    : "";
+  const nextVisitText = digest.nextVisitLabel
+    ? `\nNext visit: ${digest.nextVisitLabel}`
+    : "";
+
+  const bodyHtml = `
+    <p style="margin: 0 0 16px;">Hello,</p>
+    <p style="margin: 0 0 16px;">Here is today's drying update for your property: <strong>${digest.areasAtGoal} of ${digest.totalAreas}</strong> areas are at drying goal.</p>
+    ${nextVisitHtml}`;
+
+  const text = `${BRAND_NAME} — ${subject}
+
+Hello,
+
+Here is today's drying update for your property: ${digest.areasAtGoal} of ${digest.totalAreas} areas are at drying goal.
+${nextVisitText}
+
+View live progress: ${portalUrl}
+
+This is an automated update from ${BRAND_NAME}. Please do not reply to this email.`;
+
+  return { templateKey: "pulse-daily-digest", subject, html: shell("Your daily drying update", bodyHtml, portalUrl), text };
+}
+
+/**
+ * Automatic Code of Practice update (RA-6951) — fires when 20 business days
+ * have elapsed without any client-visible update (General Insurance Code of
+ * Practice cadence). Reuses the same curated `ClientFeed` step-transition
+ * projection as renderStepTransitionEmail, framed as a scheduled check-in
+ * rather than a state change.
+ */
+export function renderCodeOfPracticeUpdateEmail(
+  feed: ClientFeed,
+  portalUrl: string,
+): RenderedPulseEmail {
+  const stage = feed.currentStep;
+  const pct = feed.progressPct;
+  const subject = "Your scheduled claim update";
+
+  const bodyHtml = `
+    <p style="margin: 0 0 16px;">Hello,</p>
+    <p style="margin: 0 0 16px;">It has been a little while since your last update, so here is where things stand. Your claim is at the <strong>${escapeHtml(stage)}</strong> stage — <strong>${pct}%</strong> of the way through.</p>`;
+
+  const text = `${BRAND_NAME} — ${subject}
+
+Hello,
+
+It has been a little while since your last update, so here is where things stand. Your claim is at the "${stage}" stage — ${pct}% of the way through.
+
+View live progress: ${portalUrl}
+
+This is an automated update from ${BRAND_NAME}. Please do not reply to this email.`;
+
+  return { templateKey: "pulse-cop-update", subject, html: shell("Scheduled claim update", bodyHtml, portalUrl), text };
 }
