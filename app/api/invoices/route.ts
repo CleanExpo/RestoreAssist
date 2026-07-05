@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
 
 export async function GET(request: NextRequest) {
   try {
@@ -206,6 +207,43 @@ export async function POST(request: NextRequest) {
       let subtotalExGST = 0;
       let gstAmount = 0;
 
+      // Validate numeric line-item fields BEFORE computing totals. A
+      // non-numeric / missing value (e.g. quantity: "abc") would otherwise
+      // produce NaN via parseFloat/parseInt and silently corrupt subtotal,
+      // gstAmount, totalIncGST and amountDue when persisted. Mirrors the
+      // Number.isFinite guard already used in the PUT route.
+      for (let index = 0; index < lineItems.length; index++) {
+        const item = lineItems[index];
+        const quantity = parseFloat(item.quantity);
+        const unitPrice = parseInt(item.unitPrice);
+        const gstRate = item.gstRate ?? 10.0;
+
+        if (!Number.isFinite(quantity) || quantity < 0) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: `Line item ${index + 1} has an invalid quantity — must be a non-negative number`,
+            status: 400,
+            fields: { [`lineItems.${index}.quantity`]: "Must be a non-negative number" },
+          });
+        }
+        if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: `Line item ${index + 1} has an invalid unit price — must be a non-negative number`,
+            status: 400,
+            fields: { [`lineItems.${index}.unitPrice`]: "Must be a non-negative number" },
+          });
+        }
+        if (!Number.isFinite(Number(gstRate)) || Number(gstRate) < 0) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: `Line item ${index + 1} has an invalid GST rate — must be a non-negative number`,
+            status: 400,
+            fields: { [`lineItems.${index}.gstRate`]: "Must be a non-negative number" },
+          });
+        }
+      }
+
       const processedLineItems = lineItems.map((item: any, index: number) => {
         const quantity = parseFloat(item.quantity);
         const unitPrice = Math.round(parseFloat(item.unitPrice));
@@ -230,6 +268,16 @@ export async function POST(request: NextRequest) {
           estimateLineItemId: item.estimateLineItemId,
         };
       });
+
+      // Validate adjustment fields before they touch the computed totals.
+      // Unbounded / non-finite discounts or shipping would corrupt the
+      // persisted subtotal, GST and total just like a bad line item.
+      const adjustmentError = validateAdjustments(
+        request,
+        { discountAmount, discountPercentage, shippingAmount },
+        subtotalExGST,
+      );
+      if (adjustmentError) return adjustmentError;
 
       // Apply discounts. Scale the already per-item-weighted GST total
       // proportionally to the discounted base instead of recomputing it at a

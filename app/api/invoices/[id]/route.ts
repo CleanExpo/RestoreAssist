@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { isDraft, isCancelled } from "@/lib/invoice-status";
 import { recordMutationAudit } from "@/lib/audit-log";
 import { apiError, fromException } from "@/lib/api-errors";
+import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
 
 export async function GET(
   request: NextRequest,
@@ -338,6 +339,16 @@ export async function PUT(
           estimateLineItemId: item.estimateLineItemId,
         };
       });
+
+      // Validate adjustment fields before they touch the computed totals.
+      // Unbounded / non-finite discounts or shipping would corrupt the
+      // persisted subtotal, GST and total just like a bad line item.
+      const adjustmentError = validateAdjustments(
+        request,
+        { discountAmount, discountPercentage, shippingAmount },
+        subtotalExGST,
+      );
+      if (adjustmentError) return adjustmentError;
 
       // Apply discounts. Scale the accumulated per-item GST by the post-discount
       // ratio instead of recomputing at a flat 10% — a mixed-GST-rate invoice
