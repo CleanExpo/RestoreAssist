@@ -41,6 +41,7 @@ beforeEach(() => {
     userId: "u_1",
     status: "DRAFT",
     invoiceNumber: "INV-0001",
+    subtotalExGST: 20000,
   });
 });
 
@@ -163,5 +164,38 @@ describe("PUT /api/invoices/[id] line-item numeric validation", () => {
     expect(data.gstAmount).toBe(110);
     expect(data.totalIncGST).toBe(1210);
     expect(data.amountDue).toBe(1210);
+  });
+});
+
+describe("PUT /api/invoices/[id] adjustment-only validation (no lineItems)", () => {
+  it("rejects an oversized discountAmount with 400 and does NOT persist", async () => {
+    const res = await PUT(putReq({
+      // existing invoice subtotal (mocked) is 20000; this discount exceeds it.
+      discountAmount: 999999,
+    }), { params });
+
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error.code).toBe("VALIDATION");
+    // Invoice never written — no corrupt discount reaches the ledger export.
+    expect(p.$transaction).not.toHaveBeenCalled();
+    expect(txInvoiceUpdate).not.toHaveBeenCalled();
+  });
+
+  it("accepts a valid adjustment-only PUT and persists it", async () => {
+    let captured: any;
+    txInvoiceUpdate.mockImplementation(async (arg: any) => {
+      captured = arg;
+      return { id: "inv_1", ...arg.data, lineItems: [] };
+    });
+
+    const res = await PUT(putReq({
+      discountAmount: 500,
+    }), { params });
+
+    expect(res.status).toBe(200);
+    expect(p.$transaction).toHaveBeenCalledOnce();
+    expect(txInvoiceUpdate).toHaveBeenCalledOnce();
+    expect(captured.data.discountAmount).toBe(500);
   });
 });

@@ -447,7 +447,19 @@ export async function PUT(
       });
       return NextResponse.json({ invoice });
     } else {
-      // Update invoice without line items
+      // Update invoice without line items. lineItems (and therefore
+      // subtotalExGST) aren't being recomputed here, but discountAmount /
+      // discountPercentage / shippingAmount still flow straight into
+      // updateData and out to the Xero/QuickBooks/MYOB ledger exports, so
+      // they need the same validation as the line-item path above — bounded
+      // against the invoice's current persisted subtotal.
+      const adjustmentError = validateAdjustments(
+        request,
+        { discountAmount, discountPercentage, shippingAmount },
+        existing.subtotalExGST,
+      );
+      if (adjustmentError) return adjustmentError;
+
       const invoice = await prisma.$transaction(async (tx) => {
         const updated = await tx.invoice.update({
           where: { id, userId: session.user.id },
