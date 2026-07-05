@@ -7,7 +7,12 @@ import Footer from "@/components/landing/Footer";
 
 export default function ContactPage() {
   const [darkMode, setDarkMode] = useState(true);
-  const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    message: "",
+    website: "",
+  });
   const [status, setStatus] = useState<
     "idle" | "submitting" | "success" | "error"
   >("idle");
@@ -34,6 +39,7 @@ export default function ContactPage() {
           subject: "Website contact enquiry",
           body: form.message.trim(),
           category: "general",
+          website: form.website,
         }),
       });
       if (!res.ok) {
@@ -47,7 +53,7 @@ export default function ContactPage() {
         );
       }
       setStatus("success");
-      setForm({ name: "", email: "", message: "" });
+      setForm({ name: "", email: "", message: "", website: "" });
     } catch (err) {
       setStatus("error");
       setErrorMsg(
@@ -278,6 +284,30 @@ export default function ContactPage() {
                     }}
                     // @ts-expect-error WebMCP attribute — W3C draft, not yet in React types
                     toolparamdescription="Free-text description of the question, current CRM situation, or trial request (max 3000 chars). Mention business type (sole trader / multi-site firm), team size, and current systems if relevant."
+                  />
+                </div>
+                {/* Honeypot — hidden from sighted users and screen readers alike
+                    (aria-hidden + tabIndex -1 + off-screen). Bots that
+                    autofill every field trip it; real users never reach it. */}
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    left: "-9999px",
+                    width: "1px",
+                    height: "1px",
+                    overflow: "hidden",
+                  }}
+                >
+                  <label htmlFor="contact-website">Website</label>
+                  <input
+                    id="contact-website"
+                    type="text"
+                    name="website"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={form.website}
+                    onChange={handleChange}
                   />
                 </div>
                 <button

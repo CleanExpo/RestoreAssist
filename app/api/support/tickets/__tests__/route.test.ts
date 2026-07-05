@@ -11,6 +11,7 @@ const verifyAdminFromDb = vi.fn();
 const supportTicketCreate = vi.fn();
 const analyseSupportTicket = vi.fn();
 const resolveWorkspaceAiKey = vi.fn();
+const applyRateLimit = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -18,6 +19,9 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/admin-auth", () => ({
   verifyAdminFromDb: (...args: unknown[]) => verifyAdminFromDb(...args),
+}));
+vi.mock("@/lib/rate-limiter", () => ({
+  applyRateLimit: (...args: unknown[]) => applyRateLimit(...args),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -65,9 +69,11 @@ beforeEach(() => {
   supportTicketCreate.mockReset();
   analyseSupportTicket.mockReset();
   resolveWorkspaceAiKey.mockReset();
+  applyRateLimit.mockReset();
 
   // Anonymous public submitter by default.
   getServerSession.mockResolvedValue(null);
+  applyRateLimit.mockResolvedValue(null); // not limited
   supportTicketCreate.mockImplementation(
     async ({ data }: { data: Record<string, unknown> }) => ({
       id: "ticket_test_1",
@@ -177,5 +183,37 @@ describe("POST /api/support/tickets (public contact submission)", () => {
     expect(json.category).toBe("general");
     expect(json.priority).toBe("normal");
     expect(analyseSupportTicket).not.toHaveBeenCalled();
+  });
+
+  it("RA-6993: returns 429 when rate-limited and never creates a ticket", async () => {
+    applyRateLimit.mockResolvedValueOnce(
+      new Response(null, { status: 429 }) as unknown as Response,
+    );
+
+    const res = await POST(postRequest(validPayload));
+
+    expect(res.status).toBe(429);
+    expect(supportTicketCreate).not.toHaveBeenCalled();
+  });
+
+  it("RA-6993: honeypot filled — returns the same success shape but creates no ticket", async () => {
+    const res = await POST(
+      postRequest({ ...validPayload, website: "http://spam.example" }),
+    );
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.category).toBe("general");
+    expect(json.priority).toBe("normal");
+    expect(json.message).toMatch(/24 hours/i);
+    expect(supportTicketCreate).not.toHaveBeenCalled();
+    expect(analyseSupportTicket).not.toHaveBeenCalled();
+  });
+
+  it("RA-6993: honeypot empty — normal submission still creates a ticket", async () => {
+    const res = await POST(postRequest({ ...validPayload, website: "" }));
+
+    expect(res.status).toBe(201);
+    expect(supportTicketCreate).toHaveBeenCalledTimes(1);
   });
 });
