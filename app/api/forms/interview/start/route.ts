@@ -68,9 +68,14 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Get form template
-      const formTemplate = await prisma.formTemplate.findUnique({
-        where: { id: formTemplateId },
+      // Get form template — scope to the caller's own templates or shared
+      // system templates so a crafted formTemplateId cannot bind an
+      // InterviewSession to another tenant's private template (IDOR).
+      const formTemplate = await prisma.formTemplate.findFirst({
+        where: {
+          id: formTemplateId,
+          OR: [{ userId: session.user.id }, { isSystemTemplate: true }],
+        },
       });
 
       if (!formTemplate) {
