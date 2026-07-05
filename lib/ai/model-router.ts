@@ -54,7 +54,7 @@ export type AiTaskType =
   | "complex_damage_assessment" // Multi-room, multi-category damage analysis
   | "expert_analysis" // Complex reasoning about restoration strategy
   | "insurer_report" // Insurer-specific formatted reports
-  | "quality_review"; // AI review of report completeness/accuracy
+  | "weakness_detection"; // RA-5041: LLM contradiction/causation review of assembled reports (premium, BYOK)
 
 /** Tier classification for each task type */
 export type TaskTier = "basic" | "premium";
@@ -74,7 +74,7 @@ const TASK_TIER_MAP: Record<AiTaskType, TaskTier> = {
   complex_damage_assessment: "premium",
   expert_analysis: "premium",
   insurer_report: "premium",
-  quality_review: "premium",
+  weakness_detection: "premium",
 };
 
 /**
