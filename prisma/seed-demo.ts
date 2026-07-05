@@ -652,7 +652,7 @@ async function main() {
     },
   ];
 
-  await (prisma as any).equipmentDeployment.createMany({
+  await prisma.equipmentDeployment.createMany({
     data: equipmentDeployments,
   });
   console.log(
