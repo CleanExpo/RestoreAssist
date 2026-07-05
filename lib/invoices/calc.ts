@@ -50,8 +50,9 @@ export interface InvoiceCalcResult {
  *
  * Mirrors, line-for-line, the server algorithm:
  *  1. per-item: subtotal = round(qty * unitPrice); itemGst = round(subtotal * gstRate/100)
- *  2. discount (amount OR percentage): subtract from subtotal, then
- *     gstAmount = round(subtotalExGST * 0.1)  [server recomputes GST here]
+ *  2. discount (amount OR percentage): subtract from subtotal, then scale the
+ *     weighted gstAmount proportionally — gstAmount = round(gstAmount *
+ *     (discountedSubtotal / preDiscountSubtotal))  [preserves per-item rates]
  *  3. shipping: subtotalExGST += shipping; gstAmount += round(shipping * 0.1)
  *  4. totalIncGST = subtotalExGST + gstAmount
  */
@@ -83,14 +84,23 @@ export function calculateInvoiceTotals(
     gstAmount += itemGst;
   }
 
-  // Apply discounts — matches server: recomputes GST on the discounted base.
+  // Apply discounts — matches server: scale the per-item-weighted GST total
+  // proportionally to the discounted base (NOT a flat round(subtotal * 0.1),
+  // which would override mixed per-item gstRate on a discounted invoice).
+  const preDiscountSubtotal = subtotalExGST;
   if (discountAmount) {
     subtotalExGST -= discountAmount;
-    gstAmount = Math.round(subtotalExGST * 0.1);
+    gstAmount =
+      preDiscountSubtotal > 0
+        ? Math.round(gstAmount * (subtotalExGST / preDiscountSubtotal))
+        : 0;
   } else if (discountPercentage) {
     const discount = Math.round(subtotalExGST * (discountPercentage / 100));
     subtotalExGST -= discount;
-    gstAmount = Math.round(subtotalExGST * 0.1);
+    gstAmount =
+      preDiscountSubtotal > 0
+        ? Math.round(gstAmount * (subtotalExGST / preDiscountSubtotal))
+        : 0;
   }
 
   // Add shipping — server charges GST on shipping/freight.
