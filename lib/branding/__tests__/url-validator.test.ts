@@ -52,6 +52,13 @@ describe("isPublicHttpUrl", () => {
       expect(result.reason).toBe("Loopback addresses not allowed");
   });
 
+  it("rejects the whole 127.0.0.0/8 loopback block", () => {
+    const result = isPublicHttpUrl("http://127.1.2.3/");
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.reason).toBe("Loopback addresses not allowed");
+  });
+
   // ── Link-local / metadata ────────────────────────────────────────────────────
 
   it("rejects AWS metadata endpoint (169.254.169.254)", () => {
@@ -79,6 +86,35 @@ describe("isPublicHttpUrl", () => {
     const result = isPublicHttpUrl("http://172.16.0.1/");
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe("Private IP ranges not allowed");
+  });
+
+  // ── IPv6 private / link-local ────────────────────────────────────────────────
+
+  it("rejects IPv6 unique-local (fd00::/8)", () => {
+    const result = isPublicHttpUrl("http://[fd00::1]/");
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.reason).toBe(
+        "IPv6 private/link-local addresses not allowed",
+      );
+  });
+
+  it("rejects IPv6 link-local (fe80::/10)", () => {
+    const result = isPublicHttpUrl("http://[fe80::1]/");
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.reason).toBe(
+        "IPv6 private/link-local addresses not allowed",
+      );
+  });
+
+  // ── Internal hostnames ───────────────────────────────────────────────────────
+
+  it("rejects a *.internal hostname", () => {
+    const result = isPublicHttpUrl("http://vault.internal/secret");
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.reason).toBe("Internal hostnames not allowed");
   });
 
   // ── Broadcast ────────────────────────────────────────────────────────────────
