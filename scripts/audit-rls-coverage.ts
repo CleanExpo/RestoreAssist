@@ -425,6 +425,10 @@ export const PENDING_RLS = new Set<string>([
   "CancellationFeedback",
   "ClaimProgress",
   "ClaimSketch",
+  // RA-6949 (Pulse): per-job client-comms audit log (tenant data via inspection
+  // FK). Server-side Prisma access only today; RLS tenant policy to be added
+  // with the rest of this list under RA-6677.
+  "ClientCommsLog",
   "DeviceSigningKey",
   "EmailAudit",
   "EmailConnection",
