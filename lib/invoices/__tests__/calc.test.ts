@@ -32,13 +32,20 @@ function serverComputeTotals(body: {
     gstAmount += itemGst;
   });
 
+  const preDiscountSubtotal = subtotalExGST;
   if (discountAmount) {
     subtotalExGST -= discountAmount;
-    gstAmount = Math.round(subtotalExGST * 0.1);
+    gstAmount =
+      preDiscountSubtotal > 0
+        ? Math.round(gstAmount * (subtotalExGST / preDiscountSubtotal))
+        : 0;
   } else if (discountPercentage) {
     const discount = Math.round(subtotalExGST * (discountPercentage / 100));
     subtotalExGST -= discount;
-    gstAmount = Math.round(subtotalExGST * 0.1);
+    gstAmount =
+      preDiscountSubtotal > 0
+        ? Math.round(gstAmount * (subtotalExGST / preDiscountSubtotal))
+        : 0;
   }
 
   if (shippingAmount) {
@@ -64,10 +71,30 @@ describe("calculateInvoiceTotals matches the server", () => {
       },
     },
     {
-      name: "fixed discount recomputes GST on discounted base",
+      name: "fixed discount scales GST proportionally on discounted base",
       input: {
         lineItems: [{ quantity: 1, unitPrice: 20000, gstRate: 10 }],
         discountAmount: 5000,
+      },
+    },
+    {
+      name: "mixed per-item rates + fixed discount keeps rates proportional",
+      input: {
+        lineItems: [
+          { quantity: 1, unitPrice: 10000, gstRate: 0 },
+          { quantity: 1, unitPrice: 10000, gstRate: 10 },
+        ],
+        discountAmount: 5000,
+      },
+    },
+    {
+      name: "mixed per-item rates + percentage discount keeps rates proportional",
+      input: {
+        lineItems: [
+          { quantity: 1, unitPrice: 10000, gstRate: 0 },
+          { quantity: 1, unitPrice: 10000, gstRate: 15 },
+        ],
+        discountPercentage: 25,
       },
     },
     {
@@ -121,6 +148,55 @@ describe("calculateInvoiceTotals matches the server", () => {
         shippingAmount: input.shippingAmount ?? undefined,
       });
       expect(calculateInvoiceTotals(input)).toEqual(expected);
+    });
+  });
+
+  // gst-hardcoded-rate-ignores-item-rates: before this fix the discount
+  // branches recomputed GST as round(discountedSubtotal * 0.1), discarding the
+  // per-item-weighted gstAmount. Any invoice with a non-10% line (0% or 15%)
+  // got a wrong GST total the moment a discount was applied. These pin the
+  // correct proportional numbers with explicit expected values that the old
+  // flat-10% recompute would fail.
+  describe("regression: discount preserves mixed per-item GST rates", () => {
+    it("fixed-amount discount scales a mixed 0%/10% invoice proportionally", () => {
+      // preSub 20000, weighted gst 1000; discount 5000 -> newSub 15000.
+      // proportional: round(1000 * 15000/20000) = 750. Old flat: 1500.
+      const result = calculateInvoiceTotals({
+        lineItems: [
+          { quantity: 1, unitPrice: 10000, gstRate: 0 },
+          { quantity: 1, unitPrice: 10000, gstRate: 10 },
+        ],
+        discountAmount: 5000,
+      });
+      expect(result.gstAmount).toBe(750);
+      expect(result.gstAmount).not.toBe(Math.round(15000 * 0.1)); // 1500 (old bug)
+      expect(result.totalIncGST).toBe(15750);
+    });
+
+    it("percentage discount scales a mixed 0%/15% invoice proportionally", () => {
+      // preSub 20000, weighted gst 1500; 25% discount -> newSub 15000.
+      // proportional: round(1500 * 15000/20000) = 1125. Old flat: 1500.
+      const result = calculateInvoiceTotals({
+        lineItems: [
+          { quantity: 1, unitPrice: 10000, gstRate: 0 },
+          { quantity: 1, unitPrice: 10000, gstRate: 15 },
+        ],
+        discountPercentage: 25,
+      });
+      expect(result.gstAmount).toBe(1125);
+      expect(result.gstAmount).not.toBe(Math.round(15000 * 0.1)); // 1500 (old bug)
+      expect(result.totalIncGST).toBe(16125);
+    });
+
+    it("all-10% invoice is unchanged by the fix (identical to old flat 10%)", () => {
+      const result = calculateInvoiceTotals({
+        lineItems: [{ quantity: 1, unitPrice: 20000, gstRate: 10 }],
+        discountAmount: 5000,
+      });
+      // newSub 15000; both proportional and flat give 1500 here.
+      expect(result.gstAmount).toBe(1500);
+      expect(result.gstAmount).toBe(Math.round(15000 * 0.1));
+      expect(result.totalIncGST).toBe(16500);
     });
   });
 
