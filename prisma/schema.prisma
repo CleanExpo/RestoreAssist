@@ -280,6 +280,18 @@ model User {
 
   // SP-3 T2 — subscription lifecycle event history (Stripe webhook idempotency + audit)
   subscriptionEvents SubscriptionEvent[]
+
+  // RA-6996 — schema-drift reconciliation (verified against prod 2026-07-05).
+  // activeBusinessProfileId is a soft reference to BusinessProfile.id (no FK
+  // constraint on prod), so it stays a plain scalar with no @relation.
+  activeBusinessProfileId String?
+  inspectionLayout        InspectionLayout @default(ROOM_FIRST)
+  equipmentDeployments    EquipmentDeployment[]
+  mobileInspections       MobileInspection[]
+  moistureMeters          MoistureMeter[]
+  pushTokens              PushToken[]
+  clientInvites           ClientInvite[]
+
   @@index([managedById])
   @@index([organizationId])
   @@index([subscriptionTierId])
@@ -848,6 +860,13 @@ model Report {
   // Purely back-relation; no column on Report. ClaimProgress.reportId is the FK owner.
   claimProgress ClaimProgress?
 
+  // RA-6996 — schema-drift reconciliation (verified against prod 2026-07-05).
+  // businessProfileId is a soft reference to BusinessProfile.id (no FK
+  // constraint on prod), so it stays a plain scalar with no @relation.
+  businessProfileId    String?
+  equipmentDeployments EquipmentDeployment[]
+  mobileInspections    MobileInspection[]
+
   @@index([search_vector], type: Gin)
   @@index([userId, createdAt])
   @@index([userId, hazardType])
@@ -1284,6 +1303,12 @@ model XeroAccountCodeMapping {
   taxType     String  @default("OUTPUT") // Xero tax type for this category
   description String? // Optional: human-readable account name for display in UI
 
+  // RA-6996 — optional damage-type dimension for the mapping key (verified
+  // against prod 2026-07-05). NOTE: the prod-only XeroAccountCodeMapping.userId
+  // column is intentionally left undeclared pending a founder decision (drop
+  // vs adopt); see the RA-6996 PR body.
+  damageType String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1469,6 +1494,11 @@ model EstimateLineItem {
   sourceCostItemId String?
   sourceCostItem   CostItem? @relation(fields: [sourceCostItemId], references: [id], onDelete: SetNull)
 
+  // RA-6996 — Xero pass-through / tax-type drift (verified against prod 2026-07-05).
+  isPassThrough   Boolean @default(false)
+  taxType         String  @default("OUTPUT")
+  xeroAccountCode String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1598,6 +1628,10 @@ model CompanyPricingConfig {
   sundayMultiplier         Float @default(2.0)
   publicHolidayMultiplier  Float @default(2.5)
   projectManagementPercent Float @default(8.0)
+
+  // RA-6996 — electricity running-cost rate per 24h for equipment cost
+  // estimation (verified against prod 2026-07-05; default 1.50).
+  electricityRatePer24h Float? @default(1.50)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1908,6 +1942,12 @@ model Inspection {
   // Client-portal evidence submissions (quarantined until staff promote).
   clientEvidenceSubmissions ClientEvidenceSubmission[]
 
+  // RA-6996 — schema-drift reconciliation (verified against prod 2026-07-05).
+  propertyCountry   String             @default("AU")
+  rooms             Room[]
+  mobileInspections MobileInspection[]
+  clientInvites     ClientInvite[]
+
   // Inspection Metadata
   inspectionNumber String   @unique // NIR-YYYY-MM-XXXX format
   propertyAddress  String
@@ -2211,6 +2251,17 @@ model EnvironmentalData {
   // Additional Context
   weatherConditions String? @db.Text
   notes             String? @db.Text
+
+  // RA-6996 — mobile-capture + psychrometric-derivation drift (verified
+  // against prod 2026-07-05). All nullable; timestamp is timestamptz on prod.
+  mobileLocalId  String?
+  metadata       Json?     @default("{}")
+  timestamp      DateTime? @db.Timestamptz
+  location       String?
+  gpp            Float?
+  emc            Float?
+  grainsPerPound Float?
+  vaporPressure  Float?
 
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
@@ -2833,12 +2884,18 @@ model AffectedArea {
   description String? @db.Text
   photos      String? @db.Text // JSON array of photo URLs
 
+  // RA-6996 — optional link to the room this area belongs to (FK on prod:
+  // AffectedArea_roomId_fkey → Room.id ON DELETE SET NULL).
+  roomId String?
+  room   Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([inspectionId])
   @@index([category])
   @@index([class])
+  @@index([roomId])
 }
 
 // Scope Items (Structured checklist items)
@@ -2868,12 +2925,21 @@ model ScopeItem {
   isRequired Boolean @default(true)
   isSelected Boolean @default(true) // User can deselect if not needed
 
+  // RA-6996 — Xero + room-linkage drift (verified against prod 2026-07-05).
+  // roomId FK on prod: ScopeItem_roomId_fkey → Room.id ON DELETE SET NULL.
+  xeroAccountCode String?
+  rateSource      String?
+  suggestedRate   Float?
+  roomId          String?
+  room            Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([inspectionId])
   @@index([itemType])
   @@index([autoDetermined])
+  @@index([roomId])
 }
 
 // Cost Estimates (Line items with costs)
@@ -3244,6 +3310,20 @@ model InspectionPhoto {
   aiModel      String? // e.g. "claude-opus-4-7" for reproducibility
   aiRunAt      DateTime?
 
+  // RA-6996 — room linkage + mobile-capture geolocation/dimension drift
+  // (verified against prod 2026-07-05). roomId FK on prod:
+  // InspectionPhoto_roomId_fkey → Room.id ON DELETE SET NULL. latitude/
+  // longitude are the mobile-capture coordinates (distinct from the existing
+  // gpsLatitude/gpsLongitude EXIF fields).
+  roomId        String?
+  room          Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  latitude      Float?
+  longitude     Float?
+  width         Int?
+  height        Int?
+  mobileLocalId String?
+  metadata      Json?   @default("{}")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -3259,6 +3339,7 @@ model InspectionPhoto {
   @@index([roomType]) // RA-448 evidence screen filter
   @@index([damageCategory]) // RA-448 evidence screen filter
   @@index([photoStage]) // RA-448 evidence screen filter
+  @@index([roomId]) // RA-6996 room-linkage filter
 }
 
 model ChatMessage {
@@ -4680,6 +4761,13 @@ model InvoiceLineItem {
   // Metadata
   sortOrder Int @default(0)
 
+  // RA-6996 — Xero pass-through / tax-type + line-item code/unit drift
+  // (verified against prod 2026-07-05).
+  isPassThrough Boolean @default(false)
+  taxType       String  @default("OUTPUT")
+  code          String?
+  unit          String?
+
   // Parent invoice
   invoiceId String
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
@@ -5407,6 +5495,9 @@ model EvidenceItem {
 
   // Exception handling — if this evidence replaces a required but unobtainable item
   exceptionReason ExceptionReason?
+
+  // RA-6996 — chain-of-custody audit trail (verified against prod 2026-07-05).
+  custodyEvents CustodyEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -7662,4 +7753,276 @@ model InsurerProfile {
 
   @@index([slug])
   @@index([isActive])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RA-6996 — schema-drift reconciliation (prod Supabase udooysjajglluvuxkijp)
+//
+// The nine models and four enums below already exist on production but were
+// never declared in schema.prisma, so application code reached them only via
+// an untyped `(prisma as any)` cast. Every column, type, nullability, default,
+// enum label, FK constraint, unique index, and secondary index was verified
+// directly against information_schema / pg_catalog on 2026-07-05. The
+// reconciling migration (prisma/migrations/20260705060000_ra6996_adopt_orphan_
+// tables_and_columns) is a no-op replay on prod (CREATE TABLE / ADD COLUMN /
+// ADD CONSTRAINT IF NOT EXISTS everywhere) and clean-provisions the same shape
+// on a fresh database. No @map is used anywhere in this schema, so field name
+// == column name and model name == table name throughout.
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum RoomType {
+  MASTER_BEDROOM
+  BEDROOM
+  BATHROOM
+  ENSUITE
+  KITCHEN
+  LIVING_ROOM
+  FAMILY_ROOM
+  DINING_ROOM
+  LAUNDRY
+  HALLWAY
+  GARAGE
+  ATTIC
+  BASEMENT
+  CRAWL_SPACE
+  OFFICE
+  STUDY
+  OUTDOOR
+  ROOF_CAVITY
+  SUBFLOOR
+  STAIRWELL
+  OTHER
+}
+
+enum AnnotationType {
+  ARROW
+  CIRCLE
+  RECTANGLE
+  TEXT
+  FREEHAND
+  MEASUREMENT
+  DAMAGE_ZONE
+}
+
+enum CustodyAction {
+  CAPTURED
+  UPLOADED
+  REVIEWED
+  ANNOTATED
+  EXPORTED
+  SHARED
+  ARCHIVED
+  DELETED
+}
+
+enum InspectionLayout {
+  ROOM_FIRST
+  TIMELINE
+  QUICK_CAPTURE
+}
+
+// Rooms captured within an inspection (room-first mobile capture flow).
+model Room {
+  id            String     @id @default(cuid())
+  inspectionId  String
+  inspection    Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  name          String
+  type          RoomType   @default(OTHER)
+  sortOrder     Int        @default(0)
+  thumbnailUrl  String?
+  floorPlanData String?
+  length        Float?
+  width         Float?
+  height        Float?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  annotations   RoomAnnotation[]
+  affectedAreas AffectedArea[]
+  photos        InspectionPhoto[]
+  scopeItems    ScopeItem[]
+
+  @@index([inspectionId])
+}
+
+// Freehand / shape annotations drawn on a room's floor plan or a photo.
+// photoId is a soft reference (no FK constraint on prod).
+model RoomAnnotation {
+  id        String         @id @default(cuid())
+  roomId    String
+  room      Room           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  type      AnnotationType
+  data      String
+  photoId   String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([roomId])
+}
+
+// Per-user business/trading profile shown on generated reports.
+// userId is a soft reference (no FK constraint on prod), so no relation to User.
+model BusinessProfile {
+  id                         String    @id @default(cuid())
+  userId                     String
+  name                       String
+  abn                        String?
+  logoUrl                    String?
+  address                    String?
+  phone                      String?
+  email                      String?
+  insuranceCertificateNumber String?
+  insuranceExpiry            DateTime?
+  licenceNumber              String?
+  licenceClass               String?
+  licenceExpiry              DateTime?
+  isDefault                  Boolean   @default(false)
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([userId, isDefault])
+}
+
+// Drying-equipment deployment records attached to a report.
+model EquipmentDeployment {
+  id                 String    @id @default(cuid())
+  reportId           String
+  report             Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  equipmentType      String
+  manufacturer       String?
+  make               String?
+  model              String?
+  serialNumber       String?
+  deploymentLocation String?
+  startTime          DateTime
+  endTime            DateTime?
+  operatingHours     Float?
+  runHours           Float?
+  ampDraw            Float?
+  notes              String?
+  mobileLocalId      String?   @unique
+  metadata           Json?     @default("{}")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([reportId])
+  @@index([userId])
+  @@index([startTime])
+  @@index([mobileLocalId])
+}
+
+// Offline-first mobile inspection shell, later reconciled to a NIR Inspection.
+// jobId is a soft reference (no FK constraint on prod).
+model MobileInspection {
+  id              String      @id @default(dbgenerated("(gen_random_uuid())::text"))
+  mobileLocalId   String      @unique
+  jobId           String?
+  status          String      @default("DRAFT")
+  category        String?
+  damageClass     String?
+  propertyAddress String
+  latitude        Float?
+  longitude       Float?
+  notes           String?     @default("")
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nirInspectionId String?
+  nirInspection   Inspection? @relation(fields: [nirInspectionId], references: [id], onDelete: SetNull)
+  reportId        String?
+  report          Report?     @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  createdAt       DateTime    @default(now()) @db.Timestamptz
+  updatedAt       DateTime    @updatedAt @db.Timestamptz
+
+  @@index([jobId])
+  @@index([mobileLocalId])
+  @@index([status])
+  @@index([userId])
+}
+
+// Per-user moisture meter registry with calibration provenance.
+model MoistureMeter {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  manufacturer          String
+  model                 String
+  serialNumber          String
+  lastCalibrationDate   DateTime?
+  calibrationMethod     String?
+  calibrationCertRef    String?
+  calibrationExpiryDate DateTime?
+  isActive              Boolean   @default(true)
+  notes                 String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([serialNumber])
+  @@index([calibrationExpiryDate])
+}
+
+// APNS/FCM push-notification registration (distinct from DeviceToken: keyed on
+// (userId, deviceId) so one device replaces its own token on re-register).
+model PushToken {
+  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token       String
+  platform    String
+  deviceId    String
+  deviceModel String?
+  isActive    Boolean? @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  @@unique([userId, deviceId])
+  @@index([userId])
+  @@index([token])
+  @@index([isActive])
+}
+
+// Chain-of-custody audit trail for evidence items. actorId is a soft reference
+// (no FK constraint on prod); metadata is TEXT on prod, not jsonb.
+model CustodyEvent {
+  id             String        @id @default(cuid())
+  evidenceItemId String
+  evidenceItem   EvidenceItem  @relation(fields: [evidenceItemId], references: [id], onDelete: Cascade)
+  action         CustodyAction
+  actorId        String
+  actorName      String?
+  contentHash    String?
+  metadata       String?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime      @default(now()) @db.Timestamptz
+
+  @@index([evidenceItemId])
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// Client-portal invitation tokens scoped to an inspection.
+model ClientInvite {
+  id              String     @id @default(dbgenerated("(gen_random_uuid())::text"))
+  inspectionId    String
+  inspection      Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  clientEmail     String
+  clientName      String?
+  token           String     @unique @default(dbgenerated("encode(gen_random_bytes(32), 'hex'::text)"))
+  expiresAt       DateTime   @default(dbgenerated("(now() + '30 days'::interval)")) @db.Timestamptz
+  firstAccessedAt DateTime?  @db.Timestamptz
+  revokedAt       DateTime?  @db.Timestamptz
+  createdByUserId String
+  createdByUser   User       @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  createdAt       DateTime   @default(now()) @db.Timestamptz
+  updatedAt       DateTime   @updatedAt @db.Timestamptz
+
+  @@index([inspectionId])
+  @@index([clientEmail])
+  @@index([token])
+  @@index([expiresAt])
 }

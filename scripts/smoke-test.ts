@@ -166,7 +166,7 @@ async function testDemoDataPresent() {
 
     // Check equipment deployments on the linked report
     if (inspection.reportId) {
-      const equipCount = await (prisma as any).equipmentDeployment.count({
+      const equipCount = await prisma.equipmentDeployment.count({
         where: { reportId: inspection.reportId },
       });
       if (equipCount >= 5) {

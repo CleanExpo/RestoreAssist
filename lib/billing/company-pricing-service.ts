@@ -113,6 +113,9 @@ export function getNRPGDefaults(): PricingConfigInput {
     sundayMultiplier: 2.0,
     publicHolidayMultiplier: 2.5,
     projectManagementPercent: 8.0,
+
+    // RA-6996 electricity running-cost rate per 24h (prod default 1.50)
+    electricityRatePer24h: 1.5,
   };
 }
 
