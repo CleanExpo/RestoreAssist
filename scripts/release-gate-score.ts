@@ -285,7 +285,7 @@ const CRITERIA: Criterion[] = [
     section: "F",
     points: 5,
     kind: "owner-evidence",
-    description: "Sentry alert rules configured for auth/billing/restore",
+    description: "Vercel Observability alert rules configured for auth/billing/restore",
     run: () => ownerEvidence("F1-monitoring-alerting", GATE_VERSION),
   },
   {

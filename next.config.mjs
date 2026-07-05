@@ -1,5 +1,4 @@
 import bundleAnalyzer from "@next/bundle-analyzer";
-import { withSentryConfig } from "@sentry/nextjs";
 import { withBotId } from "botid/next/config";
 
 // RA — /_not-found export was failing during `next build` with
@@ -27,22 +26,6 @@ for (const key of [
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
-
-// Sentry build-time options. Source-map upload only happens in CI when
-// SENTRY_AUTH_TOKEN is set; local builds skip it silently.
-//
-// Wave 4 PR-L of the 2026-05-06 production-readiness push.
-const sentryWebpackPluginOptions = {
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-  silent: !process.env.CI,
-  // Forward client errors via /monitoring tunnel to bypass adblockers.
-  tunnelRoute: "/monitoring",
-  // Only upload source maps when a Sentry project is actually configured.
-  disableServerWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
-  disableClientWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
-};
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -277,7 +260,4 @@ const nextConfig = {
 // withBotId wraps nextConfig to add the rewrites Vercel BotID needs
 // to proxy its client-side challenge / detection scripts same-origin.
 // Docs: https://vercel.com/docs/vercel-botid
-export default withSentryConfig(
-  withBundleAnalyzer(withBotId(nextConfig)),
-  sentryWebpackPluginOptions,
-);
+export default withBundleAnalyzer(withBotId(nextConfig));

@@ -19,7 +19,6 @@ const FULL_ENV = {
   STRIPE_SECRET_KEY: "sk_test_value",
   STRIPE_WEBHOOK_SECRET: "whsec_value",
   RESEND_API_KEY: "re_value",
-  SENTRY_DSN: "https://abc@sentry.example/1",
   LINEAR_API_KEY: "lin_api_value",
   LINEAR_RA_TEAM_ID: "team-uuid",
   GOOGLE_CLIENT_ID: "google-client-id-value",
@@ -70,7 +69,7 @@ describe("buildRestoreAssistConnectionStatus", () => {
     expect(byId.database.state).toBe("connected");
     expect(byId.supabase.state).toBe("connected");
     expect(byId.auth.state).toBe("connected");
-    expect(byId.sentry.state).toBe("connected");
+    expect(byId.sentry.state).toBe("unknown");
     expect(byId.ai_anthropic.state).toBe("ready");
     expect(byId.ascora.state).toBe("ready");
     expect(byId.stripe.state).toBe("ready");

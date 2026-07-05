@@ -1,20 +1,31 @@
 /**
  * Next.js instrumentation hook — fires once per server runtime boot.
  *
- * Wires Sentry server / edge initialisation. The actual `Sentry.init`
- * call is in `sentry.server.config.ts` / `sentry.edge.config.ts`; this
- * file just imports the right one based on the runtime.
+ * RA-1349 (Vercel-native observability): the presence of this file with a
+ * `register()` export enables Node runtime instrumentation, which Vercel
+ * Observability needs to capture Spans. `onRequestError` forwards uncaught
+ * RSC/route-handler request errors into the same structured `reportError()`
+ * sink used everywhere else in the app, so they land in Vercel Function
+ * logs (queryable/alertable) instead of only the server console.
  *
- * Wave 4 PR-L of the 2026-05-06 production-readiness push.
+ * See docs/compliance/OBSERVABILITY-SETUP.md for the full stack.
  */
-export async function register() {
-  if (process.env.NEXT_RUNTIME === "nodejs") {
-    await import("./sentry.server.config");
-  }
+import type { Instrumentation } from "next";
+import { reportError } from "@/lib/observability";
 
-  if (process.env.NEXT_RUNTIME === "edge") {
-    await import("./sentry.edge.config");
-  }
+export async function register() {
+  // No-op today — reserved for future Node-runtime-only setup. The export's
+  // presence is what turns on Vercel's Node instrumentation.
 }
 
-export { captureRequestError as onRequestError } from "@sentry/nextjs";
+export const onRequestError: Instrumentation.onRequestError = async (
+  error,
+  request,
+  context,
+) => {
+  reportError(error, {
+    route: request.path,
+    stage: "onRequestError",
+    routeType: context.routeType,
+  });
+};

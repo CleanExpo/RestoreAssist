@@ -39,5 +39,5 @@ When `gate_version` in `docs/RELEASE_GATE.md` bumps, scoring switches to `docs/e
 | `D3-revenue-reconciliation` | D | Stripe events count matches DB subscription_events (7d) |
 | `E1-app-store-metadata` | E | App Store metadata / screenshots / privacy / age rating approved |
 | `E2-testflight-stability` | E | TestFlight crash-free sessions >= 99.5% |
-| `F1-monitoring-alerting` | F | Sentry alert rules configured (auth/billing/restore) |
+| `F1-monitoring-alerting` | F | Vercel Observability alert rules configured (auth/billing/restore) |
 | `F2-runbooks-sla` | F | Runbooks + P1 SLA + customer comms template |
