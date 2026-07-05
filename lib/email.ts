@@ -462,10 +462,10 @@ export async function sendPaymentFailedEmail(data: PaymentFailedEmailData) {
 
         <!-- Main content card -->
         <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 40px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
-          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${data.recipientName},</p>
+          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${escapeHtml(data.recipientName)},</p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
-            We were unable to process your payment of <strong style="color: #ef4444;">${data.currency} ${data.amount}</strong> for your <strong>${data.subscriptionPlan}</strong> subscription.
+            We were unable to process your payment of <strong style="color: #ef4444;">${data.currency} ${data.amount}</strong> for your <strong>${escapeHtml(data.subscriptionPlan)}</strong> subscription.
           </p>
 
           ${
@@ -473,7 +473,7 @@ export async function sendPaymentFailedEmail(data: PaymentFailedEmailData) {
               ? `
           <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 16px 20px; border-radius: 8px; margin: 24px 0;">
             <p style="margin: 0; color: #991b1b; font-size: 14px;">
-              <strong>Reason:</strong> ${data.failureReason}
+              <strong>Reason:</strong> ${escapeHtml(data.failureReason)}
             </p>
           </div>
           `
@@ -608,10 +608,10 @@ export async function sendSubscriptionCancelledEmail(
 
         <!-- Main content card -->
         <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 40px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
-          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${data.recipientName},</p>
+          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${escapeHtml(data.recipientName)},</p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
-            Your <strong>${data.subscriptionPlan}</strong> subscription has been cancelled. You'll continue to have access to your account until <strong>${data.expiresAt}</strong>.
+            Your <strong>${escapeHtml(data.subscriptionPlan)}</strong> subscription has been cancelled. You'll continue to have access to your account until <strong>${data.expiresAt}</strong>.
           </p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 32px;">

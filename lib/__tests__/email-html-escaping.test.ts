@@ -11,8 +11,10 @@ vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
 
 import {
   sendInviteEmail,
+  sendPaymentFailedEmail,
   sendReportCompletedEmail,
   sendSubscriptionActivatedEmail,
+  sendSubscriptionCancelledEmail,
 } from "../email";
 
 const originalKey = process.env.RESEND_API_KEY;
@@ -84,6 +86,36 @@ describe("email HTML injection (rule 10 — escapeHtml on user-controlled fields
       amount: 49,
       currency: "AUD",
       dashboardUrl: "https://app.restoreassist.app/dashboard",
+    });
+
+    const html = lastHtml();
+    expect(html).not.toContain(XSS);
+    expect(html).toContain(ESCAPED);
+  });
+
+  it("escapes recipientName, subscriptionPlan and failureReason in sendPaymentFailedEmail", async () => {
+    await sendPaymentFailedEmail({
+      recipientEmail: "customer@example.com",
+      recipientName: XSS,
+      subscriptionPlan: XSS,
+      amount: "49.00",
+      currency: "AUD",
+      failureReason: XSS,
+      updatePaymentUrl: "https://app.restoreassist.app/billing",
+    });
+
+    const html = lastHtml();
+    expect(html).not.toContain(XSS);
+    expect(html).toContain(ESCAPED);
+  });
+
+  it("escapes recipientName and subscriptionPlan in sendSubscriptionCancelledEmail", async () => {
+    await sendSubscriptionCancelledEmail({
+      recipientEmail: "customer@example.com",
+      recipientName: XSS,
+      subscriptionPlan: XSS,
+      expiresAt: "1 January 2027",
+      resubscribeUrl: "https://app.restoreassist.app/billing",
     });
 
     const html = lastHtml();
