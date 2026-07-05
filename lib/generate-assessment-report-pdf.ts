@@ -15,6 +15,7 @@ import {
   PDFPage,
   PDFImage,
 } from "pdf-lib";
+import { isPublicHttpUrl } from "@/lib/branding/url-validator";
 
 interface BusinessInfo {
   businessName?: string | null;
@@ -173,7 +174,12 @@ export async function generateAssessmentReportPDF(
 
   // Load business logo if available
   let logoImage: PDFImage | null = null;
-  if (businessInfo?.businessLogo) {
+  // SSRF guard: businessLogo is tenant-controlled — only fetch public http(s)
+  // URLs. On failure, skip the logo (logoImage stays null) rather than throw.
+  if (
+    businessInfo?.businessLogo &&
+    isPublicHttpUrl(businessInfo.businessLogo).ok
+  ) {
     try {
       const logoResponse = await fetch(businessInfo.businessLogo);
       const logoBuffer = await logoResponse.arrayBuffer();
