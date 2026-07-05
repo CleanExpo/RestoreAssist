@@ -144,3 +144,29 @@ Response-time commitments live in `docs/SUPPORT_SLA.md`. Template selection:
 | C | Incident resolved |
 | D | ≤5 business days after any P0/P1 |
 | E | Anything touching compliance, IICRC, PII, billing accuracy |
+
+## Where to actually send these (2026-07-05 addition)
+
+For any P0/P1 that originated as, or is being tracked through, an in-app
+support ticket (`SupportTicket` model, `app/api/support/tickets`), reply
+through `POST /api/support/tickets/[id]/reply` rather than composing a raw
+email client-side — this route:
+
+- Sends the customer-facing email FIRST via `sendSupportReplyEmail`
+  (`lib/email.ts`) wrapped in `sendWithRetry` (`lib/email-retry.ts`,
+  `stage: "support-ticket-reply"`), and only persists the reply + moves the
+  ticket status if the send actually succeeds — a customer is never marked
+  "replied to" without having received anything.
+- HTML-escapes the reply body and subject before interpolating them into
+  the email (`escapeHtml()`, `lib/email.ts` line ~1356) — paste the
+  template text above into the `message` field as plain text; do not
+  hand-craft HTML in the reply box, it will be escaped, not rendered.
+- If the send fails, the route returns `502 UPSTREAM_FAILED` and the reply
+  is not recorded — that failure is exactly the class covered by
+  `docs/runbooks/email-delivery-failure.md`; check there first if a reply
+  send is failing.
+
+For incidents that affect many customers at once (not a single ticket),
+send directly via your usual email tool using the templates above — the
+ticket-reply route is for one-to-one ticket resolution, not for broadcast
+incident comms.
