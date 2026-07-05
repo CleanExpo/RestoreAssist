@@ -20,9 +20,19 @@
  * before any chain-of-custody hash is computed by the caller, so the
  * cocoaSha256 the caller sends alongside the queued entry's bytes (see
  * cocoa-client.ts) stays consistent with what actually gets uploaded.
+ *
+ * RA-6997: the cocoaSha256 above is computed IN HERE, over the post-
+ * compression bytes, not by the caller — the caller (CapturePhotoFab) only
+ * ever has the pre-compression hash (computed at capture time for the direct
+ * fast-path upload), and that hash would fail the server's mismatch check
+ * against the compressed bytes this module actually queues and later
+ * uploads. Capture-time metadata (caption/GPS/capturedAtUtc) is threaded
+ * through too, so a queued upload carries the same custody fields the
+ * direct path sends.
  */
 
 import { compressImageForUpload } from "./image-compression";
+import { computeSha256 } from "./capture/cocoa-client";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -53,6 +63,18 @@ export interface EvidenceQueueEntry {
   originalSize: number;
   /** RA-1610 — bytes actually queued (post-compression), for telemetry */
   compressedSize: number;
+  /**
+   * RA-6997 — chain-of-custody hash (rule 21), computed here over the
+   * post-compression bytes actually stored in `blob`. Sent as `cocoaSha256`
+   * on drain so the server's mismatch check passes against the bytes it
+   * receives.
+   */
+  cocoaSha256: string;
+  /** RA-6997 — optional capture-time metadata, carried through to drain. */
+  caption?: string;
+  gpsLat?: number;
+  gpsLng?: number;
+  capturedAtUtc?: string;
 }
 
 // ─── DATABASE ─────────────────────────────────────────────────────────────────
@@ -114,6 +136,10 @@ export async function queueEvidenceUpload(input: {
   filename: string;
   mimeType: string;
   location?: string;
+  /** RA-6997 — capture-time metadata, carried through to the eventual upload. */
+  caption?: string;
+  gps?: { lat: number; lng: number } | null;
+  capturedAtUtc?: string;
 }): Promise<string> {
   const db = await openDatabase();
 
@@ -125,6 +151,10 @@ export async function queueEvidenceUpload(input: {
   }
 
   const compressed = await compressImageForUpload(input.blob);
+
+  // RA-6997: hash the bytes that will actually be uploaded (post-compression),
+  // not the caller's pre-compression hash — see the RA-6997 module note above.
+  const cocoaSha256 = await computeSha256(compressed.blob);
 
   const entry: EvidenceQueueEntry = {
     id: generateId(),
@@ -139,6 +169,11 @@ export async function queueEvidenceUpload(input: {
     retryCount: 0,
     originalSize: compressed.originalSize,
     compressedSize: compressed.compressedSize,
+    cocoaSha256,
+    caption: input.caption,
+    gpsLat: input.gps?.lat,
+    gpsLng: input.gps?.lng,
+    capturedAtUtc: input.capturedAtUtc,
   };
 
   await new Promise<void>((resolve, reject) => {
@@ -211,6 +246,18 @@ export async function drainEvidenceQueue(): Promise<number> {
         new File([entry.blob], entry.filename, { type: entry.mimeType }),
       );
       if (entry.location) form.append("location", entry.location);
+      // RA-6997 — carry custody + capture metadata through to the same
+      // fields the direct upload path sends. Guarded: entries queued by an
+      // older app version may predate cocoaSha256 and shouldn't send a
+      // literal "undefined" string.
+      if (entry.cocoaSha256) form.append("cocoaSha256", entry.cocoaSha256);
+      if (entry.capturedAtUtc)
+        form.append("capturedAtUtc", entry.capturedAtUtc);
+      if (entry.caption) form.append("caption", entry.caption);
+      if (entry.gpsLat !== undefined)
+        form.append("gpsLat", String(entry.gpsLat));
+      if (entry.gpsLng !== undefined)
+        form.append("gpsLng", String(entry.gpsLng));
 
       const response = await fetch(
         `/api/inspections/${entry.inspectionId}/photos`,
