@@ -27,6 +27,8 @@ import {
 import { fromException } from "@/lib/api-errors";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
+import { requireAddon } from "@/lib/entitlements";
+import { VOICE_SKU } from "@/lib/billing/voice-addon";
 
 // RA-6940 — paid proxy hardening. SFX generation spends real ElevenLabs
 // credit, so a bare session is not enough: gate on an active subscription and
@@ -39,6 +41,16 @@ export async function POST(request: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // RA-6920 B2 — the ElevenLabs voice surface is gated by the recurring
+    // $11/mo VOICE add-on. requireAddon returns a fail-closed 402 (code
+    // ADDON_REQUIRED) when the workspace has no ACTIVE FeatureEntitlement,
+    // which the client turns into the "Upgrade to unlock" CTA. This is
+    // separate from — and checked before — the BYOK key gate below: a
+    // workspace needs BOTH an active VOICE entitlement AND its own
+    // ElevenLabs key configured.
+    const addonGate = await requireAddon(session.user.id, VOICE_SKU);
+    if (!addonGate.allowed) return addonGate.response;
 
     const rateLimited = await applyRateLimit(request, {
       windowMs: 60 * 1000,

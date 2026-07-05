@@ -42,6 +42,7 @@ import {
   CLIENT_COMMS_ADDON,
   CLIENT_COMMS_ADDON_SUBSCRIPTION_TYPE,
 } from "./client-comms-addon";
+import { VOICE_ADDON, VOICE_ADDON_SUBSCRIPTION_TYPE } from "./voice-addon";
 
 /**
  * The data-driven descriptor for one recurring add-on. Everything the checkout
@@ -122,6 +123,15 @@ export const RECURRING_ADDONS: Readonly<
     currency: CLIENT_COMMS_ADDON.currency,
     interval: CLIENT_COMMS_ADDON.interval,
     subscriptionType: CLIENT_COMMS_ADDON_SUBSCRIPTION_TYPE,
+  },
+  [VOICE_ADDON.sku]: {
+    sku: VOICE_ADDON.sku,
+    name: VOICE_ADDON.name,
+    description: VOICE_ADDON.description,
+    amount: VOICE_ADDON.amount,
+    currency: VOICE_ADDON.currency,
+    interval: VOICE_ADDON.interval,
+    subscriptionType: VOICE_ADDON_SUBSCRIPTION_TYPE,
   },
 };
 
