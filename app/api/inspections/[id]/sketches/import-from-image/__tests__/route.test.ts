@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { POST } from "../route";
 
 const getServerSession = vi.fn();
+const userFindUnique = vi.fn();
 const inspectionFindFirst = vi.fn();
 const getWorkspaceForUser = vi.fn();
 const checkWorkspaceBudget = vi.fn();
@@ -18,6 +19,7 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    user: { findUnique: (...a: unknown[]) => userFindUnique(...a) },
     inspection: { findFirst: (...a: unknown[]) => inspectionFindFirst(...a) },
   },
 }));
@@ -64,6 +66,7 @@ beforeEach(() => {
   getServerSession.mockReset().mockResolvedValue({
     user: { id: "user_1" },
   });
+  userFindUnique.mockReset().mockResolvedValue({ subscriptionStatus: "ACTIVE" });
   inspectionFindFirst.mockReset().mockResolvedValue({ id: "inspection_1" });
   getWorkspaceForUser.mockReset().mockResolvedValue(null);
   checkWorkspaceBudget.mockReset().mockResolvedValue({ ok: true });
@@ -106,4 +109,21 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
     expect(body.error.message).toBe("Unsupported file type — use JPEG or PNG");
     expect(importSketchFromImage).not.toHaveBeenCalled();
   });
+
+  // Rule 5 — subscription gate before rate-limit spend and the Vision call.
+  it.each(["CANCELED", "PAST_DUE"])(
+    "returns 402 with no Vision call for %s subscriptions",
+    async (status) => {
+      userFindUnique.mockResolvedValueOnce({ subscriptionStatus: status });
+      const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x00]);
+
+      const res = await POST(makeRequest(bytes, "image/jpeg"), ctx());
+      const body = await res.json();
+
+      expect(res.status).toBe(402);
+      expect(body.upgradeRequired).toBe(true);
+      expect(applyRateLimit).not.toHaveBeenCalled();
+      expect(importSketchFromImage).not.toHaveBeenCalled();
+    },
+  );
 });

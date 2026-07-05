@@ -46,6 +46,7 @@ import {
   type EmbeddingProvider,
 } from "@/lib/ai/embeddings";
 import { apiError, fromException } from "@/lib/api-errors";
+import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
@@ -99,6 +100,10 @@ export async function POST(
         status: 401,
       });
     }
+
+    // Rule 5 — subscription gate before the OpenAI embedding loop below.
+    const gate = await requireActiveSubscription(session.user.id);
+    if (gate) return gate;
 
     const body: VectoriseBody = await request.json().catch(() => ({}));
 

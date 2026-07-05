@@ -18,6 +18,7 @@ import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { logAiUsage, estimateCostUsd } from "@/lib/usage/log-usage";
 import { importSketchFromImage } from "@/lib/services/ai/import-sketch-from-image";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import { validateImageUpload } from "@/lib/media/validate-image-upload";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
@@ -70,6 +71,10 @@ export async function POST(
         status: 404,
       });
     }
+
+    // Rule 5 — subscription gate before the Claude Vision call below.
+    const gate = await requireActiveSubscription(userId);
+    if (gate) return gate;
 
     const rateLimited = await applyRateLimit(request, {
       windowMs: RATE_LIMIT_WINDOW_MS,

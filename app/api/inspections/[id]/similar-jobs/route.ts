@@ -29,6 +29,7 @@ import {
   findSimilarJobs,
 } from "@/lib/ai/embeddings";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   resolveWorkspaceAiKey,
@@ -64,6 +65,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         status: tenancy.status,
       });
     }
+
+    // Rule 5 — subscription gate before the OpenAI embedding call below.
+    const gate = await requireActiveSubscription(session.user.id);
+    if (gate) return gate;
 
     const inspection = await prisma.inspection.findUnique({
       where: { id: inspectionId },
