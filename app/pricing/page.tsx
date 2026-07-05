@@ -8,6 +8,7 @@ import { Menu, X } from "lucide-react";
 import Footer from "@/components/landing/Footer";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import BillingGate from "@/components/capacitor/BillingGate";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 function PricingPageContent() {
   const [darkMode] = useState(true);
@@ -293,6 +294,23 @@ function PricingPageContent() {
           <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-brand-bronze/10 rounded-full blur-3xl"></div>
         </div>
         <div className="max-w-7xl mx-auto relative z-10">
+          {/* RA-6933 — BYOK disclosure. Report generation (all plans, including
+              the free trial) runs on the customer's own Anthropic or OpenAI key
+              (RA-6932 removed the platform-key fallback), so this must sit
+              before the plan cards rather than buried in fine print. Wording
+              mirrors the signup page's "What you'll need after signup" card
+              so the promise is identical everywhere it's made. */}
+          <Alert className="max-w-3xl mx-auto mb-12 bg-brand-navy/60 border-brand-bronze/40">
+            <AlertTitle className="text-brand-cloud">
+              Bring your own AI key
+            </AlertTitle>
+            <AlertDescription className="text-brand-mist">
+              Report generation on every plan — including your free trial —
+              runs on your own Anthropic or OpenAI API key. You pay your
+              provider directly, at cost, so you stay in control of usage and
+              data. Add your key in Settings → AI Providers after signup.
+            </AlertDescription>
+          </Alert>
           <div className="grid md:grid-cols-3 gap-8">
             {allPlans.map((plan, index) => (
               <motion.div
