@@ -465,7 +465,7 @@ export async function sendPaymentFailedEmail(data: PaymentFailedEmailData) {
           <p style="font-size: 18px; margin-bottom: 24px;">Hi ${escapeHtml(data.recipientName)},</p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
-            We were unable to process your payment of <strong style="color: #ef4444;">${data.currency} ${data.amount}</strong> for your <strong>${escapeHtml(data.subscriptionPlan)}</strong> subscription.
+            We were unable to process your payment of <strong style="color: #ef4444;">${escapeHtml(data.currency)} ${escapeHtml(data.amount)}</strong> for your <strong>${escapeHtml(data.subscriptionPlan)}</strong> subscription.
           </p>
 
           ${
@@ -611,7 +611,7 @@ export async function sendSubscriptionCancelledEmail(
           <p style="font-size: 18px; margin-bottom: 24px;">Hi ${escapeHtml(data.recipientName)},</p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
-            Your <strong>${escapeHtml(data.subscriptionPlan)}</strong> subscription has been cancelled. You'll continue to have access to your account until <strong>${data.expiresAt}</strong>.
+            Your <strong>${escapeHtml(data.subscriptionPlan)}</strong> subscription has been cancelled. You'll continue to have access to your account until <strong>${escapeHtml(data.expiresAt)}</strong>.
           </p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 32px;">
