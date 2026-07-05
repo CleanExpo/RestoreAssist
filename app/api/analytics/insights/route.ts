@@ -43,8 +43,15 @@ export async function GET(request: NextRequest) {
 
     let targetUserId = session.user.id;
     if (userIdParam && userIdParam !== session.user.id) {
-      const isAdmin = session.user.role === "ADMIN";
-      const isManager = session.user.role === "MANAGER";
+      // Re-validate the caller's role from the DB, not the JWT claim (CLAUDE.md
+      // rule 1: the session role is stale). A demoted admin/manager must lose
+      // cross-user access immediately, not at JWT expiry.
+      const currentUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { organizationId: true, role: true },
+      });
+      const isAdmin = currentUser?.role === "ADMIN";
+      const isManager = currentUser?.role === "MANAGER";
       if (!isAdmin && !isManager) {
         return apiError(request, {
           code: "FORBIDDEN",
@@ -53,10 +60,6 @@ export async function GET(request: NextRequest) {
           status: 403,
         });
       }
-      const currentUser = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { organizationId: true, role: true },
-      });
       if (!currentUser?.organizationId) {
         return apiError(request, {
           code: "VALIDATION",

@@ -109,8 +109,16 @@ export async function GET(request: NextRequest) {
     // If userId is provided, validate that the user belongs to the same organization
     let targetUserId = session.user.id;
     if (userIdParam && userIdParam !== session.user.id) {
-      const isAdmin = session.user.role === "ADMIN";
-      const isManager = session.user.role === "MANAGER";
+      // Re-validate the caller's role from the DB, not the JWT claim (CLAUDE.md
+      // rule 1: the session role is stale). A demoted admin/manager must lose
+      // cross-user access immediately, not at JWT expiry.
+      const currentUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { organizationId: true, role: true },
+      });
+
+      const isAdmin = currentUser?.role === "ADMIN";
+      const isManager = currentUser?.role === "MANAGER";
 
       // Only Admins and Managers can view other users' analytics
       if (!isAdmin && !isManager) {
@@ -123,11 +131,6 @@ export async function GET(request: NextRequest) {
       }
 
       // Verify the target user is in the same organization
-      const currentUser = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { organizationId: true, role: true },
-      });
-
       if (!currentUser?.organizationId) {
         return apiError(request, {
           code: "VALIDATION",
