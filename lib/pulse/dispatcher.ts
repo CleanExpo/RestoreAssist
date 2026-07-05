@@ -2,8 +2,10 @@
  * Restoration Pulse notification dispatcher (RA-6949, epic RA-6948).
  *
  * Event-triggered service that maps client-visible step transitions
- * (buildClientStatusFeed steps) and drying-goal changes to templated Resend
- * emails. Every dispatch writes exactly one ClientCommsLog row:
+ * (buildClientStatusFeed steps), drying-goal changes, the daily digest
+ * (RA-6951), and the 20-business-day Code of Practice update (RA-6951) to
+ * templated Resend emails. Every dispatch writes exactly one ClientCommsLog
+ * row:
  *   - a SENT row when the email goes out, or
  *   - a SUPPRESSED row (with a machine-readable reason) when it does not.
  *
@@ -13,8 +15,9 @@
  * lib/email.ts), or the logical event was already dispatched (duplicate).
  *
  * Curated states only: the dispatcher accepts only the curated portal
- * projections (ClientFeed / AreaDryingState[]) — raw moisture/meter values are
- * never passed in, so they can never leak into a notification.
+ * projections (ClientFeed / AreaDryingState[] / DailyDigestData) — raw
+ * moisture/meter values are never passed in, so they can never leak into a
+ * notification.
  */
 
 import { randomUUID } from "crypto";
@@ -22,18 +25,30 @@ import { prisma } from "@/lib/prisma";
 import { reportError } from "@/lib/observability";
 import { sendPulseUpdateEmail } from "@/lib/email";
 import {
+  renderCodeOfPracticeUpdateEmail,
+  renderDailyDigestEmail,
   renderDryingUpdateEmail,
   renderStepTransitionEmail,
   type RenderedPulseEmail,
 } from "./templates";
 import type { ClientFeed } from "@/lib/portal/client-status-feed";
 import type { AreaDryingState } from "@/lib/portal/drying-timeline";
+import type { DailyDigestData } from "./digest";
 
-export type PulseEventType = "STEP_TRANSITION" | "DRYING_GOAL_CHANGE";
+export type PulseEventType =
+  | "STEP_TRANSITION"
+  | "DRYING_GOAL_CHANGE"
+  | "DAILY_DIGEST"
+  | "COP_UPDATE";
 
 export type PulseEvent =
   | { type: "STEP_TRANSITION"; feed: ClientFeed }
-  | { type: "DRYING_GOAL_CHANGE"; areas: AreaDryingState[] };
+  | { type: "DRYING_GOAL_CHANGE"; areas: AreaDryingState[] }
+  // `date` (YYYY-MM-DD, AU-local) is folded into the idempotency key below —
+  // it IS the once-per-day guarantee: a second dispatch for the same job on
+  // the same date collides on the unique idempotencyKey and is suppressed.
+  | { type: "DAILY_DIGEST"; digest: DailyDigestData; date: string }
+  | { type: "COP_UPDATE"; feed: ClientFeed; date: string };
 
 export type PulseSuppressionReason =
   | "TOGGLE_OFF"
@@ -73,16 +88,22 @@ function pulseEnvConfigured(): boolean {
  * new step or a changed drying state produces a new key (re-notifies).
  */
 function eventFingerprint(event: PulseEvent): string {
-  if (event.type === "STEP_TRANSITION") {
-    return `step:${event.feed.currentStep}:${event.feed.progressPct}`;
+  switch (event.type) {
+    case "STEP_TRANSITION":
+      return `step:${event.feed.currentStep}:${event.feed.progressPct}`;
+    case "DRYING_GOAL_CHANGE":
+      return (
+        "drying:" +
+        event.areas
+          .map((a) => `${a.areaId}=${a.status}`)
+          .sort()
+          .join(",")
+      );
+    case "DAILY_DIGEST":
+      return `digest:${event.date}`;
+    case "COP_UPDATE":
+      return `cop:${event.date}`;
   }
-  return (
-    "drying:" +
-    event.areas
-      .map((a) => `${a.areaId}=${a.status}`)
-      .sort()
-      .join(",")
-  );
 }
 
 function buildPortalUrl(token: string | null): string {
@@ -91,9 +112,16 @@ function buildPortalUrl(token: string | null): string {
 }
 
 function render(event: PulseEvent, portalUrl: string): RenderedPulseEmail {
-  return event.type === "STEP_TRANSITION"
-    ? renderStepTransitionEmail(event.feed, portalUrl)
-    : renderDryingUpdateEmail(event.areas, portalUrl);
+  switch (event.type) {
+    case "STEP_TRANSITION":
+      return renderStepTransitionEmail(event.feed, portalUrl);
+    case "DRYING_GOAL_CHANGE":
+      return renderDryingUpdateEmail(event.areas, portalUrl);
+    case "DAILY_DIGEST":
+      return renderDailyDigestEmail(event.digest, portalUrl);
+    case "COP_UPDATE":
+      return renderCodeOfPracticeUpdateEmail(event.feed, portalUrl);
+  }
 }
 
 /**

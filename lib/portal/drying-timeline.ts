@@ -46,6 +46,19 @@ export interface AreaDryingState {
   estimateLabel: string;
 }
 
+// Curated "drying complete" marker — the only signal the digest (RA-6951)
+// uses to derive "X of Y areas at drying goal". Kept as the exact string
+// buildDryingTimeline already emits below, so no new field is added to the
+// legally-guarded AreaDryingState shape (see the "never exposes raw..." test).
+export const DRY_COMPLETE_ESTIMATE_LABEL =
+  "Estimate: drying complete for this area.";
+
+export function isAreaAtDryingGoal(
+  state: Pick<AreaDryingState, "estimateLabel">,
+): boolean {
+  return state.estimateLabel === DRY_COMPLETE_ESTIMATE_LABEL;
+}
+
 export interface DryingTimelineReadingInput {
   location: string;
   surfaceType: string;
@@ -118,7 +131,7 @@ export function buildDryingTimeline(
       isDry || gap <= ON_TRACK_GAP_TOLERANCE ? "on-track" : "needs-attention";
 
     const estimateLabel = isDry
-      ? "Estimate: drying complete for this area."
+      ? DRY_COMPLETE_ESTIMATE_LABEL
       : buildProjectedEstimate(curve.projectedCompletionDay, daysElapsed, now, status);
 
     states.push({
