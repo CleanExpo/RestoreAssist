@@ -241,6 +241,57 @@ describe("platform-key-fallback detection (RA-6921 P0)", () => {
     expect(finding?.platformKeyFallback).toBe(false);
   });
 
+  it("flags an app/ route that reads process.env.ELEVENLABS_API_KEY directly (RA-6920)", () => {
+    // ElevenLabs has no SDK client class — a route hitting api.elevenlabs.io
+    // with the platform key via raw fetch must still be seen as an AI surface
+    // and flagged as a platform-key leak.
+    const finding = auditAiCallSite(
+      "app/api/elevenlabs/sfx/route.ts",
+      `
+        const res = await fetch("https://api.elevenlabs.io/v1/sound-generation", {
+          method: "POST",
+          headers: { "xi-api-key": process.env.ELEVENLABS_API_KEY as string },
+        });
+      `,
+    );
+
+    expect(finding).not.toBeNull();
+    expect(finding?.providerFamilies).toContain("elevenlabs");
+    expect(finding?.platformKeyFallback).toBe(true);
+  });
+
+  it("does not flag an app/ ElevenLabs route that resolves the workspace key (RA-6920)", () => {
+    const finding = auditAiCallSite(
+      "app/api/elevenlabs/sfx/route.ts",
+      `
+        import { generateSFX } from "@/lib/elevenlabs/client";
+        import { resolveWorkspaceElevenLabsKey } from "@/lib/ai/resolve-workspace-ai-key";
+        const workspaceKey = await resolveWorkspaceElevenLabsKey(session.user.id);
+        await generateSFX({ text: description }, workspaceKey.apiKey);
+      `,
+    );
+
+    expect(finding).not.toBeNull();
+    expect(finding?.providerFamilies).toContain("elevenlabs");
+    expect(finding?.platformKeyFallback).toBe(false);
+  });
+
+  it("does not treat a Synthex-proxied voice route as an ElevenLabs platform-key surface", () => {
+    // The voice/heygen routes proxy to Synthex (its own credential), not the
+    // platform ELEVENLABS_API_KEY — a comment mentioning "ElevenLabs" must not
+    // trip the detector.
+    const finding = auditAiCallSite(
+      "app/api/elevenlabs/voice/route.ts",
+      `
+        // Proxies TTS to Synthex, which holds the ElevenLabs credentials.
+        import { generateVoice, withBrandVoice } from "@/lib/synthex/client";
+        await generateVoice(withBrandVoice({ text }));
+      `,
+    );
+
+    expect(finding).toBeNull();
+  });
+
   it("does not misclassify an unrelated *_API_KEY env var (e.g. RESEND_API_KEY) as an AI surface", () => {
     // Regression test: the fix must scope to named AI-provider keys only —
     // broadening to any *_API_KEY pattern previously false-positived on
@@ -917,5 +968,90 @@ describe("RA-6991 module-scope seed hardening", () => {
     });
 
     expect(flagged).toContain("app/api/leak-logical-not/route.ts");
+  });
+});
+
+/**
+ * RA-6920 / RA-6998 — the ElevenLabs platform-key leak class the gate was blind
+ * to. ElevenLabs is fetch/HTTP-based (no SDK client class), so the leak surfaces
+ * both directly (a route reading process.env.ELEVENLABS_API_KEY) and via a lib
+ * that reads it on the route's behalf — the SFX+client shape that shipped the
+ * live leak. Both must fail the gate so the class can't regress.
+ */
+describe("RA-6920 ElevenLabs platform-key leak class", () => {
+  function auditFixture(files: Record<string, string>): string[] {
+    const root = mkdtempSync(join(tmpdir(), "ra-6920-fixture-"));
+    try {
+      for (const [relative, content] of Object.entries(files)) {
+        const abs = join(root, relative);
+        mkdirSync(dirname(abs), { recursive: true });
+        writeFileSync(abs, content);
+      }
+      return auditAiCallSites(root).guardrailSummary.platformKeyFallbackFiles;
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+
+  it("flags a route importing a lib that reads the platform ElevenLabs key (the shipped SFX leak)", () => {
+    const flagged = auditFixture({
+      // The pre-fix lib/elevenlabs/client.ts shape: the key is a module-scope
+      // const shared by every export (fetch to api.elevenlabs.io with the
+      // xi-api-key header), so the WHOLE export surface spends the platform key.
+      "lib/elevenlabs/client.ts": `
+        const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+        const BASE = "https://api.elevenlabs.io/v1";
+        function headers() {
+          return { "xi-api-key": ELEVENLABS_API_KEY };
+        }
+        export async function generateSFX(req) {
+          return fetch(BASE + "/sound-generation", { method: "POST", headers: headers() });
+        }
+        export async function textToSpeech(req) {
+          return fetch(BASE + "/text-to-speech/x", { method: "POST", headers: headers() });
+        }
+      `,
+      "app/api/elevenlabs/sfx/route.ts": `
+        import { generateSFX } from "@/lib/elevenlabs/client";
+        export async function POST(req: Request) {
+          return Response.json(await generateSFX(await req.json()));
+        }
+      `,
+      // A platform-ops (admin) route on the same lib — allowlisted, not flagged.
+      "app/api/admin/elevenlabs-tool/route.ts": `
+        import { generateSFX } from "@/lib/elevenlabs/client";
+        export async function POST(req: Request) {
+          return Response.json(await generateSFX(await req.json()));
+        }
+      `,
+    });
+
+    expect(flagged).toContain("app/api/elevenlabs/sfx/route.ts");
+    expect(flagged).not.toContain("app/api/admin/elevenlabs-tool/route.ts");
+  });
+
+  it("does not flag the migrated shape: the client takes an injected key, the route resolves BYOK", () => {
+    const flagged = auditFixture({
+      // Post-fix client: no process.env read — the key is an injected argument.
+      "lib/elevenlabs/client.ts": `
+        const BASE = "https://api.elevenlabs.io/v1";
+        function headers(apiKey: string) {
+          return { "xi-api-key": apiKey };
+        }
+        export async function generateSFX(req, apiKey: string) {
+          return fetch(BASE + "/sound-generation", { method: "POST", headers: headers(apiKey) });
+        }
+      `,
+      "app/api/elevenlabs/sfx/route.ts": `
+        import { generateSFX } from "@/lib/elevenlabs/client";
+        import { resolveWorkspaceElevenLabsKey } from "@/lib/ai/resolve-workspace-ai-key";
+        export async function POST(req: Request) {
+          const key = await resolveWorkspaceElevenLabsKey("user-1");
+          return Response.json(await generateSFX(await req.json(), key.apiKey));
+        }
+      `,
+    });
+
+    expect(flagged).not.toContain("app/api/elevenlabs/sfx/route.ts");
   });
 });

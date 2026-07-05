@@ -6043,6 +6043,7 @@ enum AiProvider {
   OPENAI
   GOOGLE
   GEMMA
+  ELEVENLABS
 }
 
 enum ProviderConnectionStatus {

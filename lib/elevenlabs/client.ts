@@ -2,21 +2,26 @@
  * ElevenLabs API Client — RestoreAssist
  *
  * Provides three ElevenLabs services:
- *   1. TEXT-TO-SPEECH — voiceover narration ("Luca" as default)
+ *   1. TEXT-TO-SPEECH — voiceover narration
  *   2. SOUND EFFECTS   — brand ambience, transitions
  *   3. VOICE-ISOLATION — clean audio from noisy recordings
+ *
+ * RA-6920 / RA-6998 (BYOK — Margot zero-platform-cost model): every function
+ * takes the CALLING WORKSPACE's own ElevenLabs API key as an explicit argument.
+ * This module NEVER reads a platform `process.env.ELEVENLABS_API_KEY` — a
+ * customer TTS/SFX call must spend the client's own key, resolved by the route
+ * via `resolveWorkspaceElevenLabsKey` and failed-closed to a 402 when absent.
  *
  * Ref: https://elevenlabs.io/docs
  */
 
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_BASE_URL = "https://api.elevenlabs.io/v1";
 
 // ─── Types ────────────────────────────────────────────────────────────
 
 export interface TTSRequest {
   text: string;
-  voice_id?: string;          // default: Luca
+  voice_id?: string;          // falls back to the workspace's default Voice ID
   model_id?: string;          // eleven_multilingual_v2
   stability?: number;         // 0.0 – 1.0
   similarity_boost?: number;  // 0.0 – 1.0
@@ -41,12 +46,20 @@ export interface VoiceListResponse {
 
 // ─── Core ─────────────────────────────────────────────────────────────
 
-function getHeaders(isMultipart = false): Record<string, string> {
-  if (!ELEVENLABS_API_KEY) {
-    throw new Error("ELEVENLABS_API_KEY is not set in environment");
+/** Workspace-owned ElevenLabs credentials injected by the calling route. */
+export interface ElevenLabsCredentials {
+  /** The workspace's own ElevenLabs API key (BYOK — never the platform key). */
+  apiKey: string;
+  /** Optional workspace default Voice ID, used when a request omits voice_id. */
+  voiceId?: string;
+}
+
+function getHeaders(apiKey: string, isMultipart = false): Record<string, string> {
+  if (!apiKey) {
+    throw new Error("ElevenLabs API key is required");
   }
   return {
-    "xi-api-key": ELEVENLABS_API_KEY,
+    "xi-api-key": apiKey,
     ...(isMultipart ? {} : { "Content-Type": "application/json" }),
   };
 }
@@ -56,9 +69,18 @@ function getHeaders(isMultipart = false): Record<string, string> {
 /**
  * Convert text to MP3 audio bytes using ElevenLabs TTS.
  * Returns a Buffer — save to file or stream directly.
+ * Spends the injected workspace credentials — never a platform key.
  */
-export async function textToSpeech(req: TTSRequest): Promise<Buffer> {
-  const voiceId = req.voice_id ?? "onwK4e9ZLuTAKqWW03F9"; // Luca
+export async function textToSpeech(
+  req: TTSRequest,
+  credentials: ElevenLabsCredentials,
+): Promise<Buffer> {
+  const voiceId = req.voice_id ?? credentials.voiceId;
+  if (!voiceId) {
+    throw new Error(
+      "No ElevenLabs Voice ID provided — set a default in Workspace Settings or pass voice_id",
+    );
+  }
   const modelId = req.model_id ?? "eleven_multilingual_v2";
 
   const body: Record<string, unknown> = {
@@ -75,7 +97,7 @@ export async function textToSpeech(req: TTSRequest): Promise<Buffer> {
     `${ELEVENLABS_BASE_URL}/text-to-speech/${voiceId}/stream`,
     {
       method: "POST",
-      headers: getHeaders(),
+      headers: getHeaders(credentials.apiKey),
       body: JSON.stringify(body),
     },
   );
@@ -94,8 +116,9 @@ export async function textToSpeech(req: TTSRequest): Promise<Buffer> {
  */
 export async function textToSpeechFile(
   req: TTSRequest & { outputPath: string },
+  credentials: ElevenLabsCredentials,
 ): Promise<string> {
-  const buf = await textToSpeech(req);
+  const buf = await textToSpeech(req, credentials);
   const fs = await import("fs");
   fs.writeFileSync(req.outputPath, buf);
   return req.outputPath;
@@ -110,7 +133,10 @@ export async function textToSpeechFile(
  *   - "gentle whoosh, transition, 0.5 seconds"
  *   - "subtle notification ding, 2 seconds"
  */
-export async function generateSFX(req: SFXRequest): Promise<Buffer> {
+export async function generateSFX(
+  req: SFXRequest,
+  apiKey: string,
+): Promise<Buffer> {
   const body: Record<string, unknown> = {
     text: req.text,
     duration_seconds: req.duration_seconds ?? 3,
@@ -119,7 +145,7 @@ export async function generateSFX(req: SFXRequest): Promise<Buffer> {
 
   const res = await fetch(`${ELEVENLABS_BASE_URL}/sound-generation`, {
     method: "POST",
-    headers: getHeaders(),
+    headers: getHeaders(apiKey),
     body: JSON.stringify(body),
   });
 
@@ -138,7 +164,10 @@ export async function generateSFX(req: SFXRequest): Promise<Buffer> {
  * Strip background noise from an audio file.
  * Useful for cleaning up field recordings (site audio, technician voice notes).
  */
-export async function isolateVoice(audioBuffer: Buffer): Promise<Buffer> {
+export async function isolateVoice(
+  audioBuffer: Buffer,
+  apiKey: string,
+): Promise<Buffer> {
   const form = new FormData();
   const array = new Uint8Array(audioBuffer);
   const blob = new Blob([array], { type: "audio/mpeg" });
@@ -146,7 +175,7 @@ export async function isolateVoice(audioBuffer: Buffer): Promise<Buffer> {
 
   const res = await fetch(`${ELEVENLABS_BASE_URL}/audio-isolation`, {
     method: "POST",
-    headers: getHeaders(true),
+    headers: getHeaders(apiKey, true),
     body: form,
   });
 
@@ -161,10 +190,10 @@ export async function isolateVoice(audioBuffer: Buffer): Promise<Buffer> {
 
 // ─── Public API: Voice Listing ────────────────────────────────────────
 
-export async function listVoices(): Promise<VoiceListResponse> {
+export async function listVoices(apiKey: string): Promise<VoiceListResponse> {
   const res = await fetch(`${ELEVENLABS_BASE_URL}/voices`, {
     method: "GET",
-    headers: getHeaders(),
+    headers: getHeaders(apiKey),
   });
   if (!res.ok) {
     const err = await res.text();

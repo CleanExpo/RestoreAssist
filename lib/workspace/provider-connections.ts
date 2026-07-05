@@ -21,7 +21,12 @@ import { encrypt, decrypt } from "../credential-vault";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 /** Mirrors the Prisma AiProvider enum */
-export type AiProvider = "ANTHROPIC" | "OPENAI" | "GOOGLE" | "GEMMA";
+export type AiProvider =
+  | "ANTHROPIC"
+  | "OPENAI"
+  | "GOOGLE"
+  | "GEMMA"
+  | "ELEVENLABS";
 
 /** Mirrors the Prisma ProviderConnectionStatus enum */
 export type ProviderConnectionStatus = "ACTIVE" | "FAILED" | "DISABLED";
@@ -32,6 +37,18 @@ export const CONNECTION_FAILED_STATUS = "FAILED" as const;
 /** Shape stored (encrypted) in encryptedCredentials */
 interface CredentialPayload {
   apiKey: string;
+  /**
+   * ELEVENLABS-only: the workspace's default Voice ID. Optional and rides
+   * inside the same AES-256-GCM blob as the key (it is a preference, not a
+   * secret, but co-locating it avoids a schema column for a single provider).
+   */
+  voiceId?: string;
+}
+
+/** Decrypted credentials for a provider connection (server-side only). */
+export interface ResolvedProviderCredentials {
+  apiKey: string;
+  voiceId?: string;
 }
 
 /** Safe public representation — no plaintext key exposed */
@@ -52,6 +69,8 @@ export interface UpsertProviderConnectionInput {
   provider: AiProvider;
   /** Plaintext API key — encrypted before persistence */
   plaintextApiKey: string;
+  /** ELEVENLABS-only: optional default Voice ID stored alongside the key. */
+  voiceId?: string;
   /** Optional WorkspaceMember.id of the member saving the key */
   memberId?: string;
 }
@@ -189,6 +208,41 @@ export async function getProviderApiKey(
 }
 
 /**
+ * Get the full decrypted credentials (key + optional voiceId) for a provider
+ * in a workspace. Returns null if no ACTIVE connection exists or the key is
+ * empty. Used by the ElevenLabs resolver, which needs the Voice ID alongside
+ * the key.
+ *
+ * IMPORTANT: The returned credentials must NEVER be sent to the client.
+ */
+export async function getProviderCredentials(
+  workspaceId: string,
+  provider: AiProvider,
+): Promise<ResolvedProviderCredentials | null> {
+  const row = await prisma.providerConnection.findUnique({
+    where: { workspaceId_provider: { workspaceId, provider } },
+    select: { status: true, encryptedCredentials: true },
+  });
+
+  if (!row || row.status !== "ACTIVE" || !row.encryptedCredentials) {
+    return null;
+  }
+
+  try {
+    const payload = decryptCredentials(row.encryptedCredentials);
+    const apiKey = payload.apiKey?.trim();
+    if (!apiKey) return null;
+    return { apiKey, voiceId: payload.voiceId?.trim() || undefined };
+  } catch (err) {
+    console.error(
+      `[getProviderCredentials] Decryption failed for workspace ${workspaceId} / ${provider}:`,
+      err,
+    );
+    return null;
+  }
+}
+
+/**
  * Providers that power client report generation (the "operating" providers).
  * GOOGLE is for Drive storage and GEMMA is the platform's own inference, so
  * neither counts as a BYOK key the user must supply to operate RestoreAssist.
@@ -234,13 +288,16 @@ export async function hasActiveOperatingProviderConnection(
 export async function upsertProviderConnection(
   input: UpsertProviderConnectionInput,
 ): Promise<ProviderConnectionSummary> {
-  const { workspaceId, provider, plaintextApiKey, memberId } = input;
+  const { workspaceId, provider, plaintextApiKey, voiceId, memberId } = input;
 
   if (!plaintextApiKey?.trim()) {
     throw new Error("API key must not be empty");
   }
 
-  const encrypted = encryptCredentials({ apiKey: plaintextApiKey.trim() });
+  const encrypted = encryptCredentials({
+    apiKey: plaintextApiKey.trim(),
+    voiceId: voiceId?.trim() || undefined,
+  });
 
   const row = await prisma.providerConnection.upsert({
     where: { workspaceId_provider: { workspaceId, provider } },
