@@ -20,6 +20,11 @@
 -- User.interviewTier enum-vs-text (founder decision), all pgvector/tsvector
 -- Unsupported columns, and the legacy lowercase ERP tables.
 
+-- pgcrypto provides gen_random_bytes() (ClientInvite.token default) and
+-- gen_random_uuid(). Present on prod; guarded here so a fresh DB (CI/new env)
+-- provisions cleanly instead of failing with "function gen_random_bytes does not exist".
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Enums
 -- ─────────────────────────────────────────────────────────────────────────────
