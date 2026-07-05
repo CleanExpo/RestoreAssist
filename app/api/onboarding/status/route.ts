@@ -199,8 +199,9 @@ export async function GET(request: NextRequest) {
     // Paid users still see them as required.
     const steps = {
       // RA-6801 / RA-6799: Surface the AI key requirement early in onboarding.
-      // Trial users have platform-key coverage; paid users without BYOK are
-      // blocked on report generation. Required = true for paid users only.
+      // RA-6932 removed the platform-key fallback — trial and paid users are
+      // both hard-402'd on report generation without a workspace-owned BYOK
+      // key, so `required` tracks `!hasApiKey` for every user, not just paid.
       ai_provider: {
         completed: hasApiKey,
         required: !hasApiKey,
