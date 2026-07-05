@@ -9,6 +9,7 @@ import { NextRequest } from "next/server";
 const getServerSession = vi.hoisted(() => vi.fn());
 const applyRateLimit = vi.hoisted(() => vi.fn());
 const requireActiveSubscription = vi.hoisted(() => vi.fn());
+const requireAddon = vi.hoisted(() => vi.fn());
 const generateSFX = vi.hoisted(() => vi.fn());
 const resolveWorkspaceElevenLabsKey = vi.hoisted(() => vi.fn());
 
@@ -31,6 +32,9 @@ vi.mock("@/lib/rate-limiter", () => ({
 }));
 vi.mock("@/lib/billing/subscription-gate", () => ({
   requireActiveSubscription: (...a: unknown[]) => requireActiveSubscription(...a),
+}));
+vi.mock("@/lib/entitlements", () => ({
+  requireAddon: (...a: unknown[]) => requireAddon(...a),
 }));
 vi.mock("@/lib/elevenlabs/client", () => ({
   generateSFX: (...a: unknown[]) => generateSFX(...a),
@@ -56,6 +60,11 @@ beforeEach(() => {
   getServerSession.mockResolvedValue({ user: { id: "user-1" } });
   applyRateLimit.mockResolvedValue(null);
   requireActiveSubscription.mockResolvedValue(null);
+  requireAddon.mockResolvedValue({
+    allowed: true,
+    sku: "VOICE",
+    workspaceId: "ws-1",
+  });
 });
 
 describe("POST /api/elevenlabs/sfx — workspace BYOK (RA-6920)", () => {
@@ -89,6 +98,42 @@ describe("POST /api/elevenlabs/sfx — workspace BYOK (RA-6920)", () => {
     expect(generateSFX.mock.calls[0][0]).toEqual(
       expect.objectContaining({ text: "gentle whoosh" }),
     );
+  });
+
+  it("fails closed with 402 when the workspace has no active VOICE entitlement", async () => {
+    requireAddon.mockResolvedValue({
+      allowed: false,
+      reason: "NOT_ENTITLED",
+      sku: "VOICE",
+      response: new Response(
+        JSON.stringify({ error: "add-on required", code: "ADDON_REQUIRED" }),
+        { status: 402 },
+      ),
+    });
+
+    const res = await sfxPost(makeReq({ description: "rain on a tin roof" }));
+
+    expect(res.status).toBe(402);
+    expect(requireAddon).toHaveBeenCalledWith("user-1", "VOICE");
+    // Neither the subscription gate nor the BYOK key resolver should be
+    // reached for a workspace that isn't entitled to the add-on.
+    expect(requireActiveSubscription).not.toHaveBeenCalled();
+    expect(resolveWorkspaceElevenLabsKey).not.toHaveBeenCalled();
+    expect(generateSFX).not.toHaveBeenCalled();
+  });
+
+  it("proceeds past the VOICE gate for an entitled workspace with a BYOK key", async () => {
+    resolveWorkspaceElevenLabsKey.mockResolvedValue({
+      workspaceId: "ws-1",
+      apiKey: "sk-eleven-workspace",
+    });
+    generateSFX.mockResolvedValue(Buffer.from("audio-bytes"));
+
+    const res = await sfxPost(makeReq({ description: "gentle whoosh" }));
+
+    expect(res.status).toBe(200);
+    expect(requireAddon).toHaveBeenCalledWith("user-1", "VOICE");
+    expect(generateSFX).toHaveBeenCalledTimes(1);
   });
 
   it("resolves the workspace key only after the subscription gate", async () => {

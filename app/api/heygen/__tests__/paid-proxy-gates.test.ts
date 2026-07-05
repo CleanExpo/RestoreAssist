@@ -19,6 +19,7 @@ const streamVoice = vi.hoisted(() => vi.fn());
 const listVoices = vi.hoisted(() => vi.fn());
 const generateSFX = vi.hoisted(() => vi.fn());
 const resolveWorkspaceElevenLabsKey = vi.hoisted(() => vi.fn());
+const requireAddon = vi.hoisted(() => vi.fn());
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
@@ -49,6 +50,9 @@ vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
   resolveWorkspaceElevenLabsKey: (...a: unknown[]) =>
     resolveWorkspaceElevenLabsKey(...a),
   NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
+}));
+vi.mock("@/lib/entitlements", () => ({
+  requireAddon: (...a: unknown[]) => requireAddon(...a),
 }));
 
 import { POST as heygenPost, GET as heygenGet } from "../route";
@@ -83,6 +87,9 @@ beforeEach(() => {
     workspaceId: "ws-1",
     apiKey: "sk-eleven-workspace",
   });
+  // RA-6920 B2 — sfx now also requires the VOICE add-on; allow by default so
+  // these RA-6940 subscription/rate-limit gate tests exercise their own path.
+  requireAddon.mockResolvedValue({ allowed: true });
 });
 
 describe("RA-6940 — paid proxy gates", () => {
