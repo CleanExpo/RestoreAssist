@@ -43,6 +43,10 @@ import {
   CLIENT_COMMS_ADDON_SUBSCRIPTION_TYPE,
 } from "./client-comms-addon";
 import { VOICE_ADDON, VOICE_ADDON_SUBSCRIPTION_TYPE } from "./voice-addon";
+import {
+  TECHNICIAN_SEATS_ADDON,
+  TECHNICIAN_SEATS_ADDON_SUBSCRIPTION_TYPE,
+} from "./technician-seats-addon";
 
 /**
  * The data-driven descriptor for one recurring add-on. Everything the checkout
@@ -69,6 +73,14 @@ export interface RecurringAddonDescriptor {
    * across the registry so the reverse lookup is unambiguous.
    */
   readonly subscriptionType: string;
+  /**
+   * QUANTITY-BASED add-on (RA-6920 B6, TECHNICIAN_SEATS). When true, the
+   * checkout accepts a buyer-supplied seat `quantity` (priced as
+   * `amount` × quantity) and the webhook persists that count on the
+   * entitlement's `seats` column. Absent/false = a flat add-on billed at
+   * `quantity: 1` (every other add-on). `amount` is the PER-SEAT price.
+   */
+  readonly perSeat?: boolean;
 }
 
 /**
@@ -132,6 +144,16 @@ export const RECURRING_ADDONS: Readonly<
     currency: VOICE_ADDON.currency,
     interval: VOICE_ADDON.interval,
     subscriptionType: VOICE_ADDON_SUBSCRIPTION_TYPE,
+  },
+  [TECHNICIAN_SEATS_ADDON.sku]: {
+    sku: TECHNICIAN_SEATS_ADDON.sku,
+    name: TECHNICIAN_SEATS_ADDON.name,
+    description: TECHNICIAN_SEATS_ADDON.description,
+    amount: TECHNICIAN_SEATS_ADDON.amount,
+    currency: TECHNICIAN_SEATS_ADDON.currency,
+    interval: TECHNICIAN_SEATS_ADDON.interval,
+    subscriptionType: TECHNICIAN_SEATS_ADDON_SUBSCRIPTION_TYPE,
+    perSeat: TECHNICIAN_SEATS_ADDON.perSeat,
   },
 };
 

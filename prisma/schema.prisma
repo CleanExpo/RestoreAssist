@@ -6108,6 +6108,12 @@ model FeatureEntitlement {
   sku         AddonSku
   active      Boolean   @default(false)
 
+  // RA-6920 B6 — purchased seat count for the quantity-based TECHNICIAN_SEATS
+  // add-on (Stripe subscription-item `quantity`). Null for every flat add-on
+  // (they are billed at quantity 1 and never read this). Populated by the
+  // webhook on subscription lifecycle events for the per-seat add-on only.
+  seats Int?
+
   // Stripe subscription-item + price linkage (nullable until billing is wired).
   stripeSubscriptionId String?
   stripePriceId        String?

@@ -11,6 +11,7 @@ import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { getAppUrl } from "@/lib/app-url";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { getRecurringAddon } from "@/lib/billing/addon-registry";
+import { TECHNICIAN_SEATS_MAX_PER_CHECKOUT } from "@/lib/billing/technician-seats-addon";
 
 export async function POST(request: NextRequest) {
   // RA-1842 Path B — fail-closed for iOS Capacitor.
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
       // could redirect the buyer to a phishing origin after payment).
       const baseUrl = getAppUrl();
 
-      let parsedBody: { addonKey?: string } = {};
+      let parsedBody: { addonKey?: string; quantity?: number } = {};
       try {
         parsedBody = rawBody ? JSON.parse(rawBody) : {};
       } catch {
@@ -154,6 +155,26 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        // RA-6920 B6 — quantity-based (per-seat) add-ons accept a buyer-supplied
+        // seat count; every flat add-on stays at quantity 1. Validate the seat
+        // count at this system boundary before it reaches Stripe.
+        let quantity = 1;
+        if (recurringAddon.perSeat) {
+          const requested = parsedBody.quantity ?? 1;
+          if (
+            !Number.isInteger(requested) ||
+            requested < 1 ||
+            requested > TECHNICIAN_SEATS_MAX_PER_CHECKOUT
+          ) {
+            return apiError(request, {
+              code: "VALIDATION",
+              message: `Seat quantity must be a whole number between 1 and ${TECHNICIAN_SEATS_MAX_PER_CHECKOUT}`,
+              status: 400,
+            });
+          }
+          quantity = requested;
+        }
+
         try {
           const checkoutSession = await stripe.checkout.sessions.create({
             mode: "subscription",
@@ -176,7 +197,7 @@ export async function POST(request: NextRequest) {
                     },
                   },
                 },
-                quantity: 1,
+                quantity,
               },
             ],
             success_url: `${baseUrl}/dashboard/success?addon=${addonKey}&session_id={CHECKOUT_SESSION_ID}`,
