@@ -525,6 +525,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         ? sanitizeString(body.technicianName, 200)
         : null;
     }
+    // RA-6949 — per-job Restoration Pulse kill switch (judge AC6). Boolean
+    // only; ignored when absent so this stays additive to the existing idiom.
+    if (typeof body.pulseEnabled === "boolean") {
+      data.pulseEnabled = body.pulseEnabled;
+    }
 
     if (Object.keys(data).length === 0) {
       return apiError(request, {

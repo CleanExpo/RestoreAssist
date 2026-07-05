@@ -98,6 +98,39 @@ export function getFromEmail(): string {
   return configured;
 }
 
+// ── Restoration Pulse update Email (RA-6949) ──
+
+export interface PulseUpdateEmailData {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}
+
+/**
+ * Generic curated Pulse notification send. The Pulse dispatcher pre-checks
+ * that RESEND_API_KEY + RESEND_FROM_EMAIL are configured and fails closed
+ * (suppressed row + connector-health report) when they are not, so reaching
+ * here means the connector is configured. Throws on an actual Resend send
+ * failure — the dispatcher catches it and records a SEND_FAILED suppression.
+ * Returns the Resend message id on success.
+ */
+export async function sendPulseUpdateEmail(
+  data: PulseUpdateEmailData,
+): Promise<string | null> {
+  const result = await withEmailTimeout(
+    getResendClient().emails.send({
+      from: getFromEmail(),
+      to: data.to,
+      subject: sanitiseEmailField(data.subject),
+      html: data.html,
+      text: data.text,
+    }),
+  );
+  const ok = assertResendSuccess(result, "pulse-update");
+  return ok.data?.id ?? null;
+}
+
 // ── Signed Authority Form Email ──
 
 export interface SignedFormEmailData {
