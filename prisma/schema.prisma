@@ -364,6 +364,11 @@ model Client {
   brandLogoUrl      String?
   brandPrimaryColor String?
 
+  // RA-6949 (epic RA-6948, Restoration Pulse) — homeowner opt-out of automated
+  // progress notifications. Per-client unsubscribe, distinct from the per-job
+  // Pulse kill switch (Inspection.pulseEnabled). Additive + defaulted.
+  pulseOptOut Boolean @default(false)
+
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   userId        String
@@ -1941,6 +1946,13 @@ model Inspection {
   source      String?   @default("MANUAL")
   acceptedAt  DateTime?
 
+  // RA-6949 (epic RA-6948, Restoration Pulse) — per-job kill switch for the
+  // client notification dispatcher. Default OFF for safe pilot rollout: no
+  // Pulse email goes out for a job until the firm opts it in (also the
+  // mid-dispute kill switch, judge AC6). Additive + defaulted → safe on
+  // existing rows.
+  pulseEnabled Boolean @default(false)
+
   // RA-261: Claim type stamped by per-assessment routes (water/fire/mould/etc).
   // Backs columns in app/api/inspections/[id]/{carpet,biohazard,hvac,fire-smoke,
   // storm,mould-remediation,contents-pack-out,water-damage-classification}.
@@ -2036,6 +2048,9 @@ model Inspection {
   claimSketches    ClaimSketch[]
   drNrpgJobSync    DrNrpgJobSync?
   dryingGoalRecord DryingGoalRecord?
+
+  // RA-6949 — Restoration Pulse per-job comms log (send + suppression audit).
+  clientCommsLogs ClientCommsLog[]
 
   // RA-1132a: AI Live Teacher sessions
   liveTeacherSessions LiveTeacherSession[]
@@ -6508,6 +6523,34 @@ model DryingGoalRecord {
 
   @@index([goalAchieved])
   @@index([goalAchievedAt])
+}
+
+/// RA-6949 — Restoration Pulse per-job comms log (epic RA-6948 foundation;
+/// RA-6951/6952 build on it). Append-only audit of every client notification
+/// the dispatcher handles: one row per SEND and one per SUPPRESSION (toggle
+/// off, homeowner opt-out, missing env, duplicate). `idempotencyKey` is unique
+/// so a single logical event dispatches at most once — suppressed rows carry a
+/// derived key plus a machine-readable `suppressionReason`. Curated states
+/// only: no raw moisture/meter values are ever recorded here (drying logs are
+/// legal exhibits).
+model ClientCommsLog {
+  id                String     @id @default(cuid())
+  inspectionId      String
+  inspection        Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  channel           String // "EMAIL" (SMS ships in P1)
+  eventType         String // PulseEventType: STEP_TRANSITION | DRYING_GOAL_CHANGE
+  recipient         String // curated recipient address (homeowner email)
+  status            String // "SENT" | "SUPPRESSED"
+  suppressionReason String? // null when SENT; PulseSuppressionReason otherwise
+  providerMessageId String? // Resend message id when SENT
+  templateKey       String? // which curated template rendered
+  idempotencyKey    String     @unique
+  createdAt         DateTime   @default(now())
+
+  @@index([inspectionId])
+  @@index([status])
+  @@index([eventType])
+  @@index([createdAt])
 }
 
 // ─── V2: Historical Jobs for Vector Similarity Search ────────────────────────
