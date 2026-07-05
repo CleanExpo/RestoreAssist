@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { verifyPortalToken } from "@/lib/portal-token";
 import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
 import { prisma } from "@/lib/prisma";
+import { resolveAreaSqm } from "@/lib/units";
 import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
 import { ClientPortalUpload } from "@/components/portal/ClientPortalUpload";
 import { ClientPortalAuthorities } from "@/components/portal/ClientPortalAuthorities";
@@ -203,7 +204,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
                       </span>
                     )}
                     <span className="text-xs text-slate-400">
-                      {area.affectedSquareFootage} m²
+                      {resolveAreaSqm(area).toFixed(1)} m²
                     </span>
                   </div>
                 </li>

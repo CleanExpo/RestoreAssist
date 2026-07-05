@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveAreaSqm } from "@/lib/units";
 import type { InspectionReportData } from "@/lib/pdf-export";
 
 type RouteContext = {
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             roomZoneId: true,
             waterSource: true,
             category: true,
+            affectedAreaSqm: true,
             affectedSquareFootage: true,
           },
         },
@@ -101,7 +103,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         affectedAreaM2:
           inspection.affectedAreas.length > 0
             ? inspection.affectedAreas.reduce(
-                (sum, a) => sum + a.affectedSquareFootage,
+                (sum, a) => sum + resolveAreaSqm(a),
                 0,
               )
             : null,
@@ -111,7 +113,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         roomName: a.roomZoneId,
         material: a.waterSource,
         damageCategory: a.category ?? primaryClassification?.category ?? "—",
-        areaM2: a.affectedSquareFootage,
+        areaM2: resolveAreaSqm(a),
       })),
       moistureReadings: inspection.moistureReadings.map((r) => ({
         readingDate: r.recordedAt.toISOString(),

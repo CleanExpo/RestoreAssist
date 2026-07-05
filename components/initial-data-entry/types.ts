@@ -84,7 +84,7 @@ export interface InitialDataShape {
     }>;
     affectedAreas?: Array<{
       roomZoneId: string;
-      affectedSquareFootage: number;
+      affectedAreaSqm: number;
       waterSource: string;
       timeSinceLoss: number;
     }>;

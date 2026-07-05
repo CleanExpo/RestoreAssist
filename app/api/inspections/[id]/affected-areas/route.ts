@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { deriveAreaColumns } from "@/lib/units";
 
 // POST - Add affected area
 export async function POST(
@@ -61,12 +62,20 @@ export async function POST(
             });
           }
 
-          const sqft = Number(body.affectedSquareFootage);
-          if (!isFinite(sqft) || sqft <= 0 || sqft > 100_000) {
+          // RA-7001: m² (affectedAreaSqm) is canonical. Accept it from
+          // metric-native clients; fall back to the legacy sq-ft field for
+          // older clients. Dual-write both columns so every reader — metric
+          // output surfaces and the sq-ft IICRC engine — stays correct.
+          const areaColumns = deriveAreaColumns(body);
+          // Guard on the m² value: 100,000 sq ft ≈ 9,290 m².
+          if (
+            !areaColumns ||
+            areaColumns.affectedAreaSqm > 9_290
+          ) {
             return apiError(request, {
               code: "VALIDATION",
               message:
-                "Affected square footage must be a finite number between 0 and 100,000",
+                "Affected area (m²) must be a finite number between 0 and 9,290",
               status: 400,
             });
           }
@@ -93,7 +102,8 @@ export async function POST(
             data: {
               inspectionId: id,
               roomZoneId: String(body.roomZoneId).trim().slice(0, 200),
-              affectedSquareFootage: sqft,
+              affectedAreaSqm: areaColumns.affectedAreaSqm,
+              affectedSquareFootage: areaColumns.affectedSquareFootage,
               waterSource: String(body.waterSource).slice(0, 100),
               timeSinceLoss: body.timeSinceLoss
                 ? typeof body.timeSinceLoss === "number"
@@ -116,6 +126,7 @@ export async function POST(
               userId,
               changes: JSON.stringify({
                 roomZoneId: affectedArea.roomZoneId,
+                affectedAreaSqm: affectedArea.affectedAreaSqm,
                 affectedSquareFootage: affectedArea.affectedSquareFootage,
                 waterSource: affectedArea.waterSource,
               }),

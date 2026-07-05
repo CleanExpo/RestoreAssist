@@ -31,6 +31,7 @@ import {
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveAreaSqm } from "@/lib/units";
 import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
@@ -83,6 +84,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         },
         affectedAreas: {
           select: {
+            affectedAreaSqm: true,
             affectedSquareFootage: true,
           },
         },
@@ -98,9 +100,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const classification = inspection.classifications[0];
-    // affectedSquareFootage is in sq ft → convert to m² (1 sq ft = 0.0929 m²)
+    // RA-7001: affectedAreaSqm (m²) is canonical; resolveAreaSqm converts
+    // legacy sq-ft rows exactly (1 sq ft = 0.09290304 m²).
     const totalAreaM2 = inspection.affectedAreas.reduce(
-      (sum, a) => sum + (a.affectedSquareFootage ?? 0) * 0.0929,
+      (sum, a) => sum + resolveAreaSqm(a),
       0,
     );
     const suburb = inspection.propertyAddress?.split(",")?.[1]?.trim() ?? "";

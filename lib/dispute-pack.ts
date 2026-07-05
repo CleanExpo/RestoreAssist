@@ -17,6 +17,7 @@ import {
   RGB,
 } from "pdf-lib";
 import { PrismaClient } from "@prisma/client";
+import { resolveAreaSqm } from "@/lib/units";
 
 // ── Brand colours ──────────────────────────────────────────────────────────────
 const NAVY = rgb(0.11, 0.18, 0.28); // #1C2E47
@@ -61,6 +62,7 @@ interface DisputePackData {
   }[];
   affectedAreas: {
     roomZoneId: string;
+    affectedAreaSqm: number | null;
     affectedSquareFootage: number;
     waterSource: string;
     timeSinceLoss: number | null;
@@ -482,6 +484,32 @@ class PDFWriter {
 
 // ── Main Generation Function ───────────────────────────────────────────────────
 
+/**
+ * RA-7001 — Affected-area summary in canonical m². Exported as a pure,
+ * testable seam so the dispute-pack PDF's unit rendering can be asserted
+ * without generating a full PDF. Legacy sq-ft rows are converted via
+ * resolveAreaSqm.
+ */
+export function formatAffectedAreaSummary(
+  areas: Array<{
+    roomZoneId: string;
+    affectedAreaSqm: number | null;
+    affectedSquareFootage: number;
+    waterSource: string;
+    category: string | null;
+    class: string | null;
+  }>,
+): { total: string; lines: string[] } {
+  const totalSqm = areas.reduce((sum, a) => sum + resolveAreaSqm(a), 0);
+  return {
+    total: `${totalSqm.toFixed(1)} m²`,
+    lines: areas.map(
+      (area) =>
+        `- ${area.roomZoneId}: ${resolveAreaSqm(area).toFixed(1)} m² | Source: ${area.waterSource}${area.category ? ` | Cat ${area.category}` : ""}${area.class ? ` / Class ${area.class}` : ""}`,
+    ),
+  };
+}
+
 export async function generateDisputePack(
   inspectionId: string,
   userId: string,
@@ -516,6 +544,7 @@ export async function generateDisputePack(
       affectedAreas: {
         select: {
           roomZoneId: true,
+          affectedAreaSqm: true,
           affectedSquareFootage: true,
           waterSource: true,
           timeSinceLoss: true,
@@ -798,19 +827,13 @@ function drawExecutiveSummary(w: PDFWriter, data: DisputePackData): void {
   // Affected areas summary
   if (data.affectedAreas.length > 0) {
     w.subHeading("Affected Areas");
-    const totalSqFt = data.affectedAreas.reduce(
-      (sum, a) => sum + a.affectedSquareFootage,
-      0,
-    );
+    const summary = formatAffectedAreaSummary(data.affectedAreas);
     w.kvPair("Total Affected Areas", String(data.affectedAreas.length));
-    w.kvPair("Total Affected Area", `${totalSqFt.toFixed(1)} sq ft`);
+    w.kvPair("Total Affected Area", summary.total);
     w.skip(4);
 
-    for (const area of data.affectedAreas) {
-      w.drawText(
-        `- ${area.roomZoneId}: ${area.affectedSquareFootage} sq ft | Source: ${area.waterSource}${area.category ? ` | Cat ${area.category}` : ""}${area.class ? ` / Class ${area.class}` : ""}`,
-        { size: 8 },
-      );
+    for (const line of summary.lines) {
+      w.drawText(line, { size: 8 });
     }
     w.skip(8);
   }

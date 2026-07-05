@@ -30,7 +30,7 @@ interface MoistureReading {
 interface AffectedArea {
   id: string;
   roomZoneId: string;
-  affectedSquareFootage: number;
+  affectedAreaSqm: number;
   waterSource: string;
   timeSinceLoss: number;
 }
@@ -397,7 +397,7 @@ export function ReviewSection({
                       "text-xs px-2 py-1 bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 rounded",
                     )}
                   >
-                    {area.affectedSquareFootage.toFixed(2)} m²
+                    {area.affectedAreaSqm.toFixed(2)} m²
                   </span>
                 </div>
                 {(area as any).materials &&

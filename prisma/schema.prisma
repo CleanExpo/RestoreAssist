@@ -2869,8 +2869,12 @@ model AffectedArea {
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
 
   // Area Identification
-  roomZoneId            String // Room/Zone identifier
-  affectedSquareFootage Float // Square footage affected
+  roomZoneId String // Room/Zone identifier
+  /// @deprecated use affectedAreaSqm (m²) — RA-7001; drop in a follow-up once verified.
+  /// Stored in sq ft. Retained for the internal IICRC scoring engine + un-backfilled legacy rows.
+  affectedSquareFootage Float // Square footage affected (sq ft) — DEPRECATED, superseded by affectedAreaSqm
+  /// Canonical affected area in m² (RA-7001). 1 sq ft = 0.09290304 m². Nullable until fully backfilled.
+  affectedAreaSqm Float?
 
   // Water Source & Timing
   waterSource   String // clean water, grey water, black water

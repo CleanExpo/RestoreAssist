@@ -8,6 +8,7 @@ import {
 } from "@/lib/nir-report-generation";
 import { generateVerificationChecklist } from "@/lib/nir-verification-checklist";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveAreaSqm } from "@/lib/units";
 
 // Dynamic import for ExcelJS to handle cases where it's not installed
 let ExcelJS: typeof import("exceljs") | null = null;
@@ -73,6 +74,7 @@ export async function GET(
           select: {
             id: true,
             roomZoneId: true,
+            affectedAreaSqm: true,
             affectedSquareFootage: true,
             waterSource: true,
             timeSinceLoss: true,
@@ -468,7 +470,7 @@ async function generateExcelReport(inspection: NirReportInspectionData) {
     inspection.affectedAreas.forEach((area) => {
       areasSheet.addRow({
         roomZone: area.roomZoneId,
-        areaSqm: area.affectedSquareFootage,
+        areaSqm: resolveAreaSqm(area),
         waterSource: area.waterSource ?? "—",
         timeSinceLoss: area.timeSinceLoss ?? "—",
         category: area.category ?? "N/A",
