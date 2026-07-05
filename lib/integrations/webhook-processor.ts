@@ -139,6 +139,24 @@ export async function processWebhookEvent(eventId: string): Promise<void> {
 
     console.log(`[Webhook Processor] Successfully processed event ${eventId}`);
   } catch (error: any) {
+    // RA-6992 — the owning integration was deleted mid-flight: not a
+    // transient failure, so retrying can never resolve it. Mark SKIPPED with
+    // an explicit reason instead of COMPLETED (silent) or FAILED (retried).
+    if (error instanceof IntegrationDeletedError) {
+      await prisma.webhookEvent.update({
+        where: { id: eventId },
+        data: {
+          status: "SKIPPED",
+          processedAt: new Date(),
+          errorMessage: error.message,
+        },
+      });
+      console.warn(
+        `[Webhook Processor] Event ${eventId} skipped: ${error.message}`,
+      );
+      return;
+    }
+
     console.error(
       `[Webhook Processor] Error processing event ${eventId}:`,
       error,
@@ -299,6 +317,24 @@ async function handleMyobPaymentCreated(event: any): Promise<void> {
   });
 }
 
+/**
+ * RA-6992 — thrown by recordExternalPayment when the owning integration was
+ * deleted between the webhook arriving and processing. A silent early-return
+ * here let the caller mark the event COMPLETED with no payment recorded and
+ * no distinct signal, so a genuinely orphaned payment became invisible. Every
+ * caller of handlePaymentCreated catches this specifically and marks the
+ * event SKIPPED with this message as the reason, instead of retrying or
+ * completing — the integration is gone, so a retry cannot resolve it.
+ */
+export class IntegrationDeletedError extends Error {
+  constructor(integrationId: string) {
+    super(
+      `Integration ${integrationId} deleted — payment not recorded`,
+    );
+    this.name = "IntegrationDeletedError";
+  }
+}
+
 interface PaymentAllocation {
   externalInvoiceId: string;
   amount: number; // dollars applied to THIS invoice, provider-native
@@ -335,10 +371,7 @@ async function recordExternalPayment(
     select: { userId: true },
   });
   if (!integration) {
-    console.warn(
-      `[Webhook Processor] Integration ${event.integrationId} not found — skipping payment recording`,
-    );
-    return;
+    throw new IntegrationDeletedError(event.integrationId);
   }
 
   for (const allocation of allocations) {
@@ -784,6 +817,21 @@ export async function processQboMyobPendingPayments(
       });
       result.processed++;
     } catch (err) {
+      // RA-6992 — integration deleted mid-flight is terminal, not transient;
+      // mark SKIPPED with the reason instead of retrying it as a failure.
+      if (err instanceof IntegrationDeletedError) {
+        await prisma.webhookEvent.update({
+          where: { id: event.id },
+          data: {
+            status: "SKIPPED",
+            processedAt: new Date(),
+            errorMessage: err.message,
+          },
+        });
+        result.skipped++;
+        continue;
+      }
+
       const message = err instanceof Error ? err.message : String(err);
       const retryCount = event.retryCount + 1;
       const maxRetries = 5;
@@ -857,6 +905,23 @@ export async function retryUnresolvedQboMyobPayments(
       });
       result.processed++;
     } catch (err) {
+      // RA-6992 — integration deleted mid-flight is terminal, not transient;
+      // mark SKIPPED with the reason (which does NOT match the RA-1699 stub
+      // marker filter above) instead of restoring the stub marker for another
+      // retry pass that can never succeed.
+      if (err instanceof IntegrationDeletedError) {
+        await prisma.webhookEvent.update({
+          where: { id: event.id },
+          data: {
+            status: "SKIPPED",
+            processedAt: new Date(),
+            errorMessage: err.message,
+          },
+        });
+        result.skipped++;
+        continue;
+      }
+
       const message = err instanceof Error ? err.message : String(err);
       const retryCount = event.retryCount + 1;
       const maxRetries = 5;

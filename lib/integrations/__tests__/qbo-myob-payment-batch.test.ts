@@ -171,6 +171,45 @@ describe("processQboMyobPendingPayments", () => {
     expect(result).toEqual({ processed: 0, failed: 0, skipped: 1 });
   });
 
+  // RA-6992 — the integration was deleted between the webhook arriving and
+  // this batch draining it. Must mark SKIPPED with an explicit reason, not
+  // COMPLETED (silent, no payment recorded) and not FAILED (implies a
+  // transient failure worth retrying, but a deleted integration never
+  // resolves via retry).
+  it("marks the event SKIPPED with a reason (not FAILED, not COMPLETED) when the owning integration was deleted", async () => {
+    webhookEventFindMany.mockResolvedValue([
+      {
+        id: "evt-gone",
+        provider: "QUICKBOOKS",
+        integrationId: "integ-deleted",
+        eventType: "payment.created",
+        payload: { id: "qbo-pay-gone" },
+        retryCount: 0,
+      },
+    ]);
+    qboGetPayment.mockResolvedValue({
+      Id: "qbo-pay-gone",
+      TotalAmt: 100,
+      TxnDate: "2026-07-01",
+      Line: [{ Amount: 100, LinkedTxn: [{ TxnId: "inv-gone", TxnType: "Invoice" }] }],
+    });
+    integrationFindUnique.mockResolvedValue(null);
+
+    const result = await processQboMyobPendingPayments(50);
+
+    expect(invoiceFindFirst).not.toHaveBeenCalled();
+    expect(webhookEventUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "evt-gone" },
+        data: expect.objectContaining({
+          status: "SKIPPED",
+          errorMessage: expect.stringContaining("deleted"),
+        }),
+      }),
+    );
+    expect(result).toEqual({ processed: 0, failed: 0, skipped: 1 });
+  });
+
   it("marks a resolution failure FAILED once retryCount reaches the bound", async () => {
     webhookEventFindMany.mockResolvedValue([
       {
@@ -303,6 +342,50 @@ describe("retryUnresolvedQboMyobPayments", () => {
     expect(
       (call?.[0] as { data?: { errorMessage?: string } })?.data?.errorMessage,
     ).not.toContain("429");
+    expect(result).toEqual({ processed: 0, failed: 0, skipped: 1 });
+  });
+
+  // RA-6992 — same terminal-not-transient guarantee on the retroactive
+  // retry path: a deleted integration must not have the RA-1699 stub marker
+  // restored (which would keep re-selecting it forever); it gets SKIPPED with
+  // its own reason instead, which falls outside the errorMessage `in` filter.
+  it("marks the event SKIPPED with a reason (not the restored stub marker) when the owning integration was deleted", async () => {
+    webhookEventFindMany.mockResolvedValue([
+      {
+        id: "evt-skip-gone",
+        provider: "MYOB",
+        integrationId: "integ-deleted-2",
+        eventType: "payment.created",
+        payload: { ResourceUID: "myob-pay-gone" },
+        retryCount: 0,
+      },
+    ]);
+    myobGetCustomerPayment.mockResolvedValue({
+      UID: "myob-pay-gone",
+      Date: "2026-07-01",
+      AmountReceived: 200,
+      Invoices: [{ UID: "myob-inv-gone", AmountApplied: 200 }],
+    });
+    integrationFindUnique.mockResolvedValue(null);
+
+    const result = await retryUnresolvedQboMyobPayments(50);
+
+    expect(invoiceFindFirst).not.toHaveBeenCalled();
+    expect(webhookEventUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "evt-skip-gone" },
+        data: expect.objectContaining({
+          status: "SKIPPED",
+          errorMessage: expect.stringContaining("deleted"),
+        }),
+      }),
+    );
+    const call = webhookEventUpdate.mock.calls.find(
+      (c) => (c[0] as { where?: { id?: string } })?.where?.id === "evt-skip-gone",
+    );
+    expect(
+      (call?.[0] as { data?: { errorMessage?: string } })?.data?.errorMessage,
+    ).not.toContain("LinkedTxn/TotalAmt");
     expect(result).toEqual({ processed: 0, failed: 0, skipped: 1 });
   });
 
