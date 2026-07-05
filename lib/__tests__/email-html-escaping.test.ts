@@ -93,13 +93,13 @@ describe("email HTML injection (rule 10 — escapeHtml on user-controlled fields
     expect(html).toContain(ESCAPED);
   });
 
-  it("escapes recipientName, subscriptionPlan and failureReason in sendPaymentFailedEmail", async () => {
+  it("escapes recipientName, subscriptionPlan, failureReason, currency and amount in sendPaymentFailedEmail", async () => {
     await sendPaymentFailedEmail({
       recipientEmail: "customer@example.com",
       recipientName: XSS,
       subscriptionPlan: XSS,
-      amount: "49.00",
-      currency: "AUD",
+      amount: XSS,
+      currency: XSS,
       failureReason: XSS,
       updatePaymentUrl: "https://app.restoreassist.app/billing",
     });
@@ -109,12 +109,12 @@ describe("email HTML injection (rule 10 — escapeHtml on user-controlled fields
     expect(html).toContain(ESCAPED);
   });
 
-  it("escapes recipientName and subscriptionPlan in sendSubscriptionCancelledEmail", async () => {
+  it("escapes recipientName, subscriptionPlan and expiresAt in sendSubscriptionCancelledEmail", async () => {
     await sendSubscriptionCancelledEmail({
       recipientEmail: "customer@example.com",
       recipientName: XSS,
       subscriptionPlan: XSS,
-      expiresAt: "1 January 2027",
+      expiresAt: XSS,
       resubscribeUrl: "https://app.restoreassist.app/billing",
     });
 
