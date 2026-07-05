@@ -102,9 +102,14 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Verify template exists
-      const template = await prisma.formTemplate.findUnique({
-        where: { id: templateId },
+      // RA-1711 — verify template ownership (not just existence) so a
+      // user cannot submit a FormSubmission against another tenant's
+      // private template. System templates are shared across tenants.
+      const template = await prisma.formTemplate.findFirst({
+        where: {
+          id: templateId,
+          OR: [{ userId }, { isSystemTemplate: true }],
+        },
       });
 
       if (!template) {
