@@ -23,6 +23,20 @@ import ScopeOfWorksViewer from "@/components/ScopeOfWorksViewer";
 import CostEstimationViewer from "@/components/CostEstimationViewer";
 import AuthorityFormsViewer from "@/components/AuthorityFormsViewer";
 import ApprovalPanel from "@/components/reports/ApprovalPanel";
+import {
+  WeaknessFindingsPanel,
+  type WeaknessGateState,
+} from "@/components/reports/weakness-findings-panel";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import toast from "react-hot-toast";
 
 export default function ReportDetailPage({
@@ -40,6 +54,27 @@ export default function ReportDetailPage({
   >("inspection");
   const [sharingInsurer, setSharingInsurer] = useState(false);
   const [insurerLinkCopied, setInsurerLinkCopied] = useState(false);
+
+  // RA-5041 (UI follow-up): the weakness-check route is advisory-only —
+  // this page is what turns an unresolved P0 finding into a hard stop.
+  // `p0Acknowledged` is re-armed on every fresh run (onRunStart) so a stale
+  // acknowledgement from a previous run can never wave through new P0s.
+  const [weaknessGate, setWeaknessGate] = useState<WeaknessGateState>({
+    hasUnresolvedP0: false,
+    p0Count: 0,
+  });
+  const [p0Acknowledged, setP0Acknowledged] = useState(false);
+  const [pendingExportAction, setPendingExportAction] = useState<
+    (() => void) | null
+  >(null);
+
+  function requestExport(action: () => void) {
+    if (weaknessGate.hasUnresolvedP0) {
+      setPendingExportAction(() => action);
+      return;
+    }
+    action();
+  }
 
   useEffect(() => {
     const getParams = async () => {
@@ -147,88 +182,132 @@ export default function ReportDetailPage({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push("/dashboard/reports")}
-            className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
-            title="Back to Reports"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h1 className="text-2xl font-semibold mb-1">
-              {report.reportNumber || report.title || "Report Details"}
-            </h1>
-            <p className="text-slate-400 text-sm">
-              {report.clientName && `${report.clientName} • `}
-              {report.propertyAddress}
-              {report.propertyPostcode && ` • ${report.propertyPostcode}`}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Download IICRC PDF */}
-          <button
-            onClick={handleDownloadPDF}
-            title="Download IICRC S500:2021 compliant PDF"
-            className="flex items-center gap-2 px-3 py-2 bg-slate-700 text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
-          >
-            <Download size={16} />
-            PDF Report
-          </button>
-
-          {/* Share with Insurer */}
-          <button
-            onClick={handleShareWithInsurer}
-            disabled={sharingInsurer}
-            title="Generate a 30-day insurer share link and copy to clipboard"
-            className="flex items-center gap-2 px-3 py-2 bg-violet-600 text-white rounded-lg font-medium hover:bg-violet-500 disabled:opacity-60 transition-colors text-sm"
-          >
-            {sharingInsurer ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : insurerLinkCopied ? (
-              <Check size={16} />
-            ) : (
-              <Share2 size={16} />
-            )}
-            {insurerLinkCopied ? "Copied!" : "Share with Insurer"}
-          </button>
-
-          <button
-            onClick={() =>
-              router.push(
-                `/dashboard/restoration-documents/invoice/new?reportId=${reportId}`,
-              )
-            }
-            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
-          >
-            <Receipt size={18} />
-            Restoration Invoice
-          </button>
-          <button
-            onClick={() => {
-              const jobType =
-                report.hazardType === "Fire"
-                  ? "FIRE_DAMAGE"
-                  : report.hazardType === "Storm"
-                    ? "STORM_DAMAGE"
-                    : report.hazardType === "Mould"
-                      ? "MOULD_REMEDIATION"
-                      : "WATER_DAMAGE";
-              const params = new URLSearchParams({ reportId: reportId! });
-              if (jobType) params.set("jobType", jobType);
-              if (report.propertyPostcode)
-                params.set("postcode", report.propertyPostcode);
-              router.push(`/dashboard/interviews/new?${params.toString()}`);
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-          >
-            <MessageSquare size={18} />
-            Start Interview
-          </button>
+      <div className="flex items-center gap-4">
+        <button
+          onClick={() => router.push("/dashboard/reports")}
+          className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+          title="Back to Reports"
+        >
+          <ArrowLeft size={20} />
+        </button>
+        <div>
+          <h1 className="text-2xl font-semibold mb-1">
+            {report.reportNumber || report.title || "Report Details"}
+          </h1>
+          <p className="text-slate-400 text-sm">
+            {report.clientName && `${report.clientName} • `}
+            {report.propertyAddress}
+            {report.propertyPostcode && ` • ${report.propertyPostcode}`}
+          </p>
         </div>
       </div>
+
+      {/* Weakness check — reviewed ahead of export/handoff (RA-5041 UI) */}
+      {reportId && (
+        <WeaknessFindingsPanel
+          reportId={reportId}
+          acknowledged={p0Acknowledged}
+          onGateChange={setWeaknessGate}
+          onRunStart={() => setP0Acknowledged(false)}
+        />
+      )}
+
+      {/* Export / handoff actions */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Download IICRC PDF */}
+        <button
+          onClick={() => requestExport(handleDownloadPDF)}
+          title="Download IICRC S500:2021 compliant PDF"
+          className="flex items-center gap-2 px-3 py-2 bg-slate-700 text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
+        >
+          <Download size={16} />
+          PDF Report
+        </button>
+
+        {/* Share with Insurer */}
+        <button
+          onClick={() => requestExport(handleShareWithInsurer)}
+          disabled={sharingInsurer}
+          title="Generate a 30-day insurer share link and copy to clipboard"
+          className="flex items-center gap-2 px-3 py-2 bg-violet-600 text-white rounded-lg font-medium hover:bg-violet-500 disabled:opacity-60 transition-colors text-sm"
+        >
+          {sharingInsurer ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : insurerLinkCopied ? (
+            <Check size={16} />
+          ) : (
+            <Share2 size={16} />
+          )}
+          {insurerLinkCopied ? "Copied!" : "Share with Insurer"}
+        </button>
+
+        <button
+          onClick={() =>
+            router.push(
+              `/dashboard/restoration-documents/invoice/new?reportId=${reportId}`,
+            )
+          }
+          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+        >
+          <Receipt size={18} />
+          Restoration Invoice
+        </button>
+        <button
+          onClick={() => {
+            const jobType =
+              report.hazardType === "Fire"
+                ? "FIRE_DAMAGE"
+                : report.hazardType === "Storm"
+                  ? "STORM_DAMAGE"
+                  : report.hazardType === "Mould"
+                    ? "MOULD_REMEDIATION"
+                    : "WATER_DAMAGE";
+            const params = new URLSearchParams({ reportId: reportId! });
+            if (jobType) params.set("jobType", jobType);
+            if (report.propertyPostcode)
+              params.set("postcode", report.propertyPostcode);
+            router.push(`/dashboard/interviews/new?${params.toString()}`);
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+        >
+          <MessageSquare size={18} />
+          Start Interview
+        </button>
+      </div>
+
+      {/* RA-5041 UI: block export/handoff on an unacknowledged P0 hard-stop —
+          advisory route, human-decided override, never a silent disable. */}
+      <AlertDialog
+        open={pendingExportAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingExportAction(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unresolved P0 weakness flags</AlertDialogTitle>
+            <AlertDialogDescription>
+              {weaknessGate.p0Count} red-line finding
+              {weaknessGate.p0Count === 1 ? "" : "s"} from the weakness check
+              {weaknessGate.p0Count === 1 ? " is" : " are"} still unresolved.
+              Exporting now hands the report off with an unacknowledged hard
+              stop.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setP0Acknowledged(true);
+                pendingExportAction?.();
+                setPendingExportAction(null);
+              }}
+            >
+              Export anyway — P0 flags acknowledged
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Tabs */}
       <div className="border-b border-slate-700">
