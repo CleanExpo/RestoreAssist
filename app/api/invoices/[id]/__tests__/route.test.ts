@@ -114,4 +114,33 @@ describe("PUT /api/invoices/[id] line-item numeric validation", () => {
       expect(Number.isFinite(v)).toBe(true);
     }
   });
+
+  it("scales per-item GST on discount instead of recomputing at flat 10% for mixed-rate items", async () => {
+    let captured: any;
+    txInvoiceUpdate.mockImplementation(async (arg: any) => {
+      captured = arg;
+      return { id: "inv_1", ...arg.data, lineItems: [] };
+    });
+
+    const res = await PUT(putReq({
+      lineItems: [
+        // GST-free item: $100.00 ex GST, 0 GST.
+        { description: "GST-free labour", quantity: 1, unitPrice: 10000, gstRate: 0 },
+        // Standard-rated item: $100.00 ex GST, $10.00 GST.
+        { description: "Materials", quantity: 1, unitPrice: 10000, gstRate: 10 },
+      ],
+      // 10% off the $200.00 ex-GST subtotal.
+      discountPercentage: 10,
+    }), { params });
+
+    expect(res.status).toBe(200);
+    const data = captured.data;
+    // Subtotal 20000 - 2000 discount = 18000.
+    expect(data.subtotalExGST).toBe(18000);
+    // Accumulated GST was 1000 (only the standard item). Scaled by 18000/20000 = 900.
+    // A flat-10%-of-subtotal recompute would wrongly yield 1800.
+    expect(data.gstAmount).toBe(900);
+    expect(data.totalIncGST).toBe(18900);
+    expect(data.amountDue).toBe(18900);
+  });
 });

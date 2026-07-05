@@ -339,14 +339,17 @@ export async function PUT(
         };
       });
 
-      // Apply discounts
+      // Apply discounts. Scale the accumulated per-item GST by the post-discount
+      // ratio instead of recomputing at a flat 10% — a mixed-GST-rate invoice
+      // (e.g. some GST-free items) would otherwise have its GST total corrupted.
+      const preDiscountSubtotal = subtotalExGST;
       if (discountAmount) {
         subtotalExGST -= discountAmount;
-        gstAmount = Math.round(subtotalExGST * 0.1);
+        gstAmount = preDiscountSubtotal > 0 ? Math.round(gstAmount * (subtotalExGST / preDiscountSubtotal)) : 0;
       } else if (discountPercentage) {
         const discount = Math.round(subtotalExGST * (discountPercentage / 100));
         subtotalExGST -= discount;
-        gstAmount = Math.round(subtotalExGST * 0.1);
+        gstAmount = preDiscountSubtotal > 0 ? Math.round(gstAmount * (subtotalExGST / preDiscountSubtotal)) : 0;
       }
 
       // Add shipping
