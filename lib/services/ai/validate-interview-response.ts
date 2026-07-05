@@ -130,7 +130,7 @@ Validate these answers against IICRC S500:2021 and return findings.`;
     },
     models: [
       { name: "claude-haiku-4-5-20251001", maxTokens: 1200 },
-      { name: "claude-3-5-haiku-20241022", maxTokens: 1200 },
+      { name: "claude-haiku-4-5-20251001", maxTokens: 1200 },
     ],
     agentName: "InterviewValidate",
   });
