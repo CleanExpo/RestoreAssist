@@ -19,6 +19,7 @@
     { "path": "/api/cron/sync-qbo-myob-payments", "schedule": "*/15 * * * *" },
     { "path": "/api/cron/retry-failed-webhooks", "schedule": "*/30 * * * *" },
     { "path": "/api/cron/provision-tenant-db", "schedule": "*/5 * * * *" },
-    { "path": "/api/cron/pulse-digest", "schedule": "0 21 * * *" }
+    { "path": "/api/cron/pulse-digest", "schedule": "0 21 * * *" },
+    { "path": "/api/cron/sync-ascora-historical", "schedule": "30 2 * * *" }
   ]
 }

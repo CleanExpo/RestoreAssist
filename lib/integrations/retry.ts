@@ -11,6 +11,15 @@ export interface RetryOptions {
   maxDelay: number; // milliseconds
   factor: number; // multiplier for each retry
   onRetry?: (attempt: number, error: Error, delay: number) => void;
+  /**
+   * When true, a thrown error carrying a numeric `retryAfterMs` property
+   * (e.g. parsed from an upstream 429's Retry-After header via
+   * `parseRetryAfterMs`) overrides the computed exponential delay for that
+   * attempt — capped at `maxDelay * 10` so a hostile/huge header value can't
+   * stall an invocation indefinitely. Defaults to false; existing callers
+   * (e.g. sync-queue.ts) are unaffected.
+   */
+  respectRetryAfter?: boolean;
 }
 
 export class RetryError extends Error {
@@ -30,6 +39,31 @@ export class RetryError extends Error {
  */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Parse a Retry-After response header (seconds or HTTP-date form) into
+ * milliseconds. Returns undefined when the header is absent or unparseable.
+ */
+export function parseRetryAfterMs(response: Response): number | undefined {
+  const header = response.headers.get("retry-after");
+  if (!header) return undefined;
+
+  const seconds = Number(header);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+
+  const dateMs = Date.parse(header);
+  return Number.isFinite(dateMs) ? Math.max(0, dateMs - Date.now()) : undefined;
+}
+
+/**
+ * Read a `retryAfterMs` property off a thrown error, if present and valid.
+ */
+function getRetryAfterMs(error: any): number | undefined {
+  const raw = error?.retryAfterMs;
+  return typeof raw === "number" && Number.isFinite(raw) && raw > 0
+    ? raw
+    : undefined;
 }
 
 /**
@@ -150,7 +184,19 @@ export async function retryWithExponentialBackoff<T>(
       }
 
       // Calculate delay for this retry
-      const delay = calculateDelay(attempt - 1, initialDelay, maxDelay, factor);
+      const computedDelay = calculateDelay(
+        attempt - 1,
+        initialDelay,
+        maxDelay,
+        factor,
+      );
+      const retryAfterMs = options.respectRetryAfter
+        ? getRetryAfterMs(error)
+        : undefined;
+      const delay =
+        retryAfterMs !== undefined
+          ? Math.min(retryAfterMs, maxDelay * 10)
+          : computedDelay;
 
       // Call retry callback if provided
       if (onRetry) {
