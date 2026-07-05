@@ -239,14 +239,14 @@ export async function sendInviteEmail(data: InviteEmailData) {
           <!-- Welcome section -->
           <div style="text-align: center; margin-bottom: 30px;">
             <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 16px rgba(6, 182, 212, 0.3);">
-              <span style="color: #ffffff; font-size: 36px; font-weight: bold;">${data.name.charAt(0).toUpperCase()}</span>
+              <span style="color: #ffffff; font-size: 36px; font-weight: bold;">${escapeHtml(data.name.charAt(0).toUpperCase())}</span>
             </div>
-            <h2 style="color: #1e293b; margin: 0 0 10px 0; font-size: 28px; font-weight: 700;">${isTransfer ? "You've been added to a new organization" : "Welcome, " + data.name + "!"}</h2>
+            <h2 style="color: #1e293b; margin: 0 0 10px 0; font-size: 28px; font-weight: 700;">${isTransfer ? "You've been added to a new organization" : "Welcome, " + escapeHtml(data.name) + "!"}</h2>
             <p style="color: #64748b; font-size: 16px; margin: 0;">
               ${
                 isTransfer
-                  ? `<strong style="color: #1e293b;">${data.inviterName}</strong> has added you as a <strong style="color: #3b82f6;">${roleLabel}</strong> to their organization. You can continue using your existing account credentials to log in.`
-                  : `You've been invited by <strong style="color: #1e293b;">${data.inviterName}</strong> to join Restore Assist as a <strong style="color: #3b82f6;">${roleLabel}</strong>.`
+                  ? `<strong style="color: #1e293b;">${escapeHtml(data.inviterName)}</strong> has added you as a <strong style="color: #3b82f6;">${escapeHtml(roleLabel)}</strong> to their organization. You can continue using your existing account credentials to log in.`
+                  : `You've been invited by <strong style="color: #1e293b;">${escapeHtml(data.inviterName)}</strong> to join Restore Assist as a <strong style="color: #3b82f6;">${escapeHtml(roleLabel)}</strong>.`
               }
             </p>
           </div>
@@ -285,7 +285,7 @@ export async function sendInviteEmail(data: InviteEmailData) {
             <div style="background: #ffffff; border-radius: 8px; padding: 20px; margin-top: 15px;">
               <div style="margin-bottom: 15px;">
                 <p style="margin: 0 0 5px 0; color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Email Address</p>
-                <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600; word-break: break-all;">${data.email}</p>
+                <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600; word-break: break-all;">${escapeHtml(data.email)}</p>
               </div>
               <div style="border-top: 1px solid #e2e8f0; padding-top: 15px;">
                 <p style="margin: 0 0 5px 0; color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Temporary Password</p>
@@ -314,7 +314,7 @@ export async function sendInviteEmail(data: InviteEmailData) {
             </div>
             <div style="background: #ffffff; border-radius: 8px; padding: 20px; margin-top: 15px;">
               <p style="margin: 0; color: #1e293b; font-size: 16px; line-height: 1.6;">
-                <strong style="color: #1e293b;">${data.inviterName}</strong> has added you to their organization as a <strong style="color: #3b82f6;">${roleLabel}</strong>. You can continue using your existing account credentials to log in.
+                <strong style="color: #1e293b;">${escapeHtml(data.inviterName)}</strong> has added you to their organization as a <strong style="color: #3b82f6;">${escapeHtml(roleLabel)}</strong>. You can continue using your existing account credentials to log in.
               </p>
             </div>
           </div>
@@ -704,7 +704,7 @@ export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
 
         <!-- Main content card -->
         <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 40px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
-          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${data.recipientName},</p>
+          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${escapeHtml(data.recipientName)},</p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
             Your free trial of RestoreAssist is ending soon. Don't lose access to all the features you've been using!
@@ -798,7 +798,7 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData) {
 
         <!-- Main content card -->
         <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 40px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
-          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${data.recipientName},</p>
+          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${escapeHtml(data.recipientName)},</p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
             We received a request to reset your password. Enter the verification code below on the password reset page:
@@ -916,7 +916,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData) {
 
         <!-- Main content card -->
         <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 40px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
-          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${data.recipientName},</p>
+          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${escapeHtml(data.recipientName)},</p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
             Thanks for signing up to Restore Assist! Your account is ready with a <strong>${data.trialDays}-day free trial</strong> and <strong>${data.trialCredits} report credits</strong> to use during the trial. Add your API key in Integrations to get started.
@@ -1033,16 +1033,16 @@ export async function sendReportCompletedEmail(data: ReportCompletedEmailData) {
 
         <!-- Main content card -->
         <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 40px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
-          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${data.recipientName},</p>
+          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${escapeHtml(data.recipientName)},</p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
-            A report has been completed by <strong>${data.completedByName}</strong> and is ready for your review.
+            A report has been completed by <strong>${escapeHtml(data.completedByName)}</strong> and is ready for your review.
           </p>
 
           <!-- Report details -->
           <div style="background: #f8fafc; border-radius: 12px; padding: 20px; margin: 24px 0;">
-            <p style="margin: 0 0 8px;"><strong>Job Number:</strong> ${data.reportJobNumber}</p>
-            <p style="margin: 0;"><strong>Type:</strong> ${data.reportType}</p>
+            <p style="margin: 0 0 8px;"><strong>Job Number:</strong> ${escapeHtml(data.reportJobNumber)}</p>
+            <p style="margin: 0;"><strong>Type:</strong> ${escapeHtml(data.reportType)}</p>
           </div>
 
           <!-- CTA Button -->
@@ -1161,14 +1161,14 @@ export async function sendSubscriptionActivatedEmail(
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
         <div style="background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); padding: 40px 30px; border-radius: 16px 16px 0 0; text-align: center;">
           <h1 style="color: #ffffff; margin: 0; font-size: 30px; font-weight: 700;">You're in 🎉</h1>
-          <p style="color: rgba(255, 255, 255, 0.95); margin: 8px 0 0; font-size: 16px;">Welcome to ${data.planName}</p>
+          <p style="color: rgba(255, 255, 255, 0.95); margin: 8px 0 0; font-size: 16px;">Welcome to ${escapeHtml(data.planName)}</p>
         </div>
         <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 40px;">
-          <p style="font-size: 16px; margin-bottom: 20px;">Hi ${data.recipientName},</p>
+          <p style="font-size: 16px; margin-bottom: 20px;">Hi ${escapeHtml(data.recipientName)},</p>
           <p style="color: #374151; font-size: 15px; margin-bottom: 24px;">Your subscription is now active. Here's a summary — keep it for your records.</p>
           <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin: 20px 0;">
             <p style="margin: 0 0 4px; color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Plan</p>
-            <p style="margin: 0 0 12px; font-size: 18px; font-weight: 600; color: #111827;">${data.planName}</p>
+            <p style="margin: 0 0 12px; font-size: 18px; font-weight: 600; color: #111827;">${escapeHtml(data.planName)}</p>
             <p style="margin: 0 0 4px; color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Amount charged</p>
             <p style="margin: 0 0 12px; font-size: 20px; font-weight: 700; color: #059669;">${amountFormatted}</p>
             ${nextBillingLine}
@@ -1239,7 +1239,7 @@ export async function sendWinbackEmail(data: WinbackEmailData) {
         </div>
 
         <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 40px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
-          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${data.recipientName},</p>
+          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${escapeHtml(data.recipientName)},</p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
             It's been ${data.daysSinceExpired} days since your RestoreAssist subscription ended. Your account, reports, and client data are all still safe — we haven't touched a thing.
