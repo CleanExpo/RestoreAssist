@@ -16,6 +16,7 @@ import { syncNIRJobToQuickBooks } from "./quickbooks/nir-sync";
 import { syncNIRJobToMYOB } from "./myob/nir-sync";
 import { syncNIRJobToServiceM8 } from "./servicem8/nir-sync";
 import { syncNIRJobToAscora } from "./ascora/nir-sync";
+import { runInclusionCheck } from "@/lib/iicrc-inclusion-check";
 
 export type { NIRJobPayload } from "./xero/nir-sync";
 
@@ -37,6 +38,19 @@ export async function syncNIRToAllConnectedIntegrations(
     select: { id: true, provider: true },
   });
   if (integrations.length === 0) return [];
+
+  // RA-5040 PR1: non-gating pre-sync read. Reviewer-prompt gaps are logged
+  // for visibility only — they never block or delay the sync below.
+  const inclusionCheck = runInclusionCheck(
+    payload.damageType,
+    payload as unknown as Record<string, unknown>,
+  );
+  if (inclusionCheck.missing.length > 0) {
+    console.log(
+      `[NIR Sync] IICRC inclusion check (${inclusionCheck.claimType}): ${inclusionCheck.missing.length} reviewer prompt(s) not yet addressed —`,
+      inclusionCheck.missing.map((p) => p.id).join(", "),
+    );
+  }
 
   return Promise.all(
     integrations.map((i) =>

@@ -5,15 +5,27 @@ import { useRouter } from "next/navigation";
 import { FileText, Download, Copy, Check, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
+import IicrcInclusionPanel from "./IicrcInclusionPanel";
+import {
+  runInclusionCheck,
+  deriveIicrcClaimTypeFromHazardType,
+} from "@/lib/iicrc-inclusion-check";
 
 interface DetailedReportViewerProps {
   detailedReport: string | null;
   reportId: string;
+  /** RA-5040 PR1: optional report data bag for the non-blocking IICRC
+   * reviewer-prompts panel. Omit to render the viewer without it. */
+  report?: Record<string, unknown> | null;
+  /** Explicit claim type override; derived from report.hazardType when omitted. */
+  claimType?: string | null;
 }
 
 export default function DetailedReportViewer({
   detailedReport,
   reportId,
+  report,
+  claimType,
 }: DetailedReportViewerProps) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
@@ -204,6 +216,19 @@ export default function DetailedReportViewer({
     }
   };
 
+  // RA-5040 PR1: non-blocking reviewer prompts — informational only, never
+  // gates copy/regenerate/download. Only computed when a report bag was
+  // actually passed in; this component has no report data of its own.
+  const iicrcClaimType =
+    claimType ??
+    deriveIicrcClaimTypeFromHazardType(
+      (report?.hazardType as string | null | undefined) ?? null,
+    ) ??
+    "";
+  const iicrcMissingPrompts = report
+    ? runInclusionCheck(iicrcClaimType, report).missing
+    : [];
+
   if (!detailedReport) {
     return (
       <div className="bg-slate-800/50 rounded-lg border border-slate-700 p-6">
@@ -295,6 +320,18 @@ export default function DetailedReportViewer({
           </button>
         </div>
       </div>
+
+      {/* IICRC Reviewer Prompts (RA-5040 PR1) — informational, non-blocking */}
+      {iicrcMissingPrompts.length > 0 && (
+        <div className="p-8 pb-0">
+          <div className="max-w-6xl mx-auto">
+            <IicrcInclusionPanel
+              claimType={iicrcClaimType}
+              missingPrompts={iicrcMissingPrompts}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Full Height Content Area - Always Expanded */}
       <div className="flex-1 overflow-y-auto">
