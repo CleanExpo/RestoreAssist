@@ -66,12 +66,12 @@ export const MOCK_JOBS: ExternalJobData[] = [
   },
   {
     externalId: "mock-job-3",
-    title: "Mold Remediation - Bathroom",
+    title: "Mould Remediation - Bathroom",
     status: "COMPLETED",
     clientExternalId: "mock-client-3",
     address: "15 Unit Complex, Brisbane QLD 4005",
     description:
-      "Black mold discovered in ensuite bathroom. Full remediation completed.",
+      "Black mould discovered in ensuite bathroom. Full remediation completed.",
   },
   {
     externalId: "mock-job-4",
