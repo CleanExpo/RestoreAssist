@@ -354,7 +354,10 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
     );
   });
 
-  it("skips recording (no unscoped invoice lookup) when the owning integration cannot be resolved", async () => {
+  // RA-6992 — a deleted integration must mark the event SKIPPED with an
+  // explicit reason, never COMPLETED (silent) or FAILED (retried forever) —
+  // the deletion is permanent, so no retry can ever resolve it.
+  it("skips recording (no unscoped invoice lookup) and marks the event SKIPPED with a reason when the owning integration cannot be resolved", async () => {
     mockFindUniqueEvent.mockResolvedValue({
       id: "evt-qbo-noint",
       provider: "QUICKBOOKS",
@@ -378,6 +381,59 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
     expect(mockFindFirstInvoice).not.toHaveBeenCalled();
     expect(mockTransaction).not.toHaveBeenCalled();
     expect(txInvoicePaymentCreate).not.toHaveBeenCalled();
+    expect(mockUpdateEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "evt-qbo-noint" },
+        data: expect.objectContaining({
+          status: "SKIPPED",
+          errorMessage: expect.stringContaining("deleted"),
+        }),
+      }),
+    );
+    // Never marked COMPLETED (the RA-6992 silent-completion bug) or FAILED
+    // (which would imply a transient failure worth retrying).
+    expect(mockUpdateEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "COMPLETED" }),
+      }),
+    );
+  });
+
+  // RA-6992 — same guarantee for MYOB, which resolves via the MYOB API
+  // resolver rather than the QBO one but shares recordExternalPayment.
+  it("marks the event SKIPPED with a reason when the owning integration cannot be resolved (MYOB)", async () => {
+    mockFindUniqueEvent.mockResolvedValue({
+      id: "evt-myob-noint",
+      provider: "MYOB",
+      integrationId: "integ-gone-myob",
+      eventType: "payment.created",
+      payload: { ResourceUID: "myob-pay-noint" },
+      status: "PENDING",
+      retryCount: 0,
+      integration: { id: "integ-gone-myob" },
+    });
+    mockFindUniqueIntegration.mockResolvedValue(null);
+    myobGetCustomerPayment.mockResolvedValue({
+      UID: "myob-pay-noint",
+      Date: "2026-07-01T00:00:00",
+      AmountReceived: 100,
+      Invoices: [{ UID: "minv-noint", Number: "INV", AmountApplied: 100 }],
+    });
+
+    await processWebhookEvent("evt-myob-noint");
+
+    expect(mockFindFirstInvoice).not.toHaveBeenCalled();
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(txInvoicePaymentCreate).not.toHaveBeenCalled();
+    expect(mockUpdateEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "evt-myob-noint" },
+        data: expect.objectContaining({
+          status: "SKIPPED",
+          errorMessage: expect.stringContaining("deleted"),
+        }),
+      }),
+    );
   });
 
   // RA-6984 — a payment split across invoices must credit each invoice its OWN
