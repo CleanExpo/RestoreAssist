@@ -7,6 +7,7 @@ export type AiProviderFamily =
   | "anthropic"
   | "openai"
   | "gemini"
+  | "elevenlabs"
   | "restoreassist-ai"
   | "byok"
   | "rag-vector"
@@ -150,6 +151,21 @@ function detectProviderFamilies(content: string): AiProviderFamily[] {
   ) {
     providers.push("gemini");
   }
+  // ElevenLabs is fetch/HTTP-based (no SDK client class), so key it off the
+  // HTTP surface (api.elevenlabs.io host / xi-api-key header), the platform
+  // env key name, and the in-repo client module. Deliberately does NOT match
+  // the Synthex-proxied voice/heygen routes, which spend Synthex's credential,
+  // not a platform ELEVENLABS_API_KEY.
+  if (
+    includesAny(content, [
+      "api.elevenlabs.io",
+      "xi-api-key",
+      "ELEVENLABS_API_KEY",
+      "lib/elevenlabs/client",
+    ])
+  ) {
+    providers.push("elevenlabs");
+  }
   if (
     includesAny(content, [
       "restoreAssistAiDispatch(",
@@ -272,11 +288,13 @@ const AI_PROVIDER_KEY_ENV_PATTERN =
  */
 const BYOK_MARKERS = [
   "resolveWorkspaceAiKey(",
+  "resolveWorkspaceElevenLabsKey(",
   "byokDispatch(",
   "workspace-byok-dispatch",
   "workspaceByokDispatch(",
   "workspaceRouteAiRequest(",
   "getProviderApiKey(",
+  "getProviderCredentials(",
   "resolveReportProvider(",
 ];
 
@@ -836,6 +854,27 @@ const PROVIDER_CLIENT_NEW_PATTERN =
   /\bnew\s+(?:Anthropic|OpenAI|GoogleGenerativeAI)\s*\(/;
 
 /**
+ * RA-6920 / RA-6998 — ElevenLabs platform-key reader. ElevenLabs has no SDK
+ * client class (it is raw fetch to api.elevenlabs.io with an xi-api-key
+ * header), so the SDK-singleton / new-client heuristics above never see it.
+ * A lib module that reads the platform `process.env.ELEVENLABS_API_KEY` AND
+ * makes an ElevenLabs API call spends the platform key on its callers' behalf.
+ * Its key is a module-scope const shared by every export, so — like the
+ * module-scope SDK singleton — the WHOLE export surface is seeded as a spender.
+ * Checked on RAW (un-stripped) content because the xi-api-key header and the
+ * api.elevenlabs.io URL both live inside string literals. A BYOK marker
+ * (resolveWorkspaceElevenLabsKey / getProviderCredentials) suppresses the seed.
+ */
+const ELEVENLABS_KEY_ENV_PATTERN = /process\.env\.ELEVENLABS_API_KEY\b/;
+const ELEVENLABS_CALL_PATTERN = /api\.elevenlabs\.io|xi-api-key/;
+
+function hasElevenLabsPlatformKeyReader(content: string): boolean {
+  if (!ELEVENLABS_KEY_ENV_PATTERN.test(content)) return false;
+  if (!ELEVENLABS_CALL_PATTERN.test(content)) return false;
+  return !BYOK_MARKERS.some((marker) => content.includes(marker));
+}
+
+/**
  * RA-6979 / RA-6986 (leak class 1, module-scope variant) — detect the canonical
  * SDK singleton: a provider client instantiated at MODULE scope (curly-brace
  * depth 0 of the string/comment/regex-stripped source — outside every function
@@ -938,6 +977,14 @@ function extractInlineEnvSpenderExports(content: string): Set<string> {
     }
   }
   if (hasModuleScopeEnvClientSingleton(stripped)) {
+    for (const name of extractExportedNames(content)) {
+      spenders.add(name);
+    }
+  }
+  // RA-6920 / RA-6998 — ElevenLabs (fetch-based, module-const key) seeds the
+  // whole export surface. Checked on RAW content (its HTTP markers are string
+  // literals stripped from `stripped`).
+  if (hasElevenLabsPlatformKeyReader(content)) {
     for (const name of extractExportedNames(content)) {
       spenders.add(name);
     }
@@ -1141,6 +1188,7 @@ export function auditAiCallSites(rootDir = process.cwd()): AiCallSiteAuditReport
       "anthropic",
       "openai",
       "gemini",
+      "elevenlabs",
       "restoreassist-ai",
       "byok",
       "rag-vector",

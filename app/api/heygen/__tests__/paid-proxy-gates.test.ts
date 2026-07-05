@@ -18,6 +18,7 @@ const generateVoice = vi.hoisted(() => vi.fn());
 const streamVoice = vi.hoisted(() => vi.fn());
 const listVoices = vi.hoisted(() => vi.fn());
 const generateSFX = vi.hoisted(() => vi.fn());
+const resolveWorkspaceElevenLabsKey = vi.hoisted(() => vi.fn());
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
@@ -43,6 +44,11 @@ vi.mock("@/lib/synthex/client", () => ({
 }));
 vi.mock("@/lib/elevenlabs/client", () => ({
   generateSFX: (...a: unknown[]) => generateSFX(...a),
+}));
+vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
+  resolveWorkspaceElevenLabsKey: (...a: unknown[]) =>
+    resolveWorkspaceElevenLabsKey(...a),
+  NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
 }));
 
 import { POST as heygenPost, GET as heygenGet } from "../route";
@@ -73,6 +79,10 @@ beforeEach(() => {
   getServerSession.mockResolvedValue({ user: { id: "user-1" } });
   applyRateLimit.mockResolvedValue(null);
   requireActiveSubscription.mockResolvedValue(null);
+  resolveWorkspaceElevenLabsKey.mockResolvedValue({
+    workspaceId: "ws-1",
+    apiKey: "sk-eleven-workspace",
+  });
 });
 
 describe("RA-6940 — paid proxy gates", () => {

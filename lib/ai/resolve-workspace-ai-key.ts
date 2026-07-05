@@ -14,12 +14,20 @@
 import {
   getWorkspaceForUser,
   getProviderApiKey,
+  getProviderCredentials,
   type AiProvider,
 } from "@/lib/workspace/provider-connections";
 
 export interface ResolvedWorkspaceAiKey {
   workspaceId: string;
   apiKey: string;
+}
+
+export interface ResolvedWorkspaceElevenLabsKey {
+  workspaceId: string;
+  apiKey: string;
+  /** The workspace's default ElevenLabs Voice ID, if one was configured. */
+  voiceId?: string;
 }
 
 export class NoWorkspaceKeyError extends Error {
@@ -51,4 +59,33 @@ export async function resolveWorkspaceAiKey(
   }
 
   return { workspaceId: workspace.id, apiKey };
+}
+
+/**
+ * ElevenLabs BYOK resolver (RA-6920 / RA-6998). ElevenLabs voice/SFX runs on
+ * the calling workspace's OWN ElevenLabs key — never the platform key — so the
+ * founder's zero-platform-cost model holds for audio the same way it does for
+ * Anthropic/OpenAI. Returns the key plus the workspace's optional default Voice
+ * ID; throws `NoWorkspaceKeyError` (mapped to a 402 by callers) when the
+ * workspace has no ACTIVE ElevenLabs key — callers must not fall back to a
+ * platform env key.
+ */
+export async function resolveWorkspaceElevenLabsKey(
+  userId: string,
+): Promise<ResolvedWorkspaceElevenLabsKey> {
+  const workspace = await getWorkspaceForUser(userId);
+  if (!workspace) {
+    throw new NoWorkspaceKeyError("ELEVENLABS");
+  }
+
+  const credentials = await getProviderCredentials(workspace.id, "ELEVENLABS");
+  if (!credentials) {
+    throw new NoWorkspaceKeyError("ELEVENLABS");
+  }
+
+  return {
+    workspaceId: workspace.id,
+    apiKey: credentials.apiKey,
+    voiceId: credentials.voiceId,
+  };
 }
