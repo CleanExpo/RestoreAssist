@@ -71,7 +71,7 @@ CI runs `--json --strict` against the release candidate. Output artifact: `relea
 
 | Pts | Criterion | Verification |
 |---|---|---|
-| 5 | Monitoring/alerting for auth, billing webhook errors, restore failures | Sentry alert rules configured (owner evidence: screenshot of rules) |
+| 5 | Monitoring/alerting for auth, billing webhook errors, restore failures | Vercel Observability alert rules configured (owner evidence: screenshot of rules) |
 | 5 | Runbooks + support SLAs (P1 response ≤1h, customer comms template ready) | Files exist: `docs/MOBILE_RELEASE_RUNBOOK.md` + `docs/PILOT_CUTOVER_CHECKLIST.md` + support template |
 
 ## Machine-verifiable vs owner-evidence breakdown

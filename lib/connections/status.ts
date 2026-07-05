@@ -108,7 +108,6 @@ export function buildRestoreAssistConnectionStatus(
   const stripeReady = envSet("STRIPE_SECRET_KEY", env);
   const stripeWebhookReady = envSet("STRIPE_WEBHOOK_SECRET", env);
   const emailReady = envSet("RESEND_API_KEY", env);
-  const sentryReady = envSet("SENTRY_DSN", env) || envSet("NEXT_PUBLIC_SENTRY_DSN", env);
   const linearReady = envSet("LINEAR_API_KEY", env) && envSet("LINEAR_RA_TEAM_ID", env);
 
   // Google sign-in provider pair — read by lib/auth.ts (GoogleProvider).
@@ -219,14 +218,15 @@ export function buildRestoreAssistConnectionStatus(
     },
     {
       id: "sentry",
-      label: "Error monitoring (Sentry)",
-      state: sentryReady ? "connected" : "unknown",
+      label: "Error monitoring (Vercel Observability)",
+      state: "unknown",
       method: "env-presence",
       safeForMissionControl: true,
-      detail: sentryReady
-        ? "Sentry DSN present; client/edge/server configs ship in this repo."
-        : "No Sentry DSN detected — errors are not being reported.",
-      nextAction: sentryReady ? undefined : "Set SENTRY_DSN (and NEXT_PUBLIC_SENTRY_DSN).",
+      detail:
+        "RA-1349 — RestoreAssist deliberately does not use Sentry; errors are " +
+        "structured-logged via lib/observability.ts::reportError() and indexed " +
+        "by Vercel Observability. Vercel Observability's on/off state is a " +
+        "project dashboard setting, not an env var, so it cannot be probed here.",
     },
     {
       id: "linear",

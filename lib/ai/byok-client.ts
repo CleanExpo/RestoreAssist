@@ -277,7 +277,7 @@ async function callGoogle(req: ByokRequest): Promise<ByokResponse> {
 
   try {
     // Key goes in the x-goog-api-key header, NEVER the URL query string — a key
-    // in the URL is captured by HTTP tracing (Sentry spans) and proxy logs.
+    // in the URL is captured by HTTP tracing (observability spans) and proxy logs.
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${req.model}:generateContent`;
 
     const res = await fetch(url, {

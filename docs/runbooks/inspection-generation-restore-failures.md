@@ -51,11 +51,6 @@ the `[error]` prefix. Filter Function logs for:
 "stage":"standards-ungrounded-report"
 ```
 
-or, if Sentry is receiving events in the target environment (see gap note
-below), filter by `stage:standards-ungrounded-report` in the Sentry issue
-stream — `beforeSend`/`beforeSendTransaction` scrubbing
-(`lib/sentry-scrub.ts`) does not strip this tag, only secret query params.
-
 There is no persisted per-document `degraded` flag queryable via SQL today
 — `StandardsContext.degraded` is a return value consumed synchronously by
 the route, not written to the `Report` row. The only durable record of a

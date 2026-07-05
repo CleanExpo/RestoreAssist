@@ -17,7 +17,8 @@
 // which re-mounts the segment fresh.
 //
 // Logging: console.error with a tagged prefix so iOS Web Inspector +
-// Vercel logs make the source obvious. Wire to Sentry when the SDK lands.
+// Vercel logs make the source obvious. RA-1349 — Vercel Observability is
+// the intended error stack, no third-party SDK to wire.
 
 import { useEffect } from "react";
 import { AlertTriangle, RotateCcw } from "lucide-react";
