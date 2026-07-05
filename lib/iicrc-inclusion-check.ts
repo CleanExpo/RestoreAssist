@@ -22,9 +22,17 @@
  * "required by law".
  *
  * Scope: the four claim types that already have a verified IICRC field map
- * (WATER, MOULD, FIRE, BIOHAZARD — see getFieldMapForClaimType). CONTENTS
- * and clandestine-contamination have no field map yet (PR2 territory per
- * the accepted scope) and degrade gracefully via the unmapped-category path.
+ * (WATER, MOULD, FIRE, BIOHAZARD — see getFieldMapForClaimType) are wired
+ * into runInclusionCheck's claimType dispatch.
+ *
+ * CONTENTS and clandestine-contamination (RA-5040 PR2) have real, grounded
+ * prompts below (CONTENTS_PROMPTS / CLANDESTINE_PROMPTS), evaluated via
+ * runContentsInclusionCheck / runClandestineInclusionCheck — but neither is
+ * wired into runInclusionCheck's claimType dispatch, because no verified
+ * signal reaches that boundary for either category (see the PR body's
+ * "clandestine-mapping outcome" note and the CONTENTS founder-decision
+ * section for the investigation). runInclusionCheck keeps degrading
+ * gracefully for "CONTENTS", "CLANDESTINE", and everything else unmapped.
  */
 
 import {
@@ -155,7 +163,103 @@ const BIOHAZARD_PROMPTS: readonly InclusionPrompt[] = [
     prompt:
       "Review prompt: consider whether this report documents only what was observed, without forensic or legal conclusions, per S540:2023 §10.4.",
     checksFields: ["documentationBoundaryAcknowledged"],
+    // RA-5040 PR2 accepted scope: the documentation-boundary consideration
+    // (never forensic/legal conclusions) upgrades to "flag" — it is a
+    // liability-relevant nudge, not a soft reminder.
+    severity: "flag",
+  },
+];
+
+/**
+ * CONTENTS review prompts (RA-5040 PR2). Grounded at IICRC S500:2021
+ * Chapter 14 ("Contents Evaluation, Restoration, and Remediation") — the
+ * chapter level only, per lib/standards/s500-sections.ts. CONTENTS has no
+ * dedicated field map (no sub-clause has been verified for these specific
+ * considerations), so groundedSection stops at the chapter citation rather
+ * than inventing a sub-clause.
+ *
+ * Not wired into runInclusionCheck's claimType dispatch — see
+ * runContentsInclusionCheck and the PR body's founder-decision section on
+ * whether CONTENTS should become a real IicrcClaimType/AssessmentDomain/
+ * checklist category.
+ */
+export const CONTENTS_PROMPTS: readonly InclusionPrompt[] = [
+  {
+    id: "contents-inventory-disposition-documentation",
+    claimType: "CONTENTS",
+    standard: "S500",
+    groundedSection: s500Section("14"), // "Contents Evaluation, Restoration, and Remediation"
+    prompt:
+      "Review prompt: consider whether a contents inventory and disposition record (keep / clean / dispose) was documented under S500:2021 Chapter 14.",
+    checksFields: ["contentsInventoryDocumented"],
+    severity: "flag",
+  },
+  {
+    id: "contents-restorability-determination-documentation",
+    claimType: "CONTENTS",
+    standard: "S500",
+    groundedSection: s500Section("14"),
+    prompt:
+      "Standard-aligned consideration: a restorability determination for affected contents should be documented under S500:2021 Chapter 14.",
+    checksFields: ["contentsRestorabilityDetermination"],
     severity: "reminder",
+  },
+];
+
+/**
+ * Clandestine-contamination review prompts (RA-5040 PR2). These are review
+ * prompts that reference the S540 considerations already verified in
+ * S540_FIELD_MAP (lib/nir-standards-mapping.ts) — they do NOT add new
+ * field-map entries, since clandestine contamination is not itself an
+ * IicrcClaimType.
+ *
+ * Not wired into runInclusionCheck's claimType dispatch — see
+ * runClandestineInclusionCheck and the PR body's "clandestine-mapping
+ * outcome" note: no verified signal (report.hazardType free text, or
+ * JOB_TYPES.CLANDESTINE_HAZARDOUS from lib/evidence/workflow-definitions.ts)
+ * reliably identifies a clandestine job at this boundary today.
+ */
+export const CLANDESTINE_PROMPTS: readonly InclusionPrompt[] = [
+  {
+    id: "clandestine-regulated-waste-linkage",
+    claimType: "CLANDESTINE",
+    standard: "S540",
+    groundedSection: S540_FIELD_MAP.regulatedWasteClass.clauseRef, // "IICRC S540:2023 §6.4"
+    prompt:
+      "Review prompt: consider whether regulated-waste classification has been documented for this clandestine-contamination job, consistent with S540:2023 §6.4.",
+    checksFields: ["regulatedWasteClassDocumented"],
+    severity: "flag",
+  },
+  {
+    id: "clandestine-decontamination-protocol-linkage",
+    claimType: "CLANDESTINE",
+    standard: "S540",
+    groundedSection: S540_FIELD_MAP.decontaminationProtocol.clauseRef, // "IICRC S540:2023 §7.5"
+    prompt:
+      "Standard-aligned consideration: worker decontamination protocol stages should be documented for this clandestine-contamination job, consistent with S540:2023 §7.5.",
+    checksFields: ["decontaminationProtocolDocumented"],
+    severity: "reminder",
+  },
+  {
+    id: "clandestine-jurisdictional-notifications-linkage",
+    claimType: "CLANDESTINE",
+    standard: "S540",
+    groundedSection: S540_FIELD_MAP.jurisdictionalNotifications.clauseRef, // "IICRC S540:2023 §6.6"
+    prompt:
+      "Missing evidence flag: jurisdictional notification requirements have not been confirmed as filed for this clandestine-contamination job, consistent with S540:2023 §6.6.",
+    checksFields: ["jurisdictionalNotificationsConfirmed"],
+    severity: "flag",
+  },
+  {
+    id: "clandestine-documentation-boundary",
+    claimType: "CLANDESTINE",
+    standard: "S540",
+    // Edition-level only — no verified sub-clause covers this exact
+    // documentation-boundary nuance. Omit rather than invent.
+    prompt:
+      "Review prompt: consider whether this report documents only what was observed at this clandestine-contamination scene, without forensic or legal conclusions.",
+    checksFields: ["documentationBoundaryAcknowledged"],
+    severity: "flag",
   },
 ];
 
@@ -171,12 +275,19 @@ export const INCLUSION_PROMPTS_BY_CLAIM_TYPE: Readonly<
 };
 
 /**
- * Flat list of every authored prompt across all mapped categories. Used by
- * the regression tests to validate banned phrasing and groundedSection
- * integrity across the whole contract in one pass.
+ * Flat list of every authored prompt across all mapped categories, plus the
+ * CONTENTS and CLANDESTINE prompt sets (RA-5040 PR2) even though neither is
+ * wired into runInclusionCheck's claimType dispatch. Used by the regression
+ * tests to validate banned phrasing and groundedSection integrity across
+ * the whole contract — including the categories not yet dispatched — in
+ * one pass.
  */
 export function getAllInclusionPrompts(): readonly InclusionPrompt[] {
-  return Object.values(INCLUSION_PROMPTS_BY_CLAIM_TYPE).flat();
+  return [
+    ...Object.values(INCLUSION_PROMPTS_BY_CLAIM_TYPE).flat(),
+    ...CONTENTS_PROMPTS,
+    ...CLANDESTINE_PROMPTS,
+  ];
 }
 
 /**
@@ -192,13 +303,31 @@ function isFieldPresent(value: unknown): boolean {
   return true; // booleans/numbers/objects — recorded is recorded, 0/false included
 }
 
+function evaluatePrompts(
+  claimType: string,
+  prompts: readonly InclusionPrompt[],
+  report: Record<string, unknown>,
+): InclusionCheckResult {
+  const present: InclusionPrompt[] = [];
+  const missing: InclusionPrompt[] = [];
+  for (const prompt of prompts) {
+    const hasEvidence = prompt.checksFields.every((field) =>
+      isFieldPresent(report[field]),
+    );
+    (hasEvidence ? present : missing).push(prompt);
+  }
+  return { claimType, present, missing };
+}
+
 /**
  * Run the inclusion-check prompts for a claim type against a report-like
  * data bag (matched by the field names in each prompt's `checksFields`).
  * Never throws: an unrecognised claimType (CONTENTS, STORM, CARPET, a
  * clandestine-contamination job, or any other free-text value) degrades
  * gracefully to a single reminder rather than a structured check — there
- * is no PR1 field map for those categories yet.
+ * is no dispatched field map for those categories (see
+ * runContentsInclusionCheck / runClandestineInclusionCheck for the PR2
+ * content built for CONTENTS and clandestine-contamination specifically).
  */
 export function runInclusionCheck(
   claimType: string,
@@ -230,16 +359,31 @@ export function runInclusionCheck(
     };
   }
 
-  const present: InclusionPrompt[] = [];
-  const missing: InclusionPrompt[] = [];
-  for (const prompt of prompts) {
-    const hasEvidence = prompt.checksFields.every((field) =>
-      isFieldPresent(report[field]),
-    );
-    (hasEvidence ? present : missing).push(prompt);
-  }
+  return evaluatePrompts(normalized, prompts, report);
+}
 
-  return { claimType: normalized, present, missing };
+/**
+ * Evaluate the CONTENTS review prompts (contents inventory/disposition +
+ * restorability determination, S500:2021 Chapter 14) against a report-like
+ * data bag. Not reachable via runInclusionCheck's claimType dispatch — see
+ * CONTENTS_PROMPTS' doc comment and the PR body's founder-decision section.
+ */
+export function runContentsInclusionCheck(
+  report: Record<string, unknown>,
+): InclusionCheckResult {
+  return evaluatePrompts("CONTENTS", CONTENTS_PROMPTS, report);
+}
+
+/**
+ * Evaluate the clandestine-contamination S540-linkage + documentation-
+ * boundary review prompts against a report-like data bag. Not reachable
+ * via runInclusionCheck's claimType dispatch — see CLANDESTINE_PROMPTS'
+ * doc comment and the PR body's clandestine-mapping-outcome note.
+ */
+export function runClandestineInclusionCheck(
+  report: Record<string, unknown>,
+): InclusionCheckResult {
+  return evaluatePrompts("CLANDESTINE", CLANDESTINE_PROMPTS, report);
 }
 
 /**

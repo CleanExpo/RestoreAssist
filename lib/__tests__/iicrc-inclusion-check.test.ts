@@ -10,8 +10,12 @@
 import { describe, it, expect } from "vitest";
 import {
   runInclusionCheck,
+  runContentsInclusionCheck,
+  runClandestineInclusionCheck,
   getAllInclusionPrompts,
   deriveIicrcClaimTypeFromHazardType,
+  CONTENTS_PROMPTS,
+  CLANDESTINE_PROMPTS,
   S500_FIELD_MAP,
   S520_FIELD_MAP,
   S540_FIELD_MAP,
@@ -111,6 +115,114 @@ describe("runInclusionCheck — BIOHAZARD", () => {
     expect(result.present.map((p) => p.id)).toEqual([
       "biohazard-documentation-boundary",
     ]);
+  });
+});
+
+describe("runContentsInclusionCheck — CONTENTS (RA-5040 PR2)", () => {
+  it("reports both prompts missing when no evidence is captured", () => {
+    const result = runContentsInclusionCheck({});
+    expect(result.claimType).toBe("CONTENTS");
+    expect(result.present).toHaveLength(0);
+    expect(result.missing.map((p) => p.id).sort()).toEqual([
+      "contents-inventory-disposition-documentation",
+      "contents-restorability-determination-documentation",
+    ]);
+  });
+
+  it("reports both prompts present when the fields are captured", () => {
+    const result = runContentsInclusionCheck({
+      contentsInventoryDocumented: "Kitchen contents itemised, 12 items dispositioned.",
+      contentsRestorabilityDetermination: "Sofa assessed non-restorable, textiles restorable.",
+    });
+    expect(result.missing).toHaveLength(0);
+    expect(result.present.map((p) => p.id).sort()).toEqual([
+      "contents-inventory-disposition-documentation",
+      "contents-restorability-determination-documentation",
+    ]);
+  });
+
+  it("grounds every CONTENTS prompt at S500:2021 Chapter 14 — chapter level only", () => {
+    for (const prompt of CONTENTS_PROMPTS) {
+      expect(prompt.groundedSection).toBe("S500:2021 §14");
+    }
+  });
+
+  it("is NOT reachable via runInclusionCheck's claimType dispatch — CONTENTS still degrades", () => {
+    const result = runInclusionCheck("CONTENTS", {
+      contentsInventoryDocumented: "x",
+      contentsRestorabilityDetermination: "x",
+    });
+    expect(result.missing.map((p) => p.id)).toEqual([
+      "unmapped-category-no-checks",
+    ]);
+  });
+});
+
+describe("runClandestineInclusionCheck — clandestine-contamination S540 linkage (RA-5040 PR2)", () => {
+  it("reports all four prompts missing when no evidence is captured", () => {
+    const result = runClandestineInclusionCheck({});
+    expect(result.claimType).toBe("CLANDESTINE");
+    expect(result.present).toHaveLength(0);
+    expect(result.missing.map((p) => p.id).sort()).toEqual([
+      "clandestine-decontamination-protocol-linkage",
+      "clandestine-documentation-boundary",
+      "clandestine-jurisdictional-notifications-linkage",
+      "clandestine-regulated-waste-linkage",
+    ]);
+  });
+
+  it("reports all four prompts present when the fields are captured", () => {
+    const result = runClandestineInclusionCheck({
+      regulatedWasteClassDocumented: "Clinical waste stream logged, yellow-bag.",
+      decontaminationProtocolDocumented: true,
+      jurisdictionalNotificationsConfirmed: "Coronial release recorded 2026-07-04.",
+      documentationBoundaryAcknowledged: true,
+    });
+    expect(result.missing).toHaveLength(0);
+    expect(result.present).toHaveLength(4);
+  });
+
+  it("grounds the three S540-linkage prompts against verified S540_FIELD_MAP clauseRefs", () => {
+    const grounded = CLANDESTINE_PROMPTS.filter((p) => p.id !== "clandestine-documentation-boundary");
+    expect(grounded.map((p) => p.groundedSection).sort()).toEqual(
+      [
+        S540_FIELD_MAP.regulatedWasteClass.clauseRef,
+        S540_FIELD_MAP.decontaminationProtocol.clauseRef,
+        S540_FIELD_MAP.jurisdictionalNotifications.clauseRef,
+      ].sort(),
+    );
+  });
+
+  it("the documentation-boundary prompt is edition-level only (no invented sub-clause) and severity flag", () => {
+    const boundary = CLANDESTINE_PROMPTS.find(
+      (p) => p.id === "clandestine-documentation-boundary",
+    )!;
+    expect(boundary.groundedSection).toBeUndefined();
+    expect(boundary.severity).toBe("flag");
+  });
+
+  it("is NOT reachable via runInclusionCheck's claimType dispatch — clandestine still degrades (no verified hazardType/jobType signal reaches this boundary)", () => {
+    for (const claimType of ["CLANDESTINE", "CLANDESTINE_HAZARDOUS", "clandestine"]) {
+      const result = runInclusionCheck(claimType, {
+        regulatedWasteClassDocumented: "x",
+        decontaminationProtocolDocumented: true,
+        jurisdictionalNotificationsConfirmed: "x",
+        documentationBoundaryAcknowledged: true,
+      });
+      expect(result.missing.map((p) => p.id)).toEqual([
+        "unmapped-category-no-checks",
+      ]);
+    }
+  });
+});
+
+describe("BIOHAZARD documentation-boundary — upgraded to severity flag (RA-5040 PR2)", () => {
+  it("keeps the same prompt id and boundary wording, now at severity flag", () => {
+    const result = runInclusionCheck("BIOHAZARD", {});
+    const boundary = result.missing.find(
+      (p) => p.id === "biohazard-documentation-boundary",
+    )!;
+    expect(boundary.severity).toBe("flag");
   });
 });
 
