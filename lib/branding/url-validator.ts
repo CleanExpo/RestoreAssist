@@ -1,6 +1,7 @@
 /**
  * Validates a user-supplied URL is safe for server-side fetching.
- * Blocks: non-http(s) schemes, loopback, link-local, RFC1918, broadcast.
+ * Blocks: non-http(s) schemes, loopback, link-local, RFC1918, broadcast,
+ * IPv6 unique-local/link-local, and *.internal hostnames.
  */
 export function isPublicHttpUrl(
   input: string,
@@ -16,9 +17,11 @@ export function isPublicHttpUrl(
     return { ok: false, reason: "Only http(s) URLs allowed" };
   }
 
-  const host = url.hostname.toLowerCase();
+  // URL.hostname keeps the brackets on IPv6 literals (e.g. "[fd00::1]"); strip
+  // them so the address checks below see the bare address.
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
 
-  if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
+  if (host === "localhost" || /^127\./.test(host) || host === "::1") {
     return { ok: false, reason: "Loopback addresses not allowed" };
   }
 
@@ -34,8 +37,17 @@ export function isPublicHttpUrl(
     return { ok: false, reason: "Link-local addresses not allowed" };
   }
 
+  // IPv6 unique-local (fc00::/7 → fc/fd prefixes) and link-local (fe80::/10).
+  if (host.includes(":") && (/^f[cd]/.test(host) || /^fe[89ab]/.test(host))) {
+    return { ok: false, reason: "IPv6 private/link-local addresses not allowed" };
+  }
+
   if (host === "0.0.0.0") {
     return { ok: false, reason: "Broadcast address not allowed" };
+  }
+
+  if (host === "internal" || host.endsWith(".internal")) {
+    return { ok: false, reason: "Internal hostnames not allowed" };
   }
 
   return { ok: true, url };

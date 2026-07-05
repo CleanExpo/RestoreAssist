@@ -65,17 +65,41 @@ async function ensureBucket(): Promise<void> {
   }
 }
 
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const MAX_REDIRECTS = 5;
+
 async function fetchReferenceBytes(url: string): Promise<{
   bytes: Uint8Array;
   mimeType: string;
 }> {
   // SSRF guard: reject non-http(s), loopback, link-local, private, and cloud
   // metadata hosts before making a server-side request to a user-supplied URL.
-  const check = isPublicHttpUrl(url);
-  if (!check.ok) {
-    throw new Error(`reference_image_url fetch failed: ${check.reason}`);
+  // Redirects are followed manually so an allowlisted host can't 302-bounce the
+  // server-side fetch to an internal target — every hop is re-validated.
+  let current = url;
+  let res: Response | undefined;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const check = isPublicHttpUrl(current);
+    if (!check.ok) {
+      throw new Error(`reference_image_url fetch failed: ${check.reason}`);
+    }
+    res = await fetch(current, { redirect: "manual" });
+    if (!REDIRECT_STATUSES.has(res.status)) break;
+
+    const location = res.headers.get("location");
+    if (!location) {
+      throw new Error(
+        "reference_image_url fetch failed: redirect without a Location header",
+      );
+    }
+    // Location may be relative — resolve against the current URL, then loop to
+    // re-validate the resolved host before following it.
+    current = new URL(location, current).toString();
+    res = undefined;
   }
-  const res = await fetch(url);
+  if (!res) {
+    throw new Error("reference_image_url fetch failed: too many redirects");
+  }
   if (!res.ok) {
     throw new Error(
       `reference_image_url fetch failed: ${res.status} ${res.statusText}`,
