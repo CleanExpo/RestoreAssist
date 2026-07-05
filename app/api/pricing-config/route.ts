@@ -176,7 +176,7 @@ export async function PUT(request: NextRequest) {
       if (range && (data[field] < range.min || data[field] > range.max)) {
         return NextResponse.json(
           {
-            error: `${range.label} rate $${data[field].toFixed(2)} is outside the NRPG recommended range ($${range.min} – $${range.max})`,
+            error: `${range.label} rate $${data[field].toFixed(2)} is outside the NRPG typical range ($${range.min} – $${range.max})`,
             field,
             min: range.min,
             max: range.max,

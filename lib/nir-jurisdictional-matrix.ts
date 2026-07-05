@@ -49,6 +49,15 @@ export interface JurisdictionTrigger {
   scopeImpact: string;
 }
 
+/**
+ * SOURCE STATUS (RA-6934 item 6): insurer names, protocol notes, and
+ * preApprovalThreshold figures throughout this matrix (e.g. the Suncorp
+ * "$15,000 AUD" QLD flood pre-approval threshold below) are operator-reported
+ * from field experience — not sourced from a published insurer document or
+ * API. Insurer protocols change without notice; confirm the current
+ * threshold and protocol directly with the insurer before relying on any
+ * value here for a live claim.
+ */
 export interface InsurerNote {
   insurer: string;
   protocolNote: string;

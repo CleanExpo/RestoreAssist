@@ -13,6 +13,27 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import {
+  AIR_MOVER_RATIO,
+  DEHU_RATIO,
+  type DamageClass,
+} from "@/lib/equipment-calculator";
+
+// RA-6934 item 6: affectedArea is m² (see IICRCReportBuilder "Affected Area
+// (m²)" field, which this component shares). Ratios delegate to
+// lib/equipment-calculator.ts instead of the previous divergent imperial
+// (sq ft) copy.
+const DAMAGE_CLASS_MAP: Record<string, DamageClass> = {
+  "Class 1": "CLASS_1",
+  "Class 2": "CLASS_2",
+  "Class 3": "CLASS_3",
+  "Class 4": "CLASS_4",
+};
+
+function toDamageClass(waterClass: string): DamageClass {
+  return DAMAGE_CLASS_MAP[waterClass] ?? "CLASS_2";
+}
+
 interface DryingPlanTemplatesProps {
   waterClass: string;
   affectedArea: number;
@@ -85,31 +106,21 @@ export default function DryingPlanTemplates({
       return { airmovers: 0, dehumidification: 0 };
 
     const area = parseFloat(affectedArea.toString());
-    let airmovers = 0;
-    let dehumidification = 0;
+    const damageClass = toDamageClass(waterClass);
 
-    // IICRC S500 Equipment Sizing Guidelines
-    switch (waterClass) {
-      case "Class 1":
-        airmovers = Math.ceil(area / 60); // 1 per 50-70 sq ft
-        dehumidification = Math.ceil(area / 100) * 20; // 20L per 100 sq ft
-        break;
-      case "Class 2":
-        airmovers = Math.ceil(area / 50); // 1 per 50 sq ft
-        dehumidification = Math.ceil(area / 80) * 30; // 30L per 80 sq ft
-        break;
-      case "Class 3":
-        airmovers = Math.ceil(area / 40); // 1 per 40 sq ft
-        dehumidification = Math.ceil(area / 60) * 40; // 40L per 60 sq ft
-        break;
-      case "Class 4":
-        airmovers = Math.ceil(area / 30); // 1 per 30 sq ft
-        dehumidification = Math.ceil(area / 40) * 50; // 50L per 40 sq ft
-        break;
-      default:
-        airmovers = Math.ceil(area / 50);
-        dehumidification = Math.ceil(area / 80) * 25;
-    }
+    // Airmover count delegates to lib/equipment-calculator.ts AIR_MOVER_RATIO
+    // (m² per unit, S500:2021 §12.5). Dehumidifier unit count delegates to
+    // DEHU_RATIO (m² per unit, S500:2021 §12.4.2); per-unit daily capacity
+    // (L/day) below is a display-only figure, not part of the cited ratio.
+    const literPerUnit: Record<DamageClass, number> = {
+      CLASS_1: 20,
+      CLASS_2: 30,
+      CLASS_3: 40,
+      CLASS_4: 50,
+    };
+    const airmovers = Math.ceil(area / AIR_MOVER_RATIO[damageClass]);
+    const dehuCount = Math.ceil(area / DEHU_RATIO[damageClass]);
+    const dehumidification = dehuCount * literPerUnit[damageClass];
 
     return { airmovers, dehumidification };
   };
@@ -125,7 +136,7 @@ export default function DryingPlanTemplates({
     };
 
     const area = parseFloat(affectedArea.toString());
-    const multiplier = Math.ceil(area / 500); // Additional time for larger areas
+    const multiplier = Math.ceil(area / 45); // Additional time for larger areas (m², unsourced heuristic converted from prior sq ft figure)
 
     return (
       (baseTime[waterClass as keyof typeof baseTime] || 72) + multiplier * 24
@@ -264,7 +275,7 @@ export default function DryingPlanTemplates({
 
     return {
       airmovers: [
-        `Place 1 airmover per 50-70 sq ft of affected floor area`,
+        `Place 1 airmover per 10-15 m² of affected floor area`,
         `Position airmovers to create airflow across all wet surfaces`,
         `Ensure 600+ FPM airflow velocity during constant drying rate`,
         `Reduce to 150 FPM during falling drying rate stages`,

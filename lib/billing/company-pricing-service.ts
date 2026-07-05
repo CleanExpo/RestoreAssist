@@ -138,7 +138,7 @@ export function validatePricingConfig(
     if (check && !check.valid) {
       errors.push({
         field,
-        message: `${check.label}: ${value} is outside the NRPG range (${check.min}–${check.max})`,
+        message: `${check.label}: ${value} is outside the NRPG typical range (${check.min}–${check.max})`,
         value,
         min: check.min,
         max: check.max,

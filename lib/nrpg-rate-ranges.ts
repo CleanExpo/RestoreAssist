@@ -1,6 +1,13 @@
 /**
  * NRPG (National Restoration Pricing Guide) Rate Ranges
  *
+ * SOURCE STATUS (RA-6934 item 6): these are operator-supplied best-practice
+ * ranges — NRPG operational guidance compiled from industry pricing
+ * experience — not figures cited from a published standard or dataset.
+ * No external source, document, or dataset is referenced anywhere in this
+ * file; treat every min/max below as an internal heuristic, not a verified
+ * external benchmark. Last reviewed: 2026-07-05.
+ *
  * Defines hard min/max boundaries for every CompanyPricingConfig field.
  * Ranges account for Australian Fair Consumer & Business Laws using a
  * scaled approach — the all-in rate already factors in:

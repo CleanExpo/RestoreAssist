@@ -189,7 +189,9 @@ export default function MonitoringVerificationProcedures({
       "Outside conditions",
     ];
 
-    if (area > 1000) {
+    if (area > 90) {
+      // RA-6934 item 6: affectedArea is m² (shared IICRCReportBuilder field);
+      // threshold converted from prior sq ft figure, unsourced heuristic.
       locations.push("Interstitial spaces");
       locations.push("HVAC system");
     }
