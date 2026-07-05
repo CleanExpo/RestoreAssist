@@ -105,7 +105,10 @@ export interface EquipmentCalculatorResult {
 // ============================================================
 
 // Air mover ratios (m² per unit) — S500:2021 §12.5 (Drying)
-const AIR_MOVER_RATIO: Record<DamageClass, number> = {
+// Exported so other equipment-sizing surfaces (e.g. components/EquipmentSizingGuidelines.tsx,
+// components/DryingPlanTemplates.tsx) delegate to these figures instead of maintaining
+// their own divergent (and previously imperial sq-ft-based) copies.
+export const AIR_MOVER_RATIO: Record<DamageClass, number> = {
   CLASS_1: 15, // 1 per 15m²
   CLASS_2: 15, // 1 per 15m²
   CLASS_3: 10, // 1 per 10m² (aggressive drying)
@@ -114,7 +117,7 @@ const AIR_MOVER_RATIO: Record<DamageClass, number> = {
 
 // Dehumidifier ratios (m² per unit) — S500:2021 §12.4.2 (Controlling Humidity
 // and Stabilization)
-const DEHU_RATIO: Record<DamageClass, number> = {
+export const DEHU_RATIO: Record<DamageClass, number> = {
   CLASS_1: 40,
   CLASS_2: 40,
   CLASS_3: 30,
@@ -123,7 +126,7 @@ const DEHU_RATIO: Record<DamageClass, number> = {
 
 // Air scrubber (AFD) ratios (m² per unit) — S500:2021 §12.3.2 (Engineering
 // Controls). Required for all Cat 2/3; optional for Cat 1 at Class 3/4.
-const AIR_SCRUBBER_RATIO: Record<DamageClass, number> = {
+export const AIR_SCRUBBER_RATIO: Record<DamageClass, number> = {
   CLASS_1: 100,
   CLASS_2: 100,
   CLASS_3: 50,
@@ -131,7 +134,7 @@ const AIR_SCRUBBER_RATIO: Record<DamageClass, number> = {
 };
 
 // Negative air required for Cat 3 — S500:2021 §12.3.2 (Engineering Controls)
-const NEGATIVE_AIR_RATIO_M2_PER_UNIT = 50;
+export const NEGATIVE_AIR_RATIO_M2_PER_UNIT = 50;
 
 /** LGRs lose extraction efficiency in cool spaces; desiccants are rated to
  * -15°C (equipment-matrix temp ranges). Below this, substitute desiccant. */

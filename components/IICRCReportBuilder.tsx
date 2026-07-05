@@ -974,7 +974,7 @@ export default function IICRCReportBuilder({
 
             <div>
               <label className="block text-sm font-medium mb-2">
-                Affected Area (sq ft)
+                Affected Area (m²)
               </label>
               <input
                 type="number"
@@ -983,7 +983,7 @@ export default function IICRCReportBuilder({
                   handleInputChange("affectedArea", parseFloat(e.target.value))
                 }
                 className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
-                placeholder="500"
+                placeholder="50"
               />
             </div>
           </div>
@@ -1388,7 +1388,7 @@ export default function IICRCReportBuilder({
                   <div className="flex justify-between">
                     <span>Affected Area:</span>
                     <span className="font-medium">
-                      {reportData.affectedArea || 0} sq ft
+                      {reportData.affectedArea || 0} m²
                     </span>
                   </div>
                 </div>

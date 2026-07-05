@@ -13,6 +13,28 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import {
+  AIR_MOVER_RATIO,
+  AIR_SCRUBBER_RATIO,
+  DEHU_RATIO,
+  type DamageClass,
+} from "@/lib/equipment-calculator";
+
+// RA-6934 item 6: affectedArea is m² (see IICRCReportBuilder "Affected Area
+// (m²)" field). Ratios below delegate to lib/equipment-calculator.ts's
+// IICRC S500-consistent m² figures instead of maintaining a separate,
+// previously imperial (sq ft) copy.
+const DAMAGE_CLASS_MAP: Record<string, DamageClass> = {
+  "Class 1": "CLASS_1",
+  "Class 2": "CLASS_2",
+  "Class 3": "CLASS_3",
+  "Class 4": "CLASS_4",
+};
+
+function toDamageClass(waterClass: string): DamageClass {
+  return DAMAGE_CLASS_MAP[waterClass] ?? "CLASS_2";
+}
+
 interface EquipmentSizingGuidelinesProps {
   waterClass: string;
   affectedArea: number;
@@ -112,31 +134,10 @@ export default function EquipmentSizingGuidelines({
     if (!affectedArea || !waterClass) return { count: 0, totalCFM: 0 };
 
     const area = parseFloat(affectedArea.toString());
-    let count = 0;
-    let totalCFM = 0;
-
-    // IICRC S500 Airmover Sizing Guidelines
-    switch (waterClass) {
-      case "Class 1":
-        count = Math.ceil(area / 60); // 1 per 50-70 sq ft
-        totalCFM = count * 2000; // Standard 2000 CFM per unit
-        break;
-      case "Class 2":
-        count = Math.ceil(area / 50); // 1 per 50 sq ft
-        totalCFM = count * 2000;
-        break;
-      case "Class 3":
-        count = Math.ceil(area / 40); // 1 per 40 sq ft
-        totalCFM = count * 2000;
-        break;
-      case "Class 4":
-        count = Math.ceil(area / 30); // 1 per 30 sq ft
-        totalCFM = count * 2000;
-        break;
-      default:
-        count = Math.ceil(area / 50);
-        totalCFM = count * 2000;
-    }
+    // IICRC S500-consistent airmover ratio (m² per unit) — see
+    // lib/equipment-calculator.ts AIR_MOVER_RATIO / S500:2021 §12.5 (Drying).
+    const count = Math.ceil(area / AIR_MOVER_RATIO[toDamageClass(waterClass)]);
+    const totalCFM = count * 2000; // Standard rated airflow per unit
 
     return { count, totalCFM };
   };
@@ -145,31 +146,18 @@ export default function EquipmentSizingGuidelines({
     if (!affectedArea || !waterClass) return { capacity: 0, count: 0 };
 
     const area = parseFloat(affectedArea.toString());
-    let capacity = 0;
-    let count = 0;
-
-    // IICRC S500 Dehumidification Sizing Guidelines
-    switch (waterClass) {
-      case "Class 1":
-        capacity = Math.ceil(area / 100) * 20; // 20L per 100 sq ft
-        count = Math.ceil(capacity / 50); // 50L units
-        break;
-      case "Class 2":
-        capacity = Math.ceil(area / 80) * 30; // 30L per 80 sq ft
-        count = Math.ceil(capacity / 50);
-        break;
-      case "Class 3":
-        capacity = Math.ceil(area / 60) * 40; // 40L per 60 sq ft
-        count = Math.ceil(capacity / 50);
-        break;
-      case "Class 4":
-        capacity = Math.ceil(area / 40) * 50; // 50L per 40 sq ft
-        count = Math.ceil(capacity / 50);
-        break;
-      default:
-        capacity = Math.ceil(area / 80) * 25;
-        count = Math.ceil(capacity / 50);
-    }
+    // Unit count mirrors lib/equipment-calculator.ts DEHU_RATIO (m² per unit,
+    // S500:2021 §12.4.2). Per-unit daily capacity (L/day) is a display-only
+    // figure, not part of the cited ratio.
+    const literPerUnit: Record<DamageClass, number> = {
+      CLASS_1: 20,
+      CLASS_2: 30,
+      CLASS_3: 40,
+      CLASS_4: 50,
+    };
+    const damageClass = toDamageClass(waterClass);
+    const count = Math.ceil(area / DEHU_RATIO[damageClass]);
+    const capacity = count * literPerUnit[damageClass];
 
     return { capacity, count };
   };
@@ -211,16 +199,26 @@ export default function EquipmentSizingGuidelines({
       containment: false,
     };
 
+    // Air scrubber ratios delegate to lib/equipment-calculator.ts
+    // AIR_SCRUBBER_RATIO (m² per unit, S500:2021 §12.3.2) using its
+    // standard/aggressive tiers. HEPA vacuum has no metric ratio there
+    // (intentionally excluded from that calculator) — the figures below are
+    // a straight m² conversion of the prior sq-ft heuristic, not independently
+    // sourced.
     if (waterCategory === "Category 2" || waterCategory === "Category 3") {
-      requirements.hepaVacuums = Math.ceil(affectedArea / 200); // 1 per 200 sq ft
-      requirements.airScrubbers = Math.ceil(affectedArea / 500); // 1 per 500 sq ft
+      requirements.hepaVacuums = Math.ceil(affectedArea / 20); // unsourced heuristic
+      requirements.airScrubbers = Math.ceil(
+        affectedArea / AIR_SCRUBBER_RATIO.CLASS_1,
+      );
       requirements.negativePressure = true;
       requirements.containment = true;
     }
 
     if (waterCategory === "Category 3") {
-      requirements.hepaVacuums = Math.ceil(affectedArea / 100); // More intensive
-      requirements.airScrubbers = Math.ceil(affectedArea / 300);
+      requirements.hepaVacuums = Math.ceil(affectedArea / 10); // More intensive; unsourced heuristic
+      requirements.airScrubbers = Math.ceil(
+        affectedArea / AIR_SCRUBBER_RATIO.CLASS_3,
+      );
     }
 
     return requirements;
@@ -242,7 +240,7 @@ export default function EquipmentSizingGuidelines({
         duration: "Remaining drying time",
       },
       totalCFM: airmovers.totalCFM,
-      airChanges: Math.round(airmovers.totalCFM / (area * 8)), // Assuming 8ft ceiling
+      airChanges: Math.round(airmovers.totalCFM / (area * 2.44)), // area in m²; 2.44m ≈ prior 8ft ceiling assumption
     };
   };
 
@@ -266,8 +264,8 @@ export default function EquipmentSizingGuidelines({
     const area = parseFloat(affectedArea.toString());
 
     return {
-      psychrometers: Math.max(2, Math.ceil(area / 500)), // 1 per 500 sq ft, minimum 2
-      moistureMeters: Math.max(1, Math.ceil(area / 1000)), // 1 per 1000 sq ft, minimum 1
+      psychrometers: Math.max(2, Math.ceil(area / 45)), // 1 per 45m², minimum 2 (unsourced heuristic, converted from prior sq ft figure)
+      moistureMeters: Math.max(1, Math.ceil(area / 90)), // 1 per 90m², minimum 1 (unsourced heuristic, converted from prior sq ft figure)
       frequency: "Daily",
       locations: [
         "Affected areas",
