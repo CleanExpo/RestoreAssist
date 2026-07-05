@@ -171,6 +171,8 @@ interface Inspection {
   completedAt: string | null;
   closeSummary: string | null;
   closePackageStorageKey: string | null;
+  // RA-6949 — per-job Restoration Pulse notification toggle.
+  pulseEnabled: boolean;
   environmentalData: {
     ambientTemperature: number;
     humidityLevel: number;
@@ -401,6 +403,8 @@ export default function InspectionDetailPage({
   const [shareExpiry, setShareExpiry] = useState<string | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  // RA-6949 — per-job Restoration Pulse notification toggle.
+  const [pulseSaving, setPulseSaving] = useState(false);
   // RA-2967 — workspace-level auto-fetch toggle for floor plan underlay.
   const [autoFetchFloorPlan, setAutoFetchFloorPlan] = useState(false);
 
@@ -527,6 +531,30 @@ export default function InspectionDetailPage({
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 2000);
     });
+  };
+
+  // RA-6949 — flip the per-job Pulse kill switch via the inspection PATCH idiom.
+  const handleTogglePulse = async (next: boolean) => {
+    if (!inspection) return;
+    setPulseSaving(true);
+    try {
+      const res = await fetch(`/api/inspections/${inspection.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pulseEnabled: next }),
+      });
+      if (!res.ok) throw new Error("patch failed");
+      setInspection({ ...inspection, pulseEnabled: next });
+      toast.success(
+        next
+          ? "Automatic client updates turned on"
+          : "Automatic client updates turned off",
+      );
+    } catch {
+      toast.error("Could not update client notification setting");
+    } finally {
+      setPulseSaving(false);
+    }
   };
 
   const applyChecklist = async () => {
@@ -1029,6 +1057,30 @@ export default function InspectionDetailPage({
                     </div>
                   </div>
                 ) : null}
+              </div>
+              {/* RA-6949 — per-job Restoration Pulse kill switch. Default OFF;
+                  the firm opts a job in before any automated update is sent. */}
+              <div className="mt-2 pt-3 border-t border-neutral-200 dark:border-slate-700">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={inspection.pulseEnabled}
+                    disabled={pulseSaving}
+                    onChange={(e) => handleTogglePulse(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500"
+                    aria-label="Send automatic progress updates to the client for this job"
+                  />
+                  <span className="text-sm">
+                    <span className="font-medium text-neutral-800 dark:text-slate-200">
+                      Automatic progress updates
+                    </span>
+                    <span className="block text-xs text-neutral-500 dark:text-slate-400">
+                      Email the client when this job reaches a new stage or the
+                      drying status changes. Turn off to pause updates (for
+                      example, during a dispute).
+                    </span>
+                  </span>
+                </label>
               </div>
             </DialogContent>
           </Dialog>
