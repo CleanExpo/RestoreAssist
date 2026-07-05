@@ -4,11 +4,22 @@
  * Client-portal live status display (client portal Phase 4 UI).
  *
  * Polls the client-safe updates feed (GET /api/portal/[token]/updates →
- * buildClientStatusFeed) so the client's claim view auto-updates: current step,
- * progress %, report-ready, and any approvals still owed. Read-only.
+ * buildClientStatusFeed + buildDryingTimeline) so the client's claim view
+ * auto-updates: current step, progress %, report-ready, any approvals still
+ * owed, and a curated per-area drying timeline (RA-6950). Read-only. The
+ * drying timeline only ever carries a curated on-track/needs-attention state
+ * and an "estimate" label — never a raw moisture reading (drying logs are
+ * legal exhibits).
  */
 
 import { useEffect, useState } from "react";
+
+interface AreaDryingState {
+  areaId: string;
+  areaLabel: string;
+  status: "on-track" | "needs-attention";
+  estimateLabel: string;
+}
 
 interface Feed {
   currentStep: string;
@@ -16,6 +27,7 @@ interface Feed {
   steps: { key: string; label: string; done: boolean }[];
   reportReady: boolean;
   pendingApprovals: { id: string; type: string; label: string }[];
+  dryingTimeline: AreaDryingState[];
 }
 
 const POLL_MS = 30_000;
@@ -89,6 +101,36 @@ export function ClientPortalStatus({ token }: { token: string }) {
         <p role="status" className="text-xs text-amber-700">
           Action needed: {feed.pendingApprovals.map((a) => a.label).join(", ")}.
         </p>
+      )}
+
+      {feed.dryingTimeline.length > 0 && (
+        <div className="pt-1 border-t border-slate-100">
+          <h3 className="text-xs font-semibold text-slate-700 mt-3 mb-2">
+            Drying progress by area
+          </h3>
+          <ul className="space-y-2">
+            {feed.dryingTimeline.map((area) => (
+              <li key={area.areaId} className="space-y-0.5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-slate-700">
+                    {area.areaLabel}
+                  </span>
+                  <span
+                    className={[
+                      "text-xs px-2 py-0.5 rounded-full font-medium",
+                      area.status === "on-track"
+                        ? "bg-success-subtle text-success-subtle-foreground"
+                        : "bg-warning-subtle text-warning-subtle-foreground",
+                    ].join(" ")}
+                  >
+                    {area.status === "on-track" ? "On track" : "Needs attention"}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">{area.estimateLabel}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </section>
   );

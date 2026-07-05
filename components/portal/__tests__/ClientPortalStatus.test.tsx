@@ -18,6 +18,21 @@ const feed = {
   pendingApprovals: [
     { id: "ra_1", type: "SCOPE_OF_WORK", label: "Scope of works" },
   ],
+  dryingTimeline: [
+    {
+      areaId: "area_1",
+      areaLabel: "Master Bedroom",
+      status: "on-track" as const,
+      estimateLabel: "Estimate: on track — expected dry by 12 July 2026.",
+    },
+    {
+      areaId: "area_2",
+      areaLabel: "Hallway",
+      status: "needs-attention" as const,
+      estimateLabel:
+        "Estimate: needs attention — revised estimate dry by 20 July 2026.",
+    },
+  ],
 };
 
 describe("ClientPortalStatus", () => {
@@ -46,5 +61,41 @@ describe("ClientPortalStatus", () => {
     );
     const { container } = render(<ClientPortalStatus token="tok" />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("renders the curated per-area drying timeline with on-track/needs-attention badges", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue({ ok: true, json: async () => ({ data: feed }) }),
+    );
+    render(<ClientPortalStatus token="tok" />);
+
+    await waitFor(() => expect(screen.getByText("Master Bedroom")).toBeInTheDocument());
+    expect(screen.getByText("Hallway")).toBeInTheDocument();
+    expect(screen.getByText("On track")).toBeInTheDocument();
+    expect(screen.getByText("Needs attention")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Estimate: on track — expected dry by/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Estimate: needs attention — revised estimate dry by/),
+    ).toBeInTheDocument();
+  });
+
+  it("never renders a raw numeric moisture/percentage value in the drying timeline", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue({ ok: true, json: async () => ({ data: feed }) }),
+    );
+    render(<ClientPortalStatus token="tok" />);
+    await waitFor(() => expect(screen.getByText("Master Bedroom")).toBeInTheDocument());
+
+    const timelineSection = screen.getByText("Drying progress by area")
+      .closest("div") as HTMLElement;
+    expect(timelineSection.textContent).not.toMatch(/\d+(\.\d+)?%/);
   });
 });
