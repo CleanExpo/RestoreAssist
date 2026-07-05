@@ -6089,6 +6089,7 @@ enum AddonSku {
   SERVICE_CRM // Service CRM Connection (Ascora / DR-NRPG)
   PAYMENTS // Payments Collection (Stripe Connect on the client's own account)
   FLOORPLAN_UNDERLAY // RA-6922: Floor Plan Underlay — recurring $11/mo internet-floorplan-overlay entitlement
+  CLIENT_COMMS // RA-6954: Restoration Pulse client-comms — recurring $11/mo client-facing email updates entitlement
 }
 
 // FeatureEntitlement — per-workspace record of which add-on SKUs are active.

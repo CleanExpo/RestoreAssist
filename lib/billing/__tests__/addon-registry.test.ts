@@ -37,3 +37,23 @@ describe("RECURRING_ADDONS — BOOKKEEPING", () => {
     expect(descriptor?.sku).toBe("FLOORPLAN_UNDERLAY");
   });
 });
+
+describe("RECURRING_ADDONS — CLIENT_COMMS (RA-6954)", () => {
+  it("resolves by add-on key with the correct price + currency", () => {
+    const descriptor = getRecurringAddon("CLIENT_COMMS");
+
+    expect(descriptor).toMatchObject({
+      sku: "CLIENT_COMMS",
+      amount: 11.0,
+      currency: "AUD",
+      interval: "month",
+      subscriptionType: "client_comms_addon",
+    });
+  });
+
+  it("resolves in reverse by the subscription-metadata marker", () => {
+    const descriptor = getRecurringAddonBySubscriptionType("client_comms_addon");
+
+    expect(descriptor?.sku).toBe("CLIENT_COMMS");
+  });
+});

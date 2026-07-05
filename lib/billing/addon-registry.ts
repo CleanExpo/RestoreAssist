@@ -38,6 +38,10 @@ import {
   PAYMENTS_ADDON,
   PAYMENTS_ADDON_SUBSCRIPTION_TYPE,
 } from "./payments-addon";
+import {
+  CLIENT_COMMS_ADDON,
+  CLIENT_COMMS_ADDON_SUBSCRIPTION_TYPE,
+} from "./client-comms-addon";
 
 /**
  * The data-driven descriptor for one recurring add-on. Everything the checkout
@@ -109,6 +113,15 @@ export const RECURRING_ADDONS: Readonly<
     currency: PAYMENTS_ADDON.currency,
     interval: PAYMENTS_ADDON.interval,
     subscriptionType: PAYMENTS_ADDON_SUBSCRIPTION_TYPE,
+  },
+  [CLIENT_COMMS_ADDON.sku]: {
+    sku: CLIENT_COMMS_ADDON.sku,
+    name: CLIENT_COMMS_ADDON.name,
+    description: CLIENT_COMMS_ADDON.description,
+    amount: CLIENT_COMMS_ADDON.amount,
+    currency: CLIENT_COMMS_ADDON.currency,
+    interval: CLIENT_COMMS_ADDON.interval,
+    subscriptionType: CLIENT_COMMS_ADDON_SUBSCRIPTION_TYPE,
   },
 };
 

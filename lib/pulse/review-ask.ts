@@ -26,6 +26,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { reportError } from "@/lib/observability";
 import { sendPulseUpdateEmail } from "@/lib/email";
+import { requireAddon } from "@/lib/entitlements";
 import { renderReviewAskEmail } from "./templates";
 
 export type ReviewAskSuppressionReason =
@@ -33,6 +34,7 @@ export type ReviewAskSuppressionReason =
   | "OPT_OUT"
   | "NO_RECIPIENT"
   | "NO_URL"
+  | "NOT_ENTITLED"
   | "MISSING_ENV"
   | "DUPLICATE"
   | "SEND_FAILED";
@@ -71,6 +73,7 @@ export async function dispatchReviewAskNotification(
     where: { id: inspectionId },
     select: {
       id: true,
+      userId: true,
       inspectionNumber: true,
       pulseEnabled: true,
       report: {
@@ -138,6 +141,9 @@ export async function dispatchReviewAskNotification(
   if (client?.pulseOptOut) return suppress("OPT_OUT");
   if (!recipient) return suppress("NO_RECIPIENT");
   if (!reviewUrl) return suppress("NO_URL");
+  // RA-6954 — client-comms send requires the CLIENT_COMMS entitlement.
+  const addonGate = await requireAddon(job.userId, "CLIENT_COMMS");
+  if (!addonGate.allowed) return suppress("NOT_ENTITLED");
   if (!reviewAskEnvConfigured()) {
     reportError(
       new Error(
