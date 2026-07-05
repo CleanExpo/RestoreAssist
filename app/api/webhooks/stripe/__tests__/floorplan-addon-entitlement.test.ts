@@ -1,5 +1,5 @@
 /**
- * RA-6922 — handleFloorplanAddonSubscription() unit tests.
+ * RA-6922 — handleRecurringAddonSubscription() unit tests.
  *
  * Runs without a database — prisma is mocked. Verifies the FeatureEntitlement
  * toggles active on/off across the subscription lifecycle, is idempotent
@@ -16,7 +16,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { prisma } from "@/lib/prisma";
-import { handleFloorplanAddonSubscription } from "../route";
+import { handleRecurringAddonSubscription } from "../route";
 
 const mockUpsert = (
   prisma as unknown as {
@@ -51,9 +51,9 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
-describe("handleFloorplanAddonSubscription", () => {
+describe("handleRecurringAddonSubscription", () => {
   it("grants the entitlement (active=true) on an active subscription", async () => {
-    const handled = await handleFloorplanAddonSubscription(
+    const handled = await handleRecurringAddonSubscription(
       makeSubscription("active", FLOORPLAN_META),
     );
 
@@ -78,14 +78,14 @@ describe("handleFloorplanAddonSubscription", () => {
   });
 
   it("grants the entitlement (active=true) while trialing", async () => {
-    await handleFloorplanAddonSubscription(
+    await handleRecurringAddonSubscription(
       makeSubscription("trialing", FLOORPLAN_META),
     );
     expect(mockUpsert.mock.calls[0][0].update.active).toBe(true);
   });
 
   it("revokes the entitlement (active=false) when canceled", async () => {
-    const handled = await handleFloorplanAddonSubscription(
+    const handled = await handleRecurringAddonSubscription(
       makeSubscription("canceled", FLOORPLAN_META),
     );
     expect(handled).toBe(true);
@@ -93,14 +93,14 @@ describe("handleFloorplanAddonSubscription", () => {
   });
 
   it("revokes the entitlement (active=false) when unpaid", async () => {
-    await handleFloorplanAddonSubscription(
+    await handleRecurringAddonSubscription(
       makeSubscription("unpaid", FLOORPLAN_META),
     );
     expect(mockUpsert.mock.calls[0][0].update.active).toBe(false);
   });
 
   it("returns false and does not upsert for a non-floor-plan subscription", async () => {
-    const handled = await handleFloorplanAddonSubscription(
+    const handled = await handleRecurringAddonSubscription(
       makeSubscription("active", undefined),
     );
     expect(handled).toBe(false);
@@ -108,7 +108,7 @@ describe("handleFloorplanAddonSubscription", () => {
   });
 
   it("claims the event but does not upsert when workspaceId metadata is missing", async () => {
-    const handled = await handleFloorplanAddonSubscription(
+    const handled = await handleRecurringAddonSubscription(
       makeSubscription("active", { type: "floorplan_underlay_addon" }),
     );
     // Returns true so the caller does NOT run base-plan handlers with an add-on
@@ -118,7 +118,7 @@ describe("handleFloorplanAddonSubscription", () => {
   });
 
   it("stores a null price id when the subscription item has no price", async () => {
-    await handleFloorplanAddonSubscription(
+    await handleRecurringAddonSubscription(
       makeSubscription("active", FLOORPLAN_META, { priceId: null }),
     );
     expect(mockUpsert.mock.calls[0][0].create.stripePriceId).toBeNull();
