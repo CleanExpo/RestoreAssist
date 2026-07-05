@@ -20,6 +20,7 @@ import {
 } from "./standards-retrieval";
 import { describeClause } from "./reports/clause-descriptions";
 import { standardDesignation } from "./nir-standards-mapping";
+import { isPublicHttpUrl } from "./branding/url-validator";
 
 interface BusinessInfo {
   businessName?: string | null;
@@ -218,6 +219,11 @@ export async function generateForensicReportPDF(
   let logoImage: PDFImage | null = null;
   if (businessInfo?.businessLogo) {
     try {
+      // SSRF guard: businessLogo is user-controlled — block private/loopback
+      // hosts and non-http(s) schemes before fetching server-side.
+      if (!isPublicHttpUrl(businessInfo.businessLogo).ok) {
+        throw new Error("Business logo URL failed public-host validation");
+      }
       const logoResponse = await fetch(businessInfo.businessLogo);
       const logoBuffer = await logoResponse.arrayBuffer();
       const logoUrl = businessInfo.businessLogo.toLowerCase();
