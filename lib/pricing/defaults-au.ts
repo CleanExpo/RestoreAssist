@@ -52,7 +52,8 @@ const NATIONAL_MEDIAN: PricingDefaults = {
   mobilisationFee: 185,
   thermalCameraUseCostPerAssessment: 145,
   antimicrobialTreatmentRate: 18,
-  mouldRemediationTreatmentRate: 45,
+  // RA-7001: floor of the NRPG $65-145/m² range (founder-approved 2026-07-06).
+  mouldRemediationTreatmentRate: 65,
   projectManagementPercent: 8,
 };
 
