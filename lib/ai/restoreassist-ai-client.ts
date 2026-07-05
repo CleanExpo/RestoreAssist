@@ -24,8 +24,9 @@ import { reportError } from "../observability";
 
 // ━━━ RestoreAssist AI Configuration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/** Self-hosted model identifier */
-export const RESTOREASSIST_AI_MODEL = "gemma-4-31b-it" as const;
+/** Self-hosted model identifier — override via RESTOREASSIST_AI_MODEL env var */
+export const RESTOREASSIST_AI_MODEL =
+  process.env.RESTOREASSIST_AI_MODEL ?? "gemma-4-31b-it";
 
 /** Display name shown in UI */
 export const RESTOREASSIST_AI_DISPLAY_NAME = "RestoreAssist AI";
