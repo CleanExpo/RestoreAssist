@@ -157,7 +157,7 @@ function countIicrcReferences(scope: string): number {
     /IICRC\s+S\d+:\d{4}/g,
     /S500:\d{4}/g,
     /S520/g,
-    /S770/g,
+    /S700/g,
     /§[\d.]+/g,
   ];
 

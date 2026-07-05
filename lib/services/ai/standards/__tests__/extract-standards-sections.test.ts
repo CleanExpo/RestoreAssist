@@ -45,7 +45,7 @@ describe("extractStandardsSections", () => {
     const r = await extractStandardsSections({
       apiKey: "sk-resolved",
       documentText: "Standards document text...",
-      fileName: "IICRC-S500-2025.pdf",
+      fileName: "IICRC-S500-2021.pdf",
       query,
     });
     expect(r.ok).toBe(true);

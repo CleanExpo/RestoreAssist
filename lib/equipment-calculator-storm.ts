@@ -7,9 +7,15 @@
  * equipment counts from measured affected area, standing-water volume, and
  * expected drying duration.
  *
- * Ratios follow IICRC S500:2021 §7 (bulk extraction) + §9.3/§9.4 (evaporative
- * drying) with AU field practice for storm-scale extraction throughput.
- * Air mover + LGR dehumidifier ratios match the standard water calculator.
+ * Ratio subsection numbers are NOT cited where they are not present in the
+ * verified S500 section corpus (lib/standards/s500-sections.ts) — citations
+ * degrade to the nearest corpus-verified section instead of fabricating
+ * subsection numbers, mirroring lib/equipment-calculator.ts:
+ *   - Bulk extraction / pump-out → S500:2021 §12.3.3 (Bulk Material Removal and
+ *     Water Extraction)
+ *   - Airflow / evaporative drying → S500:2021 §12.5 (Drying)
+ * Air mover + LGR dehumidifier ratios match the standard water calculator, with
+ * AU field practice for storm-scale extraction throughput.
  */
 
 export interface StormEquipmentInput {
@@ -42,7 +48,7 @@ const SUBMERSIBLE_LITRES_PER_UNIT = 500;
 const SUBMERSIBLE_MAX = 8;
 /** 1 truck-mount per 200 m² for storm-scale bulk extraction. */
 const TRUCK_MOUNT_AREA_PER_UNIT = 200;
-/** 1 air mover per 14 m² — IICRC S500:2021 §9.3.2. */
+/** 1 air mover per 14 m² — IICRC S500:2021 §12.5 (Drying). */
 const AIR_MOVER_AREA_PER_UNIT = 14;
 /** 1 LGR dehumidifier per 80 m² per day of drying. */
 const LGR_AREA_PER_UNIT_PER_DAY = 80;
@@ -52,7 +58,7 @@ const SHRINK_WRAP_OVERAGE = 1.2;
 /**
  * Calculate storm-damage equipment counts.
  *
- * All quantities round UP (IICRC S500 §9.3.1 convention).
+ * All quantities round UP (ceiling) as a conservative field convention.
  */
 export function calculateStormEquipment(
   params: StormEquipmentInput,

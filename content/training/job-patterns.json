@@ -33,7 +33,7 @@
         "Redlands"
       ],
       "seasonalPeak": "Summer (Dec–Feb) storm season and spring plumbing failures",
-      "iicrcStandard": "S500:2025"
+      "iicrcStandard": "S500:2021"
     },
     "mould_remediation": {
       "count": 668,
@@ -64,7 +64,7 @@
       "description": "Sewage backflows, unattended deaths, trauma scenes, sharps cleanup — Category 3 water classification",
       "ppeLevel": "Level B minimum (full-face respirator, impermeable coveralls)",
       "regulatoryNotes": "Safe Work Australia guidance; local council disposal pathway required",
-      "iicrcStandard": "S500:2025 §5.4 (Cat 3 protocols)"
+      "iicrcStandard": "S500:2021 §5.4 (Cat 3 protocols)"
     },
     "fire_smoke": {
       "count": 80,
@@ -75,7 +75,7 @@
       "p75ValueAud": 28000,
       "description": "Kitchen fires, electrical fires, structural fires with smoke migration. High-value due to combined remediation + contents + structural works",
       "typicalSmokeType": "dry smoke (overheated cooking) and wet smoke (slow-burning organic material)",
-      "iicrcStandard": "S770"
+      "iicrcStandard": "S700:2025"
     },
     "contents": {
       "count": 120,
@@ -86,7 +86,7 @@
       "p75ValueAud": 5200,
       "description": "Pack-out, cleaning, storage and pack-back of household and commercial contents following water, fire, or mould events",
       "restoreVsReplaceThreshold": "70% of replacement cost (Australian Consumer Law)",
-      "iicrcStandard": "S520 / S770 / S500:2025 (dependent on loss type)"
+      "iicrcStandard": "S520 / S700:2025 / S500:2021 (dependent on loss type)"
     },
     "storm": {
       "count": 113,
@@ -104,7 +104,7 @@
         "insulation batts",
         "roof sarking"
       ],
-      "iicrcStandard": "S500:2025 (water intrusion component); NCC 2022 (reinstatement)"
+      "iicrcStandard": "S500:2021 (water intrusion component); NCC 2022 (reinstatement)"
     },
     "inspection_only": {
       "count": 52,
@@ -112,7 +112,7 @@
       "avgValueAud": 380,
       "medianValueAud": 280,
       "description": "Standalone moisture surveys, mould assessments, or pre-reinstatement clearance inspections — no remediation",
-      "iicrcStandard": "S500:2025 §10 (psychrometric assessment); S520 §9 (clearance testing)"
+      "iicrcStandard": "S500:2021 §10 (psychrometric assessment); S520 §9 (clearance testing)"
     },
     "other": {
       "count": 56,
@@ -193,7 +193,7 @@
       ],
       "exampleJobs": [
         "Cat 3 sewer backup, whole-house ground floor 140 m², full biohazard protocol + structural drying",
-        "Kitchen fire with smoke migration throughout dwelling, S770 scope + contents pack-out",
+        "Kitchen fire with smoke migration throughout dwelling, S700:2025 scope + contents pack-out",
         "Multi-unit Cat 2 overflow affecting 3 townhouses, 180 m² total affected area"
       ]
     },
@@ -227,7 +227,7 @@
   "promptEnhancements": [
     {
       "claimType": "water",
-      "iicrcStandard": "S500:2025",
+      "iicrcStandard": "S500:2021",
       "commonScopeItems": [
         "Initial moisture survey with Tramex CME5 or equivalent (§10.1)",
         "Emergency water extraction — carpet, hard floor, subfloor (§8.2)",
@@ -235,11 +235,11 @@
         "Anti-microbial application to all Cat 2/3 wet porous surfaces (§5.3/§5.4)",
         "Flood cut at 450 mm — open wall cavities for airflow (Class 2/3)",
         "Saturated insulation removal (glasswool/polyester) — mandatory if wet",
-        "LGR dehumidifier placement per IICRC S500:2025 equipment ratios",
+        "LGR dehumidifier placement per IICRC S500:2021 equipment ratios",
         "Air mover positioning: 45-degree angle to wet wall panels (§7)",
         "Psychrometric baseline — temperature, RH, GPP, dew point (§10.2)",
         "Daily monitoring log — moisture readings per material per zone (§11.4)",
-        "Drying goal certificate when all readings ≤ IICRC S500:2025 §11.4 EMC targets"
+        "Drying goal certificate when all readings ≤ IICRC S500:2021 §11.4 EMC targets"
       ],
       "typicalDurationDays": {
         "min": 3,
@@ -252,7 +252,7 @@
       },
       "keyRisks": [
         "Secondary mould growth if drying not commenced within 24 hours (Category 1→2 upgrade risk)",
-        "Category upgrade: Category 1 water sitting >72 hours becomes Category 2 per S500:2025",
+        "Category upgrade: Category 1 water sitting >72 hours becomes Category 2 per S500:2021",
         "Hidden moisture in wall cavities causing delayed mould discovery",
         "Asbestos-containing materials in pre-1990 construction (cornice, textured ceilings, vinyl tiles)",
         "Hardwood flooring cupping or crowning if subfloor saturated — Class 4 protocol required",
@@ -260,13 +260,13 @@
         "Multi-storey water migration — upstairs event affecting ground floor via stud cavities"
       ],
       "iicrcReferences": [
-        "S500:2025 §4 — Loss pathway and source identification",
-        "S500:2025 §5.2/§5.3/§5.4 — Category 1/2/3 protocols",
-        "S500:2025 §6 — Affected materials classification",
-        "S500:2025 §7.2–§7.5 — Evaporation class determination",
-        "S500:2025 §8 — Emergency services phase",
-        "S500:2025 §10 — Psychrometric documentation",
-        "S500:2025 §11.4 — Drying goal EMC targets",
+        "S500:2021 §4 — Loss pathway and source identification",
+        "S500:2021 §5.2/§5.3/§5.4 — Category 1/2/3 protocols",
+        "S500:2021 §6 — Affected materials classification",
+        "S500:2021 §7.2–§7.5 — Evaporation class determination",
+        "S500:2021 §8 — Emergency services phase",
+        "S500:2021 §10 — Psychrometric documentation",
+        "S500:2021 §11.4 — Drying goal EMC targets",
         "AS/NZS 3012:2019 — 80% electrical load for restoration equipment"
       ],
       "equipmentRatios": {
@@ -317,7 +317,7 @@
     },
     {
       "claimType": "biohazard",
-      "iicrcStandard": "S500:2025 §5.4 (Category 3 protocols)",
+      "iicrcStandard": "S500:2021 §5.4 (Category 3 protocols)",
       "commonScopeItems": [
         "Category 3 water classification — all porous materials in contact must be removed",
         "Level B PPE deployment — full-face respirator P3, impermeable coveralls, double nitrile gloves",
@@ -337,13 +337,13 @@
         "Occupant health obligations under WHS Act (Safe Work Australia)"
       ],
       "iicrcReferences": [
-        "S500:2025 §5.4 — Category 3 (black water) protocol",
+        "S500:2021 §5.4 — Category 3 (black water) protocol",
         "Safe Work Australia — Managing Risks of Hazardous Chemicals / Biological Hazards"
       ]
     },
     {
       "claimType": "fire_smoke",
-      "iicrcStandard": "S770",
+      "iicrcStandard": "S700:2025",
       "commonScopeItems": [
         "Fire origin and cause documentation — reference fire brigade report (§4.1)",
         "Smoke zone mapping: char / smoke / odour by room (§4.2)",
@@ -355,7 +355,7 @@
         "Hydroxyl generator placement — note rooms and treatment days (§10)",
         "HVAC isolation and decontamination — duct system smoke migration assessment (§4.2)",
         "Contents inventory — restore vs replace per item, ACL replacement value methodology (§9)",
-        "Structural drying if suppression water present — S500:2025 Category 1 protocol applies",
+        "Structural drying if suppression water present — S500:2021 Category 1 protocol applies",
         "Air quality clearance test (Condition 1 restored) — independent hygienist (§11)"
       ],
       "typicalDurationDays": { "min": 7, "max": 60, "avg": 18 },
@@ -368,27 +368,27 @@
         "Insurance dispute over contents — restore vs replace threshold documentation critical"
       ],
       "iicrcReferences": [
-        "S770 §4.1 — Fire origin documentation",
-        "S770 §4.2 — Smoke zone mapping",
-        "S770 §5 — Affected materials",
-        "S770 §8 — Cleaning methods by smoke type and material",
-        "S770 §9 — Contents restoration",
-        "S770 §10 — Deodorisation protocol",
-        "S770 §11 — Clearance criteria",
-        "S500:2025 §5.2 — Category 1 water (suppression water) drying"
+        "S700:2025 §5.4.4 — Fire origin documentation",
+        "S700:2025 §3.1 — Smoke zone mapping",
+        "S700:2025 §3.1 — Affected materials",
+        "S700:2025 §6.6 — Cleaning methods by smoke type and material",
+        "S700:2025 §9.7 — Contents restoration",
+        "S700:2025 §8.4 — Deodorisation protocol",
+        "S700:2025 §10 — Clearance criteria",
+        "S500:2021 §5.2 — Category 1 water (suppression water) drying"
       ]
     },
     {
       "claimType": "storm",
-      "iicrcStandard": "S500:2025 (water intrusion); NCC 2022 (reinstatement)",
+      "iicrcStandard": "S500:2021 (water intrusion); NCC 2022 (reinstatement)",
       "commonScopeItems": [
         "Breach identification — roof, windows, gutters, doors (§ AS 4055:2021 if structural)",
         "Emergency make-safe: tarpaulin over breach within 24 hours (ICA obligation)",
         "Temporary protection: 200 µm poly tarpaulin, 4 m overlap, screwed timber battens",
         "Roof space inspection: sarking, battens, insulation saturation level",
         "Insulation removal if saturated — glasswool/polyester cannot be dried in situ",
-        "Psychrometric survey — ceiling void and affected rooms (S500:2025 §10)",
-        "Structural drying per S500:2025 if water has entered structure",
+        "Psychrometric survey — ceiling void and affected rooms (S500:2021 §10)",
+        "Structural drying per S500:2021 if water has entered structure",
         "Plasterboard ceiling replacement per affected area (m²) — no partial patch for storm-soaked board",
         "Tile replacement — like-for-like supply (match existing profile and colour)",
         "Reinstatement to NCC 2022 standard — licensed roofing and plumbing trades"
@@ -402,8 +402,8 @@
         "Insurer dispute on partial vs full ceiling replacement scope"
       ],
       "iicrcReferences": [
-        "S500:2025 §7 — Evaporation class for storm water intrusion",
-        "S500:2025 §10 — Psychrometric documentation",
+        "S500:2021 §7 — Evaporation class for storm water intrusion",
+        "S500:2021 §10 — Psychrometric documentation",
         "AS 4055:2021 — Wind loads for housing (structural assessment trigger)",
         "NCC 2022 Vol 2 — Reinstatement standard for Class 1 buildings (residential)"
       ]

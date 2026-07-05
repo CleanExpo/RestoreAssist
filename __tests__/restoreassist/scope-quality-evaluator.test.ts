@@ -15,32 +15,32 @@ import { evaluateScopeQuality } from "../../lib/ai/scope-quality-evaluator";
 const FULL_SCOPE = `
 ## 1. Water Source and Loss Mechanism
 Water intrusion from burst supply line. Visual assessment confirms Category 2 water source.
-IICRC S500:2025 §3.2 — source identification protocol applied.
+IICRC S500:2021 §3.2 — source identification protocol applied.
 
 ## 2. Emergency Services and Initial Extraction
-Emergency extraction performed. Make-safe procedures completed per IICRC S500:2025 §4.1.
+Emergency extraction performed. Make-safe procedures completed per IICRC S500:2021 §4.1.
 
 ## 3. Affected Materials Assessment
 Affected materials documented. Water intrusion extent confirmed to kitchen and hallway.
-IICRC S500:2025 §5.3 — materials classification completed.
+IICRC S500:2021 §5.3 — materials classification completed.
 
 ## 4. Psychrometric Conditions and Containment Setup
 Psychrometric readings: 24°C, 68% RH. Containment established.
-IICRC S500:2025 §6.1 — psychrometric protocol.
+IICRC S500:2021 §6.1 — psychrometric protocol.
 
 ## 5. Drying Equipment and Structural Drying Plan
 Drying equipment deployed:
 - Air movers: 4 units
 - Dehumidifiers: 2 LGR units
-IICRC S500:2025 §7.2 — structural drying methodology applied.
+IICRC S500:2021 §7.2 — structural drying methodology applied.
 
 ## 6. Daily Monitoring Protocol
 Daily monitoring schedule established. Readings logged at 24-hour intervals.
-IICRC S500:2025 §8.1 — monitoring and documentation requirements.
+IICRC S500:2021 §8.1 — monitoring and documentation requirements.
 
 ## 7. Drying Validation and Sign-Off
 Drying validation conducted. Clearance testing completed. Sign-off issued.
-IICRC S500:2025 §9.1 — reinstatement criteria confirmed.
+IICRC S500:2021 §9.1 — reinstatement criteria confirmed.
 `;
 
 /** An empty scope — should score near zero on all dimensions. */
@@ -50,79 +50,79 @@ const EMPTY_SCOPE = "";
 const HEDGING_SCOPE = `
 ## 1. Water Source and Loss Mechanism
 Adequate assessment of water source performed.
-IICRC S500:2025 §3.2
+IICRC S500:2021 §3.2
 
 ## 2. Emergency Services and Initial Extraction
 Appropriate extraction completed as needed.
-IICRC S500:2025 §4.1
+IICRC S500:2021 §4.1
 
 ## 3. Affected Materials Assessment
 Various materials affected. Some moisture detected.
-IICRC S500:2025 §5.3
+IICRC S500:2021 §5.3
 
 ## 4. Psychrometric Conditions
 Sufficient readings taken. Multiple areas monitored.
-IICRC S500:2025 §6.1
+IICRC S500:2021 §6.1
 
 ## 5. Drying Equipment
 Several units deployed. Air movers: 4 units.
-IICRC S500:2025 §7.2
+IICRC S500:2021 §7.2
 
 ## 6. Daily Monitoring Protocol
 Monitoring schedule as needed.
-IICRC S500:2025 §8.1
+IICRC S500:2021 §8.1
 
 ## 7. Drying Validation and Sign-Off
 Clearance testing and sign-off. Reinstatement completed.
-IICRC S500:2025 §9.1
+IICRC S500:2021 §9.1
 `;
 
 /** Category 2 scope — must contain antimicrobial references. */
 const CAT2_SCOPE_COMPLIANT = `
 ## 1. Water Source and Loss Mechanism
-Category 2 grey water source identified. IICRC S500:2025 §3.2
+Category 2 grey water source identified. IICRC S500:2021 §3.2
 
 ## 2. Initial Extraction
-IICRC S500:2025 §4.1
+IICRC S500:2021 §4.1
 
 ## 3. Affected Materials Assessment
-IICRC S500:2025 §5.3
+IICRC S500:2021 §5.3
 
 ## 4. Psychrometric Conditions
-IICRC S500:2025 §6.1
+IICRC S500:2021 §6.1
 
 ## 5. Antimicrobial treatment applied. Drying Equipment.
-Air movers: 4 units. IICRC S500:2025 §7.2
+Air movers: 4 units. IICRC S500:2021 §7.2
 
 ## 6. Daily Monitoring Protocol
-IICRC S500:2025 §8.1
+IICRC S500:2021 §8.1
 
 ## 7. Sign-off and clearance testing. Reinstatement complete.
-IICRC S500:2025 §9.1
+IICRC S500:2021 §9.1
 `;
 
 /** Category 3 scope — must reference PPE and remove porous materials. */
 const CAT3_SCOPE_COMPLIANT = `
 ## 1. Contamination Mapping — Category 3 black water contamination identified.
-IICRC S500:2025 §3.1
+IICRC S500:2021 §3.1
 
 ## 2. Emergency Services — Make-safe
-IICRC S500:2025 §4.1
+IICRC S500:2021 §4.1
 
 ## 3. Affected Materials Assessment — remove porous materials
-IICRC S500:2025 §5.3
+IICRC S500:2021 §5.3
 
 ## 4. Containment Setup
-IICRC S500:2025 §6.1
+IICRC S500:2021 §6.1
 
 ## 5. Drying Equipment. Air movers: 6 units.
-IICRC S500:2025 §7.2
+IICRC S500:2021 §7.2
 
 ## 6. Monitoring Protocol. PPE requirements for personnel.
-IICRC S500:2025 §8.1
+IICRC S500:2021 §8.1
 
 ## 7. Sign-off and clearance. Reinstatement.
-IICRC S500:2025 §9.1
+IICRC S500:2021 §9.1
 `;
 
 // ─── evaluateScopeQuality() ───────────────────────────────────────────────────

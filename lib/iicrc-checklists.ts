@@ -12,7 +12,9 @@ export interface ChecklistItem {
  * - storm — ANZRP storm-damage best practice (water ingress, wind, debris)
  * - biohazard — IICRC S540 (trauma scene), CDC/OHS blood-borne pathogens
  *
- * RA-877: Added HVAC (NADCA ACR 2021) and environmental (IICRC S760) categories.
+ * RA-877: Added HVAC (NADCA ACR 2021) and environmental (occupant safety / IAQ)
+ * categories. RA-7001: the environmental checklist is uncited — S760 is a draft
+ * wildfire standard, not published and not applicable here.
  */
 export type ChecklistCategory =
   | "water"
@@ -915,13 +917,15 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
       },
     ],
   },
-  // ─── RA-877: IICRC S760 environmental controls ───────────────────────────────
+  // ─── RA-877: environmental controls ──────────────────────────────────────────
+  // S760 is a draft wildfire standard, not published / not applicable here (RA-7001):
+  // these controls are sound IAQ/occupant-safety practice but are cited to no standard.
   {
     id: "iicrc-s760-environmental",
-    name: "Environmental Controls — IICRC S760 (Air Quality, VOC, Occupant Safety)",
+    name: "Environmental Controls (Air Quality, VOC, Occupant Safety)",
     category: "environmental",
     description:
-      "IICRC S760 environmental monitoring and occupant-safety controls. Applies to any occupied-building remediation where air quality, VOC off-gassing, particulates, or temperature/humidity risks occupants or crew.",
+      "Environmental monitoring and occupant-safety controls. Applies to any occupied-building remediation where air quality, VOC off-gassing, particulates, or temperature/humidity risks occupants or crew.",
     items: [
       {
         itemType: "s760_baseline_air_quality",
@@ -929,7 +933,7 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
           "Baseline IAQ readings — PM2.5, PM10, CO, CO₂, TVOC, temperature, RH — recorded before work starts",
         quantity: 1,
         unit: "job",
-        justification: "IICRC S760:2022 §5.2 — Baseline environmental data",
+        justification: "Baseline environmental data",
       },
       {
         itemType: "s760_voc_testing",
@@ -937,7 +941,7 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
           "TVOC sampling (photoionisation detector or thermal-desorption tube) when solvents/adhesives/sealers used",
         quantity: null,
         unit: "samples",
-        justification: "IICRC S760:2022 §6.3 — VOC monitoring",
+        justification: "VOC monitoring",
       },
       {
         itemType: "s760_particulate_monitoring",
@@ -945,7 +949,7 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
           "Continuous particulate monitoring (laser particle counter) during dust-generating activities",
         quantity: null,
         unit: "days",
-        justification: "IICRC S760:2022 §6.2 — Particulate monitoring",
+        justification: "Particulate monitoring",
       },
       {
         itemType: "s760_co_co2_monitoring",
@@ -953,7 +957,7 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
           "CO / CO₂ monitoring in any space using combustion equipment or with occupant density concerns",
         quantity: null,
         unit: "days",
-        justification: "IICRC S760:2022 §6.4 — Combustion gas monitoring",
+        justification: "Combustion gas monitoring",
       },
       {
         itemType: "s760_occupant_notification",
@@ -961,7 +965,7 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
           "Written notification to occupants of scope, duration, chemicals used and re-entry criteria",
         quantity: 1,
         unit: "job",
-        justification: "IICRC S760:2022 §7.1 — Occupant communication",
+        justification: "Occupant communication",
       },
       {
         itemType: "s760_vulnerable_occupant_plan",
@@ -969,7 +973,7 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
           "Document accommodation plan where vulnerable occupants present (infants, elderly, immunocompromised, asthmatic)",
         quantity: 1,
         unit: "job",
-        justification: "IICRC S760:2022 §7.2 — Sensitive occupant protection",
+        justification: "Sensitive occupant protection",
       },
       {
         itemType: "s760_negative_pressure_verification",
@@ -978,7 +982,7 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
         quantity: null,
         unit: "days",
         justification:
-          "IICRC S760:2022 §8.2 — Pressure differential verification",
+          "Pressure differential verification",
       },
       {
         itemType: "s760_temperature_humidity_log",
@@ -986,7 +990,7 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
           "Data-logger temperature and RH inside containment and occupied zones for project duration",
         quantity: null,
         unit: "days",
-        justification: "IICRC S760:2022 §6.5 — Hygrothermal monitoring",
+        justification: "Hygrothermal monitoring",
       },
       {
         itemType: "s760_post_work_clearance",
@@ -994,7 +998,7 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
           "Post-work IAQ readings matched against baseline; re-occupancy only when within agreed tolerance",
         quantity: 1,
         unit: "job",
-        justification: "IICRC S760:2022 §9 — Re-occupancy clearance",
+        justification: "Re-occupancy clearance",
       },
     ],
   },

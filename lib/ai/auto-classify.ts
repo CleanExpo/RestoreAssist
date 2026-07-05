@@ -27,7 +27,7 @@ export interface ClassificationResult {
   llmConfidence?: number;
   /**
    * RA-1126: IICRC S500:2021 clause references from LLM classifier.
-   * e.g. ["S500:2021 §10.5.4"]
+   * e.g. ["S500:2021 §10.4.1"]
    */
   clauseRefs?: string[];
   /**

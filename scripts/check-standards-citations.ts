@@ -1,30 +1,42 @@
 /**
- * Standards-citation integrity gate (STORM #7).
+ * Standards-citation integrity gate (STORM #7, hardened RA-7001).
  *
- * Three deterministic checks, all fed from the canonical registries so there is
- * a single place to update an edition or add a section:
+ * Deterministic checks, all fed from the canonical registries so there is a
+ * single place to update an edition or add a section:
  *
- *   1. STALE EDITION (source literals) — fails if any .ts/.tsx file hard-codes an
- *      IICRC `S###:YYYY` citation whose year disagrees with STANDARDS_VERSIONS in
- *      lib/nir-standards-mapping.ts. Stops fabricated/stale editions (e.g. the old
- *      "S500:2025") from creeping back into code. standards-cite-ignore
+ *   1. STALE EDITION (source + content literals) — fails if any scanned file
+ *      hard-codes an IICRC `S###:YYYY` OR `S###-YYYY` citation whose year
+ *      disagrees with STANDARDS_VERSIONS in lib/nir-standards-mapping.ts. Stops
+ *      fabricated/stale editions (e.g. the old "S500:2025" / "S520:2023" — standards-cite-ignore)
+ *      from creeping back into code OR the JSON content corpus.
  *
- *   2. STALE EDITION (JSON corpus) — fails if any object in scripts/data/*.json
- *      carries an `edition` year that disagrees with STANDARDS_VERSIONS for the
- *      standard it names (e.g. an IICRC_S500 entry stamped "2025"). Only standards
- *      present in the registry are validated; others (AS/NZS, NZBS, NADCA) are left
- *      alone because RestoreAssist does not pin their editions centrally.
+ *   2. STALE EDITION (structured JSON corpus) — fails if any object in
+ *      scripts/data/*.json carries an `edition` year that disagrees with
+ *      STANDARDS_VERSIONS for the standard it names.
  *
- *   3. FABRICATED SECTION (source literals) — fails if any `S500:YYYY §N.x` citation
- *      names a top-level section N that does not exist in the verified S500 section
- *      index (lib/standards/s500-sections.ts). This is the known fabrication class:
- *      invented chapter numbers attached to equipment/drying content. Sub-section
- *      depth is NOT required to be listed (the index is a partial ToC) — only the
- *      top-level chapter must be real.
+ *   3. FABRICATED S500 SECTION — fails if any `S500:YYYY §N…` citation names a
+ *      top-level chapter that does not exist in the verified S500 section index
+ *      (lib/standards/s500-sections.ts), OR names a subsection that does not
+ *      exist WITHIN a fully-transcribed subtree. The S500 index is a PARTIAL
+ *      table of contents, so subsection depth is only enforced under the subtrees
+ *      listed in S500_COMPLETE_SUBTREES (whose child lists are complete — verified
+ *      from the owner's per-chapter PDFs). This catches the known fabrication
+ *      class — e.g. §9.3.2 and §10.5.4 — without rejecting real-but-unlisted
+ *      subsections elsewhere.
  *
- * Allowed editions/sections are read FROM the registries, so those files are the
- * only place a change is needed. Add `standards-cite-ignore` on a line to exempt an
+ *   4. FABRICATED S700 CHAPTER — fails if any `S700:YYYY §N…` citation names a
+ *      top-level chapter outside 1–11 (the published ANSI/IICRC S700:2025 index;
+ *      verified from the owner's licensed S700:2025 document). Subsection depth is
+ *      NOT yet enforced for S700 — TODO(RA-7001): add an S700 subsection SSOT and
+ *      enforce depth the way S500 does.
+ *
+ * Editions/sections are read FROM the registries, so those files are the only
+ * place a change is needed. Add `standards-cite-ignore` on a line to exempt an
  * intentional literal (e.g. a comment documenting a past mistake).
+ *
+ * NOT enforced (deliberately): S520/S540/S100 subsection depth (no central
+ * subsection SSOT), and S760 (a draft, unpublished IICRC wildfire standard —
+ * RestoreAssist does not and should not cite it).
  *
  * Run: pnpm tsx scripts/check-standards-citations.ts
  */
@@ -33,10 +45,23 @@ import { join } from "node:path";
 import { STANDARDS_VERSIONS } from "../lib/nir-standards-mapping";
 import { S500_SECTIONS } from "../lib/standards/s500-sections";
 
-const ROOTS = ["lib", "app", "components", "scripts", "types"];
+const ROOTS = [
+  "lib",
+  "app",
+  "components",
+  "scripts",
+  "types",
+  "content",
+  "prisma",
+  "mobile",
+  "__tests__",
+];
 const EXT = /\.(ts|tsx)$/;
-const CITE = /\bS(100|500|520|540|700):(\d{4})\b/gi;
-const S500_SEC = /\bS500:\d{4}\s*§\s*(\d+)(?:\.\d+)*/gi;
+// Accept both `S###:YYYY` and the formal `S###-YYYY` designation form.
+const CITE = /\bS(100|500|520|540|700)[-:](\d{4})\b/gi;
+// Capture the FULL dotted section number so subsection depth can be validated.
+const S500_SEC = /\bS500[-:]\d{4}\s*§\s*(\d+(?:\.\d+)*)/gi;
+const S700_SEC = /\bS700[-:]\d{4}\s*§\s*(\d+)(?:\.\d+)*/gi;
 const IGNORE = "standards-cite-ignore";
 
 const expectedYear: Record<string, number> = {};
@@ -49,25 +74,52 @@ const S500_TOP_LEVELS = new Set(
   Object.keys(S500_SECTIONS).map((k) => k.split(".")[0]),
 );
 
+// S500 subtrees whose child list in s500-sections.ts is COMPLETE (verified from
+// the owner's per-chapter PDFs). A citation that descends from one of these but
+// is not itself a key in S500_SECTIONS is fabricated. §10.4 (Category/Class
+// definitions), §10.5 (Initial Contact — has NO numbered subsections), and §9.3
+// (Risk Management — has NO numbered subsections) are the known fabrication sites.
+const S500_COMPLETE_SUBTREES = ["10.4", "10.5", "9.3"];
+
+// Published ANSI/IICRC S700:2025 top-level chapters (1–11), verified from the
+// owner's licensed S700:2025 document.
+const S700_TOP_LEVELS = new Set([
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+  "11",
+]);
+
 type Violation = { file: string; line: number | null; found: string; expected: string };
 const violations: Violation[] = [];
 
-function walk(dir: string): void {
-  for (const entry of readdirSync(dir)) {
-    if (entry === "node_modules" || entry === ".next" || entry === "dist") continue;
-    const full = join(dir, entry);
-    const st = statSync(full);
-    if (st.isDirectory()) walk(full);
-    else if (EXT.test(entry)) scan(full);
+function isFabricatedS500Section(sec: string): string | null {
+  const top = sec.split(".")[0];
+  if (!S500_TOP_LEVELS.has(top)) {
+    return `an S500 section whose top-level chapter exists in lib/standards/s500-sections.ts (§${top} does not)`;
   }
+  for (const prefix of S500_COMPLETE_SUBTREES) {
+    if (sec === prefix) return null;
+    if (sec.startsWith(`${prefix}.`) && !(sec in S500_SECTIONS)) {
+      return `a real S500 subsection — §${sec} is not in the fully-transcribed §${prefix} subtree (lib/standards/s500-sections.ts)`;
+    }
+  }
+  return null;
 }
 
-function scan(file: string): void {
-  const lines = readFileSync(file, "utf8").split("\n");
+function scanText(file: string, text: string): void {
+  const lines = text.split("\n");
   lines.forEach((line, i) => {
     if (line.includes(IGNORE)) return;
 
-    // Check 1 — stale edition literals.
+    // Check 1 — stale edition literals (`:` or `-` form).
     for (const m of line.matchAll(CITE)) {
       const [literal, std, year] = m;
       const want = expectedYear[`S${std}`];
@@ -81,24 +133,48 @@ function scan(file: string): void {
       }
     }
 
-    // Check 3 — fabricated S500 top-level section.
+    // Check 3 — fabricated S500 chapter or subsection.
     for (const m of line.matchAll(S500_SEC)) {
-      const top = m[1];
-      if (!S500_TOP_LEVELS.has(top)) {
+      const problem = isFabricatedS500Section(m[1]);
+      if (problem) {
+        violations.push({ file, line: i + 1, found: `§${m[1]}`, expected: problem });
+      }
+    }
+
+    // Check 4 — fabricated S700 chapter.
+    for (const m of line.matchAll(S700_SEC)) {
+      if (!S700_TOP_LEVELS.has(m[1])) {
         violations.push({
           file,
           line: i + 1,
-          found: m[0],
-          expected: `an S500 section whose top-level chapter exists in lib/standards/s500-sections.ts (§${top} does not)`,
+          found: `S700 §${m[1]}`,
+          expected: "an S700:2025 chapter in 1–11 (published index)",
         });
       }
     }
   });
 }
 
+function walk(dir: string, ext: RegExp, onFile: (f: string) => void): void {
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return; // root may not exist in some checkouts — skip
+  }
+  for (const entry of entries) {
+    if (entry === "node_modules" || entry === ".next" || entry === "dist") continue;
+    const full = join(dir, entry);
+    const st = statSync(full);
+    if (st.isDirectory()) walk(full, ext, onFile);
+    else if (ext.test(entry)) onFile(full);
+  }
+}
+
 /**
- * Check 2 — JSON corpus edition fields. Maps `IICRC_S500` → registry key `S500`
- * and validates the `edition` year. Standards absent from the registry are skipped.
+ * Check 2 — structured JSON corpus edition fields. Maps `IICRC_S500` → registry
+ * key `S500` and validates the `edition` year. Standards absent from the registry
+ * are skipped.
  */
 function scanJsonEditions(dir: string): void {
   let entries: string[];
@@ -137,13 +213,13 @@ function scanJsonEditions(dir: string): void {
   }
 }
 
+// Source + content literal scan: .ts/.tsx across all roots, plus a prose scan of
+// the JSON content corpus (edition + section citations live inside string fields
+// there, not just in structured `edition` columns).
 for (const root of ROOTS) {
-  try {
-    walk(root);
-  } catch {
-    // root may not exist in some checkouts — skip
-  }
+  walk(root, EXT, (f) => scanText(f, readFileSync(f, "utf8")));
 }
+walk("content", /\.json$/, (f) => scanText(f, readFileSync(f, "utf8")));
 
 scanJsonEditions("scripts/data");
 
@@ -162,5 +238,5 @@ if (violations.length > 0) {
 }
 
 console.log(
-  "✓ All IICRC citations match STANDARDS_VERSIONS and reference real S500 sections.",
+  "✓ All IICRC citations match STANDARDS_VERSIONS and reference real S500/S700 sections.",
 );

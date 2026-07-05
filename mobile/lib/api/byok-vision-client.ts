@@ -83,7 +83,7 @@ export interface VisionAnalysisResponse {
 // ─── Main dispatch function ───────────────────────────────────────────────────
 
 /**
- * Send an image to the RestoreAssist vision API for S500:2025 analysis.
+ * Send an image to the RestoreAssist vision API for S500:2021 analysis.
  *
  * @throws when the API responds with an error (no connected provider, network
  *         failure, or analysis failure). Callers should handle gracefully.

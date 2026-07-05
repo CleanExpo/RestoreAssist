@@ -23,7 +23,7 @@ export type WarningCode =
   | "EQUIPMENT_QTY_LOW"
   | "NO_PRELIMS"
   | "MOULD_NO_CLEARANCE"
-  | "CONTENTS_NO_S760";
+  | "CONTENTS_INCOMPLETE";
 
 export interface BillingBlocker {
   code: BlockerCode;
@@ -234,13 +234,16 @@ function checkMouldNoClearance(e: EstimateForCheck): BillingWarning | null {
   return null;
 }
 
-function checkContentsNoS760(e: EstimateForCheck): BillingWarning | null {
+// Note: `s760ChecklistCompleted` is a persisted scope-JSON key (read from stored
+// records in app/api/estimates/[id]/status), left unchanged to avoid breaking
+// existing data. It is a code identifier, not a standards citation (RA-7001).
+function checkContentsIncomplete(e: EstimateForCheck): BillingWarning | null {
   const hasContents = lineMatches(e.lineItems, CONTENTS_KEYWORDS);
   if (hasContents && e.scope?.s760ChecklistCompleted === false) {
     return {
-      code: "CONTENTS_NO_S760",
+      code: "CONTENTS_INCOMPLETE",
       message:
-        "Contents items present but S760 contents-restoration checklist not completed.",
+        "Contents items present but the contents-restoration checklist is not completed.",
     };
   }
   return null;
@@ -272,7 +275,7 @@ export function checkBillingCompleteness(
     checkEquipmentQtyLow,
     checkNoPrelims,
     checkMouldNoClearance,
-    checkContentsNoS760,
+    checkContentsIncomplete,
   ]) {
     const w = fn(estimate);
     if (!w) continue;

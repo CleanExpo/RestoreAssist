@@ -255,7 +255,7 @@ async function main() {
     },
   ];
 
-  // ── Pre-generated IICRC S500:2025 Report Narrative ──
+  // ── Pre-generated IICRC S500:2021 Report Narrative ──
   const detailedReport = `# PROFESSIONAL WATER DAMAGE RESTORATION INSPECTION REPORT
 
 ## Report Reference: ${DEMO_REPORT_NUMBER}
@@ -266,9 +266,9 @@ async function main() {
 
 ### 1. EXECUTIVE SUMMARY
 
-A water intrusion event was identified at the above property on 1 April 2026 resulting from a burst braided flexi-hose connector beneath the kitchen sink. The water loss has been classified as **Category 2** (grey water containing chemical or biological contaminants per IICRC S500:2025 §3) and **Class 2** damage (water has affected structural materials including particleboard subfloor per IICRC S500:2025 §7.1).
+A water intrusion event was identified at the above property on 1 April 2026 resulting from a burst braided flexi-hose connector beneath the kitchen sink. The water loss has been classified as **Category 2** (grey water containing chemical or biological contaminants per IICRC S500:2021 §3) and **Class 2** damage (water has affected structural materials including particleboard subfloor per IICRC S500:2021 §7.1).
 
-Three rooms are affected: the kitchen (primary source), hallway (migration path), and living room (secondary exposure). Restorative drying was commenced on 1 April 2026 using LGR dehumidification and axial air movement in accordance with IICRC S500:2025 §14.
+Three rooms are affected: the kitchen (primary source), hallway (migration path), and living room (secondary exposure). Restorative drying was commenced on 1 April 2026 using LGR dehumidification and axial air movement in accordance with IICRC S500:2021 §14.
 
 ### 2. PROPERTY DETAILS
 
@@ -286,11 +286,11 @@ Three rooms are affected: the kitchen (primary source), hallway (migration path)
 
 The source of the water intrusion event was a failed braided stainless-steel flexi-hose connector on the cold water supply to the kitchen sink. The connector exhibited fatigue cracking at the ferrule crimp, a known failure mode in flexi-hoses exceeding 10 years of service. Water discharged under mains pressure into the base cabinet void and migrated across the particleboard subfloor into the hallway and living room.
 
-The water has been classified as **Category 2** in accordance with IICRC S500:2025 §3, as the discharge originated from a potable supply but contacted soiled surfaces within the cabinet void (cleaning chemicals, organic residue). Time since loss at initial attendance was approximately 6 hours.
+The water has been classified as **Category 2** in accordance with IICRC S500:2021 §3, as the discharge originated from a potable supply but contacted soiled surfaces within the cabinet void (cleaning chemicals, organic residue). Time since loss at initial attendance was approximately 6 hours.
 
 ### 4. DAMAGE CLASSIFICATION
 
-Damage has been classified as **Class 2** per IICRC S500:2025 §7.1. Water has affected porous structural materials (particleboard subfloor) and semi-porous materials (MDF cabinet bases, plasterboard to 300mm above finished floor). Evaporation rate is moderate; affected materials have absorbed moisture but saturation has not penetrated to the full depth of structural elements.
+Damage has been classified as **Class 2** per IICRC S500:2021 §7.1. Water has affected porous structural materials (particleboard subfloor) and semi-porous materials (MDF cabinet bases, plasterboard to 300mm above finished floor). Evaporation rate is moderate; affected materials have absorbed moisture but saturation has not penetrated to the full depth of structural elements.
 
 ### 5. AFFECTED AREAS
 
@@ -302,11 +302,11 @@ Damage has been classified as **Class 2** per IICRC S500:2025 §7.1. Water has a
 
 **Total affected area: 32.3 m²**
 
-### 6. MOISTURE ASSESSMENT (per IICRC S500:2025 §8)
+### 6. MOISTURE ASSESSMENT (per IICRC S500:2021 §8)
 
 Moisture readings were obtained using a Protimeter Surveymaster (pin-type and non-invasive modes) at initial attendance and at monitoring intervals on Day 3 and Day 7.
 
-**Drying goals** (per IICRC S500:2025 §12):
+**Drying goals** (per IICRC S500:2021 §12):
 - Particleboard subfloor: ≤ 16% MC (coastal Queensland baseline per §12)
 - Carpet underlay: ≤ 15% MC
 - Plasterboard: ≤ 17% MC
@@ -314,7 +314,7 @@ Moisture readings were obtained using a Protimeter Surveymaster (pin-type and no
 
 All affected materials reached drying goals by Day 7 of the restorative drying programme.
 
-### 7. PSYCHROMETRIC CONDITIONS (per IICRC S500:2025 §6)
+### 7. PSYCHROMETRIC CONDITIONS (per IICRC S500:2021 §6)
 
 | Parameter | Day 1 | Day 3 | Day 7 |
 |-----------|-------|-------|-------|
@@ -325,7 +325,7 @@ All affected materials reached drying goals by Day 7 of the restorative drying p
 
 Drying potential improved from Fair to Good over the monitoring period. LGR dehumidification was effective in reducing ambient moisture levels within the target parameters.
 
-### 8. EQUIPMENT DEPLOYMENT (per IICRC S500:2025 §14)
+### 8. EQUIPMENT DEPLOYMENT (per IICRC S500:2021 §14)
 
 | Equipment | Model | Serial No. | Placement | Daily Rate |
 |-----------|-------|-----------|-----------|------------|
@@ -336,7 +336,7 @@ Drying potential improved from Fair to Good over the monitoring period. LGR dehu
 | Axial Air Mover | Dri-Eaz Sahara Pro X3 | AM-AX-1189 | Hallway | $25.00 |
 | Axial Air Mover | Dri-Eaz Sahara Pro X3 | AM-AX-1190 | Living Room | $25.00 |
 
-Equipment deployment ratio: 1 dehumidifier per 16 m² of affected area (within S500:2025 §14 guideline of 1 per 15-20 m²). Air mover coverage: 1 per 8 m² (within guideline of 1 per 7-10 m²).
+Equipment deployment ratio: 1 dehumidifier per 16 m² of affected area (within S500:2021 §14 guideline of 1 per 15-20 m²). Air mover coverage: 1 per 8 m² (within guideline of 1 per 7-10 m²).
 
 ### 9. SCOPE SUMMARY
 
@@ -344,7 +344,7 @@ Restoration works included emergency water extraction (truck-mounted unit, 2 hou
 
 ### 10. DECLARATION
 
-This inspection report has been prepared in accordance with IICRC S500:2025 Standard for Professional Water Damage Restoration and applicable Australian Standards (AS/NZS 3500, AS/NZS 3000:2018). All findings are based on visual inspection, instrument-based moisture assessment, and psychrometric monitoring conducted at the property.
+This inspection report has been prepared in accordance with IICRC S500:2021 Standard for Professional Water Damage Restoration and applicable Australian Standards (AS/NZS 3500, AS/NZS 3000:2018). All findings are based on visual inspection, instrument-based moisture assessment, and psychrometric monitoring conducted at the property.
 
 **Prepared by:** Phill McGurk — IICRC WRT Certified Technician
 **Date:** 7 April 2026
