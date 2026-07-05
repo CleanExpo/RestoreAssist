@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { buildClientStatusFeed } from "@/lib/portal/client-status-feed";
+import { buildDryingTimeline } from "@/lib/portal/drying-timeline";
 import { apiError, fromException } from "@/lib/api-errors";
 
 /**
@@ -48,6 +49,15 @@ export async function GET(
         id: true,
         status: true,
         report: { select: { id: true, status: true } },
+        affectedAreas: { select: { id: true, roomZoneId: true } },
+        moistureReadings: {
+          select: {
+            location: true,
+            surfaceType: true,
+            moistureLevel: true,
+            recordedAt: true,
+          },
+        },
       },
     });
     if (!inspection) {
@@ -58,7 +68,7 @@ export async function GET(
       });
     }
 
-    const [workflow, pendingApprovals] = await Promise.all([
+    const [workflow, pendingApprovals, dryingGoal] = await Promise.all([
       prisma.inspectionWorkflow.findUnique({
         where: { inspectionId: inspection.id },
         select: { submissionScore: true },
@@ -70,6 +80,10 @@ export async function GET(
             select: { id: true, approvalType: true },
           })
         : Promise.resolve([]),
+      prisma.dryingGoalRecord.findUnique({
+        where: { inspectionId: inspection.id },
+        select: { targetCategory: true, targetClass: true },
+      }),
     ]);
 
     const feed = buildClientStatusFeed({
@@ -79,7 +93,14 @@ export async function GET(
       pendingApprovals,
     });
 
-    return NextResponse.json({ data: feed });
+    const dryingTimeline = buildDryingTimeline({
+      areas: inspection.affectedAreas,
+      readings: inspection.moistureReadings,
+      targetCategory: dryingGoal?.targetCategory,
+      targetClass: dryingGoal?.targetClass,
+    });
+
+    return NextResponse.json({ data: { ...feed, dryingTimeline } });
   } catch (err) {
     return fromException(request, err, { stage: "portal/updates:get" });
   }
