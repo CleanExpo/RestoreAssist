@@ -9,6 +9,7 @@
 
 import { createHash } from "crypto";
 import { GoogleGenAI } from "@google/genai";
+import { isPublicHttpUrl } from "./branding/url-validator";
 import { formatImageGenerateFailure } from "./margot-tool-errors";
 import { getSupabaseServerClient } from "./supabase-server";
 
@@ -68,6 +69,12 @@ async function fetchReferenceBytes(url: string): Promise<{
   bytes: Uint8Array;
   mimeType: string;
 }> {
+  // SSRF guard: reject non-http(s), loopback, link-local, private, and cloud
+  // metadata hosts before making a server-side request to a user-supplied URL.
+  const check = isPublicHttpUrl(url);
+  if (!check.ok) {
+    throw new Error(`reference_image_url fetch failed: ${check.reason}`);
+  }
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(
