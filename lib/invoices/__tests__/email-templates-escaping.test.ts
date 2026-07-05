@@ -92,4 +92,52 @@ describe("email-templates HTML escaping", () => {
     });
     expectNoLiveScript(html);
   });
+
+  // invoiceNumber flows from user-controlled invoice data into the <title>,
+  // headers and detail rows of every template and MUST also be escaped.
+  it("escapes invoiceNumber in generateInvoiceSentEmail (incl. <title>)", () => {
+    const html = generateInvoiceSentEmail({ ...baseInvoice, invoiceNumber: XSS });
+    expectNoLiveScript(html);
+  });
+
+  it("escapes invoiceNumber in generatePaymentReceivedEmail", () => {
+    const html = generatePaymentReceivedEmail({
+      invoiceNumber: XSS,
+      paymentDate: new Date("2026-01-10"),
+      amountPaid: 11000,
+      paymentMethod: "Card",
+      customerName: "Acme",
+      businessName: "Biz",
+      remainingBalance: 0,
+    });
+    expectNoLiveScript(html);
+  });
+
+  it("escapes invoiceNumber in generateOverdueReminderEmail", () => {
+    const html = generateOverdueReminderEmail({
+      invoiceNumber: XSS,
+      dueDate: new Date("2026-01-01"),
+      daysOverdue: 10,
+      amountDue: 11000,
+      customerName: "Acme",
+      publicToken: "tok123",
+      businessName: "Biz",
+      appUrl: "https://example.com",
+    });
+    expectNoLiveScript(html);
+  });
+
+  it("escapes invoiceNumber in generateUpcomingPaymentReminderEmail", () => {
+    const html = generateUpcomingPaymentReminderEmail({
+      invoiceNumber: XSS,
+      dueDate: new Date("2026-01-20"),
+      daysUntilDue: 3,
+      amountDue: 11000,
+      customerName: "Acme",
+      publicToken: "tok123",
+      businessName: "Biz",
+      appUrl: "https://example.com",
+    });
+    expectNoLiveScript(html);
+  });
 });
