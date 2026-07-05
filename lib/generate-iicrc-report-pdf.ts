@@ -20,6 +20,7 @@ import {
   RA_DEFAULT_PRIMARY_COLOR,
   type ClientBrandTheme,
 } from "@/lib/clients/brand";
+import { isPublicHttpUrl } from "@/lib/branding/url-validator";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -387,10 +388,13 @@ export async function generateIICRCReportPDF(
   })();
 
   // Optional client logo — fetched once, embedded on the cover header.
-  // A non-HTTPS / unreachable / non-PNG/JPG URL silently falls back to
-  // the text-only header so a broken brand asset never blocks a handover.
+  // isPublicHttpUrl is an SSRF guard: a public http(s) URL alone passes; a
+  // loopback / link-local / RFC1918 / metadata host is rejected so a crafted
+  // logoUrl can't reach an internal service. An unreachable / non-PNG/JPG URL
+  // silently falls back to the text-only header so a broken brand asset never
+  // blocks a handover.
   let clientLogoImage: Awaited<ReturnType<PDFDocument["embedPng"]>> | null = null;
-  if (options.theme?.logoUrl && options.theme.logoUrl.startsWith("https://")) {
+  if (options.theme?.logoUrl && isPublicHttpUrl(options.theme.logoUrl).ok) {
     try {
       const res = await fetch(options.theme.logoUrl);
       if (res.ok) {

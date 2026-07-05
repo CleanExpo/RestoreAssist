@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   sanitise,
   fmtDate,
   fmtCurrency,
+  generateIICRCReportPDF,
 } from "../generate-iicrc-report-pdf";
 
 // RA-6687: Focused unit tests for the PURE, DB-free helpers that shape and
@@ -89,5 +90,73 @@ describe("fmtCurrency", () => {
 
   it("formats negative amounts", () => {
     expect(fmtCurrency(-50)).toContain("50.00");
+  });
+});
+
+describe("generateIICRCReportPDF — logo SSRF gate", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // The cover-header logo is fetched server-side from a user-controlled
+  // theme.logoUrl. A bare startsWith("https://") check let an https URL
+  // pointing at an internal / metadata host through (SSRF). The fetch is now
+  // gated by isPublicHttpUrl, which rejects loopback / link-local / RFC1918 /
+  // metadata hosts. These tests assert the gate at the call site.
+
+  it("does NOT fetch a logo from a private / metadata https host", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(new Uint8Array()));
+
+    await generateIICRCReportPDF(
+      { id: "ssrf-block-test" },
+      {
+        theme: {
+          logoUrl: "https://169.254.169.254/latest/meta-data/",
+          primaryColor: "1C2E47",
+        },
+      },
+    );
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("does NOT fetch a logo from an https loopback host", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(new Uint8Array()));
+
+    await generateIICRCReportPDF(
+      { id: "ssrf-loopback-test" },
+      {
+        theme: {
+          logoUrl: "https://127.0.0.1/logo.png",
+          primaryColor: "1C2E47",
+        },
+      },
+    );
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("DOES fetch a logo from a public https host", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      // Non-ok response so it falls back to the text header without needing
+      // real image bytes — we only assert the fetch was attempted.
+      .mockResolvedValue(new Response(null, { status: 404 }));
+
+    await generateIICRCReportPDF(
+      { id: "ssrf-allow-test" },
+      {
+        theme: {
+          logoUrl: "https://cdn.example.com/logo.png",
+          primaryColor: "1C2E47",
+        },
+      },
+    );
+
+    expect(fetchSpy).toHaveBeenCalledWith("https://cdn.example.com/logo.png");
   });
 });
