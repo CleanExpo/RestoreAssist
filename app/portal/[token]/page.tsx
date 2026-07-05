@@ -68,7 +68,6 @@ export default async function ClientPortalPage({ params }: PageProps) {
   const inspection = await prisma.inspection.findUnique({
     where: { id: inspectionId },
     include: {
-      moistureReadings: true,
       affectedAreas: true,
       scopeItems: {
         where: { isSelected: true },
@@ -94,17 +93,6 @@ export default async function ClientPortalPage({ params }: PageProps) {
       </main>
     );
   }
-
-  // Moisture summary
-  const readings = inspection.moistureReadings;
-  const avgMoisture =
-    readings.length > 0
-      ? Math.round(
-          readings.reduce((sum, r) => sum + r.moistureLevel, 0) /
-            readings.length,
-        )
-      : null;
-  const isDryingComplete = avgMoisture !== null && avgMoisture < 15;
 
   const reportReady = inspection.report?.status === "COMPLETED";
 
@@ -254,50 +242,6 @@ export default async function ClientPortalPage({ params }: PageProps) {
                 </li>
               ))}
             </ul>
-          </div>
-        )}
-
-        {/* Moisture overview */}
-        {readings.length > 0 && (
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <h2 className="text-sm font-semibold text-slate-700 mb-3">
-              Moisture Overview
-            </h2>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-slate-900">
-                  {avgMoisture ?? "—"}
-                  <span className="text-sm font-normal text-slate-400">%</span>
-                </p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Average current moisture
-                </p>
-              </div>
-              <div
-                className={[
-                  "px-3 py-1.5 rounded-full text-xs font-semibold",
-                  isDryingComplete
-                    ? "bg-success-subtle text-success-subtle-foreground"
-                    : "bg-warning-subtle text-warning-subtle-foreground",
-                ].join(" ")}
-              >
-                {isDryingComplete ? "Drying complete" : "Drying in progress"}
-              </div>
-            </div>
-            {/* Simple bar */}
-            <div className="mt-3 h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className={[
-                  "h-full rounded-full transition-all",
-                  isDryingComplete
-                    ? "bg-emerald-400"
-                    : avgMoisture !== null && avgMoisture > 40
-                      ? "bg-red-400"
-                      : "bg-amber-400",
-                ].join(" ")}
-                style={{ width: `${Math.min(avgMoisture ?? 0, 100)}%` }}
-              />
-            </div>
           </div>
         )}
 
