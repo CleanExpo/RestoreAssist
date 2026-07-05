@@ -32,6 +32,7 @@ import { encrypt, decrypt } from "@/lib/credential-vault";
 import { isEncryptedToken } from "@/lib/auth/account-tokens";
 import { requireAddon } from "@/lib/entitlements";
 import { SERVICE_CRM_SKU } from "@/lib/billing/service-crm-addon";
+import { fetchAscoraWithRetry } from "@/lib/integrations/ascora/fetch-with-retry";
 
 // ============================================================
 // Ascora API types — actual camelCase structure from API
@@ -42,7 +43,7 @@ interface AscoraJobType {
   name: string;
 }
 
-interface AscoraJobRaw {
+export interface AscoraJobRaw {
   jobId: string;
   jobNumber?: string;
   /** Human-readable job name e.g. "FEN - Sanagozza - Loganholme" */
@@ -100,17 +101,14 @@ async function fetchAllPages<T>(
 
   while (true) {
     const url = `${baseUrl}${path}?page=${page}&pageSize=${pageSize}`;
-    const res = await fetch(url, {
-      headers: { Auth: apiKey, "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(30000),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(
-        `Ascora API ${res.status} on ${path} (page ${page}): ${text.slice(0, 300)}`,
-      );
-    }
+    // RA-273 — retry transient failures (network/5xx/429) with exponential
+    // backoff, honouring Retry-After, instead of aborting the whole import
+    // on the first blip.
+    const res = await fetchAscoraWithRetry(
+      url,
+      { headers: { Auth: apiKey, "Content-Type": "application/json" } },
+      { timeoutMs: 30000, context: `${path} (page ${page})` },
+    );
 
     const data = (await res.json()) as AscoraPage<T>;
 
@@ -158,14 +156,11 @@ async function tryLineItemEndpoints(
     tried.push(endpoint);
     try {
       const probeUrl = `${baseUrl}${endpoint}?page=1&pageSize=1`;
-      const res = await fetch(probeUrl, {
-        headers: { Auth: apiKey, "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(10000),
-      });
-
-      if (!res.ok) {
-        continue;
-      }
+      const res = await fetchAscoraWithRetry(
+        probeUrl,
+        { headers: { Auth: apiKey, "Content-Type": "application/json" } },
+        { timeoutMs: 10000, context: `${endpoint} (probe)` },
+      );
 
       const data = await res.json();
       // Confirm Ascora envelope shape
@@ -218,6 +213,38 @@ function mapClaimType(jobTypeName: string | undefined | null): string | null {
   if (t.includes("cleaning")) return "cleaning";
   if (t.includes("inspection")) return "inspection";
   return "other";
+}
+
+// ============================================================
+// RA-274 — HistoricalJob "CEO Board Hardening" field mapping
+//
+// classificationSource / claimNumber / scopeOfWorks have genuine Ascora
+// source data and are refreshed on every sync (create + update). insurerName
+// / totalLabourHours / durationDays have NO corresponding field anywhere in
+// the Ascora job payload (AscoraJobRaw only exposes siteCustomer/
+// billingCustomer — already consumed for customerName — and completedDate,
+// with no start date to derive a duration from) — they are deliberately left
+// null rather than fabricated, and set once at create time only so a future
+// manual-entry channel isn't clobbered by a null on every resync.
+// ============================================================
+
+export function buildHistoricalJobRefreshableFields(job: AscoraJobRaw): {
+  classificationSource: string;
+  claimNumber: string | null;
+  scopeOfWorks: string | null;
+} {
+  return {
+    // claimType/waterCategory/waterClass on this route are always derived by
+    // regex keyword matching (mapClaimType + ruleBasedClassify) — Ascora's
+    // API never supplies a claim type or IICRC category/class directly.
+    classificationSource: "rule-based",
+    // clientOrderNumber is the AU restoration-industry reference number an
+    // insurer/loss adjuster issues and the contractor quotes back on
+    // invoices — the closest genuine "claim number" field Ascora exposes.
+    claimNumber: job.clientOrderNumber?.trim() || null,
+    // jobDescription is the full scope narrative Ascora returns for the job.
+    scopeOfWorks: job.jobDescription?.trim() || null,
+  };
 }
 
 // ============================================================
@@ -657,6 +684,13 @@ export async function POST(request: NextRequest) {
             completedDate: job.completedDate
               ? new Date(job.completedDate)
               : null,
+            ...buildHistoricalJobRefreshableFields(job),
+            // No dedicated insurer/labour-hours/duration field exists on the
+            // Ascora job payload — see the comment on
+            // buildHistoricalJobRefreshableFields above.
+            insurerName: null,
+            totalLabourHours: null,
+            durationDays: null,
           },
           update: {
             description,
@@ -668,6 +702,7 @@ export async function POST(request: NextRequest) {
               : null,
             waterCategory: classification?.damageCategory ?? undefined,
             waterClass: classification?.damageClass ?? undefined,
+            ...buildHistoricalJobRefreshableFields(job),
           },
         });
         historicalJobsUpserted++;

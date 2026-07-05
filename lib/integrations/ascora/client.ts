@@ -11,6 +11,7 @@ import {
 } from "../base-client";
 import { getTokens, storeTokens, markIntegrationError } from "../oauth-handler";
 import { prisma } from "@/lib/prisma";
+import { fetchAscoraWithRetry } from "./fetch-with-retry";
 
 interface AscoraCustomer {
   id: string;
@@ -237,24 +238,24 @@ export class AscoraClient extends BaseIntegrationClient {
     headers.set("Authorization", `Bearer ${tokens.accessToken}`);
     headers.set("Accept", "application/json");
 
-    // RA-6942 — bound the outbound provider call so a hung connection cannot
-    // stall the request indefinitely (mirrors the ABR lookup timeout pattern).
-    const response = await fetch(url, {
-      ...options,
-      headers,
-      signal: AbortSignal.timeout(15000),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      await markIntegrationError(
-        this.integrationId,
-        `API Error ${response.status}: ${errorText}`,
+    try {
+      // RA-6942 — bound each attempt so a hung connection cannot stall the
+      // request indefinitely (mirrors the ABR lookup timeout pattern).
+      // RA-273 — retry transient failures (network/5xx/429) with exponential
+      // backoff instead of failing on the first blip; markIntegrationError is
+      // only recorded below, once retries are exhausted, so a mid-retry
+      // success never flags the integration as errored.
+      const response = await fetchAscoraWithRetry(
+        url,
+        { ...options, headers },
+        { timeoutMs: 15000, context: endpoint },
       );
-      throw new Error(`API request failed: ${response.status} ${errorText}`);
+      return await response.json();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await markIntegrationError(this.integrationId, message);
+      throw error;
     }
-
-    return response.json();
   }
 
   /**
