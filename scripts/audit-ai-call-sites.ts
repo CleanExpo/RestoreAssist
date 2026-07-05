@@ -378,7 +378,7 @@ const REGEX_PRECEDING_KEYWORDS = new Set([
  * Regex-vs-division heuristic keyed on the preceding non-space token already
  * emitted to `out`. A `/` opens a regex literal only in an expression position:
  * at the start of input, right after an operator/opener (`(`, `[`, `{`, `,`,
- * `;`, `:`, `=`, `!`, `&`, `|`, `?`, `+`, `-`, `*`, `%`, `^`, `~`), or after a
+ * `;`, `:`, `=`, `&`, `|`, `?`, `+`, `-`, `*`, `%`, `^`, `~`), or after a
  * REGEX_PRECEDING_KEYWORDS keyword (`return /.../`). After a value token
  * (identifier, `)`, `]`, `}`, digit, or `<`/`>` which cover JSX tags and
  * generics) it is treated as division and left as-is. Deliberately conservative
@@ -386,6 +386,13 @@ const REGEX_PRECEDING_KEYWORDS = new Set([
  * a generic (`Array<T>`) as a regex, at the documented cost of not stripping a
  * regex that directly follows `=>`/a comparison (harmless unless that regex
  * carries an unbalanced brace — none in repo lib/ today).
+ *
+ * A trailing `!` is CONTEXT-DEPENDENT (RA-6991): a prefix logical-NOT is an
+ * operator (`if (!/foo/.test(x))` — regex position), but a postfix TS non-null
+ * assertion is a value (`sum! / count` — division position). The two are told
+ * apart by the token immediately before the `!`; treating every `!` as an
+ * operator misreads `sum! / count` as a regex-open, letting the false regex
+ * swallow braces to the line's end and skew the depth-0 module-scope scan.
  */
 function precedingTokenExpectsRegex(out: string): boolean {
   let j = out.length - 1;
@@ -394,7 +401,28 @@ function precedingTokenExpectsRegex(out: string): boolean {
   }
   if (j < 0) return true; // start of input — expression position
   const lastChar = out[j];
-  if ("([{,;:=!&|?+-*%^~".includes(lastChar)) return true;
+  if (lastChar === "!") {
+    // Disambiguate postfix non-null assertion (value → division) from prefix
+    // logical-NOT (operator/keyword → regex) by the token before the `!`.
+    let m = j - 1;
+    while (m >= 0 && (out[m] === " " || out[m] === "\t" || out[m] === "\n" || out[m] === "\r")) {
+      m--;
+    }
+    if (m < 0) return true; // leading `!/…` → logical-NOT → regex position
+    const beforeBang = out[m];
+    if (/[A-Za-z0-9_$]/.test(beforeBang)) {
+      // A keyword before `!` (`return !/re/.test(x)`) makes it a prefix
+      // logical-NOT → regex; a plain value (`sum! / count`) makes it a postfix
+      // non-null assertion → division.
+      let k = m;
+      while (k >= 0 && /[A-Za-z0-9_$]/.test(out[k])) k--;
+      return REGEX_PRECEDING_KEYWORDS.has(out.slice(k + 1, m + 1));
+    }
+    // `)`, `]`, `}` before `!` → value → non-null → division; any other
+    // operator/opener → prefix logical-NOT → regex.
+    return !/[)\]}]/.test(beforeBang);
+  }
+  if ("([{,;:=&|?+-*%^~".includes(lastChar)) return true;
   if (!/[A-Za-z0-9_$]/.test(lastChar)) return false; // e.g. ), ], }, ., <, > → value/division
   let k = j;
   while (k >= 0 && /[A-Za-z0-9_$]/.test(out[k])) k--;
@@ -824,10 +852,19 @@ const PROVIDER_CLIENT_NEW_PATTERN =
  * regex character class. An instantiation inside a NON-exported lazy helper
  * (lib/testimonial/transcribe.ts's defaultClient) sits at depth >= 1 and
  * deliberately does NOT match — that shape stays at per-export granularity.
+ *
+ * RA-6991 — the LEAK SIGNAL (an env-key read) is checked over the whole module,
+ * but the BYOK SUPPRESSION is scoped to MODULE-EVALUATION text only: depth-0
+ * statements plus the singleton's own constructor arguments. A module-scope
+ * singleton is constructed at import time, so only a BYOK resolution that also
+ * runs at module scope can gate it; a BYOK marker buried in an unrelated
+ * function body (`export function unused() { resolveWorkspaceAiKey(...) }`)
+ * cannot, and must NOT suppress the seed. RA-6986 had widened the suppression
+ * to the whole module, which let exactly that construct slip the gate.
  */
 function hasModuleScopeEnvClientSingleton(strippedContent: string): boolean {
   const instantiation = new RegExp(PROVIDER_CLIENT_NEW_PATTERN.source, "g");
-  let hasModuleScopeInstantiation = false;
+  let moduleScopeArgs: string | null = null;
   let match: RegExpExecArray | null;
   while ((match = instantiation.exec(strippedContent)) !== null) {
     let depth = 0;
@@ -836,21 +873,42 @@ function hasModuleScopeEnvClientSingleton(strippedContent: string): boolean {
       if (ch === "{") depth++;
       else if (ch === "}") depth--;
     }
-    if (depth === 0) {
-      hasModuleScopeInstantiation = true;
-      break;
+    if (depth !== 0) continue;
+    // Confirmed module-scope instantiation. Capture its balanced-paren
+    // constructor args so a BYOK resolution INSIDE the constructor
+    // (`new Anthropic({ apiKey: getProviderApiKey() })`) still counts as a
+    // module-scope resolution — those args nest one object-literal brace deep,
+    // so they are excluded from the depth-0 text scan below.
+    let index = match.index + match[0].length;
+    const argsStart = index;
+    let parenDepth = 1;
+    while (index < strippedContent.length && parenDepth > 0) {
+      const ch = strippedContent[index];
+      if (ch === "(") parenDepth++;
+      else if (ch === ")") parenDepth--;
+      index++;
     }
+    moduleScopeArgs = strippedContent.slice(argsStart, index - 1);
+    break;
   }
-  if (!hasModuleScopeInstantiation) return false;
+  if (moduleScopeArgs === null) return false;
 
-  // A module-scope client singleton exists — any provider env-key read in the
-  // module (top-level, constructor args, or a helper it closes over) means the
-  // singleton spends the platform key, unless a BYOK marker resolves a
-  // workspace key instead.
-  return (
-    AI_PROVIDER_KEY_ENV_PATTERN.test(strippedContent) &&
-    !BYOK_MARKERS.some((marker) => strippedContent.includes(marker))
-  );
+  // Leak signal: a provider env key is read ANYWHERE in the module (top-level,
+  // constructor args, or a non-exported helper the singleton closes over).
+  if (!AI_PROVIDER_KEY_ENV_PATTERN.test(strippedContent)) return false;
+
+  // Suppression scope: depth-0 (module-evaluation) statements + the singleton's
+  // own constructor args. A BYOK marker only here can gate the import-time
+  // singleton.
+  let moduleScopeText = "";
+  let braceDepth = 0;
+  for (const ch of strippedContent) {
+    if (ch === "{") braceDepth++;
+    else if (ch === "}") braceDepth--;
+    else if (braceDepth === 0) moduleScopeText += ch;
+  }
+  const moduleScope = `${moduleScopeText}\n${moduleScopeArgs}`;
+  return !BYOK_MARKERS.some((marker) => moduleScope.includes(marker));
 }
 
 /**
