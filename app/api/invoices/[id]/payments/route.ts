@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { isDraft, isCancelled } from "@/lib/invoice-status";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { requireAddon } from "@/lib/entitlements";
+import { PAYMENTS_SKU } from "@/lib/billing/payments-addon";
 
 export async function POST(
   request: NextRequest,
@@ -19,6 +21,16 @@ export async function POST(
     });
   }
   const userId = session.user.id;
+
+  // RA-6920 B4: manual/bank-deposit payment recording is gated by the
+  // recurring $11/mo PAYMENTS add-on. requireAddon returns a fail-closed 402
+  // (code ADDON_REQUIRED) when the workspace has no ACTIVE FeatureEntitlement.
+  // Existing workspaces that already recorded a manual payment before this
+  // gate shipped are grandfathered by scripts/grandfather-payments-addon.ts
+  // (run in the same deploy window as this PR) so they are not locked out.
+  const addonGate = await requireAddon(userId, PAYMENTS_SKU);
+  if (!addonGate.allowed) return addonGate.response;
+
   const { id } = await params;
 
   // RA-1266: wrap the mutation with Idempotency-Key so a retried POST
