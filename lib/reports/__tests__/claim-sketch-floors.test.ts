@@ -102,4 +102,48 @@ describe("claimSketchesToFloors", () => {
     const floors = await claimSketchesToFloors([], fakeFetch({}) as never);
     expect(floors).toEqual([]);
   });
+
+  // RA-120 §3 — the moisture overlay pins must ride the same rail as the
+  // structural sketch so the moisture map reaches the report PDF.
+  it("parses moisturePoints into typed pins on the floor", async () => {
+    const sketches = [
+      {
+        floorNumber: 0,
+        floorLabel: "Ground Floor",
+        renderedPngUrl: "https://x/0.png",
+        sketchData: null,
+        moisturePoints: [
+          { nx: 0.5, ny: 0.5, wme: 20 },
+          { x: 10, y: 10, wme: 18 }, // legacy, no nx/ny — skipped
+        ],
+      },
+    ];
+    const fetchImpl = fakeFetch({ "https://x/0.png": pngBytes(0) });
+
+    const floors = await claimSketchesToFloors(sketches, fetchImpl as never);
+
+    expect(floors[0].moisturePins).toHaveLength(1);
+    expect(floors[0].moisturePins?.[0]).toMatchObject({
+      nx: 0.5,
+      ny: 0.5,
+      wme: 20,
+      iicrClass: 2,
+    });
+  });
+
+  it("yields an empty pin array when moisturePoints is absent", async () => {
+    const sketches = [
+      {
+        floorNumber: 0,
+        floorLabel: "Ground Floor",
+        renderedPngUrl: "https://x/0.png",
+        sketchData: null,
+      },
+    ];
+    const fetchImpl = fakeFetch({ "https://x/0.png": pngBytes(0) });
+
+    const floors = await claimSketchesToFloors(sketches, fetchImpl as never);
+
+    expect(floors[0].moisturePins).toEqual([]);
+  });
 });

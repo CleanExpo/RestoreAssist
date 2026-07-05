@@ -18,6 +18,11 @@ import type { DamageCause } from "@/lib/nz/nhcover";
 import { extractRooms, PX_PER_METRE } from "@/lib/sketch/extract-rooms";
 import { recommendedEquipment } from "@/lib/sketch/iicrc-utils";
 import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
+import {
+  placeMoisturePins,
+  moistureLegendClasses,
+  type MoistureMapPin,
+} from "@/lib/reports/moisture-map";
 
 // ── Constants ─────────────────────────────────────────────
 
@@ -185,6 +190,7 @@ async function addSketchPage(
     label: string;
     pngDataUrl: string;
     fabricJson?: Record<string, unknown> | null;
+    moisturePins?: MoistureMapPin[] | null;
   },
   shared: {
     helvetica: Awaited<ReturnType<PDFDocument["embedFont"]>>;
@@ -410,6 +416,77 @@ async function addSketchPage(
     color: rgb(1, 1, 1),
   });
   page.drawImage(pngImg, { x: imgX, y: imgY, width: drawW, height: drawH });
+
+  // ── Moisture map overlay (RA-120 acceptance §3) ──
+  // The moisture pins are a client DOM overlay that never bakes into the
+  // rasterised sketch PNG, so the structural sketch alone reached the PDF. Draw
+  // them here on the same image — colour + class per IICRC S500:2021 §8.1 — so
+  // the structural sketch AND the moisture map are both present on the page.
+  const pins = floor.moisturePins ?? [];
+  if (pins.length > 0) {
+    const placed = placeMoisturePins(pins, {
+      x: imgX,
+      y: imgY,
+      width: drawW,
+      height: drawH,
+    });
+    const PIN_R = 7;
+    for (const p of placed) {
+      const c = parseHexColor(p.color);
+      const fill = c ? rgb(c.r, c.g, c.b) : BRAND_CYAN;
+      page.drawCircle({
+        x: p.cx,
+        y: p.cy,
+        size: PIN_R,
+        color: fill,
+        borderColor: rgb(1, 1, 1),
+        borderWidth: 1,
+      });
+      const label = String(Math.round(p.wme));
+      const labelW = bold.widthOfTextAtSize(label, 6);
+      page.drawText(label, {
+        x: p.cx - labelW / 2,
+        y: p.cy - 2.5,
+        size: 6,
+        font: bold,
+        color: rgb(1, 1, 1),
+      });
+    }
+
+    // Moisture legend — only the classes actually present, so a reader can
+    // decode the pin colours. Sits at the bottom-left of the drawn image.
+    const legend = moistureLegendClasses(pins);
+    let lx = imgX + 4;
+    const lyRow = imgY + 6;
+    page.drawText("Moisture (WME %):", {
+      x: lx,
+      y: lyRow,
+      size: 7,
+      font: bold,
+      color: TEXT_MAIN,
+    });
+    lx += bold.widthOfTextAtSize("Moisture (WME %):", 7) + 8;
+    for (const info of legend) {
+      const c = parseHexColor(info.color);
+      page.drawCircle({
+        x: lx + 3,
+        y: lyRow + 2,
+        size: 3,
+        color: c ? rgb(c.r, c.g, c.b) : BRAND_CYAN,
+        borderColor: rgb(1, 1, 1),
+        borderWidth: 0.5,
+      });
+      const text = `${info.label} (${info.thresholdMin}${info.thresholdMax === Infinity ? "+" : `-${info.thresholdMax}`}%)`;
+      page.drawText(text, {
+        x: lx + 9,
+        y: lyRow,
+        size: 7,
+        font: helvetica,
+        color: TEXT_MUTED,
+      });
+      lx += 9 + helvetica.widthOfTextAtSize(text, 7) + 12;
+    }
+  }
 
   // ── Footer ──
   const footerY = MARGIN;
@@ -679,6 +756,12 @@ export interface SketchFloor {
   pngDataUrl: string;
   /** Fabric.js toJSON() output (for room area extraction) */
   fabricJson?: Record<string, unknown> | null;
+  /**
+   * Moisture pins for this floor (RA-120 §3). Overlaid on the sketch image so
+   * the moisture map rides the same page as the structural sketch. Parsed from
+   * `ClaimSketch.moisturePoints` via `parseMoisturePins`.
+   */
+  moisturePins?: MoistureMapPin[] | null;
 }
 
 export interface SketchPdfOptions {

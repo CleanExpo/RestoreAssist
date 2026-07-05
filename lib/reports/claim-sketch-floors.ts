@@ -1,4 +1,5 @@
 import type { SketchFloor } from "@/lib/generate-sketch-pdf";
+import { parseMoisturePins } from "@/lib/reports/moisture-map";
 
 /**
  * The subset of a `ClaimSketch` row needed to build a report floor page.
@@ -10,6 +11,12 @@ export interface ClaimSketchRow {
   floorLabel: string;
   renderedPngUrl: string | null;
   sketchData?: unknown;
+  /**
+   * RA-120 §3: the client moisture-overlay pins persisted on the sketch. Not
+   * baked into `renderedPngUrl` (they're a React DOM overlay), so they are
+   * parsed here and overlaid onto the sketch image in the report PDF.
+   */
+  moisturePoints?: unknown;
 }
 
 /**
@@ -47,6 +54,7 @@ export async function claimSketchesToFloors(
             s.sketchData && typeof s.sketchData === "object"
               ? (s.sketchData as Record<string, unknown>)
               : null,
+          moisturePins: parseMoisturePins(s.moisturePoints),
         };
       } catch {
         return null;

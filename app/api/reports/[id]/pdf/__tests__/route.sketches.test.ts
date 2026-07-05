@@ -152,4 +152,41 @@ describe("GET /api/reports/[id]/pdf — floor plan embedding", () => {
     expect(res.status).toBe(200);
     expect(await pageCountOf(res)).toBe(1);
   });
+
+  // RA-120 §3 — the moisture map must be included alongside the structural
+  // sketch. The pins live on ClaimSketch.moisturePoints (a DOM overlay never
+  // baked into renderedPngUrl), so the report must query them and overlay them.
+  it("queries moisturePoints for each floor sketch", async () => {
+    reportFindUnique.mockResolvedValueOnce(reportBase({ claimSketches: [] }));
+    await GET(req(), ctx);
+
+    const arg = reportFindUnique.mock.calls[0][0];
+    expect(
+      arg.include.inspection.select.claimSketches.select.moisturePoints,
+    ).toBe(true);
+  });
+
+  it("renders a floor carrying moisture pins without failing the download", async () => {
+    reportFindUnique.mockResolvedValueOnce(
+      reportBase({
+        claimSketches: [
+          {
+            floorNumber: 0,
+            floorLabel: "Ground Floor",
+            renderedPngUrl: "https://x/0.png",
+            sketchData: null,
+            moisturePoints: [
+              { nx: 0.25, ny: 0.5, wme: 12 },
+              { nx: 0.75, ny: 0.3, wme: 42 },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const res = await GET(req(), ctx);
+    expect(res.status).toBe(200);
+    // Base report page + the one floor page (with the moisture overlay drawn).
+    expect(await pageCountOf(res)).toBe(2);
+  });
 });

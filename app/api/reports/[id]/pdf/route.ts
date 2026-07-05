@@ -103,6 +103,9 @@ export async function GET(
                 floorLabel: true,
                 renderedPngUrl: true,
                 sketchData: true,
+                // RA-120 §3: moisture-overlay pins, overlaid on the sketch image
+                // so the moisture map is included alongside the structural sketch.
+                moisturePoints: true,
               },
             },
             // RA-120 (PR3): inspection evidence photos → captioned grid at the
