@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { z } from "zod";
 import { apiError, fromException } from "@/lib/api-errors";
+import { applyRateLimit } from "@/lib/rate-limiter";
 import {
   analyseSupportTicket,
   type SupportTicketAnalysis,
@@ -29,6 +30,10 @@ const createTicketSchema = z.object({
   category: z
     .enum(["general", "billing", "technical", "feature_request", "bug"])
     .optional(),
+  // Honeypot — visually hidden on the contact form (app/contact/page.tsx).
+  // Real submitters never populate it; a filled value is treated as bot
+  // traffic (see POST below) and silently discarded.
+  website: z.string().max(200).optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -130,6 +135,20 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Public write surface (no session) — rate-limit fail-closed, same as the
+    // other unauthenticated surfaces (app/api/capture/[token], app/api/portal/
+    // [token]/*). Those key by their URL-bound token; this route has no
+    // per-resource token, so it falls back to the caller IP, matching
+    // app/api/auth/google-session/route.ts (the other keyless unauthenticated
+    // POST surface).
+    const rateLimited = await applyRateLimit(request, {
+      prefix: "support-tickets",
+      maxRequests: 5,
+      windowMs: 15 * 60 * 1000,
+      failClosedOnUpstashError: true,
+    });
+    if (rateLimited) return rateLimited;
+
     let rawBody: unknown;
     try {
       rawBody = await request.json();
@@ -156,7 +175,22 @@ export async function POST(request: NextRequest) {
       subject,
       body,
       category: providedCategory,
+      website: honeypot,
     } = parsed.data;
+
+    // Honeypot tripped — respond with the same success shape a real
+    // submission would get (silent discard) so bots don't learn the tell.
+    if (honeypot) {
+      return NextResponse.json(
+        {
+          id: "queued",
+          category: providedCategory ?? "general",
+          priority: "normal",
+          message: "Support ticket received. We'll respond within 24 hours.",
+        },
+        { status: 201 },
+      );
+    }
 
     // Resolve the userId if the submitter is logged in
     const session = await getServerSession(authOptions);
