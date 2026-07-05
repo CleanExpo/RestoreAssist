@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   resolveWorkspaceAiKey,
@@ -46,6 +47,10 @@ export async function POST(request: NextRequest) {
       status: 401,
     });
   }
+
+  // Rule 5 — subscription gate before any AI spend (Whisper call below).
+  const gate = await requireActiveSubscription(session.user.id);
+  if (gate) return gate;
 
   const rateLimited = await applyRateLimit(request, {
     windowMs: 60 * 1000,
