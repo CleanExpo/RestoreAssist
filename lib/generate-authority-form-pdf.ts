@@ -1,4 +1,5 @@
 import { PDFDocument, rgb, StandardFonts, PDFImage } from "pdf-lib";
+import { isPublicHttpUrl } from "@/lib/branding/url-validator";
 
 interface AuthorityFormData {
   // Company Information
@@ -61,6 +62,11 @@ export async function generateAuthorityFormPDF(
   let logoImage: PDFImage | null = null;
   if (data.companyLogo) {
     try {
+      // SSRF guard — companyLogo is user-controlled; block non-http(s),
+      // loopback, link-local and RFC1918 targets before fetching.
+      if (!isPublicHttpUrl(data.companyLogo).ok) {
+        throw new Error("Company logo URL failed SSRF validation");
+      }
       const logoResponse = await fetch(data.companyLogo);
       const logoBuffer = await logoResponse.arrayBuffer();
       const logoUrl = data.companyLogo.toLowerCase();

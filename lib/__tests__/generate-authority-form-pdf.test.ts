@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { generateAuthorityFormPDF } from "../generate-authority-form-pdf";
 
 // STORM T9 — authority-form PDF generation smoke (Linda/Marcus — the
@@ -48,4 +48,28 @@ describe("generateAuthorityFormPDF", () => {
     expect(bytes.length).toBeGreaterThan(1000);
     expect(header(bytes)).toBe("%PDF-");
   });
+});
+
+describe("generateAuthorityFormPDF — logo SSRF guard", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ["file:///etc/passwd"],
+    ["http://169.254.169.254/latest/meta-data/"],
+    ["http://localhost:9000/internal"],
+    ["http://10.0.0.1/private-logo.png"],
+  ])(
+    "never fetches a private/non-http companyLogo (%s) and still emits a PDF",
+    async (badUrl) => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      const bytes = await generateAuthorityFormPDF(
+        baseForm({ companyLogo: badUrl }),
+      );
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(bytes.length).toBeGreaterThan(1000);
+      expect(header(bytes)).toBe("%PDF-");
+    },
+  );
 });
