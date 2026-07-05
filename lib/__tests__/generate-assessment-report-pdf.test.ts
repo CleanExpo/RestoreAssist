@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import dns from "node:dns";
 import { generateAssessmentReportPDF } from "../generate-assessment-report-pdf";
 
 // SSRF regression: the assessment PDF embeds a tenant-controlled `businessLogo`
@@ -45,6 +46,10 @@ describe("generateAssessmentReportPDF — logo SSRF guard", () => {
   });
 
   it("does fetch a public https logo URL", async () => {
+    // Resolve the host to a public address so the SSRF gate passes.
+    vi.spyOn(dns.promises, "lookup").mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ] as never);
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       // Invalid image bytes — the embed will throw and be caught, but the
       // fetch itself must be attempted for a public URL.

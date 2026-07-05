@@ -20,7 +20,7 @@ import {
   RA_DEFAULT_PRIMARY_COLOR,
   type ClientBrandTheme,
 } from "@/lib/clients/brand";
-import { isPublicHttpUrl } from "@/lib/branding/url-validator";
+import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -388,13 +388,13 @@ export async function generateIICRCReportPDF(
   })();
 
   // Optional client logo — fetched once, embedded on the cover header.
-  // isPublicHttpUrl is an SSRF guard: a public http(s) URL alone passes; a
-  // loopback / link-local / RFC1918 / metadata host is rejected so a crafted
-  // logoUrl can't reach an internal service. An unreachable / non-PNG/JPG URL
-  // silently falls back to the text-only header so a broken brand asset never
-  // blocks a handover.
+  // isSafePublicHttpsUrl is an SSRF guard: requires https and a host that
+  // resolves to a public address; a loopback / link-local / RFC1918 / metadata
+  // host (including via DNS rebinding) is rejected so a crafted logoUrl can't
+  // reach an internal service. An unreachable / non-PNG/JPG URL silently falls
+  // back to the text-only header so a broken brand asset never blocks a handover.
   let clientLogoImage: Awaited<ReturnType<PDFDocument["embedPng"]>> | null = null;
-  if (options.theme?.logoUrl && isPublicHttpUrl(options.theme.logoUrl).ok) {
+  if (options.theme?.logoUrl && (await isSafePublicHttpsUrl(options.theme.logoUrl))) {
     try {
       const res = await fetch(options.theme.logoUrl);
       if (res.ok) {

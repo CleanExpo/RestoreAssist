@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import dns from "node:dns";
 import { generateForensicReportPDF } from "../generate-forensic-report-pdf";
 
 // Regression: businessInfo.businessLogo is user-controlled. The generator must
@@ -43,6 +44,11 @@ describe("generateForensicReportPDF — logo SSRF guard", () => {
   });
 
   it("fetches a public https logo URL", async () => {
+    // Resolve the host to a public address so the SSRF gate passes
+    // deterministically (no real DNS in CI).
+    vi.spyOn(dns.promises, "lookup").mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ] as never);
     await generateForensicReportPDF(
       baseData("https://res.cloudinary.com/x/acme.png"),
     );

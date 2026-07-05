@@ -15,7 +15,7 @@ import {
   PDFPage,
   PDFImage,
 } from "pdf-lib";
-import { isPublicHttpUrl } from "@/lib/branding/url-validator";
+import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
 
 interface BusinessInfo {
   businessName?: string | null;
@@ -174,11 +174,12 @@ export async function generateAssessmentReportPDF(
 
   // Load business logo if available
   let logoImage: PDFImage | null = null;
-  // SSRF guard: businessLogo is tenant-controlled — only fetch public http(s)
-  // URLs. On failure, skip the logo (logoImage stays null) rather than throw.
+  // SSRF guard: businessLogo is tenant-controlled — only fetch public https
+  // URLs whose host resolves to a public address (defeats DNS rebinding). On
+  // failure, skip the logo (logoImage stays null) rather than throw.
   if (
     businessInfo?.businessLogo &&
-    isPublicHttpUrl(businessInfo.businessLogo).ok
+    (await isSafePublicHttpsUrl(businessInfo.businessLogo))
   ) {
     try {
       const logoResponse = await fetch(businessInfo.businessLogo);

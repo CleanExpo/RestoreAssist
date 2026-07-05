@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import dns from "node:dns";
 import {
   sanitise,
   fmtDate,
@@ -101,8 +102,9 @@ describe("generateIICRCReportPDF — logo SSRF gate", () => {
   // The cover-header logo is fetched server-side from a user-controlled
   // theme.logoUrl. A bare startsWith("https://") check let an https URL
   // pointing at an internal / metadata host through (SSRF). The fetch is now
-  // gated by isPublicHttpUrl, which rejects loopback / link-local / RFC1918 /
-  // metadata hosts. These tests assert the gate at the call site.
+  // gated by isSafePublicHttpsUrl, which requires https and resolves the host,
+  // rejecting loopback / link-local / RFC1918 / metadata addresses (including
+  // via DNS rebinding). These tests assert the gate at the call site.
 
   it("does NOT fetch a logo from a private / metadata https host", async () => {
     const fetchSpy = vi
@@ -141,6 +143,10 @@ describe("generateIICRCReportPDF — logo SSRF gate", () => {
   });
 
   it("DOES fetch a logo from a public https host", async () => {
+    // Resolve the host to a public address so the SSRF gate passes.
+    vi.spyOn(dns.promises, "lookup").mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ] as never);
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       // Non-ok response so it falls back to the text header without needing
