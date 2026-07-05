@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { isDraft, isCancelled } from "@/lib/invoice-status";
 import { recordMutationAudit } from "@/lib/audit-log";
 import { apiError, fromException } from "@/lib/api-errors";
+import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
 
 export async function GET(
   request: NextRequest,
@@ -339,6 +340,16 @@ export async function PUT(
         };
       });
 
+      // Validate adjustment fields before they touch the computed totals.
+      // Unbounded / non-finite discounts or shipping would corrupt the
+      // persisted subtotal, GST and total just like a bad line item.
+      const adjustmentError = validateAdjustments(
+        request,
+        { discountAmount, discountPercentage, shippingAmount },
+        subtotalExGST,
+      );
+      if (adjustmentError) return adjustmentError;
+
       // Apply discounts. Scale the accumulated per-item GST by the post-discount
       // ratio instead of recomputing at a flat 10% — a mixed-GST-rate invoice
       // (e.g. some GST-free items) would otherwise have its GST total corrupted.
@@ -436,7 +447,19 @@ export async function PUT(
       });
       return NextResponse.json({ invoice });
     } else {
-      // Update invoice without line items
+      // Update invoice without line items. lineItems (and therefore
+      // subtotalExGST) aren't being recomputed here, but discountAmount /
+      // discountPercentage / shippingAmount still flow straight into
+      // updateData and out to the Xero/QuickBooks/MYOB ledger exports, so
+      // they need the same validation as the line-item path above — bounded
+      // against the invoice's current persisted subtotal.
+      const adjustmentError = validateAdjustments(
+        request,
+        { discountAmount, discountPercentage, shippingAmount },
+        existing.subtotalExGST,
+      );
+      if (adjustmentError) return adjustmentError;
+
       const invoice = await prisma.$transaction(async (tx) => {
         const updated = await tx.invoice.update({
           where: { id, userId: session.user.id },
