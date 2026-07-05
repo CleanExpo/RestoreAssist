@@ -11,6 +11,12 @@ describe.skipIf(!process.env.DATABASE_URL)("grandfatherPaymentsAddon", () => {
   });
 
   afterAll(async () => {
+    // Don't leave Workspace/User rows in the shared CI database — a later
+    // DB-gated suite's user.deleteMany() would trip Workspace_ownerId_fkey.
+    await prisma.featureEntitlement.deleteMany({});
+    await prisma.invoicePayment.deleteMany({});
+    await prisma.workspace.deleteMany({});
+    await prisma.user.deleteMany({});
     await prisma.$disconnect();
   });
 

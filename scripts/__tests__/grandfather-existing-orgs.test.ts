@@ -4,6 +4,13 @@ import { prisma } from "@/lib/prisma";
 
 describe.skipIf(!process.env.DATABASE_URL)("grandfatherExistingOrgs", () => {
   beforeEach(async () => {
+    // FK-safe order: the DB-gated tests share one CI database, so clear every
+    // table that references User (via Workspace.ownerId → User, and the
+    // Workspace-scoped rows other suites leave behind) before deleting users,
+    // else user.deleteMany() trips Workspace_ownerId_fkey.
+    await prisma.featureEntitlement.deleteMany({});
+    await prisma.invoicePayment.deleteMany({});
+    await prisma.workspace.deleteMany({});
     await prisma.organization.deleteMany({});
     await prisma.user.deleteMany({});
   });
