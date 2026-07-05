@@ -15,6 +15,11 @@ import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer";
 import RestorationInspectionReportViewer from "./RestorationInspectionReportViewer";
+import IicrcInclusionPanel from "./IicrcInclusionPanel";
+import {
+  runInclusionCheck,
+  deriveIicrcClaimTypeFromHazardType,
+} from "@/lib/iicrc-inclusion-check";
 
 interface InspectionReportViewerProps {
   reportId: string;
@@ -398,6 +403,18 @@ export default function InspectionReportViewer({
     window.print();
   };
 
+  // RA-5040 PR1: non-blocking reviewer prompts — informational only, never
+  // gates save/sync/export. hazardType is free text (e.g. "WATER_DAMAGE");
+  // runInclusionCheck degrades gracefully for anything it doesn't map.
+  const iicrcClaimType =
+    deriveIicrcClaimTypeFromHazardType(report?.hazardType) ??
+    report?.hazardType ??
+    "";
+  const iicrcInclusionResult = runInclusionCheck(
+    iicrcClaimType,
+    report ?? {},
+  );
+
   const handleExportExcel = async () => {
     setExportingExcel(true);
     try {
@@ -508,6 +525,12 @@ export default function InspectionReportViewer({
           )}
         </div>
       </div>
+
+      {/* IICRC Reviewer Prompts (RA-5040 PR1) — informational, non-blocking */}
+      <IicrcInclusionPanel
+        claimType={iicrcClaimType}
+        missingPrompts={iicrcInclusionResult.missing}
+      />
 
       {/* Generate Report Options */}
       {!reportContent && !structuredReportData && !visualData && (
