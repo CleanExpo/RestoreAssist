@@ -3,12 +3,23 @@
  *
  * Handles syncing invoices and other data to MYOB AccountRight.
  * Uses MYOB AccountRight API v2 with OAuth 2.0 authentication.
+ *
+ * RA-6920 B5: brought to Xero parity for outbound invoice/contact push —
+ * idempotent create-or-update, error classification with proactive token
+ * refresh, and customer upsert. Also fixes the long-standing company-file
+ * field bug: the OAuth client (lib/integrations/myob/client.ts) stores the
+ * MYOB company file Id into Integration.tenantId, but this module previously
+ * read a non-existent `companyFileId` field, so every outbound MYOB sync threw
+ * at runtime.
  */
 
 import { Integration } from "@prisma/client";
+import { getValidMYOBAccessToken } from "@/lib/services/myob/credentials";
 import { type Country, getGstTreatment } from "../gst-rules";
 
 interface MYOBInvoice {
+  UID?: string; // Present on update path
+  RowVersion?: string; // Required by MYOB for update (optimistic concurrency)
   Number: string;
   Date: string; // YYYY-MM-DD
   CustomerPurchaseOrderNumber?: string;
@@ -60,16 +71,96 @@ interface MYOBInvoiceResponse {
   URI: string;
 }
 
-interface MYOBCustomer {
-  UID: string;
-  CompanyName?: string;
-  FirstName?: string;
-  LastName?: string;
-  IsIndividual: boolean;
+/**
+ * The MYOB company file Id is stored on Integration.tenantId by the OAuth
+ * client's fetchAndStoreCompanyFile(). Read it from there — never from a
+ * non-existent `companyFileId` field.
+ */
+function getMyobCompanyFileId(integration: Integration): string {
+  const id = integration.tenantId;
+  if (!id) {
+    throw new Error("No company file ID available for MYOB");
+  }
+  return id;
+}
+
+function myobBaseUrl(): string {
+  return process.env.MYOB_ENVIRONMENT === "production"
+    ? "https://ar1.api.myob.com/accountright"
+    : "https://api.myob.com/accountright";
+}
+
+function myobHeaders(
+  accessToken: string,
+  withContentType = false,
+): Record<string, string> {
+  return {
+    Authorization: `Bearer ${accessToken}`,
+    "x-myobapi-key": process.env.MYOB_CLIENT_ID || "",
+    "x-myobapi-version": "v2",
+    Accept: "application/json",
+    ...(withContentType && { "Content-Type": "application/json" }),
+  };
 }
 
 /**
- * Sync invoice to MYOB.
+ * RA-6920 B5: Classify a failed MYOB response and throw the right kind of
+ * error, mirroring lib/integrations/xero.ts / quickbooks.ts.
+ *
+ * - 401/403 → proactively refresh the token so the next queue retry uses a live
+ *   one, then throw (retryable).
+ * - 400/404 → non-recoverable data/payload problem; throw (queue exhausts
+ *   retries and marks the job FAILED).
+ * - anything else (409/429/5xx/network) → throw (retryable).
+ */
+async function throwClassifiedMYOBError(
+  response: Response,
+  integration: Integration,
+): Promise<never> {
+  const errorData = await response.json().catch(() => ({}));
+
+  if (response.status === 401 || response.status === 403) {
+    console.warn(
+      `[MYOB] Token error (${response.status}) on integration ${integration.id} — refreshing token for next retry`,
+    );
+    const credResult = await getValidMYOBAccessToken(integration.id);
+    if (!credResult.ok) {
+      throw new Error(
+        `MYOB token refresh failed (integration ${integration.id}): ${credResult.reason}${
+          credResult.detail ? ` — ${credResult.detail}` : ""
+        }`,
+        { cause: credResult.cause },
+      );
+    }
+    throw new Error(
+      `MYOB ${response.status} — token refreshed, will retry on next queue run`,
+    );
+  }
+
+  if (response.status === 400 || response.status === 404) {
+    const detail =
+      (Array.isArray(errorData?.Errors) &&
+        errorData.Errors.map((e: { Message?: string }) => e.Message)
+          .filter(Boolean)
+          .join("; ")) ||
+      errorData?.Message ||
+      response.statusText;
+    throw new Error(
+      `MYOB ${response.status} (non-recoverable): ${detail} — ${JSON.stringify(errorData)}`,
+    );
+  }
+
+  throw new Error(
+    `MYOB API error ${response.status}: ${response.statusText} — ${JSON.stringify(errorData)}`,
+  );
+}
+
+/**
+ * Sync invoice to MYOB (idempotent create-or-update).
+ *
+ * If the RestoreAssist invoice already carries an `externalInvoiceId` from a
+ * prior MYOB sync, this updates that invoice in place (PUT with RowVersion)
+ * instead of creating a duplicate.
  *
  * @param country - Billing jurisdiction. Defaults to "AU" (GST tax code).
  *   Pass "NZ" for GST15 tax code. Upstream source: Organization.country (RA-1120).
@@ -84,11 +175,9 @@ export async function syncInvoiceToMYOB(
     throw new Error("No access token available for MYOB");
   }
 
-  if (!(integration as any).companyFileId) {
-    throw new Error("No company file ID available for MYOB");
-  }
+  const companyFileId = getMyobCompanyFileId(integration);
 
-  // Find or create customer in MYOB
+  // Find, create, or update the customer in MYOB
   const customerUID = await findOrCreateMYOBCustomer(
     {
       name: invoice.customerName,
@@ -151,32 +240,29 @@ export async function syncInvoiceToMYOB(
       }),
   };
 
-  // Make API request to MYOB
-  const baseUrl =
-    process.env.MYOB_ENVIRONMENT === "production"
-      ? "https://ar1.api.myob.com/accountright"
-      : "https://api.myob.com/accountright";
+  // RA-6920 B5: idempotency — if this invoice was already pushed to MYOB,
+  // update it in place rather than creating a duplicate.
+  const alreadySynced =
+    invoice.externalInvoiceId &&
+    (!invoice.externalSyncProvider ||
+      String(invoice.externalSyncProvider).toUpperCase() === "MYOB");
 
+  if (alreadySynced) {
+    return updateMYOBInvoice(invoice.externalInvoiceId, myobInvoice, integration);
+  }
+
+  const baseUrl = myobBaseUrl();
   const response = await fetch(
-    `${baseUrl}/${(integration as any).companyFileId}/Sale/Invoice`,
+    `${baseUrl}/${companyFileId}/Sale/Invoice`,
     {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${integration.accessToken}`,
-        "x-myobapi-key": process.env.MYOB_CLIENT_ID || "",
-        "x-myobapi-version": "v2",
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
+      headers: myobHeaders(integration.accessToken, true),
       body: JSON.stringify(myobInvoice),
     },
   );
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      `MYOB API error: ${response.statusText} - ${JSON.stringify(errorData)}`,
-    );
+    return throwClassifiedMYOBError(response, integration);
   }
 
   // MYOB returns 201 Created with Location header
@@ -191,6 +277,47 @@ export async function syncInvoiceToMYOB(
   // Fetch the created invoice details
   const invoiceDetails = await getMYOBInvoice(uid!, integration);
 
+  return mapMYOBInvoiceResponse(invoiceDetails);
+}
+
+/**
+ * Update an existing MYOB invoice by UID. MYOB requires the current RowVersion
+ * (optimistic concurrency) so we GET it first, then PUT the full payload.
+ */
+async function updateMYOBInvoice(
+  uid: string,
+  myobInvoice: MYOBInvoice,
+  integration: Integration,
+) {
+  const companyFileId = getMyobCompanyFileId(integration);
+  const existing = await getMYOBInvoice(uid, integration);
+  const baseUrl = myobBaseUrl();
+
+  const payload: MYOBInvoice = {
+    ...myobInvoice,
+    UID: uid,
+    RowVersion: (existing as any).RowVersion,
+  };
+
+  const response = await fetch(
+    `${baseUrl}/${companyFileId}/Sale/Invoice/${uid}`,
+    {
+      method: "PUT",
+      headers: myobHeaders(integration.accessToken!, true),
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    return throwClassifiedMYOBError(response, integration);
+  }
+
+  // PUT returns 200 with an empty body; re-fetch to return normalized details
+  const invoiceDetails = await getMYOBInvoice(uid, integration);
+  return mapMYOBInvoiceResponse(invoiceDetails);
+}
+
+function mapMYOBInvoiceResponse(invoiceDetails: MYOBInvoiceResponse) {
   return {
     invoiceId: invoiceDetails.UID,
     invoiceNumber: invoiceDetails.Number,
@@ -203,37 +330,38 @@ export async function syncInvoiceToMYOB(
 }
 
 /**
- * Find or create customer in MYOB
+ * Find, create, or update a customer in MYOB (upsert).
+ *
+ * RA-6920 B5: on a match, the customer's email/phone are refreshed (GET the
+ * full contact, merge, PUT with RowVersion) so stale details don't linger —
+ * matching Xero's pass-through contact behaviour. A failed refresh is
+ * non-fatal: we still return the existing UID so the invoice push proceeds.
  */
 async function findOrCreateMYOBCustomer(
   customer: { name: string; email?: string; phone?: string },
   integration: Integration,
 ): Promise<string> {
-  if (!integration.accessToken || !(integration as any).companyFileId) {
+  if (!integration.accessToken) {
     throw new Error("Missing MYOB credentials");
   }
-
-  const baseUrl =
-    process.env.MYOB_ENVIRONMENT === "production"
-      ? "https://ar1.api.myob.com/accountright"
-      : "https://api.myob.com/accountright";
+  const companyFileId = getMyobCompanyFileId(integration);
+  const baseUrl = myobBaseUrl();
 
   // Search for existing customer by name
-  const searchUrl = `${baseUrl}/${(integration as any).companyFileId}/Contact/Customer?$filter=CompanyName eq '${encodeURIComponent(customer.name)}'`;
+  const searchUrl = `${baseUrl}/${companyFileId}/Contact/Customer?$filter=CompanyName eq '${encodeURIComponent(customer.name)}'`;
 
   const searchResponse = await fetch(searchUrl, {
-    headers: {
-      Authorization: `Bearer ${integration.accessToken}`,
-      "x-myobapi-key": process.env.MYOB_CLIENT_ID || "",
-      "x-myobapi-version": "v2",
-      Accept: "application/json",
-    },
+    headers: myobHeaders(integration.accessToken),
   });
 
   if (searchResponse.ok) {
     const searchData = await searchResponse.json();
-    if (searchData.Items && searchData.Items.length > 0) {
-      return searchData.Items[0].UID;
+    const existingUID = searchData.Items?.[0]?.UID;
+    if (existingUID) {
+      if (customer.email || customer.phone) {
+        await updateMYOBCustomerContact(existingUID, customer, integration);
+      }
+      return existingUID;
     }
   }
 
@@ -266,16 +394,10 @@ async function findOrCreateMYOBCustomer(
   };
 
   const createResponse = await fetch(
-    `${baseUrl}/${(integration as any).companyFileId}/Contact/Customer`,
+    `${baseUrl}/${companyFileId}/Contact/Customer`,
     {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${integration.accessToken}`,
-        "x-myobapi-key": process.env.MYOB_CLIENT_ID || "",
-        "x-myobapi-version": "v2",
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
+      headers: myobHeaders(integration.accessToken, true),
       body: JSON.stringify(newCustomer),
     },
   );
@@ -298,30 +420,64 @@ async function findOrCreateMYOBCustomer(
 }
 
 /**
+ * Refresh an existing MYOB customer's email/phone. MYOB PUT replaces the whole
+ * resource, so we GET the full contact first and merge to avoid data loss.
+ * Best-effort: swallows failures (the caller proceeds with the existing UID).
+ */
+async function updateMYOBCustomerContact(
+  uid: string,
+  customer: { email?: string; phone?: string },
+  integration: Integration,
+): Promise<void> {
+  try {
+    const companyFileId = getMyobCompanyFileId(integration);
+    const baseUrl = myobBaseUrl();
+
+    const getResponse = await fetch(
+      `${baseUrl}/${companyFileId}/Contact/Customer/${uid}`,
+      { headers: myobHeaders(integration.accessToken!) },
+    );
+    if (!getResponse.ok) return;
+
+    const existing = await getResponse.json();
+    const addresses =
+      Array.isArray(existing.Addresses) && existing.Addresses.length > 0
+        ? existing.Addresses
+        : [{ Location: 1 }];
+    if (customer.email) addresses[0].Email = customer.email;
+    if (customer.phone) addresses[0].Phone1 = customer.phone;
+
+    await fetch(`${baseUrl}/${companyFileId}/Contact/Customer/${uid}`, {
+      method: "PUT",
+      headers: myobHeaders(integration.accessToken!, true),
+      body: JSON.stringify({
+        ...existing,
+        UID: uid,
+        Addresses: addresses,
+      }),
+    });
+  } catch {
+    // Non-fatal: contact refresh is best-effort, invoice push is the priority.
+  }
+}
+
+/**
  * Get invoice from MYOB by UID
  */
 export async function getMYOBInvoice(
   uid: string,
   integration: Integration,
 ): Promise<MYOBInvoiceResponse> {
-  if (!integration.accessToken || !(integration as any).companyFileId) {
+  if (!integration.accessToken) {
     throw new Error("Missing MYOB credentials");
   }
-
-  const baseUrl =
-    process.env.MYOB_ENVIRONMENT === "production"
-      ? "https://ar1.api.myob.com/accountright"
-      : "https://api.myob.com/accountright";
+  const companyFileId = getMyobCompanyFileId(integration);
+  const baseUrl = myobBaseUrl();
 
   const response = await fetch(
-    `${baseUrl}/${(integration as any).companyFileId}/Sale/Invoice/${uid}`,
+    `${baseUrl}/${companyFileId}/Sale/Invoice/${uid}`,
     {
-      headers: {
-        Authorization: `Bearer ${integration.accessToken}`,
-        "x-myobapi-key": process.env.MYOB_CLIENT_ID || "",
-        "x-myobapi-version": "v2",
-        Accept: "application/json",
-      },
+      headers: myobHeaders(integration.accessToken),
     },
   );
 
@@ -343,29 +499,20 @@ export async function updateMYOBInvoiceStatus(
   status: "Open" | "Closed",
   integration: Integration,
 ) {
-  if (!integration.accessToken || !(integration as any).companyFileId) {
+  if (!integration.accessToken) {
     throw new Error("Missing MYOB credentials");
   }
-
-  const baseUrl =
-    process.env.MYOB_ENVIRONMENT === "production"
-      ? "https://ar1.api.myob.com/accountright"
-      : "https://api.myob.com/accountright";
+  const companyFileId = getMyobCompanyFileId(integration);
+  const baseUrl = myobBaseUrl();
 
   // First, get the current invoice to get RowVersion (required for updates)
   const currentInvoice = await getMYOBInvoice(uid, integration);
 
   const response = await fetch(
-    `${baseUrl}/${(integration as any).companyFileId}/Sale/Invoice/${uid}`,
+    `${baseUrl}/${companyFileId}/Sale/Invoice/${uid}`,
     {
       method: "PUT",
-      headers: {
-        Authorization: `Bearer ${integration.accessToken}`,
-        "x-myobapi-key": process.env.MYOB_CLIENT_ID || "",
-        "x-myobapi-version": "v2",
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
+      headers: myobHeaders(integration.accessToken, true),
       body: JSON.stringify({
         UID: uid,
         Status: status,
