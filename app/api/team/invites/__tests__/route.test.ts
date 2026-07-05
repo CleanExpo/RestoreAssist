@@ -49,6 +49,7 @@ beforeEach(() => {
         ? Promise.resolve({
             id: "admin1",
             name: "Admin",
+            role: "ADMIN",
             organizationId: "org1",
           })
         : Promise.resolve({

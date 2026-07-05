@@ -52,7 +52,12 @@ export async function GET(request: NextRequest) {
       message: "Unauthorized",
       status: 401,
     });
-  if (!canViewInvites(session.user.role))
+  // CLAUDE.md rule 1: re-validate role from DB, not the stale JWT claim.
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+  if (!canViewInvites(dbUser?.role))
     return apiError(request, {
       code: "FORBIDDEN",
       message: "Forbidden",
@@ -65,7 +70,7 @@ export async function GET(request: NextRequest) {
   let whereClause: any = { organizationId: orgId };
 
   // Managers can only see invites they created
-  if (session.user.role === "MANAGER") {
+  if (dbUser?.role === "MANAGER") {
     whereClause = {
       organizationId: orgId,
       createdById: session.user.id, // Only invites created by this Manager
@@ -105,7 +110,12 @@ export async function POST(req: NextRequest) {
       message: "Unauthorized",
       status: 401,
     });
-  if (!canInvite(session.user.role))
+  // CLAUDE.md rule 1: re-validate role from DB, not the stale JWT claim.
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+  if (!canInvite(dbUser?.role))
     return apiError(req, {
       code: "FORBIDDEN",
       message: "Forbidden",
@@ -131,7 +141,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Managers can only invite technicians (USER)
-  if (session.user.role === "MANAGER" && role !== "USER") {
+  if (dbUser?.role === "MANAGER" && role !== "USER") {
     return apiError(req, {
       code: "FORBIDDEN",
       message: "Managers can only invite technicians",
@@ -202,7 +212,7 @@ export async function POST(req: NextRequest) {
           role,
           organizationId: orgId,
           createdById: session.user.id,
-          managedById: session.user.role === "MANAGER" ? session.user.id : null,
+          managedById: dbUser?.role === "MANAGER" ? session.user.id : null,
           expiresAt,
           usedAt: new Date(),
         },
@@ -278,7 +288,7 @@ export async function POST(req: NextRequest) {
       data: {
         organizationId: orgId,
         role: role, // Update role as requested
-        managedById: session.user.role === "MANAGER" ? session.user.id : null,
+        managedById: dbUser?.role === "MANAGER" ? session.user.id : null,
         // Don't update password - keep their existing password
         // Don't update mustChangePassword - keep their existing setting
       },
@@ -295,7 +305,7 @@ export async function POST(req: NextRequest) {
         role,
         organizationId: orgId,
         createdById: session.user.id,
-        managedById: session.user.role === "MANAGER" ? session.user.id : null,
+        managedById: dbUser?.role === "MANAGER" ? session.user.id : null,
         expiresAt,
         usedAt: new Date(), // Mark as used since user already exists
       },
@@ -399,7 +409,7 @@ export async function POST(req: NextRequest) {
         role,
         organizationId: orgId,
         createdById: session.user.id,
-        managedById: session.user.role === "MANAGER" ? session.user.id : null,
+        managedById: dbUser?.role === "MANAGER" ? session.user.id : null,
         expiresAt,
         usedAt: null,
       },
