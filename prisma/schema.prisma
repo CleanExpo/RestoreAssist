@@ -6588,6 +6588,15 @@ model HistoricalJob {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // RA-276: pgvector embedding columns — applied directly to prod
+  // (migration 20260330011409_add_pgvector_historical_job_embeddings) ahead
+  // of this schema declaration. HNSW cosine index idx_historical_job_embedding
+  // (m=16, ef=64) already exists on prod; see prisma/migrations/
+  // 20260705050000_ra276_historicaljob_embedding_columns for the reconciling migration.
+  embeddingVector Unsupported("vector(1536)")?
+  embeddingModel  String?
+  embeddedAt      DateTime?                     @db.Timestamptz
+
   @@unique([source, externalId], name: "source_externalId")
   @@index([tenantId])
   @@index([source])
