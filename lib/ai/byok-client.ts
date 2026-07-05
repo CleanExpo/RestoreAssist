@@ -15,6 +15,8 @@ import Anthropic from "@anthropic-ai/sdk";
 export const BYOK_ALLOWED_MODELS = [
   "claude-opus-4-6",
   "claude-sonnet-4-6",
+  "claude-sonnet-5",
+  "claude-opus-4-8",
   "gemini-3.1-pro",
   "gemini-3.1-flash",
   "gpt-5.4",

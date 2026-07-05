@@ -26,7 +26,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const HERMES_PROXY_BASE = `You are Margot with Unite-Group Nexus Hub context loaded. Follow voice and ICP below for content tasks.`;
-const HERMES_PROXY_MODEL = "claude-sonnet-4-5";
+const HERMES_PROXY_MODEL = "claude-sonnet-4-6";
 const AI_ALLOWED_STATUSES = new Set(["TRIAL", "ACTIVE", "LIFETIME"]);
 
 async function getPrimaryWorkspace(userId: string) {
