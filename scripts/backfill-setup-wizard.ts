@@ -88,6 +88,9 @@ export async function backfill(): Promise<{
           userId: _userId,
           createdAt: _createdAt,
           updatedAt: _updatedAt,
+          // CompanyPricingConfig-only field (RA-6996); OrganizationPricingConfig
+          // has no such column, so exclude it from the migrated spread.
+          electricityRatePer24h: _electricityRatePer24h,
           ...rest
         } = cpc;
         await prisma.organizationPricingConfig.create({

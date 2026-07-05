@@ -436,6 +436,12 @@ export const PENDING_RLS = new Set<string>([
   "CancellationFeedback",
   "ClaimProgress",
   "ClaimSketch",
+  // RA-6996: orphan prod tables adopted into the schema (tenant data via userId/
+  // inspectionId FKs). RLS tenant policies to be added with the rest under RA-6677.
+  "ClientInvite",
+  "CustodyEvent",
+  "MobileInspection",
+  "PushToken",
   "DeviceSigningKey",
   "EmailAudit",
   "EmailConnection",
