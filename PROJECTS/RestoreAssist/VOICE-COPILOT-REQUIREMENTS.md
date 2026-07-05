@@ -1,7 +1,7 @@
 # Voice Copilot — Phase 2 Requirements Spec
 
 **Issue:** RA-396
-**Standard:** IICRC S500:2025
+**Standard:** IICRC S500:2021
 **Author:** Phill McGurk (founder, 15+ years field restoration experience)
 **Status:** APPROVED — ready for agent build
 **Date:** 2026-04-07
@@ -10,7 +10,7 @@
 
 ## Overview
 
-Phase 2 voice copilot provides real-time AI guidance to restoration technicians on-site. It listens, watches (via phone camera), and talks — capturing S500:2025 evidence that gets missed most often in the field, without patronising experienced operators.
+Phase 2 voice copilot provides real-time AI guidance to restoration technicians on-site. It listens, watches (via phone camera), and talks — capturing S500:2021 evidence that gets missed most often in the field, without patronising experienced operators.
 
 **Architecture (unchanged from Phase 1 spec):**
 
@@ -44,7 +44,7 @@ The tech holds the phone in one hand or clips it to their belt/vest. Voice in, v
 
 ### A. Missing Data Alerts (proactive, unprompted)
 
-The AI flags when required S500:2025 evidence items haven't been captured within expected time windows.
+The AI flags when required S500:2021 evidence items haven't been captured within expected time windows.
 
 Examples:
 
@@ -74,11 +74,11 @@ Example:
 
 ---
 
-## 3. Data the AI Must Capture (S500:2025 Required Evidence)
+## 3. Data the AI Must Capture (S500:2021 Required Evidence)
 
 These are the items most commonly missing from reports that cause insurance claim delays or rejections — ranked by field frequency:
 
-| Priority | Missing item                                             | S500:2025 ref | Why it gets missed                                              |
+| Priority | Missing item                                             | S500:2021 ref | Why it gets missed                                              |
 | -------- | -------------------------------------------------------- | ------------- | --------------------------------------------------------------- |
 | 1        | Psychrometric data (temp + RH) in every affected room    | §6            | Tech forgets to record — not visible in photos                  |
 | 2        | Moisture readings at structural elements (studs, joists) | §8            | Requires drilling access holes — skipped under time pressure    |
@@ -130,7 +130,7 @@ Both hands are often occupied (moisture meter + torch, or meter + notepad). Voic
 ### Junior technician (0–3 years)
 
 - Needs step-by-step guidance: "Next, take moisture readings at the base of every wall in this room."
-- Benefits from S500:2025 section references: "S500:2025 §8 requires baseline readings on all affected materials."
+- Benefits from S500:2021 section references: "S500:2021 §8 requires baseline readings on all affected materials."
 - Wants confirmation: "Good — that's 8 readings in the bathroom. Bathroom is complete."
 
 ### Mid-level technician (3–8 years)
@@ -174,11 +174,11 @@ These are the specific fields that cause insurance claim rejections, from field 
 
 1. **`lib/voice/session.ts`** — VoiceSession state machine: `idle → listening → processing → responding → idle`
 2. **`lib/voice/transcript-parser.ts`** — Extract structured data from STT transcripts (moisture readings, room names, observations)
-3. **`lib/voice/completion-checker.ts`** — Check inspection completeness against S500:2025 required fields; return missing items ranked by priority
+3. **`lib/voice/completion-checker.ts`** — Check inspection completeness against S500:2021 required fields; return missing items ranked by priority
 4. **`lib/voice/prompts.ts`** — Mode-aware prompt templates for guided / assisted / dictation modes
 5. **`POST /api/voice/session`** — Create/update voice session, return next prompt
 6. **`POST /api/voice/observation`** — Accept a transcribed observation, parse it, store it, return confirmation
-7. **`GET /api/voice/checklist`** — Return outstanding S500:2025 items for current inspection
+7. **`GET /api/voice/checklist`** — Return outstanding S500:2021 items for current inspection
 8. **Mobile UI** — `/dashboard/inspections/[id]/voice` — voice session screen with waveform, transcript, and status
 
 ### Out of Scope (Phase 2)
@@ -195,7 +195,7 @@ These are the specific fields that cause insurance claim rejections, from field 
 
 - [ ] Voice session can be started from an open inspection
 - [ ] Tech can dictate a moisture reading verbally; it is parsed and stored
-- [ ] Completion checker identifies top 3 missing S500:2025 items
+- [ ] Completion checker identifies top 3 missing S500:2021 items
 - [ ] Mode switching (guided / assisted / dictation) changes prompt verbosity
 - [ ] All observations sync to the inspection report in real time
 - [ ] Works without screen interaction once session is started

@@ -24,9 +24,9 @@ Branch: `codex/phase-2-ai-workflow-upgrades`
 
 Current system prompt:
 
-- IICRC S500:2025 compliance reviewer for Australian water-damage restoration inspections.
+- IICRC S500:2021 compliance reviewer for Australian water-damage restoration inspections.
 - flags inconsistent, missing, or non-compliant interview answers.
-- requires specific `S500:2025 §X.Y` citations in messages.
+- requires specific `S500:2021 §X.Y` citations in messages.
 - returns JSON only with a `findings` array.
 - clean answers return `{"findings": []}`.
 
@@ -99,7 +99,7 @@ Required tests:
 - gateway remains `callAnthropicWithFallback`.
 - model fallback chain remains unchanged.
 - request `max_tokens` and `temperature` remain unchanged.
-- system prompt still contains the existing IICRC S500:2025 validation instructions.
+- system prompt still contains the existing IICRC S500:2021 validation instructions.
 - output behavior remains unchanged for valid findings, clean findings, parse fallback, and gateway failure.
 - no extra provider call occurs.
 

@@ -78,7 +78,7 @@
 1. Show the NIR form with pre-filled Ascora data
 2. Click "Generate AI Report" → streaming response
 3. Show PDF export button
-4. "The whole report — compliant with IICRC S500:2025 — in under 60 seconds"
+4. "The whole report — compliant with IICRC S500:2021 — in under 60 seconds"
 
 **Closing:** "The goal is: your technician captures everything on site on the mobile app. Back at the office, you generate the scope and the NIR report in 3 clicks. No more re-keying data, no more chasing techs for readings."
 
@@ -107,7 +107,7 @@
 | -------------------------------------- | ---------------------------------------------------- | --------------------------------------------------- |
 | **TM+** (Total Restoration Management) | New features, pricing changes, panel insurer deals   | Who are their biggest clients? What do they charge? |
 | **RestorationX**                       | Mobile app capability, Australian market penetration | Are they targeting SMB or enterprise?               |
-| **iRestore**                           | Report compliance, IICRC integration                 | How do they handle S500:2025 documentation?         |
+| **iRestore**                           | Report compliance, IICRC integration                 | How do they handle S500:2021 documentation?         |
 | **Encircle**                           | AU market entry, demo capabilities                   | Australian-specific features vs US product?         |
 
 **Post-conference action:** Update competitor analysis doc with findings
@@ -119,7 +119,7 @@
 ### Printed collateral (A5 card, 200 copies)
 
 - RestoreAssist logo + tagline: "Scope. Document. Get Paid."
-- 3 key features: AI Scope Generator, Mobile Field App, IICRC S500:2025 Compliance
+- 3 key features: AI Scope Generator, Mobile Field App, IICRC S500:2021 Compliance
 - QR code linking to: [restoreassist.app/demo](https://restoreassist.app)
 - Contact: phill@restoreassist.app
 
@@ -136,7 +136,7 @@
 Content:
 
 - "The Compliance Problem Every Australian Restorer Knows"
-- S500:2025 documentation requirements summary
+- S500:2021 documentation requirements summary
 - How RestoreAssist solves each requirement
 - Pricing: [insert current pricing from /pricing page]
 - Free trial QR code

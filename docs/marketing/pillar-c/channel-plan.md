@@ -67,7 +67,7 @@
 | Post type | Sponsored 200-word column in the monthly newsletter; one-time launch announcement plus quarterly thereafter |
 | Frequency | Launch month + months 3, 6, 9 |
 | Who posts | Phill, signed off by RIA editorial |
-| Topic angles | "What changed in S500:2025 §7.1 and what it means for your reports"; "ABN-anchored CRM setup — a teardown"; case study from an early-access operator (with permission) |
+| Topic angles | "What changed in S500:2021 §7.1 and what it means for your reports"; "ABN-anchored CRM setup — a teardown"; case study from an early-access operator (with permission) |
 | Success metric | UTM-tagged click-throughs to `/setup`; survey response rate from existing customers asking "did you see the column?" Target: 50 attributable clicks per placement. |
 | Cost | A$300–A$600 per placement (RIA standard rates). Tracked but not categorised as "paid ads" — it's industry sponsorship, not Meta. |
 

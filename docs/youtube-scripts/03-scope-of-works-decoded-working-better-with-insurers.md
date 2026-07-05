@@ -13,7 +13,7 @@
 > "The restorer-insurer relationship in Australia is broken. Not because of bad people. Not because of deliberate obstruction. It's broken because restorers and insurers are reading the same scope of works document and seeing completely different things.
 >
 > The restorer sees: what I did, what it cost, what the site required.
-> The insurer's assessor sees: is this document complete, does it meet S500:2025, do the quantities justify the cost, is this my problem or theirs?
+> The insurer's assessor sees: is this document complete, does it meet S500:2021, do the quantities justify the cost, is this my problem or theirs?
 >
 > I've been on both sides of this. And I want to show you today — specifically, section by section — what goes in a scope of works that gets approved quickly, and what goes in a scope that gets queries, delays, and reduced."
 
@@ -23,7 +23,7 @@
 
 ### The assessor's job
 
-> "Most people reading your scope are Chartered Loss Adjusters (CLAs) or authorised representatives working to a review checklist. They are not restoration professionals. They are document reviewers. And in 2025, their checklist has S500:2025 as its backbone.
+> "Most people reading your scope are Chartered Loss Adjusters (CLAs) or authorised representatives working to a review checklist. They are not restoration professionals. They are document reviewers. And in 2025, their checklist has S500:2021 as its backbone.
 >
 > Their incentive structure: process claims correctly, within their authority limit, without overpaying. They are not trying to underpay you — they are trying to process correctly. When your scope doesn't give them what they need to tick their boxes, the file goes into a query queue. That queue costs you time and cash flow."
 
@@ -42,13 +42,13 @@
 
 ## Section 2: The 7-section scope structure that works (3:30–9:00)
 
-> "Every scope I write — every scope I recommend — has seven sections. This matches S500:2025's documentation framework, which means every section answers a question the assessor is going to ask anyway."
+> "Every scope I write — every scope I recommend — has seven sections. This matches S500:2021's documentation framework, which means every section answers a question the assessor is going to ask anyway."
 
 ### Section 1: Water Source and Loss Mechanism (3:30–4:15)
 
 > "What happened. Where the water came from. What category it is and how you determined that.
 >
-> The key phrase assessors want to see: 'Category determined by visual assessment of source and site conditions per IICRC S500:2025 §3.2.' That one sentence tells the assessor: you know the standard, you applied it, it's documented. It moves the file."
+> The key phrase assessors want to see: 'Category determined by visual assessment of source and site conditions per IICRC S500:2021 §3.2.' That one sentence tells the assessor: you know the standard, you applied it, it's documented. It moves the file."
 
 ### Section 2: Emergency Services and Initial Extraction (4:15–4:45)
 
@@ -66,7 +66,7 @@
 
 > "Initial psychrometric readings, containment approach, and your target conditions.
 >
-> For S500:2025 compliance, include: initial dry bulb temperature, initial relative humidity, initial grain pressure (GPP) reading, target GPP based on material class, and projected drying timeline.
+> For S500:2021 compliance, include: initial dry bulb temperature, initial relative humidity, initial grain pressure (GPP) reading, target GPP based on material class, and projected drying timeline.
 >
 > If you can't do a GPP calculation, at minimum record the dry bulb and RH and reference the S500 §6 table for your region's ambient baseline."
 
@@ -78,7 +78,7 @@
 > - 1 air mover per 15m² of affected floor area
 > - 1 air scrubber per 100m² for Category 2 or 3
 >
-> Write it as: 'Affected area: 62m². Equipment deployed per IICRC S500:2025 §11: 2 × LGR dehumidifiers [ceil(62/40)], 5 × air movers [ceil(62/15)]. Equipment placed per attached diagram.'
+> Write it as: 'Affected area: 62m². Equipment deployed per IICRC S500:2021 §11: 2 × LGR dehumidifiers [ceil(62/40)], 5 × air movers [ceil(62/15)]. Equipment placed per attached diagram.'
 >
 > That's it. That sentence is what approves this section."
 
@@ -86,13 +86,13 @@
 
 > "How often you took readings, where, and what you were monitoring for. Reference your attached monitoring log.
 >
-> S500:2025 §12 requires documented readings. The monitoring log is the documentation. If you have it, reference it. If you don't have it, build it — even if it's a table in the scope document itself."
+> S500:2021 §12 requires documented readings. The monitoring log is the documentation. If you have it, reference it. If you don't have it, build it — even if it's a table in the scope document itself."
 
 ### Section 7: Drying Validation and Sign-Off (8:15–9:00)
 
 > "Final readings vs targets. Comparison of initial and final GPP or EMC. Clearance statement.
 >
-> The sentence: 'Final moisture readings achieved S500:2025 §11.4 EMC targets for [material type] at [Class]. Drying Goal achieved. Clearance issued [date].'
+> The sentence: 'Final moisture readings achieved S500:2021 §11.4 EMC targets for [material type] at [Class]. Drying Goal achieved. Clearance issued [date].'
 >
 > That sentence closes the job. It tells the assessor: the work is done, the standard was met, the documentation is complete."
 
@@ -107,10 +107,10 @@
 ### The language of compliance
 
 **Instead of:** "Water damage was extensive and equipment was deployed across multiple rooms."
-**Write:** "Moisture content readings of 68–92% were recorded across 62m² of Level 1 flooring (timber substrate). Equipment deployed per IICRC S500:2025 §11 ratios: 2 × LGR dehumidifiers, 5 × air movers. Containment established per S500:2025 §6.4."
+**Write:** "Moisture content readings of 68–92% were recorded across 62m² of Level 1 flooring (timber substrate). Equipment deployed per IICRC S500:2021 §11 ratios: 2 × LGR dehumidifiers, 5 × air movers. Containment established per S500:2021 §6.4."
 
 **Instead of:** "Drying was completed successfully after 5 days."
-**Write:** "Day 5 moisture content readings: 12–15% across all monitored locations. S500:2025 §11.4 EMC target for Class 2 timber: ≤15%. Drying Goal achieved. Final psychrometric reading: 21°C, 52% RH, 65 GPP (ambient). Clearance issued 2026-03-25."
+**Write:** "Day 5 moisture content readings: 12–15% across all monitored locations. S500:2021 §11.4 EMC target for Class 2 timber: ≤15%. Drying Goal achieved. Final psychrometric reading: 21°C, 52% RH, 65 GPP (ambient). Clearance issued 2026-03-25."
 
 ### The equipment diagram requirement
 
@@ -125,7 +125,7 @@
 ### The three-step dispute response
 
 1. **Identify the specific objection** — Call the assessor and ask: which line item or which section is in dispute? Get it in writing (email is fine).
-2. **Respond to the standard, not the person** — Your response should reference S500:2025 or the relevant Australian standard. "Our equipment quantities are per IICRC S500:2025 §11. Attached are our initial moisture readings justifying the affected area calculation."
+2. **Respond to the standard, not the person** — Your response should reference S500:2021 or the relevant Australian standard. "Our equipment quantities are per IICRC S500:2021 §11. Attached are our initial moisture readings justifying the affected area calculation."
 3. **Escalate with evidence, not argument** — If the assessor is applying the wrong standard or an outdated checklist, the escalation path is: provide the standard page number, provide your documentation, and ask for the specific section they believe you've failed to meet.
 
 ### When to involve your association
@@ -157,7 +157,7 @@
 
 > "The scope of works is not a description of your work. It's a compliance document that gets you paid. Write it that way.
 >
-> Seven sections, S500:2025 references in each one, equipment quantities justified against §11 ratios, psychrometric readings documented, monitoring log attached or included, clearance sign-off citing §11.4 EMC targets.
+> Seven sections, S500:2021 references in each one, equipment quantities justified against §11 ratios, psychrometric readings documented, monitoring log attached or included, clearance sign-off citing §11.4 EMC targets.
 >
 > That scope gets approved. It gets approved faster. It builds trust with assessors. And over time, it builds a reputation as the restorer whose files are clean — which means you get called for the bigger losses.
 >
@@ -179,7 +179,7 @@
 
 **Title:** Scope of Works Decoded: How Restorers Can Work Better with Insurers
 **Description:** Why scopes get queried, the 7-section structure that gets approved, and how to write for compliance rather than chronology. For Australian water damage restoration professionals.
-**Tags:** scope of works water damage, insurance assessor Australia, IICRC S500:2025 scope, restoration claim approval, loss adjuster Australia, water damage documentation
+**Tags:** scope of works water damage, insurance assessor Australia, IICRC S500:2021 scope, restoration claim approval, loss adjuster Australia, water damage documentation
 
 ---
 

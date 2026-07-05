@@ -7,7 +7,7 @@
 
 ## 0. Context
 
-SP-H bridges the existing Obsidian wiki (145 .md files + growing restoration-domain notes) and the AI Sidekick (SP-G). Without SP-H, Sidekick tools cannot answer "What's IICRC S500:2025 §7.1 say about cat-3 on hardwood?" or "Show me similar jobs to this claim type." IICRC standard lookups, prior-job pattern matching, AU regulatory text retrieval, and method recommendations all depend on SP-H's vector store.
+SP-H bridges the existing Obsidian wiki (145 .md files + growing restoration-domain notes) and the AI Sidekick (SP-G). Without SP-H, Sidekick tools cannot answer "What's IICRC S500:2021 §7.1 say about cat-3 on hardwood?" or "Show me similar jobs to this claim type." IICRC standard lookups, prior-job pattern matching, AU regulatory text retrieval, and method recommendations all depend on SP-H's vector store.
 
 **Why now:** SP-G spec (Section 6) requires `lookup-iicrc()` to query a knowledge substrate. The wiki exists; Obsidian → Supabase sync infrastructure exists (`sync_wiki_to_supabase.py`). SP-H extends that plumbing to add chunking + embeddings.
 

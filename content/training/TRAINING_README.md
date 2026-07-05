@@ -147,7 +147,7 @@ Each line in `prompt-examples.jsonl` is a valid JSON object:
 ```json
 {
   "messages": [
-    { "role": "system", "content": "You are an IICRC S500:2025 certified..." },
+    { "role": "system", "content": "You are an IICRC S500:2021 certified..." },
     { "role": "user", "content": "Generate a scope for..." },
     {
       "role": "assistant",
@@ -164,7 +164,7 @@ This is the OpenAI fine-tuning JSONL format for `gpt-4o-mini` and `gpt-4o`.
 | Category                                                                     | Count | Lines |
 | ---------------------------------------------------------------------------- | ----- | ----- |
 | Scope generation (water damage, various categories/classes)                  | 25    | 1–25  |
-| Equipment calculation (IICRC S500:2025 ratios, AS/NZS 3012:2019 load checks) | 10    | 26–35 |
+| Equipment calculation (IICRC S500:2021 ratios, AS/NZS 3012:2019 load checks) | 10    | 26–35 |
 | Moisture reading interpretation (drying validation, spike investigation)     | 10    | 36–45 |
 | Claim classification from job description                                    | 5     | 46–50 |
 
@@ -256,12 +256,12 @@ Each example includes:
 
 ## Data Quality Notes
 
-- All scope examples are authored by a domain expert familiar with IICRC S500:2025, S520, and S770
-- IICRC section references are accurate as of S500:2025 (current edition as of 2026)
+- All scope examples are authored by a domain expert familiar with IICRC S500:2021, S520, and S700:2025
+- IICRC section references are accurate as of S500:2021 (current edition as of 2026)
 - Dollar amounts are in AUD, reflect SE Queensland market rates (2025–2026), and include labour + equipment + materials
-- Equipment ratios strictly follow IICRC S500:2025: 1 LGR/40 m², 1 air mover/15 m², 1 scrubber/100 m²
+- Equipment ratios strictly follow IICRC S500:2021: 1 LGR/40 m², 1 air mover/15 m², 1 scrubber/100 m²
 - AS/NZS 3012:2019 electrical load calculations are correct (80% rule applied)
-- Category upgrade logic (Cat 1 → Cat 2 after 72 hours) follows S500:2025 §4.3
+- Category upgrade logic (Cat 1 → Cat 2 after 72 hours) follows S500:2021 §4.3
 
 ---
 

@@ -7,7 +7,7 @@
  * Standards referenced:
  *   NZBS E2:2004+A3:2013 — External Moisture (NZ Building Code clause E2)
  *   NZBS E3 — Internal Moisture (NZ Building Code clause E3)
- *   IICRC S500:2025 — Water Damage Restoration Standard
+ *   IICRC S500:2021 — Water Damage Restoration Standard
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -42,7 +42,7 @@ const NZ_INSURER_PROFILES = [
     specialInstructions:
       "IAG NZ (State/AMI/NZI/Lumley) requires scope of works signed by the property owner or authorised representative before work commences. Moisture readings must include room annotations or GPS coordinates. Contents damage must be itemised separately. All reports should reference GST-exclusive amounts; GST (15% NZ) is added separately. Submit documentation in PDF format with supporting photos.",
     iicrcComplianceNote:
-      "IAG NZ references IICRC S500:2025 for water damage classification and category. NZ building compliance per NZBS E2:2004+A3:2013 §9 (subfloor moisture) and E3 (internal moisture management). Class and Category must be documented per S500:2025 §5.1–§5.3.",
+      "IAG NZ references IICRC S500:2021 for water damage classification and category. NZ building compliance per NZBS E2:2004+A3:2013 §9 (subfloor moisture) and E3 (internal moisture management). Class and Category must be documented per S500:2021 §5.1–§5.3.",
     isSystemProfile: true,
   },
   {
@@ -72,7 +72,7 @@ const NZ_INSURER_PROFILES = [
     specialInstructions:
       "Suncorp NZ (Vero/AA Insurance) requires daily progress reports for jobs exceeding 5 days. Enhanced report format preferred. Air quality readings required for all Category 2+ jobs. Invoice must reference the claim number. All amounts in NZD; GST at 15%. Submit reports and photos in PDF format.",
     iicrcComplianceNote:
-      "Suncorp NZ follows IICRC S500:2025 and S520:2015 for mould remediation. NZ building compliance per NZBS E2:2004+A3:2013 and E3. Psychrometric readings required at start and end of each drying phase.",
+      "Suncorp NZ follows IICRC S500:2021 and S520:2024 for mould remediation. NZ building compliance per NZBS E2:2004+A3:2013 and E3. Psychrometric readings required at start and end of each drying phase.",
     isSystemProfile: true,
   },
   {
@@ -101,7 +101,7 @@ const NZ_INSURER_PROFILES = [
     specialInstructions:
       "Tower NZ requires scope submission within 48 hours of initial assessment. Progress updates required every 48 hours during the drying phase. All documentation in PDF with photos. Invoice amounts in NZD excluding GST (15%). Include claim reference number on all communications.",
     iicrcComplianceNote:
-      "Tower NZ accepts IICRC S500:2025 standards for water damage restoration. NZ building moisture compliance per NZBS E2:2004+A3:2013 §4 and E3. Document temperature and relative humidity readings twice daily during drying.",
+      "Tower NZ accepts IICRC S500:2021 standards for water damage restoration. NZ building moisture compliance per NZBS E2:2004+A3:2013 §4 and E3. Document temperature and relative humidity readings twice daily during drying.",
     isSystemProfile: true,
   },
   {
@@ -130,7 +130,7 @@ const NZ_INSURER_PROFILES = [
     specialInstructions:
       "FMG specialises in rural and farming properties. Scope must be approved before commencement. Farm buildings and rural structures may require structural assessment photos. Subfloor and agricultural moisture environments require additional documentation. All amounts in NZD; GST 15% itemised separately. PDF reports with photos required.",
     iicrcComplianceNote:
-      "FMG references IICRC S500:2025 for water damage. NZ rural building compliance under NZBS E2:2004+A3:2013 — particular attention to §6 (roofs and walls) for farm structures. Subfloor moisture per E3 internal moisture clause.",
+      "FMG references IICRC S500:2021 for water damage. NZ rural building compliance under NZBS E2:2004+A3:2013 — particular attention to §6 (roofs and walls) for farm structures. Subfloor moisture per E3 internal moisture clause.",
     isSystemProfile: true,
   },
   {
@@ -160,7 +160,7 @@ const NZ_INSURER_PROFILES = [
     specialInstructions:
       "MAS serves medical professionals and their families. Higher documentation standards expected given the professional membership. Air quality readings recommended for any Category 2+ job. Submit reports in PDF format. Amounts in NZD; GST 15% shown separately. Pre-authorisation recommended for jobs over $5,000.",
     iicrcComplianceNote:
-      "MAS references IICRC S500:2025 standards. NZ building compliance per NZBS E2:2004+A3:2013 and E3. Air quality documentation per S520:2015 for any mould-adjacent restoration work.",
+      "MAS references IICRC S500:2021 standards. NZ building compliance per NZBS E2:2004+A3:2013 and E3. Air quality documentation per S520:2024 for any mould-adjacent restoration work.",
     isSystemProfile: true,
   },
   {
@@ -189,7 +189,7 @@ const NZ_INSURER_PROFILES = [
     specialInstructions:
       "Ando NZ is a digital-first NZ insurer. Prefer digital submission of all documentation. PDF reports with embedded photos accepted. Amounts in NZD; GST 15% shown separately. Include claim reference on all communications. Moisture readings should reference room names and measurement locations clearly.",
     iicrcComplianceNote:
-      "Ando NZ accepts IICRC S500:2025 for water damage restoration. NZ building moisture compliance per NZBS E2:2004+A3:2013 and E3. Class and Category designation required per S500:2025 §5.1.",
+      "Ando NZ accepts IICRC S500:2021 for water damage restoration. NZ building moisture compliance per NZBS E2:2004+A3:2013 and E3. Class and Category designation required per S500:2021 §5.1.",
     isSystemProfile: true,
   },
   {
@@ -220,7 +220,7 @@ const NZ_INSURER_PROFILES = [
     specialInstructions:
       "QBE NZ requires an independent scoper (not the restorer) for all jobs over NZD $10,000. Thermal imaging strongly preferred for Category 2+ jobs. Structural assessment photos required where wall or ceiling cavities are affected. Third-party scope must be submitted before QBE approves work. All IICRC certifications must be current — include certification numbers in report. Amounts in NZD; GST 15% itemised.",
     iicrcComplianceNote:
-      "QBE NZ references IICRC S500:2025 and requires explicit Class and Category designation per §5.1. NZ building moisture compliance per NZBS E2:2004+A3:2013 and E3. All technicians must hold current IICRC certifications.",
+      "QBE NZ references IICRC S500:2021 and requires explicit Class and Category designation per §5.1. NZ building moisture compliance per NZBS E2:2004+A3:2013 and E3. All technicians must hold current IICRC certifications.",
     isSystemProfile: true,
   },
 ];

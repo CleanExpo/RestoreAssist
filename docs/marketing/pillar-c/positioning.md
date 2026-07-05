@@ -30,14 +30,14 @@ That is the difference between "AI-powered" as a marketing claim and AI-driven a
 A restoration owner-operator hires RestoreAssist to:
 
 - **Get billable on day one** — turn an ABN into a configured, branded, ready-to-quote workspace without a 14-step checklist.
-- **Walk into a claim dispute with the report already written** — IICRC S500:2025 §7.1 references in the footer, GPS-stamped photos with a verifiable chain of custody, GST at 10% calculated correctly, state-specific clauses applied.
+- **Walk into a claim dispute with the report already written** — IICRC S500:2021 §7.1 references in the footer, GPS-stamped photos with a verifiable chain of custody, GST at 10% calculated correctly, state-specific clauses applied.
 - **Stop the bookkeeping bleed** — push completed jobs into Xero, MYOB, or QuickBooks without re-keying line items.
 - **Know the platform is healthy before a 2am callout** — a single page that shows green or red on every advertised capability, including the AI itself.
 
 ## What we are NOT
 
 - Not a generic field service CRM with a restoration "vertical pack" bolted on. The data model, the report templates, and the IICRC references are first-class, not afterthoughts.
-- Not a marketing-AI wrapper. Reports cite IICRC S500:2025 §7.1, S520:2024 §12, and state building codes by their actual authority names — not "industry standards".
+- Not a marketing-AI wrapper. Reports cite IICRC S500:2021 §7.1, S520:2024 §12, and state building codes by their actual authority names — not "industry standards".
 - Not a US product retranslated for Australia. GST is 10%. ABN is 11 digits. State codes route through correct jurisdictional matrices, not zip-code regex.
 - Not pay-per-AI-call. Platform Gemma drives setup hydration for free; BYOK is optional and lives behind a collapsible section in the wizard.
 - Not a quote-generator. RestoreAssist runs the job from first-call to insurer-accepted report, with photos and pricing intact.

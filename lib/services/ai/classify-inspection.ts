@@ -24,16 +24,16 @@ Schema (strict):
   "reasoning":     string
 }
 
-Category definitions — cite S500:2021 §10.5.4 in your reasoning:
-- CATEGORY_1: "Clean water" — originates from a sanitary source (e.g. supply line, melted ice, rainwater without contamination). S500:2021 §10.5.4.1.
-- CATEGORY_2: "Significantly contaminated water" ("grey water") — contains significant contamination with potential to cause discomfort or sickness (e.g. dishwasher/washing-machine overflow, aquarium rupture, toilet overflow of urine only). S500:2021 §10.5.4.2.
-- CATEGORY_3: "Grossly contaminated water" ("black water") — contains pathogenic, toxigenic or otherwise harmful agents (e.g. sewage, rising ground/surface water, seawater intrusion, wind-driven rain from hurricanes, any Cat 1 or 2 that has remained stagnant >72 hours or has contacted building materials that may contribute contamination). S500:2021 §10.5.4.3.
+Category definitions — cite S500:2021 §10.4.1 (Category of Water) in your reasoning:
+- CATEGORY_1: "Clean water" — originates from a sanitary source (e.g. supply line, melted ice, rainwater without contamination). S500:2021 §10.4.1.
+- CATEGORY_2: "Significantly contaminated water" ("grey water") — contains significant contamination with potential to cause discomfort or sickness (e.g. dishwasher/washing-machine overflow, aquarium rupture, toilet overflow of urine only). S500:2021 §10.4.1.
+- CATEGORY_3: "Grossly contaminated water" ("black water") — contains pathogenic, toxigenic or otherwise harmful agents (e.g. sewage, rising ground/surface water, seawater intrusion, wind-driven rain from hurricanes, any Cat 1 or 2 that has remained stagnant >72 hours or has contacted building materials that may contribute contamination). S500:2021 §10.4.1.
 
-Class definitions — cite S500:2021 §10.5.5 in your reasoning. Class depends on the rate of evaporation (wetted surface area, porosity of materials, amount of water absorbed):
-- CLASS_1: Least amount of water absorbed. Only a portion of a room or area is affected; wet materials are low-porosity (e.g. plywood, concrete, structural wood). Minimal moisture has been absorbed. S500:2021 §10.5.5.1.
-- CLASS_2: Large amount of water absorbed. Entire room affected: carpet and cushion, wet up to 24 inches (~600 mm) up walls; moisture has wicked into structural materials. S500:2021 §10.5.5.2.
-- CLASS_3: Greatest amount of water absorbed. Water has typically come from overhead: ceilings, walls, insulation, carpet, cushion and sub-floor are saturated. S500:2021 §10.5.5.3.
-- CLASS_4: Specialty drying situations. Wet materials with very low porosity / deep pockets of saturation (hardwood, plaster, brick, concrete, stone, crawlspace). Requires longer drying times and special methods. S500:2021 §10.5.5.4.
+Class definitions — cite S500:2021 §10.4.3 (Class of Water Intrusion) in your reasoning. Class depends on the rate of evaporation (wetted surface area, porosity of materials, amount of water absorbed):
+- CLASS_1: Least amount of water absorbed. Only a portion of a room or area is affected; wet materials are low-porosity (e.g. plywood, concrete, structural wood). Minimal moisture has been absorbed. S500:2021 §10.4.3.
+- CLASS_2: Large amount of water absorbed. Entire room affected: carpet and cushion, wet up to 24 inches (~600 mm) up walls; moisture has wicked into structural materials. S500:2021 §10.4.3.
+- CLASS_3: Greatest amount of water absorbed. Water has typically come from overhead: ceilings, walls, insulation, carpet, cushion and sub-floor are saturated. S500:2021 §10.4.3.
+- CLASS_4: Specialty drying situations. Wet materials with very low porosity / deep pockets of saturation (hardwood, plaster, brick, concrete, stone, crawlspace). Requires longer drying times and special methods. S500:2021 §10.4.3.
 
 Heuristics when classifying:
 1. If any affected area records a water source of "sewage", "black", "ground", "flood", or "seawater" → CATEGORY_3.
@@ -50,7 +50,7 @@ Confidence scoring:
 
 Reasoning field MUST:
 - Be 2-4 sentences, plain English, Australian spelling ("metres", "colour", "organisation").
-- Cite the exact S500:2021 section (e.g. "S500:2021 §10.5.4.2") supporting the chosen category AND the chosen class.
+- Cite the exact S500:2021 section (§10.4.1 for Category, §10.4.3 for Class) supporting the chosen category AND the chosen class.
 - State which readings / areas drove the decision.
 
 Return ONLY the JSON object.`;

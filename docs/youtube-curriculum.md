@@ -26,7 +26,7 @@ The 90-day curriculum maps to the **IICRC Water Damage Restoration Technician (W
 | --- | -------------------------------- | ------------------------------- | ------------------------ | ------ |
 | 1   | Water Source Classification      | S500 §3 — Category & Class      | Technical Knowledge      | 2      |
 | 2   | Psychrometrics & Drying Science  | S500 §6 — Psychrometrics        | Technical Knowledge      | 3      |
-| 3   | IICRC S500:2025 Updates          | S500 (all) — Standards Literacy | Regulatory Compliance    | 2      |
+| 3   | IICRC S500:2021 Updates          | S500 (all) — Standards Literacy | Regulatory Compliance    | 2      |
 | 4   | Equipment Selection & Placement  | S500 §11 — Equipment            | Technical Application    | 3      |
 | 5   | Moisture Measurement & Mapping   | S500 §7 — Monitoring            | Technical Application    | 3      |
 | 6   | Scope of Works Mastery           | S500 §12 — Documentation        | Professional Practice    | 3      |
@@ -46,18 +46,18 @@ The 90-day curriculum maps to the **IICRC Water Damage Restoration Technician (W
 
 ### Month 1 — Foundation: Standards & Science (Weeks 1–4)
 
-_Build the core credentials. Establish as the go-to S500:2025 resource for Australian restorers._
+_Build the core credentials. Establish as the go-to S500:2021 resource for Australian restorers._
 
 | Week | #   | Title                                                                            | Module | CPD Tag               | Script                                                                                      |
 | ---- | --- | -------------------------------------------------------------------------------- | ------ | --------------------- | ------------------------------------------------------------------------------------------- |
-| 1    | V01 | AS-IICRC S500:2025 — What Australian Restorers Need to Know                      | M3     | Regulatory Compliance | ✅ [Script 1](youtube-scripts/01-iicrc-s500-2025-what-australian-restorers-need-to-know.md) |
+| 1    | V01 | AS-IICRC S500:2021 — What Australian Restorers Need to Know                      | M3     | Regulatory Compliance | ✅ [Script 1](youtube-scripts/01-iicrc-s500-2021-what-australian-restorers-need-to-know.md) |
 | 1    | V02 | Water Damage Categories Explained: 1, 2, 3 — What Actually Changes Your Protocol | M1     | Technical Knowledge   | ⬜                                                                                          |
 | 2    | V03 | AI Moisture Mapping — Is It Ready for Australian Sites?                          | M5     | Technical Application | ✅ [Script 2](youtube-scripts/02-ai-moisture-mapping-ready-for-australian-sites.md)         |
 | 2    | V04 | Psychrometrics for Restorers: GPP, RH, and Why They Matter                       | M2     | Technical Knowledge   | ⬜                                                                                          |
 | 3    | V05 | Scope of Works Decoded — Working Better with Insurers                            | M6     | Professional Practice | ✅ [Script 3](youtube-scripts/03-scope-of-works-decoded-working-better-with-insurers.md)    |
 | 3    | V06 | IICRC S500 Equipment Ratios: How to Calculate Air Movers & Dehu Quantities       | M4     | Technical Application | ⬜                                                                                          |
-| 4    | V07 | Water Damage Class 1–4: What the New S500:2025 Definitions Mean for Your Scopes  | M1     | Technical Knowledge   | ⬜                                                                                          |
-| 4    | V08 | Setting Up Containment: When and How Per S500:2025                               | M7     | Safety & Compliance   | ⬜                                                                                          |
+| 4    | V07 | Water Damage Class 1–4: What the New S500:2021 Definitions Mean for Your Scopes  | M1     | Technical Knowledge   | ⬜                                                                                          |
+| 4    | V08 | Setting Up Containment: When and How Per S500:2021                               | M7     | Safety & Compliance   | ⬜                                                                                          |
 
 ### Month 2 — Application: Protocols & Field Practice (Weeks 5–8)
 
@@ -71,7 +71,7 @@ _Move from theory to practice. Field-focused, site-specific, Australian building
 | 6    | V12 | Category 3 Black Water: Full Protocol Walkthrough                            | M7     | Safety & Compliance   |
 | 7    | V13 | Reading Psychrometric Data on Site: A Step-by-Step Guide                     | M2     | Technical Knowledge   |
 | 7    | V14 | Structural Drying in Double-Brick — The Australian Builder Problem           | M8     | Technical Application |
-| 8    | V15 | Daily Monitoring Logs: Exactly What S500:2025 §12 Requires                   | M6     | Professional Practice |
+| 8    | V15 | Daily Monitoring Logs: Exactly What S500:2021 §12 Requires                   | M6     | Professional Practice |
 | 8    | V16 | Equipment Placement Diagrams: How to Draw Them (and Why Assessors Love Them) | M4     | Technical Application |
 
 ### Month 3 — Mastery: Business, Compliance & Emerging Tech (Weeks 9–13)

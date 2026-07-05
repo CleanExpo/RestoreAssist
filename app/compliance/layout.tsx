@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description:
     "How RestoreAssist maps to IICRC S500:2021 — the Australian standard for professional water damage restoration. Field-by-field compliance reference for restoration contractors and insurance assessors.",
   keywords: [
-    "IICRC S500 2025 compliance",
+    "IICRC S500 2021 compliance",
     "water damage restoration Australia",
     "S500 compliant reports",
     "restoration software IICRC",

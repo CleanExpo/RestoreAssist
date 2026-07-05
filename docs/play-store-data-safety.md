@@ -56,7 +56,7 @@ or `Optional` (user can decline).
 
 | Type                    | Collected | Shared | Purposes                  | Required? | Notes                                                                                                                |
 | ----------------------- | --------- | ------ | ------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Approximate location**| Yes       | No     | App functionality         | Required  | Stamped onto inspection photos for IICRC S500:2025 §10.5 chain-of-custody.                                          |
+| **Approximate location**| Yes       | No     | App functionality         | Required  | Stamped onto inspection photos for IICRC S500:2021 §10.5 chain-of-custody.                                          |
 | **Precise location**    | Yes       | No     | App functionality         | Required  | Same use-case (GPS lat/lon to ~10m). Only captured during photo / reading capture; **not** tracked in the background. |
 
 ### Files and docs

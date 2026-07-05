@@ -50,13 +50,13 @@ There are three distinct things that get marketed as "AI moisture mapping":
 
 > "In a large residential job — say, a two-storey house with a burst supply line — moisture migrates through walls, under floors, into ceiling cavities. Tracking it manually across 15 rooms is genuinely difficult. AI mapping tools that let you import a floor plan, drop readings onto it, and see the spread as a heat map are useful here.
 >
-> The S500:2025 documentation requirements actually make this more valuable — because the map becomes part of your scope documentation. It shows your equipment placement is justified by data, not intuition."
+> The S500:2021 documentation requirements actually make this more valuable — because the map becomes part of your scope documentation. It shows your equipment placement is justified by data, not intuition."
 
 ### 2.3 Day-by-day drying progress tracking (5:00–7:00)
 
 > "Where I've seen the most real value in Australian jobs is day-by-day comparison. You take the same reading points every morning. The AI compares today's readings to yesterday's. It shows you whether you're drying faster or slower than your S500 projections, which rooms are lagging, and whether you need to reposition equipment.
 >
-> This is also where you build your S500:2025 §12 daily monitoring log automatically. The readings are timestamped, geotagged, and stored. Your compliance documentation basically writes itself."
+> This is also where you build your S500:2021 §12 daily monitoring log automatically. The readings are timestamped, geotagged, and stored. Your compliance documentation basically writes itself."
 
 ---
 
@@ -90,13 +90,13 @@ There are three distinct things that get marketed as "AI moisture mapping":
 
 ## Section 4: The Australian standard you need to know (11:00–13:00)
 
-**IICRC S500:2025 and moisture mapping documentation:**
+**IICRC S500:2021 and moisture mapping documentation:**
 
-> "S500:2025 §12 requires documented moisture readings with timestamps, locations, and equipment placement. AI moisture mapping tools that produce export reports — PDF or digital — are the cleanest way to satisfy this requirement.
+> "S500:2021 §12 requires documented moisture readings with timestamps, locations, and equipment placement. AI moisture mapping tools that produce export reports — PDF or digital — are the cleanest way to satisfy this requirement.
 >
 > What the standard doesn't require is that you use any particular tool. It requires that you have the data, that it's referenced in your scope, and that it shows your drying programme was appropriate for the damage class and category.
 >
-> So if you're evaluating AI moisture mapping tools — the question isn't just 'does it make good maps?' The question is 'does it produce documentation that satisfies S500:2025 §12 and can be attached to or referenced in my scope of works?'"
+> So if you're evaluating AI moisture mapping tools — the question isn't just 'does it make good maps?' The question is 'does it produce documentation that satisfies S500:2021 §12 and can be attached to or referenced in my scope of works?'"
 
 **Minimum documentation checklist:**
 
@@ -129,8 +129,8 @@ There are three distinct things that get marketed as "AI moisture mapping":
 ## SEO metadata
 
 **Title:** AI Moisture Mapping: Is It Ready for Australian Sites?
-**Description:** Honest assessment of AI moisture mapping tools for Australian water damage restoration — where they work, where they fail, and what IICRC S500:2025 requires.
-**Tags:** AI moisture mapping, water damage restoration Australia, IICRC S500:2025 documentation, moisture meter readings, drying progress tracking, Australian restoration software
+**Description:** Honest assessment of AI moisture mapping tools for Australian water damage restoration — where they work, where they fail, and what IICRC S500:2021 requires.
+**Tags:** AI moisture mapping, water damage restoration Australia, IICRC S500:2021 documentation, moisture meter readings, drying progress tracking, Australian restoration software
 
 ---
 

@@ -9,7 +9,7 @@ updatedAt: "2026-05-15"
 status: "published"
 heroImage: "ra-help/compliance/iicrc-citations-hero"
 relatedSlugs: []
-aiSummary: "Documents the four IICRC standards RestoreAssist cites by claim type (S500:2025 water, S520:2024 mould, S540:2023 trauma, S700:2025 fire), the citation format used in reports (edition + section), and how to override or remove a citation when the model gets it wrong."
+aiSummary: "Documents the four IICRC standards RestoreAssist cites by claim type (S500:2021 water, S520:2024 mould, S540:2023 trauma, S700:2025 fire), the citation format used in reports (edition + section), and how to override or remove a citation when the model gets it wrong."
 userIntents:
   - "how do you cite IICRC"
   - "what IICRC editions are used"
@@ -30,7 +30,7 @@ Every report RestoreAssist generates cites IICRC standards by **edition and sect
 
 | Claim type             | Standard                                        | Edition     |
 | ---------------------- | ----------------------------------------------- | ----------- |
-| **Water damage**       | IICRC S500 — Water Damage Restoration           | `S500:2025` |
+| **Water damage**       | IICRC S500 — Water Damage Restoration           | `S500:2021` |
 | **Mould remediation**  | IICRC S520 — Mold Remediation                   | `S520:2024` |
 | **Trauma / biohazard** | IICRC S540 — Trauma and Crime Scene             | `S540:2023` |
 | **Fire / smoke**       | IICRC S700 — Professional Fire and Smoke Damage | `S700:2025` |
@@ -41,7 +41,7 @@ When you pick the claim type on a new inspection, RestoreAssist locks the releva
 
 The locked format is `<standard>:<year> §<section>`. Examples:
 
-- `S500:2025 §10.5.2` — Category 2 water-damage definition
+- `S500:2021 §10.4.1` — Category of water definition (Category 1/2/3)
 - `S520:2024 §12.2.1` — Condition 1 mould remediation goal
 - `S540:2023 §6.3` — PPE requirements for trauma scenes
 
@@ -53,7 +53,7 @@ The locked format is `<standard>:<year> §<section>`. Examples:
 
 ## Why edition matters
 
-IICRC re-issues these standards every 3–5 years. A `S500:2015` citation in 2026 is a red flag — a tribunal will ask why you didn't apply the 2025 revision. RestoreAssist refuses to abbreviate (per `CLAUDE.md` rule 14) and refuses to cite an edition older than the locked one for that claim type.
+IICRC re-issues these standards every 3–5 years. Citing a superseded edition in 2026 is a red flag — a tribunal will ask why you didn't apply the current revision (S500:2021, 5th edition). RestoreAssist refuses to abbreviate (per `CLAUDE.md` rule 14) and refuses to cite an edition older than the locked one for that claim type.
 
 ## Override or remove a citation
 

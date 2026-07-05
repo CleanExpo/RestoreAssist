@@ -13,7 +13,7 @@ const query = {
 };
 
 const files = [
-  { id: "f1", name: "IICRC-S500-2025.pdf", mimeType: "application/pdf" },
+  { id: "f1", name: "IICRC-S500-2021.pdf", mimeType: "application/pdf" },
   { id: "f2", name: "AS-NZS-3000-Electrical.pdf", mimeType: "application/pdf" },
   { id: "f3", name: "Random-unrelated.pdf", mimeType: "application/pdf" },
 ];
@@ -69,7 +69,7 @@ describe("analyzeStandardsFolder", () => {
           {
             type: "text",
             // No JSON, just mentions filename prefix
-            text: "I recommend reviewing iicrc-s500-2025 because it covers water cat 2.",
+            text: "I recommend reviewing iicrc-s500-2021 because it covers water cat 2.",
           },
         ],
         usage: { input_tokens: 500, output_tokens: 100 },

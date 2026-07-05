@@ -388,7 +388,7 @@ function FireSmokeForm({
               ]}
             />
           </FieldRow>
-          <FieldRow label="Char Depth (mm)" hint="IICRC S770 §5.2">
+          <FieldRow label="Char Depth (mm)" hint="IICRC S700:2025 §3.1">
             <Input
               type="number"
               value={(data.charDepthMm as number) || ""}

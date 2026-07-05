@@ -11,7 +11,7 @@
 ### Beyond Clean Group — Email 1
 
 **To:** info@beyondcleangroup.com.au (or LinkedIn DM if available)
-**Subject:** RestoreAssist — IICRC S500:2025-compliant reporting, 10-min demo?
+**Subject:** RestoreAssist — IICRC S500:2021-compliant reporting, 10-min demo?
 
 ---
 
@@ -19,7 +19,7 @@ Hi [Name],
 
 I'm Phill from RestoreAssist — an AI-powered reporting platform built specifically for Australian restoration contractors.
 
-I noticed Beyond Clean Group has been IICRC-certified since 2009 and you're across the latest S500 standards. We've just shipped a feature set built directly around S500:2025 — compliant report generation, insurer share portals (no login required), and one-click PDF exports that cite section and edition throughout.
+I noticed Beyond Clean Group has been IICRC-certified since 2009 and you're across the latest S500 standards. We've just shipped a feature set built directly around S500:2021 — compliant report generation, insurer share portals (no login required), and one-click PDF exports that cite section and edition throughout.
 
 Would you have 10 minutes this week or next for a quick screen share? I'd rather show you than describe it — it's the kind of thing that takes 2 minutes to see and saves hours per week.
 
@@ -34,7 +34,7 @@ ABN: 62 580 077 456
 ### Elite Restoration Australia — Email 1
 
 **To:** [Contact via eliterestoration.au or elite.com.au contact form]
-**Subject:** RestoreAssist — built for IICRC S500:2025, interested in a pilot?
+**Subject:** RestoreAssist — built for IICRC S500:2021, interested in a pilot?
 
 ---
 
@@ -42,7 +42,7 @@ Hi [Name],
 
 I'm Phill from RestoreAssist. I've been following Elite Restoration — 40+ years in the industry, CM3 certified, and operating nationally across QLD, NSW and WA. That's exactly the profile we built RestoreAssist for.
 
-We've recently shipped S500:2025-compliant reporting that handles your assessment-to-report workflow end-to-end: moisture readings, psychrometric data, equipment logs, and insurer-ready PDFs with full section citations. For a business running the volume you do, it removes the manual bottleneck between field and office.
+We've recently shipped S500:2021-compliant reporting that handles your assessment-to-report workflow end-to-end: moisture readings, psychrometric data, equipment logs, and insurer-ready PDFs with full section citations. For a business running the volume you do, it removes the manual bottleneck between field and office.
 
 I'd love to show you in a 15-minute demo. We're currently onboarding a small group of IICRC-certified contractors as founding users — no cost during the pilot, full feature access.
 
@@ -64,7 +64,7 @@ Hi [Name],
 
 I'm Phill from RestoreAssist. I came across CRSA through the IICRC community — family-owned, QLD-based, IICRC-certified, and committed to continuous education. That's the kind of business RestoreAssist was built for.
 
-We've just shipped a reporting platform built around IICRC S500:2025. Every report cites the correct section and edition, psychrometric data is captured in the field, and insurers can access a shared portal without needing a login. No more chasing paper, no more report rework.
+We've just shipped a reporting platform built around IICRC S500:2021. Every report cites the correct section and edition, psychrometric data is captured in the field, and insurers can access a shared portal without needing a login. No more chasing paper, no more report rework.
 
 For a business like CRSA — where your reputation is built on compliance and quality — I think this would be a natural fit. We're inviting a handful of IICRC-certified contractors to trial it at no cost.
 
@@ -87,7 +87,7 @@ _[Listen. Note their answer — this becomes your hook for the demo.]_
 
 ---
 
-### Part 1 — Report with S500:2025 citations (5 min)
+### Part 1 — Report with S500:2021 citations (5 min)
 
 "Let me show you a report from one of our demo jobs."
 
@@ -95,9 +95,9 @@ Open: `/dashboard/reports/[demo-id]`
 
 **What to show:**
 
-- Water classification section — Category and Class auto-populated with S500:2025 §7.1 and §7.2 references
+- Water classification section — Category and Class auto-populated with S500:2021 §7.1 and §7.2 references
 - Moisture readings table with material-specific readings
-- Equipment log with S500:2025 §14 reference
+- Equipment log with S500:2021 §14 reference
 - Psychrometric data with §6 reference
 
 **Say:** "Every section references the correct edition and section number. Insurers and their loss adjusters can verify compliance without calling you. That alone removes a significant source of claim delays."
@@ -127,7 +127,7 @@ Click: Download PDF
 **What to show:**
 
 - 10-section IICRC-compliant PDF
-- Cover page with S500:2025 standard reference
+- Cover page with S500:2021 standard reference
 - Section headings matching the standard
 
 **Say:** "This is what goes into the claim file. Section headers, edition reference, your ABN and tech credentials — everything in the format insurers expect."

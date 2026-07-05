@@ -121,7 +121,7 @@ Reference: `briefs/ra-2026-05-15-wave-1-launch.*` for the exact shape.
 - **Tone:** professional, AI-led, "we do the work so you don't have to"
 - **Customer:** Australian water-damage tradies (sole traders + small companies)
 - **Forbidden phrases:** "leverage", "utilise", "best-in-class", "world-class", "game-changer", "revolutionary", "seamless", "powerful", "unlock", "journey", "excited", "thrilled", "delighted", "synergy", "in today's competitive landscape", "we are excited to announce", "tapestry"
-- **IICRC citations:** always include edition + section, e.g. `S500:2025 §7.1`
+- **IICRC citations:** always include edition + section, e.g. `S500:2021 §7.1`
 - **Australian compliance:** GST 10%, ABN 11 digits, state codes via `lib/nir-jurisdictional-matrix.ts`
 
 ---

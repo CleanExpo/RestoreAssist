@@ -82,9 +82,9 @@ Listen for: time spent on paperwork, rework from insurer queries, lag between jo
 Follow the demo script from `PILOT-OUTREACH-KIT.md`. Key milestones:
 
 1. **Inspection creation** — show the step-by-step form from field data capture to report
-2. **S500:2025 citation auto-population** — show a water classification section with §7.1/7.2 references auto-filled
+2. **S500:2021 citation auto-population** — show a water classification section with §7.1/7.2 references auto-filled
 3. **Moisture readings table** — enter 3 readings live to show real-time workflow
-4. **Equipment log** — show S500:2025 §14 auto-reference
+4. **Equipment log** — show S500:2021 §14 auto-reference
 5. **Insurer share portal** — open in incognito, highlight no-login access, 30-day validity
 6. **PDF export** — download and open, show 10-section structure with edition reference
 
@@ -140,9 +140,9 @@ In the admin dashboard (`/dashboard/admin` — requires admin role):
 
 ### 3.3 Set Default IICRC Vocabulary
 
-RestoreAssist ships with IICRC S500:2025 terminology pre-loaded. Confirm with the pilot that they're using the 2025 edition (not 2021 or earlier). If they have a specific state jurisdiction requirement:
+RestoreAssist ships with IICRC S500:2021 terminology pre-loaded. Confirm with the pilot that they're using the 2025 edition (not 2021 or earlier). If they have a specific state jurisdiction requirement:
 
-- QLD: default (standard S500:2025)
+- QLD: default (standard S500:2021)
 - NSW: confirm building code reference (BCA Volume 2 for residential)
 - VIC: confirm building code reference
 - WA/SA/NT: confirm variations with `lib/nir-jurisdictional-matrix.ts` reference
@@ -161,7 +161,7 @@ Create one seed inspection so the pilot has a reference point:
    - Technician: assign to the admin user
 3. Add 3 moisture readings with clearly different values (e.g., 18%, 22%, 31%) across 2 rooms
 4. Add 1 piece of equipment (dehumidifier) with S500 §14 reference
-5. Generate the report — confirm it renders correctly with S500:2025 citations
+5. Generate the report — confirm it renders correctly with S500:2021 citations
 6. Share the report URL with the pilot as their reference example
 
 ---
@@ -209,7 +209,7 @@ Walk them through their first real job in RestoreAssist:
 4. Add equipment placed
 5. Write the narrative (show the AI-assist feature)
 6. Generate the report
-7. Review for S500:2025 compliance — check that all section references appear
+7. Review for S500:2021 compliance — check that all section references appear
 8. Share with insurer via the portal link
 
 **Time target:** First real report in under 25 minutes on the phone together.
@@ -222,13 +222,13 @@ Walk them through their first real job in RestoreAssist:
 
 Before the pilot shares their first report with a real insurer, review it:
 
-### 5.1 S500:2025 Compliance Check
+### 5.1 S500:2021 Compliance Check
 
 Open the generated report and verify:
 
 - [ ] Water classification section includes Category (1/2/3) and Class (1/2/3/4) with §7.1/7.2 citation
 - [ ] Moisture readings table present with material type and acceptable range reference
-- [ ] Equipment log present with S500:2025 §14 citation
+- [ ] Equipment log present with S500:2021 §14 citation
 - [ ] Psychrometric data included if drying monitoring was entered
 - [ ] Technician credentials listed (IICRC cert number if applicable)
 - [ ] Company ABN present on the report

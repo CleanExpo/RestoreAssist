@@ -370,7 +370,7 @@ Based on competitor analysis and search intent:
 
 **Pillar Content (Long-form, 2000+ words):**
 
-1. "The Complete Guide to IICRC S500:2025 Compliance in Australia"
+1. "The Complete Guide to IICRC S500:2021 Compliance in Australia"
 2. "Water Damage Restoration Cost Guide Australia 2026"
 3. "How to Write Insurance-Compliant Restoration Reports"
 
@@ -812,17 +812,17 @@ Crawl-delay: 1
 | ----------------- | ----------------------------------- | ---------------------- | ------------------------------------------- |
 | Cotality Mitigate | Established brand, enterprise focus | Complex UI, high price | Position as simpler, affordable alternative |
 | Encircle          | Strong mobile app, US market        | Not Australia-focused  | Target AU-specific compliance               |
-| Docusketch        | 360 photo capability                | Generic restoration    | Focus on IICRC S500:2025 AU standard        |
+| Docusketch        | 360 photo capability                | Generic restoration    | Focus on IICRC S500:2021 AU standard        |
 
 ---
 
-## Appendix B: IICRC S500:2025 Content Opportunity
+## Appendix B: IICRC S500:2021 Content Opportunity
 
-The AS-IICRC S500:2025 Standard was published in March 2025 - this is a MAJOR content opportunity. RestoreAssist should create authoritative content around:
+The AS-IICRC S500:2021 Standard was published in March 2025 - this is a MAJOR content opportunity. RestoreAssist should create authoritative content around:
 
-1. "What's New in AS-IICRC S500:2025"
-2. "How to Meet AS-IICRC S500:2025 Requirements"
-3. "AS-IICRC S500:2025 Checklist for Restoration Companies"
+1. "What's New in AS-IICRC S500:2021"
+2. "How to Meet AS-IICRC S500:2021 Requirements"
+3. "AS-IICRC S500:2021 Checklist for Restoration Companies"
 
 This positions RestoreAssist as the go-to resource for Australian restoration compliance.
 

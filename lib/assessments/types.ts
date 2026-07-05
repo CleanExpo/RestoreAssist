@@ -20,7 +20,7 @@
 export interface StandardCitation {
   /** e.g. "IICRC S500:2021" or "AS/NZS 3012:2019". */
   standard: string;
-  /** e.g. "§9.3.2" or "Annex B Table 2". */
+  /** e.g. "§12.5" or "Annex B Table 2". */
   section: string;
   /** Optional one-line excerpt for the reader; never long-form. */
   note?: string;

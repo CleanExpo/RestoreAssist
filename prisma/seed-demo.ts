@@ -1,5 +1,5 @@
 /**
- * RestoreAssist — S500:2025 Demo Dataset Seed
+ * RestoreAssist — S500:2021 Demo Dataset Seed
  * [RA-389] Sprint F — Production smoke test + demo data
  *
  * Creates a complete fictional Category 2 water damage demo job:
@@ -8,9 +8,9 @@
  *   - 14 moisture readings over 3 days (showing drying progression)
  *   - 2 dehumidifiers + 3 air movers (EquipmentDeployment)
  *   - 3 days of environmental data (psychrometric readings in Report)
- *   - Full S500:2025 classification + scope items
+ *   - Full S500:2021 classification + scope items
  *   - DryingGoalRecord tracking the 3-day drying period
- *   - AI-generated S500:2025 report text
+ *   - AI-generated S500:2021 report text
  *
  * Run with: npx tsx prisma/seed-demo.ts
  * Idempotent: skips creation if demo@restoreassist.app already exists.
@@ -35,7 +35,7 @@ const day3 = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log("🌊 RestoreAssist S500:2025 Demo Seed");
+  console.log("🌊 RestoreAssist S500:2021 Demo Seed");
   console.log("────────────────────────────────────");
 
   // ── 1. Demo User ────────────────────────────────────────────────────────
@@ -781,10 +781,10 @@ async function main() {
   console.log("");
 }
 
-// ── S500:2025 Report Text Generator ──────────────────────────────────────────
+// ── S500:2021 Report Text Generator ──────────────────────────────────────────
 
 function generateS500ReportText(): string {
-  return `# IICRC S500:2025 Water Damage Restoration Report
+  return `# IICRC S500:2021 Water Damage Restoration Report
 
 ## 1. Report Summary
 
@@ -879,7 +879,7 @@ Drying trajectory is within expected parameters for Class 2. Hallway has achieve
 **Company:** Whitfield Restoration Services Pty Ltd
 **Date:** ${day3.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}
 
-This report has been prepared in accordance with IICRC S500:2025 — Standard and Reference Guide for Professional Water Damage Restoration (7th Edition). All measurements, classifications, and scope items reference published S500 clauses.
+This report has been prepared in accordance with IICRC S500:2021 — Standard and Reference Guide for Professional Water Damage Restoration (7th Edition). All measurements, classifications, and scope items reference published S500 clauses.
 `;
 }
 

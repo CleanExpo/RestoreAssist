@@ -169,7 +169,7 @@ The modal opens **only** at the four escalation actions below. Junior Technician
 |---|---|
 | Sign off final evidence on an inspection | Creates `ProgressAttestation` (rule 26) |
 | Promote inspection to "Submitted for review" | Requires verified Authorisation (rule 23) |
-| Generate an IICRC-cited report (e.g. "S500:2025 §7.1") | Compliance citation requires verified IICRC (rule 14) |
+| Generate an IICRC-cited report (e.g. "S500:2021 §7.1") | Compliance citation requires verified IICRC (rule 14) |
 | Confirm chain-of-custody report on a completed job | Attestor identity hash requires licence (rule 21) |
 
 Each gated action calls a single helper `requireEngagementAuthorisation(action)` which:

@@ -24,7 +24,7 @@
 | iOS signing pipeline     | Wired (Fastlane gym → TestFlight) — secrets-driven                           | `.github/workflows/ios-release.yml`     |
 | Android signing pipeline | Wired (Gradle bundleRelease → Play internal track) — secrets-driven          | `.github/workflows/android-release.yml` |
 | App icons                | ✅ Generated 2026-04-26 (1024×1024 + adaptive layers + Play feature graphic) | `distribution/icon-source/out/`         |
-| Store listing copy       | ✅ Refreshed 2026-04-26 (S500:2025, removed QBCC-only)                       | `distribution/store-listings.md`        |
+| Store listing copy       | ✅ Refreshed 2026-04-26 (S500:2021, removed QBCC-only)                       | `distribution/store-listings.md`        |
 | Privacy disclosures      | ✅ Drafted 2026-04-26                                                        | `distribution/PRIVACY_DISCLOSURES.md`   |
 | Screenshots              | ⚠️ Capture script ready; operator runs against sandbox                       | `distribution/capture-screenshots.mjs`  |
 | Privacy policy live URL  | ✅ `app/privacy/page.tsx`                                                    | live on prod                            |
@@ -322,7 +322,7 @@ Already on `main` (or in the PR introducing this runbook):
 
 - **Real app icons** at every size both stores need
 - **CI workflows hardened** against secret-injection
-- **Store listing copy** refreshed for S500:2025 + national scope (not QBCC-only)
+- **Store listing copy** refreshed for S500:2021 + national scope (not QBCC-only)
 - **Privacy nutrition labels + data-safety form content** drafted truthfully against the actual data flows
 - **Screenshot capture script** that drives the sandbox at all 7 required device sizes
 - **This runbook**

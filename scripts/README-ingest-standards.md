@@ -29,7 +29,7 @@ text-embedding-3-small: $0.02 / 1M tokens
 
 | Standard           | Entries |
 | ------------------ | ------- |
-| IICRC S500:2025    | 8       |
+| IICRC S500:2021    | 8       |
 | AS/NZS 4849.1:2019 | 4       |
 | AS/NZS 4360:2004   | 3       |
 | AS/NZS 3000:2018   | 3       |
@@ -37,7 +37,7 @@ text-embedding-3-small: $0.02 / 1M tokens
 | NZBS E3:2004       | 2       |
 | NADCA ACR 2021     | 2       |
 
-**Licensing note:** Full IICRC S500:2025 clause text ingestion is blocked pending legal clearance (tracked in RA-1132). This script only ingests in-house authored topic-level descriptions.
+**Licensing note:** Full IICRC S500:2021 clause text ingestion is blocked pending legal clearance (tracked in RA-1132). This script only ingests in-house authored topic-level descriptions.
 
 ## Behaviour
 

@@ -155,7 +155,7 @@ CONTENT STRUCTURE:
 - 1:00-1:40  — The Tools: Moisture meters, thermal cameras, hygrometers
                — what each measures and why
 - 1:40-2:10  — The Standard: What "dry" actually means (equilibrium
-               with unaffected areas, IICRC S500:2025 standards)
+               with unaffected areas, IICRC S500:2021 standards)
 - 2:10-2:30  — The Proof: How readings are documented, photographed,
                and stored in your client portal
 - 2:30-2:45  — CTA: "Ask your restoration company: Can I see my

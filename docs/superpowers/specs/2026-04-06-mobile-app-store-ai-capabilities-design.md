@@ -99,7 +99,7 @@ Two modes, one component: `components/voice/VoiceCopilot.tsx`
 - Technician speaks a question → same Whisper transcription path
 - Transcription → RAG retrieval (see 2.3) → Claude synthesis → ElevenLabs TTS
 - POST to `/api/voice/respond` → streams audio/mpeg back → Capacitor audio playback
-- Answers include spoken citations: _"Per IICRC S500:2025 section 7.3..."_
+- Answers include spoken citations: _"Per IICRC S500:2021 section 7.3..."_
 - Use case: on-site compliance guidance without needing to search the standards manually
 
 **New files:**
@@ -142,9 +142,9 @@ Technician taps "Scan Reading" → camera opens → image captured → Claude Vi
 
 **Standards indexed:**
 
-- `IICRC S500:2025` — Standard for Professional Water Damage Restoration (7th Ed)
-- `IICRC S520:2023` — Standard for Professional Mould Remediation (3rd Ed)
-- `IICRC S700:2022` — Standard for Professional Fire and Smoke Damage Restoration (2nd Ed)
+- `IICRC S500:2021` — Standard for Professional Water Damage Restoration (5th Ed)
+- `IICRC S520:2024` — Standard for Professional Mould Remediation (4th Ed)
+- `IICRC S700:2025` — Standard for Professional Fire and Smoke Damage Restoration (1st Ed)
 - Any additional PDFs present in Google Drive folder `1lFqpslQZ0kGovGh6WiHhgC3_gs9Rzbl1` are also indexed
 
 **Database changes:**

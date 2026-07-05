@@ -126,7 +126,7 @@ Each phase: **Definition of Done** (checkable), **Test gate** (hard, code-checka
 - **Done when:** IICRC S500/S520/S700 and the relevant state building codes are encoded, versioned, and have an update path.
 - **Test gate:** every cited standard resolves to a current, versioned entry; updates propagate to all future reports.
 - **Review:** Lens + Vex confirm currency and correctness.
-- **Status (2026-06-16):** in progress — citations hardcoded across 17 files, no version registry, no staleness gate (degrades open); S520:2015 stale vs advertised 2024 (#16).
+- **Status (2026-06-16):** in progress — citations hardcoded across 17 files, no version registry, no staleness gate (degrades open); S520:2024 stale vs advertised 2024 (#16).
 
 ### 5.6 Multi-Format Output
 - **Done when:** PDF, JSON, and Excel are generated consistently from one NIR.

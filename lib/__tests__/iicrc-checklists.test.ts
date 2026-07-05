@@ -2,9 +2,13 @@ import { describe, it, expect } from "vitest";
 import { IICRC_CHECKLISTS } from "../iicrc-checklists";
 
 /**
- * RA-877 — Verify NADCA ACR 2021, Safe Work Australia, and expanded
- * IICRC S700/S520/S760 checklists are present, findable by ID, and
- * each carries at least 6 items with section references.
+ * RA-877 — Verify NADCA ACR 2021, Safe Work Australia, expanded IICRC S700/S520,
+ * and the environmental checklist are present, findable by ID, and each carries
+ * at least 6 items.
+ *
+ * RA-7001: the environmental checklist (id "iicrc-s760-environmental") is
+ * intentionally UNCITED — S760 is a draft, unpublished IICRC wildfire standard,
+ * so its items justify to plain rationale rather than a section marker.
  */
 describe("RA-877 — expanded IICRC / NADCA / SWA checklist templates", () => {
   const requiredIds = [
@@ -29,12 +33,17 @@ describe("RA-877 — expanded IICRC / NADCA / SWA checklist templates", () => {
     "checklist %s items all carry a clause/section justification",
     (id) => {
       const t = IICRC_CHECKLISTS.find((c) => c.id === id)!;
+      // RA-7001: the environmental checklist is intentionally uncited (S760 is a
+      // draft, unpublished standard), so it is exempt from the section-marker rule.
+      const requiresSectionMarker = id !== "iicrc-s760-environmental";
       for (const item of t.items) {
         expect(item.justification).toBeTruthy();
-        // Every item must reference a standard + section marker (§ or edition year)
-        expect(item.justification).toMatch(
-          /§|20\d{2}|ACR|CoP|AS\/NZS|Reg|Guidance|Safe Work/,
-        );
+        if (requiresSectionMarker) {
+          // Every cited item must reference a standard + section marker (§ or edition year)
+          expect(item.justification).toMatch(
+            /§|20\d{2}|ACR|CoP|AS\/NZS|Reg|Guidance|Safe Work/,
+          );
+        }
       }
     },
   );

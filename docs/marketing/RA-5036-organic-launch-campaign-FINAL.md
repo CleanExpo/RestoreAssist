@@ -211,7 +211,7 @@ Hashtags: #RestoreAssist #RestorationBusiness #WaterDamageRestoration #Restorati
 >
 > With RestoreAssist you capture the site as you work it — readings, photos, scope — on the device in your hand. By the time the immediate stabilisation is done, the documentation's already coming together instead of waiting for you back at the office. https://restoreassist.app
 >
-> *(Scheduler: "stabilisation" is the AS-IICRC S500:2025 term — never substitute "make-safe".)*
+> *(Scheduler: "stabilisation" is the AS-IICRC S500:2021 term — never substitute "make-safe".)*
 
 **Instagram — "What's in a client-ready report" carousel (4 slides + caption)**
 - Slide 1: What's in a client-ready report? · Slide 2: The inspection — readings and photos, captured on site. · Slide 3: The scope — what needs doing, and why. · Slide 4: The estimate — regional pricing, GST at 10%, export to PDF or Excel.
@@ -287,4 +287,4 @@ Needs a brand asset before its post runs (): Day-1 IG 'One flow' carousel, Day-2
 
 ## 6. Compliance guardrails (verified)
 
-CTA = restoreassist.app / restoreassist.app/setup only (no store links). Australian English throughout. **No** claims of compliance guarantee, legal outcome, insurance approval/claim outcome, health/safety clearance, or guaranteed business results. "stabilisation" (AS-IICRC S500:2025), never "make-safe". All product claims cross-checked against the live homepage on 2026-07-02.
+CTA = restoreassist.app / restoreassist.app/setup only (no store links). Australian English throughout. **No** claims of compliance guarantee, legal outcome, insurance approval/claim outcome, health/safety clearance, or guaranteed business results. "stabilisation" (AS-IICRC S500:2021), never "make-safe". All product claims cross-checked against the live homepage on 2026-07-02.

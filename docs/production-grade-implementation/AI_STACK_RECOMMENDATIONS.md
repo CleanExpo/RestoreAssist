@@ -191,7 +191,7 @@ Gateway responsibilities:
 
 ## Evals Required Before Model Changes
 
-1. S500:2025 Category/Class accuracy.
+1. S500:2021 Category/Class accuracy.
 2. False citation rate: zero invented IICRC sections.
 3. AU/NZ spelling and GST/legal phrasing.
 4. Photo evidence classification accuracy across source, affected area, meter, equipment, final, signoff.

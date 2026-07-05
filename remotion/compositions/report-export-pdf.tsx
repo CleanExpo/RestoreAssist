@@ -20,7 +20,7 @@ export const ReportExportPDF = () => {
           <div style={{width:'100%',height:'100%',padding:'40px 80px',display:'flex',flexDirection:'column',gap:20}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <div>
-                <div style={{fontSize:28,fontWeight:700,color:'#FFFFFF',fontFamily:'Inter'}}>Report: S500-2026-08472</div>
+                <div style={{fontSize:28,fontWeight:700,color:'#FFFFFF',fontFamily:'Inter'}}>Report: RA-2026-08472</div>
                 <div style={{fontSize:14,color:'#D4A574',fontFamily:'Inter',marginTop:4}}>Sarah Johnson — 42 Smith St, Sydney NSW</div>
               </div>
               <div style={{display:'flex',gap:10}}>

@@ -239,7 +239,7 @@ describe("warnings", () => {
     expect(r.warnings.map((w) => w.code)).toContain("MOULD_NO_CLEARANCE");
   });
 
-  it("CONTENTS_NO_S760 when contents items present but S760 not completed", () => {
+  it("CONTENTS_INCOMPLETE when contents items present but contents checklist not completed", () => {
     const r = checkBillingCompleteness(
       base({
         lineItems: [
@@ -258,10 +258,10 @@ describe("warnings", () => {
         },
       }),
     );
-    expect(r.warnings.map((w) => w.code)).toContain("CONTENTS_NO_S760");
+    expect(r.warnings.map((w) => w.code)).toContain("CONTENTS_INCOMPLETE");
   });
 
-  it("CONTENTS_NO_S760 not raised when S760 completed", () => {
+  it("CONTENTS_INCOMPLETE not raised when contents checklist completed", () => {
     const r = checkBillingCompleteness(
       base({
         lineItems: [
@@ -280,7 +280,7 @@ describe("warnings", () => {
         },
       }),
     );
-    expect(r.warnings.map((w) => w.code)).not.toContain("CONTENTS_NO_S760");
+    expect(r.warnings.map((w) => w.code)).not.toContain("CONTENTS_INCOMPLETE");
   });
 });
 

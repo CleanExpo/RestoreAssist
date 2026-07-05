@@ -147,7 +147,7 @@ lib/ai/lifecycle/
   └── _shared.ts           ← subscription gate + credit deduction + model-router wrap
 ```
 
-Each hook respects: subscription allowlist `["TRIAL","ACTIVE","LIFETIME"]` (rule 8) → 402 on CANCELED with friendly renew CTA; atomic credit deduction (rule 9) — refusal renders manual form, not error; IICRC `S500:2025 §X.Y` citations always include edition + section (rule 14); BYOK fallback — if `Organization.byokAiProvider` set, route through user's own key, skip platform credits; every AI generation writes `AuditLog` (`AI_GENERATED_*`).
+Each hook respects: subscription allowlist `["TRIAL","ACTIVE","LIFETIME"]` (rule 8) → 402 on CANCELED with friendly renew CTA; atomic credit deduction (rule 9) — refusal renders manual form, not error; IICRC `S500:2021 §X.Y` citations always include edition + section (rule 14); BYOK fallback — if `Organization.byokAiProvider` set, route through user's own key, skip platform credits; every AI generation writes `AuditLog` (`AI_GENERATED_*`).
 
 ### 5.3 Editability invariant
 
@@ -210,7 +210,7 @@ A RAG layer that makes the existing 102-note Obsidian wiki + user-added restorat
 |---|---|
 | **Ingester** (CLI + scheduled) | Scans `~/2nd Brain/2nd Brain/Wiki/` + future RA-domain folder; chunks by heading; embeds via `text-embedding-3-small`; writes to vector store |
 | **Vector store** | Supabase `pgvector` (already on Supabase — no new infra) |
-| **Tags** | Frontmatter `ra-domain: true`, `iicrc: S500:2025 §7.1`, `category: water/cat-3` for retrieval filters |
+| **Tags** | Frontmatter `ra-domain: true`, `iicrc: S500:2021 §7.1`, `category: water/cat-3` for retrieval filters |
 | **Retrieval API** | `lib/knowledge/retrieve.ts` exporting `searchKnowledge(query, filters?, topK = 5)` |
 | **Sync mode** | Incremental — file-mtime watch + manual `pnpm knowledge:ingest` for first bulk |
 | **Audit** | Every retrieval writes `KnowledgeQuery` row |
