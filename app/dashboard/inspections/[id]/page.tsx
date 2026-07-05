@@ -68,6 +68,15 @@ const InspectionSignOff = dynamic(
   () => import("@/components/inspection/InspectionSignOff"),
   { ssr: false },
 );
+// RA-5039 PR2 — informational field evidence checklist, surfaced before the
+// "Generate NIR Report" action. Never gates generation or sign-off.
+const FieldEvidenceChecklistPanel = dynamic(
+  () =>
+    import("@/components/inspections/field-evidence-checklist-panel").then(
+      (mod) => mod.FieldEvidenceChecklistPanel,
+    ),
+  { ssr: false },
+);
 // SP-A — close-job Sidekick card. Mounts conditional on IN_BILLING status
 // (or once-closed render of the locked terminal card via `completedAt`).
 const CloseJobPrompt = dynamic(
@@ -1060,6 +1069,12 @@ export default function InspectionDetailPage({
           signedByName={inspection.signedByName}
           onSigned={() => fetchInspection()}
         />
+      )}
+
+      {/* RA-5039 PR2 — field evidence checklist, ahead of "Generate NIR
+          Report" above. Informational only. */}
+      {inspection.status === "COMPLETED" && (
+        <FieldEvidenceChecklistPanel inspectionId={inspection.id} />
       )}
 
       {/* SP-A close-job Sidekick card. Renders while the inspection is in

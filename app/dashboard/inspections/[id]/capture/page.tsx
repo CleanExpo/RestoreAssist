@@ -66,6 +66,7 @@ import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { getQueuedDraftCount } from "@/lib/offline/inspection-store";
 import { AdaptiveGuidancePanel } from "@/components/inspections/adaptive-guidance-panel";
 import { SubmissionGatePanel } from "@/components/inspections/submission-gate-panel";
+import { FieldEvidenceChecklistPanel } from "@/components/inspections/field-evidence-checklist-panel";
 import {
   EVIDENCE_CLASS_LABELS,
   EVIDENCE_S500_REFS,
@@ -1176,6 +1177,11 @@ export default function CaptureWorkflowPage({
             onSubmit={handleSubmitInspection}
             submitting={submitting}
           />
+
+          {/* ============================================ */}
+          {/* FIELD EVIDENCE CHECKLIST (RA-5039, informational) */}
+          {/* ============================================ */}
+          <FieldEvidenceChecklistPanel inspectionId={inspectionId} />
         </div>
       </main>
 
