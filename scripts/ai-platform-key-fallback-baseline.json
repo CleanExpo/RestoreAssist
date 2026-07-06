@@ -3,9 +3,9 @@
   "pendingMigration": [],
   "platformInternalExceptions": {
     "app/api/admin/vectorise/route.ts": "verifyAdminFromDb-gated — staff-only corpus indexing tool",
-    "app/api/margot/chat/route.ts": "verifyAdminFromDb-gated — Phill's internal ops assistant, not the customer-facing client-help bubble",
+    "app/api/margot/chat/route.ts": "verifyAdminFromDb-gated — Phill's internal ops assistant, not the customer-facing client-help bubble. RA-6998: reasons on a pinned :free OpenRouter model (OPENROUTER_API_KEY, zero platform cost — the :free pin is enforced in lib/ai/openrouter.ts); this route is flagged only for its GEMINI_API_KEY deep_research tool, not the OpenRouter key.",
     "app/api/margot/corpus/status/route.ts": "verifyAdminFromDb-gated — staff-only status probe",
-    "app/api/margot/hermes-proxy/route.ts": "verifyAdminFromDb-gated — Phill's internal ops assistant proxy",
+    "app/api/margot/hermes-proxy/route.ts": "verifyAdminFromDb-gated — Phill's internal ops assistant proxy. RA-6998: reasons on a pinned :free OpenRouter model (OPENROUTER_API_KEY, zero platform cost — the :free pin is enforced in lib/ai/openrouter.ts).",
     "app/api/support/tickets/[id]/draft/route.ts": "verifyAdminFromDb-gated — staff regenerating an internal reply draft, not scoped to any client workspace",
     "app/api/webhooks/github/route.ts": "GitHub webhook handler — no end-user session, triggered by repo events only"
   }

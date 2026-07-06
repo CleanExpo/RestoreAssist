@@ -13,7 +13,6 @@
  * Auth: admin-only. Re-validates role from DB (stale-JWT defence).
  */
 
-import { anthropic } from "@ai-sdk/anthropic";
 import {
   convertToModelMessages,
   stepCountIs,
@@ -21,6 +20,7 @@ import {
   tool,
   type UIMessage,
 } from "ai";
+import { createMargotModel, getOpenRouterApiKey } from "@/lib/ai/openrouter";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { getServerSession } from "next-auth";
@@ -323,10 +323,10 @@ export async function POST(request: NextRequest) {
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+    if (!getOpenRouterApiKey()) {
       return apiError(request, {
         code: "UPSTREAM_FAILED",
-        message: "Margot is offline — ANTHROPIC_API_KEY not configured",
+        message: "Margot is offline — OPENROUTER_API_KEY not configured",
         status: 503,
         stage: "config",
       });
@@ -354,7 +354,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = streamText({
-      model: anthropic("claude-sonnet-4-6"),
+      model: createMargotModel(),
       system,
       messages: await convertToModelMessages(messages),
       ...(useTools
