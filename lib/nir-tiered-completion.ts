@@ -255,6 +255,28 @@ export function validateTieredCompletion(
     );
   }
 
+  // RA-7003: per-stage photo coverage (advisory). The per-claim IICRC
+  // checklists require photos at each work stage; a submission with only
+  // pre-work shots documents the damage but not the completed work.
+  const stagedPhotos = (inspection.photos ?? []) as Array<{
+    photoStage?: string | null;
+  }>;
+  if (photoCount > 0 && stagedPhotos.some((p) => "photoStage" in p)) {
+    const stages = new Set(
+      stagedPhotos.map((p) => p.photoStage).filter(Boolean),
+    );
+    if (!stages.has("PRE_WORK")) {
+      warnings.push(
+        "No PRE_WORK-stage photos recorded — pre-existing condition cannot be evidenced (S500 §5.3).",
+      );
+    }
+    if (!stages.has("POST_WORK") && !stages.has("COMPLETION")) {
+      warnings.push(
+        "No POST_WORK/completion-stage photos recorded — completed works cannot be evidenced for the close package.",
+      );
+    }
+  }
+
   const moistureCount = inspection.moistureReadings?.length ?? 0;
   const areaCount = inspection.affectedAreas?.length ?? 0;
   if (moistureCount > 0 && areaCount > 0 && moistureCount < areaCount) {

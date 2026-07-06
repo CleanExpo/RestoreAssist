@@ -2098,6 +2098,14 @@ export default function InspectionDetailPage({
                 <Plus size={15} />
                 Add Scope Item
               </button>
+              {/* RA-7003: the full scope editor (with the AI generator) had no
+                  navigation entry anywhere in the app. */}
+              <Link
+                href={`/dashboard/inspections/${inspection.id}/scope-items`}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-cyan-500 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors"
+              >
+                Open Scope Editor
+              </Link>
             </div>
 
             {/* Apply Checklist Dialog */}

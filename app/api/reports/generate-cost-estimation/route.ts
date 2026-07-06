@@ -263,9 +263,26 @@ function buildCostEstimationData(data: {
   const hasBiohazard = hazards.some((h: string) => h.includes("Biohazard"));
 
   const affectedArea = tier3?.T3_Q4_totalAffectedArea || "Not specified";
+  // RA-7003: prefer structured room dimensions over free-text regex (same fix
+  // as generate-scope-of-works — keep the two generators' m² identical).
+  const structuredAreaSqm = Array.isArray(scopeAreas)
+    ? scopeAreas.reduce(
+        (sum: number, a: any) =>
+          sum +
+          (Number(a?.length) || 0) *
+            (Number(a?.width) || 0) *
+            ((Number(a?.wetPercentage) || 0) / 100),
+        0,
+      )
+    : 0;
   const areaMatch =
     affectedArea.match(/(\d+)\s*sqm/i) || affectedArea.match(/=\s*(\d+)/);
-  const affectedAreaSqm = areaMatch ? parseFloat(areaMatch[1]) : 0; // No default - only use if provided
+  const affectedAreaSqm =
+    structuredAreaSqm > 0
+      ? Math.round(structuredAreaSqm * 10) / 10
+      : areaMatch
+        ? parseFloat(areaMatch[1])
+        : 0; // No default - only use if provided
 
   // Use actual equipment selection data if available, otherwise use 0 (no defaults)
   const equipmentSelections = Array.isArray(equipmentSelection)

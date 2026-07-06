@@ -23,6 +23,8 @@ import ScopeOfWorksViewer from "@/components/ScopeOfWorksViewer";
 import CostEstimationViewer from "@/components/CostEstimationViewer";
 import AuthorityFormsViewer from "@/components/AuthorityFormsViewer";
 import ApprovalPanel from "@/components/reports/ApprovalPanel";
+import { ClientSummaryWidget } from "@/components/ClientSummaryWidget";
+import DocumentExportPackage from "@/components/DocumentExportPackage";
 import {
   WeaknessFindingsPanel,
   type WeaknessGateState,
@@ -50,7 +52,7 @@ export default function ReportDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [reportId, setReportId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "inspection" | "scope" | "cost" | "authority" | "approvals"
+    "inspection" | "scope" | "cost" | "authority" | "approvals" | "package"
   >("inspection");
   const [sharingInsurer, setSharingInsurer] = useState(false);
   const [insurerLinkCopied, setInsurerLinkCopied] = useState(false);
@@ -367,6 +369,17 @@ export default function ReportDetailPage({
             <CheckSquare size={18} />
             Approvals
           </button>
+          <button
+            onClick={() => setActiveTab("package")}
+            className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === "package"
+                ? "border-cyan-500 text-cyan-400"
+                : "border-transparent text-slate-400 hover:text-slate-300"
+            }`}
+          >
+            <FileText size={18} />
+            Client Package
+          </button>
         </nav>
       </div>
 
@@ -394,6 +407,14 @@ export default function ReportDetailPage({
           <AuthorityFormsViewer reportId={reportId!} />
         )}
         {activeTab === "approvals" && <ApprovalPanel reportId={reportId!} />}
+        {/* RA-7003: both client-package surfaces were built + tested but had
+            no UI entry anywhere in the app. */}
+        {activeTab === "package" && (
+          <div className="space-y-6">
+            <ClientSummaryWidget reportId={reportId!} />
+            <DocumentExportPackage reportId={reportId!} />
+          </div>
+        )}
       </div>
     </div>
   );

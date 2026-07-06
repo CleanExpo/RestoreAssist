@@ -90,8 +90,9 @@ export async function POST(
           },
           // Only `.length` is read by validateTieredCompletion.
           scopeItems: { select: { id: true } },
-          // Only `.length` is read by validateTieredCompletion.
-          photos: { select: { id: true } },
+          // `.length` plus per-stage coverage (RA-7003) are read by
+          // validateTieredCompletion.
+          photos: { select: { id: true, photoStage: true } },
         },
       });
 
