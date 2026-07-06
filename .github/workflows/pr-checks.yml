@@ -145,6 +145,20 @@ jobs:
       - name: Standards citation gate
         run: pnpm check:standards
 
+      # Copyright tripwire (Standards KB gate G6). Fails if a known verbatim
+      # canary sentence from the licensed standards appears in tracked
+      # source/data files. Was defined in package.json but never enforced in
+      # CI — wired here (RA-7000 Phase 2) to close the blind spot.
+      - name: Verbatim standards tripwire
+        run: pnpm check:no-verbatim
+
+      # RA-7000 Phase 2 — marketing zero-verbatim gate. guardStandardOutput
+      # "marketing" mode (6+ contiguous-word floor) over docs/marketing,
+      # remotion marketing compositions, and content/ — catches partial reuse
+      # the exact-substring tripwire above misses.
+      - name: Marketing zero-verbatim gate
+        run: pnpm check:marketing-verbatim
+
       # Phase 2 AI guardrail gate. Static only: no provider calls, no DB
       # writes, and no runtime routing changes. Fails if a new AI/provider/RAG
       # surface cannot be classified into a known task class.
