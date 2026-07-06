@@ -137,6 +137,12 @@ export async function GET(
     // Parse JSON fields before passing to PDF generator
     const reportData = {
       ...report,
+      // Structured Basic/Enhanced reports store JSON in detailedReport —
+      // Section 7 renders a text narrative, so raw JSON must not leak into
+      // the client PDF (RA-7003).
+      detailedReport: report.detailedReport?.trimStart().startsWith("{")
+        ? null
+        : report.detailedReport,
       moistureReadings: report.moistureReadings
         ? JSON.parse(report.moistureReadings as string)
         : null,
