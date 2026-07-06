@@ -84,7 +84,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.92",
-    "@ai-sdk/react": "^3.0.220",
+    "@ai-sdk/react": "^4.0.16",
     "@anthropic-ai/sdk": "^0.96.0",
     "@aparajita/capacitor-biometric-auth": "^10.0.0",
     "@capacitor-community/bluetooth-le": "^8.2.0",
