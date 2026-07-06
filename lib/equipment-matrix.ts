@@ -10,6 +10,7 @@
 // be verified from a published source have been removed rather than guessed.
 // Rating conditions matter for dehumidifiers: AHAM = 26.7C/60%RH; AU-relevant
 // hot-humid rating = 30C/80%RH; each capacity states its condition.
+import { FT3_TO_M3 } from "@/lib/anz/localisation";
 
 export interface EquipmentModel {
   name: string;
@@ -44,9 +45,10 @@ export interface EquipmentSelection {
   totalCost?: number;
 }
 
-/** Convert CFM (cubic feet per minute) to L/s. 1 CFM = 0.4719 L/s. */
+/** Convert CFM (cubic feet per minute) to L/s. 1 CFM ≈ 0.4719 L/s — derived
+ * from the canonical AU/NZ layer factor (RA-7000). */
 export function cfmToLps(cfm: number): number {
-  return cfm * 0.4719;
+  return (cfm * FT3_TO_M3 * 1000) / 60;
 }
 
 // LGR Dehumidifiers (230 V low-grain refrigerant)

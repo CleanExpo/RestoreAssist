@@ -9,6 +9,7 @@
  * References: IICRC S520:2024 §12.2 (mould containment), AIHA Z9.11,
  * US EPA 402-K-01-001 (mould remediation) for ACH targets.
  */
+import { FT3_TO_M3 } from "@/lib/anz/localisation";
 
 export type ContainmentClass =
   | "critical-barrier"
@@ -42,8 +43,8 @@ const DEFAULT_ACH: Record<ContainmentClass, number> = {
 
 /** CFM output of a typical portable negative-air machine. */
 const NAM_CFM_PER_UNIT = 500;
-/** m³ → ft³ conversion. */
-const M3_TO_FT3 = 35.3147;
+/** m³ → ft³ — inverse of the canonical AU/NZ layer factor (RA-7000). */
+const M3_TO_FT3 = 1 / FT3_TO_M3;
 /** Minutes per hour — for CFM conversion. */
 const MINUTES_PER_HOUR = 60;
 /** Average ceiling height assumption for surface-area estimate. */
