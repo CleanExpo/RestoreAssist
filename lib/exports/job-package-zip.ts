@@ -4,9 +4,10 @@
  * Streams a single archive containing the four artefacts that constitute
  * a closed-job evidence package:
  *
- *   /report.pdf            — IICRC S500-formatted PDF
+ *   /report.pdf            — IICRC S500-formatted PDF (incl. floor-plan pages)
  *   /invoice.pdf           — tax invoice PDF
  *   /photos/<filename>     — every InspectionPhoto attached to the job
+ *   /authority-forms/*.pdf — every COMPLETED signed authority form (RA-7003)
  *   /audit-log.json        — chronological AuditLog dump for the inspection
  *
  * NOTE: there is no pre-existing `bulk-export-zip` route at
@@ -108,10 +109,42 @@ export async function buildJobPackageStream(
         where: { id: inspection.reportId },
       });
       if (fullReport) {
-        const pdfBytes = await generateIICRCReportPDF(
+        let pdfBytes = await generateIICRCReportPDF(
           fullReport as unknown as Parameters<typeof generateIICRCReportPDF>[0],
           { theme: options.theme },
         );
+        // RA-7003: floor-plan pages belong in the packaged report too — the
+        // photos travel as separate files, but sketches only exist as pages.
+        try {
+          const sketches = await prisma.claimSketch.findMany({
+            where: { inspectionId: inspection.id },
+            select: {
+              floorNumber: true,
+              floorLabel: true,
+              renderedPngUrl: true,
+              sketchData: true,
+              moisturePoints: true,
+            },
+            orderBy: { floorNumber: "asc" },
+            take: 20,
+          });
+          const { claimSketchesToFloors } = await import(
+            "@/lib/reports/claim-sketch-floors"
+          );
+          const { appendSketchPages } = await import(
+            "@/lib/reports/append-sketch-pages"
+          );
+          const floors = await claimSketchesToFloors(sketches);
+          pdfBytes = await appendSketchPages(pdfBytes, floors, {
+            propertyAddress: undefined,
+            reportNumber: inspection.report?.reportNumber ?? undefined,
+          });
+        } catch (err) {
+          console.error(
+            `[Job Package] sketch pages skipped for ${inspectionId}:`,
+            err,
+          );
+        }
         archive.append(Buffer.from(pdfBytes), { name: "report.pdf" });
       }
     } catch (err) {
@@ -178,6 +211,45 @@ export async function buildJobPackageStream(
       });
     } catch (err) {
       console.error(`[Job Package] photo ${photo.id} fetch error:`, err);
+    }
+  }
+
+  // ── /authority-forms/<name>.pdf ────────────────────────────────────────
+  // RA-7003: signed client authorisations (waivers) are part of the evidence
+  // package contract — previously captured + signed but never bundled.
+  if (inspection.reportId) {
+    const signedForms = await prisma.authorityFormInstance.findMany({
+      where: {
+        reportId: inspection.reportId,
+        status: "COMPLETED",
+        pdfUrl: { not: null },
+      },
+      select: {
+        id: true,
+        pdfUrl: true,
+        template: { select: { code: true } },
+      },
+      take: 50,
+    });
+    for (const form of signedForms) {
+      try {
+        const response = await fetch(form.pdfUrl!);
+        if (!response.ok) {
+          console.error(
+            `[Job Package] authority form ${form.id} fetch failed: ${response.status}`,
+          );
+          continue;
+        }
+        const arr = await response.arrayBuffer();
+        archive.append(Buffer.from(arr), {
+          name: `authority-forms/${form.template?.code ?? "FORM"}-${form.id}.pdf`,
+        });
+      } catch (err) {
+        console.error(
+          `[Job Package] authority form ${form.id} fetch error:`,
+          err,
+        );
+      }
     }
   }
 

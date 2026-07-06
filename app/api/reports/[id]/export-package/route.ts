@@ -4,6 +4,107 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { apiError, fromException } from "@/lib/api-errors";
+import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
+import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
+import { inspectionPhotosToImages } from "@/lib/reports/inspection-photos-to-images";
+import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
+
+/**
+ * RA-7003: the "complete package" previously contained only the three text
+ * documents + version history — no floor plans, no photos, no signed
+ * authorisations. This appends all three artifact classes; every step is
+ * best-effort so a broken image or form never blocks the export.
+ */
+async function appendArtifactsToPackage(
+  pdfBytes: Uint8Array,
+  report: {
+    id: string;
+    reportNumber: string | null;
+    propertyAddress: string | null;
+  },
+): Promise<Uint8Array> {
+  let bytes = pdfBytes;
+  const pageOpts = {
+    propertyAddress: report.propertyAddress ?? undefined,
+    reportNumber: report.reportNumber ?? undefined,
+  };
+
+  const inspection = await prisma.inspection.findFirst({
+    where: { reportId: report.id },
+    select: {
+      claimSketches: {
+        select: {
+          floorNumber: true,
+          floorLabel: true,
+          renderedPngUrl: true,
+          sketchData: true,
+          moisturePoints: true,
+        },
+        orderBy: { floorNumber: "asc" },
+        take: 20,
+      },
+      photos: {
+        select: {
+          url: true,
+          thumbnailUrl: true,
+          description: true,
+          location: true,
+          roomType: true,
+          mimeType: true,
+        },
+        orderBy: { timestamp: "asc" },
+        take: 200,
+      },
+    },
+  });
+  if (inspection) {
+    try {
+      const floors = await claimSketchesToFloors(inspection.claimSketches);
+      bytes = await appendSketchPages(bytes, floors, pageOpts);
+    } catch (err) {
+      console.error("[export-package] sketch pages skipped:", err);
+    }
+    try {
+      const photos = await inspectionPhotosToImages(inspection.photos);
+      bytes = await appendPhotoPages(bytes, photos, pageOpts);
+    } catch (err) {
+      console.error("[export-package] photo pages skipped:", err);
+    }
+  }
+
+  const signedForms = await prisma.authorityFormInstance.findMany({
+    where: { reportId: report.id, status: "COMPLETED", pdfUrl: { not: null } },
+    select: { id: true, pdfUrl: true },
+    take: 50,
+  });
+  if (signedForms.length > 0) {
+    try {
+      const target = await PDFDocument.load(bytes);
+      for (const form of signedForms) {
+        try {
+          const response = await fetch(form.pdfUrl!);
+          if (!response.ok) continue;
+          const source = await PDFDocument.load(await response.arrayBuffer());
+          const pages = await target.copyPages(
+            source,
+            source.getPageIndices(),
+          );
+          pages.forEach((page) => target.addPage(page));
+        } catch (err) {
+          console.error(
+            `[export-package] authority form ${form.id} skipped:`,
+            err,
+          );
+        }
+      }
+      bytes = await target.save();
+    } catch (err) {
+      console.error("[export-package] authority-form merge skipped:", err);
+    }
+  }
+
+  return bytes;
+}
 
 // GET - Export complete document package (PDF, Word, JSON)
 export async function GET(
@@ -142,7 +243,8 @@ export async function GET(
       }
       await addVersionHistoryToPDF(pdfDoc, versionHistory, report);
 
-      const pdfBytes = await pdfDoc.save();
+      let pdfBytes: Uint8Array = await pdfDoc.save();
+      pdfBytes = await appendArtifactsToPackage(pdfBytes, report);
 
       return new NextResponse(Buffer.from(pdfBytes), {
         headers: {
@@ -174,7 +276,8 @@ export async function GET(
     // Add version history page
     await addVersionHistoryToPDF(pdfDoc, versionHistory, report);
 
-    const pdfBytes = await pdfDoc.save();
+    let pdfBytes: Uint8Array = await pdfDoc.save();
+    pdfBytes = await appendArtifactsToPackage(pdfBytes, report);
 
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {

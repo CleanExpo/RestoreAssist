@@ -52,7 +52,14 @@ export async function POST(request: NextRequest) {
             scopeItems: { select: { id: true } },
             costEstimates: { select: { id: true } },
             photos: { select: { id: true } },
+            // RA-7003: floor-plan presence (sketches only count when rendered).
+            claimSketches: { select: { id: true, renderedPngUrl: true } },
           },
+        },
+        // RA-7003: signed client authorisations.
+        authorityForms: {
+          where: { status: "COMPLETED" },
+          select: { id: true },
         },
       },
     });
@@ -158,6 +165,37 @@ export async function POST(request: NextRequest) {
       score: photoIssues.length === 0 ? 100 : 50,
       status: photoIssues.length === 0 ? "complete" : "partial",
       issues: photoIssues,
+    });
+
+    // --- Floor Plan (RA-7003: previously unchecked) ---
+    const floorPlanIssues: string[] = [];
+    const renderedSketches = (insp?.claimSketches ?? []).filter(
+      (s) => s.renderedPngUrl,
+    );
+    if (!insp || (renderedSketches.length === 0 && !insp.floorPlanImageUrl)) {
+      floorPlanIssues.push(
+        "No floor plan on file — add a sketch (render it) or upload a floor plan image",
+      );
+    }
+    sections.push({
+      name: "Floor Plan",
+      score: floorPlanIssues.length === 0 ? 100 : 0,
+      status: floorPlanIssues.length === 0 ? "complete" : "missing",
+      issues: floorPlanIssues,
+    });
+
+    // --- Signed Authorisations (RA-7003: previously unchecked) ---
+    const authorityIssues: string[] = [];
+    if ((report.authorityForms ?? []).length === 0) {
+      authorityIssues.push(
+        "No signed client authority forms — send an authority to proceed for signature",
+      );
+    }
+    sections.push({
+      name: "Signed Authorisations",
+      score: authorityIssues.length === 0 ? 100 : 0,
+      status: authorityIssues.length === 0 ? "complete" : "missing",
+      issues: authorityIssues,
     });
 
     const overallScore = Math.round(
