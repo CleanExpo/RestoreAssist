@@ -281,6 +281,10 @@ async function _traverseOne(
                 edition: chunk.edition,
                 section: chunk.section,
                 heading: chunk.heading,
+                // RA-7000: citation eligibility — only AUTHORITATIVE_STANDARD
+                // chunks may ground a report §-citation.
+                provenance: chunk.provenance,
+                jurisdiction: chunk.jurisdiction,
               },
               createdAt: chunk.createdAt,
             });
@@ -480,6 +484,10 @@ export async function expandContext(
             section: chunk.section,
             heading: chunk.heading,
             content: chunk.content,
+            // RA-7000: citation eligibility — only AUTHORITATIVE_STANDARD
+            // chunks may ground a report §-citation.
+            provenance: chunk.provenance,
+            jurisdiction: chunk.jurisdiction,
           },
           createdAt: chunk.createdAt,
         });

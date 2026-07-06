@@ -18,6 +18,12 @@ import { buildInspectionReportPrompt } from "@/lib/reports/generate-report-ai";
 import { buildStructuredBasicReport } from "@/lib/reports/build-structured-report";
 import { expandContext } from "@/lib/knowledge";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  guardStandardOutput,
+  appendCopyrightGroundingInstruction,
+} from "@/lib/standards/copyright-guard";
+import { localiseForAUNZ } from "@/lib/anz/localisation";
+import type { ChunkResult } from "@/lib/rag/retrieve";
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -199,6 +205,9 @@ export async function POST(request: NextRequest) {
 
     // STAGE 1: Retrieve relevant standards from Google Drive (IICRC Standards folder)
     let standardsContext = "";
+    // RA-7000: source passages the output-side copyright guard checks the
+    // generated report against (Drive-extracted sections + RAG chunk contents).
+    const standardsSourceTexts: string[] = [];
     try {
       const { retrieveRelevantStandards, buildStandardsContextPrompt } =
         await import("@/lib/standards-retrieval");
@@ -256,6 +265,10 @@ export async function POST(request: NextRequest) {
       }
 
       standardsContext = buildStandardsContextPrompt(retrievedStandards);
+      for (const doc of retrievedStandards.documents) {
+        if (doc.extractedContent) standardsSourceTexts.push(doc.extractedContent);
+        standardsSourceTexts.push(...doc.relevantSections);
+      }
     } catch (error: any) {
       // Retrieval threw before returning a degraded context (e.g. dynamic import
       // failure) — still never swallow silently. RA-6934.
@@ -266,6 +279,37 @@ export async function POST(request: NextRequest) {
         reportId: report.id,
         reportType,
       });
+    }
+
+    // STAGE 1b (RA-7000): retrieve citable chunks from the provenance-tagged
+    // RAG. retrieveForCitation returns ONLY AUTHORITATIVE_STANDARD chunks — the
+    // single tier a report §-citation may ground on. Best-effort: the corpus is
+    // empty until the RA-6934 ingest runs, and an unreachable embedder must
+    // never block report generation.
+    let citationChunks: ChunkResult[] = [];
+    try {
+      const { retrieveForCitation, formatChunksAsContext } = await import(
+        "@/lib/rag/retrieve"
+      );
+      const citationQuery = [
+        `${reportType} damage restoration standards compliance`,
+        report.waterCategory ? `Category ${report.waterCategory}` : "",
+        report.waterClass ? `Class ${report.waterClass}` : "",
+        ...extractMaterialsFromReport(report),
+      ]
+        .filter(Boolean)
+        .join(" ");
+      citationChunks = await retrieveForCitation(citationQuery, { k: 6 });
+      if (citationChunks.length > 0) {
+        standardsContext += [
+          "\n\n--- CITABLE STANDARD PASSAGES (authoritative tier — cite as edition + section, e.g. S500:2021 §12.5; paraphrase, never reproduce) ---\n",
+          formatChunksAsContext(citationChunks),
+        ].join("");
+        standardsSourceTexts.push(...citationChunks.map((c) => c.content));
+      }
+    } catch {
+      // Best-effort enrichment on top of the Drive retriever, which already
+      // alerts loudly when the report is ungrounded (RA-6934).
     }
 
     // Get NIR data from Report model (stored in moistureReadings field as JSON)
@@ -398,7 +442,7 @@ export async function POST(request: NextRequest) {
         },
       }) + knowledgeContext;
 
-    const systemPrompt = `You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report.
+    const systemPrompt = appendCopyrightGroundingInstruction(`You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report.
 
 CRITICAL: Only use the actual data provided in the REPORT DATA section above. Do NOT:
 - Use placeholder text like "Not provided", "Not specified", "N/A", "Unknown", or similar
@@ -408,7 +452,7 @@ CRITICAL: Only use the actual data provided in the REPORT DATA section above. Do
 
 Only include information that is explicitly provided in the REPORT DATA section. If a field is not provided, do not mention it in the report.
 
-BUSINESS INFORMATION: If business information is provided in the REPORT DATA section (Business Name, Business Address, Business ABN, Business Phone, Business Email), you MUST include this information in the report header/footer and use the business name as the reporting company name throughout the report. The business logo URL can be referenced if needed for document formatting.`;
+BUSINESS INFORMATION: If business information is provided in the REPORT DATA section (Business Name, Business Address, Business ABN, Business Phone, Business Email), you MUST include this information in the report header/footer and use the business name as the reporting company name throughout the report. The business logo URL can be referenced if needed for document formatting.`);
 
     // Generate report using the selected AI provider
     let inspectionReport = "";
@@ -437,6 +481,35 @@ BUSINESS INFORMATION: If business information is provided in the REPORT DATA sec
         stage: "ai-generate",
       });
     }
+
+    // RA-7000: copyright guard runs on the RAW output first — localisation
+    // rewrites spelling/terminology and would defeat verbatim matching.
+    if (standardsSourceTexts.length > 0) {
+      const guard = guardStandardOutput(
+        inspectionReport,
+        standardsSourceTexts,
+        "report",
+      );
+      if (!guard.ok) {
+        const { reportError } = await import("@/lib/observability");
+        reportError(
+          new Error(
+            `Report reproduced standard text verbatim (${guard.violations.length} span(s), longest ${guard.longestRunWords} words) — redacted`,
+          ),
+          {
+            route: "/api/reports/generate-inspection-report",
+            stage: "copyright-guard-redacted",
+            reportId: report.id,
+            reportType,
+          },
+        );
+        inspectionReport = guard.redactedText;
+      }
+    }
+
+    // RA-7000: AU/NZ localisation — US electrical vocab, regulatory
+    // cross-references, product terms, AU English spelling.
+    inspectionReport = localiseForAUNZ(inspectionReport).text;
 
     // Save the generated report
     await prisma.report.update({
