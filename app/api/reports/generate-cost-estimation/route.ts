@@ -186,12 +186,15 @@ export async function POST(request: NextRequest) {
       // Generate the document - build it server-side with exact values, use AI only for narrative enhancement
       const costDocument = buildCostEstimationDocument(costData);
 
-      // Save the generated document and data
+      // Save the generated document and data. totalCost was previously never
+      // written by any generator (RA-7003) — the dashboard revenue tile and
+      // the IICRC PDF "Estimated Total Cost" line stayed empty.
       await prisma.report.update({
         where: { id: reportId },
         data: {
           costEstimationDocument: costDocument,
           costEstimationData: JSON.stringify(costData),
+          totalCost: costData.totals.totalIncGST,
         },
       });
 

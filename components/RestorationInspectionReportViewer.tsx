@@ -2005,6 +2005,85 @@ export default function RestorationInspectionReportViewer({
             </div>
           </section>
 
+          {/* Scope of Works — RA-7003: interface field existed but was never
+              rendered, so structured reports showed no scope at all. */}
+          {data.scopeItems && data.scopeItems.length > 0 && (
+            <section className="print-avoid-break mb-6 print:mb-4">
+              <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-4 print:mb-3">
+                Scope of Works
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm print:text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-300 text-left text-slate-500">
+                      <th className="py-2 pr-2 font-medium">Work Item</th>
+                      <th className="py-2 px-2 font-medium text-right">Qty</th>
+                      <th className="py-2 px-2 font-medium">Unit</th>
+                      <th className="py-2 pl-2 font-medium">Justification</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.scopeItems.map((item, i) => (
+                      <tr key={i} className="border-b border-slate-100">
+                        <td className="py-2 pr-2 text-slate-800">
+                          {item.description}
+                        </td>
+                        <td className="py-2 px-2 text-right text-slate-600">
+                          {item.quantity}
+                        </td>
+                        <td className="py-2 px-2 text-slate-600">{item.unit}</td>
+                        <td className="py-2 pl-2 text-slate-500">
+                          {item.justification ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* Cost Estimate — RA-7003: same dead interface field. */}
+          {data.costEstimates && data.costEstimates.length > 0 && (
+            <section className="print-avoid-break mb-6 print:mb-4">
+              <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-4 print:mb-3">
+                Preliminary Cost Estimate
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm print:text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-300 text-left text-slate-500">
+                      <th className="py-2 pr-2 font-medium">Item</th>
+                      <th className="py-2 px-2 font-medium text-right">Qty</th>
+                      <th className="py-2 px-2 font-medium">Unit</th>
+                      <th className="py-2 px-2 font-medium text-right">Rate</th>
+                      <th className="py-2 pl-2 font-medium text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.costEstimates.map((item, i) => (
+                      <tr key={i} className="border-b border-slate-100">
+                        <td className="py-2 pr-2 text-slate-800">
+                          {item.description}
+                        </td>
+                        <td className="py-2 px-2 text-right text-slate-600">
+                          {item.quantity}
+                        </td>
+                        <td className="py-2 px-2 text-slate-600">{item.unit}</td>
+                        <td className="py-2 px-2 text-right text-slate-600">
+                          {formatCurrency(item.rate)}
+                        </td>
+                        <td className="py-2 pl-2 text-right text-slate-800 font-medium">
+                          {formatCurrency(item.total)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
           {/* Photos Section - Grouped by Category */}
           {data.photos && data.photos.length > 0 && (
             <section className="print-avoid-break mb-6 print:mb-4">
