@@ -5,6 +5,11 @@
  * from IICRC class/category and affected area. It is pure (no DB, no IO) money +
  * quantity maths and had NO test coverage. A regression here mis-prices a job.
  *
+ * RA-7001 follow-up: area/volume inputs are m²/m³ (AU/NZ metric), matching the
+ * corrected calculator. Equipment ratios are converted from their original
+ * sq-ft/cu-ft figures via SQFT_TO_SQM / CUFT_TO_M3, so expected values below
+ * are computed from those exact conversions, not the old sq-ft numbers.
+ *
  * Tests lock in the ACTUAL current behaviour (values computed from the source as-is,
  * not from any external spec). They exercise: equipment-quantity ratios, the
  * Math.ceil quantity boundaries, class/category branch inclusion, line-item
@@ -17,61 +22,69 @@ import {
   EquipmentCostCalculator,
   EQUIPMENT_PRICING,
 } from "../equipment-cost-calculator";
+import { SQFT_TO_SQM } from "@/lib/units";
 
 const find = (
   est: ReturnType<typeof EquipmentCostCalculator.calculateEquipmentCosts>,
   needle: string,
 ) => est.equipment.find((e) => e.name.includes(needle));
 
-describe("EquipmentCostCalculator.calculateEquipmentNeeds — quantity ratios", () => {
-  it("air movers scale by class ratio (1/200, 1/150, 1/100, 1/75)", () => {
+describe("EquipmentCostCalculator.calculateEquipmentNeeds — quantity ratios (m²)", () => {
+  it("air movers scale by class ratio (m² per unit, converted from 1/200, 1/150, 1/100, 1/75 sq ft)", () => {
     expect(
       EquipmentCostCalculator.calculateEquipmentNeeds(1, 1, 200, 540).airMovers,
-    ).toBe(1);
+    ).toBe(11); // ceil(200 / 18.580608)
     expect(
       EquipmentCostCalculator.calculateEquipmentNeeds(2, 1, 300, 810).airMovers,
-    ).toBe(2);
+    ).toBe(22); // ceil(300 / 13.935456)
     expect(
       EquipmentCostCalculator.calculateEquipmentNeeds(3, 1, 500, 1350)
         .airMovers,
-    ).toBe(5);
+    ).toBe(54); // ceil(500 / 9.290304)
     expect(
       EquipmentCostCalculator.calculateEquipmentNeeds(4, 1, 1000, 2700)
         .airMovers,
-    ).toBe(14);
+    ).toBe(144); // ceil(1000 / 6.967728)
   });
 
   it("air mover quantity rounds UP at the ratio boundary (Math.ceil)", () => {
-    // Class 1 = 1 per 200 sqft. 200 sqft is exactly 1; 201 sqft tips to 2.
+    // Class 1 ratio = 200 sq ft converted to m². Exactly 1 unit at the ratio;
+    // just over tips to 2.
+    const ratio = 200 * SQFT_TO_SQM;
     expect(
-      EquipmentCostCalculator.calculateEquipmentNeeds(1, 1, 200, 540).airMovers,
+      EquipmentCostCalculator.calculateEquipmentNeeds(1, 1, ratio, ratio * 2.7)
+        .airMovers,
     ).toBe(1);
     expect(
-      EquipmentCostCalculator.calculateEquipmentNeeds(1, 1, 201, 542.7)
-        .airMovers,
+      EquipmentCostCalculator.calculateEquipmentNeeds(
+        1,
+        1,
+        ratio + 0.1,
+        (ratio + 0.1) * 2.7,
+      ).airMovers,
     ).toBe(2);
   });
 
-  it("unknown class falls back to the 1/75 ratio (|| 75)", () => {
+  it("unknown class falls back to the Class 4 ratio (|| airMoverRatios[4])", () => {
     expect(
       EquipmentCostCalculator.calculateEquipmentNeeds(9, 1, 150, 405).airMovers,
-    ).toBe(2); // ceil(150/75)
+    ).toBe(22); // ceil(150 / 6.967728)
   });
 
-  it("LGR dehumidifiers scale by 1 per 1250 cubic feet", () => {
-    // 200 sqft * 2.7 ceiling = 540 cuft -> 1
+  it("LGR dehumidifiers scale by 1 per ~35.4 m³ (converted from 1250 cubic feet)", () => {
+    // 200 m² * 2.7m ceiling = 540 m³ -> ceil(540/35.396) = 16
     expect(
       EquipmentCostCalculator.calculateEquipmentNeeds(1, 1, 200, 540)
         .dehumidifiersLGR,
-    ).toBe(1);
-    // 1000 sqft * 2.7 = 2700 cuft -> ceil(2700/1250) = 3
+    ).toBe(16);
+    // 1000 m² * 2.7m = 2700 m³ -> ceil(2700/35.396) = 77
     expect(
       EquipmentCostCalculator.calculateEquipmentNeeds(4, 1, 1000, 2700)
         .dehumidifiersLGR,
-    ).toBe(3);
+    ).toBe(77);
   });
 
-  it("conventional dehumidifiers only added for class >= 3 (1 per 500 sqft)", () => {
+  it("conventional dehumidifiers only added for class >= 3 (1 per ~46.5 m², converted from 500 sq ft)", () => {
     expect(
       EquipmentCostCalculator.calculateEquipmentNeeds(2, 1, 600, 1620)
         .dehumidifiersConventional,
@@ -79,14 +92,14 @@ describe("EquipmentCostCalculator.calculateEquipmentNeeds — quantity ratios", 
     expect(
       EquipmentCostCalculator.calculateEquipmentNeeds(3, 1, 500, 1350)
         .dehumidifiersConventional,
-    ).toBe(1);
+    ).toBe(11); // ceil(500 / 46.45152)
     expect(
       EquipmentCostCalculator.calculateEquipmentNeeds(4, 1, 1000, 2700)
         .dehumidifiersConventional,
-    ).toBe(2);
+    ).toBe(22); // ceil(1000 / 46.45152)
   });
 
-  it("air scrubbers only added for category > 1 (1 per 500 sqft)", () => {
+  it("air scrubbers only added for category > 1 (1 per ~46.5 m², converted from 500 sq ft)", () => {
     expect(
       EquipmentCostCalculator.calculateEquipmentNeeds(1, 1, 500, 1350)
         .airScrubbers,
@@ -94,11 +107,11 @@ describe("EquipmentCostCalculator.calculateEquipmentNeeds — quantity ratios", 
     expect(
       EquipmentCostCalculator.calculateEquipmentNeeds(1, 2, 500, 1350)
         .airScrubbers,
-    ).toBe(1);
+    ).toBe(11); // ceil(500 / 46.45152)
     expect(
       EquipmentCostCalculator.calculateEquipmentNeeds(1, 3, 1000, 2700)
         .airScrubbers,
-    ).toBe(2);
+    ).toBe(22); // ceil(1000 / 46.45152)
   });
 });
 
@@ -143,38 +156,37 @@ describe("EquipmentCostCalculator.calculateEquipmentCosts — line items & branc
       5,
     );
     const air = find(est, "Air Movers");
-    expect(air?.quantity).toBe(1);
+    expect(air?.quantity).toBe(11);
     expect(air?.dailyRate).toBe(EQUIPMENT_PRICING.airMover.standard); // 45
-    expect(air?.subtotal).toBe(1 * 45 * 5); // 225
+    expect(air?.subtotal).toBe(11 * 45 * 5); // 2475
   });
 });
 
 describe("EquipmentCostCalculator.calculateEquipmentCosts — totals, labour & contingency", () => {
-  it("Class 1 / Cat 1 / 200 sqft / defaults: locked totals", () => {
+  it("Class 1 / Cat 1 / 200 m² / defaults: locked totals", () => {
     const est = EquipmentCostCalculator.calculateEquipmentCosts(1, 1, 200);
-    expect(est.breakdown.equipmentCost).toBe(825);
+    expect(est.breakdown.equipmentCost).toBe(8700);
     expect(est.laborCost).toBe(1000); // 200/day * 5 days
-    expect(est.subtotal).toBe(1825);
-    expect(est.contingency).toBe(183); // round(1825 * 0.1) = round(182.5) -> 183
-    expect(est.total).toBe(2008);
+    expect(est.subtotal).toBe(9700);
+    expect(est.contingency).toBe(970);
+    expect(est.total).toBe(10670);
     expect(est.durationDays).toBe(5);
     expect(est.laborDays).toBe(5);
   });
 
-  it("Class 4 / Cat 3 / 1000 sqft / defaults: locked totals", () => {
+  it("Class 4 / Cat 3 / 1000 m² / defaults: locked totals", () => {
     const est = EquipmentCostCalculator.calculateEquipmentCosts(4, 3, 1000);
-    expect(est.breakdown.equipmentCost).toBe(5650);
+    expect(est.breakdown.equipmentCost).toBe(72150);
     expect(est.laborCost).toBe(1000);
-    expect(est.subtotal).toBe(6650);
-    expect(est.contingency).toBe(665);
-    expect(est.total).toBe(7315);
+    expect(est.subtotal).toBe(73150);
+    expect(est.contingency).toBe(7315);
+    expect(est.total).toBe(80465);
   });
 
   it("contingency is 10% of subtotal, Math.round half-up on the Float subtotal", () => {
-    // subtotal 1825 -> 182.5 rounds UP to 183 (JS Math.round is half-up, not bankers)
     const est = EquipmentCostCalculator.calculateEquipmentCosts(1, 1, 200);
-    expect(est.subtotal * 0.1).toBeCloseTo(182.5, 6);
-    expect(est.contingency).toBe(183);
+    expect(est.subtotal * 0.1).toBeCloseTo(970, 6);
+    expect(est.contingency).toBe(970);
   });
 
   it("total always equals subtotal + contingency and breakdown is internally consistent", () => {
@@ -201,8 +213,8 @@ describe("EquipmentCostCalculator.calculateEquipmentCosts — totals, labour & c
     expect(est.laborCostPerDay).toBe(300);
   });
 
-  it("custom ceiling height changes cubic footage and LGR dehu count", () => {
-    // 200 sqft * 7m ceiling = 1400 cuft -> ceil(1400/1250) = 2 LGR units
+  it("custom ceiling height changes volume (m³) and LGR dehu count", () => {
+    // 200 m² * 7m ceiling = 1400 m³ -> ceil(1400/35.396) = 40 LGR units
     const est = EquipmentCostCalculator.calculateEquipmentCosts(
       1,
       1,
@@ -211,13 +223,13 @@ describe("EquipmentCostCalculator.calculateEquipmentCosts — totals, labour & c
       5,
     );
     const lgr = find(est, "Dehumidifiers (LGR)");
-    expect(lgr?.quantity).toBe(2);
+    expect(lgr?.quantity).toBe(40);
   });
 
-  it("zero affected area yields ceil(0)=0 movers but still 1 LGR + meters (no NaN)", () => {
+  it("zero affected area yields ceil(0)=0 movers but still 0 LGR + meters (no NaN)", () => {
     const est = EquipmentCostCalculator.calculateEquipmentCosts(1, 1, 0);
     expect(find(est, "Air Movers")?.quantity).toBe(0);
-    // 0 * 2.7 = 0 cuft -> ceil(0/1250) = 0 LGR
+    // 0 * 2.7 = 0 m³ -> ceil(0/35.396) = 0 LGR
     expect(find(est, "Dehumidifiers (LGR)")?.quantity).toBe(0);
     expect(Number.isNaN(est.total)).toBe(false);
     // equipment cost = only meters: (25 + 20) * 5 days = 225
@@ -230,9 +242,9 @@ describe("EquipmentCostCalculator.getCostEstimateRange", () => {
     const r = EquipmentCostCalculator.getCostEstimateRange(2, 2, 250);
     expect(r.minDays).toBe(3);
     expect(r.maxDays).toBe(5);
-    expect(r.minCost).toBe(1551);
-    expect(r.maxCost).toBe(2585);
-    expect(r.averageCost).toBe(2068); // round((1551+2585)/2) = round(2068)
+    expect(r.minCost).toBe(9620);
+    expect(r.maxCost).toBe(16033);
+    expect(r.averageCost).toBe(12827);
   });
 
   it("min/max costs follow the duration window monotonically (max >= min)", () => {

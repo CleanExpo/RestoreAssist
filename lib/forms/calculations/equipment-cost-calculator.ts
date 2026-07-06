@@ -2,7 +2,17 @@
  * Equipment Cost Estimation Calculator
  * Calculates costs for restoration equipment based on IICRC classification
  * Includes: air movers, dehumidifiers, air scrubbers, heaters, monitoring equipment
+ *
+ * RA-7001 follow-up: area is m² and volume is m³ throughout (AU/NZ metric).
+ * Equipment ratios below are converted from their original sq-ft/cu-ft figures
+ * via the canonical SQFT_TO_SQM / CUFT_TO_M3 factors so the relative equipment
+ * density is unchanged, only the unit is fixed.
  */
+
+import { SQFT_TO_SQM } from "@/lib/units";
+
+/** Exact conversion: 1 cubic foot = 0.0283168466 cubic metres. */
+const CUFT_TO_M3 = 0.0283168466;
 
 /**
  * Equipment pricing configuration
@@ -17,8 +27,8 @@ export const EQUIPMENT_PRICING = {
   },
 
   // Dehumidification
-  dehumidifierLGR: 75, // LGR (large room) dehumidifier (1250 cu ft capacity)
-  dehumidifierConventional: 35, // Conventional dehumidifier (500 cu ft capacity)
+  dehumidifierLGR: 75, // LGR (large room) dehumidifier (~35.4 m³ capacity)
+  dehumidifierConventional: 35, // Conventional dehumidifier (~14 m³ capacity)
 
   // Air Cleaning
   airScrubber: 60, // HEPA air scrubber (for contaminated water)
@@ -71,19 +81,20 @@ export class EquipmentCostCalculator {
   static calculateEquipmentCosts(
     iicrcClass: number,
     iicrcCategory: number,
-    affectedSquareFootage: number,
+    affectedAreaSqm: number,
     ceilingHeight: number = 2.7,
     durationDays: number = 5,
     laborCostPerDay: number = 200,
   ): EquipmentCostEstimate {
-    const cubicFootage = affectedSquareFootage * ceilingHeight;
+    // area (m²) × ceiling height (m) = volume (m³).
+    const volumeM3 = affectedAreaSqm * ceilingHeight;
 
     // Calculate equipment needs based on IICRC class
     const equipmentNeeds = this.calculateEquipmentNeeds(
       iicrcClass,
       iicrcCategory,
-      affectedSquareFootage,
-      cubicFootage,
+      affectedAreaSqm,
+      volumeM3,
     );
 
     // Build cost line items
@@ -188,31 +199,32 @@ export class EquipmentCostCalculator {
   static calculateEquipmentNeeds(
     iicrcClass: number,
     iicrcCategory: number,
-    affectedSquareFootage: number,
-    cubicFootage: number,
+    affectedAreaSqm: number,
+    volumeM3: number,
   ) {
-    // Air movers: based on affected area and class
-    // Class 1: 1 per 200 sq ft, Class 2: 1 per 150 sq ft, Class 3: 1 per 100 sq ft, Class 4: 1 per 75 sq ft
+    // Air movers: based on affected area and class (m² per unit, converted
+    // from the original sq-ft ratios: Class 1: 200 sq ft, Class 2: 150 sq ft,
+    // Class 3: 100 sq ft, Class 4: 75 sq ft).
     const airMoverRatios: Record<number, number> = {
-      1: 200,
-      2: 150,
-      3: 100,
-      4: 75,
+      1: 200 * SQFT_TO_SQM,
+      2: 150 * SQFT_TO_SQM,
+      3: 100 * SQFT_TO_SQM,
+      4: 75 * SQFT_TO_SQM,
     };
     const airMovers = Math.ceil(
-      affectedSquareFootage / (airMoverRatios[iicrcClass] || 75),
+      affectedAreaSqm / (airMoverRatios[iicrcClass] || airMoverRatios[4]),
     );
 
-    // Dehumidifiers (LGR): 1 per 1250 cubic feet
-    const dehumidifiersLGR = Math.ceil(cubicFootage / 1250);
+    // Dehumidifiers (LGR): 1 per ~35.4 m³ (converted from 1250 cubic feet)
+    const dehumidifiersLGR = Math.ceil(volumeM3 / (1250 * CUFT_TO_M3));
 
-    // Additional conventional dehumidifiers for class 3-4
+    // Additional conventional dehumidifiers for class 3-4 (converted from 500 sq ft)
     const dehumidifiersConventional =
-      iicrcClass >= 3 ? Math.ceil(affectedSquareFootage / 500) : 0;
+      iicrcClass >= 3 ? Math.ceil(affectedAreaSqm / (500 * SQFT_TO_SQM)) : 0;
 
-    // Air scrubbers: 1 per 500 sq ft for contaminated water (category 2-3)
+    // Air scrubbers: 1 per ~46 m² for contaminated water (converted from 500 sq ft, category 2-3)
     const airScrubbers =
-      iicrcCategory > 1 ? Math.ceil(affectedSquareFootage / 500) : 0;
+      iicrcCategory > 1 ? Math.ceil(affectedAreaSqm / (500 * SQFT_TO_SQM)) : 0;
 
     return {
       airMovers,
@@ -228,7 +240,7 @@ export class EquipmentCostCalculator {
   static getCostEstimateRange(
     iicrcClass: number,
     iicrcCategory: number,
-    affectedSquareFootage: number,
+    affectedAreaSqm: number,
     ceilingHeight?: number,
     laborCostPerDay?: number,
   ): {
@@ -251,7 +263,7 @@ export class EquipmentCostCalculator {
     const minEstimate = this.calculateEquipmentCosts(
       iicrcClass,
       iicrcCategory,
-      affectedSquareFootage,
+      affectedAreaSqm,
       ceilingHeight,
       dryingRange.min,
       laborCostPerDay,
@@ -260,7 +272,7 @@ export class EquipmentCostCalculator {
     const maxEstimate = this.calculateEquipmentCosts(
       iicrcClass,
       iicrcCategory,
-      affectedSquareFootage,
+      affectedAreaSqm,
       ceilingHeight,
       dryingRange.max,
       laborCostPerDay,

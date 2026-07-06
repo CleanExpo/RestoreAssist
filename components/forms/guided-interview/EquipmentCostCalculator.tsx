@@ -25,7 +25,8 @@ import { TrendingUp, DollarSign, Calendar, Users } from "lucide-react";
 interface EquipmentCostCalculatorProps {
   iicrcClass: number;
   iicrcCategory: number;
-  initialSquareFootage?: number;
+  /** m² — AU/NZ standard unit (RA-7001). */
+  initialAreaSqm?: number;
   initialCeilingHeight?: number;
   initialDurationDays?: number;
   initialLaborCostPerDay?: number;
@@ -35,13 +36,13 @@ interface EquipmentCostCalculatorProps {
 export function EquipmentCostCalculatorComponent({
   iicrcClass,
   iicrcCategory,
-  initialSquareFootage = 100,
+  initialAreaSqm = 100,
   initialCeilingHeight = 2.7,
   initialDurationDays = 5,
   initialLaborCostPerDay = 200,
   showSummaryOnly = false,
 }: EquipmentCostCalculatorProps) {
-  const [squareFootage, setSquareFootage] = useState(initialSquareFootage);
+  const [areaSqm, setAreaSqm] = useState(initialAreaSqm);
   const [ceilingHeight, setCeilingHeight] = useState(initialCeilingHeight);
   const [durationDays, setDurationDays] = useState(initialDurationDays);
   const [laborCostPerDay, setLaborCostPerDay] = useState(
@@ -54,7 +55,7 @@ export function EquipmentCostCalculatorComponent({
       EquipmentCostCalculator.calculateEquipmentCosts(
         iicrcClass,
         iicrcCategory,
-        squareFootage,
+        areaSqm,
         ceilingHeight,
         durationDays,
         laborCostPerDay,
@@ -62,7 +63,7 @@ export function EquipmentCostCalculatorComponent({
     [
       iicrcClass,
       iicrcCategory,
-      squareFootage,
+      areaSqm,
       ceilingHeight,
       durationDays,
       laborCostPerDay,
@@ -74,11 +75,11 @@ export function EquipmentCostCalculatorComponent({
       EquipmentCostCalculator.getCostEstimateRange(
         iicrcClass,
         iicrcCategory,
-        squareFootage,
+        areaSqm,
         ceilingHeight,
         laborCostPerDay,
       ),
-    [iicrcClass, iicrcCategory, squareFootage, ceilingHeight, laborCostPerDay],
+    [iicrcClass, iicrcCategory, areaSqm, ceilingHeight, laborCostPerDay],
   );
 
   if (showSummaryOnly) {
@@ -161,24 +162,24 @@ export function EquipmentCostCalculatorComponent({
           <CardContent className="space-y-6">
             {/* Affected Area */}
             <div className="space-y-2">
-              <Label htmlFor="squareFootage">Affected Square Footage</Label>
+              <Label htmlFor="areaSqm">Affected Area</Label>
               <div className="flex gap-2">
                 <Input
-                  id="squareFootage"
+                  id="areaSqm"
                   type="number"
                   min="1"
-                  value={squareFootage}
+                  value={areaSqm}
                   onChange={(e) =>
-                    setSquareFootage(Math.max(1, parseInt(e.target.value) || 1))
+                    setAreaSqm(Math.max(1, parseInt(e.target.value) || 1))
                   }
                   className="flex-1"
                 />
                 <span className="flex items-center px-3 bg-slate-100 rounded-md text-sm text-slate-600">
-                  sq ft
+                  m²
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                Cubicage: {Math.round(squareFootage * ceilingHeight)} cubic feet
+                Volume: {Math.round(areaSqm * ceilingHeight)} m³
               </p>
             </div>
 
