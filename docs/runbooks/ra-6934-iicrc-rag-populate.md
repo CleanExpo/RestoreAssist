@@ -199,3 +199,23 @@ gap in the RA-6934 degradation coverage, separate from and not fixed by
 either Part A or Part B above, and was out of scope for this hardening pass
 (it lives in the report route, not the ingest script) — flagging it here so
 it's tracked rather than assumed covered.
+
+## Remote ingest path (sensitive-env wall)
+
+`DATABASE_URL` and `OPENAI_API_KEY` are **Vercel-sensitive**: they decrypt only
+inside the Vercel runtime and pull as empty strings via `vercel env pull`, so
+the local script path above cannot run from an operator machine that doesn't
+hold its own copies. The server-side path added for this (2026-07-06):
+
+1. `POST /api/cron/ingest-standards` — runs the identical chunk → embed →
+   upsert pipeline inside Vercel (imports the same pure functions from
+   `scripts/ingest-iicrc.ts`). Auth: `Authorization: Bearer
+   ${STANDARDS_INGEST_TOKEN}` (dedicated secret, fail-closed; rotate/revoke
+   independently of `CRON_SECRET`).
+2. Driver: `STANDARDS_INGEST_TOKEN=<token> npx tsx
+   scripts/ingest-standards-remote.ts --dir ~/iicrc-source/.staging` — expects
+   `<STANDARD>-<EDITION>/*.txt` folders of pre-extracted text (any extraction
+   method; pdftotext, textutil, or Drive-MCP export all work).
+
+Both paths are idempotent with each other — same `(standard, edition,
+content)` hash, so re-running either skips already-ingested chunks.
