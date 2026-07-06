@@ -90,3 +90,12 @@ Rebase conflict on PROGRESS.md: `git checkout --ours .claude/PROGRESS.md && git 
 - Goal-driven. Define success criteria, loop until verified. Strong criteria let you loop independently.
 - No comments for what well-named identifiers already say. Only WHY (hidden constraints, invariants).
 - Don't add error handling for impossible scenarios. Trust internal code and framework guarantees.
+
+## Docs retrieval — check the index first, open files second
+
+`docs/` carries an OKF index layer (one `index.md` per folder). For a known-fact docs
+lookup run the deterministic path before Grep:
+`node "$HOME/2nd Brain/2nd Brain/_system/brain.js" find "<question>" --root docs`
+(scores every index line without opening files, answers from one file). On a miss:
+Grep, then ADD the missing index line. Gate: `brain.js bench --root docs` must stay
+5/5 (`docs/brain-bench.json`). Standard: brain-1 `Wiki/second-brain-standard.md`.
