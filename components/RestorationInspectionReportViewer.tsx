@@ -122,6 +122,14 @@ interface RestorationInspectionReportData {
     completedAt: string | null;
   }>;
   contentsManifest?: unknown;
+  // RA-7005 Wave 4: required PPE
+  ppe?: {
+    respiratory: string;
+    items: string[];
+    decontamination: boolean;
+    references: string[];
+    escalations: string[];
+  } | null;
   // RA-7005 equipment safety plan
   equipmentPlan?: {
     powerAssumed?: boolean;
@@ -2040,6 +2048,49 @@ export default function RestorationInspectionReportViewer({
               )}
             </div>
           </section>
+
+          {/* Required PPE — RA-7005 Wave 4 */}
+          {data.ppe && (
+            <section className="print-avoid-break mb-6 print:mb-4">
+              <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-3 print:mb-2">
+                Required PPE
+              </h2>
+              <p className="text-sm print:text-xs text-slate-700 mb-2">
+                <strong>Respiratory:</strong>{" "}
+                {data.ppe.respiratory === "none"
+                  ? "None required for this hazard class"
+                  : `${data.ppe.respiratory} (AS/NZS 1715/1716)`}
+                {data.ppe.decontamination && " · decontamination on exit"}
+              </p>
+              <ul className="flex flex-wrap gap-2 mb-2">
+                {data.ppe.items.map((it, i) => (
+                  <li
+                    key={i}
+                    className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded"
+                  >
+                    {it}
+                  </li>
+                ))}
+              </ul>
+              {data.ppe.escalations.length > 0 && (
+                <ul className="space-y-1">
+                  {data.ppe.escalations.map((e, i) => (
+                    <li
+                      key={i}
+                      className="text-xs text-red-700 bg-red-50 rounded p-2 font-medium"
+                    >
+                      {e}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {data.ppe.references.length > 0 && (
+                <p className="text-xs text-slate-400 mt-2">
+                  {data.ppe.references.join(" · ")}
+                </p>
+              )}
+            </section>
+          )}
 
           {/* Equipment & Safety Plan — RA-7005 */}
           {data.equipmentPlan && data.equipmentPlan.phases && (

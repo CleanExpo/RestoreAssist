@@ -1,5 +1,37 @@
 import { getEquipmentGroupById } from "@/lib/equipment-matrix";
 import { planDrying } from "@/lib/restoration/equipment-planner";
+import {
+  requiredPpe,
+  type HazardProfile,
+  type MouldCondition,
+} from "@/lib/restoration/ppe-requirements";
+
+/** Derive a hazard profile from report + tier-1 fields for PPE + planning. */
+export function deriveHazardProfile(
+  report: any,
+  tier1: any,
+  mouldActive?: boolean,
+): HazardProfile {
+  const hazards: string[] = (tier1?.T1_Q7_hazards ?? []).map((h: string) =>
+    String(h).toLowerCase(),
+  );
+  const has = (re: RegExp) =>
+    hazards.some((h) => re.test(h)) ||
+    re.test(String(report?.hazardType ?? "").toLowerCase());
+  let mouldCondition: MouldCondition = 0;
+  const cat = String(report?.biologicalMouldCategory ?? "");
+  const m = cat.match(/([123])/);
+  if (m) mouldCondition = Number(m[1]) as MouldCondition;
+  else if (mouldActive || has(/mould|mold/)) mouldCondition = 3;
+  const wc = report?.waterCategory ? String(report.waterCategory) : null;
+  return {
+    waterCategory: wc === "1" || wc === "2" || wc === "3" ? wc : null,
+    mouldCondition,
+    asbestos: has(/asbestos/),
+    biohazard: has(/bio.?hazard|trauma/),
+    chemical: has(/meth|chemical/),
+  };
+}
 
 export function buildStructuredBasicReport(data: {
   report: any;
@@ -760,6 +792,19 @@ export function buildStructuredBasicReport(data: {
           : f.completedAt,
     })),
     contentsManifest: contentsManifest ?? null,
+    // RA-7005 Wave 4: required PPE derived from the hazard classification.
+    ppe: (() => {
+      const ppe = requiredPpe(
+        deriveHazardProfile(report, tier1, Boolean(mouldActive)),
+      );
+      return {
+        respiratory: ppe.respiratory,
+        items: ppe.items,
+        decontamination: ppe.decontamination,
+        references: ppe.references,
+        escalations: ppe.escalations,
+      };
+    })(),
     // RA-7005: phased, power-constrained, mould-safe equipment plan.
     equipmentPlan: equipmentPlan
       ? {

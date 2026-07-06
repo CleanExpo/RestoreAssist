@@ -25,6 +25,8 @@ import {
 import { localiseForAUNZ } from "@/lib/anz/localisation";
 import type { ChunkResult } from "@/lib/rag/retrieve";
 import { planDrying } from "@/lib/restoration/equipment-planner";
+import { requiredPpe, summarisePpe } from "@/lib/restoration/ppe-requirements";
+import { deriveHazardProfile } from "@/lib/reports/build-structured-report";
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -593,6 +595,18 @@ export async function POST(request: NextRequest) {
           ),
           ...plan.advisories.map((a) => `ADVISORY: ${a}`),
           `You MUST describe drying in this sequence and NEVER place air movers over active mould. Reflect the power constraint and any sectional-mitigation advisory.`,
+        ].join("\n");
+
+        // RA-7005 Wave 4: required PPE derived from the hazard classification.
+        const ppe = requiredPpe(
+          deriveHazardProfile(report, tier1, mouldActive),
+        );
+        safetyPlanContext += [
+          `\n\n--- REQUIRED PPE (RA-7005 — derived from hazard class, must appear in the report) ---`,
+          summarisePpe(ppe),
+          ...ppe.references.map((r) => `Ref: ${r}`),
+          ...ppe.escalations.map((e) => `ESCALATION: ${e}`),
+          `State the required PPE in a safety section; do not omit it.`,
         ].join("\n");
 
         // RA-7005 Wave 3: ground the drying-sequence + equipment reasoning in
