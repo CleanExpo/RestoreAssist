@@ -813,8 +813,14 @@ ${psychrometricAssessment.systemType ? `- System Type: ${psychrometricAssessment
 ${psychrometricAssessment.dryingPotential?.dryingIndex ? `- Drying Index: ${psychrometricAssessment.dryingPotential.dryingIndex}` : ""}
 ${psychrometricAssessment.dryingPotential?.status ? `- Drying Status: ${psychrometricAssessment.dryingPotential.status}` : ""}
 ${psychrometricAssessment.dryingPotential?.recommendation ? `- Recommendation: ${psychrometricAssessment.dryingPotential.recommendation}` : ""}
+`
+    : ""
+}
 
 ${
+  // RA-7003: Scope Areas and Equipment Selection were nested inside the
+  // psychrometricAssessment ternary — reports without psychro data silently
+  // lost their scope and equipment sections.
   scopeAreas && scopeAreas.length > 0
     ? `## Scope Areas (${scopeAreas.length} areas)
 ${scopeAreas
@@ -855,9 +861,6 @@ ${equipmentSelection
         .toFixed(2)}
 - Estimated Duration: ${report.estimatedDryingDuration || "N/A"} days
 - Total Equipment Cost: $${report.equipmentCostTotal?.toFixed(2) || "0.00"}
-`
-    : ""
-}
 `
     : ""
 }

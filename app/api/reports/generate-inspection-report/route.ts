@@ -101,7 +101,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Get the complete report with all data, including client information
+    // Get the complete report with all data, including client information.
+    // RA-7003 artifact bridge: capture lives on the Inspection side (sketches,
+    // photos, evidence, manifest) and on AuthorityFormInstance; generation
+    // previously read only Report scalars + client, so none of it ever
+    // reached the deliverable.
     const report = await prisma.report.findUnique({
       where: { id: reportId, userId: user.id },
       include: {
@@ -109,6 +113,42 @@ export async function POST(request: NextRequest) {
           select: {
             company: true,
             name: true,
+          },
+        },
+        inspection: {
+          select: {
+            floorPlanImageUrl: true,
+            contentsManifestDraft: true,
+            claimSketches: {
+              select: {
+                floorNumber: true,
+                floorLabel: true,
+                renderedPngUrl: true,
+              },
+              orderBy: { floorNumber: "asc" },
+            },
+            photos: {
+              select: {
+                url: true,
+                thumbnailUrl: true,
+                description: true,
+                location: true,
+                roomType: true,
+                photoStage: true,
+              },
+              orderBy: { timestamp: "asc" },
+              take: 100,
+            },
+          },
+        },
+        authorityForms: {
+          where: { status: "COMPLETED" },
+          select: {
+            id: true,
+            pdfUrl: true,
+            completedAt: true,
+            authorityDescription: true,
+            template: { select: { name: true, code: true } },
           },
         },
       },
@@ -326,12 +366,80 @@ export async function POST(request: NextRequest) {
           photos: nirData.photos || [],
           environmentalData: null, // Not stored in NIR data, will use psychrometric fallback
           classifications: [],
-          costEstimates: [],
+          // RA-7003: previously hard-zeroed even when the NIR blob carried
+          // estimates, so real captured costs never reached the report.
+          costEstimates: nirData.costEstimates || [],
         };
       }
     } catch (error) {
       // Continue without NIR data - report generation will use other Report model data
       inspectionData = null;
+    }
+
+    // RA-7003 artifact bridge: linked-Inspection photos merge with NIR-blob
+    // photos (dedup by URL), and floor plans / signed authority forms /
+    // contents manifest become first-class report inputs for every depth.
+    const inspectionPhotos = (report.inspection?.photos ?? []).map((p) => ({
+      url: p.url,
+      thumbnailUrl: p.thumbnailUrl,
+      description: p.description,
+      location: p.location ?? p.roomType,
+      stage: p.photoStage,
+    }));
+    if (inspectionPhotos.length > 0) {
+      inspectionData = inspectionData ?? {
+        moistureReadings: [],
+        affectedAreas: [],
+        scopeItems: [],
+        photos: [],
+        environmentalData: null,
+        classifications: [],
+        costEstimates: [],
+      };
+      const seenUrls = new Set(
+        (inspectionData.photos as Array<{ url?: string }>).map((p) => p.url),
+      );
+      inspectionData.photos.push(
+        ...inspectionPhotos.filter((p) => !seenUrls.has(p.url)),
+      );
+    }
+
+    const floorPlans = [
+      ...(report.inspection?.claimSketches ?? [])
+        .filter((s) => s.renderedPngUrl)
+        .map((s) => ({
+          floorNumber: s.floorNumber,
+          floorLabel: s.floorLabel,
+          imageUrl: s.renderedPngUrl,
+          source: "sketch" as const,
+        })),
+      ...(report.inspection?.floorPlanImageUrl
+        ? [
+            {
+              floorNumber: null,
+              floorLabel: "Uploaded floor plan",
+              imageUrl: report.inspection.floorPlanImageUrl,
+              source: "upload" as const,
+            },
+          ]
+        : []),
+    ];
+
+    const signedAuthorityForms = (report.authorityForms ?? []).map((f) => ({
+      id: f.id,
+      name: f.template?.name ?? f.template?.code ?? "Authority form",
+      description: f.authorityDescription,
+      pdfUrl: f.pdfUrl,
+      completedAt: f.completedAt,
+    }));
+
+    let contentsManifest: unknown = null;
+    try {
+      contentsManifest = report.inspection?.contentsManifestDraft
+        ? JSON.parse(report.inspection.contentsManifestDraft)
+        : null;
+    } catch {
+      contentsManifest = null;
     }
 
     // For basic and enhanced reports, use structured data directly from Report model (no AI - ensures 100% accurate data)
@@ -345,6 +453,9 @@ export async function POST(request: NextRequest) {
         scopeAreas,
         equipmentSelection,
         inspectionData,
+        floorPlans,
+        signedAuthorityForms,
+        contentsManifest,
         tier1,
         tier2,
         tier3,
@@ -419,6 +530,46 @@ export async function POST(request: NextRequest) {
       // Knowledge graph enrichment is best-effort; never block report generation
     }
 
+    // RA-7003: the optimised path previously discarded inspectionData and knew
+    // nothing of photos, floor plans, signed authorisations, or the contents
+    // manifest — the narrative claimed a documentation trail it never saw.
+    const artifactContext = [
+      inspectionData?.photos?.length
+        ? `\n\n--- SITE PHOTOGRAPHS ON FILE (${inspectionData.photos.length}) ---\n${inspectionData.photos
+            .slice(0, 30)
+            .map(
+              (p: { location?: string | null; description?: string | null }) =>
+                `- ${[p.location, p.description].filter(Boolean).join(": ") || "Site photograph"}`,
+            )
+            .join("\n")}`
+        : "",
+      inspectionData?.scopeItems?.length
+        ? `\n\n--- CAPTURED SCOPE ITEMS (${inspectionData.scopeItems.length}) ---\n${inspectionData.scopeItems
+            .slice(0, 30)
+            .map(
+              (s: { description?: string; quantity?: number; unit?: string }) =>
+                `- ${s.description}${s.quantity ? ` (${s.quantity} ${s.unit ?? ""})` : ""}`,
+            )
+            .join("\n")}`
+        : "",
+      floorPlans.length
+        ? `\n\n--- FLOOR PLANS ON FILE (${floorPlans.length}) ---\n${floorPlans
+            .map((f) => `- ${f.floorLabel ?? `Floor ${f.floorNumber}`}`)
+            .join("\n")}\nReference these in the documentation section; they are appended to the final PDF.`
+        : "",
+      signedAuthorityForms.length
+        ? `\n\n--- SIGNED CLIENT AUTHORISATIONS (${signedAuthorityForms.length}) ---\n${signedAuthorityForms
+            .map(
+              (f) =>
+                `- ${f.name}${f.completedAt ? ` (signed ${new Date(f.completedAt).toLocaleDateString("en-AU")})` : ""}`,
+            )
+            .join("\n")}\nRecord these authorisations in the administrative/documentation section.`
+        : "",
+      contentsManifest
+        ? `\n\n--- CONTENTS MANIFEST ---\nA contents inventory has been captured for this claim. Summarise its existence in the contents section; the itemised manifest accompanies the report.`
+        : "",
+    ].join("");
+
     const prompt =
       buildInspectionReportPrompt({
         report,
@@ -440,7 +591,9 @@ export async function POST(request: NextRequest) {
           businessPhone: user.businessPhone,
           businessEmail: user.businessEmail,
         },
-      }) + knowledgeContext;
+      }) +
+      artifactContext +
+      knowledgeContext;
 
     const systemPrompt = appendCopyrightGroundingInstruction(`You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report.
 

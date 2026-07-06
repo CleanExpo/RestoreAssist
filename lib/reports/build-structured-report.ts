@@ -8,6 +8,21 @@ export function buildStructuredBasicReport(data: {
   scopeAreas?: any[];
   equipmentSelection?: any[];
   inspectionData?: any;
+  // RA-7003 artifact bridge — capture-side artifacts joined into the deliverable.
+  floorPlans?: Array<{
+    floorNumber: number | null;
+    floorLabel: string | null;
+    imageUrl: string | null;
+    source: "sketch" | "upload";
+  }>;
+  signedAuthorityForms?: Array<{
+    id: string;
+    name: string;
+    description?: string | null;
+    pdfUrl: string | null;
+    completedAt: Date | string | null;
+  }>;
+  contentsManifest?: unknown;
   tier1?: any;
   tier2?: any;
   tier3?: any;
@@ -28,6 +43,9 @@ export function buildStructuredBasicReport(data: {
     scopeAreas,
     equipmentSelection,
     inspectionData,
+    floorPlans,
+    signedAuthorityForms,
+    contentsManifest,
     tier1,
     tier2,
     tier3,
@@ -693,6 +711,17 @@ export function buildStructuredBasicReport(data: {
           })
         : [],
     photos: photos,
+    // RA-7003 artifact bridge: floor plans, signed authorisations, and the
+    // contents manifest now travel with the structured report.
+    floorPlans: floorPlans ?? [],
+    signedAuthorityForms: (signedAuthorityForms ?? []).map((f) => ({
+      ...f,
+      completedAt:
+        f.completedAt instanceof Date
+          ? f.completedAt.toISOString()
+          : f.completedAt,
+    })),
+    contentsManifest: contentsManifest ?? null,
     summary: {
       roomsAffected: roomsAffected,
       totalCost: totalCost,

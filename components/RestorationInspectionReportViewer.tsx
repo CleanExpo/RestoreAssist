@@ -107,6 +107,21 @@ interface RestorationInspectionReportData {
     unit: string;
     justification: string | null;
   }>;
+  // RA-7003 artifact bridge
+  floorPlans?: Array<{
+    floorNumber: number | null;
+    floorLabel: string | null;
+    imageUrl: string | null;
+    source: string;
+  }>;
+  signedAuthorityForms?: Array<{
+    id: string;
+    name: string;
+    description?: string | null;
+    pdfUrl: string | null;
+    completedAt: string | null;
+  }>;
+  contentsManifest?: unknown;
   costEstimates: Array<{
     description: string;
     quantity: number;
@@ -2004,6 +2019,77 @@ export default function RestorationInspectionReportViewer({
               )}
             </div>
           </section>
+
+          {/* Floor Plans — RA-7003 artifact bridge */}
+          {data.floorPlans && data.floorPlans.length > 0 && (
+            <section className="print-avoid-break mb-6 print:mb-4">
+              <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-4 print:mb-3">
+                Floor Plans
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {data.floorPlans
+                  .filter((f) => f.imageUrl)
+                  .map((floor, i) => (
+                    <figure
+                      key={i}
+                      className="border border-slate-200 rounded-lg overflow-hidden"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={floor.imageUrl!}
+                        alt={floor.floorLabel ?? `Floor ${floor.floorNumber}`}
+                        className="w-full object-contain bg-white"
+                      />
+                      <figcaption className="px-3 py-2 text-sm text-slate-600 bg-slate-50">
+                        {floor.floorLabel ??
+                          (floor.floorNumber != null
+                            ? `Floor ${floor.floorNumber}`
+                            : "Floor plan")}
+                      </figcaption>
+                    </figure>
+                  ))}
+              </div>
+            </section>
+          )}
+
+          {/* Signed Client Authorisations — RA-7003 artifact bridge */}
+          {data.signedAuthorityForms && data.signedAuthorityForms.length > 0 && (
+            <section className="print-avoid-break mb-6 print:mb-4">
+              <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-4 print:mb-3">
+                Signed Client Authorisations
+              </h2>
+              <ul className="space-y-2">
+                {data.signedAuthorityForms.map((form) => (
+                  <li
+                    key={form.id}
+                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg text-sm"
+                  >
+                    <div>
+                      <p className="font-medium text-slate-800">{form.name}</p>
+                      {form.completedAt && (
+                        <p className="text-xs text-slate-500">
+                          Signed{" "}
+                          {new Date(form.completedAt).toLocaleDateString(
+                            "en-AU",
+                          )}
+                        </p>
+                      )}
+                    </div>
+                    {form.pdfUrl && (
+                      <a
+                        href={form.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-cyan-600 hover:text-cyan-700 font-medium print:hidden"
+                      >
+                        View signed PDF
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {/* Scope of Works — RA-7003: interface field existed but was never
               rendered, so structured reports showed no scope at all. */}
