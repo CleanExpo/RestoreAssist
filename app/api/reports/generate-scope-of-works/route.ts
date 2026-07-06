@@ -106,6 +106,27 @@ export async function POST(request: NextRequest) {
 
       const report = await prisma.report.findUnique({
         where: { id: reportId, userId: user.id },
+        // RA-7003 store convergence: NIR-captured ScopeItems (the inspection
+        // store) previously never reached this document — a scope captured on
+        // site was invisible to the client-facing scope of works.
+        include: {
+          inspection: {
+            select: {
+              scopeItems: {
+                where: { isSelected: true },
+                select: {
+                  itemType: true,
+                  description: true,
+                  quantity: true,
+                  unit: true,
+                  justification: true,
+                  clauseRef: true,
+                },
+                take: 200,
+              },
+            },
+          },
+        },
       });
 
       if (!report) {
@@ -174,7 +195,27 @@ export async function POST(request: NextRequest) {
         scopeAreas,
       });
 
-      const scopeDocument = buildScopeOfWorksDocument(scopeData);
+      // RA-7003 store convergence: fold the inspection's captured scope items
+      // into both the data payload and the client document.
+      const inspectionScopeItems = report.inspection?.scopeItems ?? [];
+      if (inspectionScopeItems.length > 0) {
+        (scopeData as Record<string, unknown>).inspectionScopeItems =
+          inspectionScopeItems;
+      }
+
+      let scopeDocument = buildScopeOfWorksDocument(scopeData);
+      if (inspectionScopeItems.length > 0) {
+        scopeDocument += [
+          "\n\n# CAPTURED INSPECTION SCOPE ITEMS",
+          "",
+          "Items recorded on site during the inspection (in addition to the priced restoration works above):",
+          "",
+          ...inspectionScopeItems.map(
+            (item) =>
+              `- ${item.description}${item.quantity ? ` — ${item.quantity} ${item.unit ?? ""}`.trimEnd() : ""}${item.clauseRef ? ` (${item.clauseRef})` : ""}${item.justification ? `\n  Justification: ${item.justification}` : ""}`,
+          ),
+        ].join("\n");
+      }
 
       const updatedReport = await prisma.report.update({
         where: { id: reportId },
@@ -311,14 +352,30 @@ function buildScopeOfWorksData(data: {
 
   const affectedArea = tier3?.T3_Q4_totalAffectedArea || "Not specified";
 
-  // Calculate affected area in sqm (no default - only use if provided)
+  // RA-7003: prefer the structured room dimensions the user actually entered
+  // (length × width × wet%) over regexing tier-3 free text — the free-text
+  // parse silently priced chemical treatment at 0 m² whenever the phrasing
+  // didn't match.
+  const structuredAreaSqm = Array.isArray(scopeAreas)
+    ? scopeAreas.reduce(
+        (sum: number, a: any) =>
+          sum +
+          (Number(a?.length) || 0) *
+            (Number(a?.width) || 0) *
+            ((Number(a?.wetPercentage) || 0) / 100),
+        0,
+      )
+    : 0;
   const areaMatch =
     affectedArea.match(/(\d+)\s*sqm/i) || affectedArea.match(/=\s*(\d+)/);
-  const affectedAreaSqm = areaMatch
-    ? parseFloat(areaMatch[1])
-    : report.affectedArea
-      ? parseFloat(String(report.affectedArea))
-      : 0;
+  const affectedAreaSqm =
+    structuredAreaSqm > 0
+      ? Math.round(structuredAreaSqm * 10) / 10
+      : areaMatch
+        ? parseFloat(areaMatch[1])
+        : report.affectedArea
+          ? parseFloat(String(report.affectedArea))
+          : 0;
 
   // Use actual equipment selection data if available, otherwise use 0 (no defaults)
   const equipmentSelections = Array.isArray(equipmentSelection)

@@ -41,6 +41,10 @@ interface InspectionMeta {
   propertyAddress: string;
   propertyPostcode: string;
   status: string;
+  // RA-7003: drives the AI scope generator's required payload.
+  affectedAreaM2: number;
+  affectedRooms: string[];
+  lossSourceDescription: string | null;
 }
 
 // Category labels derived from itemType prefix conventions
@@ -299,11 +303,31 @@ export default function ScopeItemsPage({
       const data = await res.json();
       const insp = data.inspection;
       setItems(insp.scopeItems ?? []);
+      const affectedAreas: Array<{
+        affectedAreaSqm?: number | null;
+        affectedSquareFootage?: number | null;
+        roomZoneId?: string | null;
+        waterSource?: string | null;
+      }> = insp.affectedAreas ?? [];
       setMeta({
         inspectionNumber: insp.inspectionNumber,
         propertyAddress: insp.propertyAddress,
         propertyPostcode: insp.propertyPostcode,
         status: insp.status,
+        affectedAreaM2:
+          Math.round(
+            affectedAreas.reduce(
+              (sum, a) =>
+                sum +
+                (a.affectedAreaSqm ??
+                  (a.affectedSquareFootage ?? 0) * 0.09290304),
+              0,
+            ) * 10,
+          ) / 10,
+        affectedRooms: affectedAreas
+          .map((a) => a.roomZoneId)
+          .filter((r): r is string => Boolean(r)),
+        lossSourceDescription: affectedAreas[0]?.waterSource ?? null,
       });
     } catch {
       toast.error("Failed to load scope items");
@@ -319,17 +343,33 @@ export default function ScopeItemsPage({
   // ── Generate scope ────────────────────────────────────────────────────────
 
   const handleGenerateScope = async () => {
+    // RA-7003: this button previously POSTed { inspectionId } to
+    // /api/reports/generate-scope-of-works, which requires a reportId — it
+    // 400'd on every click. The inspection-native generator is
+    // /api/inspections/[id]/generate-scope and needs affectedAreaM2.
+    if (!meta || meta.affectedAreaM2 <= 0) {
+      toast.error(
+        "Add at least one affected area (with dimensions) before generating a scope",
+      );
+      return;
+    }
     setGenerating(true);
     try {
-      const res = await fetch("/api/reports/generate-scope-of-works", {
+      const res = await fetch(`/api/inspections/${id}/generate-scope`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inspectionId: id }),
+        body: JSON.stringify({
+          affectedAreaM2: meta.affectedAreaM2,
+          affectedRooms: meta.affectedRooms,
+          lossSourceDescription: meta.lossSourceDescription ?? undefined,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? "Generation failed");
       }
+      // The generator streams its progress — drain it before refetching.
+      await res.text();
       toast.success("Scope generated successfully");
       await fetchData();
     } catch (err: unknown) {
