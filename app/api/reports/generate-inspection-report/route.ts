@@ -594,6 +594,37 @@ export async function POST(request: NextRequest) {
           ...plan.advisories.map((a) => `ADVISORY: ${a}`),
           `You MUST describe drying in this sequence and NEVER place air movers over active mould. Reflect the power constraint and any sectional-mitigation advisory.`,
         ].join("\n");
+
+        // RA-7005 Wave 3: ground the drying-sequence + equipment reasoning in
+        // the S500/S520/RIA corpus (retrieveForReasoning — all provenance
+        // tiers, since this is reasoning not a citation). Best-effort: an empty
+        // corpus or unreachable embedder must never block generation.
+        try {
+          const { retrieveForReasoning, formatChunksAsContext } = await import(
+            "@/lib/rag/retrieve"
+          );
+          const groundingQuery = [
+            mouldActive
+              ? "mould remediation containment sequence air movers dehumidifiers Condition 1"
+              : "structural drying air movers dehumidifiers placement",
+            report.waterClass ? `Class ${report.waterClass} water loss` : "",
+            "psychrometric drying goals equipment",
+          ]
+            .filter(Boolean)
+            .join(" ");
+          const groundingChunks = await retrieveForReasoning(groundingQuery, {
+            k: 4,
+          });
+          if (groundingChunks.length > 0) {
+            safetyPlanContext += [
+              "\n\n--- STANDARDS GROUNDING (S500/S520/RIA — apply + cite edition + section, paraphrase, never reproduce) ---\n",
+              formatChunksAsContext(groundingChunks),
+              "\nGround the drying-sequence and equipment reasoning above in these passages; cite the clause (e.g. S500:2021 §12.5).",
+            ].join("");
+          }
+        } catch {
+          // Grounding is additive on top of the deterministic safety plan.
+        }
       }
     } catch (err) {
       console.error("[generate-inspection-report] safety plan skipped:", err);
