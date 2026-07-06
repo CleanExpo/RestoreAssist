@@ -24,6 +24,7 @@ import toast from "react-hot-toast";
 import PortalInvitationSection from "@/components/dashboard/PortalInvitationSection";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import { formatDate } from "@/lib/formatters";
+import { sqftToSqm } from "@/lib/units";
 
 const REPORT_STATUS_TONES: Record<string, StatusTone> = {
   completed: "success",
@@ -600,7 +601,9 @@ export default function ClientDetailPage() {
                       <span>{report.waterCategory}</span>
                     )}
                     {report.affectedArea && (
-                      <span>{report.affectedArea} sq ft</span>
+                      <span>
+                        {sqftToSqm(report.affectedArea).toFixed(1)} m²
+                      </span>
                     )}
                   </div>
                 </div>

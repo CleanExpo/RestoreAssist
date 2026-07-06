@@ -11,10 +11,45 @@ import {
   Wind,
 } from "lucide-react";
 import { useState } from "react";
+import {
+  AIR_MOVER_RATIO,
+  DEHU_RATIO,
+  type DamageClass,
+} from "@/lib/equipment-calculator";
+
+/**
+ * Orphaned component (RA-7001 follow-up) — not mounted anywhere outside its
+ * sole parent, components/IICRCReportBuilder.tsx, which is itself not
+ * imported by any page/route. Kept correct (metric, S500:2021-consistent)
+ * in case it is ever wired back in; canonical equipment sizing lives in
+ * lib/equipment-calculator.ts (AIR_MOVER_RATIO / DEHU_RATIO) and this
+ * component's ratios mirror it rather than duplicating divergent figures.
+ */
+const DAMAGE_CLASS_MAP: Record<string, DamageClass> = {
+  "Class 1": "CLASS_1",
+  "Class 2": "CLASS_2",
+  "Class 3": "CLASS_3",
+  "Class 4": "CLASS_4",
+};
+
+function toDamageClass(waterClass: string): DamageClass {
+  return DAMAGE_CLASS_MAP[waterClass] ?? "CLASS_2";
+}
+
+// Per-unit daily capacity (L/day) — display-only figure, not part of the
+// cited DEHU_RATIO (m² per unit, S500:2021 §12.4.2). Mirrors
+// components/EquipmentSizingGuidelines.tsx's calculateDehumidificationRequirements.
+const LITER_PER_DEHU_UNIT: Record<DamageClass, number> = {
+  CLASS_1: 20,
+  CLASS_2: 30,
+  CLASS_3: 40,
+  CLASS_4: 50,
+};
 
 interface IICRCComplianceHelperProps {
   waterCategory?: string;
   waterClass?: string;
+  /** m² — RA-6934 item 6 (see IICRCReportBuilder "Affected Area" field). */
   affectedArea?: number;
 }
 
@@ -90,9 +125,8 @@ export default function IICRCComplianceHelper({
           title: "Class 1 - Slow Rate of Evaporation",
           description: "Minimal water absorption, low evaporation load",
           equipment: [
-            "1 airmover per 50-70 sq ft of affected floor",
-            "1 airmover per 100-150 sq ft of affected wall/ceiling",
-            "Standard dehumidification capacity",
+            "1 airmover per 15m² of affected floor (IICRC S500:2021 §12.5)",
+            "1 LGR dehumidifier per 40m² (IICRC S500:2021 §12.4.2)",
           ],
           drying: [
             "Minimal equipment required",
@@ -106,9 +140,8 @@ export default function IICRCComplianceHelper({
           description:
             "Water absorption into materials, moderate evaporation load",
           equipment: [
-            "1 airmover per 50-70 sq ft of affected floor",
-            "1 airmover per 100-150 sq ft of affected wall/ceiling",
-            "Increased dehumidification capacity",
+            "1 airmover per 15m² of affected floor (IICRC S500:2021 §12.5)",
+            "1 LGR dehumidifier per 40m² (IICRC S500:2021 §12.4.2)",
           ],
           drying: [
             "Moderate equipment requirements",
@@ -121,9 +154,8 @@ export default function IICRCComplianceHelper({
           title: "Class 3 - Fastest Rate of Evaporation",
           description: "Water absorption from overhead, high evaporation load",
           equipment: [
-            "1 airmover per 50-70 sq ft of affected floor",
-            "1 airmover per 100-150 sq ft of affected wall/ceiling",
-            "High capacity dehumidification",
+            "1 airmover per 10m² of affected floor (aggressive drying, IICRC S500:2021 §12.5)",
+            "1 LGR/desiccant dehumidifier per 30m² (IICRC S500:2021 §12.4.2)",
           ],
           drying: [
             "Significant equipment requirements",
@@ -156,28 +188,15 @@ export default function IICRCComplianceHelper({
   const calculateEquipmentNeeds = () => {
     if (!affectedArea || !waterClass) return null;
 
+    // area is m² — see IICRCReportBuilder "Affected Area (m²)" field
+    // (RA-6934 item 6). Ratios delegate to lib/equipment-calculator.ts
+    // (AIR_MOVER_RATIO / DEHU_RATIO, IICRC S500:2021-consistent) instead of
+    // maintaining a separate, previously imperial (sq ft) copy.
     const area = parseFloat(affectedArea.toString());
-    let airmovers = 0;
-    let dehumidification = 0;
-
-    switch (waterClass) {
-      case "Class 1":
-        airmovers = Math.ceil(area / 60); // 1 per 50-70 sq ft
-        dehumidification = Math.ceil(area / 100) * 20; // 20L per 100 sq ft
-        break;
-      case "Class 2":
-        airmovers = Math.ceil(area / 50); // 1 per 50 sq ft
-        dehumidification = Math.ceil(area / 80) * 30; // 30L per 80 sq ft
-        break;
-      case "Class 3":
-        airmovers = Math.ceil(area / 40); // 1 per 40 sq ft
-        dehumidification = Math.ceil(area / 60) * 40; // 40L per 60 sq ft
-        break;
-      case "Class 4":
-        airmovers = Math.ceil(area / 30); // 1 per 30 sq ft
-        dehumidification = Math.ceil(area / 40) * 50; // 50L per 40 sq ft
-        break;
-    }
+    const damageClass = toDamageClass(waterClass);
+    const airmovers = Math.ceil(area / AIR_MOVER_RATIO[damageClass]);
+    const dehuCount = Math.ceil(area / DEHU_RATIO[damageClass]);
+    const dehumidification = dehuCount * LITER_PER_DEHU_UNIT[damageClass];
 
     return { airmovers, dehumidification };
   };

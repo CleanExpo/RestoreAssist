@@ -485,13 +485,18 @@ export async function POST(request: NextRequest) {
               depth: r.depth === "Subsurface" ? "Subsurface" : "Surface",
             }))
           : [],
+        // RA-7001: the extraction prompt now asks the model for m²
+        // (affectedAreaSqm) directly — AU/NZ reports state area in metres,
+        // so no AI-driven unit conversion is needed. InitialDataEntryForm
+        // already prefers this field (falling back to converting a legacy
+        // affectedSquareFootage value) so no further mapping is required.
         affectedAreas: Array.isArray(parsedData.affectedAreas)
           ? parsedData.affectedAreas.map((a: any) => ({
               roomZoneId: a.roomZoneId || "",
-              affectedSquareFootage:
-                typeof a.affectedSquareFootage === "number"
-                  ? a.affectedSquareFootage
-                  : parseFloat(a.affectedSquareFootage) || 0,
+              affectedAreaSqm:
+                typeof a.affectedAreaSqm === "number"
+                  ? a.affectedAreaSqm
+                  : parseFloat(a.affectedAreaSqm) || 0,
               waterSource: a.waterSource || "Clean Water",
               timeSinceLoss:
                 typeof a.timeSinceLoss === "number"

@@ -216,17 +216,17 @@ Example format: [{"location": "Kitchen", "surfaceType": "Drywall", "moistureLeve
 **NIR Inspection Data - Affected Areas:**
 CRITICAL: Extract ALL affected areas mentioned in the document. Look for:
 - Room/zone names with water damage, affected areas, wet areas
-- Square footage or area measurements (convert to square feet if needed: 1 sq m = 10.764 sq ft)
+- Area measurements in square metres (m²) — the standard AU/NZ unit (convert from square feet if the source document uses it: 1 sq ft = 0.0929 sq m)
 - Water source: "Clean Water", "Grey Water", or "Black Water" (look for "clean", "grey", "gray", "black", "contaminated", "sewage")
 - Time since loss: Look for "hours since loss", "time since incident", "elapsed time", "hours ago"
 
 For each affected area found, create an object with:
   - roomZoneId: Room/zone name (e.g., "Kitchen", "Master Bedroom", "Lounge Room")
-  - affectedSquareFootage: Affected area in square feet (float). Extract from measurements or estimates.
+  - affectedAreaSqm: Affected area in square metres (float). Extract from measurements or estimates.
   - waterSource: "Clean Water", "Grey Water", or "Black Water" (default to "Clean Water" if not specified)
   - timeSinceLoss: Hours since water loss occurred (float). Extract numeric value.
 
-Example format: [{"roomZoneId": "Kitchen", "affectedSquareFootage": 150.5, "waterSource": "Clean Water", "timeSinceLoss": 24.0}, {"roomZoneId": "Master Bedroom", "affectedSquareFootage": 200.0, "waterSource": "Grey Water", "timeSinceLoss": 48.0}]
+Example format: [{"roomZoneId": "Kitchen", "affectedAreaSqm": 14.0, "waterSource": "Clean Water", "timeSinceLoss": 24.0}, {"roomZoneId": "Master Bedroom", "affectedAreaSqm": 18.6, "waterSource": "Grey Water", "timeSinceLoss": 48.0}]
 
 **NIR Inspection Data - Scope Items:**
 Extract scope of work items mentioned in the document. Match to these IDs:
