@@ -446,6 +446,21 @@ export default function PortalReportDetail({
                 Review and approve the proposed scope of work for this
                 restoration project.
               </p>
+              {report.scopeOfWorksDocument ? (
+                <details className="mt-3 border border-brand-slate/20 rounded-lg">
+                  <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-brand-navy bg-brand-cloud rounded-lg">
+                    View Scope of Works document
+                  </summary>
+                  <pre className="p-3 max-h-96 overflow-y-auto whitespace-pre-wrap text-xs text-brand-slate font-sans">
+                    {report.scopeOfWorksDocument}
+                  </pre>
+                </details>
+              ) : (
+                <p className="mt-3 text-xs text-brand-slate italic">
+                  The scope of works document has not been provided yet — ask
+                  your contractor before approving.
+                </p>
+              )}
               {scopeApproval?.clientComments && (
                 <div className="mt-3 p-3 bg-brand-cloud rounded">
                   <p className="text-sm font-medium text-brand-navy mb-1">
@@ -488,6 +503,21 @@ export default function PortalReportDetail({
               <p className="text-sm text-brand-slate">
                 Review and approve the cost estimate for the restoration work.
               </p>
+              {report.costEstimationDocument ? (
+                <details className="mt-3 border border-brand-slate/20 rounded-lg">
+                  <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-brand-navy bg-brand-cloud rounded-lg">
+                    View Cost Estimate document
+                  </summary>
+                  <pre className="p-3 max-h-96 overflow-y-auto whitespace-pre-wrap text-xs text-brand-slate font-sans">
+                    {report.costEstimationDocument}
+                  </pre>
+                </details>
+              ) : (
+                <p className="mt-3 text-xs text-brand-slate italic">
+                  The cost estimate document has not been provided yet — ask
+                  your contractor before approving.
+                </p>
+              )}
               {costApproval?.clientComments && (
                 <div className="mt-3 p-3 bg-brand-cloud rounded">
                   <p className="text-sm font-medium text-brand-navy mb-1">

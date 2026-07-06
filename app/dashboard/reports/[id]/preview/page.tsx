@@ -43,11 +43,82 @@ interface CostEstimationData {
   lineItems?: CostLineItem[];
   subtotal?: number;
   gst?: number;
+  // Generator shape (app/api/reports/generate-cost-estimation): categories is
+  // an OBJECT keyed by category, each { name, lineItems, total }, with totals
+  // nested under `totals` (RA-7003 preview mismatch fix).
+  categories?: Record<
+    string,
+    {
+      name?: string;
+      lineItems?: Array<{
+        description: string;
+        hours?: number;
+        qty?: number;
+        days?: number;
+        rate?: number;
+        subtotal?: number;
+      }>;
+      total?: number;
+    }
+  >;
+  totals?: {
+    subtotal?: number;
+    gst?: number;
+    totalIncGST?: number;
+  };
 }
 
 interface ScopeOfWorksData {
   items?: ScopeItem[];
   summary?: string;
+  // Generator shape (app/api/reports/generate-scope-of-works): RW_1..RW_10
+  // priced line items (RA-7003 preview mismatch fix).
+  lineItems?: Array<{
+    id?: string;
+    description: string;
+    qty?: number;
+    unit?: string;
+    rate?: number;
+    subtotal?: number;
+  }>;
+}
+
+/** Accept both the legacy `{items}` shape and the generator's `{lineItems}`. */
+function normaliseScopeItems(data?: ScopeOfWorksData): ScopeItem[] {
+  if (!data) return [];
+  if (data.items?.length) return data.items;
+  return (data.lineItems ?? []).map((li) => ({
+    id: li.id,
+    description: li.description,
+    quantity: li.qty,
+    unit: li.unit,
+    unitCost: li.rate,
+    totalCost: li.subtotal,
+    category: li.id,
+  }));
+}
+
+/** Accept both the legacy flat shape and the generator's `{categories, totals}`. */
+function normaliseCostData(
+  data?: CostEstimationData,
+): CostEstimationData | undefined {
+  if (!data) return undefined;
+  if (data.lineItems?.length || data.subtotal != null) return data;
+  const categories = data.categories ? Object.values(data.categories) : [];
+  if (categories.length === 0 && !data.totals) return data;
+  return {
+    lineItems: categories.flatMap((cat) =>
+      (cat.lineItems ?? []).map((li) => ({
+        description: cat.name ? `${cat.name} — ${li.description}` : li.description,
+        quantity: li.hours ?? li.qty ?? li.days,
+        unitCost: li.rate,
+        totalCost: li.subtotal,
+      })),
+    ),
+    subtotal: data.totals?.subtotal,
+    gst: data.totals?.gst,
+    totalIncGST: data.totals?.totalIncGST,
+  };
 }
 
 interface PsychrometricAssessment {
@@ -207,8 +278,8 @@ export default function ReportPreviewPage() {
     );
   }
 
-  const scopeItems: ScopeItem[] = report.scopeOfWorksData?.items ?? [];
-  const costData = report.costEstimationData;
+  const scopeItems: ScopeItem[] = normaliseScopeItems(report.scopeOfWorksData);
+  const costData = normaliseCostData(report.costEstimationData);
   const psychro = report.psychrometricAssessment;
   const psychroReadings =
     report.psychrometricReadings ?? psychro?.readings ?? [];
