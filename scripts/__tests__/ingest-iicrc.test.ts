@@ -15,6 +15,7 @@ import {
   assertEmbeddingShape,
   upsertChunk,
   parseArgs,
+  parseProvenance,
   CHUNK_SIZE,
   CHUNK_OVERLAP,
   MIN_CHUNK_LENGTH,
@@ -120,7 +121,10 @@ describe("validateIngestEnv", () => {
 
   it("treats a blank/whitespace-only value as missing", () => {
     expect(() =>
-      validateIngestEnv({ OPENAI_API_KEY: "   ", DATABASE_URL: "postgres://x" }),
+      validateIngestEnv({
+        OPENAI_API_KEY: "   ",
+        DATABASE_URL: "postgres://x",
+      }),
     ).toThrowError(/OPENAI_API_KEY/);
   });
 
@@ -169,11 +173,15 @@ describe("upsertChunk", () => {
     contentHash: buildContentHash("S500", "2021", "content-for-upsert-test"),
     pageNumber: 3,
     embedding: FIXED_VECTOR,
+    provenance: "AUTHORITATIVE_STANDARD" as const,
+    jurisdiction: "AU",
   };
 
   it("reports 'inserted' when $executeRawUnsafe affects 1 row", async () => {
     const executeRawUnsafe = vi.fn().mockResolvedValue(1);
-    const mockPrisma: IicrcChunkPrisma = { $executeRawUnsafe: executeRawUnsafe };
+    const mockPrisma: IicrcChunkPrisma = {
+      $executeRawUnsafe: executeRawUnsafe,
+    };
 
     const result = await upsertChunk(mockPrisma, row);
 
@@ -188,9 +196,32 @@ describe("upsertChunk", () => {
     expect(values.some((v) => v === `[${FIXED_VECTOR.join(",")}]`)).toBe(true);
   });
 
+  it("RA-7000: writes provenance + jurisdiction as bind params", async () => {
+    const executeRawUnsafe = vi.fn().mockResolvedValue(1);
+    const mockPrisma: IicrcChunkPrisma = {
+      $executeRawUnsafe: executeRawUnsafe,
+    };
+
+    await upsertChunk(mockPrisma, {
+      ...row,
+      provenance: "KNOWLEDGE",
+      jurisdiction: "NZ",
+    });
+
+    const [sql, ...values] = executeRawUnsafe.mock.calls[0];
+    // Columns present in the INSERT, and the enum is cast, not interpolated.
+    expect(sql).toContain("provenance");
+    expect(sql).toContain("jurisdiction");
+    expect(sql).toContain('::"ChunkProvenance"');
+    expect(values).toContain("KNOWLEDGE");
+    expect(values).toContain("NZ");
+  });
+
   it("reports 'skipped' (idempotent) when $executeRawUnsafe affects 0 rows", async () => {
     const executeRawUnsafe = vi.fn().mockResolvedValue(0);
-    const mockPrisma: IicrcChunkPrisma = { $executeRawUnsafe: executeRawUnsafe };
+    const mockPrisma: IicrcChunkPrisma = {
+      $executeRawUnsafe: executeRawUnsafe,
+    };
 
     const result = await upsertChunk(mockPrisma, row);
 
@@ -204,7 +235,9 @@ describe("upsertChunk", () => {
       .fn()
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(0);
-    const mockPrisma: IicrcChunkPrisma = { $executeRawUnsafe: executeRawUnsafe };
+    const mockPrisma: IicrcChunkPrisma = {
+      $executeRawUnsafe: executeRawUnsafe,
+    };
 
     const first = await upsertChunk(mockPrisma, row);
     const second = await upsertChunk(mockPrisma, row);
@@ -218,17 +251,54 @@ describe("upsertChunk", () => {
 // ─── parseArgs ────────────────────────────────────────────────────────────────
 
 describe("parseArgs", () => {
-  it("uses defaults when no flags are given", () => {
+  it("uses defaults when no flags are given (authoritative-standard / AU)", () => {
     expect(parseArgs([])).toEqual({
       dir: "./iicrc-pdfs",
       standard: "S500",
       edition: "2025",
+      provenance: "AUTHORITATIVE_STANDARD",
+      jurisdiction: "AU",
     });
   });
 
   it("reads --dir, --standard, --edition flags", () => {
     expect(
       parseArgs(["--dir", "./out", "--standard", "S520", "--edition", "2024"]),
-    ).toEqual({ dir: "./out", standard: "S520", edition: "2024" });
+    ).toEqual({
+      dir: "./out",
+      standard: "S520",
+      edition: "2024",
+      provenance: "AUTHORITATIVE_STANDARD",
+      jurisdiction: "AU",
+    });
+  });
+
+  it("RA-7000: reads --provenance and --jurisdiction flags", () => {
+    expect(
+      parseArgs(["--provenance", "knowledge", "--jurisdiction", "NZ"]),
+    ).toMatchObject({ provenance: "KNOWLEDGE", jurisdiction: "NZ" });
+  });
+});
+
+// ─── parseProvenance ──────────────────────────────────────────────────────────
+
+describe("parseProvenance", () => {
+  it("accepts the friendly hyphenated form case-insensitively", () => {
+    expect(parseProvenance("authoritative-standard")).toBe(
+      "AUTHORITATIVE_STANDARD",
+    );
+    expect(parseProvenance("Knowledge")).toBe("KNOWLEDGE");
+  });
+
+  it("accepts the raw enum literal", () => {
+    expect(parseProvenance("AUTHORITATIVE_STANDARD")).toBe(
+      "AUTHORITATIVE_STANDARD",
+    );
+  });
+
+  it("throws (fails loud) on an unknown value rather than mis-tagging", () => {
+    expect(() => parseProvenance("standard")).toThrowError(
+      /Invalid --provenance/,
+    );
   });
 });

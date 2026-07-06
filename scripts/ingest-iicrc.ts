@@ -4,6 +4,13 @@
  * Usage:
  *   npx tsx scripts/ingest-iicrc.ts --dir ./iicrc-pdfs --standard S500 --edition 2025
  *
+ * RA-7000 provenance/jurisdiction tagging (both optional, defaults preserve
+ * pre-RA-7000 behaviour — every chunk is an authoritative, citable AU standard):
+ *   --provenance authoritative-standard | knowledge   (default authoritative-standard)
+ *   --jurisdiction AU | NZ | INTL | US                (default AU)
+ * A `knowledge` run ingests supporting material that calc + Margot reasoning may
+ * use but report citations must NOT — see lib/rag/retrieve.ts.
+ *
  * Pre-extract PDF text first:
  *   pdftotext IICRC_S500_2025.pdf IICRC_S500_2025.txt
  *
@@ -31,10 +38,33 @@ export const MIN_CHUNK_LENGTH = 20;
 // fail with a clear message.
 export const EXPECTED_EMBEDDING_DIMENSIONS = 1536;
 
+// RA-7000: mirrors the ChunkProvenance Prisma enum. Kept as a local literal
+// union (not imported from @prisma/client) so this script's pure functions stay
+// importable in tests without pulling the generated client.
+export type ChunkProvenance = "AUTHORITATIVE_STANDARD" | "KNOWLEDGE";
+
 export interface IngestArgs {
   dir: string;
   standard: string;
   edition: string;
+  provenance: ChunkProvenance;
+  jurisdiction: string;
+}
+
+/**
+ * Normalises a CLI --provenance value to the ChunkProvenance enum. Accepts the
+ * friendly `authoritative-standard` / `knowledge` forms as well as the raw enum
+ * literals, case-insensitively. Throws (fail loud) on anything else rather than
+ * silently defaulting — a typo must not mis-tag an entire ingest run.
+ */
+export function parseProvenance(raw: string): ChunkProvenance {
+  const normalized = raw.trim().toUpperCase().replace(/-/g, "_");
+  if (normalized === "AUTHORITATIVE_STANDARD" || normalized === "KNOWLEDGE") {
+    return normalized;
+  }
+  throw new Error(
+    `Invalid --provenance "${raw}". Expected "authoritative-standard" or "knowledge".`,
+  );
 }
 
 export function parseArgs(argv: string[] = process.argv.slice(2)): IngestArgs {
@@ -46,6 +76,8 @@ export function parseArgs(argv: string[] = process.argv.slice(2)): IngestArgs {
     dir: get("--dir", "./iicrc-pdfs"),
     standard: get("--standard", "S500"),
     edition: get("--edition", "2025"),
+    provenance: parseProvenance(get("--provenance", "authoritative-standard")),
+    jurisdiction: get("--jurisdiction", "AU"),
   };
 }
 
@@ -144,6 +176,8 @@ export interface ChunkRow {
   contentHash: string;
   pageNumber: number;
   embedding: number[];
+  provenance: ChunkProvenance;
+  jurisdiction: string;
 }
 
 export interface IicrcChunkPrisma {
@@ -163,8 +197,8 @@ export async function upsertChunk(
 ): Promise<"inserted" | "skipped"> {
   const vectorLiteral = `[${row.embedding.join(",")}]`;
   const affected = await prisma.$executeRawUnsafe(
-    `INSERT INTO "IicrcChunk" (id, standard, edition, section, heading, content, "contentHash", "pageNumber", embedding, "createdAt", "updatedAt")
-     VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8::vector, NOW(), NOW())
+    `INSERT INTO "IicrcChunk" (id, standard, edition, section, heading, content, "contentHash", "pageNumber", embedding, provenance, jurisdiction, "createdAt", "updatedAt")
+     VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8::vector, $9::"ChunkProvenance", $10, NOW(), NOW())
      ON CONFLICT ("contentHash") DO NOTHING`,
     row.standard,
     row.edition,
@@ -174,6 +208,8 @@ export async function upsertChunk(
     row.contentHash,
     row.pageNumber,
     vectorLiteral,
+    row.provenance,
+    row.jurisdiction,
   );
   return affected === 0 ? "skipped" : "inserted";
 }
@@ -195,8 +231,11 @@ export interface IngestSummary {
 async function main() {
   validateIngestEnv();
 
-  const { dir, standard, edition } = parseArgs();
-  console.log(`Ingesting ${standard}:${edition} from ${dir}`);
+  const { dir, standard, edition, provenance, jurisdiction } = parseArgs();
+  console.log(
+    `Ingesting ${standard}:${edition} from ${dir} ` +
+      `(provenance=${provenance}, jurisdiction=${jurisdiction})`,
+  );
 
   if (!fs.existsSync(dir)) {
     console.error(`Directory not found: ${dir}`);
@@ -210,7 +249,8 @@ async function main() {
   const allEntries = fs.readdirSync(dir);
   const txtFiles = allEntries.filter((f) => f.endsWith(".txt"));
   const unconvertedPdfs = allEntries.filter(
-    (f) => f.endsWith(".pdf") && !txtFiles.includes(f.replace(/\.pdf$/, ".txt")),
+    (f) =>
+      f.endsWith(".pdf") && !txtFiles.includes(f.replace(/\.pdf$/, ".txt")),
   );
 
   if (unconvertedPdfs.length > 0) {
@@ -264,6 +304,8 @@ async function main() {
           contentHash,
           pageNumber,
           embedding: embeddings[j],
+          provenance,
+          jurisdiction,
         });
 
         if (result === "inserted") summary.chunksUpserted++;

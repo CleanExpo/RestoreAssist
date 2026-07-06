@@ -889,6 +889,20 @@ enum ExperienceMode {
   EXPERIENCED
 }
 
+// RA-7000 Knowledge Wiki — provenance tier of a RAG chunk. Governs which
+// retrieval surface a chunk may feed:
+//   AUTHORITATIVE_STANDARD — verbatim/citable standards text; the ONLY tier a
+//                            report §-citation or compliance-grounding may draw
+//                            from. This is the default so all pre-RA-7000 rows
+//                            keep their current citable behaviour.
+//   KNOWLEDGE              — supporting knowledge (guidance, explainers, notes)
+//                            that calculations + Margot reasoning may use but
+//                            report citations must NOT.
+enum ChunkProvenance {
+  AUTHORITATIVE_STANDARD
+  KNOWLEDGE
+}
+
 enum TradingStatus {
   ACTIVE
   PRE_TRADING
@@ -6219,11 +6233,19 @@ model IicrcChunk {
   pageNumber  Int?
   embedding   Unsupported("vector(1536)")?
 
+  // RA-7000: provenance tier gates the retrieval split (see ChunkProvenance).
+  // Defaults to AUTHORITATIVE_STANDARD so every pre-existing chunk stays citable.
+  provenance ChunkProvenance @default(AUTHORITATIVE_STANDARD)
+  // RA-7000: source jurisdiction e.g. "AU" | "NZ" | "INTL" | "US". Nullable —
+  // legacy rows predate the tag; consumers treat null as unknown jurisdiction.
+  jurisdiction String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([standard, edition])
   @@index([section])
+  @@index([provenance])
 }
 
 // ─── V2: Sketch Tool (RA-89) ──────────────────────────────────────────────────
@@ -6835,10 +6857,15 @@ model StandardsChunk {
   title        String
   text         String
   jurisdiction String // "AU" | "NZ" | "BOTH"
+  // RA-7000: provenance tier (see ChunkProvenance). This corpus is in-house
+  // authored clause summaries of authoritative standards, so it defaults to
+  // AUTHORITATIVE_STANDARD — same citable behaviour as before the tag existed.
+  provenance   ChunkProvenance @default(AUTHORITATIVE_STANDARD)
   // embedding vector(1536) — added via migration raw SQL (pgvector)
 
   @@unique([standard, edition, clause])
   @@index([standard, jurisdiction])
+  @@index([provenance])
 }
 
 // ─── RA-1136a: Make-Safe Compliance Gate ─────────────────────────────────────
