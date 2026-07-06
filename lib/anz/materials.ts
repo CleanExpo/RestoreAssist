@@ -44,7 +44,7 @@ export const ANZ_MATERIALS: AnzMaterial[] = [
   {
     id: "gyprock",
     name: "Gyprock (plasterboard)",
-    aliases: ["plasterboard", "gypsum board"],
+    aliases: ["plasterboard", "gypsum board", "drywall", "sheetrock"],
     region: ["AU", "NZ"],
     dryStandardMc: 1,
     isPotentialAcm: false,
