@@ -2079,6 +2079,13 @@ model Inspection {
   // Visual Moisture Mapping
   floorPlanImageUrl String? // URL to uploaded floor plan image
 
+  // RA-7005: mandatory initial site power assessment. Nullable until captured;
+  // the equipment planner assumes 2× 20A when absent and the completeness gate
+  // flags it. deratePct default 0.8 = AS/NZS 3000 continuous-load best practice.
+  powerCircuits       Int? // circuits made available for restoration equipment
+  powerCircuitRatingA Int? // amp rating of each circuit (AU domestic typ. 20)
+  powerDeratePct      Float? @default(0.8)
+
   // Relations
   propertyLookupCache PropertyLookup?
 

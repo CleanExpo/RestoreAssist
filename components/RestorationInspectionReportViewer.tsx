@@ -122,6 +122,27 @@ interface RestorationInspectionReportData {
     completedAt: string | null;
   }>;
   contentsManifest?: unknown;
+  // RA-7005 equipment safety plan
+  equipmentPlan?: {
+    powerAssumed?: boolean;
+    powerConstrained?: boolean;
+    advisories?: string[];
+    budget?: {
+      circuits: number;
+      circuitRatingA: number;
+      deratePct: number;
+      perCircuitUsableA: number;
+      siteUsableA: number;
+    };
+    phases?: Array<{
+      phase: number;
+      label: string;
+      airMoversAllowed: boolean;
+      totalA: number;
+      fits: boolean;
+      lines: Array<{ kind: string; quantity: number; ampsTotal: number }>;
+    }>;
+  } | null;
   costEstimates: Array<{
     description: string;
     quantity: number;
@@ -2019,6 +2040,71 @@ export default function RestorationInspectionReportViewer({
               )}
             </div>
           </section>
+
+          {/* Equipment & Safety Plan — RA-7005 */}
+          {data.equipmentPlan && data.equipmentPlan.phases && (
+            <section className="print-avoid-break mb-6 print:mb-4">
+              <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-4 print:mb-3">
+                Equipment & Safety Plan
+              </h2>
+              {data.equipmentPlan.budget && (
+                <p className="text-sm print:text-xs text-slate-600 mb-3">
+                  <strong>Power:</strong>{" "}
+                  {data.equipmentPlan.powerAssumed
+                    ? "Assumed 2× 20A/230V (confirm on site)"
+                    : `${data.equipmentPlan.budget.circuits}× ${data.equipmentPlan.budget.circuitRatingA}A/230V`}{" "}
+                  — {data.equipmentPlan.budget.siteUsableA}A usable @{" "}
+                  {Math.round(data.equipmentPlan.budget.deratePct * 100)}% derate
+                  (AS/NZS 3000), {data.equipmentPlan.budget.perCircuitUsableA}
+                  A/circuit.
+                </p>
+              )}
+              <div className="space-y-3">
+                {data.equipmentPlan.phases.map((ph) => (
+                  <div
+                    key={ph.phase}
+                    className="p-3 bg-slate-50 rounded-lg text-sm print:text-xs"
+                  >
+                    <p className="font-medium text-slate-800">{ph.label}</p>
+                    <p className="text-slate-600 mt-1">
+                      {ph.lines
+                        .map(
+                          (l) =>
+                            `${l.quantity}× ${l.kind.replace("_", " ")}`,
+                        )
+                        .join(", ")}{" "}
+                      — {ph.totalA}A
+                      {!ph.fits && (
+                        <span className="text-red-600 font-medium">
+                          {" "}
+                          (exceeds supply)
+                        </span>
+                      )}
+                      {!ph.airMoversAllowed && (
+                        <span className="text-amber-600">
+                          {" "}
+                          · no air movers (mould active)
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              {data.equipmentPlan.advisories &&
+                data.equipmentPlan.advisories.length > 0 && (
+                  <ul className="mt-3 space-y-1">
+                    {data.equipmentPlan.advisories.map((a, i) => (
+                      <li
+                        key={i}
+                        className="text-xs text-amber-700 bg-amber-50 rounded p-2"
+                      >
+                        {a}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </section>
+          )}
 
           {/* Floor Plans — RA-7003 artifact bridge */}
           {data.floorPlans && data.floorPlans.length > 0 && (
