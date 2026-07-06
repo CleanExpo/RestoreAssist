@@ -702,6 +702,12 @@ export async function handleRecurringAddonSubscription(
     subscription.status === "active" || subscription.status === "trialing";
   const stripePriceId = subscription.items?.data?.[0]?.price?.id ?? null;
 
+  // RA-6920 B6 — persist the purchased seat count for the quantity-based
+  // TECHNICIAN_SEATS add-on only. Flat add-ons leave `seats` untouched (null).
+  const seats = descriptor.perSeat
+    ? (subscription.items?.data?.[0]?.quantity ?? 1)
+    : undefined;
+
   await prisma.featureEntitlement.upsert({
     where: {
       workspaceId_sku: { workspaceId, sku: descriptor.sku },
@@ -710,11 +716,13 @@ export async function handleRecurringAddonSubscription(
       workspaceId,
       sku: descriptor.sku,
       active,
+      seats,
       stripeSubscriptionId: subscription.id,
       stripePriceId,
     },
     update: {
       active,
+      seats,
       stripeSubscriptionId: subscription.id,
       stripePriceId,
     },

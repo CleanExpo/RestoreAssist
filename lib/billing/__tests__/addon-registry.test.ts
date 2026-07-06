@@ -77,3 +77,41 @@ describe("RECURRING_ADDONS — VOICE (RA-6920 B2)", () => {
     expect(descriptor?.sku).toBe("VOICE");
   });
 });
+
+describe("RECURRING_ADDONS — TECHNICIAN_SEATS (RA-6920 B6)", () => {
+  it("resolves by add-on key with the correct per-seat price + currency", () => {
+    const descriptor = getRecurringAddon("TECHNICIAN_SEATS");
+
+    expect(descriptor).toMatchObject({
+      sku: "TECHNICIAN_SEATS",
+      amount: 11.0,
+      currency: "AUD",
+      interval: "month",
+      subscriptionType: "technician_seats_addon",
+    });
+  });
+
+  it("is the only add-on flagged perSeat (quantity-based billing)", () => {
+    expect(getRecurringAddon("TECHNICIAN_SEATS")?.perSeat).toBe(true);
+    // Every flat add-on must NOT carry the per-seat marker.
+    for (const key of [
+      "FLOORPLAN_UNDERLAY",
+      "BOOKKEEPING",
+      "SERVICE_CRM",
+      "PAYMENTS",
+      "CLIENT_COMMS",
+      "VOICE",
+    ]) {
+      expect(getRecurringAddon(key)?.perSeat).toBeFalsy();
+    }
+  });
+
+  it("resolves in reverse by the subscription-metadata marker", () => {
+    const descriptor = getRecurringAddonBySubscriptionType(
+      "technician_seats_addon",
+    );
+
+    expect(descriptor?.sku).toBe("TECHNICIAN_SEATS");
+    expect(descriptor?.perSeat).toBe(true);
+  });
+});
