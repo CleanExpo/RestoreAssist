@@ -24,6 +24,7 @@ import {
 } from "@/lib/standards/copyright-guard";
 import { localiseForAUNZ } from "@/lib/anz/localisation";
 import type { ChunkResult } from "@/lib/rag/retrieve";
+import { planDrying } from "@/lib/restoration/equipment-planner";
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -533,6 +534,51 @@ export async function POST(request: NextRequest) {
     // RA-7003: the optimised path previously discarded inspectionData and knew
     // nothing of photos, floor plans, signed authorisations, or the contents
     // manifest — the narrative claimed a documentation trail it never saw.
+    // RA-7005: deterministic equipment SAFETY plan — enforces the mould
+    // air-mover gate and the derated power budget so the generated report can
+    // never describe an unsafe/unbuildable drying setup. Power assessment is
+    // assumed (2× 20A @ 80%) until captured on site; area + mould are derived
+    // from the structured inputs.
+    let safetyPlanContext = "";
+    try {
+      const areaM2 = Array.isArray(scopeAreas)
+        ? scopeAreas.reduce(
+            (sum: number, a: any) =>
+              sum +
+              (Number(a?.length) || 0) *
+                (Number(a?.width) || 0) *
+                ((Number(a?.wetPercentage) || 0) / 100),
+            0,
+          )
+        : 0;
+      const mouldActive =
+        Boolean(report.biologicalMouldCategory) ||
+        String(report.hazardType ?? "").toLowerCase().includes("mould") ||
+        (tier1?.T1_Q7_hazards ?? []).some((h: string) =>
+          /mould|mold/i.test(h),
+        );
+      if (areaM2 > 0) {
+        const plan = planDrying(
+          { affectedAreaM2: Math.round(areaM2 * 10) / 10, mouldActive },
+          { circuits: 2, circuitRatingA: 20 },
+        );
+        safetyPlanContext = [
+          `\n\n--- EQUIPMENT & SAFETY PLAN (RA-7005 — non-negotiable) ---`,
+          `Power (assumed 2× 20A/230V, confirm on site): ${plan.budget.siteUsableA}A usable at ${plan.budget.deratePct * 100}% derate (AS/NZS 3000), ${plan.budget.perCircuitUsableA}A/circuit.`,
+          ...plan.phases.map(
+            (ph) =>
+              `${ph.label} Equipment: ${ph.lines
+                .map((l) => `${l.quantity}× ${l.kind.replace("_", " ")}`)
+                .join(", ")} (${ph.packing.totalA}A${ph.packing.fits ? "" : " — EXCEEDS SUPPLY"}).`,
+          ),
+          ...plan.advisories.map((a) => `ADVISORY: ${a}`),
+          `You MUST describe drying in this sequence and NEVER place air movers over active mould. Reflect the power constraint and any sectional-mitigation advisory.`,
+        ].join("\n");
+      }
+    } catch (err) {
+      console.error("[generate-inspection-report] safety plan skipped:", err);
+    }
+
     const artifactContext = [
       inspectionData?.photos?.length
         ? `\n\n--- SITE PHOTOGRAPHS ON FILE (${inspectionData.photos.length}) ---\n${inspectionData.photos
@@ -592,6 +638,7 @@ export async function POST(request: NextRequest) {
           businessEmail: user.businessEmail,
         },
       }) +
+      safetyPlanContext +
       artifactContext +
       knowledgeContext;
 
