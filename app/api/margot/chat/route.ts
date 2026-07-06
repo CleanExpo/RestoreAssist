@@ -40,6 +40,7 @@ import {
   loadNexusContextBundle,
   nexusContextEnabled,
 } from "@/lib/nexus-hub-context";
+import { appendCopyrightGroundingInstruction } from "@/lib/standards/copyright-guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -317,6 +318,48 @@ const imageGenerateTool = tool({
   execute: async (input) => generateAndStoreImage(input),
 });
 
+// RA-7000: only fire standards retrieval when the message is plausibly about
+// restoration standards work — Margot is a general PA and casual threads must
+// not get IICRC context injected into them.
+const STANDARDS_HINT =
+  /\b(iicrc|s500|s520|s540|s590|s700|standards?|drying|dehumidif|psychrometric|mould|mold|remediat|restorat|water damage|categor(y|ies) [123]|class [1-4]|containment|hepa)\b/i;
+
+/** Latest user text in the thread — the retrieval query. */
+function latestUserText(messages: UIMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role !== "user") continue;
+    const text = message.parts
+      .map((part) => (part.type === "text" ? part.text : ""))
+      .join(" ")
+      .trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+/**
+ * RA-7000: ground Margot on the knowledge corpus. Margot REASONS but does not
+ * emit report citations, so this uses retrieveForReasoning (all provenance
+ * tiers). Best-effort — an empty corpus or unreachable embedder returns "".
+ */
+async function buildStandardsGrounding(query: string): Promise<string> {
+  if (!query || !STANDARDS_HINT.test(query)) return "";
+  try {
+    const { retrieveForReasoning, formatChunksAsContext } = await import(
+      "@/lib/rag/retrieve"
+    );
+    const chunks = await retrieveForReasoning(query, { k: 4 });
+    if (chunks.length === 0) return "";
+    return [
+      "\n\n--- STANDARDS KNOWLEDGE (reasoning context — paraphrase, cite edition + section, never reproduce the wording) ---\n",
+      formatChunksAsContext(chunks),
+    ].join("");
+  } catch {
+    return "";
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -351,6 +394,16 @@ export async function POST(request: NextRequest) {
     if (nexusContextEnabled()) {
       const bundle = await loadNexusContextBundle();
       system = `${system}\n\n${formatNexusContextForPrompt(bundle)}`;
+    }
+
+    // RA-7000: standards grounding (reasoning tier) + copyright instruction.
+    // Prompt-side only — the reply streams, so the output-side guard cannot
+    // run here; the instruction is the enforcement surface for chat.
+    const standardsGrounding = await buildStandardsGrounding(
+      latestUserText(messages),
+    );
+    if (standardsGrounding) {
+      system = appendCopyrightGroundingInstruction(system + standardsGrounding);
     }
 
     const result = streamText({
