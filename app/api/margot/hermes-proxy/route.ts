@@ -3,7 +3,6 @@
  * Margot chat with Nexus Hub context bundle (wiki + brand + memory summary).
  * Uses Claude via Vercel; enriches system prompt from content/nexus-hub + optional Hermes API.
  */
-import { anthropic } from "@ai-sdk/anthropic";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
@@ -13,9 +12,11 @@ import { apiError } from "@/lib/api-errors";
 import { rateLimit } from "@/lib/bulk-operations";
 import { prisma } from "@/lib/prisma";
 import {
-  estimateCostUsd,
-  logAiUsage,
-} from "@/lib/usage/log-usage";
+  createMargotModel,
+  getOpenRouterApiKey,
+  resolveMargotModelId,
+} from "@/lib/ai/openrouter";
+import { logAiUsage } from "@/lib/usage/log-usage";
 import {
   formatNexusContextForPrompt,
   loadNexusContextBundle,
@@ -26,7 +27,6 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const HERMES_PROXY_BASE = `You are Margot with Unite-Group Nexus Hub context loaded. Follow voice and ICP below for content tasks.`;
-const HERMES_PROXY_MODEL = "claude-sonnet-4-6";
 const AI_ALLOWED_STATUSES = new Set(["TRIAL", "ACTIVE", "LIFETIME"]);
 
 async function getPrimaryWorkspace(userId: string) {
@@ -81,10 +81,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+    if (!getOpenRouterApiKey()) {
       return apiError(request, {
         code: "UPSTREAM_FAILED",
-        message: "Margot Hermes proxy offline — ANTHROPIC_API_KEY not configured",
+        message: "Margot Hermes proxy offline — OPENROUTER_API_KEY not configured",
         status: 503,
         stage: "config",
       });
@@ -107,22 +107,20 @@ export async function POST(request: NextRequest) {
     }
 
     const startedAt = Date.now();
+    const margotModel = resolveMargotModelId();
     const usageTarget = await getPrimaryWorkspace(userId);
     if (usageTarget) {
       logAiUsage({
         workspaceId: usageTarget.workspaceId,
         memberId: usageTarget.memberId,
-        provider: "ANTHROPIC",
-        model: HERMES_PROXY_MODEL,
+        // OpenRouter is OpenAI-API-compatible; the model is pinned to a :free
+        // variant so the platform key incurs zero spend.
+        provider: "OPENAI",
+        model: margotModel,
         taskType: "margot_hermes_proxy",
         inputTokens: 0,
         outputTokens: 0,
-        estimatedCostUsd: estimateCostUsd(
-          "ANTHROPIC",
-          HERMES_PROXY_MODEL,
-          0,
-          0,
-        ),
+        estimatedCostUsd: 0,
         latencyMs: Date.now() - startedAt,
         success: true,
         metadata: {
@@ -134,7 +132,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = streamText({
-      model: anthropic(HERMES_PROXY_MODEL),
+      model: createMargotModel(margotModel),
       system,
       messages: await convertToModelMessages(messages),
     });
