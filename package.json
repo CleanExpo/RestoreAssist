@@ -203,7 +203,7 @@
     "otpauth": "^9.5.1",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
-    "pdfjs-dist": "^5.7.284",
+    "pdfjs-dist": "^6.1.200",
     "pend": "^1.2.0",
     "puppeteer": "^25.1.0",
     "qrcode": "^1.5.4",
