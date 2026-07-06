@@ -1,0 +1,7 @@
+[
+  { "question": "what is done vs remaining in the production grade implementation", "expect_file_contains": "DONE_VS_REMAINING_INVENTORY" },
+  { "question": "production gate definition of done before shipping", "expect_file_contains": "PRODUCTION_GATE" },
+  { "question": "GST tax treatment compliance for Australian customers", "expect_file_contains": "AU-GST-TAX" },
+  { "question": "margot continuity activation handoff", "expect_file_contains": "margot-continuity-activation" },
+  { "question": "data retention policy compliance", "expect_file_contains": "DATA-RETENTION-POLICY" }
+]
