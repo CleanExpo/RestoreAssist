@@ -44,7 +44,7 @@ function getInstance(): Stripe {
     }
 
     _stripe = new Stripe(key, {
-      apiVersion: "2026-05-27.dahlia",
+      apiVersion: "2026-06-24.dahlia",
       typescript: true,
     });
   }
