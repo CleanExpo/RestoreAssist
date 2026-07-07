@@ -310,3 +310,35 @@ describe("buildStructuredBasicReport — environmental fallback", () => {
     expect(result.environmental?.dewPoint).toBe(15);
   });
 });
+
+// RA-7006 Gap 3 + Gap 5 — liability-locking regression tests.
+describe("buildStructuredBasicReport — mould-detected flag gates air movers (Gap 3)", () => {
+  it("biologicalMouldDetected=true forces a mould-safe Phase 1 (no air movers)", () => {
+    const result = buildStructuredBasicReport({
+      report: { id: "r1", biologicalMouldDetected: true },
+      analysis: null,
+      stateInfo: {},
+      scopeAreas: [{ name: "Lounge", length: 6, width: 5, wetPercentage: 100 }],
+    });
+    const plan = result.equipmentPlan;
+    expect(plan).toBeTruthy();
+    const phase1 = plan.phases[0];
+    expect(phase1.airMoversAllowed).toBe(false);
+    expect(
+      phase1.lines.some((l: any) => l.kind === "air_mover"),
+    ).toBe(false);
+  });
+});
+
+describe("buildStructuredBasicReport — contents manifest surfaced (Gap 5)", () => {
+  it("passes the contents manifest through to the report data", () => {
+    const manifest = { items: [{ description: "Sofa", estimatedValueAud: 1200 }] };
+    const result = buildStructuredBasicReport({
+      report: { id: "r1" },
+      analysis: null,
+      stateInfo: {},
+      contentsManifest: manifest,
+    });
+    expect(result.contentsManifest).toEqual(manifest);
+  });
+});

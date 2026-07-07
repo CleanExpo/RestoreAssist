@@ -462,6 +462,7 @@ export async function POST(request: NextRequest) {
           }
         : undefined;
     const mouldActive =
+      Boolean((report as any).biologicalMouldDetected) ||
       Boolean((report as any).biologicalMouldCategory) ||
       String(report.hazardType ?? "")
         .toLowerCase()
@@ -568,6 +569,36 @@ export async function POST(request: NextRequest) {
     // from the structured inputs.
     let safetyPlanContext = "";
     try {
+      const hazardProfile = deriveHazardProfile(report, tier1, mouldActive);
+
+      // RA-7006 Gap 4: PPE + claim recommendations are hazard-derived and do
+      // NOT depend on affected area — compute them unconditionally so a report
+      // with no scope areas still carries the mandatory safety content. Only
+      // the equipment plan (which sizes to area) is gated on areaM2 below.
+
+      // RA-7005 Wave 4: required PPE derived from the hazard classification.
+      const ppe = requiredPpe(hazardProfile);
+      safetyPlanContext += [
+        `\n\n--- REQUIRED PPE (RA-7005 — derived from hazard class, must appear in the report) ---`,
+        summarisePpe(ppe),
+        ...ppe.references.map((r) => `Ref: ${r}`),
+        ...ppe.escalations.map((e) => `ESCALATION: ${e}`),
+        `State the required PPE in a safety section; do not omit it.`,
+      ].join("\n");
+
+      // RA-7005 Wave 5: hazard-driven claim recommendations.
+      const recommendations = claimRecommendations(hazardProfile);
+      if (recommendations.length > 0) {
+        safetyPlanContext += [
+          `\n\n--- CLAIM RECOMMENDATIONS & CONSIDERATIONS (RA-7005 — include a Recommendations section) ---`,
+          ...recommendations.map(
+            (r) =>
+              `[${r.severity.toUpperCase()} · ${r.category}] ${r.text} (${r.clause})`,
+          ),
+          `Include these in a dedicated "Recommendations & Considerations" section; escalate CAUTION items. Paraphrase and cite the clause; never reproduce standard text.`,
+        ].join("\n");
+      }
+
       const areaM2 = Array.isArray(scopeAreas)
         ? scopeAreas.reduce(
             (sum: number, a: any) =>
@@ -585,7 +616,7 @@ export async function POST(request: NextRequest) {
           { affectedAreaM2: Math.round(areaM2 * 10) / 10, mouldActive },
           assessment,
         );
-        safetyPlanContext = [
+        safetyPlanContext += [
           `\n\n--- EQUIPMENT & SAFETY PLAN (RA-7005 — non-negotiable) ---`,
           `Power (${powerAssessment ? `assessed on site: ${assessment.circuits}× ${assessment.circuitRatingA}A/230V` : "ASSUMED 2× 20A/230V — confirm on site"}): ${plan.budget.siteUsableA}A usable at ${plan.budget.deratePct * 100}% derate (AS/NZS 3000), ${plan.budget.perCircuitUsableA}A/circuit.`,
           ...plan.phases.map(
@@ -597,35 +628,6 @@ export async function POST(request: NextRequest) {
           ...plan.advisories.map((a) => `ADVISORY: ${a}`),
           `You MUST describe drying in this sequence and NEVER place air movers over active mould. Reflect the power constraint and any sectional-mitigation advisory.`,
         ].join("\n");
-
-        // RA-7005 Wave 4: required PPE derived from the hazard classification.
-        const ppe = requiredPpe(
-          deriveHazardProfile(report, tier1, mouldActive),
-        );
-        safetyPlanContext += [
-          `\n\n--- REQUIRED PPE (RA-7005 — derived from hazard class, must appear in the report) ---`,
-          summarisePpe(ppe),
-          ...ppe.references.map((r) => `Ref: ${r}`),
-          ...ppe.escalations.map((e) => `ESCALATION: ${e}`),
-          `State the required PPE in a safety section; do not omit it.`,
-        ].join("\n");
-
-        // RA-7005 Wave 5: hazard-driven claim recommendations — habitability,
-        // safety, security, contents/pack-out, perishables, pets/plants,
-        // secondary damage, specialty drying, soft goods, replacement.
-        const recommendations = claimRecommendations(
-          deriveHazardProfile(report, tier1, mouldActive),
-        );
-        if (recommendations.length > 0) {
-          safetyPlanContext += [
-            `\n\n--- CLAIM RECOMMENDATIONS & CONSIDERATIONS (RA-7005 — include a Recommendations section) ---`,
-            ...recommendations.map(
-              (r) =>
-                `[${r.severity.toUpperCase()} · ${r.category}] ${r.text} (${r.clause})`,
-            ),
-            `Include these in a dedicated "Recommendations & Considerations" section; escalate CAUTION items. Paraphrase and cite the clause; never reproduce standard text.`,
-          ].join("\n");
-        }
 
         // RA-7005 Wave 3: ground the drying-sequence + equipment reasoning in
         // the S500/S520/RIA corpus (retrieveForReasoning — all provenance

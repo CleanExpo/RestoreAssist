@@ -203,7 +203,7 @@ export function idealDehumidifiers(site: SiteConditions): number {
   return Math.max(1, Math.ceil(site.affectedAreaM2 / 20));
 }
 
-/** AFD/HEPA count for mould/containment (~1 per 50 m², min 1 when mould). */
+/** AFD/HEPA count for mould/containment (~1 per 30 m², min 1 when mould). */
 export function idealAfds(site: SiteConditions): number {
   return site.mouldActive ? Math.max(1, Math.ceil(site.affectedAreaM2 / 30)) : 0;
 }

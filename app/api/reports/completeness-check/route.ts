@@ -54,6 +54,8 @@ export async function POST(request: NextRequest) {
             photos: { select: { id: true } },
             // RA-7003: floor-plan presence (sketches only count when rendered).
             claimSketches: { select: { id: true, renderedPngUrl: true } },
+            // RA-7006 Gap 5: contents manifest presence.
+            contentsManifestDraft: true,
           },
         },
         // RA-7003: signed client authorisations.
@@ -132,9 +134,14 @@ export async function POST(request: NextRequest) {
     });
 
     // --- Scope of Works ---
+    // RA-7006 Gap 7: the deliverable builds from Report.scopeOfWorksDocument
+    // (guided flow) OR Inspection.scopeItems (NIR flow) — accept either, else a
+    // guided-flow report with a generated scope shows a false "missing".
     const scopeIssues: string[] = [];
-    if (!insp || insp.scopeItems.length === 0)
-      scopeIssues.push("No scope items generated");
+    const hasScope =
+      (insp?.scopeItems.length ?? 0) > 0 ||
+      Boolean((report as any).scopeOfWorksDocument);
+    if (!hasScope) scopeIssues.push("No scope of works generated");
     sections.push({
       name: "Scope of Works",
       score: scopeIssues.length === 0 ? 100 : 0,
@@ -144,8 +151,11 @@ export async function POST(request: NextRequest) {
 
     // --- Cost Estimates ---
     const costIssues: string[] = [];
-    if (!insp || insp.costEstimates.length === 0)
-      costIssues.push("No cost estimates calculated");
+    const hasCost =
+      (insp?.costEstimates.length ?? 0) > 0 ||
+      Boolean((report as any).costEstimationDocument) ||
+      Boolean((report as any).totalCost);
+    if (!hasCost) costIssues.push("No cost estimate generated");
     sections.push({
       name: "Cost Estimates",
       score: costIssues.length === 0 ? 100 : 0,
@@ -196,6 +206,22 @@ export async function POST(request: NextRequest) {
       score: authorityIssues.length === 0 ? 100 : 0,
       status: authorityIssues.length === 0 ? "complete" : "missing",
       issues: authorityIssues,
+    });
+
+    // --- Contents Manifest (RA-7006 Gap 5) ---
+    // Soft: not every claim involves contents, so absence is a prompt to
+    // capture one, not a hard failure.
+    const manifestIssues: string[] = [];
+    if (!insp || !(insp as any).contentsManifestDraft) {
+      manifestIssues.push(
+        "No contents manifest — capture one if the claim involves affected contents",
+      );
+    }
+    sections.push({
+      name: "Contents Manifest",
+      score: manifestIssues.length === 0 ? 100 : 50,
+      status: manifestIssues.length === 0 ? "complete" : "partial",
+      issues: manifestIssues,
     });
 
     // --- Site Power Assessment (RA-7005: mandatory before equipment sizing) ---

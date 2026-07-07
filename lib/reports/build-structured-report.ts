@@ -35,7 +35,14 @@ export function deriveHazardProfile(
   const cat = String(report?.biologicalMouldCategory ?? "");
   const m = cat.match(/([123])/);
   if (m) mouldCondition = Number(m[1]) as MouldCondition;
-  else if (mouldActive || has(/mould|mold/)) mouldCondition = 3;
+  // RA-7006 Gap 3: the schema's biologicalMouldDetected boolean must also gate
+  // air movers — a report can print "mould detected: true" with no category.
+  else if (
+    mouldActive ||
+    Boolean(report?.biologicalMouldDetected) ||
+    has(/mould|mold/)
+  )
+    mouldCondition = 3;
   const wc = report?.waterCategory ? String(report.waterCategory) : null;
   const waterClass = report?.waterClass
     ? Number(String(report.waterClass).match(/[1-4]/)?.[0])
@@ -117,6 +124,13 @@ export function buildStructuredBasicReport(data: {
 
   // RA-7005: deterministic equipment safety plan — mould air-mover gate +
   // derated power budget. Area from scope areas; assessment captured or assumed.
+  // RA-7006 Gap 3: derive the mould gate robustly from the report (incl.
+  // biologicalMouldDetected) as well as the passed flag, so the plan is
+  // mould-safe even if the caller omits mouldActive.
+  const planMouldActive =
+    Boolean(mouldActive) ||
+    (deriveHazardProfile(report, tier1, Boolean(mouldActive)).mouldCondition ??
+      0) >= 2;
   let equipmentPlan: ReturnType<typeof planDrying> | null = null;
   try {
     const planAreaM2 = Array.isArray(scopeAreas)
@@ -133,7 +147,7 @@ export function buildStructuredBasicReport(data: {
       equipmentPlan = planDrying(
         {
           affectedAreaM2: Math.round(planAreaM2 * 10) / 10,
-          mouldActive: Boolean(mouldActive),
+          mouldActive: planMouldActive,
         },
         powerAssessment ?? { circuits: 2, circuitRatingA: 20 },
       );
