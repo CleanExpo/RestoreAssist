@@ -54,10 +54,15 @@ describe("resolveAreaSqm", () => {
 });
 
 describe("deriveAreaColumns — dual-write from the affected-areas write path (form stores m²)", () => {
-  it("stores the entered m² and derives the deprecated sq-ft column", () => {
+  it("round-trips a metric submission: stores the entered m² unchanged and derives the deprecated sq-ft column", () => {
+    // RA-7001 regression: the NIR form submits area under `affectedAreaSqm`
+    // (m²). It must be stored as-is — NOT shrunk ×0.09290304 by being treated
+    // as square feet, which would drop a 20 m² area to 1.86 m².
     const cols = deriveAreaColumns({ affectedAreaSqm: 20 });
     expect(cols).not.toBeNull();
     expect(cols!.affectedAreaSqm).toBe(20);
+    expect(cols!.affectedAreaSqm).not.toBeCloseTo(20 * SQFT_TO_SQM, 6);
+    expect(cols!.affectedSquareFootage).toBeCloseTo(sqmToSqft(20), 6);
     expect(cols!.affectedSquareFootage).toBeCloseTo(215.28, 2);
   });
 
