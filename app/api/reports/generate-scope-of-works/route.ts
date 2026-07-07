@@ -968,7 +968,7 @@ Note: All line items, quantities, rates, and calculations can be edited by the a
     document += ordered
       .map(
         (a: any) =>
-          `${a.severity === "critical" ? "🛑 CRITICAL" : "⚠️ WARNING"}: ${a.text}`,
+          `${a.severity === "critical" ? "[ra:critical] CRITICAL" : "[ra:warning] WARNING"}: ${a.text}`,
       )
       .join("\n\n");
     document += `\n`;
