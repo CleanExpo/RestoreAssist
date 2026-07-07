@@ -12,6 +12,7 @@ import {
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
 
 // POST - Generate Cost Estimation document
 export async function POST(request: NextRequest) {
@@ -105,6 +106,17 @@ export async function POST(request: NextRequest) {
       // Get the complete report with all data
       const report = await prisma.report.findUnique({
         where: { id: reportId, userId: user.id },
+        // RA-7006: pull the captured power assessment so the safety
+        // reconciliation uses the real site supply, not the 2×20A assumption.
+        include: {
+          inspection: {
+            select: {
+              powerCircuits: true,
+              powerCircuitRatingA: true,
+              powerDeratePct: true,
+            },
+          },
+        },
       });
 
       if (!report) {
@@ -208,6 +220,9 @@ export async function POST(request: NextRequest) {
           document: costDocument,
           data: costData,
         },
+        // RA-7006 Gap 1: expose the safety reconciliation to callers so an
+        // unsafe/unbuildable priced configuration is visible, not hidden.
+        safety: costData.safety,
         message: "Cost Estimation generated successfully",
       });
     } catch (error) {
@@ -757,6 +772,30 @@ function buildCostEstimationData(data: {
     });
   }
 
+  // RA-7006 Gap 1: reconcile the priced equipment against the RA-7005 safety
+  // plan so the estimate can never silently contradict the report's safety
+  // sequence (mould air-mover gate + derated power budget). Robust mould
+  // detection also consults Report.biologicalMouldDetected (Gap 3).
+  const mouldActiveForSafety =
+    hasMould ||
+    Boolean(report.biologicalMouldDetected) ||
+    Boolean(report.biologicalMouldCategory);
+  const safety = reconcilePricingSafety({
+    scopeAreas,
+    equipmentSelection,
+    waterCategory: report.waterCategory,
+    mouldActive: mouldActiveForSafety,
+    hazards,
+    powerAssessment:
+      report.inspection?.powerCircuits && report.inspection?.powerCircuitRatingA
+        ? {
+            circuits: report.inspection.powerCircuits,
+            circuitRatingA: report.inspection.powerCircuitRatingA,
+            deratePct: report.inspection.powerDeratePct ?? 0.8,
+          }
+        : undefined,
+  });
+
   return {
     reportId: report.id,
     claimReference: report.claimReferenceNumber || report.reportNumber,
@@ -783,6 +822,7 @@ function buildCostEstimationData(data: {
     dryingDuration,
     needsClass4,
     hasHazards: hasAsbestos || hasMould || hasBiohazard,
+    safety,
     stateInfo,
   };
 }
@@ -946,6 +986,24 @@ Note: All line items, quantities, rates, and calculations can be edited by the a
 
 ${formatFlaggedItems(costData.flaggedItems || [])}
 `;
+
+  // RA-7006 Gap 1: surface the RA-7005 safety reconciliation so an unsafe or
+  // unbuildable priced configuration is never hidden. Critical advisories
+  // (e.g. air movers priced over active mould) lead the section.
+  const safety = costData.safety;
+  if (safety && safety.advisories?.length) {
+    const ordered = [...safety.advisories].sort((a: any, b: any) =>
+      a.severity === b.severity ? 0 : a.severity === "critical" ? -1 : 1,
+    );
+    document += `\n# SECTION 9: EQUIPMENT SAFETY RECONCILIATION (RA-7005)\n\n`;
+    document += ordered
+      .map(
+        (a: any) =>
+          `${a.severity === "critical" ? "🛑 CRITICAL" : "⚠️ WARNING"}: ${a.text}`,
+      )
+      .join("\n\n");
+    document += `\n`;
+  }
 
   return document;
 }

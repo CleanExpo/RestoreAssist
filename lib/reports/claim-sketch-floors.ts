@@ -64,3 +64,31 @@ export async function claimSketchesToFloors(
 
   return floors.filter((f): f is SketchFloor => f !== null);
 }
+
+/**
+ * RA-7006 Gap 6: an uploaded floor-plan image (`Inspection.floorPlanImageUrl`)
+ * rendered only in the on-screen viewer and never reached the PDF. This fetches
+ * that image and returns it as a SketchFloor so it can be appended alongside
+ * the rasterised sketches. Best-effort: a missing/broken image returns null and
+ * must never block the download.
+ */
+export async function uploadedFloorPlanToFloor(
+  floorPlanImageUrl: string | null | undefined,
+  fetchImpl: typeof fetch = fetch,
+): Promise<SketchFloor | null> {
+  if (!floorPlanImageUrl) return null;
+  try {
+    const res = await fetchImpl(floorPlanImageUrl);
+    if (!res.ok) return null;
+    const contentType = res.headers.get("content-type") || "image/png";
+    const base64 = Buffer.from(await res.arrayBuffer()).toString("base64");
+    return {
+      label: "Uploaded Floor Plan",
+      pngDataUrl: `data:${contentType};base64,${base64}`,
+      fabricJson: null,
+      moisturePins: null,
+    };
+  } catch {
+    return null;
+  }
+}

@@ -10,6 +10,7 @@ import {
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -124,6 +125,11 @@ export async function POST(request: NextRequest) {
                 },
                 take: 200,
               },
+              // RA-7006: captured site power assessment for the safety
+              // reconciliation (else it assumes 2×20A).
+              powerCircuits: true,
+              powerCircuitRatingA: true,
+              powerDeratePct: true,
             },
           },
         },
@@ -236,6 +242,8 @@ export async function POST(request: NextRequest) {
           document: scopeDocument,
           data: scopeData,
         },
+        // RA-7006 Gap 1: expose the safety reconciliation to callers.
+        safety: scopeData.safety,
         message: "Scope of Works generated successfully",
       });
     } catch (error) {
@@ -697,6 +705,29 @@ function buildScopeOfWorksData(data: {
     });
   }
 
+  // RA-7006 Gap 1: reconcile the scoped equipment against the RA-7005 safety
+  // plan (mould air-mover gate + derated power budget). Robust mould detection
+  // also consults Report.biologicalMouldDetected (Gap 3).
+  const mouldActiveForSafety =
+    hasMould ||
+    Boolean(report.biologicalMouldDetected) ||
+    Boolean(report.biologicalMouldCategory);
+  const safety = reconcilePricingSafety({
+    scopeAreas,
+    equipmentSelection,
+    waterCategory,
+    mouldActive: mouldActiveForSafety,
+    hazards,
+    powerAssessment:
+      report.inspection?.powerCircuits && report.inspection?.powerCircuitRatingA
+        ? {
+            circuits: report.inspection.powerCircuits,
+            circuitRatingA: report.inspection.powerCircuitRatingA,
+            deratePct: report.inspection.powerDeratePct ?? 0.8,
+          }
+        : undefined,
+  });
+
   return {
     reportId: report.id,
     claimReference: report.claimReferenceNumber || report.reportNumber,
@@ -710,6 +741,7 @@ function buildScopeOfWorksData(data: {
     affectedAreaSqm,
     hasClass4Drying: needsClass4,
     hazards: hazards.filter((h: string) => h !== "None identified"),
+    safety,
   };
 }
 
@@ -923,6 +955,24 @@ ${scopeData.licensedTrades.some((t: any) => t.trade.includes("Asbestos")) ? "- A
 
 Note: All line items, quantities, rates, and calculations can be edited by the admin before finalising. System maintains calculation formulas but allows manual override.
 `;
+
+  // RA-7006 Gap 1: surface the RA-7005 safety reconciliation so a scoped
+  // configuration that contradicts the safety plan (air movers over active
+  // mould, or over the power budget) is never hidden.
+  const safety = scopeData.safety;
+  if (safety && safety.advisories?.length) {
+    const ordered = [...safety.advisories].sort((a: any, b: any) =>
+      a.severity === b.severity ? 0 : a.severity === "critical" ? -1 : 1,
+    );
+    document += `\n# SECTION 7: EQUIPMENT SAFETY RECONCILIATION (RA-7005)\n\n`;
+    document += ordered
+      .map(
+        (a: any) =>
+          `${a.severity === "critical" ? "🛑 CRITICAL" : "⚠️ WARNING"}: ${a.text}`,
+      )
+      .join("\n\n");
+    document += `\n`;
+  }
 
   return document;
 }

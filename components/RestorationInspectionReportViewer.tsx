@@ -121,7 +121,17 @@ interface RestorationInspectionReportData {
     pdfUrl: string | null;
     completedAt: string | null;
   }>;
-  contentsManifest?: unknown;
+  // RA-7006 Gap 5: captured contents manifest — previously reached report data
+  // but was never rendered in the deliverable.
+  contentsManifest?: {
+    items?: Array<{
+      description?: string;
+      category?: string;
+      room?: string;
+      estimatedValueAud?: number;
+    }>;
+    totalEstimatedValueAud?: number;
+  } | null;
   // RA-7005 Wave 4: required PPE
   ppe?: {
     respiratory: string;
@@ -2052,6 +2062,59 @@ export default function RestorationInspectionReportViewer({
               )}
             </div>
           </section>
+
+          {/* Contents Manifest — RA-7006 Gap 5 */}
+          {data.contentsManifest &&
+            Array.isArray(data.contentsManifest.items) &&
+            data.contentsManifest.items.length > 0 && (
+              <section className="print-avoid-break mb-6 print:mb-4">
+                <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-3 print:mb-2">
+                  Contents Manifest
+                </h2>
+                <p className="text-sm print:text-xs text-slate-600 mb-3">
+                  {data.contentsManifest.items.length} item
+                  {data.contentsManifest.items.length === 1 ? "" : "s"} recorded
+                  {typeof data.contentsManifest.totalEstimatedValueAud ===
+                  "number"
+                    ? ` · est. total value $${data.contentsManifest.totalEstimatedValueAud.toLocaleString(
+                        "en-AU",
+                      )}`
+                    : ""}
+                  .
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm print:text-xs border-collapse">
+                    <thead>
+                      <tr className="text-left text-slate-500 border-b border-slate-200">
+                        <th className="py-1 pr-3">Item</th>
+                        <th className="py-1 pr-3">Room</th>
+                        <th className="py-1 pr-3">Category</th>
+                        <th className="py-1 text-right">Est. value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.contentsManifest.items.slice(0, 200).map((it, i) => (
+                        <tr
+                          key={i}
+                          className="border-b border-slate-100 text-slate-700"
+                        >
+                          <td className="py-1 pr-3">{it.description ?? "—"}</td>
+                          <td className="py-1 pr-3">{it.room ?? "—"}</td>
+                          <td className="py-1 pr-3">
+                            {(it.category ?? "").replace(/_/g, " ")}
+                          </td>
+                          <td className="py-1 text-right">
+                            {typeof it.estimatedValueAud === "number"
+                              ? `$${it.estimatedValueAud.toLocaleString("en-AU")}`
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
 
           {/* Recommendations & Considerations — RA-7005 Wave 5 */}
           {data.recommendations && data.recommendations.length > 0 && (
