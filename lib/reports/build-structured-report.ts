@@ -1,4 +1,37 @@
 import { getEquipmentGroupById } from "@/lib/equipment-matrix";
+import { planDrying } from "@/lib/restoration/equipment-planner";
+import {
+  requiredPpe,
+  type HazardProfile,
+  type MouldCondition,
+} from "@/lib/restoration/ppe-requirements";
+
+/** Derive a hazard profile from report + tier-1 fields for PPE + planning. */
+export function deriveHazardProfile(
+  report: any,
+  tier1: any,
+  mouldActive?: boolean,
+): HazardProfile {
+  const hazards: string[] = (tier1?.T1_Q7_hazards ?? []).map((h: string) =>
+    String(h).toLowerCase(),
+  );
+  const has = (re: RegExp) =>
+    hazards.some((h) => re.test(h)) ||
+    re.test(String(report?.hazardType ?? "").toLowerCase());
+  let mouldCondition: MouldCondition = 0;
+  const cat = String(report?.biologicalMouldCategory ?? "");
+  const m = cat.match(/([123])/);
+  if (m) mouldCondition = Number(m[1]) as MouldCondition;
+  else if (mouldActive || has(/mould|mold/)) mouldCondition = 3;
+  const wc = report?.waterCategory ? String(report.waterCategory) : null;
+  return {
+    waterCategory: wc === "1" || wc === "2" || wc === "3" ? wc : null,
+    mouldCondition,
+    asbestos: has(/asbestos/),
+    biohazard: has(/bio.?hazard|trauma/),
+    chemical: has(/meth|chemical/),
+  };
+}
 
 export function buildStructuredBasicReport(data: {
   report: any;
@@ -23,6 +56,14 @@ export function buildStructuredBasicReport(data: {
     completedAt: Date | string | null;
   }>;
   contentsManifest?: unknown;
+  // RA-7005: optional captured power assessment; when absent the planner
+  // assumes 2× 20A. mouldActive gates air movers out of Phase 1.
+  powerAssessment?: {
+    circuits: number;
+    circuitRatingA: number;
+    deratePct?: number;
+  };
+  mouldActive?: boolean;
   tier1?: any;
   tier2?: any;
   tier3?: any;
@@ -46,11 +87,40 @@ export function buildStructuredBasicReport(data: {
     floorPlans,
     signedAuthorityForms,
     contentsManifest,
+    powerAssessment,
+    mouldActive,
     tier1,
     tier2,
     tier3,
     businessInfo,
   } = data;
+
+  // RA-7005: deterministic equipment safety plan — mould air-mover gate +
+  // derated power budget. Area from scope areas; assessment captured or assumed.
+  let equipmentPlan: ReturnType<typeof planDrying> | null = null;
+  try {
+    const planAreaM2 = Array.isArray(scopeAreas)
+      ? scopeAreas.reduce(
+          (sum: number, a: any) =>
+            sum +
+            (Number(a?.length) || 0) *
+              (Number(a?.width) || 0) *
+              ((Number(a?.wetPercentage) || 0) / 100),
+          0,
+        )
+      : 0;
+    if (planAreaM2 > 0) {
+      equipmentPlan = planDrying(
+        {
+          affectedAreaM2: Math.round(planAreaM2 * 10) / 10,
+          mouldActive: Boolean(mouldActive),
+        },
+        powerAssessment ?? { circuits: 2, circuitRatingA: 20 },
+      );
+    }
+  } catch {
+    equipmentPlan = null;
+  }
 
   // Extract photos from inspection data - ensure we get ALL photos
   const photos: Array<{
@@ -722,6 +792,42 @@ export function buildStructuredBasicReport(data: {
           : f.completedAt,
     })),
     contentsManifest: contentsManifest ?? null,
+    // RA-7005 Wave 4: required PPE derived from the hazard classification.
+    ppe: (() => {
+      const ppe = requiredPpe(
+        deriveHazardProfile(report, tier1, Boolean(mouldActive)),
+      );
+      return {
+        respiratory: ppe.respiratory,
+        items: ppe.items,
+        decontamination: ppe.decontamination,
+        references: ppe.references,
+        escalations: ppe.escalations,
+      };
+    })(),
+    // RA-7005: phased, power-constrained, mould-safe equipment plan.
+    equipmentPlan: equipmentPlan
+      ? {
+          powerAssumed: !powerAssessment,
+          budget: equipmentPlan.budget,
+          powerConstrained: equipmentPlan.powerConstrained,
+          advisories: equipmentPlan.advisories,
+          phases: equipmentPlan.phases.map((ph) => ({
+            phase: ph.phase,
+            label: ph.label,
+            airMoversAllowed: ph.airMoversAllowed,
+            totalA: ph.packing.totalA,
+            fits: ph.packing.fits,
+            perCircuitA: ph.packing.perCircuitA,
+            lines: ph.lines.map((l) => ({
+              kind: l.kind,
+              quantity: l.quantity,
+              ampsEach: l.ampsEach,
+              ampsTotal: l.ampsTotal,
+            })),
+          })),
+        }
+      : null,
     summary: {
       roomsAffected: roomsAffected,
       totalCost: totalCost,

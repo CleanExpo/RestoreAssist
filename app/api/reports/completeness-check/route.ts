@@ -198,6 +198,20 @@ export async function POST(request: NextRequest) {
       issues: authorityIssues,
     });
 
+    // --- Site Power Assessment (RA-7005: mandatory before equipment sizing) ---
+    const powerIssues: string[] = [];
+    if (!insp || !insp.powerCircuits || !insp.powerCircuitRatingA) {
+      powerIssues.push(
+        "No site power assessment — record available circuits × rating; equipment sizing assumes 2× 20A until captured (AS/NZS 3000 80% derate)",
+      );
+    }
+    sections.push({
+      name: "Site Power Assessment",
+      score: powerIssues.length === 0 ? 100 : 0,
+      status: powerIssues.length === 0 ? "complete" : "missing",
+      issues: powerIssues,
+    });
+
     const overallScore = Math.round(
       sections.reduce((sum, s) => sum + s.score, 0) / sections.length,
     );

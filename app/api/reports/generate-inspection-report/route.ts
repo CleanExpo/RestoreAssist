@@ -25,6 +25,8 @@ import {
 import { localiseForAUNZ } from "@/lib/anz/localisation";
 import type { ChunkResult } from "@/lib/rag/retrieve";
 import { planDrying } from "@/lib/restoration/equipment-planner";
+import { requiredPpe, summarisePpe } from "@/lib/restoration/ppe-requirements";
+import { deriveHazardProfile } from "@/lib/reports/build-structured-report";
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -120,6 +122,9 @@ export async function POST(request: NextRequest) {
           select: {
             floorPlanImageUrl: true,
             contentsManifestDraft: true,
+            powerCircuits: true,
+            powerCircuitRatingA: true,
+            powerDeratePct: true,
             claimSketches: {
               select: {
                 floorNumber: true,
@@ -443,6 +448,25 @@ export async function POST(request: NextRequest) {
       contentsManifest = null;
     }
 
+    // RA-7005: resolve the power assessment (captured or assumed) + mould flag
+    // once, so both the structured builder and the AI prompt use the same
+    // safety inputs.
+    const inspForPower = report.inspection;
+    const powerAssessment =
+      inspForPower?.powerCircuits && inspForPower?.powerCircuitRatingA
+        ? {
+            circuits: inspForPower.powerCircuits,
+            circuitRatingA: inspForPower.powerCircuitRatingA,
+            deratePct: inspForPower.powerDeratePct ?? 0.8,
+          }
+        : undefined;
+    const mouldActive =
+      Boolean((report as any).biologicalMouldCategory) ||
+      String(report.hazardType ?? "")
+        .toLowerCase()
+        .includes("mould") ||
+      (tier1?.T1_Q7_hazards ?? []).some((h: string) => /mould|mold/i.test(h));
+
     // For basic and enhanced reports, use structured data directly from Report model (no AI - ensures 100% accurate data)
     if (reportType === "basic" || reportType === "enhanced") {
       // Build structured data directly from actual Report model data - NO AI, ensures all real data is used
@@ -457,6 +481,8 @@ export async function POST(request: NextRequest) {
         floorPlans,
         signedAuthorityForms,
         contentsManifest,
+        powerAssessment,
+        mouldActive,
         tier1,
         tier2,
         tier3,
@@ -551,20 +577,16 @@ export async function POST(request: NextRequest) {
             0,
           )
         : 0;
-      const mouldActive =
-        Boolean(report.biologicalMouldCategory) ||
-        String(report.hazardType ?? "").toLowerCase().includes("mould") ||
-        (tier1?.T1_Q7_hazards ?? []).some((h: string) =>
-          /mould|mold/i.test(h),
-        );
       if (areaM2 > 0) {
+        // RA-7005: use the hoisted power assessment (captured or assumed 2×20A).
+        const assessment = powerAssessment ?? { circuits: 2, circuitRatingA: 20 };
         const plan = planDrying(
           { affectedAreaM2: Math.round(areaM2 * 10) / 10, mouldActive },
-          { circuits: 2, circuitRatingA: 20 },
+          assessment,
         );
         safetyPlanContext = [
           `\n\n--- EQUIPMENT & SAFETY PLAN (RA-7005 — non-negotiable) ---`,
-          `Power (assumed 2× 20A/230V, confirm on site): ${plan.budget.siteUsableA}A usable at ${plan.budget.deratePct * 100}% derate (AS/NZS 3000), ${plan.budget.perCircuitUsableA}A/circuit.`,
+          `Power (${powerAssessment ? `assessed on site: ${assessment.circuits}× ${assessment.circuitRatingA}A/230V` : "ASSUMED 2× 20A/230V — confirm on site"}): ${plan.budget.siteUsableA}A usable at ${plan.budget.deratePct * 100}% derate (AS/NZS 3000), ${plan.budget.perCircuitUsableA}A/circuit.`,
           ...plan.phases.map(
             (ph) =>
               `${ph.label} Equipment: ${ph.lines
@@ -574,6 +596,49 @@ export async function POST(request: NextRequest) {
           ...plan.advisories.map((a) => `ADVISORY: ${a}`),
           `You MUST describe drying in this sequence and NEVER place air movers over active mould. Reflect the power constraint and any sectional-mitigation advisory.`,
         ].join("\n");
+
+        // RA-7005 Wave 4: required PPE derived from the hazard classification.
+        const ppe = requiredPpe(
+          deriveHazardProfile(report, tier1, mouldActive),
+        );
+        safetyPlanContext += [
+          `\n\n--- REQUIRED PPE (RA-7005 — derived from hazard class, must appear in the report) ---`,
+          summarisePpe(ppe),
+          ...ppe.references.map((r) => `Ref: ${r}`),
+          ...ppe.escalations.map((e) => `ESCALATION: ${e}`),
+          `State the required PPE in a safety section; do not omit it.`,
+        ].join("\n");
+
+        // RA-7005 Wave 3: ground the drying-sequence + equipment reasoning in
+        // the S500/S520/RIA corpus (retrieveForReasoning — all provenance
+        // tiers, since this is reasoning not a citation). Best-effort: an empty
+        // corpus or unreachable embedder must never block generation.
+        try {
+          const { retrieveForReasoning, formatChunksAsContext } = await import(
+            "@/lib/rag/retrieve"
+          );
+          const groundingQuery = [
+            mouldActive
+              ? "mould remediation containment sequence air movers dehumidifiers Condition 1"
+              : "structural drying air movers dehumidifiers placement",
+            report.waterClass ? `Class ${report.waterClass} water loss` : "",
+            "psychrometric drying goals equipment",
+          ]
+            .filter(Boolean)
+            .join(" ");
+          const groundingChunks = await retrieveForReasoning(groundingQuery, {
+            k: 4,
+          });
+          if (groundingChunks.length > 0) {
+            safetyPlanContext += [
+              "\n\n--- STANDARDS GROUNDING (S500/S520/RIA — apply + cite edition + section, paraphrase, never reproduce) ---\n",
+              formatChunksAsContext(groundingChunks),
+              "\nGround the drying-sequence and equipment reasoning above in these passages; cite the clause (e.g. S500:2021 §12.5).",
+            ].join("");
+          }
+        } catch {
+          // Grounding is additive on top of the deterministic safety plan.
+        }
       }
     } catch (err) {
       console.error("[generate-inspection-report] safety plan skipped:", err);
