@@ -5,31 +5,51 @@ import {
   type HazardProfile,
   type MouldCondition,
 } from "@/lib/restoration/ppe-requirements";
+import {
+  claimRecommendations,
+  type ClaimHazardInputs,
+} from "@/lib/restoration/claim-recommendations";
 
-/** Derive a hazard profile from report + tier-1 fields for PPE + planning. */
+/**
+ * Derive a hazard profile from report + tier-1 fields for PPE, equipment
+ * planning, and claim recommendations (RA-7005 W4/W5). Returns the extended
+ * ClaimHazardInputs shape; PPE reads the HazardProfile subset.
+ */
 export function deriveHazardProfile(
   report: any,
   tier1: any,
   mouldActive?: boolean,
-): HazardProfile {
+): ClaimHazardInputs {
   const hazards: string[] = (tier1?.T1_Q7_hazards ?? []).map((h: string) =>
     String(h).toLowerCase(),
   );
-  const has = (re: RegExp) =>
-    hazards.some((h) => re.test(h)) ||
-    re.test(String(report?.hazardType ?? "").toLowerCase());
+  const text = [
+    String(report?.hazardType ?? ""),
+    String(report?.technicianFieldReport ?? ""),
+    JSON.stringify(tier1 ?? {}),
+  ]
+    .join(" ")
+    .toLowerCase();
+  const has = (re: RegExp) => hazards.some((h) => re.test(h)) || re.test(text);
   let mouldCondition: MouldCondition = 0;
   const cat = String(report?.biologicalMouldCategory ?? "");
   const m = cat.match(/([123])/);
   if (m) mouldCondition = Number(m[1]) as MouldCondition;
   else if (mouldActive || has(/mould|mold/)) mouldCondition = 3;
   const wc = report?.waterCategory ? String(report.waterCategory) : null;
+  const waterClass = report?.waterClass
+    ? Number(String(report.waterClass).match(/[1-4]/)?.[0])
+    : null;
   return {
     waterCategory: wc === "1" || wc === "2" || wc === "3" ? wc : null,
+    waterClass: Number.isFinite(waterClass as number) ? waterClass : null,
     mouldCondition,
     asbestos: has(/asbestos/),
-    biohazard: has(/bio.?hazard|trauma/),
-    chemical: has(/meth|chemical/),
+    biohazard: has(/bio.?hazard|trauma|sewage/),
+    chemical: has(/meth|chemical|clandestine/),
+    fireSmoke: has(/fire|smoke|soot/),
+    timberFloorCupping: has(/cupp|buckl/) && has(/timber|floorboard|hardwood|engineered/),
+    unoccupiedAtLoss: has(/unoccupied|holiday|away|vacant/),
   };
 }
 
@@ -805,6 +825,12 @@ export function buildStructuredBasicReport(data: {
         escalations: ppe.escalations,
       };
     })(),
+    // RA-7005 Wave 5: hazard-driven claim recommendations (habitability, safety,
+    // security, contents, perishables, pets/plants, secondary damage, specialty
+    // drying, soft goods, replacement, documentation).
+    recommendations: claimRecommendations(
+      deriveHazardProfile(report, tier1, Boolean(mouldActive)),
+    ),
     // RA-7005: phased, power-constrained, mould-safe equipment plan.
     equipmentPlan: equipmentPlan
       ? {
@@ -923,7 +949,6 @@ export function buildStructuredBasicReport(data: {
         description: "Verification",
       },
     },
-    recommendations: [],
     verificationChecklist: null,
     // Tier data for Enhanced/Optimised reports
     tier1: tier1 || null,
