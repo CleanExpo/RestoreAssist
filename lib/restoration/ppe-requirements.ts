@@ -67,7 +67,7 @@ export function requiredPpe(hazard: HazardProfile): PpeRequirement {
     respiratory = maxRpe(respiratory, "P2");
     items.add("Nitrile gloves");
     items.add("Coveralls");
-    references.add("IICRC S500:2021 §14 (safety & health)");
+    references.add("IICRC S500:2021 §8 (Safety and Health)");
   }
   if (cat === "3") {
     respiratory = maxRpe(respiratory, "P3");
@@ -77,7 +77,7 @@ export function requiredPpe(hazard: HazardProfile): PpeRequirement {
     items.add("Double nitrile gloves");
     items.add("Face/splash protection");
     decontamination = true;
-    references.add("IICRC S500:2021 §14");
+    references.add("IICRC S500:2021 §8 (Safety and Health)");
     references.add("AS/NZS 1715/1716 (RPE)");
   }
 
