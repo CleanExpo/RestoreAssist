@@ -86,7 +86,7 @@ export function claimRecommendations(
       "habitability",
       "required",
       "Equipment noise: LGR dehumidifiers and AFD/HEPA scrubbers run 24/7 at ~55–70 dB — over sleeping thresholds. If anyone remains on site, document noise and do not run air movers overnight in occupied rooms.",
-      "WHS (noise) / S500:2021 §14",
+      "WHS (noise) / S500:2021 §8",
     );
     add(
       "habitability",
@@ -109,7 +109,7 @@ export function claimRecommendations(
     "safety",
     "required",
     "Trip hazards: tape down or ramp all power leads/cords (particularly a multi-air-mover run across circulation paths).",
-    "WHS / IICRC S500:2021 §14",
+    "WHS / IICRC S500:2021 §8",
   );
   add(
     "safety",
@@ -136,7 +136,7 @@ export function claimRecommendations(
       "security",
       "advisory",
       "Secure the property during unoccupied drying: lock/board-up any access points opened for works, key register, alarm/monitoring; photo-document pre-existing condition to cap liability.",
-      "IICRC S500:2021 §15 (administrative/risk)",
+      "IICRC S500:2021 §9 (administrative procedures & risk)",
     );
   }
 
@@ -145,14 +145,14 @@ export function claimRecommendations(
     "contents",
     "required",
     "Block-and-elevate salvageable items off wet floors immediately; itemised inventory with photographs; log valuables/irreplaceables separately.",
-    "IICRC S500:2021 §20 (contents evaluation & restoration)",
+    "IICRC S500:2021 §14 (Contents Evaluation, Restoration, and Remediation)",
   );
   if (contaminated) {
     add(
       "contents",
       "caution",
       "Pack-out affected/at-risk contents to off-site climate-controlled storage for the works; pack-back and re-place on completion. Porous contents with Category 3 / mould exposure are generally non-restorable.",
-      "IICRC S500:2021 §20 / S520:2024 §12",
+      "IICRC S500:2021 §14 / S520:2024 §12",
     );
   }
 
@@ -162,7 +162,7 @@ export function claimRecommendations(
       "perishables",
       "caution",
       "Dispose of Category-3-exposed / spoiled food and refrigerator/freezer contents; clean and sanitise the appliances.",
-      "IICRC S500:2021 §20 / public-health guidance",
+      "IICRC S500:2021 §14 / public-health guidance",
     );
     add(
       "perishables",
@@ -193,7 +193,7 @@ export function claimRecommendations(
     "secondary_damage",
     "required",
     "Prevent secondary damage: protect metal fixtures, fasteners, appliance bases and hardware from rust/corrosion; treat tannin/water-mark bleed on timber, cabinetry and skirting before it sets.",
-    "RIA CR Manual (corrosion / water marks) / IICRC S500:2021 §10.6",
+    "RIA CR Manual (corrosion / water marks) / IICRC S500:2021 §12",
   );
   if (MOULD(h) || CAT3(h)) {
     add(
@@ -228,7 +228,7 @@ export function claimRecommendations(
       "soft_goods",
       "required",
       "Remove curtains/blinds; launder or dispose if wicked with contaminated water. Antimicrobial-launder affected clothing, linen and bedding, or dispose where Category 3.",
-      "IICRC S500:2021 §20 / §12.2",
+      "IICRC S500:2021 §14 / §12.2",
     );
   }
 
@@ -238,7 +238,7 @@ export function claimRecommendations(
       "replacement",
       "advisory",
       "Allow like-for-like replacement of removed non-restorable materials (carpet, underlay, skirting, paint) in addition to structural reinstatement.",
-      "IICRC S500:2021 §10.6 (restoration & reinstatement)",
+      "IICRC S500:2021 §12 (structural restoration & reinstatement)",
     );
   }
 
@@ -247,7 +247,7 @@ export function claimRecommendations(
     "documentation",
     "required",
     "Maintain daily psychrometric and moisture logs, per-stage photographs, and moisture maps; verify drying goals are met before reinstatement.",
-    "IICRC S500:2021 §12.5.7 / §16 (documentation)",
+    "IICRC S500:2021 §12.5.7 / §9 (documentation)",
   );
 
   // Dedupe by category + text.
