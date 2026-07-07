@@ -898,7 +898,7 @@ function buildCostEstimationDocument(costData: any): string {
     );
     return uniqueItems
       .map((item: any) => {
-        return `⚠️ **${item.flag}**\n- **Reason:** ${item.reason}\n- **Action Required:** ${item.action}\n`;
+        return `[ra:warning] **${item.flag}**\n- **Reason:** ${item.reason}\n- **Action Required:** ${item.action}\n`;
       })
       .join("\n");
   };
@@ -999,7 +999,7 @@ ${formatFlaggedItems(costData.flaggedItems || [])}
     document += ordered
       .map(
         (a: any) =>
-          `${a.severity === "critical" ? "🛑 CRITICAL" : "⚠️ WARNING"}: ${a.text}`,
+          `${a.severity === "critical" ? "[ra:critical] CRITICAL" : "[ra:warning] WARNING"}: ${a.text}`,
       )
       .join("\n\n");
     document += `\n`;
