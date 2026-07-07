@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
+import { buildAffectedAreaPayload } from "@/lib/forms/affected-area-payload";
 import {
   isCapacitorIOS,
   getCurrentLocation,
@@ -1388,17 +1389,7 @@ export default function NIRTechnicianInputForm({
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              roomZoneId: area.roomZoneId,
-              affectedSquareFootage: area.affectedSquareFootage,
-              waterSource: area.waterSource,
-              timeSinceLoss: area.timeSinceLoss,
-              length: area.length,
-              width: area.width,
-              height: area.height,
-              materials: area.materials,
-              description: `Dimensions: ${area.length}m × ${area.width}m × ${area.height}m. Materials: ${area.materials.join(", ")}`,
-            }),
+            body: JSON.stringify(buildAffectedAreaPayload(area)),
           },
         );
         if (!affectedAreaRes.ok)
@@ -3861,17 +3852,7 @@ export default function NIRTechnicianInputForm({
                     {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        roomZoneId: area.roomZoneId,
-                        affectedSquareFootage: area.affectedSquareFootage,
-                        waterSource: area.waterSource,
-                        timeSinceLoss: area.timeSinceLoss,
-                        length: area.length,
-                        width: area.width,
-                        height: area.height,
-                        materials: area.materials,
-                        description: `Dimensions: ${area.length}m × ${area.width}m × ${area.height}m. Materials: ${area.materials.join(", ")}`,
-                      }),
+                      body: JSON.stringify(buildAffectedAreaPayload(area)),
                     },
                   );
                 }
