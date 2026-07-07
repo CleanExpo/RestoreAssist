@@ -32,6 +32,9 @@ import {
   assertEmbeddingShape,
   parseProvenance,
 } from "@/scripts/ingest-iicrc";
+// Type-only import: erased at compile time, so it does NOT eagerly load
+// lib/rag/retrieve (which constructs an OpenAI client at module load).
+import type { ChunkResult } from "@/lib/rag/retrieve";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -158,10 +161,30 @@ export async function POST(request: NextRequest) {
  * DATABASE_URL. Same fail-closed bearer auth as the ingest POST. Closes the
  * "a silently-empty or mis-tagged RAG has no signal" gap flagged in
  * docs/runbooks/ra-6934-iicrc-rag-populate.md.
+ *
+ * RA-7000: with `?q=<query>`, also runs the EXACT retrieval the report
+ * generator uses — retrieveForCitation (authoritative tier only) and
+ * retrieveForReasoning (all tiers) — so an operator can confirm grounding
+ * works end-to-end on live data. Snippets are truncated; verbatim standard
+ * text is never reproduced through this path.
  */
+function sampleChunk(r: ChunkResult) {
+  return {
+    standard: r.standard,
+    edition: r.edition,
+    section: r.section,
+    provenance: r.provenance,
+    jurisdiction: r.jurisdiction,
+    similarity: Math.round(r.similarity * 1000) / 1000,
+    snippet: r.content.slice(0, 120),
+  };
+}
+
 export async function GET(request: NextRequest) {
   const authError = verifyIngestAuth(request);
   if (authError) return authError;
+
+  const query = (request.nextUrl.searchParams.get("q") ?? "").trim().slice(0, 300);
 
   try {
     const byTier = await prisma.$queryRaw<
@@ -179,7 +202,27 @@ export async function GET(request: NextRequest) {
       ORDER BY 1, 2`;
 
     const total = byTier.reduce((sum, row) => sum + row.chunks, 0);
-    return NextResponse.json({ total, byTier });
+
+    if (!query) return NextResponse.json({ total, byTier });
+
+    // Dynamic import — lib/rag/retrieve builds an OpenAI client at module load.
+    const { retrieveForCitation, retrieveForReasoning } = await import(
+      "@/lib/rag/retrieve"
+    );
+    const [citation, reasoning] = await Promise.all([
+      retrieveForCitation(query, { k: 3 }),
+      retrieveForReasoning(query, { k: 3 }),
+    ]);
+
+    return NextResponse.json({
+      total,
+      byTier,
+      probe: {
+        query,
+        citation: citation.map(sampleChunk),
+        reasoning: reasoning.map(sampleChunk),
+      },
+    });
   } catch (err) {
     // RA-786: no error.message in responses; log server-side.
     console.error("[ingest-standards] health probe failed:", err);
