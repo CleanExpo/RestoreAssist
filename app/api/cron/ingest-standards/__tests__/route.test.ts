@@ -8,19 +8,20 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-const { upsertChunkMock, embedBatchMock } = vi.hoisted(() => ({
+const { upsertChunkMock, embedBatchMock, queryRawMock } = vi.hoisted(() => ({
   upsertChunkMock: vi.fn(),
   embedBatchMock: vi.fn(),
+  queryRawMock: vi.fn(),
 }));
 
-vi.mock("@/lib/prisma", () => ({ prisma: {} }));
+vi.mock("@/lib/prisma", () => ({ prisma: { $queryRaw: queryRawMock } }));
 vi.mock("@/lib/rag/embed", () => ({ embedBatch: embedBatchMock }));
 vi.mock("@/scripts/ingest-iicrc", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/scripts/ingest-iicrc")>();
   return { ...actual, upsertChunk: upsertChunkMock };
 });
 
-import { POST } from "@/app/api/cron/ingest-standards/route";
+import { GET, POST } from "@/app/api/cron/ingest-standards/route";
 
 function buildRequest(
   authHeader: string | null,
@@ -98,5 +99,41 @@ describe("POST /api/cron/ingest-standards", () => {
         jurisdiction: "AU",
       }),
     );
+  });
+});
+
+function buildGetRequest(authHeader: string | null): NextRequest {
+  const headers = new Headers();
+  if (authHeader) headers.set("authorization", authHeader);
+  return new NextRequest("http://localhost/api/cron/ingest-standards", {
+    method: "GET",
+    headers,
+  });
+}
+
+describe("GET /api/cron/ingest-standards (health probe)", () => {
+  it("rejects a missing bearer with 401", async () => {
+    const res = await GET(buildGetRequest(null));
+    expect(res.status).toBe(401);
+    expect(queryRawMock).not.toHaveBeenCalled();
+  });
+
+  it("returns tiered chunk counts and a total for a valid bearer", async () => {
+    queryRawMock.mockResolvedValue([
+      { kind: "knowledge", provenance: "KNOWLEDGE", chunks: 31279 },
+      { kind: "standard", provenance: "AUTHORITATIVE_STANDARD", chunks: 9438 },
+    ]);
+    const res = await GET(buildGetRequest("Bearer test-ingest-token"));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.total).toBe(40717);
+    expect(json.byTier).toHaveLength(2);
+  });
+
+  it("returns 500 without leaking details when the query throws", async () => {
+    queryRawMock.mockRejectedValue(new Error("db down"));
+    const res = await GET(buildGetRequest("Bearer test-ingest-token"));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Internal server error" });
   });
 });

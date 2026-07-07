@@ -150,3 +150,39 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json(summary);
 }
+
+/**
+ * RA-6934: read-only RAG health probe. Returns chunk counts grouped by
+ * provenance tier + source kind so an operator (or a monitor) can confirm the
+ * corpus is populated and correctly tiered without needing the sensitive
+ * DATABASE_URL. Same fail-closed bearer auth as the ingest POST. Closes the
+ * "a silently-empty or mis-tagged RAG has no signal" gap flagged in
+ * docs/runbooks/ra-6934-iicrc-rag-populate.md.
+ */
+export async function GET(request: NextRequest) {
+  const authError = verifyIngestAuth(request);
+  if (authError) return authError;
+
+  try {
+    const byTier = await prisma.$queryRaw<
+      { kind: string; provenance: string; chunks: number }[]
+    >`
+      SELECT
+        CASE
+          WHEN standard LIKE 'S%' OR standard LIKE 'RIA%' THEN 'standard'
+          ELSE 'knowledge'
+        END AS kind,
+        provenance::text AS provenance,
+        count(*)::int AS chunks
+      FROM "IicrcChunk"
+      GROUP BY 1, 2
+      ORDER BY 1, 2`;
+
+    const total = byTier.reduce((sum, row) => sum + row.chunks, 0);
+    return NextResponse.json({ total, byTier });
+  } catch (err) {
+    // RA-786: no error.message in responses; log server-side.
+    console.error("[ingest-standards] health probe failed:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
