@@ -27,6 +27,7 @@ import type { ChunkResult } from "@/lib/rag/retrieve";
 import { planDrying } from "@/lib/restoration/equipment-planner";
 import { requiredPpe, summarisePpe } from "@/lib/restoration/ppe-requirements";
 import { deriveHazardProfile } from "@/lib/reports/build-structured-report";
+import { claimRecommendations } from "@/lib/restoration/claim-recommendations";
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -608,6 +609,23 @@ export async function POST(request: NextRequest) {
           ...ppe.escalations.map((e) => `ESCALATION: ${e}`),
           `State the required PPE in a safety section; do not omit it.`,
         ].join("\n");
+
+        // RA-7005 Wave 5: hazard-driven claim recommendations — habitability,
+        // safety, security, contents/pack-out, perishables, pets/plants,
+        // secondary damage, specialty drying, soft goods, replacement.
+        const recommendations = claimRecommendations(
+          deriveHazardProfile(report, tier1, mouldActive),
+        );
+        if (recommendations.length > 0) {
+          safetyPlanContext += [
+            `\n\n--- CLAIM RECOMMENDATIONS & CONSIDERATIONS (RA-7005 — include a Recommendations section) ---`,
+            ...recommendations.map(
+              (r) =>
+                `[${r.severity.toUpperCase()} · ${r.category}] ${r.text} (${r.clause})`,
+            ),
+            `Include these in a dedicated "Recommendations & Considerations" section; escalate CAUTION items. Paraphrase and cite the clause; never reproduce standard text.`,
+          ].join("\n");
+        }
 
         // RA-7005 Wave 3: ground the drying-sequence + equipment reasoning in
         // the S500/S520/RIA corpus (retrieveForReasoning — all provenance

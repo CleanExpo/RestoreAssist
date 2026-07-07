@@ -226,7 +226,11 @@ interface RestorationInspectionReportData {
       description: string;
     };
   };
-  recommendations: any[];
+  // RA-7005 Wave 5: hazard-driven claim recommendations (category/severity/
+  // text/clause); tolerant of the legacy string[] shape.
+  recommendations: Array<
+    { category: string; severity: string; text: string; clause: string } | string
+  >;
   verificationChecklist: any;
   tier1?: any;
   tier2?: any;
@@ -2048,6 +2052,50 @@ export default function RestorationInspectionReportViewer({
               )}
             </div>
           </section>
+
+          {/* Recommendations & Considerations — RA-7005 Wave 5 */}
+          {data.recommendations && data.recommendations.length > 0 && (
+            <section className="print-avoid-break mb-6 print:mb-4">
+              <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-3 print:mb-2">
+                Recommendations &amp; Considerations
+              </h2>
+              <div className="space-y-2">
+                {data.recommendations
+                  .filter(
+                    (r): r is {
+                      category: string;
+                      severity: string;
+                      text: string;
+                      clause: string;
+                    } => typeof r === "object" && r !== null && "text" in r)
+                  .map((r, i) => {
+                  const sev = r.severity?.toLowerCase();
+                  const tone =
+                    sev === "caution"
+                      ? "border-red-300 bg-red-50"
+                      : sev === "required"
+                        ? "border-amber-300 bg-amber-50"
+                        : "border-slate-200 bg-slate-50";
+                  return (
+                    <div
+                      key={i}
+                      className={`border rounded-lg p-3 text-sm print:text-xs ${tone}`}
+                    >
+                      <span className="inline-block text-[10px] font-bold uppercase tracking-wide mr-2 text-slate-500">
+                        {r.severity} · {r.category.replace(/_/g, " ")}
+                      </span>
+                      <span className="text-slate-800">{r.text}</span>
+                      {r.clause && (
+                        <span className="block text-xs text-slate-400 mt-1">
+                          {r.clause}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {/* Required PPE — RA-7005 Wave 4 */}
           {data.ppe && (
