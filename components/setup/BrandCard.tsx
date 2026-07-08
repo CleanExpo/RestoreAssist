@@ -4,13 +4,27 @@ import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSetupStore } from './store';
 
-async function patchState(field: string, value: string | null): Promise<void> {
-  await fetch('/api/setup/state', {
+async function patchState(
+  field: string,
+  value: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch('/api/setup/state', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ [field]: value }),
   });
+  if (!res.ok) {
+    // PATCH /api/setup/state responds via `apiError` — nested `{ error: { message } }`
+    const body = await res.json().catch(() => null);
+    return { ok: false, error: body?.error?.message ?? `Request failed (${res.status})` };
+  }
+  return { ok: true };
 }
+
+// Must mirror /api/upload/logo server-side limits — it rejects anything else
+// (magic-byte validated; SVG is deliberately unsupported).
+const ACCEPTED_LOGO_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 
 export function BrandCard() {
   const status = useSetupStore((s) => s.sections.branding);
@@ -19,28 +33,56 @@ export function BrandCard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const save = async (field: 'primaryColor' | 'accentColor' | 'aboutCopy' | 'logoUrl', value: string | null) => {
+  const save = async (
+    field: 'primaryColor' | 'accentColor' | 'aboutCopy' | 'logoUrl',
+    value: string | null,
+  ): Promise<{ ok: boolean; error?: string }> => {
     setSaving((p) => ({ ...p, [field]: true }));
     try {
-      await patchState(field, value);
+      return await patchState(field, value);
     } finally {
       setSaving((p) => ({ ...p, [field]: false }));
     }
   };
 
-  // Logo upload handler — for the manual fallback path
+  // Logo upload: POST to the existing Cloudinary-backed /api/upload/logo
+  // (auth + magic-byte validation server-side), then persist the returned
+  // URL into setup state — same PATCH path the other manual fields use.
   const handleLogoUpload = async (file: File) => {
-    // TODO(setup-wizard Phase 8+): wire to Cloudinary upload endpoint
-    // For now we accept a data URL as a stand-in
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      update('logoUrl', dataUrl);
-      // Persist to server (eventually replaced by Cloudinary URL)
-      void save('logoUrl', dataUrl);
-    };
-    reader.readAsDataURL(file);
+    setUploadError(null);
+    if (!ACCEPTED_LOGO_TYPES.includes(file.type)) {
+      setUploadError('Please choose a PNG, JPEG, GIF, or WebP image.');
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setUploadError('Logo must be 5MB or smaller.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload/logo', { method: 'POST', body: formData });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || typeof body?.url !== 'string') {
+        // /api/upload/logo errors via `apiError` — nested `{ error: { message } }`
+        setUploadError(body?.error?.message ?? `Upload failed (${res.status})`);
+        return;
+      }
+      update('logoUrl', body.url);
+      const persisted = await save('logoUrl', body.url);
+      if (!persisted.ok) {
+        setUploadError(persisted.error ?? 'Logo uploaded but could not be saved — try again.');
+      }
+    } catch {
+      setUploadError('Network error — check your connection and try again.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -81,10 +123,13 @@ export function BrandCard() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
                   aria-label="Upload or replace logo"
-                  className="w-24 h-24 rounded-md bg-muted overflow-hidden border border-border hover:border-foreground/50 transition cursor-pointer flex items-center justify-center"
+                  className={`w-24 h-24 rounded-md bg-muted overflow-hidden border border-border hover:border-foreground/50 transition cursor-pointer flex items-center justify-center disabled:cursor-wait ${uploading ? 'animate-pulse' : ''}`}
                 >
-                  {org?.logoUrl ? (
+                  {uploading ? (
+                    <span className="text-xs text-muted-foreground text-center px-2">Uploading…</span>
+                  ) : org?.logoUrl ? (
                     // Use plain img — Next/Image needs domain config, fine for in-progress dev UI
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={org.logoUrl} alt="Business logo" className="w-full h-full object-contain" />
@@ -95,14 +140,22 @@ export function BrandCard() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  accept={ACCEPTED_LOGO_TYPES.join(',')}
+                  aria-label="Logo file"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
+                    // Reset so re-selecting the same file re-fires onChange (e.g. retry after error)
+                    e.target.value = '';
                     if (file) void handleLogoUpload(file);
                   }}
                   className="sr-only"
                 />
                 {saving.logoUrl && <span className="text-xs text-muted-foreground">Saving…</span>}
+                {uploadError && (
+                  <p role="alert" className="text-xs text-destructive max-w-[12rem] text-center">
+                    {uploadError}
+                  </p>
+                )}
               </div>
 
               {/* Colours */}
