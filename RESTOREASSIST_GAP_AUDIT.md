@@ -243,3 +243,22 @@ were found in `.planning/` video docs.
   `guidewire-photo-manifest.test.ts` to lock the insurer-payload `standardRef`.
   Verified: vitest (44/44 across the touched suites), eslint (0 errors), full
   `tsc --noEmit` (0 errors; pre-existing `prisma/seed-anz-materials.ts` excepted).
+- 🔶 **Phase 3 — multi-provider BYOK: OpenRouter provider-layer slice** — taught the
+  provider-calling layer (`lib/ai-provider.ts`) to recognise and route OpenRouter keys.
+  (1) **Correctness fix:** OpenRouter keys are `sk-or-…`, which also match the generic
+  `sk-` OpenAI branch — so `providerForKey` previously classified them as `openai` and
+  `callAIProvider` would have sent them to `api.openai.com` (guaranteed 401). Added an
+  `sk-or-` check *before* the `sk-` branch (order is load-bearing). (2) **Groundwork:**
+  added `"openrouter"` to the `AIProvider` union, an `openrouter` case in `callAIProvider`
+  that reuses the OpenAI SDK against OpenRouter's OpenAI-compatible endpoint
+  (`https://openrouter.ai/api/v1`) with a caller/env/`deepseek/deepseek-chat`-default model
+  slug and optional attribution headers, plus the name filter/fallback in
+  `getLatestAIIntegration`. **No schema change** — deliberately scoped to the provider layer.
+  Added `lib/__tests__/ai-provider-openrouter.test.ts` (SDK mocked: base-URL wiring, model
+  precedence, header gating, empty-content guard) and extended
+  `lib/__tests__/ai-provider-routing.test.ts` (sk-or- classification + cross-vendor guard).
+  Verified: vitest (10/10 across both suites), eslint (0 errors), full `tsc --noEmit`
+  (0 errors). **Remaining wiring (next slice, partly founder-gated):** expose OpenRouter in
+  the live `ProviderConnection` BYOK store — a Prisma `AiProvider` enum value (needs a
+  forward migration) + settings/onboarding model picker + live key validation (needs a real
+  OpenRouter key; ties to RA-6933 public-BYOK disclosure).
