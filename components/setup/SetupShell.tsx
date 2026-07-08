@@ -1,5 +1,7 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useSetupStore, type SetupOrganization } from './store';
 import { BusinessDetailsCard } from './BusinessDetailsCard';
 import { BrandCard } from './BrandCard';
@@ -10,6 +12,8 @@ import { IntegrationsCard } from './IntegrationsCard';
 import { FeatureHealthCard } from './FeatureHealthCard';
 import { VideoExplainer } from './VideoExplainer';
 import { AiKeyCard } from './AiKeyCard';
+import { SetupStepper, type SetupStepperItem } from './SetupStepper';
+import { Button } from '@/components/ui/button';
 
 type SectionKey = 'businessDetails' | 'branding' | 'pricing' | 'storage' | 'integrations';
 
@@ -32,6 +36,28 @@ interface InitialPayload extends SetupOrganization {
 export function SetupShell({ initial }: { initial: InitialPayload }) {
   const setOrg = useSetupStore((s) => s.setOrg);
   const setSectionStatus = useSetupStore((s) => s.setSectionStatus);
+  const org = useSetupStore((s) => s.org);
+  const router = useRouter();
+
+  // AI-key completion is the one gate the store doesn't already carry, so read
+  // it from the canonical onboarding status (same signal the setup gate uses).
+  const [hasApiKey, setHasApiKey] = useState(false);
+  useEffect(() => {
+    let active = true;
+    fetch('/api/onboarding/status')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (active && d?.steps?.ai_provider) {
+          setHasApiKey(!!d.steps.ai_provider.completed);
+        }
+      })
+      .catch(() => {
+        /* offline / not ready — leave the AI-key step locked */
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const { hydrationJobs, ...orgFields } = initial;
@@ -83,19 +109,104 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     return () => es.close();
   }, [initial, setOrg, setSectionStatus]);
 
+  // Locked one-step-at-a-time flow (Phase 4). Completion for the two required
+  // steps (AI key + business details) gates progression; optional steps never
+  // block. The flow ends on a "first report" step whose CTA is enabled once the
+  // required steps are done.
+  const businessComplete = !!(org?.legalName && org?.abn && org?.state);
+  const steps: SetupStepperItem[] = [
+    {
+      key: 'welcome',
+      title: 'Welcome',
+      required: false,
+      complete: true,
+      content: <VideoExplainer slug="remotion-onboarding-welcome" />,
+    },
+    {
+      key: 'ai_key',
+      title: 'Add your AI key',
+      required: true,
+      complete: hasApiKey,
+      content: <AiKeyCard />,
+    },
+    {
+      key: 'business',
+      title: 'Business details',
+      required: true,
+      complete: businessComplete,
+      content: <BusinessDetailsCard />,
+    },
+    {
+      key: 'branding',
+      title: 'Branding',
+      required: false,
+      complete: !!(org?.logoUrl || org?.primaryColor),
+      content: <BrandCard />,
+    },
+    {
+      key: 'pricing',
+      title: 'Pricing',
+      required: false,
+      complete: !!org?.pricingConfig,
+      content: <PricingCard />,
+    },
+    {
+      key: 'storage',
+      title: 'Storage',
+      required: false,
+      complete: false,
+      content: (
+        <div className="space-y-6">
+          <StorageCard />
+          <DatabaseCard />
+        </div>
+      ),
+    },
+    {
+      key: 'integrations',
+      title: 'Integrations',
+      required: false,
+      complete: false,
+      content: (
+        <div className="space-y-6">
+          <IntegrationsCard />
+          <FeatureHealthCard />
+        </div>
+      ),
+    },
+    {
+      key: 'first_report',
+      title: 'Your first report',
+      required: false,
+      complete: false,
+      content: (
+        <div className="rounded-xl border p-6 space-y-3 text-center">
+          <h2 className="text-lg font-semibold">You&apos;re ready — let&apos;s make your first report</h2>
+          <p className="text-sm text-muted-foreground">
+            Turn a job into an IICRC S500:2021 compliance report. You can always
+            come back and finish the optional steps later.
+          </p>
+          <Button asChild>
+            <Link href="/dashboard/reports/new">Generate your first report</Link>
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <main className="max-w-2xl mx-auto py-10 px-4 space-y-6">
-      <h1 className="text-3xl font-semibold tracking-tight">Let&apos;s get you set up</h1>
-      <p className="text-muted-foreground">Enter your ABN below — we&apos;ll do the rest.</p>
-      <VideoExplainer slug="remotion-onboarding-welcome" />
-      <AiKeyCard />
-      <BusinessDetailsCard />
-      <BrandCard />
-      <PricingCard />
-      <StorageCard />
-      <DatabaseCard />
-      <IntegrationsCard />
-      <FeatureHealthCard />
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight">Let&apos;s get you set up</h1>
+        <p className="text-muted-foreground">
+          One step at a time — we&apos;ll have you generating your first report in
+          minutes.
+        </p>
+      </div>
+      <SetupStepper
+        items={steps}
+        onFinish={() => router.push('/dashboard/reports/new')}
+      />
     </main>
   );
 }
