@@ -143,12 +143,64 @@ async function fetchInspectionForGuidewire(id: string) {
   });
 }
 
+// ─── TECHNICIAN CERTIFICATIONS ───────────────────────────────────────────────
+
+// Business/insurance registrations live in the same ContractorCertification
+// table but are not technician qualifications — excluded from the insurer-facing
+// technician block (the vendor profile carries insurance separately).
+const NON_TECHNICIAN_CERT_TYPES = [
+  "INSURANCE_PUBLIC_LIABILITY",
+  "INSURANCE_PROFESSIONAL_INDEMNITY",
+  "INSURANCE_WORKERS_COMP",
+  "BUSINESS_ABN_REGISTRATION",
+  "BUSINESS_GST_REGISTRATION",
+] as const;
+
+/**
+ * Load the technician's certifications from their contractor profile,
+ * formatted for the NirTechnician block (e.g. "IICRC WRT #123456").
+ *
+ * Integrity filter: REJECTED/EXPIRED certifications and certifications past
+ * their expiry date never reach an insurer payload. Self-reported (PENDING)
+ * certifications are included — verification status is a directory concern,
+ * not a claim gate. Returns [] when the user has no contractor profile.
+ */
+export async function fetchTechnicianCertifications(
+  userId: string,
+): Promise<string[]> {
+  const profile = await prisma.contractorProfile.findUnique({
+    where: { userId },
+    select: {
+      certifications: {
+        where: {
+          verificationStatus: { notIn: ["REJECTED", "EXPIRED"] },
+          certificationType: { notIn: [...NON_TECHNICIAN_CERT_TYPES] },
+          OR: [{ expiryDate: null }, { expiryDate: { gte: new Date() } }],
+        },
+        select: {
+          certificationName: true,
+          certificationNumber: true,
+        },
+        orderBy: { issueDate: "asc" },
+        take: 50,
+      },
+    },
+  });
+
+  return (profile?.certifications ?? []).map((cert) =>
+    cert.certificationNumber
+      ? `${cert.certificationName} #${cert.certificationNumber}`
+      : cert.certificationName,
+  );
+}
+
 // ─── NIR → GUIDEWIRE PAYLOAD BUILDER ─────────────────────────────────────────
 
 export function buildNirReportOutput(
   inspection: Awaited<ReturnType<typeof fetchInspectionForGuidewire>>,
   technicianName: string,
   userId: string,
+  certifications: string[] = [],
 ): NirReportOutput {
   if (!inspection) throw new Error("Inspection not found");
 
@@ -175,7 +227,7 @@ export function buildNirReportOutput(
   const technician: NirTechnician = {
     technicianId: userId,
     name: technicianName,
-    certifications: [], // TODO: load from user profile (Phase 3)
+    certifications,
   };
 
   // ── Property ───────────────────────────────────────────────────────────────
@@ -499,7 +551,14 @@ async function buildResponse(
     );
   }
 
-  const nirOutput = buildNirReportOutput(inspection, technicianName, userId);
+  const certifications = await fetchTechnicianCertifications(userId);
+
+  const nirOutput = buildNirReportOutput(
+    inspection,
+    technicianName,
+    userId,
+    certifications,
+  );
 
   const claimPayload = transformNirToGuidewireClaim(
     nirOutput,
