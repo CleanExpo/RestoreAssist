@@ -26,7 +26,8 @@ export type AiProvider =
   | "OPENAI"
   | "GOOGLE"
   | "GEMMA"
-  | "ELEVENLABS";
+  | "ELEVENLABS"
+  | "OPENROUTER";
 
 /** Mirrors the Prisma ProviderConnectionStatus enum */
 export type ProviderConnectionStatus = "ACTIVE" | "FAILED" | "DISABLED";
@@ -43,12 +44,19 @@ interface CredentialPayload {
    * secret, but co-locating it avoids a schema column for a single provider).
    */
   voiceId?: string;
+  /**
+   * OPENROUTER-only: the workspace's default model routing slug
+   * (e.g. "deepseek/deepseek-chat"). Like voiceId, it is a preference co-located
+   * in the encrypted blob to avoid a schema column for a single provider.
+   */
+  model?: string;
 }
 
 /** Decrypted credentials for a provider connection (server-side only). */
 export interface ResolvedProviderCredentials {
   apiKey: string;
   voiceId?: string;
+  model?: string;
 }
 
 /** Safe public representation — no plaintext key exposed */
@@ -71,6 +79,8 @@ export interface UpsertProviderConnectionInput {
   plaintextApiKey: string;
   /** ELEVENLABS-only: optional default Voice ID stored alongside the key. */
   voiceId?: string;
+  /** OPENROUTER-only: optional default model slug stored alongside the key. */
+  model?: string;
   /** Optional WorkspaceMember.id of the member saving the key */
   memberId?: string;
 }
@@ -232,7 +242,11 @@ export async function getProviderCredentials(
     const payload = decryptCredentials(row.encryptedCredentials);
     const apiKey = payload.apiKey?.trim();
     if (!apiKey) return null;
-    return { apiKey, voiceId: payload.voiceId?.trim() || undefined };
+    return {
+      apiKey,
+      voiceId: payload.voiceId?.trim() || undefined,
+      model: payload.model?.trim() || undefined,
+    };
   } catch (err) {
     console.error(
       `[getProviderCredentials] Decryption failed for workspace ${workspaceId} / ${provider}:`,
@@ -243,12 +257,18 @@ export async function getProviderCredentials(
 }
 
 /**
- * Providers that power client report generation (the "operating" providers).
- * GOOGLE is for Drive storage and GEMMA is the platform's own inference, so
- * neither counts as a BYOK key the user must supply to operate RestoreAssist.
- * Mirrors the operating-provider filter in the setup gate's `byokKeysCheck`.
+ * Providers that power client report generation (the "operating" providers) —
+ * a BYOK key for any one of these is enough to operate RestoreAssist. GOOGLE is
+ * for Drive storage, GEMMA is the platform's own inference, and ELEVENLABS is
+ * voice, so none of those count. This is the SINGLE SOURCE OF TRUTH: the setup
+ * gate's `byokKeysCheck` and the onboarding presence check below both consume
+ * it, so the two surfaces can never disagree about what "has a key" means.
  */
-const OPERATING_PROVIDERS: AiProvider[] = ["ANTHROPIC", "OPENAI"];
+export const OPERATING_PROVIDERS: AiProvider[] = [
+  "ANTHROPIC",
+  "OPENAI",
+  "OPENROUTER",
+];
 
 /**
  * Lightweight presence check: does the user's workspace have at least one
@@ -288,7 +308,8 @@ export async function hasActiveOperatingProviderConnection(
 export async function upsertProviderConnection(
   input: UpsertProviderConnectionInput,
 ): Promise<ProviderConnectionSummary> {
-  const { workspaceId, provider, plaintextApiKey, voiceId, memberId } = input;
+  const { workspaceId, provider, plaintextApiKey, voiceId, model, memberId } =
+    input;
 
   if (!plaintextApiKey?.trim()) {
     throw new Error("API key must not be empty");
@@ -297,6 +318,7 @@ export async function upsertProviderConnection(
   const encrypted = encryptCredentials({
     apiKey: plaintextApiKey.trim(),
     voiceId: voiceId?.trim() || undefined,
+    model: model?.trim() || undefined,
   });
 
   const row = await prisma.providerConnection.upsert({
@@ -432,6 +454,9 @@ async function testProviderKey(
       case "GEMMA":
         await testGemmaKey(controller.signal);
         break;
+      case "OPENROUTER":
+        await testOpenRouterKey(apiKey, controller.signal);
+        break;
       default:
         throw new Error(`Unknown provider: ${provider}`);
     }
@@ -487,6 +512,29 @@ async function testOpenAiKey(
     const body = await res.text().catch(() => "");
     throw new Error(
       `OpenAI API server error ${res.status}: ${body.slice(0, 100)}`,
+    );
+  }
+}
+
+async function testOpenRouterKey(
+  apiKey: string,
+  signal: AbortSignal,
+): Promise<void> {
+  // OpenRouter's key-introspection endpoint returns the key's rate-limit /
+  // credit info on success and 401 for an invalid key — cheaper than a
+  // completion and does not consume credits.
+  const res = await fetch("https://openrouter.ai/api/v1/auth/key", {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal,
+  });
+
+  if (res.status === 401) throw new Error("Invalid OpenRouter API key");
+  if (res.status === 403)
+    throw new Error("OpenRouter API key lacks permissions");
+  if (res.status >= 500) {
+    const body = await res.text().catch(() => "");
+    throw new Error(
+      `OpenRouter API server error ${res.status}: ${body.slice(0, 100)}`,
     );
   }
 }

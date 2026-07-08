@@ -45,6 +45,7 @@ const VALID_PROVIDERS: AiProvider[] = [
   "OPENAI",
   "GOOGLE",
   "GEMMA",
+  "OPENROUTER",
 ];
 
 function isValidProvider(value: unknown): value is AiProvider {
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const { provider, apiKey } = body as Record<string, unknown>;
+      const { provider, apiKey, model } = body as Record<string, unknown>;
 
       if (!isValidProvider(provider)) {
         return apiError(req, {
@@ -165,10 +166,20 @@ export async function POST(req: NextRequest) {
         select: { id: true },
       });
 
+      // OpenRouter needs a model routing slug (namespace/model). It's optional
+      // here — a blank value falls back to the server default at dispatch time.
+      const modelSlug =
+        provider === "OPENROUTER" &&
+        typeof model === "string" &&
+        model.trim()
+          ? model.trim()
+          : undefined;
+
       const connection = await upsertProviderConnection({
         workspaceId: workspace.id,
         provider,
         plaintextApiKey: trimmedKey,
+        model: modelSlug,
         memberId: member?.id,
       });
 
