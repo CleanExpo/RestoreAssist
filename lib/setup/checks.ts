@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/credential-vault";
 import { routeBasic } from "@/lib/ai/model-router";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
+import { getValidQuickBooksAccessToken } from "@/lib/services/quickbooks/credentials";
+import { getValidMYOBAccessToken } from "@/lib/services/myob/credentials";
 import {
   getWorkspaceForUser,
   listProviderConnections,
@@ -309,60 +311,96 @@ const cloudStorageCheck: Check = async (orgId) => {
 
 // ─── accounting ─────────────────────────────────────────────────────────────
 //
-// Accounting integrations (Xero, MYOB, QuickBooks, ServiceM8, Ascora) live on
-// the `Integration` table keyed by userId. We probe Xero today — the other
-// providers fall through to yellow ("not connected") until they get their own
-// token-manager helper. The probe is `GET /connections`, the cheapest
-// authenticated call Xero exposes; `getValidXeroAccessToken` already refreshes
-// the access token if it's near expiry.
-const accountingCheck: Check = async (orgId) => {
+// Accounting integrations live on the `Integration` table keyed by userId. A
+// user connects ONE bookkeeping system, so we validate whichever of Xero,
+// QuickBooks, or MYOB is CONNECTED (day-1 readiness — RA follow-up). For Xero we
+// keep the `GET /connections` probe (the cheapest authenticated call it
+// exposes). For QuickBooks/MYOB the token helper both refreshes a near-expiry
+// token AND surfaces DISCONNECTED/RECONNECT_REQUIRED/REFRESH_FAILED, so its
+// `ok` result is itself the readiness signal. ServiceM8/Ascora still fall
+// through to yellow until they get their own token-manager helper.
+const ACCOUNTING_PROVIDERS = ["XERO", "QUICKBOOKS", "MYOB"] as const;
+type AccountingProvider = (typeof ACCOUNTING_PROVIDERS)[number];
+
+const ACCOUNTING_PROVIDER_LABEL: Record<AccountingProvider, string> = {
+  XERO: "Xero",
+  QUICKBOOKS: "QuickBooks",
+  MYOB: "MYOB",
+};
+
+function reconnectNote(name: string, reason: string): string {
+  if (reason === "DISCONNECTED") return `${name} not connected`;
+  if (reason === "RECONNECT_REQUIRED")
+    return `${name} reconnect required (refresh token unavailable)`;
+  return `${name} token refresh failed — reconnect required`;
+}
+
+export const accountingCheck: Check = async (orgId) => {
   const capability = "accounting";
   const label = "Accounting integration";
+  const notConnected = {
+    capability,
+    label,
+    status: "yellow" as const,
+    note: "Not connected — optional",
+  };
 
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
     select: { ownerId: true },
   });
-  if (!org) {
-    return {
-      capability,
-      label,
-      status: "yellow",
-      note: "Not connected — optional",
-    };
-  }
+  if (!org) return notConnected;
 
   const integration = await prisma.integration.findFirst({
     where: {
       userId: org.ownerId,
-      provider: "XERO",
       status: "CONNECTED",
+      provider: { in: [...ACCOUNTING_PROVIDERS] },
     },
-    select: { id: true },
+    select: { id: true, provider: true },
   });
-  if (!integration) {
+  if (!integration) return notConnected;
+
+  const provider = integration.provider as AccountingProvider;
+  const name = ACCOUNTING_PROVIDER_LABEL[provider];
+
+  // QuickBooks / MYOB: the token helper validates + refreshes; its ok is green.
+  if (provider === "QUICKBOOKS" || provider === "MYOB") {
+    const helper =
+      provider === "QUICKBOOKS"
+        ? getValidQuickBooksAccessToken
+        : getValidMYOBAccessToken;
+    const cred = await helper(integration.id);
+    if (cred.ok) {
+      return { capability, label, status: "green", note: `${name} connected` };
+    }
+    console.error(`[SetupChecks/${name}]`, {
+      integrationId: integration.id,
+      reason: cred.reason,
+      detail: cred.detail,
+    });
     return {
       capability,
       label,
-      status: "yellow",
-      note: "Not connected — optional",
+      status: "red",
+      note: reconnectNote(name, cred.reason),
     };
   }
 
+  // Xero: refresh the token, then probe the cheapest authenticated endpoint.
   const credResult = await getValidXeroAccessToken(integration.id);
   if (!credResult.ok) {
-    const note =
-      credResult.reason === "DISCONNECTED"
-        ? "Xero not connected"
-        : credResult.reason === "RECONNECT_REQUIRED"
-          ? "Xero reconnect required (refresh token unavailable)"
-          : "Xero token refresh failed — reconnect required";
     console.error("[SetupChecks/Xero]", {
       integrationId: integration.id,
       reason: credResult.reason,
       detail: credResult.detail,
     });
-    return { capability, label, status: "red", note };
+    return {
+      capability,
+      label,
+      status: "red",
+      note: reconnectNote(name, credResult.reason),
+    };
   }
   const accessToken = credResult.data;
 
