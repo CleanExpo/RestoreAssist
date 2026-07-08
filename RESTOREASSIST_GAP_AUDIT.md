@@ -209,8 +209,23 @@ were found in `.planning/` video docs.
   button into a disabled "Coming soon" control to match the Word card. Added
   `components/__tests__/DocumentExportPackage.test.tsx` (4/4) locking the honesty
   guarantees + success-only-on-real-export. Verified: vitest, eslint, tsc.
-- ⬜ Stub integrations — OpenAI/Gemini, cloud-mirror, Google Drive read paths,
-  blog articles — remain honestly labelled "Coming soon"; finish or keep gated.
+- ✅ **Stub integrations — verified already honest (audit sweep)** — re-checked the
+  ⬜ items against disk: **blog** (`app/blog/page.tsx:195`) now renders a
+  non-interactive `<span aria-disabled>` "Coming Soon", not a dead `href="#"`;
+  **DOCX/email export** de-advertised earlier (see above); **cloud-mirror**
+  OneDrive/iCloud are UI-gated "coming soon" (latent); **Google Drive read** is
+  implemented for the live path (`downloadByFileId`); **OpenAI/Gemini** on the
+  integrations page are `disabled` `<option>`s (the toast handlers are defensive
+  dead code). No dishonest surface remained to fix.
+- ✅ **Undocumented required env vars (Missing connections — `.env.example`)** —
+  added 15 vars referenced by app/lib code but absent from `.env.example`,
+  preventing silent prod misconfiguration. Most notably the **required
+  client-side `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`** (billing UI), plus the
+  OpenRouter BYOK trio (`OPENROUTER_API_KEY/_MODEL/_SITE_URL`), accounting
+  environments (`QUICKBOOKS_ENVIRONMENT`, `MYOB_ENVIRONMENT`, `ASCORA_BASE_URL`),
+  standards-ingest (`STANDARDS_INGEST_TOKEN`, `GOOGLE_DRIVE_STANDARDS_FOLDER_ID`),
+  public contact addresses, and AI spend/rate constants. Vercel/runtime-injected
+  vars deliberately omitted. Docs/config only — no code behaviour change.
 - ✅ **Onboarding ↔ setup-gate checklist disagreement (Phase 4 — "two contradicting
   checklists")** — the onboarding "Add your AI key" card (PR #1486) writes to the new
   `ProviderConnection` BYOK store, but `GET /api/onboarding/status` only checked the
