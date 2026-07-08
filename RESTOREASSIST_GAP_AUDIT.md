@@ -304,3 +304,37 @@ were found in `.planning/` video docs.
     OpenRouter key at runtime — the code is complete and unit-tested with mocks, but a real
     end-to-end smoke test + the public self-serve BYOK disclosure decision are **RA-6933**
     (founder). No further code is blocked.
+- ✅ **Remaining undocumented env vars (Missing connections medium — final `.env.example`
+  sweep)** — re-verified the audit's full undocumented-env list against code (per-var grep
+  of `app/` + `lib/`, 2026-07-09). 16 of the 19 listed vars were already documented by the
+  earlier `.env.example` passes: `GEMINI_API_KEY`, `OLLAMA_BASE_URL`/`OLLAMA_MODEL`,
+  `ABR_API_GUID`, `CREDENTIAL_ENCRYPTION_KEY`, `PROPERTY_SCRAPER_URL`,
+  `GUIDEWIRE_SANDBOX_URL`, `YOUI_API_URL`, `HOLLARD_API_URL`, `POSTHOG_API_KEY`/`POSTHOG_HOST`,
+  `YOUTUBE_CLIENT_ID`/`YOUTUBE_CLIENT_SECRET`, and
+  `GOOGLE_PRIVATE_KEY`/`GOOGLE_CLIENT_EMAIL`/`GOOGLE_PROJECT_ID`. `ABR_API_BASE_URL` has
+  zero references anywhere in code — the real var is `ABR_BASE_URL`
+  (`lib/integrations/abr/client.ts:9`), already documented. Added the two genuine gaps:
+  `ENABLE_ADMIN_IMPERSONATION` (`app/api/admin/impersonate/route.ts:54` + `stop/route.ts:36`
+  return 501 `FEATURE_DISABLED` without it — documented under DEVELOPMENT ONLY) and
+  `PROPERTY_SCRAPER_REQUIRED` (`app/api/properties/scrape/health/route.ts:46` strict-mode
+  flag — documented next to `PROPERTY_SCRAPER_URL`). Docs only — zero code changes.
+- ✅ **"Start Free Trial" wording (False Promises medium) — verified TRUE, CTA unchanged** —
+  traced the paid-plan CTA (`app/pricing/page.tsx:526`, `<Link href="/signup">` at `:518`)
+  through every signup path: `app/api/auth/register/route.ts:145,205` grant
+  `subscriptionStatus: "TRIAL"` with `trialEndsAt = now + 15 days`, 50 report credits and
+  30 quick-fill credits, all sourced from the `PRICING_CONFIG.free` SSOT
+  (`lib/pricing.ts:27`, `trialDays: 15`); Google OAuth
+  (`app/api/auth/google-signin/route.ts:178`, `lib/auth.ts:352`) and native token exchange
+  (`app/api/auth/native-token-exchange/route.ts:291`) grant the same. `TRIAL` exists in the
+  Prisma `SubscriptionStatus` enum (`prisma/schema.prisma:1359`) and in the AI
+  subscription-gate allowlist (`lib/billing/subscription-gate.ts:14`), so trial users get
+  real feature access. The trial length is already surfaced on the pricing page
+  (`app/pricing/page.tsx:281,332`). The audit's premise ("no trial-specific tier exists in
+  lib/pricing.ts") is stale — `PRICING_CONFIG.free` is now the trial SSOT. No change needed.
+- 🔶 **Setup-wizard brand-logo upload & business-detail persistence (Missing connections
+  low)** — the business-detail half is remediated:
+  `components/setup/BusinessDetailsCard.tsx` now persists manual edits via
+  `persistManualField` → `PATCH /api/setup/state` on blur (`:217,230,243`; verified
+  2026-07-09). The brand-logo upload half is still unwired
+  (`components/setup/BrandCard.tsx:34`, `TODO(setup-wizard Phase 8+)`) and is in progress
+  in a parallel PR.
