@@ -10,37 +10,17 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import {
+  toOnboardingDisplaySteps,
+  type OnboardingStatusResponse,
+  type OnboardingDisplayStep,
+} from "@/lib/onboarding/steps";
 
-interface OnboardingStep {
-  completed: boolean;
-  required: boolean;
-  title: string;
-  description: string;
-  route: string;
-}
-
-interface OnboardingStepsMap {
-  [key: string]: OnboardingStep;
-}
-
-interface OnboardingData {
-  isComplete: boolean;
-  incompleteSteps: string[];
-  steps: OnboardingStepsMap;
-  nextStep: string | null;
-}
-
-interface DisplayStep {
-  id: string;
-  title: string;
-  description: string;
-  href: string;
-  time: string;
-  completed: boolean;
-  required: boolean;
-}
-
-const FALLBACK_STEPS: DisplayStep[] = [
+// Error-path fallback ONLY — shown when the status API is unreachable. On a
+// successful fetch the checklist is derived entirely from the server's
+// canonical `steps` (via toOnboardingDisplaySteps), never merged with this,
+// so the two can't contradict.
+const FALLBACK_STEPS: OnboardingDisplayStep[] = [
   {
     id: "business_profile",
     title: "Complete business profile",
@@ -78,15 +58,6 @@ const FALLBACK_STEPS: DisplayStep[] = [
     required: false,
   },
 ];
-
-// Step time estimates keyed by API step id
-const STEP_TIME_MAP: Record<string, string> = {
-  first_inspection: "8 min",
-  first_report: "10 min",
-  business_profile: "2 min",
-  pricing_config: "5 min",
-  property_data: "5 min",
-};
 
 function ProgressRing({
   percentage,
@@ -145,7 +116,7 @@ function ProgressRing({
 
 export default function OnboardingClient() {
   const [loading, setLoading] = useState(true);
-  const [steps, setSteps] = useState<DisplayStep[]>([]);
+  const [steps, setSteps] = useState<OnboardingDisplayStep[]>([]);
   const [isAllDone, setIsAllDone] = useState(false);
 
   useEffect(() => {
@@ -155,30 +126,14 @@ export default function OnboardingClient() {
         if (!res.ok) {
           throw new Error("Failed to fetch onboarding status");
         }
-        const data: OnboardingData = await res.json();
+        const data: OnboardingStatusResponse = await res.json();
 
-        // Build display steps from API response
-        const apiSteps = data.steps;
-        const displaySteps: DisplayStep[] = Object.entries(apiSteps).map(
-          ([id, step]) => ({
-            id,
-            title: step.title,
-            description: step.description,
-            href: step.route,
-            time: STEP_TIME_MAP[id] ?? "~5 min",
-            completed: step.completed,
-            required: step.required,
-          }),
-        );
-
-        // Add extra steps not returned by API
-        const apiIds = new Set(displaySteps.map((s) => s.id));
-        const extras = FALLBACK_STEPS.filter((s) => !apiIds.has(s.id));
-
-        setSteps([...displaySteps, ...extras]);
+        // Render exactly the server's canonical steps — no client-side merge,
+        // so this checklist can never contradict any other onboarding surface.
+        setSteps(toOnboardingDisplaySteps(data.steps));
         setIsAllDone(data.isComplete);
       } catch {
-        // Fall back to static list
+        // Only on a failed fetch do we show the static fallback list.
         setSteps(FALLBACK_STEPS);
         setIsAllDone(false);
       } finally {
