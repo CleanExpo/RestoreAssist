@@ -20,6 +20,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 // @ts-ignore - canvas-confetti types
 import confetti from "canvas-confetti";
+import { completedGuideStepNumbers } from "@/lib/onboarding/steps";
 
 interface OnboardingGuideProps {
   step: number;
@@ -61,11 +62,10 @@ export default function OnboardingGuide({
         const response = await fetch("/api/onboarding/status");
         if (response.ok) {
           const data = await response.json();
-          const completed = Object.entries(data.steps || {})
-            .filter(([_, step]: [string, any]) => step.completed)
-            .map(([key]) => parseInt(key.split("_")[1] || "0"))
-            .filter((n) => !isNaN(n));
-          setCompletedSteps(completed);
+          // Map the API's string step keys onto this widget's numeric positions
+          // via the shared SSOT. The old parseInt(key.split("_")[1]) produced
+          // NaN for every key, so completion never registered.
+          setCompletedSteps(completedGuideStepNumbers(data.steps));
         }
       } catch (error) {
         console.error("Error checking onboarding status:", error);
