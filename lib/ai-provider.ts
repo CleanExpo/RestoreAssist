@@ -6,7 +6,7 @@ import { tryClaudeModels } from "./anthropic-models";
 import { getOrganizationOwner } from "./organization-credits";
 import { createCachedSystemPrompt } from "./anthropic/features/prompt-cache";
 
-export type AIProvider = "anthropic" | "openai" | "gemini";
+export type AIProvider = "anthropic" | "openai" | "gemini" | "openrouter";
 
 export interface AIIntegration {
   id: string;
@@ -20,7 +20,11 @@ export interface AIIntegration {
  * The key itself decides which vendor will accept it, so this can never
  * misroute the way a free-text integration name can. Returns null for an
  * unrecognised format (callers fall back to a name hint as a last resort).
- *   Anthropic: sk-ant-…   OpenAI: sk-… / sk-proj-…   Google (Gemini): AIza…
+ *   Anthropic:  sk-ant-…
+ *   OpenRouter: sk-or-… (checked before OpenAI — an OpenRouter key also starts
+ *               with the generic `sk-` prefix, so order is load-bearing here)
+ *   OpenAI:     sk-… / sk-proj-…
+ *   Google (Gemini): AIza…
  */
 export function providerForKey(
   apiKey: string | null | undefined,
@@ -28,6 +32,7 @@ export function providerForKey(
   if (!apiKey) return null;
   const k = apiKey.trim();
   if (k.startsWith("sk-ant-")) return "anthropic";
+  if (k.startsWith("sk-or-")) return "openrouter";
   if (k.startsWith("AIza")) return "gemini";
   if (k.startsWith("sk-")) return "openai";
   return null;
@@ -102,7 +107,14 @@ export async function getLatestAIIntegration(
 ): Promise<AIIntegration | null> {
   const integrations = await getIntegrationsForUser(userId, {
     status: "CONNECTED",
-    nameContains: ["Anthropic", "OpenAI", "Gemini", "Claude", "GPT"],
+    nameContains: [
+      "Anthropic",
+      "OpenAI",
+      "Gemini",
+      "Claude",
+      "GPT",
+      "OpenRouter",
+    ],
   });
 
   if (integrations.length === 0) {
@@ -119,7 +131,9 @@ export async function getLatestAIIntegration(
   let provider = providerForKey(integration.apiKey);
   if (!provider) {
     const nameLower = (integration.name || "").toLowerCase();
-    if (nameLower.includes("openai") || nameLower.includes("gpt")) {
+    if (nameLower.includes("openrouter")) {
+      provider = "openrouter";
+    } else if (nameLower.includes("openai") || nameLower.includes("gpt")) {
       provider = "openai";
     } else if (nameLower.includes("gemini") || nameLower.includes("google")) {
       provider = "gemini";
@@ -210,6 +224,11 @@ export async function callAIProvider(
     prompt: string;
     maxTokens?: number;
     temperature?: number;
+    /**
+     * OpenRouter model slug (e.g. "deepseek/deepseek-chat"). Only consulted by
+     * the "openrouter" branch; the fixed-vendor branches use their own models.
+     */
+    model?: string;
   },
 ): Promise<string> {
   const { system, prompt, maxTokens = 16000, temperature = 0.7 } = options;
@@ -298,6 +317,50 @@ export async function callAIProvider(
       const content = response.choices[0]?.message?.content;
       if (!content) {
         throw new Error("No content in OpenAI response");
+      }
+
+      return content;
+    }
+
+    case "openrouter": {
+      // OpenRouter exposes an OpenAI-compatible Chat Completions API, so we
+      // reuse the OpenAI SDK with its base URL. The model is a required routing
+      // slug (namespace/model) — resolved from the caller, then env, then a
+      // stable default. Attribution headers are optional per OpenRouter's docs.
+      const model =
+        options.model ||
+        process.env.OPENROUTER_MODEL ||
+        "deepseek/deepseek-chat";
+
+      const referer = process.env.OPENROUTER_SITE_URL;
+      const openrouter = new OpenAI({
+        apiKey: integration.apiKey,
+        baseURL: "https://openrouter.ai/api/v1",
+        defaultHeaders: {
+          "X-Title": "RestoreAssist",
+          ...(referer ? { "HTTP-Referer": referer } : {}),
+        },
+      });
+
+      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+
+      if (system) {
+        messages.push({ role: "system", content: system });
+      }
+      messages.push({ role: "user", content: prompt });
+
+      // Pass maxTokens through unchanged — per-model output caps vary across
+      // OpenRouter, and the caller owns the value (default 16 000).
+      const response = await openrouter.chat.completions.create({
+        model,
+        messages,
+        max_tokens: maxTokens,
+        temperature,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No content in OpenRouter response");
       }
 
       return content;
