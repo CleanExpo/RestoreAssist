@@ -57,7 +57,7 @@ describe("hasActiveOperatingProviderConnection", () => {
     expect(await hasActiveOperatingProviderConnection("user_1")).toBe(false);
   });
 
-  it("only counts ACTIVE Anthropic/OpenAI connections in the user's workspace", async () => {
+  it("only counts ACTIVE operating-provider (Anthropic/OpenAI/OpenRouter) connections in the user's workspace", async () => {
     workspaceFindFirst.mockResolvedValue({ id: "ws_99", name: "Acme" });
     providerConnectionCount.mockResolvedValue(2);
 
@@ -67,7 +67,7 @@ describe("hasActiveOperatingProviderConnection", () => {
       where: {
         workspaceId: "ws_99",
         status: "ACTIVE",
-        provider: { in: ["ANTHROPIC", "OPENAI"] },
+        provider: { in: ["ANTHROPIC", "OPENAI", "OPENROUTER"] },
       },
     });
   });
@@ -84,7 +84,7 @@ describe("hasActiveOperatingProviderConnection", () => {
       where: {
         workspaceId: "ws_team",
         status: "ACTIVE",
-        provider: { in: ["ANTHROPIC", "OPENAI"] },
+        provider: { in: ["ANTHROPIC", "OPENAI", "OPENROUTER"] },
       },
     });
   });

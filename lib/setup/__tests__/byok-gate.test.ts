@@ -42,6 +42,9 @@ vi.mock("@/lib/workspace/provider-connections", () => ({
   getWorkspaceForUser: vi.fn(),
   listProviderConnections: vi.fn(),
   validateProviderKey: vi.fn(),
+  // checks.ts consumes the shared operating-provider list — the mock must
+  // export it or the gate's filter throws on a non-empty connection list.
+  OPERATING_PROVIDERS: ["ANTHROPIC", "OPENAI", "OPENROUTER"],
 }));
 
 import {
@@ -78,7 +81,7 @@ describe("byokKeysCheck — operating key gate", () => {
 
     expect(result.status).toBe("red");
     expect(result.capability).toBe("byok_keys");
-    expect(result.note).toMatch(/Anthropic or OpenAI/i);
+    expect(result.note).toMatch(/Anthropic, OpenAI, or OpenRouter/i);
   });
 
   it("returns GREEN when one ACTIVE ANTHROPIC connection validates successfully", async () => {
@@ -133,6 +136,32 @@ describe("byokKeysCheck — operating key gate", () => {
     expect(result.capability).toBe("byok_keys");
   });
 
+  it("returns GREEN when one ACTIVE OPENROUTER connection validates successfully", async () => {
+    mockListProviderConnections.mockResolvedValue([
+      {
+        id: "conn-or",
+        workspaceId: FAKE_WORKSPACE.id,
+        provider: "OPENROUTER",
+        status: "ACTIVE",
+        maskedKey: "sk-or-v1...9999",
+        lastValidatedAt: null,
+        lastError: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ]);
+    mockValidateProviderKey.mockResolvedValue({
+      provider: "OPENROUTER",
+      valid: true,
+      latencyMs: 110,
+    });
+
+    const result = await byokKeysCheck(FAKE_ORG_ID);
+
+    expect(result.status).toBe("green");
+    expect(result.capability).toBe("byok_keys");
+  });
+
   it("returns RED when only ACTIVE GOOGLE + GEMMA connections exist (not operating providers)", async () => {
     mockListProviderConnections.mockResolvedValue([
       {
@@ -165,7 +194,7 @@ describe("byokKeysCheck — operating key gate", () => {
 
     expect(result.status).toBe("red");
     expect(result.capability).toBe("byok_keys");
-    expect(result.note).toMatch(/Anthropic or OpenAI/i);
+    expect(result.note).toMatch(/Anthropic, OpenAI, or OpenRouter/i);
     // Should not have called validateProviderKey for GOOGLE/GEMMA
     expect(mockValidateProviderKey).not.toHaveBeenCalled();
   });
@@ -176,7 +205,7 @@ describe("byokKeysCheck — operating key gate", () => {
     const result = await byokKeysCheck(FAKE_ORG_ID);
 
     expect(result.status).toBe("red");
-    expect(result.note).toMatch(/Anthropic or OpenAI/i);
+    expect(result.note).toMatch(/Anthropic, OpenAI, or OpenRouter/i);
   });
 
   it("returns RED when org is not found", async () => {
@@ -185,6 +214,6 @@ describe("byokKeysCheck — operating key gate", () => {
     const result = await byokKeysCheck(FAKE_ORG_ID);
 
     expect(result.status).toBe("red");
-    expect(result.note).toMatch(/Anthropic or OpenAI/i);
+    expect(result.note).toMatch(/Anthropic, OpenAI, or OpenRouter/i);
   });
 });

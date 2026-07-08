@@ -78,6 +78,24 @@ describe("callAIProvider — OpenRouter branch", () => {
     );
   });
 
+  it("uses the integration's stored model over env, but under an explicit option", async () => {
+    process.env.OPENROUTER_MODEL = "env/model";
+    const withModel = { ...orIntegration, model: "workspace/stored-model" };
+
+    // integration.model beats the env default
+    await callAIProvider(withModel, { prompt: "hi" });
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "workspace/stored-model" }),
+    );
+
+    // a per-call options.model still wins over the stored model
+    createMock.mockClear();
+    await callAIProvider(withModel, { prompt: "hi", model: "call/override" });
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "call/override" }),
+    );
+  });
+
   it("sets the optional HTTP-Referer header only when OPENROUTER_SITE_URL is set", async () => {
     await callAIProvider(orIntegration, { prompt: "hi" });
     expect(ctorMock).toHaveBeenCalledWith(

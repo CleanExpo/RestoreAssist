@@ -13,6 +13,12 @@ export interface AIIntegration {
   name: string;
   apiKey: string;
   provider: AIProvider;
+  /**
+   * OpenRouter model routing slug (e.g. "deepseek/deepseek-chat"). Only used by
+   * the "openrouter" provider; ignored by the fixed-vendor providers, which use
+   * their own models. A per-call `options.model` still wins over this.
+   */
+  model?: string;
 }
 
 /**
@@ -324,11 +330,13 @@ export async function callAIProvider(
 
     case "openrouter": {
       // OpenRouter exposes an OpenAI-compatible Chat Completions API, so we
-      // reuse the OpenAI SDK with its base URL. The model is a required routing
-      // slug (namespace/model) — resolved from the caller, then env, then a
-      // stable default. Attribution headers are optional per OpenRouter's docs.
+      // reuse the OpenAI SDK with its base URL. The model is a routing slug
+      // (namespace/model) resolved by precedence: per-call option → the
+      // workspace's stored default → env → a stable fallback. Attribution
+      // headers are optional per OpenRouter's docs.
       const model =
         options.model ||
+        integration.model ||
         process.env.OPENROUTER_MODEL ||
         "deepseek/deepseek-chat";
 

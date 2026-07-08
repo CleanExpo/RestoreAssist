@@ -6069,6 +6069,7 @@ enum AiProvider {
   GOOGLE
   GEMMA
   ELEVENLABS
+  OPENROUTER
 }
 
 enum ProviderConnectionStatus {

@@ -9,6 +9,7 @@ import {
   getWorkspaceForUser,
   listProviderConnections,
   validateProviderKey,
+  OPERATING_PROVIDERS,
   type AiProvider,
 } from "@/lib/workspace/provider-connections";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
@@ -439,12 +440,12 @@ export const accountingCheck: Check = async (orgId) => {
 //
 // BYOK provider keys live in `ProviderConnection`, keyed by workspaceId. We
 // resolve the org owner's active workspace, list ACTIVE provider connections,
-// filter to OPERATING providers only (ANTHROPIC or OPENAI — the ones that
-// power client report generation), and call `validateProviderKey` for each.
-// That helper makes the minimal 1-token-equivalent probe (`/v1/models` etc.)
-// and persists the validation status.
+// filter to OPERATING providers only (ANTHROPIC / OPENAI / OPENROUTER — the
+// ones that power client report generation), and call `validateProviderKey`
+// for each. That helper makes the minimal probe (`/v1/models`, `/auth/key`,
+// etc.) and persists the validation status.
 //
-// GREEN  = ≥1 ACTIVE ANTHROPIC or OPENAI connection passes validateProviderKey
+// GREEN  = ≥1 ACTIVE operating-provider connection passes validateProviderKey
 // RED    = no operating provider available (no workspace, zero connections,
 //          only GOOGLE/GEMMA present, or all operating keys fail validation)
 //
@@ -454,7 +455,7 @@ export const byokKeysCheck: Check = async (orgId) => {
   const capability = "byok_keys";
   const label = "BYOK AI keys";
   const NO_KEY_NOTE =
-    "Add your Anthropic or OpenAI API key to operate RestoreAssist.";
+    "Add your Anthropic, OpenAI, or OpenRouter API key to operate RestoreAssist.";
 
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
@@ -481,11 +482,13 @@ export const byokKeysCheck: Check = async (orgId) => {
 
   const connections = await listProviderConnections(workspace.id);
 
-  // Only ANTHROPIC and OPENAI are operating providers for client report generation.
+  // Operating providers (ANTHROPIC / OPENAI / OPENROUTER) power client report
+  // generation. Sourced from the shared OPERATING_PROVIDERS list so this gate
+  // and the onboarding presence check never disagree about what "has a key" is.
   const operatingActive = connections.filter(
     (c) =>
       c.status === "ACTIVE" &&
-      (c.provider === "ANTHROPIC" || c.provider === "OPENAI"),
+      OPERATING_PROVIDERS.includes(c.provider as AiProvider),
   );
 
   if (operatingActive.length === 0) {

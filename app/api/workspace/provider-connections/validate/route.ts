@@ -25,6 +25,7 @@ const VALID_PROVIDERS: AiProvider[] = [
   "OPENAI",
   "GOOGLE",
   "GEMMA",
+  "OPENROUTER",
 ];
 
 function isValidProvider(value: unknown): value is AiProvider {

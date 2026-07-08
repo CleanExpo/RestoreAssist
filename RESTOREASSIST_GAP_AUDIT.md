@@ -273,7 +273,34 @@ were found in `.planning/` video docs.
   precedence, header gating, empty-content guard) and extended
   `lib/__tests__/ai-provider-routing.test.ts` (sk-or- classification + cross-vendor guard).
   Verified: vitest (10/10 across both suites), eslint (0 errors), full `tsc --noEmit`
-  (0 errors). **Remaining wiring (next slice, partly founder-gated):** expose OpenRouter in
-  the live `ProviderConnection` BYOK store — a Prisma `AiProvider` enum value (needs a
-  forward migration) + settings/onboarding model picker + live key validation (needs a real
-  OpenRouter key; ties to RA-6933 public-BYOK disclosure).
+  (0 errors).
+- ✅ **Phase 3 — multi-provider BYOK: OpenRouter wired end-to-end** (extends the slice above,
+  same PR/branch). The live `ProviderConnection` BYOK store now supports OpenRouter as a
+  first-class operating provider:
+  - **Schema (safe):** added `OPENROUTER` to the Prisma `AiProvider` enum with an additive,
+    idempotent forward migration (`ALTER TYPE ... ADD VALUE IF NOT EXISTS 'OPENROUTER'`,
+    mirroring the proven `ra6998_elevenlabs_provider` migration) — no destructive change, no
+    drift.
+  - **Store (`lib/workspace/provider-connections.ts`):** OpenRouter live key validation via
+    OpenRouter's `/api/v1/auth/key` introspection endpoint (401 → invalid, no credit spend); an
+    optional model slug co-located in the encrypted credentials blob (same pattern as the
+    ElevenLabs voiceId); and `OPERATING_PROVIDERS` is now the exported SINGLE SOURCE OF TRUTH
+    consumed by both the setup gate (`byokKeysCheck`) and the onboarding presence check, so the
+    two can never disagree (the class of bug the earlier onboarding↔gate fix closed).
+  - **Routes:** `POST/validate /api/workspace/provider-connections` accept `OPENROUTER` (POST
+    also accepts the optional `model` slug).
+  - **Report routing:** `resolveReportProvider` now falls back to OpenRouter (after Anthropic,
+    OpenAI) and threads the workspace's stored model slug into `callAIProvider`
+    (`AIIntegration.model`, precedence: per-call option → stored → env → `deepseek/deepseek-chat`).
+  - **UI:** the AI-providers settings page gained an OpenRouter card with a key + optional model
+    input. The onboarding quick-start card is deliberately left as the two first-party providers
+    (Anthropic/OpenAI need no model slug); OpenRouter lives in full settings.
+  - **Tests:** new `lib/workspace/__tests__/openrouter-provider.test.ts` (validation + model
+    round-trip + operating-provider membership); extended report-routing, byok-gate,
+    has-active-operating-provider, and ai-provider-openrouter suites.
+  - Verified: vitest (43/43 across all touched suites), eslint (0 errors), full `tsc --noEmit`
+    (0 errors), `prisma generate` OK.
+  - **Remaining (founder-gated, not code):** OpenRouter live key validation exercises a real
+    OpenRouter key at runtime — the code is complete and unit-tested with mocks, but a real
+    end-to-end smoke test + the public self-serve BYOK disclosure decision are **RA-6933**
+    (founder). No further code is blocked.

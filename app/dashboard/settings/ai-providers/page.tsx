@@ -18,7 +18,12 @@ import toast from "react-hot-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AiProvider = "ANTHROPIC" | "OPENAI" | "GOOGLE" | "GEMMA";
+type AiProvider =
+  | "ANTHROPIC"
+  | "OPENAI"
+  | "GOOGLE"
+  | "GEMMA"
+  | "OPENROUTER";
 type ConnectionStatus = "ACTIVE" | "DISABLED" | "ERROR";
 
 interface ProviderConnectionSummary {
@@ -78,7 +83,19 @@ const PROVIDERS: {
       "(no API key required — uses RESTOREASSIST_AI_ENDPOINT env var)",
     docsUrl: "",
   },
+  {
+    id: "OPENROUTER",
+    name: "OpenRouter",
+    description:
+      "One key, many open models (DeepSeek, Qwen, MiniMax, Llama, and more) routed through OpenRouter's OpenAI-compatible API. Pick a model slug below.",
+    keyPlaceholder: "sk-or-v1-...",
+    docsUrl: "https://openrouter.ai/keys",
+  },
 ];
+
+// Default OpenRouter model slug shown as the placeholder — a blank field falls
+// back to this server-side at dispatch time.
+const OPENROUTER_DEFAULT_MODEL = "deepseek/deepseek-chat";
 
 const STATUS_LABEL: Record<ConnectionStatus, string> = {
   ACTIVE: "Active",
@@ -106,6 +123,7 @@ export default function AiProvidersPage() {
   // Per-provider UI state
   const [expanded, setExpanded] = useState<AiProvider | null>(null);
   const [inputKey, setInputKey] = useState<Record<string, string>>({});
+  const [inputModel, setInputModel] = useState<Record<string, string>>({});
   const [showKey, setShowKey] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState<AiProvider | null>(null);
   const [validating, setValidating] = useState<AiProvider | null>(null);
@@ -149,7 +167,14 @@ export default function AiProvidersPage() {
       const res = await fetch("/api/workspace/provider-connections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, apiKey: key ?? "" }),
+        body: JSON.stringify({
+          provider,
+          apiKey: key ?? "",
+          // Only OpenRouter carries a model slug; blank falls back server-side.
+          ...(provider === "OPENROUTER"
+            ? { model: inputModel[provider]?.trim() || undefined }
+            : {}),
+        }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -387,6 +412,55 @@ export default function AiProvidersPage() {
                             Get your {p.name} API key →
                           </a>
                         )}
+                      </div>
+                    )}
+
+                    {/* OpenRouter model slug */}
+                    {p.id === "OPENROUTER" && (
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="openrouter-model"
+                          className="text-xs font-medium text-neutral-600 dark:text-slate-300"
+                        >
+                          Model slug{" "}
+                          <span className="text-neutral-400">(optional)</span>
+                        </label>
+                        <input
+                          id="openrouter-model"
+                          type="text"
+                          value={inputModel[p.id] ?? ""}
+                          onChange={(e) =>
+                            setInputModel((prev) => ({
+                              ...prev,
+                              [p.id]: e.target.value,
+                            }))
+                          }
+                          placeholder={OPENROUTER_DEFAULT_MODEL}
+                          className="w-full text-sm px-3 py-2 border rounded-lg bg-white dark:bg-slate-800 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-navy font-mono"
+                        />
+                        <p className="text-xs text-neutral-400">
+                          e.g.{" "}
+                          <code className="font-mono">
+                            deepseek/deepseek-chat
+                          </code>
+                          ,{" "}
+                          <code className="font-mono">
+                            qwen/qwen-2.5-72b-instruct
+                          </code>
+                          . Leave blank to use{" "}
+                          <code className="font-mono">
+                            {OPENROUTER_DEFAULT_MODEL}
+                          </code>
+                          .{" "}
+                          <a
+                            href="https://openrouter.ai/models"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            Browse models →
+                          </a>
+                        </p>
                       </div>
                     )}
 
