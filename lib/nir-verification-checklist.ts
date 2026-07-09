@@ -350,7 +350,7 @@ export function generateVerificationChecklist(
     notes: dryingDays
       ? `Expected ${dryingDays} days for Class ${classification!.class} per IICRC S500 drying protocols`
       : "Timeline cannot be determined without classification",
-    clauseRef: "IICRC S500 §14",
+    clauseRef: "IICRC S500:2021 §5",
     tier: "quality",
   });
 
