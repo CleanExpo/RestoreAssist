@@ -537,6 +537,11 @@ async function aggregateIntoPricingDb(
 // Route handler
 // ============================================================
 
+// RA-7026: a full historical import (4,003 jobs × sequential upserts across
+// two tables + line items + rate card) exceeds the 300s default and would be
+// killed mid-run on every attempt. 800s is the Vercel Pro ceiling.
+export const maxDuration = 800;
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
