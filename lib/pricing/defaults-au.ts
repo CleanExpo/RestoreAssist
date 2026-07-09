@@ -32,20 +32,26 @@ export interface PricingDefaults {
   projectManagementPercent: number;
 }
 
-// IICRC industry medians (2025 dataset; adjust as needed)
+// National-median START numbers. These are the baseline the setup wizard
+// prefills; getDefaultPricing() then scales them by state + entity type.
+// Founder-set 2026-07-10 (RA-7026) from the real Ascora book — the prior
+// 2025 IICRC-median figures ran high vs the owner's actual charge-out rates.
 const NATIONAL_MEDIAN: PricingDefaults = {
-  masterQualifiedNormalHours: 165,
-  qualifiedTechnicianNormalHours: 125,
-  labourerNormalHours: 85,
+  // Labour ladder (per hour): labourer / qualified tech / master-senior.
+  masterQualifiedNormalHours: 110,
+  qualifiedTechnicianNormalHours: 85,
+  labourerNormalHours: 70,
   saturdayMultiplier: 1.5,
   sundayMultiplier: 2.0,
   afterHoursMultiplier: 1.5,
   publicHolidayMultiplier: 2.5,
-  airMoverAxialPerDay: 65,
-  airMoverCentrifugalPerDay: 85,
-  dehumidifierLgrPerDay: 195,
-  dehumidifierDesiccantPerDay: 425,
-  afdNegativeAirPerDay: 215,
+  // Equipment (per day): standard variant to the founder's rate, premium
+  // variant scaled to keep a sensible ladder above it.
+  airMoverAxialPerDay: 45,
+  airMoverCentrifugalPerDay: 65,
+  dehumidifierLgrPerDay: 120,
+  dehumidifierDesiccantPerDay: 250,
+  afdNegativeAirPerDay: 150,
   hepaVacuumPerDay: 95,
   administrationFee: 165,
   callOutFee: 245,
