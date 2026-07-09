@@ -21,6 +21,7 @@
     { "path": "/api/cron/provision-tenant-db", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/pulse-digest", "schedule": "0 21 * * *" },
     { "path": "/api/cron/sync-ascora-historical", "schedule": "30 16 * * *" },
-    { "path": "/api/cron/sync-ascora-labour", "schedule": "45 * * * *" }
+    { "path": "/api/cron/sync-ascora-labour", "schedule": "45 * * * *" },
+    { "path": "/api/cron/cron-watchdog", "schedule": "50 20 * * *" }
   ]
 }
