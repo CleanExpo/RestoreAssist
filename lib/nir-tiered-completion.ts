@@ -123,9 +123,9 @@ export const SUPPLEMENTARY_FIELDS: TieredField[] = [
   {
     fieldName: "equipmentSerialNumbers",
     label: "Equipment serial numbers",
-    clauseRef: "IICRC S500:2021 §14",
+    clauseRef: "IICRC S500:2021 §9.2.3",
     rationale:
-      "S500 §14 requires equipment documentation but serial numbers can be recorded at placement.",
+      "S500:2021 §9.2.3 (Project Monitoring Logs) requires equipment documentation but serial numbers can be recorded at placement.",
   },
   {
     fieldName: "scopeItems",

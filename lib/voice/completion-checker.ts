@@ -91,11 +91,11 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
   {
     id: "equipment_serials",
     label: "Equipment serial numbers and placement positions",
-    s500Section: "§14",
+    s500Section: "§9.2.3",
     priority: 2,
     prompt: {
       guided:
-        "Log the serial number and position of every piece of equipment you're placing. S500:2021 §14 requires this for the equipment log.",
+        "Log the serial number and position of every piece of equipment you're placing. S500:2021 §9.2.3 requires this in the project monitoring log.",
       assisted:
         "Equipment serials not logged — add serial numbers and positions.",
       dictation: "Equipment log incomplete.",

@@ -309,7 +309,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Equipment Deployment Log
               <span className="ml-2 text-xs font-normal text-slate-400">
-                IICRC S500:2021 §14
+                IICRC S500:2021 §9.2.3
               </span>
             </h2>
             <div className="overflow-x-auto">
