@@ -157,9 +157,12 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
     });
   });
 
+  // NOTE: app/blog/page.tsx no longer renders Coming Soon badges — its
+  // articles now ship as real /blog/[slug] routes (see
+  // app/__tests__/blog-route-integrity.test.tsx). compliance-library still
+  // uses Coming Soon badges, so it remains guarded here.
   describe("Coming Soon badges are non-interactive (not links)", () => {
     it.each([
-      ["app/blog/page.tsx", BlogPage],
       ["app/compliance-library/page.tsx", ComplianceLibraryPage],
     ])("%s renders aria-disabled Coming Soon badges, never anchors", (_name, Component) => {
       const { container, unmount } = render(<Component />);

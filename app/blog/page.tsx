@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
+import { getAllArticles } from "@/lib/blog/articles";
 
 export default function BlogPage() {
   const [darkMode, setDarkMode] = useState(true);
@@ -30,56 +32,9 @@ export default function BlogPage() {
     }
   }, []);
 
-  const blogPosts = [
-    {
-      title: "The Future of AI in Restoration Assessment",
-      excerpt:
-        "Exploring how AI technology is revolutionizing damage assessment and making restoration work more efficient and accurate.",
-      date: "January 15, 2024",
-      category: "Technology",
-      readTime: "5 min read",
-    },
-    {
-      title: "Understanding IICRC S500 Compliance",
-      excerpt:
-        "A comprehensive guide to IICRC S500 standards and how RestoreAssist helps you maintain compliance automatically.",
-      date: "January 8, 2024",
-      category: "Compliance",
-      readTime: "7 min read",
-    },
-    {
-      title: "Best Practices for Water Damage Assessment",
-      excerpt:
-        "Learn the essential steps and best practices for conducting thorough water damage assessments on-site.",
-      date: "January 1, 2024",
-      category: "Best Practices",
-      readTime: "6 min read",
-    },
-    {
-      title: "Streamlining Your Restoration Workflow",
-      excerpt:
-        "Discover how modern technology can help you reduce report generation time while improving accuracy and compliance.",
-      date: "December 24, 2023",
-      category: "Workflow",
-      readTime: "4 min read",
-    },
-    {
-      title: "Regional Pricing in Australian Restoration",
-      excerpt:
-        "Understanding how regional cost variations affect restoration estimates and how to account for them.",
-      date: "December 18, 2023",
-      category: "Pricing",
-      readTime: "5 min read",
-    },
-    {
-      title: "Building Trust with Transparent Reports",
-      excerpt:
-        "How transparent, evidence-based reporting builds trust with clients and insurance providers.",
-      date: "December 10, 2023",
-      category: "Industry",
-      readTime: "6 min read",
-    },
-  ];
+  // Article content + metadata is sourced from lib/blog/articles.ts so the
+  // listing, the /blog/[slug] route, and the route-integrity test never drift.
+  const blogPosts = getAllArticles();
 
   return (
     <div
@@ -132,7 +87,7 @@ export default function BlogPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {blogPosts.map((post, index) => (
               <motion.div
-                key={index}
+                key={post.slug}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -187,21 +142,33 @@ export default function BlogPage() {
                   >
                     {post.date}
                   </span>
-                  {/* RA funnel launch assets: these blog articles aren't written
-                      yet, so there's no destination route. Render a non-interactive
-                      "Coming Soon" badge instead of a dead href="#" link (avoids
-                      a navigation no-op / scroll-to-top). Swap to a real
-                      <Link href={`/blog/${post.slug}`}> once articles ship. */}
-                  <span
-                    aria-disabled="true"
-                    className={`text-sm font-medium ${darkMode ? "text-brand-bronze/70" : "text-brand-bronze/70"}`}
-                    style={{
-                      fontFamily:
-                        '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                    }}
-                  >
-                    Coming Soon
-                  </span>
+                  {/* Published articles link to their /blog/[slug] route.
+                      Any article still flagged unpublished falls back to a
+                      non-interactive "Coming Soon" badge — never a dead
+                      href="#" link. */}
+                  {post.published ? (
+                    <Link
+                      href={`/blog/${post.slug}`}
+                      className="text-sm font-medium text-brand-bronze hover:text-brand-bronze/80 transition-colors"
+                      style={{
+                        fontFamily:
+                          '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                      }}
+                    >
+                      Read article
+                    </Link>
+                  ) : (
+                    <span
+                      aria-disabled="true"
+                      className={`text-sm font-medium ${darkMode ? "text-brand-bronze/70" : "text-brand-bronze/70"}`}
+                      style={{
+                        fontFamily:
+                          '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                      }}
+                    >
+                      Coming Soon
+                    </span>
+                  )}
                 </div>
               </motion.div>
             ))}
