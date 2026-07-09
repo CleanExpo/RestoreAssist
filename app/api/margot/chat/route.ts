@@ -41,6 +41,8 @@ import {
   nexusContextEnabled,
 } from "@/lib/nexus-hub-context";
 import { appendCopyrightGroundingInstruction } from "@/lib/standards/copyright-guard";
+import { buildPricingGrounding } from "@/lib/pricing/org-pricing";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -404,6 +406,18 @@ export async function POST(request: NextRequest) {
     );
     if (standardsGrounding) {
       system = appendCopyrightGroundingInstruction(system + standardsGrounding);
+    }
+
+    // RA-7026: ground pricing answers on the asking contractor's OWN configured
+    // rates (OrganizationPricingConfig, the setup store) — never a global rate
+    // card. Gated to pricing-intent messages; empty string otherwise.
+    const pricingGrounding = await buildPricingGrounding(
+      prisma,
+      auth.user?.organizationId ?? null,
+      latestUserText(messages),
+    );
+    if (pricingGrounding) {
+      system = system + pricingGrounding;
     }
 
     const result = streamText({
