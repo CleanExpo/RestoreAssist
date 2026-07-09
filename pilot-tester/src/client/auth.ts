@@ -36,6 +36,14 @@ export interface AuthenticatedSession {
   ) => ReturnType<typeof undiciFetch>;
 }
 
+/**
+ * RA-7008 identity containment: on the shared database the harness's safety
+ * boundary is WHO it can act as, not which DB it points at. Every pool entry
+ * must be a synthetic pilot identity — the harness refuses to load a pool
+ * containing anything that could be a real user's account.
+ */
+const PILOT_EMAIL_PATTERN = /^pilot-[a-z0-9-]+@restoreassist\.sandbox$/;
+
 export async function loadUserPool(filePath: string): Promise<UserPoolEntry[]> {
   const abs = path.resolve(filePath);
   const raw = await fs.readFile(abs, "utf8");
@@ -52,6 +60,15 @@ export async function loadUserPool(filePath: string): Promise<UserPoolEntry[]> {
     ) {
       throw new Error(
         `User pool entry malformed: ${JSON.stringify(e)} — expected { email, password, workspaceName, companyKey }`,
+      );
+    }
+    if (!PILOT_EMAIL_PATTERN.test(e.email)) {
+      // Don't echo the password — the entry may be a real credential pasted
+      // by mistake, which is exactly the case this guard exists for.
+      throw new Error(
+        `User pool entry refused: "${e.email}" is not a synthetic pilot ` +
+          `identity (expected pilot-<companyKey>@restoreassist.sandbox). ` +
+          `The swarm must never hold credentials for a real account.`,
       );
     }
   }
