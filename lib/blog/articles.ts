@@ -101,6 +101,7 @@ export const ARTICLES: Article[] = [
         paragraphs: [
           "Where category describes contamination, class describes the evaporation load — how much water the structure holds and how hard it will be to dry. S500:2021 §10.4.3 sets four classes. Class 1 is the least water and slowest evaporation, affecting less than about 10 per cent of the floor area with low-porosity materials. Class 2 is a fast-evaporation loss affecting roughly 10 to 40 per cent of a room, typically carpet and cushion. Class 3 is the fastest evaporation, with more than 40 per cent affected and moisture reaching walls, ceilings and insulation. Class 4 covers specialty drying situations — deeply held moisture in materials such as concrete, hardwood, plaster and brick.",
           "Class matters because it drives the drying plan. The class tells you the scale of the evaporation problem, which in turn shapes how much equipment the job needs and for how long.",
+          "Class 4 is worth calling out on its own. It is not simply more water — it is moisture held deep inside low-permeance materials like concrete, hardwood, plaster and brick, which release it slowly and often need specialty drying methods and a longer timeframe than a standard air-mover-and-dehumidifier setup. Recognising a Class 4 element early is what stops a job being declared dry on the surface while moisture is still trapped in the substrate.",
         ],
       },
       {
@@ -199,7 +200,7 @@ export const ARTICLES: Article[] = [
       {
         heading: "4. Map moisture against material thresholds",
         paragraphs: [
-          "Take moisture readings across the affected materials and record them against the threshold for each material type, per S500:2021 §10. A reading is only meaningful next to what is normal for that substrate, which is why RestoreAssist flags each reading as normal, elevated or critical rather than leaving a bare number on the page. Consistent placement and sequencing of readings also gives you a baseline to measure drying progress against later.",
+          "Take moisture readings across the affected materials and record them against the threshold for each material type, per S500:2021 §10. A reading is only meaningful next to what is normal for that substrate, which is why RestoreAssist flags each reading as normal, elevated or critical rather than leaving a bare number on the page. Consistent placement and sequencing of readings also gives you a baseline to measure drying progress against later. Photograph each meter in place as you take the reading, so the number on the report is tied to a visible location rather than a note.",
         ],
       },
       {
@@ -221,11 +222,19 @@ export const ARTICLES: Article[] = [
           "Run this seven-step sequence the same way every time and the assessment stops being a matter of individual judgement and becomes a process. RestoreAssist is built around exactly this order of operations, capturing each field against its governing clause so the report is standard-backed by the time you leave site.",
         ],
       },
+      {
+        heading: "Confirm drying against the goal, and capture what makes a report submittable",
+        paragraphs: [
+          "The first assessment is not the end of the measurement. Drying is confirmed by re-reading moisture against the target set from S500:2021 §5 — daily where the job warrants it — and the readings, not the calendar, decide when the structure is dry. Recording that progression against the same points mapped on day one is what lets a restorer show an insurer that the drying goal was met rather than assumed.",
+          "It is also worth knowing the floor for a report that can stand on its own. RestoreAssist treats a small set of fields as non-negotiable before an inspection can be submitted — the property address, at least one affected area, the water source, and at least one photograph — on the principle that a single photo is the absolute minimum for a submittable report. Other fields, such as environmental readings and equipment details, are flagged when missing but never block the record, on the view that a safe partial record captured in an emergency beats no record at all.",
+        ],
+      },
     ],
     keyTakeaways: [
       "Work a fixed sequence every job: safety, category, class, moisture, target, equipment, documentation.",
       "Category (§10.4.1) and class (§10.4.3) are the two classifications that set the scope; record the source and the elapsed time.",
       "Set the drying target from ambient outdoor conditions (§5) so the endpoint is calculated, not guessed.",
+      "Confirm drying by re-reading against the target, and know the submittable floor: address, one affected area, water source and at least one photo.",
       "Capture timestamped, geotagged, sequenced photos (§9.2.5) during the assessment, not after.",
     ],
     references: [
@@ -280,12 +289,14 @@ export const ARTICLES: Article[] = [
         paragraphs: [
           "Photographs are the primary evidence in most restoration disputes, and undated, unlabelled photos carry little weight. S500:2021 §9.2.5 sets the documentation bar: images timestamped, geotagged and numbered in sequence, with coverage that spans the overview, the affected areas, moisture-meter placement and equipment placement.",
           "Capturing photos to that standard as the job runs — rather than assembling them afterwards — means the visual record is anchored to the moment it was true. Before-and-after pairs shot from the same angles give an adjuster one of the most useful tools they have for resolving a query without a re-inspection.",
+          "There is a discipline in this that pays off beyond any single claim. A restorer who always photographs to the same standard builds, job after job, a body of evidence that looks the same to every adjuster who reviews it — predictable, complete and easy to audit. Consistency is its own trust signal: a reviewer who knows a supplier's reports are always documented the same way spends less time checking and more time approving.",
         ],
       },
       {
         heading: "Price against a published guideline",
         paragraphs: [
           "Transparency extends to the numbers. RestoreAssist estimates costs from a company's own saved rates as the primary source and reports each line item's status against national rate guidelines, in Australian dollars and metric units. That lets an adjuster verify that rates sit within recognised ranges rather than taking a total on trust. A price that can be checked against a guideline is a price that starts a conversation, not an argument.",
+          "The mechanism matters more than the promise. Each estimate line records whether its rate sits inside the recognised range, and any rate that falls outside is surfaced rather than buried, so the discussion about an unusual cost happens up front with the reasoning attached. An adjuster who can see, line by line, which rates are within guideline and which are flagged for explanation spends their time on the few items that need it, instead of re-checking the whole estimate on suspicion.",
         ],
       },
       {
@@ -295,9 +306,17 @@ export const ARTICLES: Article[] = [
           "That restraint is itself a trust signal. A report that distinguishes a measured moisture reading from a projected drying time — and never dresses an estimate up as a fact — is a report an insurer can rely on. Over time, that reliability is what turns a restorer into a preferred supplier.",
         ],
       },
+      {
+        heading: "Let the report carry its own audit trail",
+        paragraphs: [
+          "The strongest transparency signal is a report that hands the reviewer the checklist. RestoreAssist generates a standards-referenced verification checklist built for adjuster and insurer review, where each item is tied to a tier and a governing clause, and the report only reads as meeting the minimum standard when every critical item passes. The document states plainly which standard clauses it has cited and which expected ones are missing because the data was not recorded — rather than quietly leaving a gap for the adjuster to find.",
+          "That candour changes the review. An adjuster is not left reconstructing whether the job was done to standard; the report tells them, item by item, and flags its own shortfalls. A report that surfaces its missing pieces is far easier to trust than one that presents a clean face and hopes no one checks.",
+        ],
+      },
     ],
     keyTakeaways: [
       "Insurers trust reports where every material claim is checkable against a source.",
+      "The report carries a standards-referenced verification checklist and declares its own cited-versus-missing clauses, so an adjuster is never left guessing.",
       "Tie findings to their governing clause (for example S500:2021 §10.4.1 for category) so the report cites the standard, not the technician.",
       "Photograph to S500:2021 §9.2.5 — timestamped, geotagged, sequenced — and keep before-and-after pairs.",
       "Show pricing against a published guideline and label estimates honestly; never present an estimate as a measured fact.",
@@ -352,6 +371,13 @@ export const ARTICLES: Article[] = [
         ],
       },
       {
+        heading: "Built for the reality of the field, not the demo",
+        paragraphs: [
+          "Restoration work happens in flooded basements and regional callouts where a signal is not guaranteed, so the capture has to survive the conditions. RestoreAssist queues writes on the device and drains them automatically when the connection returns, retrying failed syncs with a backoff rather than dropping them. Sketch work is protected the hardest of all: a floor sketch can represent half an hour of irrecoverable drawing, so it is retried far more persistently than a routine field before it is ever allowed to fail.",
+          "Each record also shows the technician where it stands — synced, pending, in conflict, or offline — so nothing is silently lost between the van and the office. This is the unglamorous engineering that makes the single-system promise real: a workflow that only holds together on a strong connection is not a field tool, and the point of removing double-handling is that the record captured on site is the record the office receives, intact.",
+        ],
+      },
+      {
         heading: "Turn capture into scope and report without re-entry",
         paragraphs: [
           "Once the assessment exists as structured data, the scope and the report draw from it directly. The same category and class that were recorded on site drive the scope items and the drying plan; the same photographs, already timestamped and sequenced to S500:2021 §9.2.5, populate the documentation. Nothing is typed twice. RestoreAssist applies one consistent report framework across water, mould, biohazard and fire work, each governed by its own IICRC standard, so the structure an adjuster reads is the same regardless of claim type.",
@@ -367,18 +393,21 @@ export const ARTICLES: Article[] = [
         heading: "Export and hand off in the format each party expects",
         paragraphs: [
           "A finished report is only useful once it reaches the people who need it. RestoreAssist generates the report as a PDF and connects with the systems a restoration business already runs — accounting platforms including Xero, QuickBooks and MYOB, and insurer claim workflows through its Guidewire integration. The estimate that came out of the assessment can move to billing, and the report can move to the insurer, without being rebuilt by hand at each step.",
+          "Handing off cleanly is where a lot of value quietly leaks away in restoration. A report that has to be re-typed into the insurer's system, or an estimate re-entered into the accounts, is one that can be transcribed wrong or left waiting while someone finds the time. Because the estimate and the report are built from the same structured inspection, the version that reaches the insurer and the version that reaches the accounts are the version the technician captured — not a re-keyed approximation of it.",
         ],
       },
       {
         heading: "The compounding effect of one system",
         paragraphs: [
           "The gain from any single one of these steps is modest. The gain from all of them together is not, because the errors that eat a restoration back-office are overwhelmingly transcription errors — the reading that got copied wrong, the scope item that got missed, the invoice that did not match the report. Removing the re-entry removes the class of error, not just the minutes. That is the practical meaning of the platform's promise of one system, fewer gaps and more confidence.",
+          "None of this removes the operator from the loop — the point is the opposite. One record captured against the standard means a technician's judgement is recorded once and carried faithfully, instead of being re-interpreted at every hand-off by someone who was not on site. The office works from what the field actually found, the invoice matches the report it came from, and the whole job leaves a single consistent trail rather than three slightly different versions of the truth.",
         ],
       },
     ],
     keyTakeaways: [
       "Double-handling between field and office is one of the biggest workflow costs in restoration.",
       "Capturing standards-mapped data once, on site, lets scope, report and billing draw from the same record.",
+      "Field capture is offline-first — queued on the device, auto-synced on reconnect, with sketch work retried hardest and every record's sync status visible.",
       "One report structure spans water (S500:2021), mould (S520:2024), biohazard (S540:2023) and fire (S700:2025).",
       "PDF reporting plus accounting (Xero, QuickBooks, MYOB) and insurer (Guidewire) integrations remove re-keying at the hand-offs.",
     ],
@@ -435,10 +464,18 @@ export const ARTICLES: Article[] = [
         ],
       },
       {
+        heading: "The assisting work AI takes off the technician",
+        paragraphs: [
+          "The pattern repeats across the platform wherever there is structured busywork to absorb. AI can classify an evidence photo, group a set of moisture readings, pull a structured record out of an uploaded PDF report, and build a room-by-room contents manifest from photographs for an insurance claim. Each of these is a drafting or sorting task with a human check at the end, not a judgement that decides the scope.",
+          "The test for any of these features is the same: does it show its working, and is a person still accountable for the result? An AI that drafts a contents list a technician then confirms is genuinely useful. An AI that silently decided which contents were a total loss would not be, because no one could show, later, why the call was made. Assistance that a human signs off on adds speed; automation that hides its reasoning subtracts trust.",
+        ],
+      },
+      {
         heading: "What AI should not do: make the compliance call",
         paragraphs: [
           "The classification that drives a water damage scope is not a matter of taste. Category is defined in S500:2021 §10.4.1 and class in S500:2021 §10.4.3, against observable facts — the source of the water, the elapsed time, the affected area, the materials involved. Those determinations should be made by a deterministic engine applying the standard to recorded inputs, where the same inputs always produce the same result and the reasoning can be shown.",
           "That is how RestoreAssist is built. The standards engine, not a language model, maps a reading to its threshold and a loss to its category and class. The output is defensible because it is reproducible and cites the clause it came from. An AI that produced a plausible-sounding category with no traceable basis would be the opposite of what a restoration report needs.",
+          "There is a practical reason to prefer the engine, too. A deterministic classifier can be tested: feed it the same source, elapsed time, affected area and materials and it returns the same category and class every time, and that repeatability is exactly what an auditor or a tribunal can rely on. A language model that might phrase the same facts differently on two runs cannot offer that guarantee, however fluent its output. For the parts of a report that carry legal and financial weight, reproducibility beats eloquence — and the deterministic path can also show, step by step, why a given classification was reached, which is the thing a disputed report most needs to do.",
         ],
       },
       {
@@ -452,6 +489,7 @@ export const ARTICLES: Article[] = [
     keyTakeaways: [
       "In RestoreAssist, AI assists administration and field technicians; the decisions stay with the operator.",
       "AI's genuine value is capture and drafting — RestoreAssist uses AI vision to read moisture-meter photos, import hand-drawn sketches, and draft report narrative and client summaries.",
+      "The same assist pattern repeats — photo classification, reading grouping, report extraction, contents manifests — always with a human sign-off, never a hidden decision.",
       "Category (S500:2021 §10.4.1) and class (S500:2021 §10.4.3) are decided by a deterministic standards engine, not a model, so the result is reproducible and cites its clause.",
       "Keeping AI in an assisting role is what keeps the report auditable and the operator accountable.",
     ],
@@ -505,6 +543,7 @@ export const ARTICLES: Article[] = [
         paragraphs: [
           "Restoration is a field trade, so its costs track local conditions. A job an hour past the edge of a city carries travel and callout costs a metropolitan job does not. Trade labour rates differ between markets. Waste disposal, especially for contaminated Category 3 losses, is priced by local facilities. None of this is padding — it is the actual cost of doing the work in that place, and a credible estimate has to carry it.",
           "The risk is that 'it costs more out here' becomes an unfalsifiable claim. That is exactly the kind of statement an insurer pushes back on, and rightly so. The fix is to make regional costs explicit and checkable rather than baked invisibly into a total.",
+          "Australia makes this especially pointed. The distances between a capital city and the regional jobs around it are large by world standards, disposal infrastructure is unevenly distributed, and trade availability can swing sharply after a widespread event like a flood or storm, when every restorer in a region is booked at once. A pricing method that cannot bend to those realities will misprice work in exactly the conditions where accurate pricing matters most.",
         ],
       },
       {
@@ -522,6 +561,14 @@ export const ARTICLES: Article[] = [
         ],
       },
       {
+        heading: "Region is a rulebook, not just a rate",
+        paragraphs: [
+          "Region changes more than the numbers — it changes the rules. RestoreAssist encodes jurisdiction-specific requirements across Australia's eight states and territories, each mapped to its own building authority, from the Queensland Building and Construction Commission to the Victorian Building Authority. The obligations that flow from a loss are not uniform: the cutoff year that triggers a pre-renovation asbestos assessment, for instance, differs between Queensland and New South Wales, and cyclone-region requirements apply in the north that simply do not exist in the south.",
+          "Pricing that ignores this is pricing half the job. An estimate in a cyclone region that has to meet cyclone-rated specifications carries costs a temperate-zone estimate does not, and those costs are defensible precisely because they trace to a jurisdictional requirement rather than a preference. Getting the region right is as much about scoping the correct obligations as it is about applying the correct rate.",
+          "The platform reflects that complexity in the contingency it applies, too. A base allowance scales up for contaminated Category 2 or 3 work, for specialty testing such as asbestos or mould, and for large affected areas — within a capped range — so the buffer on an estimate is tied to the risk actually present rather than a flat guess.",
+        ],
+      },
+      {
         heading: "Make the reasoning visible",
         paragraphs: [
           "Whatever the region, the estimate that gets approved with the least friction is the one whose reasoning is on the page. Line items tied to scope, rates sourced from a real configuration, and a clear indication of where a number sits against the national guideline together tell an adjuster not just what a job costs but why. Regional pricing done transparently is not a source of friction — it is a way to justify the true cost of the work without an argument.",
@@ -532,13 +579,19 @@ export const ARTICLES: Article[] = [
       "Regional cost differences in restoration are real — travel, labour, disposal and availability all vary by location.",
       "Price from your own saved rates as the primary source so the estimate reflects your region honestly.",
       "Validate every line item against national rate guidelines so above-guideline rates are flagged and explainable.",
+      "Region is a rulebook: obligations like asbestos-assessment cutoffs and cyclone-rated specifications vary by state and belong in the scope, not just the rate.",
       "Estimates run in Australian dollars and metric units; visible reasoning is what gets a regional estimate approved.",
     ],
     references: [
       {
         label: "RestoreAssist cost estimation",
         detail:
-          "Company pricing configuration used as the primary rate source, with a national-guideline midpoint fallback and per-line-item guideline-compliance reporting, in AUD and metric units (lib/nir-cost-estimation.ts).",
+          "Company pricing configuration used as the primary rate source, with a national-guideline midpoint fallback, complexity-scaled contingency, and per-line-item guideline-compliance reporting, in AUD and metric units (lib/nir-cost-estimation.ts).",
+      },
+      {
+        label: "Jurisdictional coverage",
+        detail:
+          "State- and territory-specific building-code requirements and regulatory bodies across Australia's eight states and territories (lib/nir-jurisdictional-matrix.ts, lib/nir-building-codes.ts).",
       },
     ],
     published: true,
