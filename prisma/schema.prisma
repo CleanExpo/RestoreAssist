@@ -6493,12 +6493,17 @@ model AscoraJob {
   notes           AscoraNote[]
   importedAt      DateTime          @default(now())
   createdAt       DateTime          @default(now())
+  /// RA-7026: cursor for the batched labour importer (cron/sync-ascora-labour).
+  /// Null = labour not yet fetched for this job; set even when the job has
+  /// zero labour entries so the cursor always advances.
+  labourSyncedAt  DateTime?
 
   @@index([integrationId])
   @@index([claimType])
   @@index([completedAt])
   @@index([sentToMyob])
   @@index([totalExTax])
+  @@index([labourSyncedAt])
 }
 
 model AscoraLineItem {
