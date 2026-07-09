@@ -407,15 +407,42 @@ export async function POST(request: NextRequest) {
         where: { isActive: true },
         select: { userId: true },
       });
-      if (!firstIntegration) {
-        return apiError(request, {
-          code: "NOT_FOUND",
-          message:
-            "No active Ascora integration found. Connect via Settings first.",
-          status: 404,
+      if (firstIntegration) {
+        userId = firstIntegration.userId;
+      } else {
+        // RA-7026 — with zero integration rows this path used to 404 before
+        // the env fallback below could run, so a cron-only deployment could
+        // never bootstrap itself (the session path is gated by the
+        // SERVICE_CRM add-on). ASCORA_SYNC_USER_EMAIL names the account the
+        // system-level sync attaches jobs to; with it + ASCORA_API_KEY set,
+        // the fallback below provisions the integration record from env.
+        const syncEmail = process.env.ASCORA_SYNC_USER_EMAIL?.trim();
+        if (!process.env.ASCORA_API_KEY || !syncEmail) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message:
+              "No active Ascora integration found. Connect via Settings " +
+              "first, or set ASCORA_API_KEY + ASCORA_SYNC_USER_EMAIL for a " +
+              "system-level bootstrap.",
+            status: 404,
+          });
+        }
+        const syncUser = await prisma.user.findUnique({
+          where: { email: syncEmail },
+          select: { id: true },
         });
+        if (!syncUser) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message:
+              "ASCORA_SYNC_USER_EMAIL does not match any user account. " +
+              "Set it to the exact email of the account the sync should " +
+              "attach jobs to.",
+            status: 404,
+          });
+        }
+        userId = syncUser.id;
       }
-      userId = firstIntegration.userId;
     }
 
     let integration = await (prisma as any).ascoraIntegration.findUnique({
