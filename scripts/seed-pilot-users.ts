@@ -19,13 +19,21 @@ import { randomBytes } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-// Same hard-block as pilot-tester/src/client/safety.ts: this seeder must
-// never point synthetic swarm accounts at the production database.
+// RA-7008 founder decision (2026-07-09): NO separate sandbox database — the
+// sandbox deployment shares the production DB, and the canary's safety model
+// is identity containment (pilot-* accounts only, least privilege, capped
+// credits) rather than DB isolation. Seeding synthetic accounts into the
+// shared DB is therefore a deliberate act: require an explicit
+// acknowledgment flag so it can never happen by accident.
 const PROD_DB_REF = /\budooysjajglluvuxkijp\b/i;
-if (PROD_DB_REF.test(process.env.DATABASE_URL ?? "")) {
+if (
+  PROD_DB_REF.test(process.env.DATABASE_URL ?? "") &&
+  process.env.ALLOW_SHARED_PROD_DB !== "1"
+) {
   console.error(
-    "[seed-pilot-users] Refused: DATABASE_URL matches the production " +
-      "database ref. Pilot canary accounts are sandbox-only.",
+    "[seed-pilot-users] DATABASE_URL matches the production database ref. " +
+      "Per the RA-7008 shared-DB decision this is allowed ONLY with " +
+      "ALLOW_SHARED_PROD_DB=1 set explicitly.",
   );
   process.exit(2);
 }
@@ -70,24 +78,27 @@ async function main() {
     const password = generatePassword();
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    // Least privilege on the shared DB: plain USER role (each pilot owns only
+    // its own org) and a hard credit cap — the per-account AI budget ceiling.
     const user = await prisma.user.upsert({
       where: { email },
       update: {
         password: hashedPassword,
-        role: "ADMIN",
+        role: "USER",
         subscriptionStatus: "TRIAL",
         trialEndsAt: oneYear,
+        creditsRemaining: 25,
       },
       create: {
         name: `Pilot ${workspaceName}`,
         email,
         password: hashedPassword,
-        role: "ADMIN",
+        role: "USER",
         subscriptionStatus: "TRIAL",
-        creditsRemaining: 999,
+        creditsRemaining: 25,
         totalCreditsUsed: 0,
         trialEndsAt: oneYear,
-        quickFillCreditsRemaining: 999,
+        quickFillCreditsRemaining: 25,
         totalQuickFillUsed: 0,
       },
     });
