@@ -42,10 +42,34 @@ jobs:
       - name: Dry-run
         run: pnpm --filter @restoreassist/pilot-tester dryrun
 
+  # Skip-with-notice gate (RA-7008): until the PILOT_TESTER_* secrets are
+  # provisioned the scheduled swarm skips cleanly instead of burning a red
+  # run every cycle; once both secrets exist the swarm resumes on its own.
+  secrets-gate:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      provisioned: ${{ steps.check.outputs.provisioned }}
+    steps:
+      - name: Check pilot secrets presence
+        id: check
+        env:
+          POOL_JSON: ${{ secrets.PILOT_TESTER_USER_POOL_JSON }}
+          DATABASE_URL: ${{ secrets.PILOT_TESTER_DATABASE_URL }}
+        run: |
+          if [ -n "${POOL_JSON:-}" ] && [ -n "${DATABASE_URL:-}" ]; then
+            echo "provisioned=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "provisioned=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Pilot canary swarm skipped::PILOT_TESTER_USER_POOL_JSON / PILOT_TESTER_DATABASE_URL not provisioned (RA-7008). Provision sandbox pilot users + repo secrets to activate the swarm."
+          fi
+
   swarm:
     # Only on schedule + manual dispatch — never on PRs (would
     # consume AI budget against the sandbox workspace).
-    if: github.event_name != 'pull_request'
+    needs: secrets-gate
+    if: github.event_name != 'pull_request' && needs.secrets-gate.outputs.provisioned == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
