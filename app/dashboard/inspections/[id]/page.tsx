@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { EngagementLicenceModal } from "@/components/attestation/EngagementLicenceModal";
 import { cn } from "@/lib/utils";
 import { resolveAreaSqm } from "@/lib/units";
+import { parseReadingInput } from "@/lib/forms/parse-reading-input";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { NirPilotSurvey } from "@/components/nir-pilot-survey";
@@ -362,7 +363,13 @@ export default function InspectionDetailPage({
   });
   const [envData, setEnvData] = useState<Inspection["environmentalData"]>(null);
   const [showEnvForm, setShowEnvForm] = useState(false);
-  const [envForm, setEnvForm] = useState({
+  const [envForm, setEnvForm] = useState<{
+    ambientTemperature: number | null;
+    humidityLevel: number | null;
+    airCirculation: boolean;
+    weatherConditions: string;
+    notes: string;
+  }>({
     ambientTemperature: 20,
     humidityLevel: 50,
     airCirculation: false,
@@ -374,10 +381,16 @@ export default function InspectionDetailPage({
     Inspection["moistureReadings"]
   >([]);
   const [showAddMoisture, setShowAddMoisture] = useState(false);
-  const [moistureForm, setMoistureForm] = useState({
+  const [moistureForm, setMoistureForm] = useState<{
+    location: string;
+    surfaceType: string;
+    moistureLevel: number | null;
+    depth: string;
+    notes: string;
+  }>({
     location: "",
     surfaceType: "",
-    moistureLevel: 0,
+    moistureLevel: null,
     depth: "Surface",
     notes: "",
   });
@@ -589,6 +602,10 @@ export default function InspectionDetailPage({
     Math.round((temp - (100 - humidity) / 5) * 10) / 10;
 
   const handleEnvSave = async () => {
+    if (envForm.ambientTemperature == null || envForm.humidityLevel == null) {
+      toast.error("Enter temperature and humidity before saving");
+      return;
+    }
     setSavingEnv(true);
     try {
       const dewPoint = calcDewPoint(
@@ -616,6 +633,10 @@ export default function InspectionDetailPage({
   };
 
   const handleAddMoisture = async () => {
+    if (moistureForm.moistureLevel == null) {
+      toast.error("Enter a moisture level before adding the reading");
+      return;
+    }
     setAddingMoisture(true);
     try {
       const res = await fetch(`/api/inspections/${inspection!.id}/moisture`, {
@@ -629,7 +650,7 @@ export default function InspectionDetailPage({
       setMoistureForm({
         location: "",
         surfaceType: "",
-        moistureLevel: 0,
+        moistureLevel: null,
         depth: "Surface",
         notes: "",
       });
@@ -1453,11 +1474,12 @@ export default function InspectionDetailPage({
                     </label>
                     <input
                       type="number"
-                      value={envForm.ambientTemperature}
+                      step="0.01"
+                      value={envForm.ambientTemperature ?? ""}
                       onChange={(e) =>
                         setEnvForm((f) => ({
                           ...f,
-                          ambientTemperature: parseFloat(e.target.value) || 0,
+                          ambientTemperature: parseReadingInput(e.target.value),
                         }))
                       }
                       className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
@@ -1469,11 +1491,12 @@ export default function InspectionDetailPage({
                     </label>
                     <input
                       type="number"
-                      value={envForm.humidityLevel}
+                      step="0.01"
+                      value={envForm.humidityLevel ?? ""}
                       onChange={(e) =>
                         setEnvForm((f) => ({
                           ...f,
-                          humidityLevel: parseFloat(e.target.value) || 0,
+                          humidityLevel: parseReadingInput(e.target.value),
                         }))
                       }
                       className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
@@ -1483,11 +1506,13 @@ export default function InspectionDetailPage({
                 <div className="p-3 rounded-lg bg-cyan-50 dark:bg-cyan-900/20 text-sm text-cyan-700 dark:text-cyan-300">
                   Auto dew point:{" "}
                   <strong>
-                    {calcDewPoint(
-                      envForm.ambientTemperature,
-                      envForm.humidityLevel,
-                    )}
-                    °C
+                    {envForm.ambientTemperature == null ||
+                    envForm.humidityLevel == null
+                      ? "—"
+                      : `${calcDewPoint(
+                          envForm.ambientTemperature,
+                          envForm.humidityLevel,
+                        )}°C`}
                   </strong>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1636,11 +1661,12 @@ export default function InspectionDetailPage({
                     </label>
                     <input
                       type="number"
-                      value={moistureForm.moistureLevel}
+                      step="0.01"
+                      value={moistureForm.moistureLevel ?? ""}
                       onChange={(e) =>
                         setMoistureForm((f) => ({
                           ...f,
-                          moistureLevel: parseFloat(e.target.value) || 0,
+                          moistureLevel: parseReadingInput(e.target.value),
                         }))
                       }
                       className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
