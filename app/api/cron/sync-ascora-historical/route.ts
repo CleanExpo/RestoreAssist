@@ -21,6 +21,10 @@ import { POST as syncAscoraHistorical } from "@/app/api/ascora/sync/route";
  * verifyCronAuth → runCronJob (overlap protection + audit trail) → always
  * 200 with structured stats.
  */
+// The historical importer is invoked in-process below, so this wrapper's own
+// duration budget must cover the full import (see sync/route.ts maxDuration).
+export const maxDuration = 800;
+
 export async function GET(request: NextRequest) {
   const authError = verifyCronAuth(request);
   if (authError) return authError;
