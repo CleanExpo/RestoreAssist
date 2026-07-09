@@ -433,7 +433,10 @@ function combineScopeNarratives(
 // ScopePricingDatabase aggregation with price uplift
 // ============================================================
 
-async function aggregateIntoPricingDb(
+// Exported for the batched labour importer (cron/sync-ascora-labour), which
+// feeds LABOUR-<role> lines through the same aggregation — mirroring how the
+// cron wrapper reuses this route's POST handler in-process.
+export async function aggregateIntoPricingDb(
   lineItems: AscoraLineItemRaw[],
   upliftFactor: number,
   /** ascoraJobId → RA claimType — used to tag each part number */
