@@ -852,6 +852,33 @@ export function standardDesignation(std: StandardKey): string {
 }
 
 /**
+ * Human-readable edition label for report/insurer text, e.g. `standardEdition("S500")`
+ * → "5th Ed". NCC has no ordinal edition, so its year-style label ("2022") is returned
+ * as-is. Derives from STANDARDS_VERSIONS so an edition bump to the registry can't leave
+ * a hard-coded label stale (CLAUDE.md rule #12).
+ */
+export function standardEdition(std: StandardKey): string {
+  const { edition } = STANDARDS_VERSIONS[std];
+  return std === "NCC" ? edition : `${edition} Ed`;
+}
+
+/**
+ * The IICRC/NCC standards line printed in the generated-PDF report footer. Built
+ * entirely from STANDARDS_VERSIONS so a future edition bump to the registry updates
+ * the insurer-facing footer automatically instead of drifting to a stale literal
+ * (CLAUDE.md rule #12; guarded by lib/__tests__/report-footer-standards.test.ts).
+ * e.g. "IICRC S500:2021, S520 4th Ed (2024), S700 1st Ed (2025), NCC 2022".
+ */
+export function reportStandardsFooterLine(): string {
+  return [
+    `IICRC ${standardCite("S500")}`,
+    `S520 ${standardEdition("S520")} (${STANDARDS_VERSIONS.S520.year})`,
+    `S700 ${standardEdition("S700")} (${STANDARDS_VERSIONS.S700.year})`,
+    standardDesignation("NCC"),
+  ].join(", ");
+}
+
+/**
  * Get the full citation string for a standards reference
  * Used in PDF report generation to cite the governing clause
  */
