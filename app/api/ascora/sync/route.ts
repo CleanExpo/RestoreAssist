@@ -417,6 +417,29 @@ export function buildHistoricalJobRefreshableFields(job: AscoraJobRaw): {
   };
 }
 
+/**
+ * HistoricalJob.waterCategory/waterClass are String? columns, but the
+ * classifier emits NUMERIC damageCategory/damageClass (1-3 / 1-4). Passing the
+ * raw number makes Prisma reject the entire upsert — which silently failed the
+ * whole prod historical sync (RA-7026) despite green mocked tests, because the
+ * mock never enforced the real column type. Coerce here; `undefined` means
+ * "leave unchanged" so an update never wipes a previously-inferred value.
+ */
+export function coerceHistoricalWaterFields(
+  classification: { damageCategory?: number; damageClass?: number } | null | undefined,
+): { waterCategory: string | undefined; waterClass: string | undefined } {
+  return {
+    waterCategory:
+      classification?.damageCategory != null
+        ? String(classification.damageCategory)
+        : undefined,
+    waterClass:
+      classification?.damageClass != null
+        ? String(classification.damageClass)
+        : undefined,
+  };
+}
+
 function combineScopeNarratives(
   jobDescription?: string,
   workUndertaken?: string,
@@ -907,6 +930,7 @@ export async function POST(request: NextRequest) {
         const classification = description
           ? ruleBasedClassify({ description, notes: job.jobName })
           : null;
+        const water = coerceHistoricalWaterFields(classification);
 
         const address = [job.addressLine1, job.addressLine2]
           .filter(Boolean)
@@ -926,8 +950,8 @@ export async function POST(request: NextRequest) {
             jobName: job.jobName ?? `Job ${job.jobNumber ?? job.jobId}`,
             description,
             claimType,
-            waterCategory: classification?.damageCategory ?? null,
-            waterClass: classification?.damageClass ?? null,
+            waterCategory: water.waterCategory ?? null,
+            waterClass: water.waterClass ?? null,
             address,
             suburb: job.suburb ?? "",
             state: job.state ?? "QLD",
@@ -955,8 +979,8 @@ export async function POST(request: NextRequest) {
             completedDate: job.completedDate
               ? new Date(job.completedDate)
               : null,
-            waterCategory: classification?.damageCategory ?? undefined,
-            waterClass: classification?.damageClass ?? undefined,
+            waterCategory: water.waterCategory,
+            waterClass: water.waterClass,
             ...buildHistoricalJobRefreshableFields(job),
           },
         });
