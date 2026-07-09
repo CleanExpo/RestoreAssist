@@ -50,6 +50,8 @@ export interface AscoraJobRaw {
   jobName?: string;
   /** Full scope narrative — goldmine for AI training / IICRC classification */
   jobDescription?: string;
+  /** Post-completion narrative of what was actually done on site */
+  workUndertaken?: string;
   /** Ascora returns jobType as an { id, name } object */
   jobType?: AscoraJobType | string;
   addressLine1?: string;
@@ -76,6 +78,67 @@ interface AscoraLineItemRaw {
   unitPriceExTax?: number;
   amountExTax?: number;
   invoiceDate?: string | null;
+}
+
+// /Accounting/GetInvoicesToSend response shapes (API Endpoints guide §Accounting).
+// NOTE: this endpoint returns a BARE ARRAY, not the { success, results }
+// envelope, and only invoices not yet marked as sent to an accounting package.
+interface AscoraAccountingInvoiceLineRaw {
+  itemCode?: string;
+  description?: string;
+  quantity?: number;
+  unitAmountExTax?: number;
+  amountExTax?: number;
+  invoiceLineType?: string; // "material" | "labour" | "discount" | "none"
+}
+
+interface AscoraAccountingInvoiceRaw {
+  id?: string;
+  invoiceNumber?: string;
+  invoiceDate?: string | null;
+  jobId?: string;
+  invoiceLines?: AscoraAccountingInvoiceLineRaw[];
+}
+
+/** /Inventory/Supplies row — DR's own rate card (sell price per part). */
+interface AscoraSupplyRaw {
+  supplyId?: string;
+  partNumber?: string;
+  description?: string;
+  unitCostExTax?: number;
+  unitSellExTax?: number;
+  unitOfMeasure?: string;
+}
+
+/**
+ * Flatten accounting invoices into the importer's line-item shape.
+ * Material lines key by itemCode; labour lines are folded into a synthetic
+ * "LABOUR" part so hourly rates enter the pricing benchmark; discount and
+ * uncoded lines are skipped (noise, not priceable scope).
+ */
+export function mapAccountingInvoicesToLineItems(
+  invoices: AscoraAccountingInvoiceRaw[],
+): AscoraLineItemRaw[] {
+  if (!Array.isArray(invoices)) return [];
+  const items: AscoraLineItemRaw[] = [];
+  for (const inv of invoices) {
+    for (const line of inv.invoiceLines ?? []) {
+      const itemCode = line.itemCode?.trim();
+      const isLabour = line.invoiceLineType === "labour";
+      if (!itemCode && !isLabour) continue;
+      if (line.invoiceLineType === "discount") continue;
+      items.push({
+        jobId: inv.jobId,
+        partNumber: itemCode || "LABOUR",
+        description: line.description,
+        quantity: line.quantity,
+        unitPriceExTax: line.unitAmountExTax,
+        amountExTax: line.amountExTax,
+        invoiceDate: inv.invoiceDate ?? null,
+      });
+    }
+  }
+  return items;
 }
 
 /** Standard Ascora paginated response envelope */
@@ -126,6 +189,108 @@ async function fetchAllPages<T>(
   }
 
   return allResults;
+}
+
+// ============================================================
+// Accounting invoices — the real line-item source (RA-7026)
+// ============================================================
+
+/**
+ * GET /Accounting/GetInvoicesToSend returns a bare array of invoices with
+ * embedded invoiceLines. Only invoices not yet marked as sent to an
+ * accounting package are included — for tenants that push to Xero/MYOB this
+ * is a residue, not full history, so legacy endpoint discovery stays as a
+ * fallback.
+ */
+async function fetchAccountingInvoices(
+  baseUrl: string,
+  apiKey: string,
+): Promise<AscoraAccountingInvoiceRaw[]> {
+  // Tomorrow's date so every dated invoice qualifies ("prior to" is strict).
+  const priorToDate = new Date(Date.now() + 24 * 3600 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const res = await fetchAscoraWithRetry(
+    `${baseUrl}/Accounting/GetInvoicesToSend?priorToDate=${priorToDate}`,
+    { headers: { Auth: apiKey, "Content-Type": "application/json" } },
+    { timeoutMs: 60000, context: "/Accounting/GetInvoicesToSend" },
+  );
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+// ============================================================
+// Rate card — /Inventory/Supplies (RA-7026)
+// ============================================================
+
+/**
+ * Seed the tenant's own sell-price book into ScopePricingDatabase. No uplift
+ * is applied — these are the prices the business itself set. Learned
+ * (invoice-aggregated) stats always win: for rows another source owns, the
+ * rate-card price is only appended to priceHistory.
+ */
+async function seedRateCardIntoPricingDb(
+  supplies: AscoraSupplyRaw[],
+): Promise<number> {
+  let upserted = 0;
+  for (const supply of supplies) {
+    const partNumber = supply.partNumber?.trim();
+    const sell = supply.unitSellExTax;
+    if (!partNumber || typeof sell !== "number" || sell <= 0) continue;
+
+    const historyEntry = {
+      date: new Date().toISOString(),
+      avgPrice: sell,
+      note: "Ascora rate card (unitSellExTax)",
+    };
+    const existing = await (prisma as any).scopePricingDatabase.findUnique({
+      where: { partNumber },
+      select: { id: true, source: true, priceHistory: true },
+    });
+
+    if (!existing) {
+      await (prisma as any).scopePricingDatabase.create({
+        data: {
+          partNumber,
+          description: supply.description ?? partNumber,
+          claimTypes: [],
+          usageCount: 0,
+          averageUnitPriceAU: sell,
+          medianUnitPriceAU: sell,
+          minPriceAU: sell,
+          maxPriceAU: sell,
+          acceptanceRate: null,
+          acceptedCount: 0,
+          rejectedCount: 0,
+          source: "ascora-rate-card",
+          isActive: true,
+          priceHistory: [historyEntry],
+        },
+      });
+    } else {
+      const history = [
+        ...(Array.isArray(existing.priceHistory) ? existing.priceHistory : []),
+        historyEntry,
+      ];
+      await (prisma as any).scopePricingDatabase.update({
+        where: { partNumber },
+        data:
+          existing.source === "ascora-rate-card"
+            ? {
+                description: supply.description ?? partNumber,
+                averageUnitPriceAU: sell,
+                medianUnitPriceAU: sell,
+                minPriceAU: sell,
+                maxPriceAU: sell,
+                priceHistory: history,
+                lastUpdated: new Date(),
+              }
+            : { priceHistory: history, lastUpdated: new Date() },
+      });
+    }
+    upserted++;
+  }
+  return upserted;
 }
 
 // ============================================================
@@ -242,9 +407,26 @@ export function buildHistoricalJobRefreshableFields(job: AscoraJobRaw): {
     // insurer/loss adjuster issues and the contractor quotes back on
     // invoices — the closest genuine "claim number" field Ascora exposes.
     claimNumber: job.clientOrderNumber?.trim() || null,
-    // jobDescription is the full scope narrative Ascora returns for the job.
-    scopeOfWorks: job.jobDescription?.trim() || null,
+    // jobDescription is the pre-works scope narrative; workUndertaken is the
+    // post-completion account of what was actually done — both are training
+    // signal, so keep them together in one narrative field.
+    scopeOfWorks: combineScopeNarratives(
+      job.jobDescription,
+      job.workUndertaken,
+    ),
   };
+}
+
+function combineScopeNarratives(
+  jobDescription?: string,
+  workUndertaken?: string,
+): string | null {
+  const scope = jobDescription?.trim();
+  const undertaken = workUndertaken?.trim();
+  if (scope && undertaken)
+    return `${scope}\n\nWork undertaken: ${undertaken}`;
+  if (undertaken) return `Work undertaken: ${undertaken}`;
+  return scope || null;
 }
 
 // ============================================================
@@ -603,13 +785,34 @@ export async function POST(request: NextRequest) {
     }
 
     // ------------------------------------------------------------------
-    // Phase 2: Discover and fetch line items
+    // Phase 2: Fetch line items — accounting surface first, legacy fallback
     // ------------------------------------------------------------------
-    const {
-      endpoint: lineItemEndpoint,
-      items: allLineItems,
-      tried: endpointsTried,
-    } = await tryLineItemEndpoints(integration.baseUrl, apiKey);
+    // RA-7026: every legacy candidate endpoint 404s on the live Ascora API
+    // (verified 2026-07-09 against the official API Endpoints guide). The
+    // real line-item source is /Accounting/GetInvoicesToSend.
+    let lineItemEndpoint: string | null = null;
+    let allLineItems: AscoraLineItemRaw[] = [];
+    let endpointsTried: string[] = [];
+    let accountingInvoiceCount = 0;
+    try {
+      const accountingInvoices = await fetchAccountingInvoices(
+        integration.baseUrl,
+        apiKey,
+      );
+      accountingInvoiceCount = accountingInvoices.length;
+      allLineItems = mapAccountingInvoicesToLineItems(accountingInvoices);
+      if (allLineItems.length > 0) {
+        lineItemEndpoint = "/Accounting/GetInvoicesToSend";
+      }
+    } catch {
+      // Accounting surface unavailable on this tenant — legacy discovery below.
+    }
+    if (allLineItems.length === 0) {
+      const legacy = await tryLineItemEndpoints(integration.baseUrl, apiKey);
+      lineItemEndpoint = legacy.endpoint;
+      allLineItems = legacy.items;
+      endpointsTried = legacy.tried;
+    }
 
     // Filter to only line items belonging to our imported job set
     const importedJobIdSet = new Set(filteredJobs.map((j) => j.jobId));
@@ -659,6 +862,23 @@ export async function POST(request: NextRequest) {
         priceUpliftFactor,
         jobClaimTypeMap,
       );
+    }
+
+    // ------------------------------------------------------------------
+    // Phase 3b: Seed the tenant's rate card from /Inventory/Supplies
+    // ------------------------------------------------------------------
+    let rateCardPartsUpserted = 0;
+    if (!dryRun) {
+      try {
+        const supplies = await fetchAllPages<AscoraSupplyRaw>(
+          integration.baseUrl,
+          apiKey,
+          "/Inventory/Supplies",
+        );
+        rateCardPartsUpserted = await seedRateCardIntoPricingDb(supplies);
+      } catch {
+        // Rate card is best-effort — the jobs/lines import must not fail on it.
+      }
     }
 
     // ------------------------------------------------------------------
@@ -790,7 +1010,9 @@ export async function POST(request: NextRequest) {
       lineItemEndpointsTried: endpointsTried,
       lineItemsTotal: allLineItems.length,
       lineItemsForImport: relevantLineItems.length,
+      accountingInvoiceCount,
       pricingDbEntriesUpserted,
+      rateCardPartsUpserted,
       elapsedSeconds: parseFloat(elapsed),
       message,
     });
