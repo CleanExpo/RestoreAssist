@@ -61,7 +61,7 @@ The repair must be **additive only** — `CREATE TABLE`, `ALTER TABLE ... ADD CO
 grep -inE 'drop |truncate |delete ' ra1807-repair.sql
 ```
 
-🚨 **If that finds anything, STOP.** `migrate diff` will emit `DROP` for objects that exist in prod but not in `schema.prisma` (legacy columns are "dormant drift" per `audit-prod-drift.ts`). Dropping them can destroy data. Hand-edit `ra1807-repair.sql` to remove every destructive statement — keep only the additive ones — or escalate before continuing. Confirm the ~37 audited tables appear as `CREATE TABLE`.
+**If that finds anything, STOP.** `migrate diff` will emit `DROP` for objects that exist in prod but not in `schema.prisma` (legacy columns are "dormant drift" per `audit-prod-drift.ts`). Dropping them can destroy data. Hand-edit `ra1807-repair.sql` to remove every destructive statement — keep only the additive ones — or escalate before continuing. Confirm the ~37 audited tables appear as `CREATE TABLE`.
 
 ## Step 4 — Apply (GATED prod write — backup first)
 
