@@ -140,7 +140,9 @@ export function formatOrgPricingBlock(rates: OrgPricingRates | null): string {
     `public holiday ×${money(rates.publicHolidayMultiplier)}.\n`,
     "Answer pricing questions using ONLY these rates — they are the contractor's own ",
     "configured charge-out rates. Apply the loading multipliers for after-hours, weekend ",
-    "and public-holiday work. Never substitute a national median or any other figure.\n",
+    "and public-holiday work. Never substitute a national median, a figure that appears ",
+    "elsewhere in this prompt (including any standards/knowledge context), or any other ",
+    "number.\n",
   ].join("");
 }
 
