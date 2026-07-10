@@ -9,7 +9,10 @@ import {
   invoiceGeneratedEmail,
   dryingGoalAchievedEmail,
   reportReadyEmail,
+  reengagementEmail,
 } from "@/lib/email-templates";
+import { BRAND } from "@/lib/brand";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -19,6 +22,7 @@ export const EVENTS = [
   "invoice_generated",
   "drying_goal_achieved",
   "report_ready",
+  "customer_reengagement",
 ] as const;
 
 type EventType = (typeof EVENTS)[number];
@@ -36,6 +40,8 @@ interface PostBody {
   inspectionId?: string;
   invoiceId?: string;
   recipientEmail: string;
+  /** customer_reengagement only — the addressee's name for the greeting. */
+  recipientName?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -97,6 +103,32 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      // ── customer_reengagement: no inspection/invoice; admin-only because it
+      //    can target an arbitrary address. Reply-to points at the monitored
+      //    RestoreAssist mailbox (RESEND_REPLY_TO env, else the support inbox)
+      //    so replies land somewhere a human reads. Sends from the verified
+      //    restoreassist.app domain — a @gmail.com From cannot be
+      //    SPF/DKIM-authenticated through Resend and would bounce/spam.
+      if (event === "customer_reengagement") {
+        const auth = await verifyAdminFromDb(session);
+        if (auth.response) return auth.response;
+
+        const baseUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
+        const replyTo =
+          process.env.RESEND_REPLY_TO || BRAND.company.supportEmail;
+        await sendEmail({
+          to: recipientEmail,
+          subject: "Pick up where you left off — RestoreAssist",
+          html: reengagementEmail({
+            recipientName: body.recipientName?.trim() || "there",
+            ctaUrl: `${baseUrl}/dashboard/pricing?utm_source=reengagement`,
+            senderName: session.user.name ?? undefined,
+          }),
+          replyTo,
+        });
+        return NextResponse.json({ sent: true, event, to: recipientEmail });
+      }
+
       let subject: string;
       let html: string;
 
