@@ -56,6 +56,7 @@
     "check:standards": "tsx scripts/check-standards-citations.ts",
     "check:no-verbatim": "tsx scripts/check-no-verbatim-standards.ts",
     "check:marketing-verbatim": "tsx scripts/check-marketing-verbatim.ts",
+    "check:au-english": "node scripts/check-au-english.mjs",
     "pretype-check": "prisma generate",
     "type-check": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsc --noEmit",
     "check:no-emoji": "node scripts/check-no-emoji.mjs",
