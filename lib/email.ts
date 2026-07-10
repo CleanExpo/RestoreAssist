@@ -1248,6 +1248,102 @@ export interface WinbackEmailData {
   daysSinceExpired: number;
 }
 
+export interface PricingSetupReminderEmailData {
+  recipientEmail: string;
+  recipientName: string;
+  /** Deep link to the pricing-config setup page. */
+  setupUrl: string;
+}
+
+/**
+ * RA-7026: one-time "you haven't set your charge-out rates yet" nudge.
+ *
+ * Why it matters: until an org sets pricing, Margot and every estimator fall
+ * through to generic default rates, so quotes don't reflect the contractor's
+ * real prices. This email points the owner at the pricing-config page. Sent at
+ * most once per owner (the cron records `pricingReminderSentAt`).
+ */
+export async function sendPricingSetupReminderEmail(
+  data: PricingSetupReminderEmailData,
+) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn(
+      "[email] RESEND_API_KEY not set — skipping pricing-setup reminder email",
+    );
+    return null;
+  }
+  const fromEmail = getFromEmail();
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Set your charge-out rates in RestoreAssist</title>
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
+        <div style="background: linear-gradient(135deg, #1C2E47 0%, #8A6B4E 100%); padding: 40px 30px; border-radius: 16px 16px 0 0; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">One quick setup step</h1>
+          <p style="color: rgba(255, 255, 255, 0.9); margin: 10px 0 0; font-size: 16px;">Add your charge-out rates so quotes match your prices</p>
+        </div>
+
+        <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 40px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${escapeHtml(data.recipientName)},</p>
+
+          <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
+            You're up and running in RestoreAssist, but you haven't set your pricing yet. Until you do, cost estimates and the assistant fall back to generic default rates — which means quotes won't reflect what you actually charge.
+          </p>
+
+          <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 32px;">
+            It takes about two minutes: enter your labour, equipment and call-out rates once, and every estimate and assistant answer uses your numbers from then on.
+          </p>
+
+          <div style="text-align: center; margin: 35px 0;">
+            <a href="${data.setupUrl}" style="display: inline-block; background: linear-gradient(135deg, #1C2E47 0%, #8A6B4E 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 8px 16px rgba(28, 46, 71, 0.3);">
+              Set my pricing
+            </a>
+          </div>
+
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 25px; margin-top: 30px;">
+            <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin: 0;">
+              Already sorted, or not ready yet? No action needed — this is a one-time reminder and we won't send it again.
+            </p>
+          </div>
+        </div>
+
+        <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
+          <p style="margin: 5px 0;">This is a one-time setup reminder from RestoreAssist.</p>
+          <p style="margin: 10px 0 0 0; color: #cbd5e1;">© ${new Date().getFullYear()} RestoreAssist. All rights reserved.</p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  try {
+    const result = await withEmailTimeout(
+      getResendClient().emails.send({
+        from: fromEmail,
+        to: data.recipientEmail,
+        subject: "Set your charge-out rates in RestoreAssist",
+        html,
+      }),
+    );
+    assertResendSuccess(result, "pricing-setup-reminder");
+    console.log(
+      "[email] Pricing-setup reminder sent:",
+      result.data?.id,
+    );
+    return result;
+  } catch (error: any) {
+    console.error(
+      "[email] Failed to send pricing-setup reminder:",
+      error?.message,
+    );
+    throw error;
+  }
+}
+
 export async function sendWinbackEmail(data: WinbackEmailData) {
   if (!process.env.RESEND_API_KEY) {
     console.warn(

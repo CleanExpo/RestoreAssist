@@ -6,6 +6,7 @@ export { advanceWorkflows } from "./advance-workflows";
 export { reviewDeadLetterTasks } from "./dead-letter-review";
 export { cleanupOldData } from "./cleanup";
 export { sendTrialReminders } from "./trial-reminders";
+export { sendPricingSetupReminders } from "./pricing-setup-reminders";
 export { runBrandAmbassador } from "./brand-ambassador";
 export { checkDesignSystemOnboarding } from "./design-system-onboarding";
 export { runScoutAgent } from "./scout-agent";
