@@ -70,23 +70,49 @@ for (let i = 0; i < models.length; i++) {
   }
 }
 
+// Allowlist: pairs already reconciled by ONE documented resolver. A gate should
+// fail only on a NEW unresolved pair, not on ones we've already unified.
+const ALLOWLIST = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "data-source-ssot-allowlist.json",
+);
+let allow = [];
+try {
+  const raw = JSON.parse(readFileSync(ALLOWLIST, "utf8"));
+  allow = (raw.pairs ?? []).map((p) => [...p.models].sort().join("|"));
+} catch {
+  // no allowlist → every hit is treated as a violation
+}
+const pairKey = (h) => [h.a.name, h.b.name].sort().join("|");
+const known = hits.filter((h) => allow.includes(pairKey(h)));
+const violations = hits.filter((h) => !allow.includes(pairKey(h)));
+
 const strict = process.argv.includes("--strict");
-if (hits.length === 0) {
-  console.log("check-data-source-ssot - OK. No tenancy-key-drift candidates.");
+for (const h of known) {
+  console.log(
+    `  (allowlisted) ${h.a.name} ↔ ${h.b.name} — reconciled by a documented resolver`,
+  );
+}
+
+if (violations.length === 0) {
+  console.log(
+    `check-data-source-ssot - OK. ${known.length} allowlisted pair(s), no NEW tenancy-key drift.`,
+  );
   process.exit(0);
 }
 
 console.log(
-  `check-data-source-ssot - ${hits.length} candidate pair(s) sharing data across different keys:\n`,
+  `\ncheck-data-source-ssot - ${violations.length} NEW pair(s) sharing data across different keys:\n`,
 );
-for (const h of hits) {
+for (const h of violations) {
   console.log(
     `  • ${h.a.name}[@unique ${h.a.uniqueKey}]  ↔  ${h.b.name}[@unique ${h.b.uniqueKey}]` +
       `  — ${h.s} shared fields (${h.ratio.toFixed(0)}% of the smaller model)`,
   );
 }
 console.log(
-  "\nEach pair MUST have ONE documented resolver that every reader calls " +
-    "(see .claude/skills/data-source-ssot/SKILL.md), or it is silent drift.",
+  "\nGive the pair ONE documented resolver every reader calls " +
+    "(see .claude/skills/data-source-ssot/SKILL.md), then add it to " +
+    "scripts/ci/data-source-ssot-allowlist.json. Otherwise it is silent drift.",
 );
 process.exit(strict ? 1 : 0);

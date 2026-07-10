@@ -1,0 +1,10 @@
+{
+  "_comment": "Model pairs that share data across different @unique keys but are RECONCILED by one documented resolver. The check-data-source-ssot gate fails only on pairs NOT listed here. Add a pair ONLY after every reader routes through the single resolver named below.",
+  "pairs": [
+    {
+      "models": ["CompanyPricingConfig", "OrganizationPricingConfig"],
+      "resolver": "lib/pricing/effective-pricing.ts resolveEffectivePricing()",
+      "note": "Org config authoritative; user config legacy fallback. Margot + all estimators read via the resolver; the dashboard editor mirror-writes both. RA-7026 #1892."
+    }
+  ]
+}
