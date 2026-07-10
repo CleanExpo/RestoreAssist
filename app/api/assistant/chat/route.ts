@@ -18,7 +18,11 @@ import { getServerSession } from "next-auth";
 import type { NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createMargotModel, getOpenRouterApiKey } from "@/lib/ai/openrouter";
+import { createMargotModelWithKey } from "@/lib/ai/openrouter";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { getEffectiveSubscription } from "@/lib/organization-credits";
 import { buildPricingGrounding, PRICING_HINT } from "@/lib/pricing/org-pricing";
@@ -81,15 +85,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (!getOpenRouterApiKey()) {
-      return apiError(request, {
-        code: "UPSTREAM_FAILED",
-        message: "Assistant is offline — OPENROUTER_API_KEY not configured",
-        status: 503,
-        stage: "config",
-      });
-    }
-
     const body = (await request.json()) as { messages?: UIMessage[] };
     const messages = body.messages ?? [];
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -138,9 +133,27 @@ export async function POST(request: NextRequest) {
       if (workContext) system = system + workContext;
     }
 
+    // RA-6921 (P0) — resolve the CALLER's OWN workspace OpenRouter key. The base
+    // plan never spends the platform key on a client workload; fail closed to
+    // 402 if the workspace hasn't configured one.
+    let workspaceKey: { workspaceId: string; apiKey: string };
+    try {
+      workspaceKey = await resolveWorkspaceAiKey(userId, "OPENROUTER");
+    } catch (err) {
+      if (err instanceof NoWorkspaceKeyError) {
+        return apiError(request, {
+          code: "PAYMENT_REQUIRED",
+          message:
+            "The assistant needs your own OpenRouter API key — add one in Workspace Settings -> AI Providers.",
+          status: 402,
+        });
+      }
+      throw err;
+    }
+
     // FR8 — read-only: no tools passed to the model.
     const result = streamText({
-      model: createMargotModel(),
+      model: createMargotModelWithKey(workspaceKey.apiKey),
       system,
       messages: await convertToModelMessages(messages),
     });

@@ -72,15 +72,18 @@ export function getOpenRouterApiKey(): string | null {
 }
 
 /**
- * Build the Margot language model backed by OpenRouter. Uses the Chat
- * Completions endpoint (`.chat`) for OpenAI-compatibility. Throws if the
- * platform key is unset — callers must gate on `getOpenRouterApiKey()` first and
- * return a fail-closed offline response.
+ * RA-7026 — build the Margot model backed by a CALLER-SUPPLIED (BYOK) OpenRouter
+ * key rather than the shared platform key. The contractor-facing assistant must
+ * spend the calling workspace's own key (RA-6921 P0), never the platform's. The
+ * `:free` model pin still applies via `resolveMargotModelId`, so a BYOK key also
+ * stays at $0 unless the workspace deliberately overrides the model.
  */
-export function createMargotModel(modelId = resolveMargotModelId()): LanguageModel {
-  const apiKey = getOpenRouterApiKey();
+export function createMargotModelWithKey(
+  apiKey: string,
+  modelId = resolveMargotModelId(),
+): LanguageModel {
   if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is not configured");
+    throw new Error("createMargotModelWithKey requires a non-empty apiKey");
   }
   const openrouter = createOpenAI({
     name: "openrouter",
@@ -88,4 +91,20 @@ export function createMargotModel(modelId = resolveMargotModelId()): LanguageMod
     apiKey,
   });
   return openrouter.chat(modelId);
+}
+
+/**
+ * Build the Margot language model backed by the platform OpenRouter key. Uses
+ * the Chat Completions endpoint (`.chat`) for OpenAI-compatibility. Throws if
+ * the platform key is unset — callers must gate on `getOpenRouterApiKey()` first
+ * and return a fail-closed offline response. ADMIN-ONLY surfaces (personal
+ * Margot); client-facing routes must use `createMargotModelWithKey` with a BYOK
+ * key instead.
+ */
+export function createMargotModel(modelId = resolveMargotModelId()): LanguageModel {
+  const apiKey = getOpenRouterApiKey();
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY is not configured");
+  }
+  return createMargotModelWithKey(apiKey, modelId);
 }

@@ -12,8 +12,14 @@ vi.mock("ai", () => ({
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/ai/openrouter", () => ({
-  getOpenRouterApiKey: () => "or-key",
-  createMargotModel: () => ({ id: "model" }),
+  createMargotModelWithKey: () => ({ id: "model" }),
+}));
+// BYOK: the route resolves the caller's OWN OpenRouter key (RA-6921 P0). The
+// mocked NoWorkspaceKeyError is the same class the route's `instanceof` sees.
+// Defined inside the factory (hoisted) — never reference an outer variable here.
+vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
+  resolveWorkspaceAiKey: vi.fn(),
+  NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
 }));
 vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit: vi.fn() }));
 vi.mock("@/lib/organization-credits", () => ({
@@ -37,12 +43,17 @@ vi.mock("@/lib/pricing/org-pricing", () => ({
 import { getServerSession } from "next-auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { getEffectiveSubscription } from "@/lib/organization-credits";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 import { prisma } from "@/lib/prisma";
 import { POST } from "../route";
 
 const session = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const rateLimit = applyRateLimit as unknown as ReturnType<typeof vi.fn>;
 const sub = getEffectiveSubscription as unknown as ReturnType<typeof vi.fn>;
+const resolveKey = resolveWorkspaceAiKey as unknown as ReturnType<typeof vi.fn>;
 const p = prisma as unknown as {
   user: { findUnique: ReturnType<typeof vi.fn> };
   inspection: { findMany: ReturnType<typeof vi.fn> };
@@ -69,6 +80,7 @@ beforeEach(() => {
   rateLimit.mockResolvedValue(null);
   sub.mockResolvedValue({ subscriptionStatus: "ACTIVE" });
   userFind.mockResolvedValue({ organizationId: "org_A" });
+  resolveKey.mockResolvedValue({ workspaceId: "ws_a", apiKey: "byok-or-key" });
 });
 
 afterEach(() => {
@@ -106,6 +118,12 @@ describe("POST /api/assistant/chat — gating chain", () => {
 
   it("400 on an empty messages array", async () => {
     expect((await POST(post({ messages: [] }))).status).toBe(400);
+  });
+
+  it("RA-6921: 402 (BYOK) when the caller has no workspace OpenRouter key", async () => {
+    resolveKey.mockRejectedValueOnce(new NoWorkspaceKeyError("OPENROUTER"));
+    expect((await POST(post())).status).toBe(402);
+    expect(streamTextMock).not.toHaveBeenCalled();
   });
 });
 
