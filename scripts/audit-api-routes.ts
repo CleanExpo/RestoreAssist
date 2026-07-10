@@ -25,6 +25,10 @@ const EXEMPT_ROUTE_PREFIXES = [
   "app/api/auth/",
   "app/api/cron/",
   "app/api/webhooks/",
+  // Headless internal service routes — bearer-token authenticated (a dedicated
+  // secret, compared with timingSafeEqual, failing closed), session-less by
+  // design exactly like /api/cron. No end-user session ever reaches them.
+  "app/api/internal/",
 ];
 
 const PUBLIC_TOKEN_ROUTE_PREFIXES = [

@@ -9,6 +9,7 @@
  * live admin path, so it is not refactored here.)
  */
 
+import type { PrismaClient } from "@prisma/client";
 import type { UIMessage } from "ai";
 
 /**
@@ -54,6 +55,77 @@ export async function buildStandardsGrounding(
       "\n\n--- STANDARDS KNOWLEDGE (reasoning context — paraphrase, cite edition + section, never reproduce the wording) ---\n",
       formatChunksAsContext(chunks),
     ].join("");
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Fires work-context grounding only when the contractor is asking about their
+ * own jobs/records — a standards or pricing question must not drag their job
+ * list into the prompt.
+ */
+export const WORK_HINT =
+  /\b(my|recent|latest|last|current|open|active)\s+(job|jobs|inspection|inspections|report|reports|scope|scopes|claim|claims)\b|\bhow many\s+(jobs|inspections|reports|claims)\b|\bmy\s+(work|jobs|clients|caseload)\b/i;
+
+/** Minimal Prisma surface for work-context — lets tests pass a stub. */
+export type WorkContextClient = Pick<PrismaClient, "inspection" | "report">;
+
+/**
+ * RA-7026 Phase 2 inc 2 — ground the assistant on the CALLER'S OWN recent work.
+ * Strictly `where: { userId }` (the signed-in user's own records only — the
+ * tenant boundary), bounded reads, minimal fields. Best-effort: returns "" on
+ * no records or any error, so it can never break the chat.
+ */
+export async function buildWorkContext(
+  prisma: WorkContextClient,
+  userId: string,
+): Promise<string> {
+  if (!userId) return "";
+  try {
+    const [inspections, reports] = await Promise.all([
+      prisma.inspection.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: {
+          inspectionNumber: true,
+          propertyAddress: true,
+          status: true,
+          createdAt: true,
+        },
+      }),
+      prisma.report.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: { title: true, status: true, createdAt: true },
+      }),
+    ]);
+
+    if (inspections.length === 0 && reports.length === 0) return "";
+
+    const fmt = (d: Date) =>
+      `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+
+    const lines: string[] = [
+      "\n\n--- YOUR RECENT WORK (this account's own records — read-only context) ---",
+    ];
+    if (inspections.length) {
+      lines.push("Recent inspections:");
+      for (const i of inspections) {
+        lines.push(
+          `- ${i.inspectionNumber} · ${i.propertyAddress} · ${i.status} · ${fmt(i.createdAt)}`,
+        );
+      }
+    }
+    if (reports.length) {
+      lines.push("Recent reports:");
+      for (const r of reports) {
+        lines.push(`- ${r.title} · ${r.status} · ${fmt(r.createdAt)}`);
+      }
+    }
+    return lines.join("\n");
   } catch {
     return "";
   }

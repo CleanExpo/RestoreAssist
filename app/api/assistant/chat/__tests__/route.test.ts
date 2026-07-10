@@ -12,15 +12,25 @@ vi.mock("ai", () => ({
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/ai/openrouter", () => ({
-  getOpenRouterApiKey: () => "or-key",
-  createMargotModel: () => ({ id: "model" }),
+  createMargotModelWithKey: () => ({ id: "model" }),
+}));
+// BYOK: the route resolves the caller's OWN OpenRouter key (RA-6921 P0). The
+// mocked NoWorkspaceKeyError is the same class the route's `instanceof` sees.
+// Defined inside the factory (hoisted) — never reference an outer variable here.
+vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
+  resolveWorkspaceAiKey: vi.fn(),
+  NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
 }));
 vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit: vi.fn() }));
 vi.mock("@/lib/organization-credits", () => ({
   getEffectiveSubscription: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { user: { findUnique: vi.fn() } },
+  prisma: {
+    user: { findUnique: vi.fn() },
+    inspection: { findMany: vi.fn(async () => []) },
+    report: { findMany: vi.fn(async () => []) },
+  },
 }));
 // Deterministic pricing grounding that echoes the org it was scoped to.
 vi.mock("@/lib/pricing/org-pricing", () => ({
@@ -33,14 +43,23 @@ vi.mock("@/lib/pricing/org-pricing", () => ({
 import { getServerSession } from "next-auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { getEffectiveSubscription } from "@/lib/organization-credits";
+import {
+  resolveWorkspaceAiKey,
+  NoWorkspaceKeyError,
+} from "@/lib/ai/resolve-workspace-ai-key";
 import { prisma } from "@/lib/prisma";
 import { POST } from "../route";
 
 const session = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const rateLimit = applyRateLimit as unknown as ReturnType<typeof vi.fn>;
 const sub = getEffectiveSubscription as unknown as ReturnType<typeof vi.fn>;
-const userFind = (prisma as unknown as { user: { findUnique: ReturnType<typeof vi.fn> } })
-  .user.findUnique;
+const resolveKey = resolveWorkspaceAiKey as unknown as ReturnType<typeof vi.fn>;
+const p = prisma as unknown as {
+  user: { findUnique: ReturnType<typeof vi.fn> };
+  inspection: { findMany: ReturnType<typeof vi.fn> };
+  report: { findMany: ReturnType<typeof vi.fn> };
+};
+const userFind = p.user.findUnique;
 
 function post(body: unknown = { messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }) {
   return new Request("https://restoreassist.app/api/assistant/chat", {
@@ -61,6 +80,7 @@ beforeEach(() => {
   rateLimit.mockResolvedValue(null);
   sub.mockResolvedValue({ subscriptionStatus: "ACTIVE" });
   userFind.mockResolvedValue({ organizationId: "org_A" });
+  resolveKey.mockResolvedValue({ workspaceId: "ws_a", apiKey: "byok-or-key" });
 });
 
 afterEach(() => {
@@ -99,6 +119,12 @@ describe("POST /api/assistant/chat — gating chain", () => {
   it("400 on an empty messages array", async () => {
     expect((await POST(post({ messages: [] }))).status).toBe(400);
   });
+
+  it("RA-6921: 402 (BYOK) when the caller has no workspace OpenRouter key", async () => {
+    resolveKey.mockRejectedValueOnce(new NoWorkspaceKeyError("OPENROUTER"));
+    expect((await POST(post())).status).toBe(402);
+    expect(streamTextMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/assistant/chat — persona + tenancy", () => {
@@ -109,6 +135,29 @@ describe("POST /api/assistant/chat — persona + tenancy", () => {
     expect(arg.system).not.toContain("Phill");
     expect(arg.system).toContain("READ-ONLY");
     expect(arg.tools).toBeUndefined();
+  });
+
+  it("inc2: a 'my recent jobs' query grounds on the caller's OWN userId only", async () => {
+    session.mockResolvedValueOnce({ user: { id: "user_a" } });
+    p.inspection.findMany.mockResolvedValueOnce([
+      {
+        inspectionNumber: "NIR-1",
+        propertyAddress: "1 Test St",
+        status: "SCOPED",
+        createdAt: new Date("2026-07-04T00:00:00Z"),
+      },
+    ]);
+    await POST(post({ messages: [{ role: "user", parts: [{ type: "text", text: "show me my recent inspections" }] }] }));
+    // tenancy: work query scoped to the caller
+    expect(p.inspection.findMany.mock.calls[0][0].where).toEqual({ userId: "user_a" });
+    const arg = streamTextMock.mock.calls[0][0] as { system: string };
+    expect(arg.system).toContain("YOUR RECENT WORK");
+    expect(arg.system).toContain("NIR-1");
+  });
+
+  it("does NOT pull work context for a non-work question", async () => {
+    await POST(post()); // "hi"
+    expect(p.inspection.findMany).not.toHaveBeenCalled();
   });
 
   it("AC4/AC5: pricing grounding is scoped to the CALLER's own org only", async () => {

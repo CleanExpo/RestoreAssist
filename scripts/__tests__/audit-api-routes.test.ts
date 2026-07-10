@@ -189,6 +189,15 @@ describe("auditApiRoute", () => {
     ]);
   });
 
+  it("exempts headless internal bearer-token routes from api-auth-required", () => {
+    const findings = auditApiRoute(
+      "app/api/internal/send-reengagement/route.ts",
+      "export async function POST() { return Response.json({ ok: true }); }",
+    );
+
+    expect(findings.some((f) => f.rule === "api-auth-required")).toBe(false);
+  });
+
   it("classifies capture token routes as public-token (not api-auth-required)", () => {
     const findings = auditApiRoute(
       "app/api/capture/[token]/sketch/route.ts",
