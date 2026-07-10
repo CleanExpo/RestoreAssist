@@ -22,7 +22,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
-const GUARD_VERSION = '1.0.0';
+const GUARD_VERSION = '1.0.1';
 const CONFIG = '.au-english.json';
 
 if (!existsSync(CONFIG)) {
@@ -40,7 +40,7 @@ if (include.length === 0) {
 // ── AU-English rules (verified in CARSI GP course-content gauntlet) ──────────
 const RULES = [
   { re: /\bcolors?\b/i, msg: 'US spelling — use "colour".' },
-  { re: /\bodors?\b/i, msg: 'US spelling — use "odour".' },
+  { re: /\bodors?\b/i, allowAfter: /^\s+Control\s+Technician/i, msg: 'US spelling — use "odour" (the IICRC "Odor Control Technician" designation is exempt).' },
   { re: /\bbehaviors?\b/i, msg: 'US spelling — use "behaviour".' },
   { re: /\bmolds?\b/i, msg: 'US spelling — use "mould".' },
   { re: /\bmicrofibers?\b/i, msg: 'US spelling — use "microfibre".' },
