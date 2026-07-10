@@ -92,7 +92,7 @@ export function claimRecommendations(
       "habitability",
       "required",
       "Vulnerable occupants (infants, elderly, asthmatic, immunocompromised) must not remain in the affected/containment zone.",
-      "IICRC S520:2024 §14 (worker & occupant protection)",
+      "IICRC S520:2024 §5 (Safety and Health)",
     );
   }
   if (h.chemical) {

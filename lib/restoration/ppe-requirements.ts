@@ -100,7 +100,7 @@ export function requiredPpe(hazard: HazardProfile): PpeRequirement {
         "S520 Condition 3 (active growth): fit-tested RPE required (AS/NZS 1715); consider PAPR for heavy remediation.",
       );
     }
-    references.add("IICRC S520:2024 §14 (worker protection)");
+    references.add("IICRC S520:2024 §5 (Safety and Health)");
     references.add("AS/NZS 1715/1716 (RPE)");
     decontamination = decontamination || mc >= 3;
   }
