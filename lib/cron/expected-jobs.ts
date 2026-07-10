@@ -54,6 +54,7 @@ export const MONITORED_CRONS: readonly CronExpectation[] = [
   // ── daily ─────────────────────────────────────────────────────────────
   { path: "cleanup", jobName: "cleanup", label: "Daily cleanup", maxStalenessMinutes: 28 * HOUR },
   { path: "trial-reminders", jobName: "trial-reminders", label: "Trial reminders", maxStalenessMinutes: 28 * HOUR },
+  { path: "pricing-setup-reminders", jobName: "pricing-setup-reminders", label: "Pricing setup reminders", maxStalenessMinutes: 28 * HOUR },
   { path: "backfill-progress", jobName: "backfill-progress", label: "Progress backfill", maxStalenessMinutes: 28 * HOUR },
   { path: "winback", jobName: "winback", label: "Win-back campaign", maxStalenessMinutes: 28 * HOUR },
   { path: "dr-nrpg-liveness", jobName: "dr-nrpg-liveness", label: "DR-NRPG liveness", maxStalenessMinutes: 28 * HOUR },
