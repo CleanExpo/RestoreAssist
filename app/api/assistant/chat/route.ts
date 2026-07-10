@@ -26,7 +26,9 @@ import { appendCopyrightGroundingInstruction } from "@/lib/standards/copyright-g
 import {
   ASSISTANT_SYSTEM_PROMPT,
   buildStandardsGrounding,
+  buildWorkContext,
   latestUserText,
+  WORK_HINT,
 } from "@/lib/assistant/grounding";
 import { apiError } from "@/lib/api-errors";
 
@@ -127,6 +129,13 @@ export async function POST(request: NextRequest) {
     );
     if (pricingGrounding) {
       system = system + pricingGrounding;
+    }
+
+    // Inc 2 — work-context grounding, strictly the caller's OWN records
+    // (where userId = this user). Only when they ask about their own work.
+    if (WORK_HINT.test(query)) {
+      const workContext = await buildWorkContext(prisma, userId);
+      if (workContext) system = system + workContext;
     }
 
     // FR8 — read-only: no tools passed to the model.

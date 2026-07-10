@@ -20,7 +20,11 @@ vi.mock("@/lib/organization-credits", () => ({
   getEffectiveSubscription: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { user: { findUnique: vi.fn() } },
+  prisma: {
+    user: { findUnique: vi.fn() },
+    inspection: { findMany: vi.fn(async () => []) },
+    report: { findMany: vi.fn(async () => []) },
+  },
 }));
 // Deterministic pricing grounding that echoes the org it was scoped to.
 vi.mock("@/lib/pricing/org-pricing", () => ({
@@ -39,8 +43,12 @@ import { POST } from "../route";
 const session = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const rateLimit = applyRateLimit as unknown as ReturnType<typeof vi.fn>;
 const sub = getEffectiveSubscription as unknown as ReturnType<typeof vi.fn>;
-const userFind = (prisma as unknown as { user: { findUnique: ReturnType<typeof vi.fn> } })
-  .user.findUnique;
+const p = prisma as unknown as {
+  user: { findUnique: ReturnType<typeof vi.fn> };
+  inspection: { findMany: ReturnType<typeof vi.fn> };
+  report: { findMany: ReturnType<typeof vi.fn> };
+};
+const userFind = p.user.findUnique;
 
 function post(body: unknown = { messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }) {
   return new Request("https://restoreassist.app/api/assistant/chat", {
@@ -109,6 +117,29 @@ describe("POST /api/assistant/chat — persona + tenancy", () => {
     expect(arg.system).not.toContain("Phill");
     expect(arg.system).toContain("READ-ONLY");
     expect(arg.tools).toBeUndefined();
+  });
+
+  it("inc2: a 'my recent jobs' query grounds on the caller's OWN userId only", async () => {
+    session.mockResolvedValueOnce({ user: { id: "user_a" } });
+    p.inspection.findMany.mockResolvedValueOnce([
+      {
+        inspectionNumber: "NIR-1",
+        propertyAddress: "1 Test St",
+        status: "SCOPED",
+        createdAt: new Date("2026-07-04T00:00:00Z"),
+      },
+    ]);
+    await POST(post({ messages: [{ role: "user", parts: [{ type: "text", text: "show me my recent inspections" }] }] }));
+    // tenancy: work query scoped to the caller
+    expect(p.inspection.findMany.mock.calls[0][0].where).toEqual({ userId: "user_a" });
+    const arg = streamTextMock.mock.calls[0][0] as { system: string };
+    expect(arg.system).toContain("YOUR RECENT WORK");
+    expect(arg.system).toContain("NIR-1");
+  });
+
+  it("does NOT pull work context for a non-work question", async () => {
+    await POST(post()); // "hi"
+    expect(p.inspection.findMany).not.toHaveBeenCalled();
   });
 
   it("AC4/AC5: pricing grounding is scoped to the CALLER's own org only", async () => {
