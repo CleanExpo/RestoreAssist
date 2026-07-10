@@ -169,6 +169,9 @@ jobs:
       - name: Marketing zero-verbatim gate
         run: pnpm check:marketing-verbatim
 
+      - name: Australian-English content guard
+        run: pnpm check:au-english
+
       # Phase 2 AI guardrail gate. Static only: no provider calls, no DB
       # writes, and no runtime routing changes. Fails if a new AI/provider/RAG
       # surface cannot be classified into a known task class.
