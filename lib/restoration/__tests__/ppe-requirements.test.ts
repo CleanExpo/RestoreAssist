@@ -57,6 +57,19 @@ describe("requiredPpe — escalations + strictest-wins", () => {
     expect(p.decontamination).toBe(true);
   });
 
+  it("fire/smoke soot requires at least P2 + skin cover + S700 reference (RA soak: firesmoke-ppe-gap)", () => {
+    const p = requiredPpe({ fireSmoke: true });
+    expect(["P2", "P3", "PAPR"]).toContain(p.respiratory);
+    expect(p.items).toContain("Coveralls");
+    expect(p.references.some((r) => /S700/.test(r))).toBe(true);
+  });
+
+  it("fire/smoke never downgrades a stricter co-hazard (Cat 3 stays P3 + decon)", () => {
+    const p = requiredPpe({ waterCategory: "3", fireSmoke: true });
+    expect(p.respiratory).toBe("P3");
+    expect(p.decontamination).toBe(true);
+  });
+
   it("co-occurring hazards take the strictest RPE + union of items", () => {
     const p = requiredPpe({ waterCategory: "2", mouldCondition: 3 });
     expect(p.respiratory).toBe("P3"); // mould C3 beats Cat2 P2
