@@ -232,64 +232,51 @@ export async function PUT(request: NextRequest) {
     }
 
     // Upsert pricing configuration
+    // RA-7026: one field set for BOTH writes so the two stores can never drift.
+    const rateData = {
+      masterQualifiedNormalHours: data.masterQualifiedNormalHours,
+      masterQualifiedSaturday: data.masterQualifiedSaturday,
+      masterQualifiedSunday: data.masterQualifiedSunday,
+      qualifiedTechnicianNormalHours: data.qualifiedTechnicianNormalHours,
+      qualifiedTechnicianSaturday: data.qualifiedTechnicianSaturday,
+      qualifiedTechnicianSunday: data.qualifiedTechnicianSunday,
+      labourerNormalHours: data.labourerNormalHours,
+      labourerSaturday: data.labourerSaturday,
+      labourerSunday: data.labourerSunday,
+      airMoverAxialDailyRate: data.airMoverAxialDailyRate,
+      airMoverCentrifugalDailyRate: data.airMoverCentrifugalDailyRate,
+      dehumidifierLGRDailyRate: data.dehumidifierLGRDailyRate,
+      dehumidifierDesiccantDailyRate: data.dehumidifierDesiccantDailyRate,
+      afdUnitLargeDailyRate: data.afdUnitLargeDailyRate,
+      extractionTruckMountedHourlyRate: data.extractionTruckMountedHourlyRate,
+      extractionElectricHourlyRate: data.extractionElectricHourlyRate,
+      injectionDryingSystemDailyRate: data.injectionDryingSystemDailyRate,
+      antimicrobialTreatmentRate: data.antimicrobialTreatmentRate,
+      mouldRemediationTreatmentRate: data.mouldRemediationTreatmentRate,
+      biohazardTreatmentRate: data.biohazardTreatmentRate,
+      administrationFee: data.administrationFee,
+      callOutFee: data.callOutFee,
+      thermalCameraUseCostPerAssessment: data.thermalCameraUseCostPerAssessment,
+      customFields: customFieldsJson,
+    };
+
     const pricingConfig = await prisma.companyPricingConfig.upsert({
       where: { userId: user.id },
-      update: {
-        masterQualifiedNormalHours: data.masterQualifiedNormalHours,
-        masterQualifiedSaturday: data.masterQualifiedSaturday,
-        masterQualifiedSunday: data.masterQualifiedSunday,
-        qualifiedTechnicianNormalHours: data.qualifiedTechnicianNormalHours,
-        qualifiedTechnicianSaturday: data.qualifiedTechnicianSaturday,
-        qualifiedTechnicianSunday: data.qualifiedTechnicianSunday,
-        labourerNormalHours: data.labourerNormalHours,
-        labourerSaturday: data.labourerSaturday,
-        labourerSunday: data.labourerSunday,
-        airMoverAxialDailyRate: data.airMoverAxialDailyRate,
-        airMoverCentrifugalDailyRate: data.airMoverCentrifugalDailyRate,
-        dehumidifierLGRDailyRate: data.dehumidifierLGRDailyRate,
-        dehumidifierDesiccantDailyRate: data.dehumidifierDesiccantDailyRate,
-        afdUnitLargeDailyRate: data.afdUnitLargeDailyRate,
-        extractionTruckMountedHourlyRate: data.extractionTruckMountedHourlyRate,
-        extractionElectricHourlyRate: data.extractionElectricHourlyRate,
-        injectionDryingSystemDailyRate: data.injectionDryingSystemDailyRate,
-        antimicrobialTreatmentRate: data.antimicrobialTreatmentRate,
-        mouldRemediationTreatmentRate: data.mouldRemediationTreatmentRate,
-        biohazardTreatmentRate: data.biohazardTreatmentRate,
-        administrationFee: data.administrationFee,
-        callOutFee: data.callOutFee,
-        thermalCameraUseCostPerAssessment:
-          data.thermalCameraUseCostPerAssessment,
-        customFields: customFieldsJson,
-      },
-      create: {
-        userId: user.id,
-        masterQualifiedNormalHours: data.masterQualifiedNormalHours,
-        masterQualifiedSaturday: data.masterQualifiedSaturday,
-        masterQualifiedSunday: data.masterQualifiedSunday,
-        qualifiedTechnicianNormalHours: data.qualifiedTechnicianNormalHours,
-        qualifiedTechnicianSaturday: data.qualifiedTechnicianSaturday,
-        qualifiedTechnicianSunday: data.qualifiedTechnicianSunday,
-        labourerNormalHours: data.labourerNormalHours,
-        labourerSaturday: data.labourerSaturday,
-        labourerSunday: data.labourerSunday,
-        airMoverAxialDailyRate: data.airMoverAxialDailyRate,
-        airMoverCentrifugalDailyRate: data.airMoverCentrifugalDailyRate,
-        dehumidifierLGRDailyRate: data.dehumidifierLGRDailyRate,
-        dehumidifierDesiccantDailyRate: data.dehumidifierDesiccantDailyRate,
-        afdUnitLargeDailyRate: data.afdUnitLargeDailyRate,
-        extractionTruckMountedHourlyRate: data.extractionTruckMountedHourlyRate,
-        extractionElectricHourlyRate: data.extractionElectricHourlyRate,
-        injectionDryingSystemDailyRate: data.injectionDryingSystemDailyRate,
-        antimicrobialTreatmentRate: data.antimicrobialTreatmentRate,
-        mouldRemediationTreatmentRate: data.mouldRemediationTreatmentRate,
-        biohazardTreatmentRate: data.biohazardTreatmentRate,
-        administrationFee: data.administrationFee,
-        callOutFee: data.callOutFee,
-        thermalCameraUseCostPerAssessment:
-          data.thermalCameraUseCostPerAssessment,
-        customFields: customFieldsJson,
-      },
+      update: rateData,
+      create: { userId: user.id, ...rateData },
     });
+
+    // RA-7026 write-side SSOT: mirror the edit to the authoritative org store so
+    // it reaches Margot + the estimators (both read OrganizationPricingConfig
+    // first). Without this a dashboard edit would be silently shadowed for org
+    // users. The org table's required fields are exactly `rateData`'s keys.
+    if (user.organizationId) {
+      await prisma.organizationPricingConfig.upsert({
+        where: { organizationId: user.organizationId },
+        update: rateData,
+        create: { organizationId: user.organizationId, ...rateData },
+      });
+    }
 
     // Parse custom fields for response
     let customFields = null;

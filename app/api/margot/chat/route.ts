@@ -41,7 +41,7 @@ import {
   nexusContextEnabled,
 } from "@/lib/nexus-hub-context";
 import { appendCopyrightGroundingInstruction } from "@/lib/standards/copyright-guard";
-import { buildPricingGrounding } from "@/lib/pricing/org-pricing";
+import { buildPricingGrounding, PRICING_HINT } from "@/lib/pricing/org-pricing";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -345,13 +345,18 @@ function latestUserText(messages: UIMessage[]): string {
  * emit report citations, so this uses retrieveForReasoning (all provenance
  * tiers). Best-effort — an empty corpus or unreachable embedder returns "".
  */
-async function buildStandardsGrounding(query: string): Promise<string> {
+async function buildStandardsGrounding(
+  query: string,
+  excludeKnowledge = false,
+): Promise<string> {
   if (!query || !STANDARDS_HINT.test(query)) return "";
   try {
     const { retrieveForReasoning, formatChunksAsContext } = await import(
       "@/lib/rag/retrieve"
     );
-    const chunks = await retrieveForReasoning(query, { k: 4 });
+    // RA-7026: on a pricing question, drop the KNOWLEDGE tier so a foreign
+    // example rate (e.g. CARSI training $/hr) can't enter a pricing answer.
+    const chunks = await retrieveForReasoning(query, { k: 4, excludeKnowledge });
     if (chunks.length === 0) return "";
     return [
       "\n\n--- STANDARDS KNOWLEDGE (reasoning context — paraphrase, cite edition + section, never reproduce the wording) ---\n",
@@ -398,12 +403,15 @@ export async function POST(request: NextRequest) {
       system = `${system}\n\n${formatNexusContextForPrompt(bundle)}`;
     }
 
+    const query = latestUserText(messages);
+    // RA-7026: pricing intent drives BOTH the pricing injection and the
+    // KNOWLEDGE-tier exclusion on standards retrieval.
+    const pricingIntent = PRICING_HINT.test(query);
+
     // RA-7000: standards grounding (reasoning tier) + copyright instruction.
     // Prompt-side only — the reply streams, so the output-side guard cannot
     // run here; the instruction is the enforcement surface for chat.
-    const standardsGrounding = await buildStandardsGrounding(
-      latestUserText(messages),
-    );
+    const standardsGrounding = await buildStandardsGrounding(query, pricingIntent);
     if (standardsGrounding) {
       system = appendCopyrightGroundingInstruction(system + standardsGrounding);
     }
@@ -414,7 +422,7 @@ export async function POST(request: NextRequest) {
     const pricingGrounding = await buildPricingGrounding(
       prisma,
       auth.user?.organizationId ?? null,
-      latestUserText(messages),
+      query,
     );
     if (pricingGrounding) {
       system = system + pricingGrounding;

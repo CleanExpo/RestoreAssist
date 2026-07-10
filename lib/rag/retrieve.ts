@@ -52,6 +52,13 @@ export interface RetrieveOptions {
   standard?: string;
   /** Optional — restrict to a single jurisdiction, e.g. "AU" or "NZ". */
   jurisdiction?: string;
+  /**
+   * RA-7026: reasoning-only. Restrict to AUTHORITATIVE_STANDARD, dropping the
+   * KNOWLEDGE tier. Used for pricing-intent questions so a foreign/example
+   * dollar figure in KNOWLEDGE content (e.g. CARSI training rates) can never
+   * enter the answer alongside the contractor's own configured rates.
+   */
+  excludeKnowledge?: boolean;
 }
 
 /**
@@ -137,7 +144,13 @@ export async function retrieveForReasoning(
   query: string,
   opts: RetrieveOptions = {},
 ): Promise<ChunkResult[]> {
-  return queryChunks(query, opts);
+  const { excludeKnowledge, ...rest } = opts;
+  return queryChunks(
+    query,
+    excludeKnowledge
+      ? { ...rest, provenance: "AUTHORITATIVE_STANDARD" }
+      : rest,
+  );
 }
 
 /**

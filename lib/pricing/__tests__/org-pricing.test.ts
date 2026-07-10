@@ -62,6 +62,11 @@ describe("PRICING_HINT", () => {
     "should I accelerate the airflow", // 'rate' inside 'accelerate' must NOT match
     "generate a report", // 'rate' inside 'generate' must NOT match
     "book me a flight",
+    // Issue 5: technical "rate" phrases must NOT trip pricing intent (they would
+    // wrongly strip the KNOWLEDGE tier from standards retrieval).
+    "what drying rate should I target for a Class 4 loss",
+    "what air-change rate and flow rate should I run",
+    "target evaporation rate for bound water",
   ];
   it.each(misses)("does not fire on %j", (q) => {
     expect(PRICING_HINT.test(q)).toBe(false);

@@ -20,8 +20,11 @@ import type { PrismaClient } from "@prisma/client";
  * "YOUR CONFIGURED RATES" block would be injected into every casual thread and
  * waste the context budget (mirrors the STANDARDS_HINT gate in the chat route).
  */
+// NOTE: bare "rate(s)" is deliberately NOT matched — "drying rate", "air-change
+// rate", "flow rate" are technical, not pricing. "rate" only counts with a
+// pricing qualifier (my/your/charge/hourly/day/labour rate, rate card, $/hr).
 export const PRICING_HINT =
-  /\bpric(?:e|es|ing)\b|\bcharge(?:-?out)?\b|\brates?\b|\bquot(?:e|ing)\b|\$\s?\/?\s?(?:hr|hour|day)\b|\bper\s(?:hour|day)\b|\bday-?rate\b|\bhourly\srate\b|\blabour\srate\b|\bcall-?out\b|\bafter-?hours\b|\binvoic(?:e|ing)\b|\bhow\smuch\s(?:should|do|can)\s(?:i|we|they)\b/i;
+  /\bpric(?:e|es|ing)\b|\bcharge(?:-?out)?\b|\bquot(?:e|ing)\b|\binvoic(?:e|ing)\b|\bcall-?out\b|\bafter-?hours\b|\brate\s?card\b|\bday-?rate\b|\b(?:my|our|your|charge(?:-?out)?|standard|flat|hourly|daily|day|labour|labor)\s(?:rates?|prices?)\b|\$\s?\/?\s?(?:hr|hour|day)\b|\bper\s(?:hour|day)\b|\bhow\smuch\s(?:should|do|can)\s(?:i|we|they)\b/i;
 
 /** The subset of `OrganizationPricingConfig` Margot reasons about. */
 export interface OrgPricingRates {
@@ -140,7 +143,9 @@ export function formatOrgPricingBlock(rates: OrgPricingRates | null): string {
     `public holiday ×${money(rates.publicHolidayMultiplier)}.\n`,
     "Answer pricing questions using ONLY these rates — they are the contractor's own ",
     "configured charge-out rates. Apply the loading multipliers for after-hours, weekend ",
-    "and public-holiday work. Never substitute a national median or any other figure.\n",
+    "and public-holiday work. Never substitute a national median, a figure that appears ",
+    "elsewhere in this prompt (including any standards/knowledge context), or any other ",
+    "number.\n",
   ].join("");
 }
 
