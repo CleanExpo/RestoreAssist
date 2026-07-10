@@ -18,6 +18,7 @@ import {
   invoiceGeneratedEmail,
   dryingGoalAchievedEmail,
   reportReadyEmail,
+  reengagementEmail,
 } from "@/lib/email-templates";
 
 // ── Sample data for previews ──────────────────────────────────────────────
@@ -82,6 +83,16 @@ const TEMPLATES = [
         "https://restoreassist.app/dashboard/inspections/preview/report",
     }),
   },
+  {
+    id: "customer_reengagement",
+    label: "Customer Re-engagement",
+    html: reengagementEmail({
+      recipientName: "Ryan",
+      ctaUrl: "https://restoreassist.app/dashboard/pricing",
+      activityNote: "You logged a few inspections last week — good to see.",
+      senderName: "Phill",
+    }),
+  },
 ] as const;
 
 type TemplateId = (typeof TEMPLATES)[number]["id"];
@@ -129,9 +140,9 @@ export default function EmailTemplatesPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Email Templates</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Preview the 5 transactional email templates sent during the
-          restoration lifecycle. Use &ldquo;Send test&rdquo; to deliver a live
-          preview to{" "}
+          Preview the RestoreAssist email templates — lifecycle notifications
+          and customer re-engagement. Use &ldquo;Send test&rdquo; to deliver a
+          live preview to{" "}
           <span className="font-medium text-slate-700">
             {session?.user?.email ?? "your account email"}
           </span>
