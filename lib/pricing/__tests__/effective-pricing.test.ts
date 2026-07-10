@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   resolveEffectivePricing,
+  isPricingConfigured,
   type PricingResolverClient,
 } from "../effective-pricing";
 
@@ -67,6 +68,23 @@ describe("resolveEffectivePricing", () => {
     const { client, userFind } = stub({});
     expect(await resolveEffectivePricing(client, "")).toBeNull();
     expect(userFind).not.toHaveBeenCalled();
+  });
+});
+
+describe("isPricingConfigured", () => {
+  it("true when the org has a config", async () => {
+    const { client } = stub({ organizationId: "org_1", orgConfig: ORG_ROW });
+    expect(await isPricingConfigured(client, "user_1")).toBe(true);
+  });
+
+  it("true when only the legacy user config exists", async () => {
+    const { client } = stub({ organizationId: null, companyConfig: USER_ROW });
+    expect(await isPricingConfigured(client, "user_1")).toBe(true);
+  });
+
+  it("false when neither config exists", async () => {
+    const { client } = stub({ organizationId: "org_1" });
+    expect(await isPricingConfigured(client, "user_1")).toBe(false);
   });
 });
 

@@ -63,3 +63,16 @@ export async function resolveEffectivePricing(
 
   return prisma.companyPricingConfig.findUnique({ where: { userId } });
 }
+
+/**
+ * Whether the contractor has pricing configured, org-first. One definition of
+ * "configured" for every surface (onboarding status, setup stepper) so they
+ * can't disagree — the gap where onboarding read the user table while setup
+ * read the org table (RA-7026).
+ */
+export async function isPricingConfigured(
+  prisma: PricingResolverClient,
+  userId: string,
+): Promise<boolean> {
+  return (await resolveEffectivePricing(prisma, userId)) !== null;
+}
