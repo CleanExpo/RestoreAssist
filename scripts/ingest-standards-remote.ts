@@ -24,6 +24,8 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+// RA-7026: refuse to embed charge-out rates into the shared corpus.
+import { scanText } from "./ci/check-corpus-hygiene.mjs";
 
 /** Must not exceed the route's `files` array cap (BodySchema: max 50). */
 export const MAX_FILES_PER_POST = 50;
@@ -151,6 +153,23 @@ async function main() {
 
     if (files.length === 0) {
       console.log(`skip ${folder} — no .txt files`);
+      continue;
+    }
+
+    // RA-7026 corpus-hygiene gate: a charge-out rate ($/hr, per day) must never
+    // enter the shared corpus — pricing is a live per-tenant injection. Refuse
+    // the folder loudly rather than embedding a figure a retriever can surface.
+    const rateHits = files.flatMap((f) =>
+      scanText(f.text).map((h) => ({ name: f.name, ...h })),
+    );
+    if (rateHits.length > 0) {
+      failures++;
+      console.error(
+        `  SKIP ${folder} — charge-out rate pattern(s) (rag-corpus-hygiene):`,
+      );
+      for (const h of rateHits) {
+        console.error(`    ${h.name}:${h.line}  ${h.text}`);
+      }
       continue;
     }
 

@@ -138,6 +138,15 @@ jobs:
       - name: Encoding guard
         run: pnpm check:encoding
 
+      # Data-source SSOT gate (RA-7026). Fails if a NEW pair of Prisma models
+      # shares most fields but carries different @unique keys (the tenancy-key
+      # drift that split contractor pricing across OrganizationPricingConfig and
+      # CompanyPricingConfig). Reconciled pairs are allowlisted in
+      # scripts/ci/data-source-ssot-allowlist.json once a single resolver reads
+      # them. See .claude/skills/data-source-ssot/SKILL.md.
+      - name: Data-source SSOT gate
+        run: pnpm check:ssot
+
       # Standards-citation integrity gate (STORM #7 / RA-6934). Fails on stale
       # IICRC editions (source literals + scripts/data/*.json corpus) and on
       # fabricated S500 section numbers whose top-level chapter does not exist in
