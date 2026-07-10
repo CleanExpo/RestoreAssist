@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isPricingConfigured } from "@/lib/pricing/effective-pricing";
 import {
   getEffectiveSubscription,
   getOrganizationOwner,
@@ -60,7 +61,9 @@ export async function GET(request: NextRequest) {
       user.businessName && user.businessAddress
     );
     let integration = null;
-    let pricingConfig = null;
+    // RA-7026: org-first "is pricing configured?" so this agrees with the setup
+    // stepper (which reads OrganizationPricingConfig) instead of only the user table.
+    let pricingConfigured = false;
 
     if (isTeamMember) {
       // Get Admin's ID
@@ -96,12 +99,8 @@ export async function GET(request: NextRequest) {
           },
         });
 
-        // Check Admin's pricing configuration
-        pricingConfig = await prisma.companyPricingConfig.findUnique({
-          where: {
-            userId: ownerId,
-          },
-        });
+        // Check Admin's pricing configuration (org-first)
+        pricingConfigured = await isPricingConfigured(prisma, ownerId);
       }
     } else {
       // Admin - check their own onboarding
@@ -122,11 +121,7 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      pricingConfig = await prisma.companyPricingConfig.findUnique({
-        where: {
-          userId: session.user.id,
-        },
-      });
+      pricingConfigured = await isPricingConfigured(prisma, session.user.id);
     }
 
     // Check if user has created at least one report (check current user's reports, not Admin's)
@@ -238,7 +233,7 @@ export async function GET(request: NextRequest) {
         route: "/dashboard/settings",
       },
       pricing_config: {
-        completed: !!pricingConfig, // Uses Admin's pricing config for team members
+        completed: pricingConfigured, // org-first; team members use Admin's config
         required: !isTrial, // Only required for paid users (locked for free users)
         title: isTrial
           ? "Configure pricing (when you're ready)"
