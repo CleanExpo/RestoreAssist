@@ -238,14 +238,27 @@ export function PilotReadinessCommandCentre({
       </div>
 
       <div className="grid gap-px overflow-hidden rounded-lg border border-neutral-200 bg-neutral-200 sm:grid-cols-3 dark:border-slate-800 dark:bg-slate-800">
-        <div className="bg-white px-4 py-3 dark:bg-slate-950">
-          <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-slate-400">
-            <Globe2 className="h-3.5 w-3.5" />
-            Environment
+        <div className="flex items-center justify-between gap-3 bg-white px-4 py-3 dark:bg-slate-950">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-slate-400">
+              <Globe2 className="h-3.5 w-3.5" />
+              Environment
+            </div>
+            <p className="mt-1 truncate text-sm font-semibold text-neutral-900 dark:text-slate-100">
+              {snapshot.deployment.environment}
+            </p>
           </div>
-          <p className="mt-1 truncate text-sm font-semibold text-neutral-900 dark:text-slate-100">
-            {snapshot.deployment.environment}
-          </p>
+          {snapshot.deployment.deploymentUrl && (
+            <a
+              href={snapshot.deployment.deploymentUrl}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Open deployed application"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-neutral-500 hover:text-neutral-800 dark:text-slate-400 dark:hover:text-slate-100"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          )}
         </div>
         <div className="bg-white px-4 py-3 dark:bg-slate-950">
           <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-slate-400">

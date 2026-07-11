@@ -79,6 +79,9 @@ describe("PilotReadinessCommandCentre", () => {
     expect(screen.getByText("production")).toBeInTheDocument();
     expect(screen.getByText("main")).toBeInTheDocument();
     expect(screen.getByText("01234567")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open deployed application" }),
+    ).toHaveAttribute("href", "https://restoreassist.app");
     expect(screen.getAllByText("Verified").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Needs evidence").length).toBeGreaterThan(0);
     expect(screen.getByText("Blockers")).toBeInTheDocument();
