@@ -45,6 +45,10 @@ export type TranscriptTurn = {
   confidence?: number; // 0..1
   toolCalls?: LiveTeacherToolCall[];
   pending?: boolean;
+  /** RA-1132i-3 — the persisted utterance id (from `done`), needed to override. */
+  utteranceId?: string;
+  overridden?: boolean;
+  overrideReason?: string;
 };
 
 /** "take_reading" -> "Take reading". Used for card labels and fallbacks. */

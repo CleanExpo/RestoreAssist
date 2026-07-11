@@ -195,6 +195,7 @@ export function VoiceAssistant({
           patchTurn(assistantId, {
             clauseRefs: event.clauseRefs,
             confidence: event.confidence,
+            utteranceId: event.utteranceId,
             pending: false,
           });
           if (speakReplies && latest) speak(latest);
@@ -258,6 +259,26 @@ export function VoiceAssistant({
   const dismissProposal = useCallback((id: string) => {
     setProposals((prev) => prev.filter((p) => p.id !== id));
   }, []);
+
+  const handleOverride = useCallback(
+    async (turnId: string, utteranceId: string, reason: string) => {
+      setError(null);
+      try {
+        const res = await fetch("/api/live-teacher/utterance/override", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ utteranceId, reason }),
+        });
+        if (!res.ok) {
+          throw new Error("Could not record the override. Please try again.");
+        }
+        patchTurn(turnId, { overridden: true, overrideReason: reason });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Something went wrong.");
+      }
+    },
+    [patchTurn],
+  );
 
   const toggleMic = useCallback(() => {
     if (listening) {
@@ -341,7 +362,7 @@ export function VoiceAssistant({
       )}
 
       <div className="rounded-xl border border-neutral-200 dark:border-slate-700/60">
-        <TranscriptStream turns={turns} />
+        <TranscriptStream turns={turns} onOverride={handleOverride} />
       </div>
 
       {proposals.map((proposal) => {
