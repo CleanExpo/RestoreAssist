@@ -324,6 +324,56 @@ describe("POST /api/live-teacher/turn", () => {
     expect(text).toContain('"type":"done"');
   });
 
+  it("emits tool_proposal + a proposed audit row (no write) for a confirm-required tool (RA-1132f-3)", async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: "user-1", email: "test@example.com" },
+    } as any);
+    mockSessionFindFirst.mockResolvedValue({
+      id: "sess-1",
+      userId: "user-1",
+      inspectionId: "insp-1",
+      jurisdiction: "AU",
+    });
+    mockUtteranceCount.mockResolvedValue(0);
+    mockUtteranceFindMany.mockResolvedValue([]);
+    mockUtteranceCreate
+      .mockResolvedValueOnce({ id: "utt-user-1" })
+      .mockResolvedValueOnce({ id: "utt-asst-1" });
+    mockToolCallCreate.mockResolvedValue({ id: "tc-prop-1" });
+    mockInvokeClaudeCloud.mockResolvedValue({
+      content: "I've flagged an asbestos hazard for your confirmation.",
+      clauseRefs: [],
+      confidence: 80,
+      toolCalls: [
+        {
+          name: "flag_whs_hazard",
+          args: { inspectionId: "insp-1", hazardType: "asbestos", severity: "HIGH" },
+          id: "tu_1",
+          proposed: true,
+        },
+      ],
+      inputTokens: 10,
+      outputTokens: 8,
+      costAudCents: 1,
+    });
+
+    const { POST } = await import("../turn/route");
+    const req = makeRequest("POST", "http://localhost/api/live-teacher/turn", {
+      sessionId: "sess-1",
+      utterance: "There's asbestos here",
+    });
+    const res = await POST(req);
+    const text = await res.text();
+
+    expect(text).toContain('"type":"tool_proposal"');
+    expect(text).toContain("flag_whs_hazard");
+    expect(text).not.toContain('"type":"tool_call"');
+    // The audit row is marked proposed; no compliance write happened.
+    const toolData = mockToolCallCreate.mock.calls[0][0].data;
+    expect(toolData.toolName).toBe("flag_whs_hazard");
+    expect(toolData.result).toEqual({ proposed: true });
+  });
+
   it("5. streams the real cloud client output — no canned stub string", async () => {
     mockGetServerSession.mockResolvedValue({
       user: { id: "user-1", email: "test@example.com" },

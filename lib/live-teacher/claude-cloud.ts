@@ -62,6 +62,8 @@ export type ClaudeCloudResult = {
     result?: unknown;
     error?: string;
     durationMs?: number;
+    /** RA-1132f-3 — a confirm-required tool that was proposed, not executed. */
+    proposed?: boolean;
   }>;
   inputTokens: number;
   outputTokens: number;
@@ -86,6 +88,7 @@ Rules:
 - Coach proactively: when missingFields is non-empty, first give one short, specific reminder of what's still outstanding for the current stage (e.g. "Before we move on — you haven't logged the water category for this room [S500:2021 §10.5]"), then answer the question. When missingFields is empty, just answer. This is how a first-week technician reaches veteran-level completeness.
 - When the technician reports a moisture reading (a value with a location and material), call the take_reading tool to log it, then confirm what you logged. The current inspection is already known — never ask the technician for an inspection ID.
 - When the technician asks what is still missing, whether the report is complete, or is about to submit, call the check_report_gaps tool and relay the gaps plainly (highest-severity first). If there are none, reassure them the report looks complete. This is read-only — it never changes the job.
+- When a genuine WHS hazard is present (confined space, asbestos, biohazard, electrical), call the flag_whs_hazard tool. This does NOT record anything on its own — it proposes the hazard for the technician to confirm. Tell them plainly that you have flagged it for their confirmation and to review it; never state it as recorded.
 - Output format: natural spoken English, concise (under 40 words per turn unless synthesizing a report)`;
 
 // ---------------------------------------------------------------------------
@@ -102,7 +105,17 @@ Rules:
 const PHASE1_TOOL_NAMES: readonly ToolName[] = [
   "take_reading",
   "check_report_gaps",
+  "flag_whs_hazard",
 ];
+
+/**
+ * Confirm-required tools are NOT executed during the turn. They write
+ * compliance-sensitive records (WHSIncident), so the AI only PROPOSES them; the
+ * technician confirms and a separate endpoint performs the write. This is the
+ * confirm-before-write pattern (RA-1132f-3). The tool is still offered to the
+ * model, but its handler never runs here.
+ */
+const CONFIRM_REQUIRED_TOOLS: readonly ToolName[] = ["flag_whs_hazard"];
 
 const ENABLED_TOOLS = TOOL_DEFINITIONS.filter((d) =>
   PHASE1_TOOL_NAMES.includes(d.name),
@@ -283,6 +296,27 @@ export async function invokeClaudeCloud(
           ...(block.input as Record<string, unknown>),
           inspectionId: input.context.inspectionId,
         };
+
+        // Confirm-required tools (e.g. flag_whs_hazard) are PROPOSED, never run
+        // here: the compliance write happens only after the technician confirms
+        // via the confirm endpoint. Record the proposal and tell the model it is
+        // not yet logged, so it never claims otherwise.
+        if (CONFIRM_REQUIRED_TOOLS.includes(block.name as ToolName)) {
+          executedToolCalls.push({
+            name: block.name,
+            args: safeArgs,
+            id: block.id,
+            proposed: true,
+          });
+          toolResultBlocks.push({
+            type: "tool_result",
+            tool_use_id: block.id,
+            content:
+              "Proposed to the technician for confirmation. It is NOT recorded yet — tell them you have flagged it for their review; do not claim it is logged.",
+          });
+          continue;
+        }
+
         const startedAt = Date.now();
         let result: unknown;
         let error: string | undefined;

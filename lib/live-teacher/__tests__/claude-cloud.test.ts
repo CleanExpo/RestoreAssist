@@ -170,13 +170,37 @@ describe("invokeClaudeCloud — tool layer (RA-1132f)", () => {
 
   it("refuses a tool outside the phase allowlist without dispatching", async () => {
     anthropicMock.create
-      .mockResolvedValueOnce(toolUseResponse("flag_whs_hazard", {}))
+      .mockResolvedValueOnce(toolUseResponse("fill_scope_item", {}))
       .mockResolvedValueOnce(makeSuccessResponse("Noted."));
 
     const result = await invokeClaudeCloud(baseInput);
 
     expect(dispatchToolMock).not.toHaveBeenCalled();
     expect(result.toolCalls[0].error).toMatch(/not enabled/i);
+  });
+
+  it("proposes flag_whs_hazard without executing it (confirm-required, RA-1132f-3)", async () => {
+    anthropicMock.create
+      .mockResolvedValueOnce(
+        toolUseResponse("flag_whs_hazard", {
+          hazardType: "asbestos",
+          severity: "HIGH",
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeSuccessResponse("I've flagged an asbestos hazard for your confirmation."),
+      );
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    // NOT executed — no compliance write happens during the turn.
+    expect(dispatchToolMock).not.toHaveBeenCalled();
+    expect(result.toolCalls[0]).toMatchObject({
+      name: "flag_whs_hazard",
+      proposed: true,
+    });
+    expect(result.toolCalls[0].result).toBeUndefined();
+    expect(result.content).toContain("flagged an asbestos hazard");
   });
 
   it("runs check_report_gaps (read-only) with the injected id and returns gaps", async () => {
