@@ -45,6 +45,7 @@ const mockUtteranceCreate = vi.fn();
 const mockUtteranceCount = vi.fn();
 const mockUtteranceFindMany = vi.fn();
 const mockToolCallFindMany = vi.fn();
+const mockToolCallCreate = vi.fn();
 const mockInspectionFindFirst = vi.fn();
 // buildTeacherContext (RA-6731 follow-up) reads inspection.findUnique; default
 // to null → safe-default context so existing turn tests are unaffected.
@@ -100,6 +101,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     teacherToolCall: {
       findMany: (...args: unknown[]) => mockToolCallFindMany(...args),
+      create: (...args: unknown[]) => mockToolCallCreate(...args),
     },
     moistureReading: {
       count: (...args: unknown[]) => mockMoistureReadingCount(...args),
@@ -262,6 +264,64 @@ describe("POST /api/live-teacher/turn", () => {
     expect(text).toContain("utt-asst-1");
     // Verify create was called twice: once for user, once for assistant
     expect(mockUtteranceCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("persists a TeacherToolCall and streams a tool_call event when the model uses a tool (RA-1132f)", async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: "user-1", email: "test@example.com" },
+    } as any);
+    mockSessionFindFirst.mockResolvedValue({
+      id: "sess-1",
+      userId: "user-1",
+      inspectionId: "insp-1",
+      jurisdiction: "AU",
+    });
+    mockUtteranceCount.mockResolvedValue(0);
+    mockUtteranceFindMany.mockResolvedValue([]);
+    mockUtteranceCreate
+      .mockResolvedValueOnce({ id: "utt-user-1" })
+      .mockResolvedValueOnce({ id: "utt-asst-1" });
+    mockToolCallCreate.mockResolvedValue({ id: "tc-1" });
+    mockInvokeClaudeCloud.mockResolvedValue({
+      content: "Logged 45% MC in the bathroom. [S500:2021 §10.5]",
+      clauseRefs: ["[S500:2021 §10.5]"],
+      confidence: 88,
+      toolCalls: [
+        {
+          name: "take_reading",
+          args: { inspectionId: "insp-1", location: "Bathroom" },
+          id: "tu_1",
+          result: { id: "mr_1", value: 45 },
+          durationMs: 12,
+        },
+      ],
+      inputTokens: 30,
+      outputTokens: 20,
+      costAudCents: 3,
+    });
+
+    const { POST } = await import("../turn/route");
+    const req = makeRequest("POST", "http://localhost/api/live-teacher/turn", {
+      sessionId: "sess-1",
+      utterance: "Bathroom drywall reads 45 percent",
+    });
+    const res = await POST(req);
+    const text = await res.text();
+
+    // A TeacherToolCall row is persisted, linked to the assistant utterance.
+    expect(mockToolCallCreate).toHaveBeenCalledTimes(1);
+    const toolData = mockToolCallCreate.mock.calls[0][0].data;
+    expect(toolData.toolName).toBe("take_reading");
+    expect(toolData.utteranceId).toBe("utt-asst-1");
+    expect(toolData.result).toEqual({ id: "mr_1", value: 45 });
+
+    // A tool_call SSE event is streamed, before the token event.
+    expect(text).toContain('"type":"tool_call"');
+    expect(text).toContain("take_reading");
+    expect(text.indexOf('"type":"tool_call"')).toBeLessThan(
+      text.indexOf('"type":"token"'),
+    );
+    expect(text).toContain('"type":"done"');
   });
 
   it("5. streams the real cloud client output — no canned stub string", async () => {

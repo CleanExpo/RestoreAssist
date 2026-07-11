@@ -25,6 +25,20 @@ const anthropicMock = {
   create: vi.fn(),
 };
 
+// RA-1132f — mock the tool layer. Provide the take_reading definition so the
+// Phase-1 allowlist has something to enable, and a spy for dispatchTool.
+const dispatchToolMock = vi.fn();
+vi.mock("../tools", () => ({
+  TOOL_DEFINITIONS: [
+    {
+      name: "take_reading",
+      description: "Log a moisture reading",
+      input_schema: { type: "object", properties: {}, required: [] },
+    },
+  ],
+  dispatchTool: (...args: unknown[]) => dispatchToolMock(...args),
+}));
+
 vi.mock("@anthropic-ai/sdk", () => {
   return {
     default: vi.fn().mockImplementation(function () {
@@ -80,6 +94,90 @@ function makeSuccessResponse(text: string) {
 
 beforeEach(() => {
   anthropicMock.create.mockReset();
+  dispatchToolMock.mockReset();
+});
+
+function toolUseResponse(name: string, input: Record<string, unknown>) {
+  return {
+    content: [{ type: "tool_use", id: "tu_1", name, input }],
+    usage: { input_tokens: 80, output_tokens: 30 },
+    stop_reason: "tool_use",
+  };
+}
+
+describe("invokeClaudeCloud — tool layer (RA-1132f)", () => {
+  it("runs take_reading with the injected real inspectionId and returns the result", async () => {
+    anthropicMock.create
+      .mockResolvedValueOnce(
+        toolUseResponse("take_reading", {
+          inspectionId: "SPOOFED-OTHER-TENANT",
+          location: "Bathroom",
+          surfaceType: "drywall",
+          moistureLevel: 45,
+          unit: "PERCENT_MC",
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeSuccessResponse("Logged 45% MC in the bathroom [S500:2021 §10.5]."),
+      );
+    dispatchToolMock.mockResolvedValueOnce({
+      id: "mr_1",
+      location: "Bathroom",
+      value: 45,
+      unit: "PERCENT_MC",
+    });
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    // dispatchTool called once, with the SESSION inspectionId (not the spoofed
+    // one) and the authenticated userId context.
+    expect(dispatchToolMock).toHaveBeenCalledTimes(1);
+    const [name, args, ctx] = dispatchToolMock.mock.calls[0];
+    expect(name).toBe("take_reading");
+    expect((args as { inspectionId?: string }).inspectionId).toBe("insp-001");
+    expect(ctx).toEqual({ userId: "user-001" });
+
+    // Final content is the post-tool summary; tool call + result captured.
+    expect(result.content).toContain("Logged 45% MC");
+    expect(result.toolCalls).toHaveLength(1);
+    expect(result.toolCalls[0]).toMatchObject({
+      name: "take_reading",
+      error: undefined,
+      result: { id: "mr_1", value: 45 },
+    });
+    // Tokens accumulate across both iterations (80+100 in, 30+50 out).
+    expect(result.inputTokens).toBe(180);
+    expect(result.outputTokens).toBe(80);
+  });
+
+  it("records a tool error and still returns a grounded answer", async () => {
+    anthropicMock.create
+      .mockResolvedValueOnce(
+        toolUseResponse("take_reading", { location: "Kitchen" }),
+      )
+      .mockResolvedValueOnce(
+        makeSuccessResponse("I couldn't log that reading — please retry."),
+      );
+    dispatchToolMock.mockRejectedValueOnce(
+      new Error('tenancy check failed (403): not owner'),
+    );
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    expect(result.toolCalls[0].error).toContain("tenancy check failed");
+    expect(result.content).toContain("couldn't log that");
+  });
+
+  it("refuses a tool outside the phase allowlist without dispatching", async () => {
+    anthropicMock.create
+      .mockResolvedValueOnce(toolUseResponse("flag_whs_hazard", {}))
+      .mockResolvedValueOnce(makeSuccessResponse("Noted."));
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    expect(dispatchToolMock).not.toHaveBeenCalled();
+    expect(result.toolCalls[0].error).toMatch(/not enabled/i);
+  });
 });
 
 // ---------------------------------------------------------------------------

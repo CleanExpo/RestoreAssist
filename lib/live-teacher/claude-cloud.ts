@@ -3,6 +3,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
+import { TOOL_DEFINITIONS, dispatchTool, type ToolName } from "./tools";
 
 // ---------------------------------------------------------------------------
 // Inline type fallbacks — remove once RA-1132b lands and types.ts is available
@@ -54,7 +55,14 @@ export type ClaudeCloudResult = {
   content: string;
   clauseRefs: string[];
   confidence: number;
-  toolCalls: Array<{ name: string; args: unknown; id: string }>;
+  toolCalls: Array<{
+    name: string;
+    args: unknown;
+    id: string;
+    result?: unknown;
+    error?: string;
+    durationMs?: number;
+  }>;
   inputTokens: number;
   outputTokens: number;
   costAudCents: number;
@@ -76,7 +84,27 @@ Rules:
 - The user's message begins with a [Context: room, stage, jurisdiction, missingFields, stillWet] block describing where the technician is in the job. Treat every item in missingFields as not yet captured. stillWet lists materials already measured that remain above their dry standard.
 - When stillWet is non-empty, factor it into drying/scope advice — those materials are not yet dry and must keep being dried and monitored before sign-off [S500:2021 §12.2].
 - Coach proactively: when missingFields is non-empty, first give one short, specific reminder of what's still outstanding for the current stage (e.g. "Before we move on — you haven't logged the water category for this room [S500:2021 §10.5]"), then answer the question. When missingFields is empty, just answer. This is how a first-week technician reaches veteran-level completeness.
+- When the technician reports a moisture reading (a value with a location and material), call the take_reading tool to log it, then confirm what you logged. The current inspection is already known — never ask the technician for an inspection ID.
 - Output format: natural spoken English, concise (under 40 words per turn unless synthesizing a report)`;
+
+// ---------------------------------------------------------------------------
+// Tool layer (RA-1132f)
+// ---------------------------------------------------------------------------
+
+/**
+ * Phase 1 (Silent Coach) enables only take_reading. capture_photo needs a
+ * client image source the text UI can't provide yet; the other four tools land
+ * in later phases. Gating here (not just in the prompt) means the model cannot
+ * invoke an unlisted tool even if it tries.
+ */
+const PHASE1_TOOL_NAMES: readonly ToolName[] = ["take_reading"];
+
+const ENABLED_TOOLS = TOOL_DEFINITIONS.filter((d) =>
+  PHASE1_TOOL_NAMES.includes(d.name),
+) as unknown as Anthropic.Tool[];
+
+/** Bound the tool-use loop so a misbehaving model can't spin indefinitely. */
+const MAX_TOOL_ITERATIONS = 4;
 
 // ---------------------------------------------------------------------------
 // Cost calculation helpers
@@ -196,61 +224,117 @@ export async function invokeClaudeCloud(
   // workload never spends the platform ANTHROPIC_API_KEY.
   const anthropic = new Anthropic({ apiKey: input.apiKey });
 
-  // TODO: wire tool definitions from lib/live-teacher/tools/ once RA-1132f lands
-  const tools: Anthropic.Tool[] = [];
-
   const messages = buildMessages(
     input.history,
     input.userUtterance,
     input.context,
   );
 
-  let response: Anthropic.Message;
+  const executedToolCalls: ClaudeCloudResult["toolCalls"] = [];
+  let content = "";
+  let inputTokens = 0;
+  let outputTokens = 0;
+
   try {
-    // claude-opus-4-7 does not support temperature/top_p — omit those params.
-    // The model string is passed as a plain string; SDK typings may lag behind
-    // the actual model release cadence.
-    response = await (
-      anthropic.messages.create as (
-        params: Anthropic.MessageCreateParamsNonStreaming,
-      ) => Promise<Anthropic.Message>
-    )({
-      model: "claude-opus-4-7" as string,
-      max_tokens: 512,
-      system: SYSTEM_PROMPT,
-      messages,
-      ...(tools.length > 0 ? { tools } : {}),
-    });
+    for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
+      // claude-opus-4-7 does not support temperature/top_p — omit those params.
+      // The model string is a plain string; SDK typings may lag the model
+      // release cadence.
+      const response = await (
+        anthropic.messages.create as (
+          params: Anthropic.MessageCreateParamsNonStreaming,
+        ) => Promise<Anthropic.Message>
+      )({
+        model: "claude-opus-4-7" as string,
+        max_tokens: 512,
+        system: SYSTEM_PROMPT,
+        messages,
+        ...(ENABLED_TOOLS.length > 0 ? { tools: ENABLED_TOOLS } : {}),
+      });
+
+      inputTokens += response.usage.input_tokens;
+      outputTokens += response.usage.output_tokens;
+
+      const textBlock = response.content.find(
+        (b): b is Anthropic.TextBlock => b.type === "text",
+      );
+      if (textBlock?.text) content = textBlock.text;
+
+      const toolUseBlocks = response.content.filter(
+        (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
+      );
+
+      if (response.stop_reason !== "tool_use" || toolUseBlocks.length === 0) {
+        break;
+      }
+
+      // Execute each requested tool through the fail-closed dispatcher. The
+      // model-supplied inspectionId is REPLACED with the session's real one
+      // (never trust a model-controlled id), and dispatchTool re-validates
+      // tenancy against the authenticated userId before running (IDOR guard).
+      const toolResultBlocks: Anthropic.ToolResultBlockParam[] = [];
+      for (const block of toolUseBlocks) {
+        const safeArgs = {
+          ...(block.input as Record<string, unknown>),
+          inspectionId: input.context.inspectionId,
+        };
+        const startedAt = Date.now();
+        let result: unknown;
+        let error: string | undefined;
+        try {
+          if (!PHASE1_TOOL_NAMES.includes(block.name as ToolName)) {
+            throw new Error(`Tool "${block.name}" is not enabled in this phase`);
+          }
+          result = await dispatchTool(block.name as ToolName, safeArgs, {
+            userId: input.context.userId,
+          });
+        } catch (err) {
+          // Rule 7: log internally; hand the model a generic error to recover.
+          console.error("[invokeClaudeCloud] tool dispatch failed:", err);
+          error = err instanceof Error ? err.message : "Tool execution failed";
+        }
+        executedToolCalls.push({
+          name: block.name,
+          args: safeArgs,
+          id: block.id,
+          result,
+          error,
+          durationMs: Date.now() - startedAt,
+        });
+        toolResultBlocks.push({
+          type: "tool_result",
+          tool_use_id: block.id,
+          content: error ? `Error: ${error}` : JSON.stringify(result ?? {}),
+          ...(error ? { is_error: true } : {}),
+        });
+      }
+
+      // Feed the tool results back so the model can summarise for the tech.
+      messages.push({
+        role: "assistant",
+        content: response.content as Anthropic.ContentBlockParam[],
+      });
+      messages.push({ role: "user", content: toolResultBlocks });
+    }
   } catch (err) {
     // Rule 7: never expose error.message in the response body; log internally.
     console.error("[invokeClaudeCloud] Anthropic API error:", err);
-    return {
-      content: "I'm having trouble connecting — please try again",
-      clauseRefs: [],
-      confidence: 0,
-      toolCalls: [],
-      inputTokens: 0,
-      outputTokens: 0,
-      costAudCents: 0,
-    };
+    // Nothing produced yet → preserve the existing safe-fallback contract.
+    if (!content && executedToolCalls.length === 0) {
+      return {
+        content: "I'm having trouble connecting — please try again",
+        clauseRefs: [],
+        confidence: 0,
+        toolCalls: [],
+        inputTokens: 0,
+        outputTokens: 0,
+        costAudCents: 0,
+      };
+    }
   }
-
-  // Extract text content
-  const textBlock = response.content.find(
-    (b): b is Anthropic.TextBlock => b.type === "text",
-  );
-  const content = textBlock?.text ?? "";
-
-  // Extract tool_use blocks (none expected until RA-1132f wires tools)
-  const toolCalls = response.content
-    .filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use")
-    .map((b) => ({ name: b.name, args: b.input, id: b.id }));
 
   const clauseRefs = extractClauseRefs(content);
   const confidence = deriveConfidence(content, clauseRefs);
-
-  const inputTokens = response.usage.input_tokens;
-  const outputTokens = response.usage.output_tokens;
   const costAudCents = computeCostAudCents(inputTokens, outputTokens);
 
   // TODO RA-1087: integrate logAiUsage once the Live Teacher session schema
@@ -278,7 +362,7 @@ export async function invokeClaudeCloud(
     content,
     clauseRefs,
     confidence,
-    toolCalls,
+    toolCalls: executedToolCalls,
     inputTokens,
     outputTokens,
     costAudCents,
