@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { parseTurnFrames, streamTurn, type TurnEvent } from "../turn-stream";
+import {
+  parseTurnFrames,
+  streamTurn,
+  summariseToolCall,
+  type TurnEvent,
+} from "../turn-stream";
 
 describe("parseTurnFrames", () => {
   it("decodes a token then done frame, stripping the data: prefix", () => {
@@ -61,5 +66,43 @@ describe("streamTurn", () => {
     await expect(
       streamTurn({ ok: true, status: 200, body: null } as unknown as Response, () => {}),
     ).rejects.toThrow(/not supported/i);
+  });
+});
+
+describe("tool_call events (RA-1132i-2)", () => {
+  it("parses a tool_call frame ahead of the token/done frames", () => {
+    const buf =
+      `data: ${JSON.stringify({ type: "tool_call", id: "tc1", toolName: "take_reading", ok: true, result: { location: "Bathroom", value: 45, unit: "PERCENT_MC" } })}\n\n` +
+      `data: ${JSON.stringify({ type: "token", content: "Logged it." })}\n\n` +
+      `data: ${JSON.stringify({ type: "done", utteranceId: "u1", clauseRefs: [], confidence: 0.8 })}\n\n`;
+    const { events } = parseTurnFrames(buf);
+    expect(events.map((e) => e.type)).toEqual(["tool_call", "token", "done"]);
+    const tc = events[0] as Extract<TurnEvent, { type: "tool_call" }>;
+    expect(tc).toMatchObject({ toolName: "take_reading", ok: true });
+  });
+});
+
+describe("summariseToolCall", () => {
+  it("summarises a take_reading result", () => {
+    expect(
+      summariseToolCall({
+        id: "tc1",
+        toolName: "take_reading",
+        ok: true,
+        result: { location: "Bathroom", value: 45, unit: "PERCENT_MC" },
+      }),
+    ).toBe("Logged reading — Bathroom: 45 PERCENT_MC");
+  });
+
+  it("degrades gracefully when the result shape is unexpected", () => {
+    expect(
+      summariseToolCall({ id: "tc1", toolName: "take_reading", ok: true, result: null }),
+    ).toBe("Logged reading — reading");
+  });
+
+  it("humanises an unknown tool name", () => {
+    expect(
+      summariseToolCall({ id: "tc2", toolName: "capture_photo", ok: true }),
+    ).toBe("Capture photo");
   });
 });

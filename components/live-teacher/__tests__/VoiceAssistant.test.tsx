@@ -31,6 +31,28 @@ function streamResponse(frames: string[]): Response {
   } as unknown as Response;
 }
 
+/** Emits the given frames, then the reader rejects (simulates a network drop). */
+function streamThenError(frames: string[]): Response {
+  const encoder = new TextEncoder();
+  let i = 0;
+  return {
+    ok: true,
+    status: 200,
+    body: {
+      getReader() {
+        return {
+          read: async () => {
+            if (i < frames.length) {
+              return { done: false, value: encoder.encode(frames[i++]) };
+            }
+            throw new Error("network drop");
+          },
+        };
+      },
+    },
+  } as unknown as Response;
+}
+
 const sessionOk = {
   ok: true,
   status: 201,
@@ -91,6 +113,83 @@ describe("VoiceAssistant", () => {
     );
     const body = JSON.parse((turnCall![1] as RequestInit).body as string);
     expect(body).toEqual({ sessionId: "s1", utterance: "What category is this?" });
+  });
+
+  it("renders a success tool-call card when the teacher logs a reading (RA-1132i-2)", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);
+      return Promise.resolve(
+        streamResponse([
+          `data: ${JSON.stringify({ type: "tool_call", id: "tc1", toolName: "take_reading", ok: true, result: { location: "Bathroom", value: 45, unit: "PERCENT_MC" } })}\n\n`,
+          `data: ${JSON.stringify({ type: "token", content: "Logged 45% in the bathroom." })}\n\n`,
+          `data: ${JSON.stringify({ type: "done", utteranceId: "u1", clauseRefs: [], confidence: 0.9 })}\n\n`,
+        ]),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    ask("Bathroom drywall reads 45 percent");
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Logged reading — Bathroom: 45 PERCENT_MC"),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Live Teacher action")).toBeInTheDocument();
+    expect(
+      screen.getByText("Logged 45% in the bathroom."),
+    ).toBeInTheDocument();
+  });
+
+  it("renders a muted 'not completed' card when a tool call fails", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);
+      return Promise.resolve(
+        streamResponse([
+          `data: ${JSON.stringify({ type: "tool_call", id: "tc1", toolName: "take_reading", ok: false, error: "tenancy check failed" })}\n\n`,
+          `data: ${JSON.stringify({ type: "token", content: "I couldn't log that." })}\n\n`,
+          `data: ${JSON.stringify({ type: "done", utteranceId: "u1", clauseRefs: [], confidence: 0.5 })}\n\n`,
+        ]),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    ask("log a reading");
+
+    await waitFor(() =>
+      expect(screen.getByText("Action not completed")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Take reading")).toBeInTheDocument();
+    // The failure must NOT masquerade as a successful log.
+    expect(
+      screen.queryByText(/^Logged reading/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the tool-call card when the stream drops after an action was logged (RA-1132i-2)", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);
+      return Promise.resolve(
+        streamThenError([
+          `data: ${JSON.stringify({ type: "tool_call", id: "tc1", toolName: "take_reading", ok: true, result: { location: "Bathroom", value: 45, unit: "PERCENT_MC" } })}\n\n`,
+        ]),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    ask("Bathroom reads 45");
+
+    // The reading was persisted server-side; its card must survive the drop so
+    // the tech doesn't re-log it.
+    await waitFor(() =>
+      expect(
+        screen.getByText("Logged reading — Bathroom: 45 PERCENT_MC"),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("alert")).toBeInTheDocument();
   });
 
   it("shows the subscription CTA on 402 upgradeRequired", async () => {

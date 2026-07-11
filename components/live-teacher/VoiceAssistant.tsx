@@ -21,7 +21,11 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { TranscriptStream } from "./TranscriptStream";
-import { streamTurn, type TranscriptTurn } from "@/lib/live-teacher/turn-stream";
+import {
+  streamTurn,
+  type LiveTeacherToolCall,
+  type TranscriptTurn,
+} from "@/lib/live-teacher/turn-stream";
 
 type Jurisdiction = "AU" | "NZ";
 type Gate = "subscription" | "byok";
@@ -164,10 +168,20 @@ export function VoiceAssistant({
       }
 
       let latest = "";
+      const toolCalls: LiveTeacherToolCall[] = [];
       await streamTurn(res, (event) => {
         if (event.type === "token") {
           latest = event.content;
           patchTurn(assistantId, { content: event.content });
+        } else if (event.type === "tool_call") {
+          toolCalls.push({
+            id: event.id,
+            toolName: event.toolName,
+            ok: event.ok,
+            result: event.result,
+            error: event.error,
+          });
+          patchTurn(assistantId, { toolCalls: [...toolCalls] });
         } else if (event.type === "done") {
           patchTurn(assistantId, {
             clauseRefs: event.clauseRefs,
@@ -183,7 +197,19 @@ export function VoiceAssistant({
         }
       });
     } catch (e) {
-      setTurns((prev) => prev.filter((t) => t.id !== assistantId));
+      // Preserve the assistant turn if it already shows real state — streamed
+      // content OR a persisted tool action. Dropping it would hide a reading
+      // that was actually logged server-side and invite the tech to re-enter it
+      // (a duplicate). Only discard an empty placeholder.
+      setTurns((prev) =>
+        prev.flatMap((t) => {
+          if (t.id !== assistantId) return [t];
+          if (t.content || (t.toolCalls && t.toolCalls.length > 0)) {
+            return [{ ...t, pending: false }];
+          }
+          return [];
+        }),
+      );
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setBusy(false);

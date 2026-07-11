@@ -2,13 +2,24 @@
  * RA-7031 (RA-1132i) — client-side consumption of the Live Teacher /turn SSE.
  *
  * The /turn route emits `data: {json}\n\n` frames with NO `event:` names; the
- * event kind lives in the JSON `type` field. It sends one `token` frame (the
- * whole reply, not incremental) then a terminal `done`, or an `error`.
- * Verified against app/api/live-teacher/turn/route.ts (2026-07-12).
+ * event kind lives in the JSON `type` field. Per turn it may send one or more
+ * `tool_call` frames (RA-1132f — an action the teacher took), then one `token`
+ * frame (the whole reply, not incremental), then a terminal `done`, or an
+ * `error`. Verified against app/api/live-teacher/turn/route.ts (2026-07-12).
  */
+
+/** An action the teacher took during a turn (RA-1132f). */
+export type LiveTeacherToolCall = {
+  id: string;
+  toolName: string;
+  ok: boolean;
+  result?: unknown;
+  error?: string | null;
+};
 
 export type TurnEvent =
   | { type: "token"; content: string }
+  | ({ type: "tool_call" } & LiveTeacherToolCall)
   | {
       type: "done";
       utteranceId: string;
@@ -24,8 +35,32 @@ export type TranscriptTurn = {
   content: string;
   clauseRefs?: string[];
   confidence?: number; // 0..1
+  toolCalls?: LiveTeacherToolCall[];
   pending?: boolean;
 };
+
+/** "take_reading" -> "Take reading". Used for card labels and fallbacks. */
+export function humaniseToolName(toolName: string): string {
+  const label = toolName.replace(/_/g, " ");
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+/**
+ * Human-readable one-line summary of a SUCCESSFUL tool call, for the transcript
+ * card. Defensive against the `result` shape — the backend owns it, and the
+ * summary must never throw while rendering.
+ */
+export function summariseToolCall(call: LiveTeacherToolCall): string {
+  const r = (call.result ?? {}) as Record<string, unknown>;
+  if (call.toolName === "take_reading") {
+    const location = typeof r.location === "string" ? r.location : "reading";
+    const unit = typeof r.unit === "string" ? ` ${r.unit}` : "";
+    return typeof r.value === "number"
+      ? `Logged reading — ${location}: ${r.value}${unit}`
+      : `Logged reading — ${location}`;
+  }
+  return humaniseToolName(call.toolName);
+}
 
 /**
  * Parse the complete `data:` frames present in `buffer`, returning the decoded
