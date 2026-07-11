@@ -142,6 +142,39 @@ describe("VoiceAssistant", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders a check_report_gaps card with the gap list (RA-1132f-2)", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);
+      return Promise.resolve(
+        streamResponse([
+          `data: ${JSON.stringify({ type: "tool_call", id: "g1", toolName: "check_report_gaps", ok: true, result: { gaps: [{ field: "photos", severity: "warn", description: "No photos captured for this inspection" }, { field: "iicrcClassification", severity: "block", description: "IICRC S500:2021 water category and class not yet determined" }] } })}\n\n`,
+          `data: ${JSON.stringify({ type: "token", content: "You still need photos and a classification." })}\n\n`,
+          `data: ${JSON.stringify({ type: "done", utteranceId: "u1", clauseRefs: [], confidence: 0.9 })}\n\n`,
+        ]),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    ask("What am I still missing?");
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Report check — 2 gaps to address"),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText("No photos captured for this inspection"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "IICRC S500:2021 water category and class not yet determined",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Blocker")).toBeInTheDocument();
+    expect(screen.getByText("Check")).toBeInTheDocument();
+  });
+
   it("renders a muted 'not completed' card when a tool call fails", async () => {
     const fetchMock = vi.fn((url: string) => {
       if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);

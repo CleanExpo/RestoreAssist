@@ -59,7 +59,39 @@ export function summariseToolCall(call: LiveTeacherToolCall): string {
       ? `Logged reading — ${location}: ${r.value}${unit}`
       : `Logged reading — ${location}`;
   }
+  if (call.toolName === "check_report_gaps") {
+    const n = toolCallGaps(call).length;
+    return n === 0
+      ? "Report check — looks complete"
+      : `Report check — ${n} gap${n === 1 ? "" : "s"} to address`;
+  }
   return humaniseToolName(call.toolName);
+}
+
+/** A completeness gap surfaced by the check_report_gaps tool. */
+export type ReportGapSummary = {
+  field: string;
+  severity: "warn" | "block";
+  description: string;
+};
+
+/**
+ * Extract the gap list from a check_report_gaps result. Defensive against the
+ * result shape (the backend owns it) — returns [] for any other tool or a
+ * malformed payload, and never throws while rendering.
+ */
+export function toolCallGaps(call: LiveTeacherToolCall): ReportGapSummary[] {
+  if (call.toolName !== "check_report_gaps") return [];
+  const raw = (call.result as { gaps?: unknown } | null | undefined)?.gaps;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((g): g is Record<string, unknown> => !!g && typeof g === "object")
+    .map((g) => ({
+      field: typeof g.field === "string" ? g.field : "",
+      severity: g.severity === "block" ? ("block" as const) : ("warn" as const),
+      description: typeof g.description === "string" ? g.description : "",
+    }))
+    .filter((g) => g.description !== "");
 }
 
 /**

@@ -178,6 +178,28 @@ describe("invokeClaudeCloud — tool layer (RA-1132f)", () => {
     expect(dispatchToolMock).not.toHaveBeenCalled();
     expect(result.toolCalls[0].error).toMatch(/not enabled/i);
   });
+
+  it("runs check_report_gaps (read-only) with the injected id and returns gaps", async () => {
+    anthropicMock.create
+      .mockResolvedValueOnce(
+        toolUseResponse("check_report_gaps", { inspectionId: "SPOOFED" }),
+      )
+      .mockResolvedValueOnce(
+        makeSuccessResponse("You still need photos [S500:2021 §9]."),
+      );
+    dispatchToolMock.mockResolvedValueOnce({
+      gaps: [{ field: "photos", severity: "warn", description: "No photos" }],
+    });
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    const [name, args] = dispatchToolMock.mock.calls[0];
+    expect(name).toBe("check_report_gaps");
+    expect((args as { inspectionId?: string }).inspectionId).toBe("insp-001");
+    expect(result.toolCalls[0].result).toEqual({
+      gaps: [{ field: "photos", severity: "warn", description: "No photos" }],
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

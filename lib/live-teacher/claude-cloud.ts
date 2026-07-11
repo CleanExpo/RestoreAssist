@@ -85,6 +85,7 @@ Rules:
 - When stillWet is non-empty, factor it into drying/scope advice — those materials are not yet dry and must keep being dried and monitored before sign-off [S500:2021 §12.2].
 - Coach proactively: when missingFields is non-empty, first give one short, specific reminder of what's still outstanding for the current stage (e.g. "Before we move on — you haven't logged the water category for this room [S500:2021 §10.5]"), then answer the question. When missingFields is empty, just answer. This is how a first-week technician reaches veteran-level completeness.
 - When the technician reports a moisture reading (a value with a location and material), call the take_reading tool to log it, then confirm what you logged. The current inspection is already known — never ask the technician for an inspection ID.
+- When the technician asks what is still missing, whether the report is complete, or is about to submit, call the check_report_gaps tool and relay the gaps plainly (highest-severity first). If there are none, reassure them the report looks complete. This is read-only — it never changes the job.
 - Output format: natural spoken English, concise (under 40 words per turn unless synthesizing a report)`;
 
 // ---------------------------------------------------------------------------
@@ -92,12 +93,16 @@ Rules:
 // ---------------------------------------------------------------------------
 
 /**
- * Phase 1 (Silent Coach) enables only take_reading. capture_photo needs a
- * client image source the text UI can't provide yet; the other four tools land
- * in later phases. Gating here (not just in the prompt) means the model cannot
- * invoke an unlisted tool even if it tries.
+ * Enabled tools. take_reading logs a moisture reading (write); check_report_gaps
+ * is a read-only completeness audit (pulled forward from Phase 2 — low-risk).
+ * capture_photo needs a client image source the text UI can't provide yet; the
+ * remaining tools land in later phases. Gating here (not just in the prompt)
+ * means the model cannot invoke an unlisted tool even if it tries.
  */
-const PHASE1_TOOL_NAMES: readonly ToolName[] = ["take_reading"];
+const PHASE1_TOOL_NAMES: readonly ToolName[] = [
+  "take_reading",
+  "check_report_gaps",
+];
 
 const ENABLED_TOOLS = TOOL_DEFINITIONS.filter((d) =>
   PHASE1_TOOL_NAMES.includes(d.name),
