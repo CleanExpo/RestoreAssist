@@ -7,7 +7,7 @@
  * VoiceAssistant. No icon imports (design-md-lint bans net-new lucide).
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -78,7 +78,84 @@ function ToolCallCard({ call }: { call: LiveTeacherToolCall }) {
   );
 }
 
-export function TranscriptStream({ turns }: { turns: TranscriptTurn[] }) {
+type OverrideFn = (
+  turnId: string,
+  utteranceId: string,
+  reason: string,
+) => void;
+
+/**
+ * Inline override control on an assistant answer — the technician records why
+ * they disagree (epic decision #8, insurer-visible). Lightweight raw controls
+ * to match the transcript's presentational style.
+ */
+function OverrideControl({
+  turn,
+  onOverride,
+}: {
+  turn: TranscriptTurn;
+  onOverride: OverrideFn;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  if (!turn.utteranceId) return null;
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="self-start text-xs text-neutral-400 underline-offset-2 hover:text-neutral-600 hover:underline dark:text-slate-500 dark:hover:text-slate-300"
+      >
+        Override
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex w-full max-w-[85%] flex-col gap-1.5">
+      <textarea
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        placeholder="Why are you overriding this? (recorded for the insurer)"
+        aria-label="Override reason"
+        rows={2}
+        className="w-full rounded-lg border border-neutral-300 bg-white p-2 text-xs dark:border-slate-600 dark:bg-slate-900"
+      />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={reason.trim().length === 0}
+          onClick={() => {
+            onOverride(turn.id, turn.utteranceId as string, reason.trim());
+            setOpen(false);
+          }}
+          className="rounded-md bg-[#1C2E47] px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+        >
+          Record override
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            setReason("");
+          }}
+          className="rounded-md border border-neutral-300 px-2.5 py-1 text-xs text-neutral-600 dark:border-slate-600 dark:text-slate-300"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function TranscriptStream({
+  turns,
+  onOverride,
+}: {
+  turns: TranscriptTurn[];
+  onOverride?: OverrideFn;
+}) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -164,6 +241,22 @@ export function TranscriptStream({ turns }: { turns: TranscriptTurn[] }) {
                 <span className="text-xs text-neutral-400 dark:text-slate-500">
                   Confidence {Math.round(turn.confidence * 100)}%
                 </span>
+              )}
+
+            {turn.role === "assistant" &&
+              turn.overridden &&
+              turn.overrideReason && (
+                <p className="max-w-[85%] text-xs italic text-amber-700 dark:text-amber-400">
+                  Overridden by technician: {turn.overrideReason}
+                </p>
+              )}
+
+            {turn.role === "assistant" &&
+              !turn.overridden &&
+              !turn.pending &&
+              turn.utteranceId &&
+              onOverride && (
+                <OverrideControl turn={turn} onOverride={onOverride} />
               )}
           </li>
         ))}

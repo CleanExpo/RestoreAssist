@@ -305,6 +305,51 @@ describe("VoiceAssistant", () => {
     ).toBe(false);
   });
 
+  it("lets the tech override an answer with an insurer-visible reason (RA-1132i-3)", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);
+      if (url === "/api/live-teacher/utterance/override") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ data: { overridden: true } }),
+        } as unknown as Response);
+      }
+      return Promise.resolve(
+        streamResponse([
+          `data: ${JSON.stringify({ type: "token", content: "This is Category 2 water." })}\n\n`,
+          `data: ${JSON.stringify({ type: "done", utteranceId: "utt-9", clauseRefs: [], confidence: 0.8 })}\n\n`,
+        ]),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    ask("What category?");
+
+    await waitFor(() =>
+      expect(screen.getByText("This is Category 2 water.")).toBeInTheDocument(),
+    );
+    // Override control appears once the utterance id arrives on `done`.
+    fireEvent.click(screen.getByRole("button", { name: "Override" }));
+    fireEvent.change(screen.getByLabelText("Override reason"), {
+      target: { value: "It's Cat 3 — sewage present" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Record override" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Overridden by technician: It's Cat 3 — sewage present/),
+      ).toBeInTheDocument(),
+    );
+    const overrideCall = fetchMock.mock.calls.find(
+      (c) => c[0] === "/api/live-teacher/utterance/override",
+    );
+    expect(
+      JSON.parse((overrideCall![1] as RequestInit).body as string),
+    ).toEqual({ utteranceId: "utt-9", reason: "It's Cat 3 — sewage present" });
+  });
+
   it("shows the subscription CTA on 402 upgradeRequired", async () => {
     const fetchMock = vi.fn((url: string) => {
       if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);
