@@ -25,6 +25,10 @@ const EXEMPT_ROUTE_PREFIXES = [
   "app/api/auth/",
   "app/api/cron/",
   "app/api/webhooks/",
+  // Headless internal service routes — bearer-token authenticated (a dedicated
+  // secret, compared with timingSafeEqual, failing closed), session-less by
+  // design exactly like /api/cron. No end-user session ever reaches them.
+  "app/api/internal/",
 ];
 
 const PUBLIC_TOKEN_ROUTE_PREFIXES = [
@@ -91,7 +95,14 @@ function hasAuth(content: string): boolean {
 }
 
 function hasTestHelperEnvGuard(content: string): boolean {
-  return /process\.env\.ALLOW_TEST_HELPERS\s*!==\s*["']true["']/.test(content);
+  // Inline guard (historical form) OR the centralized two-key predicate
+  // testHelpersBlocked() from app/api/test/_helpers.ts, which performs the same
+  // ALLOW_TEST_HELPERS check plus the VERCEL_ENV production hard-block. Both are
+  // behaviour-based (the route calls the gate), matching requireOwner() above.
+  return (
+    /process\.env\.ALLOW_TEST_HELPERS\s*!==\s*["']true["']/.test(content) ||
+    /\btestHelpersBlocked\s*\(/.test(content)
+  );
 }
 
 // An unbounded findMany may be intentional (e.g. a small, fixed-cardinality

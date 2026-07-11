@@ -268,7 +268,7 @@ async function main() {
 
 A water intrusion event was identified at the above property on 1 April 2026 resulting from a burst braided flexi-hose connector beneath the kitchen sink. The water loss has been classified as **Category 2** (grey water containing chemical or biological contaminants per IICRC S500:2021 §3) and **Class 2** damage (water has affected structural materials including particleboard subfloor per IICRC S500:2021 §7.1).
 
-Three rooms are affected: the kitchen (primary source), hallway (migration path), and living room (secondary exposure). Restorative drying was commenced on 1 April 2026 using LGR dehumidification and axial air movement in accordance with IICRC S500:2021 §14.
+Three rooms are affected: the kitchen (primary source), hallway (migration path), and living room (secondary exposure). Restorative drying was commenced on 1 April 2026 using LGR dehumidification and axial air movement in accordance with IICRC S500:2021 §5.
 
 ### 2. PROPERTY DETAILS
 
@@ -325,7 +325,7 @@ All affected materials reached drying goals by Day 7 of the restorative drying p
 
 Drying potential improved from Fair to Good over the monitoring period. LGR dehumidification was effective in reducing ambient moisture levels within the target parameters.
 
-### 8. EQUIPMENT DEPLOYMENT (per IICRC S500:2021 §14)
+### 8. EQUIPMENT DEPLOYMENT (per IICRC S500:2021 §9.2.3)
 
 | Equipment | Model | Serial No. | Placement | Daily Rate |
 |-----------|-------|-----------|-----------|------------|
@@ -336,7 +336,7 @@ Drying potential improved from Fair to Good over the monitoring period. LGR dehu
 | Axial Air Mover | Dri-Eaz Sahara Pro X3 | AM-AX-1189 | Hallway | $25.00 |
 | Axial Air Mover | Dri-Eaz Sahara Pro X3 | AM-AX-1190 | Living Room | $25.00 |
 
-Equipment deployment ratio: 1 dehumidifier per 16 m² of affected area (within S500:2021 §14 guideline of 1 per 15-20 m²). Air mover coverage: 1 per 8 m² (within guideline of 1 per 7-10 m²).
+Equipment deployment ratio: 1 dehumidifier per 16 m² of affected area (within S500:2021 §5 guideline of 1 per 15-20 m²). Air mover coverage: 1 per 8 m² (within guideline of 1 per 7-10 m²).
 
 ### 9. SCOPE SUMMARY
 

@@ -14,7 +14,19 @@ export interface EmailPayload {
   replyTo?: string;
 }
 
-const FROM = "RestoreAssist <noreply@restoreassist.app>";
+/**
+ * The From address. Prefer the env-configured, DKIM/SPF-VERIFIED sender
+ * (RESEND_FROM_EMAIL = "RestoreAssist <noreply@send.restoreassist.app>"). The
+ * literal fallback is only for local/dev/tests where the env is unset — the
+ * bare-root `noreply@restoreassist.app` is NOT verified in the Resend account
+ * (the root domain lives in a different team), so sending from it in prod would
+ * bounce/spam. Resolved per-call because the env may not be set at import time.
+ */
+function fromAddress(): string {
+  return (
+    process.env.RESEND_FROM_EMAIL || "RestoreAssist <noreply@restoreassist.app>"
+  );
+}
 
 /** Hard ceiling so a hung Resend cannot pin the serverless function. */
 export const EMAIL_SEND_TIMEOUT_MS = 10_000;
@@ -38,7 +50,7 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
   }
 
   const body: Record<string, unknown> = {
-    from: FROM,
+    from: fromAddress(),
     to: [payload.to],
     subject: payload.subject,
     html: payload.html,

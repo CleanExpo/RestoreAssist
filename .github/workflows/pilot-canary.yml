@@ -62,7 +62,7 @@ jobs:
             echo "provisioned=true" >> "$GITHUB_OUTPUT"
           else
             echo "provisioned=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Pilot canary swarm skipped::PILOT_TESTER_USER_POOL_JSON / PILOT_TESTER_DATABASE_URL not provisioned (RA-7008). Provision sandbox pilot users + repo secrets to activate the swarm."
+            echo "::notice title=Pilot canary swarm skipped::PILOT_TESTER_USER_POOL_JSON / PILOT_TESTER_DATABASE_URL not provisioned (RA-7008). Seed pilot users (scripts/seed-pilot-users.ts) + set the repo secrets to activate the swarm."
           fi
 
   swarm:
@@ -91,15 +91,9 @@ jobs:
       - name: Validate pilot canary secrets
         env:
           POOL_JSON: ${{ secrets.PILOT_TESTER_USER_POOL_JSON }}
-          DATABASE_URL: ${{ secrets.PILOT_TESTER_DATABASE_URL }}
         run: |
           if [ -z "${POOL_JSON:-}" ]; then
             echo "::error title=Missing PILOT_TESTER_USER_POOL_JSON::Provision sandbox pilot users before running the swarm job."
-            exit 2
-          fi
-
-          if [ -z "${DATABASE_URL:-}" ]; then
-            echo "::error title=Missing PILOT_TESTER_DATABASE_URL::Provision a sandbox-only database URL before running the swarm job."
             exit 2
           fi
 
@@ -144,7 +138,6 @@ jobs:
         env:
           PILOT_TESTER_BASE_URL: ${{ github.event.inputs.base_url || 'https://restoreassist-sandbox.vercel.app' }}
           PILOT_TESTER_USER_POOL: ./user-pool.json
-          PILOT_TESTER_DATABASE_URL: ${{ secrets.PILOT_TESTER_DATABASE_URL }}
         run: pnpm swarm -- --concurrency 3
 
       - name: Upload reports

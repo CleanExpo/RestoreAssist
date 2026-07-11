@@ -40,3 +40,21 @@ What actually exists in the repo today, read directly rather than assumed:
 ## PM Decision
 
 Keep this criterion fail-closed. The underlying application code emits the right signals for all three named failure classes (confirmed by direct code read, 2026-07-05) and those signals are now documented with exact detection queries in `docs/runbooks/`, but no alert-routing layer sits on top of them. Do not mark PASS on the strength of signals existing in code — the criterion requires alert rules, not signal presence.
+
+## Founder close-out (pre-staged 2026-07-10)
+
+The signals already exist in code; the only remaining work is the alert-routing layer + one test. Create these **three** Vercel Observability alert rules (Vercel → Project `restoreassist` → Observability → Alerts), each routed to a real destination with an owner + response SLA:
+
+| # | Failure class | Signal to alert on | Suggested trigger | Route → owner (SLA) |
+|---|---|---|---|---|
+| 1 | Auth failures | `LOGIN_FAILED` SecurityEvent (`lib/auth.ts`, `lib/security-audit.ts`) — emit/observe the corresponding log line | spike: > N in 5 min (tune N to baseline) | email/Slack → `<owner>` (respond ≤ 30 min) |
+| 2 | Billing webhook errors | `StripeWebhookEvent.status = 'FAILED'` (`app/api/webhooks/stripe`) — the retry-failed-webhooks cron backstops, but alert on first FAILED | ≥ 1 in 15 min | email/Slack → `<owner>` (respond ≤ 1 h) |
+| 3 | Restore / report workflow failures | `reportError()` (`lib/standards-retrieval.ts`, forwarded via `instrumentation.ts onRequestError`) + `StorageRestoreJob` failed status | ≥ 1 in 15 min | email/Slack → `<owner>` (respond ≤ 1 h) |
+
+Wiring note: `reportError()` already surfaces to Vercel logs via `onRequestError`, so rule 3 can alert on that log pattern directly. Rules 1 & 2 are DB-row signals — if they don't already emit a Vercel-visible log line at the failure point, add a `logger.error` at that site so an Observability log-alert can match it (small code follow-up; not blocking the rule creation).
+
+Then run the **alert test**: in a non-prod env, deliberately trigger one class (e.g. force a Stripe webhook failure) and confirm the alert fires and reaches its destination.
+
+<!-- PASTE EVIDENCE HERE: 3 screenshots of the configured rules + the alert-test result (which rule, when, where it landed) -->
+
+To mark PASS: set frontmatter `status: pass` and `verified: <YYYY-MM-DD>` **only after** the three rules exist and the alert test is documented above. Do not flip on signal presence alone — this criterion requires the rules. Commit same-day (scorer requires mtime within 14 days).

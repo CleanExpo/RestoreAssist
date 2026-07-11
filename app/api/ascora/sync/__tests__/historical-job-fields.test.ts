@@ -13,6 +13,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildHistoricalJobRefreshableFields,
+  coerceHistoricalWaterFields,
   type AscoraJobRaw,
 } from "../route";
 
@@ -102,5 +103,33 @@ describe("buildHistoricalJobRefreshableFields", () => {
     // billingCustomer exists but is already consumed for `customerName`
     // (route.ts) — reusing it as insurerName would be guessing, not mapping.
     expect(job.billingCustomer?.name).toBe("Suncorp Insurance");
+  });
+});
+
+describe("coerceHistoricalWaterFields (RA-7026 prod-crash regression)", () => {
+  it("coerces numeric damageCategory/damageClass to STRINGS (schema is String?)", () => {
+    const out = coerceHistoricalWaterFields({ damageCategory: 1, damageClass: 2 });
+    expect(out).toEqual({ waterCategory: "1", waterClass: "2" });
+    expect(typeof out.waterCategory).toBe("string");
+    expect(typeof out.waterClass).toBe("string");
+  });
+
+  it("returns undefined (not null) for missing fields so an update never wipes a prior value", () => {
+    expect(coerceHistoricalWaterFields({ damageCategory: 3 })).toEqual({
+      waterCategory: "3",
+      waterClass: undefined,
+    });
+    expect(coerceHistoricalWaterFields(null)).toEqual({
+      waterCategory: undefined,
+      waterClass: undefined,
+    });
+    expect(coerceHistoricalWaterFields(undefined)).toEqual({
+      waterCategory: undefined,
+      waterClass: undefined,
+    });
+  });
+
+  it("preserves a zero category as the string \"0\" rather than dropping it", () => {
+    expect(coerceHistoricalWaterFields({ damageCategory: 0 }).waterCategory).toBe("0");
   });
 });

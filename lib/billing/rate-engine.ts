@@ -15,6 +15,7 @@
 
 import type { PrismaClient } from "@prisma/client";
 import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
+import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
 
 // -------------------------------------------------------
 // Types
@@ -100,8 +101,9 @@ function nrpgResult(field: string, value: number): RateLookupResult {
  * Look up a single rate field with the full priority chain.
  * Returns null only if no rate can be resolved at all.
  *
- * Two DB queries max: CompanyPricingConfig first, then CostDatabase
- * (regional, then national). NRPG fallback requires no DB access.
+ * Priority 1 is the org-first effective-pricing resolver (user → org config →
+ * user config); then CostDatabase (regional, then national). NRPG fallback
+ * requires no DB access.
  */
 export async function lookupRate(
   prisma: PrismaClient,
@@ -109,10 +111,8 @@ export async function lookupRate(
 ): Promise<RateLookupResult | null> {
   const { userId, field, region } = input;
 
-  // --- Priority 1: CompanyPricingConfig ---
-  const config = await prisma.companyPricingConfig.findUnique({
-    where: { userId },
-  });
+  // --- Priority 1: contractor's configured rates (org config is SSOT) ---
+  const config = await resolveEffectivePricing(prisma, userId);
   if (config) {
     const value = (config as Record<string, unknown>)[field];
     if (typeof value === "number") {
@@ -168,7 +168,7 @@ export async function lookupRate(
 
 /**
  * Resolve multiple rate fields in a single pass.
- * Uses 2 DB queries total (CompanyPricingConfig + CostDatabase bulk),
+ * One effective-pricing resolve (org-first) + one bulk CostDatabase query,
  * regardless of how many fields are requested.
  * Fields that cannot be resolved are omitted from the result map.
  */
@@ -181,10 +181,8 @@ export async function lookupRates(
   const result: Record<string, RateLookupResult> = {};
   const unresolved: string[] = [];
 
-  // Priority 1 — single CompanyPricingConfig read
-  const config = await prisma.companyPricingConfig.findUnique({
-    where: { userId },
-  });
+  // Priority 1 — single effective-pricing read (org config is SSOT)
+  const config = await resolveEffectivePricing(prisma, userId);
   for (const field of fields) {
     if (config) {
       const value = (config as Record<string, unknown>)[field];
@@ -256,17 +254,28 @@ export async function lookupMultipliers(
   prisma: PrismaClient,
   userId: string,
 ): Promise<MultiplierSet> {
-  // CompanyPricingConfig does not yet have multiplier columns — fall back to
-  // NRPG hard-coded defaults. The DB query is intentionally omitted here; when
-  // the schema is extended to include per-company multiplier overrides this
-  // function should be updated to read from the config row.
-  void prisma; // suppress unused-variable warning until schema has multiplier cols
+  // Read the contractor's configured multipliers (org config is SSOT so this
+  // matches what Margot quotes); fall back to NRPG defaults when unconfigured.
+  const config = (await resolveEffectivePricing(prisma, userId)) as Record<
+    string,
+    unknown
+  > | null;
+  const pick = (key: string, fallback: number): number => {
+    const value = config?.[key];
+    return typeof value === "number" ? value : fallback;
+  };
   return {
-    afterHours: HARDCODED_FALLBACKS.afterHoursMultiplier,
-    saturday: HARDCODED_FALLBACKS.saturdayMultiplier,
-    sunday: HARDCODED_FALLBACKS.sundayMultiplier,
-    publicHoliday: HARDCODED_FALLBACKS.publicHolidayMultiplier,
-    projectManagementPercent: HARDCODED_FALLBACKS.projectManagementPercent,
+    afterHours: pick("afterHoursMultiplier", HARDCODED_FALLBACKS.afterHoursMultiplier),
+    saturday: pick("saturdayMultiplier", HARDCODED_FALLBACKS.saturdayMultiplier),
+    sunday: pick("sundayMultiplier", HARDCODED_FALLBACKS.sundayMultiplier),
+    publicHoliday: pick(
+      "publicHolidayMultiplier",
+      HARDCODED_FALLBACKS.publicHolidayMultiplier,
+    ),
+    projectManagementPercent: pick(
+      "projectManagementPercent",
+      HARDCODED_FALLBACKS.projectManagementPercent,
+    ),
   };
 }
 

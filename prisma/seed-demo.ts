@@ -130,7 +130,7 @@ async function main() {
       equipmentUsed:
         "2× Dri-Eaz LGR 3500i Dehumidifier (80L/day rated), 3× Dri-Eaz Sahara Pro X3 Air Mover",
       dryingPlan:
-        "Structural drying per IICRC S500 §14. Target: indoor RH ≤ outdoor ambient. 2× LGR dehumidifiers positioned centrally in living room and kitchen. 3× air movers directed at carpet/underlay in living room (2 units) and hallway (1 unit). Daily moisture monitoring with pin-type and non-invasive meters. Estimated 3–5 day drying period based on Class 2 evaporation load.",
+        "Structural drying per IICRC S500:2021 §5. Target: indoor RH ≤ outdoor ambient. 2× LGR dehumidifiers positioned centrally in living room and kitchen. 3× air movers directed at carpet/underlay in living room (2 units) and hallway (1 unit). Daily moisture monitoring with pin-type and non-invasive meters. Estimated 3–5 day drying period based on Class 2 evaporation load.",
       airmoversCount: 3,
       dehumidificationCapacity: 160,
       targetHumidity: 60,
@@ -198,7 +198,7 @@ async function main() {
           },
         ],
         totalDehumidificationCapacity: 160,
-        calculationBasis: "IICRC S500 §14 — Class 2, 150 m² affected area",
+        calculationBasis: "IICRC S500:2021 §5 — Class 2, 150 m² affected area",
       }),
       detailedReport: generateS500ReportText(),
     },

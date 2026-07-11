@@ -19,6 +19,10 @@ const PROD_HOSTNAME_PATTERNS: readonly RegExp[] = [
   // Update when the prod project ref is known; left as a placeholder
   // string the operator MUST replace before first use of the harness.
   /\bRA_PROD_DB_REF\b/,
+  // The REAL production Supabase project ref (RA-7008). The placeholder above
+  // was never substituted, so an actual prod DATABASE_URL passed this guard.
+  // The ref is already public via NEXT_PUBLIC_SUPABASE_URL — no secret leaked.
+  /\budooysjajglluvuxkijp\b/i,
 ];
 
 const SANDBOX_HOSTNAME_HINTS: readonly RegExp[] = [

@@ -41,6 +41,81 @@ interface AscoraJobLabourRaw {
   startDate?: string | null;
 }
 
+function toNum(v: unknown): number | undefined {
+  if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
+  if (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))) {
+    return Number(v);
+  }
+  return undefined;
+}
+
+/**
+ * Ascora does NOT key list rows by an endpoint-named field. Paginated lists
+ * wrap rows in `{ success, results: [...] }` (see the /Jobs/Jobs importer that
+ * works) and some endpoints (GetInvoicesToSend) return a bare array. The
+ * original `data.jobLabours` guess matched none of these, so every JobLabour
+ * call succeeded yet parsed to [] — 4,000 jobs, zero labour lines (RA-7026:
+ * `fetchErrors:0, labourLines:0`). Extract the row array from whichever shape
+ * Ascora actually returns, and normalise each row tolerantly (rate/hours field
+ * naming varies across Ascora endpoints).
+ */
+export function normalizeJobLabours(data: unknown): AscoraJobLabourRaw[] {
+  const d = data as Record<string, unknown> | unknown[] | null;
+  let rows: unknown[] = [];
+  if (Array.isArray(d)) {
+    rows = d;
+  } else if (d && typeof d === "object") {
+    for (const key of [
+      "results",
+      "jobLabours",
+      "jobLabour",
+      "JobLabours",
+      "labour",
+      "labours",
+      "items",
+    ]) {
+      const v = (d as Record<string, unknown>)[key];
+      if (Array.isArray(v)) {
+        rows = v;
+        break;
+      }
+    }
+  }
+
+  return rows
+    .filter((r): r is Record<string, unknown> => !!r && typeof r === "object")
+    .map((r) => ({
+      roleName: (r.roleName ??
+        r.role ??
+        r.name ??
+        r.labourType ??
+        r.description) as string | undefined,
+      numberOfHours: toNum(
+        r.numberOfHours ?? r.hours ?? r.quantity ?? r.qty ?? r.units,
+      ),
+      hourlyRateExTax: toNum(
+        r.hourlyRateExTax ??
+          r.hourlyRate ??
+          r.rateExTax ??
+          r.rate ??
+          r.unitPriceExTax ??
+          r.unitPrice,
+      ),
+      totalAmountExTax: toNum(
+        r.totalAmountExTax ?? r.amountExTax ?? r.totalExTax ?? r.total ?? r.amount,
+      ),
+      isChargeable:
+        typeof r.isChargeable === "boolean"
+          ? r.isChargeable
+          : typeof r.chargeable === "boolean"
+            ? (r.chargeable as boolean)
+            : undefined,
+      startDate: (r.startDate ?? r.date ?? r.workDate ?? null) as
+        | string
+        | null,
+    }));
+}
+
 /** "Senior Technician" → "LABOUR-SENIOR-TECHNICIAN" */
 function labourPartNumber(roleName?: string): string {
   const slug = (roleName ?? "GENERAL")
@@ -94,6 +169,8 @@ export async function GET(request: NextRequest) {
     let jobsProcessed = 0;
     let labourLines = 0;
     let fetchErrors = 0;
+    let shapeSamples = 0;
+    const emptyShapes: string[] = [];
     const pricingLines: Array<{
       jobId: string;
       partNumber: string;
@@ -127,7 +204,21 @@ export async function GET(request: NextRequest) {
           { timeoutMs: 15000, context: `JobLabour ${job.ascoraJobNumber}` },
         );
         const data = await res.json();
-        labours = Array.isArray(data?.jobLabours) ? data.jobLabours : [];
+        labours = normalizeJobLabours(data);
+        // Self-diagnostic (RA-7026): a successful response that yields no rows
+        // means the shape doesn't match — capture its top-level keys a few
+        // times per run so the real Ascora structure surfaces in Vercel logs
+        // AND in this run's metadata, without any API key leaving the server.
+        if (labours.length === 0 && data && typeof data === "object" && shapeSamples < 3) {
+          const shape = Array.isArray(data)
+            ? `array[${data.length}]`
+            : JSON.stringify(Object.keys(data as Record<string, unknown>));
+          emptyShapes.push(shape);
+          console.warn(
+            `[sync-ascora-labour] no labour parsed for ${job.ascoraJobNumber} — response shape: ${shape}`,
+          );
+          shapeSamples++;
+        }
       } catch {
         // Leave labourSyncedAt null — this job retries on the next run.
         fetchErrors++;
@@ -206,6 +297,9 @@ export async function GET(request: NextRequest) {
         pricingPartsUpserted,
         fetchErrors,
         remaining,
+        // Empty when parsing works; if the shape is still wrong these are the
+        // real Ascora response keys to map (RA-7026 self-diagnosis).
+        emptyShapes: emptyShapes.slice(0, 3),
       },
     };
   });

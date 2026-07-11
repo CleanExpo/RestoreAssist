@@ -58,6 +58,16 @@ export async function logSecurityEvent(
         details: entry.details ? JSON.stringify(entry.details) : null,
       },
     });
+    // RA-6688 F1: surface auth-failure signals to Vercel Observability, which
+    // auto-indexes console.error from Functions, so an alert rule can fire on
+    // LOGIN_FAILED spikes. Non-PII by design — only the event type + severity
+    // are logged here; identifiers (email/ip/userId) stay in the DB row.
+    if (entry.eventType === "LOGIN_FAILED") {
+      console.error(
+        "[security] LOGIN_FAILED",
+        JSON.stringify({ severity: entry.severity ?? "INFO" }),
+      );
+    }
   } catch (err) {
     console.error("[SecurityAudit] Failed to log event:", err);
   }

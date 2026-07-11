@@ -66,6 +66,18 @@ describe("sendEmail (lib/email-send)", () => {
     });
   });
 
+  it("sends from the VERIFIED env sender (RESEND_FROM_EMAIL), not the bare root domain", async () => {
+    fetchMock.mockResolvedValue({ ok: true });
+    process.env.RESEND_FROM_EMAIL =
+      "RestoreAssist <noreply@send.restoreassist.app>";
+
+    await sendEmail(payload);
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.from).toBe("RestoreAssist <noreply@send.restoreassist.app>");
+    delete process.env.RESEND_FROM_EMAIL;
+  });
+
   it("never throws when the fetch fails, but reports the error", async () => {
     fetchMock.mockRejectedValue(new Error("network down"));
 

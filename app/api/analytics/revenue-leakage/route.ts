@@ -9,6 +9,10 @@ import {
   type AscoraJobInput,
   type PricingDbRow,
 } from "@/lib/analytics/revenue-leakage";
+import {
+  analyzeCategoryLeakage,
+  type LeakageLine,
+} from "@/lib/analytics/equipment-category";
 
 /**
  * GET /api/analytics/revenue-leakage — RA-7026
@@ -77,6 +81,20 @@ export async function GET(request: NextRequest) {
     const resolver = benchmarkResolverFromPricingDb(pricingRows as PricingDbRow[]);
     const report = analyzeRevenueLeakage(jobs as AscoraJobInput[], resolver);
 
+    // Category benchmark (RA-7026): the per-SKU join finds ~0 overlap between
+    // the owner's invoice codes and the rate-card SKUs, so also measure leakage
+    // by equipment/labour CATEGORY against the pricing defaults — where the
+    // real signal (labour + AFD under-charging) actually lives.
+    const lines: LeakageLine[] = jobs.flatMap((j) =>
+      j.lineItems.map((li) => ({
+        description: li.description,
+        quantity: li.quantity,
+        unitPriceExTax: li.unitPriceExTax,
+        amountExTax: li.amountExTax,
+      })),
+    );
+    const categoryLeakage = analyzeCategoryLeakage(lines);
+
     return NextResponse.json({
       connected: true,
       totalJobsImported: integration.totalJobsImported,
@@ -84,6 +102,7 @@ export async function GET(request: NextRequest) {
       truncated: report.jobsAnalyzed >= MAX_JOBS,
       benchmarkPartsLoaded: pricingRows.length,
       report,
+      categoryLeakage,
     });
   } catch (error) {
     return fromException(request, error, { stage: "revenue-leakage" });

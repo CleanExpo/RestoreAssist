@@ -1,0 +1,64 @@
+name: Trigger Ascora sync
+
+# On-demand + optional manual trigger for the Ascora historical import
+# (RA-7026). The daily schedule already lives in vercel.json; this lets an
+# operator (or an agent via `gh workflow run`) fire a re-sync without ever
+# handling CRON_SECRET locally — GitHub injects it server-side, so the secret
+# never touches a workstation. This is the credential-safe path to trigger the
+# sync without a human pulling production secrets to disk.
+#
+# One-time setup: add CRON_SECRET as a repo Actions secret
+#   Settings → Secrets and variables → Actions → New repository secret
+#   (must equal the CRON_SECRET set in Vercel Production).
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Which sync to fire"
+        required: true
+        default: "historical"
+        type: choice
+        options:
+          - historical
+          - labour
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: POST the cron endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          TARGET: ${{ github.event.inputs.target }}
+        run: |
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error title=CRON_SECRET missing::Add CRON_SECRET as a repo Actions secret (must match Vercel Production)."
+            exit 1
+          fi
+
+          case "$TARGET" in
+            historical) path="/api/cron/sync-ascora-historical" ;;
+            labour)     path="/api/cron/sync-ascora-labour" ;;
+            *) echo "::error::Unknown target '$TARGET'"; exit 1 ;;
+          esac
+
+          url="https://restoreassist.app${path}"
+          echo "Triggering ${url} ..."
+
+          # -m 780 stays under the route's 800s maxDuration.
+          code=$(curl -sS -o response.json -w '%{http_code}' -m 780 \
+            -X POST "$url" \
+            -H "Authorization: Bearer ${CRON_SECRET}")
+
+          echo "HTTP ${code}"
+          echo "--- response ---"
+          cat response.json || true
+          echo
+          # The cron wrapper returns HTTP 200 on success and a non-2xx (500)
+          # when runCronJob rethrows a failure, so gate the job on the status.
+          test "${code}" = "200"

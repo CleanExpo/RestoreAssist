@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
 import { getRestorationInvoiceTypeById } from "@/lib/restoration-invoice-types";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -148,10 +149,8 @@ export async function POST(request: NextRequest) {
     }
     const input = parsed.data;
 
-    // Fetch contractor's pricing config (or use defaults)
-    const config = await prisma.companyPricingConfig.findUnique({
-      where: { userId: session.user.id },
-    });
+    // Fetch contractor's pricing config (org config is SSOT; or use defaults)
+    const config = await resolveEffectivePricing(prisma, session.user.id);
     const rates: Record<string, number> = config
       ? {
           masterQualifiedNormalHours: config.masterQualifiedNormalHours,

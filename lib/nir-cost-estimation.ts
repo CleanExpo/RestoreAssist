@@ -19,6 +19,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
 import {
   NRPG_RATE_RANGES,
   validateRateInRange,
@@ -456,9 +457,7 @@ async function fetchCompanyRates(
   userId: string,
 ): Promise<CompanyPricingRates | null> {
   try {
-    const config = await prisma.companyPricingConfig.findUnique({
-      where: { userId },
-    });
+    const config = await resolveEffectivePricing(prisma, userId);
     if (!config) return null;
 
     // Return only the fields CompanyPricingRates needs
