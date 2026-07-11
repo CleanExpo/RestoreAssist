@@ -1,14 +1,13 @@
 "use client";
 
 /**
- * NIR Pilot Readiness Dashboard — Admin
+ * Pilot Readiness Command Centre — Admin
  *
  * Route: /dashboard/admin/pilot
  * Auth:  ADMIN role required (enforced client-side + server-side via API)
  *
- * Visualises the output of GET /api/pilot/readiness.
- * The product lead uses this page to decide when to open a promotion PR
- * for each HYPOTHESIS claim in lib/nir-evidence-architecture.ts.
+ * Visualises operational go-live gates and the existing NIR claim evidence
+ * returned by GET /api/pilot/readiness.
  *
  * Auto-refreshes every 5 minutes. Manual refresh available.
  */
@@ -21,7 +20,6 @@ import {
   Clock,
   AlertTriangle,
   TrendingUp,
-  RefreshCw,
   ChevronRight,
   BarChart2,
   Users,
@@ -40,7 +38,9 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PilotReadinessCommandCentre } from "@/components/admin/PilotReadinessCommandCentre";
 import { cn } from "@/lib/utils";
+import type { PilotCommandCentreSnapshot } from "@/lib/pilot-readiness-command-centre";
 
 // ── Types (mirrors nir-pilot-measurement.ts + readiness API response) ──────────
 
@@ -101,6 +101,7 @@ interface ReadinessMeta {
 }
 
 interface ReadinessResponse {
+  commandCentre: PilotCommandCentreSnapshot;
   report: PilotReport;
   cycleTimeSummary: CycleTimeSummary;
   meta: ReadinessMeta;
@@ -446,23 +447,30 @@ export default function PilotReadinessDashboard() {
 
   if (!data) return null;
 
-  const { report, cycleTimeSummary, meta } = data;
+  const { commandCentre, report, cycleTimeSummary, meta } = data;
   const allClaims = [...report.readyToPromote, ...report.inProgress];
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+      <PilotReadinessCommandCentre
+        snapshot={commandCentre}
+        refreshing={refreshing}
+        lastFetched={lastFetched}
+        onRefresh={() => fetchData(true)}
+      />
+
+      {/* ── NIR evidence validation ─────────────────────────────────────────── */}
+      <div className="border-t border-neutral-200 pt-8 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            <div className="w-2 h-2 rounded-full bg-cyan-400" />
             <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400">
               NIR Phase 2 Pilot
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-neutral-900 dark:text-slate-100">
-            Readiness Dashboard
-          </h1>
+          <h2 className="text-xl font-bold text-neutral-900 dark:text-slate-100">
+            NIR evidence validation
+          </h2>
           <p className="text-sm text-neutral-500 dark:text-slate-400 mt-1">
             When a claim shows{" "}
             <span className="font-medium text-neutral-700 dark:text-slate-300">
@@ -474,23 +482,6 @@ export default function PilotReadinessDashboard() {
             </code>{" "}
             and open a PR.
           </p>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {lastFetched && (
-            <span className="text-xs text-neutral-400 dark:text-slate-500">
-              Updated {lastFetched.toLocaleTimeString("en-AU")}
-            </span>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => fetchData(true)}
-            disabled={refreshing}
-            className="flex items-center gap-1.5"
-          >
-            <RefreshCw size={13} className={cn(refreshing && "animate-spin")} />
-            Refresh
-          </Button>
         </div>
       </div>
 
