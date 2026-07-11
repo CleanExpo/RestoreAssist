@@ -7,6 +7,7 @@ const GITHUB_REPOSITORY_URL =
 const GITHUB_API_BASE =
   "https://api.github.com/repos/CleanExpo/RestoreAssist";
 const GITHUB_CACHE_SECONDS = 15 * 60;
+const GITHUB_REQUEST_TIMEOUT_MS = 5_000;
 
 export type PilotGateStatus = "pass" | "warning" | "fail" | "unknown";
 export type PilotDecision = "GO" | "CONDITIONAL" | "NO_GO";
@@ -544,6 +545,12 @@ const SOURCE_MATCHED_WORKFLOWS = new Set<PilotWorkflowId>([
   "release-gate.yml",
 ]);
 
+const MAIN_BRANCH_WORKFLOWS = new Set<PilotWorkflowId>([
+  "smoke-prod.yml",
+  "supabase-advisor-gate.yml",
+  "pilot-canary.yml",
+]);
+
 const GITHUB_HEADERS = {
   Accept: "application/vnd.github+json",
   "X-GitHub-Api-Version": "2022-11-28",
@@ -559,6 +566,7 @@ async function fetchLatestWorkflowRun(
     {
       headers: GITHUB_HEADERS,
       next: { revalidate: GITHUB_CACHE_SECONDS },
+      signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
     },
   );
   if (!response.ok) {
@@ -566,9 +574,12 @@ async function fetchLatestWorkflowRun(
   }
 
   const body = (await response.json()) as GitHubWorkflowRunsResponse;
-  let candidates = (body.workflow_runs ?? []).filter(
-    (run) => workflowId !== "pilot-canary.yml" || run.event !== "pull_request",
-  );
+  let candidates = (body.workflow_runs ?? []).filter((run) => {
+    if (workflowId === "pilot-canary.yml" && run.event === "pull_request") {
+      return false;
+    }
+    return !MAIN_BRANCH_WORKFLOWS.has(workflowId) || run.head_branch === "main";
+  });
   if (SOURCE_MATCHED_WORKFLOWS.has(workflowId)) {
     candidates = candidates.filter((run) =>
       verifiedSourceShas.has(run.head_sha),
@@ -602,6 +613,7 @@ async function fetchAssociatedPullHeadShas(
     {
       headers: GITHUB_HEADERS,
       next: { revalidate: GITHUB_CACHE_SECONDS },
+      signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
     },
   );
   if (!response.ok) {
@@ -620,6 +632,7 @@ async function fetchWorkflowJobs(
     {
       headers: GITHUB_HEADERS,
       next: { revalidate: GITHUB_CACHE_SECONDS },
+      signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
     },
   );
   if (!response.ok) {
