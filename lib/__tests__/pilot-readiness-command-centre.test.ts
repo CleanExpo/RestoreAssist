@@ -186,6 +186,44 @@ describe("buildPilotCommandCentre", () => {
     expect(snapshot.decision).toBe("NO_GO");
   });
 
+  it("rejects code-quality evidence from a source other than the deployed commit or merged PR head", () => {
+    const runs = successfulRuns();
+    runs["pr-checks.yml"] = workflowRun("pr-checks.yml", {
+      headSha: "ffffffffffffffffffffffffffffffffffffffff",
+    });
+    runs["route-safety.yml"] = workflowRun("route-safety.yml", {
+      headSha: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    });
+
+    const snapshot = buildPilotCommandCentre({
+      now: NOW,
+      deployment: DEPLOYMENT,
+      verifiedSourceShas: [
+        DEPLOYMENT.commitSha,
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      ],
+      workflowRuns: runs,
+      pilotCanaryJobs: [
+        { name: "swarm", status: "completed", conclusion: "success" },
+      ],
+      rlsCoverage: { total: 203, enabled: 203 },
+    });
+
+    expect(snapshot.gates.find((gate) => gate.id === "type-check")).toMatchObject(
+      { status: "unknown", blocking: true },
+    );
+    expect(snapshot.gates.find((gate) => gate.id === "ai-audit")).toMatchObject(
+      { status: "unknown", blocking: true },
+    );
+    expect(
+      snapshot.gates.find((gate) => gate.id === "route-safety"),
+    ).toMatchObject({ status: "unknown", blocking: true });
+    expect(snapshot.blockers.map((gate) => gate.id)).toEqual(
+      expect.arrayContaining(["type-check", "ai-audit", "route-safety"]),
+    );
+    expect(snapshot.decision).toBe("NO_GO");
+  });
+
   it("returns named actions instead of fabricated passes when every source is unavailable", () => {
     const snapshot = buildPilotCommandCentre({
       now: NOW,

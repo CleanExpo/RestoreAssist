@@ -80,6 +80,7 @@ export interface PilotCommandCentreSnapshot {
 interface BuildPilotCommandCentreInput {
   now: Date;
   deployment: PilotDeploymentSource;
+  verifiedSourceShas?: string[];
   workflowRuns: Partial<Record<PilotWorkflowId, PilotWorkflowRun>>;
   pilotCanaryJobs: PilotWorkflowJob[] | null;
   rlsCoverage: PilotRlsCoverage | null;
@@ -94,6 +95,7 @@ interface WorkflowGateDefinition {
   freshnessMinutes: number;
   successSummary: string;
   nextAction: string;
+  mustMatchDeployment?: boolean;
 }
 
 interface GitHubWorkflowRunsResponse {
@@ -118,6 +120,10 @@ interface GitHubJobsResponse {
   }>;
 }
 
+interface GitHubAssociatedPull {
+  head?: { sha?: string };
+}
+
 const DAY_MINUTES = 24 * 60;
 
 const TYPE_CHECK_GATE: WorkflowGateDefinition = {
@@ -129,6 +135,7 @@ const TYPE_CHECK_GATE: WorkflowGateDefinition = {
   freshnessMinutes: 7 * DAY_MINUTES,
   successSummary: "The enforcing TypeScript check completed successfully.",
   nextAction: "Resolve the latest quality-run failure and rerun PR Quality Gates.",
+  mustMatchDeployment: true,
 };
 
 const ROUTE_SAFETY_GATE: WorkflowGateDefinition = {
@@ -140,6 +147,7 @@ const ROUTE_SAFETY_GATE: WorkflowGateDefinition = {
   freshnessMinutes: 7 * DAY_MINUTES,
   successSummary: "The route-safety scan completed without a blocking finding.",
   nextAction: "Review the route-safety findings, fix new auth or mutation risks, and rerun the guard.",
+  mustMatchDeployment: true,
 };
 
 const AI_AUDIT_GATE: WorkflowGateDefinition = {
@@ -151,6 +159,7 @@ const AI_AUDIT_GATE: WorkflowGateDefinition = {
   freshnessMinutes: 7 * DAY_MINUTES,
   successSummary: "The enforcing AI guardrail audit completed successfully.",
   nextAction: "Classify or guard the flagged AI call site, then rerun PR Quality Gates.",
+  mustMatchDeployment: true,
 };
 
 const SMOKE_GATE: WorkflowGateDefinition = {
@@ -195,6 +204,7 @@ const RELEASE_GATE: WorkflowGateDefinition = {
   freshnessMinutes: 7 * DAY_MINUTES,
   successSummary: "The strict release-gate scorer completed successfully.",
   nextAction: "Run the strict release gate for the intended pilot source and clear every failed criterion.",
+  mustMatchDeployment: true,
 };
 
 const ACTIVE_WORKFLOW_STATUSES = new Set([
@@ -224,6 +234,7 @@ function evaluateWorkflowGate(
   definition: WorkflowGateDefinition,
   run: PilotWorkflowRun | undefined,
   now: Date,
+  verifiedSourceShas: ReadonlySet<string> = new Set(),
 ): PilotReadinessGate {
   const base = {
     id: definition.id,
@@ -241,6 +252,20 @@ function evaluateWorkflowGate(
       ...base,
       status: "unknown",
       summary: `No ${definition.sourceLabel} evidence is available.`,
+    };
+  }
+
+  if (
+    definition.mustMatchDeployment &&
+    (verifiedSourceShas.size === 0 || !verifiedSourceShas.has(run.headSha))
+  ) {
+    return {
+      ...base,
+      status: "unknown",
+      summary:
+        verifiedSourceShas.size === 0
+          ? `${definition.sourceLabel} cannot be matched because the deployed commit is unavailable.`
+          : `${definition.sourceLabel} does not match the deployed commit or its merged PR source.`,
     };
   }
 
@@ -401,25 +426,33 @@ function buildCanaryGate(
 export function buildPilotCommandCentre({
   now,
   deployment,
+  verifiedSourceShas,
   workflowRuns,
   pilotCanaryJobs,
   rlsCoverage,
 }: BuildPilotCommandCentreInput): PilotCommandCentreSnapshot {
+  const sourceShas = new Set(
+    verifiedSourceShas ??
+      (deployment.commitSha ? [deployment.commitSha] : []),
+  );
   const gates = [
     evaluateWorkflowGate(
       TYPE_CHECK_GATE,
       workflowRuns[TYPE_CHECK_GATE.workflowId],
       now,
+      sourceShas,
     ),
     evaluateWorkflowGate(
       ROUTE_SAFETY_GATE,
       workflowRuns[ROUTE_SAFETY_GATE.workflowId],
       now,
+      sourceShas,
     ),
     evaluateWorkflowGate(
       AI_AUDIT_GATE,
       workflowRuns[AI_AUDIT_GATE.workflowId],
       now,
+      sourceShas,
     ),
     buildRlsAdvisorGate(
       workflowRuns[ADVISOR_GATE.workflowId],
@@ -436,6 +469,7 @@ export function buildPilotCommandCentre({
       RELEASE_GATE,
       workflowRuns[RELEASE_GATE.workflowId],
       now,
+      sourceShas,
     ),
   ];
 
@@ -504,6 +538,12 @@ const WORKFLOW_IDS: PilotWorkflowId[] = [
   "release-gate.yml",
 ];
 
+const SOURCE_MATCHED_WORKFLOWS = new Set<PilotWorkflowId>([
+  "pr-checks.yml",
+  "route-safety.yml",
+  "release-gate.yml",
+]);
+
 const GITHUB_HEADERS = {
   Accept: "application/vnd.github+json",
   "X-GitHub-Api-Version": "2022-11-28",
@@ -512,9 +552,10 @@ const GITHUB_HEADERS = {
 
 async function fetchLatestWorkflowRun(
   workflowId: PilotWorkflowId,
+  verifiedSourceShas: ReadonlySet<string>,
 ): Promise<PilotWorkflowRun | null> {
   const response = await fetch(
-    `${GITHUB_API_BASE}/actions/workflows/${workflowId}/runs?per_page=10`,
+    `${GITHUB_API_BASE}/actions/workflows/${workflowId}/runs?per_page=50`,
     {
       headers: GITHUB_HEADERS,
       next: { revalidate: GITHUB_CACHE_SECONDS },
@@ -525,9 +566,14 @@ async function fetchLatestWorkflowRun(
   }
 
   const body = (await response.json()) as GitHubWorkflowRunsResponse;
-  const candidates = (body.workflow_runs ?? []).filter(
+  let candidates = (body.workflow_runs ?? []).filter(
     (run) => workflowId !== "pilot-canary.yml" || run.event !== "pull_request",
   );
+  if (SOURCE_MATCHED_WORKFLOWS.has(workflowId)) {
+    candidates = candidates.filter((run) =>
+      verifiedSourceShas.has(run.head_sha),
+    );
+  }
   const latest = candidates.sort(
     (a, b) =>
       new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
@@ -546,6 +592,24 @@ async function fetchLatestWorkflowRun(
     updatedAt: latest.updated_at,
     url: latest.html_url,
   };
+}
+
+async function fetchAssociatedPullHeadShas(
+  commitSha: string,
+): Promise<string[]> {
+  const response = await fetch(
+    `${GITHUB_API_BASE}/commits/${encodeURIComponent(commitSha)}/pulls`,
+    {
+      headers: GITHUB_HEADERS,
+      next: { revalidate: GITHUB_CACHE_SECONDS },
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`GitHub associated-PR request failed with ${response.status}`);
+  }
+
+  const pulls = (await response.json()) as GitHubAssociatedPull[];
+  return pulls.flatMap((pull) => (pull.head?.sha ? [pull.head.sha] : []));
 }
 
 async function fetchWorkflowJobs(
@@ -589,10 +653,24 @@ function logUnavailableSource(source: string, reason: unknown): void {
 }
 
 export async function getPilotCommandCentre(): Promise<PilotCommandCentreSnapshot> {
+  const deployment = buildPilotDeploymentSource(process.env);
+  const verifiedSourceShas = new Set<string>();
+  if (deployment.commitSha) {
+    verifiedSourceShas.add(deployment.commitSha);
+    try {
+      const pullHeadShas = await fetchAssociatedPullHeadShas(
+        deployment.commitSha,
+      );
+      pullHeadShas.forEach((sha) => verifiedSourceShas.add(sha));
+    } catch (reason) {
+      logUnavailableSource("deployed commit PR source", reason);
+    }
+  }
+
   const workflowResults = await Promise.allSettled(
     WORKFLOW_IDS.map(async (workflowId) => ({
       workflowId,
-      run: await fetchLatestWorkflowRun(workflowId),
+      run: await fetchLatestWorkflowRun(workflowId, verifiedSourceShas),
     })),
   );
 
@@ -626,7 +704,8 @@ export async function getPilotCommandCentre(): Promise<PilotCommandCentreSnapsho
 
   return buildPilotCommandCentre({
     now: new Date(),
-    deployment: buildPilotDeploymentSource(process.env),
+    deployment,
+    verifiedSourceShas: [...verifiedSourceShas],
     workflowRuns,
     pilotCanaryJobs,
     rlsCoverage,
