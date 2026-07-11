@@ -151,7 +151,13 @@ function isTokenParamRoute(relPath) {
 }
 
 function hasTestHelperEnvGuard(content) {
-  return /process\.env\.ALLOW_TEST_HELPERS\s*!==\s*["']true["']/.test(content);
+  // Inline guard (the historical form) OR the centralized two-key predicate
+  // testHelpersBlocked() from app/api/test/_helpers.ts, which performs the same
+  // ALLOW_TEST_HELPERS check plus the VERCEL_ENV production hard-block.
+  return (
+    /process\.env\.ALLOW_TEST_HELPERS\s*!==\s*["']true["']/.test(content) ||
+    /\btestHelpersBlocked\s*\(/.test(content)
+  );
 }
 
 function isGuardedTestHelper(relPath, content) {
