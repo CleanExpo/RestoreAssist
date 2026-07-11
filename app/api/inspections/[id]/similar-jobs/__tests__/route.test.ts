@@ -12,9 +12,13 @@ const assertInspectionTenancy = vi.hoisted(() => vi.fn());
 const embedText = vi.hoisted(() => vi.fn());
 const findSimilarJobs = vi.hoisted(() => vi.fn());
 const resolveWorkspaceAiKey = vi.hoisted(() => vi.fn());
+const applyRateLimit = vi.hoisted(() => vi.fn());
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
+}));
+vi.mock("@/lib/rate-limiter", () => ({
+  applyRateLimit: (...a: unknown[]) => applyRateLimit(...a),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
@@ -54,7 +58,9 @@ beforeEach(() => {
   embedText.mockReset();
   findSimilarJobs.mockReset();
   resolveWorkspaceAiKey.mockReset();
+  applyRateLimit.mockReset();
 
+  applyRateLimit.mockResolvedValue(null);
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
   userFindUnique.mockResolvedValue({ subscriptionStatus: "ACTIVE" });
   assertInspectionTenancy.mockResolvedValue({ ok: true });
@@ -90,5 +96,23 @@ describe("GET /api/inspections/[id]/similar-jobs — Rule 5 subscription gate", 
 
     expect(res.status).toBe(200);
     expect(embedText).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("GET /api/inspections/[id]/similar-jobs — RA-6946 rate limit (rule 8)", () => {
+  it("returns 429 before any embedding call when rate-limited (per userId)", async () => {
+    applyRateLimit.mockResolvedValueOnce(
+      new Response("rate", { status: 429 }) as never,
+    );
+
+    const res = await GET(makeRequest(), ctx);
+
+    expect(res.status).toBe(429);
+    expect(applyRateLimit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ prefix: "similar-jobs", key: "user_1" }),
+    );
+    expect(embedText).not.toHaveBeenCalled();
+    expect(inspectionFindUnique).not.toHaveBeenCalled();
   });
 });
