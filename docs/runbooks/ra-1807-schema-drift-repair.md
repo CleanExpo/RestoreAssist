@@ -14,7 +14,7 @@ One-time, additive repair to bring the **production** DB schema up to `prisma/sc
 
 `prisma migrate deploy` DDL **silently no-ops against Supabase's transaction pooler** (port `6543`). `scripts/build.sh` sets `DIRECT_URL="${DIRECT_URL:-$DATABASE_URL}"` — so when `DIRECT_URL` is unset, migrate runs on the pooler and the tables are never created, while the migration row still records success.
 
-**Precondition:** on the real production host, `DIRECT_URL` must point at the Supabase **udooy direct connection on port `5432`** (NOT the `6543` pooler). Confirm the host (Vercel vs DigitalOcean App Platform) and this env var before proceeding — see the RA-1807 issue + the DigitalOcean check sent to Rana. If this isn't fixed first, the repair works but drift will keep recurring on every deploy.
+**Precondition:** on the production host (**Vercel** — DigitalOcean App Platform was decommissioned in `85ea27d8`), `DIRECT_URL` must point at the Supabase **udooy direct connection on port `5432`** (NOT the `6543` pooler). Confirm this env var before proceeding. As of WS1 (RA-1807 remediation) `scripts/build.sh` **fails the build** when `DIRECT_URL` is unset / equal to `DATABASE_URL` / points at `:6543`, so a misconfigured host can no longer silently drift — but the env var must still be set correctly for the deploy (and this repair) to succeed.
 
 ## Who / gating
 
