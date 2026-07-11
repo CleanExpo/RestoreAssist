@@ -3,6 +3,7 @@ import {
   parseTurnFrames,
   streamTurn,
   summariseToolCall,
+  toolCallGaps,
   type TurnEvent,
 } from "../turn-stream";
 
@@ -104,5 +105,76 @@ describe("summariseToolCall", () => {
     expect(
       summariseToolCall({ id: "tc2", toolName: "capture_photo", ok: true }),
     ).toBe("Capture photo");
+  });
+
+  it("summarises check_report_gaps by gap count", () => {
+    expect(
+      summariseToolCall({
+        id: "g1",
+        toolName: "check_report_gaps",
+        ok: true,
+        result: { gaps: [] },
+      }),
+    ).toBe("Report check — looks complete");
+    expect(
+      summariseToolCall({
+        id: "g2",
+        toolName: "check_report_gaps",
+        ok: true,
+        result: {
+          gaps: [
+            { field: "photos", severity: "warn", description: "No photos" },
+            { field: "class", severity: "block", description: "No class" },
+          ],
+        },
+      }),
+    ).toBe("Report check — 2 gaps to address");
+  });
+});
+
+describe("toolCallGaps", () => {
+  it("extracts and normalises gaps from a check_report_gaps result", () => {
+    const gaps = toolCallGaps({
+      id: "g1",
+      toolName: "check_report_gaps",
+      ok: true,
+      result: {
+        gaps: [
+          { field: "photos", severity: "warn", description: "No photos captured" },
+          { field: "class", severity: "block", description: "No classification" },
+        ],
+      },
+    });
+    expect(gaps).toEqual([
+      { field: "photos", severity: "warn", description: "No photos captured" },
+      { field: "class", severity: "block", description: "No classification" },
+    ]);
+  });
+
+  it("returns [] for other tools or a malformed payload", () => {
+    expect(
+      toolCallGaps({ id: "r1", toolName: "take_reading", ok: true, result: { gaps: [] } }),
+    ).toEqual([]);
+    expect(
+      toolCallGaps({ id: "g2", toolName: "check_report_gaps", ok: true, result: null }),
+    ).toEqual([]);
+    expect(
+      toolCallGaps({ id: "g3", toolName: "check_report_gaps", ok: true, result: { gaps: "nope" } }),
+    ).toEqual([]);
+  });
+
+  it("drops gap entries with no description and defaults bad severity to warn", () => {
+    const gaps = toolCallGaps({
+      id: "g4",
+      toolName: "check_report_gaps",
+      ok: true,
+      result: {
+        gaps: [
+          { field: "x", description: "" },
+          { field: "y", severity: "weird", description: "kept" },
+        ],
+      },
+    });
+    expect(gaps).toEqual([{ field: "y", severity: "warn", description: "kept" }]);
   });
 });

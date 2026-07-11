@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import {
   humaniseToolName,
   summariseToolCall,
+  toolCallGaps,
   type LiveTeacherToolCall,
   type TranscriptTurn,
 } from "@/lib/live-teacher/turn-stream";
@@ -24,6 +25,7 @@ import {
  * error) — the technician stays the decision-maker.
  */
 function ToolCallCard({ call }: { call: LiveTeacherToolCall }) {
+  const gaps = call.ok ? toolCallGaps(call) : [];
   return (
     <div
       className={cn(
@@ -40,13 +42,37 @@ function ToolCallCard({ call }: { call: LiveTeacherToolCall }) {
           call.ok ? "bg-[#8A6B4E]" : "bg-neutral-400",
         )}
       />
-      <div className="flex flex-col">
+      <div className="flex flex-col gap-1">
         <span className="text-[11px] font-medium uppercase tracking-wider text-neutral-400 dark:text-slate-500">
           {call.ok ? "Live Teacher action" : "Action not completed"}
         </span>
         <span>
           {call.ok ? summariseToolCall(call) : humaniseToolName(call.toolName)}
         </span>
+        {call.ok && gaps.length > 0 && (
+          <ul className="mt-0.5 flex flex-col gap-1">
+            {gaps.map((gap) => (
+              <li
+                key={gap.field || gap.description}
+                className="flex items-start gap-1.5 text-xs"
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 rounded px-1 py-0.5 text-[10px] font-semibold uppercase leading-none",
+                    gap.severity === "block"
+                      ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                      : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+                  )}
+                >
+                  {gap.severity === "block" ? "Blocker" : "Check"}
+                </span>
+                <span className="text-neutral-600 dark:text-slate-300">
+                  {gap.description}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
