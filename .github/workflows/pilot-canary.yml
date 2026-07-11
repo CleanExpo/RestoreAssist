@@ -56,12 +56,13 @@ jobs:
         id: check
         env:
           POOL_JSON: ${{ secrets.PILOT_TESTER_USER_POOL_JSON }}
+          DATABASE_URL: ${{ secrets.PILOT_TESTER_DATABASE_URL }}
         run: |
-          if [ -n "${POOL_JSON:-}" ]; then
+          if [ -n "${POOL_JSON:-}" ] && [ -n "${DATABASE_URL:-}" ]; then
             echo "provisioned=true" >> "$GITHUB_OUTPUT"
           else
             echo "provisioned=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Pilot canary swarm skipped::PILOT_TESTER_USER_POOL_JSON not provisioned (RA-7008). Seed pilot users (scripts/seed-pilot-users.ts) + set the repo secret to activate the swarm."
+            echo "::notice title=Pilot canary swarm skipped::PILOT_TESTER_USER_POOL_JSON / PILOT_TESTER_DATABASE_URL not provisioned (RA-7008). Seed pilot users (scripts/seed-pilot-users.ts) + set the repo secrets to activate the swarm."
           fi
 
   swarm:
