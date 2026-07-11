@@ -290,7 +290,7 @@ export function PilotReadinessCommandCentre({
             key={label}
             className="min-w-0 rounded-lg border border-neutral-200 bg-white px-3 py-3 dark:border-slate-800 dark:bg-slate-950"
           >
-            <p className="truncate text-xs text-neutral-500 dark:text-slate-400">
+            <p className="min-h-8 text-[11px] leading-4 text-neutral-500 dark:text-slate-400">
               {label}
             </p>
             <p className={cn("mt-1 text-2xl font-bold tabular-nums", colour)}>
