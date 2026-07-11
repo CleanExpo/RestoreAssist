@@ -73,6 +73,15 @@ export function summariseToolCall(call: LiveTeacherToolCall): string {
       ? "Report check — looks complete"
       : `Report check — ${n} gap${n === 1 ? "" : "s"} to address`;
   }
+  if (call.toolName === "fill_scope_item") {
+    const description =
+      typeof r.description === "string" ? r.description : "scope item";
+    const qty =
+      typeof r.quantity === "number"
+        ? ` (${r.quantity}${typeof r.unit === "string" ? ` ${r.unit}` : ""})`
+        : "";
+    return `Added scope: ${description}${qty}`;
+  }
   return humaniseToolName(call.toolName);
 }
 
