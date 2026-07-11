@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils";
 import { TranscriptStream } from "./TranscriptStream";
 import {
   streamTurn,
+  summariseHazardProposal,
+  type LiveTeacherProposal,
   type LiveTeacherToolCall,
   type TranscriptTurn,
 } from "@/lib/live-teacher/turn-stream";
@@ -71,6 +73,8 @@ export function VoiceAssistant({
   const [listening, setListening] = useState(false);
   const [micSupported, setMicSupported] = useState(false);
   const [ttsSupported, setTtsSupported] = useState(false);
+  const [proposals, setProposals] = useState<LiveTeacherProposal[]>([]);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const sessionRef = useRef<string | null>(null);
   const idRef = useRef(0);
@@ -182,6 +186,11 @@ export function VoiceAssistant({
             error: event.error,
           });
           patchTurn(assistantId, { toolCalls: [...toolCalls] });
+        } else if (event.type === "tool_proposal") {
+          setProposals((prev) => [
+            ...prev,
+            { id: event.id, toolName: event.toolName, args: event.args },
+          ]);
         } else if (event.type === "done") {
           patchTurn(assistantId, {
             clauseRefs: event.clauseRefs,
@@ -215,6 +224,40 @@ export function VoiceAssistant({
       setBusy(false);
     }
   }, [input, busy, ensureSession, patchTurn, speakReplies, speak]);
+
+  const confirmHazard = useCallback(async (proposal: LiveTeacherProposal) => {
+    setConfirmingId(proposal.id);
+    setError(null);
+    try {
+      // The server writes from its stored proposal — we send only the id.
+      const res = await fetch("/api/live-teacher/hazard/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toolCallId: proposal.id }),
+      });
+      if (!res.ok) {
+        throw new Error("Could not record the hazard. Please try again.");
+      }
+      setProposals((prev) => prev.filter((p) => p.id !== proposal.id));
+      const h = summariseHazardProposal(proposal.args);
+      setTurns((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          role: "assistant",
+          content: `Recorded: ${h.hazardType} hazard${h.severity ? ` (${h.severity})` : ""}${h.location ? ` at ${h.location}` : ""}.`,
+        },
+      ]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setConfirmingId(null);
+    }
+  }, []);
+
+  const dismissProposal = useCallback((id: string) => {
+    setProposals((prev) => prev.filter((p) => p.id !== id));
+  }, []);
 
   const toggleMic = useCallback(() => {
     if (listening) {
@@ -300,6 +343,61 @@ export function VoiceAssistant({
       <div className="rounded-xl border border-neutral-200 dark:border-slate-700/60">
         <TranscriptStream turns={turns} />
       </div>
+
+      {proposals.map((proposal) => {
+        const hazard = summariseHazardProposal(proposal.args);
+        return (
+          <Card
+            key={proposal.id}
+            className="border-red-300 bg-red-50/60 p-3 dark:border-red-800/50 dark:bg-red-900/10"
+          >
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-red-600 dark:text-red-400">
+                Confirm WHS hazard
+              </span>
+              <span className="text-sm font-medium capitalize text-neutral-900 dark:text-white">
+                {hazard.hazardType}
+                {hazard.severity ? ` — ${hazard.severity}` : ""}
+              </span>
+              {hazard.location && (
+                <span className="text-xs text-neutral-600 dark:text-slate-300">
+                  Location: {hazard.location}
+                </span>
+              )}
+              {hazard.controls.length > 0 && (
+                <ul className="mt-0.5 list-disc pl-4 text-xs text-neutral-600 dark:text-slate-300">
+                  {hazard.controls.map((control, i) => (
+                    <li key={i}>{control}</li>
+                  ))}
+                </ul>
+              )}
+              <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
+                The Live Teacher flagged this. It is not recorded until you
+                confirm.
+              </p>
+              <div className="mt-1 flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void confirmHazard(proposal)}
+                  disabled={confirmingId === proposal.id}
+                >
+                  {confirmingId === proposal.id ? "Recording…" : "Confirm & record"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => dismissProposal(proposal.id)}
+                  disabled={confirmingId === proposal.id}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          </Card>
+        );
+      })}
 
       {error && (
         <p role="alert" className="text-sm text-red-600 dark:text-red-400">

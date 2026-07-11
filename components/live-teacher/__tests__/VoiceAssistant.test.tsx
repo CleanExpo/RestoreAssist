@@ -225,6 +225,86 @@ describe("VoiceAssistant", () => {
     expect(screen.getByRole("alert")).toBeInTheDocument();
   });
 
+  it("renders a WHS confirm card and records only on confirm (RA-1132f-3)", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);
+      if (url === "/api/live-teacher/hazard/confirm") {
+        return Promise.resolve({
+          ok: true,
+          status: 201,
+          json: async () => ({ data: { incidentId: "whs-1" } }),
+        } as unknown as Response);
+      }
+      return Promise.resolve(
+        streamResponse([
+          `data: ${JSON.stringify({ type: "tool_proposal", id: "tc-1", toolName: "flag_whs_hazard", args: { hazardType: "asbestos", severity: "HIGH", location: "Ceiling void", controls: ["Isolate area"] } })}\n\n`,
+          `data: ${JSON.stringify({ type: "token", content: "I've flagged an asbestos hazard for your confirmation." })}\n\n`,
+          `data: ${JSON.stringify({ type: "done", utteranceId: "u1", clauseRefs: [], confidence: 0.6 })}\n\n`,
+        ]),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    ask("There's asbestos in the ceiling");
+
+    await waitFor(() =>
+      expect(screen.getByText("Confirm WHS hazard")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("asbestos — HIGH")).toBeInTheDocument();
+    expect(screen.getByText("Location: Ceiling void")).toBeInTheDocument();
+    // Nothing recorded before confirm.
+    expect(
+      fetchMock.mock.calls.some(
+        (c) => c[0] === "/api/live-teacher/hazard/confirm",
+      ),
+    ).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm & record" }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Recorded: asbestos hazard/)).toBeInTheDocument(),
+    );
+    const confirmCall = fetchMock.mock.calls.find(
+      (c) => c[0] === "/api/live-teacher/hazard/confirm",
+    );
+    expect(
+      JSON.parse((confirmCall![1] as RequestInit).body as string),
+    ).toEqual({ toolCallId: "tc-1" });
+    expect(screen.queryByText("Confirm WHS hazard")).not.toBeInTheDocument();
+  });
+
+  it("dismisses a WHS proposal without recording anything", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);
+      return Promise.resolve(
+        streamResponse([
+          `data: ${JSON.stringify({ type: "tool_proposal", id: "tc-1", toolName: "flag_whs_hazard", args: { hazardType: "electrical", severity: "MEDIUM" } })}\n\n`,
+          `data: ${JSON.stringify({ type: "token", content: "Flagged for your review." })}\n\n`,
+          `data: ${JSON.stringify({ type: "done", utteranceId: "u1", clauseRefs: [], confidence: 0.6 })}\n\n`,
+        ]),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    ask("dodgy wiring");
+
+    await waitFor(() =>
+      expect(screen.getByText("Confirm WHS hazard")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("Confirm WHS hazard")).not.toBeInTheDocument(),
+    );
+    expect(
+      fetchMock.mock.calls.some(
+        (c) => c[0] === "/api/live-teacher/hazard/confirm",
+      ),
+    ).toBe(false);
+  });
+
   it("shows the subscription CTA on 402 upgradeRequired", async () => {
     const fetchMock = vi.fn((url: string) => {
       if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);

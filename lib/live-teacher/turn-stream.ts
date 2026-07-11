@@ -17,9 +17,17 @@ export type LiveTeacherToolCall = {
   error?: string | null;
 };
 
+/** A confirm-required action the teacher proposed (RA-1132f-3), awaiting the tech. */
+export type LiveTeacherProposal = {
+  id: string; // the TeacherToolCall row id — the only thing the client sends back
+  toolName: string;
+  args: unknown;
+};
+
 export type TurnEvent =
   | { type: "token"; content: string }
   | ({ type: "tool_call" } & LiveTeacherToolCall)
+  | ({ type: "tool_proposal" } & LiveTeacherProposal)
   | {
       type: "done";
       utteranceId: string;
@@ -92,6 +100,29 @@ export function toolCallGaps(call: LiveTeacherToolCall): ReportGapSummary[] {
       description: typeof g.description === "string" ? g.description : "",
     }))
     .filter((g) => g.description !== "");
+}
+
+/** Parsed view of a flag_whs_hazard proposal, for the confirm card. Defensive. */
+export type HazardProposal = {
+  hazardType: string;
+  severity: string;
+  location: string | null;
+  controls: string[];
+};
+
+export function summariseHazardProposal(args: unknown): HazardProposal {
+  const a = (args ?? {}) as Record<string, unknown>;
+  return {
+    hazardType:
+      typeof a.hazardType === "string"
+        ? a.hazardType.replace(/_/g, " ")
+        : "hazard",
+    severity: typeof a.severity === "string" ? a.severity : "",
+    location: typeof a.location === "string" ? a.location : null,
+    controls: Array.isArray(a.controls)
+      ? a.controls.filter((c): c is string => typeof c === "string")
+      : [],
+  };
 }
 
 /**

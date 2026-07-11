@@ -207,11 +207,38 @@ export async function POST(request: NextRequest) {
           select: { id: true },
         });
 
-        // RA-1132f — persist each executed tool call and stream a tool_call
-        // event so the client can show what the teacher did. Emitted before the
-        // token so the narrative reads act-then-summarise. Forward-compatible:
-        // a client that only handles token/done/error ignores this event type.
+        // RA-1132f — persist each tool call and stream an event so the client
+        // can show what the teacher did. Emitted before the token so the
+        // narrative reads act-then-summarise. Forward-compatible: a client that
+        // only handles token/done/error ignores these event types.
         for (const call of result.toolCalls) {
+          // RA-1132f-3 — a confirm-required PROPOSAL (e.g. flag_whs_hazard) is
+          // NOT executed: persist an audit row marked proposed (no compliance
+          // write) and emit a tool_proposal event for the tech to confirm.
+          if (call.proposed) {
+            const row = await prisma.teacherToolCall.create({
+              data: {
+                sessionId: body.sessionId,
+                utteranceId: assistantUtterance.id,
+                toolName: call.name,
+                args: (call.args ?? {}) as Prisma.InputJsonValue,
+                result: { proposed: true } as Prisma.InputJsonValue,
+              },
+              select: { id: true },
+            });
+            controller.enqueue(
+              encoder.encode(
+                sseEvent({
+                  type: "tool_proposal",
+                  id: row.id,
+                  toolName: call.name,
+                  args: call.args ?? {},
+                }),
+              ),
+            );
+            continue;
+          }
+
           const row = await prisma.teacherToolCall.create({
             data: {
               sessionId: body.sessionId,
