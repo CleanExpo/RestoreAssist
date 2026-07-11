@@ -142,6 +142,8 @@ import { Button } from "@/components/ui/button";
 import { IICRC_CHECKLISTS } from "@/lib/iicrc-checklists";
 import { GroupReadingsPanel } from "@/components/inspection/GroupReadingsPanel";
 import Link from "next/link";
+import { isLiveTeacherEnabled } from "@/lib/live-teacher/feature-flag";
+import { VoiceAssistant } from "@/components/live-teacher/VoiceAssistant";
 
 type Tab =
   | "overview"
@@ -155,7 +157,8 @@ type Tab =
   | "costs"
   | "photos"
   | "activity"
-  | "insurer";
+  | "insurer"
+  | "live-teacher";
 
 interface Inspection {
   id: string;
@@ -939,6 +942,16 @@ export default function InspectionDetailPage({
     },
     { key: "activity", label: "Activity", icon: History },
     { key: "insurer", label: "Insurer Profile", icon: Building2 },
+    // RA-7031 (RA-1132i): flag-gated; hidden unless NEXT_PUBLIC_LIVE_TEACHER is on.
+    ...(isLiveTeacherEnabled()
+      ? [
+          {
+            key: "live-teacher" as Tab,
+            label: "Live Teacher",
+            icon: Mic,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -2670,6 +2683,11 @@ export default function InspectionDetailPage({
               </a>
             </div>
           </div>
+        )}
+
+        {/* Live Teacher Tab (RA-7031 / RA-1132i) — flag-gated */}
+        {activeTab === "live-teacher" && isLiveTeacherEnabled() && (
+          <VoiceAssistant inspectionId={inspection.id} />
         )}
 
         {/* Photos Tab */}

@@ -72,6 +72,10 @@ model User {
   /// subsequent fires within 20h short-circuit (covers Vercel Cron retries
   /// and overlapping invocations under maxDuration pressure).
   trialReminderSentAt          Json?
+  /// RA-7026: one-time "you haven't set your pricing yet" nudge. Set to the
+  /// send timestamp by the pricing-setup-reminders cron so an org owner is
+  /// emailed at most once; null means never nudged.
+  pricingReminderSentAt        DateTime?
   /// RA-1459: cloud mirror provider chosen at onboarding.
   /// Values: "drive" | "onedrive" | "icloud". Null means not yet picked —
   /// viewing copies stay local until the user completes onboarding.

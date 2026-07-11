@@ -15,6 +15,7 @@ import {
   SESSION_COOKIE_NAME,
   forgeSessionJwt,
   sessionCookieAttributes,
+  testHelpersBlocked,
 } from "../_helpers";
 
 type Role = "USER" | "ADMIN" | "MANAGER";
@@ -26,17 +27,11 @@ const TEST_USER_EMAIL: Record<Role, string> = {
 };
 
 export async function POST(req: NextRequest) {
-  // Vercel preview deploys run with NODE_ENV=production, so we cannot use
-  // NODE_ENV to gate. The sandbox Vercel project sets ALLOW_TEST_HELPERS=true;
-  // prod does not. Local dev sets it via .env.local for the E2E suite to work.
-  // Defense-in-depth (RA-6680): even if ALLOW_TEST_HELPERS were ever true in a
-  // production deploy (or a preview alias pointed at prod data), VERCEL_ENV
-  // hard-blocks session forging in production — a single env-var misconfig must
-  // not be enough to mint an ADMIN cookie.
-  if (
-    process.env.ALLOW_TEST_HELPERS !== "true" ||
-    process.env.VERCEL_ENV === "production"
-  ) {
+  // Two-key guard (see testHelpersBlocked in ../_helpers): needs
+  // ALLOW_TEST_HELPERS=true AND, on a VERCEL_ENV=production deploy,
+  // ALLOW_TEST_HELPERS_IN_PROD_ENV=true. The real production app sets neither,
+  // so forging stays hard-blocked there even if one flag were misconfigured.
+  if (testHelpersBlocked()) {
     return NextResponse.json(
       { error: "Test helpers are not enabled in this environment" },
       { status: 404 },

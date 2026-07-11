@@ -22,6 +22,13 @@ export interface HazardProfile {
   asbestos?: boolean;
   biohazard?: boolean;
   chemical?: boolean; // e.g. meth decontamination
+  /**
+   * Fire/smoke/soot exposure. Soot is a fine respirable particulate carrying
+   * PAHs/VOCs — routine restoration soot handling requires P2 minimum + skin
+   * cover (IICRC S700). Callers (reconcile-pricing-safety) already derive this
+   * flag; it must map to a PPE set rather than being silently dropped.
+   */
+  fireSmoke?: boolean;
 }
 
 /** Respiratory protection tiers, ordered — the highest required tier wins. */
@@ -93,7 +100,7 @@ export function requiredPpe(hazard: HazardProfile): PpeRequirement {
         "S520 Condition 3 (active growth): fit-tested RPE required (AS/NZS 1715); consider PAPR for heavy remediation.",
       );
     }
-    references.add("IICRC S520:2024 §14 (worker protection)");
+    references.add("IICRC S520:2024 §5 (Safety and Health)");
     references.add("AS/NZS 1715/1716 (RPE)");
     decontamination = decontamination || mc >= 3;
   }
@@ -115,6 +122,17 @@ export function requiredPpe(hazard: HazardProfile): PpeRequirement {
     items.add("Cartridge respirator (appropriate to the chemical)");
     decontamination = true;
     references.add("SDS / WHS chemical handling");
+  }
+
+  if (hazard.fireSmoke) {
+    respiratory = maxRpe(respiratory, "P2");
+    items.add("Nitrile gloves");
+    items.add("Coveralls");
+    items.add("P2 particulate mask (soot)");
+    references.add("IICRC S700:2025 §4 (Safety and Health)");
+    escalations.push(
+      "Heavy soot / confined or unventilated spaces: escalate to P3/PAPR and test for pre-1990 ACM before disturbing fire-damaged materials.",
+    );
   }
 
   if (hazard.asbestos) {

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
@@ -193,12 +194,7 @@ export async function POST(request: NextRequest) {
         // is a 0..1 Float, so normalise before persisting/streaming.
         const confidence = result.confidence / 100;
 
-        // Stream content as token events (single chunk — non-streaming client)
-        controller.enqueue(
-          encoder.encode(sseEvent({ type: "token", content: result.content })),
-        );
-
-        // Persist assistant turn
+        // Persist assistant turn first so tool-call rows can link to it.
         const assistantUtterance = await prisma.teacherUtterance.create({
           data: {
             sessionId: body.sessionId,
@@ -210,6 +206,71 @@ export async function POST(request: NextRequest) {
           },
           select: { id: true },
         });
+
+        // RA-1132f — persist each tool call and stream an event so the client
+        // can show what the teacher did. Emitted before the token so the
+        // narrative reads act-then-summarise. Forward-compatible: a client that
+        // only handles token/done/error ignores these event types.
+        for (const call of result.toolCalls) {
+          // RA-1132f-3 — a confirm-required PROPOSAL (e.g. flag_whs_hazard) is
+          // NOT executed: persist an audit row marked proposed (no compliance
+          // write) and emit a tool_proposal event for the tech to confirm.
+          if (call.proposed) {
+            const row = await prisma.teacherToolCall.create({
+              data: {
+                sessionId: body.sessionId,
+                utteranceId: assistantUtterance.id,
+                toolName: call.name,
+                args: (call.args ?? {}) as Prisma.InputJsonValue,
+                result: { proposed: true } as Prisma.InputJsonValue,
+              },
+              select: { id: true },
+            });
+            controller.enqueue(
+              encoder.encode(
+                sseEvent({
+                  type: "tool_proposal",
+                  id: row.id,
+                  toolName: call.name,
+                  args: call.args ?? {},
+                }),
+              ),
+            );
+            continue;
+          }
+
+          const row = await prisma.teacherToolCall.create({
+            data: {
+              sessionId: body.sessionId,
+              utteranceId: assistantUtterance.id,
+              toolName: call.name,
+              args: (call.args ?? {}) as Prisma.InputJsonValue,
+              error: call.error,
+              durationMs: call.durationMs,
+              ...(call.error === undefined && call.result !== undefined
+                ? { result: call.result as Prisma.InputJsonValue }
+                : {}),
+            },
+            select: { id: true },
+          });
+          controller.enqueue(
+            encoder.encode(
+              sseEvent({
+                type: "tool_call",
+                id: row.id,
+                toolName: call.name,
+                ok: call.error === undefined,
+                result: call.result ?? null,
+                error: call.error ?? null,
+              }),
+            ),
+          );
+        }
+
+        // Stream content as a single token event (non-streaming client).
+        controller.enqueue(
+          encoder.encode(sseEvent({ type: "token", content: result.content })),
+        );
 
         // Stream done event
         controller.enqueue(

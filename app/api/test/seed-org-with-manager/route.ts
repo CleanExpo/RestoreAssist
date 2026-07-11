@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { testHelpersBlocked } from "../_helpers";
 
 interface SeedBody {
   managerEmail?: string;
@@ -23,16 +24,11 @@ interface SeedBody {
 }
 
 export async function POST(req: NextRequest) {
-  // Vercel preview deploys run with NODE_ENV=production, so we cannot use
-  // NODE_ENV to gate. The sandbox Vercel project sets ALLOW_TEST_HELPERS=true;
-  // prod does not. Local dev sets it via .env.local for the E2E suite to work.
-  // RA-6940 defence-in-depth (same hard-block as sign-in-as): even if
-  // ALLOW_TEST_HELPERS were ever true in a production deploy, VERCEL_ENV
-  // must prevent seeding orgs/invites into the production database.
-  if (
-    process.env.ALLOW_TEST_HELPERS !== "true" ||
-    process.env.VERCEL_ENV === "production"
-  ) {
+  // Two-key guard (see testHelpersBlocked in ../_helpers): needs
+  // ALLOW_TEST_HELPERS=true AND, on a VERCEL_ENV=production deploy,
+  // ALLOW_TEST_HELPERS_IN_PROD_ENV=true — so a single misconfig can never seed
+  // orgs/invites into the real production database.
+  if (testHelpersBlocked()) {
     return NextResponse.json(
       { error: "Test helpers are not enabled in this environment" },
       { status: 404 },

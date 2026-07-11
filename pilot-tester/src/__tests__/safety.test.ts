@@ -52,6 +52,16 @@ describe("assertSandbox", () => {
     );
   });
 
+  it("refuses a database URL containing the REAL prod Supabase ref (RA-7008)", () => {
+    expect(() =>
+      assertSandbox({
+        baseUrl: "https://restoreassist-sandbox.vercel.app",
+        databaseUrl:
+          "postgresql://user:pwd@db.udooysjajglluvuxkijp.supabase.co:5432/postgres",
+      }),
+    ).toThrow(ProdAccessRefused);
+  });
+
   it("refuses a database URL marked with the prod ref", () => {
     expect(() =>
       assertSandbox({

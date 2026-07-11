@@ -118,3 +118,7 @@ videos/*.mp4
 public/videos/remotion/*.mp4
 remotion/output/*.mp4
 logs/
+
+# Local-only property-based soak harness (run.ts header: "NOT a repo artifact —
+# never committed"). Source + 9MB run logs/ledgers stay on the operator's machine.
+scripts/overnight-soak/
