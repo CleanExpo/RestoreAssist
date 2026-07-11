@@ -11,7 +11,46 @@ import { useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { TranscriptTurn } from "@/lib/live-teacher/turn-stream";
+import {
+  humaniseToolName,
+  summariseToolCall,
+  type LiveTeacherToolCall,
+  type TranscriptTurn,
+} from "@/lib/live-teacher/turn-stream";
+
+/**
+ * An auditable card for one action the teacher took. Success shows the logged
+ * detail; failure shows a muted "not completed" state (never an alarming
+ * error) — the technician stays the decision-maker.
+ */
+function ToolCallCard({ call }: { call: LiveTeacherToolCall }) {
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-2 rounded-xl border px-3 py-2 text-sm",
+        call.ok
+          ? "border-[#8A6B4E]/40 bg-[#8A6B4E]/5 text-neutral-800 dark:text-slate-100"
+          : "border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400",
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full",
+          call.ok ? "bg-[#8A6B4E]" : "bg-neutral-400",
+        )}
+      />
+      <div className="flex flex-col">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-neutral-400 dark:text-slate-500">
+          {call.ok ? "Live Teacher action" : "Action not completed"}
+        </span>
+        <span>
+          {call.ok ? summariseToolCall(call) : humaniseToolName(call.toolName)}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export function TranscriptStream({ turns }: { turns: TranscriptTurn[] }) {
   const endRef = useRef<HTMLDivElement>(null);
@@ -44,6 +83,22 @@ export function TranscriptStream({ turns }: { turns: TranscriptTurn[] }) {
             <span className="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-slate-500">
               {turn.role === "user" ? "You" : "Live Teacher"}
             </span>
+
+            {turn.role === "assistant" &&
+              turn.toolCalls &&
+              turn.toolCalls.length > 0 && (
+                <ul
+                  className="flex w-full max-w-[85%] flex-col gap-1.5"
+                  aria-label="Actions the Live Teacher took"
+                >
+                  {turn.toolCalls.map((call) => (
+                    <li key={call.id}>
+                      <ToolCallCard call={call} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+
             <div
               className={cn(
                 "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap",
