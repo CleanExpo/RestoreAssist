@@ -170,13 +170,39 @@ describe("invokeClaudeCloud — tool layer (RA-1132f)", () => {
 
   it("refuses a tool outside the phase allowlist without dispatching", async () => {
     anthropicMock.create
-      .mockResolvedValueOnce(toolUseResponse("fill_scope_item", {}))
+      .mockResolvedValueOnce(toolUseResponse("capture_photo", {}))
       .mockResolvedValueOnce(makeSuccessResponse("Noted."));
 
     const result = await invokeClaudeCloud(baseInput);
 
     expect(dispatchToolMock).not.toHaveBeenCalled();
     expect(result.toolCalls[0].error).toMatch(/not enabled/i);
+  });
+
+  it("runs fill_scope_item (auto-write) with the injected id (RA-1132f-4)", async () => {
+    anthropicMock.create
+      .mockResolvedValueOnce(
+        toolUseResponse("fill_scope_item", {
+          inspectionId: "SPOOFED",
+          itemType: "remove_carpet",
+          description: "Remove carpet in bedroom",
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeSuccessResponse("Added remove-carpet to the scope [S500:2021 §12.2]."),
+      );
+    dispatchToolMock.mockResolvedValueOnce({
+      id: "si_1",
+      itemType: "remove_carpet",
+      description: "Remove carpet in bedroom",
+    });
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    const [name, args] = dispatchToolMock.mock.calls[0];
+    expect(name).toBe("fill_scope_item");
+    expect((args as { inspectionId?: string }).inspectionId).toBe("insp-001");
+    expect(result.toolCalls[0].result).toMatchObject({ id: "si_1" });
   });
 
   it("proposes flag_whs_hazard without executing it (confirm-required, RA-1132f-3)", async () => {

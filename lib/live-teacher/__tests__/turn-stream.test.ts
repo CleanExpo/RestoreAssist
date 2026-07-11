@@ -107,6 +107,25 @@ describe("summariseToolCall", () => {
     ).toBe("Capture photo");
   });
 
+  it("summarises fill_scope_item with quantity when present", () => {
+    expect(
+      summariseToolCall({
+        id: "s1",
+        toolName: "fill_scope_item",
+        ok: true,
+        result: { description: "Remove carpet", quantity: 12, unit: "sq m" },
+      }),
+    ).toBe("Added scope: Remove carpet (12 sq m)");
+    expect(
+      summariseToolCall({
+        id: "s2",
+        toolName: "fill_scope_item",
+        ok: true,
+        result: { description: "Sanitise materials" },
+      }),
+    ).toBe("Added scope: Sanitise materials");
+  });
+
   it("summarises check_report_gaps by gap count", () => {
     expect(
       summariseToolCall({

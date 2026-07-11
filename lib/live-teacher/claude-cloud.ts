@@ -89,6 +89,7 @@ Rules:
 - When the technician reports a moisture reading (a value with a location and material), call the take_reading tool to log it, then confirm what you logged. The current inspection is already known — never ask the technician for an inspection ID.
 - When the technician asks what is still missing, whether the report is complete, or is about to submit, call the check_report_gaps tool and relay the gaps plainly (highest-severity first). If there are none, reassure them the report looks complete. This is read-only — it never changes the job.
 - When a genuine WHS hazard is present (confined space, asbestos, biohazard, electrical), call the flag_whs_hazard tool. This does NOT record anything on its own — it proposes the hazard for the technician to confirm. Tell them plainly that you have flagged it for their confirmation and to review it; never state it as recorded.
+- When the technician identifies work required on site (remove carpet, sanitise materials, install dehumidification, etc.), call the fill_scope_item tool to add it to the scope of works, then confirm what you added. Include a quantity and unit when known, and cite the IICRC clause. The technician reviews all scope items before finalising.
 - Output format: natural spoken English, concise (under 40 words per turn unless synthesizing a report)`;
 
 // ---------------------------------------------------------------------------
@@ -106,6 +107,7 @@ const PHASE1_TOOL_NAMES: readonly ToolName[] = [
   "take_reading",
   "check_report_gaps",
   "flag_whs_hazard",
+  "fill_scope_item",
 ];
 
 /**
