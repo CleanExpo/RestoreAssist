@@ -6297,6 +6297,8 @@ model ClaimSketch {
   captureAdapter     String             @default("manual") // manual | roomplan | cloud_ai | underlay_import
   annotations        SketchAnnotation[]
   elements           SketchElement[]
+  rooms              SketchRoom[]
+  evidencePins       EvidencePin[]
   hazards            Hazard[]
   insuranceContext   InsuranceContext?
   sketchMoistureReadings SketchMoistureReading[]
@@ -6305,6 +6307,69 @@ model ClaimSketch {
 
   @@index([inspectionId])
   @@index([inspectionId, floorNumber])
+}
+
+// RoomGraph V1 — derived room nodes. Fabric sketchData remains render SSOT;
+// these rows are the stable Room IDs that photos/moisture/damage/scope join to.
+model SketchRoom {
+  id             String        @id @default(cuid())
+  sketchId       String
+  sketch         ClaimSketch   @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  fabricObjectId String
+  name           String        @default("Room")
+  areaM2         Float?
+  perimeterM     Float?
+  heightM        Float?
+  floorNumber    Int           @default(0)
+  materialSlug   String?
+  waterCategory  String? // CAT_1 | CAT_2 | CAT_3
+  dryingStatus   String        @default("unknown") // unknown | wet | drying | dry
+  locked         Boolean       @default(false)
+  hidden         Boolean       @default(false)
+  geometryJson   Json?
+  provenance     String        @default("operator_measured")
+  evidencePins   EvidencePin[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([sketchId, fabricObjectId])
+  @@index([sketchId])
+  @@index([sketchId, floorNumber])
+}
+
+// Evidence pins on the floor plan — photos/videos/docs/voice at canvas coords.
+model EvidencePin {
+  id                 String           @id @default(cuid())
+  sketchId           String
+  sketch             ClaimSketch      @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  sketchRoomId       String?
+  sketchRoom         SketchRoom?      @relation(fields: [sketchRoomId], references: [id], onDelete: SetNull)
+  inspectionPhotoId  String?
+  kind               String           @default("photo") // photo | video | document | voice
+  // Absolute canvas px (legacy render) + normalized 0..1 (stable under zoom/pan).
+  x                  Float
+  y                  Float
+  nx                 Float?
+  ny                 Float?
+  rotationDeg        Float            @default(0)
+  scale              Float            @default(1)
+  fileUrl            String?
+  thumbnailUrl       String?
+  fileName           String?
+  fileMimeType       String?
+  fileSizeBytes      Int?
+  caption            String?
+  capturedByUserId   String?
+  captureSource      String           @default("web") // web | camera | upload | import
+  offlineQueued      Boolean          @default(false)
+  syncState          String           @default("synced") // pending | synced | failed
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([sketchId])
+  @@index([sketchRoomId])
+  @@index([inspectionPhotoId])
+  @@index([sketchId, kind])
 }
 
 model SketchAnnotation {
@@ -6329,7 +6394,7 @@ model SketchElement {
   id           String      @id @default(cuid())
   sketchId     String
   sketch       ClaimSketch @relation(fields: [sketchId], references: [id], onDelete: Cascade)
-  type         String // wall | opening | room | fixture
+  type         String // wall | opening | room | fixture | damage
   geometryJson Json
   dimensionsM  Json? // { widthM, heightM, lengthM, areaM2 } in metres
   materialId   String?
