@@ -100,9 +100,15 @@ if (MODE === "strict") {
 }
 
 // Ratchet mode
-const baseline = existsSync(BASELINE_PATH)
-  ? JSON.parse(readFileSync(BASELINE_PATH, "utf8")).files || {}
-  : {};
+let baseline = {};
+if (existsSync(BASELINE_PATH)) {
+  try {
+    baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf8")).files || {};
+  } catch (e) {
+    console.error(`check:no-lucide - FAIL: cannot parse ${BASELINE_PATH}: ${e.message}`);
+    process.exit(1);
+  }
+}
 const violations = [];
 for (const [rel, n] of Object.entries(current)) {
   const allowed = baseline[rel] || 0;
