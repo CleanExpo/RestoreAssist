@@ -13,11 +13,13 @@ export type ToolMode =
   | "select" // Selection / move tool
   | "room" // Room polygon drawing
   | "line" // Single wall/line segments
-  | "freehand" // Freehand damage zone drawing
+  | "freehand" // Freehand annotation (legacy)
+  | "damage" // Structured damage zone brush
   | "text" // Text label
   | "arrow" // Arrow annotation
   | "measure" // Measurement tool
-  | "photo" // Photo marker placement
+  | "photo" // Evidence pin placement (photos on plan)
+  | "moisture" // Moisture pin overlay
   | "pan" // Pan/navigate
   // RA-6841 [A2]: architectural opening symbols
   | "door" // Door — opening cut + leaf line + swing arc
@@ -76,6 +78,8 @@ export interface SketchCanvasProps {
   onSelect?: (obj: SelectedObject | null) => void;
   readonly?: boolean;
   className?: string;
+  /** When toolMode is "damage", brush stamps this damage kind onto the path. */
+  damageKind?: import("@/lib/sketch/damage-zone").DamageKind;
 }
 
 export interface FabricCanvasRef {
@@ -134,6 +138,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       onModified,
       readonly = false,
       className,
+      damageKind = "water",
     },
     ref,
   ) {
@@ -144,6 +149,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
     const isLoadingRef = useRef(false);
     // ── Drawing state for the click/drag tools (read inside Fabric handlers) ──
     const toolModeRef = useRef<ToolMode>(toolMode);
+    const damageKindRef = useRef(damageKind);
     const pxPerMetreRef = useRef<number>(pxPerMetre);
     const snapEnabledRef = useRef<boolean>(snapEnabled);
     const snapGridMetresRef = useRef<number>(snapGridMetres);
@@ -413,6 +419,28 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           if (!isLoadingRef.current && !isDecoration(target)) {
             saveState();
             onModified?.();
+          }
+        });
+        canvas.on("path:created", (opt: unknown) => {
+          const path = (opt as { path?: Record<string, unknown> } | undefined)
+            ?.path;
+          if (!path) return;
+          if (toolModeRef.current === "damage") {
+            const kind = damageKindRef.current;
+            // Dynamic import avoided — styles inlined via string lookup at call site
+            path.data = {
+              type: "damage",
+              damageKind: kind,
+              provenance: "operator_measured",
+              id: `dmg-${Date.now().toString(36)}`,
+            };
+          } else {
+            path.data = {
+              ...(typeof path.data === "object" && path.data
+                ? (path.data as object)
+                : {}),
+              type: "freehand",
+            };
           }
         });
 
@@ -1000,13 +1028,14 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           const e = (opt as { e: MouseEvent }).e;
           const tool = toolModeRef.current;
           if (readonly || e.altKey) return;
-          // "photo" is the moisture-pin tool (SketchMoistureLayer overlay) in
-          // SketchEditorV2 — it owns those clicks, so the canvas ignores it.
+          // Overlay tools own their clicks (evidence + moisture layers).
           if (
             tool === "select" ||
             tool === "freehand" ||
+            tool === "damage" ||
             tool === "pan" ||
-            tool === "photo"
+            tool === "photo" ||
+            tool === "moisture"
           )
             return;
           const p = scenePoint(e);
@@ -1293,22 +1322,38 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       // Keep the handler-visible refs current and reset any in-progress draw
       // (e.g. a half-finished room polygon) when the tool changes.
       toolModeRef.current = toolMode;
+      damageKindRef.current = damageKind;
       pxPerMetreRef.current = pxPerMetre;
       snapEnabledRef.current = snapEnabled;
       snapGridMetresRef.current = snapGridMetres;
       drawStartRef.current = null;
       polygonPtsRef.current = [];
 
-      canvas.isDrawingMode = toolMode === "freehand";
+      const brushMode = toolMode === "freehand" || toolMode === "damage";
+      canvas.isDrawingMode = brushMode;
       canvas.selection = toolMode === "select" && !readonly;
 
       if (toolMode === "freehand") {
-        canvas.freeDrawingBrush.color = "#3b82f680"; // blue with alpha
+        canvas.freeDrawingBrush.color = "#3b82f680";
         canvas.freeDrawingBrush.width = 20;
+      } else if (toolMode === "damage") {
+        const styles: Record<string, { stroke: string }> = {
+          water: { stroke: "rgba(37, 99, 235, 0.85)" },
+          fire: { stroke: "rgba(220, 38, 38, 0.85)" },
+          mould: { stroke: "rgba(22, 163, 74, 0.85)" },
+          smoke: { stroke: "rgba(75, 85, 99, 0.85)" },
+          biohazard: { stroke: "rgba(202, 138, 4, 0.9)" },
+          structural: { stroke: "rgba(124, 58, 237, 0.85)" },
+          electrical: { stroke: "rgba(234, 179, 8, 0.9)" },
+          contents: { stroke: "rgba(14, 165, 233, 0.85)" },
+        };
+        canvas.freeDrawingBrush.color =
+          styles[damageKind]?.stroke ?? styles.water.stroke;
+        canvas.freeDrawingBrush.width = 24;
       }
 
       canvas.defaultCursor = toolMode === "pan" ? "grab" : "default";
-    }, [toolMode, readonly, pxPerMetre, snapEnabled, snapGridMetres]);
+    }, [toolMode, readonly, pxPerMetre, snapEnabled, snapGridMetres, damageKind]);
 
     // ── Update background image when URL/opacity changes (Fabric.js v6) ──
     useEffect(() => {
