@@ -240,6 +240,12 @@ model User {
       expect(parsed.notNull.get("Integration")?.has("provider")).toBe(true);
       expect(parsed.notNull.get("Integration")?.has("note")).toBe(false);
     });
+    it("parses the @@unique(fields: [...]) form as well as the shorthand", () => {
+      const p = parseSchemaObjects(
+        `model M {\n  id String @id\n  a String\n  b String\n  @@unique(fields: [a, b], name: "ab")\n}`,
+      );
+      expect(p.uniques.get("M")).toContain(sig(["a", "b"]));
+    });
   });
 
   describe("extractIndexColumns (pg_indexes indexdef)", () => {
@@ -261,6 +267,13 @@ model User {
       expect(
         extractIndexColumns(
           'CREATE UNIQUE INDEX "x" ON public."T" USING btree ("a") WHERE ("deleted" = false)',
+        ),
+      ).toBeNull();
+    });
+    it("returns null for a primary-key backing index (_pkey) — structural, not @unique drift", () => {
+      expect(
+        extractIndexColumns(
+          'CREATE UNIQUE INDEX "Widget_pkey" ON public."Widget" USING btree ("id")',
         ),
       ).toBeNull();
     });

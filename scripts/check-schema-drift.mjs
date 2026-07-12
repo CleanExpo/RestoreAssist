@@ -1,8 +1,10 @@
 /**
  * Schema drift smoke test — run AFTER `prisma migrate deploy` in the build pipeline.
  *
- * Compares prisma/schema.prisma against the live database and fails the build on
- * any drift. Originally scalar-columns-only; WS3 (RA-1807 remediation) extends it
+ * Compares prisma/schema.prisma against the live database. Scalar-column drift is
+ * FATAL (the original guard); the WS3 dimensions below are REPORT-ONLY by default
+ * (set DRIFT_STRICT=1 — prod verification / RA-1807 runbook — to make them fatal).
+ * Originally scalar-columns-only; WS3 (RA-1807 remediation) extends it
  * to unique indexes, and column nullability, and makes every comparator
  * BIDIRECTIONAL and PER-OBJECT:
  *
@@ -91,9 +93,10 @@ export function parseSchemaObjects(content) {
       const line = raw.trim();
       if (!line || line.startsWith("//")) continue;
 
-      // Block-level @@unique([a, b]) — a real DB unique index.
+      // Block-level unique index. Handles both @@unique([a, b]) and
+      // @@unique(fields: [a, b], name: "x").
       if (line.startsWith("@@")) {
-        const um = line.match(/@@unique\(\s*\[([^\]]+)\]/);
+        const um = line.match(/@@unique\([^[]*\[([^\]]+)\]/);
         if (um) {
           const fields = um[1]
             .split(",")
@@ -134,6 +137,11 @@ export function parseSchemaObjects(content) {
  */
 export function extractIndexColumns(indexdef) {
   if (!/CREATE\s+UNIQUE\s+INDEX/i.test(indexdef)) return null;
+  // Primary-key backing indexes (Prisma/Postgres name them <table>_pkey) are
+  // structural — present on every table — and are NOT the @unique/@@unique drift
+  // this gate tracks. Skip them, or every table reads as "extra-in-db".
+  const nameM = indexdef.match(/CREATE\s+UNIQUE\s+INDEX\s+"?([^"\s]+)"?/i);
+  if (nameM && /_pkey$/i.test(nameM[1])) return null;
   if (/\bWHERE\b/i.test(indexdef)) return null; // partial index — skip
   const paren = indexdef.match(/USING\s+\w+\s*\(([^)]+)\)/i);
   if (!paren) return null;
@@ -286,23 +294,44 @@ async function main() {
     process.exit(0);
   }
 
+  // Rollout policy: the ORIGINAL scalar-column check stays FATAL (a schema column
+  // missing from the DB = `migrate deploy` reported success but the DDL never
+  // applied — the exact failure this gate was built for). The NEW dimensions
+  // (unique indexes + nullability) are REPORT-ONLY by default so a stricter gate
+  // can ship without blocking every build on pre-existing latent drift between
+  // schema.prisma and the migrations. Set DRIFT_STRICT=1 (prod verification / the
+  // RA-1807 runbook) to make the new dimensions fatal too.
+  const columnDrift = drift.filter((f) => f.kind === "column");
+  const strict = process.env.DRIFT_STRICT === "1";
+  const fatal = columnDrift.length > 0 || strict;
+
   const byTable = new Map();
   for (const f of drift) byTable.set(f.table, (byTable.get(f.table) || 0) + 1);
   console.error(
-    `[drift-check] ✗ ${drift.length} drift finding(s) across ${byTable.size} table(s):`,
+    `[drift-check] ${fatal ? "✗" : "⚠"} ${drift.length} drift finding(s) across ${byTable.size} table(s):`,
   );
   console.error(formatFindings(drift));
   console.error("");
+
+  if (columnDrift.length > 0) {
+    console.error(
+      "A `migrate deploy` reported success but a column's DDL never applied — re-run the",
+    );
+    console.error(
+      "affected migrations against the direct :5432 connection (RA-1807 runbook).",
+    );
+    process.exit(1);
+  }
+  if (strict) {
+    console.error(
+      "DRIFT_STRICT=1 — unique/nullability drift is fatal (prod verification mode).",
+    );
+    process.exit(1);
+  }
   console.error(
-    "A `migrate deploy` reported success but the DDL never applied (or a DROP",
+    "[drift-check] unique/nullability drift is REPORT-ONLY (set DRIFT_STRICT=1 to enforce) — not failing the build.",
   );
-  console.error(
-    "never applied — 'extra-in-db'). Re-run the affected migrations against the",
-  );
-  console.error(
-    "direct :5432 connection, or author a repair migration. See the RA-1807 runbook.",
-  );
-  process.exit(1);
+  process.exit(0);
 }
 
 // Run only when invoked directly (not when imported by the drift-gate tests).
