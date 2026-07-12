@@ -21,6 +21,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { fromException } from "@/lib/api-errors";
+import { getPilotCommandCentre } from "@/lib/pilot-readiness-command-centre";
 import {
   generatePilotReport,
   deriveCycleTimeObservations,
@@ -38,9 +39,23 @@ export async function GET(request: NextRequest) {
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
 
+    const commandCentrePromise = getPilotCommandCentre();
+
     // ── 1. Load all recorded observations from the database ─────────────────
 
     const rawObs = await prisma.pilotObservation.findMany({
+      select: {
+        id: true,
+        claimId: true,
+        observationType: true,
+        value: true,
+        group: true,
+        inspectionId: true,
+        recordedByUserId: true,
+        context: true,
+        notes: true,
+        createdAt: true,
+      },
       orderBy: { createdAt: "asc" },
       take: MAX_PILOT_OBSERVATIONS,
     });
@@ -126,8 +141,10 @@ export async function GET(request: NextRequest) {
       companies: Object.keys(byOrg).length,
       totalCompletedInspections: completedInspections.length,
     };
+    const commandCentre = await commandCentrePromise;
 
     return NextResponse.json({
+      commandCentre,
       report,
       cycleTimeSummary,
       meta: {
