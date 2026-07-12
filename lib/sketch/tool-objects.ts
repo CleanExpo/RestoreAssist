@@ -207,7 +207,12 @@ export function describeToolObject(
           strokeUniform: true,
           objectCaching: false,
         },
-        data: { type: "room", provenance: "operator_measured", areaM2 },
+        data: {
+          type: "room",
+          id: `room-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+          provenance: "operator_measured",
+          areaM2,
+        },
         label: {
           text: formatRoomLabel(input.text, areaM2),
           left: c.x,
