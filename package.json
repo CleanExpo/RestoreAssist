@@ -63,6 +63,7 @@
     "check:encoding": "node scripts/check-encoding.mjs",
     "check:ssot": "node scripts/ci/check-data-source-ssot.mjs --strict",
     "check:corpus": "node scripts/ci/check-corpus-hygiene.mjs",
+    "test:unit": "vitest run",
     "test:parity": "node scripts/ci/check-test-parity.mjs",
     "test:db": "bash scripts/ci/test-with-db.sh",
     "audit:ai": "tsx scripts/audit-ai-call-sites.ts --gate",
