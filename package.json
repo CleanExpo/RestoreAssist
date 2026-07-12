@@ -60,6 +60,7 @@
     "pretype-check": "prisma generate",
     "type-check": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsc --noEmit",
     "check:no-emoji": "node scripts/check-no-emoji.mjs",
+    "check:no-lucide": "node scripts/check-no-lucide.mjs",
     "check:encoding": "node scripts/check-encoding.mjs",
     "check:ssot": "node scripts/ci/check-data-source-ssot.mjs --strict",
     "check:corpus": "node scripts/ci/check-corpus-hygiene.mjs",
