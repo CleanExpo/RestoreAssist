@@ -21,6 +21,7 @@ import {
   ArrowUpRight,
   Ruler,
   Droplets,
+  Camera,
   Hand,
   Undo2,
   Redo2,
@@ -31,14 +32,21 @@ import {
   GripHorizontal,
   Upload,
   Loader2,
+  DoorOpen,
+  AppWindow,
+  Waves,
 } from "lucide-react";
 import type { ToolMode } from "./SketchCanvas";
+import type { DamageKind } from "@/lib/sketch/damage-zone";
+import { DAMAGE_KINDS, DAMAGE_KIND_STYLES } from "@/lib/sketch/damage-zone";
 
 export type DockPosition = "bottom" | "top" | "left" | "right";
 
 export interface SketchDockToolbarProps {
   toolMode: ToolMode;
   onToolChange: (mode: ToolMode) => void;
+  damageKind?: DamageKind;
+  onDamageKindChange?: (kind: DamageKind) => void;
   canUndo?: boolean;
   canRedo?: boolean;
   onUndo?: () => void;
@@ -73,11 +81,15 @@ const TOOLS: {
   { mode: "select", Icon: MousePointer2, label: "Select", shortcut: "V" },
   { mode: "room", Icon: Square, label: "Room", shortcut: "R" },
   { mode: "line", Icon: Minus, label: "Wall", shortcut: "L" },
+  { mode: "door", Icon: DoorOpen, label: "Door", shortcut: "O" },
+  { mode: "window", Icon: AppWindow, label: "Window", shortcut: "W" },
+  { mode: "damage", Icon: Waves, label: "Damage", shortcut: "G" },
   { mode: "freehand", Icon: Pencil, label: "Freehand", shortcut: "P" },
   { mode: "text", Icon: Type, label: "Label", shortcut: "T" },
   { mode: "arrow", Icon: ArrowUpRight, label: "Arrow", shortcut: "A" },
   { mode: "measure", Icon: Ruler, label: "Measure", shortcut: "M" },
-  { mode: "photo", Icon: Droplets, label: "Moisture Pin", shortcut: "D" },
+  { mode: "moisture", Icon: Droplets, label: "Moisture", shortcut: "D" },
+  { mode: "photo", Icon: Camera, label: "Photo", shortcut: "I" },
   { mode: "pan", Icon: Hand, label: "Pan", shortcut: "H" },
 ];
 
@@ -91,6 +103,8 @@ function readDockPos(): DockPosition {
 export function SketchDockToolbar({
   toolMode,
   onToolChange,
+  damageKind = "water",
+  onDamageKindChange,
   canUndo = false,
   canRedo = false,
   onUndo,
@@ -232,6 +246,38 @@ export function SketchDockToolbar({
             Icon={Icon}
           />
         ))}
+
+      {!readonly && toolMode === "damage" && onDamageKindChange && (
+        <>
+          <div className={dividerCls} />
+          <div
+            className={cn(
+              "flex gap-1",
+              isVertical ? "flex-col max-h-48 overflow-y-auto" : "flex-row",
+            )}
+          >
+            {DAMAGE_KINDS.map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                title={DAMAGE_KIND_STYLES[kind].label}
+                aria-label={DAMAGE_KIND_STYLES[kind].label}
+                aria-pressed={damageKind === kind}
+                onClick={() => onDamageKindChange(kind)}
+                className={cn(
+                  "h-8 w-8 rounded-lg border text-[9px] font-semibold uppercase tracking-wide",
+                  damageKind === kind
+                    ? "border-[#D4A574] ring-1 ring-[#D4A574]"
+                    : "border-white/10 opacity-70 hover:opacity-100",
+                )}
+                style={{ background: DAMAGE_KIND_STYLES[kind].fill }}
+              >
+                {kind.slice(0, 1)}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {readonly && (
         <ToolBtn
