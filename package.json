@@ -67,6 +67,7 @@
     "test:db": "bash scripts/ci/test-with-db.sh",
     "audit:ai": "tsx scripts/audit-ai-call-sites.ts --gate",
     "audit:rls": "tsx scripts/audit-rls.ts",
+    "lint:rls-initplan": "node scripts/lint-rls-policy-initplan.mjs",
     "audit:api": "tsx scripts/audit-api-routes.ts",
     "audit:advisors": "tsx scripts/ci/supabase-advisor-gate.ts",
     "backfill:account-tokens": "tsx scripts/backfill-encrypt-account-tokens.ts",

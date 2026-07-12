@@ -25,6 +25,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # WS4 (RA-1807 remediation) — fast static forward-guard: any NEW/changed
+  # migration policy predicate must wrap zero-arg auth.*() in (select …) so it
+  # can't reintroduce the RA-4827 → RA-4956 auth_rls_initplan regression. Scans
+  # BOTH prisma/migrations and supabase/migrations (policies live in both roots).
+  # fetch-depth: 0 so `git merge-base` against the PR base resolves.
+  rls-initplan-lint:
+    name: RLS InitPlan forward-guard (static)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Lint new policy predicates for bare auth.*()
+        env:
+          LINT_BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+        run: node scripts/lint-rls-policy-initplan.mjs
+
   rls-isolation:
     name: RLS tenant isolation harness
     runs-on: ubuntu-latest
