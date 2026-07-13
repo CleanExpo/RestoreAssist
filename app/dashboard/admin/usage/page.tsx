@@ -121,100 +121,14 @@ type BillingStatus = (typeof BILLING_STATUSES)[number];
 
 const PAGE_SIZE = 10;
 
-// ---- Mock data ------------------------------------------------------------
-
-const MOCK_USAGE: UsageData = {
-  totalCostMtd: 47.82,
-  pendingBillingCount: 12,
-  billedMtd: 38.5,
-  failedCount: 2,
-  byEventType: [
-    {
-      eventType: "PROPERTY_LOOKUP",
-      count: 145,
-      units: 145,
-      avgUnitCost: 0.05,
-      totalCost: 7.25,
-    },
-    {
-      eventType: "VOICE_TRANSCRIPTION",
-      count: 89,
-      units: 890,
-      avgUnitCost: 0.02,
-      totalCost: 17.8,
-    },
-    {
-      eventType: "LIDAR_SCAN",
-      count: 23,
-      units: 23,
-      avgUnitCost: 0.5,
-      totalCost: 11.5,
-    },
-    {
-      eventType: "AI_ASSISTANT_QUERY",
-      count: 212,
-      units: 212,
-      avgUnitCost: 0.03,
-      totalCost: 6.36,
-    },
-    {
-      eventType: "FLOOR_PLAN_GENERATION",
-      count: 8,
-      units: 8,
-      avgUnitCost: 0.6,
-      totalCost: 4.8,
-    },
-    {
-      eventType: "VOICE_AI_INTERACTION",
-      count: 3,
-      units: 30,
-      avgUnitCost: 0.037,
-      totalCost: 0.11,
-    },
-  ],
-  byUser: [
-    {
-      userId: "1",
-      name: "Phill McGurk",
-      email: "phill@example.com",
-      eventCount: 198,
-      totalCost: 22.1,
-      pending: 5,
-      billed: 190,
-      failed: 3,
-    },
-    {
-      userId: "2",
-      name: "Sarah Jones",
-      email: "sarah@example.com",
-      eventCount: 145,
-      totalCost: 15.8,
-      pending: 4,
-      billed: 140,
-      failed: 1,
-    },
-    {
-      userId: "3",
-      name: "Mike Chen",
-      email: "mike@example.com",
-      eventCount: 137,
-      totalCost: 9.92,
-      pending: 3,
-      billed: 134,
-      failed: 0,
-    },
-  ],
-  dailyCosts: Array.from({ length: 30 }, (_, i) => ({
-    date: new Date(Date.now() - (29 - i) * 86400000).toISOString().slice(0, 10),
-    costs: {
-      PROPERTY_LOOKUP: Math.random() * 0.5,
-      VOICE_TRANSCRIPTION: Math.random() * 0.8,
-      LIDAR_SCAN: Math.random() * 1.2,
-      AI_ASSISTANT_QUERY: Math.random() * 0.3,
-      FLOOR_PLAN_GENERATION: Math.random() * 0.6,
-      VOICE_AI_INTERACTION: Math.random() * 0.1,
-    },
-  })),
+const EMPTY_USAGE: UsageData = {
+  totalCostMtd: 0,
+  pendingBillingCount: 0,
+  billedMtd: 0,
+  failedCount: 0,
+  byEventType: [],
+  byUser: [],
+  dailyCosts: [],
 };
 
 // ---- Helper: last 6 months ------------------------------------------------
@@ -398,7 +312,7 @@ export default function AiUsageDashboardPage() {
   // Data
   const [data, setData] = useState<UsageData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isMock, setIsMock] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Filters
   const [billingFilter, setBillingFilter] = useState<Set<BillingStatus>>(
@@ -414,16 +328,24 @@ export default function AiUsageDashboardPage() {
 
   const fetchData = useCallback(async (month: string) => {
     setLoading(true);
+    setFetchError(null);
     try {
       const res = await fetch(`/api/admin/usage?month=${month}`);
-      if (!res.ok) throw new Error("API error");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          typeof body.error === "string"
+            ? body.error
+            : "Failed to load usage data",
+        );
+      }
       const json = await res.json();
       setData(json);
-      setIsMock(false);
-    } catch {
-      // Fall back to mock data
-      setData(MOCK_USAGE);
-      setIsMock(true);
+    } catch (err) {
+      setData(EMPTY_USAGE);
+      setFetchError(
+        err instanceof Error ? err.message : "Failed to load usage data",
+      );
     } finally {
       setLoading(false);
     }
@@ -560,11 +482,6 @@ export default function AiUsageDashboardPage() {
           <p className="text-neutral-600 dark:text-neutral-400">
             Monitor AI feature consumption and billing status
           </p>
-          {isMock && (
-            <p className="text-xs text-amber-600 mt-0.5">
-              Showing sample data — couldn&apos;t reach the API
-            </p>
-          )}
         </div>
         <div className="flex items-center gap-3">
           {/* Month selector */}
@@ -587,12 +504,28 @@ export default function AiUsageDashboardPage() {
             size="sm"
             onClick={handleExportCsv}
             className="gap-2"
+            disabled={loading || !!fetchError || !data}
           >
             <Download className="h-4 w-4" />
             Export CSV
           </Button>
         </div>
       </div>
+
+      {fetchError && !loading && (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-destructive">
+          <span className="text-sm">Failed to load usage — {fetchError}</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void fetchData(selectedMonth)}
+            className="flex-shrink-0"
+          >
+            Retry
+          </Button>
+        </div>
+      )}
 
       {/* Loading skeleton */}
       {loading && (
