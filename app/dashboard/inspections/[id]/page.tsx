@@ -373,8 +373,8 @@ export default function InspectionDetailPage({
     weatherConditions: string;
     notes: string;
   }>({
-    ambientTemperature: 20,
-    humidityLevel: 50,
+    ambientTemperature: null,
+    humidityLevel: null,
     airCirculation: false,
     weatherConditions: "",
     notes: "",
