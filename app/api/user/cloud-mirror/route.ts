@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
   const stored = user?.cloudMirrorProvider;
   return NextResponse.json({
     provider: stored && isProviderId(stored) ? stored : null,
+    catalog: PROVIDER_CATALOG,
   });
 }
 
