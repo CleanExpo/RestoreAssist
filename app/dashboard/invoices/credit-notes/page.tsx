@@ -324,6 +324,7 @@ export default function CreditNotesPage() {
 
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<CreditNoteStatus | "ALL">("ALL");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -338,6 +339,7 @@ export default function CreditNotesPage() {
 
   async function fetchCreditNotes() {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch("/api/invoices/credit-notes");
       if (!res.ok) throw new Error("Failed to fetch credit notes");
@@ -346,6 +348,7 @@ export default function CreditNotesPage() {
     } catch (err) {
       console.error("[CreditNotesPage] fetch error:", err);
       setCreditNotes([]);
+      setLoadError("Failed to load credit notes");
     } finally {
       setLoading(false);
     }
@@ -387,6 +390,20 @@ export default function CreditNotesPage() {
           </Link>
         </Button>
       </div>
+
+      {loadError && (
+        <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300 flex items-center justify-between gap-3">
+          <span>{loadError}</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void fetchCreditNotes()}
+            className="border-red-500/40"
+          >
+            Retry
+          </Button>
+        </div>
+      )}
 
       {/* Summary card */}
       {loading ? (
