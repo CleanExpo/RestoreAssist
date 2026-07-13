@@ -731,6 +731,13 @@ model Report {
   lastEditedAt      DateTime? // Timestamp of last edit
   completenessScore Int? // 0-100 percentage of completion
 
+  // AI draft ownership — liability sits with the application holder.
+  // Watermark/disclaimer remain until the holder rewrites and acknowledges.
+  aiDraftGeneratedAt            DateTime?
+  aiDraftHumanEditedAt          DateTime?
+  reportOwnershipAcknowledgedAt DateTime?
+  reportOwnershipAcknowledgedBy String?
+
   // Phase 9: Geographic Intelligence
   geographicIntelligence String? @db.Text // JSON: Postcode-based weather, council info, etc.
 
