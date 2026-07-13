@@ -12,6 +12,7 @@
 | 2 Core job loop | **PASS** | Load/error/rollback/toast fixes on reports, invoices, field, inspections |
 | 3 Claim-type evidence | **PASS** | Locked NIR panel; water-only moisture; mould/fire schema-aligned |
 | 4 BYOK + ZIP | **PASS** | OpenAI/Gemini via ProviderConnection; real `application/zip` |
+| 5 LoadError + Retry banners | **PASS** | Schedule, contractors profile/reviews, sync-history, claims-analysis, interview, admin (users/stats/workflows/cron/blocked), clients, cost-libraries; PARTIAL batch closed |
 
 ## Totals
 
@@ -19,7 +20,7 @@
 |--------|------:|
 | PASS | ~100 |
 | FAIL (pre-fix) | 2 → **0 hard FAILs after this pass** |
-| PARTIAL | ~31 → ~24 after P1 batch |
+| PARTIAL | ~31 → ~24 after P1 batch → **closed in Wave 5** |
 | DEFER | ~6 |
 
 ## FAIL (must fix)
@@ -45,6 +46,7 @@ Fixes from this inventory land in follow-up commits on the same branch.
 
 ## Post-fix summary (this engagement)
 
-Hard FAILs from the inventory are closed. Remaining PARTIALs are mostly missing
-error banners on admin/contractor pages — same pattern, lower user impact than
-the P0 lies that were fixed here.
+Hard FAILs from the inventory are closed. Wave 5 closed the remaining PARTIAL
+batch of missing loadError + Retry banners on admin/contractor list pages
+(sync-history, claims-analysis latest, interview view-only, admin surfaces,
+clients, cost-libraries).
