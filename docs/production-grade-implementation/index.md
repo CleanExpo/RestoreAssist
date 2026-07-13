@@ -83,3 +83,4 @@ _Read this first. Lists every concept + subfolder here so an agent loads only wh
 
 
 - [Dashboard route inventory 2026-07-13](./DASHBOARD_ROUTE_INVENTORY_2026-07-13.md) — 139-route PASS/FAIL matrix + Wave 1–4 verification
+- AI report ownership (holder liability): AI_REPORT_OWNERSHIP.md
