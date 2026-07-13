@@ -832,6 +832,10 @@ export default function NIRTechnicianInputForm({
           if (data.inspection.technicianName) {
             setTechnicianName(data.inspection.technicianName);
           }
+          const hydratedClaim = asIicrcClaimType(data.inspection.claimType);
+          if (hydratedClaim) {
+            setClaimType(hydratedClaim);
+          }
         }
       }
     } catch (error) {
