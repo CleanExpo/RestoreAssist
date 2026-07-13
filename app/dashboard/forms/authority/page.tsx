@@ -142,6 +142,7 @@ function TableRowSkeleton() {
 export default function AuthorityFormsPage() {
   const [forms, setForms] = useState<AuthorityForm[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [resending, setResending] = useState<string | null>(null);
 
@@ -149,6 +150,7 @@ export default function AuthorityFormsPage() {
 
   async function fetchForms() {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch("/api/authority-forms");
       if (!res.ok) throw new Error("Failed to fetch authority forms");
@@ -156,6 +158,8 @@ export default function AuthorityFormsPage() {
       setForms(data.forms ?? []);
     } catch (err) {
       console.error("[AuthorityFormsPage] fetch error:", err);
+      setForms([]);
+      setLoadError("Failed to load authority forms");
     } finally {
       setLoading(false);
     }
@@ -235,6 +239,12 @@ export default function AuthorityFormsPage() {
           Refresh
         </Button>
       </div>
+
+      {loadError && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError}
+        </div>
+      )}
 
       {/* Filter tabs */}
       <div className="flex flex-wrap gap-2">
