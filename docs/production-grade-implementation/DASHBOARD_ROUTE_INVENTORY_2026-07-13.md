@@ -2,7 +2,7 @@
 
 **Scope:** all `app/dashboard/**/page.tsx` (139 routes).  
 **Method:** code audit (fetch targets, MOCK_/Coming Soon, silent `!res.ok`, toast-only stubs, missing APIs).  
-**Out of scope for surgical fixes:** email BYOK, OneDrive/iCloud, RAG corpus populate, portal content hub.
+**Still deferred:** iCloud (requires Apple CloudKit — no public upload API).
 
 ## Wave verification
 
@@ -13,6 +13,7 @@
 | 3 Claim-type evidence | **PASS** | Locked NIR panel; water-only moisture; mould/fire schema-aligned |
 | 4 BYOK + ZIP | **PASS** | OpenAI/Gemini via ProviderConnection; real `application/zip` |
 | 5 LoadError + Retry banners | **PASS** | Schedule, contractors profile/reviews, sync-history, claims-analysis, interview, admin (users/stats/workflows/cron/blocked), clients, cost-libraries; PARTIAL batch closed |
+| 6 Deferred closure | **PASS** | Word DOCX export; admin RAG ops; Resend email BYOK; OneDrive (env-gated); portal content hub. iCloud remains DEFER |
 
 ## Totals
 
@@ -21,7 +22,7 @@
 | PASS | ~100 |
 | FAIL (pre-fix) | 2 → **0 hard FAILs after this pass** |
 | PARTIAL | ~31 → ~24 after P1 batch → **closed in Wave 5** |
-| DEFER | ~6 |
+| DEFER | iCloud only (Apple CloudKit) |
 
 ## FAIL (must fix)
 

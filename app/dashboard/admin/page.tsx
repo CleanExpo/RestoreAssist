@@ -188,6 +188,27 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
+      <div className="flex flex-wrap gap-3 text-sm">
+        <a
+          href="/dashboard/admin/rag"
+          className="underline text-cyan-600 dark:text-cyan-400"
+        >
+          RAG corpus
+        </a>
+        <a
+          href="/dashboard/admin/portal-content"
+          className="underline text-cyan-600 dark:text-cyan-400"
+        >
+          Portal content
+        </a>
+        <a
+          href="/dashboard/settings/email"
+          className="underline text-cyan-600 dark:text-cyan-400"
+        >
+          Email BYOK
+        </a>
+      </div>
+
       {/* System Health */}
       <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
         <CardHeader>
