@@ -861,7 +861,7 @@ export default function NIRTechnicianInputForm({
       errors.propertyPostcode = "Property postcode is required";
     }
 
-    if (moistureReadings.length === 0) {
+    if (moistureReadingsRequired(claimType) && moistureReadings.length === 0) {
       errors.moistureReadings = "At least one moisture reading is required";
     }
 
