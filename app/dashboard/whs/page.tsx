@@ -207,24 +207,36 @@ function LoadingSkeleton() {
 
 // ─── Corrective actions sub-row ────────────────────────────────────────────────
 
+const WHS_STATUS_OPTIONS: { value: WHSStatus; label: string }[] = [
+  { value: "OPEN", label: "Open" },
+  { value: "UNDER_REVIEW", label: "Under Review" },
+  { value: "CLOSED", label: "Closed" },
+  { value: "REQUIRES_ESCALATION", label: "Requires Escalation" },
+];
+
 interface CorrectiveActionsRowProps {
   incident: WHSIncident;
   onAddAction: (incidentId: string) => void;
+  onUpdateStatus: (incidentId: string, status: WHSStatus) => void;
   onToggleComplete: (
     incidentId: string,
     actionId: string,
     completed: boolean,
   ) => void;
   togglingActionId: string | null;
+  updatingStatusId: string | null;
 }
 
 function CorrectiveActionsRow({
   incident,
   onAddAction,
+  onUpdateStatus,
   onToggleComplete,
   togglingActionId,
+  updatingStatusId,
 }: CorrectiveActionsRowProps) {
   const actions = incident.correctiveActions;
+  const isUpdatingStatus = updatingStatusId === incident.id;
 
   return (
     <tr>
@@ -233,10 +245,30 @@ function CorrectiveActionsRow({
         className="bg-slate-800/50 px-6 py-4 border-b border-slate-700/60"
       >
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-slate-300">
-              Corrective Actions
-            </h4>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Label
+                htmlFor={`whs-status-${incident.id}`}
+                className="text-xs text-slate-400 whitespace-nowrap"
+              >
+                Incident status
+              </Label>
+              <select
+                id={`whs-status-${incident.id}`}
+                value={incident.status}
+                disabled={isUpdatingStatus}
+                onChange={(e) =>
+                  onUpdateStatus(incident.id, e.target.value as WHSStatus)
+                }
+                className="h-8 rounded-md border border-slate-600 bg-slate-900 px-2 text-xs text-slate-200 disabled:opacity-50"
+              >
+                {WHS_STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <Button
               size="sm"
               variant="outline"
@@ -246,6 +278,12 @@ function CorrectiveActionsRow({
               <Plus className="h-3 w-3 mr-1" />
               Add Action
             </Button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-slate-300">
+              Corrective Actions
+            </h4>
           </div>
 
           {actions.length === 0 ? (
@@ -577,6 +615,7 @@ export default function WHSPage() {
   const [actionSaving, setActionSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [togglingActionId, setTogglingActionId] = useState<string | null>(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
 
   // Toast message
   const [message, setMessage] = useState<{
@@ -758,6 +797,36 @@ export default function WHSPage() {
       showMsg("error", "Network error — please try again.");
     } finally {
       setTogglingActionId(null);
+    }
+  }
+
+  async function handleUpdateStatus(incidentId: string, nextStatus: WHSStatus) {
+    const previous = incidents.find((i) => i.id === incidentId)?.status;
+    if (previous === nextStatus) return;
+
+    setUpdatingStatusId(incidentId);
+    setIncidents((prev) =>
+      prev.map((inc) =>
+        inc.id === incidentId ? { ...inc, status: nextStatus } : inc,
+      ),
+    );
+    try {
+      const res = await fetch(`/api/whs/${incidentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!res.ok) {
+        await fetchIncidents();
+        showMsg("error", "Failed to update incident status.");
+      } else {
+        showMsg("success", "Incident status updated.");
+      }
+    } catch {
+      await fetchIncidents();
+      showMsg("error", "Network error — please try again.");
+    } finally {
+      setUpdatingStatusId(null);
     }
   }
 
@@ -1104,8 +1173,10 @@ export default function WHSPage() {
                         key={`${incident.id}-actions`}
                         incident={incident}
                         onAddAction={openAddAction}
+                        onUpdateStatus={handleUpdateStatus}
                         onToggleComplete={handleToggleComplete}
                         togglingActionId={togglingActionId}
+                        updatingStatusId={updatingStatusId}
                       />
                     )}
                   </>
