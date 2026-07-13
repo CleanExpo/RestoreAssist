@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { RAIcon } from "@/src/components/brand/RAIcon";
+import { RAIcon } from "@/components/brand/RAIcon";
 import {
   Dialog,
   DialogContent,

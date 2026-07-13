@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { RAIcon } from "@/src/components/brand/RAIcon";
+import { RAIcon } from "@/components/brand/RAIcon";
 
 export interface CaptureSubmitPayload {
   file: File;

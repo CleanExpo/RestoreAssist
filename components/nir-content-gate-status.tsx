@@ -21,7 +21,7 @@ import {
   type GateCheckResult,
   type GateStatus,
 } from "@/lib/nir-content-gate";
-import { RAIconText } from "@/src/components/brand/RAIconText";
+import { RAIconText } from "@/components/brand/RAIconText";
 
 // ─── STYLE MAPS ───────────────────────────────────────────────────────────────
 

@@ -82,7 +82,7 @@ raster export step (e.g. `sharp`/`resvg`) when bitmap assets are needed.
 ### Render a single icon
 
 ```tsx
-import { RAIcon } from "@/src/components/brand/RAIcon";
+import { RAIcon } from "@/components/brand/RAIcon";
 
 <RAIcon name="moisture" size={20} />
 <RAIcon name="success" decorative />        {/* hidden from screen readers */}
@@ -92,7 +92,7 @@ import { RAIcon } from "@/src/components/brand/RAIcon";
 ### Render text with tokens (AI output, status copy)
 
 ```tsx
-import { RAIconText } from "@/src/components/brand/RAIconText";
+import { RAIconText } from "@/components/brand/RAIconText";
 
 <RAIconText>{"[ra:success] Inspection RA-1234 passed all checks."}</RAIconText>
 <RAIconText iconSize={16}>{aiResponse}</RAIconText>
@@ -101,7 +101,7 @@ import { RAIconText } from "@/src/components/brand/RAIconText";
 ### Parse tokens yourself
 
 ```ts
-import { parseRATokens, isRAIconName } from "@/src/brand/restoreassist/icon-registry";
+import { parseRATokens, isRAIconName } from "@/lib/brand/icon-registry";
 
 const segments = parseRATokens("[ra:warning] Room 2 above dry standard");
 // -> [{ type: "icon", icon: "warning", ... }, { type: "text", value: " Room 2 ..." }]
