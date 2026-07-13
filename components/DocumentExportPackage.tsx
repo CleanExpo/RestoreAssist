@@ -133,13 +133,13 @@ export default function DocumentExportPackage({
               <div>
                 <h4 className="font-semibold">ZIP Package</h4>
                 <p className="text-xs text-slate-400">
-                  PDF, JSON, and version history
+                  Combined PDF package plus JSON export
                 </p>
               </div>
             </div>
             <p className="text-sm text-slate-300 mb-3">
-              Complete package with PDF, JSON, and version history for the
-              claim file.
+              ZIP archive with the claim PDF package and machine-readable JSON
+              for your file system or CRM.
             </p>
             <button
               type="button"
