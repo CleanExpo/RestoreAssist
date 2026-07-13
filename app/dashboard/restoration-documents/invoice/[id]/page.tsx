@@ -8,7 +8,7 @@ import RestorationInvoiceForm, {
 import { Loader2 } from "lucide-react";
 
 export default function EditRestorationInvoicePage() {
-  const params = useParams();
+  const params = useParams<{ id: string }>() ?? { id: "" };
   const id = typeof params.id === "string" ? params.id : "";
   const [doc, setDoc] = useState<
     | {

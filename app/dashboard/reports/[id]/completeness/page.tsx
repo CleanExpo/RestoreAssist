@@ -231,7 +231,7 @@ function SectionSkeleton() {
 }
 /* ── Main Page ── */
 export default function ReportCompletenessPage() {
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>() ?? { id: "" };
   const router = useRouter();
   const reportId = params.id;
 

@@ -89,7 +89,7 @@ interface RestorationDoc {
 }
 
 export default function ClientDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>() ?? { id: "" };
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [inspections, setInspections] = useState<LinkedInspection[]>([]);

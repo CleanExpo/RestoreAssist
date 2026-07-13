@@ -22,7 +22,7 @@ interface InspectionMeta {
 export default function SketchPreviewPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>() ?? { id: "" };
   const inspectionId = params.id;
 
   const [meta, setMeta] = useState<InspectionMeta | null>(null);

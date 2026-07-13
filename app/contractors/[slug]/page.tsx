@@ -96,7 +96,7 @@ interface ProfileData {
 }
 
 export default function ContractorProfilePage() {
-  const params = useParams();
+  const params = useParams<{ slug: string }>() ?? { slug: "" };
   const { data: session } = useSession();
   const [data, setData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);

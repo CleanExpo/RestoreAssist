@@ -123,7 +123,7 @@ function exportToCsv(items: EditableItem[], inspectionId: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ContentsManifestPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>() ?? { id: "" };
   const router = useRouter();
 
   const [draft, setDraft] = useState<ContentsManifestDraft | null>(null);
