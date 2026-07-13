@@ -255,7 +255,7 @@ export async function GET(
         },
       ]);
 
-      return new NextResponse(zipBuffer, {
+      return new NextResponse(new Uint8Array(zipBuffer), {
         headers: {
           "Content-Type": "application/zip",
           "Content-Disposition": `attachment; filename="RestoreAssist-Complete-Package-${report.id}.zip"`,

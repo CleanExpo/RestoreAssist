@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ZipArchive } from "archiver";
+import { createZipArchive } from "@/lib/exports/create-zip-archive";
 import { Readable } from "stream";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       return new Promise<NextResponse>((resolve, reject) => {
         void (async () => {
           try {
-            const archive = new ZipArchive({ zlib: { level: 9 } });
+            const archive = createZipArchive({ zlib: { level: 9 } });
           const buffers: Buffer[] = [];
 
           archive.on("data", (chunk: Buffer) => {
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
           archive.on("end", () => {
             const zipBuffer = Buffer.concat(buffers);
             resolve(
-              new NextResponse(zipBuffer, {
+              new NextResponse(new Uint8Array(zipBuffer), {
                 status: 200,
                 headers: {
                   "Content-Type": "application/zip",
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
             );
           });
 
-          archive.on("error", (err) => {
+          archive.on("error", (err: Error) => {
             reject(err);
           });
 

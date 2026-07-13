@@ -2,7 +2,7 @@
  * Build an in-memory ZIP for report export-package (PDF + JSON).
  */
 
-import { ZipArchive } from "archiver";
+import { createZipArchive } from "@/lib/exports/create-zip-archive";
 
 export interface ReportPackageZipEntry {
   name: string;
@@ -13,7 +13,7 @@ export async function buildReportPackageZip(
   entries: ReportPackageZipEntry[],
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const archive = new ZipArchive({ zlib: { level: 9 } });
+    const archive = createZipArchive({ zlib: { level: 9 } });
     const chunks: Buffer[] = [];
 
     archive.on("data", (chunk: Buffer) => {

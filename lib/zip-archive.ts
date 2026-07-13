@@ -1,4 +1,4 @@
-import { ZipArchive } from "archiver";
+import { createZipArchive as openZipArchive } from "@/lib/exports/create-zip-archive";
 
 interface ZipItem {
   reportNumber: string;
@@ -21,7 +21,7 @@ export async function createZipArchive(
   _reports?: Report[],
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const archive = new ZipArchive({ zlib: { level: 9 } });
+    const archive = openZipArchive({ zlib: { level: 9 } });
     const buffers: Buffer[] = [];
 
     archive.on("data", (chunk: Buffer) => {
@@ -29,11 +29,10 @@ export async function createZipArchive(
     });
 
     archive.on("end", () => {
-      const zipBuffer = Buffer.concat(buffers);
-      resolve(zipBuffer);
+      resolve(Buffer.concat(buffers));
     });
 
-    archive.on("error", (err) => {
+    archive.on("error", (err: Error) => {
       reject(err);
     });
 
