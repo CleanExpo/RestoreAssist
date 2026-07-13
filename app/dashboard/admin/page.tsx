@@ -52,6 +52,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const handleSeedDemo = async () => {
     setSeeding(true);
@@ -85,14 +86,21 @@ export default function AdminDashboardPage() {
   }, [status, session, router]);
 
   const fetchStats = async () => {
+    setLoadError(null);
     try {
       const response = await fetch("/api/admin/stats");
       if (response.ok) {
         const data = await response.json();
         setStats(data);
+        setLoadError(null);
+      } else {
+        setStats(null);
+        setLoadError("Failed to load admin stats");
       }
     } catch (error) {
       console.error("Error fetching admin stats:", error);
+      setStats(null);
+      setLoadError("Failed to load admin stats");
     } finally {
       setLoading(false);
     }
@@ -166,6 +174,19 @@ export default function AdminDashboardPage() {
           Refresh
         </Button>
       </div>
+
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => void handleRefresh()}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* System Health */}
       <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
