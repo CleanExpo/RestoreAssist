@@ -54,6 +54,8 @@ export type NIRClaimType =
 interface NIRClaimAssessmentPanelProps {
   inspectionId: string;
   initialClaimType?: NIRClaimType | null;
+  /** When set, claim type is fixed (e.g. from ClaimTypePicker) — chip row hidden. */
+  lockedClaimType?: NIRClaimType | null;
   onClaimTypeChange?: (claimType: NIRClaimType) => void;
 }
 
@@ -1443,10 +1445,11 @@ function AustralianComplianceForm({
 export default function NIRClaimAssessmentPanel({
   inspectionId,
   initialClaimType,
+  lockedClaimType,
   onClaimTypeChange,
 }: NIRClaimAssessmentPanelProps) {
   const [selectedType, setSelectedType] = useState<NIRClaimType | null>(
-    initialClaimType ?? null,
+    lockedClaimType ?? initialClaimType ?? null,
   );
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [contentItems, setContentItems] = useState<Record<string, unknown>[]>(
@@ -1518,13 +1521,16 @@ export default function NIRClaimAssessmentPanel({
   }, [inspectionId]);
 
   useEffect(() => {
-    if (initialClaimType) {
-      loadAssessment(initialClaimType);
+    const type = lockedClaimType ?? initialClaimType;
+    if (type) {
+      setSelectedType(type);
+      loadAssessment(type);
     }
     loadCompliance();
-  }, [initialClaimType, loadAssessment, loadCompliance]);
+  }, [lockedClaimType, initialClaimType, loadAssessment, loadCompliance]);
 
   const handleTypeSelect = (type: NIRClaimType) => {
+    if (lockedClaimType) return;
     setSelectedType(type);
     setFormData({});
     setGates({});
@@ -1644,37 +1650,59 @@ export default function NIRClaimAssessmentPanel({
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-5 max-w-3xl">
-      {/* Claim type selector */}
-      <div>
-        <p className="text-xs font-semibold text-neutral-500 dark:text-slate-400 uppercase tracking-wide mb-2">
-          Claim Type
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {CLAIM_TYPES.map((ct) => {
-            const Icon = ct.icon;
-            const isSelected = selectedType === ct.type;
-            const colorCls = isSelected
-              ? COLOR_MAP[ct.color]
-              : "bg-neutral-100 dark:bg-slate-800 text-neutral-500 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700";
-            return (
-              <button
-                key={ct.type}
-                type="button"
-                onClick={() => handleTypeSelect(ct.type)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-                  colorCls,
-                  isSelected && "ring-2",
-                )}
-              >
-                <Icon size={13} />
-                {ct.label}
-              </button>
-            );
-          })}
+    <div
+      className="space-y-5 max-w-3xl"
+      data-testid="nir-claim-assessment-panel"
+    >
+      {/* Claim type selector — hidden when locked to upstream picker */}
+      {!lockedClaimType && (
+        <div>
+          <p className="text-xs font-semibold text-neutral-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+            Claim Type
+          </p>
+          <div
+            className="flex flex-wrap gap-2"
+            data-testid="nir-claim-type-chips"
+          >
+            {CLAIM_TYPES.map((ct) => {
+              const Icon = ct.icon;
+              const isSelected = selectedType === ct.type;
+              const colorCls = isSelected
+                ? COLOR_MAP[ct.color]
+                : "bg-neutral-100 dark:bg-slate-800 text-neutral-500 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700";
+              return (
+                <button
+                  key={ct.type}
+                  type="button"
+                  onClick={() => handleTypeSelect(ct.type)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                    colorCls,
+                    isSelected && "ring-2",
+                  )}
+                >
+                  <Icon size={13} />
+                  {ct.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+      {lockedClaimType && currentMeta && (
+        <div
+          className="flex items-center gap-2 text-sm text-neutral-600 dark:text-slate-300"
+          data-testid="nir-claim-type-locked"
+        >
+          <currentMeta.icon
+            size={15}
+            className={`text-${currentMeta.color}-500`}
+          />
+          <span>
+            Claim type locked: <strong>{currentMeta.label}</strong>
+          </span>
+        </div>
+      )}
 
       {/* Gate status badges (only when there are gates) */}
       {Object.keys(gates).length > 0 && (
