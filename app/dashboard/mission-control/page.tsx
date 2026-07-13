@@ -181,16 +181,6 @@ export default function MissionControlPage() {
             <code className="text-xs">POST /api/margot/hermes-proxy</code>
           </span>
         </li>
-        <li>
-          <a
-            href="https://unite-hub.vercel.app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary hover:underline inline-flex items-center gap-1"
-          >
-            Unite-Hub CRM <ExternalLinkIcon className="h-3 w-3" />
-          </a>
-        </li>
       </ul>
     </div>
   );

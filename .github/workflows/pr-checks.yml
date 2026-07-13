@@ -131,6 +131,12 @@ jobs:
       - name: Emoji guard
         run: pnpm check:no-emoji
 
+      # Branded-icon guard (Phill Rule 1, .claude/DESIGN.md). Ratchet mode: fails
+      # if a PR adds net-new lucide-react imports beyond scripts/lucide-baseline.json.
+      # Use the RAIcon / [ra:*] system instead. Regenerate the baseline to ratchet down.
+      - name: Lucide guard
+        run: pnpm check:no-lucide
+
       # UTF-8 encoding guard (RA-6938). Fails if CLAUDE.md, AGENTS.md, or any
       # .claude/rules/*.md is committed as invalid-UTF-8 "data" (mojibake). The
       # primary agent brief was silently corrupted from the Commands section

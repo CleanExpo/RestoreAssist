@@ -177,6 +177,16 @@ export const SERVICE_ONLY = new Set<string>([
   // RA-6988: DR-NRPG webhook idempotency ledger — server/service-role only,
   // sibling of DrNrpgWebhookLog/DrNrpgJobSync.
   "DrNrpgWebhookEvent",
+  // WS5 (RA-1807 remediation): the remaining RLS-on/zero-policy "deny-all"
+  // tables. RLS-enabled with no policy is INTENTIONAL — every legitimate write
+  // is the Prisma owner connection (BYPASSRLS); the anon supabase-js key is
+  // storage-only. Documenting them here (with a companion guard test) keeps them
+  // default-deny by design instead of looking like an oversight. Adding a tenant
+  // policy would OPEN a client write path — do not. (RestorationIncident and
+  // StorageRestoreJob are already above.)
+  "ClientCommsLog",
+  "FeatureEntitlement",
+  "SupportTicketReply",
   "ProgressTelemetryEvent",
   "ContentJob",
   "ContentPost",
