@@ -18,8 +18,8 @@
 | Status | Count |
 |--------|------:|
 | PASS | ~100 |
-| FAIL | 2 |
-| PARTIAL | ~31 |
+| FAIL (pre-fix) | 2 → **0 hard FAILs after this pass** |
+| PARTIAL | ~31 → ~24 after P1 batch |
 | DEFER | ~6 |
 
 ## FAIL (must fix)
@@ -41,3 +41,10 @@
 | `/dashboard/invoices/credit-notes` | Silent empty on error | **FIXED** |
 
 Fixes from this inventory land in follow-up commits on the same branch.
+
+
+## Post-fix summary (this engagement)
+
+Hard FAILs from the inventory are closed. Remaining PARTIALs are mostly missing
+error banners on admin/contractor pages — same pattern, lower user impact than
+the P0 lies that were fixed here.
