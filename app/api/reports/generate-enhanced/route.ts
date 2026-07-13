@@ -13,6 +13,7 @@ import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
+import { aiDraftResetOnGenerate } from "@/lib/reports/ai-ownership";
 
 // Helper functions for standards retrieval query building
 function determineReportType(notes: string): string {
@@ -281,6 +282,7 @@ export async function POST(request: NextRequest) {
               clientPhone,
               photos: photos || [],
             }),
+            ...aiDraftResetOnGenerate(),
           },
         });
       } else {
@@ -331,6 +333,7 @@ export async function POST(request: NextRequest) {
                 clientPhone,
                 photos: photos || [],
               }),
+              ...aiDraftResetOnGenerate(),
             },
           });
         } catch (createError) {
