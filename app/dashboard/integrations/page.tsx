@@ -23,6 +23,7 @@ import BillingGate from "@/components/capacitor/BillingGate";
 import Image from "next/image";
 import ImportModal from "@/components/integrations/ImportModal";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
+import { uiAiKeyTypeToProvider } from "@/lib/workspace/ai-key-type";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -503,6 +504,27 @@ export default function IntegrationsPage() {
     }
 
     try {
+      const providerRes = await fetch("/api/workspace/provider-connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: uiAiKeyTypeToProvider(apiKeyType),
+          apiKey,
+        }),
+      });
+
+      if (!providerRes.ok) {
+        const err = await providerRes.json().catch(() => ({}));
+        toast.error(
+          typeof err.error === "string"
+            ? err.error
+            : typeof err.message === "string"
+              ? err.message
+              : "Failed to save API key",
+        );
+        return;
+      }
+
       const config = {
         apiKeyType: apiKeyType,
       };
@@ -516,7 +538,7 @@ export default function IntegrationsPage() {
             ...selectedIntegration,
             apiKey,
             config: JSON.stringify(config),
-            status: apiKey ? "CONNECTED" : "DISCONNECTED",
+            status: "CONNECTED",
           }),
         },
       );
@@ -572,7 +594,10 @@ export default function IntegrationsPage() {
           }
         }
       } else {
-        toast.error("Failed to update integration");
+        toast.success(
+          "AI key saved. Open Settings → AI Providers to manage keys.",
+        );
+        setShowApiModal(false);
       }
     } catch (error) {
       console.error("Error updating integration:", error);
@@ -607,41 +632,57 @@ export default function IntegrationsPage() {
   };
 
   const handleAddIntegration = async () => {
-    if (newApiKeyType === "openai" || newApiKeyType === "gemini") {
-      toast.error("This integration is coming soon!");
-      return;
-    }
-
     if (!newApiKey) {
       toast.error("API key is required");
       return;
     }
 
-    const integrationData = {
-      name:
-        newApiKeyType === "anthropic"
-          ? "Anthropic Claude"
-          : newApiKeyType === "openai"
-            ? "OpenAI GPT"
-            : "Google Gemini",
-      description:
-        newApiKeyType === "anthropic"
-          ? "AI-powered report generation with Claude"
-          : newApiKeyType === "openai"
-            ? "AI-powered report generation with GPT"
-            : "AI-powered report generation with Gemini",
-      icon:
-        newApiKeyType === "anthropic"
-          ? "🤖"
-          : newApiKeyType === "openai"
-            ? "🧠"
-            : "🔮",
-      apiKey: newApiKey,
-      config: JSON.stringify({ apiKeyType: newApiKeyType }),
-      status: "CONNECTED",
-    };
-
     try {
+      const providerRes = await fetch("/api/workspace/provider-connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: uiAiKeyTypeToProvider(newApiKeyType),
+          apiKey: newApiKey,
+        }),
+      });
+
+      if (!providerRes.ok) {
+        const err = await providerRes.json().catch(() => ({}));
+        toast.error(
+          typeof err.error === "string"
+            ? err.error
+            : typeof err.message === "string"
+              ? err.message
+              : "Failed to save API key",
+        );
+        return;
+      }
+
+      const integrationData = {
+        name:
+          newApiKeyType === "anthropic"
+            ? "Anthropic Claude"
+            : newApiKeyType === "openai"
+              ? "OpenAI GPT"
+              : "Google Gemini",
+        description:
+          newApiKeyType === "anthropic"
+            ? "AI-powered report generation with Claude"
+            : newApiKeyType === "openai"
+              ? "AI-powered report generation with GPT"
+              : "AI-powered report generation with Gemini",
+        icon:
+          newApiKeyType === "anthropic"
+            ? "🤖"
+            : newApiKeyType === "openai"
+              ? "🧠"
+              : "🔮",
+        apiKey: newApiKey,
+        config: JSON.stringify({ apiKeyType: newApiKeyType }),
+        status: "CONNECTED",
+      };
+
       const response = await fetch("/api/integrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -697,7 +738,12 @@ export default function IntegrationsPage() {
           }
         }
       } else {
-        toast.error("Failed to add integration");
+        toast.success(
+          "AI key saved. Open Settings → AI Providers to manage keys.",
+        );
+        setNewApiKey("");
+        setNewApiKeyType("anthropic");
+        setShowAddModal(false);
       }
     } catch (error) {
       console.error("Error adding integration:", error);
@@ -1513,25 +1559,15 @@ export default function IntegrationsPage() {
               <select
                 value={apiKeyType}
                 onChange={(e) => {
-                  const value = e.target.value as
-                    | "openai"
-                    | "anthropic"
-                    | "gemini";
-                  if (value === "openai" || value === "gemini") {
-                    toast.error("This integration is coming soon!");
-                    return;
-                  }
-                  setApiKeyType(value);
+                  setApiKeyType(
+                    e.target.value as "openai" | "anthropic" | "gemini",
+                  );
                 }}
                 className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring text-foreground"
               >
                 <option value="anthropic">Anthropic Claude</option>
-                <option value="openai" disabled>
-                  OpenAI GPT — Coming Soon
-                </option>
-                <option value="gemini" disabled>
-                  Google Gemini — Coming Soon
-                </option>
+                <option value="openai">OpenAI GPT</option>
+                <option value="gemini">Google Gemini</option>
               </select>
             </div>
             <div className="space-y-1.5">
@@ -1631,25 +1667,15 @@ export default function IntegrationsPage() {
               <select
                 value={newApiKeyType}
                 onChange={(e) => {
-                  const value = e.target.value as
-                    | "openai"
-                    | "anthropic"
-                    | "gemini";
-                  if (value === "openai" || value === "gemini") {
-                    toast.error("This integration is coming soon!");
-                    return;
-                  }
-                  setNewApiKeyType(value);
+                  setNewApiKeyType(
+                    e.target.value as "openai" | "anthropic" | "gemini",
+                  );
                 }}
                 className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring text-foreground"
               >
                 <option value="anthropic">Anthropic Claude</option>
-                <option value="openai" disabled>
-                  OpenAI GPT — Coming Soon
-                </option>
-                <option value="gemini" disabled>
-                  Google Gemini — Coming Soon
-                </option>
+                <option value="openai">OpenAI GPT</option>
+                <option value="gemini">Google Gemini</option>
               </select>
             </div>
             <div className="space-y-1.5">
