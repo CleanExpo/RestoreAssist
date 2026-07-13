@@ -103,6 +103,27 @@ export default function PrivacyPage() {
               browser type, and pages visited. This information is used for
               security monitoring and service improvement.
             </p>
+
+            <h3 className="font-medium text-neutral-800 dark:text-neutral-200 mt-4 mb-2">
+              2.6 Support voice conversations
+            </h3>
+            <p>
+              If you start a conversation with our voice support assistant, we
+              record the audio of that conversation and transcribe it to text so
+              we can respond to and resolve your enquiry. The audio and
+              transcript are processed by ElevenLabs, our conversational-voice
+              provider, whose infrastructure is located overseas (United States
+              and Singapore). We collect and process this voice data only to
+              provide support. If you would prefer not to use the voice
+              assistant, you can contact us in writing at{" "}
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="text-cyan-600 hover:underline"
+              >
+                {CONTACT_EMAIL}
+              </a>{" "}
+              instead.
+            </p>
           </section>
 
           <section>
