@@ -970,6 +970,11 @@ model Organization {
   setupStartedAt   DateTime?
   setupCompletedAt DateTime?
 
+  // SP-6 v1: Resend-only email BYOK (platform RESEND_API_KEY is fallback)
+  emailProvider               String? // "RESEND" when connected
+  emailProviderEncryptedKey   String?
+  emailFromAddress            String?
+
   // RA-6952 (Pulse P0): the firm's Google review link. Null = review-ask
   // notification suppressed (NO_URL) rather than sent with a broken/missing link.
   googleReviewUrl String?
@@ -8146,4 +8151,23 @@ model ClientInvite {
   @@index([clientEmail])
   @@index([token])
   @@index([expiresAt])
+}
+
+// Customer portal content hub — platform defaults + optional NRPG seed rows.
+model PortalContent {
+  id          String    @id @default(cuid())
+  scope       String // PLATFORM_DEFAULT | NRPG_SEED
+  audience    String    @default("customer")
+  category    String
+  slug        String
+  mdxContent  String    @db.Text
+  videoSlug   String?
+  state       String    @default("DRAFT")
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([scope, slug])
+  @@index([audience, category, state])
+  @@map("PortalContent")
 }
