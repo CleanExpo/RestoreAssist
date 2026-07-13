@@ -44,6 +44,7 @@ describe("DocumentExportPackage — honest exports", () => {
       screen.queryByRole("button", { name: /coming soon/i }),
     ).not.toBeInTheDocument();
     expect(screen.getByText(/Email delivery from this screen/i)).toBeInTheDocument();
+    expect(screen.getByText(/ownership watermark/i)).toBeInTheDocument();
   });
 
   it("fires a success toast after a real PDF export", async () => {
