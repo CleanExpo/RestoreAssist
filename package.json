@@ -178,6 +178,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
     "date-fns": "4.4.0",
+    "docx": "^9.7.1",
     "dompurify": "^3.4.4",
     "dotenv": "^17.4.2",
     "embla-carousel-react": "8.6.0",
