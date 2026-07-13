@@ -38,6 +38,9 @@ export default function NewReportPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [hasCheckedCredits, setHasCheckedCredits] = useState(false);
   const [canCreateReport, setCanCreateReport] = useState(false);
+  const [creditsCheckError, setCreditsCheckError] = useState<string | null>(
+    null,
+  );
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(
     null,
   );
@@ -59,6 +62,7 @@ export default function NewReportPage() {
   }, []); // Only run once on mount
 
   const checkCreditsAndOnboarding = async () => {
+    setCreditsCheckError(null);
     try {
       // Fetch subscription status first (needed for feature gating)
       await fetchSubscriptionStatus();
@@ -81,11 +85,24 @@ export default function NewReportPage() {
         }
 
         setCanCreateReport(true);
-      } else {
-        // If API fails, assume they can't create (show upgrade modal)
+      } else if (
+        canCreateResponse.status === 402 ||
+        canCreateResponse.status === 403
+      ) {
         setShowUpgradeModal(true);
         setCanCreateReport(false);
         setHasCheckedCredits(true);
+        return;
+      } else {
+        const body = await canCreateResponse.json().catch(() => ({}));
+        const message =
+          typeof body.error === "string"
+            ? body.error
+            : "Could not verify credits. Please try again.";
+        setCreditsCheckError(message);
+        setCanCreateReport(false);
+        setHasCheckedCredits(true);
+        toast.error(message);
         return;
       }
 
@@ -96,10 +113,11 @@ export default function NewReportPage() {
       setHasCheckedCredits(true);
     } catch (error) {
       console.error("Error checking credits:", error);
-      // On error, show upgrade modal to be safe
-      setShowUpgradeModal(true);
+      const message = "Could not verify credits. Please try again.";
+      setCreditsCheckError(message);
       setCanCreateReport(false);
       setHasCheckedCredits(true);
+      toast.error(message);
     }
   };
 
@@ -701,6 +719,33 @@ export default function NewReportPage() {
         {loadingReport ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+          </div>
+        ) : creditsCheckError && hasCheckedCredits ? (
+          <div className="flex flex-col items-center justify-center py-20 px-6">
+            <div className="max-w-md text-center">
+              <h3
+                className={cn(
+                  "text-2xl font-semibold mb-2",
+                  "text-neutral-900 dark:text-white",
+                )}
+              >
+                Could not verify credits
+              </h3>
+              <p className={cn("mb-6", "text-neutral-600 dark:text-slate-400")}>
+                {creditsCheckError}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setHasCheckedCredits(false);
+                  setCreditsCheckError(null);
+                  void checkCreditsAndOnboarding();
+                }}
+                className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium transition-colors mx-auto"
+              >
+                Retry
+              </button>
+            </div>
           </div>
         ) : !canCreateReport && hasCheckedCredits ? (
           <div className="flex flex-col items-center justify-center py-20 px-6">
