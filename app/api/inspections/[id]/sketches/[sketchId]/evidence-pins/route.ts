@@ -148,7 +148,7 @@ export async function POST(
     const kind = body.kind ?? "photo";
     if (!PIN_KINDS.has(kind)) {
       return apiError(request, {
-        code: "VALIDATION_ERROR",
+        code: "VALIDATION",
         message: "kind must be photo | video | document | voice",
         status: 400,
       });
@@ -156,7 +156,7 @@ export async function POST(
 
     if (typeof body.x !== "number" || typeof body.y !== "number") {
       return apiError(request, {
-        code: "VALIDATION_ERROR",
+        code: "VALIDATION",
         message: "x and y are required",
         status: 400,
       });
