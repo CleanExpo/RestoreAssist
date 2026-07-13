@@ -398,6 +398,11 @@ export default function PrivacyPage() {
                 payment processing (Stripe)
               </li>
               <li>
+                <strong>United States and Singapore</strong> — support voice
+                conversations, processed by ElevenLabs when you use the voice
+                support assistant (see section 2.6)
+              </li>
+              <li>
                 <strong>Global</strong> — optional AI inference (Anthropic,
                 OpenAI, Google), used only when you invoke an AI feature or
                 supply your own API key
