@@ -2,8 +2,10 @@ import { resolve } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
+const repoRoot = resolve(__dirname, "..");
 
 export default {
+  root: repoRoot,
   test: {
     globals: true,
     environment: "node",
@@ -21,9 +23,10 @@ export default {
       "app/capture/**/__tests__/**/*.test.tsx",
       "app/dashboard/**/__tests__/**/*.test.tsx",
       "app/__tests__/**/*.test.tsx",
-      "content/videos/__tests__/**/*.test.ts",
+      "data/content/videos/__tests__/**/*.test.ts",
     ],
     exclude: [
+      "docs/archive/playwright-e2e/**",
       "e2e/**",
       "node_modules/**",
       ".next/**",
@@ -33,7 +36,8 @@ export default {
   },
   resolve: {
     alias: {
-      "@": resolve(__dirname, "."),
+      "@/content": resolve(repoRoot, "data/content"),
+      "@": repoRoot,
     },
   },
 };
