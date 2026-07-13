@@ -283,7 +283,7 @@ export default function InspectionReportViewer({
                 setIsBasicReport(true);
                 setReportContent("");
                 setStructuredReportData(null);
-                toast.success("Visual report generated successfully");
+                toast.success("AI visual draft ready — review and take ownership before issuing");
               } else {
                 throw new Error("Not structured data");
               }
