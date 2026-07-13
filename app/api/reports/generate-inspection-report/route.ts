@@ -28,6 +28,10 @@ import { planDrying } from "@/lib/restoration/equipment-planner";
 import { requiredPpe, summarisePpe } from "@/lib/restoration/ppe-requirements";
 import { deriveHazardProfile } from "@/lib/reports/build-structured-report";
 import { claimRecommendations } from "@/lib/restoration/claim-recommendations";
+import {
+  AI_OWNERSHIP_PROMPT_INSTRUCTION,
+  aiDraftResetOnGenerate,
+} from "@/lib/reports/ai-ownership";
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -505,6 +509,7 @@ export async function POST(request: NextRequest) {
           detailedReport: JSON.stringify(structuredReportData),
           reportDepthLevel: reportType === "basic" ? "Basic" : "Enhanced",
           status: "PENDING",
+          ...aiDraftResetOnGenerate(),
         },
       });
 
@@ -729,6 +734,8 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = appendCopyrightGroundingInstruction(`You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report.
 
+${AI_OWNERSHIP_PROMPT_INSTRUCTION}
+
 CRITICAL: Only use the actual data provided in the REPORT DATA section above. Do NOT:
 - Use placeholder text like "Not provided", "Not specified", "N/A", "Unknown", or similar
 - Make up or invent information that is not in the provided data
@@ -803,6 +810,7 @@ BUSINESS INFORMATION: If business information is provided in the REPORT DATA sec
         detailedReport: inspectionReport,
         reportDepthLevel: report.reportDepthLevel || "Enhanced",
         status: "PENDING",
+        ...aiDraftResetOnGenerate(),
       },
     });
 
