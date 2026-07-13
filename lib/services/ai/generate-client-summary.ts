@@ -86,6 +86,7 @@ Write a plain-English summary with these strict rules:
 8. Do not use any of these banned words: tapestry, leverage, robust, synergy, holistic, streamline, cutting-edge, best-in-class.
 9. Do not use first-person business voice ("we will", "our team") — describe what will happen, not who does it. Use passive voice or "your home" / "the property" as the subject.
 10. No lists, no bullet points, no headings except the "What this means for you:" closer. Plain flowing paragraphs.
+11. This summary is an AI-assisted draft for the application holder to review. Do not imply it is a final signed professional opinion; the restoration company must own the wording before sharing with the property owner.
 
 Return the summary as plain text only. No preamble, no markdown fences, no meta-commentary.`;
 
