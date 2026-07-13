@@ -209,12 +209,20 @@ function LoadingSkeleton() {
 
 interface CorrectiveActionsRowProps {
   incident: WHSIncident;
-  onAddAction: () => void;
+  onAddAction: (incidentId: string) => void;
+  onToggleComplete: (
+    incidentId: string,
+    actionId: string,
+    completed: boolean,
+  ) => void;
+  togglingActionId: string | null;
 }
 
 function CorrectiveActionsRow({
   incident,
   onAddAction,
+  onToggleComplete,
+  togglingActionId,
 }: CorrectiveActionsRowProps) {
   const actions = incident.correctiveActions;
 
@@ -233,7 +241,7 @@ function CorrectiveActionsRow({
               size="sm"
               variant="outline"
               className="h-7 text-xs border-slate-600 text-slate-300 hover:bg-slate-700"
-              onClick={onAddAction}
+              onClick={() => onAddAction(incident.id)}
             >
               <Plus className="h-3 w-3 mr-1" />
               Add Action
@@ -251,25 +259,38 @@ function CorrectiveActionsRow({
                   !action.completedAt &&
                   action.dueDate &&
                   isOverdue(action.dueDate);
+                const isToggling = togglingActionId === action.id;
                 return (
                   <div
                     key={action.id}
                     className="flex items-start gap-3 text-sm bg-slate-700/20 rounded-lg px-3 py-2 border border-slate-700/40"
                   >
-                    {/* Completed checkbox (display only) */}
-                    <div
-                      className={`mt-0.5 h-4 w-4 shrink-0 rounded border flex items-center justify-center ${
+                    <button
+                      type="button"
+                      disabled={isToggling}
+                      onClick={() =>
+                        onToggleComplete(
+                          incident.id,
+                          action.id,
+                          !action.completedAt,
+                        )
+                      }
+                      className={`mt-0.5 h-4 w-4 shrink-0 rounded border flex items-center justify-center transition-colors ${
                         action.completedAt
                           ? "bg-green-500/20 border-green-500/40"
-                          : "border-slate-500"
-                      }`}
+                          : "border-slate-500 hover:border-slate-300"
+                      } ${isToggling ? "opacity-50" : ""}`}
+                      aria-label={
+                        action.completedAt
+                          ? "Mark action incomplete"
+                          : "Mark action complete"
+                      }
                     >
                       {action.completedAt && (
                         <CheckCircle className="h-3 w-3 text-success" />
                       )}
-                    </div>
+                    </button>
 
-                    {/* Description */}
                     <div className="flex-1 min-w-0">
                       <p
                         className={`text-slate-300 ${action.completedAt ? "line-through opacity-60" : ""}`}
@@ -310,7 +331,6 @@ function CorrectiveActionsRow({
             </div>
           )}
 
-          {/* Description of incident */}
           {incident.description && (
             <>
               <Separator className="bg-slate-700/50" />
@@ -550,6 +570,14 @@ export default function WHSPage() {
   >({});
   const [saving, setSaving] = useState(false);
 
+  const [actionIncidentId, setActionIncidentId] = useState<string | null>(null);
+  const [actionDescription, setActionDescription] = useState("");
+  const [actionAssignedTo, setActionAssignedTo] = useState("");
+  const [actionDueDate, setActionDueDate] = useState("");
+  const [actionSaving, setActionSaving] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [togglingActionId, setTogglingActionId] = useState<string | null>(null);
+
   // Toast message
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -562,27 +590,22 @@ export default function WHSPage() {
     } else if (status === "authenticated") {
       fetchIncidents();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount on auth
   }, [status]);
 
   const fetchIncidents = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/whs");
-      if (res.status === 404 || res.status === 405) {
-        // API route not yet available — show empty state gracefully
-        setApiUnavailable(true);
-        setIncidents([]);
-        return;
-      }
       if (res.ok) {
         const data = await res.json();
         setIncidents(data.incidents ?? []);
+        setApiUnavailable(false);
       } else {
         setApiUnavailable(true);
         setIncidents([]);
       }
     } catch {
-      // Network error or API not available
       setApiUnavailable(true);
       setIncidents([]);
     } finally {
@@ -630,11 +653,6 @@ export default function WHSPage() {
         setForm(BLANK_FORM);
         setFormErrors({});
         await fetchIncidents();
-      } else if (res.status === 404 || res.status === 405) {
-        showMsg(
-          "error",
-          "API endpoint not yet available. The WHS incident register requires a database migration.",
-        );
       } else {
         const data = await res.json().catch(() => ({}));
         showMsg("error", data.error ?? "Failed to save incident.");
@@ -646,8 +664,101 @@ export default function WHSPage() {
     }
   }
 
-  function handleAddAction() {
-    showMsg("error", "Feature coming soon");
+  function openAddAction(incidentId: string) {
+    setActionIncidentId(incidentId);
+    setActionDescription("");
+    setActionAssignedTo("");
+    setActionDueDate("");
+    setActionError(null);
+  }
+
+  function closeAddAction() {
+    setActionIncidentId(null);
+    setActionDescription("");
+    setActionAssignedTo("");
+    setActionDueDate("");
+    setActionError(null);
+  }
+
+  async function handleSaveAction() {
+    if (!actionIncidentId) return;
+    const description = actionDescription.trim();
+    if (!description) {
+      setActionError("Description is required");
+      return;
+    }
+    setActionSaving(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/whs/${actionIncidentId}/actions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description,
+          assignedTo: actionAssignedTo.trim() || null,
+          dueDate: actionDueDate || null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setActionError(data.error ?? "Failed to add corrective action.");
+        return;
+      }
+      showMsg("success", "Corrective action added.");
+      closeAddAction();
+      await fetchIncidents();
+    } catch {
+      setActionError("Network error — please try again.");
+    } finally {
+      setActionSaving(false);
+    }
+  }
+
+  async function handleToggleComplete(
+    incidentId: string,
+    actionId: string,
+    completed: boolean,
+  ) {
+    setTogglingActionId(actionId);
+    // Optimistic update
+    setIncidents((prev) =>
+      prev.map((inc) =>
+        inc.id !== incidentId
+          ? inc
+          : {
+              ...inc,
+              correctiveActions: inc.correctiveActions.map((a) =>
+                a.id !== actionId
+                  ? a
+                  : {
+                      ...a,
+                      completedAt: completed
+                        ? new Date().toISOString()
+                        : null,
+                    },
+              ),
+            },
+      ),
+    );
+    try {
+      const res = await fetch(
+        `/api/whs/${incidentId}/actions/${actionId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ completed }),
+        },
+      );
+      if (!res.ok) {
+        await fetchIncidents();
+        showMsg("error", "Failed to update corrective action.");
+      }
+    } catch {
+      await fetchIncidents();
+      showMsg("error", "Network error — please try again.");
+    } finally {
+      setTogglingActionId(null);
+    }
   }
 
   // ─── Derived stats ──────────────────────────────────────────────────────────
@@ -719,17 +830,24 @@ export default function WHSPage() {
         </div>
       )}
 
-      {/* ── API unavailable banner ── */}
+      {/* ── Load error banner ── */}
       {apiUnavailable && (
-        <div className="flex items-start gap-3 px-4 py-4 rounded-lg border bg-amber-500/10 border-amber-500/30 text-amber-300">
-          <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <span className="font-semibold">WHS API not yet active.</span> The
-            incident register requires a pending database migration. Run:{" "}
-            <code className="bg-amber-500/10 px-1 rounded text-xs font-mono">
-              npx prisma migrate dev --name add_whs_models
-            </code>
+        <div className="flex items-start justify-between gap-3 px-4 py-4 rounded-lg border bg-destructive/10 border-destructive/30 text-destructive">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <span className="font-semibold">Could not load WHS incidents.</span>{" "}
+              Check your connection and try again.
+            </div>
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void fetchIncidents()}
+          >
+            Retry
+          </Button>
         </div>
       )}
 
@@ -985,7 +1103,9 @@ export default function WHSPage() {
                       <CorrectiveActionsRow
                         key={`${incident.id}-actions`}
                         incident={incident}
-                        onAddAction={handleAddAction}
+                        onAddAction={openAddAction}
+                        onToggleComplete={handleToggleComplete}
+                        togglingActionId={togglingActionId}
                       />
                     )}
                   </>
@@ -993,6 +1113,88 @@ export default function WHSPage() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {actionIncidentId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-action-title"
+            className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-xl space-y-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h2
+                id="add-action-title"
+                className="text-lg font-semibold text-slate-100"
+              >
+                Add corrective action
+              </h2>
+              <button
+                type="button"
+                onClick={closeAddAction}
+                className="text-slate-400 hover:text-slate-200"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="action-description">Description</Label>
+                <Input
+                  id="action-description"
+                  value={actionDescription}
+                  onChange={(e) => setActionDescription(e.target.value)}
+                  placeholder="e.g. Barricade wet area and post wet-floor signs"
+                  className="bg-slate-800 border-slate-700"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="action-assignee">Assigned to (optional)</Label>
+                <Input
+                  id="action-assignee"
+                  value={actionAssignedTo}
+                  onChange={(e) => setActionAssignedTo(e.target.value)}
+                  placeholder="Name or role"
+                  className="bg-slate-800 border-slate-700"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="action-due">Due date (optional)</Label>
+                <Input
+                  id="action-due"
+                  type="date"
+                  value={actionDueDate}
+                  onChange={(e) => setActionDueDate(e.target.value)}
+                  className="bg-slate-800 border-slate-700"
+                />
+              </div>
+              {actionError && (
+                <p className="text-sm text-destructive">{actionError}</p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeAddAction}
+                disabled={actionSaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleSaveAction()}
+                disabled={actionSaving}
+              >
+                {actionSaving ? "Saving…" : "Add action"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
