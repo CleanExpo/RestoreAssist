@@ -897,7 +897,7 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
           "Post-remediation verification (PRV) — visual inspection + moisture + tactile before clearance",
         quantity: 1,
         unit: "job",
-        justification: "IICRC S520:2024 §14.1 — Post-remediation verification",
+        justification: "IICRC S520:2024 §12 — Post-remediation verification",
       },
       {
         itemType: "s520_clearance_air_sampling",
@@ -905,7 +905,7 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
           "Third-party clearance air sampling (indoor vs outdoor spore counts) by independent hygienist",
         quantity: null,
         unit: "samples",
-        justification: "IICRC S520:2024 §14.2 — Independent clearance testing",
+        justification: "IICRC S520:2024 §12 — Independent clearance testing",
       },
       {
         itemType: "s520_clearance_report",
@@ -913,7 +913,7 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
           "Clearance report issued before reconstruction — pass/fail criteria documented",
         quantity: 1,
         unit: "job",
-        justification: "IICRC S520:2024 §14.3 — Clearance documentation",
+        justification: "IICRC S520:2024 §12 — Clearance documentation",
       },
     ],
   },
