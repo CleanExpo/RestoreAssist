@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { evaluateScopeQuality } from "../../lib/ai/scope-quality-evaluator";
+import { evaluateScopeQuality } from "../scope-quality-evaluator";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
