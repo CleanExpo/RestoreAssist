@@ -15,6 +15,7 @@ import {
   isAiDraftPending,
 } from "@/lib/reports/ai-ownership";
 import { drawAiOwnershipWatermark } from "@/lib/reports/ai-ownership-watermark";
+import { aiOwnershipExportMeta } from "@/lib/reports/ai-ownership-export-meta";
 
 
 /**
@@ -186,6 +187,7 @@ export async function GET(
       claimReference: report.claimReferenceNumber || report.reportNumber,
       generatedAt: new Date().toISOString(),
       version: report.reportVersion || 1,
+      ownership: aiOwnershipExportMeta(report),
       initialData: {
         clientName: report.clientName,
         propertyAddress: report.propertyAddress,
