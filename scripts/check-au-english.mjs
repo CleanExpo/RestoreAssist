@@ -3,9 +3,10 @@
  * Australian-English content guard — config-driven, estate-portable.
  *
  * CANONICAL COPY: CleanExpo/NEXUS · tools/au-english/check-au-english.mjs
- * Consumer repos copy this file verbatim into scripts/ and add a repo-root
- * `.au-english.json` naming which content files to scan. To change a rule
- * estate-wide, edit HERE, bump GUARD_VERSION, and re-sync the copies.
+ * Consumer repos copy this file into scripts/ and add
+ * `config/au-english.json` (or legacy `.au-english.json`) naming which content
+ * files to scan. To change a rule estate-wide, edit HERE, bump GUARD_VERSION,
+ * and re-sync the copies.
  *
  * Scans only the customer-facing content globs the repo opts into — never all
  * source — because US forms like `color:` (CSS), `text-center`, `onBehalfOf`
@@ -23,10 +24,11 @@ import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
 const GUARD_VERSION = '1.0.1';
-const CONFIG = '.au-english.json';
+const CONFIG_CANDIDATES = ['config/au-english.json', '.au-english.json'];
+const CONFIG = CONFIG_CANDIDATES.find((p) => existsSync(p));
 
-if (!existsSync(CONFIG)) {
-  console.log(`✓ au-english guard v${GUARD_VERSION}: no ${CONFIG} — nothing opted in, skipping.`);
+if (!CONFIG) {
+  console.log(`✓ au-english guard v${GUARD_VERSION}: no config/au-english.json — nothing opted in, skipping.`);
   process.exit(0);
 }
 const cfg = JSON.parse(readFileSync(CONFIG, 'utf8'));

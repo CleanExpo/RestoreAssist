@@ -3,7 +3,7 @@ import fs from "fs/promises";
 import path from "path";
 import matter from "gray-matter";
 
-const CONTENT_ROOT = path.join(process.cwd(), "content", "help");
+const CONTENT_ROOT = path.join(process.cwd(), "data", "content", "help");
 const OUTPUT = path.join(process.cwd(), "public", "help-index.json");
 
 type IndexEntry = {
@@ -34,7 +34,7 @@ async function main() {
     files = await walk(CONTENT_ROOT);
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
-    // content/help directory doesn't exist yet (pre-T13 seed articles) — emit empty index.
+    // data/content/help directory doesn't exist yet (pre-T13 seed articles) — emit empty index.
   }
   const entries: IndexEntry[] = [];
   for (const f of files) {

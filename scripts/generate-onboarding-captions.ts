@@ -6,7 +6,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { segmentsToVtt } from "./lib/script-to-vtt";
-import script from "../content/videos/onboarding-welcome.script.json";
+import script from "../data/content/videos/onboarding-welcome.script.json";
 
 async function main() {
   const outDir = path.join(process.cwd(), "public", "videos", "captions");
