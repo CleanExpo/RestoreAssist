@@ -2208,6 +2208,7 @@ export default function NIRTechnicianInputForm({
           }
         }}
         error={validationErrors.claimType}
+        disabled={!!inspectionId}
       />
 
       {/* Claim-type assessment panel (S520 / S540 / S700 / S500) — RA-1029 */}
