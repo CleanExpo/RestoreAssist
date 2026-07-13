@@ -1,6 +1,6 @@
 name: RLS Tenant Isolation
 
-# RA-6685 — the test/rls harness (RA-4956) proves tenant A cannot read tenant
+# RA-6685 — the scripts/rls-harness (RA-4956) proves tenant A cannot read tenant
 # B's rows under the `authenticated` role, but nothing ran it: `grep rls
 # .github/workflows/` found only lighthouse. Only the STATIC
 # audit-rls-coverage.test.ts ran, which by its own header does NOT prove
@@ -18,7 +18,7 @@ on:
     branches: [main, sandbox]
     paths:
       - "**/migrations/**"
-      - "test/rls/**"
+      - "scripts/rls-harness/**"
 
 concurrency:
   group: rls-${{ github.event.pull_request.number }}
@@ -35,4 +35,4 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Run RLS isolation harness
-        run: make -f test/rls/Makefile rls-test
+        run: make -f scripts/rls-harness/Makefile rls-test

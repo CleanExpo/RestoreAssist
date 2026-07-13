@@ -8,7 +8,7 @@
  * column.
  *
  * This is the always-green CI layer. The runnable proof that the policies
- * truly isolate tenants lives in `test/rls/` (needs a live ephemeral Postgres).
+ * truly isolate tenants lives in `scripts/rls-harness/` (needs a live ephemeral Postgres).
  *
  * What it asserts (see audit-rls-coverage.test.ts for the executable gate):
  *   1. RLS-ENABLE invariant: every one of the 119 audited tables is named in
@@ -36,7 +36,7 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const MIGRATION_DIRS = [
   resolve(REPO, "prisma/migrations"),
-  resolve(REPO, "supabase/migrations"),
+  resolve(REPO, "docs/ops/supabase-migrations-archive"),
 ];
 
 export const RA4956_MIGRATION = resolve(
@@ -45,7 +45,7 @@ export const RA4956_MIGRATION = resolve(
 );
 export const RA4970_MIGRATION = resolve(
   REPO,
-  "supabase/migrations/20260518_enable_rls_phase_1_close_anon_exposure.sql",
+  "docs/ops/supabase-migrations-archive/20260518_enable_rls_phase_1_close_anon_exposure.sql",
 );
 /**
  * RA-4956 follow-up: downgrades the NextAuth token tables Session/Account from
@@ -76,7 +76,7 @@ export const RA_SKETCH_MIGRATION = resolve(
  */
 export const RA_RLS_CLIENTCOMMSLOG_FEATUREENTITLEMENT_MIGRATION = resolve(
   REPO,
-  "supabase/migrations/20260705040000_ra6949_ra6922_enable_rls_clientcommslog_featureentitlement.sql",
+  "docs/ops/supabase-migrations-archive/20260705040000_ra6949_ra6922_enable_rls_clientcommslog_featureentitlement.sql",
 );
 
 /**
