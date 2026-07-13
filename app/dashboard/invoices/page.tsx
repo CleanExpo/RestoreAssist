@@ -76,7 +76,11 @@ export default function InvoicesPage() {
   } = useFetch<{ invoices: Invoice[] }>(invoiceUrl);
   const invoices = invoiceData?.invoices ?? [];
 
-  const { data: statsApiData, refetch: refetchStats } = useFetch<{
+  const {
+    data: statsApiData,
+    error: statsError,
+    refetch: refetchStats,
+  } = useFetch<{
     stats: {
       totalRevenue: number;
       outstanding: number;
@@ -86,14 +90,10 @@ export default function InvoicesPage() {
     };
   }>(status === "authenticated" ? "/api/invoices/analytics" : null);
 
-  // Stats derived from useFetch above
-  const stats = statsApiData?.stats ?? {
-    totalRevenue: 0,
-    outstanding: 0,
-    overdue: 0,
-    paidThisMonth: 0,
-    draftTotal: 0,
-  };
+  // Stats derived from useFetch above — never invent zeros on error
+  const stats = statsError
+    ? null
+    : (statsApiData?.stats ?? null);
 
   // Bulk delete: selected invoice IDs (only DRAFT/CANCELLED can be deleted)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -209,6 +209,20 @@ export default function InvoicesPage() {
 
       {/* Stats Cards (amounts in cents, divide by 100 for display) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
+        {statsError && (
+          <div className="md:col-span-2 lg:col-span-5 flex items-center justify-between gap-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-amber-700 dark:text-amber-300">
+            <span className="text-sm">
+              Invoice analytics unavailable — totals hidden until retry
+            </span>
+            <button
+              type="button"
+              onClick={() => void refetchStats()}
+              className="flex-shrink-0 rounded px-3 py-1 text-sm border border-amber-500/40 hover:bg-amber-500/20 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        )}
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-green-500/10 rounded-lg">
@@ -216,7 +230,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                {formatCurrencyCents(stats.totalRevenue)}
+                {stats ? formatCurrencyCents(stats.totalRevenue) : "—"}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Total Revenue
@@ -232,7 +246,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                {formatCurrencyCents(stats.draftTotal)}
+                {stats ? formatCurrencyCents(stats.draftTotal) : "—"}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Drafts
@@ -248,7 +262,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                {formatCurrencyCents(stats.outstanding)}
+                {stats ? formatCurrencyCents(stats.outstanding) : "—"}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Outstanding
@@ -264,7 +278,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                {formatCurrencyCents(stats.overdue)}
+                {stats ? formatCurrencyCents(stats.overdue) : "—"}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Overdue
@@ -280,7 +294,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                {formatCurrencyCents(stats.paidThisMonth)}
+                {stats ? formatCurrencyCents(stats.paidThisMonth) : "—"}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Paid This Month
