@@ -466,8 +466,8 @@ export default function InspectionDetailPage({
         const ed = data.inspection.environmentalData;
         if (ed) {
           setEnvForm({
-            ambientTemperature: ed.ambientTemperature ?? 20,
-            humidityLevel: ed.humidityLevel ?? 50,
+            ambientTemperature: ed.ambientTemperature ?? null,
+            humidityLevel: ed.humidityLevel ?? null,
             airCirculation: ed.airCirculation ?? false,
             weatherConditions: ed.weatherConditions ?? "",
             notes: ed.notes ?? "",
