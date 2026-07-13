@@ -36,7 +36,13 @@ import {
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
 import ClassificationSuggestion from "@/components/inspection/ClassificationSuggestion";
 import ClaimTypePicker from "@/components/inspection/ClaimTypePicker";
-import type { IicrcClaimType } from "@/lib/nir-standards-mapping";
+import NIRClaimAssessmentPanel from "@/components/inspection/NIRClaimAssessmentPanel";
+import {
+  asIicrcClaimType,
+  isWaterDamageClaim,
+  moistureReadingsRequired,
+  type IicrcClaimType,
+} from "@/lib/nir-standards-mapping";
 import {
   Dialog,
   DialogContent,
@@ -2200,11 +2206,29 @@ export default function NIRTechnicianInputForm({
         error={validationErrors.claimType}
       />
 
-      {/* TODO(RA-1029 SP-7 follow-up): conditional evidence-capture surface per
-          claimType (S540 trauma surface, S520 mould surface, etc.). Today the
-          form renders the water-damage surface for every type — picker stamps
-          the standard upstream so the per-claim downstream routes know which
-          assessment to load. */}
+      {/* Claim-type assessment panel (S520 / S540 / S700 / S500) — RA-1029 */}
+      {inspectionId && claimType && (
+        <div
+          className={cn(
+            "p-6 rounded-lg border",
+            "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+          )}
+        >
+          <h3
+            className={cn(
+              "text-lg font-semibold mb-4 flex items-center gap-2",
+              "text-neutral-900 dark:text-white",
+            )}
+          >
+            <Shield className="w-5 h-5" />
+            Claim-type evidence
+          </h3>
+          <NIRClaimAssessmentPanel
+            inspectionId={inspectionId}
+            lockedClaimType={claimType}
+          />
+        </div>
+      )}
 
       {/* Property Information */}
       <div
