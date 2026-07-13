@@ -1,10 +1,10 @@
 # RA-4956 RLS harness — one-command runner that provisions and tears down a
 # disposable Postgres via Docker, then asserts tenant isolation.
 #
-#   make -f test/rls/Makefile rls-test
+#   make -f scripts/rls-harness/Makefile rls-test
 #
 # Requires Docker. If you already have a local Supabase stack running, prefer:
-#   DATABASE_URL=... test/rls/run.sh   (see test/rls/run.sh header)
+#   DATABASE_URL=... scripts/rls-harness/run.sh   (see scripts/rls-harness/run.sh header)
 
 PG_CONTAINER := ra-rls-pg
 PG_PORT      := 55432

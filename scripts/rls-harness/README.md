@@ -7,7 +7,7 @@ something repeatable.
 | Layer | File | Runs in CI now? | Proves |
 |---|---|---|---|
 | **Static coverage** | `scripts/__tests__/audit-rls-coverage.test.ts` (+ `scripts/audit-rls-coverage.ts`) | ✅ yes — pure parse, no DB | Every audited tenant table is RLS-enabled (RA-4970) **and** gets a real scoping policy (RA-4956); no service-only table leaks a policy; no policy is left public-readable. |
-| **Integration harness** | `test/rls/*.sql` + `run.sh` + `Makefile` | ⚠️ needs a local/ephemeral Postgres | Applies the **real** migration, seeds two tenants, switches JWT/role context, and asserts at runtime that tenant A cannot SELECT/UPDATE/DELETE/INSERT against tenant B's rows, and that the service role bypasses RLS. |
+| **Integration harness** | `scripts/rls-harness/*.sql` + `run.sh` + `Makefile` | ⚠️ needs a local/ephemeral Postgres | Applies the **real** migration, seeds two tenants, switches JWT/role context, and asserts at runtime that tenant A cannot SELECT/UPDATE/DELETE/INSERT against tenant B's rows, and that the service role bypasses RLS. |
 
 The static layer guards against the regressions parsing **can** catch (a table
 silently dropped from policy emission, a typo'd scoping column, a service-only
@@ -52,7 +52,7 @@ The harness **never touches prod/remote** — `run.sh` refuses any non-local
 ### One command (Docker)
 
 ```bash
-make -f test/rls/Makefile rls-test
+make -f scripts/rls-harness/Makefile rls-test
 ```
 
 Spins up a disposable `postgres:16`, runs the harness, tears it down, and
@@ -63,7 +63,7 @@ propagates the exit code.
 ```bash
 supabase start
 DATABASE_URL="$(supabase status -o env | grep DB_URL | cut -d= -f2-)" \
-  test/rls/run.sh
+  scripts/rls-harness/run.sh
 supabase stop
 ```
 
@@ -72,7 +72,7 @@ supabase stop
 ```bash
 docker run -d --rm --name ra-rls-pg -e POSTGRES_PASSWORD=pw \
   -p 55432:5432 postgres:16
-DATABASE_URL="postgres://postgres:pw@localhost:55432/postgres" test/rls/run.sh
+DATABASE_URL="postgres://postgres:pw@localhost:55432/postgres" scripts/rls-harness/run.sh
 docker rm -f ra-rls-pg
 ```
 

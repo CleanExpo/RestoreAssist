@@ -14,24 +14,24 @@
 #   Option 1 — Supabase local stack (recommended; provides auth.* natively):
 #       supabase start                 # in repo root, needs Docker
 #       DATABASE_URL="$(supabase status -o env | grep DB_URL | cut -d= -f2-)" \
-#         test/rls/run.sh
+#         scripts/rls-harness/run.sh
 #
 #   Option 2 — disposable docker postgres (no Supabase CLI needed):
 #       docker run -d --rm --name ra-rls-pg -e POSTGRES_PASSWORD=pw \
 #         -p 55432:5432 postgres:16
 #       DATABASE_URL="postgres://postgres:pw@localhost:55432/postgres" \
-#         test/rls/run.sh
+#         scripts/rls-harness/run.sh
 #       docker rm -f ra-rls-pg
 #
 #   Option 3 — Makefile shortcut (spins up + tears down docker for you):
-#       make -f test/rls/Makefile rls-test
+#       make -f scripts/rls-harness/Makefile rls-test
 #
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 MIGRATION="$REPO/prisma/migrations/20260614000000_ra_4956_tenant_scoped_rls_policies/migration.sql"
-ENABLE_MIGRATION="$REPO/supabase/migrations/20260518_enable_rls_phase_1_close_anon_exposure.sql"
+ENABLE_MIGRATION="$REPO/docs/ops/supabase-migrations-archive/20260518_enable_rls_phase_1_close_anon_exposure.sql"
 
 : "${DATABASE_URL:?Set DATABASE_URL to a LOCAL/EPHEMERAL Postgres (see header).}"
 
