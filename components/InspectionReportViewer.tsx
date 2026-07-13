@@ -263,7 +263,7 @@ export default function InspectionReportViewer({
             setReportContent("");
             setVisualData(null);
             toast.success(
-              "Restoration inspection report generated successfully",
+              "AI draft ready — rewrite in your words, then acknowledge ownership",
             );
           } else if (data.report.detailedReport) {
             // Try to parse as structured JSON
@@ -275,7 +275,7 @@ export default function InspectionReportViewer({
                 setReportContent("");
                 setVisualData(null);
                 toast.success(
-                  "Restoration inspection report generated successfully",
+                  "AI draft ready — rewrite in your words, then acknowledge ownership",
                 );
               } else if (parsed.header && parsed.summaryMetrics) {
                 // Legacy visual report format
