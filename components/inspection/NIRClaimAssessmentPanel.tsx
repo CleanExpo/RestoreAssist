@@ -511,15 +511,30 @@ function MouldForm({
 }) {
   return (
     <>
-      <FieldRow label="Mould Category">
+      <FieldRow label="Condition Level" hint="IICRC S520:2024 Condition 1–3">
         <Select
-          value={(data.mouldCategory as string) || ""}
-          onChange={(v) => onChange("mouldCategory", v || null)}
+          value={(data.mouldConditionLevel as string) || ""}
+          onChange={(v) => onChange("mouldConditionLevel", v || null)}
           options={[
-            { value: "SURFACE", label: "Surface — Superficial growth" },
-            { value: "STRUCTURAL", label: "Structural — Penetrated substrate" },
-            { value: "SYSTEMIC", label: "Systemic — Throughout cavity" },
+            {
+              value: "CONDITION_1",
+              label: "Condition 1 — Normal fungal ecology",
+            },
+            {
+              value: "CONDITION_2",
+              label: "Condition 2 — Settled spores / fragments",
+            },
+            {
+              value: "CONDITION_3",
+              label: "Condition 3 — Actual growth present",
+            },
           ]}
+        />
+      </FieldRow>
+      <FieldRow label="Visible Growth Observed">
+        <Toggle
+          value={!!data.visibleGrowthObserved}
+          onChange={(v) => onChange("visibleGrowthObserved", v)}
         />
       </FieldRow>
       <FieldRow label="Spore Type">
@@ -557,15 +572,16 @@ function MouldForm({
           onChange={(v) => onChange("rootCauseAddressed", v)}
         />
       </FieldRow>
-      <FieldRow label="Containment Set Up">
-        <Toggle
-          value={!!data.containmentSetUp}
-          onChange={(v) => onChange("containmentSetUp", v)}
+      <FieldRow label="Containment Barrier Material">
+        <Input
+          value={(data.containmentBarrierMaterial as string) || ""}
+          onChange={(v) => onChange("containmentBarrierMaterial", v || null)}
+          placeholder="e.g. 6-mil poly sheeting"
         />
       </FieldRow>
       <FieldRow
         label="Pressure Differential (Pa)"
-        hint="IICRC S520 §9 — target −2.5 Pa"
+        hint="IICRC S520:2024 §9 — target −2.5 Pa"
       >
         <Input
           type="number"
@@ -573,12 +589,11 @@ function MouldForm({
           onChange={(v) =>
             onChange("pressureDifferentialPa", v ? parseFloat(v) : null)
           }
-          min={0}
           step={0.1}
           placeholder="e.g. −2.5"
         />
       </FieldRow>
-      <FieldRow label="Air Changes / Hour" hint="IICRC S520 — minimum 6">
+      <FieldRow label="Air Changes / Hour" hint="IICRC S520:2024 — minimum 6">
         <Input
           type="number"
           value={(data.airChangesPerHour as number) || ""}
@@ -590,10 +605,10 @@ function MouldForm({
           placeholder="e.g. 6"
         />
       </FieldRow>
-      <FieldRow label="Clearance Test Required">
+      <FieldRow label="Air Sampling Required">
         <Toggle
-          value={!!data.clearanceTestRequired}
-          onChange={(v) => onChange("clearanceTestRequired", v)}
+          value={!!data.airSamplingRequired}
+          onChange={(v) => onChange("airSamplingRequired", v)}
         />
       </FieldRow>
       <FieldRow label="Spore Count Pre (spores/m³)">
