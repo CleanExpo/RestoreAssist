@@ -378,6 +378,16 @@ export async function PUT(
             ? body.detailedReport
             : existingReport.detailedReport,
 
+        // Human rewrite after AI draft — enables ownership acknowledgement
+        ...(body.detailedReport !== undefined
+          ? {
+              aiDraftHumanEditedAt: new Date(),
+              lastEditedAt: new Date(),
+              lastEditedBy: session.user.id,
+              // Editing after ack keeps ownership; regenerating AI clears it.
+            }
+          : {}),
+
         // Report Depth Level
         reportDepthLevel:
           body.reportDepthLevel !== undefined
