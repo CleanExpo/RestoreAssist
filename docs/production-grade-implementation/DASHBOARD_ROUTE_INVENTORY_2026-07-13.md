@@ -14,6 +14,7 @@
 | 4 BYOK + ZIP | **PASS** | OpenAI/Gemini via ProviderConnection; real `application/zip` |
 | 5 LoadError + Retry banners | **PASS** | Schedule, contractors profile/reviews, sync-history, claims-analysis, interview, admin (users/stats/workflows/cron/blocked), clients, cost-libraries; PARTIAL batch closed |
 | 6 Deferred closure | **PASS** | Word DOCX export; admin RAG ops; Resend email BYOK; OneDrive (env-gated); portal content hub. iCloud remains DEFER |
+| 7 AI report ownership | **PASS** | AI drafts watermarked until holder rewrites + acknowledges; liability on application holder |
 
 ## Totals
 
