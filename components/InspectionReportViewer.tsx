@@ -612,10 +612,11 @@ export default function InspectionReportViewer({
                 Processing report generation...
               </p>
               <p className="text-sm text-slate-400">
-                Our AI expert system is analysing your data and generating a
-                professional restoration inspection report based on IICRC S500,
-                S520, WHS Regulations 2011, NCC, and AS/NZS 3000 standards. This
-                may take a few moments. Please wait.
+                Our AI assistant is drafting a professional restoration
+                inspection report based on IICRC S500, S520, WHS Regulations
+                2011, NCC, and AS/NZS 3000 standards. You must review and rewrite
+                the draft in your own words before it is your report. This may
+                take a few moments.
               </p>
             </div>
           </div>
@@ -749,18 +750,31 @@ export default function InspectionReportViewer({
                 <CheckCircle className="w-5 h-5 text-success" />
                 <p className="text-success font-medium">
                   {isBasicReport
-                    ? "Basic Report Generated Successfully"
-                    : "Report Generated Successfully"}
+                    ? "Basic AI draft ready — rewrite required"
+                    : isAiDraftPending(report)
+                      ? "AI draft ready — rewrite and take ownership"
+                      : "Report Generated Successfully"}
                 </p>
               </div>
             </div>
 
             {report && isAiDraftPending(report) && (
-              <AiOwnershipBanner
-                reportId={reportId}
-                report={report}
-                onAcknowledged={() => void fetchReport()}
-              />
+              <div className="space-y-3 print:hidden">
+                <AiOwnershipBanner
+                  reportId={reportId}
+                  report={report}
+                  onAcknowledged={() => void fetchReport()}
+                />
+                {!editing && !isBasicReport && (
+                  <button
+                    type="button"
+                    onClick={() => setEditing(true)}
+                    className="px-4 py-2 rounded-lg border border-amber-500/40 text-amber-800 dark:text-amber-200 text-sm hover:bg-amber-500/10"
+                  >
+                    Rewrite report in your own words
+                  </button>
+                )}
+              </div>
             )}
 
             <div className="w-full p-0 px-4 space-y-8">
