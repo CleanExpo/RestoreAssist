@@ -238,9 +238,9 @@ export default function DocumentExportPackage({
 
         <p className="text-xs text-slate-500">
           Email delivery from this screen is not available. Download PDF, Word,
-          or ZIP, then share via your usual email client. AI-assisted drafts keep
-          an ownership watermark until you rewrite and acknowledge the report in
-          RestoreAssist.
+          or ZIP, then share via your usual email client. AI-assisted drafts keep an ownership watermark until you rewrite and
+          acknowledge ownership — the AI is only an assistant; the issued report
+          must be your words.
         </p>
       </div>
 
