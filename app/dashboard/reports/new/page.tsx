@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 
 export default function NewReportPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const { data: session, update } = useSession();
   const [uploading, setUploading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 export default function NewInspectionPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const sessionId = searchParams.get("sessionId");
   const interviewDataParam = searchParams.get("interviewData");
 

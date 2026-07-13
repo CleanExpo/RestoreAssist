@@ -36,7 +36,7 @@ import type { ReportWithSessionData } from "@/lib/session-types";
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
 
   // Only fetch once the session is confirmed authenticated
   const isAuthed = status === "authenticated";

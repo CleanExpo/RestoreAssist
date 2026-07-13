@@ -144,7 +144,7 @@ interface SubscriptionStatus {
 export default function IntegrationsPage() {
   const confirm = useConfirmDialog();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const isOnboarding = searchParams.get("onboarding") === "true";
   const successMessage = searchParams.get("success");
   const errorMessage = searchParams.get("error");

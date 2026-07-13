@@ -40,7 +40,7 @@ import {
  * View-only summary: ?sessionId=<id> (no formTemplateId) shows completed interview Q&A.
  */
 export default function InterviewPage() {
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const router = useRouter();
   const formTemplateId = searchParams.get("formTemplateId") || "";
   const reportId = searchParams.get("reportId");

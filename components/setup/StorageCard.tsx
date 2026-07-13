@@ -19,7 +19,7 @@ const STATUS_PATH = '/api/oauth/google-drive/status';
 
 export function StorageCard() {
   const setSectionStatus = useSetupStore((s) => s.setSectionStatus);
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [forceGrid, setForceGrid] = useState(false);

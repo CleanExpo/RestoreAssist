@@ -21,7 +21,7 @@ export default function OnboardingStepModal({
   children,
 }: OnboardingStepModalProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const isOnboarding = searchParams.get("onboarding") === "true";
   const [isVisible, setIsVisible] = useState(false);
 

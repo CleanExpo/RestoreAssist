@@ -22,7 +22,7 @@ interface MobileNavProps {
 }
 
 export function MobileNav({ inspectionId }: MobileNavProps) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   const items = inspectionId
     ? [
