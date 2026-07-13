@@ -3237,7 +3237,9 @@ export default function NIRTechnicianInputForm({
         )}
       </div>
 
-      {/* Classification UI (Manual Override) */}
+      {/* Classification / equipment / drying — S500 water only (RA-1029) */}
+      {isWaterDamageClaim(claimType) && (
+        <>
       <div
         className={cn(
           "p-6 rounded-lg border",
@@ -3700,6 +3702,8 @@ export default function NIRTechnicianInputForm({
           </p>
         </div>
       </div>
+        </>
+      )}
 
       {/* Photos */}
       <div
