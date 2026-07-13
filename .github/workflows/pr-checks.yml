@@ -199,7 +199,7 @@ jobs:
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
 
       - name: Unit tests
-        run: pnpm exec vitest run
+        run: pnpm exec vitest run --config config/vitest.config.js
         # RA-6685 — without DATABASE_URL the `skipIf(!process.env.DATABASE_URL)`
         # suites evaluate `skipIf(true)` and report green WITHOUT running.
         env:
