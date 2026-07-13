@@ -33,16 +33,17 @@ beforeEach(() => {
 
 afterEach(() => cleanup());
 
-describe("DocumentExportPackage — honest exports (Wave 4)", () => {
-  it("offers PDF, ZIP, and JSON only — no Word or email CTAs", () => {
+describe("DocumentExportPackage — honest exports", () => {
+  it("offers PDF, Word, ZIP, and JSON — no Coming Soon CTAs", () => {
     render(<DocumentExportPackage reportId="r1" />);
     expect(screen.getByRole("button", { name: /export pdf/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /export word/i })).toBeEnabled();
     expect(screen.getByRole("button", { name: /export zip/i })).toBeEnabled();
     expect(screen.getByRole("button", { name: /export json/i })).toBeEnabled();
     expect(
       screen.queryByRole("button", { name: /coming soon/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/Word \(\.docx\) and email delivery/i)).toBeInTheDocument();
+    expect(screen.getByText(/Email delivery from this screen/i)).toBeInTheDocument();
   });
 
   it("fires a success toast after a real PDF export", async () => {

@@ -9,6 +9,7 @@ import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
 import { inspectionPhotosToImages } from "@/lib/reports/inspection-photos-to-images";
 import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
 import { buildReportPackageZip } from "@/lib/exports/report-package-zip";
+import { buildReportDocx } from "@/lib/exports/report-docx";
 
 /**
  * RA-7003: the "complete package" previously contained only the three text
@@ -213,6 +214,24 @@ export async function GET(
         headers: {
           "Content-Type": "application/json",
           "Content-Disposition": `attachment; filename="RestoreAssist-Export-${report.id}.json"`,
+        },
+      });
+    }
+
+    if (format === "word") {
+      const claimReference =
+        report.claimReferenceNumber || report.reportNumber || report.id;
+      const docxBuffer = await buildReportDocx({
+        claimReference,
+        inspectionReport: inspectionReport || undefined,
+        scopeOfWorks: scopeOfWorks || undefined,
+        costEstimation: costEstimation || undefined,
+      });
+      return new NextResponse(new Uint8Array(docxBuffer), {
+        headers: {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "Content-Disposition": `attachment; filename="RestoreAssist-Package-${report.id}.docx"`,
         },
       });
     }

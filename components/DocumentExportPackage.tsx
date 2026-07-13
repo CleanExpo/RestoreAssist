@@ -6,6 +6,7 @@ import {
   FileText,
   FileJson,
   FileArchive,
+  FileType,
   Loader2,
   CheckCircle,
 } from "lucide-react";
@@ -17,12 +18,14 @@ interface DocumentExportPackageProps {
   claimReference?: string;
 }
 
+type ExportFormat = "pdf" | "json" | "zip" | "word";
+
 export default function DocumentExportPackage({
   reportId,
 }: DocumentExportPackageProps) {
   const [exporting, setExporting] = useState<string | null>(null);
 
-  const handleExport = async (format: "pdf" | "json" | "zip") => {
+  const handleExport = async (format: ExportFormat) => {
     setExporting(format);
     try {
       const response = await fetch(
@@ -47,7 +50,8 @@ export default function DocumentExportPackage({
         downloadBlob(blob, `RestoreAssist-Export-${reportId}.json`);
       } else {
         const blob = await response.blob();
-        const extension = format === "zip" ? "zip" : "pdf";
+        const extension =
+          format === "zip" ? "zip" : format === "word" ? "docx" : "pdf";
         downloadBlob(blob, `RestoreAssist-Package-${reportId}.${extension}`);
       }
 
@@ -127,6 +131,42 @@ export default function DocumentExportPackage({
 
           <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
             <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 rounded-lg bg-blue-500/20">
+                <FileType className="w-5 h-5 text-blue-400" />
+              </div>
+              <div>
+                <h4 className="font-semibold">Word (.docx)</h4>
+                <p className="text-xs text-slate-400">
+                  Editable for insurer review
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-300 mb-3">
+              Microsoft Word package with inspection report, scope of works, and
+              cost estimation as editable sections.
+            </p>
+            <button
+              type="button"
+              onClick={() => handleExport("word")}
+              disabled={exporting !== null}
+              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {exporting === "word" ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <FileType className="w-4 h-4" />
+                  Export Word
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
+            <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-lg bg-amber-500/20">
                 <FileArchive className="w-5 h-5 text-amber-400" />
               </div>
@@ -197,8 +237,8 @@ export default function DocumentExportPackage({
         </div>
 
         <p className="text-xs text-slate-500">
-          Word (.docx) and email delivery are not available in this release.
-          Use PDF or ZIP download, then share via your usual email client.
+          Email delivery from this screen is not available. Download PDF, Word,
+          or ZIP, then share via your usual email client.
         </p>
       </div>
 
