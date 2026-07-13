@@ -1666,7 +1666,8 @@ export default function NIRTechnicianInputForm({
           </div>
         </div>
 
-        {/* Moisture Readings Summary */}
+        {/* Moisture Readings Summary — water only */}
+        {isWaterDamageClaim(claimType) && (
         <div
           className={cn(
             "p-6 rounded-lg border",
@@ -1729,6 +1730,7 @@ export default function NIRTechnicianInputForm({
             )}
           </div>
         </div>
+        )}
 
         {/* Affected Areas Summary */}
         <div
@@ -2495,7 +2497,9 @@ export default function NIRTechnicianInputForm({
         </div>
       </div>
 
-      {/* Moisture Readings */}
+      {/* Moisture Readings + map — S500 water only (RA-1029) */}
+      {isWaterDamageClaim(claimType) && (
+        <>
       <div
         className={cn(
           "p-6 rounded-lg border",
@@ -2803,6 +2807,8 @@ export default function NIRTechnicianInputForm({
             }}
           />
         </div>
+      )}
+        </>
       )}
 
       {/* Affected Areas */}
