@@ -28,7 +28,7 @@ jobs:
   # WS4 (RA-1807 remediation) — fast static forward-guard: any NEW/changed
   # migration policy predicate must wrap zero-arg auth.*() in (select …) so it
   # can't reintroduce the RA-4827 → RA-4956 auth_rls_initplan regression. Scans
-  # BOTH prisma/migrations and supabase/migrations (policies live in both roots).
+  # BOTH prisma/migrations and docs/ops/supabase-migrations-archive (policies live in both roots).
   # fetch-depth: 0 so `git merge-base` against the PR base resolves.
   rls-initplan-lint:
     name: RLS InitPlan forward-guard (static)
