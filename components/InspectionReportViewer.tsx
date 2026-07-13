@@ -16,10 +16,12 @@ import { cn } from "@/lib/utils";
 import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer";
 import RestorationInspectionReportViewer from "./RestorationInspectionReportViewer";
 import IicrcInclusionPanel from "./IicrcInclusionPanel";
+import AiOwnershipBanner from "./AiOwnershipBanner";
 import {
   runInclusionCheck,
   deriveIicrcClaimTypeFromHazardType,
 } from "@/lib/iicrc-inclusion-check";
+import { isAiDraftPending } from "@/lib/reports/ai-ownership";
 
 interface InspectionReportViewerProps {
   reportId: string;
@@ -752,6 +754,14 @@ export default function InspectionReportViewer({
                 </p>
               </div>
             </div>
+
+            {report && isAiDraftPending(report) && (
+              <AiOwnershipBanner
+                reportId={reportId}
+                report={report}
+                onAcknowledged={() => void fetchReport()}
+              />
+            )}
 
             <div className="w-full p-0 px-4 space-y-8">
               {isBasicReport && structuredReportData ? (
