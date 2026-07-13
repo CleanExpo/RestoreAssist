@@ -258,15 +258,16 @@ export async function getProviderCredentials(
 
 /**
  * Providers that power client report generation (the "operating" providers) —
- * a BYOK key for any one of these is enough to operate RestoreAssist. GOOGLE is
- * for Drive storage, GEMMA is the platform's own inference, and ELEVENLABS is
- * voice, so none of those count. This is the SINGLE SOURCE OF TRUTH: the setup
- * gate's `byokKeysCheck` and the onboarding presence check below both consume
- * it, so the two surfaces can never disagree about what "has a key" means.
+ * a BYOK key for any one of these is enough to operate RestoreAssist. GEMMA is
+ * the platform's own inference and ELEVENLABS is voice, so those do not count.
+ * GOOGLE here is Gemini (Generative Language API), not Google Drive OAuth.
+ * This is the SINGLE SOURCE OF TRUTH: the setup gate's `byokKeysCheck` and the
+ * onboarding presence check below both consume it.
  */
 export const OPERATING_PROVIDERS: AiProvider[] = [
   "ANTHROPIC",
   "OPENAI",
+  "GOOGLE",
   "OPENROUTER",
 ];
 
