@@ -121,16 +121,6 @@ type BillingStatus = (typeof BILLING_STATUSES)[number];
 
 const PAGE_SIZE = 10;
 
-const EMPTY_USAGE: UsageData = {
-  totalCostMtd: 0,
-  pendingBillingCount: 0,
-  billedMtd: 0,
-  failedCount: 0,
-  byEventType: [],
-  byUser: [],
-  dailyCosts: [],
-};
-
 // ---- Helper: last 6 months ------------------------------------------------
 
 function getLast6Months(): { label: string; value: string }[] {
@@ -342,7 +332,8 @@ export default function AiUsageDashboardPage() {
       const json = await res.json();
       setData(json);
     } catch (err) {
-      setData(EMPTY_USAGE);
+      // Fail closed — never present EMPTY_USAGE zeros as real KPIs.
+      setData(null);
       setFetchError(
         err instanceof Error ? err.message : "Failed to load usage data",
       );
@@ -543,7 +534,7 @@ export default function AiUsageDashboardPage() {
         </div>
       )}
 
-      {!loading && data && (
+      {!loading && !fetchError && data && (
         <>
           {/* KPI cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
