@@ -298,11 +298,20 @@ export default function ReportsPage() {
         setSelectedReports([]);
         setShowBulkDeleteModal(false);
         refetchReports();
+        toast.success(
+          `Deleted ${selectedReports.length} report${selectedReports.length > 1 ? "s" : ""}.`,
+        );
       } else {
-        console.error("Failed to delete reports");
+        const body = await response.json().catch(() => ({}));
+        toast.error(
+          typeof body.error === "string"
+            ? body.error
+            : "Failed to delete reports. Please try again.",
+        );
       }
     } catch (error) {
       console.error("Error deleting reports:", error);
+      toast.error("Failed to delete reports. Please try again.");
     }
   };
 
