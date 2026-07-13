@@ -9,12 +9,14 @@ import {
   HeadingLevel,
   TextRun,
 } from "docx";
+import { AI_OWNERSHIP_WATERMARK } from "@/lib/reports/ai-ownership";
 
 export interface ReportDocxInput {
   claimReference: string;
   inspectionReport?: string;
   scopeOfWorks?: string;
   costEstimation?: string;
+  showAiDraftDisclaimer?: boolean;
 }
 
 function textToParagraphs(text: string): Paragraph[] {
@@ -51,6 +53,35 @@ export async function buildReportDocx(input: ReportDocxInput): Promise<Buffer> {
       ],
       spacing: { after: 200 },
     }),
+  ];
+
+  if (input.showAiDraftDisclaimer) {
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: AI_OWNERSHIP_WATERMARK,
+            bold: true,
+            size: 20,
+            color: "B91C1C",
+          }),
+        ],
+        spacing: { after: 200 },
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: "AI drafted this package as an assistant only. The application holder must rewrite and take ownership before issuing.",
+            italics: true,
+            size: 18,
+          }),
+        ],
+        spacing: { after: 300 },
+      }),
+    );
+  }
+
+  children.push(
     new Paragraph({
       children: [
         new TextRun({
@@ -60,7 +91,7 @@ export async function buildReportDocx(input: ReportDocxInput): Promise<Buffer> {
       ],
       spacing: { after: 400 },
     }),
-  ];
+  );
 
   if (input.inspectionReport?.trim()) {
     children.push(...section("Professional Inspection Report", input.inspectionReport));
