@@ -3,7 +3,7 @@ import {
   RA_ICONS,
   raIconSrc,
   type RAIconName,
-} from "@/src/brand/restoreassist/icon-registry";
+} from "@/lib/brand/icon-registry";
 
 export interface RAIconProps {
   /** Branded icon name (see the RestoreAssist icon registry). */

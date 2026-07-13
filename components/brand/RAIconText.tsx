@@ -1,6 +1,6 @@
 import React from "react";
 import { RAIcon } from "./RAIcon";
-import { parseRATokens } from "@/src/brand/restoreassist/icon-registry";
+import { parseRATokens } from "@/lib/brand/icon-registry";
 
 export interface RAIconTextProps {
   /** Text that may contain `[ra:name]` tokens. */
