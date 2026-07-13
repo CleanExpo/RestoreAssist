@@ -119,29 +119,8 @@ function SubscriptionPageContent() {
   const checkSubscription = async () => {
     setChecking(true);
     try {
-      const response = await fetch("/api/subscription/check", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          toast.success("Subscription found and updated!");
-          // Refresh the subscription data
-          await fetchSubscription(true);
-        } else {
-          toast.error(data.message || "No active subscription found");
-        }
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.error || "Failed to check subscription");
-      }
-    } catch (error) {
-      console.error("Error checking subscription:", error);
-      toast.error("Failed to check subscription status");
+      // Reconcile from Stripe via existing GET ?refresh=true (no separate check route).
+      await fetchSubscription(true);
     } finally {
       setChecking(false);
     }
