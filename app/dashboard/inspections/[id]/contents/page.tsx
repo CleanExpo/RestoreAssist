@@ -130,11 +130,21 @@ export default function ContentsManifestPage() {
   const [items, setItems] = useState<EditableItem[]>([]);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadDraft = useCallback(async () => {
     try {
+      setLoadError(null);
       const res = await fetch(`/api/inspections/${id}/contents-manifest`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        if (res.status === 404) {
+          setDraft(null);
+          setItems([]);
+          return;
+        }
+        setLoadError("Failed to load contents manifest");
+        return;
+      }
       const json = await res.json();
       if (json.data) {
         setDraft(json.data);
@@ -145,6 +155,8 @@ export default function ContentsManifestPage() {
           })),
         );
       }
+    } catch {
+      setLoadError("Failed to load contents manifest");
     } finally {
       setLoading(false);
     }
@@ -204,6 +216,21 @@ export default function ContentsManifestPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+      {loadError && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300 flex items-center justify-between gap-3">
+          <span>{loadError}</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setLoading(true);
+              void loadDraft();
+            }}
+          >
+            Retry
+          </Button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
