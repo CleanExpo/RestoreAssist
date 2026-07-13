@@ -375,25 +375,31 @@ function FireSmokeForm({
     <>
       {!odourOnly && (
         <>
-          <FieldRow label="Smoke Type">
+          <FieldRow label="Smoke Residue Type" hint="IICRC S700:2025">
             <Select
-              value={(data.smokeType as string) || ""}
-              onChange={(v) => onChange("smokeType", v || null)}
+              value={(data.smokeResidueType as string) || ""}
+              onChange={(v) => onChange("smokeResidueType", v || null)}
               options={[
                 { value: "DRY", label: "Dry — Fast-burning / high-temp" },
                 { value: "WET", label: "Wet — Smouldering / low-temp" },
                 { value: "PROTEIN", label: "Protein — Cooking residue" },
-                { value: "OIL", label: "Oil — Furnace / heating" },
-                { value: "OTHER", label: "Other" },
+                { value: "FUEL_OIL", label: "Fuel oil — Furnace / heating" },
               ]}
+            />
+          </FieldRow>
+          <FieldRow label="Residue Location">
+            <Input
+              value={(data.residueLocation as string) || ""}
+              onChange={(v) => onChange("residueLocation", v || null)}
+              placeholder="e.g. Ceiling voids, HVAC returns"
             />
           </FieldRow>
           <FieldRow label="Char Depth (mm)" hint="IICRC S700:2025 §3.1">
             <Input
               type="number"
-              value={(data.charDepthMm as number) || ""}
+              value={(data.charringDepthMm as number) || ""}
               onChange={(v) =>
-                onChange("charDepthMm", v ? parseFloat(v) : null)
+                onChange("charringDepthMm", v ? parseFloat(v) : null)
               }
               min={0}
               step={0.5}
@@ -407,10 +413,13 @@ function FireSmokeForm({
               options={[
                 { value: "SAFE", label: "Safe — No concerns" },
                 {
+                  value: "UNCERTAIN",
+                  label: "Uncertain — Pending assessment",
+                },
+                {
                   value: "COMPROMISED",
                   label: "Compromised — Engineer required",
                 },
-                { value: "UNKNOWN", label: "Unknown — Pending assessment" },
               ]}
             />
           </FieldRow>
@@ -426,36 +435,33 @@ function FireSmokeForm({
               onChange={(v) => onChange("gasShutoffVerified", v)}
             />
           </FieldRow>
-          <FieldRow label="Rooms Affected">
+          <FieldRow label="HVAC Affected">
+            <Toggle
+              value={!!data.hvacAffected}
+              onChange={(v) => onChange("hvacAffected", v)}
+            />
+          </FieldRow>
+          <FieldRow label="Surface pH" hint="0–14">
             <Input
               type="number"
-              value={(data.affectedRoomsCount as number) || ""}
+              value={(data.surfacePH as number) || ""}
               onChange={(v) =>
-                onChange("affectedRoomsCount", v ? parseInt(v) : null)
+                onChange("surfacePH", v ? parseFloat(v) : null)
               }
               min={0}
-              placeholder="e.g. 4"
-            />
-          </FieldRow>
-          <FieldRow label="HVAC Contaminated">
-            <Toggle
-              value={!!data.hvacContaminated}
-              onChange={(v) => onChange("hvacContaminated", v)}
-            />
-          </FieldRow>
-          <FieldRow label="Contents Salvageable">
-            <Toggle
-              value={!!data.contentsSalvageable}
-              onChange={(v) => onChange("contentsSalvageable", v)}
+              max={14}
+              step={0.1}
+              placeholder="e.g. 4.2"
             />
           </FieldRow>
         </>
       )}
       <FieldRow
         label="Odour Severity"
-        hint="0=None, 1=Mild, 2=Moderate, 3=Severe"
+        hint="0=None … 10=Extreme (IICRC S700)"
       >
-        <Select
+        <Input
+          type="number"
           value={
             data.odourSeverityScore != null
               ? String(data.odourSeverityScore)
@@ -464,12 +470,9 @@ function FireSmokeForm({
           onChange={(v) =>
             onChange("odourSeverityScore", v !== "" ? parseInt(v) : null)
           }
-          options={[
-            { value: "0", label: "0 — None" },
-            { value: "1", label: "1 — Mild" },
-            { value: "2", label: "2 — Moderate" },
-            { value: "3", label: "3 — Severe" },
-          ]}
+          min={0}
+          max={10}
+          placeholder="0–10"
         />
       </FieldRow>
       <FieldRow label="Odour Type">
@@ -478,26 +481,12 @@ function FireSmokeForm({
           onChange={(v) => onChange("odourType", v || null)}
           options={[
             { value: "SMOKE", label: "Smoke" },
-            { value: "SEWAGE", label: "Sewage" },
-            { value: "MOULD", label: "Mould" },
+            { value: "PROTEIN", label: "Protein" },
             { value: "CHEMICAL", label: "Chemical" },
-            { value: "DECOMPOSITION", label: "Decomposition" },
-            { value: "OTHER", label: "Other" },
+            { value: "FUEL", label: "Fuel" },
           ]}
         />
       </FieldRow>
-      {!odourOnly && (
-        <FieldRow label="Soot Index (1–10)">
-          <Input
-            type="number"
-            value={(data.sootIndex as number) || ""}
-            onChange={(v) => onChange("sootIndex", v ? parseFloat(v) : null)}
-            min={1}
-            max={10}
-            step={0.5}
-          />
-        </FieldRow>
-      )}
     </>
   );
 }
