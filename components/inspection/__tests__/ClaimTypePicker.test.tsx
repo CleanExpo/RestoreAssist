@@ -44,4 +44,13 @@ describe("ClaimTypePicker — inspection-start IICRC standard selector (RA-1029 
     );
     expect(screen.getByText(/Claim type is required/)).toBeInTheDocument();
   });
+
+  it("disables all options when disabled is set", () => {
+    render(
+      <ClaimTypePicker value="WATER" onChange={vi.fn()} disabled />,
+    );
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio).toBeDisabled();
+    }
+  });
 });
