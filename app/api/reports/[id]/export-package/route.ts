@@ -10,6 +10,12 @@ import { inspectionPhotosToImages } from "@/lib/reports/inspection-photos-to-ima
 import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
 import { buildReportPackageZip } from "@/lib/exports/report-package-zip";
 import { buildReportDocx } from "@/lib/exports/report-docx";
+import {
+  AI_OWNERSHIP_WATERMARK,
+  isAiDraftPending,
+} from "@/lib/reports/ai-ownership";
+import { drawAiOwnershipWatermark } from "@/lib/reports/ai-ownership-watermark";
+
 
 /**
  * RA-7003: the "complete package" previously contained only the three text
@@ -141,7 +147,7 @@ export async function GET(
     const format = searchParams.get("format") || "pdf"; // pdf, word, json, zip
 
     // Get the complete report
-    const report = await prisma.report.findUnique({
+    const report = await prisma.report.findFirst({
       where: { id, userId: user.id },
     });
 
@@ -152,6 +158,8 @@ export async function GET(
         status: 404,
       });
     }
+
+    const showAiDraftWatermark = isAiDraftPending(report);
 
     // Parse all data
     const inspectionReport = report.detailedReport || "";
@@ -226,6 +234,7 @@ export async function GET(
         inspectionReport: inspectionReport || undefined,
         scopeOfWorks: scopeOfWorks || undefined,
         costEstimation: costEstimation || undefined,
+        showAiDraftDisclaimer: showAiDraftWatermark,
       });
       return new NextResponse(new Uint8Array(docxBuffer), {
         headers: {
@@ -438,6 +447,18 @@ async function addDocumentToPDF(
     color: watermarkColor,
     opacity: 0.3,
   });
+
+  if (isAiDraftPending(report)) {
+    drawAiOwnershipWatermark(page, boldFont);
+    page.drawText(AI_OWNERSHIP_WATERMARK.slice(0, 72), {
+      x: 50,
+      y: height - 45,
+      size: 8,
+      font: boldFont,
+      color: rgb(0.7, 0.2, 0.2),
+      opacity: 0.55,
+    });
+  }
 
   // Add title
   page.drawText(title, {
