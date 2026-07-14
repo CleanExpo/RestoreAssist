@@ -7,9 +7,15 @@
  * lib/live-teacher/__tests__/claude-cloud.test.ts:272. Trust those over the
  * schema comment (which shows an un-bracketed form and is stale).
  *
- * This module performs no I/O: it parses a stored ref, then classifies it
- * against an in-memory index built from the StandardsChunk corpus.
+ * This module performs no I/O. It parses a stored ref, then classifies it:
+ *   - S500 refs validate at SECTION granularity against the in-repo, facts-only
+ *     `S500_SECTIONS` map (always available, even when StandardsChunk is empty on
+ *     production — that map is the same source the check:standards gate uses).
+ *   - Every other standard validates against an in-memory index built from the
+ *     StandardsChunk corpus; with no in-repo section source it stays `unknown`.
  */
+
+import { S500_SECTIONS } from "../standards/s500-sections";
 
 export type CitationVerdict =
   | "valid"
@@ -106,12 +112,39 @@ export function buildCorpusIndex(
   return { clauseKeys, editionKeys, standards };
 }
 
+// StandardsChunk.standard value for S500, and the single edition the in-repo
+// S500_SECTIONS map transcribes (ANSI/IICRC S500-2021, 5th ed.).
+const S500_STANDARD = "IICRC_S500";
+const S500_EDITION = "2021";
+
+/**
+ * Validate an S500 ref at SECTION (chapter) granularity against the in-repo
+ * `S500_SECTIONS` map. The map is always present (facts-only, no corpus needed),
+ * so S500 citations are genuinely validatable even when StandardsChunk is empty.
+ * Extracts the top-level chapter (`§10.3.2` → "10", `§7` → "7") and checks it
+ * exists. A real chapter cited under a non-2021 edition is a SOFT
+ * `edition_mismatch` (the map is single-edition), not a fabrication.
+ */
+function classifyS500Ref(parsed: ParsedClauseRef): CitationVerdict {
+  const chapter = parsed.clause.split(".")[0];
+  if (S500_SECTIONS[chapter] === undefined) return "invalid_no_such_clause";
+  if (parsed.edition !== null && parsed.edition !== S500_EDITION) {
+    return "edition_mismatch";
+  }
+  return "valid";
+}
+
 export function classifyClauseRef(
   raw: string,
   corpus: CorpusIndex,
 ): CitationVerdict {
   const parsed = parseClauseRef(raw);
   if (!parsed) return "unparseable";
+
+  // S500 validates against the in-repo section map, independent of the
+  // (production-empty) StandardsChunk corpus. Standards with no in-repo section
+  // source fall through to the corpus logic below and stay `unknown`.
+  if (parsed.standard === S500_STANDARD) return classifyS500Ref(parsed);
 
   const clauseKey = `${parsed.standard}|${parsed.clause}`;
   if (!corpus.clauseKeys.has(clauseKey)) {

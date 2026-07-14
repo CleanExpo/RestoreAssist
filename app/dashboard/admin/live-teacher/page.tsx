@@ -271,10 +271,11 @@ export default function LiveTeacherGateMetricsDashboard() {
   const costPass = !costCollecting && cost.p95CostCents <= COST_GATE_P95_CENTS;
 
   // No validatable refs → nothing to measure the gate against (no refs at all,
-  // or every ref is for a standard the corpus does not carry — e.g. the
-  // S500-clause corpus is unconfigured). Show "collecting", never pass/fail.
+  // or every ref is for a standard with no in-repo section source — S500 now
+  // validates against the in-repo S500_SECTIONS map, so the remaining
+  // non-validatable standards are AS/NZS + NZBS). Show "collecting", never pass/fail.
   const citationCollecting = citations.validatableRefs === 0;
-  const citationCorpusUnconfigured =
+  const citationNoValidatableStandard =
     citations.validatableRefs === 0 && citations.totalRefs > 0;
   const citationPass =
     !citationCollecting && citations.citationErrorRate <= CITATION_GATE_MAX_RATE;
@@ -398,8 +399,8 @@ export default function LiveTeacherGateMetricsDashboard() {
               : `${(citations.citationErrorRate * 100).toFixed(1)}%`
           }
           sub={
-            citationCorpusUnconfigured
-              ? "collecting — citation corpus not configured"
+            citationNoValidatableStandard
+              ? "collecting — only non-S500 standards cited (no section map)"
               : citationCollecting
                 ? `fabricated clauses · gate ≤ ${(CITATION_GATE_MAX_RATE * 100).toFixed(0)}%`
                 : `fabricated / ${citations.validatableRefs} validatable · gate ≤ ${(CITATION_GATE_MAX_RATE * 100).toFixed(0)}%`
