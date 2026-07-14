@@ -108,6 +108,18 @@ function toolUseResponse(name: string, input: Record<string, unknown>) {
   };
 }
 
+// A single response carrying several tool_use blocks (distinct ids). Models can
+// emit the same write twice in one turn on self-correction/retry.
+function multiToolUseResponse(
+  blocks: Array<{ id: string; name: string; input: Record<string, unknown> }>,
+) {
+  return {
+    content: blocks.map((b) => ({ type: "tool_use", ...b })),
+    usage: { input_tokens: 80, output_tokens: 30 },
+    stop_reason: "tool_use",
+  };
+}
+
 describe("invokeClaudeCloud — tool layer (RA-1132f)", () => {
   it("runs take_reading with the injected real inspectionId and returns the result", async () => {
     anthropicMock.create
@@ -230,6 +242,63 @@ describe("invokeClaudeCloud — tool layer (RA-1132f)", () => {
     });
     expect(result.toolCalls[0].result).toBeUndefined();
     expect(result.content).toContain("flagged an asbestos hazard");
+  });
+
+  it("de-duplicates identical take_reading blocks in one turn (write runs once)", async () => {
+    const identicalArgs = {
+      location: "Bathroom",
+      surfaceType: "drywall",
+      moistureLevel: 45,
+      unit: "PERCENT_MC",
+    };
+    anthropicMock.create
+      .mockResolvedValueOnce(
+        multiToolUseResponse([
+          { id: "tu_a", name: "take_reading", input: { ...identicalArgs } },
+          { id: "tu_b", name: "take_reading", input: { ...identicalArgs } },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        makeSuccessResponse("Logged 45% MC in the bathroom [S500:2021 §10.5]."),
+      );
+    dispatchToolMock.mockResolvedValue({ id: "mr_1", value: 45 });
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    // Only ONE write, despite two identical tool_use blocks in the turn.
+    expect(dispatchToolMock).toHaveBeenCalledTimes(1);
+    expect(
+      result.toolCalls.filter((c) => c.name === "take_reading"),
+    ).toHaveLength(1);
+    expect(result.content).toContain("Logged 45% MC");
+  });
+
+  it("runs two DIFFERENT take_reading blocks independently (both write)", async () => {
+    anthropicMock.create
+      .mockResolvedValueOnce(
+        multiToolUseResponse([
+          {
+            id: "tu_a",
+            name: "take_reading",
+            input: { location: "Bathroom", moistureLevel: 45 },
+          },
+          {
+            id: "tu_b",
+            name: "take_reading",
+            input: { location: "Bathroom", moistureLevel: 60 },
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(makeSuccessResponse("Logged both [S500:2021 §10.5]."));
+    dispatchToolMock.mockResolvedValue({ id: "mr_x" });
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    // Two genuine readings (different moistureLevel) both run.
+    expect(dispatchToolMock).toHaveBeenCalledTimes(2);
+    expect(
+      result.toolCalls.filter((c) => c.name === "take_reading"),
+    ).toHaveLength(2);
   });
 
   it("runs check_report_gaps (read-only) with the injected id and returns gaps", async () => {
