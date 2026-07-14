@@ -6849,6 +6849,7 @@ model TeacherUtterance {
   ranOnDevice    Boolean            @default(false)
   createdAt      DateTime           @default(now())
 
+  @@unique([sessionId, turnIndex]) // RA-7059 — reject colliding turnIndex from concurrent /turn POSTs
   @@index([sessionId, turnIndex])
 }
 

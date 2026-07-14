@@ -6,6 +6,9 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 // ---------------------------------------------------------------------------
 // Mock next-auth
@@ -43,6 +46,7 @@ const mockSessionFindMany = vi.fn();
 const mockSessionFindUnique = vi.fn();
 const mockUtteranceCreate = vi.fn();
 const mockUtteranceCount = vi.fn();
+const mockUtteranceAggregate = vi.fn();
 const mockUtteranceFindMany = vi.fn();
 const mockToolCallFindMany = vi.fn();
 const mockToolCallCreate = vi.fn();
@@ -106,6 +110,7 @@ vi.mock("@/lib/prisma", () => ({
     teacherUtterance: {
       create: (...args: unknown[]) => mockUtteranceCreate(...args),
       count: (...args: unknown[]) => mockUtteranceCount(...args),
+      aggregate: (...args: unknown[]) => mockUtteranceAggregate(...args),
       findMany: (...args: unknown[]) => mockUtteranceFindMany(...args),
     },
     teacherToolCall: {
@@ -318,6 +323,79 @@ describe("POST /api/live-teacher/turn", () => {
     expect(text).toContain("utt-asst-1");
     // Verify create was called twice: once for user, once for assistant
     expect(mockUtteranceCreate).toHaveBeenCalledTimes(2);
+  });
+
+  // RA-7059 — concurrency race: overlapping /turn POSTs read the same count()
+  // and would write colliding turnIndex rows. The @@unique now rejects the
+  // duplicate with P2002; the route must re-derive max(turnIndex)+1 and retry
+  // so the turn still succeeds with a distinct sequential index.
+  it("retries with a distinct index on a P2002 turnIndex collision (RA-7059)", async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: "user-1", email: "test@example.com" },
+    } as any);
+    mockSessionFindFirst.mockResolvedValue({
+      id: "sess-1",
+      userId: "user-1",
+      inspectionId: "insp-1",
+      jurisdiction: "AU",
+    });
+    // count() sees 0, so the user turn starts at index 0 — but a concurrent
+    // turn already took index 0, so the first insert collides.
+    mockUtteranceCount.mockResolvedValue(0);
+    mockUtteranceFindMany.mockResolvedValue([]);
+    // The session actually reached turnIndex 5, so the retry lands on 6/7.
+    mockUtteranceAggregate.mockResolvedValue({ _max: { turnIndex: 5 } });
+    const p2002 = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed",
+      { code: "P2002", clientVersion: "test" },
+    );
+    mockUtteranceCreate
+      .mockRejectedValueOnce(p2002) // user turn @0 collides
+      .mockResolvedValueOnce({ id: "utt-user-6" }) // retry @6 succeeds
+      .mockResolvedValueOnce({ id: "utt-asst-7" }); // assistant @7 succeeds
+    mockInvokeClaudeCloud.mockResolvedValue({
+      content: "Category 2 water. [S500:2021 §10.4.1]",
+      clauseRefs: ["[S500:2021 §10.4.1]"],
+      confidence: 86,
+      toolCalls: [],
+      inputTokens: 10,
+      outputTokens: 8,
+      costAudCents: 1,
+    });
+
+    const { POST } = await import("../turn/route");
+    const req = makeRequest("POST", "http://localhost/api/live-teacher/turn", {
+      sessionId: "sess-1",
+      utterance: "What is the drying category?",
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const text = await res.text();
+
+    // Three create attempts: collided user @0, retried user @6, assistant @7.
+    expect(mockUtteranceCreate).toHaveBeenCalledTimes(3);
+    expect(mockUtteranceCreate.mock.calls[0][0].data.turnIndex).toBe(0);
+    expect(mockUtteranceCreate.mock.calls[1][0].data.turnIndex).toBe(6);
+    expect(mockUtteranceCreate.mock.calls[2][0].data.turnIndex).toBe(7);
+    // The assistant index follows the user's post-retry index, not turnCount+1.
+    expect(mockUtteranceCreate.mock.calls[2][0].data.turnIndex).not.toBe(1);
+    // The turn still completes and streams the assistant utterance.
+    expect(text).toContain('"type":"done"');
+    expect(text).toContain("utt-asst-7");
+  });
+
+  // RA-7059 — the schema-level guard the retry relies on must exist.
+  it("declares @@unique([sessionId, turnIndex]) on TeacherUtterance (RA-7059)", () => {
+    const schema = readFileSync(
+      join(process.cwd(), "prisma", "schema.prisma"),
+      "utf8",
+    );
+    const model = schema.slice(
+      schema.indexOf("model TeacherUtterance {"),
+      schema.indexOf("model TeacherToolCall {"),
+    );
+    expect(model).toContain("@@unique([sessionId, turnIndex])");
   });
 
   it("persists a TeacherToolCall and streams a tool_call event when the model uses a tool (RA-1132f)", async () => {
