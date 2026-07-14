@@ -208,11 +208,15 @@ function buildMessages(
 ): Anthropic.MessageParam[] {
   const messages: Anthropic.MessageParam[] = [];
 
-  // Inject a context block as the first user message if history is empty,
-  // or prepend to the current utterance.
+  // Freshly-built inspection state for THIS turn. The system prompt tells the
+  // model the user message begins with this block and to coach off its
+  // missingFields/stillWet, so it must reach the model on EVERY turn — not only
+  // the first (history is non-empty from turn 2 onward).
   const contextBlock = `[Context: room=${context.currentRoom ?? "unset"}, stage=${context.stage}, jurisdiction=${context.jurisdiction}, missingFields=${context.missingFields.join(", ") || "none"}, stillWet=${context.wetReadings.join("; ") || "none"}]`;
 
-  // Map history turns (skip system — handled in system prompt param)
+  // Map history turns (skip system — handled in system prompt param). Historical
+  // utterances stay raw: retro-prepending the block to each would bloat the
+  // conversation and duplicate stale context.
   for (const turn of history) {
     if (turn.role === "system") continue;
     messages.push({
@@ -221,13 +225,12 @@ function buildMessages(
     });
   }
 
-  // Append the current user utterance with context
-  const userContent =
-    messages.length === 0
-      ? `${contextBlock}\n\n${userUtterance}`
-      : userUtterance;
-
-  messages.push({ role: "user", content: userContent });
+  // Prepend the current inspection state to the CURRENT utterance on every turn,
+  // so the model always sees the latest room/fields/wet-readings.
+  messages.push({
+    role: "user",
+    content: `${contextBlock}\n\n${userUtterance}`,
+  });
 
   return messages;
 }
