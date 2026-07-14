@@ -6,6 +6,7 @@ import {
   computeCostRollup,
   computeCitationMetrics,
   computeCompletenessDelta,
+  evaluateCompletenessGate,
   COST_THRESHOLD_CENTS,
 } from "../gate-metrics";
 import { buildCorpusIndex } from "../citation-validity";
@@ -134,5 +135,79 @@ describe("computeCompletenessDelta", () => {
     expect(delta.meanControl).toBeNull();
     expect(delta.meanAssisted).toBe(85);
     expect(delta.nControl).toBe(0);
+  });
+});
+
+describe("evaluateCompletenessGate", () => {
+  const thresholds = { minPerArm: 5, minDeltaPoints: 15 };
+
+  it("does NOT pass a tiny-n, trivially-positive delta (the bug)", () => {
+    // n=1 vs n=1 with +0.1pt would previously pass — statistically meaningless.
+    const delta = computeCompletenessDelta([80.1], [80]);
+    expect(delta.sufficient).toBe(true);
+    expect(delta.deltaPoints).toBe(0.1);
+    const v = evaluateCompletenessGate(delta, thresholds);
+    expect(v.pass).toBe(false);
+    expect(v.collecting).toBe(true);
+    expect(v.reason).toBe("insufficient_sample");
+  });
+
+  it("is 'collecting' (insufficient sample) when EITHER arm is below the per-arm floor", () => {
+    // Assisted has 5 (meets floor), control has 4 (below) — big delta, still short.
+    const delta = computeCompletenessDelta(
+      [90, 90, 90, 90, 90],
+      [50, 50, 50, 50],
+    );
+    expect(delta.deltaPoints).toBe(40);
+    const v = evaluateCompletenessGate(delta, thresholds);
+    expect(v.pass).toBe(false);
+    expect(v.collecting).toBe(true);
+    expect(v.reason).toBe("insufficient_sample");
+  });
+
+  it("does NOT pass when the delta is below the effect-size floor, even with enough samples", () => {
+    // 5 per arm (meets sample floor) but only a +10pt uplift (< 15pt floor).
+    const delta = computeCompletenessDelta(
+      [80, 80, 80, 80, 80],
+      [70, 70, 70, 70, 70],
+    );
+    expect(delta.deltaPoints).toBe(10);
+    const v = evaluateCompletenessGate(delta, thresholds);
+    expect(v.pass).toBe(false);
+    // Data WAS collected — this is an honest fail, not "collecting".
+    expect(v.collecting).toBe(false);
+    expect(v.reason).toBe("delta_below_floor");
+  });
+
+  it("passes when both floors are met and the delta clears the effect-size floor", () => {
+    const delta = computeCompletenessDelta(
+      [90, 90, 90, 90, 90],
+      [70, 70, 70, 70, 70],
+    );
+    expect(delta.deltaPoints).toBe(20);
+    const v = evaluateCompletenessGate(delta, thresholds);
+    expect(v.pass).toBe(true);
+    expect(v.collecting).toBe(false);
+    expect(v.reason).toBeNull();
+  });
+
+  it("passes exactly at the effect-size floor (>= is inclusive)", () => {
+    const delta = computeCompletenessDelta(
+      [85, 85, 85, 85, 85],
+      [70, 70, 70, 70, 70],
+    );
+    expect(delta.deltaPoints).toBe(15);
+    expect(evaluateCompletenessGate(delta, thresholds).pass).toBe(true);
+  });
+
+  it("does NOT pass a negative delta (assisted worse than control)", () => {
+    const delta = computeCompletenessDelta(
+      [60, 60, 60, 60, 60],
+      [80, 80, 80, 80, 80],
+    );
+    expect(delta.deltaPoints).toBe(-20);
+    const v = evaluateCompletenessGate(delta, thresholds);
+    expect(v.pass).toBe(false);
+    expect(v.reason).toBe("delta_below_floor");
   });
 });

@@ -185,3 +185,53 @@ export function computeCompletenessDelta(
     sufficient: true,
   };
 }
+
+// ── Part 3b: completeness GO-gate verdict (statistical-validity floors) ──────
+//
+// `sufficient` above is only the divide-by-zero guard (both arms non-empty). A
+// GO decision must NOT rest on a statistically meaningless signal: n=1 vs n=1
+// with a +0.1pt delta would otherwise pass. The verdict below adds a per-arm
+// minimum sample size AND a minimum effect size (delta floor) — mirroring the
+// citation gate's honest "collecting" state.
+
+export interface CompletenessGateThresholds {
+  /** Minimum reports in EACH arm before the delta is meaningful. */
+  minPerArm: number;
+  /** Minimum uplift (assisted − control, 0-100 scale) to count as a real effect. */
+  minDeltaPoints: number;
+}
+
+export type CompletenessGateReason =
+  | "insufficient_sample" // still collecting — an arm is below the per-arm floor
+  | "delta_below_floor" // enough data, but the uplift is below the effect-size floor
+  | null; // pass
+
+export interface CompletenessGateVerdict {
+  pass: boolean;
+  /** true only while an arm is below the per-arm floor (genuinely still collecting). */
+  collecting: boolean;
+  reason: CompletenessGateReason;
+}
+
+export function evaluateCompletenessGate(
+  delta: CompletenessDelta,
+  thresholds: CompletenessGateThresholds,
+): CompletenessGateVerdict {
+  const belowSample =
+    !delta.sufficient ||
+    delta.nAssisted < thresholds.minPerArm ||
+    delta.nControl < thresholds.minPerArm;
+  if (belowSample) {
+    return { pass: false, collecting: true, reason: "insufficient_sample" };
+  }
+  // Enough data in both arms — the effect size decides. A trivially-positive or
+  // negative delta is an honest FAIL, not "collecting" (data was collected).
+  const pass =
+    delta.deltaPoints !== null &&
+    delta.deltaPoints >= thresholds.minDeltaPoints;
+  return {
+    pass,
+    collecting: false,
+    reason: pass ? null : "delta_below_floor",
+  };
+}
