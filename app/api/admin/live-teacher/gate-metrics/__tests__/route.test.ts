@@ -89,7 +89,7 @@ describe("GET /api/admin/live-teacher/gate-metrics", () => {
     ]);
     mockSessionCount.mockResolvedValue(1);
     mockUtteranceFindMany.mockResolvedValue([
-      { sessionId: "s1", clauseRefs: ["[S500:2021 §10.3.2]", "[S500:2021 §99.99]"] },
+      { sessionId: "s1", clauseRefs: ["[S500:2021 §10.3.2]", "[S500:2021 §99.99]"] }, // standards-cite-ignore (intentional negative-test fixture)
     ]);
     mockChunkFindMany.mockResolvedValue([
       { standard: "IICRC_S500", edition: "2021", clause: "10.3.2" },

@@ -54,7 +54,7 @@ describe("computeCitationMetrics", () => {
   it("surfaces denominators and the fabricated-clause error rate", () => {
     const metrics = computeCitationMetrics(
       [
-        { clauseRefs: ["[S500:2021 §10.3.2]", "[S500:2021 §99.99]"] }, // 1 valid, 1 fabricated
+        { clauseRefs: ["[S500:2021 §10.3.2]", "[S500:2021 §99.99]"] }, // 1 valid, 1 fabricated // standards-cite-ignore (intentional negative-test fixture)
         { clauseRefs: ["[S500:2021 §10.3.2]"] }, // 1 valid
         { clauseRefs: [] }, // no refs
       ],

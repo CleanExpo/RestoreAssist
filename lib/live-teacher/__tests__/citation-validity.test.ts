@@ -70,13 +70,13 @@ describe("classifyClauseRef", () => {
   });
 
   it("invalid_no_such_clause — parseable but absent (the gate error)", () => {
-    expect(classifyClauseRef("[S500:2021 §99.99]", corpus)).toBe(
+    expect(classifyClauseRef("[S500:2021 §99.99]", corpus)).toBe( // standards-cite-ignore (intentional negative-test fixture)
       "invalid_no_such_clause",
     );
   });
 
   it("edition_mismatch — clause present, edition absent (SOFT)", () => {
-    expect(classifyClauseRef("[S500:2018 §10.3.2]", corpus)).toBe(
+    expect(classifyClauseRef("[S500:2018 §10.3.2]", corpus)).toBe( // standards-cite-ignore (intentional negative-test fixture)
       "edition_mismatch",
     );
   });
@@ -90,7 +90,7 @@ describe("classifyClauseRef", () => {
     const corpusIndex = buildCorpusIndex(corpusJson);
     const validRef = `[S500:${realS500!.edition} §${realS500!.clause}]`;
     expect(classifyClauseRef(validRef, corpusIndex)).toBe("valid");
-    expect(classifyClauseRef("[S500:2021 §99.99]", corpusIndex)).toBe(
+    expect(classifyClauseRef("[S500:2021 §99.99]", corpusIndex)).toBe( // standards-cite-ignore (intentional negative-test fixture)
       "invalid_no_such_clause",
     );
   });
@@ -100,7 +100,7 @@ describe("collectDistinctPairs", () => {
   it("dedupes (standard, clause) pairs and drops unparseable refs", () => {
     const pairs = collectDistinctPairs([
       "[S500:2021 §10.3.2]",
-      "[S500:2018 §10.3.2]", // same standard+clause, different edition → one pair
+      "[S500:2018 §10.3.2]", // same standard+clause, different edition → one pair // standards-cite-ignore (intentional negative-test fixture)
       "[NZBS E2 §3.1]",
       "[ISO 9001 §7.1]", // unparseable → dropped
     ]);
@@ -116,10 +116,10 @@ describe("classifyRefs", () => {
       { standard: "IICRC_S500", edition: "2021", clause: "10.3.2" },
     ]);
     expect(
-      classifyRefs(["[S500:2021 §10.3.2]", "[S500:2021 §99.99]"], corpus),
+      classifyRefs(["[S500:2021 §10.3.2]", "[S500:2021 §99.99]"], corpus), // standards-cite-ignore (intentional negative-test fixture)
     ).toEqual([
       { ref: "[S500:2021 §10.3.2]", verdict: "valid" },
-      { ref: "[S500:2021 §99.99]", verdict: "invalid_no_such_clause" },
+      { ref: "[S500:2021 §99.99]", verdict: "invalid_no_such_clause" }, // standards-cite-ignore (intentional negative-test fixture)
     ]);
   });
 });

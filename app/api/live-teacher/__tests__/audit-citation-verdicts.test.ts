@@ -61,8 +61,8 @@ describe("GET /api/live-teacher/audit/[sessionId] — citation verdicts", () => 
       {
         turnIndex: 1,
         role: "assistant",
-        content: "See [S500:2021 §10.3.2] and [S500:2021 §99.99].",
-        clauseRefs: ["[S500:2021 §10.3.2]", "[S500:2021 §99.99]"],
+        content: "See [S500:2021 §10.3.2] and [S500:2021 §99.99].", // standards-cite-ignore (intentional negative-test fixture)
+        clauseRefs: ["[S500:2021 §10.3.2]", "[S500:2021 §99.99]"], // standards-cite-ignore (intentional negative-test fixture)
         confidence: 0.9,
         userOverride: false,
         createdAt: new Date(),
@@ -87,7 +87,7 @@ describe("GET /api/live-teacher/audit/[sessionId] — citation verdicts", () => 
     // Assistant utterance → one valid, one fabricated.
     expect(utterances[1].citationVerdicts).toEqual([
       { ref: "[S500:2021 §10.3.2]", verdict: "valid" },
-      { ref: "[S500:2021 §99.99]", verdict: "invalid_no_such_clause" },
+      { ref: "[S500:2021 §99.99]", verdict: "invalid_no_such_clause" }, // standards-cite-ignore (intentional negative-test fixture)
     ]);
 
     // Exactly one corpus lookup for the whole session.
