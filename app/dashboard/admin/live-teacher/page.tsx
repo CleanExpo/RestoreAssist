@@ -26,11 +26,15 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { evaluateCompletenessGate } from "@/lib/live-teacher/gate-metrics";
 
 // ── Gate pass thresholds (pilot defaults — tune in review) ──────────────────
 const COST_GATE_P95_CENTS = 500; // 95th-pct inspection cost ≤ $5 AUD
 const CITATION_GATE_MAX_RATE = 0.02; // ≤ 2% fabricated-clause refs
 const COHORT_MIN_SESSIONS = 20; // sessions before a GO decision is meaningful
+// Completeness gate needs statistical validity, not just deltaPoints > 0:
+const COMPLETENESS_MIN_PER_ARM = 5; // ≥5 reports in EACH arm before the delta means anything
+const COMPLETENESS_MIN_DELTA_POINTS = 15; // ≥15pt uplift (0-100 scale) to count as a real effect
 
 // ── Response types (mirror the gate-metrics route) ──────────────────────────
 interface CostRollup {
@@ -275,11 +279,16 @@ export default function LiveTeacherGateMetricsDashboard() {
   const citationPass =
     !citationCollecting && citations.citationErrorRate <= CITATION_GATE_MAX_RATE;
 
-  const completenessCollecting = !completeness.sufficient;
-  const completenessPass =
-    completeness.sufficient &&
-    completeness.deltaPoints !== null &&
-    completeness.deltaPoints > 0;
+  // A completeness GO signal must clear a per-arm sample floor AND an effect-size
+  // floor — otherwise n=1 vs n=1 with a +0.1pt delta would falsely pass.
+  const completenessVerdict = evaluateCompletenessGate(completeness, {
+    minPerArm: COMPLETENESS_MIN_PER_ARM,
+    minDeltaPoints: COMPLETENESS_MIN_DELTA_POINTS,
+  });
+  const completenessCollecting = completenessVerdict.collecting;
+  const completenessPass = completenessVerdict.pass;
+  const completenessBelowSample =
+    completenessVerdict.reason === "insufficient_sample";
 
   const allPass = costPass && citationPass && completenessPass;
   const go = allPass && cohort.sessions >= COHORT_MIN_SESSIONS;
@@ -433,14 +442,14 @@ export default function LiveTeacherGateMetricsDashboard() {
           pass={completenessPass}
           collecting={completenessCollecting}
           headline={
-            completeness.deltaPoints === null
+            completenessBelowSample || completeness.deltaPoints === null
               ? "insufficient data"
               : `${completeness.deltaPoints > 0 ? "+" : ""}${completeness.deltaPoints} pts`
           }
           sub={
-            completeness.sufficient
-              ? `assisted ${completeness.meanAssisted} vs control ${completeness.meanControl}`
-              : "needs both arms populated"
+            completenessBelowSample
+              ? `needs ≥${COMPLETENESS_MIN_PER_ARM} per arm · have ${completeness.nAssisted}/${completeness.nControl}`
+              : `assisted ${completeness.meanAssisted} vs control ${completeness.meanControl} · gate ≥ ${COMPLETENESS_MIN_DELTA_POINTS}pt`
           }
         >
           <div className="space-y-1 text-xs text-neutral-500 dark:text-slate-400">
