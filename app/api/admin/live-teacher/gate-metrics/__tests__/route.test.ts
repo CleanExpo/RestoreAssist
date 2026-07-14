@@ -201,4 +201,42 @@ describe("GET /api/admin/live-teacher/gate-metrics", () => {
       organizationId: "org1",
     });
   });
+
+  it("F9 — all four gate-metrics queries thread the admin's organizationId (cross-org guard)", async () => {
+    // Distinct, arbitrary org id proves the filter value is threaded through
+    // from verifyAdminFromDb, not hardcoded or dropped on any of the four reads.
+    const orgId = "org-F9-9f3c";
+    mockGetServerSession.mockResolvedValue({
+      user: { id: "admin9", role: "ADMIN" },
+    } as never);
+    mockVerifyAdmin.mockResolvedValue({
+      user: { id: "admin9", role: "ADMIN", organizationId: orgId },
+    });
+    mockSessionGroupBy.mockResolvedValue([]);
+    mockSessionCount.mockResolvedValue(0);
+    mockUtteranceFindMany.mockResolvedValue([]);
+    mockChunkFindMany.mockResolvedValue([]);
+    mockReportFindMany.mockResolvedValue([]);
+
+    const { GET } = await import("../route");
+    const res = await GET(req());
+    expect(res.status).toBe(200);
+
+    // Cost rollup + open-session count reach the org via inspection.user.organizationId.
+    expect(
+      mockSessionGroupBy.mock.calls[0][0].where.inspection.user.organizationId,
+    ).toBe(orgId);
+    expect(
+      mockSessionCount.mock.calls[0][0].where.inspection.user.organizationId,
+    ).toBe(orgId);
+    // Citation utterances reach the org via session.inspection.user.organizationId.
+    expect(
+      mockUtteranceFindMany.mock.calls[0][0].where.session.inspection.user
+        .organizationId,
+    ).toBe(orgId);
+    // Completeness reports reach the org via user.organizationId (Report has a direct user relation).
+    expect(mockReportFindMany.mock.calls[0][0].where.user.organizationId).toBe(
+      orgId,
+    );
+  });
 });

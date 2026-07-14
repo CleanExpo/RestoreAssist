@@ -72,8 +72,47 @@ describe("computeCitationMetrics", () => {
   it("returns a zero rate (no divide-by-zero) when there are no refs", () => {
     const metrics = computeCitationMetrics([{ clauseRefs: [] }], corpus);
     expect(metrics.totalRefs).toBe(0);
+    expect(metrics.validatableRefs).toBe(0);
+    expect(metrics.unknownCount).toBe(0);
     expect(metrics.citationErrorRate).toBe(0);
     expect(metrics.utterancesWithInvalidRefPct).toBe(0);
+  });
+
+  it("does NOT count `unknown` refs (standard absent from corpus) as errors", () => {
+    // Every ref is for NZBS, which the S500-only corpus does not carry.
+    const metrics = computeCitationMetrics(
+      [{ clauseRefs: ["[NZBS E2 §3.1]", "[NZBS E3 §1.2]"] }],
+      corpus,
+    );
+    expect(metrics.totalRefs).toBe(2);
+    expect(metrics.unknownCount).toBe(2);
+    expect(metrics.validatableRefs).toBe(0);
+    expect(metrics.verdictCounts.unknown).toBe(2);
+    expect(metrics.verdictCounts.invalid_no_such_clause).toBe(0);
+    // No validatable refs → rate is 0 (collecting), never a false catastrophe.
+    expect(metrics.citationErrorRate).toBe(0);
+  });
+
+  it("excludes `unknown` refs from the citationErrorRate denominator", () => {
+    // valid + fabricated (both S500, in corpus) + one unknown (NZBS, not in corpus).
+    const metrics = computeCitationMetrics(
+      [
+        {
+          clauseRefs: [
+            "[S500:2021 §10.3.2]", // valid
+            "[S500:2021 §99.99]", // fabricated — standard present, clause absent // standards-cite-ignore (intentional negative-test fixture)
+            "[NZBS E2 §3.1]", // unknown — standard absent from corpus
+          ],
+        },
+      ],
+      corpus,
+    );
+    expect(metrics.totalRefs).toBe(3);
+    expect(metrics.unknownCount).toBe(1);
+    expect(metrics.validatableRefs).toBe(2);
+    expect(metrics.verdictCounts.invalid_no_such_clause).toBe(1);
+    // 1 fabricated / 2 validatable = 0.5 — NOT 1/3 (unknown excluded from denominator).
+    expect(metrics.citationErrorRate).toBeCloseTo(0.5, 5);
   });
 });
 
