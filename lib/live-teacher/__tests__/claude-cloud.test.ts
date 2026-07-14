@@ -431,4 +431,76 @@ describe("invokeClaudeCloud", () => {
       "stillWet=Bathroom: plasterboard at 22% is above the 1% dry standard",
     );
   });
+
+  // -------------------------------------------------------------------------
+  // Test 6: the context block must reach the model on EVERY turn, not just the
+  // first. The turn route loads prior turns into `history`, so from turn 2 on
+  // `messages` is non-empty; if the block only rode the first user message the
+  // coach would go blind to new readings/rooms/filled fields (regression guard).
+  // -------------------------------------------------------------------------
+
+  it("prepends the fresh context block to the current utterance when history is non-empty", async () => {
+    anthropicMock.create.mockResolvedValueOnce(makeSuccessResponse("Noted."));
+
+    await invokeClaudeCloud({
+      ...baseInput,
+      context: {
+        ...baseInput.context,
+        currentRoom: "Kitchen",
+        stage: "classification",
+        missingFields: ["water category (S500 §10.5)"],
+        wetReadings: ["Kitchen: subfloor at 18% above dry standard"],
+      },
+      history: [
+        { role: "user", content: "We just moved into the kitchen." },
+        { role: "assistant", content: "Noted the kitchen [S500:2021 §10.5]." },
+      ],
+    });
+
+    const callArg = anthropicMock.create.mock.calls[0][0] as {
+      messages: Array<{ role: string; content: string }>;
+    };
+
+    // History turns precede the current one and stay raw (no retro-prepend).
+    expect(callArg.messages).toHaveLength(3);
+    expect(callArg.messages[0].content).toBe("We just moved into the kitchen.");
+    expect(callArg.messages[0].content).not.toContain("[Context:");
+    expect(callArg.messages[1].content).not.toContain("[Context:");
+
+    // The CURRENT (last) user message carries the freshly-built context block.
+    const currentMessage = callArg.messages[2];
+    expect(currentMessage.role).toBe("user");
+    expect(currentMessage.content).toContain("room=Kitchen");
+    expect(currentMessage.content).toContain("stage=classification");
+    expect(currentMessage.content).toContain(
+      "missingFields=water category (S500 §10.5)",
+    );
+    expect(currentMessage.content).toContain(
+      "stillWet=Kitchen: subfloor at 18% above dry standard",
+    );
+    expect(currentMessage.content).toContain(baseInput.userUtterance);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 7: turn 1 (empty history) still carries the context block on the sole
+  // user message — the fix must not regress the first-turn behaviour.
+  // -------------------------------------------------------------------------
+
+  it("still prepends the context block on turn 1 (empty history)", async () => {
+    anthropicMock.create.mockResolvedValueOnce(makeSuccessResponse("Noted."));
+
+    await invokeClaudeCloud({
+      ...baseInput,
+      context: { ...baseInput.context, currentRoom: "Laundry" },
+      history: [],
+    });
+
+    const callArg = anthropicMock.create.mock.calls[0][0] as {
+      messages: Array<{ role: string; content: string }>;
+    };
+
+    expect(callArg.messages).toHaveLength(1);
+    expect(callArg.messages[0].content).toContain("room=Laundry");
+    expect(callArg.messages[0].content).toContain(baseInput.userUtterance);
+  });
 });
