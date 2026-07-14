@@ -163,4 +163,42 @@ describe("GET /api/admin/live-teacher/gate-metrics", () => {
     expect(cohort.sessions).toBe(3); // 2 + 1
     expect(Array.isArray(meta.notes)).toBe(true);
   });
+
+  it("scopes the cost, open-session, and citation queries to the admin's organisation", async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: "admin1", role: "ADMIN" },
+    } as never);
+    mockVerifyAdmin.mockResolvedValue({
+      user: { id: "admin1", role: "ADMIN", organizationId: "org1" },
+    });
+    mockSessionGroupBy.mockResolvedValue([]);
+    mockSessionCount.mockResolvedValue(0);
+    mockUtteranceFindMany.mockResolvedValue([]);
+    mockChunkFindMany.mockResolvedValue([]);
+    mockReportFindMany.mockResolvedValue([]);
+
+    const { GET } = await import("../route");
+    const res = await GET(req());
+    expect(res.status).toBe(200);
+
+    const orgFilter = { user: { organizationId: "org1" } };
+
+    // F1 — cost rollup groupBy must reach the org via inspection.user.
+    expect(mockSessionGroupBy.mock.calls[0][0].where.inspection).toEqual(
+      orgFilter,
+    );
+    // F1 — open-session count must be org-scoped too.
+    expect(mockSessionCount.mock.calls[0][0].where.inspection).toEqual(
+      orgFilter,
+    );
+    // F1 — citation utterances scope via session.inspection.user.
+    const utteranceArgs = mockUtteranceFindMany.mock.calls[0][0];
+    expect(utteranceArgs.where.session.inspection).toEqual(orgFilter);
+    // F8 — deterministic order so the MAX_UTTERANCES cap is not arbitrary.
+    expect(utteranceArgs.orderBy).toEqual({ createdAt: "asc" });
+    // The report query was already org-scoped (regression guard).
+    expect(mockReportFindMany.mock.calls[0][0].where.user).toEqual({
+      organizationId: "org1",
+    });
+  });
 });

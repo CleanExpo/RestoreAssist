@@ -605,6 +605,42 @@ describe("VoiceAssistant — voice-lite push-to-talk (RA-7051)", () => {
     delete (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition;
   });
 
+  it("shows a type-instead message when neither Whisper nor Web Speech is available", async () => {
+    // No SpeechRecognition on window (iPad Safari / Firefox) → micSupported
+    // false. Combined with a no-key 402 from transcribe, the mic area must not
+    // dead-end.
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/ai/voice-note-transcribe") {
+        return Promise.resolve({
+          status: 402,
+          ok: false,
+          json: async () => ({ error: { code: "PAYMENT_REQUIRED" } }),
+        } as unknown as Response);
+      }
+      return Promise.resolve(sessionOk);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    await recordOnce();
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Voice unavailable on this device/i),
+      ).toBeInTheDocument(),
+    );
+    // Neither mic tier renders, but the textarea stays usable.
+    expect(
+      screen.queryByRole("button", { name: "Start voice note" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Start voice input" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByLabelText<HTMLTextAreaElement>("Ask the Live Teacher"),
+    ).toBeEnabled();
+  });
+
   it("queues offline instead of posting a turn", async () => {
     Object.defineProperty(window.navigator, "onLine", {
       value: false,

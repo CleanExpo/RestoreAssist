@@ -159,6 +159,68 @@ describe("VoiceNoteButton — offline queueing (RA-1609)", () => {
     ).toBeInTheDocument();
   });
 
+  it("fires onUnavailable on a no-key (PAYMENT_REQUIRED) 402", async () => {
+    Object.defineProperty(window.navigator, "onLine", {
+      value: true,
+      configurable: true,
+    });
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: 402,
+      ok: false,
+      json: async () => ({ error: { code: "PAYMENT_REQUIRED" } }),
+    });
+    const onUnavailable = vi.fn();
+    const onTranscript = vi.fn();
+
+    render(
+      <VoiceNoteButton
+        onTranscript={onTranscript}
+        onUnavailable={onUnavailable}
+        inspectionId="insp-42"
+        fieldLabel="kitchen-notes"
+      />,
+    );
+
+    await startThenStopRecording();
+
+    await waitFor(() => expect(onUnavailable).toHaveBeenCalledTimes(1));
+    expect(onTranscript).not.toHaveBeenCalled();
+    expect(queueVoiceNote).not.toHaveBeenCalled();
+  });
+
+  it("does NOT fire onUnavailable on a subscription 402 — surfaces the error instead", async () => {
+    Object.defineProperty(window.navigator, "onLine", {
+      value: true,
+      configurable: true,
+    });
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: 402,
+      ok: false,
+      json: async () => ({
+        error: "Active subscription required",
+        upgradeRequired: true,
+      }),
+    });
+    const onUnavailable = vi.fn();
+
+    render(
+      <VoiceNoteButton
+        onTranscript={vi.fn()}
+        onUnavailable={onUnavailable}
+        inspectionId="insp-42"
+        fieldLabel="kitchen-notes"
+      />,
+    );
+
+    await startThenStopRecording();
+
+    // A subscription gate must NOT downgrade the mic — it surfaces as an error.
+    expect(
+      await screen.findByText("Active subscription required"),
+    ).toBeInTheDocument();
+    expect(onUnavailable).not.toHaveBeenCalled();
+  });
+
   it("still transcribes normally when online and the route succeeds (regression guard)", async () => {
     Object.defineProperty(window.navigator, "onLine", {
       value: true,

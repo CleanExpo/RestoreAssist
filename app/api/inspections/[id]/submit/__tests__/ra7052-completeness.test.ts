@@ -96,7 +96,8 @@ vi.mock("@/lib/evidence/submission-gate", () => ({
 const mockInspectionFindUnique = vi.fn();
 const mockInspectionUpdateMany = vi.fn();
 const mockInspectionUpdate = vi.fn().mockResolvedValue({});
-const mockLiveTeacherUpdateMany = vi.fn();
+const mockLiveTeacherFindFirst = vi.fn();
+const mockLiveTeacherUpdate = vi.fn();
 const mockPilotCreate = vi.fn().mockResolvedValue({});
 const mockAuditCreate = vi.fn().mockResolvedValue({});
 const mockScopeItemCreateMany = vi.fn().mockResolvedValue({ count: 0 });
@@ -110,7 +111,8 @@ vi.mock("@/lib/prisma", () => ({
       update: (...a: unknown[]) => mockInspectionUpdate(...a),
     },
     liveTeacherSession: {
-      updateMany: (...a: unknown[]) => mockLiveTeacherUpdateMany(...a),
+      findFirst: (...a: unknown[]) => mockLiveTeacherFindFirst(...a),
+      update: (...a: unknown[]) => mockLiveTeacherUpdate(...a),
     },
     pilotObservation: { create: (...a: unknown[]) => mockPilotCreate(...a) },
     auditLog: { create: (...a: unknown[]) => mockAuditCreate(...a) },
@@ -162,22 +164,32 @@ describe("submit route — RA-7052 final-completeness snapshot", () => {
     mockCostEstimateCreateMany.mockResolvedValue({ count: 0 });
   });
 
-  it("writes finalCompletionPct + endedAt on the open session and succeeds", async () => {
+  it("stamps only the single most-recent open session (F4) and succeeds", async () => {
     // Seeded start snapshot was 40; the after-snapshot resolves to 72.
     mockValidateSubmission.mockResolvedValue({ completionPercentage: 72 });
-    mockLiveTeacherUpdateMany.mockResolvedValue({ count: 1 });
+    mockLiveTeacherFindFirst.mockResolvedValue({ id: "lts-newest" });
+    mockLiveTeacherUpdate.mockResolvedValue({});
 
     const { POST } = await import("../route");
     const res = await POST(makeSubmitRequest(), params);
 
+    // F6 — the snapshot is fire-and-forget, so it lands after the response.
     expect(res.status).toBe(200);
+    await vi.waitFor(() =>
+      expect(mockLiveTeacherUpdate).toHaveBeenCalledTimes(1),
+    );
+
     expect(mockValidateSubmission).toHaveBeenCalledWith("insp-1", "WATER_DAMAGE");
-    expect(mockLiveTeacherUpdateMany).toHaveBeenCalledTimes(1);
-    const call = mockLiveTeacherUpdateMany.mock.calls[0][0];
-    expect(call.where).toEqual({
+    // Newest open session is selected — not every session updated at once.
+    const findArgs = mockLiveTeacherFindFirst.mock.calls[0][0];
+    expect(findArgs.where).toEqual({
       inspectionId: "insp-1",
       finalCompletionPct: null,
     });
+    expect(findArgs.orderBy).toEqual({ startedAt: "desc" });
+
+    const call = mockLiveTeacherUpdate.mock.calls[0][0];
+    expect(call.where).toEqual({ id: "lts-newest" });
     expect(call.data.finalCompletionPct).toBe(72);
     expect(call.data.endedAt).toBeInstanceOf(Date);
 
@@ -186,15 +198,18 @@ describe("submit route — RA-7052 final-completeness snapshot", () => {
     expect(call.data.finalCompletionPct - startCompletionPct).toBe(32);
   });
 
-  it("succeeds when there is no open session (updateMany count 0 is a no-op)", async () => {
+  it("succeeds when there is no open session (no-op, no update)", async () => {
     mockValidateSubmission.mockResolvedValue({ completionPercentage: 55 });
-    mockLiveTeacherUpdateMany.mockResolvedValue({ count: 0 });
+    mockLiveTeacherFindFirst.mockResolvedValue(null);
 
     const { POST } = await import("../route");
     const res = await POST(makeSubmitRequest(), params);
 
     expect(res.status).toBe(200);
-    expect(mockLiveTeacherUpdateMany).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() =>
+      expect(mockLiveTeacherFindFirst).toHaveBeenCalledTimes(1),
+    );
+    expect(mockLiveTeacherUpdate).not.toHaveBeenCalled();
   });
 
   it("succeeds even when the completeness gate throws (non-blocking)", async () => {
@@ -204,7 +219,11 @@ describe("submit route — RA-7052 final-completeness snapshot", () => {
     const res = await POST(makeSubmitRequest(), params);
 
     expect(res.status).toBe(200);
-    // The gate threw before the session write, so no update was attempted.
-    expect(mockLiveTeacherUpdateMany).not.toHaveBeenCalled();
+    await vi.waitFor(() =>
+      expect(mockValidateSubmission).toHaveBeenCalledTimes(1),
+    );
+    // The gate threw before the session lookup, so no write was attempted.
+    expect(mockLiveTeacherFindFirst).not.toHaveBeenCalled();
+    expect(mockLiveTeacherUpdate).not.toHaveBeenCalled();
   });
 });
