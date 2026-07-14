@@ -215,6 +215,33 @@ describe("POST /api/test/seed-inspection", () => {
       vi.unstubAllEnvs();
     });
 
+    it("upserts ClaimProgress AFTER the Inspection — its inspectionId FK requires the Inspection row to exist on fresh DBs", async () => {
+      vi.stubEnv("ALLOW_TEST_HELPERS", "true");
+      getServerSession.mockResolvedValueOnce({ user: { id: "u_test" } });
+      inspectionUpsert.mockResolvedValueOnce({ id: "test-inspection" });
+      reportUpsert.mockResolvedValueOnce({ id: "test-inspection-report" });
+      invoiceUpsert.mockResolvedValueOnce({ id: "test-inspection-invoice" });
+      claimProgressUpsert.mockResolvedValueOnce({
+        id: "test-inspection-progress",
+      });
+
+      vi.resetModules();
+      const { POST } = await import("../seed-inspection/route");
+      const res = await POST(makeReq({ readyForClose: true }));
+      expect(res.status).toBe(200);
+
+      // Report must precede Inspection (Inspection.reportId FK) …
+      expect(reportUpsert.mock.invocationCallOrder[0]).toBeLessThan(
+        inspectionUpsert.mock.invocationCallOrder[0],
+      );
+      // … but ClaimProgress.inspectionId FKs the Inspection, so it must
+      // come after — creating it first FK-fails on a fresh DB.
+      expect(claimProgressUpsert.mock.invocationCallOrder[0]).toBeGreaterThan(
+        inspectionUpsert.mock.invocationCallOrder[0],
+      );
+      vi.unstubAllEnvs();
+    });
+
     it("re-run with same inspectionId is idempotent — same upsert keys, no duplicates", async () => {
       vi.stubEnv("ALLOW_TEST_HELPERS", "true");
       getServerSession.mockResolvedValue({ user: { id: "u_test" } });
