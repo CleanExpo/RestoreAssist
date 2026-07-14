@@ -68,7 +68,19 @@ export interface CitationMetrics {
   totalRefs: number;
   totalAssistantUtterances: number;
   verdictCounts: Record<CitationVerdict, number>;
-  /** Headline: fabricated-clause refs / total refs. */
+  /**
+   * Refs that could actually be validated against the corpus (total minus
+   * `unknown`). This is the denominator for `citationErrorRate`. When it is 0
+   * the corpus carries none of the cited standards' clauses — the gate has
+   * insufficient data (see the dashboard "collecting" state).
+   */
+  validatableRefs: number;
+  /**
+   * Parseable refs whose standard is absent from the corpus — not validatable,
+   * so NOT counted as errors. High when the S500-clause corpus is unconfigured.
+   */
+  unknownCount: number;
+  /** Headline: fabricated-clause refs / VALIDATABLE refs (unknown excluded from both). */
   citationErrorRate: number;
   /** Secondary: % of assistant utterances carrying ≥1 fabricated ref. */
   utterancesWithInvalidRefPct: number;
@@ -81,6 +93,7 @@ export function computeCitationMetrics(
   const verdictCounts: Record<CitationVerdict, number> = {
     valid: 0,
     invalid_no_such_clause: 0,
+    unknown: 0,
     edition_mismatch: 0,
     unparseable: 0,
   };
@@ -99,8 +112,14 @@ export function computeCitationMetrics(
   }
 
   const totalAssistantUtterances = utterances.length;
+  const unknownCount = verdictCounts.unknown;
+  // `unknown` refs cannot be validated (corpus has none of that standard's
+  // clauses), so they count toward NEITHER the numerator nor the denominator.
+  const validatableRefs = totalRefs - unknownCount;
   const citationErrorRate =
-    totalRefs > 0 ? verdictCounts.invalid_no_such_clause / totalRefs : 0;
+    validatableRefs > 0
+      ? verdictCounts.invalid_no_such_clause / validatableRefs
+      : 0;
   const utterancesWithInvalidRefPct =
     totalAssistantUtterances > 0
       ? (utterancesWithInvalid / totalAssistantUtterances) * 100
@@ -110,6 +129,8 @@ export function computeCitationMetrics(
     totalRefs,
     totalAssistantUtterances,
     verdictCounts,
+    validatableRefs,
+    unknownCount,
     citationErrorRate,
     utterancesWithInvalidRefPct,
   };

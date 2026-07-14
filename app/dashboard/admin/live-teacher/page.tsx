@@ -46,9 +46,12 @@ interface CitationMetrics {
   verdictCounts: {
     valid: number;
     invalid_no_such_clause: number;
+    unknown: number;
     edition_mismatch: number;
     unparseable: number;
   };
+  validatableRefs: number;
+  unknownCount: number;
   citationErrorRate: number;
   utterancesWithInvalidRefPct: number;
 }
@@ -263,7 +266,12 @@ export default function LiveTeacherGateMetricsDashboard() {
   const costCollecting = cost.inspectionsMeasured === 0;
   const costPass = !costCollecting && cost.p95CostCents <= COST_GATE_P95_CENTS;
 
-  const citationCollecting = citations.totalRefs === 0;
+  // No validatable refs → nothing to measure the gate against (no refs at all,
+  // or every ref is for a standard the corpus does not carry — e.g. the
+  // S500-clause corpus is unconfigured). Show "collecting", never pass/fail.
+  const citationCollecting = citations.validatableRefs === 0;
+  const citationCorpusUnconfigured =
+    citations.validatableRefs === 0 && citations.totalRefs > 0;
   const citationPass =
     !citationCollecting && citations.citationErrorRate <= CITATION_GATE_MAX_RATE;
 
@@ -376,11 +384,17 @@ export default function LiveTeacherGateMetricsDashboard() {
           pass={citationPass}
           collecting={citationCollecting}
           headline={
-            citations.totalRefs === 0
+            citationCollecting
               ? "—"
               : `${(citations.citationErrorRate * 100).toFixed(1)}%`
           }
-          sub={`fabricated clauses · gate ≤ ${(CITATION_GATE_MAX_RATE * 100).toFixed(0)}%`}
+          sub={
+            citationCorpusUnconfigured
+              ? "collecting — citation corpus not configured"
+              : citationCollecting
+                ? `fabricated clauses · gate ≤ ${(CITATION_GATE_MAX_RATE * 100).toFixed(0)}%`
+                : `fabricated / ${citations.validatableRefs} validatable · gate ≤ ${(CITATION_GATE_MAX_RATE * 100).toFixed(0)}%`
+          }
         >
           <div className="space-y-1 text-xs text-neutral-500 dark:text-slate-400">
             <div className="flex items-center justify-between">
@@ -388,6 +402,10 @@ export default function LiveTeacherGateMetricsDashboard() {
               <span className="tabular-nums">
                 {citations.verdictCounts.invalid_no_such_clause}
               </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Not in corpus (collecting)</span>
+              <span className="tabular-nums">{citations.unknownCount}</span>
             </div>
             <div className="flex items-center justify-between">
               <span>Edition mismatch (soft)</span>

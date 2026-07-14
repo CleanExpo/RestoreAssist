@@ -69,9 +69,26 @@ describe("classifyClauseRef", () => {
     expect(classifyClauseRef("[AS/NZS 4360 §4.4]", corpus)).toBe("valid");
   });
 
-  it("invalid_no_such_clause — parseable but absent (the gate error)", () => {
+  it("invalid_no_such_clause — standard IS in corpus, clause genuinely absent (the gate error)", () => {
     expect(classifyClauseRef("[S500:2021 §99.99]", corpus)).toBe( // standards-cite-ignore (intentional negative-test fixture)
       "invalid_no_such_clause",
+    );
+  });
+
+  it("unknown — corpus is empty (nothing to validate against, NOT fabricated)", () => {
+    const emptyCorpus = buildCorpusIndex([]);
+    expect(classifyClauseRef("[S500:2021 §10.3.2]", emptyCorpus)).toBe(
+      "unknown",
+    );
+  });
+
+  it("unknown — corpus carries no clauses for the ref's standard (collecting, NOT the gate error)", () => {
+    // Corpus has AS_NZS_4360 only; an S500 ref cannot be validated → unknown.
+    const otherStandardCorpus = buildCorpusIndex([
+      { standard: "AS_NZS_4360", edition: "2004", clause: "4.4" },
+    ]);
+    expect(classifyClauseRef("[S500:2021 §10.3.2]", otherStandardCorpus)).toBe(
+      "unknown",
     );
   });
 

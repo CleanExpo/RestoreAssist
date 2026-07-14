@@ -13,7 +13,8 @@
 
 export type CitationVerdict =
   | "valid"
-  | "invalid_no_such_clause" // parseable but absent from the corpus — THE gate error
+  | "invalid_no_such_clause" // parseable, standard IS in the corpus, clause absent — THE gate error
+  | "unknown" // parseable, but the corpus carries no clauses for this ref's standard (or is empty) — "collecting", NOT an error
   | "edition_mismatch" // clause exists, edition differs — SOFT (single-edition corpus)
   | "unparseable"; // matched the stored-ref shape but the parser could not split it
 
@@ -77,6 +78,12 @@ export interface CorpusIndex {
   clauseKeys: Set<string>;
   /** `${standard}|${clause}|${edition}` for every corpus row. */
   editionKeys: Set<string>;
+  /**
+   * Every distinct `standard` present in the corpus. A parseable ref whose
+   * standard is NOT here cannot be validated (the corpus carries none of that
+   * standard's clauses), so it is classified `unknown`, never fabricated.
+   */
+  standards: Set<string>;
 }
 
 export function buildCorpusIndex(
@@ -84,11 +91,13 @@ export function buildCorpusIndex(
 ): CorpusIndex {
   const clauseKeys = new Set<string>();
   const editionKeys = new Set<string>();
+  const standards = new Set<string>();
   for (const r of rows) {
     clauseKeys.add(`${r.standard}|${r.clause}`);
     editionKeys.add(`${r.standard}|${r.clause}|${r.edition}`);
+    standards.add(r.standard);
   }
-  return { clauseKeys, editionKeys };
+  return { clauseKeys, editionKeys, standards };
 }
 
 export function classifyClauseRef(
@@ -99,7 +108,17 @@ export function classifyClauseRef(
   if (!parsed) return "unparseable";
 
   const clauseKey = `${parsed.standard}|${parsed.clause}`;
-  if (!corpus.clauseKeys.has(clauseKey)) return "invalid_no_such_clause";
+  if (!corpus.clauseKeys.has(clauseKey)) {
+    // The clause is not in the corpus. Only call this a fabrication when the
+    // corpus actually CARRIES this standard's clauses (so a genuine absence is
+    // provable). When the corpus is empty, or holds no clauses for this ref's
+    // standard, there is nothing to validate against — classify `unknown`
+    // ("collecting"), NOT `invalid_no_such_clause`. This is what keeps the
+    // citation gate honest when the S500-clause corpus is unconfigured
+    // (StandardsChunk has 0 rows on production).
+    if (!corpus.standards.has(parsed.standard)) return "unknown";
+    return "invalid_no_such_clause";
+  }
 
   // The clause exists. If the ref pins an edition the corpus does not carry,
   // that is a SOFT mismatch (the in-house corpus is single-edition), not a

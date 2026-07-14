@@ -172,7 +172,12 @@ export async function GET(request: NextRequest) {
           organizationId: adminUser!.organizationId,
           notes: [
             `In-flight (open) sessions counted in cost: ${openSessions} — cost is incremented per turn.`,
-            "Citation error rate = fabricated-clause refs (no such clause) / total refs; edition mismatches are SOFT (single-edition corpus) and excluded from the gate.",
+            "Citation error rate = fabricated-clause refs (no such clause) / VALIDATABLE refs; edition mismatches are SOFT (single-edition corpus) and refs for standards absent from the corpus are 'unknown' (collecting) — both excluded from the gate.",
+            ...(citations.totalRefs > 0 && citations.validatableRefs === 0
+              ? [
+                  `Citation corpus not configured: all ${citations.totalRefs} clause ref(s) are for standards with no clauses in the corpus (StandardsChunk), so the citation gate is COLLECTING (insufficient data), not pass/fail. Wiring a real S500-clause validation corpus is a follow-up.`,
+                ]
+              : []),
             "Completeness delta is observational (non-randomised): assisted = inspection had at least one Live Teacher session, control = none. Confounding is possible.",
             "All metrics (cost, citations, completeness) are scoped to the admin's organisation via inspection.user.organizationId — LiveTeacherSession has no organisation column of its own but reaches one through its inspection.",
           ],
