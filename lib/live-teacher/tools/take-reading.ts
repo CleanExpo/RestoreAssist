@@ -3,8 +3,8 @@ import { prisma } from "@/lib/prisma";
 
 // MoistureReading schema fields (per prisma/schema.prisma):
 //   location, surfaceType, moistureLevel (Float), depth (String)
-// Note: unit, deviceVendor, deviceModel, source are NOT in the Prisma model —
-// they are stored as notes JSON or ignored; moistureLevel stored directly.
+// unit, deviceVendor, deviceModel, source ARE real columns on the model
+// (RA-1141) and are persisted directly — mirrors the moisture REST route.
 
 export const takeReadingSchema = z.object({
   inspectionId: z.string(),
@@ -33,9 +33,6 @@ export async function takeReading(args: TakeReadingArgs) {
     source,
   } = takeReadingSchema.parse(args);
 
-  // Persist extra metadata (unit, device, source) in the notes field as JSON
-  const notes = JSON.stringify({ unit, deviceVendor, deviceModel, source });
-
   const reading = await prisma.moistureReading.create({
     data: {
       inspectionId,
@@ -43,7 +40,10 @@ export async function takeReading(args: TakeReadingArgs) {
       surfaceType,
       moistureLevel,
       depth,
-      notes,
+      unit,
+      deviceVendor,
+      deviceModel,
+      source,
     },
     select: {
       id: true,

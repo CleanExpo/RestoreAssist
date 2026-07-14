@@ -89,6 +89,39 @@ describe("takeReading", () => {
       unit: "PERCENT_MC",
     });
   });
+
+  it("persists unit / device / source to their real columns (not a notes blob)", async () => {
+    mockPrisma.moistureReading.create.mockResolvedValue({
+      id: "mr-2",
+      location: "Bathroom",
+      moistureLevel: 60,
+    });
+
+    await takeReading({
+      inspectionId: "insp-1",
+      location: "Bathroom",
+      surfaceType: "drywall",
+      moistureLevel: 60,
+      unit: "RH",
+      deviceVendor: "Tramex",
+      deviceModel: "CME5",
+      source: "ble",
+    });
+
+    expect(mockPrisma.moistureReading.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          unit: "RH",
+          deviceVendor: "Tramex",
+          deviceModel: "CME5",
+          source: "ble",
+        }),
+      }),
+    );
+    // Metadata must NOT be smuggled into a notes JSON blob.
+    const passedData = mockPrisma.moistureReading.create.mock.calls[0][0].data;
+    expect(passedData).not.toHaveProperty("notes");
+  });
 });
 
 // ─── 2. capturePhoto ──────────────────────────────────────────────────────────

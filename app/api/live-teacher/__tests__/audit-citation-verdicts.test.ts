@@ -10,6 +10,9 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/admin-auth", () => ({
   verifyAdminFromDb: vi.fn(),
 }));
+vi.mock("@/lib/rate-limiter", () => ({
+  applyRateLimit: vi.fn().mockResolvedValue(null),
+}));
 
 const mockSessionFindUnique = vi.fn();
 const mockUtteranceFindMany = vi.fn();
@@ -34,7 +37,9 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { getServerSession } from "next-auth";
+import { applyRateLimit } from "@/lib/rate-limiter";
 const mockGetServerSession = vi.mocked(getServerSession);
+const mockApplyRateLimit = vi.mocked(applyRateLimit);
 
 function req(): NextRequest {
   return new NextRequest("http://localhost/api/live-teacher/audit/sess-1");
@@ -92,5 +97,25 @@ describe("GET /api/live-teacher/audit/[sessionId] — citation verdicts", () => 
 
     // Exactly one corpus lookup for the whole session.
     expect(mockChunkFindMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies the rate limiter and returns its 429 short-circuit when over", async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: "owner-1", email: "o@e.com" },
+    } as never);
+    // Limiter store reports over-limit → returns a 429 Response.
+    mockApplyRateLimit.mockResolvedValueOnce(
+      new Response(null, { status: 429 }) as never,
+    );
+
+    const { GET } = await import("../audit/[sessionId]/route");
+    const res = await GET(req(), {
+      params: Promise.resolve({ sessionId: "sess-1" }),
+    });
+
+    expect(mockApplyRateLimit).toHaveBeenCalledOnce();
+    expect(res.status).toBe(429);
+    // Short-circuits before any session/data lookup.
+    expect(mockSessionFindUnique).not.toHaveBeenCalled();
   });
 });
