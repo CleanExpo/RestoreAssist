@@ -15,6 +15,7 @@ import {
   parseSchemaObjects,
   extractIndexColumns,
   computeDrift,
+  computeEnumDrift,
 } from "../check-schema-drift.mjs";
 
 type Def = { columns: string[]; notNull: string[]; uniques: string[][] };
@@ -276,6 +277,62 @@ model User {
           'CREATE UNIQUE INDEX "Widget_pkey" ON public."Widget" USING btree ("id")',
         ),
       ).toBeNull();
+    });
+  });
+
+  describe("enum drift (no-op'd ADD VALUE guard)", () => {
+    it("parseSchemaObjects extracts enum names and values", () => {
+      const parsed = parseSchemaObjects(
+        'enum JobStatus {\n  DRAFT\n  ACTIVE\n  CLOSED @map("closed")\n}\nmodel M {\n  id String @id\n}',
+      );
+      expect([...parsed.enums.get("JobStatus")]).toEqual([
+        "DRAFT",
+        "ACTIVE",
+        "CLOSED",
+      ]);
+    });
+
+    it("flags a schema enum value missing from the DB (an ADD VALUE that never applied)", () => {
+      const exp = new Map([["JobStatus", new Set(["DRAFT", "ACTIVE", "CLOSED"])]]);
+      const db = new Map([["JobStatus", new Set(["DRAFT", "ACTIVE"])]]);
+      const drift = computeEnumDrift(exp, db);
+      expect(drift).toHaveLength(1);
+      expect(drift[0]).toMatchObject({
+        kind: "enum",
+        direction: "missing-in-db",
+        object: "JobStatus.CLOSED",
+      });
+    });
+
+    it("flags an enum value present in the DB but not the schema", () => {
+      const exp = new Map([["JobStatus", new Set(["DRAFT"])]]);
+      const db = new Map([["JobStatus", new Set(["DRAFT", "LEGACY"])]]);
+      const drift = computeEnumDrift(exp, db);
+      expect(drift).toHaveLength(1);
+      expect(drift[0]).toMatchObject({
+        direction: "extra-in-db",
+        object: "JobStatus.LEGACY",
+      });
+    });
+
+    it("flags a whole enum type missing from the DB", () => {
+      const drift = computeEnumDrift(
+        new Map([["Missing", new Set(["A"])]]),
+        new Map(),
+      );
+      expect(drift).toHaveLength(1);
+      expect(drift[0]).toMatchObject({
+        kind: "enum",
+        direction: "missing-in-db",
+        object: "Missing",
+      });
+    });
+
+    it("PASSES (no drift) when enum values match", () => {
+      const same = new Map([["JobStatus", new Set(["DRAFT", "ACTIVE"])]]);
+      expect(
+        computeEnumDrift(same, new Map([["JobStatus", new Set(["DRAFT", "ACTIVE"])]])),
+      ).toEqual([]);
     });
   });
 });
