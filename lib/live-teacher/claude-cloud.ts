@@ -412,6 +412,17 @@ export async function invokeClaudeCloud(
     console.error("[invokeClaudeCloud] Anthropic API error:", err);
     // Nothing produced yet → preserve the existing safe-fallback contract.
     if (!content && executedToolCalls.length === 0) {
+      // RA-7060: this fallback is the ONLY thing the technician sees when the
+      // model call fails. Without a signal, a misconfigured BYOK key fails every
+      // turn silently. Emit a structured, alertable line (Vercel captures
+      // console.error). Marker + sessionId let ops trace which workspace/session
+      // is failing; never log the API key or the request body.
+      console.error("[live-teacher] turn fallback (model call failed)", {
+        sessionId: input.sessionId,
+        model: "claude-opus-4-7",
+        errorName: err instanceof Error ? err.name : "UnknownError",
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
       return {
         content: "I'm having trouble connecting — please try again",
         clauseRefs: [],

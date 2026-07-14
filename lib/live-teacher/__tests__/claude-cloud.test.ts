@@ -385,6 +385,42 @@ describe("invokeClaudeCloud", () => {
     expect(result.costAudCents).toBe(0);
   });
 
+  // RA-7060: the silent-failure path must be observable. When the model call
+  // fails and the user gets the fallback, a structured [live-teacher] line must
+  // be emitted (Vercel captures console.error → alertable) carrying the session
+  // id and the error name/message — but never the API key or request body.
+  it("emits a structured [live-teacher] error log on the fallback path", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    anthropicMock.create.mockRejectedValueOnce(new Error("Network timeout"));
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    // Fallback content is still returned unchanged.
+    expect(result.content).toBe(
+      "I'm having trouble connecting — please try again",
+    );
+
+    // A [live-teacher]-marked structured log fired with the session context.
+    const markerCall = errorSpy.mock.calls.find(
+      (call) =>
+        typeof call[0] === "string" &&
+        (call[0] as string).includes("[live-teacher]"),
+    );
+    expect(markerCall).toBeDefined();
+    expect(markerCall?.[1]).toMatchObject({
+      sessionId: "session-001",
+      model: "claude-opus-4-7",
+      errorName: "Error",
+      errorMessage: "Network timeout",
+    });
+
+    // Never log the workspace API key.
+    const serialised = JSON.stringify(errorSpy.mock.calls);
+    expect(serialised).not.toContain(baseInput.apiKey);
+
+    errorSpy.mockRestore();
+  });
+
   // -------------------------------------------------------------------------
   // Test 3: Response with no clause references returns clauseRefs: []
   // -------------------------------------------------------------------------
