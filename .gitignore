@@ -100,6 +100,8 @@ scripts/__pycache__/
 .DS_Store
 .claude/verifier-reports/
 .claude/PROGRESS.md
+supabase/.temp/
+vendor/opensrc/
 
 # session-handoff Phase 0 gate logs (durable handoffs go in docs/session-handoffs/, tracked)
 .handoff-logs/
