@@ -22,6 +22,8 @@ import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { validateSubmissionPayload } from "@/lib/services/inspection/validate-submission";
 import { apiError, fromException } from "@/lib/api-errors";
+import { normalizeClaimType } from "@/lib/evidence/claim-type";
+import { validateSubmission } from "@/lib/evidence/submission-gate";
 import { InspectionStatus } from "@prisma/client";
 
 // POST - Submit inspection for processing
@@ -276,6 +278,30 @@ export async function POST(
             "Inspection has already been submitted or is not in DRAFT state.",
           status: 409,
         });
+      }
+
+      // RA-7052: "after" completeness snapshot on any open Live Teacher
+      // session for this inspection. Best-effort, non-blocking (mirrors the
+      // onNextAction fire-and-forget pattern above): a snapshot failure must
+      // never fail an already-committed submit. updateMany count 0 (no
+      // session) is a no-op, not an error.
+      try {
+        const claimType = normalizeClaimType(inspection.claimType);
+        if (claimType) {
+          const validation = await validateSubmission(id, claimType);
+          await prisma.liveTeacherSession.updateMany({
+            where: { inspectionId: id, finalCompletionPct: null },
+            data: {
+              finalCompletionPct: validation.completionPercentage,
+              endedAt: new Date(),
+            },
+          });
+        }
+      } catch (snapshotError) {
+        console.error(
+          "[submit] final-completeness snapshot failed (non-blocking):",
+          snapshotError,
+        );
       }
 
       // Create audit log — includes supplementary field gaps for follow-up tracking

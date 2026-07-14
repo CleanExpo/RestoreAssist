@@ -6826,6 +6826,8 @@ model LiveTeacherSession {
   jurisdiction      String // "AU" | "NZ"
   deviceOs          String // "ios" | "android" | "web"
   hadLidar          Boolean            @default(false)
+  startCompletionPct Int?              // RA-7052
+  finalCompletionPct Int?              // RA-7052
   utterances        TeacherUtterance[]
   toolCalls         TeacherToolCall[]
 

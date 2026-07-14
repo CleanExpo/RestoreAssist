@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { normalizeClaimType } from "@/lib/evidence/claim-type";
+import { validateSubmission } from "@/lib/evidence/submission-gate";
 
 // POST — create a new LiveTeacherSession
 // GET  — list current user's active sessions
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
           id: body.inspectionId,
           userId: userId,
         },
-        select: { id: true },
+        select: { id: true, claimType: true },
       });
 
       if (!inspection) {
@@ -101,6 +103,27 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // RA-7052: "before" completeness snapshot. Best-effort — session
+      // creation must NEVER fail over a snapshot. When claimType doesn't
+      // resolve to a known workflow, omit the field rather than store a
+      // meaningless 100%.
+      let startCompletionPct: number | undefined;
+      try {
+        const claimType = normalizeClaimType(inspection.claimType);
+        if (claimType) {
+          const validation = await validateSubmission(
+            body.inspectionId,
+            claimType,
+          );
+          startCompletionPct = validation.completionPercentage;
+        }
+      } catch (snapshotError) {
+        console.error(
+          "[live-teacher/session] start-completeness snapshot failed (non-blocking):",
+          snapshotError,
+        );
+      }
+
       // Create session (Rule 4: explicit select on result)
       const liveSession = await prisma.liveTeacherSession.create({
         data: {
@@ -109,6 +132,7 @@ export async function POST(request: NextRequest) {
           jurisdiction: body.jurisdiction,
           deviceOs: body.deviceOs,
           hadLidar: body.hadLidar ?? false,
+          ...(startCompletionPct !== undefined && { startCompletionPct }),
         },
         select: { id: true },
       });
