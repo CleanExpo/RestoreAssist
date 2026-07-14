@@ -126,6 +126,25 @@ const ENABLED_TOOLS = TOOL_DEFINITIONS.filter((d) =>
 /** Bound the tool-use loop so a misbehaving model can't spin indefinitely. */
 const MAX_TOOL_ITERATIONS = 4;
 
+/**
+ * Stable signature for a tool_use block: tool name + its args with keys sorted
+ * so re-emissions in a different key order still collide. Used for turn-level
+ * idempotency — write tools (take_reading, fill_scope_item) are unconditional
+ * create()s, so an identical re-emission within the turn (common on model
+ * self-correction/retry) would double-write without this guard. Only IDENTICAL
+ * (same tool + same args) blocks collide; genuinely different readings differ in
+ * args and run independently.
+ */
+function toolSignature(name: string, args: Record<string, unknown>): string {
+  const sorted = Object.keys(args)
+    .sort()
+    .reduce<Record<string, unknown>>((acc, key) => {
+      acc[key] = args[key];
+      return acc;
+    }, {});
+  return `${name}:${JSON.stringify(sorted)}`;
+}
+
 // ---------------------------------------------------------------------------
 // Cost calculation helpers
 // ---------------------------------------------------------------------------
@@ -258,6 +277,11 @@ export async function invokeClaudeCloud(
   );
 
   const executedToolCalls: ClaudeCloudResult["toolCalls"] = [];
+  // Turn-level idempotency: signature -> the tool_result content already handed
+  // back for it. Spans every iteration of THIS turn's loop, so a write tool
+  // re-emitted with identical args (self-correction/retry, or twice in one
+  // response) is answered from the prior result instead of dispatching again.
+  const executedSignatures = new Map<string, string>();
   let content = "";
   let inputTokens = 0;
   let outputTokens = 0;
@@ -326,6 +350,21 @@ export async function invokeClaudeCloud(
           continue;
         }
 
+        // Turn-level idempotency guard (after the id-clamp, before dispatch): if
+        // an identical tool + args already ran successfully this turn, skip the
+        // write and return the prior result. Only successful runs are recorded,
+        // so a failed call can still be retried to completion.
+        const signature = toolSignature(block.name, safeArgs);
+        const priorResult = executedSignatures.get(signature);
+        if (priorResult !== undefined) {
+          toolResultBlocks.push({
+            type: "tool_result",
+            tool_use_id: block.id,
+            content: priorResult,
+          });
+          continue;
+        }
+
         const startedAt = Date.now();
         let result: unknown;
         let error: string | undefined;
@@ -349,10 +388,14 @@ export async function invokeClaudeCloud(
           error,
           durationMs: Date.now() - startedAt,
         });
+        const resultContent = error
+          ? `Error: ${error}`
+          : JSON.stringify(result ?? {});
+        if (!error) executedSignatures.set(signature, resultContent);
         toolResultBlocks.push({
           type: "tool_result",
           tool_use_id: block.id,
-          content: error ? `Error: ${error}` : JSON.stringify(result ?? {}),
+          content: resultContent,
           ...(error ? { is_error: true } : {}),
         });
       }
