@@ -62,6 +62,9 @@ import {
   type ClaudeCloudInput,
   type ClaudeCloudResult,
 } from "../claude-cloud";
+import { prisma } from "@/lib/prisma";
+
+const updateManyMock = vi.mocked(prisma.liveTeacherSession.updateMany);
 
 // ---------------------------------------------------------------------------
 // Shared test fixtures
@@ -316,6 +319,48 @@ describe("invokeClaudeCloud", () => {
     expect(result.content).toBe(responseText);
     // Should not throw — confidence just uses the hedge-less base
     expect(result.confidence).toBeGreaterThanOrEqual(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // RA-7052: the per-turn cost write is AWAITED before the return, not
+  // deferred via setImmediate. A serverless freeze after the return would
+  // drop a deferred write and silently lose per-turn cost.
+  // -------------------------------------------------------------------------
+
+  it("writes the session cost tally in-window (before invokeClaudeCloud resolves)", async () => {
+    updateManyMock.mockClear();
+    anthropicMock.create.mockResolvedValueOnce(
+      makeSuccessResponse("Category 2 grey water. [S500:2021 §10.3.2]"),
+    );
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    // The write has already happened by the time the awaited call resolves —
+    // proving it is not deferred to a later macrotask (setImmediate/next tick).
+    expect(updateManyMock).toHaveBeenCalledTimes(1);
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: "session-001" },
+      data: {
+        modelUsedCloud: "claude-opus-4-7",
+        totalInputTokens: { increment: 100 },
+        totalOutputTokens: { increment: 50 },
+        totalCostAudCents: { increment: result.costAudCents },
+      },
+    });
+  });
+
+  it("does not throw or lose the utterance when the cost write fails", async () => {
+    updateManyMock.mockRejectedValueOnce(new Error("db unavailable"));
+    anthropicMock.create.mockResolvedValueOnce(
+      makeSuccessResponse("Use a penetrating probe meter. [S500:2021 §7.1]"),
+    );
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    // Turn still resolves with the assistant content — cost-write failure is
+    // logged and swallowed, never rethrown.
+    expect(result.content).toContain("penetrating probe meter");
+    expect(result.clauseRefs).toContain("[S500:2021 §7.1]");
   });
 
   // -------------------------------------------------------------------------

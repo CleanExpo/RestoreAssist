@@ -79,6 +79,15 @@ vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
   NoWorkspaceKeyError: MockNoWorkspaceKeyError,
 }));
 
+// ---------------------------------------------------------------------------
+// RA-7052 — mock the evidence completeness gate for the "before" snapshot.
+// normalizeClaimType runs for real (pure); validateSubmission is mocked.
+// ---------------------------------------------------------------------------
+const mockValidateSubmission = vi.fn();
+vi.mock("@/lib/evidence/submission-gate", () => ({
+  validateSubmission: (...args: unknown[]) => mockValidateSubmission(...args),
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: {
@@ -179,6 +188,51 @@ describe("POST /api/live-teacher/session", () => {
     const json = await res.json();
     expect(json.data.sessionId).toBe("sess-abc-123");
     expect(mockSessionCreate).toHaveBeenCalledOnce();
+  });
+
+  it("3. stores startCompletionPct from the before-snapshot when claimType resolves (RA-7052)", async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: "user-1", email: "test@example.com" },
+    } as any);
+    // "WATER" normalises to the WATER_DAMAGE workflow.
+    mockInspectionFindFirst.mockResolvedValue({ id: "insp-1", claimType: "WATER" });
+    mockValidateSubmission.mockResolvedValue({ completionPercentage: 40 });
+    mockSessionCreate.mockResolvedValue({ id: "sess-with-snapshot" });
+
+    const { POST } = await import("../session/route");
+    const req = makeRequest(
+      "POST",
+      "http://localhost/api/live-teacher/session",
+      { inspectionId: "insp-1", jurisdiction: "AU", deviceOs: "web" },
+    );
+
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    expect(mockValidateSubmission).toHaveBeenCalledWith("insp-1", "WATER_DAMAGE");
+    const createData = mockSessionCreate.mock.calls[0][0].data;
+    expect(createData.startCompletionPct).toBe(40);
+  });
+
+  it("4. omits startCompletionPct when claimType does not resolve, still 201 (RA-7052)", async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: "user-1", email: "test@example.com" },
+    } as any);
+    // CONTENTS has no unambiguous JobType mapping → normalizeClaimType → null.
+    mockInspectionFindFirst.mockResolvedValue({ id: "insp-1", claimType: "CONTENTS" });
+    mockSessionCreate.mockResolvedValue({ id: "sess-no-snapshot" });
+
+    const { POST } = await import("../session/route");
+    const req = makeRequest(
+      "POST",
+      "http://localhost/api/live-teacher/session",
+      { inspectionId: "insp-1", jurisdiction: "AU", deviceOs: "web" },
+    );
+
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    expect(mockValidateSubmission).not.toHaveBeenCalled();
+    const createData = mockSessionCreate.mock.calls[0][0].data;
+    expect(createData.startCompletionPct).toBeUndefined();
   });
 });
 

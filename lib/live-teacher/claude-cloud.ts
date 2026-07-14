@@ -380,24 +380,26 @@ export async function invokeClaudeCloud(
 
   // TODO RA-1087: integrate logAiUsage once the Live Teacher session schema
   // exposes workspaceId. For now, update session cost tallies directly.
-  setImmediate(() => {
-    prisma.liveTeacherSession
-      .updateMany({
-        where: { id: input.sessionId },
-        data: {
-          modelUsedCloud: "claude-opus-4-7",
-          totalInputTokens: { increment: inputTokens },
-          totalOutputTokens: { increment: outputTokens },
-          totalCostAudCents: { increment: costAudCents },
-        },
-      })
-      .catch((err: unknown) => {
-        console.error(
-          "[invokeClaudeCloud] Failed to update session cost tally:",
-          err,
-        );
-      });
-  });
+  // RA-7052: awaited before the return — a serverless freeze after the return
+  // would drop a deferred setImmediate write, silently losing per-turn cost.
+  // A cost-write failure must not abort the turn or lose the utterance, so it
+  // is logged and swallowed, never rethrown.
+  try {
+    await prisma.liveTeacherSession.updateMany({
+      where: { id: input.sessionId },
+      data: {
+        modelUsedCloud: "claude-opus-4-7",
+        totalInputTokens: { increment: inputTokens },
+        totalOutputTokens: { increment: outputTokens },
+        totalCostAudCents: { increment: costAudCents },
+      },
+    });
+  } catch (err: unknown) {
+    console.error(
+      "[invokeClaudeCloud] Failed to update session cost tally:",
+      err,
+    );
+  }
 
   return {
     content,
