@@ -281,6 +281,21 @@ describe("invokeClaudeCloud", () => {
     expect(result.outputTokens).toBe(50);
   });
 
+  it("extracts a clauseRef when the model writes the IICRC-prefixed form", async () => {
+    const responseText =
+      "Category 2 water (Grey Water) has a moisture reading above 20% WME " +
+      "[IICRC S500:2021 §10.5].";
+
+    anthropicMock.create.mockResolvedValueOnce(
+      makeSuccessResponse(responseText),
+    );
+
+    const result: ClaudeCloudResult = await invokeClaudeCloud(baseInput);
+
+    expect(result.clauseRefs).toContain("[IICRC S500:2021 §10.5]");
+    expect(result.clauseRefs).toHaveLength(1);
+  });
+
   // -------------------------------------------------------------------------
   // Test 2: API error returns structured fallback result
   // -------------------------------------------------------------------------
