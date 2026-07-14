@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { VoiceNoteButton } from "@/components/voice/voice-note-button";
 import { TranscriptStream } from "./TranscriptStream";
 import {
   streamTurn,
@@ -69,9 +70,15 @@ export function VoiceAssistant({
   const [busy, setBusy] = useState(false);
   const [gate, setGate] = useState<Gate | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [speakReplies, setSpeakReplies] = useState(false);
+  // RA-7051: read replies aloud by default — voice-lite push-to-talk pairs a
+  // spoken answer with the spoken question so the tech can stay hands-free.
+  const [speakReplies, setSpeakReplies] = useState(true);
   const [listening, setListening] = useState(false);
   const [micSupported, setMicSupported] = useState(false);
+  // RA-7051: Whisper (via VoiceNoteButton) is the primary mic. It flips to the
+  // Web Speech fallback only after the transcribe route answers 402 (the
+  // workspace has no OpenAI key).
+  const [whisperUnavailable, setWhisperUnavailable] = useState(false);
   const [ttsSupported, setTtsSupported] = useState(false);
   const [proposals, setProposals] = useState<LiveTeacherProposal[]>([]);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -280,6 +287,18 @@ export function VoiceAssistant({
     [patchTurn],
   );
 
+  // RA-7051: Whisper transcript drops into the input; the tech reviews it and
+  // taps Ask. We never auto-send — the tech stays the decision-maker.
+  const handleTranscript = useCallback((text: string) => {
+    const t = text.trim();
+    if (!t) return;
+    setInput((prev) => (prev ? `${prev} ${t}` : t));
+  }, []);
+
+  const handleWhisperUnavailable = useCallback(() => {
+    setWhisperUnavailable(true);
+  }, []);
+
   const toggleMic = useCallback(() => {
     if (listening) {
       recognitionRef.current?.stop();
@@ -427,18 +446,31 @@ export function VoiceAssistant({
       )}
 
       <div className="flex items-end gap-2">
-        {micSupported && (
-          <Button
-            type="button"
-            variant={listening ? "default" : "outline"}
-            size="sm"
-            aria-pressed={listening}
-            aria-label={listening ? "Stop listening" : "Start voice input"}
-            onClick={toggleMic}
-            className={cn(listening && "animate-pulse")}
-          >
-            {listening ? "Listening" : "Speak"}
-          </Button>
+        {/* RA-7051: Whisper push-to-talk is primary; on a 402 it falls back to
+            the browser Web Speech mic so every workspace has a working mic. */}
+        {!whisperUnavailable ? (
+          <VoiceNoteButton
+            onTranscript={handleTranscript}
+            onUnavailable={handleWhisperUnavailable}
+            maxSeconds={30}
+            compact
+            inspectionId={inspectionId}
+            fieldLabel="live-teacher"
+          />
+        ) : (
+          micSupported && (
+            <Button
+              type="button"
+              variant={listening ? "default" : "outline"}
+              size="sm"
+              aria-pressed={listening}
+              aria-label={listening ? "Stop listening" : "Start voice input"}
+              onClick={toggleMic}
+              className={cn(listening && "animate-pulse")}
+            >
+              {listening ? "Listening" : "Speak"}
+            </Button>
+          )
         )}
         <Textarea
           value={input}

@@ -26,6 +26,13 @@ type Status = "idle" | "recording" | "uploading";
 interface Props {
   onTranscript: (transcript: string) => void;
   onStatusChange?: (status: Status) => void;
+  /**
+   * RA-7051: fired when the transcribe route returns 402 (workspace has no
+   * OpenAI key). Lets the caller fall back to another capture tier (e.g. the
+   * browser Web Speech mic) instead of showing a dead-end error. Additive —
+   * callers that don't pass it keep the existing error behaviour.
+   */
+  onUnavailable?: () => void;
   disabled?: boolean;
   /** Max recording duration before auto-stop; default 90 s. */
   maxSeconds?: number;
@@ -40,6 +47,7 @@ interface Props {
 export function VoiceNoteButton({
   onTranscript,
   onStatusChange,
+  onUnavailable,
   disabled,
   maxSeconds = 90,
   compact = false,
@@ -140,6 +148,14 @@ export function VoiceNoteButton({
       if (res.status === 503) {
         // Transient upstream unavailability — queue and retry on reconnect.
         await queueForLater(blob);
+        return;
+      }
+
+      if (res.status === 402 && onUnavailable) {
+        // RA-7051: workspace has no OpenAI key — hand off to the caller's
+        // fallback tier (e.g. Web Speech) rather than surfacing a dead-end.
+        onUnavailable();
+        setStatus("idle");
         return;
       }
 
