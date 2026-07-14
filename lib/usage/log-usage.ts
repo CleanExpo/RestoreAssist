@@ -113,6 +113,7 @@ const MODEL_PRICING: Partial<Record<AiProvider, Record<string, ModelPricing>>> =
       "claude-haiku-4-5": { inputPerMillion: 0.8, outputPerMillion: 4.0 },
       // Wave 2 tier doctrine (2026-07-05). Official prices per MTok:
       "claude-sonnet-5": { inputPerMillion: 2.0, outputPerMillion: 10.0 }, // intro; $3/$15 from 2026-09-01
+      "claude-opus-4-7": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
       "claude-opus-4-8": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
       "claude-haiku-4-5-20251001": { inputPerMillion: 1.0, outputPerMillion: 5.0 },
     },
