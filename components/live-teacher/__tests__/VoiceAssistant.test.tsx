@@ -682,3 +682,120 @@ describe("VoiceAssistant — voice-lite push-to-talk (RA-7051)", () => {
     ).toBe(false);
   });
 });
+
+describe("VoiceAssistant — pilot UX fixes (F7/F8/F10)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    Element.prototype.scrollIntoView = vi.fn();
+    Object.defineProperty(window.navigator, "onLine", {
+      value: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("F7: surfaces an explicit offline state and preserves the typed question when the request drops in a dead-zone", async () => {
+    Object.defineProperty(window.navigator, "onLine", {
+      value: false,
+      configurable: true,
+    });
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);
+      // Dead-zone: the /turn request never leaves the device.
+      return Promise.reject(new TypeError("Failed to fetch"));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    ask("What category is this?");
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/you're offline — your question wasn't sent/i),
+      ).toBeInTheDocument(),
+    );
+    // The typed question is preserved in the input so it isn't lost.
+    const textarea = screen.getByLabelText<HTMLTextAreaElement>(
+      "Ask the Live Teacher",
+    );
+    expect(textarea.value).toBe("What category is this?");
+    // The un-sent question lives ONLY in the input — no lingering transcript
+    // bubble or pending placeholder (getAllByText would find 2 if a bubble
+    // remained alongside the restored textarea value).
+    expect(screen.getAllByText("What category is this?")).toHaveLength(1);
+    // Ask is usable again for the retry.
+    expect(screen.getByRole("button", { name: "Ask" })).toBeEnabled();
+  });
+
+  it("F8: shows a session-expired sign-in CTA on 401 and keeps the question", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);
+      return Promise.resolve({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: "unauthorized" }),
+      } as unknown as Response);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    ask("What category?");
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Sign in" }),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/session expired/i)).toBeInTheDocument();
+    // Not a generic "could not answer" error, and the question survives for
+    // after sign-in.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    const textarea = screen.getByLabelText<HTMLTextAreaElement>(
+      "Ask the Live Teacher",
+    );
+    expect(textarea.value).toBe("What category?");
+  });
+
+  it.each([
+    ["iPhone", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Safari", "ios"],
+    ["Android", "Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/120", "android"],
+    ["desktop", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/120", "web"],
+  ])(
+    "F10: derives deviceOs from a %s user agent",
+    async (_label, userAgent, expected) => {
+      Object.defineProperty(window.navigator, "userAgent", {
+        value: userAgent,
+        configurable: true,
+      });
+      const fetchMock = vi.fn((url: string) => {
+        if (url === "/api/live-teacher/session")
+          return Promise.resolve(sessionOk);
+        return Promise.resolve(
+          streamResponse([
+            `data: ${JSON.stringify({ type: "done", utteranceId: "u1", clauseRefs: [], confidence: 0.9 })}\n\n`,
+          ]),
+        );
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      render(<VoiceAssistant inspectionId="insp1" />);
+      ask("hi");
+
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.some(
+            (c) => c[0] === "/api/live-teacher/session",
+          ),
+        ).toBe(true),
+      );
+      const sessionCall = fetchMock.mock.calls.find(
+        (c) => c[0] === "/api/live-teacher/session",
+      );
+      const body = JSON.parse((sessionCall![1] as RequestInit).body as string);
+      expect(body.deviceOs).toBe(expected);
+    },
+  );
+});

@@ -31,7 +31,7 @@ import {
 } from "@/lib/live-teacher/turn-stream";
 
 type Jurisdiction = "AU" | "NZ";
-type Gate = "subscription" | "byok";
+type Gate = "subscription" | "byok" | "session";
 
 interface VoiceAssistantProps {
   inspectionId: string;
@@ -58,6 +58,17 @@ function getRecognitionCtor(): (new () => MinimalRecognition) | null {
     webkitSpeechRecognition?: new () => MinimalRecognition;
   };
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
+
+// RA-7031 (F10): device-segment pilot telemetry needs the real OS, not a
+// hardcoded "web". Derived from the UA so an on-site phone session is
+// distinguishable from a desktop one. SSR-safe (no navigator → "web").
+function deviceOsFromUserAgent(): "ios" | "android" | "web" {
+  if (typeof navigator === "undefined") return "web";
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/i.test(ua)) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  return "web";
 }
 
 export function VoiceAssistant({
@@ -137,7 +148,7 @@ export function VoiceAssistant({
       body: JSON.stringify({
         inspectionId,
         jurisdiction,
-        deviceOs: "web",
+        deviceOs: deviceOsFromUserAgent(),
         hadLidar: false,
       }),
     });
@@ -188,6 +199,17 @@ export function VoiceAssistant({
           );
           return;
         }
+        if (res.status === 401) {
+          // Session expired mid-inspection. Surface a clear path back rather
+          // than a dead-end "could not answer", and preserve the typed question
+          // in the input so it survives the sign-in round-trip.
+          setGate("session");
+          setInput(utterance);
+          setTurns((prev) =>
+            prev.filter((t) => t.id !== assistantId && t.id !== userId),
+          );
+          return;
+        }
         throw new Error("The Live Teacher could not answer. Please try again.");
       }
 
@@ -227,6 +249,20 @@ export function VoiceAssistant({
         }
       });
     } catch (e) {
+      // F7: a dead-zone property drops the request before it reaches the server.
+      // Don't let the question vanish behind a generic error — remove the un-sent
+      // turns, restore the typed text to the input, and say so explicitly so the
+      // tech can resend once back online. (Full queue-and-replay is out of scope.)
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        setTurns((prev) =>
+          prev.filter((t) => t.id !== assistantId && t.id !== userId),
+        );
+        setInput(utterance);
+        setError(
+          "You're offline — your question wasn't sent. Try again when you're back online.",
+        );
+        return;
+      }
       // Preserve the assistant turn if it already shows real state — streamed
       // content OR a persisted tool action. Dropping it would hide a reading
       // that was actually logged server-side and invite the tech to re-enter it
@@ -389,6 +425,21 @@ export function VoiceAssistant({
             onClick={() => router.push("/dashboard/settings/ai-providers")}
           >
             Add Anthropic key
+          </Button>
+        </Card>
+      )}
+
+      {gate === "session" && (
+        <Card className="border-amber-300 bg-amber-50/60 p-3 dark:border-amber-800/50 dark:bg-amber-900/10">
+          <p className="text-sm text-neutral-700 dark:text-slate-200">
+            Session expired — please sign in again to continue.
+          </p>
+          <Button
+            size="sm"
+            className="mt-2"
+            onClick={() => router.push("/login")}
+          >
+            Sign in
           </Button>
         </Card>
       )}
