@@ -99,3 +99,14 @@ lookup run the deterministic path before Grep:
 (scores every index line without opening files, answers from one file). On a miss:
 Grep, then ADD the missing index line. Gate: `brain.js bench --root docs` must stay
 5/5 (`docs/brain-bench.json`). Standard: brain-1 `Wiki/second-brain-standard.md`.
+
+## Sub-agent doctrine (persistent specialists)
+
+Multi-round agent work follows the global `persistent-subagents` skill: keep ONE warm,
+named specialist per domain per session and feed follow-ups via SendMessage resume —
+never re-spawn for a second task in the same domain. The main thread coordinates only;
+noisy collection (grep sweeps, web fan-outs, bulk reads) goes to throwaway children,
+which return distilled verdicts. Standing specialist domains for this repo:
+`frontend-ra-app`, `db-supabase-ra`, `ci-infra-ra`. Name = `<type>-<durable-mission>`, frozen at spawn, must still be true on
+resume #8. Retire a specialist near ~300k context with a written handoff; domain
+change = fresh agent, always.
