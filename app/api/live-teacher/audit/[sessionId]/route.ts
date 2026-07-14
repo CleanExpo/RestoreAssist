@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   buildCorpusIndex,
@@ -28,6 +29,18 @@ export async function GET(
         status: 401,
       });
     }
+
+    // Rule 8: rate-limit keyed on session.user.id. Matches the sibling
+    // turn route — the audit trail returns up to 700 rows and is otherwise
+    // enumerable by an authed user.
+    const rateLimited = await applyRateLimit(_request, {
+      maxRequests: 120,
+      windowMs: 60_000,
+      key: session.user.id,
+      prefix: "live-teacher-audit",
+      failClosedOnUpstashError: true,
+    });
+    if (rateLimited) return rateLimited;
 
     const { sessionId } = await params;
 
