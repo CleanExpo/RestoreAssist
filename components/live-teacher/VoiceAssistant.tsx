@@ -94,6 +94,19 @@ export function VoiceAssistant({
     );
   }, []);
 
+  // RA-7051: stop any in-progress TTS when the tech unticks "Read replies
+  // aloud" and on unmount — otherwise a spoken answer keeps playing after the
+  // panel is closed or the toggle is turned off.
+  useEffect(() => {
+    const cancel = () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+    if (!speakReplies) cancel();
+    return cancel;
+  }, [speakReplies]);
+
   const nextId = () => `t${(idRef.current += 1)}`;
 
   const patchTurn = useCallback(
@@ -457,20 +470,27 @@ export function VoiceAssistant({
             inspectionId={inspectionId}
             fieldLabel="live-teacher"
           />
+        ) : micSupported ? (
+          <Button
+            type="button"
+            variant={listening ? "default" : "outline"}
+            size="sm"
+            aria-pressed={listening}
+            aria-label={listening ? "Stop listening" : "Start voice input"}
+            onClick={toggleMic}
+            className={cn(listening && "animate-pulse")}
+          >
+            {listening ? "Listening" : "Speak"}
+          </Button>
         ) : (
-          micSupported && (
-            <Button
-              type="button"
-              variant={listening ? "default" : "outline"}
-              size="sm"
-              aria-pressed={listening}
-              aria-label={listening ? "Stop listening" : "Start voice input"}
-              onClick={toggleMic}
-              className={cn(listening && "animate-pulse")}
-            >
-              {listening ? "Listening" : "Speak"}
-            </Button>
-          )
+          // Neither Whisper (no workspace OpenAI key) nor the browser Web Speech
+          // mic (iPad Safari / Firefox) is available. Never leave an empty mic
+          // area — tell the tech to type, and where to enable voice.
+          <p className="max-w-[14rem] text-xs text-neutral-500 dark:text-slate-400">
+            Voice unavailable on this device — type your question below. To
+            enable voice notes, add an OpenAI key in Workspace Settings, AI
+            Providers.
+          </p>
         )}
         <Textarea
           value={input}

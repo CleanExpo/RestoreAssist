@@ -280,27 +280,35 @@ export async function POST(
         });
       }
 
-      // RA-7052: "after" completeness snapshot on any open Live Teacher
-      // session for this inspection. Best-effort, non-blocking (mirrors the
-      // onNextAction fire-and-forget pattern above): a snapshot failure must
-      // never fail an already-committed submit. updateMany count 0 (no
-      // session) is a no-op, not an error.
-      try {
-        const claimType = normalizeClaimType(inspection.claimType);
-        if (claimType) {
+      // RA-7052: "after" completeness snapshot for this inspection. Genuinely
+      // fire-and-forget (mirrors the onNextAction nudge above) so it never
+      // delays the submit response. Targets only the single most-recent
+      // still-open session — stamping every open session would clobber each
+      // one's endedAt and corrupt the per-session before/after delta. No open
+      // session is a no-op, not an error.
+      const claimType = normalizeClaimType(inspection.claimType);
+      if (claimType) {
+        void (async () => {
           const validation = await validateSubmission(id, claimType);
-          await prisma.liveTeacherSession.updateMany({
+          const openSession = await prisma.liveTeacherSession.findFirst({
             where: { inspectionId: id, finalCompletionPct: null },
-            data: {
-              finalCompletionPct: validation.completionPercentage,
-              endedAt: new Date(),
-            },
+            orderBy: { startedAt: "desc" },
+            select: { id: true },
           });
-        }
-      } catch (snapshotError) {
-        console.error(
-          "[submit] final-completeness snapshot failed (non-blocking):",
-          snapshotError,
+          if (openSession) {
+            await prisma.liveTeacherSession.update({
+              where: { id: openSession.id },
+              data: {
+                finalCompletionPct: validation.completionPercentage,
+                endedAt: new Date(),
+              },
+            });
+          }
+        })().catch((snapshotError) =>
+          console.error(
+            "[submit] final-completeness snapshot failed (non-blocking):",
+            snapshotError,
+          ),
         );
       }
 

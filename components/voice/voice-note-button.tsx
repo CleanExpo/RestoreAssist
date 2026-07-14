@@ -151,12 +151,28 @@ export function VoiceNoteButton({
         return;
       }
 
-      if (res.status === 402 && onUnavailable) {
-        // RA-7051: workspace has no OpenAI key — hand off to the caller's
-        // fallback tier (e.g. Web Speech) rather than surfacing a dead-end.
-        onUnavailable();
-        setStatus("idle");
-        return;
+      if (res.status === 402) {
+        // The transcribe route returns 402 for TWO distinct cases:
+        //  - no workspace OpenAI key -> { error: { code: "PAYMENT_REQUIRED" } }
+        //    (RA-7051): hand off to the caller's fallback tier (e.g. Web Speech)
+        //    rather than surfacing a dead-end.
+        //  - inactive subscription  -> { upgradeRequired: true }: a real block,
+        //    surfaced as the normal error — a mic downgrade would hide it.
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string | { code?: string; message?: string };
+          upgradeRequired?: boolean;
+        };
+        const code = typeof body.error === "object" ? body.error?.code : undefined;
+        if (code === "PAYMENT_REQUIRED" && onUnavailable) {
+          onUnavailable();
+          setStatus("idle");
+          return;
+        }
+        const msg =
+          typeof body.error === "string"
+            ? body.error
+            : body.error?.message || "Active subscription required";
+        throw new Error(msg);
       }
 
       if (!res.ok) {

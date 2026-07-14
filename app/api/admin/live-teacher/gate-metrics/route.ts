@@ -49,7 +49,10 @@ export async function GET(request: NextRequest) {
     // ── Part 1: per-inspection cost rollup ────────────────────────────────
     const costGroups = await prisma.liveTeacherSession.groupBy({
       by: ["inspectionId"],
-      where: { startedAt: { gte: from, lte: to } },
+      where: {
+        startedAt: { gte: from, lte: to },
+        inspection: { user: { organizationId: adminUser!.organizationId } },
+      },
       _sum: { totalCostAudCents: true },
       _count: { _all: true },
     });
@@ -63,16 +66,26 @@ export async function GET(request: NextRequest) {
     // In-flight (endedAt: null) sessions are counted — cost is incremented per
     // turn, so an open session already carries spend.
     const openSessions = await prisma.liveTeacherSession.count({
-      where: { startedAt: { gte: from, lte: to }, endedAt: null },
+      where: {
+        startedAt: { gte: from, lte: to },
+        endedAt: null,
+        inspection: { user: { organizationId: adminUser!.organizationId } },
+      },
     });
 
     // ── Part 2: citation-error classification ─────────────────────────────
     const assistantUtterances = await prisma.teacherUtterance.findMany({
       where: {
         role: "assistant",
-        session: { startedAt: { gte: from, lte: to } },
+        session: {
+          startedAt: { gte: from, lte: to },
+          inspection: { user: { organizationId: adminUser!.organizationId } },
+        },
       },
       select: { sessionId: true, clauseRefs: true },
+      // Deterministic order so the MAX_UTTERANCES cap truncates the oldest-first
+      // window rather than an arbitrary subset.
+      orderBy: { createdAt: "asc" },
       take: MAX_UTTERANCES,
     });
     const allRefs = assistantUtterances.flatMap((u) => u.clauseRefs);
@@ -112,6 +125,7 @@ export async function GET(request: NextRequest) {
         },
         inspection: {
           select: {
+            environmentalData: true,
             floorPlanImageUrl: true,
             powerCircuits: true,
             powerCircuitRatingA: true,
@@ -160,7 +174,7 @@ export async function GET(request: NextRequest) {
             `In-flight (open) sessions counted in cost: ${openSessions} — cost is incremented per turn.`,
             "Citation error rate = fabricated-clause refs (no such clause) / total refs; edition mismatches are SOFT (single-edition corpus) and excluded from the gate.",
             "Completeness delta is observational (non-randomised): assisted = inspection had at least one Live Teacher session, control = none. Confounding is possible.",
-            "Cohort is the single-org pilot window (LiveTeacherSession carries no organisation column); completeness is scoped to the admin's organisation.",
+            "All metrics (cost, citations, completeness) are scoped to the admin's organisation via inspection.user.organizationId — LiveTeacherSession has no organisation column of its own but reaches one through its inspection.",
           ],
         },
       },
