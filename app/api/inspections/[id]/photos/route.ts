@@ -66,6 +66,24 @@ export async function GET(
         timestamp: true,
         fileSize: true,
         mimeType: true,
+        // RA-7054: the photos page dereferences the RA-446 label fields
+        // unconditionally (e.g. secondaryDamageIndicators.includes) — omitting
+        // them here crashes /dashboard/inspections/[id]/photos.
+        damageCategory: true,
+        damageClass: true,
+        s500SectionRef: true,
+        roomType: true,
+        moistureSource: true,
+        affectedMaterial: true,
+        surfaceOrientation: true,
+        damageExtentEstimate: true,
+        equipmentVisible: true,
+        secondaryDamageIndicators: true,
+        photoStage: true,
+        captureAngle: true,
+        labelledBy: true,
+        technicianNotes: true,
+        moistureReadingLink: true,
       },
       take: 500,
     });
