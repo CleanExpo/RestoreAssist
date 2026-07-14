@@ -115,6 +115,30 @@ describe("computeCitationMetrics", () => {
     // 1 fabricated / 2 validatable = 0.5 — NOT 1/3 (unknown excluded from denominator).
     expect(metrics.citationErrorRate).toBeCloseTo(0.5, 5);
   });
+
+  it("RA-7058: S500 produces a real valid/invalid rate on an EMPTY corpus while non-S500 stays collecting", () => {
+    // Production scenario: StandardsChunk is empty. S500 is validated against the
+    // in-repo section map (real valid/invalid), AS/NZS has no map → unknown.
+    const emptyCorpus = buildCorpusIndex([]);
+    const metrics = computeCitationMetrics(
+      [
+        {
+          clauseRefs: [
+            "[S500:2021 §10.3.2]", // valid — chapter 10 in the section map
+            "[S500:2021 §99.99]", // fabricated — chapter 99 absent // standards-cite-ignore (intentional negative-test fixture)
+            "[AS/NZS 4360 §4.4]", // unknown — no in-repo section map, empty corpus
+          ],
+        },
+      ],
+      emptyCorpus,
+    );
+    expect(metrics.totalRefs).toBe(3);
+    expect(metrics.verdictCounts.valid).toBe(1);
+    expect(metrics.verdictCounts.invalid_no_such_clause).toBe(1);
+    expect(metrics.unknownCount).toBe(1);
+    expect(metrics.validatableRefs).toBe(2); // both S500 refs, despite empty corpus
+    expect(metrics.citationErrorRate).toBeCloseTo(0.5, 5); // 1 fabricated / 2 validatable
+  });
 });
 
 describe("computeCompletenessDelta", () => {

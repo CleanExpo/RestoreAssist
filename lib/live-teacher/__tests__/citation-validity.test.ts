@@ -93,25 +93,36 @@ describe("classifyClauseRef", () => {
     );
   });
 
-  it("unknown — corpus is empty (nothing to validate against, NOT fabricated)", () => {
+  it("S500 validates from the in-repo section map even when the corpus is EMPTY", () => {
+    // The whole point of RA-7058: S500 no longer depends on StandardsChunk (empty
+    // on production) — §10.3.2 → chapter 10 exists in S500_SECTIONS → valid.
     const emptyCorpus = buildCorpusIndex([]);
-    expect(classifyClauseRef("[S500:2021 §10.3.2]", emptyCorpus)).toBe(
-      "unknown",
+    expect(classifyClauseRef("[S500:2021 §10.3.2]", emptyCorpus)).toBe("valid");
+    // Chapter-only citation resolves to the same chapter.
+    expect(classifyClauseRef("[S500:2021 §7]", emptyCorpus)).toBe("valid");
+  });
+
+  it("invalid_no_such_clause — S500 chapter absent from the section map (empty corpus, still a fabrication)", () => {
+    const emptyCorpus = buildCorpusIndex([]);
+    expect(classifyClauseRef("[S500:2021 §99.99]", emptyCorpus)).toBe( // standards-cite-ignore (intentional negative-test fixture)
+      "invalid_no_such_clause",
     );
   });
 
-  it("unknown — corpus carries no clauses for the ref's standard (collecting, NOT the gate error)", () => {
-    // Corpus has AS_NZS_4360 only; an S500 ref cannot be validated → unknown.
-    const otherStandardCorpus = buildCorpusIndex([
-      { standard: "AS_NZS_4360", edition: "2004", clause: "4.4" },
-    ]);
-    expect(classifyClauseRef("[S500:2021 §10.3.2]", otherStandardCorpus)).toBe(
-      "unknown",
-    );
+  it("unknown — a NON-S500 standard has no in-repo section map and no corpus rows (collecting, NOT fabricated)", () => {
+    const emptyCorpus = buildCorpusIndex([]);
+    expect(classifyClauseRef("[AS/NZS 4360 §4.4]", emptyCorpus)).toBe("unknown");
   });
 
-  it("edition_mismatch — clause present, edition absent (SOFT)", () => {
-    expect(classifyClauseRef("[S500:2018 §10.3.2]", corpus)).toBe( // standards-cite-ignore (intentional negative-test fixture)
+  it("unknown — corpus carries no clauses for a NON-S500 ref's standard (collecting, NOT the gate error)", () => {
+    // `corpus` has AS_NZS_4360 + S500 only; an NZBS ref cannot be validated → unknown.
+    expect(classifyClauseRef("[NZBS E2 §3.1]", corpus)).toBe("unknown");
+  });
+
+  it("edition_mismatch — S500 real chapter cited under a non-2021 edition (SOFT, from the section map)", () => {
+    // §10 exists in the 2021 map; a 2018 edition token is a soft mismatch, not a fabrication.
+    const emptyCorpus = buildCorpusIndex([]);
+    expect(classifyClauseRef("[S500:2018 §10.3.2]", emptyCorpus)).toBe( // standards-cite-ignore (intentional negative-test fixture)
       "edition_mismatch",
     );
   });
