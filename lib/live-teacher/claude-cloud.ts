@@ -162,7 +162,11 @@ function computeCostAudCents(
 // Clause reference extraction
 // ---------------------------------------------------------------------------
 
-const CLAUSE_REF_REGEX = /\[(S500|AS\/NZS|NZBS)[^\]]+\]/g;
+// Allow the natural "[IICRC S500:2021 §10.5]" phrasing — an optional "IICRC "
+// prefix before the standard token. The whole bracketed match (prefix included)
+// is stored in clauseRefs; parseClauseRef in citation-validity.ts strips the
+// prefix, so both agree on the parsed standard/clause/edition.
+const CLAUSE_REF_REGEX = /\[(?:IICRC\s+)?(S500|AS\/NZS|NZBS)[^\]]+\]/g;
 
 function extractClauseRefs(text: string): string[] {
   const matches = text.match(CLAUSE_REF_REGEX);

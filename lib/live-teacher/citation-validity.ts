@@ -57,7 +57,13 @@ export function parseClauseRef(raw: string): ParsedClauseRef | null {
   const sectionIdx = inner.indexOf("§");
   if (sectionIdx === -1) return null;
 
-  const left = inner.slice(0, sectionIdx).trim();
+  // Tolerate the natural "[IICRC S500:2021 §10.5]" phrasing the extractor now
+  // keeps: strip an optional leading "IICRC " so it parses identically to the
+  // un-prefixed "[S500:2021 §10.5]".
+  const left = inner
+    .slice(0, sectionIdx)
+    .trim()
+    .replace(/^IICRC\s+/i, "");
   const clause = inner.slice(sectionIdx + 1).trim();
   if (!left || !clause) return null;
 

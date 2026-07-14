@@ -46,6 +46,17 @@ describe("parseClauseRef", () => {
     expect(parseClauseRef("[NZBS E3 §1.2]")?.standard).toBe("NZBS_E3");
   });
 
+  it("strips an optional leading IICRC prefix (parses same as un-prefixed)", () => {
+    expect(parseClauseRef("[IICRC S500:2021 §10.5]")).toEqual(
+      parseClauseRef("[S500:2021 §10.5]"),
+    );
+    expect(parseClauseRef("[IICRC S500:2021 §10.5]")).toEqual({
+      standard: "IICRC_S500",
+      clause: "10.5",
+      edition: "2021",
+    });
+  });
+
   it("returns null for an unrecognised token (unparseable)", () => {
     expect(parseClauseRef("[ISO 9001 §7.1]")).toBeNull();
   });
@@ -67,6 +78,13 @@ describe("classifyClauseRef", () => {
 
   it("valid — clause present, ref carries no edition", () => {
     expect(classifyClauseRef("[AS/NZS 4360 §4.4]", corpus)).toBe("valid");
+  });
+
+  it("IICRC-prefixed ref yields the same verdict as the un-prefixed form", () => {
+    expect(classifyClauseRef("[IICRC S500:2021 §10.3.2]", corpus)).toBe(
+      classifyClauseRef("[S500:2021 §10.3.2]", corpus),
+    );
+    expect(classifyClauseRef("[IICRC S500:2021 §10.3.2]", corpus)).toBe("valid");
   });
 
   it("invalid_no_such_clause — standard IS in corpus, clause genuinely absent (the gate error)", () => {
