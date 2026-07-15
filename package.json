@@ -71,6 +71,7 @@
     "audit:rls": "tsx scripts/audit-rls.ts",
     "lint:rls-initplan": "node scripts/lint-rls-policy-initplan.mjs",
     "audit:api": "tsx scripts/audit-api-routes.ts",
+    "audit:prod": "tsx scripts/audit-prod-cves.ts",
     "audit:advisors": "tsx scripts/ci/supabase-advisor-gate.ts",
     "backfill:account-tokens": "tsx scripts/backfill-encrypt-account-tokens.ts",
     "security:scan": "node scripts/security/route-safety-scan.mjs",
