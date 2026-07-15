@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { normalizeJobLabours } from "../route";
+import {
+  normalizeJobLabours,
+  findLabourRows,
+  describeShape,
+} from "../route";
 
 /**
  * RA-7026 regression: the importer read `data.jobLabours`, a key Ascora never
@@ -78,5 +82,62 @@ describe("normalizeJobLabours", () => {
     );
     expect(billable).toHaveLength(1);
     expect(billable[0].roleName).toBe("Tech");
+  });
+});
+
+/**
+ * Shape-agnostic fallback (RA-7026). Prod emptyShapes captured the JobLabour
+ * envelope as `{ success, jobLabours }` yet parsed 0 rows — i.e. jobLabours is
+ * present but not a top-level array. These lock in that nested / single-object
+ * labour still extracts, while unrelated arrays are never mistaken for labour.
+ */
+describe("findLabourRows (nested / single-object labour)", () => {
+  it("extracts labour nested one level below the container", () => {
+    const out = normalizeJobLabours({
+      success: true,
+      jobLabours: {
+        jobLabour: [
+          { roleName: "Senior Tech", numberOfHours: 8, hourlyRateExTax: 85 },
+        ],
+      },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ roleName: "Senior Tech", numberOfHours: 8, hourlyRateExTax: 85 });
+  });
+
+  it("wraps a single labour object returned without an array", () => {
+    const out = normalizeJobLabours({
+      success: true,
+      jobLabours: { roleName: "Tech", numberOfHours: 4, hourlyRateExTax: 90 },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].hourlyRateExTax).toBe(90);
+  });
+
+  it("ignores unrelated arrays (jobs/customers) that carry no labour fields", () => {
+    expect(
+      findLabourRows({ results: [{ jobId: "J1", customerName: "Acme" }] }),
+    ).toEqual([]);
+  });
+
+  it("returns [] for a genuinely empty labour array (job truly had no labour)", () => {
+    expect(normalizeJobLabours({ success: true, jobLabours: [] })).toEqual([]);
+  });
+});
+
+describe("describeShape (PII-safe diagnostic)", () => {
+  it("distinguishes a genuinely empty array from a nested-object parser gap", () => {
+    expect(describeShape({ success: true, jobLabours: [] })).toBe(
+      "{success:boolean,jobLabours:array[0]}",
+    );
+    expect(
+      describeShape({ success: true, jobLabours: { jobLabour: [{ roleName: "x" }] } }),
+    ).toBe("{success:boolean,jobLabours:{jobLabour:array[1]}}");
+  });
+
+  it("omits values so no customer data enters logs/metadata", () => {
+    const shape = describeShape({ customerName: "Jane Homeowner", hours: 8 });
+    expect(shape).not.toContain("Jane");
+    expect(shape).toBe("{customerName:string,hours:number}");
   });
 });
