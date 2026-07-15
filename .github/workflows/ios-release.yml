@@ -50,7 +50,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v6
         # version is read from package.json#packageManager (pnpm@9.15.9) — single SSOT
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: "pnpm"
