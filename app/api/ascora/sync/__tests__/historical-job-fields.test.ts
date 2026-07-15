@@ -16,6 +16,7 @@ import {
   coerceHistoricalWaterFields,
   type AscoraJobRaw,
 } from "../route";
+import { stripNullBytes } from "@/lib/sanitize";
 
 function makeJob(overrides: Partial<AscoraJobRaw> = {}): AscoraJobRaw {
   return {
@@ -131,5 +132,38 @@ describe("coerceHistoricalWaterFields (RA-7026 prod-crash regression)", () => {
 
   it("preserves a zero category as the string \"0\" rather than dropping it", () => {
     expect(coerceHistoricalWaterFields({ damageCategory: 0 }).waterCategory).toBe("0");
+  });
+});
+
+describe("NUL-byte stripping (RA-7026 08P01 prod-crash regression)", () => {
+  // A lone U+0000 in an Ascora free-text narrative made the historicalJob.upsert
+  // throw PostgresError 08P01 "insufficient data left in message", which aborted
+  // the whole sync and left AscoraIntegration.lastSyncAt NULL for 6 days.
+  const NUL = String.fromCharCode(0);
+
+  it("stripNullBytes removes U+0000 but preserves narrative punctuation verbatim", () => {
+    expect(stripNullBytes(`RH ${NUL}< 40% at ${NUL}24h`)).toBe("RH < 40% at 24h");
+  });
+
+  it("does NOT entity-encode angle brackets (unlike sanitizeString) — narrative stays readable", () => {
+    expect(stripNullBytes(`Tramex 22 ${NUL}> 16 wme`)).toBe("Tramex 22 > 16 wme");
+  });
+
+  it("strips NUL from scopeOfWorks so the historicalJob.upsert can't hit 08P01", () => {
+    const job = makeJob({
+      jobDescription: `Extract ${NUL}+ dry`,
+      workUndertaken: `Set 4 AFDs${NUL}, 2 DHs`,
+    });
+
+    const scope = buildHistoricalJobRefreshableFields(job).scopeOfWorks ?? "";
+    expect(scope).not.toContain(NUL);
+    expect(scope).toContain("Extract + dry");
+    expect(scope).toContain("Set 4 AFDs, 2 DHs");
+  });
+
+  it("strips NUL from claimNumber", () => {
+    const job = makeJob({ clientOrderNumber: `PO-${NUL}12345` });
+
+    expect(buildHistoricalJobRefreshableFields(job).claimNumber).toBe("PO-12345");
   });
 });

@@ -31,6 +31,17 @@ export function sanitizeString(
 }
 
 /**
+ * Remove NUL bytes (U+0000), which Postgres TEXT/VARCHAR columns reject with
+ * "08P01 insufficient data left in message". Unlike sanitizeString, this does
+ * NOT strip HTML tags or entity-encode — it preserves the text verbatim, so it
+ * is safe for storing free-text narratives (e.g. third-party job descriptions
+ * where "RH < 40%" must survive intact).
+ */
+export function stripNullBytes(input: string): string {
+  return input.replaceAll(String.fromCharCode(0), "");
+}
+
+/**
  * Validate an Australian Business Number using the ATO weighted-sum algorithm.
  *
  * Algorithm (per ATO): subtract 1 from first digit, multiply each of the 11
