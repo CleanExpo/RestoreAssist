@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatusBadge } from "@/components/StatusBadge";
+import { EmptyState } from "@/components/EmptyState";
+import { Database } from "lucide-react";
 
 interface TierRow {
   kind: string;
@@ -161,7 +164,15 @@ export default function AdminRagPage() {
         </div>
       )}
 
-      {data && !loadError && (
+      {data && !loadError && data.total === 0 && (
+        <EmptyState
+          icon={<Database className="h-10 w-10" />}
+          title="Corpus is empty"
+          description="Ingest licensed plain-text extracts below. Probe will return nothing until chunks exist — we never invent retrieval hits."
+        />
+      )}
+
+      {data && !loadError && data.total > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="pb-2">
@@ -170,7 +181,10 @@ export default function AdminRagPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{data.total}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-3xl font-bold">{data.total}</p>
+                <StatusBadge tone="success">Healthy</StatusBadge>
+              </div>
             </CardContent>
           </Card>
           {data.byTier.slice(0, 2).map((row) => (
@@ -186,6 +200,31 @@ export default function AdminRagPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {data && !loadError && data.total > 0 && data.byTier.length > 2 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">All tiers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="text-sm space-y-1 text-muted-foreground">
+              {data.byTier.map((row) => (
+                <li
+                  key={`${row.kind}-${row.provenance}`}
+                  className="flex justify-between gap-4"
+                >
+                  <span>
+                    {row.kind} / {row.provenance}
+                  </span>
+                  <span className="tabular-nums font-medium text-foreground">
+                    {row.chunks}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       )}
 
       <Card>
