@@ -27,7 +27,10 @@ import { getServerSession } from "next-auth";
 import { ClaimState, InspectionStatus, Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionTenancy,
+  resolveInspectionWrite,
+} from "@/lib/auth/assert-tenancy";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError } from "@/lib/api-errors";
 import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
@@ -41,6 +44,82 @@ interface RouteParams {
 }
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60; // 1 hour
+
+/**
+ * GET — re-sign the handover ZIP when handover is already complete.
+ * Returns 404 when handover has not run yet (use POST to complete it).
+ */
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
+  }
+
+  const { id: inspectionId } = await params;
+  const tenancy = await assertInspectionTenancy(session, inspectionId);
+  if (!tenancy.ok) {
+    return apiError(request, {
+      code: tenancy.status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",
+      message: tenancy.reason,
+      status: tenancy.status,
+    });
+  }
+
+  const inspection = await prisma.inspection.findUnique({
+    where: { id: inspectionId },
+    select: {
+      handoverCompletedAt: true,
+      handoverPackageStorageKey: true,
+    },
+  });
+  if (!inspection) {
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "Inspection not found",
+      status: 404,
+    });
+  }
+  if (!inspection.handoverCompletedAt || !inspection.handoverPackageStorageKey) {
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "Handover package not available yet",
+      status: 404,
+    });
+  }
+
+  let packageUrl: string | null = null;
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase.storage
+      .from(BUCKET_ORIGINALS)
+      .createSignedUrl(
+        inspection.handoverPackageStorageKey,
+        SIGNED_URL_TTL_SECONDS,
+      );
+    if (error) throw error;
+    packageUrl = data?.signedUrl ?? null;
+  } catch (err) {
+    return apiError(request, {
+      code: "INTERNAL",
+      message: "Failed to sign handover download URL",
+      status: 500,
+      err,
+      stage: "handover-resign",
+    });
+  }
+
+  return NextResponse.json({
+    data: {
+      storageKey: inspection.handoverPackageStorageKey,
+      packageUrl,
+      handoverCompletedAt: inspection.handoverCompletedAt.toISOString(),
+    },
+  });
+}
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const session = await getServerSession(authOptions);
