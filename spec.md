@@ -136,7 +136,7 @@ Explicit machines are defined for: Claim, Inspection, Drying, Scope, Estimate, R
 
 Direct and partner (DR/NRPG, Ascora) intake create one `Inspection` with `source`. Captured at intake: customer (`Client` picker, not free-text), claim/incident, property, insurer/referrer where applicable, the **loss timeline** — cause of loss, date of loss, date notified, and first-attendance date/time (required; date of loss governs coverage and mould causation, first-attendance evidences the duty to mitigate) — and **site logistics** — access instructions, parking constraints, container-placement constraints, animals, occupants, storeys, navigation difficulty, initial hazard information, contact/communication history. Partner intake maps claim number and address onto the `Inspection` at creation (no re-entry). Customer-initiated intake and inbound-email FNOL remain V1.x; V1 intake is staff- or partner-originated.
 
-Acceptance: creating a claim requires a `Client` selected from the organisation's records (or created inline) and a recorded date-of-loss and cause-of-loss; the address, claim number, loss-timeline, and site-logistics fields are written once to `Inspection` and read unchanged by inspection, report, portal, and invoice.
+Acceptance: creating a claim requires a `Client` selected from the organisation's records (or created inline) and a complete loss timeline — cause of loss, date of loss, date notified, and first-attendance date/time; the address, claim number, loss-timeline, and site-logistics fields are written once to `Inspection` and read unchanged by inspection, report, portal, and invoice.
 
 ## 11. Scheduling and dispatch
 
