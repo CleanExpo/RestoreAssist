@@ -747,35 +747,52 @@ export default function InspectionReportViewer({
             id="inspection-report-print-content"
             className="bg-white text-slate-900 print-content"
           >
-            <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10 print:hidden">
+            <div
+              className={
+                "p-4 rounded-[10px] border print:hidden " +
+                (isBasicReport || isAiDraftPending(report)
+                  ? "border-warning/50 bg-warning/10"
+                  : "border-success/50 bg-success/10")
+              }
+            >
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-success" />
-                <p className="text-success font-medium">
+                <CheckCircle
+                  className={
+                    "w-5 h-5 " +
+                    (isBasicReport || isAiDraftPending(report)
+                      ? "text-warning"
+                      : "text-success")
+                  }
+                />
+                <p
+                  className={
+                    "font-medium " +
+                    (isBasicReport || isAiDraftPending(report)
+                      ? "text-amber-900 dark:text-amber-100"
+                      : "text-success")
+                  }
+                >
                   {isBasicReport
                     ? "Basic AI draft ready — rewrite required"
                     : isAiDraftPending(report)
                       ? "AI draft ready — rewrite and take ownership"
-                      : "Report Generated Successfully"}
+                      : "Holder-owned report — ready to issue"}
                 </p>
               </div>
             </div>
 
-            {report && isAiDraftPending(report) && (
+            {report && (
               <div className="space-y-3 print:hidden">
                 <AiOwnershipBanner
                   reportId={reportId}
                   report={report}
                   onAcknowledged={() => void fetchReport()}
+                  onStartRewrite={
+                    !editing && !isBasicReport
+                      ? () => setEditing(true)
+                      : undefined
+                  }
                 />
-                {!editing && !isBasicReport && (
-                  <button
-                    type="button"
-                    onClick={() => setEditing(true)}
-                    className="px-4 py-2 rounded-lg border border-amber-500/40 text-amber-800 dark:text-amber-200 text-sm hover:bg-amber-500/10"
-                  >
-                    Rewrite report in your own words
-                  </button>
-                )}
               </div>
             )}
 
