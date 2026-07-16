@@ -48,6 +48,18 @@ Execution rule (spec Appendix B): work the top ready item per phase; a phase doe
 ### P1-6 — Durable closure semantics
 - **Finding:** `report_sent` == user-settable COMPLETED. **Acceptance:** `report_sent` binds to a real delivery event; PR #1967 assessed and merged or superseded. **Verification:** security + e2e closure test. **Status:** TODO.
 
+### P1-8 — Water Category/Class capture (S500)
+- **Decision:** D-012. **Acceptance:** a water claim records Category (Cat 1/2/3) and Class (1–4) with a standard citation before scope generation; completeness pack requires it. **Verification:** integration + e2e; completeness unit test. **Status:** TODO.
+
+### P1-9 — Loss timeline required fields
+- **Decision:** D-012. **Acceptance:** cause of loss, date of loss, date notified, first-attendance date/time captured at intake and immutable-audited; report and closure read them. **Verification:** integration + e2e. **Status:** TODO.
+
+### P1-10 — Pre-work safety record + typed hazards + WHS pathway
+- **Decision:** D-012. **Acceptance:** a signed, timestamped SWMS/JSA is captured before drying/strip-out; hazards are typed (ACM/electrical/structural/biological) with WHS pathway status; suspected ACM blocks strip-out scope until a pathway is recorded; all reproducible years later. **Verification:** integration + security + e2e (ACM-blocks-stripout). **Status:** TODO.
+
+### P1-11 — Authority-to-dispose gate
+- **Decision:** D-012. **Acceptance:** marking a contents item or strip-out for disposal requires a linked signed disposal authority; disposal without it is rejected and audited. **Verification:** integration + e2e. **Status:** TODO.
+
 ### P1-7 — ClaimProgress one protocol
 - **Finding:** close/reopen mirror-writes skip version-CAS (RA-ARCH-02 H1). **Acceptance:** all ClaimProgress writers version-increment or route through the progress service. **Verification:** concurrency test. **Status:** TODO.
 

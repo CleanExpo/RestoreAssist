@@ -77,5 +77,32 @@ Append-only record of resolved product and architecture decisions. New decisions
 - **Reason:** Founder request for momentum without drift.
 - **Evidence:** founder closing remarks; spec Appendix B. **Date:** 2026-07-17. **Owner:** Phill McGurk.
 
+### D-012 — Water Category/Class, loss timeline, safety record, and disposal authority are required canonical datums
+- **Decision:** V1 captures, as canonical `Inspection`/`Hazard`/`AuthorityFormInstance` data: water Category (S500 Cat 1/2/3) and Class (1–4) with citation; loss timeline (cause, date of loss, date notified, first-attendance); a signed pre-work safety record (SWMS/JSA); typed hazards (ACM/electrical/structural/biological) with WHS pathway; and authority-to-dispose gating any contents/strip-out disposal.
+- **Reason:** Review B (restoration operations) found these load-bearing for operating and defending a water claim years later — classification drives PPE/containment/strip-out and equipment sizing; the loss timeline governs coverage and the mitigation duty; the safety record is the WHS defence; disposal authority prevents the most common post-job dispute.
+- **Alternatives:** derive classification at report time (rejected — not a record); free-text incident (rejected — undefensible).
+- **Consequences:** new §8 rows; §10/§12 required fields; §16 disposal gate; §25 water-pack baseline; seeded claim (§39) exercises all.
+- **Evidence:** Review B M1–M4. **Date:** 2026-07-17. **Owner:** Phill McGurk.
+
+### D-013 — Closure financial precondition
+- **Decision:** Closure requires an invoice that exists and is **reconciled** (issued with a balancing payment ledger); **full payment is not required to close by default** and is an organisation-configurable precondition.
+- **Reason:** Review A (engineering ambiguity) M2 — `invoice_paid`-gates-closure was undefined; a wrong guess either blocks trivial-balance closures or closes with money owed.
+- **Evidence:** Review A M2; traceability §E.9. **Date:** 2026-07-17. **Owner:** Phill McGurk.
+
+### D-014 — Xero is the V1 exit-gate accounting provider
+- **Decision:** The seeded reference claim (§39) reconciles against **Xero**; QBO/MYOB remain supported but are not required for the V1 exit gate.
+- **Reason:** Review A M3 — §39 is a hard gate and needs a named, deterministic provider; Xero is the most complete existing integration (dry-run C).
+- **Evidence:** Review A M3. **Date:** 2026-07-17. **Owner:** Phill McGurk.
+
+### D-015 — Scheduling competency is an RA-local tag in V1
+- **Decision:** "Required competency" is an RA-local skill/role tag on technician + appointment; CARSI-credential-gated dispatch is V1.x.
+- **Reason:** Review A M4 — competency had no data model; a CARSI lookup would add a cross-system dependency V1 does not otherwise build; keeps §27 CARSI boundary clean.
+- **Evidence:** Review A M4. **Date:** 2026-07-17. **Owner:** Phill McGurk.
+
+### D-016 — Completeness output is advisory; state machines authored
+- **Decision:** The completeness projection is advisory (its `blockingRequirements` informs the human; enforcement lives in the §9 state machines and §23 closure gate). The per-machine state-transition tables §9 promised are authored in traceability §E. The water-damage rule *content* carries the same scaffold latitude as drying thresholds.
+- **Reason:** Review A M1 (absent state tables — the headline) and M5 (completeness enumeration/scaffold asymmetry).
+- **Evidence:** Review A M1, M5; traceability §E. **Date:** 2026-07-17. **Owner:** Phill McGurk.
+
 ---
-*Non-blocking owner inputs still open (do not block V1 start): authorised drying-goal methodology source; per-organisation completeness baseline content; pilot-partner selection. Tracked here, not escalated.*
+*Non-blocking owner inputs still open (do not block V1 start): authorised drying-goal methodology source; the full per-stage water-damage completeness rule list (baseline minimum is specified; engine scaffolds now); per-organisation completeness baseline content; concrete media/claim retention duration (pin before go-live; AU limitation ~6–7 years); pilot-partner selection. Tracked here, not escalated.*

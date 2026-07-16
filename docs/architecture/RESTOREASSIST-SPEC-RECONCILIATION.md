@@ -46,4 +46,13 @@ None of these block starting Phase 0–2.
 - Room/EquipmentDeployment/CostEstimate/FormSignature: currently dead models; target retires them after prod row-count check (§40).
 
 ## Draft PR implications
-- **PR #1967** (block `bulk-status` COMPLETED) — classified **temporary defence-in-depth**, compatible with the final report state model (§9). It stays unmerged pending assessment against the durable fix (decouple `report_sent` from user-settable status). It may merge as an interim guard; the durable change lands in Phase 1.
+- **PR #1967** (block `bulk-status` COMPLETED) — classified **temporary defence-in-depth**, compatible with the final report state model (§9, traceability §E.6). It stays unmerged pending assessment against the durable fix (decouple `report_sent` from user-settable status). It may merge as an interim guard; the durable change lands in Phase 1.
+
+## Independent review outcomes (§13) and how they were folded
+Both reviews initially returned FAIL; every material finding was folded into this consolidation:
+
+**Review A — engineering ambiguity:** M1 absent state-machine tables → authored (traceability §E, all 12 machines); M2 undefined closure financial precondition → pinned (§23, D-013, §E.9); M3 unnamed V1 accounting provider → Xero named (§39, D-014); M4 scheduling competency had no model → RA-local tag (§11, D-015); M5 completeness enumeration/scaffold asymmetry → advisory-projection + scaffold latitude stated (§25, D-016). Non-blocking items (drying thresholds, pilot partners, PDF layout, partner payload mapping, entitlement map, appointment equipment tags, Margot per-action rows) confirmed deferrable.
+
+**Review B — restoration operations:** M1 water Category/Class → canonical datum (§8/§12, D-012); M2 loss timeline (cause/date/first-attendance) → required intake fields (§10, D-012); M3 pre-work safety record + typed hazards → captured, ACM blocks strip-out (§12, D-012); M4 authority-to-dispose → disposal gate (§16, D-012). V1.x-acceptable gaps recorded (insurer variation approval, distinct make-safe phase, communication-history detail, excess/subcontractor/welfare/test-and-tag). Photo metadata binding folded into §34; retention duration added to §43 non-blocking owner inputs.
+
+After folding, both reviews' material findings are closed; a confirmation re-review was run (see commit trail). No material engineer guesswork remains.

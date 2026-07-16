@@ -62,6 +62,87 @@ Maps each V1 requirement to domain, current implementation, gap, target componen
 | CON-5 | Leases for long-running | H2–H5 | PENDING TTL ≥ maxDuration; ScheduledEmail stale-sweep+CAS; AgentTask timeout requeue; cron partial-unique/advisory lock | concurrency, integration | Phase 0/1 | TODO |
 | CON-6 | Offline version preconditions | M6 | Inspection PATCH + Report PUT carry version/If-Unmodified-Since → 409/412; mobileLocalId unique | concurrency, e2e | Phase 3 | TODO |
 
+## E. State machines (spec §9)
+
+The per-machine transition tables §9 requires. Columns: **From → To** (permitted transition) · **Role** (minimum) · **Conditions / evidence required** · **CAS predicate** (concurrency) · **Audit event** · **Reversal**. Any transition not listed is illegal and rejected. Margot may initiate any transition only at ≥ human-confirmation and never `close`/pricing (spec §24).
+
+### E.1 Claim (`ClaimProgress.currentState`) — master
+| From → To | Role | Conditions / evidence | CAS | Audit | Reversal |
+|---|---|---|---|---|---|
+| INTAKE → SCHEDULED | Manager | client + date-of-loss + cause recorded | `version` | ProgressTransition | → INTAKE (reason) |
+| SCHEDULED → IN_INSPECTION | Technician | appointment acknowledged | `version` | yes | reschedule |
+| IN_INSPECTION → DRYING | Technician | category/class + safety record + baseline readings | `version` | yes | reopen_inspection |
+| DRYING → SCOPING | Technician | drying certified (E.3) | `version` | yes | reopen_drying |
+| SCOPING → ESTIMATING | Technician/Manager | scope items present | `version` | yes | back to SCOPING |
+| ESTIMATING → REPORTING | Manager | estimate approved (E.5) | `version` | yes | — |
+| REPORTING → IN_BILLING | Manager | report delivered (E.6) | `version` | yes | — |
+| IN_BILLING → CLOSED | Manager | closure gate (E.9) | `version` | yes | reopen_job (reason+authority) |
+| CLOSED → IN_BILLING | Manager/Owner | reopen reason + authority | `version` | yes | — |
+
+### E.2 Inspection (sub-state, maps into Claim)
+| From → To | Role | Conditions | CAS | Audit | Reversal |
+|---|---|---|---|---|---|
+| DRAFT → PROCESSING | Technician | address+postcode | `acceptedAt:null` / `status` | yes | — |
+| PROCESSING → SUBMITTED | Technician | required capture + ≥1 photo + category/class | `status=PROCESSING` | yes | reopen to PROCESSING |
+| SUBMITTED → (drives Claim IN_INSPECTION→DRYING) | system | maps via progress service | `version` | yes | — |
+
+### E.3 Drying
+| From → To | Role | Conditions | CAS | Audit | Reversal |
+|---|---|---|---|---|---|
+| DRYING_ACTIVE → DRYING_CERTIFIED | Technician | goalAchieved (latest-valid-per-point) + signedOffBy + ≥1 baseline + ≥1 monitoring point; OR professional override with reason | `status=DRYING_ACTIVE` | ProgressTransition | reopen_drying (reason) |
+| any → reading invalidated | Technician (+approval if configured) | original/reason/user/time/replacement recorded; source retained | append | invalidation event | n/a (never deletes) |
+
+### E.4 Scope
+| From → To | Role | Conditions | CAS | Audit | Reversal |
+|---|---|---|---|---|---|
+| DRAFT → FINAL (snapshot) | Technician/Manager | scope items priced from rate card | `version` | yes | new version only |
+| FINAL → SUPERSEDED | Manager | replaced by a newer scope version | `version` | yes | — |
+
+### E.5 Estimate
+| From → To | Role | Conditions | CAS | Audit | Reversal |
+|---|---|---|---|---|---|
+| DRAFT → SENT | Manager | line items derived from scope + rate card | `status=DRAFT` | yes | back to DRAFT |
+| SENT → APPROVED | Manager | approver recorded; **freezes immutable snapshot** | `status=SENT` | yes | **not un-approvable** |
+| APPROVED → SUPERSEDED | Manager | new estimate version created | `status=APPROVED` | yes | — |
+| any → REJECTED / EXPIRED | Manager/system | rejection reason / expiry | `status` | yes | new version only |
+| (APPROVED) → LOCKED | system | invoice generated from it | `status=APPROVED` | yes | — |
+
+An APPROVED estimate is never un-approved; change is by a new version (supersede). Its snapshot is immutable (spec §19).
+
+### E.6 Report — six facts, not one status
+| From → To | Role | Conditions / evidence | CAS | Audit | Reversal |
+|---|---|---|---|---|---|
+| DRAFT → GENERATED | Technician/Manager | generated from canonical sources | `status` | yes | regenerate (new version) |
+| GENERATED → APPROVED | Manager | reviewer sign-off | `status=GENERATED` | yes | back to GENERATED |
+| APPROVED → SENT | Manager | delivery initiated to a recipient | `status=APPROVED` | delivery event | — |
+| SENT → DELIVERED | system | delivery confirmed (recipient fetch / receipt) | `status=SENT` | delivery event | — |
+| DELIVERED → ACKNOWLEDGED | Customer/Insurer | recipient acknowledgement | `status=DELIVERED` | yes | — |
+| any → SUPERSEDED | Manager | replaced by a newer report version | `version` | yes | — |
+
+`report_sent` (closure precondition) binds to **SENT or later** as a real delivery event — never to a user-settable `COMPLETED`. `bulk-status` cannot drive any transition at/after SENT.
+
+### E.7 Invoice
+| From → To | Role | Conditions | CAS | Audit | Reversal |
+|---|---|---|---|---|---|
+| DRAFT → ISSUED | Manager | derived from approved estimate snapshot; unique `sourceInspectionId` | `status=DRAFT` idempotent | yes | back to DRAFT (if unsent) |
+| ISSUED → PARTIALLY_PAID | system | payment < amountDue (atomic increment) | idempotent | payment event | — |
+| ISSUED/PARTIALLY_PAID → PAID | system | amountPaid ≥ total | idempotent | payment event | — |
+| any → VOID | Manager/Owner | void reason; no prior full payment | `status` | yes | **not reversible** — reissue new invoice |
+
+### E.8 Payment
+| From → To | Role | Conditions | CAS | Audit | Reversal |
+|---|---|---|---|---|---|
+| (record) manual/EFT/card/partial | Manager (manual) / system (Stripe) | atomic `amountPaid` increment; ledger row written | idempotent (event id / key) | payment event | refund (below) |
+| (record) REFUND | Manager/Owner | refund reason; atomic decrement | idempotent | refund event | — |
+
+### E.9 Closure gate (evaluated on IN_BILLING → CLOSED)
+Preconditions (all): **report delivered** (E.6 ≥ SENT with a delivery event) · **financial state validated** — an invoice exists and is **reconciled** (issued and its payment ledger balances; full payment is org-configurable, default not required to close) · required approvals present · no open WHS incident or unresolved suspected-ACM strip-out · no pending estimate variation. Writes hash-chained `ProgressTransition` with the precondition snapshot. Reversal: `reopen_job` with reason + authority (audited).
+
+### E.10 External share / Margot action / AI execution
+- **External share:** `ACTIVE → REVOKED` (Manager/Owner, `revokedAt`, audited) or `ACTIVE → EXPIRED` (system, TTL). Per-recipient, scoped (spec §30 SEC-2).
+- **Margot action:** `PROPOSED → CONFIRMED → APPLIED` — APPLIED only via a domain service at the invoking human's role; closure and pricing transitions are `PROHIBITED` to Margot (spec §24). Every APPLIED action writes an audit event.
+- **AI execution:** `QUEUED → RUNNING → (SUCCEEDED | FAILED)` with a lease ≥ handler maxDuration; a RUNNING job past its lease requeues (spec §32 CON-5). Cost recorded on the correct BYOK plane (spec §26).
+
 ## D. Seeded reference claim (spec §39)
 The seeded scenario (RA water-damage, all five roles, UI/API only) is the V1 exit gate. Each capability above must pass within it. Status: `TODO` — authored as a fixture + e2e in Phase 6, exercised incrementally as phases land.
 

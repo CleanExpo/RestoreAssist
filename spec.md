@@ -97,6 +97,11 @@ The final source-of-truth matrix. For each datum: **canonical model** (sole edit
 | Organisation | `Organization` | — | version |
 | Customer | `Client` (+ `Inspection.clientId` FK) | `Report.clientName` free-text (→ display cache); name-match heuristic | version |
 | Claim / property / address | `Inspection` (+ populated `Inspection.reportId`) | `Report.propertyAddress`; address-string join | version |
+| **Water Category (S500 Cat 1/2/3) + Class (1–4)** | `Inspection` classification fields (cited to S500) | ad-hoc/absent | version |
+| **Loss timeline — cause of loss, date of loss, date notified, first-attendance date/time** | `Inspection` required timeline fields | free-text "incident" | version |
+| **Hazards (typed: asbestos/ACM, electrical, structural, biological) + WHS pathway status** | `Hazard` (sketch/inspection-anchored, typed enum + status) | free-text/`Report.hazardType` narrative | version |
+| **Pre-work safety record (SWMS/JSA), signed + timestamped** | `AuthorityFormInstance` of type safety-record (or dedicated safety model) | absent | append |
+| **Authority to dispose (per strip-out / contents disposal)** | `AuthorityFormInstance` of type disposal, linked to the disposed item/scope | absent | append |
 | Site access / parking / animals / occupants / storeys / access difficulty | `Inspection` structured fields | free-text scattered copies | version |
 | Insurer + claim number | `InsurerProfile` via `Inspection.insurerProfileId` FK + `Inspection.claimNumber` | metadata-JSON pointer; `Report.insurerName` free-text | version |
 | Rooms / geometry / dimensions / cubic volume / affected area | `SketchElement`/`ClaimSketch` twin (operator-measured provenance) | dormant `Room`/`RoomAnnotation` (retire); typed `AffectedArea` dims → derived + override | best-effort → transactional derivation |
@@ -129,21 +134,25 @@ Explicit machines are defined for: Claim, Inspection, Drying, Scope, Estimate, R
 
 ## 10. Intake
 
-Direct and partner (DR/NRPG, Ascora) intake create one `Inspection` with `source`. Captured at intake: customer (`Client` picker, not free-text), claim/incident, property, insurer/referrer where applicable, and **site logistics** — access instructions, parking constraints, container-placement constraints, animals, occupants, storeys, navigation difficulty, initial hazard information, contact/communication history. Partner intake maps claim number and address onto the `Inspection` at creation (no re-entry). Customer-initiated intake and inbound-email FNOL remain V1.x; V1 intake is staff- or partner-originated.
+Direct and partner (DR/NRPG, Ascora) intake create one `Inspection` with `source`. Captured at intake: customer (`Client` picker, not free-text), claim/incident, property, insurer/referrer where applicable, the **loss timeline** — cause of loss, date of loss, date notified, and first-attendance date/time (required; date of loss governs coverage and mould causation, first-attendance evidences the duty to mitigate) — and **site logistics** — access instructions, parking constraints, container-placement constraints, animals, occupants, storeys, navigation difficulty, initial hazard information, contact/communication history. Partner intake maps claim number and address onto the `Inspection` at creation (no re-entry). Customer-initiated intake and inbound-email FNOL remain V1.x; V1 intake is staff- or partner-originated.
 
-Acceptance: creating a claim requires a `Client` selected from the organisation's records (or created inline); the address, claim number, and site-logistics fields are written once to `Inspection` and read unchanged by inspection, report, portal, and invoice.
+Acceptance: creating a claim requires a `Client` selected from the organisation's records (or created inline) and a recorded date-of-loss and cause-of-loss; the address, claim number, loss-timeline, and site-logistics fields are written once to `Inspection` and read unchanged by inspection, report, portal, and invoice.
 
 ## 11. Scheduling and dispatch
 
 Minimum scheduling is **in V1** (resolves the prior contradiction). V1 supports: appointment with start/end time; assigned technician or team; link to claim + customer + property; current status; access instructions, parking, animals/occupant alerts; required equipment; required competency/role; reschedule; cancel; technician acknowledgement; calendar or list view; audit history.
 
-V1 excludes (→ V1.x): automated route optimisation, AI workforce optimisation, capacity forecasting, multi-depot/dynamic-traffic routing, subcontractor marketplaces.
+"Required competency" in V1 is an **RA-local skill/role tag** on the technician and appointment (an enum/tag owned by the organisation), not a lookup against CARSI credentials; CARSI-credential-gated dispatch is V1.x (it would introduce a cross-system dependency V1 does not otherwise build).
+
+V1 excludes (→ V1.x): automated route optimisation, AI workforce optimisation, capacity forecasting, multi-depot/dynamic-traffic routing, subcontractor marketplaces, CARSI-credential-gated dispatch.
 
 Acceptance: a manager creates an appointment against a claim, assigns a technician with a required role, and the technician sees and acknowledges it; reschedule and cancel emit audit events; assignment respects role/competency and organisation isolation.
 
 ## 12. Inspection
 
-Field-mode capture (offline-first, IndexedDB replay): authority documentation; hazard assessment; property structure; rooms; dimensions; ceiling height; area; cubic volume; affected geometry; images; notes; moisture and atmospheric readings; **measurement provenance** (only `operator_measured` geometry feeds drying/scope calcs — the provenance firewall, RA-ARCH-06 (a)); offline capture and replay with duplicate-safe reconciliation. The guided-capture surface is reachable by technicians (not admin-only). Homeowner capture lands in a quarantine sidecar and never feeds compliance until a technician promotes it.
+Field-mode capture (offline-first, IndexedDB replay): authority documentation; **water Category (S500 Cat 1/2/3) and Class (1–4) classification**, cited to the standard applied — this drives PPE, containment, contents restore-vs-replace, mandatory strip-out, and equipment sizing, so it is a required canonical datum, not a report-time derivation; **structured hazard assessment** across typed classes (asbestos/ACM, electrical, structural, biological) each with a WHS pathway status (suspected / assessed / licensed-removal-required / cleared) — suspected ACM blocks strip-out scope until a pathway is recorded; a **signed, timestamped pre-work safety record (SWMS/JSA)** captured before a technician enters the structure; property structure; rooms; dimensions; ceiling height; area; cubic volume; affected geometry; images; notes; moisture and atmospheric readings; **measurement provenance** (only `operator_measured` geometry feeds drying/scope calcs — the provenance firewall, RA-ARCH-06 (a)); offline capture and replay with duplicate-safe reconciliation. The guided-capture surface is reachable by technicians (not admin-only). Homeowner capture lands in a quarantine sidecar and never feeds compliance until a technician promotes it.
+
+Acceptance: a water claim records a Category and Class with a standard citation before scope generation; a hazard marked suspected-ACM blocks strip-out scope until a WHS pathway is recorded; the pre-work safety record is captured and signed before drying/strip-out work is actioned, and is reproducible from the claim years later.
 
 ## 13. Property twin and sketch
 
@@ -162,7 +171,9 @@ The `ClaimSketch`/`SketchElement` twin is the canonical geometry. Dimensions, ar
 
 ## 16. Contents
 
-`ContentsPackOutItem` owns inventory with per-item condition, photos, and restore/replace decision; a PATCH path exists (edit, not delete-and-recreate). V1 captures contents manually; AI contents recognition, serial/model extraction, replacement-cost research, and pack-out intelligence are V1.x (existing implementations preserved).
+`ContentsPackOutItem` owns inventory with per-item condition, photos, and restore/replace decision; a PATCH path exists (edit, not delete-and-recreate). A decision of replace/dispose is **not actionable without a linked authority-to-dispose** (§8) — a customer's property may not be disposed of without documented, specific consent tied to the item or strip-out. The same disposal-authority gate applies to structural strip-out. V1 captures contents manually; AI contents recognition, serial/model extraction, replacement-cost research, and pack-out intelligence are V1.x (existing implementations preserved).
+
+Acceptance: marking a contents item or strip-out for disposal requires a linked, signed disposal authority; disposal without it is rejected and audited.
 
 ## 17. Scope
 
@@ -200,7 +211,7 @@ An invoice **derives from the approved estimate snapshot** (the `estimateId` con
 
 ## 23. Closure
 
-Closure is server-validated: no generic status bypass; requires delivered-report evidence (bound to a real delivery event, not a user-settable `COMPLETED`), validated financial state, required approvals, and writes hash-chained `ProgressTransition` audit evidence. The ungated `bulk-status` COMPLETED path cannot satisfy `report_sent` (Draft PR #1967, §40). Reopening requires reason and authority and is audited.
+Closure is server-validated: no generic status bypass; requires delivered-report evidence (bound to a real delivery event, not a user-settable `COMPLETED`), **validated financial state** — an invoice must exist and be reconciled (issued with a balancing payment ledger); **full payment is not required to close by default and is an organisation-configurable precondition** — required approvals, and writes hash-chained `ProgressTransition` audit evidence. (Full closure gate in traceability §E.9.) The ungated `bulk-status` COMPLETED path cannot satisfy `report_sent` (Draft PR #1967, §40). Reopening requires reason and authority and is audited.
 
 ## 24. Margot
 
@@ -222,7 +233,7 @@ Margot answers: *what do we know, what is missing, what should happen next, what
 
 ## 25. Completeness engine
 
-Completeness is **deterministic, explainable, and stage-specific — not one universal percentage.** Evaluated by claim type, lifecycle stage, jurisdiction, organisation policy, applicable hazards, work undertaken, required approvals, and required evidence. Returns: known facts, missing requirements, conditional requirements, contradictions, risks, recommended next actions, blocking requirements, human decisions, and the **source of each rule**. Organisation requirements may *extend* the platform baseline but never silently weaken mandatory platform safety/integrity controls. Lives in `lib/margot/completeness.ts` (extends the submission-gate pattern; not a fourth parallel engine). V1 ships the **water-damage** rule pack; architecture supports later packs for fire/smoke, mould, biohazard, trauma, storm, contents-only, general.
+Completeness is **deterministic, explainable, and stage-specific — not one universal percentage.** Evaluated by claim type, lifecycle stage, jurisdiction, organisation policy, applicable hazards, work undertaken, required approvals, and required evidence. Returns: known facts, missing requirements, conditional requirements, contradictions, risks, recommended next actions, blocking requirements, human decisions, and the **source of each rule**. Organisation requirements may *extend* the platform baseline but never silently weaken mandatory platform safety/integrity controls. The completeness output is an **advisory projection** (traceability DO-20): its `blockingRequirements` field advises the human and is surfaced in the UI, but it does **not** itself gate a state transition — enforcement lives in the state machines (§9) and closure gate (§23). The exact per-stage water-damage rule *content* (beyond the §25 baseline minimum) carries the same scaffold latitude granted to drying numeric thresholds (§14): the engine and its S500-cited rule structure build now; the full rule list is an authorised-methodology input tracked as non-blocking (§43). Lives in `lib/margot/completeness.ts` (extends the submission-gate pattern; not a fourth parallel engine). V1 ships the **water-damage** rule pack; architecture supports later packs for fire/smoke, mould, biohazard, trauma, storm, contents-only, general. The water-damage pack's baseline (extensible per organisation, never weakenable below it) must at minimum require: a recorded water Category and Class with citation; a complete loss timeline (cause, date of loss, notified, first-attendance); a signed pre-work safety record; a WHS pathway for any suspected ACM before strip-out; baseline and monitoring-point readings; and a linked disposal authority for any disposed item.
 
 ## 26. BYOK and AI providers
 
@@ -268,7 +279,7 @@ Offline-first field capture with durable mutation queue, per-mutation idempotenc
 
 ## 34. Audit and evidence
 
-Append-only, hash-chained `ProgressTransition` for lifecycle events; chain-of-custody on evidence; signature capture with IP/UA/timestamp; immutable drying and reading history; long-term retention for claim defence years later. No mutable field masquerades as an audit trail.
+Append-only, hash-chained `ProgressTransition` for lifecycle events; chain-of-custody on evidence; signature capture with IP/UA/timestamp; **photographs bound to timestamp, geotag where available, and the room/element they evidence** (so "this image was taken at this property on this date, showing this element" is provable); immutable drying and reading history; long-term retention for claim defence years later. No mutable field masquerades as an audit trail.
 
 ## 35. Analytics
 
@@ -288,7 +299,7 @@ Every V1 capability has testable acceptance criteria. Banned: "works correctly",
 
 ## 39. Seeded V1 reference claim
 
-One canonical seeded end-to-end scenario: a synthetic Australian water-damage claim with partner-or-direct intake, customer, property, difficult access, restricted parking, a dog on site, two storeys, container-placement assessment, multiple rooms, partial-room affected areas, a hazard, an authority form, baseline readings, daily monitoring across multiple points, equipment placement + movement + runtime, photographs, contents items, box location, scope, organisation rate card, estimate, approval, report, delivery, invoice, EFT payment, accounting reconciliation, closure, and Margot completeness guidance. It is run as Owner, Administrator, Manager, Technician, and Customer-portal user, through the supported UI and API paths with **no direct database manipulation**. Passing this scenario is the V1 exit gate (§42, §12 of the implementation sequence).
+One canonical seeded end-to-end scenario: a synthetic Australian water-damage claim with partner-or-direct intake, customer, property, **recorded loss timeline (cause, date of loss, first attendance)**, difficult access, restricted parking, a dog on site, two storeys, container-placement assessment, multiple rooms, partial-room affected areas, **a recorded water Category and Class**, **a signed pre-work safety record**, a typed hazard with WHS pathway, an authority form, baseline readings, daily monitoring across multiple points, equipment placement + movement + runtime, photographs, contents items with a **disposal authority** on any disposed item, box location, scope, organisation rate card, estimate, approval, report, delivery, invoice, EFT payment, and **accounting reconciliation against Xero** (the V1 exit-gate accounting provider; QBO/MYOB supported but not required for the exit gate), closure, and Margot completeness guidance. It is run as Owner, Administrator, Manager, Technician, and Customer-portal user, through the supported UI and API paths with **no direct database manipulation**. Passing this scenario is the V1 exit gate (§42, §12 of the implementation sequence).
 
 ## 40. Migration and deprecation
 
