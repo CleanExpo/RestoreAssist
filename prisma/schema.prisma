@@ -2,20 +2,14 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
+  provider = "prisma-client-js"
+  // Prisma 7 requires an explicit output; keep default node_modules location
+  // so existing `@prisma/client` imports continue to resolve.
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  // DIRECT_URL points at Supabase's direct 5432 port; DATABASE_URL points at the
-  // 6543 transaction-mode pooler. Prisma Client can run against the pooler at
-  // runtime, but `prisma migrate deploy` cannot use a transaction pooler — it
-  // needs the direct connection to obtain advisory locks. Without directUrl,
-  // the Vercel build's migrate step hangs ~45 min and errors out (RA-1494).
-  directUrl  = env("DIRECT_URL")
-  extensions = [pgvector(map: "vector")]
+  provider = "postgresql"
 }
 
 model Account {
