@@ -16,6 +16,7 @@ import { CapturePhotoFab } from "@/components/inspection/CapturePhotoFab";
 import InspectionEvidenceReadinessPanel, {
   type InspectionEvidenceTab,
 } from "@/components/inspection/InspectionEvidenceReadinessPanel";
+import HandoverPackagePanel from "@/components/inspection/HandoverPackagePanel";
 import {
   moistureReadingsRequired,
   type IicrcClaimType,
@@ -184,6 +185,9 @@ interface Inspection {
   completedAt: string | null;
   closeSummary: string | null;
   closePackageStorageKey: string | null;
+  // SP-J — client handover package.
+  handoverCompletedAt: string | null;
+  handoverPackageStorageKey: string | null;
   // RA-6949 — per-job Restoration Pulse notification toggle.
   pulseEnabled: boolean;
   environmentalData: {
@@ -1218,6 +1222,19 @@ export default function InspectionDetailPage({
           completedAt={inspection.completedAt}
           closeSummary={inspection.closeSummary}
           onClosed={() => fetchInspection()}
+        />
+      )}
+
+      {(inspection.status === "CLOSED" ||
+        inspection.handoverCompletedAt ||
+        inspection.handoverPackageStorageKey) && (
+        <HandoverPackagePanel
+          inspectionId={inspection.id}
+          inspectionNumber={inspection.inspectionNumber}
+          status={inspection.status}
+          handoverCompletedAt={inspection.handoverCompletedAt}
+          handoverPackageStorageKey={inspection.handoverPackageStorageKey}
+          onHandedOver={() => fetchInspection()}
         />
       )}
 
