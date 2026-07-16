@@ -1,12 +1,8 @@
-@../Unite-Hub/.portfolio/PORTFOLIO.yaml
-
 ## Identity (SSOT)
 **Canonical name:** RestoreAssist
 **Aliases:** "Restore Assist", "RA"
 **Canonical local path:** `D:$canon`
 **GitHub:** `CleanExpo/RestoreAssist`
-
-> Registry: see `D:\Unite-Hub\.portfolio\PORTFOLIO.yaml` (single source of truth)
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Project:** RestoreAssist — the National Inspection Report (NIR) system (Unite Group, Priority 1)
 **Owner:** Phill McGurk
-**Infrastructure:** Unite-Hub AI Operating System (Next.js + Claude + Supabase)
+**Infrastructure:** Unite Group AI Operating System (Next.js + Claude + Supabase)
 **Prepared by:** Senior PM
 **Status:** Draft v1 for review
 
@@ -28,7 +28,7 @@ The RestoreAssist instance of the Unite Group completion spec:
 
 **The pipeline:** Technician captures measurements (moisture, humidity, temp), timestamped photos, and a structured form (dropdowns, no interpretation) → mobile app auto-validates and uploads → NIR generation: derives state building code from the property address, applies IICRC standards (S500/S520/S700), classifies damage (Category/Class), identifies state triggers, evaluates scope, estimates cost, builds a verification checklist, and writes an audit trail → outputs in three formats: PDF (insurer/client/admin), JSON (claims-system integration), Excel (billing/ops).
 
-**The infrastructure (Unite-Hub):** runs on your existing agent OS. Review roles below map to your agents — Nova (Senior PM), Lens (legal/ethics), Forge (developer), Vex (data/algorithm), Grid (devops). Adjust names if your roster has shifted.
+**The infrastructure (Unite Group):** runs on your existing agent OS. Review roles below map to your agents — Nova (Senior PM), Lens (legal/ethics), Forge (developer), Vex (data/algorithm), Grid (devops). Adjust names if your roster has shifted.
 
 ### 1.2 Reviewer roster → runnable mechanism
 
