@@ -35,7 +35,16 @@ afterEach(() => cleanup());
 
 describe("DocumentExportPackage — honest exports", () => {
   it("offers PDF, Word, ZIP, and JSON — no Coming Soon CTAs", () => {
-    render(<DocumentExportPackage reportId="r1" />);
+    render(
+      <DocumentExportPackage
+        reportId="r1"
+        ownership={{
+          detailedReport: "draft",
+          aiDraftGeneratedAt: "2026-01-01T00:00:00Z",
+          reportOwnershipAcknowledgedAt: null,
+        }}
+      />,
+    );
     expect(screen.getByRole("button", { name: /export pdf/i })).toBeEnabled();
     expect(screen.getByRole("button", { name: /export word/i })).toBeEnabled();
     expect(screen.getByRole("button", { name: /export zip/i })).toBeEnabled();
@@ -45,6 +54,7 @@ describe("DocumentExportPackage — honest exports", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText(/Email delivery from this screen/i)).toBeInTheDocument();
     expect(screen.getByText(/ownership watermark/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ownership status/i)).toBeInTheDocument();
   });
 
   it("fires a success toast after a real PDF export", async () => {
@@ -53,7 +63,15 @@ describe("DocumentExportPackage — honest exports", () => {
       blob: async () => new Blob(["%PDF-1.4"], { type: "application/pdf" }),
     });
 
-    render(<DocumentExportPackage reportId="r1" />);
+    render(
+      <DocumentExportPackage
+        reportId="r1"
+        ownership={{
+          detailedReport: "owned",
+          reportOwnershipAcknowledgedAt: "2026-01-02T00:00:00Z",
+        }}
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: /export pdf/i }));
 
     await waitFor(() => {
@@ -70,7 +88,15 @@ describe("DocumentExportPackage — honest exports", () => {
         new Blob(["PK\u0003\u0004"], { type: "application/zip" }),
     });
 
-    render(<DocumentExportPackage reportId="r1" />);
+    render(
+      <DocumentExportPackage
+        reportId="r1"
+        ownership={{
+          detailedReport: "owned",
+          reportOwnershipAcknowledgedAt: "2026-01-02T00:00:00Z",
+        }}
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: /export zip/i }));
 
     await waitFor(() => {
