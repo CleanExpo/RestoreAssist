@@ -64,7 +64,7 @@ vi.mock("@/lib/supabase-server", () => ({
   }),
 }));
 
-import { POST } from "../route";
+import { POST, GET } from "../route";
 
 beforeEach(() => {
   getServerSession.mockReset();
@@ -247,5 +247,52 @@ describe("POST /api/inspections/[id]/handover — happy path", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error.code).toBe("INTERNAL");
+  });
+});
+
+describe("GET /api/inspections/[id]/handover — re-sign download", () => {
+  function makeGetReq(): NextRequest {
+    return new NextRequest("http://localhost/api/inspections/ins_1/handover", {
+      method: "GET",
+    });
+  }
+
+  it("404 when handover not complete", async () => {
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", name: "A", role: "USER" },
+    });
+    assertInspectionTenancy.mockResolvedValueOnce({
+      ok: true,
+      data: { id: "ins_1", userId: "u_1", workspaceId: "ws_1" },
+    });
+    inspectionFindUnique.mockResolvedValueOnce({
+      handoverCompletedAt: null,
+      handoverPackageStorageKey: null,
+    });
+
+    const res = await GET(makeGetReq(), routeParams);
+    expect(res.status).toBe(404);
+  });
+
+  it("200 + signed URL when package exists", async () => {
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", name: "A", role: "USER" },
+    });
+    assertInspectionTenancy.mockResolvedValueOnce({
+      ok: true,
+      data: { id: "ins_1", userId: "u_1", workspaceId: "ws_1" },
+    });
+    inspectionFindUnique.mockResolvedValueOnce({
+      handoverCompletedAt: new Date("2026-05-15T01:00:00Z"),
+      handoverPackageStorageKey: "handovers/org_1/ins_1/handover-package.zip",
+    });
+
+    const res = await GET(makeGetReq(), routeParams);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.packageUrl).toBe("https://signed.example/handover.zip");
+    expect(body.data.storageKey).toBe(
+      "handovers/org_1/ins_1/handover-package.zip",
+    );
   });
 });
