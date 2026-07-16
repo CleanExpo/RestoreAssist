@@ -113,6 +113,14 @@ export default function EmailSettingsPage() {
           your domain. Without a key, RestoreAssist uses the platform Resend
           account{hasPlatformFallback ? "" : " (not configured on this env)"}.
         </p>
+        <p className="text-xs text-neutral-400 mt-2">
+          <a
+            href="/dashboard/settings/connections"
+            className="underline underline-offset-2 hover:text-neutral-600"
+          >
+            ← All connections
+          </a>
+        </p>
       </div>
 
       {loadError && (
