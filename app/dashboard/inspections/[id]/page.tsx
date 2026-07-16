@@ -13,6 +13,13 @@ import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { NirPilotSurvey } from "@/components/nir-pilot-survey";
 import { MobileNav } from "@/components/mobile/MobileNav";
 import { CapturePhotoFab } from "@/components/inspection/CapturePhotoFab";
+import InspectionEvidenceReadinessPanel, {
+  type InspectionEvidenceTab,
+} from "@/components/inspection/InspectionEvidenceReadinessPanel";
+import {
+  moistureReadingsRequired,
+  type IicrcClaimType,
+} from "@/lib/nir-standards-mapping";
 import dynamic from "next/dynamic";
 const PortalInvitePanel = dynamic(
   () => import("@/components/inspection/PortalInvitePanel"),
@@ -172,6 +179,7 @@ interface Inspection {
   processedAt: string | null;
   signedAt: string | null;
   signedByName: string | null;
+  claimType: string | null;
   // SP-A — terminal-state fields.
   completedAt: string | null;
   closeSummary: string | null;
@@ -349,6 +357,21 @@ export default function InspectionDetailPage({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+
+  // Wave 3 — leave moisture tabs if claim type is not water.
+  useEffect(() => {
+    const waterOnly =
+      moistureReadingsRequired(
+        inspection?.claimType as IicrcClaimType | null | undefined,
+      );
+    if (
+      !waterOnly &&
+      (activeTab === "moisture" || activeTab === "moisture-map")
+    ) {
+      setActiveTab("overview");
+    }
+  }, [inspection?.claimType, activeTab]);
+
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [scopeItems, setScopeItems] = useState<Inspection["scopeItems"]>([]);
   const [showAddScope, setShowAddScope] = useState(false);
@@ -893,6 +916,9 @@ export default function InspectionDetailPage({
     0,
   );
   const isAdmin = session?.user?.role === "ADMIN";
+  const showMoistureTabs = moistureReadingsRequired(
+    inspection.claimType as IicrcClaimType | null | undefined,
+  );
 
   const TABS: {
     key: Tab;
@@ -902,13 +928,17 @@ export default function InspectionDetailPage({
   }[] = [
     { key: "overview", label: "Overview", icon: ClipboardCheck },
     { key: "environmental", label: "Environmental", icon: Thermometer },
-    {
-      key: "moisture",
-      label: "Moisture",
-      icon: Droplets,
-      count: moistureReadings.length,
-    },
-    { key: "moisture-map", label: "Moisture Map", icon: Map },
+    ...(showMoistureTabs
+      ? [
+          {
+            key: "moisture" as Tab,
+            label: "Moisture",
+            icon: Droplets,
+            count: moistureReadings.length,
+          },
+          { key: "moisture-map" as Tab, label: "Moisture Map", icon: Map },
+        ]
+      : []),
     { key: "sketch", label: "Floor Plan", icon: PenLine },
     {
       key: "areas",
@@ -1145,6 +1175,19 @@ export default function InspectionDetailPage({
 
       {/* Status Timeline */}
       <StatusTimeline currentStatus={inspection.status} />
+
+      <InspectionEvidenceReadinessPanel
+        claimType={inspection.claimType}
+        status={inspection.status}
+        photosCount={inspection.photos.length}
+        moistureReadingsCount={moistureReadings.length}
+        affectedAreasCount={affectedAreas.length}
+        classificationsCount={inspection.classifications.length}
+        selectedScopeItemsCount={scopeItems.filter((s) => s.isSelected).length}
+        costEstimateCount={inspection.costEstimates.length}
+        totalCost={totalCost}
+        onSelectTab={(tab) => setActiveTab(tab as InspectionEvidenceTab)}
+      />
 
       {/* Sign-off panel — mirrors the "Generate NIR Report" COMPLETED gate
           (F1 from PR #989). T13 wired EngagementLicenceModal inside the
@@ -1608,8 +1651,8 @@ export default function InspectionDetailPage({
           </div>
         )}
 
-        {/* Moisture Readings Tab */}
-        {activeTab === "moisture" && (
+        {/* Moisture Readings Tab — Wave 3: water claims only */}
+        {activeTab === "moisture" && showMoistureTabs && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-neutral-900 dark:text-white">
@@ -1816,7 +1859,7 @@ export default function InspectionDetailPage({
         )}
 
         {/* Moisture Map Tab */}
-        {activeTab === "moisture-map" && (
+        {activeTab === "moisture-map" && showMoistureTabs && (
           <div>
             {moistureReadings.length > 0 ? (
               <MoistureMappingCanvas readings={moistureReadings} />
