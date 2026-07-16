@@ -19,12 +19,23 @@ describe('lookupAbn', () => {
     expect(result.ok).toBe(true);
   });
 
-  it('returns MALFORMED on non-200 from ABR', async () => {
+  it('returns UPSTREAM_ERROR on non-200 from ABR', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 } as Response);
     const result = await lookupAbn('53004085616');
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.reason).toBe('MALFORMED');
+    expect(result.reason).toBe('UPSTREAM_ERROR');
+  });
+
+  // Defence in depth only. ABR reports auth failures as 200 + Message, not 4xx —
+  // the real bad-GUID path is covered in parse.test.ts. This guards a proxy or
+  // gateway in front of ABR returning 4xx on our behalf.
+  it('returns UPSTREAM_ERROR on a 4xx from in front of ABR', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 403 } as Response);
+    const result = await lookupAbn('53004085616');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('UPSTREAM_ERROR');
   });
 
   it('rejects an invalid ABN before hitting the network', async () => {
@@ -34,8 +45,32 @@ describe('lookupAbn', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it('returns MALFORMED on network failure (rejected fetch)', async () => {
+  it('returns UPSTREAM_ERROR on network failure (rejected fetch)', async () => {
     global.fetch = vi.fn().mockRejectedValue(new Error('network down'));
+    const result = await lookupAbn('53004085616');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('UPSTREAM_ERROR');
+  });
+
+  it('returns UPSTREAM_ERROR when ABR returns unparseable JSON', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => {
+        throw new SyntaxError('Unexpected token < in JSON');
+      },
+    } as unknown as Response);
+    const result = await lookupAbn('53004085616');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('UPSTREAM_ERROR');
+  });
+
+  it('still returns MALFORMED when ABR returns a well-formed 200 it cannot parse', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ Abn: '', EntityName: '' }),
+    } as Response);
     const result = await lookupAbn('53004085616');
     expect(result.ok).toBe(false);
     if (result.ok) return;
