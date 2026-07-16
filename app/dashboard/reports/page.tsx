@@ -31,6 +31,7 @@ import {
 } from "@/components/SessionMetadataCard";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+import AiOwnershipBadge from "@/components/AiOwnershipBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/formatters";
@@ -660,6 +661,7 @@ export default function ReportsPage() {
                           >
                             {report.status || "COMPLETED"}
                           </StatusBadge>
+                          <AiOwnershipBadge report={report} />
                           <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-700/50 text-slate-300 flex items-center gap-1">
                             <span>
                               {hazardIcons[
@@ -898,14 +900,17 @@ export default function ReportsPage() {
                           {report.policyType || "N/A"}
                         </td>
                         <td className="py-4 px-6">
-                          <StatusBadge
-                            tone={
-                              REPORT_STATUS_TONES[report.status ?? ""] ??
-                              "neutral"
-                            }
-                          >
-                            {report.status || "COMPLETED"}
-                          </StatusBadge>
+                          <div className="flex flex-col items-start gap-1.5">
+                            <StatusBadge
+                              tone={
+                                REPORT_STATUS_TONES[report.status ?? ""] ??
+                                "neutral"
+                              }
+                            >
+                              {report.status || "COMPLETED"}
+                            </StatusBadge>
+                            <AiOwnershipBadge report={report} />
+                          </div>
                         </td>
                         <td className="py-4 px-6 font-medium">
                           {formatCost(report.estimatedCost)}
