@@ -16,7 +16,11 @@ import {
   coerceHistoricalWaterFields,
   type AscoraJobRaw,
 } from "../route";
-import { stripNullBytes } from "@/lib/sanitize";
+import {
+  stripNullBytes,
+  stripUnpairedSurrogates,
+  sanitizeForPostgresText,
+} from "@/lib/sanitize";
 
 function makeJob(overrides: Partial<AscoraJobRaw> = {}): AscoraJobRaw {
   return {
@@ -165,5 +169,42 @@ describe("NUL-byte stripping (RA-7026 08P01 prod-crash regression)", () => {
     const job = makeJob({ clientOrderNumber: `PO-${NUL}12345` });
 
     expect(buildHistoricalJobRefreshableFields(job).claimNumber).toBe("PO-12345");
+  });
+});
+
+describe("unpaired-surrogate stripping (RA-7026 08P01 residual — ~215 skipped jobs)", () => {
+  // After the NUL-only fix, 215 historical jobs still hit Postgres 08P01. The
+  // remaining cause in Ascora free-text is an unpaired UTF-16 surrogate — invalid
+  // UTF-8 Postgres rejects the same way. sanitizeForPostgresText covers both.
+  const NUL = String.fromCharCode(0);
+  const HIGH = "\uD83D"; // lone high surrogate (half of an emoji)
+  const LOW = "\uDE00"; // lone low surrogate
+  const EMOJI = String.fromCodePoint(0x1f600); // valid surrogate PAIR (grinning-face emoji, U+1F600)
+
+  it("removes a lone high surrogate but keeps surrounding text", () => {
+    expect(stripUnpairedSurrogates(`site ${HIGH}notes`)).toBe("site notes");
+  });
+
+  it("removes a lone low surrogate", () => {
+    expect(stripUnpairedSurrogates(`a${LOW}b`)).toBe("ab");
+  });
+
+  it("preserves a valid surrogate pair (emoji)", () => {
+    expect(stripUnpairedSurrogates(`done ${EMOJI}`)).toBe(`done ${EMOJI}`);
+  });
+
+  it("sanitizeForPostgresText strips BOTH NUL and unpaired surrogates, keeps emoji", () => {
+    expect(sanitizeForPostgresText(`x${NUL}y${HIGH}z`)).toBe("xyz");
+    expect(sanitizeForPostgresText(`keep ${EMOJI}`)).toBe(`keep ${EMOJI}`);
+  });
+
+  it("scopeOfWorks with a lone surrogate no longer trips 08P01", () => {
+    const job = makeJob({
+      jobDescription: `Extract${HIGH} + dry`,
+      workUndertaken: `Set AFDs${LOW}`,
+    });
+    const scope = buildHistoricalJobRefreshableFields(job).scopeOfWorks ?? "";
+    expect(scope).not.toMatch(/[\uD800-\uDFFF]/);
+    expect(scope).toContain("Extract + dry");
   });
 });

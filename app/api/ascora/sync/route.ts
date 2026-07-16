@@ -31,7 +31,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { encrypt, decrypt } from "@/lib/credential-vault";
 import { isEncryptedToken } from "@/lib/auth/account-tokens";
 import { requireAddon } from "@/lib/entitlements";
-import { stripNullBytes } from "@/lib/sanitize";
+import { sanitizeForPostgresText } from "@/lib/sanitize";
 import { SERVICE_CRM_SKU } from "@/lib/billing/service-crm-addon";
 import { fetchAscoraWithRetry } from "@/lib/integrations/ascora/fetch-with-retry";
 
@@ -407,14 +407,15 @@ export function buildHistoricalJobRefreshableFields(job: AscoraJobRaw): {
     // clientOrderNumber is the AU restoration-industry reference number an
     // insurer/loss adjuster issues and the contractor quotes back on
     // invoices — the closest genuine "claim number" field Ascora exposes.
-    claimNumber: stripNullBytes(job.clientOrderNumber?.trim() || "") || null,
+    claimNumber: sanitizeForPostgresText(job.clientOrderNumber?.trim() || "") || null,
     // jobDescription is the pre-works scope narrative; workUndertaken is the
     // post-completion account of what was actually done — both are training
-    // signal, so keep them together in one narrative field. Strip NUL bytes:
-    // these are free-text from Ascora and a lone U+0000 makes Postgres reject
-    // the whole historicalJob.upsert (08P01) — RA-7026 prod sync blocker.
+    // signal, so keep them together in one narrative field. Sanitize for
+    // Postgres: NUL bytes AND unpaired UTF-16 surrogates in this free-text both
+    // make Postgres reject the historicalJob.upsert (08P01) — RA-7026 prod sync
+    // blocker; the surrogate case skipped ~215 jobs after the NUL-only fix.
     scopeOfWorks:
-      stripNullBytes(
+      sanitizeForPostgresText(
         combineScopeNarratives(job.jobDescription, job.workUndertaken) ?? "",
       ) || null,
   };
@@ -927,7 +928,7 @@ export async function POST(request: NextRequest) {
       for (const job of filteredJobs) {
         const jobTypeName = getJobTypeName(job.jobType);
         const claimType = mapClaimType(jobTypeName) ?? "water";
-        const description = stripNullBytes(
+        const description = sanitizeForPostgresText(
           job.jobDescription?.trim() || job.jobName || `${jobTypeName} job`,
         );
 
