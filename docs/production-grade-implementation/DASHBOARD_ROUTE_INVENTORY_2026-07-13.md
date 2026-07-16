@@ -15,6 +15,10 @@
 | 5 LoadError + Retry banners | **PASS** | Schedule, contractors profile/reviews, sync-history, claims-analysis, interview, admin (users/stats/workflows/cron/blocked), clients, cost-libraries; PARTIAL batch closed |
 | 6 Deferred closure | **PASS** | Word DOCX export; admin RAG ops; Resend email BYOK; OneDrive (env-gated); portal content hub. iCloud remains DEFER |
 | 7 AI report ownership | **PASS** | AI drafts watermarked until holder rewrites + acknowledges; liability on application holder |
+| Enterprise B evidence presentation | **PASS** | Readiness panel; claim-type field/print; handover download UI |
+| Enterprise C connections | **PASS** | Unified `/dashboard/settings/connections` hub for AI / Resend / OneDrive (+ iCloud Coming Soon) |
+| Enterprise D portal + admin | **PASS** | Portal hub empty/status polish; RAG empty corpus + tier health |
+| Enterprise E consistency | **PASS** | Field/portal/AI/health loadError+Retry; Wave 5 inventory remains closed |
 
 ## Totals
 
