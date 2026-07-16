@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,6 +23,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+import { EmptyState } from "@/components/EmptyState";
+import toast from "react-hot-toast";
 
 interface PortalContentItem {
   id: string;
@@ -33,6 +36,12 @@ interface PortalContentItem {
   state: string;
   publishedAt: string | null;
   updatedAt: string;
+}
+
+function stateTone(state: string): StatusTone {
+  if (state === "PUBLISHED") return "success";
+  if (state === "DRAFT") return "neutral";
+  return "warning";
 }
 
 export default function PortalContentAdminPage() {
@@ -105,9 +114,13 @@ export default function PortalContentAdminPage() {
         body: JSON.stringify({ state: nextState }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast.success(
+        nextState === "PUBLISHED" ? "Article published" : "Article unpublished",
+      );
       await load();
     } catch (err) {
       console.error("[portal-content publish]", err);
+      toast.error("Could not update publish state");
     }
   }
 
@@ -118,9 +131,11 @@ export default function PortalContentAdminPage() {
         method: "DELETE",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast.success("Article deleted");
       await load();
     } catch (err) {
       console.error("[portal-content delete]", err);
+      toast.error("Could not delete article");
     }
   }
 
@@ -137,7 +152,23 @@ export default function PortalContentAdminPage() {
         <h1 className="text-2xl font-semibold">Portal content hub</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Manage customer-facing help articles shown on the client portal.
+          Publish only content you are licensed to share — defaults ship when
+          the org has not authored articles yet.
         </p>
+        <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+          <span>
+            Published:{" "}
+            <strong className="text-foreground">
+              {items.filter((i) => i.state === "PUBLISHED").length}
+            </strong>
+          </span>
+          <span>
+            Drafts:{" "}
+            <strong className="text-foreground">
+              {items.filter((i) => i.state === "DRAFT").length}
+            </strong>
+          </span>
+        </div>
       </div>
 
       {loadError ? (
@@ -212,6 +243,12 @@ export default function PortalContentAdminPage() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading…
             </div>
+          ) : items.length === 0 ? (
+            <EmptyState
+              icon={<BookOpen className="h-10 w-10" />}
+              title="No portal articles yet"
+              description="Create a draft FAQ or help article. Until you publish org content, the client portal shows built-in defaults."
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -227,7 +264,11 @@ export default function PortalContentAdminPage() {
                   <TableRow key={item.id}>
                     <TableCell className="font-mono text-xs">{item.slug}</TableCell>
                     <TableCell>{item.category}</TableCell>
-                    <TableCell>{item.state}</TableCell>
+                    <TableCell>
+                      <StatusBadge tone={stateTone(item.state)}>
+                        {item.state}
+                      </StatusBadge>
+                    </TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button
                         type="button"
@@ -248,13 +289,6 @@ export default function PortalContentAdminPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {items.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground">
-                      No articles yet.
-                    </TableCell>
-                  </TableRow>
-                ) : null}
               </TableBody>
             </Table>
           )}
