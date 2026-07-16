@@ -16,8 +16,10 @@ interface CheckResult {
 export function FeatureHealthCard({ postActivation = false }: { postActivation?: boolean } = {}) {
   const [checks, setChecks] = useState<CheckResult[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activating, setActivating] = useState(false);
   const [activateError, setActivateError] = useState<string | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,11 +28,18 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
     const fetchChecks = async () => {
       try {
         const r = await fetch('/api/setup/checks');
-        if (!r.ok) return;
+        if (!r.ok) {
+          if (!cancelled) {
+            setLoadError(`Could not load workspace health (HTTP ${r.status})`);
+            setLoaded(true);
+          }
+          return;
+        }
         const j = await r.json();
         if (cancelled) return;
         const next = Array.isArray(j?.data?.checks) ? j.data.checks : [];
         setChecks(next);
+        setLoadError(null);
         setLoaded(true);
 
         // RA-4990 — stop polling once everything's green. /api/setup/checks
@@ -48,6 +57,10 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
         }
       } catch (err) {
         console.error('[setup] checks fetch failed:', err);
+        if (!cancelled) {
+          setLoadError('Could not load workspace health');
+          setLoaded(true);
+        }
       }
     };
 
@@ -57,7 +70,7 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
       cancelled = true;
       if (intervalId !== null) window.clearInterval(intervalId);
     };
-  }, []);
+  }, [retryTick]);
 
   const reds = checks.filter((c) => c.status === 'red');
   const yellows = checks.filter((c) => c.status === 'yellow');
@@ -76,7 +89,7 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
         setActivateError(j?.error ?? `Activation failed (${r.status})`);
         setActivating(false);
       }
-    } catch (err) {
+    } catch {
       setActivateError('Network error during activation');
       setActivating(false);
     }
@@ -86,7 +99,7 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
     <Card>
       <CardHeader>
         <CardTitle>{postActivation ? 'Workspace health' : 'Ready to activate'}</CardTitle>
-        {loaded && (
+        {loaded && !loadError && (
           <p className="text-sm text-muted-foreground">
             {greens.length} of {checks.length} verified
             {yellows.length > 0 && ` · ${yellows.length} optional skipped`}
@@ -95,7 +108,28 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
         )}
       </CardHeader>
       <CardContent className="space-y-3">
-        {!loaded && (
+        {loadError && (
+          <div
+            role="alert"
+            className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
+          >
+            <p>{loadError}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => {
+                setLoaded(false);
+                setLoadError(null);
+                setRetryTick((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          </div>
+        )}
+        {!loaded && !loadError && (
           <div className="space-y-2">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="flex justify-between items-center">
@@ -106,11 +140,11 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
           </div>
         )}
 
-        {loaded && checks.length === 0 && (
+        {loaded && !loadError && checks.length === 0 && (
           <p className="text-sm text-muted-foreground">No capabilities reported yet.</p>
         )}
 
-        {loaded && checks.length > 0 && (
+        {loaded && !loadError && checks.length > 0 && (
           <ul className="space-y-2">
             {checks.map((c) => (
               <li key={c.capability} className="flex items-start justify-between gap-3 text-sm">
@@ -126,7 +160,7 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
           </ul>
         )}
 
-        {!postActivation && loaded && (
+        {!postActivation && loaded && !loadError && (
           <div className="pt-2 space-y-2">
             <Button
               size="lg"
