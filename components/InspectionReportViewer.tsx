@@ -296,7 +296,9 @@ export default function InspectionReportViewer({
               setIsBasicReport(false);
               setStructuredReportData(null);
               setVisualData(null);
-              toast.success("Inspection report generated successfully");
+              toast.success(
+                "AI draft ready — rewrite in your words, then acknowledge ownership",
+              );
             }
           } else {
             toast.error("Failed to parse report response");
@@ -382,7 +384,7 @@ export default function InspectionReportViewer({
       });
 
       if (response.ok) {
-        toast.success("Report saved successfully");
+        toast.success("Your rewrite was saved — you can now acknowledge ownership");
         setEditing(false);
         fetchReport(); // Refresh report data
       } else {
