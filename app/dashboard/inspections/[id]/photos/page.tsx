@@ -1067,7 +1067,16 @@ export default function InspectionPhotosPage({ params }: PageProps) {
       }
       if (photosRes.ok) {
         const data = await photosRes.json();
-        setPhotos(data.photos ?? []);
+        // RA-7054: default the multi-select label arrays so the grid's
+        // unconditional .includes()/.length derefs never crash on a payload
+        // that omits them.
+        setPhotos(
+          ((data.photos ?? []) as Photo[]).map((p) => ({
+            ...p,
+            affectedMaterial: p.affectedMaterial ?? [],
+            secondaryDamageIndicators: p.secondaryDamageIndicators ?? [],
+          })),
+        );
       }
     } catch {
       // silent fail

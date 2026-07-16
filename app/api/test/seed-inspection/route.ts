@@ -93,14 +93,15 @@ export async function POST(req: NextRequest) {
     extraUpdate.acceptedAt = body.acceptedAt ? new Date(body.acceptedAt) : null;
   }
 
-  // SP-A close-gate seed: create the linked Report + Invoice + ClaimProgress
-  // BEFORE the Inspection upsert so we can FK-link the Inspection to the
-  // Report (Inspection.reportId is the lookup path for loadTransitionContext).
-  // Deterministic IDs keyed off `id` make every rerun a no-op.
+  // SP-A close-gate seed: create the linked Report + Invoice BEFORE the
+  // Inspection upsert so we can FK-link the Inspection to the Report
+  // (Inspection.reportId is the lookup path for loadTransitionContext).
+  // ClaimProgress is upserted AFTER the Inspection — its inspectionId FK
+  // requires the Inspection row to exist, which FK-fails on fresh DBs
+  // otherwise. Deterministic IDs keyed off `id` make every rerun a no-op.
   if (body.readyForClose) {
     const reportId = `${id}-report`;
     const invoiceId = `${id}-invoice`;
-    const progressId = `${id}-progress`;
     const invoiceNumber = `TEST-${id}-INV`;
 
     // Report — status COMPLETED is the state machine's `report_sent` gate.
@@ -151,24 +152,6 @@ export async function POST(req: NextRequest) {
       select: { id: true },
     });
 
-    // ClaimProgress — anchored on inspectionId so the close route's
-    // `claimProgress.updateMany({ where: { inspectionId } })` mirror hits.
-    // ClaimProgress.reportId is required (@unique 1:1 with Report).
-    await prisma.claimProgress.upsert({
-      where: { id: progressId },
-      create: {
-        id: progressId,
-        reportId,
-        inspectionId: id,
-        currentState: "INVOICE_ISSUED",
-      },
-      update: {
-        inspectionId: id,
-        currentState: "INVOICE_ISSUED",
-      },
-      select: { id: true },
-    });
-
     extraCreate.reportId = reportId;
     extraUpdate.reportId = reportId;
   }
@@ -187,6 +170,31 @@ export async function POST(req: NextRequest) {
     update: { status, ...(extraUpdate as any) },
     select: { id: true },
   });
+
+  if (body.readyForClose) {
+    const reportId = `${id}-report`;
+    const progressId = `${id}-progress`;
+
+    // ClaimProgress — anchored on inspectionId so the close route's
+    // `claimProgress.updateMany({ where: { inspectionId } })` mirror hits.
+    // ClaimProgress.reportId is required (@unique 1:1 with Report).
+    // Runs after the Inspection upsert — the inspectionId FK needs the
+    // Inspection row to exist (fresh-DB seeds FK-failed before).
+    await prisma.claimProgress.upsert({
+      where: { id: progressId },
+      create: {
+        id: progressId,
+        reportId,
+        inspectionId: id,
+        currentState: "INVOICE_ISSUED",
+      },
+      update: {
+        inspectionId: id,
+        currentState: "INVOICE_ISSUED",
+      },
+      select: { id: true },
+    });
+  }
 
   return NextResponse.json({ inspectionId: inspection.id });
 }

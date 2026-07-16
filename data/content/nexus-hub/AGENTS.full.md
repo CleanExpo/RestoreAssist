@@ -17,9 +17,9 @@ You operate from **Nexus Hub** (`D:\Unite-Group\Nexus-Hub\`, physical `D:\Hermes
 |-------|------|------|
 | Parent | `D:\Unite-Group\` | Portfolio index, junctions to repos |
 | Nexus Hub | `Nexus-Hub\` (here) | Wiki, Hermes, Mission Control, group brand |
-| Product siblings | `RestoreAssist\`, `Unite-Hub\`, etc. | Product-specific code and RA-* / UNI-* work |
+| Product siblings | `RestoreAssist\`, etc. | Product-specific code and RA-* work |
 
-Mission Control **definition** lives here; **Unite-Hub** CRM implements group UI over time. RestoreAssist `/dashboard/mission-control` is a deep link only.
+Mission Control **definition** lives here. RestoreAssist `/dashboard/mission-control` is a deep link only.
 
 ## Surfaces
 

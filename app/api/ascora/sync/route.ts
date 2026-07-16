@@ -31,6 +31,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { encrypt, decrypt } from "@/lib/credential-vault";
 import { isEncryptedToken } from "@/lib/auth/account-tokens";
 import { requireAddon } from "@/lib/entitlements";
+import { sanitizeForPostgresText } from "@/lib/sanitize";
 import { SERVICE_CRM_SKU } from "@/lib/billing/service-crm-addon";
 import { fetchAscoraWithRetry } from "@/lib/integrations/ascora/fetch-with-retry";
 
@@ -406,14 +407,17 @@ export function buildHistoricalJobRefreshableFields(job: AscoraJobRaw): {
     // clientOrderNumber is the AU restoration-industry reference number an
     // insurer/loss adjuster issues and the contractor quotes back on
     // invoices — the closest genuine "claim number" field Ascora exposes.
-    claimNumber: job.clientOrderNumber?.trim() || null,
+    claimNumber: sanitizeForPostgresText(job.clientOrderNumber?.trim() || "") || null,
     // jobDescription is the pre-works scope narrative; workUndertaken is the
     // post-completion account of what was actually done — both are training
-    // signal, so keep them together in one narrative field.
-    scopeOfWorks: combineScopeNarratives(
-      job.jobDescription,
-      job.workUndertaken,
-    ),
+    // signal, so keep them together in one narrative field. Sanitize for
+    // Postgres: NUL bytes AND unpaired UTF-16 surrogates in this free-text both
+    // make Postgres reject the historicalJob.upsert (08P01) — RA-7026 prod sync
+    // blocker; the surrogate case skipped ~215 jobs after the NUL-only fix.
+    scopeOfWorks:
+      sanitizeForPostgresText(
+        combineScopeNarratives(job.jobDescription, job.workUndertaken) ?? "",
+      ) || null,
   };
 }
 
@@ -920,11 +924,13 @@ export async function POST(request: NextRequest) {
     let historicalJobsUpserted = 0;
     if (!dryRun) {
       const tenantId = userId;
+      let historicalJobErrors = 0;
       for (const job of filteredJobs) {
         const jobTypeName = getJobTypeName(job.jobType);
         const claimType = mapClaimType(jobTypeName) ?? "water";
-        const description =
-          job.jobDescription?.trim() || job.jobName || `${jobTypeName} job`;
+        const description = sanitizeForPostgresText(
+          job.jobDescription?.trim() || job.jobName || `${jobTypeName} job`,
+        );
 
         // Infer IICRC water category/class from the job narrative
         const classification = description
@@ -938,7 +944,7 @@ export async function POST(request: NextRequest) {
         const customerName =
           job.siteCustomer?.name || job.billingCustomer?.name || null;
 
-        await (prisma as any).historicalJob.upsert({
+        const upsertArgs = {
           where: {
             source_externalId: { source: "ascora", externalId: job.jobId },
           },
@@ -983,8 +989,24 @@ export async function POST(request: NextRequest) {
             waterClass: water.waterClass,
             ...buildHistoricalJobRefreshableFields(job),
           },
-        });
-        historicalJobsUpserted++;
+        };
+        try {
+          await (prisma as any).historicalJob.upsert(upsertArgs);
+          historicalJobsUpserted++;
+        } catch (err) {
+          historicalJobErrors++;
+          // One malformed job (e.g. an un-strippable byte in a narrative) must
+          // not abort the whole import and leave lastSyncAt unset — skip + log.
+          console.error(
+            `[ascora-sync] historicalJob upsert failed for job ${job.jobId}:`,
+            err instanceof Error ? err.message : err,
+          );
+        }
+      }
+      if (historicalJobErrors > 0) {
+        console.warn(
+          `[ascora-sync] ${historicalJobErrors}/${filteredJobs.length} historicalJob upserts skipped after errors`,
+        );
       }
     } else {
       historicalJobsUpserted = filteredJobs.length;

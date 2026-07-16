@@ -126,6 +126,25 @@ const ENABLED_TOOLS = TOOL_DEFINITIONS.filter((d) =>
 /** Bound the tool-use loop so a misbehaving model can't spin indefinitely. */
 const MAX_TOOL_ITERATIONS = 4;
 
+/**
+ * Stable signature for a tool_use block: tool name + its args with keys sorted
+ * so re-emissions in a different key order still collide. Used for turn-level
+ * idempotency — write tools (take_reading, fill_scope_item) are unconditional
+ * create()s, so an identical re-emission within the turn (common on model
+ * self-correction/retry) would double-write without this guard. Only IDENTICAL
+ * (same tool + same args) blocks collide; genuinely different readings differ in
+ * args and run independently.
+ */
+function toolSignature(name: string, args: Record<string, unknown>): string {
+  const sorted = Object.keys(args)
+    .sort()
+    .reduce<Record<string, unknown>>((acc, key) => {
+      acc[key] = args[key];
+      return acc;
+    }, {});
+  return `${name}:${JSON.stringify(sorted)}`;
+}
+
 // ---------------------------------------------------------------------------
 // Cost calculation helpers
 // ---------------------------------------------------------------------------
@@ -162,7 +181,11 @@ function computeCostAudCents(
 // Clause reference extraction
 // ---------------------------------------------------------------------------
 
-const CLAUSE_REF_REGEX = /\[(S500|AS\/NZS|NZBS)[^\]]+\]/g;
+// Allow the natural "[IICRC S500:2021 §10.5]" phrasing — an optional "IICRC "
+// prefix before the standard token. The whole bracketed match (prefix included)
+// is stored in clauseRefs; parseClauseRef in citation-validity.ts strips the
+// prefix, so both agree on the parsed standard/clause/edition.
+const CLAUSE_REF_REGEX = /\[(?:IICRC\s+)?(S500|AS\/NZS|NZBS)[^\]]+\]/g;
 
 function extractClauseRefs(text: string): string[] {
   const matches = text.match(CLAUSE_REF_REGEX);
@@ -208,11 +231,15 @@ function buildMessages(
 ): Anthropic.MessageParam[] {
   const messages: Anthropic.MessageParam[] = [];
 
-  // Inject a context block as the first user message if history is empty,
-  // or prepend to the current utterance.
+  // Freshly-built inspection state for THIS turn. The system prompt tells the
+  // model the user message begins with this block and to coach off its
+  // missingFields/stillWet, so it must reach the model on EVERY turn — not only
+  // the first (history is non-empty from turn 2 onward).
   const contextBlock = `[Context: room=${context.currentRoom ?? "unset"}, stage=${context.stage}, jurisdiction=${context.jurisdiction}, missingFields=${context.missingFields.join(", ") || "none"}, stillWet=${context.wetReadings.join("; ") || "none"}]`;
 
-  // Map history turns (skip system — handled in system prompt param)
+  // Map history turns (skip system — handled in system prompt param). Historical
+  // utterances stay raw: retro-prepending the block to each would bloat the
+  // conversation and duplicate stale context.
   for (const turn of history) {
     if (turn.role === "system") continue;
     messages.push({
@@ -221,13 +248,12 @@ function buildMessages(
     });
   }
 
-  // Append the current user utterance with context
-  const userContent =
-    messages.length === 0
-      ? `${contextBlock}\n\n${userUtterance}`
-      : userUtterance;
-
-  messages.push({ role: "user", content: userContent });
+  // Prepend the current inspection state to the CURRENT utterance on every turn,
+  // so the model always sees the latest room/fields/wet-readings.
+  messages.push({
+    role: "user",
+    content: `${contextBlock}\n\n${userUtterance}`,
+  });
 
   return messages;
 }
@@ -251,6 +277,11 @@ export async function invokeClaudeCloud(
   );
 
   const executedToolCalls: ClaudeCloudResult["toolCalls"] = [];
+  // Turn-level idempotency: signature -> the tool_result content already handed
+  // back for it. Spans every iteration of THIS turn's loop, so a write tool
+  // re-emitted with identical args (self-correction/retry, or twice in one
+  // response) is answered from the prior result instead of dispatching again.
+  const executedSignatures = new Map<string, string>();
   let content = "";
   let inputTokens = 0;
   let outputTokens = 0;
@@ -319,6 +350,21 @@ export async function invokeClaudeCloud(
           continue;
         }
 
+        // Turn-level idempotency guard (after the id-clamp, before dispatch): if
+        // an identical tool + args already ran successfully this turn, skip the
+        // write and return the prior result. Only successful runs are recorded,
+        // so a failed call can still be retried to completion.
+        const signature = toolSignature(block.name, safeArgs);
+        const priorResult = executedSignatures.get(signature);
+        if (priorResult !== undefined) {
+          toolResultBlocks.push({
+            type: "tool_result",
+            tool_use_id: block.id,
+            content: priorResult,
+          });
+          continue;
+        }
+
         const startedAt = Date.now();
         let result: unknown;
         let error: string | undefined;
@@ -342,10 +388,14 @@ export async function invokeClaudeCloud(
           error,
           durationMs: Date.now() - startedAt,
         });
+        const resultContent = error
+          ? `Error: ${error}`
+          : JSON.stringify(result ?? {});
+        if (!error) executedSignatures.set(signature, resultContent);
         toolResultBlocks.push({
           type: "tool_result",
           tool_use_id: block.id,
-          content: error ? `Error: ${error}` : JSON.stringify(result ?? {}),
+          content: resultContent,
           ...(error ? { is_error: true } : {}),
         });
       }
@@ -362,6 +412,17 @@ export async function invokeClaudeCloud(
     console.error("[invokeClaudeCloud] Anthropic API error:", err);
     // Nothing produced yet → preserve the existing safe-fallback contract.
     if (!content && executedToolCalls.length === 0) {
+      // RA-7060: this fallback is the ONLY thing the technician sees when the
+      // model call fails. Without a signal, a misconfigured BYOK key fails every
+      // turn silently. Emit a structured, alertable line (Vercel captures
+      // console.error). Marker + sessionId let ops trace which workspace/session
+      // is failing; never log the API key or the request body.
+      console.error("[live-teacher] turn fallback (model call failed)", {
+        sessionId: input.sessionId,
+        model: "claude-opus-4-7",
+        errorName: err instanceof Error ? err.name : "UnknownError",
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
       return {
         content: "I'm having trouble connecting — please try again",
         clauseRefs: [],
@@ -380,24 +441,26 @@ export async function invokeClaudeCloud(
 
   // TODO RA-1087: integrate logAiUsage once the Live Teacher session schema
   // exposes workspaceId. For now, update session cost tallies directly.
-  setImmediate(() => {
-    prisma.liveTeacherSession
-      .updateMany({
-        where: { id: input.sessionId },
-        data: {
-          modelUsedCloud: "claude-opus-4-7",
-          totalInputTokens: { increment: inputTokens },
-          totalOutputTokens: { increment: outputTokens },
-          totalCostAudCents: { increment: costAudCents },
-        },
-      })
-      .catch((err: unknown) => {
-        console.error(
-          "[invokeClaudeCloud] Failed to update session cost tally:",
-          err,
-        );
-      });
-  });
+  // RA-7052: awaited before the return — a serverless freeze after the return
+  // would drop a deferred setImmediate write, silently losing per-turn cost.
+  // A cost-write failure must not abort the turn or lose the utterance, so it
+  // is logged and swallowed, never rethrown.
+  try {
+    await prisma.liveTeacherSession.updateMany({
+      where: { id: input.sessionId },
+      data: {
+        modelUsedCloud: "claude-opus-4-7",
+        totalInputTokens: { increment: inputTokens },
+        totalOutputTokens: { increment: outputTokens },
+        totalCostAudCents: { increment: costAudCents },
+      },
+    });
+  } catch (err: unknown) {
+    console.error(
+      "[invokeClaudeCloud] Failed to update session cost tally:",
+      err,
+    );
+  }
 
   return {
     content,

@@ -27,6 +27,7 @@ export async function checkReportGaps(
       scopeItems: { take: 1, select: { id: true } },
       classifications: { take: 1, select: { id: true } },
       makeSafeActions: {
+        take: 50,
         select: { action: true, applicable: true, completed: true },
       },
     },

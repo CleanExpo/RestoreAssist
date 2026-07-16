@@ -26,6 +26,13 @@ type Status = "idle" | "recording" | "uploading";
 interface Props {
   onTranscript: (transcript: string) => void;
   onStatusChange?: (status: Status) => void;
+  /**
+   * RA-7051: fired when the transcribe route returns 402 (workspace has no
+   * OpenAI key). Lets the caller fall back to another capture tier (e.g. the
+   * browser Web Speech mic) instead of showing a dead-end error. Additive —
+   * callers that don't pass it keep the existing error behaviour.
+   */
+  onUnavailable?: () => void;
   disabled?: boolean;
   /** Max recording duration before auto-stop; default 90 s. */
   maxSeconds?: number;
@@ -40,6 +47,7 @@ interface Props {
 export function VoiceNoteButton({
   onTranscript,
   onStatusChange,
+  onUnavailable,
   disabled,
   maxSeconds = 90,
   compact = false,
@@ -141,6 +149,30 @@ export function VoiceNoteButton({
         // Transient upstream unavailability — queue and retry on reconnect.
         await queueForLater(blob);
         return;
+      }
+
+      if (res.status === 402) {
+        // The transcribe route returns 402 for TWO distinct cases:
+        //  - no workspace OpenAI key -> { error: { code: "PAYMENT_REQUIRED" } }
+        //    (RA-7051): hand off to the caller's fallback tier (e.g. Web Speech)
+        //    rather than surfacing a dead-end.
+        //  - inactive subscription  -> { upgradeRequired: true }: a real block,
+        //    surfaced as the normal error — a mic downgrade would hide it.
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string | { code?: string; message?: string };
+          upgradeRequired?: boolean;
+        };
+        const code = typeof body.error === "object" ? body.error?.code : undefined;
+        if (code === "PAYMENT_REQUIRED" && onUnavailable) {
+          onUnavailable();
+          setStatus("idle");
+          return;
+        }
+        const msg =
+          typeof body.error === "string"
+            ? body.error
+            : body.error?.message || "Active subscription required";
+        throw new Error(msg);
       }
 
       if (!res.ok) {

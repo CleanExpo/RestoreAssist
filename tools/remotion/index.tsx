@@ -8,6 +8,7 @@ import {ClientPortal} from './compositions/client-portal';
 import {SignUp} from './compositions/marketing/sign-up';
 import {SignIn} from './compositions/marketing/sign-in';
 import {WhyRestoreAssist} from './compositions/why-restoreassist';
+import {IndustryPromo} from './compositions/industry-promo';
 import {BYOKExplainer} from './compositions/byok-explainer';
 import {InspectionsList} from './compositions/inspections-list';
 import {EvidenceCapture} from './compositions/evidence-capture';
@@ -69,6 +70,23 @@ import {OnboardingWelcome} from './compositions/onboarding-welcome';
 
 export const RemotionRoot = () => (
   <>
+    {/* Industry promo (to the Professional Restoration Industry) — ElevenLabs VO */}
+    <Composition
+      id="IndustryPromo"
+      component={IndustryPromo}
+      durationInFrames={1605}
+      fps={30}
+      width={1920}
+      height={1080}
+    />
+    <Composition
+      id="IndustryPromoVertical"
+      component={IndustryPromo}
+      durationInFrames={1605}
+      fps={30}
+      width={1080}
+      height={1920}
+    />
     {/* New-client welcome (RA onboarding — top of /setup) */}
     <Composition
       id="OnboardingWelcome"

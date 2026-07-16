@@ -48,7 +48,7 @@ jobs:
         uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version-file: ".nvmrc"
           cache: "pnpm"
@@ -233,13 +233,16 @@ jobs:
 
       # RA-1594 — dependency advisory audit. Surface high / critical CVEs
       # on every PR so they're visible before merge.
-      # RA-6719 (2026-06-17): promoted to ENFORCING — the high prod CVE backlog
-      # is now clean (RA-6728: pnpm audit --audit-level=high --prod exits 0) and
-      # the minimatch CI blocker is resolved (RA-5193). A new high prod CVE now
+      # RA-6719 (2026-06-17): promoted to ENFORCING — a new high prod CVE now
       # fails the PR. Justified suppressions live in package.json
       # pnpm.auditConfig.ignoreGhsas.
+      # 2026-07-15: npm retired the classic `pnpm audit` quick-audit endpoint
+      # (/-/npm/v1/security/audits → HTTP 410), which failed this step on every
+      # PR regardless of CVE state. `audit:prod` queries the bulk advisory
+      # endpoint with identical semantics (prod deps, high/critical, same
+      # ignoreGhsas suppressions).
       - name: Audit dependencies
-        run: pnpm audit --audit-level=high --prod
+        run: pnpm audit:prod
 
       # RA-1546 — Prisma migration-drift gate. Applies every migration
       # in `prisma/migrations/` against the ephemeral Postgres service

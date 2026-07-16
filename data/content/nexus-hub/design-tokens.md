@@ -1,6 +1,6 @@
 # Design tokens — Unite-Group (group / Mission Control)
 
-Product UIs (e.g. RestoreAssist gold/navy) keep their own tokens. These apply to **Nexus Hub**, Hermes Command Center (`/ops`), static Mission Control hub, and future **Unite-Hub CRM** chrome.
+Product UIs (e.g. RestoreAssist gold/navy) keep their own tokens. These apply to **Nexus Hub**, Hermes Command Center (`/ops`), and the static Mission Control hub.
 
 ## Mission Control palette (CEO CRM colours)
 

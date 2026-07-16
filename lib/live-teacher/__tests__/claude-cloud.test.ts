@@ -62,6 +62,9 @@ import {
   type ClaudeCloudInput,
   type ClaudeCloudResult,
 } from "../claude-cloud";
+import { prisma } from "@/lib/prisma";
+
+const updateManyMock = vi.mocked(prisma.liveTeacherSession.updateMany);
 
 // ---------------------------------------------------------------------------
 // Shared test fixtures
@@ -100,6 +103,18 @@ beforeEach(() => {
 function toolUseResponse(name: string, input: Record<string, unknown>) {
   return {
     content: [{ type: "tool_use", id: "tu_1", name, input }],
+    usage: { input_tokens: 80, output_tokens: 30 },
+    stop_reason: "tool_use",
+  };
+}
+
+// A single response carrying several tool_use blocks (distinct ids). Models can
+// emit the same write twice in one turn on self-correction/retry.
+function multiToolUseResponse(
+  blocks: Array<{ id: string; name: string; input: Record<string, unknown> }>,
+) {
+  return {
+    content: blocks.map((b) => ({ type: "tool_use", ...b })),
     usage: { input_tokens: 80, output_tokens: 30 },
     stop_reason: "tool_use",
   };
@@ -229,6 +244,63 @@ describe("invokeClaudeCloud — tool layer (RA-1132f)", () => {
     expect(result.content).toContain("flagged an asbestos hazard");
   });
 
+  it("de-duplicates identical take_reading blocks in one turn (write runs once)", async () => {
+    const identicalArgs = {
+      location: "Bathroom",
+      surfaceType: "drywall",
+      moistureLevel: 45,
+      unit: "PERCENT_MC",
+    };
+    anthropicMock.create
+      .mockResolvedValueOnce(
+        multiToolUseResponse([
+          { id: "tu_a", name: "take_reading", input: { ...identicalArgs } },
+          { id: "tu_b", name: "take_reading", input: { ...identicalArgs } },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        makeSuccessResponse("Logged 45% MC in the bathroom [S500:2021 §10.5]."),
+      );
+    dispatchToolMock.mockResolvedValue({ id: "mr_1", value: 45 });
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    // Only ONE write, despite two identical tool_use blocks in the turn.
+    expect(dispatchToolMock).toHaveBeenCalledTimes(1);
+    expect(
+      result.toolCalls.filter((c) => c.name === "take_reading"),
+    ).toHaveLength(1);
+    expect(result.content).toContain("Logged 45% MC");
+  });
+
+  it("runs two DIFFERENT take_reading blocks independently (both write)", async () => {
+    anthropicMock.create
+      .mockResolvedValueOnce(
+        multiToolUseResponse([
+          {
+            id: "tu_a",
+            name: "take_reading",
+            input: { location: "Bathroom", moistureLevel: 45 },
+          },
+          {
+            id: "tu_b",
+            name: "take_reading",
+            input: { location: "Bathroom", moistureLevel: 60 },
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(makeSuccessResponse("Logged both [S500:2021 §10.5]."));
+    dispatchToolMock.mockResolvedValue({ id: "mr_x" });
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    // Two genuine readings (different moistureLevel) both run.
+    expect(dispatchToolMock).toHaveBeenCalledTimes(2);
+    expect(
+      result.toolCalls.filter((c) => c.name === "take_reading"),
+    ).toHaveLength(2);
+  });
+
   it("runs check_report_gaps (read-only) with the injected id and returns gaps", async () => {
     anthropicMock.create
       .mockResolvedValueOnce(
@@ -278,6 +350,21 @@ describe("invokeClaudeCloud", () => {
     expect(result.outputTokens).toBe(50);
   });
 
+  it("extracts a clauseRef when the model writes the IICRC-prefixed form", async () => {
+    const responseText =
+      "Category 2 water (Grey Water) has a moisture reading above 20% WME " +
+      "[IICRC S500:2021 §10.5].";
+
+    anthropicMock.create.mockResolvedValueOnce(
+      makeSuccessResponse(responseText),
+    );
+
+    const result: ClaudeCloudResult = await invokeClaudeCloud(baseInput);
+
+    expect(result.clauseRefs).toContain("[IICRC S500:2021 §10.5]");
+    expect(result.clauseRefs).toHaveLength(1);
+  });
+
   // -------------------------------------------------------------------------
   // Test 2: API error returns structured fallback result
   // -------------------------------------------------------------------------
@@ -298,6 +385,42 @@ describe("invokeClaudeCloud", () => {
     expect(result.costAudCents).toBe(0);
   });
 
+  // RA-7060: the silent-failure path must be observable. When the model call
+  // fails and the user gets the fallback, a structured [live-teacher] line must
+  // be emitted (Vercel captures console.error → alertable) carrying the session
+  // id and the error name/message — but never the API key or request body.
+  it("emits a structured [live-teacher] error log on the fallback path", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    anthropicMock.create.mockRejectedValueOnce(new Error("Network timeout"));
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    // Fallback content is still returned unchanged.
+    expect(result.content).toBe(
+      "I'm having trouble connecting — please try again",
+    );
+
+    // A [live-teacher]-marked structured log fired with the session context.
+    const markerCall = errorSpy.mock.calls.find(
+      (call) =>
+        typeof call[0] === "string" &&
+        (call[0] as string).includes("[live-teacher]"),
+    );
+    expect(markerCall).toBeDefined();
+    expect(markerCall?.[1]).toMatchObject({
+      sessionId: "session-001",
+      model: "claude-opus-4-7",
+      errorName: "Error",
+      errorMessage: "Network timeout",
+    });
+
+    // Never log the workspace API key.
+    const serialised = JSON.stringify(errorSpy.mock.calls);
+    expect(serialised).not.toContain(baseInput.apiKey);
+
+    errorSpy.mockRestore();
+  });
+
   // -------------------------------------------------------------------------
   // Test 3: Response with no clause references returns clauseRefs: []
   // -------------------------------------------------------------------------
@@ -316,6 +439,48 @@ describe("invokeClaudeCloud", () => {
     expect(result.content).toBe(responseText);
     // Should not throw — confidence just uses the hedge-less base
     expect(result.confidence).toBeGreaterThanOrEqual(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // RA-7052: the per-turn cost write is AWAITED before the return, not
+  // deferred via setImmediate. A serverless freeze after the return would
+  // drop a deferred write and silently lose per-turn cost.
+  // -------------------------------------------------------------------------
+
+  it("writes the session cost tally in-window (before invokeClaudeCloud resolves)", async () => {
+    updateManyMock.mockClear();
+    anthropicMock.create.mockResolvedValueOnce(
+      makeSuccessResponse("Category 2 grey water. [S500:2021 §10.3.2]"),
+    );
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    // The write has already happened by the time the awaited call resolves —
+    // proving it is not deferred to a later macrotask (setImmediate/next tick).
+    expect(updateManyMock).toHaveBeenCalledTimes(1);
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: "session-001" },
+      data: {
+        modelUsedCloud: "claude-opus-4-7",
+        totalInputTokens: { increment: 100 },
+        totalOutputTokens: { increment: 50 },
+        totalCostAudCents: { increment: result.costAudCents },
+      },
+    });
+  });
+
+  it("does not throw or lose the utterance when the cost write fails", async () => {
+    updateManyMock.mockRejectedValueOnce(new Error("db unavailable"));
+    anthropicMock.create.mockResolvedValueOnce(
+      makeSuccessResponse("Use a penetrating probe meter. [S500:2021 §7.1]"),
+    );
+
+    const result = await invokeClaudeCloud(baseInput);
+
+    // Turn still resolves with the assistant content — cost-write failure is
+    // logged and swallowed, never rethrown.
+    expect(result.content).toContain("penetrating probe meter");
+    expect(result.clauseRefs).toContain("[S500:2021 §7.1]");
   });
 
   // -------------------------------------------------------------------------
@@ -385,5 +550,77 @@ describe("invokeClaudeCloud", () => {
     expect(firstMessage).toContain(
       "stillWet=Bathroom: plasterboard at 22% is above the 1% dry standard",
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 6: the context block must reach the model on EVERY turn, not just the
+  // first. The turn route loads prior turns into `history`, so from turn 2 on
+  // `messages` is non-empty; if the block only rode the first user message the
+  // coach would go blind to new readings/rooms/filled fields (regression guard).
+  // -------------------------------------------------------------------------
+
+  it("prepends the fresh context block to the current utterance when history is non-empty", async () => {
+    anthropicMock.create.mockResolvedValueOnce(makeSuccessResponse("Noted."));
+
+    await invokeClaudeCloud({
+      ...baseInput,
+      context: {
+        ...baseInput.context,
+        currentRoom: "Kitchen",
+        stage: "classification",
+        missingFields: ["water category (S500 §10.5)"],
+        wetReadings: ["Kitchen: subfloor at 18% above dry standard"],
+      },
+      history: [
+        { role: "user", content: "We just moved into the kitchen." },
+        { role: "assistant", content: "Noted the kitchen [S500:2021 §10.5]." },
+      ],
+    });
+
+    const callArg = anthropicMock.create.mock.calls[0][0] as {
+      messages: Array<{ role: string; content: string }>;
+    };
+
+    // History turns precede the current one and stay raw (no retro-prepend).
+    expect(callArg.messages).toHaveLength(3);
+    expect(callArg.messages[0].content).toBe("We just moved into the kitchen.");
+    expect(callArg.messages[0].content).not.toContain("[Context:");
+    expect(callArg.messages[1].content).not.toContain("[Context:");
+
+    // The CURRENT (last) user message carries the freshly-built context block.
+    const currentMessage = callArg.messages[2];
+    expect(currentMessage.role).toBe("user");
+    expect(currentMessage.content).toContain("room=Kitchen");
+    expect(currentMessage.content).toContain("stage=classification");
+    expect(currentMessage.content).toContain(
+      "missingFields=water category (S500 §10.5)",
+    );
+    expect(currentMessage.content).toContain(
+      "stillWet=Kitchen: subfloor at 18% above dry standard",
+    );
+    expect(currentMessage.content).toContain(baseInput.userUtterance);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 7: turn 1 (empty history) still carries the context block on the sole
+  // user message — the fix must not regress the first-turn behaviour.
+  // -------------------------------------------------------------------------
+
+  it("still prepends the context block on turn 1 (empty history)", async () => {
+    anthropicMock.create.mockResolvedValueOnce(makeSuccessResponse("Noted."));
+
+    await invokeClaudeCloud({
+      ...baseInput,
+      context: { ...baseInput.context, currentRoom: "Laundry" },
+      history: [],
+    });
+
+    const callArg = anthropicMock.create.mock.calls[0][0] as {
+      messages: Array<{ role: string; content: string }>;
+    };
+
+    expect(callArg.messages).toHaveLength(1);
+    expect(callArg.messages[0].content).toContain("room=Laundry");
+    expect(callArg.messages[0].content).toContain(baseInput.userUtterance);
   });
 });

@@ -7,10 +7,63 @@ import {
   fireEvent,
   within,
 } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { VoiceAssistant } from "../VoiceAssistant";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
+// RA-7051: VoiceAssistant reuses VoiceNoteButton, which imports the offline
+// queue. Mock it (same idiom as voice-note-button.test.tsx) so the offline
+// path is observable without IndexedDB.
+const queueVoiceNote = vi.fn();
+vi.mock("@/lib/voice-note-queue", () => ({
+  queueVoiceNote: (...args: unknown[]) => queueVoiceNote(...args),
+}));
+
+import { VoiceAssistant } from "../VoiceAssistant";
+
+// RA-7051: minimal MediaRecorder + getUserMedia stand-ins (same idiom as
+// components/voice/__tests__/voice-note-button.test.tsx) so the Whisper
+// push-to-talk path runs under jsdom.
+class FakeMediaRecorder {
+  static isTypeSupported() {
+    return true;
+  }
+  state: "inactive" | "recording" = "inactive";
+  ondataavailable: ((e: { data: Blob }) => void) | null = null;
+  onstop: (() => void) | null = null;
+  constructor(
+    public stream: MediaStream,
+    public options?: unknown,
+  ) {}
+  start() {
+    this.state = "recording";
+  }
+  stop() {
+    this.state = "inactive";
+    this.ondataavailable?.({ data: new Blob(["chunk"], { type: "audio/webm" }) });
+    this.onstop?.();
+  }
+}
+
+function mockGetUserMedia(reject = false) {
+  const stream = {
+    getTracks: () => [{ stop: vi.fn() }],
+  } as unknown as MediaStream;
+  Object.defineProperty(window.navigator, "mediaDevices", {
+    value: {
+      getUserMedia: reject
+        ? vi.fn().mockRejectedValue(new Error("Permission denied"))
+        : vi.fn().mockResolvedValue(stream),
+    },
+    configurable: true,
+  });
+}
+
+async function recordOnce() {
+  fireEvent.click(screen.getByRole("button", { name: "Start voice note" }));
+  await waitFor(() => screen.getByRole("button", { name: "Stop recording" }));
+  fireEvent.click(screen.getByRole("button", { name: "Stop recording" }));
+}
 
 function streamResponse(frames: string[]): Response {
   const encoder = new TextEncoder();
@@ -413,4 +466,336 @@ describe("VoiceAssistant", () => {
       ).toBeInTheDocument(),
     );
   });
+});
+
+describe("VoiceAssistant — voice-lite push-to-talk (RA-7051)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    Element.prototype.scrollIntoView = vi.fn();
+    queueVoiceNote.mockReset();
+    mockGetUserMedia();
+    (global as unknown as { MediaRecorder: unknown }).MediaRecorder =
+      FakeMediaRecorder;
+    Object.defineProperty(window.navigator, "onLine", {
+      value: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads replies aloud by default when speech synthesis is available", () => {
+    vi.stubGlobal("speechSynthesis", { cancel: vi.fn(), speak: vi.fn() });
+    render(<VoiceAssistant inspectionId="insp1" />);
+    const control = screen.getByRole("checkbox", { name: /read replies aloud/i });
+    expect(control).toBeChecked();
+  });
+
+  it("drops the Whisper transcript into the input and does not auto-send", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/ai/voice-note-transcribe") {
+        return Promise.resolve({
+          status: 200,
+          ok: true,
+          json: async () => ({ transcript: "Is this Category 3 water?" }),
+        } as unknown as Response);
+      }
+      if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);
+      return Promise.resolve(
+        streamResponse([
+          `data: ${JSON.stringify({ type: "token", content: "Yes." })}\n\n`,
+          `data: ${JSON.stringify({ type: "done", utteranceId: "u1", clauseRefs: [], confidence: 0.9 })}\n\n`,
+        ]),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    await recordOnce();
+
+    const textarea = await screen.findByLabelText<HTMLTextAreaElement>(
+      "Ask the Live Teacher",
+    );
+    await waitFor(() =>
+      expect(textarea.value).toBe("Is this Category 3 water?"),
+    );
+    // The transcript must NOT auto-post a turn — the tech reviews then taps Ask.
+    expect(
+      fetchMock.mock.calls.some((c) => c[0] === "/api/live-teacher/turn"),
+    ).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some((c) => c[0] === "/api/live-teacher/turn"),
+      ).toBe(true),
+    );
+  });
+
+  it("ignores an empty transcript (no turn, no throw)", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/ai/voice-note-transcribe") {
+        return Promise.resolve({
+          status: 200,
+          ok: true,
+          json: async () => ({ transcript: "   " }),
+        } as unknown as Response);
+      }
+      return Promise.resolve(sessionOk);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    await recordOnce();
+
+    const textarea = screen.getByLabelText<HTMLTextAreaElement>(
+      "Ask the Live Teacher",
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Start voice note" })).toBeEnabled(),
+    );
+    expect(textarea.value).toBe("");
+    expect(
+      fetchMock.mock.calls.some((c) => c[0] === "/api/live-teacher/turn"),
+    ).toBe(false);
+  });
+
+  it("falls back to the Web Speech mic when transcribe returns 402", async () => {
+    // Web Speech must be supported for the fallback tier to render.
+    class FakeRecognition {
+      lang = "";
+      interimResults = false;
+      continuous = false;
+      onresult: unknown = null;
+      onend: unknown = null;
+      onerror: unknown = null;
+      start = vi.fn();
+      stop = vi.fn();
+    }
+    (window as unknown as { SpeechRecognition: unknown }).SpeechRecognition =
+      FakeRecognition;
+
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/ai/voice-note-transcribe") {
+        return Promise.resolve({
+          status: 402,
+          ok: false,
+          json: async () => ({ error: { code: "PAYMENT_REQUIRED" } }),
+        } as unknown as Response);
+      }
+      return Promise.resolve(sessionOk);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    await recordOnce();
+
+    // The Web Speech "Speak" button appears; the panel does not dead-end.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Start voice input" }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Start voice note" }),
+    ).not.toBeInTheDocument();
+
+    delete (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition;
+  });
+
+  it("shows a type-instead message when neither Whisper nor Web Speech is available", async () => {
+    // No SpeechRecognition on window (iPad Safari / Firefox) → micSupported
+    // false. Combined with a no-key 402 from transcribe, the mic area must not
+    // dead-end.
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/ai/voice-note-transcribe") {
+        return Promise.resolve({
+          status: 402,
+          ok: false,
+          json: async () => ({ error: { code: "PAYMENT_REQUIRED" } }),
+        } as unknown as Response);
+      }
+      return Promise.resolve(sessionOk);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    await recordOnce();
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Voice unavailable on this device/i),
+      ).toBeInTheDocument(),
+    );
+    // Neither mic tier renders, but the textarea stays usable.
+    expect(
+      screen.queryByRole("button", { name: "Start voice note" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Start voice input" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByLabelText<HTMLTextAreaElement>("Ask the Live Teacher"),
+    ).toBeEnabled();
+  });
+
+  it("queues offline instead of posting a turn", async () => {
+    Object.defineProperty(window.navigator, "onLine", {
+      value: false,
+      configurable: true,
+    });
+    queueVoiceNote.mockResolvedValue("vn-1");
+    const fetchMock = vi.fn(() => Promise.resolve(sessionOk));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    await recordOnce();
+
+    await waitFor(() => expect(queueVoiceNote).toHaveBeenCalledTimes(1));
+    const textarea = screen.getByLabelText<HTMLTextAreaElement>(
+      "Ask the Live Teacher",
+    );
+    expect(textarea.value).toBe("");
+    expect(
+      fetchMock.mock.calls.some((c) => c[0] === "/api/live-teacher/turn"),
+    ).toBe(false);
+  });
+
+  it("stays idle when microphone permission is denied", async () => {
+    mockGetUserMedia(true);
+    const fetchMock = vi.fn(() => Promise.resolve(sessionOk));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    fireEvent.click(screen.getByRole("button", { name: "Start voice note" }));
+
+    // No crash; the Whisper button remains ready and no turn is posted.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Start voice note" }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      fetchMock.mock.calls.some((c) => c[0] === "/api/live-teacher/turn"),
+    ).toBe(false);
+  });
+});
+
+describe("VoiceAssistant — pilot UX fixes (F7/F8/F10)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    Element.prototype.scrollIntoView = vi.fn();
+    Object.defineProperty(window.navigator, "onLine", {
+      value: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("F7: surfaces an explicit offline state and preserves the typed question when the request drops in a dead-zone", async () => {
+    Object.defineProperty(window.navigator, "onLine", {
+      value: false,
+      configurable: true,
+    });
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);
+      // Dead-zone: the /turn request never leaves the device.
+      return Promise.reject(new TypeError("Failed to fetch"));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    ask("What category is this?");
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/you're offline — your question wasn't sent/i),
+      ).toBeInTheDocument(),
+    );
+    // The typed question is preserved in the input so it isn't lost.
+    const textarea = screen.getByLabelText<HTMLTextAreaElement>(
+      "Ask the Live Teacher",
+    );
+    expect(textarea.value).toBe("What category is this?");
+    // The un-sent question lives ONLY in the input — no lingering transcript
+    // bubble or pending placeholder (getAllByText would find 2 if a bubble
+    // remained alongside the restored textarea value).
+    expect(screen.getAllByText("What category is this?")).toHaveLength(1);
+    // Ask is usable again for the retry.
+    expect(screen.getByRole("button", { name: "Ask" })).toBeEnabled();
+  });
+
+  it("F8: shows a session-expired sign-in CTA on 401 and keeps the question", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/live-teacher/session") return Promise.resolve(sessionOk);
+      return Promise.resolve({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: "unauthorized" }),
+      } as unknown as Response);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<VoiceAssistant inspectionId="insp1" />);
+    ask("What category?");
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Sign in" }),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/session expired/i)).toBeInTheDocument();
+    // Not a generic "could not answer" error, and the question survives for
+    // after sign-in.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    const textarea = screen.getByLabelText<HTMLTextAreaElement>(
+      "Ask the Live Teacher",
+    );
+    expect(textarea.value).toBe("What category?");
+  });
+
+  it.each([
+    ["iPhone", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Safari", "ios"],
+    ["Android", "Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/120", "android"],
+    ["desktop", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/120", "web"],
+  ])(
+    "F10: derives deviceOs from a %s user agent",
+    async (_label, userAgent, expected) => {
+      Object.defineProperty(window.navigator, "userAgent", {
+        value: userAgent,
+        configurable: true,
+      });
+      const fetchMock = vi.fn((url: string) => {
+        if (url === "/api/live-teacher/session")
+          return Promise.resolve(sessionOk);
+        return Promise.resolve(
+          streamResponse([
+            `data: ${JSON.stringify({ type: "done", utteranceId: "u1", clauseRefs: [], confidence: 0.9 })}\n\n`,
+          ]),
+        );
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      render(<VoiceAssistant inspectionId="insp1" />);
+      ask("hi");
+
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.some(
+            (c) => c[0] === "/api/live-teacher/session",
+          ),
+        ).toBe(true),
+      );
+      const sessionCall = fetchMock.mock.calls.find(
+        (c) => c[0] === "/api/live-teacher/session",
+      );
+      const body = JSON.parse((sessionCall![1] as RequestInit).body as string);
+      expect(body.deviceOs).toBe(expected);
+    },
+  );
 });

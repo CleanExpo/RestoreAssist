@@ -22,6 +22,8 @@ import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { validateSubmissionPayload } from "@/lib/services/inspection/validate-submission";
 import { apiError, fromException } from "@/lib/api-errors";
+import { normalizeClaimType } from "@/lib/evidence/claim-type";
+import { validateSubmission } from "@/lib/evidence/submission-gate";
 import { InspectionStatus } from "@prisma/client";
 
 // POST - Submit inspection for processing
@@ -276,6 +278,38 @@ export async function POST(
             "Inspection has already been submitted or is not in DRAFT state.",
           status: 409,
         });
+      }
+
+      // RA-7052: "after" completeness snapshot for this inspection. Genuinely
+      // fire-and-forget (mirrors the onNextAction nudge above) so it never
+      // delays the submit response. Targets only the single most-recent
+      // still-open session — stamping every open session would clobber each
+      // one's endedAt and corrupt the per-session before/after delta. No open
+      // session is a no-op, not an error.
+      const claimType = normalizeClaimType(inspection.claimType);
+      if (claimType) {
+        void (async () => {
+          const validation = await validateSubmission(id, claimType);
+          const openSession = await prisma.liveTeacherSession.findFirst({
+            where: { inspectionId: id, finalCompletionPct: null },
+            orderBy: { startedAt: "desc" },
+            select: { id: true },
+          });
+          if (openSession) {
+            await prisma.liveTeacherSession.update({
+              where: { id: openSession.id },
+              data: {
+                finalCompletionPct: validation.completionPercentage,
+                endedAt: new Date(),
+              },
+            });
+          }
+        })().catch((snapshotError) =>
+          console.error(
+            "[submit] final-completeness snapshot failed (non-blocking):",
+            snapshotError,
+          ),
+        );
       }
 
       // Create audit log — includes supplementary field gaps for follow-up tracking

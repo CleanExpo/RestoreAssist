@@ -6897,6 +6897,8 @@ model LiveTeacherSession {
   jurisdiction      String // "AU" | "NZ"
   deviceOs          String // "ios" | "android" | "web"
   hadLidar          Boolean            @default(false)
+  startCompletionPct Int?              // RA-7052
+  finalCompletionPct Int?              // RA-7052
   utterances        TeacherUtterance[]
   toolCalls         TeacherToolCall[]
 
@@ -6918,6 +6920,7 @@ model TeacherUtterance {
   ranOnDevice    Boolean            @default(false)
   createdAt      DateTime           @default(now())
 
+  @@unique([sessionId, turnIndex]) // RA-7059 — reject colliding turnIndex from concurrent /turn POSTs
   @@index([sessionId, turnIndex])
 }
 

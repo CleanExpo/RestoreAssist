@@ -13,7 +13,7 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Australia/Brisbane"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
     groups:
@@ -22,7 +22,8 @@ updates:
           - "minor"
           - "patch"
     # Security advisories always open a PR immediately — they bypass
-    # the grouped schedule and appear with the `security` label.
+    # the grouped schedule and the ignore rules below, and appear with the
+    # `security` label. So suppressing routine majors does NOT hide CVEs.
     ignore:
       # Prisma 7.x is incompatible with @auth/prisma-adapter@2.11.2 (NextAuth
       # session breaks at runtime — `/api/auth/error` 500s on every credentials
@@ -32,6 +33,14 @@ updates:
         versions: [">=7.0.0"]
       - dependency-name: "@prisma/client"
         versions: [">=7.0.0"]
+      # Stop the major-version firehose: routine `version-update:semver-major`
+      # bumps are breaking by definition and each rewrites the lockfile, so they
+      # pile up as conflicting + red PRs (undici 6→7, ai 6→7, @ai-sdk 3→4,
+      # nanoid 5→6, firebase-admin 13→14, …). Do majors deliberately, one at a
+      # time, once compat is verified. Security-advisory majors STILL come
+      # through (they bypass ignore).
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

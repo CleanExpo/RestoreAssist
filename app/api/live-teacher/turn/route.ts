@@ -28,6 +28,53 @@ function sseEvent(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
 
+// RA-7059 — turnIndex is derived from a count()-then-insert, so two overlapping
+// /turn POSTs on one session can read the same count and write colliding
+// turnIndex rows (which then corrupt the audit route's orderBy: turnIndex). The
+// @@unique([sessionId, turnIndex]) constraint now rejects the duplicate with
+// Prisma error P2002; on that, re-derive the next index from max(turnIndex)+1
+// and retry so concurrent turns land on distinct sequential indices. The normal
+// non-concurrent path inserts on the first attempt and is unchanged.
+const MAX_TURN_INSERT_ATTEMPTS = 3;
+
+async function createUtteranceWithUniqueIndex(
+  sessionId: string,
+  startIndex: number,
+  fields: {
+    role: string;
+    content: string;
+    clauseRefs: string[];
+    confidence?: number;
+  },
+): Promise<{ id: string; turnIndex: number }> {
+  let turnIndex = startIndex;
+  for (let attempt = 0; attempt < MAX_TURN_INSERT_ATTEMPTS; attempt++) {
+    try {
+      const row = await prisma.teacherUtterance.create({
+        data: { sessionId, turnIndex, ...fields },
+        select: { id: true },
+      });
+      return { id: row.id, turnIndex };
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002" &&
+        attempt < MAX_TURN_INSERT_ATTEMPTS - 1
+      ) {
+        const max = await prisma.teacherUtterance.aggregate({
+          where: { sessionId },
+          _max: { turnIndex: true },
+        });
+        turnIndex = (max._max.turnIndex ?? -1) + 1;
+        continue;
+      }
+      throw err;
+    }
+  }
+  // Unreachable: the loop returns on success or throws on the final attempt.
+  throw new Error("turnIndex assignment exhausted retries");
+}
+
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
@@ -167,17 +214,16 @@ export async function POST(request: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        // Persist user turn
-        await prisma.teacherUtterance.create({
-          data: {
-            sessionId: body.sessionId,
-            turnIndex: turnCount,
+        // Persist user turn (RA-7059: collision-safe index assignment)
+        const userUtterance = await createUtteranceWithUniqueIndex(
+          body.sessionId,
+          turnCount,
+          {
             role: "user",
             content: body.utterance.trim(),
             clauseRefs: [],
           },
-          select: { id: true },
-        });
+        );
 
         // Get assistant response from the real cloud client (RA-6731).
         // invokeClaudeCloud handles its own API errors (Rule 7) and returns a
@@ -194,18 +240,18 @@ export async function POST(request: NextRequest) {
         // is a 0..1 Float, so normalise before persisting/streaming.
         const confidence = result.confidence / 100;
 
-        // Persist assistant turn first so tool-call rows can link to it.
-        const assistantUtterance = await prisma.teacherUtterance.create({
-          data: {
-            sessionId: body.sessionId,
-            turnIndex: turnCount + 1,
+        // Persist assistant turn first so tool-call rows can link to it. Its
+        // index follows the user turn's actual (post-retry) index (RA-7059).
+        const assistantUtterance = await createUtteranceWithUniqueIndex(
+          body.sessionId,
+          userUtterance.turnIndex + 1,
+          {
             role: "assistant",
             content: result.content,
             clauseRefs: result.clauseRefs,
             confidence,
           },
-          select: { id: true },
-        });
+        );
 
         // RA-1132f — persist each tool call and stream an event so the client
         // can show what the teacher did. Emitted before the token so the

@@ -49,6 +49,76 @@ function toNum(v: unknown): number | undefined {
   return undefined;
 }
 
+// Labour-specific field names. An object carrying any of these is a labour row;
+// used to recognise labour arrays anywhere in the payload without matching
+// unrelated arrays (jobs, customers, notes).
+const LABOUR_SIGNAL_KEYS = [
+  "roleName",
+  "labourType",
+  "numberOfHours",
+  "hourlyRateExTax",
+  "hourlyRate",
+  "isChargeable",
+  "chargeable",
+];
+
+function looksLikeLabour(v: unknown): boolean {
+  return (
+    !!v &&
+    typeof v === "object" &&
+    !Array.isArray(v) &&
+    LABOUR_SIGNAL_KEYS.some((k) => k in (v as Record<string, unknown>))
+  );
+}
+
+/**
+ * Shape-agnostic fallback for when the known container keys don't yield a
+ * labour array — some Ascora responses nest the rows deeper (e.g.
+ * `{ jobLabours: { jobLabour: [...] } }`) or return a single labour object
+ * instead of an array. Finds the first labour-shaped array anywhere in the
+ * payload, or wraps a lone labour object. Keyed on labour-specific fields so
+ * unrelated arrays are never picked up. Returns [] when nothing labour-shaped
+ * exists (a genuinely empty result).
+ */
+export function findLabourRows(v: unknown, depth = 5): unknown[] {
+  if (Array.isArray(v)) return v.some(looksLikeLabour) ? v : [];
+  if (looksLikeLabour(v)) return [v];
+  if (v && typeof v === "object" && depth > 0) {
+    for (const val of Object.values(v as Record<string, unknown>)) {
+      const found = findLabourRows(val, depth - 1);
+      if (found.length) return found;
+    }
+  }
+  return [];
+}
+
+/**
+ * Structural description of a value — key names + value TYPES, two levels deep,
+ * VALUES OMITTED so no customer data enters logs or metadata. Turns an opaque
+ * "labour parsed empty" into a diagnosable shape, e.g.
+ * "{success:boolean,jobLabours:array[0]}" (genuinely empty) vs
+ * "{success:boolean,jobLabours:{jobLabour:array[3]}}" (nested — parser gap).
+ */
+export function describeShape(v: unknown, depth = 2): string {
+  if (v === null) return "null";
+  if (Array.isArray(v)) {
+    return depth > 0 && v.length
+      ? `array[${v.length}]<${describeShape(v[0], depth - 1)}>`
+      : `array[${v.length}]`;
+  }
+  if (typeof v === "object") {
+    if (depth <= 0) return "object";
+    const keys = Object.keys(v as Record<string, unknown>).slice(0, 12);
+    return `{${keys
+      .map(
+        (k) =>
+          `${k}:${describeShape((v as Record<string, unknown>)[k], depth - 1)}`,
+      )
+      .join(",")}}`;
+  }
+  return typeof v;
+}
+
 /**
  * Ascora does NOT key list rows by an endpoint-named field. Paginated lists
  * wrap rows in `{ success, results: [...] }` (see the /Jobs/Jobs importer that
@@ -81,6 +151,10 @@ export function normalizeJobLabours(data: unknown): AscoraJobLabourRaw[] {
       }
     }
   }
+
+  // No known container key held a labour array — the rows may be nested deeper
+  // or returned as a single object. Search the whole payload shape-agnostically.
+  if (rows.length === 0) rows = findLabourRows(d);
 
   return rows
     .filter((r): r is Record<string, unknown> => !!r && typeof r === "object")
@@ -210,9 +284,9 @@ export async function GET(request: NextRequest) {
         // times per run so the real Ascora structure surfaces in Vercel logs
         // AND in this run's metadata, without any API key leaving the server.
         if (labours.length === 0 && data && typeof data === "object" && shapeSamples < 3) {
-          const shape = Array.isArray(data)
-            ? `array[${data.length}]`
-            : JSON.stringify(Object.keys(data as Record<string, unknown>));
+          // Structure only (types, no values) — reveals whether jobLabours is a
+          // genuinely empty array vs a nested/single object the parser missed.
+          const shape = describeShape(data);
           emptyShapes.push(shape);
           console.warn(
             `[sync-ascora-labour] no labour parsed for ${job.ascoraJobNumber} — response shape: ${shape}`,

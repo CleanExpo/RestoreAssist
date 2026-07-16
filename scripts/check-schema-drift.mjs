@@ -25,7 +25,8 @@
  * `finished_at IS NOT NULL` while its DDL silently no-op'd against the :6543
  * transaction pooler (see scripts/build.sh WS1 fail-close + the RA-1807 runbook).
  *
- * Limits: enums, relations, and CHECK constraints are still not compared. Unique
+ * Limits: relations and CHECK constraints are still not compared (enums now are,
+ * name + values, via pg_enum). Unique
  * detection reads pg_indexes column lists; expression/partial unique indexes are
  * skipped (noted in extractIndexColumns).
  *
@@ -63,8 +64,34 @@ export function sig(cols) {
  */
 export function parseSchemaObjects(content) {
   const modelRe = /^model\s+(\w+)\s*\{/gm;
-  const enums = new Set();
-  for (const m of content.matchAll(/^enum\s+(\w+)\s*\{/gm)) enums.add(m[1]);
+
+  // Parse enum blocks into name -> Set(values). Names alone feed the field-type
+  // check below; the values feed enum drift detection (a no-op'd enum ALTER —
+  // e.g. ADD VALUE — that migrate-deploy reported as applied).
+  const enumValues = new Map();
+  const enumRe = /^enum\s+(\w+)\s*\{/gm;
+  let em;
+  while ((em = enumRe.exec(content)) !== null) {
+    const ename = em[1];
+    let ei = em.index + em[0].length;
+    let edepth = 1;
+    while (edepth > 0 && ei < content.length) {
+      const ch = content[ei];
+      if (ch === "{") edepth++;
+      else if (ch === "}") edepth--;
+      ei++;
+    }
+    const ebody = content.slice(em.index + em[0].length, ei - 1);
+    const vals = new Set();
+    for (const raw of ebody.split("\n")) {
+      const line = raw.trim();
+      if (!line || line.startsWith("//") || line.startsWith("@@")) continue;
+      const token = line.split(/\s+/)[0]; // value name; ignores a trailing @map(...)
+      if (token) vals.add(token);
+    }
+    enumValues.set(ename, vals);
+  }
+  const enums = new Set(enumValues.keys());
 
   const columns = new Map();
   const notNull = new Map();
@@ -126,7 +153,55 @@ export function parseSchemaObjects(content) {
     uniques.set(name, uq);
   }
 
-  return { tables, columns, notNull, uniques };
+  return { tables, columns, notNull, uniques, enums: enumValues };
+}
+
+/**
+ * Enum drift between schema and DB — schema-global (not per-table). Detects a
+ * missing/extra enum type AND per-value drift (a no-op'd `ALTER TYPE ... ADD
+ * VALUE`, the enum analogue of the RA-1807 no-op'd DDL). Report-only unless
+ * DRIFT_STRICT=1, same rollout policy as unique/nullability.
+ * @param {Map<string,Set<string>>} expectedEnums
+ * @param {Map<string,Set<string>>} actualEnums
+ */
+export function computeEnumDrift(expectedEnums, actualEnums) {
+  const findings = [];
+  for (const [name, expVals] of expectedEnums) {
+    if (!actualEnums.has(name)) {
+      findings.push({
+        table: name,
+        kind: "enum",
+        object: name,
+        direction: "missing-in-db",
+        detail: `enum ${name} declared in schema but missing from DB`,
+      });
+      continue;
+    }
+    const dbVals = actualEnums.get(name);
+    for (const v of expVals) {
+      if (!dbVals.has(v)) {
+        findings.push({
+          table: name,
+          kind: "enum",
+          object: `${name}.${v}`,
+          direction: "missing-in-db",
+          detail: `enum value ${name}.${v} in schema but missing from DB — an ADD VALUE that never applied`,
+        });
+      }
+    }
+    for (const v of dbVals) {
+      if (!expVals.has(v)) {
+        findings.push({
+          table: name,
+          kind: "enum",
+          object: `${name}.${v}`,
+          direction: "extra-in-db",
+          detail: `enum value ${name}.${v} present in DB but not in schema`,
+        });
+      }
+    }
+  }
+  return findings;
 }
 
 /**
@@ -247,6 +322,7 @@ async function main() {
   const prisma = new PrismaClient();
   let colRows;
   let idxRows;
+  let enumRows;
   try {
     colRows = await prisma.$queryRawUnsafe(
       `SELECT table_name, column_name, is_nullable
@@ -259,6 +335,13 @@ async function main() {
          FROM pg_indexes
         WHERE schemaname = 'public' AND tablename = ANY($1::text[])`,
       expected.tables,
+    );
+    enumRows = await prisma.$queryRawUnsafe(
+      `SELECT t.typname AS enum_name, e.enumlabel AS value
+         FROM pg_type t
+         JOIN pg_enum e ON e.enumtypid = t.oid
+         JOIN pg_namespace n ON n.oid = t.typnamespace
+        WHERE n.nspname = 'public'`,
     );
   } catch (err) {
     console.error(`✗ could not query live schema: ${err.message}`);
@@ -286,10 +369,20 @@ async function main() {
   }
   const actual = { tables: expected.tables, columns, notNull, uniques };
 
-  const drift = computeDrift(expected, actual);
+  // Actual enum types + values from pg_enum.
+  const actualEnums = new Map();
+  for (const r of enumRows) {
+    if (!actualEnums.has(r.enum_name)) actualEnums.set(r.enum_name, new Set());
+    actualEnums.get(r.enum_name).add(r.value);
+  }
+
+  const drift = [
+    ...computeDrift(expected, actual),
+    ...computeEnumDrift(expected.enums, actualEnums),
+  ];
   if (drift.length === 0) {
     console.log(
-      `[drift-check] ✓ no schema drift — ${expected.tables.length} models: columns, unique indexes, and nullability all match`,
+      `[drift-check] ✓ no schema drift — ${expected.tables.length} models: columns, unique indexes, nullability, and enum values all match`,
     );
     process.exit(0);
   }

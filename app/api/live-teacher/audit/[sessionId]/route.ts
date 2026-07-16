@@ -3,7 +3,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  buildCorpusIndex,
+  collectDistinctPairs,
+  classifyRefs,
+} from "@/lib/live-teacher/citation-validity";
 
 // GET — return full utterance + tool call audit trail for a session
 // Rule 1: getServerSession required
@@ -23,6 +29,18 @@ export async function GET(
         status: 401,
       });
     }
+
+    // Rule 8: rate-limit keyed on session.user.id. Matches the sibling
+    // turn route — the audit trail returns up to 700 rows and is otherwise
+    // enumerable by an authed user.
+    const rateLimited = await applyRateLimit(_request, {
+      maxRequests: 120,
+      windowMs: 60_000,
+      key: session.user.id,
+      prefix: "live-teacher-audit",
+      failClosedOnUpstashError: true,
+    });
+    if (rateLimited) return rateLimited;
 
     const { sessionId } = await params;
 
@@ -95,6 +113,32 @@ export async function GET(
       take: 200,
     });
 
+    // RA-7053: classify each assistant utterance's clause refs against the
+    // corpus via ONE session-scoped lookup (reuses the Part-2 parser).
+    const assistantRefs = utterances
+      .filter((u) => u.role === "assistant")
+      .flatMap((u) => u.clauseRefs);
+    const pairs = collectDistinctPairs(assistantRefs);
+    const corpusRows =
+      pairs.length > 0
+        ? await prisma.standardsChunk.findMany({
+            where: {
+              OR: pairs.map((p) => ({
+                standard: p.standard,
+                clause: p.clause,
+              })),
+            },
+            select: { standard: true, edition: true, clause: true },
+            take: pairs.length,
+          })
+        : [];
+    const corpus = buildCorpusIndex(corpusRows);
+    const utterancesWithVerdicts = utterances.map((u) => ({
+      ...u,
+      citationVerdicts:
+        u.role === "assistant" ? classifyRefs(u.clauseRefs, corpus) : [],
+    }));
+
     return NextResponse.json({
       data: {
         session: {
@@ -105,7 +149,7 @@ export async function GET(
           jurisdiction: liveSession.jurisdiction,
           deviceOs: liveSession.deviceOs,
         },
-        utterances,
+        utterances: utterancesWithVerdicts,
         toolCalls,
       },
     });

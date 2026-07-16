@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { VoiceNoteButton } from "@/components/voice/voice-note-button";
 import { TranscriptStream } from "./TranscriptStream";
 import {
   streamTurn,
@@ -30,7 +31,7 @@ import {
 } from "@/lib/live-teacher/turn-stream";
 
 type Jurisdiction = "AU" | "NZ";
-type Gate = "subscription" | "byok";
+type Gate = "subscription" | "byok" | "session";
 
 interface VoiceAssistantProps {
   inspectionId: string;
@@ -59,6 +60,17 @@ function getRecognitionCtor(): (new () => MinimalRecognition) | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
+// RA-7031 (F10): device-segment pilot telemetry needs the real OS, not a
+// hardcoded "web". Derived from the UA so an on-site phone session is
+// distinguishable from a desktop one. SSR-safe (no navigator → "web").
+function deviceOsFromUserAgent(): "ios" | "android" | "web" {
+  if (typeof navigator === "undefined") return "web";
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/i.test(ua)) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  return "web";
+}
+
 export function VoiceAssistant({
   inspectionId,
   jurisdiction = "AU",
@@ -69,9 +81,15 @@ export function VoiceAssistant({
   const [busy, setBusy] = useState(false);
   const [gate, setGate] = useState<Gate | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [speakReplies, setSpeakReplies] = useState(false);
+  // RA-7051: read replies aloud by default — voice-lite push-to-talk pairs a
+  // spoken answer with the spoken question so the tech can stay hands-free.
+  const [speakReplies, setSpeakReplies] = useState(true);
   const [listening, setListening] = useState(false);
   const [micSupported, setMicSupported] = useState(false);
+  // RA-7051: Whisper (via VoiceNoteButton) is the primary mic. It flips to the
+  // Web Speech fallback only after the transcribe route answers 402 (the
+  // workspace has no OpenAI key).
+  const [whisperUnavailable, setWhisperUnavailable] = useState(false);
   const [ttsSupported, setTtsSupported] = useState(false);
   const [proposals, setProposals] = useState<LiveTeacherProposal[]>([]);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -86,6 +104,19 @@ export function VoiceAssistant({
       typeof window !== "undefined" && "speechSynthesis" in window,
     );
   }, []);
+
+  // RA-7051: stop any in-progress TTS when the tech unticks "Read replies
+  // aloud" and on unmount — otherwise a spoken answer keeps playing after the
+  // panel is closed or the toggle is turned off.
+  useEffect(() => {
+    const cancel = () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+    if (!speakReplies) cancel();
+    return cancel;
+  }, [speakReplies]);
 
   const nextId = () => `t${(idRef.current += 1)}`;
 
@@ -117,7 +148,7 @@ export function VoiceAssistant({
       body: JSON.stringify({
         inspectionId,
         jurisdiction,
-        deviceOs: "web",
+        deviceOs: deviceOsFromUserAgent(),
         hadLidar: false,
       }),
     });
@@ -168,6 +199,17 @@ export function VoiceAssistant({
           );
           return;
         }
+        if (res.status === 401) {
+          // Session expired mid-inspection. Surface a clear path back rather
+          // than a dead-end "could not answer", and preserve the typed question
+          // in the input so it survives the sign-in round-trip.
+          setGate("session");
+          setInput(utterance);
+          setTurns((prev) =>
+            prev.filter((t) => t.id !== assistantId && t.id !== userId),
+          );
+          return;
+        }
         throw new Error("The Live Teacher could not answer. Please try again.");
       }
 
@@ -207,6 +249,20 @@ export function VoiceAssistant({
         }
       });
     } catch (e) {
+      // F7: a dead-zone property drops the request before it reaches the server.
+      // Don't let the question vanish behind a generic error — remove the un-sent
+      // turns, restore the typed text to the input, and say so explicitly so the
+      // tech can resend once back online. (Full queue-and-replay is out of scope.)
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        setTurns((prev) =>
+          prev.filter((t) => t.id !== assistantId && t.id !== userId),
+        );
+        setInput(utterance);
+        setError(
+          "You're offline — your question wasn't sent. Try again when you're back online.",
+        );
+        return;
+      }
       // Preserve the assistant turn if it already shows real state — streamed
       // content OR a persisted tool action. Dropping it would hide a reading
       // that was actually logged server-side and invite the tech to re-enter it
@@ -279,6 +335,18 @@ export function VoiceAssistant({
     },
     [patchTurn],
   );
+
+  // RA-7051: Whisper transcript drops into the input; the tech reviews it and
+  // taps Ask. We never auto-send — the tech stays the decision-maker.
+  const handleTranscript = useCallback((text: string) => {
+    const t = text.trim();
+    if (!t) return;
+    setInput((prev) => (prev ? `${prev} ${t}` : t));
+  }, []);
+
+  const handleWhisperUnavailable = useCallback(() => {
+    setWhisperUnavailable(true);
+  }, []);
 
   const toggleMic = useCallback(() => {
     if (listening) {
@@ -361,6 +429,21 @@ export function VoiceAssistant({
         </Card>
       )}
 
+      {gate === "session" && (
+        <Card className="border-amber-300 bg-amber-50/60 p-3 dark:border-amber-800/50 dark:bg-amber-900/10">
+          <p className="text-sm text-neutral-700 dark:text-slate-200">
+            Session expired — please sign in again to continue.
+          </p>
+          <Button
+            size="sm"
+            className="mt-2"
+            onClick={() => router.push("/login")}
+          >
+            Sign in
+          </Button>
+        </Card>
+      )}
+
       <div className="rounded-xl border border-neutral-200 dark:border-slate-700/60">
         <TranscriptStream turns={turns} onOverride={handleOverride} />
       </div>
@@ -427,7 +510,18 @@ export function VoiceAssistant({
       )}
 
       <div className="flex items-end gap-2">
-        {micSupported && (
+        {/* RA-7051: Whisper push-to-talk is primary; on a 402 it falls back to
+            the browser Web Speech mic so every workspace has a working mic. */}
+        {!whisperUnavailable ? (
+          <VoiceNoteButton
+            onTranscript={handleTranscript}
+            onUnavailable={handleWhisperUnavailable}
+            maxSeconds={30}
+            compact
+            inspectionId={inspectionId}
+            fieldLabel="live-teacher"
+          />
+        ) : micSupported ? (
           <Button
             type="button"
             variant={listening ? "default" : "outline"}
@@ -439,6 +533,15 @@ export function VoiceAssistant({
           >
             {listening ? "Listening" : "Speak"}
           </Button>
+        ) : (
+          // Neither Whisper (no workspace OpenAI key) nor the browser Web Speech
+          // mic (iPad Safari / Firefox) is available. Never leave an empty mic
+          // area — tell the tech to type, and where to enable voice.
+          <p className="max-w-[14rem] text-xs text-neutral-500 dark:text-slate-400">
+            Voice unavailable on this device — type your question below. To
+            enable voice notes, add an OpenAI key in Workspace Settings, AI
+            Providers.
+          </p>
         )}
         <Textarea
           value={input}
