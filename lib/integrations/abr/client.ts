@@ -16,10 +16,12 @@ export async function lookupAbn(input: string): Promise<ParseResult> {
       headers: { Accept: 'application/json' },
       signal: AbortSignal.timeout(5000),
     });
-    if (!res.ok) return { ok: false, reason: 'MALFORMED' };
+    // Non-2xx is ABR erroring or rejecting our GUID — never a comment on the ABN.
+    if (!res.ok) return { ok: false, reason: 'UPSTREAM_ERROR' };
     const json = await res.json();
     return parseAbrResponse(json);
   } catch {
-    return { ok: false, reason: 'MALFORMED' };
+    // Timeout, DNS, or a body that would not parse as JSON. Ours, not the caller's.
+    return { ok: false, reason: 'UPSTREAM_ERROR' };
   }
 }

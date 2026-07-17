@@ -33,6 +33,38 @@ describe('parseAbrResponse', () => {
     expect(result.reason).toBe('NO_RECORD');
   });
 
+  // ABR signals errors as HTTP 200 + a Message body, not status codes. A GUID
+  // complaint must read as our misconfiguration, never as the caller's bad ABN.
+  it('returns CONFIG_ERROR when ABR complains about the GUID', () => {
+    const result = parseAbrResponse({
+      Abn: '',
+      Message:
+        'The GUID entered is not recognised as a Registered Party. Please ensure you have entered the GUID correctly.',
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('CONFIG_ERROR');
+  });
+
+  // A GUID complaint that also contains "does not exist" must not be read as
+  // "this ABN has no record" — the GUID check has to win.
+  it('returns CONFIG_ERROR when a GUID complaint also says "does not exist"', () => {
+    const result = parseAbrResponse({ Abn: '', Message: 'The GUID entered does not exist' });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('CONFIG_ERROR');
+  });
+
+  it('returns UPSTREAM_ERROR on an unrecognised ABR Message', () => {
+    const result = parseAbrResponse({
+      Abn: '',
+      Message: 'The ABR service is currently unavailable for scheduled maintenance.',
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('UPSTREAM_ERROR');
+  });
+
   it('returns malformed on missing required keys', () => {
     const result = parseAbrResponse(malformed);
     expect(result.ok).toBe(false);
