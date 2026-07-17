@@ -1,15 +1,23 @@
 "use client";
 
 import {
-  AlertTriangle,
-  Camera,
-  CheckCircle2,
-  ClipboardCheck,
-  Droplets,
-  FileText,
-  Layers,
-  Shield,
-} from "lucide-react";
+  ChromeAlertTriangle,
+  ChromeCheckCircle,
+} from "@/components/brand/chrome-icons";
+import { RAIcon, type RAIconProps } from "@/components/brand/RAIcon";
+
+/** Branded row-icon adapters keeping the ElementType contract of `icon:`. */
+function raGlyph(name: RAIconProps["name"]) {
+  return function RAGlyph({ className }: { className?: string }) {
+    return <RAIcon name={name} decorative className={className} />;
+  };
+}
+const ShieldGlyph = raGlyph("shield");
+const CameraGlyph = raGlyph("photo");
+const RoomsGlyph = raGlyph("room");
+const MoistureGlyph = raGlyph("moisture");
+const TaskGlyph = raGlyph("task");
+const ReportGlyph = raGlyph("report");
 import type { ElementType } from "react";
 import { cn } from "@/lib/utils";
 import {
@@ -88,7 +96,7 @@ export default function InspectionEvidenceReadinessPanel({
       state: claimType ? "complete" : "attention",
       tab: "classification",
       action: claimType ? undefined : "Set claim type",
-      icon: Shield,
+      icon: ShieldGlyph,
     },
     {
       key: "photos",
@@ -100,7 +108,7 @@ export default function InspectionEvidenceReadinessPanel({
       state: photosCount > 0 ? "complete" : "attention",
       tab: "photos",
       action: photosCount > 0 ? undefined : "Add photos",
-      icon: Camera,
+      icon: CameraGlyph,
     },
     {
       key: "areas",
@@ -112,7 +120,7 @@ export default function InspectionEvidenceReadinessPanel({
       state: affectedAreasCount > 0 ? "complete" : "attention",
       tab: "areas",
       action: affectedAreasCount > 0 ? undefined : "Add areas",
-      icon: Layers,
+      icon: RoomsGlyph,
     },
     {
       key: "moisture",
@@ -131,7 +139,7 @@ export default function InspectionEvidenceReadinessPanel({
         : "not_required",
       tab: waterClaim ? "moisture" : undefined,
       action: waterClaim && moistureReadingsCount === 0 ? "Add moisture" : undefined,
-      icon: Droplets,
+      icon: MoistureGlyph,
     },
     {
       key: "classification",
@@ -143,7 +151,7 @@ export default function InspectionEvidenceReadinessPanel({
       state: classificationsCount > 0 ? "complete" : "attention",
       tab: "classification",
       action: classificationsCount > 0 ? undefined : "Classify",
-      icon: ClipboardCheck,
+      icon: TaskGlyph,
     },
     {
       key: "scope",
@@ -161,7 +169,7 @@ export default function InspectionEvidenceReadinessPanel({
         selectedScopeItemsCount > 0 && costEstimateCount > 0
           ? undefined
           : "Complete scope",
-      icon: FileText,
+      icon: ReportGlyph,
     },
   ];
 
@@ -223,9 +231,9 @@ export default function InspectionEvidenceReadinessPanel({
       >
         <div className="flex items-start gap-3">
           {packageReady ? (
-            <CheckCircle2 className="mt-0.5 h-5 w-5 text-success" />
+            <ChromeCheckCircle className="mt-0.5 h-5 w-5 text-success" />
           ) : (
-            <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" />
+            <ChromeAlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" />
           )}
           <div>
             <p className="text-sm font-semibold text-neutral-900 dark:text-white">

@@ -11,14 +11,20 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import type { ElementType } from "react";
 import {
-  Brain,
-  Cloud,
-  Mail,
-  RefreshCw,
-  ChevronRight,
-  AlertTriangle,
-} from "lucide-react";
+  ChromeCloud,
+  ChromeMail,
+  ChromeRefresh,
+  ChromeChevronRight,
+  ChromeAlertTriangle,
+} from "@/components/brand/chrome-icons";
+import { RAIcon } from "@/components/brand/RAIcon";
+
+/** Card icon adapter — branded AI mark with the ElementType signature the card defs use. */
+function BrainGlyph({ className }: { className?: string }) {
+  return <RAIcon name="ai" decorative className={className} />;
+}
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +42,7 @@ interface ConnectionCard {
   title: string;
   description: string;
   href: string;
-  icon: typeof Brain;
+  icon: ElementType;
   state: ConnState;
   detail: string;
   manageLabel: string;
@@ -243,7 +249,7 @@ export default function ConnectionsSettingsPage() {
       description:
         "Bring-your-own-key for Claude, OpenAI, Gemini, OpenRouter, or self-hosted Gemma.",
       href: "/dashboard/settings/ai-providers",
-      icon: Brain,
+      icon: BrainGlyph,
       state: aiState.state,
       detail: aiState.detail,
       manageLabel: "Manage AI keys",
@@ -254,7 +260,7 @@ export default function ConnectionsSettingsPage() {
       description:
         "Org-owned Resend API key for invitations, pulse, and client notifications.",
       href: "/dashboard/settings/email",
-      icon: Mail,
+      icon: ChromeMail,
       state: emailState.state,
       detail: emailState.detail,
       manageLabel: "Manage Resend",
@@ -265,7 +271,7 @@ export default function ConnectionsSettingsPage() {
       description:
         "Mirror viewing-quality evidence to Google Drive or OneDrive after capture.",
       href: "/dashboard/settings/cloud-mirror",
-      icon: Cloud,
+      icon: ChromeCloud,
       state: cloudState.state,
       detail: cloudState.detail,
       manageLabel: "Manage cloud mirror",
@@ -276,7 +282,7 @@ export default function ConnectionsSettingsPage() {
       description:
         "Apple CloudKit mirroring is planned. Not available yet — we will not fake a connection.",
       href: "/dashboard/settings/cloud-mirror",
-      icon: Cloud,
+      icon: ChromeCloud,
       state: "coming_soon",
       detail: "Requires CloudKit — Coming soon",
       manageLabel: "View cloud options",
@@ -310,7 +316,7 @@ export default function ConnectionsSettingsPage() {
           disabled={loading}
           onClick={() => void load()}
         >
-          <RefreshCw
+          <ChromeRefresh
             className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`}
           />
           Refresh
@@ -322,7 +328,7 @@ export default function ConnectionsSettingsPage() {
           role="alert"
           className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive flex items-start gap-2"
         >
-          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+          <ChromeAlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
           <div>
             <p>{loadError}</p>
             <button
@@ -365,7 +371,7 @@ export default function ConnectionsSettingsPage() {
                 <Button asChild size="sm" variant={isSoon ? "ghost" : "outline"}>
                   <Link href={card.href}>
                     {card.manageLabel}
-                    <ChevronRight className="h-4 w-4 ml-1" />
+                    <ChromeChevronRight className="h-4 w-4 ml-1" />
                   </Link>
                 </Button>
               </CardContent>

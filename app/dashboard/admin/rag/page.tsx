@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";
-import { Database } from "lucide-react";
+import { RAIcon } from "@/components/brand/RAIcon";
 
 interface TierRow {
   kind: string;
@@ -166,7 +166,7 @@ export default function AdminRagPage() {
 
       {data && !loadError && data.total === 0 && (
         <EmptyState
-          icon={<Database className="h-10 w-10" />}
+          icon={<RAIcon name="ai" size={40} decorative className="h-10 w-10" />}
           title="Corpus is empty"
           description="Ingest licensed plain-text extracts below. Probe will return nothing until chunks exist — we never invent retrieval hits."
         />
