@@ -585,15 +585,19 @@ export default function SettingsPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Status</label>
-                <StatusBadge
-                  tone={
-                    SUBSCRIPTION_STATUS_TONES[
-                      profile?.subscriptionStatus ?? "TRIAL"
-                    ] ?? "neutral"
-                  }
-                >
-                  {getStatusText(profile?.subscriptionStatus || "TRIAL")}
-                </StatusBadge>
+                {profileError ? (
+                  <StatusBadge tone="neutral">Unavailable</StatusBadge>
+                ) : (
+                  <StatusBadge
+                    tone={
+                      SUBSCRIPTION_STATUS_TONES[
+                        profile?.subscriptionStatus ?? "TRIAL"
+                      ] ?? "neutral"
+                    }
+                  >
+                    {getStatusText(profile?.subscriptionStatus || "TRIAL")}
+                  </StatusBadge>
+                )}
               </div>
 
               {profile?.subscriptionPlan && (
@@ -651,7 +655,7 @@ export default function SettingsPage() {
                 </label>
                 <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
                   {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
-                  {profile?.creditsRemaining || 0}
+                  {profileError ? "Unavailable" : profile?.creditsRemaining || 0}
                 </div>
               </div>
 
@@ -660,7 +664,7 @@ export default function SettingsPage() {
                   Used This Month
                 </label>
                 <div className="text-lg text-slate-300">
-                  {profile?.totalCreditsUsed || 0}
+                  {profileError ? "Unavailable" : profile?.totalCreditsUsed || 0}
                 </div>
               </div>
 
@@ -668,7 +672,11 @@ export default function SettingsPage() {
                 <div
                   className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
                   style={{
-                    width: `${Math.min(100, ((profile?.totalCreditsUsed || 0) / ((profile?.totalCreditsUsed || 0) + (profile?.creditsRemaining || 0))) * 100)}%`,
+                    width: `${(() => {
+                      const used = profile?.totalCreditsUsed || 0;
+                      const total = used + (profile?.creditsRemaining || 0);
+                      return total > 0 ? Math.min(100, (used / total) * 100) : 0;
+                    })()}%`,
                   }}
                 ></div>
               </div>
