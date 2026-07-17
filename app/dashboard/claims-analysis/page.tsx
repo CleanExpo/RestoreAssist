@@ -195,33 +195,49 @@ export default function ClaimsAnalysisPage() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showNewAnalysisForm, setShowNewAnalysisForm] = useState(false);
   const [loadingLatest, setLoadingLatest] = useState(true);
+  const [latestLoadError, setLatestLoadError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const loadLatestAnalysis = useCallback(async () => {
+    setLoadingLatest(true);
+    setLatestLoadError(null);
+    try {
+      const res = await fetch("/api/claims/analyses/latest");
+      if (res.status === 404) {
+        setAnalysisResults([]);
+        setSummary(null);
+        setLatestLoadError(null);
+        return;
+      }
+      if (!res.ok) {
+        setAnalysisResults([]);
+        setSummary(null);
+        setLatestLoadError("Failed to load latest analysis");
+        return;
+      }
+      const data = await res.json();
+      if (data.results?.length && data.summary) {
+        setAnalysisResults(data.results);
+        setSummary(data.summary);
+      } else {
+        setAnalysisResults([]);
+        setSummary(null);
+      }
+      setLatestLoadError(null);
+    } catch {
+      setAnalysisResults([]);
+      setSummary(null);
+      setLatestLoadError("Failed to load latest analysis");
+    } finally {
+      setLoadingLatest(false);
+    }
+  }, []);
+
   // Load latest saved analysis on mount so dashboard shows previous results
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const res = await fetch("/api/claims/analyses/latest");
-        if (cancelled) return;
-        const data = await res.json();
-        if (!res.ok) return;
-        if (data.results?.length && data.summary) {
-          setAnalysisResults(data.results);
-          setSummary(data.summary);
-        }
-      } catch {
-        // ignore
-      } finally {
-        if (!cancelled) setLoadingLatest(false);
-      }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void loadLatestAnalysis();
+  }, [loadLatestAnalysis]);
 
   // Elapsed time counter during processing
   useEffect(() => {
@@ -583,6 +599,19 @@ export default function ClaimsAnalysisPage() {
         )}
       </div>
 
+      {latestLoadError && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {latestLoadError}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => void loadLatestAnalysis()}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* New Analysis form - only when user clicked New Analysis */}
       {showNewAnalysisForm && (
         <Card>
@@ -864,6 +893,7 @@ export default function ClaimsAnalysisPage() {
         )}
       {!showNewAnalysisForm &&
         !loadingLatest &&
+        !latestLoadError &&
         analysisResults.length === 0 &&
         !summary && (
           <Card>

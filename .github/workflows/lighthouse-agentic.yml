@@ -70,7 +70,7 @@ jobs:
             ${{ steps.target.outputs.url }}/contact
           uploadArtifacts: true
           temporaryPublicStorage: true
-          configPath: ./.lighthouseagenticrc.json
+          configPath: ./config/lighthouse-agentic.json
 
       - name: Probe llms.txt + WebMCP presence
         if: steps.target.outputs.url != ''

@@ -137,7 +137,7 @@ const TABS: { label: string; value: FilterType }[] = [
 
 function SearchPageInner() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
 
   const initialQuery = searchParams.get("q") ?? "";
   const initialType = (searchParams.get("type") as FilterType) ?? "all";

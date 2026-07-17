@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, CalendarDays, List } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -197,6 +197,7 @@ export default function InspectionSchedulePage() {
   const [currentMonth, setCurrentMonth] = useState<number | null>(null); // 0-indexed
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Resolve "today" and the initial month view on the client only.
   useEffect(() => {
@@ -207,23 +208,30 @@ export default function InspectionSchedulePage() {
   }, []);
 
   // Fetch all inspections once; filter client-side (API has no date range params)
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch("/api/inspections?limit=100");
-        if (res.ok) {
-          const data = await res.json();
-          setInspections(data.inspections ?? []);
-        }
-      } catch (err) {
-        console.error("[Schedule] Failed to fetch inspections:", err);
-      } finally {
-        setLoading(false);
+  const fetchInspections = useCallback(async () => {
+    try {
+      setLoading(true);
+      setLoadError(null);
+      const res = await fetch("/api/inspections?limit=100");
+      if (!res.ok) {
+        setInspections([]);
+        setLoadError("Failed to load inspections");
+        return;
       }
-    };
-    load();
+      const data = await res.json();
+      setInspections(data.inspections ?? []);
+    } catch (err) {
+      console.error("[Schedule] Failed to fetch inspections:", err);
+      setInspections([]);
+      setLoadError("Failed to load inspections");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void fetchInspections();
+  }, [fetchInspections]);
 
   // Group inspections by their createdAt date key
   const inspectionsByDay = useMemo(() => {
@@ -319,6 +327,19 @@ export default function InspectionSchedulePage() {
           </div>
         </div>
       </div>
+
+      {loadError && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => void fetchInspections()}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* ── Month navigation ── */}
       <div className="flex items-center gap-3">

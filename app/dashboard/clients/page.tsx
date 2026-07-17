@@ -115,6 +115,7 @@ export default function ClientsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [duplicating, setDuplicating] = useState<string | null>(null);
@@ -138,16 +139,20 @@ export default function ClientsPage() {
   const fetchClients = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const response = await fetch("/api/clients");
       if (response.ok) {
         const data = await response.json();
         setClients(data.clients);
+        setLoadError(null);
       } else {
-        toast.error("Failed to fetch clients");
+        setClients([]);
+        setLoadError("Failed to load clients");
       }
     } catch (error) {
       console.error("Error fetching clients:", error);
-      toast.error("Failed to fetch clients");
+      setClients([]);
+      setLoadError("Failed to load clients");
     } finally {
       setLoading(false);
     }
@@ -444,6 +449,19 @@ export default function ClientsPage() {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => void fetchClients()}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Search & Filter */}
       <div className="flex gap-4">

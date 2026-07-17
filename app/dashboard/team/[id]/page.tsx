@@ -116,11 +116,9 @@ export default function TeamMemberDetailPage({
   const [loading, setLoading] = useState(true);
   const [loadingInspections, setLoadingInspections] = useState(false);
   const [notFound, setNotFound] = useState(false);
-  const [sendingInvite, setSendingInvite] = useState(false);
 
   // Edit state
   const [editing, setEditing] = useState(false);
-  const [editName, setEditName] = useState("");
   const [editRole, setEditRole] = useState<"ADMIN" | "MANAGER" | "USER">(
     "USER",
   );
@@ -150,7 +148,6 @@ export default function TeamMemberDetailPage({
         return;
       }
       setMember(found);
-      setEditName(found.name || "");
       setEditRole(found.role);
       fetchInspections();
     } catch (err) {
@@ -177,35 +174,33 @@ export default function TeamMemberDetailPage({
     }
   };
 
-  const handleSendInvite = async () => {
-    if (!member) return;
-    setSendingInvite(true);
-    try {
-      const res = await fetch(`/api/team/${member.id}/invite`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (res.ok) {
-        toast.success(`Invite sent to ${member.email}`);
-      } else {
-        // Stub: show success anyway since this is a no-op stub
-        toast.success(`Invite sent to ${member.email}`);
-      }
-    } catch {
-      toast.success(`Invite sent to ${member.email}`);
-    } finally {
-      setSendingInvite(false);
-    }
-  };
-
   const handleSaveEdit = async () => {
     if (!member) return;
+    if (member.role === "ADMIN") {
+      toast.error("Admin role cannot be changed here");
+      return;
+    }
+    if (editRole !== "USER" && editRole !== "MANAGER") {
+      toast.error("Role must be Technician or Manager");
+      return;
+    }
     setSaving(true);
     try {
-      // Optimistic update — no dedicated PATCH endpoint yet, reflect locally
-      setMember({ ...member, name: editName || member.name, role: editRole });
+      const res = await fetch(`/api/team/members/${member.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: editRole }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(
+          typeof json.error === "string" ? json.error : "Failed to update role",
+        );
+        return;
+      }
+      setMember({ ...member, role: editRole });
       setEditing(false);
-      toast.success("Profile updated");
+      toast.success(json.message || "Role updated successfully");
     } catch {
       toast.error("Failed to update profile");
     } finally {
@@ -297,12 +292,13 @@ export default function TeamMemberDetailPage({
           <Button
             variant="outline"
             size="sm"
-            onClick={handleSendInvite}
-            disabled={sendingInvite}
+            asChild
             className="border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700/50"
           >
-            <Send size={14} className="mr-1.5" />
-            {sendingInvite ? "Sending..." : "Send Invite"}
+            <Link href="/dashboard/team">
+              <Send size={14} className="mr-1.5" />
+              Invite new member
+            </Link>
           </Button>
           {isAdmin && (
             <Button
@@ -333,27 +329,34 @@ export default function TeamMemberDetailPage({
                 </label>
                 <input
                   type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  placeholder="Enter name..."
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder:text-slate-500"
+                  value={member.name || ""}
+                  disabled
+                  className="w-full px-3 py-2 bg-slate-800/60 border border-slate-700 rounded-lg text-slate-400 text-sm cursor-not-allowed"
                 />
+                <p className="text-xs text-slate-500">
+                  Name is set by the member’s own account profile.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">
                   Role
                 </label>
                 <select
-                  value={editRole}
+                  value={editRole === "ADMIN" ? "MANAGER" : editRole}
                   onChange={(e) =>
-                    setEditRole(e.target.value as "ADMIN" | "MANAGER" | "USER")
+                    setEditRole(e.target.value as "MANAGER" | "USER")
                   }
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  disabled={member.role === "ADMIN"}
+                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
                 >
-                  <option value="ADMIN">Admin</option>
                   <option value="MANAGER">Manager</option>
                   <option value="USER">Technician</option>
                 </select>
+                {member.role === "ADMIN" && (
+                  <p className="text-xs text-slate-500">
+                    Admin role cannot be changed here.
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex justify-end gap-3">
@@ -362,7 +365,6 @@ export default function TeamMemberDetailPage({
                 size="sm"
                 onClick={() => {
                   setEditing(false);
-                  setEditName(member.name || "");
                   setEditRole(member.role);
                 }}
                 className="border-slate-600 text-slate-300"
@@ -572,11 +574,12 @@ export default function TeamMemberDetailPage({
                 variant="outline"
                 size="sm"
                 className="w-full border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700/50"
-                onClick={handleSendInvite}
-                disabled={sendingInvite}
+                asChild
               >
-                <Send size={14} className="mr-2" />
-                {sendingInvite ? "Sending..." : "Send Invite Email"}
+                <Link href="/dashboard/team">
+                  <Send size={14} className="mr-2" />
+                  Invite new members from Team
+                </Link>
               </Button>
             </div>
           </CardContent>

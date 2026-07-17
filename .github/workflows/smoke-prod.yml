@@ -58,12 +58,12 @@ jobs:
           PLAYWRIGHT_BASE_URL: ${{ github.event.inputs.base_url || 'https://restoreassist.app' }}
           CI: true
           # RA-4987: secret-gated BotID bypass. Playwright injects this as the
-          # x-smoke-test-token header (see playwright.config.ts); prod verifyBotId()
+          # x-smoke-test-token header (see config/playwright.config.ts); prod verifyBotId()
           # timing-safe-compares it against SMOKE_TEST_BOT_BYPASS_SECRET set in the
           # Vercel prod env. Both values MUST match. Unset here = header omitted =
           # GH egress IPs get flagged as bots (the pre-RA-4987 failure).
           SMOKE_TEST_BOT_BYPASS_SECRET: ${{ secrets.SMOKE_TEST_BOT_BYPASS_SECRET }}
-        run: pnpm exec playwright test --grep @smoke --no-deps --reporter=line
+        run: pnpm exec playwright test -c config/playwright.config.ts --grep @smoke --no-deps --reporter=line
 
       - name: Upload report on failure
         if: failure()

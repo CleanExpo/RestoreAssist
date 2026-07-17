@@ -51,7 +51,7 @@ const ROOTS = [
   "components",
   "scripts",
   "types",
-  "content",
+  "data/content",
   "prisma",
   "mobile",
   "__tests__",

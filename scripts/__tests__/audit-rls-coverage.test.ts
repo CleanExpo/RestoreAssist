@@ -7,7 +7,7 @@
  * real scoping anchor, and that service-only tables stay default-deny.
  *
  * This does NOT prove the policies actually isolate rows at runtime — that is
- * the job of the live-Postgres harness in `test/rls/`. This layer guards
+ * the job of the live-Postgres harness in `scripts/rls-harness/`. This layer guards
  * against the regressions that static analysis CAN catch: a table silently
  * dropped from the policy emission, a typo'd scoping column, a service-only
  * table accidentally getting a tenant policy, or RLS never being enabled.

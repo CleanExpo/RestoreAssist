@@ -22,5 +22,7 @@ export { SketchSelectionPanel } from "./SketchSelectionPanel";
 export type { SelectedObject } from "./SketchSelectionPanel";
 export { SketchMoistureLayer } from "./SketchMoistureLayer";
 export type { MoisturePin } from "./SketchMoistureLayer";
+export { SketchEvidenceLayer } from "./SketchEvidenceLayer";
+export type { EvidencePinView } from "./SketchEvidenceLayer";
 export { SketchScaleModal } from "./SketchScaleModal";
 export type { ScaleConfig } from "./SketchScaleModal";

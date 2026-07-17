@@ -1,6 +1,6 @@
 /**
  * Generate ElevenLabs narration MP3s for the onboarding + walkthrough video
- * SERIES from each transcript SSOT (content/videos/<stem>.script.json).
+ * SERIES from each transcript SSOT (data/content/videos/<stem>.script.json).
  *
  * NOT runnable in the review sandbox — needs a real key. Run on a dev host:
  *   ELEVENLABS_API_KEY=*** ELEVENLABS_VOICE_ID=jSuBIjxMKhqIfb0wCK1F \
@@ -47,7 +47,7 @@ async function main() {
     process.exit(1);
   }
 
-  const inDir = path.join(process.cwd(), "content", "videos");
+  const inDir = path.join(process.cwd(), "data", "content", "videos");
   const outDir = path.join(process.cwd(), "public", "narration");
   await fs.mkdir(outDir, { recursive: true });
 

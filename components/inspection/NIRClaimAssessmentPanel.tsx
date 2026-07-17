@@ -54,6 +54,8 @@ export type NIRClaimType =
 interface NIRClaimAssessmentPanelProps {
   inspectionId: string;
   initialClaimType?: NIRClaimType | null;
+  /** When set, claim type is fixed (e.g. from ClaimTypePicker) — chip row hidden. */
+  lockedClaimType?: NIRClaimType | null;
   onClaimTypeChange?: (claimType: NIRClaimType) => void;
 }
 
@@ -375,25 +377,31 @@ function FireSmokeForm({
     <>
       {!odourOnly && (
         <>
-          <FieldRow label="Smoke Type">
+          <FieldRow label="Smoke Residue Type" hint="IICRC S700:2025">
             <Select
-              value={(data.smokeType as string) || ""}
-              onChange={(v) => onChange("smokeType", v || null)}
+              value={(data.smokeResidueType as string) || ""}
+              onChange={(v) => onChange("smokeResidueType", v || null)}
               options={[
                 { value: "DRY", label: "Dry — Fast-burning / high-temp" },
                 { value: "WET", label: "Wet — Smouldering / low-temp" },
                 { value: "PROTEIN", label: "Protein — Cooking residue" },
-                { value: "OIL", label: "Oil — Furnace / heating" },
-                { value: "OTHER", label: "Other" },
+                { value: "FUEL_OIL", label: "Fuel oil — Furnace / heating" },
               ]}
+            />
+          </FieldRow>
+          <FieldRow label="Residue Location">
+            <Input
+              value={(data.residueLocation as string) || ""}
+              onChange={(v) => onChange("residueLocation", v || null)}
+              placeholder="e.g. Ceiling voids, HVAC returns"
             />
           </FieldRow>
           <FieldRow label="Char Depth (mm)" hint="IICRC S700:2025 §3.1">
             <Input
               type="number"
-              value={(data.charDepthMm as number) || ""}
+              value={(data.charringDepthMm as number) || ""}
               onChange={(v) =>
-                onChange("charDepthMm", v ? parseFloat(v) : null)
+                onChange("charringDepthMm", v ? parseFloat(v) : null)
               }
               min={0}
               step={0.5}
@@ -407,10 +415,13 @@ function FireSmokeForm({
               options={[
                 { value: "SAFE", label: "Safe — No concerns" },
                 {
+                  value: "UNCERTAIN",
+                  label: "Uncertain — Pending assessment",
+                },
+                {
                   value: "COMPROMISED",
                   label: "Compromised — Engineer required",
                 },
-                { value: "UNKNOWN", label: "Unknown — Pending assessment" },
               ]}
             />
           </FieldRow>
@@ -426,36 +437,33 @@ function FireSmokeForm({
               onChange={(v) => onChange("gasShutoffVerified", v)}
             />
           </FieldRow>
-          <FieldRow label="Rooms Affected">
+          <FieldRow label="HVAC Affected">
+            <Toggle
+              value={!!data.hvacAffected}
+              onChange={(v) => onChange("hvacAffected", v)}
+            />
+          </FieldRow>
+          <FieldRow label="Surface pH" hint="0–14">
             <Input
               type="number"
-              value={(data.affectedRoomsCount as number) || ""}
+              value={(data.surfacePH as number) || ""}
               onChange={(v) =>
-                onChange("affectedRoomsCount", v ? parseInt(v) : null)
+                onChange("surfacePH", v ? parseFloat(v) : null)
               }
               min={0}
-              placeholder="e.g. 4"
-            />
-          </FieldRow>
-          <FieldRow label="HVAC Contaminated">
-            <Toggle
-              value={!!data.hvacContaminated}
-              onChange={(v) => onChange("hvacContaminated", v)}
-            />
-          </FieldRow>
-          <FieldRow label="Contents Salvageable">
-            <Toggle
-              value={!!data.contentsSalvageable}
-              onChange={(v) => onChange("contentsSalvageable", v)}
+              max={14}
+              step={0.1}
+              placeholder="e.g. 4.2"
             />
           </FieldRow>
         </>
       )}
       <FieldRow
         label="Odour Severity"
-        hint="0=None, 1=Mild, 2=Moderate, 3=Severe"
+        hint="0=None … 10=Extreme (IICRC S700)"
       >
-        <Select
+        <Input
+          type="number"
           value={
             data.odourSeverityScore != null
               ? String(data.odourSeverityScore)
@@ -464,12 +472,9 @@ function FireSmokeForm({
           onChange={(v) =>
             onChange("odourSeverityScore", v !== "" ? parseInt(v) : null)
           }
-          options={[
-            { value: "0", label: "0 — None" },
-            { value: "1", label: "1 — Mild" },
-            { value: "2", label: "2 — Moderate" },
-            { value: "3", label: "3 — Severe" },
-          ]}
+          min={0}
+          max={10}
+          placeholder="0–10"
         />
       </FieldRow>
       <FieldRow label="Odour Type">
@@ -478,26 +483,12 @@ function FireSmokeForm({
           onChange={(v) => onChange("odourType", v || null)}
           options={[
             { value: "SMOKE", label: "Smoke" },
-            { value: "SEWAGE", label: "Sewage" },
-            { value: "MOULD", label: "Mould" },
+            { value: "PROTEIN", label: "Protein" },
             { value: "CHEMICAL", label: "Chemical" },
-            { value: "DECOMPOSITION", label: "Decomposition" },
-            { value: "OTHER", label: "Other" },
+            { value: "FUEL", label: "Fuel" },
           ]}
         />
       </FieldRow>
-      {!odourOnly && (
-        <FieldRow label="Soot Index (1–10)">
-          <Input
-            type="number"
-            value={(data.sootIndex as number) || ""}
-            onChange={(v) => onChange("sootIndex", v ? parseFloat(v) : null)}
-            min={1}
-            max={10}
-            step={0.5}
-          />
-        </FieldRow>
-      )}
     </>
   );
 }
@@ -511,15 +502,30 @@ function MouldForm({
 }) {
   return (
     <>
-      <FieldRow label="Mould Category">
+      <FieldRow label="Condition Level" hint="IICRC S520:2024 Condition 1–3">
         <Select
-          value={(data.mouldCategory as string) || ""}
-          onChange={(v) => onChange("mouldCategory", v || null)}
+          value={(data.mouldConditionLevel as string) || ""}
+          onChange={(v) => onChange("mouldConditionLevel", v || null)}
           options={[
-            { value: "SURFACE", label: "Surface — Superficial growth" },
-            { value: "STRUCTURAL", label: "Structural — Penetrated substrate" },
-            { value: "SYSTEMIC", label: "Systemic — Throughout cavity" },
+            {
+              value: "CONDITION_1",
+              label: "Condition 1 — Normal fungal ecology",
+            },
+            {
+              value: "CONDITION_2",
+              label: "Condition 2 — Settled spores / fragments",
+            },
+            {
+              value: "CONDITION_3",
+              label: "Condition 3 — Actual growth present",
+            },
           ]}
+        />
+      </FieldRow>
+      <FieldRow label="Visible Growth Observed">
+        <Toggle
+          value={!!data.visibleGrowthObserved}
+          onChange={(v) => onChange("visibleGrowthObserved", v)}
         />
       </FieldRow>
       <FieldRow label="Spore Type">
@@ -557,15 +563,16 @@ function MouldForm({
           onChange={(v) => onChange("rootCauseAddressed", v)}
         />
       </FieldRow>
-      <FieldRow label="Containment Set Up">
-        <Toggle
-          value={!!data.containmentSetUp}
-          onChange={(v) => onChange("containmentSetUp", v)}
+      <FieldRow label="Containment Barrier Material">
+        <Input
+          value={(data.containmentBarrierMaterial as string) || ""}
+          onChange={(v) => onChange("containmentBarrierMaterial", v || null)}
+          placeholder="e.g. 6-mil poly sheeting"
         />
       </FieldRow>
       <FieldRow
         label="Pressure Differential (Pa)"
-        hint="IICRC S520 §9 — target −2.5 Pa"
+        hint="IICRC S520:2024 §9 — target −2.5 Pa"
       >
         <Input
           type="number"
@@ -573,12 +580,11 @@ function MouldForm({
           onChange={(v) =>
             onChange("pressureDifferentialPa", v ? parseFloat(v) : null)
           }
-          min={0}
           step={0.1}
           placeholder="e.g. −2.5"
         />
       </FieldRow>
-      <FieldRow label="Air Changes / Hour" hint="IICRC S520 — minimum 6">
+      <FieldRow label="Air Changes / Hour" hint="IICRC S520:2024 — minimum 6">
         <Input
           type="number"
           value={(data.airChangesPerHour as number) || ""}
@@ -590,10 +596,10 @@ function MouldForm({
           placeholder="e.g. 6"
         />
       </FieldRow>
-      <FieldRow label="Clearance Test Required">
+      <FieldRow label="Air Sampling Required">
         <Toggle
-          value={!!data.clearanceTestRequired}
-          onChange={(v) => onChange("clearanceTestRequired", v)}
+          value={!!data.airSamplingRequired}
+          onChange={(v) => onChange("airSamplingRequired", v)}
         />
       </FieldRow>
       <FieldRow label="Spore Count Pre (spores/m³)">
@@ -1439,10 +1445,11 @@ function AustralianComplianceForm({
 export default function NIRClaimAssessmentPanel({
   inspectionId,
   initialClaimType,
+  lockedClaimType,
   onClaimTypeChange,
 }: NIRClaimAssessmentPanelProps) {
   const [selectedType, setSelectedType] = useState<NIRClaimType | null>(
-    initialClaimType ?? null,
+    lockedClaimType ?? initialClaimType ?? null,
   );
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [contentItems, setContentItems] = useState<Record<string, unknown>[]>(
@@ -1514,13 +1521,16 @@ export default function NIRClaimAssessmentPanel({
   }, [inspectionId]);
 
   useEffect(() => {
-    if (initialClaimType) {
-      loadAssessment(initialClaimType);
+    const type = lockedClaimType ?? initialClaimType;
+    if (type) {
+      setSelectedType(type);
+      loadAssessment(type);
     }
     loadCompliance();
-  }, [initialClaimType, loadAssessment, loadCompliance]);
+  }, [lockedClaimType, initialClaimType, loadAssessment, loadCompliance]);
 
   const handleTypeSelect = (type: NIRClaimType) => {
+    if (lockedClaimType) return;
     setSelectedType(type);
     setFormData({});
     setGates({});
@@ -1640,37 +1650,59 @@ export default function NIRClaimAssessmentPanel({
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-5 max-w-3xl">
-      {/* Claim type selector */}
-      <div>
-        <p className="text-xs font-semibold text-neutral-500 dark:text-slate-400 uppercase tracking-wide mb-2">
-          Claim Type
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {CLAIM_TYPES.map((ct) => {
-            const Icon = ct.icon;
-            const isSelected = selectedType === ct.type;
-            const colorCls = isSelected
-              ? COLOR_MAP[ct.color]
-              : "bg-neutral-100 dark:bg-slate-800 text-neutral-500 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700";
-            return (
-              <button
-                key={ct.type}
-                type="button"
-                onClick={() => handleTypeSelect(ct.type)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-                  colorCls,
-                  isSelected && "ring-2",
-                )}
-              >
-                <Icon size={13} />
-                {ct.label}
-              </button>
-            );
-          })}
+    <div
+      className="space-y-5 max-w-3xl"
+      data-testid="nir-claim-assessment-panel"
+    >
+      {/* Claim type selector — hidden when locked to upstream picker */}
+      {!lockedClaimType && (
+        <div>
+          <p className="text-xs font-semibold text-neutral-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+            Claim Type
+          </p>
+          <div
+            className="flex flex-wrap gap-2"
+            data-testid="nir-claim-type-chips"
+          >
+            {CLAIM_TYPES.map((ct) => {
+              const Icon = ct.icon;
+              const isSelected = selectedType === ct.type;
+              const colorCls = isSelected
+                ? COLOR_MAP[ct.color]
+                : "bg-neutral-100 dark:bg-slate-800 text-neutral-500 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700";
+              return (
+                <button
+                  key={ct.type}
+                  type="button"
+                  onClick={() => handleTypeSelect(ct.type)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                    colorCls,
+                    isSelected && "ring-2",
+                  )}
+                >
+                  <Icon size={13} />
+                  {ct.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+      {lockedClaimType && currentMeta && (
+        <div
+          className="flex items-center gap-2 text-sm text-neutral-600 dark:text-slate-300"
+          data-testid="nir-claim-type-locked"
+        >
+          <currentMeta.icon
+            size={15}
+            className={`text-${currentMeta.color}-500`}
+          />
+          <span>
+            Claim type locked: <strong>{currentMeta.label}</strong>
+          </span>
+        </div>
+      )}
 
       {/* Gate status badges (only when there are gates) */}
       {Object.keys(gates).length > 0 && (

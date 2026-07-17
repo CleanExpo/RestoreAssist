@@ -7,6 +7,11 @@ import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
 import { ClientPortalUpload } from "@/components/portal/ClientPortalUpload";
 import { ClientPortalAuthorities } from "@/components/portal/ClientPortalAuthorities";
 import { ClientPortalStatus } from "@/components/portal/ClientPortalStatus";
+import {
+  PortalAboutSection,
+  PortalContentSections,
+} from "@/components/portal/PortalContentHub";
+import { fetchPublishedPortalContent } from "@/lib/portal/fetch-portal-content";
 
 const CATEGORY_COLOURS: Record<string, string> = {
   "1": "bg-success-subtle text-success-subtle-foreground",
@@ -76,6 +81,17 @@ export default async function ClientPortalPage({ params }: PageProps) {
       report: {
         select: { status: true, id: true },
       },
+      user: {
+        select: {
+          organization: {
+            select: {
+              name: true,
+              logoUrl: true,
+              aboutCopy: true,
+            },
+          },
+        },
+      },
     },
   });
 
@@ -96,6 +112,12 @@ export default async function ClientPortalPage({ params }: PageProps) {
   }
 
   const reportReady = inspection.report?.status === "COMPLETED";
+
+  const portalArticles = await fetchPublishedPortalContent("customer").catch(
+    () => [],
+  );
+
+  const org = inspection.user.organization;
 
   const inspectionDate = new Date(inspection.createdAt).toLocaleDateString(
     "en-AU",
@@ -270,6 +292,14 @@ export default async function ClientPortalPage({ params }: PageProps) {
 
         {/* Client evidence upload — photos + a note (quarantined for staff review) */}
         <ClientPortalUpload token={token} />
+
+        <PortalAboutSection
+          logoUrl={org?.logoUrl}
+          aboutCopy={org?.aboutCopy}
+          orgName={org?.name}
+        />
+
+        <PortalContentSections articles={portalArticles} />
 
         {/* Understanding your claim — explainer videos */}
         <ClientPortalVideos />

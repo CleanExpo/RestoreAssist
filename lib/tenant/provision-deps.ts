@@ -70,7 +70,11 @@ export function assertTenantConnectionString(connectionString: string): void {
 
 /** Prove the tenant DB is reachable. Any failure is reported as unreachable. */
 export async function testConnectivity(connectionString: string): Promise<boolean> {
-  const client = new PrismaClient({ datasourceUrl: connectionString });
+  // Prisma 7 requires a driver adapter — use a short-lived pg Pool per probe.
+  const { Pool } = await import("pg");
+  const { PrismaPg } = await import("@prisma/adapter-pg");
+  const pool = new Pool({ connectionString, max: 1, connectionTimeoutMillis: 5_000 });
+  const client = new PrismaClient({ adapter: new PrismaPg(pool) });
   try {
     await client.$queryRaw`SELECT 1`;
     return true;
@@ -78,6 +82,7 @@ export async function testConnectivity(connectionString: string): Promise<boolea
     return false;
   } finally {
     await client.$disconnect().catch(() => {});
+    await pool.end().catch(() => {});
   }
 }
 

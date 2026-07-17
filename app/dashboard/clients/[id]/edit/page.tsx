@@ -20,7 +20,7 @@ interface ClientFormData {
 const STATUS_OPTIONS = ["ACTIVE", "INACTIVE", "PROSPECT", "ARCHIVED"];
 
 export default function ClientEditPage() {
-  const params = useParams();
+  const params = useParams<{ id: string }>() ?? { id: "" };
   const router = useRouter();
   const id = params.id as string;
 

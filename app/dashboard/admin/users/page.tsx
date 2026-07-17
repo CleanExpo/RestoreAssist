@@ -164,6 +164,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("ALL");
@@ -176,6 +177,7 @@ export default function AdminUsersPage() {
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const params = new URLSearchParams();
       if (debouncedSearch) params.set("search", debouncedSearch);
@@ -185,9 +187,17 @@ export default function AdminUsersPage() {
         const data = await response.json();
         setUsers(data.users ?? []);
         setTotal(data.total ?? 0);
+        setLoadError(null);
+      } else {
+        setUsers([]);
+        setTotal(0);
+        setLoadError("Failed to load users");
       }
     } catch (error) {
       console.error("Error fetching users:", error);
+      setUsers([]);
+      setTotal(0);
+      setLoadError("Failed to load users");
     } finally {
       setLoading(false);
     }
@@ -262,6 +272,19 @@ export default function AdminUsersPage() {
           Admin Only
         </Badge>
       </div>
+
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => void fetchUsers()}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">

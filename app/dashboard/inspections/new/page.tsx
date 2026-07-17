@@ -5,10 +5,11 @@ import { useMemo, useState, useEffect } from "react";
 import NIRTechnicianInputForm from "@/components/NIRTechnicianInputForm";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import toast from "react-hot-toast";
 
 export default function NewInspectionPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const sessionId = searchParams.get("sessionId");
   const interviewDataParam = searchParams.get("interviewData");
 
@@ -46,7 +47,12 @@ export default function NewInspectionPage() {
         else if (!cancelled) setInitialDataFromApi({});
       })
       .catch(() => {
-        if (!cancelled) setInitialDataFromApi(null);
+        if (!cancelled) {
+          setInitialDataFromApi(null);
+          toast.error(
+            "Couldn’t load interview data. You can still enter the job manually.",
+          );
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingPrefill(false);

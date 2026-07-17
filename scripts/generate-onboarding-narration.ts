@@ -10,7 +10,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { generateAudio } from "./lib/elevenlabs-tts";
-import script from "../content/videos/onboarding-welcome.script.json";
+import script from "../data/content/videos/onboarding-welcome.script.json";
 
 async function main() {
   const apiKey = process.env.ELEVENLABS_API_KEY;

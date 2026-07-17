@@ -6,7 +6,7 @@ import RestorationInvoiceForm from "@/components/restoration/RestorationInvoiceF
 import { Loader2 } from "lucide-react";
 
 export default function NewRestorationInvoicePage() {
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const reportId = searchParams.get("reportId");
   const [seed, setSeed] = useState<{
     profile?: {

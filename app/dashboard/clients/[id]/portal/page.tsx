@@ -113,6 +113,10 @@ export default function ClientPortalPage({
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loadingClient, setLoadingClient] = useState(true);
   const [loadingInvitations, setLoadingInvitations] = useState(true);
+  const [clientLoadError, setClientLoadError] = useState<string | null>(null);
+  const [invitationsLoadError, setInvitationsLoadError] = useState<
+    string | null
+  >(null);
 
   // Send-invitation form state
   const [email, setEmail] = useState("");
@@ -132,16 +136,19 @@ export default function ClientPortalPage({
   const fetchClient = async () => {
     try {
       setLoadingClient(true);
+      setClientLoadError(null);
       const res = await fetch(`/api/clients/${clientId}`);
       if (res.ok) {
         const data = await res.json();
         setClient({ id: data.id, name: data.name, email: data.email });
         setEmail(data.email ?? "");
       } else {
-        toast.error("Failed to load client details");
+        setClient(null);
+        setClientLoadError("Failed to load client details");
       }
     } catch {
-      toast.error("Failed to load client details");
+      setClient(null);
+      setClientLoadError("Failed to load client details");
     } finally {
       setLoadingClient(false);
     }
@@ -150,13 +157,18 @@ export default function ClientPortalPage({
   const fetchInvitations = async () => {
     try {
       setLoadingInvitations(true);
+      setInvitationsLoadError(null);
       const res = await fetch(`/api/portal/invitations?clientId=${clientId}`);
       if (res.ok) {
         const data = await res.json();
         setInvitations(data.invitations ?? []);
+      } else {
+        setInvitations([]);
+        setInvitationsLoadError("Failed to load portal invitations");
       }
     } catch {
-      // silent — empty state handles it
+      setInvitations([]);
+      setInvitationsLoadError("Failed to load portal invitations");
     } finally {
       setLoadingInvitations(false);
     }
@@ -270,6 +282,42 @@ export default function ClientPortalPage({
         </div>
       </div>
 
+      {clientLoadError ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 flex items-start justify-between gap-3"
+        >
+          <p>{clientLoadError}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void fetchClient()}
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            Retry
+          </Button>
+        </div>
+      ) : null}
+
+      {invitationsLoadError ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 flex items-start justify-between gap-3"
+        >
+          <p>{invitationsLoadError}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void fetchInvitations()}
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            Retry
+          </Button>
+        </div>
+      ) : null}
+
       {/* Portal status card */}
       <Card className="bg-slate-800/50 border-slate-700/50">
         <CardHeader>
@@ -283,6 +331,10 @@ export default function ClientPortalPage({
               <Skeleton className="h-5 w-40" />
               <Skeleton className="h-4 w-64" />
             </div>
+          ) : invitationsLoadError ? (
+            <p className="text-sm text-slate-400">
+              Invitation status unavailable until the list loads.
+            </p>
           ) : acceptedInvitation ? (
             <div className="flex items-start gap-3">
               <CheckCircle

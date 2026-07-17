@@ -22,8 +22,11 @@ import {
   callAnthropicWithFallback,
   type AnthropicReason,
 } from "./anthropic-gateway";
+import { AI_OWNERSHIP_PROMPT_INSTRUCTION } from "@/lib/reports/ai-ownership";
 
-const SYSTEM_PROMPT = `You are a professional water damage restoration report writer operating in Australia. Generate comprehensive, professional reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference and mention specific standards, codes, and regulations throughout the report. Always use the actual client information provided (name, address, email, phone, technician name) - NEVER use "[Redacted for Privacy]" or placeholder text.`;
+const SYSTEM_PROMPT = `You are a professional water damage restoration report writer operating in Australia. Generate comprehensive, professional reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference and mention specific standards, codes, and regulations throughout the report. Always use the actual client information provided (name, address, email, phone, technician name) - NEVER use "[Redacted for Privacy]" or placeholder text.
+
+${AI_OWNERSHIP_PROMPT_INSTRUCTION}`;
 
 const MAX_TOKENS = 8000;
 

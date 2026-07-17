@@ -1,12 +1,12 @@
 /**
  * Nexus Hub context bundle for Margot / Mission Control (Tier 2).
- * Reads synced content/nexus-hub on Vercel; optional Hermes API on LAN.
+ * Reads synced data/content/nexus-hub on Vercel; optional Hermes API on LAN.
  */
 
 import fs from "fs/promises";
 import path from "path";
 
-const NEXUS_DIR = path.join(process.cwd(), "content", "nexus-hub");
+const NEXUS_DIR = path.join(process.cwd(), "data", "content", "nexus-hub");
 
 export type NexusContextBundle = {
   fetchedAt: string;

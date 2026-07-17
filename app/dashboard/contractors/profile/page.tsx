@@ -63,6 +63,7 @@ export default function ContractorProfileDashboard() {
   const [certifications, setCertifications] = useState<Certification[]>([]);
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -107,37 +108,38 @@ export default function ContractorProfileDashboard() {
 
   const fetchProfile = async () => {
     try {
+      setLoadError(null);
       const [profileRes, certsRes, areasRes] = await Promise.all([
         fetch("/api/contractors/profile"),
         fetch("/api/contractors/certifications"),
         fetch("/api/contractors/service-areas"),
       ]);
 
-      if (profileRes.ok) {
-        const profileData = await profileRes.json();
-        setProfile(profileData.profile);
-        setPublicDescription(profileData.profile.publicDescription || "");
-        setYearsInBusiness(
-          profileData.profile.yearsInBusiness?.toString() || "",
-        );
-        setTeamSize(profileData.profile.teamSize?.toString() || "");
-        setIsPubliclyVisible(profileData.profile.isPubliclyVisible);
-        setSpecializations(
-          (profileData.profile.specializations || []).join(", "),
-        );
+      if (!profileRes.ok || !certsRes.ok || !areasRes.ok) {
+        setLoadError("Failed to load contractor profile");
+        return;
       }
 
-      if (certsRes.ok) {
-        const certsData = await certsRes.json();
-        setCertifications(certsData.certifications || []);
-      }
+      const profileData = await profileRes.json();
+      setProfile(profileData.profile);
+      setPublicDescription(profileData.profile.publicDescription || "");
+      setYearsInBusiness(
+        profileData.profile.yearsInBusiness?.toString() || "",
+      );
+      setTeamSize(profileData.profile.teamSize?.toString() || "");
+      setIsPubliclyVisible(profileData.profile.isPubliclyVisible);
+      setSpecializations(
+        (profileData.profile.specializations || []).join(", "),
+      );
 
-      if (areasRes.ok) {
-        const areasData = await areasRes.json();
-        setServiceAreas(areasData.serviceAreas || []);
-      }
+      const certsData = await certsRes.json();
+      setCertifications(certsData.certifications || []);
+
+      const areasData = await areasRes.json();
+      setServiceAreas(areasData.serviceAreas || []);
     } catch (error) {
       console.error("Failed to fetch profile:", error);
+      setLoadError("Failed to load contractor profile");
     } finally {
       setLoading(false);
     }
@@ -327,6 +329,22 @@ export default function ContractorProfileDashboard() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <confirm.Mount />
       <h1 className="text-3xl font-bold text-white mb-8">Contractor Profile</h1>
+
+      {loadError && (
+        <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          {loadError}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => {
+              setLoading(true);
+              void fetchProfile();
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Message */}
       {message && (

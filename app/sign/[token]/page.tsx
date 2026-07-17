@@ -56,7 +56,7 @@ type PageState =
   | "already_signed";
 
 export default function PublicSigningPage() {
-  const params = useParams();
+  const params = useParams<{ token: string }>() ?? { token: "" };
   const token = params.token as string;
 
   const [pageState, setPageState] = useState<PageState>("loading");

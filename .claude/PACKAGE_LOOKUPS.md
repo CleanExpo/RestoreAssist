@@ -1,6 +1,6 @@
 # Package Lookups — opensrc patterns for RA dependencies
 
-When you need to read a dependency's internals (not just its types/interface), use [opensrc](../vendor/opensrc/README.md). It fetches package source from npm / PyPI / crates.io / GitHub and caches at `~/.opensrc/`. CLAUDE.md rule: don't fabricate APIs — read the source.
+When you need to read a dependency's internals (not just its types/interface), use [opensrc](../docs/tooling/vendor-opensrc/README.md). It fetches package source from npm / PyPI / crates.io / GitHub and caches at `~/.opensrc/`. CLAUDE.md rule: don't fabricate APIs — read the source.
 
 ## One-time setup
 
@@ -68,9 +68,9 @@ Use opensrc when you need to know *how* a package does something internally — 
 
 ## Vendored CLI source
 
-`vendor/opensrc/` contains the full CLI source (Rust + npm shim) for reference. Useful when:
+`docs/tooling/vendor-opensrc/` contains the full CLI source (Rust + npm shim) for reference. Useful when:
 - The CLI behaviour is surprising and you want to read what it does.
 - You're contributing a fix back upstream.
-- You need to build a local patch (`cargo build --manifest-path vendor/opensrc/packages/opensrc/cli/Cargo.toml`).
+- You need to build a local patch (`cargo build --manifest-path docs/tooling/vendor-opensrc/packages/opensrc/cli/Cargo.toml`).
 
-Don't modify `vendor/opensrc/` for RA-specific changes — track upstream via the README link.
+Don't modify `docs/tooling/vendor-opensrc/` for RA-specific changes — track upstream via the README link.

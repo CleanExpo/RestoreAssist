@@ -4,10 +4,8 @@
  * RA-440: Field mode — /dashboard/inspections/[id]/field
  *
  * Mobile-first inspection interface for on-site use.
- * Optimised for gloved hands, bright outdoor light, one-handed operation.
- * Shows: quick moisture entry, S500 checklist, recent readings, photo capture link.
+ * Claim-type aware: moisture quick-entry only for water jobs (Wave 3).
  */
-
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -22,11 +20,16 @@ import {
   FileText,
   ChevronRight,
   RefreshCw,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QuickMoistureEntry } from "@/components/mobile/QuickMoistureEntry";
 import { MobileNav } from "@/components/mobile/MobileNav";
 import { Badge } from "@/components/ui/badge";
+import {
+  moistureReadingsRequired,
+  type IicrcClaimType,
+} from "@/lib/nir-standards-mapping";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -37,6 +40,8 @@ interface Inspection {
   inspectionNumber: string;
   propertyAddress: string;
   status: string;
+  claimType: string | null;
+  photos?: unknown[];
   moistureReadings: Array<{
     id: string;
     location: string;
@@ -48,6 +53,7 @@ interface Inspection {
     waterCategory: number | null;
     damageClass: number | null;
   }>;
+  affectedAreas?: unknown[];
 }
 
 interface ChecklistItem {
@@ -67,6 +73,7 @@ const STATUS_LABEL: Record<string, string> = {
   SCOPED: "Scoped",
   ESTIMATED: "Estimated",
   COMPLETED: "Completed",
+  CLOSED: "Closed",
 };
 
 type TabId = "readings" | "checklist";
@@ -76,37 +83,70 @@ export default function FieldModePage({ params }: PageProps) {
   const router = useRouter();
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
-  const [tab, setTab] = useState<TabId>("readings");
+  const [tab, setTab] = useState<TabId>("checklist");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [readingsSaved, setReadingsSaved] = useState(0);
+
+  const waterClaim = moistureReadingsRequired(
+    inspection?.claimType as IicrcClaimType | null | undefined,
+  );
 
   useEffect(() => {
     async function load() {
+      setLoadError(null);
+      setLoading(true);
       try {
         const [inspRes, checklistRes] = await Promise.all([
           fetch(`/api/inspections/${inspectionId}`),
           fetch(`/api/inspections/${inspectionId}/voice/checklist`),
         ]);
-        if (inspRes.ok) {
-          const data = await inspRes.json();
-          setInspection(data.inspection ?? data);
+        if (!inspRes.ok) {
+          setInspection(null);
+          setLoadError("Could not load this inspection");
+          return;
         }
+        const data = await inspRes.json();
+        const next = (data.inspection ?? data) as Inspection;
+        setInspection(next);
+
+        const needsMoisture = moistureReadingsRequired(
+          next.claimType as IicrcClaimType | null | undefined,
+        );
+        setTab(needsMoisture ? "readings" : "checklist");
+
         if (checklistRes.ok) {
-          const data = await checklistRes.json();
-          setChecklist(data.items ?? []);
+          const checklistData = await checklistRes.json();
+          setChecklist(checklistData.items ?? []);
         }
+      } catch {
+        setInspection(null);
+        setLoadError("Could not load this inspection");
       } finally {
         setLoading(false);
       }
     }
-    load();
+    void load();
   }, [inspectionId, readingsSaved]);
+
+  // Non-water: bounce off moisture tab if somehow selected
+  useEffect(() => {
+    if (!waterClaim && tab === "readings") {
+      setTab("checklist");
+    }
+  }, [waterClaim, tab]);
 
   const criticalMissing = checklist.filter(
     (i) => !i.complete && i.priority === 1,
   );
   const completedCount = checklist.filter((i) => i.complete).length;
   const readyToLeave = criticalMissing.length === 0 && checklist.length > 0;
+  const photoCount = inspection?.photos?.length ?? 0;
+  const moistureCount = inspection?.moistureReadings?.length ?? 0;
+  const claimLabel = inspection?.claimType
+    ? inspection.claimType.charAt(0) +
+      inspection.claimType.slice(1).toLowerCase()
+    : "Claim not set";
 
   if (loading) {
     return (
@@ -115,6 +155,34 @@ export default function FieldModePage({ params }: PageProps) {
       </div>
     );
   }
+
+  if (loadError || !inspection) {
+    return (
+      <div className="min-h-screen bg-brand-canvas text-white flex flex-col items-center justify-center gap-4 px-6">
+        <p className="text-sm text-white/70 text-center">
+          {loadError ?? "Inspection not found"}
+        </p>
+        <button
+          type="button"
+          onClick={() => setReadingsSaved((n) => n + 1)}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-sm hover:bg-white/15"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Retry
+        </button>
+        <Link
+          href={`/dashboard/inspections/${inspectionId}`}
+          className="text-sm text-brand-gold"
+        >
+          Back to inspection
+        </Link>
+      </div>
+    );
+  }
+
+  const tabs: TabId[] = waterClaim
+    ? ["readings", "checklist"]
+    : ["checklist"];
 
   return (
     <div className="min-h-screen bg-brand-canvas text-white pb-20">
@@ -130,10 +198,11 @@ export default function FieldModePage({ params }: PageProps) {
           </button>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm truncate">
-              {inspection?.propertyAddress ?? "Loading…"}
+              {inspection.propertyAddress}
             </p>
             <p className="text-xs text-white/40">
-              {inspection?.inspectionNumber}
+              {inspection.inspectionNumber} ·{" "}
+              {STATUS_LABEL[inspection.status] ?? inspection.status}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -149,6 +218,43 @@ export default function FieldModePage({ params }: PageProps) {
                 {criticalMissing.length} critical
               </Badge>
             )}
+          </div>
+        </div>
+
+        {/* Compact evidence readiness */}
+        <div className="mx-4 mb-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <p className="text-xs font-medium text-white/80 flex items-center gap-1.5">
+              <ClipboardCheck className="h-3.5 w-3.5 text-brand-gold" />
+              Field readiness
+            </p>
+            <span className="text-[10px] uppercase tracking-wide text-white/40">
+              {claimLabel}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/55">
+            <span>
+              Photos{" "}
+              <span className="text-white font-medium tabular-nums">
+                {photoCount}
+              </span>
+            </span>
+            {waterClaim ? (
+              <span>
+                Moisture{" "}
+                <span className="text-white font-medium tabular-nums">
+                  {moistureCount}
+                </span>
+              </span>
+            ) : (
+              <span className="text-white/40">Moisture not required</span>
+            )}
+            <span>
+              Checklist{" "}
+              <span className="text-white font-medium tabular-nums">
+                {completedCount}/{checklist.length || "—"}
+              </span>
+            </span>
           </div>
         </div>
 
@@ -184,7 +290,7 @@ export default function FieldModePage({ params }: PageProps) {
 
         {/* Tab bar */}
         <div className="flex border-t border-white/10">
-          {(["readings", "checklist"] as TabId[]).map((t) => (
+          {tabs.map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -199,16 +305,14 @@ export default function FieldModePage({ params }: PageProps) {
                 <span className="flex items-center justify-center gap-1.5">
                   <Droplets className="h-4 w-4" />
                   Moisture
-                  {inspection && (
-                    <span className="ml-1 text-xs bg-white/10 px-1.5 py-0.5 rounded-full">
-                      {inspection.moistureReadings?.length ?? 0}
-                    </span>
-                  )}
+                  <span className="ml-1 text-xs bg-white/10 px-1.5 py-0.5 rounded-full">
+                    {moistureCount}
+                  </span>
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-1.5">
                   <CheckCircle2 className="h-4 w-4" />
-                  S500 Checklist
+                  {waterClaim ? "S500 Checklist" : "Field checklist"}
                   <span className="ml-1 text-xs bg-white/10 px-1.5 py-0.5 rounded-full">
                     {completedCount}/{checklist.length}
                   </span>
@@ -221,77 +325,86 @@ export default function FieldModePage({ params }: PageProps) {
 
       {/* Tab content */}
       <div className="px-4 py-4">
-        {tab === "readings" && (
+        {tab === "readings" && waterClaim && (
           <div className="space-y-6">
             <QuickMoistureEntry
               inspectionId={inspectionId}
               onSaved={() => setReadingsSaved((n) => n + 1)}
             />
 
-            {/* Recent readings */}
-            {inspection?.moistureReadings &&
-              inspection.moistureReadings.length > 0 && (
-                <div>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mb-3">
-                    Recent readings
-                  </p>
-                  <div className="space-y-2">
-                    {[...inspection.moistureReadings]
-                      .sort(
-                        (a, b) =>
-                          new Date(b.recordedAt).getTime() -
-                          new Date(a.recordedAt).getTime(),
-                      )
-                      .slice(0, 10)
-                      .map((r) => (
-                        <div
-                          key={r.id}
-                          className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3"
-                        >
-                          <div>
-                            <p className="text-sm font-medium text-white">
-                              {r.location}
-                            </p>
-                            <p className="text-xs text-white/40">
-                              {r.surfaceType}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p
-                              className={cn(
-                                "text-lg font-bold tabular-nums",
-                                r.moistureLevel > 25
-                                  ? "text-destructive"
-                                  : r.moistureLevel > 15
-                                    ? "text-amber-400"
-                                    : "text-success",
-                              )}
-                            >
-                              {r.moistureLevel}%
-                            </p>
-                          </div>
+            {moistureCount > 0 ? (
+              <div>
+                <p className="text-xs text-white/40 uppercase tracking-wider mb-3">
+                  Recent readings
+                </p>
+                <div className="space-y-2">
+                  {[...inspection.moistureReadings]
+                    .sort(
+                      (a, b) =>
+                        new Date(b.recordedAt).getTime() -
+                        new Date(a.recordedAt).getTime(),
+                    )
+                    .slice(0, 10)
+                    .map((r) => (
+                      <div
+                        key={r.id}
+                        className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-white">
+                            {r.location}
+                          </p>
+                          <p className="text-xs text-white/40">{r.surfaceType}</p>
                         </div>
-                      ))}
-                  </div>
+                        <div className="text-right">
+                          <p
+                            className={cn(
+                              "text-lg font-bold tabular-nums",
+                              r.moistureLevel > 25
+                                ? "text-destructive"
+                                : r.moistureLevel > 15
+                                  ? "text-amber-400"
+                                  : "text-success",
+                            )}
+                          >
+                            {r.moistureLevel}%
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                 </div>
-              )}
+              </div>
+            ) : (
+              <p className="text-sm text-white/40 text-center py-6">
+                No moisture readings yet — add the first reading above.
+              </p>
+            )}
           </div>
         )}
 
         {tab === "checklist" && (
           <div id="checklist" className="space-y-3">
+            {!waterClaim ? (
+              <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60 mb-2">
+                {claimLabel} claim — moisture readings are not required. Focus
+                on photos and claim-type evidence from the full inspection.
+              </div>
+            ) : null}
             {checklist.length === 0 ? (
               <div className="text-center py-12 text-white/30">
                 <p className="text-sm">
-                  Start an inspection to see the S500:2021 checklist
+                  {waterClaim
+                    ? "Start an inspection to see the S500:2021 checklist"
+                    : "No field checklist items for this claim type yet"}
                 </p>
               </div>
             ) : (
               <>
-                {/* Progress bar */}
                 <div className="bg-white/5 rounded-xl p-4 mb-4">
                   <div className="flex justify-between text-sm mb-2">
-                    <span className="text-white/60">S500:2021 completion</span>
+                    <span className="text-white/60">
+                      {waterClaim ? "S500:2021 completion" : "Checklist"}
+                    </span>
                     <span className="font-medium">
                       {completedCount}/{checklist.length}
                     </span>
@@ -311,84 +424,64 @@ export default function FieldModePage({ params }: PageProps) {
                   )}
                 </div>
 
-                {/* Priority 1 items first */}
                 {[1, 2, 3].map((priority) => {
-                  const items = checklist.filter(
-                    (i) => i.priority === priority,
-                  );
-                  if (!items.length) return null;
+                  const items = checklist.filter((i) => i.priority === priority);
+                  if (items.length === 0) return null;
                   return (
-                    <div key={priority}>
-                      <p className="text-xs text-white/30 uppercase tracking-wider mb-2 mt-4">
-                        {priority === 1
-                          ? "Must complete before leaving"
-                          : priority === 2
-                            ? "Should complete"
-                            : "Nice to have"}
+                    <div key={priority} className="space-y-2">
+                      <p className="text-xs text-white/40 uppercase tracking-wider pt-2">
+                        Priority {priority}
                       </p>
-                      <div className="space-y-2">
-                        {items.map((item) => (
-                          <div
-                            key={item.id}
-                            className={cn(
-                              "flex items-start gap-3 rounded-xl px-4 py-3",
-                              item.complete
-                                ? "bg-green-900/20"
-                                : priority === 1
-                                  ? "bg-amber-900/20"
-                                  : "bg-white/5",
-                            )}
-                          >
-                            <div className="mt-0.5 shrink-0">
-                              {item.complete ? (
-                                <CheckCircle2 className="h-5 w-5 text-success" />
-                              ) : priority === 1 ? (
-                                <AlertCircle className="h-5 w-5 text-amber-400" />
-                              ) : (
-                                <Circle className="h-5 w-5 text-white/20" />
+                      {items.map((item) => (
+                        <div
+                          key={item.id}
+                          className={cn(
+                            "flex items-start gap-3 rounded-xl px-4 py-3",
+                            item.complete ? "bg-white/5" : "bg-white/[0.07]",
+                          )}
+                        >
+                          {item.complete ? (
+                            <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" />
+                          ) : priority === 1 ? (
+                            <AlertCircle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                          ) : (
+                            <Circle className="h-5 w-5 text-white/25 shrink-0 mt-0.5" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className={cn(
+                                "text-sm",
+                                item.complete
+                                  ? "text-white/50 line-through"
+                                  : "text-white",
                               )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p
-                                className={cn(
-                                  "text-sm",
-                                  item.complete
-                                    ? "text-white/50 line-through"
-                                    : "text-white",
-                                )}
-                              >
-                                {item.label}
-                              </p>
-                              <p className="text-xs text-white/30 mt-0.5">
-                                S500:2021 {item.s500Section}
-                              </p>
-                            </div>
+                            >
+                              {item.label}
+                            </p>
+                            <p className="text-xs text-white/30 mt-0.5">
+                              {item.s500Section}
+                            </p>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
                   );
                 })}
               </>
             )}
 
-            {/* Jump to voice */}
             <Link
-              href={`/dashboard/inspections/${inspectionId}/voice`}
-              className="flex items-center justify-between w-full mt-4 p-4 rounded-xl bg-brand-navy/50 border border-brand-navy text-sm text-white/80 hover:bg-brand-navy/80 transition-colors"
+              href={`/dashboard/inspections/${inspectionId}`}
+              className="mt-6 flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 text-sm text-white/60 hover:bg-white/10"
             >
-              <span className="flex items-center gap-2">
-                <Mic className="h-4 w-4 text-brand-gold" />
-                Switch to Voice Copilot
-              </span>
-              <ChevronRight className="h-4 w-4 text-white/40" />
+              Open full inspection
+              <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
         )}
       </div>
 
-      {/* Mobile bottom nav */}
-      <MobileNav inspectionId={inspectionId} />
+      <MobileNav />
     </div>
   );
 }

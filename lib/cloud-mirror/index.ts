@@ -35,13 +35,13 @@ export const PROVIDER_CATALOG: {
   {
     id: "onedrive",
     label: "Microsoft OneDrive",
-    tagline: "Coming soon — AU data centres",
-    enabled: false,
+    tagline: "Mirrors to your OneDrive. Folder: RestoreAssist/{JobNumber}/",
+    enabled: !!process.env.MICROSOFT_CLIENT_ID,
   },
   {
     id: "icloud",
     label: "Apple iCloud",
-    tagline: "Coming soon — AU data centres",
+    tagline: "Requires Apple CloudKit — not available yet",
     enabled: false,
   },
 ];
@@ -59,7 +59,7 @@ export function buildProvider(
     case "drive":
       return new DriveCloudMirror(userId);
     case "onedrive":
-      return new OneDriveCloudMirror();
+      return new OneDriveCloudMirror(userId);
     case "icloud":
       return new ICloudCloudMirror();
   }

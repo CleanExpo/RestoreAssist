@@ -1,6 +1,6 @@
 # Architecture — RestoreAssist
 
-> **Need to read a dependency's source?** Don't guess — use opensrc (`opensrc path next prisma ...`). Patterns in `.claude/PACKAGE_LOOKUPS.md`. CLI vendored at `vendor/opensrc/`.
+> **Need to read a dependency's source?** Don't guess — use opensrc (`opensrc path next prisma ...`). Patterns in `.claude/PACKAGE_LOOKUPS.md`. CLI vendored at `docs/tooling/vendor-opensrc/`.
 
 ## System Overview
 

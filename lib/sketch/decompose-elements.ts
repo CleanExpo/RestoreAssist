@@ -11,7 +11,13 @@
 
 const DEFAULT_PX_PER_M = 100; // canvas default: 100px = 1m
 
-const CANONICAL_TYPES = new Set(["wall", "opening", "room", "fixture"]);
+const CANONICAL_TYPES = new Set([
+  "wall",
+  "opening",
+  "room",
+  "fixture",
+  "damage",
+]);
 
 export type Provenance = "operator_measured" | "underlay_reference";
 
@@ -46,7 +52,7 @@ export interface DimensionsM {
 }
 
 export interface DecomposedElement {
-  type: "wall" | "opening" | "room" | "fixture";
+  type: "wall" | "opening" | "room" | "fixture" | "damage";
   geometryJson: FabricObject;
   dimensionsM: DimensionsM | null;
   materialSlug: string | null;
