@@ -4,7 +4,7 @@ import matter from "gray-matter";
 import { HELP_CATEGORIES, type HelpFrontmatter, type HelpCategory } from "./types";
 import { parseHelpFrontmatter } from "./frontmatter-schema";
 
-const CONTENT_ROOT = path.join(process.cwd(), "content", "help");
+const CONTENT_ROOT = path.join(process.cwd(), "data", "content", "help");
 
 export type LoadedArticle = {
   frontmatter: HelpFrontmatter;
