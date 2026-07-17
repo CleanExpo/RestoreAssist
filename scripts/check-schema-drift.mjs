@@ -318,29 +318,8 @@ async function main() {
     process.exit(2);
   }
 
-  // Prisma 7 driver-adapter clients cannot be constructed bare — a plain
-  // `new PrismaClient()` throws PrismaClientInitializationError (this killed
-  // every production build after the Prisma 7 upgrade, RA-7079). Mirror the
-  // lib/prisma.ts pg-adapter construction.
   const { PrismaClient } = await import("@prisma/client");
-  const { PrismaPg } = await import("@prisma/adapter-pg");
-  const { Pool } = await import("pg");
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    console.error("✗ DATABASE_URL is unset — drift check needs a live database");
-    process.exit(2);
-  }
-  const pool = new Pool({
-    connectionString,
-    max: 2,
-    connectionTimeoutMillis: 20_000,
-    ssl:
-      connectionString.includes("supabase") ||
-      connectionString.includes("sslmode=require")
-        ? { rejectUnauthorized: false }
-        : undefined,
-  });
-  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+  const prisma = new PrismaClient();
   let colRows;
   let idxRows;
   let enumRows;

@@ -4,7 +4,7 @@ import {
   ruleBasedClassify,
   type ClassificationResult,
   type ClaimType,
-} from "@/lib/ai/classify-rules";
+} from "@/lib/ai/auto-classify";
 import { cn } from "@/lib/utils";
 import { Lightbulb, X, Check } from "lucide-react";
 
