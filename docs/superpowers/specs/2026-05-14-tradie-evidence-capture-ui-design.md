@@ -164,14 +164,14 @@ export function TechLicenceBanner() {
 
   return (
     <div className="border border-[#1C2E47]/30 bg-[#1C2E47]/8 rounded-lg p-4 mb-6 flex items-center gap-4">
-      <div className="text-2xl">📋</div>
+      <div className="text-2xl"></div>
       <div className="flex-1">
         <p className="font-semibold text-sm">Add your credentials to unlock attestations</p>
         <p className="text-xs text-muted-foreground">IICRC certificate · WHS White Card · State licence — takes a minute</p>
         <div className="flex gap-2 mt-2">
           {data.steps.map((s) => (
             <span key={s.id} className="text-[10px] px-2 py-0.5 border rounded-full">
-              {s.title.replace(/^Add your /, "")} {s.completed ? "✓" : "pending"}
+              {s.title.replace(/^Add your /, "")} {s.completed ? "" : "pending"}
             </span>
           ))}
         </div>

@@ -368,7 +368,7 @@ export default function EquipmentToolsSelection({
                       : "bg-slate-700 text-slate-400"
                 }`}
               >
-                {currentStep > step ? "✓" : step}
+                {currentStep > step ? "√" : step}
               </div>
               {step < 3 && (
                 <div

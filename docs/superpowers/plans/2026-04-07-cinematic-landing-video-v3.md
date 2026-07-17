@@ -280,7 +280,7 @@ export const SplitScene: React.FC<SplitSceneProps> = ({
                     lineHeight: 1.6,
                   }}
                 >
-                  ✕
+                  x
                 </span>
                 <span
                   style={{
@@ -1033,10 +1033,10 @@ async function main() {
       });
       const outPath = path.join(OUT_DIR, capture.output);
       await page.screenshot({ path: outPath, type: "png" });
-      console.log(`[capture] ✓ ${capture.output}`);
+      console.log(`[capture]  ${capture.output}`);
     } catch (err) {
       console.warn(
-        `[capture] ✗ ${capture.name} failed: ${(err as Error).message}`,
+        `[capture]  ${capture.name} failed: ${(err as Error).message}`,
       );
     }
   }
@@ -1152,7 +1152,7 @@ Expected output:
 [render] Frame 4410/4410 (100%)
 [render] Video rendered.
 [render] Poster exported: .../public/videos/landing-page-overview-v2-poster.jpg
-✓ Render complete!
+ Render complete!
 ```
 
 - [ ] **Step 2: Verify output**

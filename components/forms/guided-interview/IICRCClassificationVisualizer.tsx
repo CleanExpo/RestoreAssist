@@ -309,10 +309,10 @@ export function IICRCClassificationVisualizer({
           <AlertDescription>
             <span className="font-semibold">
               {riskLevel === "low"
-                ? "✓ Low Risk"
+                ? "Low Risk"
                 : riskLevel === "medium"
-                  ? "⚠ Medium Risk"
-                  : "✗ High Risk"}
+                  ? "Medium Risk"
+                  : "High Risk"}
             </span>{" "}
             - Category {category} water with Class {waterClass} damage scope
           </AlertDescription>
@@ -460,16 +460,16 @@ export function IICRCClassificationVisualizer({
                 </h4>
                 <div className="space-y-1 text-sm">
                   <p className="text-amber-800">
-                    ✓ IICRC S500 Standard & Reference Guide Section 2-3
+                    IICRC S500 Standard & Reference Guide Section 2-3
                   </p>
                   <p className="text-amber-800">
-                    ✓ NCC 2025 Building Code Section 3
+                    NCC 2025 Building Code Section 3
                   </p>
                   <p className="text-amber-800">
-                    ✓ WHS Act 2011 Safety Requirements
+                    WHS Act 2011 Safety Requirements
                   </p>
                   <p className="text-amber-800">
-                    ✓ AS/NZS 3000 Electrical Safety (if electrical involved)
+                    AS/NZS 3000 Electrical Safety (if electrical involved)
                   </p>
                 </div>
               </div>
@@ -487,17 +487,17 @@ export function IICRCClassificationVisualizer({
               {timeElapsedHours} hours elapsed
               {timeElapsedHours > 72 ? (
                 <span className="block mt-1 text-orange-700 font-semibold">
-                  ⚠ Over 72 hours - Bacterial growth risk HIGH. Immediate action
+                  Over 72 hours - Bacterial growth risk HIGH. Immediate action
                   required.
                 </span>
               ) : timeElapsedHours > 48 ? (
                 <span className="block mt-1 text-yellow-700 font-semibold">
-                  ⚠ 48-72 hours - Mould growth risk increasing. Urgent action
+                  48-72 hours - Mould growth risk increasing. Urgent action
                   needed.
                 </span>
               ) : (
                 <span className="block mt-1 text-success font-semibold">
-                  ✓ Under 48 hours - Optimal time for mitigation. Act now.
+                  Under 48 hours - Optimal time for mitigation. Act now.
                 </span>
               )}
             </p>

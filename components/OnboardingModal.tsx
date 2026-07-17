@@ -201,7 +201,7 @@ export default function OnboardingModal({
             <div className="space-y-4">
               <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                 <p className="text-sm text-amber-400 font-medium">
-                  ⚠️ You must complete all required steps before creating
+                  You must complete all required steps before creating
                   reports. Please complete the following steps to continue.
                 </p>
               </div>

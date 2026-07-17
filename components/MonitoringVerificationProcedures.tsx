@@ -441,10 +441,10 @@ export default function MonitoringVerificationProcedures({
             }`}
           >
             {complianceStatus === "compliant"
-              ? "✓"
+              ? "√"
               : complianceStatus === "partial"
-                ? "⚠"
-                : "✗"}
+                ? "!"
+                : "×"}
           </div>
           <div className="text-sm text-slate-400 capitalize">
             {complianceStatus}
@@ -730,8 +730,8 @@ export default function MonitoringVerificationProcedures({
                         >
                           {parseFloat(reading.moistureContent) <=
                           parseFloat(reading.targetLevel)
-                            ? "✓"
-                            : "✗"}
+                            ? "√"
+                            : "×"}
                         </span>
                       </div>
                     </div>

@@ -38,37 +38,31 @@ export default function FeaturesPage() {
       title: "AI-Powered Damage Assessment",
       description:
         "Advanced AI technology analyses damage patterns and provides accurate assessments in real-time.",
-      icon: "🔍",
     },
     {
       title: "IICRC S500 Compliance",
       description:
         "Fully compliant with IICRC S500 standards for water damage restoration and assessment.",
-      icon: "✅",
     },
     {
       title: "Multi-Hazard Support",
       description:
         "Comprehensive support for water, fire, mould, and storm damage assessments.",
-      icon: "🌊",
     },
     {
       title: "Photo & Data Capture",
       description:
         "Seamless integration for capturing photos and essential data during inspections.",
-      icon: "📸",
     },
     {
       title: "Dynamic Workflow Engine",
       description:
         "Flexible workflow system that adapts to your specific restoration process.",
-      icon: "⚙️",
     },
     {
       title: "Real-Time Cost Calculation",
       description:
         "Instant cost calculations with regional pricing libraries and equipment rates.",
-      icon: "💰",
     },
   ];
 
@@ -260,7 +254,6 @@ export default function FeaturesPage() {
                 transition={{ duration: 0.6, delay: index * 0.1 }}
                 className={`p-6 rounded-lg ${darkMode ? "bg-brand-navy/50" : "bg-brand-cloud/50"} backdrop-blur-sm border ${darkMode ? "border-brand-slate/30" : "border-brand-slate/20"}`}
               >
-                <div className="text-4xl mb-4">{feature.icon}</div>
                 <h3
                   className={`text-2xl font-bold mb-3 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                   style={{

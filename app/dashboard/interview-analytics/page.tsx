@@ -516,39 +516,39 @@ export default function InterviewAnalyticsDashboard() {
             <div className="space-y-2 text-sm">
               {aggregateStats.completionRate >= 80 ? (
                 <p className="text-success">
-                  ✓ Excellent completion rate - users are successfully
+                  Excellent completion rate - users are successfully
                   completing interviews
                 </p>
               ) : aggregateStats.completionRate >= 60 ? (
                 <p className="text-yellow-700">
-                  ⚠ Completion rate could be improved - consider simplifying
+                  Completion rate could be improved - consider simplifying
                   questions or providing better guidance
                 </p>
               ) : (
                 <p className="text-destructive">
-                  ✗ Low completion rate - urgent review needed for interview
+                  Low completion rate - urgent review needed for interview
                   flow and questions
                 </p>
               )}
 
               {aggregateStats.averageFieldConfidence >= 80 ? (
                 <p className="text-success">
-                  ✓ High field confidence - auto-population is working well
+                  High field confidence - auto-population is working well
                 </p>
               ) : (
                 <p className="text-yellow-700">
-                  ⚠ Field mapping confidence could be improved - review
+                  Field mapping confidence could be improved - review
                   answer-to-field mappings
                 </p>
               )}
 
               {aggregateStats.averageSessionDuration < 600 ? (
                 <p className="text-success">
-                  ✓ Fast average completion - interview flow is efficient
+                  Fast average completion - interview flow is efficient
                 </p>
               ) : (
                 <p className="text-yellow-700">
-                  ⚠ Average session duration is high - consider streamlining the
+                  Average session duration is high - consider streamlining the
                   interview
                 </p>
               )}

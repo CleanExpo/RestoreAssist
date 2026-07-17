@@ -14,11 +14,11 @@ This investigation evaluates licensed alternatives. The critical question for ea
 
 | Vendor                    | Floor Plans via API | Off-Market/Sold              | Pricing                                                     | API Access                           | B2B Resale                     |
 | ------------------------- | ------------------- | ---------------------------- | ----------------------------------------------------------- | ------------------------------------ | ------------------------------ |
-| **CoreLogic RP Data**     | ❌ Not documented   | Claimed, unconfirmed via API | Custom enterprise; ~$0.65–$1.00/property report             | Enterprise sales only; no self-serve | ❌ Explicitly prohibited       |
-| **Domain Group API**      | ❌ Not documented   | ✅ Off-market confirmed      | Free: 10k calls/mo; paid: credit-based from ~$9/50k credits | ✅ Self-serve signup                 | ⚠️ Unknown (no published TOS)  |
-| **PropTrack / REA Group** | ❌ Not documented   | ⚠️ Unclear                   | Undisclosed B2B subscription                                | Partner program; no self-serve       | ⚠️ Unknown (likely restricted) |
-| **PropertyValue.com.au**  | ❌ No API exists    | B2C only                     | B2C: ~$479 AUD/yr                                           | ❌ No public API                     | N/A                            |
-| **OnTheHouse (current)**  | ❌ No official API  | 13M properties claimed (B2C) | B2C consumer portal                                         | ❌ No public API                     | ❌ CoreLogic prohibits         |
+| **CoreLogic RP Data**     | [FAIL] Not documented   | Claimed, unconfirmed via API | Custom enterprise; ~$0.65–$1.00/property report             | Enterprise sales only; no self-serve | [FAIL] Explicitly prohibited       |
+| **Domain Group API**      | [FAIL] Not documented   | [PASS] Off-market confirmed      | Free: 10k calls/mo; paid: credit-based from ~$9/50k credits | [PASS] Self-serve signup                 | [WARN] Unknown (no published TOS)  |
+| **PropTrack / REA Group** | [FAIL] Not documented   | [WARN] Unclear                   | Undisclosed B2B subscription                                | Partner program; no self-serve       | [WARN] Unknown (likely restricted) |
+| **PropertyValue.com.au**  | [FAIL] No API exists    | B2C only                     | B2C: ~$479 AUD/yr                                           | [FAIL] No public API                     | N/A                            |
+| **OnTheHouse (current)**  | [FAIL] No official API  | 13M properties claimed (B2C) | B2C consumer portal                                         | [FAIL] No public API                     | [FAIL] CoreLogic prohibits         |
 
 **Confidence:** Research based on public documentation as of 2026-04-26. All vendors require direct contact for floor-plan confirmation.
 

@@ -108,18 +108,18 @@ The page is a vertical card-stack. Each card has 5 states (pending / running / r
 
 | Capability | Check | Red/Yellow/Green logic |
 |---|---|---|
-| Business profile complete | required fields populated; ABN valid OR `PRE_TRADING` | 🔴 if missing required |
-| Branding set | logo + primary colour both non-null | 🟡 if missing one, 🔴 if both |
-| Pricing config | labour rates + admin fee set | 🔴 if not set |
-| AI generation (Gemma) | live 1-line tagline call; check response shape | 🔴 on failure |
-| Sample report renders | synthesise 2-page DRAFT in-memory (don't write yet) | 🔴 on failure |
-| Photo chain-of-custody | C2PA manifest generator runs against 1-px test image (rule #21) | 🔴 on failure |
-| Cloud storage (if connected) | list 1 file via OAuth token | 🟡 not connected · 🔴 broken |
-| Accounting integration (if connected) | list 1 contact/customer | 🟡 not connected · 🔴 broken |
-| BYOK keys (if entered) | 1-token validate per provider | 🟡 not entered · 🔴 invalid |
-| Welcome email | Resend/SES deliverability test | 🔴 on rejection |
+| Business profile complete | required fields populated; ABN valid OR `PRE_TRADING` | [RED] if missing required |
+| Branding set | logo + primary colour both non-null | [AMBER] if missing one, [RED] if both |
+| Pricing config | labour rates + admin fee set | [RED] if not set |
+| AI generation (Gemma) | live 1-line tagline call; check response shape | [RED] on failure |
+| Sample report renders | synthesise 2-page DRAFT in-memory (don't write yet) | [RED] on failure |
+| Photo chain-of-custody | C2PA manifest generator runs against 1-px test image (rule #21) | [RED] on failure |
+| Cloud storage (if connected) | list 1 file via OAuth token | [AMBER] not connected · [RED] broken |
+| Accounting integration (if connected) | list 1 contact/customer | [AMBER] not connected · [RED] broken |
+| BYOK keys (if entered) | 1-token validate per provider | [AMBER] not entered · [RED] invalid |
+| Welcome email | Resend/SES deliverability test | [RED] on rejection |
 
-**Activate button:** disabled while any 🔴; enabled with notice if any 🟡; enabled cleanly if all 🟢.
+**Activate button:** disabled while any [RED]; enabled with notice if any [AMBER]; enabled cleanly if all [GREEN].
 
 **`POST /api/setup/activate`** (transactional):
 1. Re-run pre-flight checks server-side (defence-in-depth)
@@ -184,7 +184,7 @@ The page is a vertical card-stack. Each card has 5 states (pending / running / r
 6. **Manual verification (Verification Gate):**
    - Sign up a new test account on staging
    - Enter test ABN (sandbox-known) — confirm Business Details, Branding, Pricing sections all hit `ready` automatically
-   - Verify Activate button gates correctly when a check fails (toggle off the welcome-email test transport, confirm 🔴 + disabled button)
+   - Verify Activate button gates correctly when a check fails (toggle off the welcome-email test transport, confirm [RED] + disabled button)
    - Hit Activate; land on dashboard with `?firstRun=1`; sample report present and branded
    - Visit `/dashboard/settings/health`; confirm row states match the Activate-moment snapshot
 7. **No regressions in existing onboarding paths during transition:** middleware whitelist correct; `/api/auth/register` no longer seeds sample data; old onboarding routes return 404 after deletion

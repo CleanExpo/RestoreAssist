@@ -455,7 +455,7 @@ export function SketchEditor({
           strokeWidth: 2,
           selectable: !readonly,
         });
-        const label = new FIText("📷", {
+        const label = new FIText("P", {
           left: x - 7,
           top: y - 9,
           fontSize: 12,

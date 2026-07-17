@@ -152,9 +152,9 @@
   Expected output:
 
   ```
-  ✓ lib/rag/__tests__/prisma-iicrc-chunk.test.ts (1)
-    ✓ IicrcChunk model availability (1)
-      ✓ prisma client exposes iicrcChunk CRUD methods
+   lib/rag/__tests__/prisma-iicrc-chunk.test.ts (1)
+     IicrcChunk model availability (1)
+       prisma client exposes iicrcChunk CRUD methods
   ```
 
 - [ ] **1.7 — Commit**
@@ -283,11 +283,11 @@
   Expected output:
 
   ```
-  ✓ lib/rag/__tests__/embed.test.ts (3)
-    ✓ embed()
-      ✓ returns a 1536-length number array
-      ✓ truncates input to 32000 characters
-      ✓ throws if OPENAI_API_KEY is not set
+   lib/rag/__tests__/embed.test.ts (3)
+     embed()
+       returns a 1536-length number array
+       truncates input to 32000 characters
+       throws if OPENAI_API_KEY is not set
   ```
 
 - [ ] **2.5 — Type-check**
@@ -442,11 +442,11 @@
   Expected output:
 
   ```
-  ✓ lib/rag/__tests__/retrieve.test.ts (3)
-    ✓ retrieve()
-      ✓ returns an array of RagChunk objects
-      ✓ calls $queryRawUnsafe with the correct SQL shape
-      ✓ defaults topK to 5
+   lib/rag/__tests__/retrieve.test.ts (3)
+     retrieve()
+       returns an array of RagChunk objects
+       calls $queryRawUnsafe with the correct SQL shape
+       defaults topK to 5
   ```
 
 - [ ] **3.5 — Type-check**
@@ -978,19 +978,19 @@
   Expected output:
 
   ```
-  ✓ lib/vision/__tests__/meter-prompts.test.ts (10)
-    ✓ getMeterPrompt() (5)
-      ✓ returns base prompt when no brand hint given
-      ✓ appends Delmhorst addendum for delmhorst brand hint
-      ✓ appends Delmhorst addendum for bd-2100 model hint
-      ✓ appends Protimeter addendum for protimeter brand hint
-      ✓ appends Tramex addendum for tramex brand hint
-    ✓ parseMeterResponse() (5)
-      ✓ parses valid JSON response
-      ✓ returns zero confidence on invalid JSON
-      ✓ uses brandHint as fallback for missing brand field
-      ✓ clamps confidence to 0–1 range
-      ✓ returns null for non-numeric value field
+   lib/vision/__tests__/meter-prompts.test.ts (10)
+     getMeterPrompt() (5)
+       returns base prompt when no brand hint given
+       appends Delmhorst addendum for delmhorst brand hint
+       appends Delmhorst addendum for bd-2100 model hint
+       appends Protimeter addendum for protimeter brand hint
+       appends Tramex addendum for tramex brand hint
+     parseMeterResponse() (5)
+       parses valid JSON response
+       returns zero confidence on invalid JSON
+       uses brandHint as fallback for missing brand field
+       clamps confidence to 0–1 range
+       returns null for non-numeric value field
   ```
 
 - [ ] **6.5 — Type-check**
@@ -1237,12 +1237,12 @@
   Expected output:
 
   ```
-  ✓ app/api/vision/extract-reading/__tests__/route.test.ts (4)
-    ✓ POST /api/vision/extract-reading (4)
-      ✓ returns 401 when no session
-      ✓ returns 400 when imageBase64 is missing
-      ✓ strips data URL prefix before sending to Anthropic
-      ✓ returns parsed reading in happy path
+   app/api/vision/extract-reading/__tests__/route.test.ts (4)
+     POST /api/vision/extract-reading (4)
+       returns 401 when no session
+       returns 400 when imageBase64 is missing
+       strips data URL prefix before sending to Anthropic
+       returns parsed reading in happy path
   ```
 
 - [ ] **7.5 — Type-check**
@@ -1512,12 +1512,12 @@
   Expected output:
 
   ```
-  ✓ app/api/voice/transcribe/__tests__/route.test.ts (4)
-    ✓ POST /api/voice/transcribe (4)
-      ✓ returns 401 when no session
-      ✓ returns 400 when audio field is missing
-      ✓ returns transcribed text in happy path
-      ✓ calls Whisper with model whisper-1 and language en
+   app/api/voice/transcribe/__tests__/route.test.ts (4)
+     POST /api/voice/transcribe (4)
+       returns 401 when no session
+       returns 400 when audio field is missing
+       returns transcribed text in happy path
+       calls Whisper with model whisper-1 and language en
   ```
 
 - [ ] **9.5 — Type-check**
@@ -1815,14 +1815,14 @@
   Expected output:
 
   ```
-  ✓ app/api/voice/respond/__tests__/route.test.ts (6)
-    ✓ POST /api/voice/respond (6)
-      ✓ returns 401 when no session
-      ✓ returns 400 when question is missing
-      ✓ returns 400 when question is empty string
-      ✓ returns answer with null audio when ElevenLabs not configured
-      ✓ returns base64 audio when ElevenLabs is configured and TTS succeeds
-      ✓ falls back to text-only when ElevenLabs TTS returns non-ok
+   app/api/voice/respond/__tests__/route.test.ts (6)
+     POST /api/voice/respond (6)
+       returns 401 when no session
+       returns 400 when question is missing
+       returns 400 when question is empty string
+       returns answer with null audio when ElevenLabs not configured
+       returns base64 audio when ElevenLabs is configured and TTS succeeds
+       falls back to text-only when ElevenLabs TTS returns non-ok
   ```
 
 - [ ] **10.5 — Type-check**
@@ -2145,13 +2145,13 @@
   Expected output:
 
   ```
-  ✓ lib/rag/__tests__/prisma-iicrc-chunk.test.ts (1)
-  ✓ lib/rag/__tests__/embed.test.ts (3)
-  ✓ lib/rag/__tests__/retrieve.test.ts (3)
-  ✓ lib/vision/__tests__/meter-prompts.test.ts (10)
-  ✓ app/api/vision/extract-reading/__tests__/route.test.ts (4)
-  ✓ app/api/voice/transcribe/__tests__/route.test.ts (4)
-  ✓ app/api/voice/respond/__tests__/route.test.ts (6)
+   lib/rag/__tests__/prisma-iicrc-chunk.test.ts (1)
+   lib/rag/__tests__/embed.test.ts (3)
+   lib/rag/__tests__/retrieve.test.ts (3)
+   lib/vision/__tests__/meter-prompts.test.ts (10)
+   app/api/vision/extract-reading/__tests__/route.test.ts (4)
+   app/api/voice/transcribe/__tests__/route.test.ts (4)
+   app/api/voice/respond/__tests__/route.test.ts (6)
 
   Test Files  7 passed (7)
   Tests       31 passed (31)

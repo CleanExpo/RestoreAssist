@@ -23,7 +23,7 @@ const CATEGORY_ICONS: Record<HelpCategory, React.ReactNode> = {
   billing: <Mark>▭</Mark>,
   team: <Mark>⊕</Mark>,
   integrations: <Mark>◇</Mark>,
-  compliance: <Mark>⬟</Mark>,
+  compliance: <Mark>◆</Mark>,
 };
 
 const CATEGORY_DESCRIPTIONS: Record<HelpCategory, string> = {

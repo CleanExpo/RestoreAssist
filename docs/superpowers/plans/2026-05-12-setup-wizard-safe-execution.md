@@ -372,7 +372,7 @@ Migration A's columns are all nullable. Run `UPDATE Organization SET <field> = N
 
 ### If an integration breaks (Xero, Google Drive, etc.)
 
-Integrations live in existing settings UI. The wizard's section ⑤ is OPTIONAL — failing the integration just leaves it as 🟡 not connected. No blocking.
+Integrations live in existing settings UI. The wizard's section ⑤ is OPTIONAL — failing the integration just leaves it as [AMBER] not connected. No blocking.
 
 ### If the AI hydration breaks
 

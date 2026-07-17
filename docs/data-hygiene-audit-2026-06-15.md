@@ -3,7 +3,7 @@
 Senior-PM-led audit across four domains (Linear, Supabase, Environment Variables,
 Connections), run by four parallel specialist teams, then re-scoped by ownership.
 
-## ⚠️ Ownership reality (read first)
+## [WARN] Ownership reality (read first)
 
 The RestoreAssist Supabase prod project (`udooysjajglluvuxkijp`) is **shared by multiple
 apps**. Many Supabase advisor findings are on tables/functions that are **NOT in this repo's
@@ -19,7 +19,7 @@ finding below is tagged:
 
 | #   | Finding                                                                                                                                                                                         | Owner               | Status                                                                                                                                                                                           |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | 8 tables RLS-disabled, anon-readable/writable: `CaptureToken`, `ClientEvidenceSubmission`, `SketchElement`, `Hazard`, `InsuranceContext`, `SketchMoistureReading`, `Material`, `InsurerProfile` | **RA**              | ✅ **DONE — PR #1326** (merged). ENABLE RLS + tenant/reference policies; runtime-validated (applies clean, tenant-isolation proven on real PG16).                                                |
+| 1   | 8 tables RLS-disabled, anon-readable/writable: `CaptureToken`, `ClientEvidenceSubmission`, `SketchElement`, `Hazard`, `InsuranceContext`, `SketchMoistureReading`, `Material`, `InsurerProfile` | **RA**              | [PASS] **DONE — PR #1326** (merged). ENABLE RLS + tenant/reference policies; runtime-validated (applies clean, tenant-isolation proven on real PG16).                                                |
 | 2   | 7 ERP tables on `USING(true)` → any authenticated user reads all rows: `products`, `customers`, `orders`, `order_items`, `quotes`, `quote_items`, `PushToken`                                   | **FOREIGN + GATED** | Not in this repo (no model/migration). Can't be fixed here and can't even be drafted (foreign columns unknown). Needs the owning app OR direct-Supabase access. **Top remaining live exposure.** |
 
 ## P1 — HIGH

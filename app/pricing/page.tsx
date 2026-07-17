@@ -451,7 +451,7 @@ function PricingPageContent() {
                       <span
                         className={`mt-1 ${plan.isFree ? "text-brand-slate" : "text-brand-bronze"}`}
                       >
-                        ✓
+                        √
                       </span>
                       {feature}
                     </li>
@@ -465,7 +465,7 @@ function PricingPageContent() {
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-brand-bronze mt-1">✓</span>
+                        <span className="text-brand-bronze mt-1">√</span>
                         <span>
                           Unlimited Quick Fill (AI-powered form auto-fill)
                         </span>
@@ -477,7 +477,7 @@ function PricingPageContent() {
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-brand-bronze mt-1">✓</span>
+                        <span className="text-brand-bronze mt-1">√</span>
                         <span>Enhanced & Optimised report types</span>
                       </li>
                       <li
@@ -487,7 +487,7 @@ function PricingPageContent() {
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-brand-bronze mt-1">✓</span>
+                        <span className="text-brand-bronze mt-1">√</span>
                         <span>PDF upload & processing</span>
                       </li>
                       <li
@@ -497,7 +497,7 @@ function PricingPageContent() {
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-brand-bronze mt-1">✓</span>
+                        <span className="text-brand-bronze mt-1">√</span>
                         <span>Full profile & pricing configuration</span>
                       </li>
                       <li
@@ -507,7 +507,7 @@ function PricingPageContent() {
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-brand-bronze mt-1">✓</span>
+                        <span className="text-brand-bronze mt-1">√</span>
                         <span>
                           Premium API integrations (Claude, GPT, etc.)
                         </span>

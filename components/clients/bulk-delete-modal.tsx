@@ -39,7 +39,7 @@ export function BulkDeleteModal({
           </p>
           <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4">
             <p className="text-amber-300 text-sm">
-              ⚠️ This will permanently delete all selected clients and their
+              This will permanently delete all selected clients and their
               associated data.
             </p>
           </div>

@@ -270,7 +270,7 @@ export default function ClaimsAnalysisPage() {
     }
     setProcessing(false);
     setBatchProgress(null);
-    toast("Analysis cancelled", { icon: "⛔" });
+    toast("Analysis cancelled");
   }, []);
 
   const fetchFiles = async (overrideFolderId?: string) => {

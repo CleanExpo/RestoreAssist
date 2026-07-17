@@ -354,15 +354,15 @@ export default function InsurerProfilesPage() {
                         </p>
                         <ul className="text-xs space-y-0.5 text-muted-foreground">
                           <li>
-                            {profile.requiresSignedScope ? "✓" : "✗"} Signed
+                            {profile.requiresSignedScope ? "√" : "×"} Signed
                             scope
                           </li>
                           <li>
-                            {profile.requiresThirdPartyScope ? "✓" : "✗"}{" "}
+                            {profile.requiresThirdPartyScope ? "√" : "×"}{" "}
                             Independent scoper
                           </li>
                           <li>
-                            {profile.gstRegistrationRequired ? "✓" : "✗"} GST
+                            {profile.gstRegistrationRequired ? "√" : "×"} GST
                             registration
                           </li>
                         </ul>

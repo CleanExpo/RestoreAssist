@@ -531,7 +531,6 @@ export default function InvoicesPage() {
                           className="mt-1 inline-flex items-center gap-1 rounded-full bg-warning-subtle px-2 py-0.5 text-xs font-medium text-warning-subtle-foreground"
                           title={invoice.externalSyncError ?? "Sync failed"}
                         >
-                          <span aria-hidden>⚠</span>
                           {invoice.externalSyncProvider ?? "Accounting"} sync
                           failed
                         </div>

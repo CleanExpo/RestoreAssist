@@ -20,7 +20,7 @@ Resolve the "Fix issues" banner: phone verification → identity verification.
 - **Default language:** English (Australia) — en-AU
 - **App or game:** App
 - **Free or paid:** Free
-- **Declarations:** Developer Programme Policies ✓, US export laws ✓
+- **Declarations:** Developer Programme Policies , US export laws 
 
 ## Step 3 — App content (Policy)
 

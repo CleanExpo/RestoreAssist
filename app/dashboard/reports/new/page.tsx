@@ -218,7 +218,6 @@ export default function NewReportPage() {
           `Interview data loaded! ${interviewMetadata.fieldsCount} fields auto-populated.`,
           {
             duration: 5000,
-            icon: "✨",
           },
         );
 
@@ -426,7 +425,6 @@ export default function NewReportPage() {
       "Setup skipped! You can complete it anytime from Settings or the sidebar.",
       {
         duration: 4000,
-        icon: "ℹ️",
       },
     );
   };
@@ -637,7 +635,7 @@ export default function NewReportPage() {
                 </div>
                 <div className="flex-1">
                   <h3 className="text-xl font-bold text-success mb-1">
-                    Interview Data Loaded Successfully! ✨
+                    Interview Data Loaded Successfully!
                   </h3>
                   <p
                     className={cn(
@@ -890,7 +888,7 @@ export default function NewReportPage() {
                           {/* Time Estimate */}
                           <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
                             <span className="text-xs text-slate-500 dark:text-slate-400">
-                              ⏱️ Est. {step.timeEstimate}
+                              Est. {step.timeEstimate}
                             </span>
                             <button
                               onClick={async () => {

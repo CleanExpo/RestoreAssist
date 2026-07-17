@@ -59,7 +59,7 @@ export interface SplitSceneProps {
 - **Hero stat**: 3.8em, weight 900, white, `filter: brightness(0.75)` — animation over frames 20–60: if the stat is purely numeric (e.g. `"6"`, `"0"`, `"3"`) use count-up from 0; otherwise (e.g. `"2h 47m"`, `"3×"`) use `scale(0.85)→scale(1)` + `opacity(0)→opacity(1)` with `Easing.out(Easing.cubic)`
 - **Stat context**: 0.78em, `rgba(255,255,255,0.38)`, appears at frame 65
 - **32px separator line**: `rgba(239,68,68,0.4)`, scaleX 0→1 over frames 70–85
-- **Pain points**: 3 items, each at 0.6em, `rgba(255,255,255,0.38)`, stagger every 35 frames starting frame 90. `✕` icon in `rgba(239,68,68,0.7)`
+- **Pain points**: 3 items, each at 0.6em, `rgba(255,255,255,0.38)`, stagger every 35 frames starting frame 90. `x` icon in `rgba(239,68,68,0.7)`
 
 ### Divider (1px)
 

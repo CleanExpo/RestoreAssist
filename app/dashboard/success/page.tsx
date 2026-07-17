@@ -505,7 +505,6 @@ export default function SuccessPage() {
       "Setup skipped! You can complete it anytime from Settings or the sidebar.",
       {
         duration: 4000,
-        icon: "ℹ️",
       },
     );
     // Redirect to dashboard after a moment
@@ -690,7 +689,7 @@ export default function SuccessPage() {
                           {/* Time Estimate */}
                           <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
                             <span className="text-xs text-slate-500 dark:text-slate-400">
-                              ⏱️ Est. {step.timeEstimate}
+                              Est. {step.timeEstimate}
                             </span>
                             <button
                               onClick={async () => {

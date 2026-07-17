@@ -38,14 +38,14 @@ interface Language {
 }
 
 const LANGUAGES: Language[] = [
-  { code: "en-AU", label: "English (AU)", flag: "🇦🇺" },
-  { code: "en-US", label: "English (US)", flag: "🇺🇸" },
-  { code: "zh-CN", label: "中文", flag: "🇨🇳" },
-  { code: "vi-VN", label: "Tiếng Việt", flag: "🇻🇳" },
-  { code: "ar-SA", label: "العربية", flag: "🇸🇦" },
-  { code: "es-ES", label: "Español", flag: "🇪🇸" },
-  { code: "hi-IN", label: "हिन्दी", flag: "🇮🇳" },
-  { code: "pt-BR", label: "Português", flag: "🇧🇷" },
+  { code: "en-AU", label: "English (AU)", flag: "AU" },
+  { code: "en-US", label: "English (US)", flag: "US" },
+  { code: "zh-CN", label: "中文", flag: "CN" },
+  { code: "vi-VN", label: "Tiếng Việt", flag: "VN" },
+  { code: "ar-SA", label: "العربية", flag: "SA" },
+  { code: "es-ES", label: "Español", flag: "ES" },
+  { code: "hi-IN", label: "हिन्दी", flag: "IN" },
+  { code: "pt-BR", label: "Português", flag: "BR" },
 ];
 
 const SUGGESTED_QUESTIONS = [

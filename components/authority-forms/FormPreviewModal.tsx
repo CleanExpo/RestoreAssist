@@ -251,7 +251,7 @@ export function FormPreviewModal({
                       </p>
                       {signature.signedAt && (
                         <p className="text-xs text-success mt-1">
-                          ✓ Signed{" "}
+                          Signed{" "}
                           {new Date(signature.signedAt).toLocaleDateString(
                             "en-AU",
                           )}

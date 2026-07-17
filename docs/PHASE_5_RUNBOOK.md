@@ -22,13 +22,13 @@ docs.
 
 | #   | Item                                                                         | Command / where                                                                                                                                                                                 | Done? |
 | --- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| 0.1 | Confirm `main` HEAD matches expectation                                      | `git log origin/main --oneline -1` → expected at time of writing `0dd11c2`; actual on 2026-04-28 was `d3f3ca8a` after follow-on PRs (#822, #835, #836, #837, #821) — re-confirm before each run | ☐     |
-| 0.2 | Confirm 7 new migrations present in `prisma/migrations/`                     | `ls prisma/migrations \| grep 20260426 \| wc -l` → 7                                                                                                                                            | ☐     |
-| 0.3 | Confirm Vercel sandbox deploy is green for `main`                            | https://vercel.com/unite-group/restoreassist-sandbox                                                                                                                                            | ☐     |
-| 0.4 | Confirm pilot smoke test passes locally on the deployed sandbox              | `BASE_URL=https://restoreassist-sandbox.vercel.app npx playwright test e2e/pilot-workflow.spec.ts`                                                                                              | ☐     |
-| 0.5 | Confirm Vercel observability project is live (Logs + Speed Insights enabled) | https://vercel.com/unite-group/restoreassist (Observability tab)                                                                                                                                | ☐     |
+| 0.1 | Confirm `main` HEAD matches expectation                                      | `git log origin/main --oneline -1` → expected at time of writing `0dd11c2`; actual on 2026-04-28 was `d3f3ca8a` after follow-on PRs (#822, #835, #836, #837, #821) — re-confirm before each run | [ ]     |
+| 0.2 | Confirm 7 new migrations present in `prisma/migrations/`                     | `ls prisma/migrations \| grep 20260426 \| wc -l` → 7                                                                                                                                            | [ ]     |
+| 0.3 | Confirm Vercel sandbox deploy is green for `main`                            | https://vercel.com/unite-group/restoreassist-sandbox                                                                                                                                            | [ ]     |
+| 0.4 | Confirm pilot smoke test passes locally on the deployed sandbox              | `BASE_URL=https://restoreassist-sandbox.vercel.app npx playwright test e2e/pilot-workflow.spec.ts`                                                                                              | [ ]     |
+| 0.5 | Confirm Vercel observability project is live (Logs + Speed Insights enabled) | https://vercel.com/unite-group/restoreassist (Observability tab)                                                                                                                                | [ ]     |
 
-> ⚠️ If 0.4 fails on sandbox, **stop**. Do not migrate prod against a
+> [WARN] If 0.4 fails on sandbox, **stop**. Do not migrate prod against a
 > broken deploy.
 
 ---
@@ -73,11 +73,11 @@ grep -E "Applying migration|All migrations have been successfully applied" \
 
 | #   | Item                                                                                                           | Done? |
 | --- | -------------------------------------------------------------------------------------------------------------- | ----- |
-| 2.1 | Shadow `migrate deploy` exits 0                                                                                | ☐     |
-| 2.2 | Log shows all 7 new migrations applied                                                                         | ☐     |
-| 2.3 | `psql $SHADOW_DATABASE_URL -c '\d "AssessmentGeneration"'` shows the new table + 3 indexes                     | ☐     |
-| 2.4 | `psql $SHADOW_DATABASE_URL -c '\d "Workspace"' \| grep aiDailyBudgetUsd` (RA-1707 — column add, not new table) | ☐     |
-| 2.5 | `psql $SHADOW_DATABASE_URL -c '\d "AttestationConsentToken"'` (RA-1708)                                        | ☐     |
+| 2.1 | Shadow `migrate deploy` exits 0                                                                                | [ ]     |
+| 2.2 | Log shows all 7 new migrations applied                                                                         | [ ]     |
+| 2.3 | `psql $SHADOW_DATABASE_URL -c '\d "AssessmentGeneration"'` shows the new table + 3 indexes                     | [ ]     |
+| 2.4 | `psql $SHADOW_DATABASE_URL -c '\d "Workspace"' \| grep aiDailyBudgetUsd` (RA-1707 — column add, not new table) | [ ]     |
+| 2.5 | `psql $SHADOW_DATABASE_URL -c '\d "AttestationConsentToken"'` (RA-1708)                                        | [ ]     |
 
 If anything in §2 fails, fix on a branch, push a new PR, do not proceed.
 
@@ -85,7 +85,7 @@ If anything in §2 fails, fix on a branch, push a new PR, do not proceed.
 
 ## 3. Production migration
 
-> ⚠️ **Phill executes. Claude does not.**
+> [WARN] **Phill executes. Claude does not.**
 
 ```bash
 # 1. Snapshot the prod DB before any change.
@@ -107,11 +107,11 @@ psql "$DATABASE_URL" -c 'SELECT COUNT(*) FROM "AssessmentGeneration";'  # expect
 
 | #   | Item                                                                       | Done? |
 | --- | -------------------------------------------------------------------------- | ----- |
-| 3.1 | Prod backup verified (timestamp recorded)                                  | ☐     |
-| 3.2 | `npx prisma migrate deploy` exits 0                                        | ☐     |
-| 3.3 | All 7 new migrations marked applied in `_prisma_migrations`                | ☐     |
-| 3.4 | New tables exist + are empty                                               | ☐     |
-| 3.5 | Save `/tmp/phase-5-prod.log` to the Phase 5 Linear ticket as an attachment | ☐     |
+| 3.1 | Prod backup verified (timestamp recorded)                                  | [ ]     |
+| 3.2 | `npx prisma migrate deploy` exits 0                                        | [ ]     |
+| 3.3 | All 7 new migrations marked applied in `_prisma_migrations`                | [ ]     |
+| 3.4 | New tables exist + are empty                                               | [ ]     |
+| 3.5 | Save `/tmp/phase-5-prod.log` to the Phase 5 Linear ticket as an attachment | [ ]     |
 
 ---
 
@@ -131,10 +131,10 @@ when redeploying after env changes.
 
 | #   | Item                                | Done? |
 | --- | ----------------------------------- | ----- |
-| 4.1 | Promoted deploy from `main` HEAD    | ☐     |
-| 4.2 | Build cache was unchecked           | ☐     |
-| 4.3 | Production URL serves the new build | ☐     |
-| 4.4 | `/api/health` returns 200           | ☐     |
+| 4.1 | Promoted deploy from `main` HEAD    | [ ]     |
+| 4.2 | Build cache was unchecked           | [ ]     |
+| 4.3 | Production URL serves the new build | [ ]     |
+| 4.4 | `/api/health` returns 200           | [ ]     |
 
 ---
 
@@ -148,13 +148,13 @@ BASE_URL=https://app.restoreassist.com.au \
 
 | #   | Item                                                                                                     | Done? |
 | --- | -------------------------------------------------------------------------------------------------------- | ----- |
-| 5.1 | Pilot smoke test green against prod                                                                      | ☐     |
-| 5.2 | Vercel runtime logs show traffic, no `console.error` storm                                               | ☐     |
-| 5.3 | Spot-check `POST /api/inspections/[id]/assessments/WATER/generate` returns a real artefact               | ☐     |
-| 5.4 | Spot-check `GET /api/inspections/[id]/assessments/WATER/pdf` streams a valid PDF                         | ☐     |
-| 5.5 | Spot-check `/dashboard/claims/[reportId]` shows the "Open assessments" link when an Inspection is linked | ☐     |
-| 5.6 | RA-1707 budget guard active (test workspace with $5 cap rejects 6th call with 429)                       | ☐     |
-| 5.7 | RA-1708 consent token rejected when expired (run the existing unit-test path against prod env)           | ☐     |
+| 5.1 | Pilot smoke test green against prod                                                                      | [ ]     |
+| 5.2 | Vercel runtime logs show traffic, no `console.error` storm                                               | [ ]     |
+| 5.3 | Spot-check `POST /api/inspections/[id]/assessments/WATER/generate` returns a real artefact               | [ ]     |
+| 5.4 | Spot-check `GET /api/inspections/[id]/assessments/WATER/pdf` streams a valid PDF                         | [ ]     |
+| 5.5 | Spot-check `/dashboard/claims/[reportId]` shows the "Open assessments" link when an Inspection is linked | [ ]     |
+| 5.6 | RA-1707 budget guard active (test workspace with $5 cap rejects 6th call with 429)                       | [ ]     |
+| 5.7 | RA-1708 consent token rejected when expired (run the existing unit-test path against prod env)           | [ ]     |
 
 ---
 
@@ -184,4 +184,4 @@ psql "$DATABASE_URL" -c \
 ## 7. Pilot cutover
 
 See [PILOT_CUTOVER_CHECKLIST.md](./PILOT_CUTOVER_CHECKLIST.md). Don't
-start that until §3–§5 are all ✅.
+start that until §3–§5 are all [PASS].

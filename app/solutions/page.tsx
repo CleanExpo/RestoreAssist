@@ -285,7 +285,7 @@ export default function SolutionsPage() {
                           '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                       }}
                     >
-                      <span className="text-brand-bronze">✓</span>
+                      <span className="text-brand-bronze">√</span>
                       {benefit}
                     </li>
                   ))}

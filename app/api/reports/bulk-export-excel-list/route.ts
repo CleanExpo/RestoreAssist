@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
             if (report.excelReportUrl) {
               if (!isAllowedExportUrl(report.excelReportUrl)) {
                 console.error(
-                  `[Bulk Excel Export] ✗ Rejected non-allowlisted URL for report ${report.id}`,
+                  `[Bulk Excel Export] Rejected non-allowlisted URL for report ${report.id}`,
                 );
                 continue;
               }
@@ -144,12 +144,12 @@ export async function POST(request: NextRequest) {
                   archive.append(buffer, { name: filename });
                 } else {
                   console.error(
-                    `[Bulk Excel Export] ✗ Failed to download Excel for report ${report.id}: HTTP ${response.status}`,
+                    `[Bulk Excel Export] Failed to download Excel for report ${report.id}: HTTP ${response.status}`,
                   );
                 }
               } catch (error) {
                 console.error(
-                  `[Bulk Excel Export] ✗ Error downloading Excel for report ${report.id}:`,
+                  `[Bulk Excel Export] Error downloading Excel for report ${report.id}:`,
                   error,
                 );
               }

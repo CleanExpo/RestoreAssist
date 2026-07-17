@@ -137,7 +137,7 @@ export async function GET(
       });
     } catch (cloudinaryError) {
       console.error(
-        "[Excel Export] ⚠️ Failed to upload to Cloudinary:",
+        "[Excel Export] Failed to upload to Cloudinary:",
         cloudinaryError,
       );
       // Continue with file download even if Cloudinary upload fails

@@ -24,17 +24,17 @@ Read-only triage of long-lived branches with >100 commits ahead of `main`. No br
 ```
 # API routes already on main
 app/api/inspections/[id]/
-├── australian-compliance/    ✓
-├── biohazard-assessment/      ✓
-├── carpet-restoration/        ✓
-├── fire-smoke-assessment/     ✓
-├── hvac-assessment/           ✓
-├── mould-remediation/         ✓
-├── storm-damage/              ✓
-└── water-damage-classification/ ✓
+├── australian-compliance/    
+├── biohazard-assessment/      
+├── carpet-restoration/        
+├── fire-smoke-assessment/     
+├── hvac-assessment/           
+├── mould-remediation/         
+├── storm-damage/              
+└── water-damage-classification/ 
 
 # UI panel already on main
-components/inspection/NIRClaimAssessmentPanel.tsx  ✓
+components/inspection/NIRClaimAssessmentPanel.tsx  
 ```
 
 All RA-261, RA-290, RA-291 Linear tickets are **Done**. The RA-291 commit on main (`9e569cb3`) has a different hash from the same-titled commit on this branch (`eca2ce42`) — confirming the work was **re-done on main**, not merged from here.

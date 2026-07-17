@@ -362,14 +362,14 @@ export default function EditReportPage({
               className="text-slate-300 data-[state=active]:text-black data-[state=active]:bg-white"
             >
               <Calculator className="mr-2" size={16} />
-              Scoping {scope && <span className="ml-1 text-xs">✓</span>}
+              Scoping {scope && <span className="ml-1 text-xs">√</span>}
             </TabsTrigger>
             <TabsTrigger
               value="estimation"
               className="text-slate-300 data-[state=active]:text-black data-[state=active]:bg-white"
             >
               <DollarSign className="mr-2" size={16} />
-              Estimation {estimate && <span className="ml-1 text-xs">✓</span>}
+              Estimation {estimate && <span className="ml-1 text-xs">√</span>}
             </TabsTrigger>
           </TabsList>
 

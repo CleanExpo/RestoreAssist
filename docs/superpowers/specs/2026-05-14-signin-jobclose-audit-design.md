@@ -95,7 +95,7 @@ Junior Technician restrictions live in UI but not server. Out of scope for this 
 - Build `/api/oauth/google-drive/callback`.
 - Add `storageProvider` enum to `Organization`: `LOCAL | GOOGLE_DRIVE | ONEDRIVE`. Default `LOCAL`.
 - Add `storageProviderRefreshToken` (AES-256-GCM via `lib/credential-vault.ts`).
-- Complete StorageCard wiring: OAuth success → persist provider + tokens → return to `/setup` → card shows ✅ "Connected as <gmail>".
+- Complete StorageCard wiring: OAuth success → persist provider + tokens → return to `/setup` → card shows [PASS] "Connected as <gmail>".
 - Remove the existing `TODO` in `StorageCard.tsx`.
 
 **Verification gate:** new tradie signs up → setup wizard StorageCard "Connect Google Drive" → OAuth grant → return to `/setup` → Organization row has `storageProvider=GOOGLE_DRIVE` + encrypted refresh token.
@@ -299,22 +299,22 @@ A single "Hand over to client" flow the tech triggers before leaving site. Compo
 
 | Requirement | Status |
 |---|---|
-| Client portal | ✅ `app/portal/[token]/page.tsx` + `app/dashboard/clients/[id]/portal/page.tsx` + `PortalInvitePanel` |
-| Report PDF | ✅ `ExportPdfButton.tsx` + `lib/pdf-export.ts` + `lib/nir-report-generation.ts` |
-| Scope of Works | ✅ via `/api/inspections/[id]/scope-variations` |
-| Estimate | ✅ `/api/estimates/route.ts` |
-| Change-orders / variations | ✅ `/api/invoices/[id]/variations` |
-| Invoice PDF | ✅ `lib/invoices/pdf-generator.ts` |
-| Bulk-export ZIP | ✅ `bulk-export-zip` route |
-| Org-branded documents | ✅ `Organization.brandingDefaults` |
-| **Single "hand over" moment** | ❌ — no UI bundles all of these |
-| **Client co-brand** | ❌ — only org brand today |
-| **Portal pre-populated + invite sent at sign-off** | ❌ |
-| **On-site additional-scope billing UI** | ⚠ API exists; mobile form missing |
+| Client portal | [PASS] `app/portal/[token]/page.tsx` + `app/dashboard/clients/[id]/portal/page.tsx` + `PortalInvitePanel` |
+| Report PDF | [PASS] `ExportPdfButton.tsx` + `lib/pdf-export.ts` + `lib/nir-report-generation.ts` |
+| Scope of Works | [PASS] via `/api/inspections/[id]/scope-variations` |
+| Estimate | [PASS] `/api/estimates/route.ts` |
+| Change-orders / variations | [PASS] `/api/invoices/[id]/variations` |
+| Invoice PDF | [PASS] `lib/invoices/pdf-generator.ts` |
+| Bulk-export ZIP | [PASS] `bulk-export-zip` route |
+| Org-branded documents | [PASS] `Organization.brandingDefaults` |
+| **Single "hand over" moment** | [FAIL] — no UI bundles all of these |
+| **Client co-brand** | [FAIL] — only org brand today |
+| **Portal pre-populated + invite sent at sign-off** | [FAIL] |
+| **On-site additional-scope billing UI** | [WARN] API exists; mobile form missing |
 
 ### 9.3 The handover screen (Sidekick-led)
 
-Triggered by tech via Sidekick: "Generate handover package". Shows ✓ Report, ✓ Scope of Works, ✓ Estimate, "Add variation" link, portal-invite target, co-brand picker, [Preview as client] + [Send + co-sign].
+Triggered by tech via Sidekick: "Generate handover package". Shows  Report,  Scope of Works,  Estimate, "Add variation" link, portal-invite target, co-brand picker, [Preview as client] + [Send + co-sign].
 
 ### 9.4 New components
 
@@ -350,14 +350,14 @@ If a piece of admin work has been done anywhere (BYOK integration, wiki, prior i
 
 | Stage | What the system pulls |
 |---|---|
-| 1 Signup | Name, photo, email from Google OAuth ✅ |
-| 2 Setup | ABN → ABR (legal name, ACN, GST status, address) ✅. Logo + colours + about-copy from website ✅. Pricing by state ✅. |
+| 1 Signup | Name, photo, email from Google OAuth [PASS] |
+| 2 Setup | ABN → ABR (legal name, ACN, GST status, address) [PASS]. Logo + colours + about-copy from website [PASS]. Pricing by state [PASS]. |
 | 3 Admin invites tech | When admin types an email → pull LinkedIn name/photo/role suggestion to pre-fill |
-| 4 Tech accepts | Google profile ✅. Licence number from public registry (IICRC public, WHS Card scheme) |
+| 4 Tech accepts | Google profile [PASS]. Licence number from public registry (IICRC public, WHS Card scheme) |
 | 5 Inspection start | If imported from ServiceM8/Ascora/Xero — job, customer, address, scope all pre-attached |
-| 6 Capture | Weather at capture time+place (BoM/OpenMeteo). Property age from real-estate APIs. EXIF GPS ✅. Vision auto-tag ✅ (Section 5). |
-| 7 Sign-off | Tech's current Authorisation ✅ |
-| 8 Invoice | Pricing from `CompanyPricingConfig` ✅. Customer from imported job. Scope lines from AI draft. |
+| 6 Capture | Weather at capture time+place (BoM/OpenMeteo). Property age from real-estate APIs. EXIF GPS [PASS]. Vision auto-tag [PASS] (Section 5). |
+| 7 Sign-off | Tech's current Authorisation [PASS] |
+| 8 Invoice | Pricing from `CompanyPricingConfig` [PASS]. Customer from imported job. Scope lines from AI draft. |
 | 9 Close | Payment status from Stripe/Xero webhook — NOT a manual "mark as paid" |
 
 **Anti-pattern flag:** anywhere in the audit you find a form field that could be pulled, it's a P0 gap.
@@ -368,14 +368,14 @@ RestoreAssist is the orchestrator. The tenant is the integrator. Setup wizard is
 
 | BYOK domain | Status | Completed by |
 |---|---|---|
-| Storage | ⚠ half-built | Onboarding hotfix + SP-E |
-| AI keys | ⚠ partial (OpenAI/Anthropic/Gemini fields exist; routing patchy) | SP-3 (existing brainstorm queue) |
-| Email | ❌ no per-tenant Resend/SendGrid/SES | SP-6 (existing brainstorm queue) |
-| SMS | ❌ no per-tenant Twilio/MessageBird | SP-K candidate |
-| Accounting | ✅ Xero/MYOB/QB/Ascora | Audit confirms BYOK story is clean |
-| Calendar | ⚠ Google Calendar OAuth exists; full tenant-side check needed | Minor fix |
-| Knowledge | ❌ no per-tenant wiki ingest | SP-H (platform v1, per-tenant v2) |
-| Customer-data warehouse | ⚠ implicit (Supabase only) | covered by SP-E once Drive lands |
+| Storage | [WARN] half-built | Onboarding hotfix + SP-E |
+| AI keys | [WARN] partial (OpenAI/Anthropic/Gemini fields exist; routing patchy) | SP-3 (existing brainstorm queue) |
+| Email | [FAIL] no per-tenant Resend/SendGrid/SES | SP-6 (existing brainstorm queue) |
+| SMS | [FAIL] no per-tenant Twilio/MessageBird | SP-K candidate |
+| Accounting | [PASS] Xero/MYOB/QB/Ascora | Audit confirms BYOK story is clean |
+| Calendar | [WARN] Google Calendar OAuth exists; full tenant-side check needed | Minor fix |
+| Knowledge | [FAIL] no per-tenant wiki ingest | SP-H (platform v1, per-tenant v2) |
+| Customer-data warehouse | [WARN] implicit (Supabase only) | covered by SP-E once Drive lands |
 
 The setup wizard is the system's most important surface — it's a living BYOK dashboard, not a one-time wizard. Already partially this way via `/dashboard/settings/health`; this audit elevates it.
 
@@ -530,12 +530,12 @@ RestoreAssist is not just a SaaS product the user sells to other tradies — it'
 
 | Component | Status |
 |---|---|
-| `DrNrpgIntegration` Prisma model | ✅ (apiKey, baseUrl, webhookSecret, isActive, lastSyncAt) |
-| `DrNrpgJobSync` Prisma model | ✅ (inspection ↔ DR/NRPG job link) |
-| `/api/dr-nrpg/connect/route.ts` | ✅ (connection setup) |
-| `/api/webhooks/dr-nrpg/route.ts` | ✅ (inbound jobs from DR/NRPG) |
-| `/api/cron/dr-nrpg-liveness/route.ts` | ✅ (health probe) |
-| `lib/cron/dr-nrpg-liveness.ts` | ✅ |
+| `DrNrpgIntegration` Prisma model | [PASS] (apiKey, baseUrl, webhookSecret, isActive, lastSyncAt) |
+| `DrNrpgJobSync` Prisma model | [PASS] (inspection ↔ DR/NRPG job link) |
+| `/api/dr-nrpg/connect/route.ts` | [PASS] (connection setup) |
+| `/api/webhooks/dr-nrpg/route.ts` | [PASS] (inbound jobs from DR/NRPG) |
+| `/api/cron/dr-nrpg-liveness/route.ts` | [PASS] (health probe) |
+| `lib/cron/dr-nrpg-liveness.ts` | [PASS] |
 
 The integration ships; what's missing is the **job-import UX** that takes inbound DR/NRPG jobs and lands them as ready-to-inspect rows on `/dashboard/inspections`. This is implicit in Stage 5's P0 gap ("no Start inspection → Capture evidence CTA chain") and should be elevated to: "imported DR/NRPG jobs auto-populate the inspection list with one-tap 'Start' action."
 

@@ -200,7 +200,7 @@ export default function HeroSection() {
             transition={{ duration: 0.6, delay: 0.2 }}
           >
             <span className="text-sm text-cyan-400 font-medium">
-              ✨ AI-Powered Damage Assessment
+              AI-Powered Damage Assessment
             </span>
           </motion.div>
 

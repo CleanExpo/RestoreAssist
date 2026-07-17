@@ -92,7 +92,7 @@ const EXTERNAL_INTEGRATIONS: {
     name: "Xero",
     description:
       "Auto-sync invoices + payments — saves ~3 hrs/week of manual entry. Most popular for AU contractors.",
-    icon: "📊",
+    icon: "[ra:invoice]",
     logo: "/integrations/xero.svg",
     category: "bookkeeping",
   },
@@ -101,7 +101,7 @@ const EXTERNAL_INTEGRATIONS: {
     name: "MYOB",
     description:
       "Push invoices straight into your AccountRight ledger. No more CSV exports.",
-    icon: "📊",
+    icon: "[ra:invoice]",
     logo: "/integrations/myob.svg",
     category: "bookkeeping",
     betaUnverified: true,
@@ -111,7 +111,7 @@ const EXTERNAL_INTEGRATIONS: {
     name: "QuickBooks",
     description:
       "Customers + invoices stay in sync both ways — quote here, paid there.",
-    icon: "📊",
+    icon: "[ra:invoice]",
     logo: "/integrations/quickbooks.svg",
     category: "bookkeeping",
     betaUnverified: true,
@@ -121,7 +121,7 @@ const EXTERNAL_INTEGRATIONS: {
     name: "ServiceM8",
     description:
       "Pull active jobs into RestoreAssist so technicians start with real data.",
-    icon: "📋",
+    icon: "[ra:job]",
     logo: "/integrations/servicem8.svg",
     category: "jobmanagement",
     betaUnverified: true,
@@ -131,7 +131,7 @@ const EXTERNAL_INTEGRATIONS: {
     name: "Ascora",
     description:
       "Import work orders + line-item history from Ascora for scope generation.",
-    icon: "📋",
+    icon: "[ra:job]",
     logo: "/integrations/ascora.svg",
     category: "jobmanagement",
   },
@@ -587,7 +587,7 @@ export default function IntegrationsPage() {
         if (pricingResponse.ok) {
           const pricingData = await pricingResponse.json();
           if (!pricingData.pricingConfig) {
-            toast("Redirecting to pricing configuration...", { icon: "ℹ️" });
+            toast("Redirecting to pricing configuration...");
             setTimeout(() => {
               router.push("/dashboard/pricing-config");
             }, 500);
@@ -674,10 +674,10 @@ export default function IntegrationsPage() {
               : "AI-powered report generation with Gemini",
         icon:
           newApiKeyType === "anthropic"
-            ? "🤖"
+            ? "[ra:ai]"
             : newApiKeyType === "openai"
-              ? "🧠"
-              : "🔮",
+              ? "[ra:ai]"
+              : "[ra:ai]",
         apiKey: newApiKey,
         config: JSON.stringify({ apiKeyType: newApiKeyType }),
         status: "CONNECTED",
@@ -731,7 +731,7 @@ export default function IntegrationsPage() {
         if (pricingResponse.ok) {
           const pricingData = await pricingResponse.json();
           if (!pricingData.pricingConfig) {
-            toast("Redirecting to pricing configuration...", { icon: "ℹ️" });
+            toast("Redirecting to pricing configuration...");
             setTimeout(() => {
               router.push("/dashboard/pricing-config");
             }, 500);

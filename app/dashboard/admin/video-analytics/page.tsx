@@ -14,7 +14,7 @@ function Mark({ className = "h-5 w-5", children }: MarkProps & { children: React
 
 const ChartMark = (props: MarkProps) => <Mark {...props}>▥</Mark>;
 const PlayMark = (props: MarkProps) => <Mark {...props}>▶</Mark>;
-const CheckMark = (props: MarkProps) => <Mark {...props}>✓</Mark>;
+const CheckMark = (props: MarkProps) => <Mark {...props}>√</Mark>;
 const PauseMark = (props: MarkProps) => <Mark {...props}>Ⅱ</Mark>;
 const UpMark = (props: MarkProps) => <Mark {...props}>↗</Mark>;
 const DownMark = (props: MarkProps) => <Mark {...props}>↘</Mark>;

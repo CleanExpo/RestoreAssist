@@ -177,7 +177,7 @@ model GateCheck {
 FLAG and RETRY decisions trigger a Telegram alert (when `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` are set):
 
 ```
-🚩 Gate Check: FLAG
+ Gate Check: FLAG
 Project: `scope-quality`
 Task: `RA-701`
 Quality: 72/100 | Confidence: 58/100

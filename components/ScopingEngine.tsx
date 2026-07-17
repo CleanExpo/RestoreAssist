@@ -1619,7 +1619,7 @@ export default function ScopingEngine({
                           : "bg-slate-800 border-slate-700 text-slate-400"
                     }`}
                   >
-                    {isCompleted ? "✓" : <Icon size={20} />}
+                    {isCompleted ? "√" : <Icon size={20} />}
                   </div>
                   <span
                     className={`text-xs mt-2 text-center ${isActive ? "text-cyan-400" : "text-slate-400"}`}

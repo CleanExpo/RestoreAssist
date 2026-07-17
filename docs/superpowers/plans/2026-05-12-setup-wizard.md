@@ -3468,7 +3468,7 @@ In a fresh browser profile:
 1. Sign up at staging
 2. Confirm redirect to `/setup`
 3. Enter test ABN — confirm all three sections hit ready automatically
-4. Toggle off welcome-email transport — confirm welcome_email row goes 🔴 and Activate button disables
+4. Toggle off welcome-email transport — confirm welcome_email row goes [RED] and Activate button disables
 5. Re-enable transport — Activate enables
 6. Click Activate — confirm `/dashboard?firstRun=1` with sample report visible
 7. Navigate to `/dashboard/settings/health` — confirm row states match the Activate-moment snapshot
@@ -3510,7 +3510,7 @@ Implements sub-project #1 from `docs/superpowers/specs/2026-05-12-onboarding-red
 - [x] Schema migration round-trips on staging
 - [x] Manual smoke per Verification Gate (see screenshot in PR body)
 
-🤖 Generated with Claude Code
+ Generated with Claude Code
 EOF
 )"
 ```

@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
         processedSessionIds.push(checkoutSession.id);
       } catch (error: any) {
         console.error(
-          "❌ ERROR PROCESSING SESSION:",
+          "[FAIL] ERROR PROCESSING SESSION:",
           checkoutSession.id,
           error.message,
         );

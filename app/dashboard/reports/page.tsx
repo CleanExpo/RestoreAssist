@@ -362,18 +362,6 @@ export default function ReportsPage() {
     currentPage * itemsPerPage,
   );
 
-  const hazardIcons = {
-    "Category 1": "💧",
-    "Category 2": "🔥",
-    "Category 3": "☣️",
-    Fire: "🔥",
-    Storm: "⛈️",
-    Mould: "🍄",
-    Flood: "🌊",
-    Biohazard: "☣️",
-    Impact: "💥",
-  };
-
   const formatCost = (cost: number | string | null | undefined) => {
     if (cost == null || cost === "") return "N/A";
     return typeof cost === "number" ? `$${cost.toLocaleString()}` : cost;
@@ -663,11 +651,6 @@ export default function ReportsPage() {
                           </StatusBadge>
                           <AiOwnershipBadge report={report} />
                           <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-700/50 text-slate-300 flex items-center gap-1">
-                            <span>
-                              {hazardIcons[
-                                report.waterCategory as keyof typeof hazardIcons
-                              ] || "💧"}
-                            </span>
                             {report.waterCategory || "—"}
                           </span>
                         </div>
@@ -888,11 +871,6 @@ export default function ReportsPage() {
                         </td>
                         <td className="py-4 px-6">
                           <span className="flex items-center gap-2">
-                            <span>
-                              {hazardIcons[
-                                report.waterCategory as keyof typeof hazardIcons
-                              ] || "💧"}
-                            </span>
                             {report.waterCategory || "N/A"}
                           </span>
                         </td>

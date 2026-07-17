@@ -17,17 +17,17 @@ SP-H bridges the existing Obsidian wiki (145 .md files + growing restoration-dom
 
 | Component | Status | Notes |
 |---|---|---|
-| **Obsidian wiki source** | ✅ 145 .md files | `~/2nd Brain/2nd Brain/Wiki/` — frontmatter shape: `type: wiki`, `updated: YYYY-MM-DD` + content vars |
-| **Wiki sync script** | ✅ `sync_wiki_to_supabase.py` | Existing production script; reads local vault, pushes to Supabase. Per log.md 2026-05-15: 143/145 pages synced |
-| **Supabase `wiki_pages` table** | ✅ Exists | Schema: id, slug, title, content, frontmatter (JSON), tenantId, createdAt, updatedAt, contentHash |
-| **`lib/ai/embeddings.ts`** | ✅ Complete | `buildJobEmbeddingText()`, `embedText()` (OpenAI text-embedding-3-small), `hashEmbedText()` (deterministic fallback), `findSimilarJobs()` (pgvector cosine) — ALL reusable for wiki chunks |
-| **`lib/ai/rag-context.ts`** | ✅ Partial | `retrieveSimilarJobs()` for HistoricalJob; vector fallback pattern established; can refactor to generic `retrieve()` |
-| **Prisma pgvector extension** | ✅ Enabled | Line 18 of schema.prisma: `extensions = [pgvector(map: "vector")]` |
-| **HistoricalJob embedding schema** | ✅ Example | `embeddingVector vector(1536)`, `embeddedAt DateTime?` — model to copy for wiki chunks |
-| **MISSING: `wiki_chunks` table** | ❌ Needed | Will store per-heading chunks + embeddings from wiki_pages |
-| **MISSING: retrieval API** | ❌ Needed | `lib/knowledge/retrieve.ts` exporting `retrieve(query, filters?, topK?)` |
-| **MISSING: ingester extension** | ❌ Needed | `sync_wiki_to_supabase.py` extended to chunk + embed |
-| **MISSING: embedding-on-edit hook** | ❌ Needed | Detect changed chunks via SHA-256; re-embed only changed ones |
+| **Obsidian wiki source** | [PASS] 145 .md files | `~/2nd Brain/2nd Brain/Wiki/` — frontmatter shape: `type: wiki`, `updated: YYYY-MM-DD` + content vars |
+| **Wiki sync script** | [PASS] `sync_wiki_to_supabase.py` | Existing production script; reads local vault, pushes to Supabase. Per log.md 2026-05-15: 143/145 pages synced |
+| **Supabase `wiki_pages` table** | [PASS] Exists | Schema: id, slug, title, content, frontmatter (JSON), tenantId, createdAt, updatedAt, contentHash |
+| **`lib/ai/embeddings.ts`** | [PASS] Complete | `buildJobEmbeddingText()`, `embedText()` (OpenAI text-embedding-3-small), `hashEmbedText()` (deterministic fallback), `findSimilarJobs()` (pgvector cosine) — ALL reusable for wiki chunks |
+| **`lib/ai/rag-context.ts`** | [PASS] Partial | `retrieveSimilarJobs()` for HistoricalJob; vector fallback pattern established; can refactor to generic `retrieve()` |
+| **Prisma pgvector extension** | [PASS] Enabled | Line 18 of schema.prisma: `extensions = [pgvector(map: "vector")]` |
+| **HistoricalJob embedding schema** | [PASS] Example | `embeddingVector vector(1536)`, `embeddedAt DateTime?` — model to copy for wiki chunks |
+| **MISSING: `wiki_chunks` table** | [FAIL] Needed | Will store per-heading chunks + embeddings from wiki_pages |
+| **MISSING: retrieval API** | [FAIL] Needed | `lib/knowledge/retrieve.ts` exporting `retrieve(query, filters?, topK?)` |
+| **MISSING: ingester extension** | [FAIL] Needed | `sync_wiki_to_supabase.py` extended to chunk + embed |
+| **MISSING: embedding-on-edit hook** | [FAIL] Needed | Detect changed chunks via SHA-256; re-embed only changed ones |
 
 ---
 
@@ -307,8 +307,8 @@ model WikiChunk {
 ## 9. Where ingester runs: Hermes cron (recommendation)
 
 **Options:**
-1. **Vercel cron** — `/api/cron/ingest-wiki` endpoint. Simple, serverless. Cold start ~5s, then 3 min execution. ✅ Viable.
-2. **Self-hosted on Mac mini** — `~/restore-assist/scripts/cron-ingest.sh` runs daily via launchd. ✅ Proven reliable per [[hermes-agent]].
+1. **Vercel cron** — `/api/cron/ingest-wiki` endpoint. Simple, serverless. Cold start ~5s, then 3 min execution. [PASS] Viable.
+2. **Self-hosted on Mac mini** — `~/restore-assist/scripts/cron-ingest.sh` runs daily via launchd. [PASS] Proven reliable per [[hermes-agent]].
 3. **Hermes cron** — existing agent framework at `/Pi-CEO` — already runs daily wiki scan per [[wiki-ingest]] skill. Extends to embed.
 
 **Recommendation:** **Hermes cron**. Justification:

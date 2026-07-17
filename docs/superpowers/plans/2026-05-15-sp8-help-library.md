@@ -1999,11 +1999,11 @@ PR body should reference:
 | §11 AI-readiness for SP-G | T1 (schema enforces `aiSummary`, `userIntents`, `successCriteria`) |
 | §12 Testing | unit/integration inline per task; T14 = E2E |
 
-**Placeholder scan** ✓ — no TBD/TODO/FIXME tokens. Two intentional "placeholder" deliberations flagged:
+**Placeholder scan**  — no TBD/TODO/FIXME tokens. Two intentional "placeholder" deliberations flagged:
 - T5 + T6 adapt the Componentry styles rather than importing the raw components directly (the magnetic-dock dock-bar shape and showcase-card 3D-tilt schema don't map cleanly to SP-8 surfaces). The components stay installed in `components/ui/` and can be reused or wrapped later.
 - Step 3-9 of T13 names 6 article slugs but doesn't pre-write their bodies — content authoring is part of T13's deliverable. Each must conform to the same frontmatter shape as T13 steps 1 & 2.
 
-**Type consistency** ✓ — `HelpCategory`, `HelpFrontmatter`, `HelpAudience` defined in T1 and reused across T2/T5/T6/T7/T8/T9/T10/T11. `IndexEntry` shape in T4 + T7 matches.
+**Type consistency**  — `HelpCategory`, `HelpFrontmatter`, `HelpAudience` defined in T1 and reused across T2/T5/T6/T7/T8/T9/T10/T11. `IndexEntry` shape in T4 + T7 matches.
 
 **Known follow-ups (out of scope, flagged in PR body):**
 - Cloudinary screenshots need to be UPLOADED — frontmatter placeholders are public IDs that must exist in Cloudinary before deploy. Operator task.
