@@ -137,6 +137,15 @@ jobs:
       - name: Lucide guard
         run: pnpm check:no-lucide
 
+      # Spec-docs layout guard (PR #1968 lesson). A clean merge of main silently
+      # relocated the canonical master spec into docs/root-archive/ via git
+      # rename detection. Fails if a CANONICAL-status doc sits in the archive,
+      # if more than one file claims canonical status, if the canonical spec is
+      # not root spec.md, or if spec.md references a missing docs/*.md file.
+      # Vacuously passes until a canonical spec exists.
+      - name: Spec-docs layout guard
+        run: pnpm check:spec-docs
+
       # UTF-8 encoding guard (RA-6938). Fails if CLAUDE.md, AGENTS.md, or any
       # .claude/rules/*.md is committed as invalid-UTF-8 "data" (mojibake). The
       # primary agent brief was silently corrupted from the Commands section
