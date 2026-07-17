@@ -67,6 +67,10 @@ const IGNORED_FILE_PATTERNS = [
   ".spec.ts",
   ".spec.tsx",
   "scripts/audit-ai-call-sites.ts",
+  // Pure provider-enum mapping — names providers to map UI key-type ↔ AiProvider
+  // enum values; reads no process.env key and makes no provider call, so it is
+  // not an AI call site. Flagged only by provider-name string matching (RA-7079).
+  "lib/workspace/ai-key-type.ts",
 ];
 
 export function getAiAuditIgnoredFilePatterns(): string[] {

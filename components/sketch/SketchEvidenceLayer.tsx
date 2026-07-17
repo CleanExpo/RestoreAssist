@@ -6,7 +6,9 @@
  */
 
 import { useCallback, useRef, useState } from "react";
-import { Camera, ImageIcon, Loader2, X } from "lucide-react";
+import { ChromeX } from "@/components/brand/chrome-icons";
+import { RAIcon } from "@/components/brand/RAIcon";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { pinPixelPosition, toNormalized } from "@/lib/sketch/pin-coords";
 
@@ -151,7 +153,7 @@ export function SketchEvidenceLayer({
 
       {uploading && (
         <div className="absolute left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-black/70 px-3 py-1.5 text-xs text-white backdrop-blur">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <Spinner className="h-3.5 w-3.5" />
           Uploading evidence…
         </div>
       )}
@@ -192,7 +194,7 @@ export function SketchEvidenceLayer({
                   draggable={false}
                 />
               ) : (
-                <Camera className="h-4 w-4 text-[#D4A574]" />
+                <RAIcon name="photo" decorative className="h-4 w-4" />
               )}
             </button>
             {active && (
@@ -205,7 +207,7 @@ export function SketchEvidenceLayer({
                   onRemove(pin.id);
                 }}
               >
-                <X className="h-3 w-3" />
+                <ChromeX className="h-3 w-3" />
               </button>
             )}
           </div>
@@ -237,7 +239,7 @@ export function SketchEvidenceLayer({
                   />
                 ) : (
                   <div className="flex h-48 w-72 items-center justify-center text-white/60">
-                    <ImageIcon className="h-8 w-8" />
+                    <RAIcon name="photo" size={32} decorative className="h-8 w-8" />
                   </div>
                 )}
                 <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-3">

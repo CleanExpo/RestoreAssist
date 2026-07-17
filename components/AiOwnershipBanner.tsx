@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Circle } from "lucide-react";
+import { ChromeCheck, ChromeCircle } from "@/components/brand/chrome-icons";
 import {
   AI_OWNERSHIP_ACK_LABEL,
   AI_OWNERSHIP_EDIT_REQUIRED,
@@ -78,7 +78,7 @@ export default function AiOwnershipBanner({
       >
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success text-white">
-            <Check className="h-4 w-4" aria-hidden />
+            <ChromeCheck className="h-4 w-4" aria-hidden />
           </span>
           <div className="min-w-0 space-y-1">
             <p className="font-semibold text-success">{meta.label}</p>
@@ -135,13 +135,13 @@ export default function AiOwnershipBanner({
                   }
                   aria-hidden
                 >
-                  {isComplete ? <Check className="h-3.5 w-3.5" /> : index + 1}
+                  {isComplete ? <ChromeCheck className="h-3.5 w-3.5" /> : index + 1}
                 </span>
                 <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                   {step.title}
                 </span>
                 {isCurrent && (
-                  <Circle
+                  <ChromeCircle
                     className="ml-auto h-2.5 w-2.5 fill-amber-600 text-amber-600"
                     aria-label="Current step"
                   />

@@ -62,6 +62,7 @@
     "check:no-emoji": "node scripts/check-no-emoji.mjs",
     "check:no-lucide": "node scripts/check-no-lucide.mjs",
     "check:encoding": "node scripts/check-encoding.mjs",
+    "check:spec-docs": "node scripts/ci/check-spec-docs.mjs",
     "check:ssot": "node scripts/ci/check-data-source-ssot.mjs --strict",
     "check:corpus": "node scripts/ci/check-corpus-hygiene.mjs",
     "test:unit": "pnpm exec vitest run --config config/vitest.config.js",

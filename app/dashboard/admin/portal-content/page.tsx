@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, RefreshCw, BookOpen } from "lucide-react";
+import { ChromeArrowLeft, ChromeRefresh } from "@/components/brand/chrome-icons";
+import { RAIcon } from "@/components/brand/RAIcon";
+import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,6 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import toast from "react-hot-toast";
 
@@ -47,6 +50,7 @@ function stateTone(state: string): StatusTone {
 export default function PortalContentAdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const confirmDialog = useConfirmDialog();
   const [items, setItems] = useState<PortalContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -125,7 +129,13 @@ export default function PortalContentAdminPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this article?")) return;
+    const ok = await confirmDialog.ask({
+      title: "Delete this article?",
+      description: "The article is removed from the client portal. This action cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/admin/portal-content/${id}`, {
         method: "DELETE",
@@ -146,7 +156,7 @@ export default function PortalContentAdminPage() {
           href="/dashboard/admin"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-4"
         >
-          <ArrowLeft size={12} />
+          <ChromeArrowLeft size={12} />
           Back to admin
         </a>
         <h1 className="text-2xl font-semibold">Portal content hub</h1>
@@ -175,7 +185,7 @@ export default function PortalContentAdminPage() {
         <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm">
           <p className="text-destructive">{loadError}</p>
           <Button type="button" variant="outline" size="sm" className="mt-2" onClick={load}>
-            <RefreshCw className="mr-2 h-4 w-4" /> Retry
+            <ChromeRefresh className="mr-2 h-4 w-4" /> Retry
           </Button>
         </div>
       ) : null}
@@ -224,7 +234,7 @@ export default function PortalContentAdminPage() {
             <Button type="submit" disabled={saving}>
               {saving ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…
+                  <Spinner className="mr-2 h-4 w-4" /> Saving…
                 </>
               ) : (
                 "Create draft"
@@ -241,11 +251,11 @@ export default function PortalContentAdminPage() {
         <CardContent>
           {loading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+              <Spinner className="h-4 w-4" /> Loading…
             </div>
           ) : items.length === 0 ? (
             <EmptyState
-              icon={<BookOpen className="h-10 w-10" />}
+              icon={<RAIcon name="report" size={40} decorative className="h-10 w-10" />}
               title="No portal articles yet"
               description="Create a draft FAQ or help article. Until you publish org content, the client portal shows built-in defaults."
             />
@@ -294,6 +304,7 @@ export default function PortalContentAdminPage() {
           )}
         </CardContent>
       </Card>
+      <confirmDialog.Mount />
     </div>
   );
 }

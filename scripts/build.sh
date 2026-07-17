@@ -22,6 +22,15 @@ case "$VERCEL_ENV" in
     ;;
   *)
     if [ -z "$DATABASE_URL" ]; then
+      # Cross-verifier finding (codex, PR #1972): lib/prisma.ts is now lazy, so a
+      # production build without DATABASE_URL would SUCCEED and then 500 at the
+      # first query. Fail the build instead — on Vercel production this env var
+      # is mandatory. Local 'next build' without env (VERCEL_ENV unset) stays
+      # allowed for hermetic build verification.
+      if [ "$VERCEL_ENV" = "production" ]; then
+        echo "[build] ERROR: VERCEL_ENV=production but DATABASE_URL is unset — refusing to ship a build that would 500 at first query (lazy PrismaClient)." >&2
+        exit 1
+      fi
       echo "[build] DATABASE_URL unset — skipping prisma migrate deploy (probably a local 'next build' without env)"
     else
       # RA-1807 fail-closed pre-flight: the drift vector is the :6543 TRANSACTION

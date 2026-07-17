@@ -84,11 +84,9 @@ describe("GET /api/reports/[id]/pdf — firm branding", () => {
     );
     const res = await GET(req(), ctx);
     expect(res.status).toBe(200);
-    expect(generateIICRCReportPDF.mock.calls[0][1]).toEqual({
-      theme: {
-        logoUrl: "https://res.cloudinary.com/x/acme.png",
-        primaryColor: "#0EA5E9",
-      },
+    expect(generateIICRCReportPDF.mock.calls[0][1].theme).toEqual({
+      logoUrl: "https://res.cloudinary.com/x/acme.png",
+      primaryColor: "#0EA5E9",
     });
   });
 

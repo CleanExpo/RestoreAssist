@@ -8,12 +8,12 @@
  */
 import { useState } from "react";
 import {
-  Package,
-  Download,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-} from "lucide-react";
+  ChromeDownload,
+  ChromeCheckCircle,
+  ChromeAlertCircle,
+} from "@/components/brand/chrome-icons";
+import { RAIcon } from "@/components/brand/RAIcon";
+import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
 
@@ -108,9 +108,10 @@ export default function HandoverPackagePanel({
       className="rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/80 dark:bg-emerald-950/20 p-4"
     >
       <div className="flex items-start gap-3">
-        <Package
-          className="h-5 w-5 text-emerald-700 dark:text-emerald-400 mt-0.5 shrink-0"
-          aria-hidden
+        <RAIcon
+          name="job"
+          decorative
+          className="h-5 w-5 mt-0.5 shrink-0"
         />
         <div className="min-w-0 flex-1 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -143,7 +144,7 @@ export default function HandoverPackagePanel({
               role="alert"
               className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
             >
-              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden />
+              <ChromeAlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden />
               <span>{error}</span>
             </div>
           ) : null}
@@ -158,7 +159,7 @@ export default function HandoverPackagePanel({
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <Download className="h-4 w-4 mr-1.5" aria-hidden />
+                      <ChromeDownload className="h-4 w-4 mr-1.5" aria-hidden />
                       Download package
                     </a>
                   </Button>
@@ -171,9 +172,9 @@ export default function HandoverPackagePanel({
                   onClick={() => void refreshDownload()}
                 >
                   {busy ? (
-                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" aria-hidden />
+                    <Spinner className="h-4 w-4 mr-1.5" aria-hidden />
                   ) : (
-                    <Download className="h-4 w-4 mr-1.5" aria-hidden />
+                    <ChromeDownload className="h-4 w-4 mr-1.5" aria-hidden />
                   )}
                   {packageUrl ? "Refresh link" : "Get download link"}
                 </Button>
@@ -186,9 +187,9 @@ export default function HandoverPackagePanel({
                 onClick={() => void completeHandover()}
               >
                 {busy ? (
-                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" aria-hidden />
+                  <Spinner className="h-4 w-4 mr-1.5" aria-hidden />
                 ) : (
-                  <CheckCircle2 className="h-4 w-4 mr-1.5" aria-hidden />
+                  <ChromeCheckCircle className="h-4 w-4 mr-1.5" aria-hidden />
                 )}
                 Complete handover
               </Button>

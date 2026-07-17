@@ -120,9 +120,12 @@ describe("resolveReportProvider", () => {
 
   it("returns null when no active operating connections exist", async () => {
     mockGetWorkspace.mockResolvedValue({ id: "ws1", name: "Test Workspace" });
+    // No ACTIVE connection for any operating provider (ANTHROPIC/OPENAI/
+    // OPENROUTER/GOOGLE). GOOGLE became an operating provider in Wave 4, so a
+    // genuine "no operating connection" scenario must use only non-ACTIVE rows.
     mockListConnections.mockResolvedValue([
-      { provider: "GOOGLE", status: "ACTIVE" },
       { provider: "ANTHROPIC", status: "DISABLED" },
+      { provider: "GOOGLE", status: "DISABLED" },
     ]);
 
     const result = await resolveReportProvider("user-1");
