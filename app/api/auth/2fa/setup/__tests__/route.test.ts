@@ -29,6 +29,13 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { POST } from "../route";
+import {
+  readTotpSecret,
+  isEncryptedTotpSecret,
+} from "@/lib/auth/totp-secret";
+
+// The setup route now encrypts the secret at rest (M3); the vault needs a key.
+process.env.CREDENTIAL_ENCRYPTION_KEY = "a".repeat(64);
 
 function makeRequest() {
   return new NextRequest("http://localhost/api/auth/2fa/setup", {
@@ -80,9 +87,11 @@ describe("POST /api/auth/2fa/setup", () => {
     expect(json.otpauthUrl).toContain(json.manualEntryKey);
     expect(json.qrDataUrl).toMatch(/^data:image\/png;base64,/);
 
-    expect(userUpdate).toHaveBeenCalledWith({
-      where: { id: "u1" },
-      data: { twoFactorSecret: json.manualEntryKey },
-    });
+    // M3: the persisted secret is encrypted at rest — never the plaintext —
+    // and decrypts back to the manual-entry key the user scanned.
+    const persisted = userUpdate.mock.calls[0][0].data.twoFactorSecret;
+    expect(persisted).not.toBe(json.manualEntryKey);
+    expect(isEncryptedTotpSecret(persisted)).toBe(true);
+    expect(readTotpSecret(persisted)).toBe(json.manualEntryKey);
   });
 });

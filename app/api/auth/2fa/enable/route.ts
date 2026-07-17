@@ -14,6 +14,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { validateCsrf } from "@/lib/csrf";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { readTotpSecret } from "@/lib/auth/totp-secret";
 import {
   verifyToken,
   generateRecoveryCodes,
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const ok = verifyToken((user as any).twoFactorSecret, code);
+  const ok = verifyToken(readTotpSecret((user as any).twoFactorSecret), code);
   if (!ok) {
     return apiError(req, {
       code: "VALIDATION",
