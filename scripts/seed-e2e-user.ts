@@ -15,9 +15,20 @@
  * mirrors app/api/auth/register/route.ts as of 2026-06-16.
  */
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+// Prisma 7's pg driver adapter requires an explicit adapter at construction;
+// a bare `new PrismaClient()` throws PrismaClientInitializationError (this is
+// what broke the Sketch E2E seed step, RA-7079). Mirror lib/prisma.ts.
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("DATABASE_URL is required to seed the e2e user");
+}
+const prisma = new PrismaClient({
+  adapter: new PrismaPg(new Pool({ connectionString, max: 2 })),
+});
 
 const EMAIL = process.env.E2E_USER_EMAIL ?? "test@restoreassist.app";
 const PASSWORD = process.env.E2E_USER_PASSWORD ?? "Test1234!";
