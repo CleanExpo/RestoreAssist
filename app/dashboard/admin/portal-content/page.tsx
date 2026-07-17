@@ -24,7 +24,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
-import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import toast from "react-hot-toast";
 
@@ -48,7 +47,6 @@ function stateTone(state: string): StatusTone {
 export default function PortalContentAdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const confirmDialog = useConfirmDialog();
   const [items, setItems] = useState<PortalContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -127,13 +125,7 @@ export default function PortalContentAdminPage() {
   }
 
   async function handleDelete(id: string) {
-    const ok = await confirmDialog.ask({
-      title: "Delete this article?",
-      description: "The article is removed from the client portal. This action cannot be undone.",
-      confirmLabel: "Delete",
-      destructive: true,
-    });
-    if (!ok) return;
+    if (!confirm("Delete this article?")) return;
     try {
       const res = await fetch(`/api/admin/portal-content/${id}`, {
         method: "DELETE",
@@ -302,7 +294,6 @@ export default function PortalContentAdminPage() {
           )}
         </CardContent>
       </Card>
-      <confirmDialog.Mount />
     </div>
   );
 }
