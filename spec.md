@@ -357,7 +357,7 @@ These are compatible with, and subsumed by, the acceptance-criteria (§38) and d
 
 **Stop conditions (a "real blocker").** The loop pauses and hands back only on: a missing owner decision (§43); a failing gate that requires human judgement (a soft-reviewer objection, a domain-methodology question); an external dependency (credential, third-party outage, accounting sandbox); a security/legal/data-integrity risk surfaced mid-build; or exhaustion of the ready backlog. Compilation success, a green typecheck, or a merged PR are **not** stop conditions and are **not** completion — completion is the evidenced acceptance criteria (§42).
 
-**Guardrails.** Every loop iteration honours the change-control process (§44), the definition of done (§42), and the state-machine, security, and concurrency requirements. The loop never merges a behaviour change without a spec update, never marks an item done on "it compiles", and never advances a phase whose predecessor phase is not evidenced complete. Draft PR #1967 stays unmerged until assessed against the final report state model (§40).
+**Guardrails.** Every loop iteration honours the change-control process (§44), the definition of done (§42), and the state-machine, security, and concurrency requirements. The loop never merges a behaviour change without a spec update, never marks an item done on "it compiles", and never advances a phase whose predecessor phase is not evidenced complete. The interim closure-safeguard PR stays unmerged until assessed against the final report state model (classified in §40; PR number in the decision log).
 
 This mode keeps implementation momentum without letting the code drift from the specification. Its full controlling detail is **Appendix C — Continuous Implementation Protocol**.
 
