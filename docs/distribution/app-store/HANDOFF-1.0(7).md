@@ -35,10 +35,10 @@ The web experience is unchanged. On iOS Capacitor, BillingGate's `shouldHideBill
 
 ### Pre-flight verification (already passed)
 
-- ✅ Static iOS App Review check (`.claude/hooks/lib/ios-static-check.sh`) → **0 hard violations**
-- ✅ Type-check on the 15 modified TS/TSX files → **0 new errors**
-- ✅ `npx cap sync ios` → clean, 5 plugins resolved
-- ✅ `CURRENT_PROJECT_VERSION = 7` confirmed in both Debug and Release configurations
+- [PASS] Static iOS App Review check (`.claude/hooks/lib/ios-static-check.sh`) → **0 hard violations**
+- [PASS] Type-check on the 15 modified TS/TSX files → **0 new errors**
+- [PASS] `npx cap sync ios` → clean, 5 plugins resolved
+- [PASS] `CURRENT_PROJECT_VERSION = 7` confirmed in both Debug and Release configurations
 
 Pre-existing type errors elsewhere in the codebase (settings page, lucide icon imports, DryingProgressChart) are not regressions — they shipped on 1.0(5).
 

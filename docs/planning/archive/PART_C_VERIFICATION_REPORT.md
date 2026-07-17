@@ -5,12 +5,12 @@
 
 | # | File | Size | Audio | Verdict |
 |---|------|------|-------|---------|
-| 1 | help-billing.mp4 | 9.2 MB | ✅ Screen recording + voiceover | RETAIN — verify UI currency |
-| 2 | help-clients-and-portal.mp4 | 8.2 MB | ✅ Screen recording + voiceover | RETAIN — verify UI currency |
-| 3 | help-compliance.mp4 | 11.1 MB | ✅ Screen recording + voiceover | RETAIN — verify UI currency |
-| 4 | help-inspections.mp4 | 8.6 MB | ✅ Screen recording + voiceover | RETAIN — verify UI currency |
-| 5 | help-reports.mp4 | 8.8 MB | ✅ Screen recording + voiceover | RETAIN — verify UI currency |
-| 6 | help-team.mp4 | 9.9 MB | ✅ Screen recording + voiceover | RETAIN — verify UI currency |
+| 1 | help-billing.mp4 | 9.2 MB | [PASS] Screen recording + voiceover | RETAIN — verify UI currency |
+| 2 | help-clients-and-portal.mp4 | 8.2 MB | [PASS] Screen recording + voiceover | RETAIN — verify UI currency |
+| 3 | help-compliance.mp4 | 11.1 MB | [PASS] Screen recording + voiceover | RETAIN — verify UI currency |
+| 4 | help-inspections.mp4 | 8.6 MB | [PASS] Screen recording + voiceover | RETAIN — verify UI currency |
+| 5 | help-reports.mp4 | 8.8 MB | [PASS] Screen recording + voiceover | RETAIN — verify UI currency |
+| 6 | help-team.mp4 | 9.9 MB | [PASS] Screen recording + voiceover | RETAIN — verify UI currency |
 
 **Status:** 6 videos, all real screen recordings with voiceover, 8-11 MB each.
 **Action:** Retain but verify UI currency against current app.next build.
@@ -22,15 +22,15 @@
 
 | # | File | Size | Audio | Verdict |
 |---|------|------|-------|---------|
-| 1 | restoreassist-billing-v1.mp4 | 0.6 MB | ❌ NONE | SCRAP — Remotion replacement exists |
-| 2 | restoreassist-compliance-v1.mp4 | 0.6 MB | ❌ NONE | SCRAP — Remotion replacement exists |
-| 3 | restoreassist-dashboard-v1.mp4 | 1.1 MB | ❌ NONE | SCRAP — Remotion replacement exists |
-| 4 | restoreassist-inspections-v1.mp4 | 1.1 MB | ❌ NONE | SCRAP — Remotion replacement exists |
-| 5 | restoreassist-login-v1.mp4 | 1.3 MB | ❌ NONE | SCRAP — Remotion replacement exists |
-| 6 | restoreassist-reports-v1.mp4 | 1.1 MB | ❌ NONE | SCRAP — Remotion replacement exists |
-| 7 | restoreassist-setup-wizard-v1.mp4 | 1.5 MB | ❌ NONE | SCRAP — Remotion replacement exists |
-| 8 | restoreassist-signup-v1.mp4 | 1.4 MB | ❌ NONE | SCRAP — Remotion replacement exists |
-| 9 | restoreassist-team-v1.mp4 | 0.6 MB | ❌ NONE | SCRAP — Remotion replacement exists |
+| 1 | restoreassist-billing-v1.mp4 | 0.6 MB | [FAIL] NONE | SCRAP — Remotion replacement exists |
+| 2 | restoreassist-compliance-v1.mp4 | 0.6 MB | [FAIL] NONE | SCRAP — Remotion replacement exists |
+| 3 | restoreassist-dashboard-v1.mp4 | 1.1 MB | [FAIL] NONE | SCRAP — Remotion replacement exists |
+| 4 | restoreassist-inspections-v1.mp4 | 1.1 MB | [FAIL] NONE | SCRAP — Remotion replacement exists |
+| 5 | restoreassist-login-v1.mp4 | 1.3 MB | [FAIL] NONE | SCRAP — Remotion replacement exists |
+| 6 | restoreassist-reports-v1.mp4 | 1.1 MB | [FAIL] NONE | SCRAP — Remotion replacement exists |
+| 7 | restoreassist-setup-wizard-v1.mp4 | 1.5 MB | [FAIL] NONE | SCRAP — Remotion replacement exists |
+| 8 | restoreassist-signup-v1.mp4 | 1.4 MB | [FAIL] NONE | SCRAP — Remotion replacement exists |
+| 9 | restoreassist-team-v1.mp4 | 0.6 MB | [FAIL] NONE | SCRAP — Remotion replacement exists |
 
 **Status:** 9 videos, 0 audio tracks, tiny files (Canvas HTML recordings without narration).
 **Action:** SCRAP entirely. Replaced by Remotion compositions with brand colours, Inter font,
@@ -72,8 +72,8 @@ If drift >20%, re-record or redirect to remotion-* equivalents.
 
 | Category | Count | Valid | Scrap | Action |
 |----------|-------|-------|-------|--------|
-| Help videos | 6 | ✅ 6 audio | 0 | Retain, UI currency check |
-| Overnight Canvas | 9 | ❌ 0 audio | 9 | SCRAP — use Remotion |
+| Help videos | 6 | [PASS] 6 audio | 0 | Retain, UI currency check |
+| Overnight Canvas | 9 | [FAIL] 0 audio | 9 | SCRAP — use Remotion |
 | YouTube wizards | 6 | Unknown | 0 | UI currency check pending |
 | Remotion (current) | 34 | 34 audio | 0 | Production-ready |
 

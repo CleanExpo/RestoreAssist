@@ -80,15 +80,15 @@
 
 | Rubric                      | Status                                           |
 | --------------------------- | ------------------------------------------------ |
-| 1. API envelope consistency | ❌ 4/~160 adopted                                |
-| 2. Email voice consistency  | ✅ Gold standard in `lib/email-templates.ts`     |
-| 3. Toast surface            | ❌ 2 libraries coexist                           |
-| 4. Button copy              | ❌ 5 drift clusters                              |
-| 5. Empty states             | ❌ No shared component                           |
-| 6. Formatters               | ❌ No `lib/formatters.ts`, 226 inline uses       |
-| 7. Status badges            | ❌ No shared component, verbs drift              |
-| 8. Breadcrumbs              | ❌ Missing on detail pages                       |
-| 9. Loading skeletons        | ⚠ 88 adopt, long tail mixes                      |
-| 10. Confirmation dialogs    | ⚠ 6 native `confirm()` remain                    |
-| 11. AU English              | ⚠ 58 drift occurrences                           |
-| 12. ATO tax terminology     | ❌ Invoice PDF says "INVOICE", not "Tax Invoice" |
+| 1. API envelope consistency | [FAIL] 4/~160 adopted                                |
+| 2. Email voice consistency  | [PASS] Gold standard in `lib/email-templates.ts`     |
+| 3. Toast surface            | [FAIL] 2 libraries coexist                           |
+| 4. Button copy              | [FAIL] 5 drift clusters                              |
+| 5. Empty states             | [FAIL] No shared component                           |
+| 6. Formatters               | [FAIL] No `lib/formatters.ts`, 226 inline uses       |
+| 7. Status badges            | [FAIL] No shared component, verbs drift              |
+| 8. Breadcrumbs              | [FAIL] Missing on detail pages                       |
+| 9. Loading skeletons        | [WARN] 88 adopt, long tail mixes                      |
+| 10. Confirmation dialogs    | [WARN] 6 native `confirm()` remain                    |
+| 11. AU English              | [WARN] 58 drift occurrences                           |
+| 12. ATO tax terminology     | [FAIL] Invoice PDF says "INVOICE", not "Tax Invoice" |

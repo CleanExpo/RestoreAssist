@@ -34,24 +34,24 @@ RestoreAssist/
 │   │   ├── service-layer-architecture/SKILL.md
 │   │   └── architectural-integrity-protocol/SKILL.md
 │   └── archive/                                12 historical .md (env-audit, senior-pm, v1.x, etc.)
-├── lib/services/                               [SERVICE LAYER] ✅ all clean
+├── lib/services/                               [SERVICE LAYER] [PASS] all clean
 │   ├── _shared/result.ts                       ServiceResult<T,E> + ok/fail
-│   ├── _shared/__tests__/result.test.ts        3/3 ✅
+│   ├── _shared/__tests__/result.test.ts        3/3 [PASS]
 │   ├── xero/credentials.ts                     getValidXeroAccessToken — structured
-│   ├── xero/__tests__/credentials.test.ts      7/7 ✅
+│   ├── xero/__tests__/credentials.test.ts      7/7 [PASS]
 │   ├── inspection/validate-submission.ts       pure validation, no I/O
-│   └── inspection/__tests__/…test.ts           6/6 ✅
+│   └── inspection/__tests__/…test.ts           6/6 [PASS]
 ├── lib/integrations/xero/
-│   └── token-manager.ts                        🟡 deprecation shim; RA-1308 preserved
-├── app/api/inspections/[id]/submit/route.ts    ✅ thin orchestration + validation gate
-├── app/api/cron/sync-xero-payments/route.ts    ✅ uses credResult
+│   └── token-manager.ts                        [PENDING] deprecation shim; RA-1308 preserved
+├── app/api/inspections/[id]/submit/route.ts    [PASS] thin orchestration + validation gate
+├── app/api/cron/sync-xero-payments/route.ts    [PASS] uses credResult
 ├── docs/superpowers/plans/2026-05-18-runtime-reconciliation-deployment-lifecycle.md
 ├── vendor/opensrc/                             920K · vercel-labs/opensrc CLI vendored
 └── scripts/rls-categorise.py                   prisma → 119-table RLS bucketing
 ```
 
-Audit emoji legend: ✅ clean · 🟡 transitional shim · 🔴 violation.
-**No 🔴 in current state.**
+Audit emoji legend: [PASS] clean · [PENDING] transitional shim · [BLOCKED] violation.
+**No [BLOCKED] in current state.**
 
 ## Feature State
 
@@ -75,7 +75,7 @@ Audit emoji legend: ✅ clean · 🟡 transitional shim · 🔴 violation.
 
 ### Pending / Backlog (next session pick-up)
 - **RA-4970 in flight:** service-role audit GREEN (`4d9d9842`); 5 prod-only tables bucketed (`82325c67`); migration drafted (`82325c67`) + made env-tolerant (`24af1345`); **applied to `oxeiaavuspvpvanzcrjc` 2026-05-18 — 131 tables RLS-on, 12 anon-SELECT policies, advisor reports 0 critical findings.** Remaining: apply to prod `udooysjajglluvuxkijp` (Phill explicit authorisation required by classifier).
-- ~~**Delete the deprecation shim** at `lib/integrations/xero/token-manager.ts`~~ ✅ done in `e1924b13` (2026-05-18). `getXeroTenantId` relocated to `lib/services/xero/tenant.ts` as proper `ServiceResult<string, 'TENANT_MISSING'>`. Shim + 237-line test deleted. **Note:** that commit also swept in the pre-existing iOS `Package.resolved` drift via `git add -A` — scope-mixed but benign; not force-amending a release branch.
+- ~~**Delete the deprecation shim** at `lib/integrations/xero/token-manager.ts`~~ [PASS] done in `e1924b13` (2026-05-18). `getXeroTenantId` relocated to `lib/services/xero/tenant.ts` as proper `ServiceResult<string, 'TENANT_MISSING'>`. Shim + 237-line test deleted. **Note:** that commit also swept in the pre-existing iOS `Package.resolved` drift via `git add -A` — scope-mixed but benign; not force-amending a release branch.
 - **Follow-up plans referenced in plan:**
   - `2026-05-DD-runtime-reconciliation-phase-2-inspection-mechanics.md` — extract classification dispatch, NIR generation, integration fan-out from the 566-line submit handler.
   - `2026-05-DD-deployment-lifecycle-cron-helpers.md` — worker-restart, token-cleanup, sync-queue-provisioning helpers.

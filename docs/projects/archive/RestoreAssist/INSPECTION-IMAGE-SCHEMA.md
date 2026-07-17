@@ -229,7 +229,7 @@ Labels are stored in the `MediaAsset.seoJsonLd` field (existing JSON column) und
 
 | Milestone                  | Target              | How                                                      |
 | -------------------------- | ------------------- | -------------------------------------------------------- |
-| Schema complete            | 0 images            | This document ✓                                          |
+| Schema complete            | 0 images            | This document                                           |
 | Pilot launch (3 companies) | ~50 images/week     | Beyond Clean Group, Elite Restoration, CRSA              |
 | 200 images                 | ~4 weeks post-pilot | Organic capture — no manual collection                   |
 | 500 images                 | ~10 weeks           | Validates AU material distribution                       |

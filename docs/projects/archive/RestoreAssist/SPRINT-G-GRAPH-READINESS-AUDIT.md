@@ -29,16 +29,16 @@
 
 | Model                  | Stable UUID | Type discriminator                 | Explicit joins       | `relationType` | `createdAt` on edges         | Provenance                                                 | Graph-ready   |
 | ---------------------- | ----------- | ---------------------------------- | -------------------- | -------------- | ---------------------------- | ---------------------------------------------------------- | ------------- |
-| **Inspection**         | ✅ cuid()   | ❌ no                              | N/A (root node)      | —              | —                            | —                                                          | 🟡 Partial    |
-| **InspectionPhoto**    | ✅ cuid()   | ❌ no                              | ❌ embedded JSON     | —              | —                            | —                                                          | 🔴 Weak       |
-| **InspectionWorkflow** | ✅ cuid()   | ✅ `jobType`                       | ✅ `steps[]`         | —              | `startedAt`, `completedAt`   | —                                                          | 🟢 Good       |
-| **WorkflowStep**       | ✅ cuid()   | ✅ `stepKey`                       | ✅ `evidenceItems[]` | —              | `startedAt`, `completedAt`   | —                                                          | 🟢 Good       |
-| **EvidenceItem**       | ✅ cuid()   | ✅ `evidenceClass` enum (17 types) | ✅ WorkflowStep FK   | ❌ missing     | `capturedAt`, `createdAt`    | `capturedById`, `verifiedById`, `verifiedAt`, `hashSha256` | 🟢 **Strong** |
-| **ExceptionReason**    | ✅ cuid()   | ❌ `reasonCode` only               | ✅ 1:1 EvidenceItem  | ❌ missing     | `createdAt`                  | `approvedById`, `approvedAt`                               | 🟡 Partial    |
-| **MediaAsset**         | ✅ cuid()   | ❌ no                              | ✅ `MediaAssetTag[]` | —              | `capturedAt`, `uploadedAt`   | —                                                          | 🟢 Good       |
-| **MediaAssetTag**      | ✅ cuid()   | ✅ `category`+`value` pattern      | ✅ explicit bridge   | —              | `createdAt`                  | —                                                          | 🟢 **Strong** |
-| **HistoricalJob**      | ✅ cuid()   | ❌ no explicit type                | —                    | —              | `createdAt`, `completedDate` | `source` ("ascora","manual")                               | 🟡 Partial    |
-| **IicrcChunk**         | ✅ cuid()   | ✅ `standard`+`section`            | —                    | —              | `createdAt`                  | —                                                          | 🟢 Good       |
+| **Inspection**         | [PASS] cuid()   | [FAIL] no                              | N/A (root node)      | —              | —                            | —                                                          | [PENDING] Partial    |
+| **InspectionPhoto**    | [PASS] cuid()   | [FAIL] no                              | [FAIL] embedded JSON     | —              | —                            | —                                                          | [BLOCKED] Weak       |
+| **InspectionWorkflow** | [PASS] cuid()   | [PASS] `jobType`                       | [PASS] `steps[]`         | —              | `startedAt`, `completedAt`   | —                                                          | [OK] Good       |
+| **WorkflowStep**       | [PASS] cuid()   | [PASS] `stepKey`                       | [PASS] `evidenceItems[]` | —              | `startedAt`, `completedAt`   | —                                                          | [OK] Good       |
+| **EvidenceItem**       | [PASS] cuid()   | [PASS] `evidenceClass` enum (17 types) | [PASS] WorkflowStep FK   | [FAIL] missing     | `capturedAt`, `createdAt`    | `capturedById`, `verifiedById`, `verifiedAt`, `hashSha256` | [OK] **Strong** |
+| **ExceptionReason**    | [PASS] cuid()   | [FAIL] `reasonCode` only               | [PASS] 1:1 EvidenceItem  | [FAIL] missing     | `createdAt`                  | `approvedById`, `approvedAt`                               | [PENDING] Partial    |
+| **MediaAsset**         | [PASS] cuid()   | [FAIL] no                              | [PASS] `MediaAssetTag[]` | —              | `capturedAt`, `uploadedAt`   | —                                                          | [OK] Good       |
+| **MediaAssetTag**      | [PASS] cuid()   | [PASS] `category`+`value` pattern      | [PASS] explicit bridge   | —              | `createdAt`                  | —                                                          | [OK] **Strong** |
+| **HistoricalJob**      | [PASS] cuid()   | [FAIL] no explicit type                | —                    | —              | `createdAt`, `completedDate` | `source` ("ascora","manual")                               | [PENDING] Partial    |
+| **IicrcChunk**         | [PASS] cuid()   | [PASS] `standard`+`section`            | —                    | —              | `createdAt`                  | —                                                          | [OK] Good       |
 
 ---
 

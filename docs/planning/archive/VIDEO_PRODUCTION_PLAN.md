@@ -18,7 +18,7 @@
 
 ## PHASE 1: IMMEDIATE (Already Done Today)
 
-### 1.1 Remotion Re-render (18 videos) ✅
+### 1.1 Remotion Re-render (18 videos) [PASS]
 All existing Remotion compositions re-rendered with:
 - Correct brand colours (#1C2E47, #8A6B4E)
 - Canonical voice ID (jSuBIjxMKhqIfb0wCK1F)
@@ -29,24 +29,24 @@ All existing Remotion compositions re-rendered with:
 
 | # | Slug | Duration | Status |
 |---|------|----------|--------|
-| 1 | remotion-sign-in | 45s | ✅ Rendered + Audio |
-| 2 | remotion-sign-up | 60s | ✅ Rendered + Audio |
-| 3 | remotion-dashboard | 32s | ✅ Rendered + Audio |
-| 4 | remotion-create-inspection | 42s | ✅ Rendered + Audio |
-| 5 | remotion-report-builder | 36s | ✅ Rendered + Audio |
-| 6 | remotion-client-portal | 32s | ✅ Rendered + Audio |
-| 7 | remotion-why-restoreassist | 36s | ✅ Rendered + Audio |
-| 8 | remotion-byok | 42s | ✅ Rendered + Audio |
-| 9 | remotion-inspections-list | 34s | ✅ Rendered + Audio |
-| 10 | remotion-evidence-capture | 32s | ✅ Rendered + Audio |
-| 11 | remotion-moisture-mapping | 30s | ✅ Rendered + Audio |
-| 12 | remotion-quote-builder | 32s | ✅ Rendered + Audio |
-| 13 | remotion-invoice-generator | 28s | ✅ Rendered + Audio |
-| 14 | remotion-compliance-checklists | 32s | ✅ Rendered + Audio |
-| 15 | remotion-analytics-overview | 45s | ✅ Rendered + Audio |
-| 16 | remotion-team-management | 50s | ✅ Rendered + Audio |
-| 17 | remotion-mobile-workflow | 30s | ✅ Rendered + Audio |
-| 18 | remotion-pricing-overview | 60s | ✅ Rendered + Audio |
+| 1 | remotion-sign-in | 45s | [PASS] Rendered + Audio |
+| 2 | remotion-sign-up | 60s | [PASS] Rendered + Audio |
+| 3 | remotion-dashboard | 32s | [PASS] Rendered + Audio |
+| 4 | remotion-create-inspection | 42s | [PASS] Rendered + Audio |
+| 5 | remotion-report-builder | 36s | [PASS] Rendered + Audio |
+| 6 | remotion-client-portal | 32s | [PASS] Rendered + Audio |
+| 7 | remotion-why-restoreassist | 36s | [PASS] Rendered + Audio |
+| 8 | remotion-byok | 42s | [PASS] Rendered + Audio |
+| 9 | remotion-inspections-list | 34s | [PASS] Rendered + Audio |
+| 10 | remotion-evidence-capture | 32s | [PASS] Rendered + Audio |
+| 11 | remotion-moisture-mapping | 30s | [PASS] Rendered + Audio |
+| 12 | remotion-quote-builder | 32s | [PASS] Rendered + Audio |
+| 13 | remotion-invoice-generator | 28s | [PASS] Rendered + Audio |
+| 14 | remotion-compliance-checklists | 32s | [PASS] Rendered + Audio |
+| 15 | remotion-analytics-overview | 45s | [PASS] Rendered + Audio |
+| 16 | remotion-team-management | 50s | [PASS] Rendered + Audio |
+| 17 | remotion-mobile-workflow | 30s | [PASS] Rendered + Audio |
+| 18 | remotion-pricing-overview | 60s | [PASS] Rendered + Audio |
 
 ### 1.2 Help Videos (6 videos) — KEEP but verify
 Real screen recordings with voiceover. Need UI currency check.

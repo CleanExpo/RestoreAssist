@@ -77,7 +77,7 @@ Clean Claims is an **all-in-one field documentation, remote monitoring, and mois
 
 ## 4. Recent Product Updates (2025–2026)
 
-### March 2026 — OCR Smart Readings + Instant ESX ⚠️ KEY UPDATE
+### March 2026 — OCR Smart Readings + Instant ESX [WARN] KEY UPDATE
 
 - **OCR Smart Readings:** Camera OCR reads moisture meter, thermo-hygrometer, and dehumidifier displays automatically — eliminates manual numeric entry in the field
 - **Instant ESX:** Floor plan sketches export directly to Xactimate ESX files. Now included in Plus price (no per-file charge). Direct attack on Xactimate-workflow users.
@@ -207,28 +207,28 @@ This is the central tension in the US market: **Clean Claims = compliance-first,
 
 | Capability                                      | Clean Claims              | RestoreAssist                   |
 | ----------------------------------------------- | ------------------------- | ------------------------------- |
-| Field documentation (timestamped, photos/video) | ✅                        | ✅                              |
-| Process enforcement checklists                  | ✅ (rigid/linear)         | ✅ (flexible)                   |
-| Remote IoT sensor monitoring                    | ✅ (proprietary hardware) | Hardware-agnostic               |
-| Moisture mapping / floor plan sketch            | ✅ (Plus+)                | ✅                              |
-| ESX/Xactimate export                            | ✅ (March 2026)           | Scoped                          |
+| Field documentation (timestamped, photos/video) | [PASS]                        | [PASS]                              |
+| Process enforcement checklists                  | [PASS] (rigid/linear)         | [PASS] (flexible)                   |
+| Remote IoT sensor monitoring                    | [PASS] (proprietary hardware) | Hardware-agnostic               |
+| Moisture mapping / floor plan sketch            | [PASS] (Plus+)                | [PASS]                              |
+| ESX/Xactimate export                            | [PASS] (March 2026)           | Scoped                          |
 | IICRC S500 compliance                           | US standard citation      | AS-IICRC S500:2021 (Australian) |
-| Australian insurance carrier integration        | ❌                        | Roadmap                         |
-| Xero/MYOB integration                           | ❌                        | ✅                              |
-| Ascora/ServiceM8 integration                    | ❌                        | Scoped                          |
-| ABN/GST-aware invoicing                         | ❌                        | ✅                              |
-| AI scope generation                             | ❌                        | Roadmap                         |
+| Australian insurance carrier integration        | [FAIL]                        | Roadmap                         |
+| Xero/MYOB integration                           | [FAIL]                        | [PASS]                              |
+| Ascora/ServiceM8 integration                    | [FAIL]                        | Scoped                          |
+| ABN/GST-aware invoicing                         | [FAIL]                        | [PASS]                              |
+| AI scope generation                             | [FAIL]                        | Roadmap                         |
 | AI document / compliance analysis               | OCR only                  | Roadmap                         |
-| Android app                                     | ✅ (Sep 2025, early)      | ✅                              |
-| iOS app                                         | ✅ (v2.2, Oct 2024)       | ✅                              |
-| Helixco/T&M billing integration                 | ✅                        | ❌                              |
-| Australian IICRC standard citations in reports  | ❌                        | ✅                              |
-| Local AUD pricing                               | ❌                        | ✅                              |
-| Local AU phone/timezone support                 | ❌                        | ✅                              |
-| Jurisdictional compliance matrix                | ❌                        | ✅                              |
-| WHS/incident reporting                          | ❌                        | ✅                              |
-| Multi-entity / franchise support                | Not evident               | ✅                              |
-| Business management (quoting, CRM, invoicing)   | ❌                        | ✅                              |
+| Android app                                     | [PASS] (Sep 2025, early)      | [PASS]                              |
+| iOS app                                         | [PASS] (v2.2, Oct 2024)       | [PASS]                              |
+| Helixco/T&M billing integration                 | [PASS]                        | [FAIL]                              |
+| Australian IICRC standard citations in reports  | [FAIL]                        | [PASS]                              |
+| Local AUD pricing                               | [FAIL]                        | [PASS]                              |
+| Local AU phone/timezone support                 | [FAIL]                        | [PASS]                              |
+| Jurisdictional compliance matrix                | [FAIL]                        | [PASS]                              |
+| WHS/incident reporting                          | [FAIL]                        | [PASS]                              |
+| Multi-entity / franchise support                | Not evident               | [PASS]                              |
+| Business management (quoting, CRM, invoicing)   | [FAIL]                        | [PASS]                              |
 
 ---
 
