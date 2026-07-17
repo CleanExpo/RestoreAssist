@@ -24,13 +24,15 @@ import { aiProviderToCallProvider } from "@/lib/workspace/ai-key-type";
  * Preferred provider resolution order. ANTHROPIC first because it supports
  * the full 16 000-token output needed for a 13-section report. OPENAI is
  * capped at 4 096 tokens in callAIProvider but is still a valid fallback.
- * GOOGLE (Gemini) follows first-party OpenAI. OPENROUTER is last — opt-in.
+ * OPENROUTER (a routed multi-model gateway) is preferred over GOOGLE (Gemini),
+ * which is last. GOOGLE remains a valid provider — a workspace whose only
+ * active key is GOOGLE still routes to gemini.
  */
 const PREFERRED_PROVIDERS: AiProvider[] = [
   "ANTHROPIC",
   "OPENAI",
-  "GOOGLE",
   "OPENROUTER",
+  "GOOGLE",
 ];
 
 /**
