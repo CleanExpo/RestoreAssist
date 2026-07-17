@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { RAIcon } from "@/components/brand/RAIcon";
 import {
   Info,
   Thermometer,
@@ -368,7 +369,11 @@ export default function EquipmentToolsSelection({
                       : "bg-slate-700 text-slate-400"
                 }`}
               >
-                {currentStep > step ? "✓" : step}
+                {currentStep > step ? (
+                  <RAIcon name="success" size={20} decorative />
+                ) : (
+                  step
+                )}
               </div>
               {step < 3 && (
                 <div

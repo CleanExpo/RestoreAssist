@@ -523,7 +523,7 @@ The following accounts and credentials must be set up manually by the developer.
   npx vitest run D:/RestoreAssist/app/api/admin/publish/google-play/__tests__/route.test.ts
   ```
 
-  Expected output: `✓ 9 tests passed`
+  Expected output: ` 9 tests passed`
 
 - [ ] **2.5** Run type-check on the new file:
 
@@ -857,7 +857,7 @@ The following accounts and credentials must be set up manually by the developer.
   npx vitest run D:/RestoreAssist/app/api/admin/publish/app-store/__tests__/route.test.ts
   ```
 
-  Expected output: `✓ 6 tests passed`
+  Expected output: ` 6 tests passed`
 
 - [ ] **3.6** Run type-check:
 
@@ -1017,11 +1017,11 @@ The following accounts and credentials must be set up manually by the developer.
             );
 
             await page.screenshot({ path: outputPath, fullPage: false });
-            console.log(`[assets] ✓ ${outputPath}`);
+            console.log(`[assets]  ${outputPath}`);
             captureCount++;
           } catch (err) {
             console.error(
-              `[assets] ✗ Failed ${screen.path} at ${dim.width}×${dim.height}: ${err}`,
+              `[assets]  Failed ${screen.path} at ${dim.width}×${dim.height}: ${err}`,
             );
           } finally {
             await context.close();
@@ -1061,7 +1061,7 @@ The following accounts and credentials must be set up manually by the developer.
   ```
   [assets] Base URL: http://localhost:3000
   [assets] Capturing 3 screens × 4 dimensions
-  [assets] ✓ store-assets/google-play/phone/dashboard.png
+  [assets]  store-assets/google-play/phone/dashboard.png
   ...
   [assets] Done. 12 screenshots saved to store-assets/
   ```
@@ -1413,7 +1413,7 @@ The following accounts and credentials must be set up manually by the developer.
   npx vitest run D:/RestoreAssist/app/api/admin/publish/assets/__tests__/route.test.ts
   ```
 
-  Expected output: `✓ 8 tests passed`
+  Expected output: ` 8 tests passed`
 
 - [ ] **5.5** Run type-check:
 
@@ -1819,7 +1819,7 @@ npx tsc --noEmit \
 pnpm lint
 ```
 
-Expected unit test output: `✓ 23 tests passed` (9 + 6 + 8)
+Expected unit test output: ` 23 tests passed` (9 + 6 + 8)
 
 ---
 

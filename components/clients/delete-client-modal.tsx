@@ -39,7 +39,7 @@ export function DeleteClientModal({
           {client.reportsCount > 0 && (
             <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4">
               <p className="text-amber-300 text-sm">
-                ⚠️ This client has {client.reportsCount} report(s). You may want
+                This client has {client.reportsCount} report(s). You may want
                 to archive instead of delete to preserve report history.
               </p>
             </div>

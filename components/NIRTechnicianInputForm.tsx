@@ -2739,13 +2739,13 @@ export default function NIRTechnicianInputForm({
             {!inspectionId &&
               (!propertyAddress.trim() || !propertyPostcode.trim()) && (
                 <span className="block mt-2 text-amber-400 text-xs">
-                  ⚠️ Enter property address and postcode first. Inspection will
+                  Enter property address and postcode first. Inspection will
                   be created automatically, then you can upload floor plan.
                 </span>
               )}
             {inspectionId && (
               <span className="block mt-2 text-success text-xs">
-                ✓ Inspection ready. You can upload floor plan and photos.
+                Inspection ready. You can upload floor plan and photos.
               </span>
             )}
           </p>

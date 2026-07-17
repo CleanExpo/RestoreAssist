@@ -14,7 +14,7 @@
 
 | # | Route | LOC | AI shape | Service file |
 |---|---|---|---|---|
-| 1 | `app/api/reports/[id]/synopsis/route.ts` | 180 | ~~streaming~~ **batch** (corrected 2026-05-18 — survey miscount; route uses `messages.create` at line 141) | `lib/services/ai/report-synopsis.ts` ✅ DONE `c051d727 / 214c310e / 2c3312b8` |
+| 1 | `app/api/reports/[id]/synopsis/route.ts` | 180 | ~~streaming~~ **batch** (corrected 2026-05-18 — survey miscount; route uses `messages.create` at line 141) | `lib/services/ai/report-synopsis.ts` [PASS] DONE `c051d727 / 214c310e / 2c3312b8` |
 | 2 | `app/api/reports/[id]/client-summary/route.ts` | 196 | batch | `lib/services/ai/report-client-summary.ts` |
 | 3 | `app/api/reports/generate-question/route.ts` | 219 | batch | `lib/services/ai/generate-interview-question.ts` |
 | 4 | `app/api/interviews/[id]/suggest-next/route.ts` | 266 | batch | `lib/services/ai/suggest-next-interview-question.ts` |

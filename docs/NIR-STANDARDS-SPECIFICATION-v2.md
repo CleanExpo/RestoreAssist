@@ -17,14 +17,14 @@ This specification documents the standards grounding behind the RestoreAssist Na
 
 | #   | Finding                                    | Status      | Implementation                     |
 | --- | ------------------------------------------ | ----------- | ---------------------------------- |
-| C1  | Standards cited as badge, not engine logic | ✅ RESOLVED | `lib/nir-standards-mapping.ts`     |
-| C2  | Cost savings figures not sourced           | ✅ RESOLVED | `lib/nir-evidence-architecture.ts` |
-| C3  | State building codes treated as one        | ✅ RESOLVED | `lib/nir-jurisdictional-matrix.ts` |
-| C4  | Field conditions not in app design         | ✅ RESOLVED | `lib/nir-field-reality-spec.ts`    |
-| C5  | No insurer engagement path                 | ✅ RESOLVED | `lib/nir-insurer-engagement.ts`    |
-| C6  | SEO runs ahead of standards proof          | ✅ RESOLVED | `docs/CONTENT-GATE.md`             |
-| C7  | No structural competitive moat             | ✅ RESOLVED | `docs/MOAT-ARCHITECTURE.md`        |
-| C8  | Financial projections lack assumptions     | ✅ RESOLVED | `docs/FINANCIAL-MODEL-v2.md`       |
+| C1  | Standards cited as badge, not engine logic | [PASS] RESOLVED | `lib/nir-standards-mapping.ts`     |
+| C2  | Cost savings figures not sourced           | [PASS] RESOLVED | `lib/nir-evidence-architecture.ts` |
+| C3  | State building codes treated as one        | [PASS] RESOLVED | `lib/nir-jurisdictional-matrix.ts` |
+| C4  | Field conditions not in app design         | [PASS] RESOLVED | `lib/nir-field-reality-spec.ts`    |
+| C5  | No insurer engagement path                 | [PASS] RESOLVED | `lib/nir-insurer-engagement.ts`    |
+| C6  | SEO runs ahead of standards proof          | [PASS] RESOLVED | `docs/CONTENT-GATE.md`             |
+| C7  | No structural competitive moat             | [PASS] RESOLVED | `docs/MOAT-ARCHITECTURE.md`        |
+| C8  | Financial projections lack assumptions     | [PASS] RESOLVED | `docs/FINANCIAL-MODEL-v2.md`       |
 
 ---
 

@@ -66,7 +66,7 @@ a non-matching edit is a no-op._
 - `claim-truthfulness`: when a turn asserts "tests pass / CI green / deployed", require a
   matching tool result in-transcript or downgrade to `failed`. Directly attacks "board ≠ reality".
 
-**Phase 3 — Aggregate ledger.** ✅ SHIPPED. `npm run verifier:ledger`
+**Phase 3 — Aggregate ledger.** [PASS] SHIPPED. `npm run verifier:ledger`
 (`scripts/verifier-ledger.mjs`) reads `.claude/verifier-reports/*.json` into an
 all-time + last-N-days roll-up: per-domain `failed` blocks, partials, and
 `claims_unverified` totals (`--json` for machine output). Legacy pre-router reports are

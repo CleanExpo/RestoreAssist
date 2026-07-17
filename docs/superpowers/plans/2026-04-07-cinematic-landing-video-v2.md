@@ -1694,16 +1694,16 @@ Navigate to `CinematicLandingV2` in the composition picker. Scrub through the ti
 
 | Frame range | Expected                                                                    |
 | ----------- | --------------------------------------------------------------------------- |
-| 0–20        | Black bars sweep in from top/bottom ✓                                       |
-| 20–50       | Logo fades in at centre, radial flare visible ✓                             |
-| 50–145      | Words of tagline appear one by one ✓                                        |
-| 210+        | Bars sweep back out, logo migrates to bottom-right bug ✓                    |
-| 300         | KineticTextScene: dark gradient, label slides in from left ✓                |
-| 320+        | Bullets stagger in, accent underlines draw ✓                                |
-| 660         | FullBleedScene: screenshot fills frame, dark overlay, primary text enters ✓ |
-| 2010        | StatCounterScene: navy bg, radial glows, counters animate 0→value ✓         |
-| 2400        | CinematicCTA: bars sweep in, logo returns, CTA text appears ✓               |
-| 2670+       | Fade to black ✓                                                             |
+| 0–20        | Black bars sweep in from top/bottom                                        |
+| 20–50       | Logo fades in at centre, radial flare visible                              |
+| 50–145      | Words of tagline appear one by one                                         |
+| 210+        | Bars sweep back out, logo migrates to bottom-right bug                     |
+| 300         | KineticTextScene: dark gradient, label slides in from left                 |
+| 320+        | Bullets stagger in, accent underlines draw                                 |
+| 660         | FullBleedScene: screenshot fills frame, dark overlay, primary text enters  |
+| 2010        | StatCounterScene: navy bg, radial glows, counters animate 0→value          |
+| 2400        | CinematicCTA: bars sweep in, logo returns, CTA text appears                |
+| 2670+       | Fade to black                                                              |
 
 **What NOT to see:**
 

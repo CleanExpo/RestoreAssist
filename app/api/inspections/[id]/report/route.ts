@@ -374,7 +374,7 @@ async function generateExcelReport(inspection: NirReportInspectionData) {
   summarySheet.addRow({ field: "Status", value: inspection.status });
   summarySheet.addRow({
     field: "Meets Min. Standard",
-    value: checklist.passesMinimumStandard ? "YES ✓" : "NO ✗",
+    value: checklist.passesMinimumStandard ? "YES" : "NO",
   });
 
   if (inspection.classifications.length > 0) {
@@ -566,8 +566,8 @@ async function generateExcelReport(inspection: NirReportInspectionData) {
   const passRow = checklistSheet.addRow({
     tier: "",
     item: checklist.passesMinimumStandard
-      ? "✓ MEETS MINIMUM NIR STANDARD"
-      : "✗ DOES NOT YET MEET MINIMUM NIR STANDARD",
+      ? "MEETS MINIMUM NIR STANDARD"
+      : "DOES NOT YET MEET MINIMUM NIR STANDARD",
     verified: "",
     clauseRef: "",
     notes: "",
@@ -586,7 +586,7 @@ async function generateExcelReport(inspection: NirReportInspectionData) {
     checklistSheet.addRow({
       tier: item.tier,
       item: item.item,
-      verified: item.verified ? "✓ Yes" : "□ No",
+      verified: item.verified ? "[X] Yes" : "[ ] No",
       clauseRef: item.clauseRef ?? "",
       notes: item.notes ?? "",
     });

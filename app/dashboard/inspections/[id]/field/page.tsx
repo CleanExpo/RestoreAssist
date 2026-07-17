@@ -419,7 +419,7 @@ export default function FieldModePage({ params }: PageProps) {
                   </div>
                   {readyToLeave && (
                     <p className="text-success text-xs mt-2 font-medium">
-                      ✓ All critical items complete — safe to leave site
+                      All critical items complete — safe to leave site
                     </p>
                   )}
                 </div>

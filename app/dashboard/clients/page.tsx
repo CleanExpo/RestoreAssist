@@ -259,7 +259,6 @@ export default function ClientsPage() {
       toast(
         "This client was created from a report. It will disappear once all related reports are deleted or linked to a real client.",
         {
-          icon: "ℹ️",
           duration: 4000,
         },
       );
@@ -306,7 +305,6 @@ export default function ClientsPage() {
       toast(
         "This client was created from a report. Please create a new client record to edit.",
         {
-          icon: "ℹ️",
           duration: 4000,
         },
       );

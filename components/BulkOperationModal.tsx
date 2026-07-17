@@ -252,11 +252,10 @@ export function BulkOperationModal({
           missingCount > 3 ? ` and ${missingCount - 3} more` : "";
 
         toast(
-          `⚠️ ${missingCount} report(s) missing Excel files (${missingList}${moreText}). Exporting ${listData.count} available report(s).`,
+          `${missingCount} report(s) missing Excel files (${missingList}${moreText}). Exporting ${listData.count} available report(s).`,
           {
             id: "excel-export-warning",
             duration: 8000,
-            icon: "⚠️",
             style: {
               background: "#1e293b",
               color: "#fbbf24",
@@ -560,7 +559,7 @@ export function BulkOperationModal({
               <div className="space-y-3">
                 <div className="bg-emerald-900/20 border border-emerald-800 rounded-lg p-3">
                   <p className="text-sm font-medium text-success">
-                    ✓ Successfully downloaded {excelReports.length} Excel
+                    Successfully downloaded {excelReports.length} Excel
                     report(s) as ZIP file
                   </p>
                   <p className="text-xs text-success mt-1">
@@ -661,7 +660,7 @@ export function BulkOperationModal({
               <p
                 className={cn("text-xs", "text-error-700 dark:text-error-300")}
               >
-                ⚠️ This action cannot be undone. All data will be permanently
+                This action cannot be undone. All data will be permanently
                 deleted.
               </p>
             </div>

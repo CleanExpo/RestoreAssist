@@ -321,12 +321,12 @@ export default function TeamPage() {
           );
         } else if (json.transferred || json.updated) {
           toast.success(
-            `✨ User ${json.transferred ? "transferred" : "updated"} successfully! Notification email sent to ${credentialsData.email}.`,
+            `User ${json.transferred ? "transferred" : "updated"} successfully! Notification email sent to ${credentialsData.email}.`,
             { duration: 5000 },
           );
         } else {
           toast.success(
-            `✨ Account created and invitation email sent to ${credentialsData.email}!`,
+            `Account created and invitation email sent to ${credentialsData.email}!`,
             { duration: 5000 },
           );
         }
@@ -334,7 +334,7 @@ export default function TeamPage() {
         console.warn("No credentials found in response. Response:", json);
         const userEmail = json.invite?.email || json.user?.email || inviteEmail;
         toast.success(
-          `✨ Account created and invitation email sent to ${userEmail}!`,
+          `Account created and invitation email sent to ${userEmail}!`,
           { duration: 5000 },
         );
       }

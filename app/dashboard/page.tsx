@@ -512,7 +512,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       {dashboardData.totalReports > 0
-                        ? `Create your first report ✓ (${dashboardData.totalReports} created)`
+                        ? `Create your first report (${dashboardData.totalReports} created)`
                         : "Create your first report"}
                     </p>
                   </div>
@@ -549,7 +549,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       {dashboardData.totalClients > 0
-                        ? `Add clients ✓ (${dashboardData.totalClients} added)`
+                        ? `Add clients (${dashboardData.totalClients} added)`
                         : "Add your first client"}
                     </p>
                   </div>

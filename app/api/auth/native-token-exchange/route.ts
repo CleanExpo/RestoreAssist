@@ -155,7 +155,7 @@ async function verifyAndNormaliseToken(
 
   // Replay protection: the IdP is SUPPOSED to echo the nonce we sent in
   // the token's `nonce` claim. In practice:
-  //   - Apple ASAuthorizationController echoes it back ✓
+  //   - Apple ASAuthorizationController echoes it back
   //   - Google via capgo SocialLogin 1.0.4(15) DOES NOT — the plugin
   //     drops `options.nonce` before calling GIDSignIn, so Google's
   //     idToken has no nonce claim at all (claim=undefined).

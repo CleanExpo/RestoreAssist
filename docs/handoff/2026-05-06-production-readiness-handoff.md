@@ -11,7 +11,7 @@
 
 | | |
 |---|---|
-| **Production status** | ✅ Healthy. `https://restoreassist.app/api/health` → HTTP 200, DB OK |
+| **Production status** | [PASS] Healthy. `https://restoreassist.app/api/health` → HTTP 200, DB OK |
 | **Open PRs** | 0 |
 | **Sandbox state** | All in-flight work merged. Sandbox tracks main with the standard 2-commit squash-cosmetic offset. |
 | **Test coverage** | 13 `@smoke` tests, 100% pass rate across 20 prod runs (260/260) |
@@ -40,7 +40,7 @@ Plus #887 + #888 merged direct to main early in the session (CI build gate flip 
 
 Five items. Three are pure-config (5–30 min each). One is a deferred decision (your call). One is a multi-week initiative.
 
-### 🔧 1. Set `SENTRY_DSN` in Vercel prod env
+###  1. Set `SENTRY_DSN` in Vercel prod env
 
 **Effort: 5 min · Impact: activates already-deployed Sentry**
 
@@ -60,7 +60,7 @@ Sentry is wired (`sentry.client.config.ts` / `sentry.server.config.ts` / `sentry
 3. (Optional, for source-map upload) Also add `SENTRY_AUTH_TOKEN` (project:releases scope), `SENTRY_ORG`, `SENTRY_PROJECT`. Without these, source maps don't upload but the SDK still captures errors with line numbers from minified bundles.
 4. Verify by triggering a deliberate error in a non-customer route — it should appear in your Sentry dashboard within a minute.
 
-### 🔧 2. Fix `restoreassist-sandbox` Vercel env
+###  2. Fix `restoreassist-sandbox` Vercel env
 
 **Effort: 10 min · Impact: unblocks every sandbox preview deploy**
 
@@ -74,7 +74,7 @@ Current state of the sandbox Vercel project:
 
 Decide which Supabase project sandbox should use, then update all three env vars in the Vercel sandbox project to point at the same one. Without this, every PR will continue to show the documented-ignorable red X on `Vercel – restoreassist-sandbox`.
 
-### 🔧 3. Skip rate-limit on `/api/health` (further latency win)
+###  3. Skip rate-limit on `/api/health` (further latency win)
 
 **Effort: 10 min · Impact: drops `/api/health` avg from 787ms to ~200ms**
 
@@ -93,7 +93,7 @@ if (rateLimited) return rateLimited;
 
 Open as a small PR. Re-run `pnpm test:smoke:prod` after merge to confirm.
 
-### 📋 4. Decide on the Xero `sync-status` WIP files
+###  4. Decide on the Xero `sync-status` WIP files
 
 **Effort: variable · Impact: 4 type errors disappear from local `tsc`**
 
@@ -132,7 +132,7 @@ They reference `prisma.xeroSyncStatus` which doesn't exist in `schema.prisma`. T
 
 OR delete the four files if the work is stale.
 
-### 📚 5. Lint backlog cleanup — multi-week initiative
+###  5. Lint backlog cleanup — multi-week initiative
 
 **Effort: 2–4 weeks · Impact: enables flipping the lint gate to enforcing**
 

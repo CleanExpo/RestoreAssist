@@ -1,6 +1,6 @@
 # Customer Portal + Multi-Seat Licensing — Strategic Wedge Design
 
-**Status:** ✅ **APPROVED 2026-05-15** — research-backed + 13 open questions locked by Phill via interactive Q&A. Margot `deep_research_max` findings integrated. Ready for Wave 3 implementation plan generation.
+**Status:** [PASS] **APPROVED 2026-05-15** — research-backed + 13 open questions locked by Phill via interactive Q&A. Margot `deep_research_max` findings integrated. Ready for Wave 3 implementation plan generation.
 
 **Branch:** `docs/customer-portal-spec-locked-decisions` (this commit)
 **Date:** 2026-05-15
@@ -17,7 +17,7 @@
 | 5 | Stripe billing | **Org-level Stripe customer + metered Subscription Items per seat**. One invoice to org owner. |
 | 6 | Apple IAP cut | **Absorb 30% cut; $11 everywhere**. Net $7.70 iOS year 1 / $9.35 year 2+. |
 | 7 | App Store IPA model | **Same IPA, multi-mode** (Tradie vs Customer). Per Apple Guideline 4.2.6 Anti-Templating (Margot-validated). |
-| 8 | Content authoring model | **🔒 SINGLE-SOURCE: PLATFORM authors only. Orgs CANNOT author or override content.** RA team owns 100% of editorial. (Major simplification from initial 4-tier proposal.) |
+| 8 | Content authoring model | ** SINGLE-SOURCE: PLATFORM authors only. Orgs CANNOT author or override content.** RA team owns 100% of editorial. (Major simplification from initial 4-tier proposal.) |
 | 9 | Customer Portal branding | **Org-only branding** — no RA logo visible to client. Optional tiny footer link for legal compliance. |
 | 10 | Customer Link expiry | **Job-closed + 90 days → auto-revoke**. Org admin can extend manually. |
 | 11 | AU state-by-state content | **Phase 1 national, Phase 2 state variants**. ICA + ACL terminology is ~95% identical across states (Margot Q3); only AFCA/tribunal escalation paths differ. |
@@ -390,7 +390,7 @@ Per CLAUDE.md rule #16 (two-step destructive migrations):
 
 ### Two-tier content hierarchy — locked Q8 single-source
 
-🔒 **LOCKED 2026-05-15 (Q8):** orgs CANNOT author or override content. RA platform team owns 100% of editorial. This was the major simplification from the initial 4-tier proposal — drops `ORG_CUSTOM` + `ORG_OVERRIDE` scopes entirely.
+ **LOCKED 2026-05-15 (Q8):** orgs CANNOT author or override content. RA platform team owns 100% of editorial. This was the major simplification from the initial 4-tier proposal — drops `ORG_CUSTOM` + `ORG_OVERRIDE` scopes entirely.
 
 ```
 PLATFORM_DEFAULT  (authored by RA platform team)
@@ -564,7 +564,7 @@ Customer Portal must disclose:
 
 ## Open questions
 
-✅ **All 13 open questions resolved 2026-05-15 via Phill Q&A.** See "Locked decisions" table at the top of this spec for verbatim answers. Implementation plan generation may now proceed.
+[PASS] **All 13 open questions resolved 2026-05-15 via Phill Q&A.** See "Locked decisions" table at the top of this spec for verbatim answers. Implementation plan generation may now proceed.
 
 ### New scope impacts from locked answers (for implementation plan author)
 

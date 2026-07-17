@@ -6,6 +6,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import Footer from "@/components/landing/Footer";
+import { RAIcon } from "@/components/brand/RAIcon";
 
 export default function SolutionsPage() {
   const [darkMode, setDarkMode] = useState(true);
@@ -285,7 +286,9 @@ export default function SolutionsPage() {
                           '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                       }}
                     >
-                      <span className="text-brand-bronze">✓</span>
+                      <span className="text-brand-bronze">
+                        <RAIcon name="success" size={16} decorative />
+                      </span>
                       {benefit}
                     </li>
                   ))}

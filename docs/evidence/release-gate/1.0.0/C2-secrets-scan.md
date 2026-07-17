@@ -144,12 +144,12 @@ The repo's `.env.example` declares **98 keys**. Verifying that every key is set 
 
 | Step | Status |
 |---|---|
-| Reproduce + classify each finding | ✓ Done (this audit) |
-| Add `.gitleaks.toml` allowlist with per-finding rationale | ✓ Done (file committed in this PR) |
-| `gitleaks detect --no-git --redact` (working-tree only) returns 0 | ✓ Done — 0 findings as of 2026-05-19 |
+| Reproduce + classify each finding |  Done (this audit) |
+| Add `.gitleaks.toml` allowlist with per-finding rationale |  Done (file committed in this PR) |
+| `gitleaks detect --no-git --redact` (working-tree only) returns 0 |  Done — 0 findings as of 2026-05-19 |
 | Add CI step to `pr-checks.yml` that fails on new working-tree leaks | TODO — small follow-up PR |
 | Rotate genuinely-unrotated secret | Tracked by **RA-4988** (Phill action; key in `.codex/config.toml`) |
-| Re-author this file as PASS | ✓ Done — frontmatter `status: pass` |
+| Re-author this file as PASS |  Done — frontmatter `status: pass` |
 
 ## Open follow-ups (do not block C2 PASS)
 

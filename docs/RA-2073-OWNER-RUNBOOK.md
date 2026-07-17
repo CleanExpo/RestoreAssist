@@ -185,8 +185,8 @@ This was the gate that hid both Google + Apple buttons on iOS. With Steps 1-7 co
 After App Review approves and the build installs:
 
 1. Open the app cold (force-quit first)
-2. Tap **Continue with Google** → completes OAuth → `/dashboard` with a session ✅
-3. Sign out → tap **Continue with Apple** → ASAuthorizationController native sheet → Touch/Face ID → `/dashboard` with a session ✅
+2. Tap **Continue with Google** → completes OAuth → `/dashboard` with a session [PASS]
+3. Sign out → tap **Continue with Apple** → ASAuthorizationController native sheet → Touch/Face ID → `/dashboard` with a session [PASS]
 4. Force-quit → reopen → still signed in (RA-2074 Block 1 cookie + 90d JWT)
 
 ## When something goes wrong

@@ -143,7 +143,7 @@ export default function MargotDashboardPage() {
             className="text-xl"
             style={{ fontFamily: "Georgia, serif", fontWeight: 600 }}
           >
-            🐕 Margot
+            Margot
           </h2>
         </div>
         <div className="px-4 pb-4">

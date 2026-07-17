@@ -417,7 +417,7 @@ function MeasurementConfirm({
       void fireHaptic("light");
       toast.success(`${text} copied — paste into the Affected Areas form`);
     } catch {
-      toast(`Measurement: ${text}`, { icon: "📋" });
+      toast(`Measurement: ${text}`);
     }
     onSaved();
   };
@@ -473,7 +473,7 @@ function MeasurementConfirm({
         )}
 
       <p className="text-xs text-neutral-400 bg-neutral-50 dark:bg-slate-800/50 rounded-lg px-3 py-2">
-        📋 Tap below to copy this value, then paste it into the Affected Areas
+        Tap below to copy this value, then paste it into the Affected Areas
         form.
       </p>
 

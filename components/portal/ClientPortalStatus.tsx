@@ -86,7 +86,7 @@ export function ClientPortalStatus({ token }: { token: string }) {
             key={s.key}
             className={s.done ? "text-cyan-700 font-medium" : "text-slate-400"}
           >
-            {s.done ? "✓" : "○"} {s.label}
+            {s.done ? "●" : "○"} {s.label}
           </li>
         ))}
       </ol>

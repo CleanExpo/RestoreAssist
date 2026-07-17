@@ -15,23 +15,23 @@ Last updated: 2026-06-26 · Branch: `chore/ci-test-parity-guard`
 
 | Wave | Stem | g1 | g2 | g3 | g4 | g5 | g6 | Notes |
 |------|------|----|----|----|----|----|----|-------|
-| 1 | onboarding-welcome | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | only narration + YouTube remain (handoff) |
-| 2 | wizard-signin | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | sandbox work done this session |
-| 2 | wizard-signup | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
-| 2 | wizard-setup | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
-| 2 | wizard-dashboard | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
-| 2 | wizard-integrations | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
-| 2 | wizard-health | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
-| 3 | tutorial-login | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | sandbox work done this session |
-| 3 | tutorial-signup | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
-| 3 | tutorial-setup-wizard | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
-| 3 | tutorial-dashboard | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
-| 3 | tutorial-inspections | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
-| 3 | tutorial-reports | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
-| 3 | tutorial-billing | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
-| 3 | tutorial-team | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
-| 3 | tutorial-compliance | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
-| 3 | tutorial-integrations | ✅ | ✅ | ✅ | ⏳ | ✅ | ⏳ | " |
+| 1 | onboarding-welcome | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | only narration + YouTube remain (handoff) |
+| 2 | wizard-signin | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | sandbox work done this session |
+| 2 | wizard-signup | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | " |
+| 2 | wizard-setup | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | " |
+| 2 | wizard-dashboard | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | " |
+| 2 | wizard-integrations | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | " |
+| 2 | wizard-health | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | " |
+| 3 | tutorial-login | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | sandbox work done this session |
+| 3 | tutorial-signup | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | " |
+| 3 | tutorial-setup-wizard | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | " |
+| 3 | tutorial-dashboard | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | " |
+| 3 | tutorial-inspections | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | " |
+| 3 | tutorial-reports | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | " |
+| 3 | tutorial-billing | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | " |
+| 3 | tutorial-team | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | " |
+| 3 | tutorial-compliance | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | " |
+| 3 | tutorial-integrations | [PASS] | [PASS] | [PASS] | ⏳ | [PASS] | ⏳ | " |
 
 ⏳ = blocked on a handoff (credential/GPU) step. **All 17 videos' sandbox-safe work is complete** — only narration MP3 + render + YouTube upload remain (one handoff).
 

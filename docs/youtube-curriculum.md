@@ -50,14 +50,14 @@ _Build the core credentials. Establish as the go-to S500:2021 resource for Austr
 
 | Week | #   | Title                                                                            | Module | CPD Tag               | Script                                                                                      |
 | ---- | --- | -------------------------------------------------------------------------------- | ------ | --------------------- | ------------------------------------------------------------------------------------------- |
-| 1    | V01 | AS-IICRC S500:2021 — What Australian Restorers Need to Know                      | M3     | Regulatory Compliance | ✅ [Script 1](youtube-scripts/01-iicrc-s500-2021-what-australian-restorers-need-to-know.md) |
-| 1    | V02 | Water Damage Categories Explained: 1, 2, 3 — What Actually Changes Your Protocol | M1     | Technical Knowledge   | ⬜                                                                                          |
-| 2    | V03 | AI Moisture Mapping — Is It Ready for Australian Sites?                          | M5     | Technical Application | ✅ [Script 2](youtube-scripts/02-ai-moisture-mapping-ready-for-australian-sites.md)         |
-| 2    | V04 | Psychrometrics for Restorers: GPP, RH, and Why They Matter                       | M2     | Technical Knowledge   | ⬜                                                                                          |
-| 3    | V05 | Scope of Works Decoded — Working Better with Insurers                            | M6     | Professional Practice | ✅ [Script 3](youtube-scripts/03-scope-of-works-decoded-working-better-with-insurers.md)    |
-| 3    | V06 | IICRC S500 Equipment Ratios: How to Calculate Air Movers & Dehu Quantities       | M4     | Technical Application | ⬜                                                                                          |
-| 4    | V07 | Water Damage Class 1–4: What the New S500:2021 Definitions Mean for Your Scopes  | M1     | Technical Knowledge   | ⬜                                                                                          |
-| 4    | V08 | Setting Up Containment: When and How Per S500:2021                               | M7     | Safety & Compliance   | ⬜                                                                                          |
+| 1    | V01 | AS-IICRC S500:2021 — What Australian Restorers Need to Know                      | M3     | Regulatory Compliance | [PASS] [Script 1](youtube-scripts/01-iicrc-s500-2021-what-australian-restorers-need-to-know.md) |
+| 1    | V02 | Water Damage Categories Explained: 1, 2, 3 — What Actually Changes Your Protocol | M1     | Technical Knowledge   | [OPEN]                                                                                          |
+| 2    | V03 | AI Moisture Mapping — Is It Ready for Australian Sites?                          | M5     | Technical Application | [PASS] [Script 2](youtube-scripts/02-ai-moisture-mapping-ready-for-australian-sites.md)         |
+| 2    | V04 | Psychrometrics for Restorers: GPP, RH, and Why They Matter                       | M2     | Technical Knowledge   | [OPEN]                                                                                          |
+| 3    | V05 | Scope of Works Decoded — Working Better with Insurers                            | M6     | Professional Practice | [PASS] [Script 3](youtube-scripts/03-scope-of-works-decoded-working-better-with-insurers.md)    |
+| 3    | V06 | IICRC S500 Equipment Ratios: How to Calculate Air Movers & Dehu Quantities       | M4     | Technical Application | [OPEN]                                                                                          |
+| 4    | V07 | Water Damage Class 1–4: What the New S500:2021 Definitions Mean for Your Scopes  | M1     | Technical Knowledge   | [OPEN]                                                                                          |
+| 4    | V08 | Setting Up Containment: When and How Per S500:2021                               | M7     | Safety & Compliance   | [OPEN]                                                                                          |
 
 ### Month 2 — Application: Protocols & Field Practice (Weeks 5–8)
 

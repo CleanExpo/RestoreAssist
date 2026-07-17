@@ -415,13 +415,13 @@ Should remain unchanged. The template strings at 884 and 925 are already paramet
 Find:
 
 ```ts
-"🚀 Start your free trial — 30 free reports, no credit card required",
+" Start your free trial — 30 free reports, no credit card required",
 ```
 
 Replace with:
 
 ```ts
-"🚀 Start your free trial — 15 free reports, no credit card required",
+" Start your free trial — 15 free reports, no credit card required",
 ```
 
 Note in PR body: marketing copy change; editorial eyeball recommended.
@@ -2727,7 +2727,7 @@ PR body should reference:
 
 ## Self-review
 
-**Spec coverage** ✓ — every section of the spec maps to at least one task:
+**Spec coverage**  — every section of the spec maps to at least one task:
 
 | Spec section | Tasks |
 |---|---|
@@ -2743,9 +2743,9 @@ PR body should reference:
 | §9 Error handling & edge cases | covered in component tests (T12-T14) + integration tests (T7-T8) |
 | §10 Testing strategy | every task includes unit/integration tests inline; T18 ships 8 E2E specs |
 
-**Placeholder scan** ✓ — no TBD/TODO/FIXME tokens in plan steps. The placeholder in T11's pricing data (`DEFAULT_TIERS` hardcoded) is a known acceptable shortcut — production should read `PRICING_CONFIG` from the existing pricing module; flagged in the PR body. Adjust during implementation if needed.
+**Placeholder scan**  — no TBD/TODO/FIXME tokens in plan steps. The placeholder in T11's pricing data (`DEFAULT_TIERS` hardcoded) is a known acceptable shortcut — production should read `PRICING_CONFIG` from the existing pricing module; flagged in the PR body. Adjust during implementation if needed.
 
-**Type consistency** ✓ — `TrialStatus` shape defined in T4, reused in T5, T6, T12. `recordSubscriptionEvent` signature defined in T2, called in T7, T8. `Tier` type (`STANDARD | PREMIUM | ENTERPRISE`) used consistently across T9, T11, T14.
+**Type consistency**  — `TrialStatus` shape defined in T4, reused in T5, T6, T12. `recordSubscriptionEvent` signature defined in T2, called in T7, T8. `Tier` type (`STANDARD | PREMIUM | ENTERPRISE`) used consistently across T9, T11, T14.
 
 **Known follow-ups (out of scope for this plan, flagged in PR):**
 - `DEFAULT_TIERS` in `TierGrid` should read from existing `PRICING_CONFIG` source — refactor during implementation

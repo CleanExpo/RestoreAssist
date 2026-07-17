@@ -352,7 +352,7 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
               onClick={() => setEditing(false)}
               className="h-7 px-2"
             >
-              ✕
+              ×
             </Button>
           </div>
         ) : (

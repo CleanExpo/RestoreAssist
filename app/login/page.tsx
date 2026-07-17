@@ -94,7 +94,7 @@ function LoginForm() {
         // Account has 2FA enabled. Reveal the TOTP field and ask for a code.
         setNeedsTotp(true);
         setError("Enter your 6-digit authenticator code to continue.");
-        toast("2FA code required", { icon: "🔐" });
+        toast("2FA code required");
       } else if (result?.error === "2FA_INVALID") {
         setNeedsTotp(true);
         setError("Invalid authenticator code. Try again.");

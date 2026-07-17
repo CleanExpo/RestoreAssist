@@ -127,7 +127,7 @@ function UpdatedAt({ ts, stale }: { ts?: string; stale?: boolean }) {
   const label = secs < 60 ? `${secs}s ago` : `${Math.round(secs / 60)}m ago`;
   return (
     <span style={{ fontSize: 11, color: stale ? A : MUTED }}>
-      {stale ? "⚠ stale · " : ""}updated {label}
+      {stale ? "stale · " : ""}updated {label}
     </span>
   );
 }
@@ -611,7 +611,7 @@ export default function MargotHomeDashboard() {
             fontSize: 18,
           }}
         >
-          🐕 Margot
+          Margot
         </span>
         <span style={{ fontSize: 12, color: MUTED }}>
           {dateStr} · {timeStr}

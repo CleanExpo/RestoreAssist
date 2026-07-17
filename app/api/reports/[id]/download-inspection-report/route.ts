@@ -145,10 +145,10 @@ async function addDocumentToPDF(
 
   const sanitizeText = (text: string): string => {
     return text
-      .replace(/✓/g, "[X]")
-      .replace(/✔/g, "[X]")
-      .replace(/✗/g, "[ ]")
-      .replace(/✘/g, "[ ]")
+      .replace(/\u2713/g, "[X]")
+      .replace(/\u2714/g, "[X]")
+      .replace(/\u2717/g, "[ ]")
+      .replace(/\u2718/g, "[ ]")
       .replace(new RegExp(String.raw`[^\x00-\x7F]`, "g"), (char) => {
         const charCode = char.charCodeAt(0);
         if (charCode >= 0x80 && charCode <= 0xff) {

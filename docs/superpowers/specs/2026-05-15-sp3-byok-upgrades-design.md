@@ -12,7 +12,7 @@ RestoreAssist already has a rich subscription substrate — Stripe customers, `S
 
 What's missing is the **upgrade journey** — there's no in-app surface that nudges a TRIAL user toward ACTIVE, no hard wall at trial expiry, no BYOK upgrade path post-conversion. The setup wizard (sub-project #1) lets new users start without BYOK; SP-3 builds the on-ramp from "started free" to "paying customer (with optional BYOK)".
 
-**Brief from SP-5 audit:** *"AI keys: ⚠ partial (OpenAI/Anthropic/Gemini fields exist; routing patchy) — SP-3 (existing brainstorm queue)"*. From the onboarding-redesign spec: *"BYOK upgrade paths (post-setup 'upgrade your AI' experience; platform-managed keys for paid plans)"*.
+**Brief from SP-5 audit:** *"AI keys: [WARN] partial (OpenAI/Anthropic/Gemini fields exist; routing patchy) — SP-3 (existing brainstorm queue)"*. From the onboarding-redesign spec: *"BYOK upgrade paths (post-setup 'upgrade your AI' experience; platform-managed keys for paid plans)"*.
 
 **Coupled decision (this spec also ships):** trial duration drops from 30 days to **15 days** for new signups; existing TRIAL users grandfathered.
 
@@ -237,7 +237,7 @@ User who cancelled signs back in → middleware redirects → upgrade flow → n
 |---|---|---|
 | `lib/auth.ts:327` | `+ 30 * 24 * 60 * 60 * 1000` (canonical) | use `TRIAL_DAYS` constant |
 | `lib/trial-handling.ts:47` | `daysRemaining: 30` (null fallback) | use `TRIAL_DAYS` |
-| `app/api/setup/activate/route.ts:139` | `trialDays: 14` 🐛 | use `TRIAL_DAYS` (15) — fixes drift |
+| `app/api/setup/activate/route.ts:139` | `trialDays: 14`  | use `TRIAL_DAYS` (15) — fixes drift |
 | `lib/email.ts:884, 925` | parameterised, callsite passes `trialDays` | callsites pass `TRIAL_DAYS` |
 | `lib/youtube/metadata.ts:90` | "30 free reports" string | "15 free reports" (editorial eyeball) |
 | `app/api/reports/generate-enhanced/route.ts:144` | comment "30-day period" | update comment |

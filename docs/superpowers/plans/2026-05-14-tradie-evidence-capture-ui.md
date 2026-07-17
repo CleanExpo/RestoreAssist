@@ -203,7 +203,7 @@ export function TechLicenceBanner() {
 
   return (
     <div className="border border-[#1C2E47]/30 bg-[#1C2E47]/8 dark:bg-[#1C2E47]/20 rounded-lg p-4 mb-6 flex items-center gap-4">
-      <div className="text-2xl flex-shrink-0">📋</div>
+      <div className="text-2xl flex-shrink-0"></div>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm">Add your credentials to unlock attestations</p>
         <p className="text-xs text-muted-foreground">
@@ -217,7 +217,7 @@ export function TechLicenceBanner() {
                 key={s.id}
                 className="text-[10px] px-2 py-0.5 border border-muted-foreground/30 rounded-full"
               >
-                {short} {s.completed ? "✓" : "pending"}
+                {short} {s.completed ? "" : "pending"}
               </span>
             );
           })}
@@ -706,7 +706,7 @@ export default function InspectionSignOff({
   return (
     <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-3">
       <p className="text-sm">
-        <span className="text-emerald-500">✓</span> Credentials verified
+        <span className="text-emerald-500"></span> Credentials verified
       </p>
       <div className="space-y-1.5">
         <Label htmlFor="signatoryName">Full name</Label>
@@ -1162,13 +1162,13 @@ export function CapturePhotoTagModal({ file, sha256, gps, onCancel, onSubmit }: 
         )}
         <div className="text-xs text-muted-foreground space-y-1">
           <p>
-            📍{" "}
+            {" "}
             {gps
               ? `${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)}`
               : "GPS unavailable"}
           </p>
-          <p>🕐 {new Date().toISOString().replace("T", " ").slice(0, 16)} UTC</p>
-          {sha256 && <p>🔒 SHA-256: {sha256.slice(0, 16)}…</p>}
+          <p> {new Date().toISOString().replace("T", " ").slice(0, 16)} UTC</p>
+          {sha256 && <p> SHA-256: {sha256.slice(0, 16)}…</p>}
         </div>
         <Input
           placeholder="Description (optional, e.g. 'moisture in north wall behind dishwasher')"

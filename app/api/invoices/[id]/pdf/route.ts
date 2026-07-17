@@ -143,7 +143,7 @@ export async function GET(
       });
     } catch (cloudinaryError) {
       console.error(
-        "[Invoice PDF] ⚠️ Failed to upload to Cloudinary:",
+        "[Invoice PDF] Failed to upload to Cloudinary:",
         cloudinaryError,
       );
       // Continue with PDF download even if Cloudinary upload fails

@@ -20,19 +20,19 @@ Section 6 of `2026-05-14-signin-jobclose-audit-design.md` defines SP-G (the AI S
 
 | Component | Status | LOC |
 |---|---|---|
-| `types.ts` | ✅ Complete | ~66 |
-| `router.ts` | ✅ Complete (routing logic: gemma_local vs claude_cloud) | ~65 |
-| `context-engine.ts` | ✅ Complete (builds TeacherContext from RawInspectionState) | ~72 |
-| `claude-cloud.ts` | ✅ Partial (Opus 4.7 client, cost calc, TODO: wire tool definitions) | ~276 |
-| `tools/take-reading.ts` | ✅ Complete | — |
-| `tools/capture-photo.ts` | ✅ Complete | — |
-| `tools/start-lidar-scan.ts` | ✅ Complete | — |
-| `tools/fill-scope-item.ts` | ✅ Complete | — |
-| `tools/flag-whs-hazard.ts` | ✅ Complete | — |
-| `tools/check-report-gaps.ts` | ✅ Complete | — |
-| `app/api/live-teacher/session/route.ts` | ✅ Partial (POST create, GET list; idempotency, rate-limit) | ~80+ |
-| `app/api/live-teacher/turn/route.ts` | ✅ Partial (POST turn dispatch, TODO: full tool registry) | ~60+ |
-| **Unit tests** | ✅ Tests exist | `__tests__/*.test.ts` |
+| `types.ts` | [PASS] Complete | ~66 |
+| `router.ts` | [PASS] Complete (routing logic: gemma_local vs claude_cloud) | ~65 |
+| `context-engine.ts` | [PASS] Complete (builds TeacherContext from RawInspectionState) | ~72 |
+| `claude-cloud.ts` | [PASS] Partial (Opus 4.7 client, cost calc, TODO: wire tool definitions) | ~276 |
+| `tools/take-reading.ts` | [PASS] Complete | — |
+| `tools/capture-photo.ts` | [PASS] Complete | — |
+| `tools/start-lidar-scan.ts` | [PASS] Complete | — |
+| `tools/fill-scope-item.ts` | [PASS] Complete | — |
+| `tools/flag-whs-hazard.ts` | [PASS] Complete | — |
+| `tools/check-report-gaps.ts` | [PASS] Complete | — |
+| `app/api/live-teacher/session/route.ts` | [PASS] Partial (POST create, GET list; idempotency, rate-limit) | ~80+ |
+| `app/api/live-teacher/turn/route.ts` | [PASS] Partial (POST turn dispatch, TODO: full tool registry) | ~60+ |
+| **Unit tests** | [PASS] Tests exist | `__tests__/*.test.ts` |
 
 **Prisma models** (existing):
 - `User.liveTeacherSession` relation missing → **to add**
@@ -190,7 +190,7 @@ SP-G does NOT change this logic. The router runs as-is; caller (turn route handl
 
 **Tool call:** `check_report_gaps` → returns `["moisture.lounge"]`
 
-**Suggested action (from help successCriteria):** ✓ Reading captured in lounge (after user captures it)
+**Suggested action (from help successCriteria):**  Reading captured in lounge (after user captures it)
 
 ---
 

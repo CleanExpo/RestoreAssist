@@ -328,7 +328,7 @@ export default function SignupPage() {
 
               <div className="pt-2 border-t border-cyan-500/20">
                 <p className="text-xs text-slate-400">
-                  💡 <strong>Tip:</strong> You can complete these steps after
+                  <strong>Tip:</strong> You can complete these steps after
                   signing up. We'll guide you through the process!
                 </p>
               </div>

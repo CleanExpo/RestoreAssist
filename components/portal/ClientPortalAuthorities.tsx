@@ -92,7 +92,7 @@ export function ClientPortalAuthorities({ token }: { token: string }) {
                 role="status"
                 className="text-xs text-success font-medium mt-2"
               >
-                ✓ Approved — thank you.
+                Approved — thank you.
               </p>
             ) : (
               <div className="mt-2 flex flex-wrap items-center gap-2">

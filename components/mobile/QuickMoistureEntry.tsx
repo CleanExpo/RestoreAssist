@@ -228,7 +228,7 @@ export function QuickMoistureEntry({
               : "bg-white/5 text-white/30 cursor-not-allowed",
         )}
       >
-        {saved ? "✓ Saved" : saving ? "Saving…" : "Save Reading"}
+        {saved ? "Saved" : saving ? "Saving…" : "Save Reading"}
       </button>
 
       {/* Target range hint */}
