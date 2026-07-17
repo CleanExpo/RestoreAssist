@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useFetch } from "@/lib/hooks/useFetch";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -471,9 +472,13 @@ export default function InspectionsPage() {
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
-                    <span className="font-mono text-sm font-semibold text-cyan-600 dark:text-cyan-400">
+                    <Link
+                      href={`/dashboard/inspections/${insp.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-mono text-sm font-semibold text-cyan-600 dark:text-cyan-400 rounded focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none hover:underline"
+                    >
                       {insp.inspectionNumber}
-                    </span>
+                    </Link>
                     <span
                       className={cn(
                         "px-2 py-0.5 rounded-full text-xs font-medium",
