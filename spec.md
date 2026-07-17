@@ -128,7 +128,7 @@ The final source-of-truth matrix. For each datum: **canonical model** (sole edit
 Explicit machines are defined for: Claim, Inspection, Drying, Scope, Estimate, Report, Invoice, Payment, Closure, External share, Margot action, AI execution. Each transition specifies: current state, permitted next states, required role, required conditions, required evidence, idempotency behaviour, concurrent-update behaviour (CAS predicate), audit event, and reversal/reopen rule. Per-machine tables live in `docs/architecture/RESTOREASSIST-TRACEABILITY.md`. Load-bearing rules:
 
 - **Claim** (`ClaimProgress.currentState`) is master; all writers use version-CAS `updateMany({ where: { id, version } })`. Close/reopen mirror-writes must participate in the same protocol (fixes RA-ARCH-02 H1).
-- **Report** distinguishes six facts that must not collapse into one status: **generated, approved, sent, delivered, acknowledged, superseded.** `ReportStatus.COMPLETED` is **not** the sole proof of delivery. Closure's `report_sent` precondition binds to a real delivery event, not a user-settable status (fixes RA-ARCH-01 M2; see §23 and Draft PR #1967 in §40).
+- **Report** distinguishes six facts that must not collapse into one status: **generated, approved, sent, delivered, acknowledged, superseded.** `ReportStatus.COMPLETED` is **not** the sole proof of delivery. Closure's `report_sent` precondition binds to a real delivery event, not a user-settable status (fixes RA-ARCH-01 M2; see §23 and PR #1967 — merged 2026-07-17 — in §40).
 - **Drying** certification (`DRYING_ACTIVE → DRYING_CERTIFIED`) is legitimately achievable: monitoring-point/baseline flags are writable, and the goal evaluates the **latest valid reading per point/material**, not full history (§14; fixes RA-V1-READINESS drying defects).
 - **Payment/Invoice** transitions are idempotent with atomic money-field increments (§22).
 
@@ -211,7 +211,7 @@ An invoice **derives from the approved estimate snapshot** (the `estimateId` con
 
 ## 23. Closure
 
-Closure is server-validated: no generic status bypass; requires delivered-report evidence (bound to a real delivery event, not a user-settable `COMPLETED`), **validated financial state** — an invoice must exist and be reconciled (issued with a balancing payment ledger); **full payment is not required to close by default and is an organisation-configurable precondition** — required approvals, and writes hash-chained `ProgressTransition` audit evidence. (Full closure gate in traceability §E.9.) The ungated `bulk-status` COMPLETED path cannot satisfy `report_sent` (Draft PR #1967, §40). Reopening requires reason and authority and is audited.
+Closure is server-validated: no generic status bypass; requires delivered-report evidence (bound to a real delivery event, not a user-settable `COMPLETED`), **validated financial state** — an invoice must exist and be reconciled (issued with a balancing payment ledger); **full payment is not required to close by default and is an organisation-configurable precondition** — required approvals, and writes hash-chained `ProgressTransition` audit evidence. (Full closure gate in traceability §E.9.) The ungated `bulk-status` COMPLETED path cannot satisfy `report_sent` (PR #1967, merged 2026-07-17; §40). Reopening requires reason and authority and is audited.
 
 ## 24. Margot
 
@@ -305,7 +305,7 @@ One canonical seeded end-to-end scenario: a synthetic Australian water-damage cl
 
 Sequenced in §41 phases; full per-datum migration and risk in `docs/architecture/RESTOREASSIST-TRACEABILITY.md` (derived from RA-ARCH-03). Preconditions: **prod row-count audit** of every dead store (`Room`, `RoomAnnotation`, `FloorPlan.dimensions`, `LidarScan.dimensions`, `EquipmentDeployment`, `CostEstimate`, `FormSignature` cluster) before any drop — "zero writers in code" is not "zero rows in prod". Client/insurer dedupe requires phone/email agreement before auto-merge; ambiguous pairs park for manual review; legacy free-text is retained as a display cache, never deleted.
 
-**Draft PR #1967** (block `bulk-status` from setting `COMPLETED`) remains **unmerged** and is classified as a **temporary defence-in-depth fix**: it is compatible with the final report state model (§9, §23) and may merge once assessed against it, but the durable fix is decoupling `report_sent` from a user-settable status. See `docs/architecture/RESTOREASSIST-SPEC-RECONCILIATION.md`.
+**PR #1967** (block `bulk-status` from setting `COMPLETED`) was assessed against the final report state model (§9, §23) — compatible, a strict subset of the target behaviour (assessment recorded on the PR, 2026-07-17) — and **merged 2026-07-17** as an interim defence-in-depth guard. The durable fix, decoupling `report_sent` from a user-settable status, remains backlog P1-6. See `docs/architecture/RESTOREASSIST-SPEC-RECONCILIATION.md`.
 
 ## 41. Implementation sequence
 

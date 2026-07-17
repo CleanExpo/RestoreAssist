@@ -46,7 +46,7 @@ None of these block starting Phase 0–2.
 - Room/EquipmentDeployment/CostEstimate/FormSignature: currently dead models; target retires them after prod row-count check (§40).
 
 ## Draft PR implications
-- **PR #1967** (block `bulk-status` COMPLETED) — classified **temporary defence-in-depth**, compatible with the final report state model (§9, traceability §E.6). It stays unmerged pending assessment against the durable fix (decouple `report_sent` from user-settable status). It may merge as an interim guard; the durable change lands in Phase 1.
+- **PR #1967** (block `bulk-status` COMPLETED) — classified **temporary defence-in-depth**, compatible with the final report state model (§9, traceability §E.6). Assessed against that model and **merged 2026-07-17** as the interim guard (assessment recorded on the PR); the durable change (decouple `report_sent` from user-settable status) lands in Phase 1 (P1-6).
 
 ## Independent review outcomes (§13) and how they were folded
 Both reviews initially returned FAIL; every material finding was folded into this consolidation:

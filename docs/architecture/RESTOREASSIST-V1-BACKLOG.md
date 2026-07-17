@@ -24,7 +24,7 @@ Execution rule (spec Appendix B): work the top ready item per phase; a phase doe
 - **Finding:** no replay protection (M4). **Acceptance:** freshness window + event dedup before any state change. **Verification:** integration test replaying a signed request. **Status:** TODO.
 
 ### P0-6 — Preserve closure safeguard (PR #1967)
-- **Finding:** bulk-status COMPLETED spoof (M2). **Status:** PARTIAL — PR #1967 open as temporary defence-in-depth; keep unmerged until assessed against the final report state model (spec §40); durable fix in P1-6.
+- **Finding:** bulk-status COMPLETED spoof (M2). **Status:** DONE (interim) — PR #1967 assessed against the final report state model (compatible, spec §40) and merged 2026-07-17 as defence-in-depth; durable fix remains P1-6.
 
 ---
 
