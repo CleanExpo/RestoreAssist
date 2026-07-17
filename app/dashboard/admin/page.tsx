@@ -19,6 +19,7 @@ import {
   BarChart2,
   Database,
   Loader2,
+  HelpCircle,
 } from "lucide-react";
 import {
   Card,
@@ -112,16 +113,20 @@ export default function AdminDashboardPage() {
     setRefreshing(false);
   };
 
-  const getHealthBadge = (status: "healthy" | "degraded" | "down") => {
+  const getHealthBadge = (
+    status: "healthy" | "degraded" | "down" | "unknown",
+  ) => {
     const variants = {
       healthy: "bg-green-500/10 text-green-600 dark:text-green-400",
       degraded: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
       down: "bg-red-500/10 text-red-600 dark:text-red-400",
+      unknown: "bg-neutral-500/10 text-neutral-600 dark:text-neutral-400",
     };
     const icons = {
       healthy: CheckCircle,
       degraded: Clock,
       down: AlertCircle,
+      unknown: HelpCircle,
     };
     const Icon = icons[status];
     return (
@@ -228,7 +233,7 @@ export default function AdminDashboardPage() {
               </span>
               {stats
                 ? getHealthBadge(stats.systemHealth.database)
-                : getHealthBadge("healthy")}
+                : getHealthBadge("unknown")}
             </div>
             <div className="flex items-center justify-between p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800">
               <span className="text-neutral-600 dark:text-neutral-400">
@@ -236,7 +241,7 @@ export default function AdminDashboardPage() {
               </span>
               {stats
                 ? getHealthBadge(stats.systemHealth.api)
-                : getHealthBadge("healthy")}
+                : getHealthBadge("unknown")}
             </div>
             <div className="flex items-center justify-between p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800">
               <span className="text-neutral-600 dark:text-neutral-400">
@@ -244,7 +249,7 @@ export default function AdminDashboardPage() {
               </span>
               {stats
                 ? getHealthBadge(stats.systemHealth.integrations)
-                : getHealthBadge("healthy")}
+                : getHealthBadge("unknown")}
             </div>
           </div>
         </CardContent>
