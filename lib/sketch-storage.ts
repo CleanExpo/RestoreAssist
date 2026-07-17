@@ -36,6 +36,8 @@
 import { supabase } from "./supabase";
 
 const BUCKET = "sketch-media";
+// P0-1: sketch-media is private — reads are served via short-lived signed URLs.
+const SIGNED_URL_TTL_SECONDS = 3600;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 // ── Path helpers ──────────────────────────────────────────
@@ -146,8 +148,13 @@ export async function uploadSketchMedia(
 
   if (error) throw new Error(`Storage upload failed: ${error.message}`);
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-  return { path: storagePath, publicUrl: data.publicUrl };
+  const { data, error: signErr } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+  if (signErr || !data?.signedUrl)
+    throw new Error(`Signed URL generation failed: ${signErr?.message}`);
+  // Field name kept for caller compatibility; value is now a signed URL.
+  return { path: storagePath, publicUrl: data.signedUrl };
 }
 
 // ── Convenience wrappers ──────────────────────────────────
@@ -223,10 +230,14 @@ export async function deleteSketchMedia(storagePath: string): Promise<void> {
 
 // ── Public URL ────────────────────────────────────────────
 
-/** Get the public URL for a stored path. */
-export function getSketchMediaUrl(storagePath: string): string {
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-  return data.publicUrl;
+/** Get a short-lived signed URL for a stored sketch-media path (private bucket). */
+export async function getSketchMediaUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+  if (error || !data?.signedUrl)
+    throw new Error(`Signed URL generation failed: ${error?.message}`);
+  return data.signedUrl;
 }
 
 // ── Data URL → Blob ───────────────────────────────────────
