@@ -8,6 +8,7 @@ import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { readTotpSecret } from "@/lib/auth/totp-secret";
 import {
   verifyToken as verifyTotp,
   parseRecoveryCodes,
@@ -268,7 +269,7 @@ export const authOptions: NextAuthOptions = {
                 remainingCodes: remaining.length,
               },
             });
-          } else if (!verifyTotp(user.twoFactorSecret, totp)) {
+          } else if (!verifyTotp(readTotpSecret(user.twoFactorSecret), totp)) {
             await logSecurityEvent({
               eventType: "LOGIN_FAILED",
               severity: "WARNING",

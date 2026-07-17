@@ -17,6 +17,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { validateCsrf } from "@/lib/csrf";
 import { generateSecret } from "@/lib/auth/two-factor";
+import { encryptTotpSecret } from "@/lib/auth/totp-secret";
 import { apiError } from "@/lib/api-errors";
 
 export async function POST(req: NextRequest) {
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
   // simply hangs around until they start over — next /setup overwrites it.
   await prisma.user.update({
     where: { id: user.id },
-    data: { twoFactorSecret: secretBase32 } as any,
+    data: { twoFactorSecret: encryptTotpSecret(secretBase32) } as any,
   });
 
   const qrDataUrl = await QRCode.toDataURL(otpauthUrl, { width: 256 });
