@@ -81,6 +81,24 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // 4b. COMPLETED is the closure gate's `report_sent` precondition
+    // (lib/lifecycle/inspection-state-machine.ts: report_sent === ReportStatus
+    // COMPLETED). The bulk path performs no delivery, so allowing it to set
+    // COMPLETED lets an owner satisfy `report_sent` — and close a claim, writing
+    // an append-only integrity-hashed ProgressTransition — for a report that was
+    // never generated or delivered. COMPLETED must come from the per-report
+    // completion path, which earns it. Bulk is housekeeping only.
+    if (status.toUpperCase() === "COMPLETED") {
+      return NextResponse.json(
+        {
+          error: "Status not allowed for bulk update",
+          message:
+            "Reports cannot be marked COMPLETED in bulk. Complete each report through its own completion flow so delivery is recorded.",
+        },
+        { status: 400 },
+      );
+    }
+
     // 5. Validate batch size
     const batchCheck = validateBatchSize(ids.length, "status-update");
     if (!batchCheck.valid) {
