@@ -479,6 +479,11 @@ export const PENDING_RLS = new Set<string>([
   "ScopeTemplate",
   "ScopeVariation",
   "SketchAnnotation",
+  // RA-6677: child rows of ClaimSketch (sketchId FK, onDelete Cascade) — tenant
+  // data (a claim's floor-plan rooms + evidence pins). Sibling of SketchAnnotation;
+  // gets a parent-join RLS policy under RA-6677, then moves out of this list.
+  "SketchRoom",
+  "EvidencePin",
   "StandardsChunk",
   "SubscriptionTier",
   "SupportTicket",
@@ -493,7 +498,13 @@ export const PENDING_RLS = new Set<string>([
 ]);
 
 /** Models verified to legitimately need no RLS (non-tenant). Keep minimal. */
-export const RLS_EXEMPT = new Set<string>([]);
+export const RLS_EXEMPT = new Set<string>([
+  // RA-6677: global platform/portal content. `scope` is PLATFORM_DEFAULT |
+  // NRPG_SEED and there is NO userId/organizationId/workspaceId column — every
+  // tenant reads the same seed rows, keyed by @@unique([scope, slug]). Reference
+  // content, not tenant data (same rationale as AppRelease in PUBLIC_REF).
+  "PortalContent",
+]);
 
 /**
  * Disposition of a model: "rls" (an ENABLE migration exists), "exempt", "pending",
