@@ -13,6 +13,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
+import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import { enqueueMirror } from "@/lib/storage/dual-write";
 import { MirrorJobKind } from "@prisma/client";
 import { extractAndSaveMediaAsset } from "@/lib/media/exif-extract";
@@ -88,7 +89,18 @@ export async function GET(
       take: 500,
     });
 
-    return NextResponse.json({ photos });
+    // P0-1: the optimised bucket is private, so stored url/thumbnailUrl (bare
+    // public URLs from before privatisation, or since-expired signed URLs) must
+    // be re-signed at read time. Non-Supabase/legacy hosts pass through.
+    const signedPhotos = await Promise.all(
+      photos.map(async (p) => ({
+        ...p,
+        url: await signStoredMediaUrl(p.url),
+        thumbnailUrl: await signStoredMediaUrl(p.thumbnailUrl),
+      })),
+    );
+
+    return NextResponse.json({ photos: signedPhotos });
   } catch (error) {
     return fromException(request, error, { stage: "list" });
   }

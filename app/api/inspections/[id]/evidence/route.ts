@@ -10,6 +10,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import { withIdempotency } from "@/lib/idempotency";
 import {
   assertInspectionTenancy,
@@ -47,7 +48,16 @@ export async function GET(
       take: 500,
     });
 
-    return NextResponse.json({ evidenceItems });
+    // P0-1: re-sign private-bucket media URLs at read time (legacy hosts pass through).
+    const signedItems = await Promise.all(
+      evidenceItems.map(async (e) => ({
+        ...e,
+        fileUrl: await signStoredMediaUrl(e.fileUrl),
+        thumbnailUrl: await signStoredMediaUrl(e.thumbnailUrl),
+      })),
+    );
+
+    return NextResponse.json({ evidenceItems: signedItems });
   } catch (error) {
     return fromException(request, error, { stage: "evidence-get" });
   }
