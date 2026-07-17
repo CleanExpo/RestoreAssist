@@ -105,4 +105,16 @@ Append-only record of resolved product and architecture decisions. New decisions
 - **Evidence:** Review A M1, M5; traceability §E. **Date:** 2026-07-17. **Owner:** Phill McGurk.
 
 ---
-*Non-blocking owner inputs still open (do not block V1 start): authorised drying-goal methodology source; the full per-stage water-damage completeness rule list (baseline minimum is specified; engine scaffolds now); per-organisation completeness baseline content; concrete media/claim retention duration (pin before go-live; AU limitation ~6–7 years); pilot-partner selection. Tracked here, not escalated.*
+### D-017 — Retention is a matrix, not a universal period
+- **Decision:** Retention is governed by a matrix (record category × claim type × jurisdiction × contractual/insurer/tax/employment/privacy obligation × litigation-hold/active-dispute), separately addressing claim records, reports, photographs, moisture readings, sketches, communications, contracts, estimates, invoices, payments, tax records, employee records, safety records, AI prompts/outputs, audit logs, portal records, deleted accounts, and backups. No universal "6–7 year" period is encoded. Until the matrix is formally approved with AU legal + privacy review, no automated destruction of claim evidence occurs; preservation/litigation holds are supported; account closure preserves legally relevant records; inactive/archived/restricted/deleted states stay distinct.
+- **Reason:** Founder correction (2026-07-17) — a single hardcoded period is legally wrong across record types and jurisdictions.
+- **Evidence:** founder addendum §8; spec §31, Appendix C §C-8. **Date:** 2026-07-17. **Owner:** Phill McGurk.
+
+### D-018 — Continuous Implementation Protocol governance
+- **Decision:** The controlling implementation protocol (spec Appendix C) is (1) timeless — it embeds no specific PR numbers; operational artefacts like the interim closure-safeguard PR and the spec-consolidation PR live here in the decision log and in traceability, not in the protocol; (2) tool-agnostic — the `/goal start|status|pause|stop|reconcile` commands are project workflow conventions, not native CLI/agent features, and any tooling may implement them provided the behavioural intent is preserved; (3) adaptive — backlog priority and dependencies are re-evaluated after each completed workstream; (4) release-gated — *implementation complete* is not *release ready*: production release requires a formal readiness review (security, migrations, rollback, founder approval); (5) single-source — no feature may introduce a second editable source of truth; the domain model is extended and reused only.
+- **Reason:** Founder tightenings (2026-07-17) to keep the protocol clean, tool-agnostic, and safe.
+- **Operational artefacts (kept out of the protocol body):** the interim closure-safeguard PR is #1967 (temporary defence-in-depth, unmerged); the spec-consolidation PR is #1968.
+- **Evidence:** founder addendum §11; spec Appendix C. **Date:** 2026-07-17. **Owner:** Phill McGurk.
+
+---
+*Non-blocking owner inputs still open (do not block V1 start): authorised drying-goal methodology source; the full per-stage water-damage completeness rule list (baseline minimum is specified; engine scaffolds now); per-organisation completeness baseline content; the approved retention matrix (D-017 — legal/privacy review before any automated destruction); pilot-partner selection. Tracked here, not escalated.*

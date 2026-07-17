@@ -124,7 +124,13 @@ Execution rule (spec Appendix B): work the top ready item per phase; a phase doe
 ## Phase 6 — Seeded V1 verification
 
 ### P6-1 — Seeded reference claim fixture + e2e
-- **Acceptance:** the spec §39 scenario runs end-to-end for Owner/Admin/Manager/Technician/Customer via UI+API with no direct DB manipulation; every capability row passes within it. **Verification:** full e2e run + collected evidence; re-score V1 readiness. **Status:** TODO — the V1 exit gate.
+- **Acceptance:** the spec §39 scenario runs end-to-end for Owner/Admin/Manager/Technician/Customer via UI+API with no direct DB manipulation; every capability row passes within it. **Verification:** full e2e run + collected evidence; re-score V1 readiness. **Status:** TODO — the V1 exit gate (implementation-complete).
+
+### P6-2 — Release readiness review (implementation-complete ≠ release-ready)
+- **Decision:** D-018. **Acceptance:** a formal readiness review covers security, migrations, rollback, and founder approval before any production release; the release-evidence package is produced and the controlled release decision is presented to the founder. **Verification:** readiness review artefact + founder sign-off. **Status:** TODO — release gate, distinct from P6-1.
+
+### GOV-1 — Retention matrix (build constraint now, matrix approval later)
+- **Decision:** D-017. **Acceptance:** no automated destruction of claim evidence ships until the retention matrix is approved with AU legal + privacy review; preservation/litigation holds supported; account closure preserves legally relevant records; inactive/archived/restricted/deleted states distinct. **Verification:** absence of any auto-destruction path (grep-guard test) + documented matrix approval. **Status:** TODO — legal-gated; the *constraint* (no auto-destroy) applies from Phase 0.
 
 ---
 

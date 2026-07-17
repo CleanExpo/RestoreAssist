@@ -267,7 +267,7 @@ Integrate all `RA-ARCH-01` findings. Every write path defines authentication, au
 
 ## 31. Privacy
 
-Australian data residency; property/personal data minimisation; access controls tested; audited impersonation; customer-evidence quarantine; no secrets in code or logs; retention aligned to long-term claim-defence needs (§34).
+Australian data residency; property/personal data minimisation; access controls tested; audited impersonation; customer-evidence quarantine; no secrets in code or logs. **Retention is governed by a retention matrix, not a single universal period** (Appendix C §C-8): retention is set per record category × claim type × jurisdiction × contractual/insurer/tax/employment/privacy obligation, with support for preservation holds and litigation holds. Until the matrix is formally approved (with Australian legal and privacy review), no automated destruction of claim evidence occurs; account closure does not immediately destroy legally relevant records; and inactive/archived/restricted/deleted states are kept distinct.
 
 ## 32. Concurrency and idempotency
 
@@ -359,4 +359,59 @@ These are compatible with, and subsumed by, the acceptance-criteria (§38) and d
 
 **Guardrails.** Every loop iteration honours the change-control process (§44), the definition of done (§42), and the state-machine, security, and concurrency requirements. The loop never merges a behaviour change without a spec update, never marks an item done on "it compiles", and never advances a phase whose predecessor phase is not evidenced complete. Draft PR #1967 stays unmerged until assessed against the final report state model (§40).
 
-This mode keeps implementation momentum without letting the code drift from the specification.
+This mode keeps implementation momentum without letting the code drift from the specification. Its full controlling detail is **Appendix C — Continuous Implementation Protocol**.
+
+---
+
+## Appendix C — Continuous Implementation Protocol (controlling)
+
+The controlling protocol for building V1 against this specification. It is **timeless and tool-agnostic**: it embeds no specific pull-request numbers (operational artefacts live in the decision log and traceability matrix), and its commands are project workflow conventions, not native CLI or agent features — any tooling may implement them provided the behavioural intent is preserved.
+
+**Availability.** This protocol is available only after the specification-consolidation change has completed review and merged to the approved branch, **and** the founder explicitly activates implementation (`/goal start`). Merging the specification does not, by itself, authorise unrestricted implementation.
+
+### C-1 — The continuous goal
+> Implement the frozen RestoreAssist V1 specification completely, safely, and verifiably, working the prioritised backlog until every V1 acceptance criterion has passed or a genuine owner-only blocker is reached.
+
+During an active session, keep selecting and completing the next highest-priority unblocked backlog item. Do not stop merely because one fix landed, one PR opened, one component's tests passed, a workstream became inconvenient, the change needs several steps, the context is large, another review could be requested, or a partial implementation looks usable. Do not claim to perform work asynchronously or after the active session ends.
+
+### C-2 — Control commands (workflow conventions)
+- `/goal start` — read spec, decision log, traceability, backlog; inspect repo/branch state; reconcile completed work against evidence; select the highest-priority unblocked item; begin the loop.
+- `/goal status` — report current phase, item, acceptance criteria, files changed, tests run, evidence, active branch/worktree, PR state, current blocker, next item, and overall V1 progress **measured only by passed acceptance criteria** (no unsupported estimates).
+- `/goal pause` — finish the current atomic operation, preserve state, report what was done, what remains, and how to resume.
+- `/goal stop` — stop at a safe repository state; never abandon partial migrations, unresolved merges, or unrecorded evidence.
+- `/goal reconcile` — compare spec, decision log, traceability, backlog, repo, tests, and open PRs; record and resolve material divergence before continuing.
+
+### C-3 — Implementation loop (per item)
+1. **Select** the highest-priority unblocked, in-scope item with defined acceptance criteria; check branches/worktrees/PRs to avoid duplicate work.
+2. **Reconcile** against live code (models, routes, services, UI, mobile, workers, security, tests, prior changes) — never implement from the spec alone when live-code evidence exists.
+3. **Restate the contract** — id, problem, user impact, target behaviour, acceptance criteria, security/concurrency requirements, migration impact, rollback, evidence required.
+4. **Reproduce** the defect before changing it (failing test / controlled repro / seeded repro / static proof) — a written finding alone is insufficient when it can be reproduced.
+5. **Challenge the repair** — root cause? existing equivalent? new source of truth? evidence loss? isolation break? race? weakened gate? silent commercial change? migration needed? credible rollback?
+6. **Implement** the smallest coherent change satisfying the criteria; preserve working functionality; never rewrite unrelated modules, introduce competing architectures, weaken tests, bypass domain services, delete historical evidence, hard-code commercial values, hide failures, or silently expand scope.
+7. **Verify** — run all applicable unit/integration/security/isolation/concurrency/idempotency tests plus type-check, lint, build, mobile, offline, accessibility, and seeded-workflow checks; use a positive control to prove the new test detects the original defect.
+8. **Record evidence** — files/schema changed, test commands + results, positive-control results, screenshots where applicable, state transitions, security + concurrency review, remaining risks, rollback, PR. "No errors observed" is not evidence.
+9. **Update control documents** — spec (when approved detail clarifies design), decision log, traceability, backlog, migration and operational docs, test plan. Implementation and spec stay synchronised (§44).
+10. **Continue** — reconcile the backlog and **re-evaluate priority and dependencies after each completed workstream** (the original ordering is not assumed optimal), then select the next item. Do not wait for another general instruction while safe, approved work remains.
+
+### C-4 — Completion standard
+An item is complete only when: the problem was reproduced/demonstrated; root cause identified; acceptance criteria satisfied; applicable tests pass; security and concurrency reviewed; organisation isolation intact; historical evidence intact; migrations reproducible; docs and traceability updated; evidence recorded; the PR accurately describes the change; remaining risks disclosed. Opening a PR, writing code, or passing type-check alone does not complete an item.
+
+### C-5 — Pull-request policy
+Focused branches or isolated worktrees; narrow, intentional scope; link the backlog item and spec section; state the reproduced defect, root cause, and repair; include test evidence, security and concurrency implications, migration notes, rollback, and UI screenshots; identify dependent PRs. Leave PRs as drafts until acceptance evidence is complete. Never merge protected branches without explicit authority.
+
+### C-6 — Specification change control
+The spec is the source of truth. When implementation reveals it is incomplete or wrong: do not silently invent behaviour; record the ambiguity; classify it (engineering clarification / domain / security / commercial / founder decision); update the decision log; update the spec where authorised; update acceptance criteria and traceability; continue only when the ambiguity no longer affects correctness. Minor engineering clarification may proceed when it does not change product scope, user authority, security boundaries, commercial behaviour, data ownership, evidence retention, or compliance claims. Material changes require founder approval. **No feature may introduce a second editable source of truth — extend and reuse the domain model only** (§8).
+
+### C-7 — Safe stop conditions
+The loop stops only on: **(a) V1 complete** — every requirement has passing acceptance evidence, complete traceability, no unresolved critical/high defects, successful seeded end-to-end verification, and a founder-approved release state; **(b) a genuine owner blocker** — a decision on pricing, production deployment, destructive migration, legal/regulatory policy, external communication, credential/standards claims, protected-branch merge, paid-service commitment, or production data (when blocked, continue other independent items — never halt the whole programme for one); **(c) a technical safety blocker** — further work would risk data loss, security exposure, evidence corruption, cross-tenant access, an unrecoverable migration, conflict with another active implementation, or unauthorised production mutation (state the exact blocker and evidence).
+
+**Implementation complete is not release ready.** Even at V1-complete, production release requires a formal readiness review covering security, migrations, rollback, and founder approval (§42 release-level gates, Appendix A).
+
+### C-8 — Retention policy (matrix, not a universal period)
+Do not encode a universal retention period. Build a retention matrix keyed on record category × claim type × jurisdiction × contractual/insurer/tax/employment/privacy obligation × litigation-hold/active-dispute, separately addressing: claim records, reports, photographs, moisture readings, sketches, communications, contracts, estimates, invoices, payments, tax records, employee records, safety records, AI prompts/outputs, audit logs, portal records, deleted accounts, backups. Until the matrix is formally approved: do not automatically destroy claim evidence; support preservation and litigation holds; support account closure without immediately destroying legally relevant records; keep inactive/archived/restricted/deleted states distinct; obtain Australian legal and privacy review before enabling automated destruction. (Decision D-017.)
+
+### C-9 — Initial execution order
+After `/goal start`, proceed through the approved V1 backlog in the §41 phase order (Phase 0 containment → 1 claim integrity → 2 financial integrity → 3 canonical data reuse → 4 Margot V1 → 5 scheduling → 6 seeded end-to-end proof), adjusting only where a dependency requires a documented change, and re-checking priority after each workstream (C-3.10). Phase 6 ends by running the seeded reference claim (§39), repairing blocking defects until the full workflow passes, updating traceability, producing the release-evidence package, and presenting the controlled release decision to the founder.
+
+### C-10 — Activation response
+On `/goal start`, respond first with: the canonical spec path and commit; current phase; selected backlog item (id + title); acceptance-criteria summary; working branch/worktree; and the concrete first action — then begin immediately. Do not re-emit a general plan and stop, and do not request confirmation for routine safe implementation already authorised by this protocol.
