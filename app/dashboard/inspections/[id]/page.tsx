@@ -1292,7 +1292,13 @@ export default function InspectionDetailPage({
       </div>
 
       {/* Tab Content */}
-      <div className="min-h-[400px]">
+      <div
+        role="tabpanel"
+        id={`tabpanel-${activeTab}`}
+        aria-labelledby={`tab-${activeTab}`}
+        tabIndex={0}
+        className="min-h-[400px]"
+      >
         {/* Overview */}
         {activeTab === "overview" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
