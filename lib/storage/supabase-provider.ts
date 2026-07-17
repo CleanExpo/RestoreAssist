@@ -19,6 +19,11 @@ import type {
 } from "./types";
 import { BUCKET_ORIGINALS, BUCKET_OPTIMISED } from "./types";
 
+// Signed-URL lifetime for private evidence buckets (P0-1). Reads re-sign from
+// the stored storage path, so this is the immediate-use view window, not a
+// durable link.
+const SIGNED_URL_TTL_SECONDS = 3600;
+
 function getFileExtension(filename: string): string {
   const parts = filename.split(".");
   return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "bin";
@@ -148,28 +153,38 @@ export class SupabaseStorageProvider implements StorageProvider {
     if (thumbErr)
       throw new Error(`[storage] Thumbnail upload failed: ${thumbErr.message}`);
 
-    // Build public URLs for optimised bucket
-    const { data: compressedData } = supabase.storage
+    // Signed URLs for the optimised bucket. The bucket is PRIVATE (P0-1) — a
+    // public URL would expose evidence with no auth, so reads go through
+    // short-lived signed URLs. Callers persist compressedPath/thumbnailPath and
+    // re-sign on read via getSignedUrl(); these URLs are the immediate-use view.
+    const { data: compressedData, error: compSignErr } = await supabase.storage
       .from(BUCKET_OPTIMISED)
-      .getPublicUrl(compressedPath);
-    const { data: thumbnailData } = supabase.storage
+      .createSignedUrl(compressedPath, SIGNED_URL_TTL_SECONDS);
+    const { data: thumbnailData, error: thumbSignErr } = await supabase.storage
       .from(BUCKET_OPTIMISED)
-      .getPublicUrl(thumbnailPath);
+      .createSignedUrl(thumbnailPath, SIGNED_URL_TTL_SECONDS);
 
-    // Original: signed URL (1 hour) since the bucket is private
+    // Original: signed URL since the bucket is private
     const { data: signedData, error: signErr } = await supabase.storage
       .from(BUCKET_ORIGINALS)
-      .createSignedUrl(originalPath, 3600);
-    if (signErr || !signedData?.signedUrl) {
+      .createSignedUrl(originalPath, SIGNED_URL_TTL_SECONDS);
+    if (
+      signErr ||
+      !signedData?.signedUrl ||
+      compSignErr ||
+      !compressedData?.signedUrl ||
+      thumbSignErr ||
+      !thumbnailData?.signedUrl
+    ) {
       throw new Error(
-        `[storage] Signed URL generation failed: ${signErr?.message}`,
+        `[storage] Signed URL generation failed: ${signErr?.message ?? compSignErr?.message ?? thumbSignErr?.message}`,
       );
     }
 
     return {
       originalUrl: signedData.signedUrl,
-      compressedUrl: compressedData.publicUrl,
-      thumbnailUrl: thumbnailData.publicUrl,
+      compressedUrl: compressedData.signedUrl,
+      thumbnailUrl: thumbnailData.signedUrl,
       storagePath: originalPath,
       compressedPath,
       thumbnailPath,
