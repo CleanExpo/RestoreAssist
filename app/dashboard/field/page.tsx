@@ -61,6 +61,7 @@ export default function FieldDashboardPage() {
   const [isOffline, setIsOffline] = useState(false);
   const [cacheAge, setCacheAge] = useState<string | null>(null);
   const [fromCache, setFromCache] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Greeting
   useEffect(() => {
@@ -92,11 +93,22 @@ export default function FieldDashboardPage() {
 
   async function loadInspections() {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch(
         "/api/inspections?status=DRAFT,SUBMITTED,PROCESSING,CLASSIFIED,SCOPED&take=10",
       );
-      if (!res.ok) throw new Error("non-ok");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw Object.assign(
+          new Error(
+            typeof body.error === "string"
+              ? body.error
+              : "Failed to load jobs",
+          ),
+          { httpStatus: res.status, isHttpError: true },
+        );
+      }
       const data = await res.json();
       const items = (data.inspections ?? data.data ?? []) as Array<{
         id: string;
@@ -145,21 +157,34 @@ export default function FieldDashboardPage() {
       setInspections(enriched);
       setFromCache(false);
       setCacheAge(null);
+      setIsOffline(false);
       // Persist to IndexedDB for offline fallback
       await cacheJobs(enriched);
-    } catch {
-      // Network failure — fall back to IndexedDB cache
-      const { jobs, fetchedAt } = await getCachedJobs();
-      if (jobs.length > 0) {
-        setInspections(jobs);
-        setFromCache(true);
-        setCacheAge(
-          fetchedAt
-            ? formatDistanceToNow(new Date(fetchedAt), { addSuffix: true })
-            : null,
+    } catch (err) {
+      const isHttpError =
+        err instanceof Error &&
+        "isHttpError" in err &&
+        (err as { isHttpError?: boolean }).isHttpError;
+
+      if (isHttpError) {
+        setLoadError(
+          err instanceof Error ? err.message : "Failed to load jobs",
         );
+        setIsOffline(false);
+      } else {
+        // Network failure — fall back to IndexedDB cache
+        const { jobs, fetchedAt } = await getCachedJobs();
+        if (jobs.length > 0) {
+          setInspections(jobs);
+          setFromCache(true);
+          setCacheAge(
+            fetchedAt
+              ? formatDistanceToNow(new Date(fetchedAt), { addSuffix: true })
+              : null,
+          );
+        }
+        setIsOffline(true);
       }
-      setIsOffline(true);
     } finally {
       setLoading(false);
     }
@@ -202,6 +227,21 @@ export default function FieldDashboardPage() {
               <RefreshCw className="h-3.5 w-3.5" />
             </button>
           )}
+        </div>
+      )}
+
+      {loadError && !isOffline && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-red-500/15 border-b border-red-500/20 text-red-300 text-xs">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1">Could not load jobs — {loadError}</span>
+          <button
+            type="button"
+            onClick={() => void loadInspections()}
+            className="text-red-300/80 hover:text-red-200"
+            aria-label="Retry loading jobs"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
 

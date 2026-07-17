@@ -18,7 +18,7 @@
  *      this fails CI here rather than silently re-exposing prod.
  *
  * The executable vitest gate is scripts/__tests__/audit-rls.test.ts; the
- * runtime row-isolation proof is the live-Postgres harness in test/rls/.
+ * runtime row-isolation proof is the live-Postgres harness in scripts/rls-harness/.
  */
 import { dirname, resolve } from "path";
 import { existsSync } from "fs";
@@ -37,7 +37,7 @@ import {
 } from "./audit-rls-coverage";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const MIG = (f: string) => resolve(REPO, "supabase/migrations", f);
+const MIG = (f: string) => resolve(REPO, "docs/ops/supabase-migrations-archive", f);
 
 /** The 6 legacy Unite-Group CRM tables whose always-true policies were dropped. */
 const COMMERCE_TABLES = [

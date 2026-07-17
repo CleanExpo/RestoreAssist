@@ -28,7 +28,7 @@ vi.mock("@/lib/workspace/provider-connections", () => ({
   getWorkspaceForUser: vi.fn(),
   listProviderConnections: vi.fn(),
   validateProviderKey: vi.fn(),
-  OPERATING_PROVIDERS: ["ANTHROPIC", "OPENAI", "OPENROUTER"],
+  OPERATING_PROVIDERS: ["ANTHROPIC", "OPENAI", "GOOGLE", "OPENROUTER"],
 }));
 
 vi.mock("@/lib/ai/model-router", () => ({

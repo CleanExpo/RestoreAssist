@@ -1,5 +1,0 @@
-#!/bin/bash
-# Legacy wrapper — RestoreAssist-specific pre-flight now delegates to global gate.
-# Kept for backward compatibility. New work should use video-pre-flight-global directly.
-export PRODUCT="restoreassist"
-exec "$(dirname "$0")/video-pre-flight-global" "$@"

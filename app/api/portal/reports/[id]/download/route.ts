@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
+import { isAiDraftPending } from "@/lib/reports/ai-ownership";
 import { resolveOrgBrandTheme } from "@/lib/clients/brand";
 import {
   claimSketchesToFloors,
@@ -140,7 +141,10 @@ export async function GET(
     };
 
     const theme = resolveOrgBrandTheme(report.user?.organization);
-    let pdfBytes = await generateIICRCReportPDF(reportData as any, { theme });
+    let pdfBytes = await generateIICRCReportPDF(reportData as any, {
+      theme,
+      showAiDraftWatermark: isAiDraftPending(report),
+    });
 
     // Append floor-plan sketches + any uploaded floor-plan image (Gap 6).
     const floors = await claimSketchesToFloors(

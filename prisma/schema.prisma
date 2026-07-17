@@ -2,20 +2,14 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
+  provider = "prisma-client-js"
+  // Prisma 7 requires an explicit output; keep default node_modules location
+  // so existing `@prisma/client` imports continue to resolve.
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  // DIRECT_URL points at Supabase's direct 5432 port; DATABASE_URL points at the
-  // 6543 transaction-mode pooler. Prisma Client can run against the pooler at
-  // runtime, but `prisma migrate deploy` cannot use a transaction pooler — it
-  // needs the direct connection to obtain advisory locks. Without directUrl,
-  // the Vercel build's migrate step hangs ~45 min and errors out (RA-1494).
-  directUrl  = env("DIRECT_URL")
-  extensions = [pgvector(map: "vector")]
+  provider = "postgresql"
 }
 
 model Account {
@@ -731,6 +725,13 @@ model Report {
   lastEditedAt      DateTime? // Timestamp of last edit
   completenessScore Int? // 0-100 percentage of completion
 
+  // AI draft ownership — liability sits with the application holder.
+  // Watermark/disclaimer remain until the holder rewrites and acknowledges.
+  aiDraftGeneratedAt            DateTime?
+  aiDraftHumanEditedAt          DateTime?
+  reportOwnershipAcknowledgedAt DateTime?
+  reportOwnershipAcknowledgedBy String?
+
   // Phase 9: Geographic Intelligence
   geographicIntelligence String? @db.Text // JSON: Postcode-based weather, council info, etc.
 
@@ -969,6 +970,11 @@ model Organization {
   tradingStatus    TradingStatus @default(ACTIVE)
   setupStartedAt   DateTime?
   setupCompletedAt DateTime?
+
+  // SP-6 v1: Resend-only email BYOK (platform RESEND_API_KEY is fallback)
+  emailProvider               String? // "RESEND" when connected
+  emailProviderEncryptedKey   String?
+  emailFromAddress            String?
 
   // RA-6952 (Pulse P0): the firm's Google review link. Null = review-ask
   // notification suppressed (NO_URL) rather than sent with a broken/missing link.
@@ -6297,6 +6303,8 @@ model ClaimSketch {
   captureAdapter     String             @default("manual") // manual | roomplan | cloud_ai | underlay_import
   annotations        SketchAnnotation[]
   elements           SketchElement[]
+  rooms              SketchRoom[]
+  evidencePins       EvidencePin[]
   hazards            Hazard[]
   insuranceContext   InsuranceContext?
   sketchMoistureReadings SketchMoistureReading[]
@@ -6305,6 +6313,69 @@ model ClaimSketch {
 
   @@index([inspectionId])
   @@index([inspectionId, floorNumber])
+}
+
+// RoomGraph V1 — derived room nodes. Fabric sketchData remains render SSOT;
+// these rows are the stable Room IDs that photos/moisture/damage/scope join to.
+model SketchRoom {
+  id             String        @id @default(cuid())
+  sketchId       String
+  sketch         ClaimSketch   @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  fabricObjectId String
+  name           String        @default("Room")
+  areaM2         Float?
+  perimeterM     Float?
+  heightM        Float?
+  floorNumber    Int           @default(0)
+  materialSlug   String?
+  waterCategory  String? // CAT_1 | CAT_2 | CAT_3
+  dryingStatus   String        @default("unknown") // unknown | wet | drying | dry
+  locked         Boolean       @default(false)
+  hidden         Boolean       @default(false)
+  geometryJson   Json?
+  provenance     String        @default("operator_measured")
+  evidencePins   EvidencePin[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([sketchId, fabricObjectId])
+  @@index([sketchId])
+  @@index([sketchId, floorNumber])
+}
+
+// Evidence pins on the floor plan — photos/videos/docs/voice at canvas coords.
+model EvidencePin {
+  id                 String           @id @default(cuid())
+  sketchId           String
+  sketch             ClaimSketch      @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  sketchRoomId       String?
+  sketchRoom         SketchRoom?      @relation(fields: [sketchRoomId], references: [id], onDelete: SetNull)
+  inspectionPhotoId  String?
+  kind               String           @default("photo") // photo | video | document | voice
+  // Absolute canvas px (legacy render) + normalized 0..1 (stable under zoom/pan).
+  x                  Float
+  y                  Float
+  nx                 Float?
+  ny                 Float?
+  rotationDeg        Float            @default(0)
+  scale              Float            @default(1)
+  fileUrl            String?
+  thumbnailUrl       String?
+  fileName           String?
+  fileMimeType       String?
+  fileSizeBytes      Int?
+  caption            String?
+  capturedByUserId   String?
+  captureSource      String           @default("web") // web | camera | upload | import
+  offlineQueued      Boolean          @default(false)
+  syncState          String           @default("synced") // pending | synced | failed
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([sketchId])
+  @@index([sketchRoomId])
+  @@index([inspectionPhotoId])
+  @@index([sketchId, kind])
 }
 
 model SketchAnnotation {
@@ -6329,7 +6400,7 @@ model SketchElement {
   id           String      @id @default(cuid())
   sketchId     String
   sketch       ClaimSketch @relation(fields: [sketchId], references: [id], onDelete: Cascade)
-  type         String // wall | opening | room | fixture
+  type         String // wall | opening | room | fixture | damage
   geometryJson Json
   dimensionsM  Json? // { widthM, heightM, lengthM, areaM2 } in metres
   materialId   String?
@@ -8084,4 +8155,23 @@ model ClientInvite {
   @@index([clientEmail])
   @@index([token])
   @@index([expiresAt])
+}
+
+// Customer portal content hub — platform defaults + optional NRPG seed rows.
+model PortalContent {
+  id          String    @id @default(cuid())
+  scope       String // PLATFORM_DEFAULT | NRPG_SEED
+  audience    String    @default("customer")
+  category    String
+  slug        String
+  mdxContent  String    @db.Text
+  videoSlug   String?
+  state       String    @default("DRAFT")
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([scope, slug])
+  @@index([audience, category, state])
+  @@map("PortalContent")
 }

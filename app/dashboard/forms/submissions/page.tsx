@@ -54,98 +54,6 @@ interface Submission {
 }
 
 // ---------------------------------------------------------------------------
-// Mock data (fallback when API is unavailable)
-// ---------------------------------------------------------------------------
-
-const MOCK_SUBMISSIONS: Submission[] = [
-  {
-    id: "1",
-    submissionNumber: "FS-001",
-    formType: "WORK_ORDER",
-    templateName: "Standard Work Order",
-    reportAddress: "42 Smith St, Melbourne VIC",
-    completenessScore: 95,
-    signaturesRequired: 2,
-    signaturesCompleted: 2,
-    status: "COMPLETED",
-    submittedAt: "2026-03-28T10:00:00Z",
-  },
-  {
-    id: "2",
-    submissionNumber: "FS-002",
-    formType: "JSA",
-    templateName: "Job Safety Analysis",
-    reportAddress: "15 Queen Rd, Sydney NSW",
-    completenessScore: 60,
-    signaturesRequired: 1,
-    signaturesCompleted: 0,
-    status: "AWAITING_SIGNATURE",
-    submittedAt: null,
-    startedAt: "2026-03-30T09:00:00Z",
-  },
-  {
-    id: "3",
-    submissionNumber: "FS-003",
-    formType: "AUTHORITY_TO_COMMENCE",
-    templateName: "Authority to Commence",
-    reportAddress: "8 Park Ave, Brisbane QLD",
-    completenessScore: 30,
-    signaturesRequired: 3,
-    signaturesCompleted: 0,
-    status: "IN_PROGRESS",
-    startedAt: "2026-03-31T08:00:00Z",
-  },
-  {
-    id: "4",
-    submissionNumber: "FS-004",
-    formType: "SITE_INDUCTION",
-    templateName: "Site Induction",
-    reportAddress: "22 Main St, Adelaide SA",
-    completenessScore: 0,
-    signaturesRequired: 1,
-    signaturesCompleted: 0,
-    status: "DRAFT",
-    startedAt: "2026-03-31T07:00:00Z",
-  },
-  {
-    id: "5",
-    submissionNumber: "FS-005",
-    formType: "WORK_ORDER",
-    templateName: "Emergency Work Order",
-    reportAddress: "5 River Rd, Perth WA",
-    completenessScore: 100,
-    signaturesRequired: 2,
-    signaturesCompleted: 2,
-    status: "COMPLETED",
-    submittedAt: "2026-03-25T14:00:00Z",
-  },
-  {
-    id: "6",
-    submissionNumber: "FS-006",
-    formType: "CUSTOM",
-    templateName: "Custom Remediation Form",
-    reportAddress: "101 Ocean Dr, Gold Coast QLD",
-    completenessScore: 75,
-    signaturesRequired: 2,
-    signaturesCompleted: 1,
-    status: "AWAITING_SIGNATURE",
-    startedAt: "2026-03-29T11:00:00Z",
-  },
-  {
-    id: "7",
-    submissionNumber: "FS-007",
-    formType: "JSA",
-    templateName: "High-Risk JSA",
-    reportAddress: "3 Industrial Way, Hobart TAS",
-    completenessScore: 50,
-    signaturesRequired: 2,
-    signaturesCompleted: 0,
-    status: "IN_PROGRESS",
-    startedAt: "2026-03-31T06:30:00Z",
-  },
-];
-
-// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
@@ -254,26 +162,101 @@ function SkeletonRows() {
   );
 }
 
-function EmptyState() {
+function EmptyState({ fetchError }: { fetchError: string | null }) {
   return (
     <tr>
       <td colSpan={7} className="py-16 text-center">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <FileText className="h-10 w-10 opacity-40" />
-          <p className="text-sm font-medium">No submissions found</p>
-          <p className="text-xs">
-            Adjust your filters or create a new submission from a template.
+          <p className="text-sm font-medium">
+            {fetchError
+              ? "Submissions could not be loaded"
+              : "No submissions found"}
           </p>
-          <Button asChild size="sm" className="mt-2">
-            <Link href="/dashboard/forms/templates">
-              <Plus className="h-4 w-4 mr-1" />
-              Create from Template
-            </Link>
-          </Button>
+          {!fetchError && (
+            <>
+              <p className="text-xs">
+                Adjust your filters or create a new submission from a template.
+              </p>
+              <Button asChild size="sm" className="mt-2">
+                <Link href="/dashboard/forms/templates">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Create from Template
+                </Link>
+              </Button>
+            </>
+          )}
         </div>
       </td>
     </tr>
   );
+}
+
+function requiredSignatureCount(
+  requiresSignatures: boolean,
+  signatureConfig: string | null | undefined,
+  completedCount: number,
+): number {
+  if (!requiresSignatures) return Math.max(completedCount, 0);
+  if (signatureConfig) {
+    try {
+      const parsed = JSON.parse(signatureConfig) as unknown;
+      if (Array.isArray(parsed)) return Math.max(parsed.length, completedCount);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        "required" in parsed &&
+        typeof (parsed as { required: unknown }).required === "number"
+      ) {
+        return Math.max(
+          (parsed as { required: number }).required,
+          completedCount,
+        );
+      }
+    } catch {
+      // fall through
+    }
+  }
+  return Math.max(1, completedCount);
+}
+
+function normaliseSubmission(raw: {
+  id: string;
+  submissionNumber: string;
+  status: FormStatus;
+  completenessScore: number | null;
+  startedAt: string;
+  submittedAt: string | null;
+  template: {
+    name: string;
+    formType: FormType;
+    requiresSignatures: boolean;
+    signatureConfig: string | null;
+  } | null;
+  signatures: Array<{ id: string; signedAt: string | null }>;
+  report: { title: string | null; propertyAddress: string | null } | null;
+}): Submission {
+  const completed = raw.signatures.filter((s) => s.signedAt).length;
+  return {
+    id: raw.id,
+    submissionNumber: raw.submissionNumber,
+    formType: (raw.template?.formType ?? "CUSTOM") as FormType,
+    templateName: raw.template?.name ?? "Untitled template",
+    reportAddress:
+      raw.report?.propertyAddress?.trim() ||
+      raw.report?.title?.trim() ||
+      "—",
+    completenessScore: raw.completenessScore ?? 0,
+    signaturesRequired: requiredSignatureCount(
+      raw.template?.requiresSignatures ?? false,
+      raw.template?.signatureConfig,
+      completed,
+    ),
+    signaturesCompleted: completed,
+    status: raw.status,
+    submittedAt: raw.submittedAt,
+    startedAt: raw.startedAt,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -283,7 +266,7 @@ function EmptyState() {
 export default function FormSubmissionsPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isMock, setIsMock] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Filters
   const [activeStatusChip, setActiveStatusChip] = useState<FormStatus | "ALL">(
@@ -297,12 +280,14 @@ export default function FormSubmissionsPage() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Fetch data
   useEffect(() => {
     const controller = new AbortController();
     const fetchSubmissions = async () => {
       setLoading(true);
+      setFetchError(null);
       try {
         const params = new URLSearchParams();
         if (statusFilter !== "ALL") params.set("status", statusFilter);
@@ -313,23 +298,31 @@ export default function FormSubmissionsPage() {
           signal: controller.signal,
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(
+            typeof body.error === "string"
+              ? body.error
+              : "Failed to load submissions",
+          );
+        }
         const data = await res.json();
-        setSubmissions(data.submissions ?? []);
-        setIsMock(false);
+        const rows = Array.isArray(data.submissions) ? data.submissions : [];
+        setSubmissions(rows.map(normaliseSubmission));
       } catch (err) {
         // Ignore aborts from a superseded fetch — they aren't real failures.
         if (err instanceof DOMException && err.name === "AbortError") return;
-        // API unavailable — fall back to mock data
-        setSubmissions(MOCK_SUBMISSIONS);
-        setIsMock(true);
+        setSubmissions([]);
+        setFetchError(
+          err instanceof Error ? err.message : "Failed to load submissions",
+        );
       } finally {
         setLoading(false);
       }
     };
     fetchSubmissions();
     return () => controller.abort();
-  }, [statusFilter, formTypeFilter, searchText]);
+  }, [statusFilter, formTypeFilter, searchText, reloadKey]);
 
   // Status counts for chips
   const statusCounts = useMemo(() => {
@@ -453,12 +446,24 @@ export default function FormSubmissionsPage() {
         <h1 className="text-2xl font-semibold tracking-tight">
           Form Submissions
         </h1>
-        {isMock && (
-          <p className="text-xs text-amber-600">
-            Showing sample data — couldn&apos;t reach the API
-          </p>
-        )}
       </div>
+
+      {fetchError && !loading && (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-destructive">
+          <span className="text-sm">
+            Failed to load submissions — {fetchError}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="flex-shrink-0"
+          >
+            Retry
+          </Button>
+        </div>
+      )}
 
       {/* Status chip strip */}
       <div className="flex flex-wrap gap-2">
@@ -641,7 +646,7 @@ export default function FormSubmissionsPage() {
               {loading ? (
                 <SkeletonRows />
               ) : paginated.length === 0 ? (
-                <EmptyState />
+                <EmptyState fetchError={fetchError} />
               ) : (
                 paginated.map((sub) => (
                   <tr

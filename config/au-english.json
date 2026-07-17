@@ -1,0 +1,10 @@
+{
+  "include": ["data/content/**/*.json", "data/content/**/*.md", "data/content/**/*.mdx"],
+  "exclude": [
+    "data/content/**/__tests__/**",
+    "data/content/**/_fixtures/**",
+    "data/content/**/*.test.json",
+    "data/content/nexus-hub/**",
+    "data/content/help/compliance/iicrc-citations.mdx"
+  ]
+}

@@ -1,42 +1,47 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
 declare global {
   var prisma: PrismaClient | undefined;
+  var pgPool: Pool | undefined;
 }
 
 /**
- * RA-4990 — bump per-Prisma-Client connection limit from the Supabase
- * pgbouncer default of 1 to 5. The default surfaced P2024
- * `Timed out fetching a new connection from the connection pool` errors
- * whenever multiple queries fired concurrently within one serverless
- * invocation (e.g. the setup-wizard's hydrate route + FeatureHealthCard
- * polling + OAuth callback writes all competing for one connection).
- *
- * Safe because Supabase's pooler.supabase.com endpoint defaults to a
- * project-level pool of 60+ transactions in `transaction` mode; per-
- * Client `connection_limit=5` means ~12 concurrent serverless invocations
- * before the pooler saturates, well above steady-state load.
- *
- * Append the param only when DATABASE_URL is set (so local Prisma CLI
- * tooling using the bare default URL is unaffected).
+ * RA-4990 — cap concurrent connections per serverless invocation.
+ * Prisma 7 uses a `pg` Pool via driver adapter (URL `connection_limit` is ignored).
  */
-function withPoolConfig(url: string | undefined): string | undefined {
-  if (!url) return url;
-  if (/[?&]connection_limit=/.test(url)) return url; // already configured
-  const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}connection_limit=5&pool_timeout=20`;
+function createPool(connectionString: string): Pool {
+  return new Pool({
+    connectionString,
+    max: 5,
+    connectionTimeoutMillis: 20_000,
+    ssl:
+      connectionString.includes("supabase") ||
+      connectionString.includes("sslmode=require")
+        ? { rejectUnauthorized: false }
+        : undefined,
+  });
 }
 
-const augmentedUrl = withPoolConfig(process.env.DATABASE_URL);
+function createPrismaClient(): PrismaClient {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is required to initialize PrismaClient");
+  }
 
-export const prisma =
-  globalThis.prisma ??
-  new PrismaClient({
-    datasources: augmentedUrl ? { db: { url: augmentedUrl } } : undefined,
+  const pool = globalThis.pgPool ?? createPool(connectionString);
+  if (process.env.NODE_ENV !== "production") globalThis.pgPool = pool;
+
+  return new PrismaClient({
+    adapter: new PrismaPg(pool),
     log:
       process.env.NODE_ENV === "development"
         ? ["query", "error", "warn"]
         : ["error"],
   });
+}
+
+export const prisma = globalThis.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma;

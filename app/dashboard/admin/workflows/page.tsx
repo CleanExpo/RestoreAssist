@@ -481,6 +481,7 @@ export default function WorkflowMonitorPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>("ALL");
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Auth guard
   useEffect(() => {
@@ -495,6 +496,7 @@ export default function WorkflowMonitorPage() {
   }, [status, session, router]);
 
   const fetchWorkflows = useCallback(async () => {
+    setLoadError(null);
     try {
       const params = new URLSearchParams({ limit: "50" });
       if (activeTab !== "ALL") params.set("status", activeTab);
@@ -502,9 +504,15 @@ export default function WorkflowMonitorPage() {
       if (res.ok) {
         const data = await res.json();
         setWorkflows(data.workflows ?? []);
+        setLoadError(null);
+      } else {
+        setWorkflows([]);
+        setLoadError("Failed to load workflows");
       }
     } catch (err) {
       console.error("[WorkflowMonitor] fetch error:", err);
+      setWorkflows([]);
+      setLoadError("Failed to load workflows");
     } finally {
       setLoading(false);
     }
@@ -621,6 +629,19 @@ export default function WorkflowMonitorPage() {
           Refresh
         </Button>
       </div>
+
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => void handleRefresh()}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

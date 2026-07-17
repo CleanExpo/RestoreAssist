@@ -51,6 +51,9 @@ import type { SelectedObject, MaterialOption } from "./SketchSelectionPanel";
 import { ANZ_MATERIAL_OPTIONS } from "@/lib/anz/material-options";
 import { SketchMoistureLayer } from "./SketchMoistureLayer";
 import type { MoisturePin } from "./SketchMoistureLayer";
+import { SketchEvidenceLayer } from "./SketchEvidenceLayer";
+import type { EvidencePinView } from "./SketchEvidenceLayer";
+import type { DamageKind } from "@/lib/sketch/damage-zone";
 import { SketchScaleModal } from "./SketchScaleModal";
 import type { ScaleConfig } from "./SketchScaleModal";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
@@ -92,6 +95,7 @@ interface FloorData {
   floor: SketchFloor;
   canvasRef: React.MutableRefObject<FabricCanvasRef | null>;
   moisturePins: MoisturePin[];
+  evidencePins: EvidencePinView[];
   backgroundUrl: string | null;
   backgroundOpacity: number;
   // PR4b: underlay transform. null scale/offset = legacy fit-to-width baseline.
@@ -179,6 +183,7 @@ export function SketchEditorV2({
       floor: { id: `${uid}-f0`, floorNumber: 0, floorLabel: "Ground Floor" },
       canvasRef: makeFabricCanvas(),
       moisturePins: [],
+      evidencePins: [],
       backgroundUrl: null,
       backgroundOpacity: 0.35,
       backgroundScale: null,
@@ -192,6 +197,8 @@ export function SketchEditorV2({
 
   // ── UI state ───────────────────────────────────────────
   const [toolMode, setToolMode] = useState<ToolMode>("select");
+  const [damageKind, setDamageKind] = useState<DamageKind>("water");
+  const [evidenceUploading, setEvidenceUploading] = useState(false);
   // RA-6844 [A5]: grid + right-angle snap for the draw tools. On by default so
   // walls square up and land on the grid; toggled off for freeform tracing.
   const [snapEnabled, setSnapEnabled] = useState(true);
@@ -263,6 +270,7 @@ export function SketchEditorV2({
             },
             canvasRef,
             moisturePins: (s.moisturePoints as MoisturePin[] | null) ?? [],
+            evidencePins: [],
             backgroundUrl: s.backgroundImageUrl ?? null,
             // RA-120 (PR4): restore the persisted opacity instead of resetting
             // to the default on every reload (was a per-floor data-loss bug).
@@ -300,6 +308,29 @@ export function SketchEditorV2({
             ref.loadFromJSON(s.sketchData).catch(() => {});
           }
         });
+
+        // RoomGraph evidence pins (P0) — load per floor after sketch ids known
+        await Promise.all(
+          sketches.map(async (s, i) => {
+            if (!s.id) return;
+            try {
+              const er = await fetch(
+                `/api/inspections/${inspectionId}/sketches/${s.id}/evidence-pins`,
+              );
+              if (!er.ok) return;
+              const ej = (await er.json()) as { pins?: EvidencePinView[] };
+              setFloorsData((prev) =>
+                prev.map((fd, idx) =>
+                  idx === i
+                    ? { ...fd, evidencePins: ej.pins ?? [] }
+                    : fd,
+                ),
+              );
+            } catch {
+              /* non-fatal */
+            }
+          }),
+        );
       } catch {
         // Fail silently — editor starts with empty canvas
       }
@@ -692,6 +723,7 @@ export function SketchEditorV2({
       },
       canvasRef: makeFabricCanvas(),
       moisturePins: [],
+      evidencePins: [],
       backgroundUrl: null,
       backgroundOpacity: 0.35,
       backgroundScale: null,
@@ -773,6 +805,157 @@ export function SketchEditorV2({
       scheduleSave();
     },
     [activeIdx, scheduleSave],
+  );
+
+  const handleEvidencePlace = useCallback(
+    async (coords: {
+      x: number;
+      y: number;
+      nx: number;
+      ny: number;
+      file: File;
+    }) => {
+      if (!inspectionId || captureMode) return;
+      const sketchId = floorsData[activeIdx]?.floor.id;
+      if (!sketchId || sketchId.startsWith(uid)) {
+        // Floor not persisted yet — force a save so we have a ClaimSketch id.
+        await flushSaveNow();
+      }
+      const persistedId = floorsData[activeIdx]?.floor.id;
+      if (!persistedId || persistedId.startsWith(uid)) return;
+
+      setEvidenceUploading(true);
+      try {
+        const form = new FormData();
+        form.append("file", coords.file);
+        form.append("location", "Floor plan pin");
+        const uploadRes = await fetch(
+          `/api/inspections/${inspectionId}/photos`,
+          { method: "POST", body: form },
+        );
+        if (!uploadRes.ok) return;
+        const uploadJson = (await uploadRes.json()) as {
+          photo?: {
+            id: string;
+            url: string;
+            thumbnailUrl?: string | null;
+            mimeType?: string | null;
+            fileSize?: number | null;
+          };
+          id?: string;
+          url?: string;
+          thumbnailUrl?: string | null;
+        };
+        const photo = uploadJson.photo ?? uploadJson;
+        const fileUrl = photo.url;
+        if (!fileUrl) return;
+
+        const pinRes = await fetch(
+          `/api/inspections/${inspectionId}/sketches/${persistedId}/evidence-pins`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              kind: coords.file.type.startsWith("video/") ? "video" : "photo",
+              x: coords.x,
+              y: coords.y,
+              nx: coords.nx,
+              ny: coords.ny,
+              canvasWidth: width,
+              canvasHeight: height,
+              inspectionPhotoId: photo.id,
+              fileUrl,
+              thumbnailUrl: photo.thumbnailUrl ?? fileUrl,
+              fileName: coords.file.name,
+              fileMimeType: coords.file.type,
+              fileSizeBytes: coords.file.size,
+              captureSource: "camera",
+            }),
+          },
+        );
+        if (!pinRes.ok) return;
+        const pinJson = (await pinRes.json()) as { pin: EvidencePinView };
+        setFloorsData((prev) =>
+          prev.map((fd, i) =>
+            i === activeIdx
+              ? {
+                  ...fd,
+                  evidencePins: [...fd.evidencePins, pinJson.pin],
+                }
+              : fd,
+          ),
+        );
+      } finally {
+        setEvidenceUploading(false);
+      }
+    },
+    [
+      activeIdx,
+      captureMode,
+      flushSaveNow,
+      floorsData,
+      height,
+      inspectionId,
+      uid,
+      width,
+    ],
+  );
+
+  const handleEvidenceMove = useCallback(
+    (id: string, x: number, y: number, nx: number, ny: number) => {
+      const sketchId = floorsData[activeIdx]?.floor.id;
+      setFloorsData((prev) =>
+        prev.map((fd, i) =>
+          i === activeIdx
+            ? {
+                ...fd,
+                evidencePins: fd.evidencePins.map((p) =>
+                  p.id === id ? { ...p, x, y, nx, ny } : p,
+                ),
+              }
+            : fd,
+        ),
+      );
+      if (!inspectionId || !sketchId || sketchId.startsWith(uid)) return;
+      void fetch(
+        `/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins/${id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            x,
+            y,
+            nx,
+            ny,
+            canvasWidth: width,
+            canvasHeight: height,
+          }),
+        },
+      );
+    },
+    [activeIdx, floorsData, height, inspectionId, uid, width],
+  );
+
+  const handleEvidenceRemove = useCallback(
+    (id: string) => {
+      const sketchId = floorsData[activeIdx]?.floor.id;
+      setFloorsData((prev) =>
+        prev.map((fd, i) =>
+          i === activeIdx
+            ? {
+                ...fd,
+                evidencePins: fd.evidencePins.filter((p) => p.id !== id),
+              }
+            : fd,
+        ),
+      );
+      if (!inspectionId || !sketchId || sketchId.startsWith(uid)) return;
+      void fetch(
+        `/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins/${id}`,
+        { method: "DELETE" },
+      );
+    },
+    [activeIdx, floorsData, inspectionId, uid],
   );
 
   // ── Scale calibration ───────────────────────────────────
@@ -1179,6 +1362,7 @@ export function SketchEditorV2({
               width={width}
               height={height}
               toolMode={toolMode}
+              damageKind={damageKind}
               pxPerMetre={fd.scaleConfig?.pxPerMetre}
               snapEnabled={snapEnabled}
               backgroundImageUrl={fd.backgroundUrl}
@@ -1203,11 +1387,24 @@ export function SketchEditorV2({
             <SketchMoistureLayer
               pins={fd.moisturePins}
               onChange={handleMoisturePinsChange}
-              active={toolMode === "photo" && idx === activeIdx}
+              active={toolMode === "moisture" && idx === activeIdx}
               width={width}
               height={height}
-              className="pointer-events-none"
             />
+
+            {/* Evidence pins on plan (P0) */}
+            {!guided && (
+              <SketchEvidenceLayer
+                pins={fd.evidencePins}
+                active={toolMode === "photo" && idx === activeIdx && !readonly}
+                width={width}
+                height={height}
+                uploading={evidenceUploading && idx === activeIdx}
+                onPlace={handleEvidencePlace}
+                onMove={handleEvidenceMove}
+                onRemove={handleEvidenceRemove}
+              />
+            )}
           </div>
         ))}
 
@@ -1444,6 +1641,8 @@ export function SketchEditorV2({
           toolMode={toolMode}
           guided={guided}
           onToolChange={handleToolChange}
+          damageKind={damageKind}
+          onDamageKindChange={setDamageKind}
           canUndo={historyState.canUndo}
           canRedo={historyState.canRedo}
           onUndo={handleUndo}

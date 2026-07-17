@@ -14,6 +14,7 @@ import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
 import { verifyInsurerToken } from "@/lib/portal-token";
 import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
+import { isAiDraftPending } from "@/lib/reports/ai-ownership";
 
 /**
  * GET /api/reports/[id]/pdf
@@ -168,7 +169,10 @@ export async function GET(
     // Brand the report with the contractor's own firm identity (logo + accent
     // colour). Falls back to RestoreAssist defaults when the org has no branding.
     const theme = resolveOrgBrandTheme(report.user?.organization);
-    let pdfBytes = await generateIICRCReportPDF(reportData as any, { theme });
+    let pdfBytes = await generateIICRCReportPDF(reportData as any, {
+      theme,
+      showAiDraftWatermark: isAiDraftPending(report),
+    });
 
     // RA-120 (PR2): embed each floor's sketch (underlay + annotations) as its
     // own page so the floor plan lives inside the canonical report. A failed

@@ -13,8 +13,8 @@
 export interface PinCoords {
   x: number;
   y: number;
-  nx?: number;
-  ny?: number;
+  nx?: number | null;
+  ny?: number | null;
 }
 
 function clamp01(n: number): number {

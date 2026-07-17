@@ -19,6 +19,7 @@
       }
     ],
     "paths": {
+      "@/content/*": ["./data/content/*"],
       "@/*": ["./*"]
     }
   },
@@ -32,13 +33,14 @@
   ],
   "exclude": [
     "node_modules",
-    "vendor/**",
+    "docs/tooling/vendor-opensrc/**",
     "mobile/**",
-    "remotion/**",
+    "tools/remotion/**",
     "scripts/**",
-    "pilot-tester/**",
-    "remotion/**",
-    "remotion.config.ts",
+    "packages/**",
+    "ops/**",
+    "tests/**",
+    "tools/remotion/remotion.config.ts",
     ".next/dev/**",
     "**/__tests__/**",
     "**/*.test.ts",

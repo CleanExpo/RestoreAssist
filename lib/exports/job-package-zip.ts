@@ -16,7 +16,7 @@
  *       and consume it directly from `exportClosedJobToBYOKStorage`.
  */
 
-import archiver from "archiver";
+import { createZipArchive } from "@/lib/exports/create-zip-archive";
 import { PassThrough, Readable } from "node:stream";
 import { prisma } from "@/lib/prisma";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
@@ -91,7 +91,7 @@ export async function buildJobPackageStream(
     throw new Error(`Inspection ${inspectionId} not found`);
   }
 
-  const archive = archiver("zip", { zlib: { level: 9 } });
+  const archive = createZipArchive({ zlib: { level: 9 } });
   const sink = new PassThrough();
   const chunks: Buffer[] = [];
   sink.on("data", (chunk) => chunks.push(Buffer.from(chunk)));

@@ -53,6 +53,8 @@ function SubscriptionPageContent() {
   const [pricingLoading, setPricingLoading] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadSucceeded, setLoadSucceeded] = useState(false);
 
   useEffect(() => {
     fetchSubscription();
@@ -75,6 +77,7 @@ function SubscriptionPageContent() {
     if (forceRefresh) {
       setRefreshing(true);
     }
+    setLoadError(null);
 
     try {
       const url = forceRefresh
@@ -83,13 +86,27 @@ function SubscriptionPageContent() {
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
-        setSubscription(data.subscription);
+        setSubscription(data.subscription ?? null);
+        setLoadSucceeded(true);
         if (forceRefresh) {
           toast.success("Subscription data refreshed!");
+        }
+      } else {
+        const body = await response.json().catch(() => ({}));
+        const message =
+          typeof body.error === "string"
+            ? body.error
+            : "Failed to load subscription";
+        setLoadError(message);
+        setLoadSucceeded(false);
+        if (forceRefresh) {
+          toast.error(message);
         }
       }
     } catch (error) {
       console.error("Error fetching subscription:", error);
+      setLoadError("Failed to load subscription");
+      setLoadSucceeded(false);
       if (forceRefresh) {
         toast.error("Failed to refresh subscription data");
       }
@@ -102,29 +119,8 @@ function SubscriptionPageContent() {
   const checkSubscription = async () => {
     setChecking(true);
     try {
-      const response = await fetch("/api/subscription/check", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          toast.success("Subscription found and updated!");
-          // Refresh the subscription data
-          await fetchSubscription(true);
-        } else {
-          toast.error(data.message || "No active subscription found");
-        }
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.error || "Failed to check subscription");
-      }
-    } catch (error) {
-      console.error("Error checking subscription:", error);
-      toast.error("Failed to check subscription status");
+      // Reconcile from Stripe via existing GET ?refresh=true (no separate check route).
+      await fetchSubscription(true);
     } finally {
       setChecking(false);
     }
@@ -304,6 +300,21 @@ function SubscriptionPageContent() {
           </div>
         </div>
 
+        {loadError && (
+          <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
+            <span className="text-sm">
+              Could not load subscription — {loadError}
+            </span>
+            <button
+              type="button"
+              onClick={() => void fetchSubscription(true)}
+              className="flex-shrink-0 rounded px-3 py-1 text-sm border border-red-500/40 hover:bg-red-500/20 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {subscription ? (
           <div className="grid lg:grid-cols-2 gap-6">
             {/* Current Plan */}
@@ -477,7 +488,7 @@ function SubscriptionPageContent() {
               </div>
             </div>
           </div>
-        ) : (
+        ) : loadSucceeded ? (
           <div className="space-y-8">
             {/* RA-1252: status-specific hero copy instead of hard-coded "free trial" */}
             {(() => {
@@ -684,7 +695,7 @@ function SubscriptionPageContent() {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* RA-1243: cancel dialog with reason + comment capture */}
         <CancelSubscriptionDialog

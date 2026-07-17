@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { reportError } from "@/lib/observability";
 import { BRAND } from "@/lib/brand";
+import { resolveResendConfig } from "@/lib/email/resolve-resend-config";
 
 let resend: Resend | null = null;
 function getResendClient(): Resend {
@@ -11,6 +12,19 @@ function getResendClient(): Resend {
     resend = new Resend(process.env.RESEND_API_KEY);
   }
   return resend;
+}
+
+async function getResendClientForOrg(
+  organizationId?: string | null,
+): Promise<{ client: Resend; from: string }> {
+  const config = await resolveResendConfig(organizationId);
+  if (!config) {
+    throw new Error("RESEND_API_KEY is not configured");
+  }
+  if (config.source === "platform") {
+    return { client: getResendClient(), from: config.from };
+  }
+  return { client: new Resend(config.apiKey), from: config.from };
 }
 
 /** Hard ceiling on any single Resend call so a hung upstream cannot pin a serverless function. */
@@ -237,13 +251,12 @@ export interface InviteEmailData {
   loginUrl: string;
   inviterName: string;
   isTransfer?: boolean; // True if user already exists and is being transferred
+  /** Prefer org Resend BYOK when set. */
+  organizationId?: string | null;
 }
 
 export async function sendInviteEmail(data: InviteEmailData) {
-  if (!process.env.RESEND_API_KEY) {
-    console.error("[email] RESEND_API_KEY is not configured — invite email not sent");
-    throw new Error("Email service is not configured");
-  }
+  const { client, from } = await getResendClientForOrg(data.organizationId);
 
   const roleLabel = data.role === "MANAGER" ? "Manager" : "Technician";
   const isTransfer = data.isTransfer || false;
@@ -431,7 +444,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
     // Secret hygiene: never log the payload — the invite html/text can
     // carry a temporary password and the recipient's address is PII.
     const emailPayload = {
-      from: getFromEmail(),
+      from,
       to: data.email,
       subject: isTransfer
         ? `You've been added to ${data.inviterName}'s organization - Restore Assist`
@@ -442,9 +455,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
       text,
     };
 
-    const result = await withEmailTimeout(
-      getResendClient().emails.send(emailPayload),
-    );
+    const result = await withEmailTimeout(client.emails.send(emailPayload));
     assertResendSuccess(result, "invite");
     console.log("[email] Invite email sent", { id: result.data?.id ?? null });
     return result;

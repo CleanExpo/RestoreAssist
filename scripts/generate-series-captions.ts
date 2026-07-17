@@ -1,6 +1,6 @@
 /**
  * Generate WebVTT captions for the onboarding + walkthrough video SERIES from
- * each transcript SSOT (content/videos/<stem>.script.json).
+ * each transcript SSOT (data/content/videos/<stem>.script.json).
  *
  * Pure / deterministic — no network, safe to run anywhere (CI, sandbox):
  *   pnpm exec tsx scripts/generate-series-captions.ts
@@ -40,7 +40,7 @@ interface Script {
 }
 
 async function main() {
-  const inDir = path.join(process.cwd(), "content", "videos");
+  const inDir = path.join(process.cwd(), "data", "content", "videos");
   const outDir = path.join(process.cwd(), "public", "videos", "captions");
   await fs.mkdir(outDir, { recursive: true });
 

@@ -42,6 +42,7 @@ export default function ContractorReviewsPage() {
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedReview, setSelectedReview] = useState<string | null>(null);
   const [responseText, setResponseText] = useState("");
   const [disputeReason, setDisputeReason] = useState("");
@@ -61,25 +62,41 @@ export default function ContractorReviewsPage() {
 
   const fetchReviews = async () => {
     try {
+      setLoadError(null);
       // Get contractor's slug first
       const profileRes = await fetch("/api/contractors/profile");
-      if (!profileRes.ok) return;
+      if (!profileRes.ok) {
+        setReviews([]);
+        setLoadError("Failed to load contractor profile for reviews");
+        return;
+      }
 
       const profileData = await profileRes.json();
       const slug = profileData.profile?.slug;
 
-      if (!slug) return;
+      if (!slug) {
+        setReviews([]);
+        setLoadError(
+          "No public contractor profile slug — create a profile first",
+        );
+        return;
+      }
 
       // Fetch reviews for this contractor
       const reviewsRes = await fetch(
         `/api/contractors/reviews?contractorSlug=${slug}`,
       );
-      if (reviewsRes.ok) {
-        const reviewsData = await reviewsRes.json();
-        setReviews(reviewsData.reviews || []);
+      if (!reviewsRes.ok) {
+        setReviews([]);
+        setLoadError("Failed to load reviews");
+        return;
       }
+      const reviewsData = await reviewsRes.json();
+      setReviews(reviewsData.reviews || []);
     } catch (error) {
       console.error("Failed to fetch reviews:", error);
+      setReviews([]);
+      setLoadError("Failed to load reviews");
     } finally {
       setLoading(false);
     }
@@ -211,6 +228,22 @@ export default function ContractorReviewsPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <confirm.Mount />
       <h1 className="text-3xl font-bold text-white mb-8">Manage Reviews</h1>
+
+      {loadError && (
+        <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          {loadError}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => {
+              setLoading(true);
+              void fetchReviews();
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Message */}
       {message && (

@@ -1,6 +1,6 @@
 /**
  * RA-7008 — seed the five pilot-canary owner accounts the swarm harness
- * logs in as (pilot-tester/src/companies/fixtures.ts companyKeys).
+ * logs in as (packages/pilot-tester/src/companies/fixtures.ts companyKeys).
  *
  * Writes directly to the DB (bypassing /signup) so it can set a bcrypt
  * password AND mark each org setup-complete — mirrors scripts/seed-e2e-user.ts
@@ -40,7 +40,7 @@ if (
 
 const prisma = new PrismaClient();
 
-/** Keys must match pilot-tester/src/companies/fixtures.ts exactly. */
+/** Keys must match packages/pilot-tester/src/companies/fixtures.ts exactly. */
 const PILOT_COMPANIES = [
   { companyKey: "beyond-clean", workspaceName: "Beyond Clean (sandbox pilot)" },
   {

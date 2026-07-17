@@ -323,7 +323,7 @@ function AdjusterAnalysisPanel({ inspectionId }: { inspectionId: string }) {
 // ── Pilot survey form (CLAIM-004) ─────────────────────────────────────────────
 
 function AdjusterReviewContent() {
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const token = searchParams.get("token") ?? "";
   const inspectionId = searchParams.get("inspectionId") ?? "";
 

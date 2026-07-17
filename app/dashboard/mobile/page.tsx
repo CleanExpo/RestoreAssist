@@ -7,7 +7,6 @@ import {
   Clock,
   AlertTriangle,
   ExternalLink,
-  QrCode,
   Apple,
   Wifi,
   WifiOff,
@@ -20,7 +19,6 @@ import {
   Send,
   Loader2,
   ChevronRight,
-  Download,
   Play,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -566,9 +564,9 @@ export default function MobileDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Two-column grid: QR placeholder + EAS setup guide */}
+      {/* Two-column grid: field access + EAS setup guide */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* QR / Download section */}
+        {/* Field / pilot access — honest, no fake store chrome */}
         <Card
           className={cn(
             "border",
@@ -578,84 +576,50 @@ export default function MobileDashboardPage() {
         >
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Download size={18} className="text-cyan-500" />
-              Download
+              <Smartphone size={18} className="text-cyan-500" />
+              Field access today
             </CardTitle>
             <CardDescription>
-              Coming soon — available on App Store and Google Play once launch
-              testing is complete.
+              Native App Store and Google Play builds are still in limited
+              pilot. Use the field web experience now — no fake download
+              buttons.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* QR placeholder */}
+          <CardContent className="space-y-4">
             <div
               className={cn(
-                "mx-auto w-36 h-36 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2",
-                "border-neutral-300 dark:border-slate-700",
-                "bg-neutral-50 dark:bg-slate-800/50",
+                "rounded-xl border px-4 py-4 space-y-2",
+                "border-cyan-200 dark:border-cyan-800/50",
+                "bg-cyan-50/80 dark:bg-cyan-950/30",
               )}
             >
-              <QrCode
-                size={32}
-                className="text-neutral-400 dark:text-slate-600"
-              />
-              <p className="text-xs text-neutral-400 dark:text-slate-600 text-center leading-tight px-2">
-                QR code
-                <br />
-                coming soon
+              <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                Recommended for technicians on site
               </p>
+              <p className="text-xs text-neutral-600 dark:text-slate-400 leading-relaxed">
+                Open Field Mode in the browser on your phone or tablet. Capture
+                jobs, readings, and photos without waiting on store review.
+              </p>
+              <Button asChild className="mt-1 w-full sm:w-auto">
+                <a href="/dashboard/field">
+                  Open Field Mode
+                  <ChevronRight size={16} className="ml-1" />
+                </a>
+              </Button>
             </div>
 
-            <div className="space-y-3">
-              {/* App Store button (placeholder) */}
-              <div
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl border",
-                  "border-neutral-200 dark:border-slate-700",
-                  "bg-neutral-50 dark:bg-slate-800/50",
-                )}
-              >
-                <Apple
-                  size={24}
-                  className="text-neutral-400 dark:text-slate-500 flex-shrink-0"
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-neutral-700 dark:text-slate-300">
-                    App Store
-                  </p>
-                  <p className="text-xs text-neutral-400 dark:text-slate-500">
-                    iOS 16.0 and later
-                  </p>
-                </div>
-                <Badge className="bg-neutral-100 text-neutral-500 dark:bg-slate-700 dark:text-slate-400 border-0 text-xs">
-                  Soon
-                </Badge>
-              </div>
-
-              {/* Play Store button (placeholder) */}
-              <div
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl border",
-                  "border-neutral-200 dark:border-slate-700",
-                  "bg-neutral-50 dark:bg-slate-800/50",
-                )}
-              >
-                <Play
-                  size={24}
-                  className="text-neutral-400 dark:text-slate-500 flex-shrink-0"
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-neutral-700 dark:text-slate-300">
-                    Google Play
-                  </p>
-                  <p className="text-xs text-neutral-400 dark:text-slate-500">
-                    Android 8.0 (API 26) and later
-                  </p>
-                </div>
-                <Badge className="bg-neutral-100 text-neutral-500 dark:bg-slate-700 dark:text-slate-400 border-0 text-xs">
-                  Soon
-                </Badge>
-              </div>
+            <div className="space-y-2 text-sm text-neutral-600 dark:text-slate-400">
+              <p>
+                <span className="font-medium text-neutral-800 dark:text-slate-200">
+                  Internal pilot builds
+                </span>{" "}
+                (TestFlight / EAS preview) are distributed only after EAS setup
+                on the right is complete — there is no public store listing yet.
+              </p>
+              <p className="text-xs">
+                Minimum targets once published: iOS 16.0+ · Android 8.0 (API
+                26)+.
+              </p>
             </div>
           </CardContent>
         </Card>

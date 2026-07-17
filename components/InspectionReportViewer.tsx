@@ -16,10 +16,12 @@ import { cn } from "@/lib/utils";
 import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer";
 import RestorationInspectionReportViewer from "./RestorationInspectionReportViewer";
 import IicrcInclusionPanel from "./IicrcInclusionPanel";
+import AiOwnershipBanner from "./AiOwnershipBanner";
 import {
   runInclusionCheck,
   deriveIicrcClaimTypeFromHazardType,
 } from "@/lib/iicrc-inclusion-check";
+import { isAiDraftPending } from "@/lib/reports/ai-ownership";
 
 interface InspectionReportViewerProps {
   reportId: string;
@@ -261,7 +263,7 @@ export default function InspectionReportViewer({
             setReportContent("");
             setVisualData(null);
             toast.success(
-              "Restoration inspection report generated successfully",
+              "AI draft ready — rewrite in your words, then acknowledge ownership",
             );
           } else if (data.report.detailedReport) {
             // Try to parse as structured JSON
@@ -273,7 +275,7 @@ export default function InspectionReportViewer({
                 setReportContent("");
                 setVisualData(null);
                 toast.success(
-                  "Restoration inspection report generated successfully",
+                  "AI draft ready — rewrite in your words, then acknowledge ownership",
                 );
               } else if (parsed.header && parsed.summaryMetrics) {
                 // Legacy visual report format
@@ -281,7 +283,7 @@ export default function InspectionReportViewer({
                 setIsBasicReport(true);
                 setReportContent("");
                 setStructuredReportData(null);
-                toast.success("Visual report generated successfully");
+                toast.success("AI visual draft ready — review and take ownership before issuing");
               } else {
                 throw new Error("Not structured data");
               }
@@ -294,7 +296,9 @@ export default function InspectionReportViewer({
               setIsBasicReport(false);
               setStructuredReportData(null);
               setVisualData(null);
-              toast.success("Inspection report generated successfully");
+              toast.success(
+                "AI draft ready — rewrite in your words, then acknowledge ownership",
+              );
             }
           } else {
             toast.error("Failed to parse report response");
@@ -380,7 +384,7 @@ export default function InspectionReportViewer({
       });
 
       if (response.ok) {
-        toast.success("Report saved successfully");
+        toast.success("Your rewrite was saved — you can now acknowledge ownership");
         setEditing(false);
         fetchReport(); // Refresh report data
       } else {
@@ -610,10 +614,11 @@ export default function InspectionReportViewer({
                 Processing report generation...
               </p>
               <p className="text-sm text-slate-400">
-                Our AI expert system is analysing your data and generating a
-                professional restoration inspection report based on IICRC S500,
-                S520, WHS Regulations 2011, NCC, and AS/NZS 3000 standards. This
-                may take a few moments. Please wait.
+                Our AI assistant is drafting a professional restoration
+                inspection report based on IICRC S500, S520, WHS Regulations
+                2011, NCC, and AS/NZS 3000 standards. You must review and rewrite
+                the draft in your own words before it is your report. This may
+                take a few moments.
               </p>
             </div>
           </div>
@@ -742,16 +747,54 @@ export default function InspectionReportViewer({
             id="inspection-report-print-content"
             className="bg-white text-slate-900 print-content"
           >
-            <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10 print:hidden">
+            <div
+              className={
+                "p-4 rounded-[10px] border print:hidden " +
+                (isBasicReport || isAiDraftPending(report)
+                  ? "border-warning/50 bg-warning/10"
+                  : "border-success/50 bg-success/10")
+              }
+            >
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-success" />
-                <p className="text-success font-medium">
+                <CheckCircle
+                  className={
+                    "w-5 h-5 " +
+                    (isBasicReport || isAiDraftPending(report)
+                      ? "text-warning"
+                      : "text-success")
+                  }
+                />
+                <p
+                  className={
+                    "font-medium " +
+                    (isBasicReport || isAiDraftPending(report)
+                      ? "text-amber-900 dark:text-amber-100"
+                      : "text-success")
+                  }
+                >
                   {isBasicReport
-                    ? "Basic Report Generated Successfully"
-                    : "Report Generated Successfully"}
+                    ? "Basic AI draft ready — rewrite required"
+                    : isAiDraftPending(report)
+                      ? "AI draft ready — rewrite and take ownership"
+                      : "Holder-owned report — ready to issue"}
                 </p>
               </div>
             </div>
+
+            {report && (
+              <div className="space-y-3 print:hidden">
+                <AiOwnershipBanner
+                  reportId={reportId}
+                  report={report}
+                  onAcknowledged={() => void fetchReport()}
+                  onStartRewrite={
+                    !editing && !isBasicReport
+                      ? () => setEditing(true)
+                      : undefined
+                  }
+                />
+              </div>
+            )}
 
             <div className="w-full p-0 px-4 space-y-8">
               {isBasicReport && structuredReportData ? (

@@ -9,11 +9,12 @@
  * was no guard to stop the NEXT such regression — this is it.
  *
  * WHY BOTH ROOTS (adversarial-verify AV-1): RLS policies in this repo live in
- * BOTH `prisma/migrations/**` AND `supabase/migrations/**` — `CREATE POLICY`
- * appears in 7 prisma + 9 supabase files, and 5 workspace/evidence/media RLS
- * files exist ONLY under `prisma/migrations/`. A lint scoped to one root would
- * miss a whole class of regression. `scripts/audit-rls-coverage.ts` already walks
- * both roots (its `MIGRATION_DIRS`); this guard mirrors that.
+ * BOTH `prisma/migrations/**` AND `docs/ops/supabase-migrations-archive/**` —
+ * `CREATE POLICY` appears in prisma + archived supabase files, and some
+ * workspace/evidence/media RLS files exist ONLY under `prisma/migrations/`.
+ * A lint scoped to one root would miss a whole class of regression.
+ * `scripts/audit-rls-coverage.ts` already walks both roots (its `MIGRATION_DIRS`);
+ * this guard mirrors that.
  *
  * FORWARD-ONLY: migrations are immutable/append-only (see
  * `docs/migrations/DEDUPLICATION-PATTERN.md`), so a new policy always arrives in a
@@ -38,7 +39,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** The two migration roots RLS policies live in (AV-1). */
-export const MIGRATION_ROOTS = ["prisma/migrations", "supabase/migrations"];
+export const MIGRATION_ROOTS = [
+  "prisma/migrations",
+  "docs/ops/supabase-migrations-archive",
+];
 
 const AUTH_CALL = /auth\.(uid|role|jwt|email)\s*\(\s*\)/gi;
 /** Preceding context that makes an auth call InitPlan-safe: `(select auth.…` */

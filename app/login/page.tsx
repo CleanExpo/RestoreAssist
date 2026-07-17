@@ -46,7 +46,7 @@ function LoginForm() {
   // hydration matches.
   const [rememberMe, setRememberMe] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
 
   // Pre-fill email if coming from signup
   useEffect(() => {

@@ -22,10 +22,11 @@ interface InspectionMeta {
 export default function SketchPreviewPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>() ?? { id: "" };
   const inspectionId = params.id;
 
   const [meta, setMeta] = useState<InspectionMeta | null>(null);
+  const [metaError, setMetaError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -38,8 +39,12 @@ export default function SketchPreviewPage() {
     if (!inspectionId || status !== "authenticated") return;
     (async () => {
       try {
+        setMetaError(null);
         const res = await fetch(`/api/inspections/${inspectionId}`);
-        if (!res.ok) return;
+        if (!res.ok) {
+          setMetaError("Could not load inspection details");
+          return;
+        }
         const data = await res.json();
         setMeta({
           id: inspectionId,
@@ -48,7 +53,7 @@ export default function SketchPreviewPage() {
             data.inspection?.propertyAddress ?? data.propertyAddress,
         });
       } catch {
-        // non-fatal — viewer still loads
+        setMetaError("Could not load inspection details");
       }
     })();
   }, [inspectionId, status]);
@@ -79,6 +84,13 @@ export default function SketchPreviewPage() {
             </span>
           </div>
         </div>
+
+        {metaError && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+            {metaError}. The sketch viewer below may still work if floor plans
+            are already saved.
+          </div>
+        )}
 
         {/* Viewer */}
         <SketchViewer

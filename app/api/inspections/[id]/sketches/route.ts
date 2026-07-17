@@ -6,6 +6,7 @@ import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { decomposeElements } from "@/lib/sketch/decompose-elements";
 import { pinsToMoistureReadingInputs } from "@/lib/sketch/moisture-readings-sync";
+import { extractRoomGraphNodes } from "@/lib/sketch/sync-room-graph";
 
 // GET /api/inspections/[id]/sketches — list all sketches for an inspection
 export async function GET(
@@ -261,9 +262,70 @@ export async function POST(
             ]
           : []),
       ]);
+
+      // RoomGraph V1 — upsert rooms by fabricObjectId; preserve EvidencePin links.
+      const roomNodes = extractRoomGraphNodes(
+        sketchData as Record<string, unknown>,
+      );
+      const existingRooms = await (prisma as any).sketchRoom.findMany({
+        where: { sketchId: sketch.id },
+        select: { id: true, fabricObjectId: true },
+        take: 500,
+      });
+      const byFabric = new Map(
+        existingRooms.map((r: { id: string; fabricObjectId: string }) => [
+          r.fabricObjectId,
+          r.id,
+        ]),
+      );
+      const seenFabric = new Set<string>();
+      for (const node of roomNodes) {
+        seenFabric.add(node.fabricObjectId);
+        const existingId = byFabric.get(node.fabricObjectId);
+        if (existingId) {
+          await (prisma as any).sketchRoom.update({
+            where: { id: existingId },
+            data: {
+              name: node.name,
+              areaM2: node.areaM2,
+              perimeterM: node.perimeterM,
+              materialSlug: node.materialSlug,
+              waterCategory: node.waterCategory,
+              provenance: node.provenance,
+              geometryJson: node.geometryJson,
+              floorNumber,
+            },
+          });
+        } else {
+          await (prisma as any).sketchRoom.create({
+            data: {
+              sketchId: sketch.id,
+              fabricObjectId: node.fabricObjectId,
+              name: node.name,
+              areaM2: node.areaM2,
+              perimeterM: node.perimeterM,
+              materialSlug: node.materialSlug,
+              waterCategory: node.waterCategory,
+              provenance: node.provenance,
+              geometryJson: node.geometryJson,
+              floorNumber,
+            },
+          });
+        }
+      }
+      const staleIds = existingRooms
+        .filter(
+          (r: { fabricObjectId: string }) => !seenFabric.has(r.fabricObjectId),
+        )
+        .map((r: { id: string }) => r.id);
+      if (staleIds.length) {
+        await (prisma as any).sketchRoom.deleteMany({
+          where: { id: { in: staleIds } },
+        });
+      }
     } catch (e) {
       console.error(
-        "[sketches] SketchElement / moisture decomposition failed (non-fatal):",
+        "[sketches] SketchElement / moisture / room-graph decomposition failed (non-fatal):",
         e,
       );
     }

@@ -240,6 +240,7 @@ export async function POST(req: NextRequest) {
               loginUrl,
               inviterName,
               isTransfer: true,
+              organizationId: orgId,
             }),
           { stage: "invite-transfer" },
         );
@@ -334,7 +335,8 @@ export async function POST(req: NextRequest) {
             loginUrl,
             inviterName,
             isTransfer: true,
-          }),
+              organizationId: orgId,
+            }),
         { stage: "invite-existing-user" },
       );
     } catch (emailError: any) {
@@ -429,7 +431,8 @@ export async function POST(req: NextRequest) {
             inviteLink,
             loginUrl,
             inviterName,
-          }),
+              organizationId: orgId,
+            }),
         { stage: "invite-new-user" },
       );
     } catch (emailError: any) {

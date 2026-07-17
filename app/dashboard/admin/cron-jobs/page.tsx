@@ -42,6 +42,7 @@ export default function CronJobsPage() {
   const [jobs, setJobs] = useState<CronJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [jobStates, setJobStates] = useState<Record<string, JobRunState>>({});
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -57,14 +58,21 @@ export default function CronJobsPage() {
   }, [status, session, router]);
 
   const fetchJobs = async () => {
+    setLoadError(null);
     try {
       const response = await fetch("/api/admin/cron-jobs");
       if (response.ok) {
         const data = await response.json();
         setJobs(data.jobs);
+        setLoadError(null);
+      } else {
+        setJobs([]);
+        setLoadError("Failed to load cron jobs");
       }
     } catch (error) {
       console.error("Error fetching cron jobs:", error);
+      setJobs([]);
+      setLoadError("Failed to load cron jobs");
     } finally {
       setLoading(false);
     }
@@ -177,6 +185,22 @@ export default function CronJobsPage() {
           Admin Only
         </Badge>
       </div>
+
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => {
+              setLoading(true);
+              void fetchJobs();
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Info banner */}
       <Card className="bg-cyan-500/5 border-cyan-200 dark:border-cyan-800/60">

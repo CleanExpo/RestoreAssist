@@ -1,4 +1,4 @@
-import archiver from "archiver";
+import { createZipArchive as openZipArchive } from "@/lib/exports/create-zip-archive";
 
 interface ZipItem {
   reportNumber: string;
@@ -18,10 +18,10 @@ interface Report {
  */
 export async function createZipArchive(
   pdfBuffers: ZipItem[],
-  reports?: Report[],
+  _reports?: Report[],
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const archive = archiver("zip", { zlib: { level: 9 } });
+    const archive = openZipArchive({ zlib: { level: 9 } });
     const buffers: Buffer[] = [];
 
     archive.on("data", (chunk: Buffer) => {
@@ -29,15 +29,13 @@ export async function createZipArchive(
     });
 
     archive.on("end", () => {
-      const zipBuffer = Buffer.concat(buffers);
-      resolve(zipBuffer);
+      resolve(Buffer.concat(buffers));
     });
 
-    archive.on("error", (err) => {
+    archive.on("error", (err: Error) => {
       reject(err);
     });
 
-    // Add each PDF buffer to the archive
     pdfBuffers.forEach((item) => {
       const filename = item.reportNumber
         ? `${item.reportNumber}_${item.clientName.replace(/[^a-z0-9]/gi, "_")}.pdf`
@@ -46,6 +44,6 @@ export async function createZipArchive(
       archive.append(item.buffer, { name: filename });
     });
 
-    archive.finalize();
+    void archive.finalize();
   });
 }

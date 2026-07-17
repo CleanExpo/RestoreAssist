@@ -967,3 +967,37 @@ export function getFieldMapForClaimType(
       return null;
   }
 }
+
+/** Water-damage NIR surfaces (moisture map, S500 class/cat, drying kit). */
+export function isWaterDamageClaim(
+  claimType: IicrcClaimType | null | undefined,
+): boolean {
+  return claimType === "WATER";
+}
+
+/**
+ * Moisture readings are required only for S500 water jobs. Mould / trauma /
+ * fire capture their own evidence via claim-type assessment panels.
+ */
+export function moistureReadingsRequired(
+  claimType: IicrcClaimType | null | undefined,
+): boolean {
+  return claimType === "WATER";
+}
+
+const IICRC_CLAIM_TYPES: readonly IicrcClaimType[] = [
+  "WATER",
+  "MOULD",
+  "BIOHAZARD",
+  "FIRE",
+] as const;
+
+/** Narrow a persisted ClaimType string to the 4-option IICRC picker set. */
+export function asIicrcClaimType(
+  value: string | null | undefined,
+): IicrcClaimType | null {
+  if (!value) return null;
+  return (IICRC_CLAIM_TYPES as readonly string[]).includes(value)
+    ? (value as IicrcClaimType)
+    : null;
+}

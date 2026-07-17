@@ -5,7 +5,7 @@ import PricingConfiguration from "@/components/PricingConfiguration";
 import OnboardingGuide from "@/components/OnboardingGuide";
 
 export default function PricingConfigPage() {
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const isOnboarding = searchParams.get("onboarding") === "true";
 
   return (

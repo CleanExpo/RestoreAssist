@@ -110,7 +110,7 @@ export default function DashboardLayout({
   const [savingMode, setSavingMode] = useState(false);
   const { data: session, status } = useSession();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   // Close mobile menu on route change
   useEffect(() => {

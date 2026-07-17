@@ -105,18 +105,28 @@ export default function AdminBlockedCustomersPage() {
   const [customers, setCustomers] = useState<BlockedCustomer[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch("/api/admin/blocked-customers");
       if (response.ok) {
         const data = await response.json();
         setCustomers(data.customers ?? []);
         setTotal(data.total ?? 0);
+        setLoadError(null);
+      } else {
+        setCustomers([]);
+        setTotal(0);
+        setLoadError("Failed to load blocked customers");
       }
     } catch (error) {
       console.error("Error fetching blocked customers:", error);
+      setCustomers([]);
+      setTotal(0);
+      setLoadError("Failed to load blocked customers");
     } finally {
       setLoading(false);
     }
@@ -190,6 +200,19 @@ export default function AdminBlockedCustomersPage() {
           Admin Only
         </Badge>
       </div>
+
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => void fetchCustomers()}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">

@@ -7,6 +7,7 @@
 import { prisma } from "@/lib/prisma";
 import { SupabaseStorageProvider } from "./supabase-provider";
 import { GoogleDriveStorageProvider } from "./google-drive-provider";
+import { OneDriveStorageProvider } from "./onedrive-provider";
 import type { StorageProvider } from "./types";
 
 export { BUCKET_ORIGINALS, BUCKET_OPTIMISED } from "./types";
@@ -86,7 +87,8 @@ export async function getMirrorStorageProvider(
   switch (org.storageProvider) {
     case "GOOGLE_DRIVE":
       return new GoogleDriveStorageProvider(orgId);
-    // ONEDRIVE / LOCAL are placeholder enum values in v1 — no provider yet.
+    case "ONEDRIVE":
+      return new OneDriveStorageProvider(orgId);
     default:
       return null;
   }

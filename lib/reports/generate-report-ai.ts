@@ -875,6 +875,8 @@ ${data.standardsContext ? '**IMPORTANT: The standards documents above have been 
 
 Generate a comprehensive Professional Inspection Report with ALL of the following sections. **CRITICAL: You MUST use proper Markdown heading syntax (# for H1, ## for H2, ### for H3) for all section headers. Do NOT use plain text for section titles.**
 
+# AI-ASSISTED DRAFT — Application holder must review and rewrite before use
+
 # PRELIMINARY ASSESSMENT — NOT FINAL ESTIMATE
 
 ## RestoreAssist Inspection Report

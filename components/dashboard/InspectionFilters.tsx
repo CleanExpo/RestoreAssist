@@ -73,8 +73,8 @@ const SORT_OPTIONS = [
 
 export function useInspectionFilters() {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const [isPending, startTransition] = useTransition();
 
   const filters = parseFilters(searchParams);

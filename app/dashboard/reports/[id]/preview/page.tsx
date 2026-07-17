@@ -217,7 +217,7 @@ function Field({
 }
 
 export default function ReportPreviewPage() {
-  const params = useParams();
+  const params = useParams() ?? {};
   const router = useRouter();
   const id = params?.id as string;
 

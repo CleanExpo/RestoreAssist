@@ -57,7 +57,7 @@ e2e/
 └── workshop.spec.ts      # Report workshop + AI generation
 ```
 
-Config: `playwright.config.ts` — runs against `http://localhost:3000`, parallel in CI.
+Config: `config/playwright.config.ts` — runs against `http://localhost:3000`, parallel in CI.
 
 ## Mocking Conventions
 

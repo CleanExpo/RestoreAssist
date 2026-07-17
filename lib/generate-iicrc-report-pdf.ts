@@ -21,6 +21,7 @@ import {
   type ClientBrandTheme,
 } from "@/lib/clients/brand";
 import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
+import { drawAiOwnershipWatermark } from "@/lib/reports/ai-ownership-watermark";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -359,6 +360,8 @@ function drawPageFooter(
  */
 export interface GenerateIICRCReportOptions {
   theme?: ClientBrandTheme;
+  /** When true, stamp AI-draft ownership watermark on every page. */
+  showAiDraftWatermark?: boolean;
 }
 
 /**
@@ -912,6 +915,9 @@ export async function generateIICRCReportPDF(
     if (i > 0) {
       // Subsequent pages already have header/footer drawn — nothing to do
       // (they're drawn at newPage time)
+    }
+    if (options.showAiDraftWatermark) {
+      drawAiOwnershipWatermark(p, bold);
     }
   });
 

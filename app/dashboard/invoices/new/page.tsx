@@ -124,9 +124,17 @@ export default function NewInvoicePage() {
       if (response.ok) {
         const data = await response.json();
         setClients(data.clients || []);
+      } else {
+        const body = await response.json().catch(() => ({}));
+        toast.error(
+          typeof body.error === "string"
+            ? body.error
+            : "Failed to load clients",
+        );
       }
     } catch (error) {
       console.error("Failed to fetch clients:", error);
+      toast.error("Failed to load clients. Please try again.");
     } finally {
       setLoadingClients(false);
     }
