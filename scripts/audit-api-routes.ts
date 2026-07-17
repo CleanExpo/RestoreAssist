@@ -42,6 +42,7 @@ const PUBLIC_TOKEN_ROUTE_PREFIXES = [
   "app/api/portal/",
   "app/api/invites/",
   "app/api/oauth/google-drive/callback/",
+  "app/api/oauth/microsoft-onedrive/callback/",
   "app/api/observability/client-error/",
   "app/api/properties/scrape/health/",
   "app/api/authority-forms/sign/",
