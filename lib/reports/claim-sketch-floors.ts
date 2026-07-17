@@ -1,5 +1,6 @@
 import type { SketchFloor } from "@/lib/generate-sketch-pdf";
 import { parseMoisturePins } from "@/lib/reports/moisture-map";
+import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 
 /**
  * The subset of a `ClaimSketch` row needed to build a report floor page.
@@ -44,7 +45,10 @@ export async function claimSketchesToFloors(
   const floors = await Promise.all(
     renderable.map(async (s): Promise<SketchFloor | null> => {
       try {
-        const res = await fetchImpl(s.renderedPngUrl);
+        // P0-1: sketch-media is private; re-sign the stored URL before fetching
+        // its bytes for PDF embedding. Non-storage URLs pass through unchanged.
+        const signedUrl = await signStoredMediaUrl(s.renderedPngUrl);
+        const res = await fetchImpl(signedUrl ?? s.renderedPngUrl);
         if (!res.ok) return null;
         const base64 = Buffer.from(await res.arrayBuffer()).toString("base64");
         return {
