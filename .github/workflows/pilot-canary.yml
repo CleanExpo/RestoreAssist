@@ -12,7 +12,7 @@ on:
         default: "https://restoreassist-sandbox.vercel.app"
   pull_request:
     paths:
-      - "pilot-tester/**"
+      - "packages/pilot-tester/**"
       - ".github/workflows/pilot-canary.yml"
 
 permissions:
@@ -38,9 +38,11 @@ jobs:
         env:
           HUSKY: "0"
       - name: Vitest
-        run: pnpm --filter @restoreassist/pilot-tester test
+        working-directory: packages/pilot-tester
+        run: pnpm install --ignore-scripts && pnpm test
       - name: Dry-run
-        run: pnpm --filter @restoreassist/pilot-tester dryrun
+        working-directory: packages/pilot-tester
+        run: pnpm dryrun
 
   # Skip-with-notice gate (RA-7008): until the PILOT_TESTER_* secrets are
   # provisioned the scheduled swarm skips cleanly instead of burning a red
@@ -103,7 +105,7 @@ jobs:
           try {
             pool = JSON.parse(raw);
           } catch {
-            console.error("::error title=Invalid PILOT_TESTER_USER_POOL_JSON::Secret must be valid JSON matching pilot-tester/user-pool.example.json.");
+            console.error("::error title=Invalid PILOT_TESTER_USER_POOL_JSON::Secret must be valid JSON matching packages/pilot-tester/user-pool.example.json.");
             process.exit(2);
           }
 
@@ -130,11 +132,11 @@ jobs:
         # execute. Pass via env and use printf with a quoted shell var
         # so the runtime never re-parses the value.
         run: |
-          mkdir -p pilot-tester
-          printf '%s' "$POOL_JSON" > pilot-tester/user-pool.json
+          mkdir -p packages/pilot-tester
+          printf '%s' "$POOL_JSON" > packages/pilot-tester/user-pool.json
 
       - name: Run swarm
-        working-directory: pilot-tester
+        working-directory: packages/pilot-tester
         env:
           PILOT_TESTER_BASE_URL: ${{ github.event.inputs.base_url || 'https://restoreassist-sandbox.vercel.app' }}
           PILOT_TESTER_USER_POOL: ./user-pool.json
@@ -145,5 +147,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: pilot-tester-report
-          path: pilot-tester/reports/
+          path: packages/pilot-tester/reports/
           retention-days: 30

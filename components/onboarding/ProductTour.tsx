@@ -85,7 +85,7 @@ const STEPS: TourStep[] = [
 
 export function ProductTour() {
   const { status } = useSession();
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const router = useRouter();
 
   const [open, setOpen] = useState(false);

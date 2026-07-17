@@ -93,6 +93,11 @@ export interface ReportWithSessionData {
   aiSynopsis?: string | null;
   aiSynopsisAt?: string | null;
 
+  // Wave 7 / Workstream A — ownership stamps for list badges (no report body).
+  aiDraftGeneratedAt?: string | Date | null;
+  aiDraftHumanEditedAt?: string | Date | null;
+  reportOwnershipAcknowledgedAt?: string | Date | null;
+
   // --- Session orchestration fields (optional, absent on older reports) ---
 
   /** The parent session ID that orchestrated this report's generation */

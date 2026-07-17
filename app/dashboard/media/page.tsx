@@ -7,7 +7,7 @@
  * - Stats cards (total assets, storage, damage type breakdown, upload trend)
  * - Grid/list toggle with thumbnails
  * - 7-dimension filter sidebar (job, room, damage type, technician, device, location, date range)
- * - Bulk select + export actions (download ZIP, copy JSON-LD, copy embed code)
+ * - Bulk select + export actions (copy JSON-LD, copy embed code)
  * - AI alt text generation via BYOK vision
  * - Cursor-based pagination (load more)
  */
@@ -25,7 +25,6 @@ import {
   Loader2,
   X,
   ImageOff,
-  Download,
   Code2,
   CheckSquare,
   Square,
@@ -163,6 +162,7 @@ export default function MediaPage() {
     useState<FilterState>(EMPTY_FILTERS);
   const [filterOpen, setFilterOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const fetchAssets = useCallback(
     async (appliedFilters: FilterState, cursor?: string) => {
@@ -170,16 +170,28 @@ export default function MediaPage() {
       else {
         setLoading(true);
         setAssets([]);
+        setLoadError(null);
       }
       try {
         const qs = buildQueryString(appliedFilters, cursor);
         const res = await fetch(`/api/media?${qs}`);
-        if (!res.ok) throw new Error("fetch failed");
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(
+            typeof body.error === "string" ? body.error : "Failed to load media",
+          );
+        }
         const json = await res.json();
         setAssets((prev) => (cursor ? [...prev, ...json.data] : json.data));
         setNextCursor(json.nextCursor);
-      } catch {
-        /* empty state handles */
+        setLoadError(null);
+      } catch (err) {
+        if (!cursor) {
+          setAssets([]);
+          setLoadError(
+            err instanceof Error ? err.message : "Failed to load media",
+          );
+        }
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -193,8 +205,9 @@ export default function MediaPage() {
     try {
       const res = await fetch("/api/media/stats");
       if (res.ok) setStats(await res.json());
+      else setStats(null);
     } catch {
-      /* silent */
+      setStats(null);
     } finally {
       setLoadingStats(false);
     }
@@ -524,6 +537,20 @@ export default function MediaPage() {
         {loading ? (
           <div className="flex items-center justify-center h-48">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center h-64 text-center gap-3">
+            <p className="text-sm text-destructive">
+              Failed to load media — {loadError}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void fetchAssets(filters)}
+            >
+              Retry
+            </Button>
           </div>
         ) : assets.length === 0 ? (
           <EmptyState hasFilters={activeCount > 0} onClear={clearFilters} />

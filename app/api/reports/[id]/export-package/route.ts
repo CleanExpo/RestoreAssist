@@ -8,6 +8,15 @@ import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
 import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
 import { inspectionPhotosToImages } from "@/lib/reports/inspection-photos-to-images";
 import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
+import { buildReportPackageZip } from "@/lib/exports/report-package-zip";
+import { buildReportDocx } from "@/lib/exports/report-docx";
+import {
+  AI_OWNERSHIP_WATERMARK,
+  isAiDraftPending,
+} from "@/lib/reports/ai-ownership";
+import { drawAiOwnershipWatermark } from "@/lib/reports/ai-ownership-watermark";
+import { aiOwnershipExportMeta } from "@/lib/reports/ai-ownership-export-meta";
+
 
 /**
  * RA-7003: the "complete package" previously contained only the three text
@@ -139,7 +148,7 @@ export async function GET(
     const format = searchParams.get("format") || "pdf"; // pdf, word, json, zip
 
     // Get the complete report
-    const report = await prisma.report.findUnique({
+    const report = await prisma.report.findFirst({
       where: { id, userId: user.id },
     });
 
@@ -150,6 +159,8 @@ export async function GET(
         status: 404,
       });
     }
+
+    const showAiDraftWatermark = isAiDraftPending(report);
 
     // Parse all data
     const inspectionReport = report.detailedReport || "";
@@ -176,6 +187,7 @@ export async function GET(
       claimReference: report.claimReferenceNumber || report.reportNumber,
       generatedAt: new Date().toISOString(),
       version: report.reportVersion || 1,
+      ownership: aiOwnershipExportMeta(report),
       initialData: {
         clientName: report.clientName,
         propertyAddress: report.propertyAddress,
@@ -216,10 +228,26 @@ export async function GET(
       });
     }
 
+    if (format === "word") {
+      const claimReference =
+        report.claimReferenceNumber || report.reportNumber || report.id;
+      const docxBuffer = await buildReportDocx({
+        claimReference,
+        inspectionReport: inspectionReport || undefined,
+        scopeOfWorks: scopeOfWorks || undefined,
+        costEstimation: costEstimation || undefined,
+        showAiDraftDisclaimer: showAiDraftWatermark,
+      });
+      return new NextResponse(new Uint8Array(docxBuffer), {
+        headers: {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "Content-Disposition": `attachment; filename="RestoreAssist-Package-${report.id}.docx"`,
+        },
+      });
+    }
+
     if (format === "zip") {
-      // For ZIP format, return JSON with download instructions
-      // In production, you would use a library like jszip or archiver
-      // For now, we'll return a combined PDF with all documents
       const pdfDoc = await PDFDocument.create();
 
       if (inspectionReport) {
@@ -246,10 +274,21 @@ export async function GET(
       let pdfBytes: Uint8Array = await pdfDoc.save();
       pdfBytes = await appendArtifactsToPackage(pdfBytes, report);
 
-      return new NextResponse(Buffer.from(pdfBytes), {
+      const zipBuffer = await buildReportPackageZip([
+        {
+          name: `RestoreAssist-Package-${report.id}.pdf`,
+          buffer: Buffer.from(pdfBytes),
+        },
+        {
+          name: `RestoreAssist-Export-${report.id}.json`,
+          buffer: Buffer.from(JSON.stringify(rawDataExport, null, 2), "utf8"),
+        },
+      ]);
+
+      return new NextResponse(new Uint8Array(zipBuffer), {
         headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="RestoreAssist-Complete-Package-${report.id}.pdf"`,
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="RestoreAssist-Complete-Package-${report.id}.zip"`,
         },
       });
     }
@@ -410,6 +449,18 @@ async function addDocumentToPDF(
     color: watermarkColor,
     opacity: 0.3,
   });
+
+  if (isAiDraftPending(report)) {
+    drawAiOwnershipWatermark(page, boldFont);
+    page.drawText(AI_OWNERSHIP_WATERMARK.slice(0, 72), {
+      x: 50,
+      y: height - 45,
+      size: 8,
+      font: boldFont,
+      color: rgb(0.7, 0.2, 0.2),
+      opacity: 0.55,
+    });
+  }
 
   // Add title
   page.drawText(title, {

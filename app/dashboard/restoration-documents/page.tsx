@@ -40,6 +40,7 @@ export default function RestorationDocumentsPage() {
   const router = useRouter();
   const [documents, setDocuments] = useState<DocSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>("ALL");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -47,12 +48,24 @@ export default function RestorationDocumentsPage() {
     let cancelled = false;
     async function fetchDocs() {
       try {
+        setLoadError(null);
         const res = await fetch("/api/restoration-documents", {
           cache: "no-store",
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (!cancelled) {
+            setDocuments([]);
+            setLoadError("Failed to load restoration documents");
+          }
+          return;
+        }
         const data = await res.json();
         if (!cancelled) setDocuments(data.documents ?? []);
+      } catch {
+        if (!cancelled) {
+          setDocuments([]);
+          setLoadError("Failed to load restoration documents");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -87,7 +100,13 @@ export default function RestorationDocumentsPage() {
       const res = await fetch(`/api/restoration-documents/${id}`, {
         method: "DELETE",
       });
-      if (res.ok) setDocuments((prev) => prev.filter((d) => d.id !== id));
+      if (res.ok) {
+        setDocuments((prev) => prev.filter((d) => d.id !== id));
+      } else {
+        setLoadError("Failed to delete document");
+      }
+    } catch {
+      setLoadError("Failed to delete document");
     } finally {
       setDeletingId(null);
     }
@@ -124,6 +143,41 @@ export default function RestorationDocumentsPage() {
             New Restoration Invoice
           </Link>
         </div>
+
+        {loadError && (
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+            {loadError}
+            <button
+              type="button"
+              className="ml-3 underline"
+              onClick={() => {
+                setLoading(true);
+                setLoadError(null);
+                void (async () => {
+                  try {
+                    const res = await fetch("/api/restoration-documents", {
+                      cache: "no-store",
+                    });
+                    if (!res.ok) {
+                      setLoadError("Failed to load restoration documents");
+                      setDocuments([]);
+                      return;
+                    }
+                    const data = await res.json();
+                    setDocuments(data.documents ?? []);
+                  } catch {
+                    setLoadError("Failed to load restoration documents");
+                    setDocuments([]);
+                  } finally {
+                    setLoading(false);
+                  }
+                })();
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Filter tabs */}
         <div className="mb-4 flex gap-1 overflow-x-auto rounded-lg border border-neutral-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900">

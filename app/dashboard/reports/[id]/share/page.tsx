@@ -37,7 +37,7 @@ interface Invitation {
 }
 
 export default function ReportSharePage() {
-  const params = useParams();
+  const params = useParams() ?? {};
   const router = useRouter();
   const id = params?.id as string;
 

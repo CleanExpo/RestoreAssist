@@ -1,7 +1,6 @@
 "use client";
 
 import toast from "react-hot-toast";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,83 +30,11 @@ interface Payment {
   clientName: string;
   paymentMethod: string;
   reference: string | null;
-  amount: number; // cents from API, or dollars from mock
+  amount: number; // dollars (API cents divided by 100)
   reconciled: boolean;
   reconciledAt: string | null;
   externalProvider: string | null;
 }
-
-// ---------------------------------------------------------------------------
-// Mock data (used when the API is unavailable / returns an error)
-// ---------------------------------------------------------------------------
-
-const MOCK_PAYMENTS: Payment[] = [
-  {
-    id: "1",
-    paymentDate: "2026-03-28",
-    invoiceId: "inv-1",
-    invoiceNumber: "INV-1042",
-    clientName: "Smith Restoration Pty Ltd",
-    paymentMethod: "BANK_TRANSFER",
-    reference: "BSB 063-000 / Acc 12345678",
-    amount: 4850.0,
-    reconciled: true,
-    reconciledAt: "2026-03-29",
-    externalProvider: "Xero",
-  },
-  {
-    id: "2",
-    paymentDate: "2026-03-27",
-    invoiceId: "inv-2",
-    invoiceNumber: "INV-1041",
-    clientName: "Brisbane Water Damage Co",
-    paymentMethod: "STRIPE",
-    reference: "pi_3OxK4t2eZvKYlo2C",
-    amount: 1200.0,
-    reconciled: false,
-    reconciledAt: null,
-    externalProvider: "Stripe",
-  },
-  {
-    id: "3",
-    paymentDate: "2026-03-25",
-    invoiceId: "inv-3",
-    invoiceNumber: "INV-1038",
-    clientName: "Melbourne Mould Remediation",
-    paymentMethod: "CHEQUE",
-    reference: "CHQ #004421",
-    amount: 7200.0,
-    reconciled: true,
-    reconciledAt: "2026-03-26",
-    externalProvider: null,
-  },
-  {
-    id: "4",
-    paymentDate: "2026-03-22",
-    invoiceId: "inv-4",
-    invoiceNumber: "INV-1035",
-    clientName: "Perth Fire & Flood Services",
-    paymentMethod: "BANK_TRANSFER",
-    reference: "EFT 20260322",
-    amount: 3150.5,
-    reconciled: false,
-    reconciledAt: null,
-    externalProvider: null,
-  },
-  {
-    id: "5",
-    paymentDate: "2026-03-20",
-    invoiceId: "inv-5",
-    invoiceNumber: "INV-1031",
-    clientName: "Adelaide Restoration Group",
-    paymentMethod: "CASH",
-    reference: "Cash receipt #89",
-    amount: 550.0,
-    reconciled: true,
-    reconciledAt: "2026-03-20",
-    externalProvider: null,
-  },
-];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -136,7 +63,6 @@ const METHOD_LABELS: Record<string, string> = {
   PAYPAL: "PayPal",
   EXTERNAL: "External",
   OTHER: "Other",
-  // Legacy/mock value
   EFT: "EFT",
 };
 
@@ -161,22 +87,14 @@ function methodColour(method: string): string {
 }
 
 /**
- * Normalise a payment amount to dollars for display.
+ * Normalise API payment amounts (integer cents) to dollars for display.
  *
- * The payments API (`/api/invoices/payments`) returns `InvoicePayment.amount`,
- * which the Prisma schema defines as `Int // Amount in cents` — it is ALWAYS
- * integer cents, with no mixed dollar rows. So API amounts must ALWAYS be
- * divided by 100. The previous `> 1000` heuristic skipped that division for
- * real payments under $10.00 (e.g. 950 cents rendered as "$950.00").
- *
- * The local MOCK_PAYMENTS fallback is authored in dollars, so it is passed
- * through unchanged.
+ * The payments API returns `InvoicePayment.amount` as `Int // Amount in cents`.
+ * Always divide by 100 — the previous `> 1000` heuristic skipped that division
+ * for real payments under $10.00 (e.g. 950 cents rendered as "$950.00").
  */
-export function paymentAmountToDollars(
-  amount: number,
-  isMock: boolean,
-): number {
-  return isMock ? amount : amount / 100;
+export function paymentAmountToDollars(amountCents: number): number {
+  return amountCents / 100;
 }
 
 const PAGE_SIZE = 25;
@@ -188,7 +106,7 @@ const PAGE_SIZE = 25;
 export default function PaymentRegisterPage() {
   const [allPayments, setAllPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isMock, setIsMock] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Filters
   const [fromDate, setFromDate] = useState("");
@@ -206,6 +124,7 @@ export default function PaymentRegisterPage() {
 
   const fetchPayments = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const params = new URLSearchParams();
       if (fromDate) params.set("from", fromDate);
@@ -218,29 +137,42 @@ export default function PaymentRegisterPage() {
         );
 
       const res = await fetch(`/api/invoices/payments?${params}`);
-      if (!res.ok) throw new Error("API unavailable");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          typeof body.error === "string"
+            ? body.error
+            : "Failed to load payments",
+        );
+      }
       const data = await res.json();
 
       // Normalise API shape → our Payment interface
-      const normalised: Payment[] = (data.payments ?? []).map((p: any) => ({
-        id: p.id,
-        paymentDate: p.paymentDate ? p.paymentDate.substring(0, 10) : "",
-        invoiceId: p.invoice?.id ?? p.invoiceId ?? "",
-        invoiceNumber: p.invoice?.invoiceNumber ?? "",
-        clientName: p.invoice?.client?.name ?? "",
-        paymentMethod: p.paymentMethod,
-        reference: p.reference ?? null,
-        amount: paymentAmountToDollars(p.amount, false),
-        reconciled: p.reconciled,
-        reconciledAt: p.reconciledAt ? p.reconciledAt.substring(0, 10) : null,
-        externalProvider: p.externalProvider ?? null,
-      }));
+      const normalised: Payment[] = (data.payments ?? []).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- API payload shape
+        (p: any) => ({
+          id: p.id,
+          paymentDate: p.paymentDate ? p.paymentDate.substring(0, 10) : "",
+          invoiceId: p.invoice?.id ?? p.invoiceId ?? "",
+          invoiceNumber: p.invoice?.invoiceNumber ?? "",
+          clientName: p.invoice?.client?.name ?? "",
+          paymentMethod: p.paymentMethod,
+          reference: p.reference ?? null,
+          amount: paymentAmountToDollars(p.amount),
+          reconciled: p.reconciled,
+          reconciledAt: p.reconciledAt
+            ? p.reconciledAt.substring(0, 10)
+            : null,
+          externalProvider: p.externalProvider ?? null,
+        }),
+      );
 
       setAllPayments(normalised);
-      setIsMock(false);
-    } catch {
-      setAllPayments(MOCK_PAYMENTS);
-      setIsMock(true);
+    } catch (err) {
+      setAllPayments([]);
+      setFetchError(
+        err instanceof Error ? err.message : "Failed to load payments",
+      );
     } finally {
       setLoading(false);
     }
@@ -419,17 +351,32 @@ export default function PaymentRegisterPage() {
           <h1 className="text-2xl font-bold tracking-tight">
             Payment Register
           </h1>
-          {isMock && (
-            <p className="text-xs text-amber-600 mt-0.5">
-              Showing sample data — could not reach API
-            </p>
-          )}
         </div>
-        <Button onClick={handleExportCSV} variant="outline" className="gap-2">
+        <Button
+          onClick={handleExportCSV}
+          variant="outline"
+          className="gap-2"
+          disabled={loading || !!fetchError || filtered.length === 0}
+        >
           <Download className="h-4 w-4" />
           Export CSV
         </Button>
       </div>
+
+      {fetchError && !loading && (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-destructive">
+          <span className="text-sm">Failed to load payments — {fetchError}</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void fetchPayments()}
+            className="flex-shrink-0"
+          >
+            Retry
+          </Button>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -660,13 +607,19 @@ export default function PaymentRegisterPage() {
                   <td colSpan={8} className="px-4 py-16 text-center">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <DollarSign className="h-10 w-10 opacity-30" />
-                      <p className="font-medium">No payments recorded yet</p>
-                      <Link
-                        href="/dashboard/invoices"
-                        className="text-sm text-primary hover:underline"
-                      >
-                        Go to Invoices
-                      </Link>
+                      <p className="font-medium">
+                        {fetchError
+                          ? "Payments could not be loaded"
+                          : "No payments recorded yet"}
+                      </p>
+                      {!fetchError && (
+                        <Link
+                          href="/dashboard/invoices"
+                          className="text-sm text-primary hover:underline"
+                        >
+                          Go to Invoices
+                        </Link>
+                      )}
                     </div>
                   </td>
                 </tr>

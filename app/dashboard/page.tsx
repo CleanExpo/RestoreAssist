@@ -36,7 +36,7 @@ import type { ReportWithSessionData } from "@/lib/session-types";
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
 
   // Only fetch once the session is confirmed authenticated
   const isAuthed = status === "authenticated";
@@ -74,11 +74,21 @@ export default function DashboardPage() {
     };
   }, [status, searchParams, router]);
 
-  const { data: reportsRaw, loading: reportsLoading } = useFetch<{
+  const {
+    data: reportsRaw,
+    loading: reportsLoading,
+    error: reportsError,
+    refetch: refetchReports,
+  } = useFetch<{
     reports: ReportWithSessionData[];
   }>(isAuthed ? "/api/reports" : null);
 
-  const { data: clientsRaw, loading: clientsLoading } = useFetch<{
+  const {
+    data: clientsRaw,
+    loading: clientsLoading,
+    error: clientsError,
+    refetch: refetchClients,
+  } = useFetch<{
     clients: Array<{ id: string; name: string; createdAt: string }>;
   }>(isAuthed ? "/api/clients" : null);
 
@@ -92,8 +102,9 @@ export default function DashboardPage() {
 
   // Derive dashboard metrics from fetched data
   const dashboardData = useMemo(() => {
-    const reports = reportsRaw?.reports ?? [];
-    const clients = clientsRaw?.clients ?? [];
+    const loadFailed = Boolean(reportsError || clientsError);
+    const reports = loadFailed ? [] : (reportsRaw?.reports ?? []);
+    const clients = loadFailed ? [] : (clientsRaw?.clients ?? []);
 
     const totalRevenue = reports.reduce(
       (sum: number, report: any) => sum + (report.totalCost || 0),
@@ -121,8 +132,17 @@ export default function DashboardPage() {
       recentReports,
       recentClients,
       loading: reportsLoading || clientsLoading,
+      loadFailed,
+      loadError: reportsError || clientsError,
     };
-  }, [reportsRaw, clientsRaw, reportsLoading, clientsLoading]);
+  }, [
+    reportsRaw,
+    clientsRaw,
+    reportsLoading,
+    clientsLoading,
+    reportsError,
+    clientsError,
+  ]);
 
   if (status === "loading") {
     return (
@@ -137,7 +157,9 @@ export default function DashboardPage() {
       label: "Reports Generated",
       value: dashboardData.loading
         ? "..."
-        : dashboardData.totalReports.toString(),
+        : dashboardData.loadFailed
+          ? "—"
+          : dashboardData.totalReports.toString(),
       icon: FileText,
       color: "text-cyan-400",
     },
@@ -145,7 +167,9 @@ export default function DashboardPage() {
       label: "Total Clients",
       value: dashboardData.loading
         ? "..."
-        : dashboardData.totalClients.toString(),
+        : dashboardData.loadFailed
+          ? "—"
+          : dashboardData.totalClients.toString(),
       icon: Users,
       color: "text-success",
     },
@@ -153,7 +177,9 @@ export default function DashboardPage() {
       label: "Total Revenue",
       value: dashboardData.loading
         ? "..."
-        : `$${dashboardData.totalRevenue.toLocaleString()}`,
+        : dashboardData.loadFailed
+          ? "—"
+          : `$${dashboardData.totalRevenue.toLocaleString()}`,
       icon: DollarSign,
       color: "text-blue-400",
     },
@@ -161,9 +187,11 @@ export default function DashboardPage() {
       label: "Active Reports",
       value: dashboardData.loading
         ? "..."
-        : dashboardData.recentReports
-            .filter((r: any) => r.status !== "Draft")
-            .length.toString(),
+        : dashboardData.loadFailed
+          ? "—"
+          : dashboardData.recentReports
+              .filter((r: any) => r.status !== "Draft")
+              .length.toString(),
       icon: CheckCircle,
       color: "text-orange-400",
     },
@@ -260,6 +288,24 @@ export default function DashboardPage() {
         <InboundJobAlert />
       </div>
       <TechLicenceBanner />
+      {dashboardData.loadFailed && !dashboardData.loading && (
+        <div className="mx-6 mt-4 flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
+          <span className="text-sm">
+            Failed to load dashboard data
+            {dashboardData.loadError ? ` — ${dashboardData.loadError}` : ""}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              void refetchReports();
+              void refetchClients();
+            }}
+            className="flex-shrink-0 rounded px-3 py-1 text-sm border border-red-500/40 hover:bg-red-500/20 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="border-b border-slate-800/50 bg-slate-900/30 backdrop-blur-sm">
         <div className="px-6 py-6">

@@ -40,7 +40,7 @@ export default function OnboardingGuide({
   children,
 }: OnboardingGuideProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const isOnboarding = searchParams.get("onboarding") === "true";
   const [isVisible, setIsVisible] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);

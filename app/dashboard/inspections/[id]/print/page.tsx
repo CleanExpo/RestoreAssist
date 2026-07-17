@@ -4,6 +4,10 @@ import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { resolveAreaSqm } from "@/lib/units";
+import {
+  moistureReadingsRequired,
+  type IicrcClaimType,
+} from "@/lib/nir-standards-mapping";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -76,6 +80,7 @@ interface Inspection {
   propertyPostcode: string;
   technicianName: string | null;
   status: string;
+  claimType: string | null;
   createdAt: string;
   submittedAt: string | null;
   environmentalData: EnvironmentalData | null;
@@ -160,6 +165,13 @@ export default function InspectionPrintPage({
 
   const classification = inspection.classifications?.[0] ?? null;
   const selectedScope = inspection.scopeItems.filter((s) => s.isSelected);
+  const waterClaim = moistureReadingsRequired(
+    inspection.claimType as IicrcClaimType | null | undefined,
+  );
+  const claimLabel = inspection.claimType
+    ? inspection.claimType.charAt(0) +
+      inspection.claimType.slice(1).toLowerCase()
+    : "Not set";
   const subtotalCost = inspection.costEstimates.reduce(
     (sum, c) => sum + c.subtotal,
     0,
@@ -242,7 +254,9 @@ export default function InspectionPrintPage({
                   RestoreAssist
                 </div>
                 <div className="text-xs text-neutral-500">
-                  National Inspection Report
+                  {waterClaim
+                    ? "Water damage evidence package"
+                    : `${claimLabel} claim evidence package`}
                 </div>
               </div>
             </div>
@@ -252,6 +266,11 @@ export default function InspectionPrintPage({
               </h1>
               <div className="text-sm text-neutral-500 mt-1">
                 Report No: {inspection.inspectionNumber}
+              </div>
+              <div className="mt-2">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-cyan-50 text-cyan-800 border border-cyan-100">
+                  Claim type: {claimLabel}
+                </span>
               </div>
             </div>
           </div>
@@ -387,8 +406,8 @@ export default function InspectionPrintPage({
           </div>
         )}
 
-        {/* ── 3. Moisture Readings ─────────────────────────────────────────── */}
-        {inspection.moistureReadings.length > 0 && (
+        {/* ── 3. Moisture Readings (water claims) ─────────────────────────── */}
+        {waterClaim && inspection.moistureReadings.length > 0 && (
           <div className="print-card rounded-xl border border-neutral-200 bg-white p-6">
             <h2 className="text-base font-bold text-neutral-900 mb-4 pb-2 border-b border-neutral-100">
               Moisture Readings ({inspection.moistureReadings.length})
@@ -461,6 +480,20 @@ export default function InspectionPrintPage({
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {waterClaim && inspection.moistureReadings.length === 0 && (
+          <div className="print-card rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            Water claim — no moisture readings recorded in this package yet.
+          </div>
+        )}
+
+        {!waterClaim && (
+          <div className="print-card rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
+            {claimLabel} claim — moisture readings are not required for this
+            evidence package. Review claim-type assessment, photos, and scope
+            sections below.
           </div>
         )}
 

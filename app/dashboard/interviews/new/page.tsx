@@ -108,7 +108,7 @@ const EXPERIENCE_LEVELS = [
 
 export default function NewInterviewPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const reportId = searchParams.get("reportId");
   const initialJobType = searchParams.get("jobType") || "WATER_DAMAGE";
   const initialPostcode = searchParams.get("postcode") || "";

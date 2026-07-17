@@ -389,6 +389,7 @@ export default function ScopeItemsPage({
       payload: Partial<
         Pick<ScopeItem, "isSelected" | "quantity" | "specification">
       >,
+      previous: ScopeItem,
     ) => {
       const res = await fetch(`/api/inspections/${id}/scope-items/${itemId}`, {
         method: "PATCH",
@@ -396,11 +397,10 @@ export default function ScopeItemsPage({
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        // Fallback: silently log — don't block the UI, optimistic update already applied
-        console.error(
-          "[ScopeItems] PATCH failed",
-          await res.text().catch(() => ""),
+        setItems((prev) =>
+          prev.map((it) => (it.id === itemId ? previous : it)),
         );
+        toast.error("Failed to save scope item. Changes were reverted.");
       }
     },
     [id],
@@ -408,15 +408,16 @@ export default function ScopeItemsPage({
 
   const handleToggleSelected = useCallback(
     async (itemId: string, value: boolean) => {
-      // Optimistic update
+      const previous = items.find((it) => it.id === itemId);
+      if (!previous) return;
       setItems((prev) =>
         prev.map((it) =>
           it.id === itemId ? { ...it, isSelected: value } : it,
         ),
       );
-      await patchItem(itemId, { isSelected: value });
+      await patchItem(itemId, { isSelected: value }, previous);
     },
-    [patchItem],
+    [items, patchItem],
   );
 
   const handlePatchField = useCallback(
@@ -425,6 +426,8 @@ export default function ScopeItemsPage({
       field: "quantity" | "specification",
       value: string | number | null,
     ) => {
+      const previous = items.find((it) => it.id === itemId);
+      if (!previous) return;
       setItems((prev) =>
         prev.map((it) =>
           it.id === itemId
@@ -438,9 +441,9 @@ export default function ScopeItemsPage({
             : it,
         ),
       );
-      await patchItem(itemId, { [field]: value });
+      await patchItem(itemId, { [field]: value }, previous);
     },
-    [patchItem],
+    [items, patchItem],
   );
 
   // ── Derived data ──────────────────────────────────────────────────────────

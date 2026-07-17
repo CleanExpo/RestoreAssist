@@ -39,6 +39,7 @@ export default function CostLibrariesPage() {
   const [showDeleteItemModal, setShowDeleteItemModal] = useState(false);
   const [libraries, setLibraries] = useState<CostLibrary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editingLibrary, setEditingLibrary] = useState<CostLibrary | null>(
     null,
   );
@@ -75,6 +76,7 @@ export default function CostLibrariesPage() {
   const fetchLibraries = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const response = await fetch("/api/cost-libraries");
       if (response.ok) {
         const data = await response.json();
@@ -82,12 +84,15 @@ export default function CostLibrariesPage() {
         if (data.libraries.length > 0 && !selectedLibrary) {
           setSelectedLibrary(data.libraries[0].id);
         }
+        setLoadError(null);
       } else {
-        toast.error("Failed to fetch cost libraries");
+        setLibraries([]);
+        setLoadError("Failed to load cost libraries");
       }
     } catch (error) {
       console.error("Error fetching cost libraries:", error);
-      toast.error("Failed to fetch cost libraries");
+      setLibraries([]);
+      setLoadError("Failed to load cost libraries");
     } finally {
       setLoading(false);
     }
@@ -482,6 +487,19 @@ export default function CostLibrariesPage() {
           New Library
         </button>
       </div>
+
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          {loadError}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => void fetchLibraries()}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-12">

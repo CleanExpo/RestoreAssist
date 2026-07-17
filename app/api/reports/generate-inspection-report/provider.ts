@@ -2,9 +2,9 @@
  * resolveReportProvider — reads the new ProviderConnection store (Task 2's
  * BYOK store) to determine which AI provider to use for report generation.
  *
- * Priority: ANTHROPIC first (preferred), then OPENAI, then OPENROUTER. Returns
- * null when no workspace exists or no active key is available for a supported
- * provider.
+ * Priority: ANTHROPIC first (preferred), then OPENAI, then GOOGLE (Gemini),
+ * then OPENROUTER. Returns null when no workspace exists or no active key is
+ * available for a supported provider.
  *
  * This allows a client who installed a key via the AI-providers page to have
  * their reports routed to that provider, independent of the old Integration
@@ -18,16 +18,20 @@ import {
   getProviderCredentials,
   type AiProvider,
 } from "@/lib/workspace/provider-connections";
+import { aiProviderToCallProvider } from "@/lib/workspace/ai-key-type";
 
 /**
  * Preferred provider resolution order. ANTHROPIC first because it supports
  * the full 16 000-token output needed for a 13-section report. OPENAI is
  * capped at 4 096 tokens in callAIProvider but is still a valid fallback.
- * OPENROUTER is last — it carries the workspace's own model choice (which may
- * be a large open model) but is opt-in, so it should not pre-empt the two
- * first-party providers when more than one key is present.
+ * GOOGLE (Gemini) follows first-party OpenAI. OPENROUTER is last — opt-in.
  */
-const PREFERRED_PROVIDERS: AiProvider[] = ["ANTHROPIC", "OPENAI", "OPENROUTER"];
+const PREFERRED_PROVIDERS: AiProvider[] = [
+  "ANTHROPIC",
+  "OPENAI",
+  "GOOGLE",
+  "OPENROUTER",
+];
 
 /**
  * Resolve which AI provider to use for report generation by reading the
@@ -59,6 +63,9 @@ export async function resolveReportProvider(
     const creds = await getProviderCredentials(workspace.id, preferredProvider);
     if (!creds?.apiKey) continue;
 
+    const callProvider = aiProviderToCallProvider(preferredProvider);
+    if (!callProvider) continue;
+
     // 5. Build an AIIntegration with lowercase provider to match callAIProvider's
     //    switch. For OPENROUTER, attach the workspace's stored model slug (if any)
     //    so callAIProvider routes to the user's chosen model.
@@ -66,7 +73,7 @@ export async function resolveReportProvider(
       id: `byok-${preferredProvider.toLowerCase()}`,
       name: `${preferredProvider} (BYOK)`,
       apiKey: creds.apiKey,
-      provider: preferredProvider.toLowerCase() as AIIntegration["provider"],
+      provider: callProvider,
       model: preferredProvider === "OPENROUTER" ? creds.model : undefined,
     };
   }

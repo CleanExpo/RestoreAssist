@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { RAIcon } from "@/src/components/brand/RAIcon";
+import { RAIcon } from "@/components/brand/RAIcon";
 
 interface FirstRunStep {
   id: string;

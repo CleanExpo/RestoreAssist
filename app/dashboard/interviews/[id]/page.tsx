@@ -156,7 +156,7 @@ function DetailSkeleton() {
 // ─── Main Page ─────────────────────────────────────────────────────────────
 
 export default function InterviewDetailPage() {
-  const params = useParams();
+  const params = useParams() ?? {};
   const router = useRouter();
   const id = params?.id as string;
 

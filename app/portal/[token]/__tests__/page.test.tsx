@@ -29,8 +29,15 @@ vi.mock("@/components/portal/ClientPortalAuthorities", () => ({
 vi.mock("@/components/portal/ClientPortalUpload", () => ({
   ClientPortalUpload: () => null,
 }));
+vi.mock("@/lib/portal/fetch-portal-content", () => ({
+  fetchPublishedPortalContent: vi.fn().mockResolvedValue([]),
+}));
 vi.mock("@/components/portal/ClientPortalVideos", () => ({
   ClientPortalVideos: () => null,
+}));
+vi.mock("@/components/portal/PortalContentHub", () => ({
+  PortalContentSections: () => null,
+  PortalAboutSection: () => null,
 }));
 
 import { verifyPortalToken } from "@/lib/portal-token";
@@ -58,6 +65,7 @@ beforeEach(() => {
     createdAt: new Date("2026-06-01T00:00:00Z"),
     propertyAddress: "12 Test St, Brisbane",
     technicianName: "Alex Tech",
+    user: { organization: null },
     affectedAreas: [
       {
         id: "area_1",

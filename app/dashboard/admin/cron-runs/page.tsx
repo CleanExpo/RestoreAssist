@@ -38,17 +38,25 @@ export default function CronRunsPage() {
   const [data, setData] = useState<CronRunsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [failedOnly, setFailedOnly] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const fetchRuns = useCallback(async (onlyFailed: boolean) => {
     setLoading(true);
+    setLoadError(null);
     try {
       const query = onlyFailed ? "?status=failed" : "";
       const response = await fetch(`/api/admin/cron-runs${query}`);
       if (response.ok) {
         setData(await response.json());
+        setLoadError(null);
+      } else {
+        setData(null);
+        setLoadError("Failed to load cron runs");
       }
     } catch (error) {
       console.error("Error fetching cron runs:", error);
+      setData(null);
+      setLoadError("Failed to load cron runs");
     } finally {
       setLoading(false);
     }
@@ -145,6 +153,19 @@ export default function CronRunsPage() {
           {data?.failedCount ?? 0} failed
         </Badge>
       </div>
+
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => void fetchRuns(failedOnly)}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       <div className="flex items-center gap-2">
         <Button

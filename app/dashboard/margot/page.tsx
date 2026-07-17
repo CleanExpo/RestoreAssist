@@ -47,23 +47,8 @@ import {
 import { Attachments } from "@/components/ai-elements/attachments";
 import { Button } from "@/components/ui/button";
 
-const RECENT_THREADS_STUB = [
-  {
-    id: "t1",
-    title: "Week-ahead briefing",
-    preview: "3 focus items for the week…",
-  },
-  {
-    id: "t2",
-    title: "NRPG pricing sweep",
-    preview: "Corpus + public research merged.",
-  },
-  {
-    id: "t3",
-    title: "RA-1645 triage",
-    preview: "Pi-CEO MCP connection flake.",
-  },
-];
+// Thread history API is not shipped yet — keep Recent empty rather than fake chats.
+const RECENT_THREADS: { id: string; title: string; preview: string }[] = [];
 
 export default function MargotDashboardPage() {
   const { data: session, status } = useSession();
@@ -178,18 +163,26 @@ export default function MargotDashboardPage() {
           Recent
         </div>
         <nav className="flex-1 overflow-y-auto px-2">
-          {RECENT_THREADS_STUB.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setActiveThreadId(t.id)}
-              className={`w-full rounded-md px-3 py-2 text-left text-sm transition ${
-                activeThreadId === t.id ? "bg-brand-cream-2" : "hover:bg-brand-cream"
-              }`}
-            >
-              <div className="truncate font-medium">{t.title}</div>
-              <div className="truncate text-xs opacity-60">{t.preview}</div>
-            </button>
-          ))}
+          {RECENT_THREADS.length === 0 ? (
+            <p className="px-3 py-2 text-xs opacity-60">
+              No saved threads yet. Start a new chat below.
+            </p>
+          ) : (
+            RECENT_THREADS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setActiveThreadId(t.id)}
+                className={`w-full rounded-md px-3 py-2 text-left text-sm transition ${
+                  activeThreadId === t.id
+                    ? "bg-brand-cream-2"
+                    : "hover:bg-brand-cream"
+                }`}
+              >
+                <div className="truncate font-medium">{t.title}</div>
+                <div className="truncate text-xs opacity-60">{t.preview}</div>
+              </button>
+            ))
+          )}
         </nav>
         <div
           className="border-t px-4 py-3 text-xs opacity-60"

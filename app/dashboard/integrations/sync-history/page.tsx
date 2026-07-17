@@ -454,17 +454,26 @@ export default function SyncHistoryPage() {
   const [feedLoading, setFeedLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
+    let metricsFailed = false;
+    let feedFailed = false;
+
     // Fetch metrics (health summary)
     try {
       const res = await fetch("/api/integrations/metrics?window=168"); // 7-day window
       if (res.ok) {
         const data = await res.json();
         setMetrics(data);
+      } else {
+        setMetrics(null);
+        metricsFailed = true;
       }
     } catch (err) {
       console.error("[SyncHistory] Failed to fetch metrics:", err);
+      setMetrics(null);
+      metricsFailed = true;
     } finally {
       setMetricsLoading(false);
     }
@@ -477,11 +486,22 @@ export default function SyncHistoryPage() {
       if (res.ok) {
         const data: SyncErrorsData = await res.json();
         setSyncEntries(data.syncErrors ?? []);
+      } else {
+        setSyncEntries([]);
+        feedFailed = true;
       }
     } catch (err) {
       console.error("[SyncHistory] Failed to fetch sync entries:", err);
+      setSyncEntries([]);
+      feedFailed = true;
     } finally {
       setFeedLoading(false);
+    }
+
+    if (metricsFailed || feedFailed) {
+      setLoadError("Failed to load sync history");
+    } else {
+      setLoadError(null);
     }
   }, []);
 
@@ -567,6 +587,19 @@ export default function SyncHistoryPage() {
           Refresh
         </Button>
       </div>
+
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => void handleRefresh()}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Overall stats strip */}
       {!metricsLoading && metrics && (

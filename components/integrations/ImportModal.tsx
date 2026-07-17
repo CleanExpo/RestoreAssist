@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { RAIcon } from "@/src/components/brand/RAIcon";
+import { RAIcon } from "@/components/brand/RAIcon";
 import {
   Dialog,
   DialogContent,
@@ -285,11 +285,11 @@ export default function ImportModal({
             ) : connectedIntegrations.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-slate-500 dark:text-slate-400 font-medium mb-2">
-                  Coming Soon
+                  No connected integrations
                 </p>
                 <p className="text-sm text-slate-400 dark:text-slate-500">
-                  Import from Xero, QuickBooks, MYOB, ServiceM8, or Ascora will
-                  be available soon.
+                  Connect Xero, QuickBooks, MYOB, ServiceM8, or Ascora on the
+                  Integrations page, then return here to import clients and jobs.
                 </p>
               </div>
             ) : (

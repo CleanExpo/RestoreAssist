@@ -119,6 +119,8 @@ export default function AiProvidersPage() {
     [],
   );
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
   // Per-provider UI state
   const [expanded, setExpanded] = useState<AiProvider | null>(null);
@@ -133,6 +135,7 @@ export default function AiProvidersPage() {
   useEffect(() => {
     async function load() {
       setLoading(true);
+      setLoadError(null);
       try {
         const [wsRes, connRes] = await Promise.all([
           fetch("/api/workspace/status"),
@@ -142,15 +145,22 @@ export default function AiProvidersPage() {
         if (connRes.ok) {
           const { connections } = await connRes.json();
           setConnections(connections ?? []);
+        } else if (connRes.status === 401 || connRes.status === 403) {
+          setLoadError("You do not have access to manage AI providers");
+        } else {
+          setLoadError("Failed to load AI provider settings");
+        }
+        if (!wsRes.ok && !connRes.ok) {
+          setLoadError("Failed to load AI provider settings");
         }
       } catch {
-        toast.error("Failed to load AI provider settings");
+        setLoadError("Failed to load AI provider settings");
       } finally {
         setLoading(false);
       }
     }
     void load();
-  }, []);
+  }, [reloadTick]);
 
   const getConn = (provider: AiProvider) =>
     connections.find((c) => c.provider === provider) ?? null;
@@ -250,7 +260,7 @@ export default function AiProvidersPage() {
   }
 
   // ── No workspace ─────────────────────────────────────────────────────────
-  if (!loading && wsStatus?.status !== "READY") {
+  if (!loading && !loadError && wsStatus?.status !== "READY") {
     return (
       <div className="max-w-2xl mx-auto py-16 text-center space-y-4">
         <Brain size={40} className="mx-auto text-neutral-300" />
@@ -277,7 +287,31 @@ export default function AiProvidersPage() {
           Keys are AES-256-GCM encrypted at rest and never returned in API
           responses.
         </p>
+        <p className="text-xs text-neutral-400 mt-2">
+          <a
+            href="/dashboard/settings/connections"
+            className="underline underline-offset-2 hover:text-neutral-600"
+          >
+            ← All connections
+          </a>
+        </p>
       </div>
+
+      {loadError ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive flex items-center justify-between gap-3"
+        >
+          <span>{loadError}</span>
+          <button
+            type="button"
+            className="underline shrink-0"
+            onClick={() => setReloadTick((n) => n + 1)}
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="flex items-center gap-2 text-neutral-400 py-12 justify-center">

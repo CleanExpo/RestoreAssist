@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+.pnpm-store/
 package-lock.json
 
 # next.js
@@ -32,10 +33,10 @@ yarn-error.log*
 *.tsbuildinfo
 
 # pilot-tester (sandbox harness — generated artefacts, not source)
-/pilot-tester/images/cache/
-/pilot-tester/reports/
-/pilot-tester/user-pool.json
-/pilot-tester/node_modules/
+/packages/pilot-tester/images/cache/
+/packages/pilot-tester/reports/
+/packages/pilot-tester/user-pool.json
+/packages/pilot-tester/node_modules/
 next-env.d.ts
 /lib/generated/prisma
 
@@ -98,6 +99,7 @@ secret.txt
 .claude/swarm/identity.local.md
 scripts/__pycache__/
 .DS_Store
+supabase/.temp/
 .claude/verifier-reports/
 .claude/PROGRESS.md
 supabase/.temp/
@@ -119,6 +121,11 @@ videos/*.mp4
 # Remotion rendered videos — hosted on Cloudinary CDN
 public/videos/remotion/*.mp4
 remotion/output/*.mp4
+
+docs/archive/playwright-auth-dir/.auth/user.json
+tools/videos/*.mp4
+!tools/videos/.gitkeep
+tools/remotion/output/*.mp4
 logs/
 
 # Local-only property-based soak harness (run.ts header: "NOT a repo artifact —

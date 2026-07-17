@@ -28,7 +28,11 @@ const SOURCE_FINGERPRINTS: string[] = [
 ];
 
 // Public marketing / outward-facing copy surfaces.
-const ROOTS = ["docs/marketing", "remotion/compositions/marketing", "content"];
+const ROOTS = [
+  "docs/marketing",
+  "tools/remotion/compositions/marketing",
+  "data/content",
+];
 const EXT = /\.(md|mdx|ts|tsx|json|html)$/;
 
 const failures: { file: string; spans: number; longestRun: number }[] = [];

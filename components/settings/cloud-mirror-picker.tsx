@@ -4,18 +4,14 @@
  * RA-1459 — Cloud Mirror Provider picker.
  *
  * Users pick where RestoreAssist copies their viewing-quality evidence
- * files after they're produced. Drive is the only provider shipping in
- * v1; OneDrive and iCloud render disabled with "Coming soon — AU data
- * centres" copy.
- *
- * State is persisted via `/api/user/cloud-mirror`. The evidence pipeline
- * reads `User.cloudMirrorProvider` to pick a mirror target; if null,
- * the copy stays local only.
+ * files after they're produced. Drive ships by default; OneDrive is
+ * env-gated via PROVIDER_CATALOG; iCloud remains disabled (CloudKit).
  */
 
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,61 +33,60 @@ interface ProviderOption {
   enabled: boolean;
 }
 
-const OPTIONS: ProviderOption[] = [
-  {
-    id: "drive",
-    label: "Google Drive",
-    tagline: "Mirrors to your Drive. Folder: RestoreAssist/{Job Number}/",
-    enabled: true,
-  },
-  {
-    id: "onedrive",
-    label: "Microsoft OneDrive",
-    tagline: "Coming soon — AU data centres",
-    enabled: false,
-  },
-  {
-    id: "icloud",
-    label: "Apple iCloud",
-    tagline: "Coming soon — AU data centres",
-    enabled: false,
-  },
-];
+const ONEDRIVE_OAUTH_PATH = "/api/oauth/microsoft-onedrive/start";
 
 export function CloudMirrorPicker() {
+  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const [options, setOptions] = useState<ProviderOption[]>([]);
   const [selected, setSelected] = useState<ProviderId | "">("");
   const [initial, setInitial] = useState<ProviderId | "">("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const oauthError = searchParams?.get("error") ?? null;
+  const onedriveConnected = searchParams?.get("onedrive") === "connected";
+
+  async function loadCatalog() {
+    setLoadError(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/user/cloud-mirror");
+      if (!res.ok) throw new Error(`GET failed: ${res.status}`);
+      const data = (await res.json()) as {
+        provider: ProviderId | null;
+        catalog?: ProviderOption[];
+      };
+      setOptions(data.catalog ?? []);
+      const current = data.provider ?? "";
+      setSelected(current);
+      setInitial(current);
+    } catch (err) {
+      setLoadError("Could not load cloud mirror settings");
+      console.error("[cloud-mirror-picker GET]", err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/user/cloud-mirror");
-        if (!res.ok) throw new Error(`GET failed: ${res.status}`);
-        const data = (await res.json()) as { provider: ProviderId | null };
-        if (cancelled) return;
-        const current = data.provider ?? "";
-        setSelected(current);
-        setInitial(current);
-      } catch (err) {
-        if (!cancelled) toast.error("Could not load your current provider");
-        // Surface the failure; do not swallow (RA-1109).
-        console.error("[cloud-mirror-picker GET]", err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    loadCatalog();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onedriveConnected]);
 
   const dirty = selected !== initial && selected !== "";
 
   async function handleSave() {
     if (!selected || selected === initial) return;
+
+    if (selected === "onedrive") {
+      const onedriveOpt = options.find((o) => o.id === "onedrive");
+      if (onedriveOpt?.enabled) {
+        window.location.href = ONEDRIVE_OAUTH_PATH;
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const res = await fetch("/api/user/cloud-mirror", {
@@ -126,6 +121,36 @@ export function CloudMirrorPicker() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {loadError ? (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+            <p className="text-destructive">{loadError}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => loadCatalog()}
+            >
+              Retry
+            </Button>
+          </div>
+        ) : null}
+
+        {oauthError ? (
+          <p
+            role="alert"
+            className="rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive"
+          >
+            Could not connect OneDrive: {oauthError}
+          </p>
+        ) : null}
+
+        {onedriveConnected ? (
+          <p className="text-sm text-emerald-700">
+            OneDrive connected. Pick OneDrive below and save to start mirroring.
+          </p>
+        ) : null}
+
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading your current
@@ -137,7 +162,7 @@ export function CloudMirrorPicker() {
             onValueChange={(v) => setSelected(v as ProviderId)}
             className="space-y-3"
           >
-            {OPTIONS.map((opt) => (
+            {options.map((opt) => (
               <div
                 key={opt.id}
                 className="flex items-start space-x-3 rounded-md border p-4"
@@ -177,7 +202,7 @@ export function CloudMirrorPicker() {
           {initial && !dirty && (
             <p className="text-sm text-muted-foreground">
               Currently using{" "}
-              <strong>{OPTIONS.find((o) => o.id === initial)?.label}</strong>.
+              <strong>{options.find((o) => o.id === initial)?.label}</strong>.
             </p>
           )}
         </div>

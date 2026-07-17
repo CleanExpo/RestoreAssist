@@ -106,14 +106,19 @@ USING (uid = auth.uid())`;
       expect(out[0].file).toContain("prisma/migrations");
     });
 
-    it("rejects a bare policy in a supabase/migrations file", () => {
-      const out = lintSql(BARE, "supabase/migrations/20990101000000_new.sql");
+    it("rejects a bare policy in a supabase-migrations-archive file", () => {
+      const out = lintSql(
+        BARE,
+        "docs/ops/supabase-migrations-archive/20990101000000_new.sql",
+      );
       expect(out).toHaveLength(1);
-      expect(out[0].file).toContain("supabase/migrations");
+      expect(out[0].file).toContain("docs/ops/supabase-migrations-archive");
     });
 
     it("accepts a wrapped policy", () => {
-      expect(lintSql(WRAPPED, "supabase/migrations/x.sql")).toHaveLength(0);
+      expect(
+        lintSql(WRAPPED, "docs/ops/supabase-migrations-archive/x.sql"),
+      ).toHaveLength(0);
     });
 
     it("never flags a non-RLS migration even with a bare auth call elsewhere", () => {
@@ -137,14 +142,18 @@ USING (uid = auth.uid())`;
   describe("dual-root scoping (AV-1)", () => {
     it("recognises both migration roots", () => {
       expect(MIGRATION_ROOTS).toContain("prisma/migrations");
-      expect(MIGRATION_ROOTS).toContain("supabase/migrations");
+      expect(MIGRATION_ROOTS).toContain("docs/ops/supabase-migrations-archive");
     });
 
     it("classifies .sql under either root as a migration; ignores others", () => {
       expect(
         isMigrationSql("prisma/migrations/20990101_x/migration.sql"),
       ).toBe(true);
-      expect(isMigrationSql("supabase/migrations/20990101_x.sql")).toBe(true);
+      expect(
+        isMigrationSql(
+          "docs/ops/supabase-migrations-archive/20990101_x.sql",
+        ),
+      ).toBe(true);
       // Windows-style separators normalise too.
       expect(
         isMigrationSql("prisma\\migrations\\20990101_x\\migration.sql"),

@@ -37,8 +37,9 @@ describe("OpenRouter provider support", () => {
     expect(OPERATING_PROVIDERS).toContain("OPENROUTER");
     expect(OPERATING_PROVIDERS).toContain("ANTHROPIC");
     expect(OPERATING_PROVIDERS).toContain("OPENAI");
+    // GOOGLE = Gemini Generative Language API (Wave 4 BYOK), not Drive OAuth.
+    expect(OPERATING_PROVIDERS).toContain("GOOGLE");
     // Non-operating providers must stay out of the list.
-    expect(OPERATING_PROVIDERS).not.toContain("GOOGLE");
     expect(OPERATING_PROVIDERS).not.toContain("GEMMA");
     expect(OPERATING_PROVIDERS).not.toContain("ELEVENLABS");
   });

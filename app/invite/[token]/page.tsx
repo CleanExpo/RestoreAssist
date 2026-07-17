@@ -46,7 +46,7 @@ interface InvitePreview {
 
 export default function InviteAcceptPage() {
   const params = useParams<{ token: string }>();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const router = useRouter();
   const token = params?.token as string | undefined;
 

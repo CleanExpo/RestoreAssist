@@ -40,7 +40,7 @@ import {
  * View-only summary: ?sessionId=<id> (no formTemplateId) shows completed interview Q&A.
  */
 export default function InterviewPage() {
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const router = useRouter();
   const formTemplateId = searchParams.get("formTemplateId") || "";
   const reportId = searchParams.get("reportId");
@@ -73,7 +73,11 @@ export default function InterviewPage() {
     const load = async () => {
       try {
         const res = await fetch(`/api/interviews/${sessionId}`);
-        if (!res.ok || cancelled) return;
+        if (cancelled) return;
+        if (!res.ok) {
+          setInterviewStatus("error");
+          return;
+        }
         const data = await res.json();
         const session = data.session;
         if (!session || session.status !== "COMPLETED" || cancelled) {
@@ -317,13 +321,72 @@ export default function InterviewPage() {
 
       {interviewStatus === "error" && (
         <div className="flex-1 flex items-center justify-center px-6 py-6">
-          <div className="max-w-2xl w-full">
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                An error occurred during the interview. Please try again.
-              </AlertDescription>
-            </Alert>
+          <div className="max-w-2xl w-full space-y-4">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+              Failed to load interview summary.
+              {sessionId && !formTemplateId && (
+                <button
+                  type="button"
+                  className="ml-3 underline"
+                  onClick={() => {
+                    setInterviewStatus("loading");
+                    void (async () => {
+                      try {
+                        const res = await fetch(`/api/interviews/${sessionId}`);
+                        if (!res.ok) {
+                          setInterviewStatus("error");
+                          return;
+                        }
+                        const data = await res.json();
+                        const session = data.session;
+                        if (!session || session.status !== "COMPLETED") {
+                          router.push("/dashboard/reports");
+                          return;
+                        }
+                        const qa: InterviewQuestionAnswer[] = (
+                          session.responses || []
+                        ).map(
+                          (r: {
+                            questionId: string;
+                            questionText: string;
+                            answerValue: string | null;
+                          }) => ({
+                            questionId: r.questionId,
+                            questionText: r.questionText || "",
+                            answer:
+                              r.answerValue != null
+                                ? (() => {
+                                    try {
+                                      return JSON.parse(r.answerValue);
+                                    } catch {
+                                      return r.answerValue;
+                                    }
+                                  })()
+                                : null,
+                          }),
+                        );
+                        setQuestionsAndAnswers(qa);
+                        setViewOnlyReportId(session.reportId ?? null);
+                        setInterviewStatus("completed");
+                      } catch {
+                        setInterviewStatus("error");
+                      }
+                    })();
+                  }}
+                >
+                  Retry
+                </button>
+              )}
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              <button
+                type="button"
+                className="underline"
+                onClick={handleBackToReports}
+              >
+                Back to reports
+              </button>
+            </p>
           </div>
         </div>
       )}

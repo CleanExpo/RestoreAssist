@@ -23,7 +23,7 @@ let globalVerificationComplete = false;
 
 export default function SuccessPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const { data: session, update } = useSession();
   const addonKey = searchParams.get("addon");
   const isAddonPurchase = !!addonKey;

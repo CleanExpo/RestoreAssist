@@ -5,7 +5,7 @@ import AuthorityFormViewer from "@/components/AuthorityFormViewer";
 
 export default function AuthorityFormPage() {
   const router = useRouter();
-  const params = useParams();
+  const params = useParams<{ id: string; formId: string }>() ?? { id: "", formId: "" };
   const formId = params.formId as string;
   const reportId = params.id as string;
 

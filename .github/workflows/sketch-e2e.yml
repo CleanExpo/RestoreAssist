@@ -12,11 +12,11 @@ name: Sketch E2E
 on:
   pull_request:
     paths:
-      - "e2e/**"
+      - "docs/archive/playwright-e2e/**"
       - "components/sketch/**"
       - "app/api/inspections/**/sketches/**"
       - "lib/sketch/**"
-      - "playwright.config.ts"
+      - "config/playwright.config.ts"
       - "scripts/seed-e2e-user.ts"
       - ".github/workflows/sketch-e2e.yml"
   workflow_dispatch:
@@ -108,7 +108,7 @@ jobs:
       # (v2-sketch-workflow.spec.ts) has stale selectors and is stabilised
       # separately before being added.
       - name: Run Sketch E2E
-        run: pnpm exec playwright test e2e/sketch-api.spec.ts --project=chromium --reporter=line
+        run: pnpm exec playwright test -c config/playwright.config.ts docs/archive/playwright-e2e/sketch-api.spec.ts --project=chromium --reporter=line
 
       - name: Upload Playwright report
         if: always()

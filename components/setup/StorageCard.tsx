@@ -14,35 +14,74 @@ type StatusResponse = {
   accountEmail: string | null;
 };
 
+type OneDriveStatusResponse = {
+  connected: boolean;
+  accountEmail: string | null;
+};
+
+type CatalogEntry = {
+  id: string;
+  enabled: boolean;
+  tagline: string;
+};
+
 const DRIVE_OAUTH_PATH = '/api/oauth/google-drive/start';
+const ONEDRIVE_OAUTH_PATH = '/api/oauth/microsoft-onedrive/start';
 const STATUS_PATH = '/api/oauth/google-drive/status';
+const ONEDRIVE_STATUS_PATH = '/api/oauth/microsoft-onedrive/status';
 
 export function StorageCard() {
   const setSectionStatus = useSetupStore((s) => s.setSectionStatus);
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const [status, setStatus] = useState<StatusResponse | null>(null);
+  const [onedriveStatus, setOnedriveStatus] = useState<OneDriveStatusResponse | null>(null);
+  const [onedriveEnabled, setOnedriveEnabled] = useState(false);
+  const [onedriveTagline, setOnedriveTagline] = useState('Coming soon');
   const [loading, setLoading] = useState(true);
   const [forceGrid, setForceGrid] = useState(false);
   const [choice, setChoice] = useState<Choice | null>(null);
 
   const oauthError = searchParams?.get('error') ?? null;
   const storageFlag = searchParams?.get('storage') ?? null;
+  const onedriveFlag = searchParams?.get('onedrive') ?? null;
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch(STATUS_PATH);
-        if (!res.ok) {
-          if (!cancelled) setStatus({ connected: false, provider: null, accountEmail: null });
-          return;
-        }
-        const json = (await res.json()) as StatusResponse;
+        const [driveRes, onedriveRes, catalogRes] = await Promise.all([
+          fetch(STATUS_PATH),
+          fetch(ONEDRIVE_STATUS_PATH),
+          fetch('/api/user/cloud-mirror'),
+        ]);
+
         if (cancelled) return;
-        setStatus(json);
-        if (json.connected) setSectionStatus('storage', 'ready');
+
+        const driveJson = driveRes.ok
+          ? ((await driveRes.json()) as StatusResponse)
+          : { connected: false, provider: null, accountEmail: null };
+        setStatus(driveJson);
+
+        const onedriveJson = onedriveRes.ok
+          ? ((await onedriveRes.json()) as OneDriveStatusResponse)
+          : { connected: false, accountEmail: null };
+        setOnedriveStatus(onedriveJson);
+
+        if (catalogRes.ok) {
+          const catalog = (await catalogRes.json()) as { catalog?: CatalogEntry[] };
+          const onedrive = catalog.catalog?.find((c) => c.id === 'onedrive');
+          setOnedriveEnabled(!!onedrive?.enabled);
+          if (onedrive?.tagline) setOnedriveTagline(onedrive.tagline);
+        }
+
+        if (driveJson.connected || onedriveJson.connected) {
+          setSectionStatus('storage', 'ready');
+        }
       } catch {
-        if (!cancelled) setStatus({ connected: false, provider: null, accountEmail: null });
+        if (!cancelled) {
+          setStatus({ connected: false, provider: null, accountEmail: null });
+          setOnedriveStatus({ connected: false, accountEmail: null });
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -51,8 +90,7 @@ export function StorageCard() {
     return () => {
       cancelled = true;
     };
-    // storageFlag in dep array so a return-from-OAuth re-fetches
-  }, [setSectionStatus, storageFlag]);
+  }, [setSectionStatus, storageFlag, onedriveFlag]);
 
   const pick = (c: Choice) => {
     setChoice(c);
@@ -60,8 +98,11 @@ export function StorageCard() {
       window.location.href = DRIVE_OAUTH_PATH;
       return;
     }
+    if (c === 'onedrive' && onedriveEnabled) {
+      window.location.href = ONEDRIVE_OAUTH_PATH;
+      return;
+    }
     if (c === 'local') {
-      // UI-only for now; SP-E will persist Organization.storageProvider='LOCAL'
       setSectionStatus('storage', 'ready');
     }
   };
@@ -79,8 +120,13 @@ export function StorageCard() {
     );
   }
 
-  const showConnected =
-    status?.connected && status.provider === 'GOOGLE_DRIVE' && !forceGrid;
+  const driveConnected =
+    status?.connected && status.provider === 'GOOGLE_DRIVE';
+  const onedriveConnected = onedriveStatus?.connected === true;
+  const showConnected = (driveConnected || onedriveConnected) && !forceGrid;
+  const connectedEmail = driveConnected
+    ? status?.accountEmail
+    : onedriveStatus?.accountEmail;
 
   return (
     <Card>
@@ -93,7 +139,7 @@ export function StorageCard() {
             <span className="flex items-center gap-2 text-sm">
               <Check className="h-5 w-5 text-primary" aria-hidden="true" />
               <span>
-                Connected as <strong>{status?.accountEmail}</strong>
+                Connected as <strong>{connectedEmail}</strong>
               </span>
             </span>
             <button
@@ -114,7 +160,7 @@ export function StorageCard() {
                 role="alert"
                 className="rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive"
               >
-                Could not connect Google Drive: {oauthError}
+                Could not connect storage: {oauthError}
               </p>
             ) : null}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -127,9 +173,15 @@ export function StorageCard() {
               />
               <StorageOption
                 label="OneDrive"
-                description="Coming soon"
+                description={
+                  onedriveEnabled
+                    ? onedriveTagline
+                    : 'Coming soon — requires Microsoft OAuth configuration'
+                }
                 icon={<Cloud className="w-5 h-5" aria-hidden="true" />}
-                disabled
+                active={choice === 'onedrive'}
+                disabled={!onedriveEnabled}
+                onClick={() => pick('onedrive')}
               />
               <StorageOption
                 label="Keep it local"
@@ -168,8 +220,6 @@ function StorageOption({
       disabled={disabled}
       aria-pressed={active ? 'true' : undefined}
       aria-disabled={disabled || undefined}
-      // When disabled, fold the reason (e.g. "Coming soon") into the accessible
-      // name so screen-reader users learn *why* the option is unavailable.
       aria-label={disabled ? `${label} — ${description}` : label}
       className={[
         'rounded-md border p-3 text-left transition flex flex-col gap-2 min-h-[110px]',

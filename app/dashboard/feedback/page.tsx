@@ -30,7 +30,7 @@ type FeedbackItem = {
 
 export default function FeedbackPage() {
   const { data: session, status } = useSession();
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const [rating, setRating] = useState<number | null>(null);
   const [whatDoing, setWhatDoing] = useState("");
   const [whatHappened, setWhatHappened] = useState("");

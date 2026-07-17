@@ -5,8 +5,17 @@ import { describe, it, expect, vi } from "vitest";
 import { SketchDockToolbar } from "../SketchDockToolbar";
 
 // ToolBtn accessible name is `${label} (${shortcut})`, e.g. "Wall (L)".
-const BASIC = [/^Select/, /^Room/, /^Label/, /^Moisture Pin/, /^Pan/];
-const TECH_ONLY = [/^Wall/, /^Freehand/, /^Arrow/, /^Measure/];
+const BASIC = [/^Select/, /^Room/, /^Label/, /^Photo/, /^Pan/];
+const TECH_ONLY = [
+  /^Wall/,
+  /^Door/,
+  /^Window/,
+  /^Damage/,
+  /^Freehand/,
+  /^Arrow/,
+  /^Measure/,
+  /^Moisture/,
+];
 
 describe("SketchDockToolbar — guided (homeowner) mode", () => {
   it("shows only the basic capture tools when guided", () => {

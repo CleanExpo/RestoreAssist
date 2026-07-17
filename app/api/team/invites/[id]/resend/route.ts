@@ -129,6 +129,7 @@ export async function POST(
               loginUrl,
               inviterName,
               isTransfer: !!existingUser,
+              organizationId: session.user.organizationId,
             }),
           { stage: "invite-resend" },
         );

@@ -11,7 +11,7 @@ import { apiErrorMessage } from "@/lib/api-error-message";
 
 function SignupForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const token = searchParams?.get("token");
 
   const [loading, setLoading] = useState(true);

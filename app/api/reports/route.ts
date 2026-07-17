@@ -81,6 +81,9 @@ export async function GET(request: NextRequest) {
         totalCost: true,
         aiSynopsis: true,
         createdAt: true,
+        aiDraftGeneratedAt: true,
+        aiDraftHumanEditedAt: true,
+        reportOwnershipAcknowledgedAt: true,
         estimates: {
           take: 1,
           orderBy: { createdAt: "desc" },
