@@ -511,6 +511,8 @@ export default function SignupPage() {
             {/* Error Message */}
             {error && (
               <motion.div
+                role="alert"
+                aria-live="assertive"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm"
