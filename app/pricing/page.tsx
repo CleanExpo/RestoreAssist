@@ -9,6 +9,7 @@ import Footer from "@/components/landing/Footer";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import BillingGate from "@/components/capacitor/BillingGate";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { RAIcon } from "@/components/brand/RAIcon";
 
 function PricingPageContent() {
   const [darkMode] = useState(true);
@@ -451,7 +452,7 @@ function PricingPageContent() {
                       <span
                         className={`mt-1 ${plan.isFree ? "text-brand-slate" : "text-brand-bronze"}`}
                       >
-                        √
+                        <RAIcon name="success" size={16} decorative />
                       </span>
                       {feature}
                     </li>
@@ -465,7 +466,9 @@ function PricingPageContent() {
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-brand-bronze mt-1">√</span>
+                        <span className="text-brand-bronze mt-1">
+                          <RAIcon name="success" size={16} decorative />
+                        </span>
                         <span>
                           Unlimited Quick Fill (AI-powered form auto-fill)
                         </span>
@@ -477,7 +480,9 @@ function PricingPageContent() {
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-brand-bronze mt-1">√</span>
+                        <span className="text-brand-bronze mt-1">
+                          <RAIcon name="success" size={16} decorative />
+                        </span>
                         <span>Enhanced & Optimised report types</span>
                       </li>
                       <li
@@ -487,7 +492,9 @@ function PricingPageContent() {
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-brand-bronze mt-1">√</span>
+                        <span className="text-brand-bronze mt-1">
+                          <RAIcon name="success" size={16} decorative />
+                        </span>
                         <span>PDF upload & processing</span>
                       </li>
                       <li
@@ -497,7 +504,9 @@ function PricingPageContent() {
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-brand-bronze mt-1">√</span>
+                        <span className="text-brand-bronze mt-1">
+                          <RAIcon name="success" size={16} decorative />
+                        </span>
                         <span>Full profile & pricing configuration</span>
                       </li>
                       <li
@@ -507,7 +516,9 @@ function PricingPageContent() {
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-brand-bronze mt-1">√</span>
+                        <span className="text-brand-bronze mt-1">
+                          <RAIcon name="success" size={16} decorative />
+                        </span>
                         <span>
                           Premium API integrations (Claude, GPT, etc.)
                         </span>

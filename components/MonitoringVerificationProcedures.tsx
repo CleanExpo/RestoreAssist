@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { RAIcon } from "@/components/brand/RAIcon";
 import {
   Thermometer,
   Droplets,
@@ -440,11 +441,13 @@ export default function MonitoringVerificationProcedures({
                   : "text-destructive"
             }`}
           >
-            {complianceStatus === "compliant"
-              ? "√"
-              : complianceStatus === "partial"
-                ? "!"
-                : "×"}
+            {complianceStatus === "compliant" ? (
+              <RAIcon name="success" size={20} decorative />
+            ) : complianceStatus === "partial" ? (
+              "!"
+            ) : (
+              "×"
+            )}
           </div>
           <div className="text-sm text-slate-400 capitalize">
             {complianceStatus}
@@ -729,9 +732,11 @@ export default function MonitoringVerificationProcedures({
                           }`}
                         >
                           {parseFloat(reading.moistureContent) <=
-                          parseFloat(reading.targetLevel)
-                            ? "√"
-                            : "×"}
+                          parseFloat(reading.targetLevel) ? (
+                            <RAIcon name="success" size={16} decorative />
+                          ) : (
+                            "×"
+                          )}
                         </span>
                       </div>
                     </div>

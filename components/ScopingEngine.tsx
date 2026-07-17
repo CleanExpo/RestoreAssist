@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { RAIcon } from "@/components/brand/RAIcon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1619,7 +1620,11 @@ export default function ScopingEngine({
                           : "bg-slate-800 border-slate-700 text-slate-400"
                     }`}
                   >
-                    {isCompleted ? "√" : <Icon size={20} />}
+                    {isCompleted ? (
+                      <RAIcon name="success" size={20} decorative />
+                    ) : (
+                      <Icon size={20} />
+                    )}
                   </div>
                   <span
                     className={`text-xs mt-2 text-center ${isActive ? "text-cyan-400" : "text-slate-400"}`}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { RAIcon } from "@/components/brand/RAIcon";
 
 type MarkProps = { className?: string };
 
@@ -14,7 +15,11 @@ function Mark({ className = "h-5 w-5", children }: MarkProps & { children: React
 
 const ChartMark = (props: MarkProps) => <Mark {...props}>▥</Mark>;
 const PlayMark = (props: MarkProps) => <Mark {...props}>▶</Mark>;
-const CheckMark = (props: MarkProps) => <Mark {...props}>√</Mark>;
+const CheckMark = (props: MarkProps) => (
+  <Mark {...props}>
+    <RAIcon name="success" size={18} decorative />
+  </Mark>
+);
 const PauseMark = (props: MarkProps) => <Mark {...props}>Ⅱ</Mark>;
 const UpMark = (props: MarkProps) => <Mark {...props}>↗</Mark>;
 const DownMark = (props: MarkProps) => <Mark {...props}>↘</Mark>;

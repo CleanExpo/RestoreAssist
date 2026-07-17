@@ -29,6 +29,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RAIcon } from "@/components/brand/RAIcon";
 import toast from "react-hot-toast";
 import { useAsyncAction } from "@/lib/client/use-async-action";
 
@@ -362,14 +363,24 @@ export default function EditReportPage({
               className="text-slate-300 data-[state=active]:text-black data-[state=active]:bg-white"
             >
               <Calculator className="mr-2" size={16} />
-              Scoping {scope && <span className="ml-1 text-xs">√</span>}
+              Scoping{" "}
+              {scope && (
+                <span className="ml-1">
+                  <RAIcon name="success" size={12} decorative />
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger
               value="estimation"
               className="text-slate-300 data-[state=active]:text-black data-[state=active]:bg-white"
             >
               <DollarSign className="mr-2" size={16} />
-              Estimation {estimate && <span className="ml-1 text-xs">√</span>}
+              Estimation{" "}
+              {estimate && (
+                <span className="ml-1">
+                  <RAIcon name="success" size={12} decorative />
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
 

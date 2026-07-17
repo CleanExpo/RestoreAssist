@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { RAIcon } from "@/components/brand/RAIcon";
 import {
   Card,
   CardContent,
@@ -354,16 +355,28 @@ export default function InsurerProfilesPage() {
                         </p>
                         <ul className="text-xs space-y-0.5 text-muted-foreground">
                           <li>
-                            {profile.requiresSignedScope ? "√" : "×"} Signed
-                            scope
+                            {profile.requiresSignedScope ? (
+                              <RAIcon name="success" size={12} decorative />
+                            ) : (
+                              "×"
+                            )}{" "}
+                            Signed scope
                           </li>
                           <li>
-                            {profile.requiresThirdPartyScope ? "√" : "×"}{" "}
+                            {profile.requiresThirdPartyScope ? (
+                              <RAIcon name="success" size={12} decorative />
+                            ) : (
+                              "×"
+                            )}{" "}
                             Independent scoper
                           </li>
                           <li>
-                            {profile.gstRegistrationRequired ? "√" : "×"} GST
-                            registration
+                            {profile.gstRegistrationRequired ? (
+                              <RAIcon name="success" size={12} decorative />
+                            ) : (
+                              "×"
+                            )}{" "}
+                            GST registration
                           </li>
                         </ul>
                       </div>
