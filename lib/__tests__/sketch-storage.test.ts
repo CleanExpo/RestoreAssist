@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock the Supabase client so we can assert the storage path without network.
 const upload = vi.fn();
-const getPublicUrl = vi.fn();
+const createSignedUrl = vi.fn();
 vi.mock("../supabase", () => ({
   supabase: {
     storage: {
-      from: () => ({ upload, getPublicUrl }),
+      from: () => ({ upload, createSignedUrl }),
     },
   },
 }));
@@ -15,9 +15,12 @@ import { uploadRenderedSketch } from "../sketch-storage";
 
 beforeEach(() => {
   upload.mockReset().mockResolvedValue({ error: null });
-  getPublicUrl
+  createSignedUrl
     .mockReset()
-    .mockReturnValue({ data: { publicUrl: "https://cdn/floor.png" } });
+    .mockResolvedValue({
+      data: { signedUrl: "https://cdn/floor.png" },
+      error: null,
+    });
 });
 
 const png = () =>
