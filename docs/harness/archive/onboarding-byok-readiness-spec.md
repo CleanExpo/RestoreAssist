@@ -75,15 +75,15 @@ script (`npm run render:tutorials` → `remotion/render-all.ts` → `remotion/ou
 
 | Topic | Composition | Local mp4 | Verdict |
 |---|---|---|---|
-| Sign-up | TutorialSignup / SignUp | ✅ | covered |
+| Sign-up | TutorialSignup / SignUp | [PASS] | covered |
 | Account-type | — | — | **no video** (form only) |
-| Setup wizard | TutorialSetupWizard / SetupWizardFull | ✅ | covered |
-| **BYOK AI key** | BYOKExplainer | ❌ (Cloudinary only) | **install locally** |
-| **Google Drive / storage** | SettingsConfig | ❌ (Cloudinary only) | **install locally** |
-| **Cloud bookkeeping** | IntegrationConnect | ❌ (Cloudinary only) | **install locally** |
-| **Field / mobile** | MobileWorkflow | ❌ (Cloudinary only) | **install locally** |
-| Team invite | TutorialTeam | ✅ | covered |
-| Dashboard / Inspections / Reports / Billing / Compliance | Tutorial* | ✅ | covered |
+| Setup wizard | TutorialSetupWizard / SetupWizardFull | [PASS] | covered |
+| **BYOK AI key** | BYOKExplainer | [FAIL] (Cloudinary only) | **install locally** |
+| **Google Drive / storage** | SettingsConfig | [FAIL] (Cloudinary only) | **install locally** |
+| **Cloud bookkeeping** | IntegrationConnect | [FAIL] (Cloudinary only) | **install locally** |
+| **Field / mobile** | MobileWorkflow | [FAIL] (Cloudinary only) | **install locally** |
+| Team invite | TutorialTeam | [PASS] | covered |
+| Dashboard / Inspections / Reports / Billing / Compliance | Tutorial* | [PASS] | covered |
 
 **Finding:** nothing is content-missing — every topic except *account-type* has at least a Cloudinary-hosted
 video, and the critical onboarding path has local mp4s. **But the four explainers for exactly the stumbling

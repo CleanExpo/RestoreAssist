@@ -1,8 +1,8 @@
 # RestoreAssist Go-Live Video Pipeline — Delivery Report
 
-> **Date**: 2026-05-30  
-> **Delivered by**: Margot (Unite-Group/Nexus agent)  
-> **Repo**: `CleanExpo/RestoreAssist` (branch: `codex/overnight-production-readiness`)  
+> **Date**: 2026-05-30
+> **Delivered by**: Margot (Unite-Group/Nexus agent)
+> **Repo**: `CleanExpo/RestoreAssist` (branch: `codex/overnight-production-readiness`)
 > **Commit**: `99aa54ac`
 
 ---
@@ -102,12 +102,12 @@ Contains:
 
 | # | Video | YouTube ID | Status |
 |---|-------|-----------|--------|
-| 1 | Sign in | tsmZpgLrn5Y | ✅ Done |
-| 2 | Sign up | wREGInp5yPQ | ✅ Done |
-| 3 | Setup wizard | G2CIyp-gDKA | ✅ Done |
-| 4 | Dashboard | sp3bMYSaZa8 | ✅ Done |
-| 5 | Integrations | P6rVHLOVNsQ | ✅ Done |
-| 6 | Health page | UHUiqnhxGtw | ✅ Done |
+| 1 | Sign in | tsmZpgLrn5Y | [PASS] Done |
+| 2 | Sign up | wREGInp5yPQ | [PASS] Done |
+| 3 | Setup wizard | G2CIyp-gDKA | [PASS] Done |
+| 4 | Dashboard | sp3bMYSaZa8 | [PASS] Done |
+| 5 | Integrations | P6rVHLOVNsQ | [PASS] Done |
+| 6 | Health page | UHUiqnhxGtw | [PASS] Done |
 
 ### Needs Upload (Local MP4 → Cloudinary or YouTube)
 
@@ -274,11 +274,11 @@ npx tsx scripts/video-upload.ts \
 
 | File | Status | Purpose |
 |------|--------|---------|
-| `scripts/video-generate.ts` | ✅ Created | Playwright → MP4 generator |
-| `scripts/video-upload.ts` | ✅ Created | Upload + registry update |
-| `components/setup/VideoExplainer.tsx` | ✅ Updated | Cloudinary support |
-| `components/setup/video-registry.ts` | ✅ Updated | `cloudinaryUrl` field |
-| `.planning/video-generation-plan.md` | ✅ Created | Full strategy doc |
+| `scripts/video-generate.ts` | [PASS] Created | Playwright → MP4 generator |
+| `scripts/video-upload.ts` | [PASS] Created | Upload + registry update |
+| `components/setup/VideoExplainer.tsx` | [PASS] Updated | Cloudinary support |
+| `components/setup/video-registry.ts` | [PASS] Updated | `cloudinaryUrl` field |
+| `.planning/video-generation-plan.md` | [PASS] Created | Full strategy doc |
 
 ---
 

@@ -172,9 +172,9 @@ Phill
 
 | Company                     | Contact name | Contact made | Demo scheduled | Demo completed | Outcome |
 | --------------------------- | ------------ | ------------ | -------------- | -------------- | ------- |
-| Beyond Clean Group          | TBC          | ☐            | ☐              | ☐              | —       |
-| Elite Restoration Australia | TBC          | ☐            | ☐              | ☐              | —       |
-| CRSA                        | TBC          | ☐            | ☐              | ☐              | —       |
+| Beyond Clean Group          | TBC          |             |               |               | —       |
+| Elite Restoration Australia | TBC          |             |               |               | —       |
+| CRSA                        | TBC          |             |               |               | —       |
 
 ---
 

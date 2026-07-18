@@ -47,7 +47,7 @@ Eliminate the always-true RLS policies on the 6 legacy commerce tables (tenant-i
 ```
 - **Verify:** `get_advisors(project_id=udooysjajglluvuxkijp, type:security)` → `rls_policy_always_true` findings referencing the 6 tables == 0 (CLI: `supabase db advisors --linked --type security`)
 - **Source:** security miner (live get_advisors WARN ×6); root in `supabase/migrations/20260518100000_ra_4827_auth_rls_initplan_batch.sql`, not fixed by `20260614000000_ra_4956_tenant_scoped_rls_policies.sql`
-- **Status:** ✅ DONE (applied + verified 2026-06-16). Migration `drop_always_true_rls_legacy_commerce_tables` applied to prod `udooysjajglluvuxkijp`: 12 always-true policies dropped, RLS left enabled → default-deny; server/service-role unaffected. Verified via `get_advisors(security)`: `rls_policy_always_true` 7→1 (only `PushToken` #10 remains), **0 findings for the 6 tables, 0 ERROR-level**. These tables are a sibling Unite-Group CRM's (snake_case, organizations-FK, absent from RA schema) — proper `organization_id`-scoped policies **handed off** to the CRM owner (task_f45767f3). Repo: `supabase/migrations/20260616000000_drop_always_true_rls_legacy_commerce_tables.sql`.
+- **Status:** [PASS] DONE (applied + verified 2026-06-16). Migration `drop_always_true_rls_legacy_commerce_tables` applied to prod `udooysjajglluvuxkijp`: 12 always-true policies dropped, RLS left enabled → default-deny; server/service-role unaffected. Verified via `get_advisors(security)`: `rls_policy_always_true` 7→1 (only `PushToken` #10 remains), **0 findings for the 6 tables, 0 ERROR-level**. These tables are a sibling Unite-Group CRM's (snake_case, organizations-FK, absent from RA schema) — proper `organization_id`-scoped policies **handed off** to the CRM owner (task_f45767f3). Repo: `supabase/migrations/20260616000000_drop_always_true_rls_legacy_commerce_tables.sql`.
 
 ### 2. Lock down 4 SECURITY DEFINER functions exposed via RPC `[Security/RLS]`
 ```
@@ -55,7 +55,7 @@ Eliminate the always-true RLS policies on the 6 legacy commerce tables (tenant-i
 ```
 - **Verify:** `get_advisors(type:security)` → combined `{anon,authenticated}_security_definer_function_executable` == 0 (was 8)
 - **Source:** security miner (live WARN ×8)
-- **Status:** ✅ DONE (applied + verified 2026-06-16, migration `20260616020000`). `handle_new_user` + `verify_client_invite` EXECUTE revoked from PUBLIC/anon/authenticated (service_role retained); advisor 8→4. Residual `is_workspace_member`/`is_workspace_owner` intentionally kept executable — they're called inside RLS policies and only reveal the caller's own membership (benign). NOTE: the original bundled `REVOKE … FROM anon, authenticated` was a no-op (PUBLIC grant); the corrected migration revokes from PUBLIC.
+- **Status:** [PASS] DONE (applied + verified 2026-06-16, migration `20260616020000`). `handle_new_user` + `verify_client_invite` EXECUTE revoked from PUBLIC/anon/authenticated (service_role retained); advisor 8→4. Residual `is_workspace_member`/`is_workspace_owner` intentionally kept executable — they're called inside RLS policies and only reveal the caller's own membership (benign). NOTE: the original bundled `REVOKE … FROM anon, authenticated` was a no-op (PUBLIC grant); the corrected migration revokes from PUBLIC.
 
 ### 3. Reconcile prod DB schema drift (37 missing tables + columns) `[Data integrity]`
 ```
@@ -71,7 +71,7 @@ Eliminate the always-true RLS policies on the 6 legacy commerce tables (tenant-i
 ```
 - **Verify:** vitest: POST submit leaves status `ESTIMATED`; E2E reaches `CLOSED`; grep shows no direct COMPLETED write
 - **Source:** Linear RA-4863
-- **Status:** ✅ DONE (verified 2026-06-16). Submit pipeline terminates at `ESTIMATED` ([submit/route.ts:569-578](app/api/inspections/[id]/submit/route.ts:569)); no COMPLETED write exists, and regression test `app/api/inspections/[id]/submit/__tests__/no-auto-complete.test.ts` is already present. Closed by the loop's verify-before-fix pass.
+- **Status:** [PASS] DONE (verified 2026-06-16). Submit pipeline terminates at `ESTIMATED` ([submit/route.ts:569-578](app/api/inspections/[id]/submit/route.ts:569)); no COMPLETED write exists, and regression test `app/api/inspections/[id]/submit/__tests__/no-auto-complete.test.ts` is already present. Closed by the loop's verify-before-fix pass.
 
 ### 5. Set ABR_API_GUID in prod + split CONFIG_ERROR vs MALFORMED `[Integrations/onboarding]`
 ```
@@ -120,14 +120,14 @@ Eliminate the always-true RLS policies on the 6 legacy commerce tables (tenant-i
 /goal Policy PushToken_update_own has USING ((select auth.uid())::text = "userId") (not true), matching its already-correct WITH CHECK; end state = 0 rls_policy_always_true advisor findings for public.PushToken. Or stop after 3 turns.
 ```
 - **Verify:** `get_advisors(type:security)` → `rls_policy_always_true` for PushToken == 0
-- **Source:** security miner (live WARN) · **Status:** ✅ DONE (applied + verified 2026-06-16, migration `20260616010000`). `PushToken_update_own` USING scoped to owner; advisor `rls_policy_always_true` = 0.
+- **Source:** security miner (live WARN) · **Status:** [PASS] DONE (applied + verified 2026-06-16, migration `20260616010000`). `PushToken_update_own` USING scoped to owner; advisor `rls_policy_always_true` = 0.
 
 ### 11. Set immutable search_path on 9 flagged public functions `[Security/RLS]`
 ```
 /goal Each of the 9 functions (update_report_search_vector, update_client_search_vector, update_inspection_search_vector, update_updated_at_column, handle_new_user, set_updated_at, is_workspace_member, is_workspace_owner, update_media_asset_updated_at) has SET search_path pinned (e.g. ALTER FUNCTION ... SET search_path = ''); end state = 0 function_search_path_mutable advisor findings. Or stop after 4 turns.
 ```
 - **Verify:** `get_advisors(type:security)` → `function_search_path_mutable` == 0 (was 9)
-- **Source:** security miner (live WARN ×9) · **Status:** ✅ DONE (applied + verified 2026-06-16, migration `20260616010000`). `search_path=''` pinned on all 9; advisor `function_search_path_mutable` = 0.
+- **Source:** security miner (live WARN ×9) · **Status:** [PASS] DONE (applied + verified 2026-06-16, migration `20260616010000`). `search_path=''` pinned on all 9; advisor `function_search_path_mutable` = 0.
 
 ### 12. Keep Supabase security advisors at 0 ERROR-level (RLS regression guard) `[Security/RLS]`
 ```
@@ -155,7 +155,7 @@ Eliminate the always-true RLS policies on the 6 legacy commerce tables (tenant-i
 /goal lib/email.ts no longer silently falls back to 'onboarding@resend.dev' when RESEND_FROM_EMAIL is unset — it throws/logs a hard config error (or a startup env guard requires RESEND_FROM_EMAIL); end state = zero 'onboarding@resend.dev' literals in lib/email.ts AND a unit test asserts send() fails fast when RESEND_FROM_EMAIL is unset. Or stop after 5 turns if a broader env-guard refactor is required.
 ```
 - **Verify:** `grep -c 'onboarding@resend.dev' lib/email.ts` == 0; vitest asserts fail-fast on missing var
-- **Source:** gaps miner (GAP_AUDIT §2) · **Status:** ✅ DONE (2026-06-16, branch `fix/ra-resend-from-guard`). All 11 sandbox fallbacks removed; centralised into `getFromEmail()` which throws when RESEND_FROM_EMAIL is unset. Verified: 0 `onboarding@resend.dev` literals + new test `lib/__tests__/email-from.test.ts` (2 passed).
+- **Source:** gaps miner (GAP_AUDIT §2) · **Status:** [PASS] DONE (2026-06-16, branch `fix/ra-resend-from-guard`). All 11 sandbox fallbacks removed; centralised into `getFromEmail()` which throws when RESEND_FROM_EMAIL is unset. Verified: 0 `onboarding@resend.dev` literals + new test `lib/__tests__/email-from.test.ts` (2 passed).
 
 ### 16. Normalise IICRC S520 edition references to :2024 `[Compliance content]`
 ```
@@ -229,7 +229,7 @@ Eliminate the always-true RLS policies on the 6 legacy commerce tables (tenant-i
 /goal The broad SELECT policy 'Public can read optimised' on storage.objects for bucket evidence-optimised is removed or narrowed so clients can fetch object URLs but cannot enumerate the bucket; end state = 0 public_bucket_allows_listing advisor findings, AND a known object URL still loads while an anon list() returns empty/forbidden. Or stop after 4 turns if a code path depends on listing (verify first).
 ```
 - **Verify:** `get_advisors(type:security)` → `public_bucket_allows_listing` == 0; anon list() forbidden, known URL loads
-- **Source:** security miner (live WARN) · **Status:** ✅ DONE (applied + verified 2026-06-16, migration `20260616010000`). `Public can read optimised` policy dropped; advisor `public_bucket_allows_listing` = 0. Only the service-role server client lists this bucket (bypasses RLS), so unaffected.
+- **Source:** security miner (live WARN) · **Status:** [PASS] DONE (applied + verified 2026-06-16, migration `20260616010000`). `Public can read optimised` policy dropped; advisor `public_bucket_allows_listing` = 0. Only the service-role server client lists this bucket (bypasses RLS), so unaffected.
 
 ### 26. Enable Supabase Auth leaked-password (HaveIBeenPwned) protection `[Security/Supabase]`
 ```
@@ -281,7 +281,7 @@ Eliminate the always-true RLS policies on the 6 legacy commerce tables (tenant-i
 ```
 /goal A dated artifact exists (committed file or Linear status comment on RA-4956) in which Founder/Board explicitly accepts sale-readiness AND names the specific production action approved (deploy/release/prod-DB/Stripe/publish). Or stop after 1 turn confirming no such acceptance artifact exists yet.
 ```
-- **Verify:** `rg -rni 'board accept|founder accept|go-live approv|production approv' docs/` 
+- **Verify:** `rg -rni 'board accept|founder accept|go-live approv|production approv' docs/`
 - **Source:** dod miner (PROJECT_DOD, PRODUCTION_GATE, OWNER_APPROVAL_MODEL) · **Status:** **external/manual** by DoD design — local evidence can never authorize this; needs a named human approval.
 
 ---
@@ -300,14 +300,14 @@ External/manual (cannot be auto-closed): #5 (env), #9 (GCP API), #22/#23 (device
 Core BYOK (AES-256-GCM credential vault, masked responses, tenant-isolated canonical AI path) is correct. These are the confirmed gaps. Maps to spec §5.10 (security) / §5.7 (integrations).
 
 ### B1. [HIGH] Legacy name-based provider resolution sends a BYOK key to the wrong vendor
-- ✅ **DONE** 2026-06-16 (branch `fix/ra-resend-from-guard`): provider resolved from API-key prefix (`providerForKey`) + fail-closed cross-vendor guard in `callAIProvider`/`getAnthropicApiKey`. Test `lib/__tests__/ai-provider-routing.test.ts` 3/3. (Deeper follow-up B1b: migrate `generate-inspection-report` onto the encrypted ProviderConnection path.)
+- [PASS] **DONE** 2026-06-16 (branch `fix/ra-resend-from-guard`): provider resolved from API-key prefix (`providerForKey`) + fail-closed cross-vendor guard in `callAIProvider`/`getAnthropicApiKey`. Test `lib/__tests__/ai-provider-routing.test.ts` 3/3. (Deeper follow-up B1b: migrate `generate-inspection-report` onto the encrypted ProviderConnection path.)
 ```
 /goal End state: /api/ai/vision and /api/reports/generate-inspection-report resolve the provider from an explicit provider enum (model-derived or a persisted provider column), never from integration.name, and route through the encrypted ProviderConnection/workspace-byok path. Check: grep that getLatestAIIntegration name-inference (ai-provider.ts:90-98) is no longer reached by either route, and add a unit test that an OpenAI-typed key never produces an api.anthropic.com request. Or stop after 6 turns and report residual.
 ```
 - **Evidence:** `lib/ai-provider.ts:88-98`; consumed by `app/api/ai/vision/route.ts:93`, `app/api/reports/generate-inspection-report/route.ts:127-144`. An OpenAI key named "Claude API" is sent to api.anthropic.com (cross-vendor key exposure).
 
 ### B2. [HIGH] contents-manifest (non-[id]) route trusts a forgeable client-supplied apiKey
-- ✅ **DONE** 2026-06-16 (branch `fix/ra-resend-from-guard`): key resolved server-side via `resolveWorkspaceRouterConfig(inspection.workspaceId, model)`; `apiKey` removed from body (grep 0); 422 when no workspace/provider. Test `app/api/inspections/contents-manifest/__tests__/route.test.ts` 4/4.
+- [PASS] **DONE** 2026-06-16 (branch `fix/ra-resend-from-guard`): key resolved server-side via `resolveWorkspaceRouterConfig(inspection.workspaceId, model)`; `apiKey` removed from body (grep 0); 422 when no workspace/provider. Test `app/api/inspections/contents-manifest/__tests__/route.test.ts` 4/4.
 ```
 /goal End state: POST /api/inspections/contents-manifest resolves the key server-side via the authenticated user's workspace (getProviderApiKey / workspaceRouteAiRequest) and apiKey is removed from the request body schema. Check: assert the route no longer reads body.apiKey (grep), and an integration test that a request omitting apiKey still generates a manifest using the stored key. Or stop after 4 turns and report.
 ```
@@ -320,21 +320,21 @@ Core BYOK (AES-256-GCM credential vault, masked responses, tenant-isolated canon
 - **Evidence:** `prisma/schema.prisma:27,32` (`@db.Text`, no encryption); NextAuth PrismaAdapter writes live Google tokens on every sign-in. DB dump exposes live refresh tokens.
 
 ### B4. [HIGH] Gemini API key transmitted in URL query string (Sentry-capturable)
-- ✅ **DONE** 2026-06-16 (branch `fix/ra-resend-from-guard`): key moved to `x-goog-api-key` header in `callGoogle` (byok-client.ts) + `testGoogleKey` (provider-connections.ts); grep `[?&]key=` = 0. Added `lib/sentry-scrub.ts` + `beforeSendTransaction`/`beforeSend` URL scrub in sentry server+edge configs. Test `lib/ai/__tests__/byok-google-key-transport.test.ts` 2/2.
+- [PASS] **DONE** 2026-06-16 (branch `fix/ra-resend-from-guard`): key moved to `x-goog-api-key` header in `callGoogle` (byok-client.ts) + `testGoogleKey` (provider-connections.ts); grep `[?&]key=` = 0. Added `lib/sentry-scrub.ts` + `beforeSendTransaction`/`beforeSend` URL scrub in sentry server+edge configs. Test `lib/ai/__tests__/byok-google-key-transport.test.ts` 2/2.
 ```
 /goal End state: the Gemini key is sent via the x-goog-api-key request header at both call sites (no key in URL), and a Sentry span/transaction processor strips key=/apiKey= from span URLs. Check: grep '[?&]key=' returns no BYOK call sites, and a unit/integration test asserts no outbound Gemini request URL contains the key. Or stop after 4 turns and report.
 ```
 - **Evidence:** `lib/ai/byok-client.ts:277`, `lib/workspace/provider-connections.ts:377`; sentry.*.config.ts have no span URL scrubbing. Sampled (10% prod) + DSN-conditional but real. Anthropic/OpenAI correctly use headers.
 
 ### B5. [MEDIUM] Encryption key resolution lacks validation + a production guard
-- ✅ **DONE** 2026-06-16 (branch `fix/ra-resend-from-guard`): `resolveKey` now decodes in try/catch, asserts 32-byte length, rejects all-zero/placeholder keys; `getDefaultKey` throws in prod (`VERCEL_ENV==='production'`) if only the `NEXTAUTH_SECRET` fallback is present; `.env.example` `INTEGRATION_ENCRYPTION_KEY=""`. Test `lib/__tests__/credential-vault-key.test.ts` 5/5. Owner item remains: confirm the live Vercel prod key is a real 32-byte value.
+- [PASS] **DONE** 2026-06-16 (branch `fix/ra-resend-from-guard`): `resolveKey` now decodes in try/catch, asserts 32-byte length, rejects all-zero/placeholder keys; `getDefaultKey` throws in prod (`VERCEL_ENV==='production'`) if only the `NEXTAUTH_SECRET` fallback is present; `.env.example` `INTEGRATION_ENCRYPTION_KEY=""`. Test `lib/__tests__/credential-vault-key.test.ts` 5/5. Owner item remains: confirm the live Vercel prod key is a real 32-byte value.
 ```
 /goal End state: resolveKey asserts decoded length===32 in a try/catch with a clear error and rejects all-zero/known-placeholder keys; getDefaultKey throws at boot when VERCEL_ENV==='production' and only the NEXTAUTH_SECRET fallback is present; .env.example INTEGRATION_ENCRYPTION_KEY set to '' with a generate-me comment; and the live Vercel prod INTEGRATION_ENCRYPTION_KEY confirmed to be a real random 32-byte value, not the zeros placeholder. Check: a unit test that an all-zero/short/garbage key is rejected, plus a printout of the prod key length/format. Or stop after 6 turns and report which sub-items remain.
 ```
 - **Evidence:** `lib/credential-vault.ts:18-26` (length-only encoding selection), `:44-47` (CREDENTIAL_ENCRYPTION_KEY → INTEGRATION_ENCRYPTION_KEY → NEXTAUTH_SECRET, no prod guard), `.env.example:252` (64 hex zeros accepted as valid).
 
 ### B-tests. [MEDIUM] BYOK critical paths are untested
-- ✅ **DONE** 2026-06-16 (branch `fix/ra-resend-from-guard`): `lib/__tests__/credential-vault.test.ts` (round-trip + GCM tamper-fail + wrong-key), `lib/workspace/__tests__/get-provider-api-key.test.ts` (ACTIVE/DISABLED/no-row/decrypt-throws gating + `maskApiKey` off-by-one). `maskApiKey` exported. 9/9 passing.
+- [PASS] **DONE** 2026-06-16 (branch `fix/ra-resend-from-guard`): `lib/__tests__/credential-vault.test.ts` (round-trip + GCM tamper-fail + wrong-key), `lib/workspace/__tests__/get-provider-api-key.test.ts` (ACTIVE/DISABLED/no-row/decrypt-throws gating + `maskApiKey` off-by-one). `maskApiKey` exported. 9/9 passing.
 ```
 /goal End state: lib/__tests__/credential-vault.test.ts exercises a real AES-256-GCM encrypt→decrypt round-trip + tamper-fails-closed; maskApiKey has an off-by-one unit test; getProviderApiKey has ACTIVE/DISABLED/decrypt-throws→null gating tests. Check: the three test files exist and pass via `pnpm exec vitest run`. Or stop after 6 turns.
 ```

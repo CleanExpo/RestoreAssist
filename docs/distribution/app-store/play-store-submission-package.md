@@ -69,30 +69,30 @@ Source: `distribution/PRIVACY_DISCLOSURES.md` § "Google Play Console — Data S
 
 | Category                 | Data Type                    | Collected                                   | Shared | Optional/Required      | Purpose                                                     |
 | ------------------------ | ---------------------------- | ------------------------------------------- | ------ | ---------------------- | ----------------------------------------------------------- |
-| Personal info            | Name                         | ✅                                          | ❌     | Required               | Account management, App functionality                       |
-| Personal info            | Email address                | ✅                                          | ❌     | Required               | Account management, App functionality                       |
-| Personal info            | Phone number                 | ✅                                          | ❌     | Optional               | App functionality (SMS notifications)                       |
-| Personal info            | Address                      | ✅                                          | ❌     | Required               | App functionality (property addresses)                      |
-| Personal info            | Other info (free-text notes) | ✅                                          | ❌     | Optional               | App functionality                                           |
-| Financial info           | Payment info                 | ✅ (via Stripe)                             | ❌     | Required for paid tier | Account management — disclosed as third-party (Stripe)      |
-| Location                 | Approximate location         | ✅                                          | ❌     | Optional               | App functionality (postcode → state derivation; photo EXIF) |
-| Location                 | Precise location             | ❌                                          | —      | —                      | We do NOT request `whenInUse` GPS                           |
-| Photos and videos        | Photos                       | ✅                                          | ❌     | Optional               | App functionality (inspection documentation)                |
-| Photos and videos        | Videos                       | ❌                                          | —      | —                      | (not in v1)                                                 |
-| Audio files              | Voice or sound recordings    | ✅ (only if voice-observation feature used) | ❌     | Optional               | App functionality                                           |
-| App activity             | App interactions             | ✅                                          | ❌     | Required               | Analytics (Vercel Analytics — anonymised)                   |
-| App activity             | In-app search history        | ❌                                          | —      | —                      | (not collected)                                             |
-| App activity             | Other actions                | ❌                                          | —      | —                      | (not collected)                                             |
-| App info and performance | Crash logs                   | ✅                                          | ❌     | Required               | App functionality (Vercel Runtime Logs)                     |
-| App info and performance | Diagnostics                  | ✅                                          | ❌     | Required               | App functionality                                           |
-| Device or other IDs      | Device or other IDs          | ❌                                          | —      | —                      | (we do not read IDFA/IDFV/Advertising ID)                   |
+| Personal info            | Name                         | [PASS]                                          | [FAIL]     | Required               | Account management, App functionality                       |
+| Personal info            | Email address                | [PASS]                                          | [FAIL]     | Required               | Account management, App functionality                       |
+| Personal info            | Phone number                 | [PASS]                                          | [FAIL]     | Optional               | App functionality (SMS notifications)                       |
+| Personal info            | Address                      | [PASS]                                          | [FAIL]     | Required               | App functionality (property addresses)                      |
+| Personal info            | Other info (free-text notes) | [PASS]                                          | [FAIL]     | Optional               | App functionality                                           |
+| Financial info           | Payment info                 | [PASS] (via Stripe)                             | [FAIL]     | Required for paid tier | Account management — disclosed as third-party (Stripe)      |
+| Location                 | Approximate location         | [PASS]                                          | [FAIL]     | Optional               | App functionality (postcode → state derivation; photo EXIF) |
+| Location                 | Precise location             | [FAIL]                                          | —      | —                      | We do NOT request `whenInUse` GPS                           |
+| Photos and videos        | Photos                       | [PASS]                                          | [FAIL]     | Optional               | App functionality (inspection documentation)                |
+| Photos and videos        | Videos                       | [FAIL]                                          | —      | —                      | (not in v1)                                                 |
+| Audio files              | Voice or sound recordings    | [PASS] (only if voice-observation feature used) | [FAIL]     | Optional               | App functionality                                           |
+| App activity             | App interactions             | [PASS]                                          | [FAIL]     | Required               | Analytics (Vercel Analytics — anonymised)                   |
+| App activity             | In-app search history        | [FAIL]                                          | —      | —                      | (not collected)                                             |
+| App activity             | Other actions                | [FAIL]                                          | —      | —                      | (not collected)                                             |
+| App info and performance | Crash logs                   | [PASS]                                          | [FAIL]     | Required               | App functionality (Vercel Runtime Logs)                     |
+| App info and performance | Diagnostics                  | [PASS]                                          | [FAIL]     | Required               | App functionality                                           |
+| Device or other IDs      | Device or other IDs          | [FAIL]                                          | —      | —                      | (we do not read IDFA/IDFV/Advertising ID)                   |
 
 ### D.3 Security practices
 
-- Data is encrypted in transit ✅ (HTTPS-only)
-- Users can request data deletion ✅ (DELETE /api/user/account endpoint)
-- Data is encrypted at rest ✅ (Supabase managed Postgres + Vercel Blob)
-- Independent security review ❌ (not yet — note as "No" honestly)
+- Data is encrypted in transit [PASS] (HTTPS-only)
+- Users can request data deletion [PASS] (DELETE /api/user/account endpoint)
+- Data is encrypted at rest [PASS] (Supabase managed Postgres + Vercel Blob)
+- Independent security review [FAIL] (not yet — note as "No" honestly)
 
 ---
 
@@ -107,7 +107,7 @@ Per Play Console § Setup → App content → App access:
 | Password   | (provisioned per §K below — fresh, scoped to a clean reviewer workspace)                                                                                                                                                                                                |
 | Notes      | "Sign in with email + password. The dashboard shows recent inspections. Tap any inspection to view its room-by-room moisture readings, photos, and scope of works. The 'New Inspection' flow demonstrates offline-first capture; toggle airplane mode to see queueing." |
 
-⚠️ Provision the reviewer workspace fresh — DO NOT use real pilot creds.
+[WARN] Provision the reviewer workspace fresh — DO NOT use real pilot creds.
 
 ---
 
@@ -257,4 +257,4 @@ When all 13 items above are checked: click **Send for review** on the Production
 
 ---
 
-🔗 **Companion docs:** `distribution/app-store-submission-package.md` (App Store), `distribution/store-listings.md` (raw copy), `distribution/PRIVACY_DISCLOSURES.md` (truthful data flow audit), `docs/MOBILE_RELEASE_RUNBOOK.md` (full release process)
+ **Companion docs:** `distribution/app-store-submission-package.md` (App Store), `distribution/store-listings.md` (raw copy), `distribution/PRIVACY_DISCLOSURES.md` (truthful data flow audit), `docs/MOBILE_RELEASE_RUNBOOK.md` (full release process)

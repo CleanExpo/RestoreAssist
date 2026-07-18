@@ -5,7 +5,7 @@
 
 ---
 
-## ⚠️ What needs YOUR direct action
+## [WARN] What needs YOUR direct action
 
 The following steps require you to:
 
@@ -178,7 +178,7 @@ keytool -genkey -v -keystore restoreassist-release.jks \
   -alias restoreassist -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-**⚠️ CRITICAL: Back up `restoreassist-release.jks` and its password. If you lose this file,
+**[WARN] CRITICAL: Back up `restoreassist-release.jks` and its password. If you lose this file,
 you can never update your app on Google Play.**
 
 Store this file in: a password manager, Google Drive, and a USB drive.

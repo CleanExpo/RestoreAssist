@@ -33,9 +33,9 @@
 ## Drifting — inconsistencies across surfaces
 
 4. **Icon-only buttons without `aria-label` (rubric #1).** 14 `size="icon"` button occurrences across 10 files; spot-audit:
-   - `components/notifications/NotificationBell.tsx` — `aria-label` present ✓
-   - `components/theme-toggle.tsx` — ✓
-   - `components/ui/sidebar.tsx`, `components/ui/calendar.tsx` — primitive, ✓
+   - `components/notifications/NotificationBell.tsx` — `aria-label` present
+   - `components/theme-toggle.tsx` —
+   - `components/ui/sidebar.tsx`, `components/ui/calendar.tsx` — primitive,
    - `components/workspace/OnboardingChecklist.tsx` — icon-only dismiss, **no aria-label**
    - `app/dashboard/reports/[id]/completeness/page.tsx` — icon-only action, no aria-label
    - `app/dashboard/invoices/[id]/variations/page.tsx` — row-action pencil/trash icons, no aria-label
@@ -83,7 +83,7 @@
 
 - **Round 1 scaffolds (RA-1539-1545):** `error.tsx` boundaries intact, toaster present. No regression.
 - **Round 2 scaffolds (RA-1547-1558):** `lib/api-errors.ts`, `lib/fetch-with-retry.ts`, `lib/client/parse-api-error.ts`, `lib/email-retry.ts`, `lib/webhook-audit.ts`, `lib/audit-log.ts` all still present. No regression.
-- **Round 3 scaffolds:** `components/EmptyState.tsx` (✓, 2 matches of `text-slate-400` — itself a contrast offender, see ticket #5), `components/StatusBadge.tsx` (✓), `components/ConfirmDialog.tsx` presumed ✓, `lib/formatters.ts` (✓), `lib/prisma-helpers.ts` (✓). **Minor regression:** `EmptyState.tsx` uses `text-slate-400` for its description — the shared primitive itself fails contrast, so every consumer inherits the defect. Noted in ticket #5.
+- **Round 3 scaffolds:** `components/EmptyState.tsx` (, 2 matches of `text-slate-400` — itself a contrast offender, see ticket #5), `components/StatusBadge.tsx` (), `components/ConfirmDialog.tsx` presumed , `lib/formatters.ts` (), `lib/prisma-helpers.ts` (). **Minor regression:** `EmptyState.tsx` uses `text-slate-400` for its description — the shared primitive itself fails contrast, so every consumer inherits the defect. Noted in ticket #5.
 - **No functional regressions detected.**
 
 ---
@@ -92,19 +92,19 @@
 
 | Rubric                               | Status                                |
 | ------------------------------------ | ------------------------------------- |
-| 1. ARIA on icon buttons              | ⚠ ~6/14 missing                       |
-| 2. Form label association            | ❌ ~90-field gap                      |
-| 3. Keyboard traps (custom modals)    | ⚠ 4 hand-rolled modals need audit     |
-| 4. Colour contrast                   | ❌ 2,276 low-contrast class uses      |
-| 5. Focus-visible                     | ✅ shadcn covers primitives           |
-| 6. Image alt text                    | ✅ 0 unlabelled `<img>`/`<Image>`     |
-| 7. SR status messaging               | ❌ 21 live-region uses app-wide       |
-| 8. Async progress surfaces (RA-1109) | ❌ ~30% coverage                      |
-| 9. Heading hierarchy                 | ⚠ skip-level on detail pages          |
-| 10. Semantic elements                | ✅ 0 `<div onClick>`                  |
-| 11. Dynamic content announcements    | ❌ tied to #7                         |
-| 12. Tab order                        | ✅ no `tabindex > 0`                  |
-| 13. Reduced motion                   | ❌ 10+ keyframes, 0 media query       |
-| 14. Mobile target size               | ⚠ default button 36px, below AAA 44px |
+| 1. ARIA on icon buttons              | [WARN] ~6/14 missing                       |
+| 2. Form label association            | [FAIL] ~90-field gap                      |
+| 3. Keyboard traps (custom modals)    | [WARN] 4 hand-rolled modals need audit     |
+| 4. Colour contrast                   | [FAIL] 2,276 low-contrast class uses      |
+| 5. Focus-visible                     | [PASS] shadcn covers primitives           |
+| 6. Image alt text                    | [PASS] 0 unlabelled `<img>`/`<Image>`     |
+| 7. SR status messaging               | [FAIL] 21 live-region uses app-wide       |
+| 8. Async progress surfaces (RA-1109) | [FAIL] ~30% coverage                      |
+| 9. Heading hierarchy                 | [WARN] skip-level on detail pages          |
+| 10. Semantic elements                | [PASS] 0 `<div onClick>`                  |
+| 11. Dynamic content announcements    | [FAIL] tied to #7                         |
+| 12. Tab order                        | [PASS] no `tabindex > 0`                  |
+| 13. Reduced motion                   | [FAIL] 10+ keyframes, 0 media query       |
+| 14. Mobile target size               | [WARN] default button 36px, below AAA 44px |
 
 **Lighthouse accessibility score (projected):** ~78-85 — misses ≥95 exit criterion. Blockers: form-label gap, low contrast, and motion. Those three alone likely account for 15+ Lighthouse points.

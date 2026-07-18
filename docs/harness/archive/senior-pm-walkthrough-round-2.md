@@ -63,7 +63,7 @@
 
 Spot-checked RA-1539/1540/1541/1543/1544/1545 surfaces:
 
-- `app/dashboard/error.tsx` + `app/portal/error.tsx` both import `reportClientError` ✓
+- `app/dashboard/error.tsx` + `app/portal/error.tsx` both import `reportClientError`
 - `app/api/webhooks/github/route.ts` length-guard pre-`timingSafeEqual` — re-read not done, flag to confirm.
 - `features/page.tsx` "mould" — re-read not done, flag to confirm.
   No visible regressions in Round 2's sampling.

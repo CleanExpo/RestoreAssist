@@ -7,7 +7,7 @@ date: 2026-04-12
 
 # 04-01: Production Build Verification — Summary
 
-## Result: ✅ PASS
+## Result: [PASS] PASS
 
 All three verification gates cleared. The branch `feat/ra-625-626-knowledge-layer` produces a clean production build.
 
@@ -17,9 +17,9 @@ All three verification gates cleared. The branch `feat/ra-625-626-knowledge-laye
 
 | Task            | Result  | Notes                                                   |
 | --------------- | ------- | ------------------------------------------------------- |
-| pnpm type-check | ✅ Pass | 0 errors — exits cleanly                                |
-| pnpm lint       | ⚠️ N/A  | ESLint not installed; `next lint` removed in Next.js 16 |
-| pnpm build      | ✅ Pass | 309 pages compiled, 12.6s Turbopack compile             |
+| pnpm type-check | [PASS] Pass | 0 errors — exits cleanly                                |
+| pnpm lint       | [WARN] N/A  | ESLint not installed; `next lint` removed in Next.js 16 |
+| pnpm build      | [PASS] Pass | 309 pages compiled, 12.6s Turbopack compile             |
 
 ---
 
@@ -33,7 +33,7 @@ All three verification gates cleared. The branch `feat/ra-625-626-knowledge-laye
 ### Warnings (non-blocking)
 
 1. **Workspace root ambiguity** — worktree has its own `pnpm-lock.yaml`; Next.js picked the parent `D:\RestoreAssist\pnpm-lock.yaml` as workspace root. Production builds from the main repo are unaffected.
-2. **`middleware` deprecation** — `⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.` Pre-existing — `middleware.ts` implements nonce-based CSP and is tracked.
+2. **`middleware` deprecation** — `[WARN] The "middleware" file convention is deprecated. Please use "proxy" instead.` Pre-existing — `middleware.ts` implements nonce-based CSP and is tracked.
 3. **`/api/dashboard/stats` DYNAMIC_SERVER_USAGE** — Route uses `headers()` so cannot be prerendered. Expected behaviour for authenticated API routes.
 
 ---

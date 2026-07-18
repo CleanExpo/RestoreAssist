@@ -116,22 +116,22 @@ async function verifyChecksum(filePath, fileName) {
     const checksums = await downloadText(CHECKSUMS_URL);
     const line = checksums.split('\n').find((l) => l.trim().endsWith(fileName));
     if (!line) {
-      console.log('⚠ No checksum entry found for this binary, skipping verification');
+      console.log('[WARN] No checksum entry found for this binary, skipping verification');
       return true;
     }
     const expectedHash = line.split(/\s+/)[0];
     const fileBuffer = readFileSync(filePath);
     const actualHash = createHash('sha256').update(fileBuffer).digest('hex');
     if (actualHash !== expectedHash) {
-      console.log(`✗ Checksum mismatch!`);
+      console.log(` Checksum mismatch!`);
       console.log(`  Expected: ${expectedHash}`);
       console.log(`  Actual:   ${actualHash}`);
       return false;
     }
-    console.log('✓ Checksum verified');
+    console.log(' Checksum verified');
     return true;
   } catch (err) {
-    console.log(`⚠ Could not verify checksum: ${err.message}`);
+    console.log(`[WARN] Could not verify checksum: ${err.message}`);
     return true;
   }
 }
@@ -141,7 +141,7 @@ async function main() {
     if (platform() !== 'win32') {
       chmodSync(binaryPath, 0o755);
     }
-    console.log(`✓ Native binary ready: ${binaryName}`);
+    console.log(` Native binary ready: ${binaryName}`);
     await fixGlobalInstallBin();
     return;
   }
@@ -173,7 +173,7 @@ async function main() {
       chmodSync(binaryPath, 0o755);
     }
 
-    console.log(`✓ Downloaded native binary: ${binaryName}`);
+    console.log(` Downloaded native binary: ${binaryName}`);
   } catch (err) {
     console.log(`Could not download native binary: ${err.message}`);
     console.log('');
@@ -217,9 +217,9 @@ async function fixUnixSymlink() {
   try {
     unlinkSync(symlinkPath);
     symlinkSync(binaryPath, symlinkPath);
-    console.log('✓ Optimized: symlink points to native binary (zero overhead)');
+    console.log(' Optimized: symlink points to native binary (zero overhead)');
   } catch (err) {
-    console.log(`⚠ Could not optimize symlink: ${err.message}`);
+    console.log(`[WARN] Could not optimize symlink: ${err.message}`);
     console.log('  CLI will work via Node.js wrapper (slightly slower startup)');
   }
 }
@@ -250,9 +250,9 @@ async function fixWindowsShims() {
     const ps1Content = `#!/usr/bin/env pwsh\r\n$basedir = Split-Path $MyInvocation.MyCommand.Definition -Parent\r\n& "$basedir\\${relativeBinaryPath}" $args\r\nexit $LASTEXITCODE\r\n`;
     writeFileSync(ps1Shim, ps1Content);
 
-    console.log('✓ Optimized: shims point to native binary (zero overhead)');
+    console.log(' Optimized: shims point to native binary (zero overhead)');
   } catch (err) {
-    console.log(`⚠ Could not optimize shims: ${err.message}`);
+    console.log(`[WARN] Could not optimize shims: ${err.message}`);
     console.log('  CLI will work via Node.js wrapper (slightly slower startup)');
   }
 }

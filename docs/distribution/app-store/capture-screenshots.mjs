@@ -142,7 +142,7 @@ async function captureFlow(page, baseUrl, flow, outDir) {
   await page.waitForTimeout(800);
   const file = path.join(outDir, `${flow.label}.png`);
   await page.screenshot({ path: file, fullPage: false });
-  console.log(`  ✓ ${path.relative(REPO, file)}`);
+  console.log(`   ${path.relative(REPO, file)}`);
 }
 
 async function main() {

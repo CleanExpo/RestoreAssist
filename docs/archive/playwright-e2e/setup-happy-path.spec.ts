@@ -40,7 +40,7 @@ test("happy path: signup → ABN → all sections green → Activate → dashboa
   await expect(page.getByText(/master tech/i)).toBeVisible();
 
   // 7. Activate (button enabled once at least the required-red checks turn green)
-  //    Brand may show 🟡 yellow but that's acceptable
+  //    Brand may show [PENDING] yellow but that's acceptable
   const activate = page.getByRole("button", { name: /activate my workspace/i });
   await expect(activate).toBeEnabled({ timeout: 15_000 });
   await activate.click();

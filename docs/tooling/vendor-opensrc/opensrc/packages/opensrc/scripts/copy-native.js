@@ -40,4 +40,4 @@ if (!existsSync(binDir)) {
 }
 
 copyFileSync(sourcePath, targetPath);
-console.log(`✓ Copied native binary to ${targetPath}`);
+console.log(` Copied native binary to ${targetPath}`);

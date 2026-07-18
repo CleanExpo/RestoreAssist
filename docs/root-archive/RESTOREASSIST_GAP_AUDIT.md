@@ -26,7 +26,7 @@ literals, and 76 template-prefix nav targets. The real gaps are: a dead contact 
 homepage video CTA, explicitly-stubbed integrations, and required env vars missing from
 `.env.example`.
 
-## ⭐ Fix-first (live, user-facing breakages — independently verified)
+##  Fix-first (live, user-facing breakages — independently verified)
 
 1. **Contact form silently discards every enquiry.** `app/contact/page.tsx:207` renders a
    `type="submit"` "Send Message" button inside a `<form>` with no `onSubmit`/`action`/`onChange`;
@@ -180,28 +180,28 @@ were found in `.planning/` video docs.
 
 ## Remediation log
 
-- ✅ **Contact form (False Promises high #1)** — wired `app/contact/page.tsx` to the existing
+- [PASS] **Contact form (False Promises high #1)** — wired `app/contact/page.tsx` to the existing
   public `POST /api/support/tickets`; controlled inputs, loading/success/error states. Added
   backend test `app/api/support/tickets/__tests__/route.test.ts` (5/5). Verified: vitest, eslint,
   tsc, live preview (submit fires the POST; error UI renders). Commit `8c56ff58`.
-- ✅ **Resources dead links (False Promises high #3)** — `app/resources/ResourcesClientPage.tsx`:
+- [PASS] **Resources dead links (False Promises high #3)** — `app/resources/ResourcesClientPage.tsx`:
   wired Compliance Library → `/compliance-library`, Blog → `/blog`, Contact Support → `/contact`;
   marked the three destination-less cards (API Documentation, Case Studies, Webinars) as
   non-clickable "Coming Soon". Removed the stale "Coming Soon" badge from Getting Started Guide
   (it has a real `/help` link). Verified: eslint, tsc, live preview (all hrefs resolve to existing
   routes, zero `#` links, click-through to `/compliance-library` works).
-- ✅ **Homepage greeting video (high)** — confirmed remediated on `main`:
+- [PASS] **Homepage greeting video (high)** — confirmed remediated on `main`:
   `app/page.tsx` now omits `greetingVideoUrl` (commented rationale), so `AvatarOrb`
   degrades to its greeting tooltip instead of opening an empty player. Covered by
   `components/avatar/__tests__/AvatarOrb.test.tsx`.
-- ✅ **`.env.example` undocumented required vars** — confirmed remediated on `main`:
+- [PASS] **`.env.example` undocumented required vars** — confirmed remediated on `main`:
   `STRIPE_PRICE_STANDARD/PREMIUM/ENTERPRISE`, `STRIPE_PRICE_MONTHLY/YEARLY`, and
   `RESEND_FROM_EMAIL` are now documented in `.env.example`.
-- ✅ **Mock-data honesty banners (usage/forms dashboards)** — confirmed remediated on
+- [PASS] **Mock-data honesty banners (usage/forms dashboards)** — confirmed remediated on
   `main`: both `app/dashboard/admin/usage/page.tsx` and
   `app/dashboard/forms/submissions/page.tsx` now render a "Showing sample data —
   couldn't reach the API" banner when the API fall-back fires.
-- 🔶 **Stub integrations — DOCX & email export (Missing connections medium)** —
+-  **Stub integrations — DOCX & email export (Missing connections medium)** —
   de-advertised in `components/DocumentExportPackage.tsx`: removed a false
   `toast.success("…exported successfully as WORD")` that fired even though no Word
   document is produced (Word export now short-circuits with an honest "coming soon"
@@ -209,15 +209,15 @@ were found in `.planning/` video docs.
   button into a disabled "Coming soon" control to match the Word card. Added
   `components/__tests__/DocumentExportPackage.test.tsx` (4/4) locking the honesty
   guarantees + success-only-on-real-export. Verified: vitest, eslint, tsc.
-- ✅ **Stub integrations — verified already honest (audit sweep)** — re-checked the
-  ⬜ items against disk: **blog** (`app/blog/page.tsx:195`) now renders a
+- [PASS] **Stub integrations — verified already honest (audit sweep)** — re-checked the
+   items against disk: **blog** (`app/blog/page.tsx:195`) now renders a
   non-interactive `<span aria-disabled>` "Coming Soon", not a dead `href="#"`;
   **DOCX/email export** de-advertised earlier (see above); **cloud-mirror**
   OneDrive/iCloud are UI-gated "coming soon" (latent); **Google Drive read** is
   implemented for the live path (`downloadByFileId`); **OpenAI/Gemini** on the
   integrations page are `disabled` `<option>`s (the toast handlers are defensive
   dead code). No dishonest surface remained to fix.
-- ✅ **Undocumented required env vars (Missing connections — `.env.example`)** —
+- [PASS] **Undocumented required env vars (Missing connections — `.env.example`)** —
   added 15 vars referenced by app/lib code but absent from `.env.example`,
   preventing silent prod misconfiguration. Most notably the **required
   client-side `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`** (billing UI), plus the
@@ -226,7 +226,7 @@ were found in `.planning/` video docs.
   standards-ingest (`STANDARDS_INGEST_TOKEN`, `GOOGLE_DRIVE_STANDARDS_FOLDER_ID`),
   public contact addresses, and AI spend/rate constants. Vercel/runtime-injected
   vars deliberately omitted. Docs/config only — no code behaviour change.
-- ✅ **Onboarding ↔ setup-gate checklist disagreement (Phase 4 — "two contradicting
+- [PASS] **Onboarding ↔ setup-gate checklist disagreement (Phase 4 — "two contradicting
   checklists")** — the onboarding "Add your AI key" card (PR #1486) writes to the new
   `ProviderConnection` BYOK store, but `GET /api/onboarding/status` only checked the
   legacy `Integration` table (+ `deepseekApiKey`) for its `ai_provider` step. A user
@@ -239,7 +239,7 @@ were found in `.planning/` video docs.
   workspace for team members). No schema changes. Added
   `lib/workspace/__tests__/has-active-operating-provider.test.ts` (5/5). Verified:
   vitest (13/13 across the touched suites), eslint (0 errors), tsc (0 errors).
-- ✅ **IICRC S500 citation-year consistency (backlog — "IICRC S500 citation
+- [PASS] **IICRC S500 citation-year consistency (backlog — "IICRC S500 citation
   consistency")** — RA-6793 standardised `S500_FIELD_MAP` to the canonical
   `S500:2021 §X` form (guarded by `nir-standards-mapping.test.ts`), but several
   hardcoded citation *data* strings still shipped the legacy year-less `IICRC S500 §X`
@@ -258,7 +258,7 @@ were found in `.planning/` video docs.
   `guidewire-photo-manifest.test.ts` to lock the insurer-payload `standardRef`.
   Verified: vitest (44/44 across the touched suites), eslint (0 errors), full
   `tsc --noEmit` (0 errors; pre-existing `prisma/seed-anz-materials.ts` excepted).
-- 🔶 **Phase 3 — multi-provider BYOK: OpenRouter provider-layer slice** — taught the
+-  **Phase 3 — multi-provider BYOK: OpenRouter provider-layer slice** — taught the
   provider-calling layer (`lib/ai-provider.ts`) to recognise and route OpenRouter keys.
   (1) **Correctness fix:** OpenRouter keys are `sk-or-…`, which also match the generic
   `sk-` OpenAI branch — so `providerForKey` previously classified them as `openai` and
@@ -274,7 +274,7 @@ were found in `.planning/` video docs.
   `lib/__tests__/ai-provider-routing.test.ts` (sk-or- classification + cross-vendor guard).
   Verified: vitest (10/10 across both suites), eslint (0 errors), full `tsc --noEmit`
   (0 errors).
-- ✅ **Phase 3 — multi-provider BYOK: OpenRouter wired end-to-end** (extends the slice above,
+- [PASS] **Phase 3 — multi-provider BYOK: OpenRouter wired end-to-end** (extends the slice above,
   same PR/branch). The live `ProviderConnection` BYOK store now supports OpenRouter as a
   first-class operating provider:
   - **Schema (safe):** added `OPENROUTER` to the Prisma `AiProvider` enum with an additive,
@@ -304,7 +304,7 @@ were found in `.planning/` video docs.
     OpenRouter key at runtime — the code is complete and unit-tested with mocks, but a real
     end-to-end smoke test + the public self-serve BYOK disclosure decision are **RA-6933**
     (founder). No further code is blocked.
-- ✅ **Remaining undocumented env vars (Missing connections medium — final `.env.example`
+- [PASS] **Remaining undocumented env vars (Missing connections medium — final `.env.example`
   sweep)** — re-verified the audit's full undocumented-env list against code (per-var grep
   of `app/` + `lib/`, 2026-07-09). 16 of the 19 listed vars were already documented by the
   earlier `.env.example` passes: `GEMINI_API_KEY`, `OLLAMA_BASE_URL`/`OLLAMA_MODEL`,
@@ -318,7 +318,7 @@ were found in `.planning/` video docs.
   return 501 `FEATURE_DISABLED` without it — documented under DEVELOPMENT ONLY) and
   `PROPERTY_SCRAPER_REQUIRED` (`app/api/properties/scrape/health/route.ts:46` strict-mode
   flag — documented next to `PROPERTY_SCRAPER_URL`). Docs only — zero code changes.
-- ✅ **"Start Free Trial" wording (False Promises medium) — verified TRUE, CTA unchanged** —
+- [PASS] **"Start Free Trial" wording (False Promises medium) — verified TRUE, CTA unchanged** —
   traced the paid-plan CTA (`app/pricing/page.tsx:526`, `<Link href="/signup">` at `:518`)
   through every signup path: `app/api/auth/register/route.ts:145,205` grant
   `subscriptionStatus: "TRIAL"` with `trialEndsAt = now + 15 days`, 50 report credits and
@@ -331,7 +331,7 @@ were found in `.planning/` video docs.
   real feature access. The trial length is already surfaced on the pricing page
   (`app/pricing/page.tsx:281,332`). The audit's premise ("no trial-specific tier exists in
   lib/pricing.ts") is stale — `PRICING_CONFIG.free` is now the trial SSOT. No change needed.
-- 🔶 **Setup-wizard brand-logo upload & business-detail persistence (Missing connections
+-  **Setup-wizard brand-logo upload & business-detail persistence (Missing connections
   low)** — the business-detail half is remediated:
   `components/setup/BusinessDetailsCard.tsx` now persists manual edits via
   `persistManualField` → `PATCH /api/setup/state` on blur (`:217,230,243`; verified
