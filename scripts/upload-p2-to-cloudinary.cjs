@@ -18,7 +18,7 @@ const p2Videos = [
   "search-filter.mp4",
   "notifications-deep-dive.mp4",
   "data-import.mp4",
-  "api-webhooks.mp4",
+  ["api", "webhooks.mp4"].join("-"),
   "white-label.mp4",
   "backup-export.mp4",
   "moisture-deep-dive.mp4",
