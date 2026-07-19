@@ -76,19 +76,11 @@ paths = [
   '''(?i)^test-results/''',
   '''(?i)^playwright-report/''',
 
-  # `.github/workflows/ios-release.yml` lines 229 + 251 — shell-script
-  # string markers `"-----BEGIN PRIVATE KEY-----"` used to validate an
-  # Apple AuthKey .p8 file's format. Not a real private key; the actual
-  # key content comes from `secrets.APPLE_ASC_KEY_P8_BASE64` at runtime.
-  '''(?i)^\.github/workflows/ios-release\.yml$''',
-
-  # `e2e/stripe-payment-intent-webhook.spec.ts:164` — test fixture
-  # defining `wrongSecret = "whsec_definitely_wrong_secret_ra1103"` to
-  # assert the webhook handler rejects bad signatures. Not a real secret.
-  # `app/api/oauth/google-drive/callback/__tests__/route.test.ts:44` —
-  # test env-var fallback string `process.env.X || "fixture-key"`.
-  '''(?i)^e2e/.*\.spec\.ts$''',
+  # Unit-test fixtures use synthetic credentials to exercise validation,
+  # encryption, and live/test-mode guards. These tests remain isolated from
+  # deployed credentials; production code is still scanned normally.
   '''(?i)__tests__/.*\.test\.ts$''',
+
 ]
 
 # Specific commits known to contain false-positives or rotated keys.
