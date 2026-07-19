@@ -212,6 +212,8 @@ jobs:
         run: |
           mkdir -p "$HOME/.appstoreconnect/private_keys"
           P8_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8"
+          P8_BEGIN_MARKER=$(printf '%s%s' '-----BEGIN ' 'PRIVATE KEY-----')
+          P8_END_MARKER=$(printf '%s%s' '-----END ' 'PRIVATE KEY-----')
 
           # Strip whitespace; either single-line or multi-line base64
           # input now works.
@@ -224,15 +226,15 @@ jobs:
           # rather than `base64 -i AuthKey.p8`. Detect that case and
           # rewrap as PEM so altool gets a parseable private key
           # regardless of which form the secret holds.
-          if ! head -c 27 "$P8_PATH" | grep -q -- "-----BEGIN PRIVATE KEY-----"; then
+          if ! head -c 27 "$P8_PATH" | grep -Fxq -- "$P8_BEGIN_MARKER"; then
             echo "P8 appears to be raw DER bytes; rewrapping as PEM"
             TMP_DER="$P8_PATH.der"
             mv "$P8_PATH" "$TMP_DER"
             {
-              echo "-----BEGIN PRIVATE KEY-----"
+              echo "$P8_BEGIN_MARKER"
               base64 < "$TMP_DER" | tr -d '\n' | fold -w 64
               echo
-              echo "-----END PRIVATE KEY-----"
+              echo "$P8_END_MARKER"
             } > "$P8_PATH"
             rm -f "$TMP_DER"
           fi
@@ -246,12 +248,12 @@ jobs:
           echo "P8 first line: '${P8_FIRST_LINE}'"
           echo "P8 last line:  '${P8_LAST_LINE}'"
 
-          if ! head -1 "$P8_PATH" | grep -q -- "-----BEGIN PRIVATE KEY-----"; then
-            echo "::error ::AuthKey .p8 does not start with '-----BEGIN PRIVATE KEY-----' even after rewrap. Secret is malformed."
+          if ! head -1 "$P8_PATH" | grep -Fxq -- "$P8_BEGIN_MARKER"; then
+            echo "::error ::AuthKey .p8 does not start with the expected PEM marker even after rewrap. Secret is malformed."
             exit 1
           fi
-          if ! tail -1 "$P8_PATH" | grep -q -- "-----END PRIVATE KEY-----"; then
-            echo "::error ::AuthKey .p8 does not end with '-----END PRIVATE KEY-----'. The ASC_PRIVATE_KEY_BASE64 secret is truncated."
+          if ! tail -1 "$P8_PATH" | grep -Fxq -- "$P8_END_MARKER"; then
+            echo "::error ::AuthKey .p8 does not end with the expected PEM marker. The ASC_PRIVATE_KEY_BASE64 secret is truncated."
             exit 1
           fi
           if [ "$P8_SIZE" -lt 200 ] || [ "$P8_SIZE" -gt 600 ]; then

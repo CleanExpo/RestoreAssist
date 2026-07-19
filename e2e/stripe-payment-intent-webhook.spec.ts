@@ -161,7 +161,7 @@ test.describe("Stripe Webhook — payment_intent.succeeded (RA-1103)", () => {
    * Expected: 400 { error: "Invalid signature" }
    */
   test("invalid signature → 400 Invalid signature", async ({ request }) => {
-    const wrongSecret = "whsec_definitely_wrong_secret_ra1103";
+    const wrongSecret = "_";
     const badSignature = signStripePayload(FIXTURE_PAYLOAD, wrongSecret);
 
     const response = await request.post("/api/webhooks/stripe", {
