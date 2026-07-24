@@ -187,14 +187,60 @@ describe("capturePhoto", () => {
 // ─── 3. startLidarScan ───────────────────────────────────────────────────────
 
 describe("startLidarScan", () => {
-  it("returns graceful not_implemented status without throwing", async () => {
-    const result = await startLidarScan({
-      inspectionId: "insp-1",
-      roomName: "Living Room",
-    });
+  it("returns manual_required with the capability reason and a manual-workflow hint when capability resolves to manual", async () => {
+    const resolveCapability = vi
+      .fn()
+      .mockResolvedValue({ mode: "manual", reason: "not_native_ios" });
 
-    expect(result.status).toBe("not_implemented");
-    expect(result.hint).toMatch(/RA-1133/);
+    const result = await startLidarScan(
+      { inspectionId: "insp-1", roomName: "Living Room" },
+      { resolveCapability },
+    );
+
+    expect(resolveCapability).toHaveBeenCalledOnce();
+    expect(result.status).toBe("manual_required");
+    expect(result.captureAdapter).toBe("manual");
+    expect(result.reason).toBe("not_native_ios");
+    expect(result.hint).toMatch(/floor plan/i);
+    expect(result.hint).toMatch(/manual/i);
+  });
+
+  it.each([["probe_error"], ["probe_malformed"]] as const)(
+    "returns manual_required with reason %s and a hint that does not claim the device is unsupported",
+    async (reason) => {
+      const resolveCapability = vi.fn().mockResolvedValue({ mode: "manual", reason });
+
+      const result = await startLidarScan(
+        { inspectionId: "insp-1", roomName: "Living Room" },
+        { resolveCapability },
+      );
+
+      expect(result.status).toBe("manual_required");
+      expect(result.captureAdapter).toBe("manual");
+      expect(result.reason).toBe(reason);
+      // probe_error/probe_malformed only mean support could not be confirmed —
+      // they must not be reported as "not available"/"unsupported" on this device.
+      expect(result.hint).not.toMatch(/not available/i);
+      expect(result.hint).not.toMatch(/unsupported/i);
+      expect(result.hint).toMatch(/could not confirm/i);
+      expect(result.hint).toMatch(/floor plan/i);
+      expect(result.hint).toMatch(/manual/i);
+    },
+  );
+
+  it("returns native_scanner_pending without claiming a scan started when capability resolves to roomplan", async () => {
+    const resolveCapability = vi.fn().mockResolvedValue({ mode: "roomplan" });
+
+    const result = await startLidarScan(
+      { inspectionId: "insp-1", roomName: "Living Room" },
+      { resolveCapability },
+    );
+
+    expect(resolveCapability).toHaveBeenCalledOnce();
+    expect(result.status).toBe("native_scanner_pending");
+    expect(result.captureAdapter).toBe("roomplan");
+    expect(result.hint).not.toMatch(/scan (has |)started/i);
+    expect(result.hint).toMatch(/not yet|pending|gated/i);
   });
 });
 
