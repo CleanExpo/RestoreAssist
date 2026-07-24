@@ -37,7 +37,9 @@
       "mermaid": ">=11.15.0",
       "@grpc/grpc-js": ">=1.14.4",
       "form-data": "^2.5.6",
-      "protobufjs": "^7.6.1"
+      "protobufjs": "^7.6.1",
+      "linkify-it": "5.0.2",
+      "sharp": "0.35.3"
     },
     "auditConfig": {
       "ignoreGhsas": [
