@@ -90,7 +90,6 @@ export async function resolveRoomPlanCapability(
 function loadRoomPlanPlugin(): RoomPlanPlugin | null {
   if (typeof window === "undefined") return null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { registerPlugin } = require("@capacitor/core") as {
       registerPlugin: <T>(name: string) => T;
     };
