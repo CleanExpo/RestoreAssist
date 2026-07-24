@@ -107,11 +107,17 @@ export function roomPlanToFabric(
       y: depthOf(p) * PX_PER_METRE,
     }));
 
+    // Skip captures with a non-finite projected vertex (NaN/±Infinity in the
+    // source scan) — they would emit corrupt geometry and a NaN/Infinity area.
+    if (points.some((pt) => !Number.isFinite(pt.x) || !Number.isFinite(pt.y)))
+      continue;
+
     const areaM2 = shoelaceArea(points) / (PX_PER_METRE * PX_PER_METRE);
 
     // Skip degenerate captures (e.g. vertices with no depth axis) that collapse
-    // to a line — they would otherwise emit a bogus 0 m² room measurement.
-    if (areaM2 < MIN_ROOM_AREA_M2) continue;
+    // to a line — they would otherwise emit a bogus 0 m² room measurement — and
+    // any capture whose area is non-finite.
+    if (!Number.isFinite(areaM2) || areaM2 < MIN_ROOM_AREA_M2) continue;
 
     elements.push({
       type: "polygon",

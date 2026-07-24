@@ -132,6 +132,39 @@ describe("roomPlanToFabric — guards", () => {
     expect(result[0].data.label).toBe("Valid");
   });
 
+  it("skips rooms with non-finite coordinates while preserving valid rooms", () => {
+    const result = roomPlanToFabric({
+      rooms: [
+        {
+          label: "NaN coordinate",
+          floorPolygon: [
+            { x: 0, z: 0 },
+            { x: Number.NaN, z: 0 },
+            { x: 1, z: 1 },
+          ],
+        },
+        {
+          label: "Infinite coordinate",
+          floorPolygon: [
+            { x: 0, z: 0 },
+            { x: 1, z: Number.POSITIVE_INFINITY },
+            { x: 1, z: 1 },
+          ],
+        },
+        {
+          label: "Valid",
+          floorPolygon: [
+            { x: 0, z: 0 },
+            { x: 1, z: 0 },
+            { x: 1, z: 1 },
+          ],
+        },
+      ],
+    });
+
+    expect(result.map((room) => room.data.label)).toEqual(["Valid"]);
+  });
+
   it("falls back to category, then 'Room', for the label", () => {
     const [byCategory] = roomPlanToFabric({
       rooms: [{ category: "Kitchen", floorPolygon: [{ x: 0, z: 0 }, { x: 1, z: 0 }, { x: 1, z: 1 }] }],
