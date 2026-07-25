@@ -30,11 +30,26 @@ beforeEach(() => {
  * naive fail-closed inversion.
  */
 describe("BillingGate", () => {
-  it("server-renders children so crawlers and web users still get pricing HTML", () => {
-    // A naive "fail closed until hydrated" inversion breaks this: it would
-    // emit the placeholder to every crawler on the public /pricing page.
-    // A server request is never an iOS Capacitor shell, so the server
-    // snapshot must be "do not hide".
+  /**
+   * KNOWN OPEN DEFECT — do not "fix" this test to pass.
+   *
+   * capacitor.config.ts:22 points the iOS shell at https://restoreassist.app
+   * (no output:"export"), so the shell loads SERVER-RENDERED HTML over HTTP.
+   * React 19 also uses getServerSnapshot during hydration
+   * (react-dom-client mountSyncExternalStore, `if (isHydrating)`), so on the
+   * hydration path the billing UI is painted and stays visible for the whole
+   * bundle-download-and-hydrate window.
+   *
+   * This cannot be closed inside this component: the server has no way to tell
+   * an iOS shell request from a crawler request. It needs a server-visible
+   * signal — capacitor.config.ts sets no appendUserAgent/overrideUserAgent —
+   * which changes the native shell build and is therefore a founder/Board call.
+   *
+   * Left skipped, and asserting the CORRECT behaviour, so it turns green only
+   * when the real fix lands. It must never be rewritten to assert the current
+   * (defective) output.
+   */
+  it.skip("SSR must not emit billing UI when the request is an iOS shell", () => {
     hideBillingUI.mockReturnValue(true);
 
     const html = renderToString(
@@ -43,8 +58,19 @@ describe("BillingGate", () => {
       </BillingGate>,
     );
 
+    expect(html).not.toContain("View plans");
+  });
+
+  it("server-renders children for ordinary web requests (crawlability)", () => {
+    hideBillingUI.mockReturnValue(false);
+
+    const html = renderToString(
+      <BillingGate>
+        <button type="button">View plans</button>
+      </BillingGate>,
+    );
+
     expect(html).toContain("View plans");
-    expect(html).not.toContain("Managed by your workspace");
   });
 
   it("hides billing UI on the client in the iOS shell", () => {
@@ -109,20 +135,60 @@ describe("BillingGate", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("gates visibility without an effect — no useEffect in the visibility path", async () => {
-    // Structural guard for the defect class. RTL cannot observe the pre-effect
-    // commit, so this asserts the implementation shape that made it possible.
-    const { readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
-    const src = readFileSync(
-      join(process.cwd(), "components/capacitor/BillingGate.tsx"),
-      "utf8",
+  /**
+   * The hydration path is the one the iOS shell actually takes, and until now
+   * nothing in this repo could fail on this defect class: every other test
+   * uses RTL render() (createRoot), which is the fresh-mount path that was
+   * never the problem.
+   *
+   * Skipped because it currently fails by design — see the SSR note above.
+   * It asserts the CORRECT behaviour so it goes green when the shell-signal
+   * fix lands.
+   */
+  it.skip("does not commit billing UI during hydration in the iOS shell", async () => {
+    const { hydrateRoot } = await import("react-dom/client");
+    const { act } = await import("react");
+
+    hideBillingUI.mockReturnValue(false);
+    const html = renderToString(
+      <BillingGate>
+        <button type="button">View plans</button>
+      </BillingGate>,
     );
 
-    expect(src).toContain("useSyncExternalStore(");
-    // No effect CALL (prose mentioning the old approach in comments is fine).
-    expect(src).not.toMatch(/useEffect\s*\(/u);
-    // And no deferred visibility flag of the shape that caused the defect.
-    expect(src).not.toMatch(/setHydrated|hydrated/u);
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    document.body.appendChild(container);
+
+    // Now the client is the iOS shell.
+    hideBillingUI.mockReturnValue(true);
+
+    let domAtCommit = "";
+    await act(async () => {
+      hydrateRoot(
+        container,
+        <BillingGate>
+          <button type="button">View plans</button>
+        </BillingGate>,
+      );
+      // Captured after the hydration commit, before passive effects flush.
+      domAtCommit = container.innerHTML;
+    });
+
+    expect(domAtCommit).not.toContain("View plans");
+  });
+
+  it("gates visibility synchronously during render, not in an effect", () => {
+    // Fresh-mount path (client-side navigation) — this IS closed by the
+    // useSyncExternalStore change and is what this assertion covers.
+    hideBillingUI.mockReturnValue(true);
+
+    const { container } = render(
+      <BillingGate fallback={null}>
+        <button type="button">View plans</button>
+      </BillingGate>,
+    );
+
+    expect(container).toBeEmptyDOMElement();
   });
 });

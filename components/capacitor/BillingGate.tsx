@@ -7,9 +7,24 @@
 //
 // Why client-only: the Capacitor detection relies on
 // `navigator.userAgent` + the `@capacitor/core` runtime, neither of
-// which exist during SSR. Server response always includes the full
-// page (so SEO + non-Capacitor browsers see pricing); the gate kicks
-// in once React hydrates.
+// which exist during SSR.
+//
+// KNOWN OPEN DEFECT (App Review 3.1.1) — READ BEFORE TRUSTING THIS GATE.
+// Client-side navigation is safe: the platform is read synchronously during
+// render, so children are never committed on iOS.
+// The HYDRATION path is NOT safe. capacitor.config.ts:22 points the iOS shell
+// at https://restoreassist.app (no output:"export"), so the shell loads
+// server-rendered HTML over HTTP, and React 19 uses getServerSnapshot while
+// hydrating. The billing UI is therefore painted by WKWebView and stays
+// visible until the bundle downloads and hydration completes.
+// Closing it needs a SERVER-VISIBLE signal for "this request is the iOS
+// shell" — capacitor.config.ts currently sets no appendUserAgent /
+// overrideUserAgent, and the UA regex in lib/capacitor.ts would not match a
+// default Capacitor WKWebView UA. That changes the native shell build, so it
+// is a founder/Board decision, tracked as ledger task #32.
+// Two skipped tests in __tests__/BillingGate.test.tsx assert the CORRECT
+// behaviour and go green when the real fix lands. Do not rewrite them to
+// match current output.
 
 "use client";
 
