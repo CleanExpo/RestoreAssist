@@ -21,6 +21,7 @@ vi.mock("@/lib/capacitor", () => ({
 import {
   buildEvidenceFormData,
   captureEvidencePhoto,
+  evidenceIdempotencyKey,
   sha256Bytes,
 } from "../ios-capture";
 
@@ -90,6 +91,33 @@ describe("captureEvidencePhoto", () => {
     const file = form.get("file") as File;
     const bytes = Buffer.from(await file.arrayBuffer());
     expect(bytes.equals(Buffer.from(FIXTURE_BYTES))).toBe(true);
+  });
+
+  it("fails the capture when hashing fails — never a silent empty hash (review #8)", async () => {
+    const digestSpy = vi
+      .spyOn(globalThis.crypto.subtle, "digest")
+      .mockRejectedValueOnce(new Error("webcrypto unavailable"));
+    try {
+      await expect(captureEvidencePhoto()).rejects.toThrow(
+        "webcrypto unavailable",
+      );
+    } finally {
+      digestSpy.mockRestore();
+    }
+  });
+
+  it("derives a deterministic Idempotency-Key from capture identity (review #9)", async () => {
+    const capture = await captureEvidencePhoto();
+    const key1 = evidenceIdempotencyKey(capture.manifest);
+    const key2 = evidenceIdempotencyKey(capture.manifest);
+    // Stable across retries of the SAME capture...
+    expect(key1).toBe(key2);
+    // ...bound to the byte hash and capture time...
+    expect(key1).toContain(EXPECTED_SHA256);
+    expect(key1).toContain(capture.manifest.capturedAt);
+    // ...and within the server's 8-255 char Idempotency-Key bounds.
+    expect(key1.length).toBeGreaterThanOrEqual(8);
+    expect(key1.length).toBeLessThanOrEqual(255);
   });
 
   it("carries capture location into the manifest", async () => {

@@ -53,6 +53,13 @@ export function buildEvidenceFormData(
   return form;
 }
 
+// RA-7090 review fix: a retried POST of the SAME capture must be genuinely
+// idempotent — derive the key from capture identity (byte hash + capture
+// time), not a fresh random UUID per attempt.
+export function evidenceIdempotencyKey(manifest: IOSCaptureManifest): string {
+  return `evidence-${manifest.sha256}-${manifest.capturedAt}`;
+}
+
 export async function captureEvidencePhoto(): Promise<IOSCaptureResult> {
   const photo = await Camera.getPhoto({
     quality: 90,
@@ -63,13 +70,14 @@ export async function captureEvidencePhoto(): Promise<IOSCaptureResult> {
 
   const dataUrl = photo.dataUrl!;
   const blob = await (await fetch(dataUrl)).blob();
-  const [locResult, hashResult] = await Promise.allSettled([
-    getCurrentLocation(),
+  // RA-7090 review fix: the hash is the custody tripwire — a hashing failure
+  // must FAIL the capture, never degrade to sha256:"" inside a legal record.
+  // Location stays best-effort.
+  const [loc, sha256] = await Promise.all([
+    getCurrentLocation().catch(() => null),
     blob.arrayBuffer().then(sha256Bytes),
   ]);
 
-  const loc = locResult.status === "fulfilled" ? locResult.value : null;
-  const sha256 = hashResult.status === "fulfilled" ? hashResult.value : "";
   const mimeType = `image/${photo.format}`;
   const filename = `capture-${Date.now()}.${photo.format}`;
 

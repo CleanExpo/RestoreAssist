@@ -64,6 +64,7 @@ import type { JobType } from "@/lib/evidence/workflow-definitions";
 import {
   buildEvidenceFormData,
   captureEvidencePhoto,
+  evidenceIdempotencyKey,
 } from "@/lib/evidence/ios-capture";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { getQueuedDraftCount } from "@/lib/offline/inspection-store";
@@ -395,10 +396,12 @@ export default function CaptureWorkflowPage({
       setSelectedEvidenceClass(evidenceClass);
       const capture = await captureEvidencePhoto();
       // RA-7090: upload the captured bytes (multipart) so the server can
-      // recompute and verify the evidence hash over the stored file.
+      // recompute and verify the evidence hash over the stored file. The
+      // Idempotency-Key derives from capture identity (hash + capturedAt) so
+      // a retried POST of the same capture replays instead of duplicating.
       const res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
         method: "POST",
-        headers: { "Idempotency-Key": crypto.randomUUID() },
+        headers: { "Idempotency-Key": evidenceIdempotencyKey(capture.manifest) },
         body: buildEvidenceFormData(capture, {
           workflowStepId: stepId,
           evidenceClass,
