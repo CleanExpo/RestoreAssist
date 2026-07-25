@@ -1,0 +1,18 @@
+# Files rendering a BillingGate. Guarded by components/capacitor/__tests__/shell-detection-wiring.test.ts
+# None may declare `dynamic = "force-static"` — headers() returns empty there,
+# so the server shell verdict silently becomes false and is CDN-cached.
+
+app/compliance/page.tsx
+app/dashboard/credits/page.tsx
+app/dashboard/integrations/page.tsx
+app/dashboard/pricing/page.tsx
+app/dashboard/reports/new/page.tsx
+app/dashboard/settings/page.tsx
+app/dashboard/subscription/page.tsx
+app/dashboard/success/page.tsx
+app/pricing/page.tsx
+components/clients/upgrade-modal.tsx
+components/forms/guided-interview/GuidedInterviewPanel.tsx
+components/live-teacher/InspectionSidekick.tsx
+components/PricingConfiguration.tsx
+components/UpgradeBanner.tsx
