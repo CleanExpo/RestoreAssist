@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 import {
   InspectionSidekick,
   checklistFromToolCalls,
+  mergeChecklist,
 } from "../InspectionSidekick";
 
 function streamResponse(frames: string[]): Response {
@@ -62,6 +63,14 @@ const GAPS_TOOL_FRAME = `data: ${JSON.stringify({
       },
     ],
   },
+})}\n\n`;
+
+const EMPTY_GAPS_FRAME = `data: ${JSON.stringify({
+  type: "tool_call",
+  id: "tc2",
+  toolName: "check_report_gaps",
+  ok: true,
+  result: { gaps: [] },
 })}\n\n`;
 
 const TOKEN_FRAME = `data: ${JSON.stringify({
@@ -183,6 +192,50 @@ describe("InspectionSidekick", () => {
     expect(copied).not.toContain("No photos captured");
   });
 
+  it("clears the checklist when a later run finds zero gaps, and preserves edits when rows persist", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(sessionOk)
+      .mockResolvedValueOnce(
+        streamResponse([GAPS_TOOL_FRAME, TOKEN_FRAME, DONE_FRAME]),
+      )
+      // second turn: same gaps again (edits must survive)
+      .mockResolvedValueOnce(
+        streamResponse([GAPS_TOOL_FRAME, TOKEN_FRAME, DONE_FRAME]),
+      )
+      // third turn: zero gaps (checklist must clear)
+      .mockResolvedValueOnce(
+        streamResponse([EMPTY_GAPS_FRAME, TOKEN_FRAME, DONE_FRAME]),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<InspectionSidekick inspectionId="insp1" />);
+    openSheet();
+    fireEvent.click(
+      screen.getByRole("button", { name: "What's missing on this inspection?" }),
+    );
+    await waitFor(() => screen.getByLabelText("Edit photos"));
+    fireEvent.change(screen.getByLabelText("Edit photos"), {
+      target: { value: "Capture 4 room photos" },
+    });
+
+    ask("check again");
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3),
+    );
+    // Edited text survived the re-run (technician's edits are sacrosanct).
+    expect(
+      (screen.getByLabelText("Edit photos") as HTMLInputElement).value,
+    ).toBe("Capture 4 room photos");
+
+    ask("and now?");
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Report gaps — edit before committing"),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
   it("shows the subscription gate on 402 upgradeRequired", async () => {
     const fetchMock = vi
       .fn()
@@ -214,6 +267,14 @@ describe("checklistFromToolCalls", () => {
     ).toBeNull();
   });
 
+  it("returns [] (not null) for a successful zero-gap call so stale lists clear", () => {
+    expect(
+      checklistFromToolCalls([
+        { id: "1", toolName: "check_report_gaps", ok: true, result: { gaps: [] } },
+      ]),
+    ).toEqual([]);
+  });
+
   it("maps gaps to included, editable rows", () => {
     const rows = checklistFromToolCalls([
       {
@@ -241,5 +302,37 @@ describe("checklistFromToolCalls", () => {
         severity: "warn",
       },
     ]);
+  });
+});
+
+describe("mergeChecklist", () => {
+  const fresh: Parameters<typeof mergeChecklist>[1] = [
+    {
+      key: "photos",
+      included: true,
+      text: "No photos",
+      clauseRef: "S500:2021 §9.2.5",
+      severity: "warn",
+    },
+  ];
+
+  it("keeps the technician's edits and tick state for persisting keys", () => {
+    const prev = [
+      { ...fresh[0], included: false, text: "Capture 4 room photos" },
+      {
+        key: "gone",
+        included: true,
+        text: "Old row",
+        clauseRef: null,
+        severity: "warn" as const,
+      },
+    ];
+    expect(mergeChecklist(prev, fresh)).toEqual([
+      { ...fresh[0], included: false, text: "Capture 4 room photos" },
+    ]);
+  });
+
+  it("clears to null on an empty fresh list", () => {
+    expect(mergeChecklist([fresh[0]], [])).toBeNull();
   });
 });

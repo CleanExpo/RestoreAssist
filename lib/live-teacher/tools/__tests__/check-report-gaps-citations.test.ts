@@ -4,7 +4,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: { inspection: { findUnique: vi.fn() } },
 }));
 
-import { S500_FIELD_MAP } from "@/lib/nir-standards-mapping";
+import { S500_FIELD_MAP, standardCite } from "@/lib/nir-standards-mapping";
 import { prisma } from "@/lib/prisma";
 
 import { checkReportGaps } from "../check-report-gaps";
@@ -41,7 +41,11 @@ describe("check_report_gaps clause citations", () => {
     expect(byField.iicrcClassification.clauseRef).toBe(
       S500_FIELD_MAP.waterCategory.clauseRef,
     );
-    expect(byField["makeSafe.water_stopped"].clauseRef).toBe("S500:2021 §5.1");
+    // §10.6 per the verified section index (initial response / stabilisation);
+    // the legacy §5.1 was a mis-citation the section index cannot resolve.
+    expect(byField["makeSafe.water_stopped"].clauseRef).toBe(
+      standardCite("S500", "10.6"),
+    );
 
     // Every gap is cited and never with the map's not-found sentinel.
     for (const gap of gaps) {

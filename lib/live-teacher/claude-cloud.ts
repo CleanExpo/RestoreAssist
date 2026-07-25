@@ -359,6 +359,27 @@ export async function invokeClaudeCloud(
           inspectionId: input.context.inspectionId,
         };
 
+        // Enabled/read-only guard FIRST — before the confirm-required branch.
+        // Otherwise a tool disabled for this turn (e.g. flag_whs_hazard in
+        // readOnlyTools mode) would still be recorded and persisted as an
+        // EXECUTABLE proposal that the confirm endpoint can turn into a write.
+        if (!turnToolNames.includes(block.name as ToolName)) {
+          const guardError = `Tool "${block.name}" is not enabled in this phase`;
+          executedToolCalls.push({
+            name: block.name,
+            args: safeArgs,
+            id: block.id,
+            error: guardError,
+          });
+          toolResultBlocks.push({
+            type: "tool_result",
+            tool_use_id: block.id,
+            content: `Error: ${guardError}`,
+            is_error: true,
+          });
+          continue;
+        }
+
         // Confirm-required tools (e.g. flag_whs_hazard) are PROPOSED, never run
         // here: the compliance write happens only after the technician confirms
         // via the confirm endpoint. Record the proposal and tell the model it is

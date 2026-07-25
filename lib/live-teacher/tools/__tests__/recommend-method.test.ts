@@ -56,6 +56,20 @@ describe("recommend_method", () => {
     expect(result.reason).toMatch(/classification/iu);
   });
 
+  it("is explicit when classified but no affected areas are recorded (never sizes 0 equipment)", async () => {
+    vi.mocked(prisma.inspection.findUnique).mockResolvedValue({
+      id: "insp_1",
+      classifications: [{ category: "2", class: "2" }],
+      affectedAreas: [],
+    } as never);
+
+    const result = await recommendMethod({ inspectionId: "insp_1" });
+
+    expect(result.available).toBe(false);
+    if (result.available) throw new Error("unreachable");
+    expect(result.reason).toMatch(/affected areas/iu);
+  });
+
   it("is explicit when the inspection does not exist", async () => {
     vi.mocked(prisma.inspection.findUnique).mockResolvedValue(null);
 

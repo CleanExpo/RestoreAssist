@@ -368,6 +368,32 @@ describe("invokeClaudeCloud — readOnlyTools mode", () => {
     expect(result.toolCalls[0].error).toMatch(/not enabled/iu);
   });
 
+  it("refuses a confirm-required write tool in read-only mode — no proposal is recorded", async () => {
+    anthropicMock.create
+      .mockResolvedValueOnce(
+        toolUseResponse("flag_whs_hazard", {
+          inspectionId: "SPOOFED",
+          hazardType: "asbestos",
+        }),
+      )
+      .mockResolvedValueOnce(makeSuccessResponse("Noted."));
+
+    const result = await invokeClaudeCloud({
+      ...baseInput,
+      readOnlyTools: true,
+    });
+
+    // Guard-ordering regression (adversarial review P1): the enabled check
+    // must run BEFORE the confirm-required branch, or the disabled write tool
+    // is persisted as an EXECUTABLE proposal for the confirm endpoint.
+    expect(dispatchToolMock).not.toHaveBeenCalled();
+    const call = result.toolCalls[0];
+    expect(call.error).toMatch(/not enabled/iu);
+    expect(
+      (call as { proposed?: boolean }).proposed,
+    ).toBeUndefined();
+  });
+
   it("keeps the full Phase-1 tool set when the flag is absent (voice unchanged)", async () => {
     anthropicMock.create.mockResolvedValueOnce(
       makeSuccessResponse("All good [S500:2021 §10]."),

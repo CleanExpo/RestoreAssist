@@ -46,6 +46,10 @@ export async function recommendMethod(
       id: true,
       classifications: {
         take: 1,
+        // Latest classification wins — a re-classified job (Cat 1 → Cat 3)
+        // accumulates rows and an unordered take(1) is nondeterministic.
+        // Same ordering as the portal PDF route.
+        orderBy: { createdAt: "desc" },
         select: { category: true, class: true },
       },
       affectedAreas: {
@@ -72,6 +76,14 @@ export async function recommendMethod(
     (sum, a) => sum + (a.affectedAreaSqm ?? a.affectedSquareFootage * SQFT_TO_SQM),
     0,
   );
+
+  if (totalAreaM2 <= 0) {
+    return {
+      available: false,
+      reason:
+        "No affected areas recorded yet — capture the affected areas first so equipment can be sized (S500:2021 §6), then ask again",
+    };
+  }
 
   const equipment = recommendedEquipment(totalAreaM2);
 

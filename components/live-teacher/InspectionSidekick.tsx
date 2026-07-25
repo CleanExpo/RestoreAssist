@@ -70,7 +70,12 @@ function deviceOsFromUserAgent(): "ios" | "android" | "web" {
   return "web";
 }
 
-/** Build editable checklist rows from a check_report_gaps tool result. */
+/**
+ * Build editable checklist rows from a check_report_gaps tool result.
+ * Returns null when NO successful gaps call happened this stream (leave any
+ * existing checklist alone), and [] when a successful call found zero gaps
+ * (the stale checklist must clear — the report is complete).
+ */
 export function checklistFromToolCalls(
   toolCalls: LiveTeacherToolCall[],
 ): ChecklistRow[] | null {
@@ -79,7 +84,7 @@ export function checklistFromToolCalls(
   );
   if (!gapsCall) return null;
   const gaps = (gapsCall.result as { gaps?: ReportGap[] } | undefined)?.gaps;
-  if (!Array.isArray(gaps) || gaps.length === 0) return null;
+  if (!Array.isArray(gaps)) return null;
   return gaps.map((g) => ({
     key: g.field,
     included: true,
@@ -87,6 +92,25 @@ export function checklistFromToolCalls(
     clauseRef: g.clauseRef ?? null,
     severity: g.severity,
   }));
+}
+
+/**
+ * Fresh gap rows replace the checklist, but the technician's edits are
+ * sacrosanct: for keys that persist, their edited text and tick state win
+ * over the regenerated defaults ("editable before commit").
+ */
+export function mergeChecklist(
+  prev: ChecklistRow[] | null,
+  fresh: ChecklistRow[],
+): ChecklistRow[] | null {
+  if (fresh.length === 0) return null;
+  if (!prev) return fresh;
+  return fresh.map((row) => {
+    const existing = prev.find((p) => p.key === row.key);
+    return existing
+      ? { ...row, included: existing.included, text: existing.text }
+      : row;
+  });
 }
 
 export function InspectionSidekick({
@@ -176,6 +200,7 @@ export function InspectionSidekick({
           if (res.status === 402) {
             const body = await res.json().catch(() => ({}));
             setGate(body?.upgradeRequired ? "subscription" : "byok");
+            setInput(utterance);
           } else if (res.status === 401) {
             setGate("session");
             setInput(utterance);
@@ -202,7 +227,9 @@ export function InspectionSidekick({
             });
             patchTurn(assistantId, { toolCalls: [...toolCalls] });
             const rows = checklistFromToolCalls(toolCalls);
-            if (rows) setChecklist(rows);
+            if (rows !== null) {
+              setChecklist((prev) => mergeChecklist(prev, rows));
+            }
           } else if (event.type === "done") {
             patchTurn(assistantId, {
               clauseRefs: event.clauseRefs,

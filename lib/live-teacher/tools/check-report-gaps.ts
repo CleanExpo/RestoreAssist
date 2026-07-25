@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { S500_FIELD_MAP } from "@/lib/nir-standards-mapping";
+import { S500_FIELD_MAP, standardCite } from "@/lib/nir-standards-mapping";
 import { prisma } from "@/lib/prisma";
 
 export const checkReportGapsSchema = z.object({
@@ -19,13 +19,15 @@ export interface ReportGap {
 // Gap field → governing S500 clause, taken from S500_FIELD_MAP directly:
 // getStandardsCitation() merges all four field maps and S700 shadows the
 // duplicated photoDocumentation key, returning the wrong standard here.
-// water_stopped has no field-map entry; its clause is pinned to the same
-// S500:2021 §5.1 the description has always cited.
+// water_stopped has no field-map entry; per the verified S500 section index
+// (lib/standards/s500-sections.ts) source control / initial response lives
+// under §10.6 — the legacy "§5.1" reference was a mis-citation (§5 is
+// Psychrometry and has no 5.1 entry).
 const GAP_CLAUSE_REFS: Record<string, string> = {
   moistureReadings: S500_FIELD_MAP.moistureContent.clauseRef,
   photos: S500_FIELD_MAP.photoDocumentation.clauseRef,
   iicrcClassification: S500_FIELD_MAP.waterCategory.clauseRef,
-  "makeSafe.water_stopped": "S500:2021 §5.1",
+  "makeSafe.water_stopped": standardCite("S500", "10.6"),
 };
 
 export async function checkReportGaps(
@@ -103,7 +105,7 @@ export async function checkReportGaps(
       field: "makeSafe.water_stopped",
       severity: "block",
       description:
-        "Stabilisation action 'water_stopped' is applicable but not yet completed (IICRC S500:2021 §5.1)",
+        "Stabilisation action 'water_stopped' is applicable but not yet completed (IICRC S500:2021 §10.6)",
       clauseRef: GAP_CLAUSE_REFS["makeSafe.water_stopped"],
     });
   }
