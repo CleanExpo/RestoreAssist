@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { buildClaimsIntegrationExport } from "@/lib/export/claims-contract";
 import {
   transformNirToGuidewireClaim,
   transformNirScopeToGuidewireLineItems,
@@ -594,6 +595,17 @@ async function buildResponse(
      * Useful for debugging field mapping issues.
      */
     nirOutput,
+
+    /**
+     * Versioned insurer-agnostic claims envelope (schemaVersion-bound).
+     * Contract: docs/contracts/claims-integration-v1.schema.json.
+     * Insurer fields we don't hold are listed in explicitOmissions.
+     */
+    claimsIntegration: buildClaimsIntegrationExport({
+      nir: nirOutput,
+      inspectionId: id,
+      policyNumber: policyNumber === "POL-UNKNOWN" ? null : policyNumber,
+    }),
 
     meta: {
       inspectionId: id,

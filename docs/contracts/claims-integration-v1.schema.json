@@ -1,0 +1,428 @@
+{
+  "$id": "https://restoreassist.app/contracts/claims-integration-v1.schema.json",
+  "title": "RestoreAssist Claims Integration Export v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "system": {
+          "type": "string",
+          "const": "RestoreAssist"
+        },
+        "inspectionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "system",
+        "inspectionId"
+      ],
+      "additionalProperties": false
+    },
+    "claimReference": {
+      "type": "object",
+      "properties": {
+        "insurerClaimNumber": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "policyNumber": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "insurerClaimNumber",
+        "policyNumber"
+      ],
+      "additionalProperties": false
+    },
+    "report": {
+      "type": "object",
+      "properties": {
+        "reportId": {
+          "type": "string"
+        },
+        "inspectionDate": {
+          "type": "string"
+        },
+        "submittedAt": {
+          "type": "string"
+        },
+        "technician": {
+          "type": "object",
+          "properties": {
+            "technicianId": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "certifications": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "licenceNumber": {
+              "type": "string"
+            },
+            "licenceState": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "technicianId",
+            "name",
+            "certifications"
+          ],
+          "additionalProperties": false
+        },
+        "property": {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "suburb": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "NSW",
+                "VIC",
+                "QLD",
+                "WA",
+                "SA",
+                "TAS",
+                "NT",
+                "ACT"
+              ]
+            },
+            "postcode": {
+              "type": "string"
+            },
+            "locationFlags": {
+              "type": "object",
+              "properties": {
+                "isFloodZone": {
+                  "type": "boolean"
+                },
+                "isBushfireProne": {
+                  "type": "boolean"
+                },
+                "isCycloneZone": {
+                  "type": "boolean"
+                },
+                "isHeritageListed": {
+                  "type": "boolean"
+                },
+                "windRegion": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "approximateBALZone": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "isFloodZone",
+                "isBushfireProne",
+                "isCycloneZone",
+                "isHeritageListed",
+                "windRegion",
+                "approximateBALZone"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "address",
+            "suburb",
+            "state",
+            "postcode",
+            "locationFlags"
+          ],
+          "additionalProperties": false
+        },
+        "lossClassification": {
+          "type": "object",
+          "properties": {
+            "lossType": {
+              "type": "string"
+            },
+            "primaryClassification": {
+              "type": "string"
+            },
+            "secondaryClassification": {
+              "type": "string"
+            },
+            "clauseRefs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "classificationConfidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "required": [
+            "lossType",
+            "primaryClassification",
+            "clauseRefs",
+            "classificationConfidence"
+          ],
+          "additionalProperties": false
+        },
+        "scopeLineItems": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "lineItemId": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "labour",
+                  "materials",
+                  "equipment",
+                  "contents",
+                  "testing"
+                ]
+              },
+              "description": {
+                "type": "string"
+              },
+              "standardsJustification": {
+                "type": "string"
+              },
+              "quantity": {
+                "type": "number"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "unitRate": {
+                "type": "number"
+              },
+              "discretionary": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "lineItemId",
+              "category",
+              "description",
+              "standardsJustification",
+              "quantity",
+              "unit",
+              "discretionary"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "standardsCitations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "standard": {
+                "type": "string",
+                "enum": [
+                  "IICRC S500",
+                  "IICRC S520",
+                  "IICRC S700",
+                  "NCC 2022"
+                ]
+              },
+              "edition": {
+                "type": "string"
+              },
+              "clauseRef": {
+                "type": "string"
+              },
+              "fieldName": {
+                "type": "string"
+              },
+              "complianceStatus": {
+                "type": "string",
+                "enum": [
+                  "COMPLIANT",
+                  "NON_COMPLIANT",
+                  "REQUIRES_ACTION"
+                ]
+              }
+            },
+            "required": [
+              "standard",
+              "edition",
+              "clauseRef",
+              "fieldName",
+              "complianceStatus"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "photoManifest": {
+          "type": "object",
+          "properties": {
+            "totalPhotos": {
+              "type": "number"
+            },
+            "photos": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "photoId": {
+                    "type": "string"
+                  },
+                  "capturedAt": {
+                    "type": "string"
+                  },
+                  "latitude": {
+                    "type": "number"
+                  },
+                  "longitude": {
+                    "type": "number"
+                  },
+                  "sequenceNumber": {
+                    "type": "number"
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "overview",
+                      "damage",
+                      "moisture-reading",
+                      "equipment",
+                      "content",
+                      "post-restoration"
+                    ]
+                  },
+                  "standardRef": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "photoId",
+                  "capturedAt",
+                  "latitude",
+                  "longitude",
+                  "sequenceNumber",
+                  "category",
+                  "standardRef"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "totalPhotos",
+            "photos"
+          ],
+          "additionalProperties": false
+        },
+        "evidenceClearance": {
+          "type": "object",
+          "properties": {
+            "checkedAt": {
+              "type": "string"
+            },
+            "lossTypeDomain": {
+              "type": "string"
+            },
+            "gateStatus": {
+              "type": "string",
+              "enum": [
+                "open",
+                "partial",
+                "blocked"
+              ]
+            },
+            "certificationMet": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "checkedAt",
+            "lossTypeDomain",
+            "gateStatus",
+            "certificationMet"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "reportId",
+        "inspectionDate",
+        "submittedAt",
+        "technician",
+        "property",
+        "lossClassification",
+        "scopeLineItems",
+        "standardsCitations",
+        "photoManifest",
+        "evidenceClearance"
+      ],
+      "additionalProperties": false
+    },
+    "explicitOmissions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "source",
+    "claimReference",
+    "report",
+    "explicitOmissions"
+  ],
+  "additionalProperties": false
+}
