@@ -49,6 +49,12 @@ export type ClaudeCloudInput = {
    * no module-level client and the key is required per call.
    */
   apiKey: string;
+  /**
+   * When true, only READ_ONLY_TOOL_NAMES are offered to and executable by the
+   * model (Inspection Sidekick text mode — suggestions stay editable before
+   * commit). Default false: voice mode keeps the full Phase-1 tool set.
+   */
+  readOnlyTools?: boolean;
 };
 
 export type ClaudeCloudResult = {
@@ -108,6 +114,20 @@ const PHASE1_TOOL_NAMES: readonly ToolName[] = [
   "check_report_gaps",
   "flag_whs_hazard",
   "fill_scope_item",
+  "lookup_iicrc",
+  "recommend_method",
+];
+
+/**
+ * Tools that never write. The text-first Inspection Sidekick (P0 #2) runs
+ * turns with readOnlyTools=true so every suggestion stays editable before
+ * commit — no write tool can execute mid-turn. Enforced here (tool list AND
+ * execution guard), not just in the prompt.
+ */
+export const READ_ONLY_TOOL_NAMES: readonly ToolName[] = [
+  "check_report_gaps",
+  "lookup_iicrc",
+  "recommend_method",
 ];
 
 /**
@@ -119,9 +139,16 @@ const PHASE1_TOOL_NAMES: readonly ToolName[] = [
  */
 const CONFIRM_REQUIRED_TOOLS: readonly ToolName[] = ["flag_whs_hazard"];
 
-const ENABLED_TOOLS = TOOL_DEFINITIONS.filter((d) =>
-  PHASE1_TOOL_NAMES.includes(d.name),
-) as unknown as Anthropic.Tool[];
+function enabledToolNames(readOnlyTools: boolean): readonly ToolName[] {
+  return readOnlyTools ? READ_ONLY_TOOL_NAMES : PHASE1_TOOL_NAMES;
+}
+
+function enabledTools(readOnlyTools: boolean): Anthropic.Tool[] {
+  const names = enabledToolNames(readOnlyTools);
+  return TOOL_DEFINITIONS.filter((d) =>
+    names.includes(d.name),
+  ) as unknown as Anthropic.Tool[];
+}
 
 /** Bound the tool-use loop so a misbehaving model can't spin indefinitely. */
 const MAX_TOOL_ITERATIONS = 4;
@@ -282,6 +309,8 @@ export async function invokeClaudeCloud(
   // re-emitted with identical args (self-correction/retry, or twice in one
   // response) is answered from the prior result instead of dispatching again.
   const executedSignatures = new Map<string, string>();
+  const turnToolNames = enabledToolNames(input.readOnlyTools ?? false);
+  const turnTools = enabledTools(input.readOnlyTools ?? false);
   let content = "";
   let inputTokens = 0;
   let outputTokens = 0;
@@ -300,7 +329,7 @@ export async function invokeClaudeCloud(
         max_tokens: 512,
         system: SYSTEM_PROMPT,
         messages,
-        ...(ENABLED_TOOLS.length > 0 ? { tools: ENABLED_TOOLS } : {}),
+        ...(turnTools.length > 0 ? { tools: turnTools } : {}),
       });
 
       inputTokens += response.usage.input_tokens;
@@ -329,6 +358,27 @@ export async function invokeClaudeCloud(
           ...(block.input as Record<string, unknown>),
           inspectionId: input.context.inspectionId,
         };
+
+        // Enabled/read-only guard FIRST — before the confirm-required branch.
+        // Otherwise a tool disabled for this turn (e.g. flag_whs_hazard in
+        // readOnlyTools mode) would still be recorded and persisted as an
+        // EXECUTABLE proposal that the confirm endpoint can turn into a write.
+        if (!turnToolNames.includes(block.name as ToolName)) {
+          const guardError = `Tool "${block.name}" is not enabled in this phase`;
+          executedToolCalls.push({
+            name: block.name,
+            args: safeArgs,
+            id: block.id,
+            error: guardError,
+          });
+          toolResultBlocks.push({
+            type: "tool_result",
+            tool_use_id: block.id,
+            content: `Error: ${guardError}`,
+            is_error: true,
+          });
+          continue;
+        }
 
         // Confirm-required tools (e.g. flag_whs_hazard) are PROPOSED, never run
         // here: the compliance write happens only after the technician confirms
@@ -369,7 +419,7 @@ export async function invokeClaudeCloud(
         let result: unknown;
         let error: string | undefined;
         try {
-          if (!PHASE1_TOOL_NAMES.includes(block.name as ToolName)) {
+          if (!turnToolNames.includes(block.name as ToolName)) {
             throw new Error(`Tool "${block.name}" is not enabled in this phase`);
           }
           result = await dispatchTool(block.name as ToolName, safeArgs, {

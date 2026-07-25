@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { S500_FIELD_MAP, standardCite } from "@/lib/nir-standards-mapping";
 import { prisma } from "@/lib/prisma";
 
 export const checkReportGapsSchema = z.object({
@@ -11,7 +12,23 @@ export interface ReportGap {
   field: string;
   severity: "warn" | "block";
   description: string;
+  /** Edition-qualified IICRC clause that makes this a gap (CLAUDE.md rule 12); null when no standard governs the row (e.g. inspection not found). */
+  clauseRef: string | null;
 }
+
+// Gap field → governing S500 clause, taken from S500_FIELD_MAP directly:
+// getStandardsCitation() merges all four field maps and S700 shadows the
+// duplicated photoDocumentation key, returning the wrong standard here.
+// water_stopped has no field-map entry; per the verified S500 section index
+// (lib/standards/s500-sections.ts) source control / initial response lives
+// under §10.6 — the legacy "§5.1" reference was a mis-citation (§5 is
+// Psychrometry and has no 5.1 entry).
+const GAP_CLAUSE_REFS: Record<string, string> = {
+  moistureReadings: S500_FIELD_MAP.moistureContent.clauseRef,
+  photos: S500_FIELD_MAP.photoDocumentation.clauseRef,
+  iicrcClassification: S500_FIELD_MAP.waterCategory.clauseRef,
+  "makeSafe.water_stopped": standardCite("S500", "10.6"),
+};
 
 export async function checkReportGaps(
   args: CheckReportGapsArgs,
@@ -40,6 +57,7 @@ export async function checkReportGaps(
           field: "inspection",
           severity: "block",
           description: `Inspection ${inspectionId} not found`,
+          clauseRef: null,
         },
       ],
     };
@@ -53,6 +71,7 @@ export async function checkReportGaps(
       field: "moistureReadings",
       severity: "warn",
       description: "No moisture readings captured for this inspection",
+      clauseRef: GAP_CLAUSE_REFS.moistureReadings,
     });
   }
 
@@ -62,6 +81,7 @@ export async function checkReportGaps(
       field: "photos",
       severity: "warn",
       description: "No photos captured for this inspection",
+      clauseRef: GAP_CLAUSE_REFS.photos,
     });
   }
 
@@ -72,6 +92,7 @@ export async function checkReportGaps(
       severity: "block",
       description:
         "IICRC S500:2021 water category and class not yet determined",
+      clauseRef: GAP_CLAUSE_REFS.iicrcClassification,
     });
   }
 
@@ -84,7 +105,8 @@ export async function checkReportGaps(
       field: "makeSafe.water_stopped",
       severity: "block",
       description:
-        "Stabilisation action 'water_stopped' is applicable but not yet completed (IICRC S500:2021 §5.1)",
+        "Stabilisation action 'water_stopped' is applicable but not yet completed (IICRC S500:2021 §10.6)",
+      clauseRef: GAP_CLAUSE_REFS["makeSafe.water_stopped"],
     });
   }
 

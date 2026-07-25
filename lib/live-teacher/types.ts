@@ -44,7 +44,9 @@ export type ToolName =
   | "start_lidar_scan"
   | "fill_scope_item"
   | "flag_whs_hazard"
-  | "check_report_gaps";
+  | "check_report_gaps"
+  | "lookup_iicrc"
+  | "recommend_method";
 
 export type TeacherTurn = {
   role: "user" | "assistant" | "system";

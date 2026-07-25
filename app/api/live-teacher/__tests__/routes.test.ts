@@ -323,6 +323,55 @@ describe("POST /api/live-teacher/turn", () => {
     expect(text).toContain("utt-asst-1");
     // Verify create was called twice: once for user, once for assistant
     expect(mockUtteranceCreate).toHaveBeenCalledTimes(2);
+    // Default (no flag in body) must NOT enter read-only mode.
+    expect(mockInvokeClaudeCloud.mock.calls[0][0]).toMatchObject({
+      readOnlyTools: false,
+    });
+  });
+
+  // Inspection Sidekick (P0 #2): the route is the only joint between the
+  // client's readOnlyTools flag and claude-cloud's tool restriction — prove
+  // it forwards the flag, or the Sidekick silently regains write tools.
+  it("forwards readOnlyTools: true from the body to invokeClaudeCloud", async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: "user-1", email: "test@example.com" },
+    } as any);
+    mockSessionFindFirst.mockResolvedValue({
+      id: "sess-1",
+      userId: "user-1",
+      inspectionId: "insp-1",
+      jurisdiction: "AU",
+    });
+    mockUtteranceCount.mockResolvedValue(0);
+    mockUtteranceFindMany.mockResolvedValue([]);
+    mockUtteranceCreate
+      .mockResolvedValueOnce({ id: "utt-user-1" })
+      .mockResolvedValueOnce({ id: "utt-asst-1" });
+    mockInvokeClaudeCloud.mockResolvedValue({
+      content: "Two gaps remain. [S500:2021 §9.2.5]",
+      clauseRefs: ["[S500:2021 §9.2.5]"],
+      confidence: 80,
+      toolCalls: [],
+      inputTokens: 10,
+      outputTokens: 8,
+      costAudCents: 1,
+    });
+
+    const { POST } = await import("../turn/route");
+    const req = makeRequest("POST", "http://localhost/api/live-teacher/turn", {
+      sessionId: "sess-1",
+      utterance: "What's missing?",
+      readOnlyTools: true,
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    await res.text();
+
+    expect(mockInvokeClaudeCloud).toHaveBeenCalledTimes(1);
+    expect(mockInvokeClaudeCloud.mock.calls[0][0]).toMatchObject({
+      readOnlyTools: true,
+    });
   });
 
   // RA-7059 — concurrency race: overlapping /turn POSTs read the same count()

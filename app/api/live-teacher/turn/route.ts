@@ -22,6 +22,11 @@ import {
 interface TurnBody {
   sessionId: string;
   utterance: string;
+  /**
+   * Inspection Sidekick text mode: restricts the turn to read-only tools so
+   * every suggestion stays editable before commit. Omitted/false for voice.
+   */
+  readOnlyTools?: boolean;
 }
 
 function sseEvent(data: Record<string, unknown>): string {
@@ -234,6 +239,7 @@ export async function POST(request: NextRequest) {
           history,
           userUtterance: body.utterance.trim(),
           apiKey: workspaceKey.apiKey,
+          readOnlyTools: body.readOnlyTools === true,
         });
 
         // invokeClaudeCloud grades confidence 0–100; TeacherUtterance.confidence
