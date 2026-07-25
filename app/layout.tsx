@@ -1,5 +1,6 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 // RA-1290 — Geist/Geist Mono are declared as --font-sans/--font-mono in
 // globals.css but were previously only available via the system-font
@@ -8,6 +9,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { BRAND } from "@/lib/brand";
 import SessionProvider from "@/components/providers/SessionProvider";
 import { CapacitorProvider } from "@/components/providers/CapacitorProvider";
+import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
+import { isIosShellUserAgent } from "@/lib/capacitor";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "react-hot-toast";
 import {
@@ -126,11 +129,17 @@ export const viewport: Viewport = {
   themeColor: "#1C2E47",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // App Review 3.1.1 — resolve the platform on the SERVER so the first byte of
+  // HTML is already correct. The iOS shell loads this site over HTTP
+  // (capacitor.config.ts server.url), so a client-only check always runs after
+  // WKWebView has painted. See components/capacitor/ShellPlatformProvider.
+  const isIosShell = isIosShellUserAgent((await headers()).get("user-agent"));
+
   return (
     <html
       lang="en"
@@ -152,7 +161,9 @@ export default function RootLayout({
           <AnnouncerProvider>
             <NirOfflineProvider>
               <SessionProvider>
-                <CapacitorProvider>{children}</CapacitorProvider>
+                <ShellPlatformProvider isIosShell={isIosShell}>
+                  <CapacitorProvider>{children}</CapacitorProvider>
+                </ShellPlatformProvider>
               </SessionProvider>
               <PwaInstallPrompt />
             </NirOfflineProvider>

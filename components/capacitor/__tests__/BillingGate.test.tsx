@@ -10,6 +10,7 @@ vi.mock("@/lib/capacitor", () => ({
 }));
 
 import BillingGate from "../BillingGate";
+import { ShellPlatformProvider } from "../ShellPlatformProvider";
 
 beforeEach(() => {
   hideBillingUI.mockReturnValue(false);
@@ -49,16 +50,23 @@ describe("BillingGate", () => {
    * when the real fix lands. It must never be rewritten to assert the current
    * (defective) output.
    */
-  it.skip("SSR must not emit billing UI when the request is an iOS shell", () => {
-    hideBillingUI.mockReturnValue(true);
+  it("SSR must not emit billing UI when the request is an iOS shell", () => {
+    // The server resolved the platform from the request user-agent, so the
+    // very first byte of HTML is already correct and WKWebView never paints
+    // billing UI. `shouldHideBillingUI` stays false to prove the SSR verdict
+    // comes from the server, not from any client detection.
+    hideBillingUI.mockReturnValue(false);
 
     const html = renderToString(
-      <BillingGate>
-        <button type="button">View plans</button>
-      </BillingGate>,
+      <ShellPlatformProvider isIosShell>
+        <BillingGate>
+          <button type="button">View plans</button>
+        </BillingGate>
+      </ShellPlatformProvider>,
     );
 
     expect(html).not.toContain("View plans");
+    expect(html).toContain("Managed by your workspace");
   });
 
   it("server-renders children for ordinary web requests (crawlability)", () => {
@@ -145,32 +153,31 @@ describe("BillingGate", () => {
    * It asserts the CORRECT behaviour so it goes green when the shell-signal
    * fix lands.
    */
-  it.skip("does not commit billing UI during hydration in the iOS shell", async () => {
+  it("does not commit billing UI during hydration in the iOS shell", async () => {
     const { hydrateRoot } = await import("react-dom/client");
     const { act } = await import("react");
 
+    // This is the path the iOS shell actually takes and the one the previous
+    // attempt left wide open: React 19 uses getServerSnapshot while hydrating,
+    // so a client-only signal arrives after the commit. The server verdict is
+    // present in both passes, so there is no window.
     hideBillingUI.mockReturnValue(false);
-    const html = renderToString(
-      <BillingGate>
-        <button type="button">View plans</button>
-      </BillingGate>,
+    const tree = (
+      <ShellPlatformProvider isIosShell>
+        <BillingGate>
+          <button type="button">View plans</button>
+        </BillingGate>
+      </ShellPlatformProvider>
     );
+    const html = renderToString(tree);
 
     const container = document.createElement("div");
     container.innerHTML = html;
     document.body.appendChild(container);
 
-    // Now the client is the iOS shell.
-    hideBillingUI.mockReturnValue(true);
-
     let domAtCommit = "";
     await act(async () => {
-      hydrateRoot(
-        container,
-        <BillingGate>
-          <button type="button">View plans</button>
-        </BillingGate>,
-      );
+      hydrateRoot(container, tree);
       // Captured after the hydration commit, before passive effects flush.
       domAtCommit = container.innerHTML;
     });
