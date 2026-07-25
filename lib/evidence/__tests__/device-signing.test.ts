@@ -50,7 +50,7 @@ function installFakeIndexedDb() {
       stores.set(name, new Map());
       return {};
     },
-    transaction(name: string, _mode: string) {
+    transaction(_name: string, _mode: string) {
       return {
         objectStore(storeName: string) {
           const store = stores.get(storeName)!;
