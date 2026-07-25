@@ -35,6 +35,11 @@ vi.mock("../tools", () => ({
       description: "Log a moisture reading",
       input_schema: { type: "object", properties: {}, required: [] },
     },
+    {
+      name: "check_report_gaps",
+      description: "Read-only completeness audit",
+      input_schema: { type: "object", properties: {}, required: [] },
+    },
   ],
   dispatchTool: (...args: unknown[]) => dispatchToolMock(...args),
 }));
@@ -321,6 +326,61 @@ describe("invokeClaudeCloud — tool layer (RA-1132f)", () => {
     expect(result.toolCalls[0].result).toEqual({
       gaps: [{ field: "photos", severity: "warn", description: "No photos" }],
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Read-only tool mode (Inspection Sidekick, P0 #2)
+// ---------------------------------------------------------------------------
+
+describe("invokeClaudeCloud — readOnlyTools mode", () => {
+  it("offers the model only read-only tool definitions", async () => {
+    anthropicMock.create.mockResolvedValueOnce(
+      makeSuccessResponse("All good [S500:2021 §10]."),
+    );
+
+    await invokeClaudeCloud({ ...baseInput, readOnlyTools: true });
+
+    const params = anthropicMock.create.mock.calls[0][0] as {
+      tools?: Array<{ name: string }>;
+    };
+    const offered = (params.tools ?? []).map((t) => t.name);
+    expect(offered).toContain("check_report_gaps");
+    expect(offered).not.toContain("take_reading");
+  });
+
+  it("refuses to execute a write tool even if the model emits one", async () => {
+    anthropicMock.create
+      .mockResolvedValueOnce(
+        toolUseResponse("take_reading", {
+          inspectionId: "SPOOFED",
+          value: 33,
+        }),
+      )
+      .mockResolvedValueOnce(makeSuccessResponse("Noted."));
+
+    const result = await invokeClaudeCloud({
+      ...baseInput,
+      readOnlyTools: true,
+    });
+
+    expect(dispatchToolMock).not.toHaveBeenCalled();
+    expect(result.toolCalls[0].error).toMatch(/not enabled/iu);
+  });
+
+  it("keeps the full Phase-1 tool set when the flag is absent (voice unchanged)", async () => {
+    anthropicMock.create.mockResolvedValueOnce(
+      makeSuccessResponse("All good [S500:2021 §10]."),
+    );
+
+    await invokeClaudeCloud(baseInput);
+
+    const params = anthropicMock.create.mock.calls[0][0] as {
+      tools?: Array<{ name: string }>;
+    };
+    const offered = (params.tools ?? []).map((t) => t.name);
+    expect(offered).toContain("take_reading");
+    expect(offered).toContain("check_report_gaps");
   });
 });
 
