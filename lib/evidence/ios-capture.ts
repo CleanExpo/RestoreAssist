@@ -27,6 +27,32 @@ export async function sha256Bytes(buffer: ArrayBuffer): Promise<string> {
     .join("");
 }
 
+// RA-7090: guided capture must upload the ORIGINAL asset, not just metadata.
+// Builds the multipart payload for POST /api/inspections/[id]/evidence —
+// carries the byte hash so the server can verify the stored bytes.
+export function buildEvidenceFormData(
+  capture: IOSCaptureResult,
+  fields: { workflowStepId: string; evidenceClass: string },
+): FormData {
+  const form = new FormData();
+  form.append("file", capture.blob, capture.filename);
+  form.append("sha256", capture.manifest.sha256);
+  form.append("evidenceClass", fields.evidenceClass);
+  form.append("workflowStepId", fields.workflowStepId);
+  form.append("deviceType", "IOS_CAPACITOR");
+  if (capture.manifest.lat !== null) {
+    form.append("capturedLat", String(capture.manifest.lat));
+  }
+  if (capture.manifest.lng !== null) {
+    form.append("capturedLng", String(capture.manifest.lng));
+  }
+  form.append(
+    "structuredData",
+    JSON.stringify({ c2paManifest: capture.manifest }),
+  );
+  return form;
+}
+
 export async function captureEvidencePhoto(): Promise<IOSCaptureResult> {
   const photo = await Camera.getPhoto({
     quality: 90,

@@ -61,7 +61,10 @@ import {
   getWorkflowTemplate,
 } from "@/lib/evidence/workflow-definitions";
 import type { JobType } from "@/lib/evidence/workflow-definitions";
-import { captureEvidencePhoto } from "@/lib/evidence/ios-capture";
+import {
+  buildEvidenceFormData,
+  captureEvidencePhoto,
+} from "@/lib/evidence/ios-capture";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { getQueuedDraftCount } from "@/lib/offline/inspection-store";
 import { AdaptiveGuidancePanel } from "@/components/inspections/adaptive-guidance-panel";
@@ -391,19 +394,20 @@ export default function CaptureWorkflowPage({
       setUploadingEvidence(true);
       setSelectedEvidenceClass(evidenceClass);
       const capture = await captureEvidencePhoto();
+      // RA-7090: upload the captured bytes (multipart) so the server can
+      // recompute and verify the evidence hash over the stored file.
       const res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+        body: buildEvidenceFormData(capture, {
           workflowStepId: stepId,
           evidenceClass,
-          deviceType: "IOS_CAPACITOR",
-          capturedLat: capture.manifest.lat,
-          capturedLng: capture.manifest.lng,
-          structuredData: { c2paManifest: capture.manifest },
         }),
       });
-      if (!res.ok) throw new Error("Failed to record evidence");
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error?.message || "Failed to record evidence");
+      }
       const data = await res.json();
       setEvidenceItems((prev) => [data.evidenceItem, ...prev]);
       setSelectedEvidenceClass(null);

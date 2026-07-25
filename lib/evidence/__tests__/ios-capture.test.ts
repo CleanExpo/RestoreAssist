@@ -18,7 +18,11 @@ vi.mock("@/lib/capacitor", () => ({
   })),
 }));
 
-import { captureEvidencePhoto, sha256Bytes } from "../ios-capture";
+import {
+  buildEvidenceFormData,
+  captureEvidencePhoto,
+  sha256Bytes,
+} from "../ios-capture";
 
 // Known fixture: ASCII bytes "hello world"
 // SHA-256("hello world") — standard test vector.
@@ -62,6 +66,30 @@ describe("captureEvidencePhoto", () => {
       .update(new TextEncoder().encode(FIXTURE_DATA_URL))
       .digest("hex");
     expect(result.manifest.sha256).not.toBe(dataUrlTextHash);
+  });
+
+  it("POSTed multipart payload carries the byte hash and the original file", async () => {
+    const capture = await captureEvidencePhoto();
+    const form = buildEvidenceFormData(capture, {
+      workflowStepId: "step1",
+      evidenceClass: "PHOTO_DAMAGE",
+    });
+
+    // Payload carries the byte hash the server will verify against.
+    expect(form.get("sha256")).toBe(EXPECTED_SHA256);
+    expect(form.get("evidenceClass")).toBe("PHOTO_DAMAGE");
+    expect(form.get("workflowStepId")).toBe("step1");
+    expect(form.get("deviceType")).toBe("IOS_CAPACITOR");
+    expect(form.get("capturedLat")).toBe("-33.8688");
+    expect(form.get("capturedLng")).toBe("151.2093");
+
+    const manifest = JSON.parse(form.get("structuredData") as string);
+    expect(manifest.c2paManifest.sha256).toBe(EXPECTED_SHA256);
+
+    // The original asset itself is in the payload, byte-identical.
+    const file = form.get("file") as File;
+    const bytes = Buffer.from(await file.arrayBuffer());
+    expect(bytes.equals(Buffer.from(FIXTURE_BYTES))).toBe(true);
   });
 
   it("carries capture location into the manifest", async () => {
