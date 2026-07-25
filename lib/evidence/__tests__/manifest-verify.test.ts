@@ -13,6 +13,7 @@ import {
   parseSignedManifest,
   verifyManifestSignature,
   MAX_CAPTURE_CLOCK_SKEW_MS,
+  MAX_CAPTURE_BACKDATE_MS,
 } from "../manifest-verify";
 import { canonicalizeManifest } from "../manifest-canonical";
 import type { SignedEvidenceManifest } from "../manifest-canonical";
@@ -220,6 +221,42 @@ describe("checkManifestBinding — MUST-FIX 2: gps and capturedAt", () => {
     expect(checkManifestBinding(manifest(), BASE_CONTEXT).ok).toBe(true);
   });
 
+  // Round 2 item 6: exact float equality happened to work for today's client
+  // (String(lat) round-trips through parseFloat) but any client sending
+  // toFixed(6) would have 400'd on EVERY signed capture.
+  describe("float-safe comparison", () => {
+    it("accepts a toFixed(6)-rounded form value against a full-precision manifest", () => {
+      const m = manifest({
+        gps: { lat: -33.86880012, lng: 151.20930049, accuracy: 5 },
+      });
+      const result = checkManifestBinding(m, {
+        ...BASE_CONTEXT,
+        capturedLat: parseFloat((-33.86880012).toFixed(6)),
+        capturedLng: parseFloat((151.20930049).toFixed(6)),
+      });
+      expect(result.ok).toBe(true);
+    });
+
+    it("accepts a float that differs only below the comparison precision", () => {
+      const result = checkManifestBinding(manifest(), {
+        ...BASE_CONTEXT,
+        capturedLat: -33.8688 + 1e-12,
+        capturedLng: 151.2093 - 1e-12,
+      });
+      expect(result.ok).toBe(true);
+    });
+
+    it("STILL rejects a difference above the comparison precision", () => {
+      // ~11 metres — a real location discrepancy, not float noise.
+      const result = checkManifestBinding(manifest(), {
+        ...BASE_CONTEXT,
+        capturedLat: -33.8689,
+        capturedLng: 151.2093,
+      });
+      expect(result.ok).toBe(false);
+    });
+  });
+
   it("rejects a capturedAt that disagrees with the signed manifest", () => {
     const result = checkManifestBinding(manifest(), {
       ...BASE_CONTEXT,
@@ -262,13 +299,54 @@ describe("checkManifestBinding — MUST-FIX 2: gps and capturedAt", () => {
     ).toBe(true);
   });
 
-  it("accepts an old capture (offline queue) — only the FUTURE is bounded", () => {
-    expect(
-      checkManifestBinding(
-        manifest({ capturedAt: "2026-07-01T00:00:00.000Z" }),
-        BASE_CONTEXT,
-      ).ok,
-    ).toBe(true);
+  // Round 2 MUST-FIX 1: the past is now bounded too — generously, so the
+  // offline queue keeps working, but not so generously that a years-old
+  // backdate can be printed under a verified banner.
+  describe("backdating (MUST-FIX 1)", () => {
+    const now = new Date("2026-07-25T01:00:00.000Z");
+
+    it("ACCEPTS a realistic offline-queue delay of 10 days", () => {
+      const capturedAt = new Date(
+        now.getTime() - 10 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      expect(
+        checkManifestBinding(manifest({ capturedAt }), { ...BASE_CONTEXT, now })
+          .ok,
+      ).toBe(true);
+    });
+
+    it("ACCEPTS a capture just INSIDE the bound", () => {
+      const capturedAt = new Date(
+        now.getTime() - MAX_CAPTURE_BACKDATE_MS + 60_000,
+      ).toISOString();
+      expect(
+        checkManifestBinding(manifest({ capturedAt }), { ...BASE_CONTEXT, now })
+          .ok,
+      ).toBe(true);
+    });
+
+    it("REJECTS a capture just OUTSIDE the bound", () => {
+      const capturedAt = new Date(
+        now.getTime() - MAX_CAPTURE_BACKDATE_MS - 60_000,
+      ).toISOString();
+      const result = checkManifestBinding(manifest({ capturedAt }), {
+        ...BASE_CONTEXT,
+        now,
+      });
+      expect(result.ok).toBe(false);
+      expect((result as { message: string }).message).toContain(
+        "too far in the past",
+      );
+    });
+
+    it("REJECTS the 2019 backdate proven live in review", () => {
+      expect(
+        checkManifestBinding(
+          manifest({ capturedAt: "2019-01-01T00:00:00.000Z" }),
+          { ...BASE_CONTEXT, now },
+        ).ok,
+      ).toBe(false);
+    });
   });
 
   it("rejects an unparseable capturedAt", () => {

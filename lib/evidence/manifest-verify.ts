@@ -102,9 +102,13 @@ export function verifyManifestSignature(
   } catch {
     return false;
   }
-  // Ed25519 signatures are exactly 64 bytes; base64-decode silently
-  // tolerates garbage, so gate on the decoded length.
-  if (signature.length !== 64) return false;
+  // Round 2 item 4: an explicit 64-byte length gate used to sit here. It
+  // SURVIVED review's mutation testing (dropping it left 179/179 passing)
+  // because crypto.verify already rejects a wrong-length Ed25519 signature.
+  // An untested gate is worse than no gate, and the simpler code has one
+  // less branch, so it is deleted rather than propped up — the truncated /
+  // over-long / non-base64 cases in manifest-verify.test.ts now exercise
+  // crypto.verify's own rejection directly.
   let publicKey: crypto.KeyObject;
   try {
     publicKey = crypto.createPublicKey(publicKeyPem);
@@ -130,6 +134,39 @@ export type ManifestBindingResult =
 
 /** A future-dated capture is nonsense; allow only small clock skew. */
 export const MAX_CAPTURE_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
+/**
+ * Round 2 MUST-FIX 1: the clock guard was ONE-SIDED — it rejected the future
+ * but nothing rejected the past, so a technician could sign a manifest dated
+ * 2019 over the real bytes with their own registered key and have the
+ * dispute pack print that date under a verified banner (proven live:
+ * capturedAt=2019-01-01T00:00:00.000Z, verified=true).
+ *
+ * The bound is deliberately GENEROUS, not tight: evidence legitimately sits
+ * in the offline queue for days on remote jobs, and a tight bound would
+ * silently reject real field work. 30 days admits any plausible offline
+ * delay while making a years-old backdate impossible. The server receipt
+ * time (EvidenceItem.createdAt) is surfaced alongside the signed time in
+ * the dispute pack so a signed claim is never mistaken for an
+ * independently-verified one.
+ */
+export const MAX_CAPTURE_BACKDATE_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * Round 2 item 6: GPS is compared at a fixed precision instead of by exact
+ * float equality. Exact equality happened to work for today's client
+ * (String(lat) round-trips through parseFloat), but any client sending
+ * toFixed(6) would have 400'd on every signed capture. Six decimals is
+ * ~11 cm — far finer than any handset fix.
+ */
+export const GPS_COMPARISON_DECIMALS = 6;
+
+function gpsEquals(a: number | null, b: number | null): boolean {
+  if (a === null || b === null) return a === b;
+  return (
+    a.toFixed(GPS_COMPARISON_DECIMALS) === b.toFixed(GPS_COMPARISON_DECIMALS)
+  );
+}
 
 /**
  * Bind the verified manifest to THIS submission: the byte hash must be the
@@ -198,7 +235,7 @@ export function checkManifestBinding(
   // submission is trying to persist a location the technician never signed.
   if (
     context.capturedLat !== undefined &&
-    (context.capturedLat ?? null) !== (manifest.gps.lat ?? null)
+    !gpsEquals(context.capturedLat ?? null, manifest.gps.lat ?? null)
   ) {
     return {
       ok: false,
@@ -207,7 +244,7 @@ export function checkManifestBinding(
   }
   if (
     context.capturedLng !== undefined &&
-    (context.capturedLng ?? null) !== (manifest.gps.lng ?? null)
+    !gpsEquals(context.capturedLng ?? null, manifest.gps.lng ?? null)
   ) {
     return {
       ok: false,
@@ -229,6 +266,16 @@ export function checkManifestBinding(
     return {
       ok: false,
       message: "Signed manifest capturedAt is in the future",
+    };
+  }
+  // Round 2 MUST-FIX 1: bound the PAST as well. Generous enough for any
+  // real offline-queue delay, tight enough that a years-old backdate can
+  // never be printed under a verified banner.
+  if (now.getTime() - manifestCapturedAt > MAX_CAPTURE_BACKDATE_MS) {
+    return {
+      ok: false,
+      message:
+        "Signed manifest capturedAt is too far in the past to accept as a verified capture time",
     };
   }
   if (

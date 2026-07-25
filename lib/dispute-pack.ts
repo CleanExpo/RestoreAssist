@@ -101,6 +101,11 @@ interface DisputePackData {
     description: string | null;
     capturedByName: string;
     capturedAt: Date;
+    // RA-7090 round 2 (MUST-FIX 1): the SERVER receipt time. capturedAt may
+    // come from a client-signed manifest, so the pack shows BOTH — a signed
+    // capture time is a claim made by the device, whereas createdAt is when
+    // this system actually received the bytes.
+    createdAt: Date;
     capturedLat: number | null;
     capturedLng: number | null;
     hashSha256: string | null;
@@ -139,6 +144,23 @@ function fmtDate(d: Date | string | null | undefined): string {
 }
 
 /** Format date with time */
+/**
+ * RA-7090 round 2 (MUST-FIX 1): render the device-claimed capture time and
+ * the server receipt time together. On a signed record `capturedAt` is
+ * derived from the client's manifest, so it is a claim; `createdAt` is a
+ * server default and cannot be backdated by a signer.
+ */
+export function signedCaptureLabel(item: {
+  capturedAt: Date | string | null | undefined;
+  createdAt?: Date | string | null;
+}): string {
+  const captured = fmtDateTime(item.capturedAt);
+  if (!item.createdAt) return captured;
+  const received = fmtDateTime(item.createdAt);
+  if (received === captured) return captured;
+  return `${captured}\nRec: ${received}`;
+}
+
 function fmtDateTime(d: Date | string | null | undefined): string {
   if (!d) return "N/A";
   const date = typeof d === "string" ? new Date(d) : d;
@@ -594,6 +616,7 @@ export async function generateDisputePack(
           description: true,
           capturedByName: true,
           capturedAt: true,
+          createdAt: true,
           capturedLat: true,
           capturedLng: true,
           hashSha256: true,
@@ -872,6 +895,12 @@ function drawEvidenceTimeline(w: PDFWriter, data: DisputePackData): void {
     "All evidence items captured during the inspection, ordered chronologically. Each item includes IICRC S500:2021 section references and chain-of-custody hash.",
     { size: 8, color: SECONDARY },
   );
+  // RA-7090 round 2 (MUST-FIX 1): make the distinction explicit in the
+  // document itself, not just in the data.
+  w.drawText(
+    'Timestamps show the capture time claimed by the capturing device, and "Rec:" the time this system received the evidence. Where the two differ materially, the received time is the independently verifiable one.',
+    { size: 8, color: SECONDARY },
+  );
   w.skip(8);
 
   // Table columns
@@ -889,7 +918,12 @@ function drawEvidenceTimeline(w: PDFWriter, data: DisputePackData): void {
   for (const item of data.evidenceItems) {
     w.tableRow([
       {
-        text: fmtDateTime(item.capturedAt),
+        // RA-7090 round 2 (MUST-FIX 1): show the SERVER receipt time next to
+        // the capture time. On a signed record capturedAt comes from the
+        // client's manifest, so printing it alone would let a backdated
+        // claim read as an established fact. "Rec:" is what this system
+        // itself observed and cannot be signed into the past.
+        text: signedCaptureLabel(item),
         x: cols[0].x,
         width: cols[0].width,
       },
