@@ -81,6 +81,7 @@ vi.mock("@/lib/storage", () => ({
 import { getServerSession } from "next-auth";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
+import { BUCKET_OPTIMISED } from "@/lib/storage/types";
 import { POST } from "../route";
 
 const mSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
@@ -238,22 +239,116 @@ describe("POST /evidence (multipart, RA-7090)", () => {
     expect(uploadMock).not.toHaveBeenCalled();
   });
 
-  it("cleans up uploaded storage objects when the DB create fails", async () => {
-    mCreate.mockRejectedValueOnce(new Error("DB timeout"));
+  describe("compensation (commit-aware, round 3)", () => {
+    function provablyUncommittedError() {
+      const err: any = new Error("Unique constraint failed");
+      err.code = "P2002";
+      return err;
+    }
 
-    const res = await POST(
-      multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
-      params,
-    );
-    expect(res.status).toBe(500);
+    it("deletes all three objects (with correct buckets) when the create PROVABLY did not commit", async () => {
+      mCreate.mockRejectedValueOnce(provablyUncommittedError());
 
-    // All three uploaded objects are compensated.
-    const deleted = deleteMock.mock.calls.map((c: any[]) => c[0]);
-    expect(deleted).toContain(UPLOAD_RESULT.storagePath);
-    expect(deleted).toContain(UPLOAD_RESULT.compressedPath);
-    expect(deleted).toContain(UPLOAD_RESULT.thumbnailPath);
-    expect(deleteMock).toHaveBeenCalledTimes(3);
+      const res = await POST(
+        multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
+        params,
+      );
+      // fromException maps a P2002 unique violation to 409 CONFLICT.
+      expect(res.status).toBe(409);
+
+      // Full [path, bucket] tuples — a swapped-bucket regression must fail.
+      const calls = deleteMock.mock.calls.map((c: any[]) => [c[0], c[1]]);
+      expect(calls).toContainEqual([UPLOAD_RESULT.storagePath, undefined]);
+      expect(calls).toContainEqual([
+        UPLOAD_RESULT.compressedPath,
+        BUCKET_OPTIMISED,
+      ]);
+      expect(calls).toContainEqual([
+        UPLOAD_RESULT.thumbnailPath,
+        BUCKET_OPTIMISED,
+      ]);
+      expect(deleteMock).toHaveBeenCalledTimes(3);
+    });
+
+    it("RETAINS storage on an ambiguous failure (row may have committed) and logs paths for GC", async () => {
+      const errorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+      try {
+        // Connection drop / timeout: Prisma throws but Postgres may have
+        // committed the INSERT — deleting bytes here would make a surviving
+        // custody row permanently unverifiable.
+        mCreate.mockRejectedValueOnce(new Error("DB timeout"));
+
+        const res = await POST(
+          multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
+          params,
+        );
+        expect(res.status).toBe(500);
+        expect(deleteMock).not.toHaveBeenCalled();
+
+        // Structured log carries every path an async GC sweep needs.
+        const gcLog = errorSpy.mock.calls.find(([msg]) =>
+          String(msg).includes("storage RETAINED"),
+        );
+        expect(gcLog).toBeDefined();
+        const payload = gcLog![1] as any;
+        const loggedPaths = payload.paths.map((p: any) => p.path);
+        expect(loggedPaths).toContain(UPLOAD_RESULT.storagePath);
+        expect(loggedPaths).toContain(UPLOAD_RESULT.compressedPath);
+        expect(loggedPaths).toContain(UPLOAD_RESULT.thumbnailPath);
+        expect(payload.fileSha256).toBe(FIXTURE_SHA256);
+      } finally {
+        errorSpy.mockRestore();
+      }
+    });
+
+    it("logs each failed cleanup delete instead of silently discarding it", async () => {
+      const errorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+      try {
+        mCreate.mockRejectedValueOnce(provablyUncommittedError());
+        deleteMock.mockRejectedValue(new Error("storage unavailable"));
+
+        const res = await POST(
+          multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
+          params,
+        );
+        // fromException maps a P2002 unique violation to 409 CONFLICT.
+        expect(res.status).toBe(409);
+
+        const cleanupLogs = errorSpy.mock.calls.filter(([msg]) =>
+          String(msg).includes("cleanup delete failed"),
+        );
+        expect(cleanupLogs).toHaveLength(3);
+        const loggedPaths = cleanupLogs.map((c) => (c[1] as any).path);
+        expect(loggedPaths).toContain(UPLOAD_RESULT.storagePath);
+        expect(loggedPaths).toContain(UPLOAD_RESULT.compressedPath);
+        expect(loggedPaths).toContain(UPLOAD_RESULT.thumbnailPath);
+      } finally {
+        errorSpy.mockRestore();
+      }
+    });
   });
+
+  it.each([
+    ["a string", JSON.stringify({ c2paManifest: "not-an-object" })],
+    ["an array", JSON.stringify({ c2paManifest: ["sneaky", "array"] })],
+  ])(
+    "normalises a c2paManifest that is %s instead of letting it bypass the server hash",
+    async (_label, structuredDataRaw) => {
+      const form = baseForm(FIXTURE_BYTES, FIXTURE_SHA256);
+      form.set("structuredData", structuredDataRaw);
+
+      const res = await POST(multipartRequest(form), params);
+      expect(res.status).toBe(201);
+      const structured = JSON.parse(
+        mCreate.mock.calls[0][0].data.structuredData,
+      );
+      expect(structured.c2paManifest).toEqual({ sha256: FIXTURE_SHA256 });
+    },
+  );
 
   describe("idempotency (real withIdempotencyFingerprint)", () => {
     const KEY = "evidence-ra7090-fixture-key";

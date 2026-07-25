@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { getServerSession } from "next-auth";
-import { EvidenceClass } from "@prisma/client";
+import { EvidenceClass, Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
@@ -157,8 +157,11 @@ export async function POST(
         // RA-7090 review fix (Opus #6): the old create was cast `as any`,
         // which hid two schema violations — `title` is REQUIRED and there is
         // NO `notes` column (field notes belong in `description`). In
-        // production every create on this path 500'd. The create below is
-        // fully typed so the compiler enforces the schema again.
+        // production every create on this path 500'd. Removing the cast lets
+        // the compiler catch MISSING required fields; note it does NOT catch
+        // excess properties on Prisma's create-input union, so the runtime
+        // test asserting `"notes" in created === false` is the real guard
+        // against phantom columns.
         const evidenceItem = await prisma.evidenceItem.create({
           data: {
             inspectionId,
@@ -203,6 +206,24 @@ export async function POST(
         }
       : undefined,
   );
+}
+
+/**
+ * RA-7090 round 3: compensation gate. TRUE only for error classes that
+ * PROVE the INSERT did not commit (Prisma validation errors, and known
+ * request errors raised at parse/constraint time: P2000 value too long,
+ * P2002 unique violation, P2003 FK violation). Timeouts, connection drops
+ * and unknown errors are AMBIGUOUS — Postgres may have committed the row
+ * even though the client saw an error — so callers must NOT delete storage
+ * for those.
+ */
+function createInsertProvablyDidNotCommit(err: unknown): boolean {
+  if (err instanceof Prisma.PrismaClientValidationError) return true;
+  const code =
+    typeof err === "object" && err !== null && "code" in err
+      ? (err as { code?: unknown }).code
+      : undefined;
+  return code === "P2000" || code === "P2002" || code === "P2003";
 }
 
 /**
@@ -406,12 +427,20 @@ async function handleMultipartEvidencePost(
         const c2paRaw = clientStructuredData.c2paManifest;
         const structuredData = JSON.stringify({
           ...clientStructuredData,
-          ...(c2paRaw && typeof c2paRaw === "object" && !Array.isArray(c2paRaw)
+          ...("c2paManifest" in clientStructuredData
             ? {
-                c2paManifest: {
-                  ...(c2paRaw as Record<string, unknown>),
-                  sha256: fileSha256,
-                },
+                c2paManifest:
+                  c2paRaw &&
+                  typeof c2paRaw === "object" &&
+                  !Array.isArray(c2paRaw)
+                    ? {
+                        ...(c2paRaw as Record<string, unknown>),
+                        sha256: fileSha256,
+                      }
+                    : // RA-7090 round 3: a non-object manifest (string,
+                      // array, null) must not persist verbatim and bypass
+                      // the server hash — normalise it.
+                      { sha256: fileSha256 },
               }
             : {}),
           originalStoragePath: uploadResult.storagePath,
@@ -460,20 +489,54 @@ async function handleMultipartEvidencePost(
             },
           });
         } catch (createErr) {
-          // RA-7090 review fix: a failed DB write must not orphan the
-          // just-uploaded storage objects (client retries would multiply
-          // orphans). Best-effort compensation — original lives in the
-          // originals bucket, compressed/thumbnail in the optimised bucket.
+          // RA-7090 round 3: compensation must be COMMIT-AWARE. Prisma
+          // throwing does not prove the INSERT failed — a pooler connection
+          // can drop after Postgres commits but before the client reads the
+          // result. Deleting storage then would leave a persisted custody
+          // row pointing at deleted bytes: a record the system itself made
+          // permanently unverifiable (and the technician's retry would add
+          // a second, good row while the corrupt one flows into reports).
           const cleanupTargets: Array<{ path: string; bucket?: string }> = [
             { path: uploadResult.storagePath },
             { path: uploadResult.compressedPath, bucket: BUCKET_OPTIMISED },
             { path: uploadResult.thumbnailPath, bucket: BUCKET_OPTIMISED },
-          ];
-          await Promise.allSettled(
-            cleanupTargets
-              .filter(({ path }) => Boolean(path))
-              .map(({ path, bucket }) => storageProvider.delete(path, bucket)),
-          );
+          ].filter(({ path }) => Boolean(path));
+
+          if (createInsertProvablyDidNotCommit(createErr)) {
+            // Safe to compensate — the row provably cannot exist.
+            const results = await Promise.allSettled(
+              cleanupTargets.map(({ path, bucket }) =>
+                storageProvider.delete(path, bucket),
+              ),
+            );
+            results.forEach((result, idx) => {
+              if (result.status === "rejected") {
+                console.error(
+                  "[evidence compensation] cleanup delete failed — orphaned object needs GC",
+                  {
+                    inspectionId,
+                    path: cleanupTargets[idx].path,
+                    bucket: cleanupTargets[idx].bucket ?? "originals",
+                    error: result.reason,
+                  },
+                );
+              }
+            });
+          } else {
+            // Ambiguous failure (timeout, connection drop, unknown): the
+            // INSERT may have committed. Retain the bytes and log the paths
+            // in structured form for an async GC sweep to reconcile against
+            // the EvidenceItem table.
+            console.error(
+              "[evidence compensation] ambiguous create failure — storage RETAINED for GC reconciliation",
+              {
+                inspectionId,
+                fileSha256,
+                paths: cleanupTargets,
+                error: createErr,
+              },
+            );
+          }
           throw createErr;
         }
 
