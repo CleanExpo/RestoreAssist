@@ -64,6 +64,8 @@ never so they look actionable.
 | 30 | Wire `classifyClauseRef` into the report path | judge verdict | TODO | The five-value classifier exists and is scoped to Live Teacher only. Wiring it to reports is the 90% win the currency module was not. |
 | 31 | Registry coverage honesty | judge verdict | TODO | ~30 AS/NZS, NADCA and AS standards the product cites sit outside `STANDARDS_VERSIONS`. Either cover them or state coverage explicitly wherever status is shown. |
 
+| 32 | **BillingGate hydration fail-open — App Review 3.1.1** | frozen-head review of #1989 + independent review of 401ac914 | **BLOCKED — founder/Board** | The iOS shell loads server-rendered HTML (`capacitor.config.ts:22` → `https://restoreassist.app`, no `output:"export"`), and React 19 uses `getServerSnapshot` while hydrating, so WKWebView paints the billing UI and holds it for the whole bundle-download window. **Cannot be closed inside the component** — the server cannot distinguish an iOS shell request from a crawler. Needs `appendUserAgent`/`overrideUserAgent` in the native shell config plus server-side detection, which changes the App Store build. Partial fix (fresh-mount path + null-fallback bug) is committed at 2c8cab6a with two skipped tests asserting the correct end state. |
+
 ## Run log
 
 | When | Task | Stage reached | Evidence |
