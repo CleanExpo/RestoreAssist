@@ -30,6 +30,7 @@ import {
   verifyManifestSignature,
 } from "@/lib/evidence/manifest-verify";
 import type { SignedEvidenceManifest } from "@/lib/evidence/manifest-canonical";
+import { buildEvidenceStructuredData } from "@/lib/evidence/structured-data";
 
 export async function GET(
   request: NextRequest,
@@ -190,9 +191,20 @@ export async function POST(
             fileMimeType: fileMimeType || null,
             fileSizeBytes: fileSizeBytes || null,
             thumbnailUrl: thumbnailUrl || null,
-            structuredData: structuredData
-              ? JSON.stringify(structuredData)
-              : null,
+            // Review round 1 (MUST-FIX 1): this path used to persist client
+            // structuredData VERBATIM, so a plain JSON POST could return 201
+            // carrying signedManifestVerified:true and a fabricated
+            // signature. It is a LIVE path (the capture page's
+            // handleAddEvidence uses it), so it goes through the same shared
+            // sanitiser as multipart. There is no server-computed hash here,
+            // so every integrity claim is stripped rather than re-stamped.
+            structuredData:
+              structuredData === undefined || structuredData === null
+                ? null
+                : buildEvidenceStructuredData({
+                    clientStructuredData: structuredData,
+                    fileSha256: null,
+                  }),
           },
         });
 
@@ -349,6 +361,7 @@ async function handleMultipartEvidencePost(
     }
 
     const workflowStepIdRaw = formData.get("workflowStepId");
+    const capturedAtRaw = formData.get("capturedAt");
     const deviceTypeRaw = formData.get("deviceType");
     const deviceIdRaw = formData.get("deviceId");
     const capturedLatRaw = formData.get("capturedLat");
@@ -458,6 +471,22 @@ async function handleMultipartEvidencePost(
         userId: session.user.id,
         workflowStepId,
         fileSha256,
+        // MUST-FIX 2: bind the location/time that actually get persisted.
+        // `undefined` = the client sent no such field, which is not a
+        // conflict; a SUPPLIED value that disagrees with the signed manifest
+        // is rejected rather than silently overwriting the signed one.
+        capturedLat:
+          typeof capturedLatRaw === "string" && capturedLatRaw.length > 0
+            ? capturedLat
+            : undefined,
+        capturedLng:
+          typeof capturedLngRaw === "string" && capturedLngRaw.length > 0
+            ? capturedLng
+            : undefined,
+        capturedAt:
+          typeof capturedAtRaw === "string" && capturedAtRaw
+            ? capturedAtRaw
+            : undefined,
       });
       if (!binding.ok) {
         return apiError(request, {
@@ -469,6 +498,46 @@ async function handleMultipartEvidencePost(
 
       verifiedManifest = parsedManifest.manifest;
       verifiedSignature = manifestSignatureRaw;
+    }
+
+    // Fold-in (Codex P2): make the fail-open downgrade VISIBLE. When the
+    // submitter already has a live registered key but submits unsigned, the
+    // record says so. Config-gated policy hook — default OFF preserves
+    // today's backwards-compatible behaviour; ON refuses the downgrade.
+    let downgradeReason: string | null = null;
+    if (!verifiedManifest) {
+      const requireSigned =
+        process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST === "true";
+      let hasLiveKey: boolean | null = null;
+      try {
+        hasLiveKey =
+          (await prisma.deviceSigningKey.findFirst({
+            where: { userId: session.user.id, revokedAt: null },
+            select: { id: true },
+          })) !== null;
+      } catch (probeErr) {
+        // Telemetry must never break a capture — but a policy that is ON
+        // fails CLOSED rather than silently admitting unsigned evidence.
+        console.error("[evidence] signing-key downgrade probe failed", probeErr);
+        if (requireSigned) {
+          return apiError(request, {
+            code: "INTERNAL",
+            message: "Unable to verify signing policy for this submission",
+            status: 500,
+          });
+        }
+      }
+      if (hasLiveKey) {
+        downgradeReason = "REGISTERED_KEY_BUT_UNSIGNED_SUBMISSION";
+        if (requireSigned) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message:
+              "This account has a registered signing key — evidence must be submitted with a signed manifest",
+            status: 400,
+          });
+        }
+      }
     }
 
     const fingerprintFields = Array.from(formData.entries())
@@ -518,49 +587,23 @@ async function handleMultipartEvidencePost(
           inspectionId,
         });
 
-        // RA-7090 review fix: the client manifest travels inside a legal
-        // record — its sha256 must be the SERVER-verified hash. A client
-        // could otherwise plant a diverging c2paManifest.sha256 alongside
-        // verified bytes.
-        // Slice 2: when an Ed25519-signed manifest VERIFIED above, it
-        // becomes the authoritative c2paManifest (with signature + keyId);
-        // signedManifestVerified is ALWAYS server-set — a client-supplied
-        // claim in structuredData can never survive the spread below.
-        const c2paRaw = clientStructuredData.c2paManifest;
-        const structuredData = JSON.stringify({
-          ...clientStructuredData,
-          ...(verifiedManifest
-            ? {
-                c2paManifest: {
-                  ...verifiedManifest,
-                  // Equal to verifiedManifest.sha256 (binding-checked), kept
-                  // explicit so the invariant "persisted sha256 is server-
-                  // computed" holds by construction.
-                  sha256: fileSha256,
-                  signature: verifiedSignature,
-                  algorithm: "Ed25519",
-                },
-              }
-            : "c2paManifest" in clientStructuredData
-              ? {
-                  c2paManifest:
-                    c2paRaw &&
-                    typeof c2paRaw === "object" &&
-                    !Array.isArray(c2paRaw)
-                      ? {
-                          ...(c2paRaw as Record<string, unknown>),
-                          sha256: fileSha256,
-                        }
-                      : // RA-7090 round 3: a non-object manifest (string,
-                        // array, null) must not persist verbatim and bypass
-                        // the server hash — normalise it.
-                        { sha256: fileSha256 },
-                }
-              : {}),
-          signedManifestVerified: verifiedManifest !== null,
-          originalStoragePath: uploadResult.storagePath,
-          compressedStoragePath: uploadResult.compressedPath,
-          thumbnailStoragePath: uploadResult.thumbnailPath,
+        // Review round 1 (MUST-FIX 1): every writer goes through the ONE
+        // shared sanitiser. It strips client-supplied signedManifestVerified,
+        // whitelists the fields copied out of a verified manifest, and
+        // re-stamps the server-computed hash.
+        const structuredData = buildEvidenceStructuredData({
+          clientStructuredData,
+          fileSha256,
+          verified:
+            verifiedManifest && verifiedSignature
+              ? { manifest: verifiedManifest, signature: verifiedSignature }
+              : null,
+          downgradeReason,
+          storagePaths: {
+            originalStoragePath: uploadResult.storagePath,
+            compressedStoragePath: uploadResult.compressedPath,
+            thumbnailStoragePath: uploadResult.thumbnailPath,
+          },
         });
 
         let evidenceItem;
@@ -576,13 +619,20 @@ async function handleMultipartEvidencePost(
               title: file.name,
               capturedById: session.user.id,
               capturedByName: session.user.name || "Unknown",
-              capturedAt: new Date(),
-              capturedLat:
-                capturedLat !== null && !Number.isNaN(capturedLat)
+              // MUST-FIX 2: on a verified manifest the PERSISTED record is
+              // the SIGNED record — the dispute pack prints these columns,
+              // so they must come from the signed bytes, not the form.
+              capturedAt: verifiedManifest
+                ? new Date(verifiedManifest.capturedAt)
+                : new Date(),
+              capturedLat: verifiedManifest
+                ? verifiedManifest.gps.lat
+                : capturedLat !== null && !Number.isNaN(capturedLat)
                   ? capturedLat
                   : null,
-              capturedLng:
-                capturedLng !== null && !Number.isNaN(capturedLng)
+              capturedLng: verifiedManifest
+                ? verifiedManifest.gps.lng
+                : capturedLng !== null && !Number.isNaN(capturedLng)
                   ? capturedLng
                   : null,
               deviceId:

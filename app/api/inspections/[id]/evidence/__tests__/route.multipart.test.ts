@@ -32,6 +32,14 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: vi.fn(async () => ({ organizationId: "org1" })) },
     evidenceItem: { create: vi.fn() },
+    // Slice 2 review: the unsigned path probes for a registered signing key
+    // to record the downgrade reason. Mocked so that probe genuinely runs
+    // here rather than silently erroring into its fallback.
+    deviceSigningKey: {
+      findUnique: vi.fn(async () => null),
+      findFirst: vi.fn(async () => null),
+      update: vi.fn(),
+    },
     idempotencyRecord: {
       create: vi.fn(async ({ data }: any) => {
         if (idemStore.has(data.cacheKey)) {

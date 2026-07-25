@@ -81,6 +81,34 @@ beforeEach(() => {
 });
 
 describe("POST /api/inspections/[id]/evidence/batch", () => {
+  // RA-7090 slice 2 review (MUST-FIX 1): this is the THIRD evidence writer.
+  // It must go through the same shared structuredData sanitiser, so a batch
+  // record can never present as signed.
+  it("stamps signedManifestVerified:false and keeps server-owned storage paths", async () => {
+    storageUpload.mockResolvedValue({
+      originalUrl: "https://storage/original.jpg",
+      compressedUrl: "https://storage/c.jpg",
+      thumbnailUrl: "https://storage/t.jpg",
+      storagePath: "org_1/inspection_1/original.jpg",
+      compressedPath: "org_1/inspection_1/c.jpg",
+      thumbnailPath: "org_1/inspection_1/t.jpg",
+      sizeBytes: 64,
+      sha256: "abc123",
+    });
+
+    const res = await POST(makeRequest(), ctx());
+    expect(res.status).toBe(207);
+
+    const structured = JSON.parse(evidenceCreate.mock.calls[0][0].data.structuredData);
+    expect(structured.signedManifestVerified).toBe(false);
+    expect(structured.c2paManifest).toBeUndefined();
+    expect(structured.originalStoragePath).toBe(
+      "org_1/inspection_1/original.jpg",
+    );
+    expect(structured.compressedStoragePath).toBe("org_1/inspection_1/c.jpg");
+    expect(structured.thumbnailStoragePath).toBe("org_1/inspection_1/t.jpg");
+  });
+
   it("keeps source file metadata paired with successful uploads after a partial storage failure", async () => {
     storageUpload
       .mockRejectedValueOnce(new Error("storage unavailable"))

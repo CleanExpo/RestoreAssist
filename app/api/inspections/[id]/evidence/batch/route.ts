@@ -18,6 +18,7 @@ import { classifyByMimeType } from "@/lib/storage/compression";
 import type { UploadInput, UploadOutput } from "@/lib/storage";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
+import { buildEvidenceStructuredData } from "@/lib/evidence/structured-data";
 
 const MAX_FILES = 20;
 const CONCURRENCY = 3;
@@ -269,10 +270,19 @@ export async function POST(
             fileSizeBytes: uploaded.sizeBytes,
             thumbnailUrl: uploaded.thumbnailUrl,
             hashSha256: uploaded.sha256,
-            structuredData: JSON.stringify({
-              originalStoragePath: uploaded.storagePath,
-              compressedStoragePath: uploaded.compressedPath,
-              thumbnailStoragePath: uploaded.thumbnailPath,
+            // Review round 1 (MUST-FIX 1): this writer accepts no client
+            // structuredData today, but it goes through the SAME shared
+            // sanitiser as the other two so the record is stamped
+            // signedManifestVerified:false explicitly — a future edit that
+            // starts accepting client metadata cannot silently reopen the
+            // "unsigned record presents as signed" hole.
+            structuredData: buildEvidenceStructuredData({
+              fileSha256: uploaded.sha256 ?? null,
+              storagePaths: {
+                originalStoragePath: uploaded.storagePath,
+                compressedStoragePath: uploaded.compressedPath,
+                thumbnailStoragePath: uploaded.thumbnailPath,
+              },
             }),
           },
         });
