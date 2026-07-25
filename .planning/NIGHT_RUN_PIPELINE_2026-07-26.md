@@ -77,10 +77,19 @@ finding the billing button the iOS test asserts is absent.)
 **Dual independent, always.** Same-family agreement is provisional; the two families
 disagreed on 4 of 6 PRs in a prior wave and both sets of findings were real.
 
-| Reviewer | Role |
-|---|---|
-| `opus-adversary` (Claude family) | architecture, race conditions, state bugs, test honesty |
-| `codex exec` (cross-family) | independent correctness, security, conventions |
+| Reviewer | Family | Role |
+|---|---|---|
+| `opus-adversary` | Claude | architecture, race conditions, state bugs, test honesty |
+| `codex exec` | OpenAI | independent correctness, security, conventions |
+| `hermes -z` | gpt-5.6-sol via Hermes | third-family tiebreak + AU-compliance read (IICRC edition/section, GST, ABN) |
+
+**Dispatch discipline for the overnight run.** Claude and Codex are the standing pair.
+Hermes runs as the tiebreak when the two disagree, and as the compliance lane on anything
+touching citations, tax or ABN. Verified available this session:
+`hermes -z '<prompt>'` answered on `gpt-5.6-sol` (OpenAI Codex provider). Every dispatch is
+time-boxed — a reviewer that has not written its report inside its box is killed and
+re-dispatched with a narrower brief, never waited on indefinitely (a round-1 Codex review
+stalled ~1h this session and had to be killed).
 
 Both must bind their verdict to the **exact HEAD SHA**. Any P0–P2 finding blocks: fix,
 re-run every affected gate, create a new commit, re-review the new SHA. A PASS for an

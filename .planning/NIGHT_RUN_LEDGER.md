@@ -12,7 +12,7 @@ never so they look actionable.
 
 | # | Task | Source | Stage | Notes |
 |---|---|---|---|---|
-| 1 | Standards Currency Registry | backlog #6 | TODO | Fails closed on stale/unverifiable citations. Today's §5.1 mis-citation is this exact class. **Start here.** |
+| 1 | Standards Currency Registry | backlog #6 | DEFINED | Spec: `.planning/specs/01-standards-currency-registry.spec.md`. 9 falsifiable criteria + 2 required positive controls. Open decision for the judge: block vs warn on `overdue`. |
 | 2 | ABR production credential | RA-6678 (P0) | BLOCKED | **Founder-gated.** `ABR_API_GUID` unset in prod; every ABN lookup returns MALFORMED. Agent scope limited to a health check + graceful degradation. |
 | 3 | Email DNS completion | RA-6955 | BLOCKED | **Founder-gated.** Root domain has no SPF/DKIM; Resend rejects sends. |
 | 4 | Sandbox release-gate repair | RA-5624 | TODO | Sandbox health `degraded`; release-gate smoke cannot certify. |
@@ -58,3 +58,4 @@ never so they look actionable.
 | When | Task | Stage reached | Evidence |
 |---|---|---|---|
 | 2026-07-26 | iOS billing-gate fix (out of band) | SHIPPED | PR #1989; type-check 0, 11/11 tests, positive control cited |
+| 2026-07-26 | #1 Standards Currency Registry | DEFINED | Two verified findings: `nextRevisionExpected` has zero consumers repo-wide; NCC due 2025 is already past. Wiki recall MISSED (no vault page on standards currency) — index repair owed. |
