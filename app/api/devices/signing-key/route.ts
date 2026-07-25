@@ -76,8 +76,10 @@ export async function POST(request: NextRequest) {
     }
     // NOTE: any client-supplied `publicKeyId` is deliberately IGNORED — the
     // id is derived from the key material below (MUST-FIX 3).
-    const { publicKeyPem, deviceUuid, devicePlatform } = (body ??
-      {}) as Record<string, unknown>;
+    const { publicKeyPem, deviceUuid, devicePlatform } = (body ?? {}) as Record<
+      string,
+      unknown
+    >;
 
     if (
       typeof publicKeyPem !== "string" ||
@@ -178,19 +180,63 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const created = await prisma.deviceSigningKey.create({
-      data: {
-        userId,
-        publicKeyId,
-        publicKeyPem: pem,
-        deviceUuid:
-          typeof deviceUuid === "string" && deviceUuid ? deviceUuid : null,
-        devicePlatform:
-          typeof devicePlatform === "string" && devicePlatform
-            ? devicePlatform
-            : null,
-      },
-    });
+    let created;
+    try {
+      created = await prisma.deviceSigningKey.create({
+        data: {
+          userId,
+          publicKeyId,
+          publicKeyPem: pem,
+          deviceUuid:
+            typeof deviceUuid === "string" && deviceUuid ? deviceUuid : null,
+          devicePlatform:
+            typeof devicePlatform === "string" && devicePlatform
+              ? devicePlatform
+              : null,
+        },
+      });
+    } catch (createErr) {
+      // Round 4: the concurrent-registration race. Two in-flight requests for
+      // the SAME key both pass the findUnique check, then one loses on the
+      // publicKeyId unique constraint. A double-tap is not a conflict — it is
+      // the same device registering the same key — so re-read the winner's
+      // row and return the idempotent 200 rather than a generic 409.
+      const code =
+        typeof createErr === "object" && createErr !== null && "code" in createErr
+          ? (createErr as { code?: unknown }).code
+          : undefined;
+      if (code !== "P2002") throw createErr;
+
+      const winner = await prisma.deviceSigningKey.findUnique({
+        where: { publicKeyId },
+      });
+      if (winner && winner.userId === userId && !winner.revokedAt) {
+        return NextResponse.json(
+          {
+            deviceSigningKey: {
+              publicKeyId: winner.publicKeyId,
+              createdAt: winner.createdAt,
+            },
+          },
+          { status: 200 },
+        );
+      }
+      // Lost the race to a DIFFERENT owner, or to a revoked row — the
+      // ordinary conflict/revocation answers still apply.
+      if (winner?.revokedAt) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message:
+            "This signing key has been revoked and cannot be re-registered",
+          status: 403,
+        });
+      }
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "This signing key is already registered to another account",
+        status: 409,
+      });
+    }
 
     return NextResponse.json(
       {

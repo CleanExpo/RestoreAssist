@@ -73,8 +73,29 @@ export type UnsignedSubmissionPolicy =
       message: string;
     };
 
+/**
+ * Round 4: an exact `=== "true"` check meant EVIDENCE_REQUIRE_SIGNED_MANIFEST
+ * set to "TRUE" or "1" silently left the entire enforcement switch OFF — the
+ * worst possible failure mode for a security control, because the operator
+ * believes it is on. Accept the common truthy spellings, and log LOUDLY on
+ * anything unrecognised rather than quietly treating it as off.
+ */
+const TRUTHY = new Set(["true", "1", "yes", "on", "enabled"]);
+const FALSY = new Set(["false", "0", "no", "off", "disabled", ""]);
+
 function requireSignedManifest(): boolean {
-  return process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST === "true";
+  const raw = process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST;
+  if (raw === undefined) return false;
+  const normalised = raw.trim().toLowerCase();
+  if (TRUTHY.has(normalised)) return true;
+  if (FALSY.has(normalised)) return false;
+  console.error(
+    "[evidence] EVIDENCE_REQUIRE_SIGNED_MANIFEST has an unrecognised value — " +
+      "treating it as OFF. Use one of: " +
+      `${[...TRUTHY].join(", ")} (on) or ${[...FALSY].filter(Boolean).join(", ")} (off).`,
+    { value: raw },
+  );
+  return false;
 }
 
 /**

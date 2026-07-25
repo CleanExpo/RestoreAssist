@@ -236,6 +236,72 @@ describe("POST /api/devices/signing-key", () => {
     });
   });
 
+  // Round 4: two in-flight registrations of the SAME key both pass the
+  // findUnique pre-check; one loses on the unique constraint. A double-tap
+  // is not a conflict — it is the same device registering the same key.
+  describe("concurrent-registration race (P2002)", () => {
+    function p2002() {
+      const err: any = new Error("Unique constraint failed");
+      err.code = "P2002";
+      return err;
+    }
+
+    it("returns the idempotent 200 when the race is lost to the SAME user", async () => {
+      mCreate.mockRejectedValueOnce(p2002());
+      mFindUnique
+        .mockResolvedValueOnce(null) // pre-check: not registered yet
+        .mockResolvedValueOnce({
+          // re-read after losing the race
+          id: "dk1",
+          userId: "u1",
+          publicKeyId: KEY_ID,
+          publicKeyPem: ED25519_PEM,
+          revokedAt: null,
+          createdAt: new Date("2026-07-25T00:00:00.000Z"),
+        });
+
+      const res = await POST(postRequest(VALID_BODY));
+      expect(res.status).toBe(200);
+      expect((await res.json()).deviceSigningKey.publicKeyId).toBe(KEY_ID);
+    });
+
+    it("still returns 409 when the race is lost to ANOTHER user", async () => {
+      mCreate.mockRejectedValueOnce(p2002());
+      mFindUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
+        id: "dk1",
+        userId: "someone-else",
+        publicKeyId: KEY_ID,
+        publicKeyPem: ED25519_PEM,
+        revokedAt: null,
+        createdAt: new Date(),
+      });
+
+      const res = await POST(postRequest(VALID_BODY));
+      expect(res.status).toBe(409);
+    });
+
+    it("still returns 403 when the winning row is revoked", async () => {
+      mCreate.mockRejectedValueOnce(p2002());
+      mFindUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
+        id: "dk1",
+        userId: "u1",
+        publicKeyId: KEY_ID,
+        publicKeyPem: ED25519_PEM,
+        revokedAt: new Date("2026-07-24T00:00:00.000Z"),
+        createdAt: new Date(),
+      });
+
+      const res = await POST(postRequest(VALID_BODY));
+      expect(res.status).toBe(403);
+    });
+
+    it("does NOT swallow a non-P2002 failure", async () => {
+      mCreate.mockRejectedValueOnce(new Error("connection reset"));
+      const res = await POST(postRequest(VALID_BODY));
+      expect(res.status).toBe(500);
+    });
+  });
+
   describe("abuse limits (fold-in)", () => {
     it("returns the limiter response when the per-user rate limit trips", async () => {
       mRateLimit.mockResolvedValueOnce(

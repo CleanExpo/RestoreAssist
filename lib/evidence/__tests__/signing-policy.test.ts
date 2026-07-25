@@ -87,13 +87,46 @@ describe("evaluateUnsignedSubmission", () => {
     expect(result).toEqual({ ok: true, downgradeReason: null });
   });
 
-  it("treats any value other than the exact string 'true' as OFF", async () => {
-    mFindFirst.mockResolvedValue({ id: "dk1" });
-    for (const value of ["false", "1", "TRUE", "yes", ""]) {
-      process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = value;
+  // Round 4: an exact === "true" check silently left the whole enforcement
+  // switch OFF for "TRUE" or "1" — the worst failure mode for a security
+  // control, because the operator believes it is on.
+  describe("EVIDENCE_REQUIRE_SIGNED_MANIFEST parsing", () => {
+    it.each(["true", "TRUE", "True", "1", "yes", "on", "enabled", " true "])(
+      "treats %j as ON",
+      async (value) => {
+        process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = value;
+        mFindFirst.mockResolvedValueOnce({ id: "dk1" });
+        const result = await evaluateUnsignedSubmission("u1");
+        expect(result.ok).toBe(false);
+      },
+    );
+
+    it.each(["false", "FALSE", "0", "no", "off", "disabled", ""])(
+      "treats %j as OFF",
+      async (value) => {
+        process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = value;
+        mFindFirst.mockResolvedValueOnce({ id: "dk1" });
+        const result = await evaluateUnsignedSubmission("u1");
+        expect(result.ok).toBe(true);
+      },
+    );
+
+    it("treats an UNRECOGNISED value as OFF but logs loudly", async () => {
+      const errorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+      process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "maybe";
+      mFindFirst.mockResolvedValueOnce({ id: "dk1" });
+
       const result = await evaluateUnsignedSubmission("u1");
       expect(result.ok).toBe(true);
-    }
+
+      const warned = errorSpy.mock.calls.find(([msg]) =>
+        String(msg).includes("unrecognised value"),
+      );
+      expect(warned).toBeDefined();
+      expect((warned![1] as { value: string }).value).toBe("maybe");
+    });
   });
 });
 
