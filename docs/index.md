@@ -1,9 +1,9 @@
 ---
 type: index
 name: docs
-description: OKF index — 33 concepts, 19 subfolders
+description: OKF index — 33 concepts, 20 subfolders
 okf_version: "0.1"
-updated: 2026-07-06
+updated: 2026-07-25
 ---
 
 <!-- okf:generated -->
@@ -13,6 +13,7 @@ _Read this first. Lists every concept + subfolder here so an agent loads only wh
 
 ## Subfolders
 - [[compliance/index]]
+- [[contracts/index]]
 - [[definition-of-done/index]]
 - [[deps/index]]
 - [[design/index]]
