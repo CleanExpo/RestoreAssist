@@ -201,6 +201,39 @@ describe("POST /api/devices/signing-key", () => {
       expect(created.publicKeyId).toBe(KEY_ID);
       expect(created.publicKeyId).not.toBe("attacker-chosen-alias");
     });
+
+    // Round 2 MUST-FIX 3: @@unique([userId, publicKeyPem]) was removed as
+    // provably unreachable — this test justifies the removal. The derived id
+    // is a pure function of the SPKI DER and globally unique, so the same key
+    // material always collides on publicKeyId FIRST, whatever alias is
+    // claimed and however the PEM is whitespace-formatted.
+    it("catches a duplicate PEM via the DERIVED id — no compound unique needed", async () => {
+      const existing = {
+        id: "dk1",
+        userId: "u1",
+        publicKeyId: KEY_ID,
+        publicKeyPem: ED25519_PEM,
+        revokedAt: null,
+        createdAt: new Date("2026-07-25T00:00:00.000Z"),
+      };
+      mFindUnique.mockImplementation(async ({ where }: any) =>
+        where.publicKeyId === KEY_ID ? existing : null,
+      );
+
+      const res = await POST(
+        postRequest({
+          publicKeyId: "some-other-alias",
+          publicKeyPem: `\r\n${ED25519_PEM}\r\n`,
+          devicePlatform: "ios",
+        }),
+      );
+      // Resolved by the derived-id lookup: idempotent for the same owner.
+      expect(res.status).toBe(200);
+      expect(mCreate).not.toHaveBeenCalled();
+      expect(mFindUnique).toHaveBeenCalledWith({
+        where: { publicKeyId: KEY_ID },
+      });
+    });
   });
 
   describe("abuse limits (fold-in)", () => {

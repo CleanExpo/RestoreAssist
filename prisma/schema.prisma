@@ -7388,8 +7388,12 @@ model DeviceSigningKey {
   // cannot come back under a fresh alias.
   publicKeyId String @unique
 
-  // Ed25519 public key in PEM (SPKI)
-  publicKeyPem String @db.VarChar(4096)
+  // Ed25519 public key in PEM (SPKI). Length is capped at the route
+  // (MAX_PEM_LENGTH). Round 2 MUST-FIX 3: a VARCHAR(4096) narrowing was
+  // reverted — it existed only to make publicKeyPem indexable for a
+  // compound unique that turned out to be unreachable (see below), so it
+  // was an ALTER on live data buying nothing.
+  publicKeyPem String @db.Text
 
   // Device context
   deviceUuid     String?
@@ -7400,9 +7404,12 @@ model DeviceSigningKey {
   revokedAt  DateTime?
   lastUsedAt DateTime?
 
-  // Belt-and-braces alongside the derived-id uniqueness above: the same
-  // public key can never be registered twice under one account.
-  @@unique([userId, publicKeyPem])
+  // Round 2 MUST-FIX 3: a @@unique([userId, publicKeyPem]) was removed as
+  // provably unreachable. publicKeyId is derived as SHA-256(SPKI DER)[0..16)
+  // and is GLOBALLY unique, so the same PEM always yields the same id and
+  // collides on publicKeyId first — including on the concurrent-insert race,
+  // since both inserts derive the same id. A constraint that can never fire
+  // is not defence in depth, it is an unsafe migration with no upside.
   @@index([userId])
   @@index([publicKeyId])
   @@index([revokedAt])

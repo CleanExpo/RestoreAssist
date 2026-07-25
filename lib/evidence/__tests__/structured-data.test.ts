@@ -88,6 +88,53 @@ describe("buildEvidenceStructuredData — forged status claims", () => {
     });
     expect(out.originalStoragePath).toBe("evidence/real.jpg");
   });
+
+  // Round 2 item 5: the DOCUMENTED scope was narrowed to match the code,
+  // rather than the code broadened to match the documentation. A recursive
+  // strip of signature-shaped keys would be actively wrong in this domain —
+  // RestoreAssist legitimately stores signatures (approverSignature,
+  // signatureUrl, FormSignature, e-signature at inspection sign-off), so a
+  // blanket recursive delete risks destroying real customer data. These
+  // tests pin the ACTUAL guarantee so the docs cannot drift ahead again.
+  describe("documented sanitisation scope: top level + c2paManifest only", () => {
+    it("does NOT walk nested siblings — an unknown nested key survives verbatim", () => {
+      const out = buildEvidenceStructuredDataObject({
+        clientStructuredData: {
+          integrity: { signature: "FAKE", verified: true },
+        },
+        fileSha256: SERVER_HASH,
+      });
+      // Documented and accepted: inert, because nothing reads it.
+      expect(out.integrity).toEqual({ signature: "FAKE", verified: true });
+    });
+
+    it("still guarantees the only two fields a consumer may trust", () => {
+      const out = buildEvidenceStructuredDataObject({
+        clientStructuredData: {
+          integrity: { signature: "FAKE", verified: true },
+          signedManifestVerified: true,
+          c2paManifest: { signature: "FAKE", sha256: "0".repeat(64) },
+        },
+        fileSha256: SERVER_HASH,
+      });
+      expect(out.signedManifestVerified).toBe(false);
+      expect(
+        (out.c2paManifest as Record<string, unknown>).signature,
+      ).toBeUndefined();
+    });
+
+    it("preserves a legitimate nested signature payload (why recursion was rejected)", () => {
+      const authorityForm = {
+        approverSignature: "data:image/png;base64,iVBORw0KG",
+        signedBy: "Homeowner",
+      };
+      const out = buildEvidenceStructuredDataObject({
+        clientStructuredData: { authorityForm },
+        fileSha256: SERVER_HASH,
+      });
+      expect(out.authorityForm).toEqual(authorityForm);
+    });
+  });
 });
 
 describe("buildEvidenceStructuredData — verified manifests", () => {

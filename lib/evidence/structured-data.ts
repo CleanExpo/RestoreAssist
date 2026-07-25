@@ -9,11 +9,33 @@
  * reach the same dangerous state. Estate doctrine: fix EVERY path to a
  * dangerous state through one shared helper, not one writer at a time.
  *
- * Invariants this helper enforces for all callers:
+ * SCOPE (round 2 item 5 — the documented invariant is NARROWED to match the
+ * code, rather than the code broadened to match the documentation).
+ * This helper sanitises exactly TWO locations: the TOP LEVEL of
+ * structuredData, and the contents of `c2paManifest`. It does NOT walk
+ * arbitrary nested objects, so a sibling such as
+ * `{"integrity":{"signature":"FAKE","verified":true}}` is persisted verbatim.
+ *
+ * That is a deliberate choice. A recursive strip of signature-shaped keys
+ * would be actively wrong in this domain: RestoreAssist legitimately stores
+ * signatures (`approverSignature`, `signatureUrl`, `FormSignature`,
+ * e-signature capture at inspection sign-off), so a blanket recursive delete
+ * risks silently destroying real customer signature data the moment any
+ * writer nests it here. The narrow rule is enforceable and testable; the
+ * broad one trades a live data-loss risk for protection against a field
+ * nothing reads.
+ *
+ * An unknown nested key is inert today — the only reader of structuredData
+ * is lib/evidence/qa-scorer.ts, on known domain keys. Any FUTURE consumer of
+ * an integrity claim MUST read `signedManifestVerified` and `c2paManifest`,
+ * which are the only fields this helper vouches for. Nothing else in
+ * structuredData carries a trust guarantee.
+ *
+ * Invariants this helper enforces, within that scope:
  *   1. `signedManifestVerified` is SERVER-set, always. A client-supplied
  *      value is stripped before anything else is merged.
- *   2. Signature-shaped fields (`signature`, `algorithm`, `deviceKeyId`) only
- *      ever appear inside `c2paManifest` when the server VERIFIED a manifest.
+ *   2. `signature`, `algorithm` and `deviceKeyId` appear INSIDE
+ *      `c2paManifest` only when the server VERIFIED a manifest.
  *   3. `c2paManifest.sha256` is the server-computed hash when one exists, and
  *      is stripped entirely when there is none (a metadata-only record must
  *      not carry an unverifiable integrity claim).
