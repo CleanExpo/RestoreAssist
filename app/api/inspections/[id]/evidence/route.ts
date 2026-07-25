@@ -31,6 +31,7 @@ import {
 } from "@/lib/evidence/manifest-verify";
 import type { SignedEvidenceManifest } from "@/lib/evidence/manifest-canonical";
 import { buildEvidenceStructuredData } from "@/lib/evidence/structured-data";
+import { evaluateUnsignedSubmission } from "@/lib/evidence/signing-policy";
 
 export async function GET(
   request: NextRequest,
@@ -161,6 +162,20 @@ export async function POST(
           });
         }
 
+        // Round 2 MUST-FIX 2: this writer is unsigned by construction
+        // (metadata-only, no bytes to sign), so it goes through the SAME
+        // shared policy helper. It was proven policy-exempt: with the
+        // policy ON and the user holding a live key it returned 201 with
+        // no downgrade reason recorded.
+        const policy = await evaluateUnsignedSubmission(userId);
+        if (!policy.ok) {
+          return apiError(request, {
+            code: policy.code,
+            message: policy.message,
+            status: policy.status,
+          });
+        }
+
         // RA-7090 review fix (Opus #6): the old create was cast `as any`,
         // which hid two schema violations — `title` is REQUIRED and there is
         // NO `notes` column (field notes belong in `description`). In
@@ -200,10 +215,16 @@ export async function POST(
             // so every integrity claim is stripped rather than re-stamped.
             structuredData:
               structuredData === undefined || structuredData === null
-                ? null
+                ? policy.downgradeReason
+                  ? buildEvidenceStructuredData({
+                      fileSha256: null,
+                      downgradeReason: policy.downgradeReason,
+                    })
+                  : null
                 : buildEvidenceStructuredData({
                     clientStructuredData: structuredData,
                     fileSha256: null,
+                    downgradeReason: policy.downgradeReason,
                   }),
           },
         });
@@ -500,44 +521,21 @@ async function handleMultipartEvidencePost(
       verifiedSignature = manifestSignatureRaw;
     }
 
-    // Fold-in (Codex P2): make the fail-open downgrade VISIBLE. When the
-    // submitter already has a live registered key but submits unsigned, the
-    // record says so. Config-gated policy hook — default OFF preserves
-    // today's backwards-compatible behaviour; ON refuses the downgrade.
+    // Round 2 MUST-FIX 2: the unsigned-submission policy now lives in ONE
+    // shared helper that EVERY evidence writer calls (this path, the JSON
+    // path below, and the batch route). The round-1 version guarded only
+    // this writer, leaving the other two policy-exempt.
     let downgradeReason: string | null = null;
     if (!verifiedManifest) {
-      const requireSigned =
-        process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST === "true";
-      let hasLiveKey: boolean | null = null;
-      try {
-        hasLiveKey =
-          (await prisma.deviceSigningKey.findFirst({
-            where: { userId: session.user.id, revokedAt: null },
-            select: { id: true },
-          })) !== null;
-      } catch (probeErr) {
-        // Telemetry must never break a capture — but a policy that is ON
-        // fails CLOSED rather than silently admitting unsigned evidence.
-        console.error("[evidence] signing-key downgrade probe failed", probeErr);
-        if (requireSigned) {
-          return apiError(request, {
-            code: "INTERNAL",
-            message: "Unable to verify signing policy for this submission",
-            status: 500,
-          });
-        }
+      const policy = await evaluateUnsignedSubmission(session.user.id);
+      if (!policy.ok) {
+        return apiError(request, {
+          code: policy.code,
+          message: policy.message,
+          status: policy.status,
+        });
       }
-      if (hasLiveKey) {
-        downgradeReason = "REGISTERED_KEY_BUT_UNSIGNED_SUBMISSION";
-        if (requireSigned) {
-          return apiError(request, {
-            code: "VALIDATION",
-            message:
-              "This account has a registered signing key — evidence must be submitted with a signed manifest",
-            status: 400,
-          });
-        }
-      }
+      downgradeReason = policy.downgradeReason;
     }
 
     const fingerprintFields = Array.from(formData.entries())

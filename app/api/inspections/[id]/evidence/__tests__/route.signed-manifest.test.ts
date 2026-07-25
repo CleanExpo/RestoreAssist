@@ -322,6 +322,37 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
       expect(mCreate).not.toHaveBeenCalled();
     });
 
+    // Round 2 MUST-FIX 1: fix #2 replaced the server-stamped capturedAt with
+    // an UNBOUNDED client-chosen one. The clock guard was one-sided, so a
+    // technician could sign a 2019 manifest over the real bytes with their
+    // own registered key and have the dispute pack print that date under a
+    // verified banner (proven: 201, capturedAt=2019-01-01, verified=true).
+    it("REJECTS a backdated signed capture (the 2019 exploit)", async () => {
+      const res = await POST(
+        multipartRequest(
+          signedForm(manifestFixture({ capturedAt: "2019-01-01T00:00:00.000Z" })),
+        ),
+        params,
+      );
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(await res.json())).toContain("too far in the past");
+      expect(mCreate).not.toHaveBeenCalled();
+    });
+
+    it("ACCEPTS a realistic offline-queue delay (10 days) — the bound must not break field work", async () => {
+      const tenDaysAgo = new Date(
+        Date.now() - 10 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      const res = await POST(
+        multipartRequest(signedForm(manifestFixture({ capturedAt: tenDaysAgo }))),
+        params,
+      );
+      expect(res.status).toBe(201);
+      expect(mCreate.mock.calls[0][0].data.capturedAt).toEqual(
+        new Date(tenDaysAgo),
+      );
+    });
+
     it("rejects a future-dated signed capture", async () => {
       const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
       const res = await POST(
@@ -568,6 +599,56 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
           params,
         );
         expect(mCreate.mock.calls[0][0].data.structuredData).toBeNull();
+      });
+
+      // Round 2 MUST-FIX 2: the policy guarded the MULTIPART writer only —
+      // review proved this writer returned 201 with no downgrade reason
+      // under the identical conditions.
+      describe("is under the SAME signing policy as multipart", () => {
+        it("REFUSES a JSON POST when the policy is ON and the user holds a live key", async () => {
+          process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "true";
+          mKeyFindFirst.mockResolvedValueOnce({ id: "dk1" });
+          const res = await POST(
+            jsonRequest({ evidenceClass: "TECHNICIAN_NOTE", notes: "x" }),
+            params,
+          );
+          expect(res.status).toBe(400);
+          expect(mCreate).not.toHaveBeenCalled();
+        });
+
+        it("records the downgrade reason on a JSON record when the policy is OFF", async () => {
+          mKeyFindFirst.mockResolvedValueOnce({ id: "dk1" });
+          const res = await POST(
+            jsonRequest({
+              evidenceClass: "TECHNICIAN_NOTE",
+              notes: "x",
+              structuredData: { readingCelsius: 21 },
+            }),
+            params,
+          );
+          expect(res.status).toBe(201);
+          const structured = JSON.parse(
+            mCreate.mock.calls[0][0].data.structuredData,
+          );
+          expect(structured.signedManifestVerified).toBe(false);
+          expect(structured.signedManifestDowngradeReason).toBe(
+            "REGISTERED_KEY_BUT_UNSIGNED_SUBMISSION",
+          );
+        });
+
+        it("records the downgrade even when the client sent NO structuredData", async () => {
+          mKeyFindFirst.mockResolvedValueOnce({ id: "dk1" });
+          await POST(
+            jsonRequest({ evidenceClass: "TECHNICIAN_NOTE", notes: "n" }),
+            params,
+          );
+          const structured = JSON.parse(
+            mCreate.mock.calls[0][0].data.structuredData,
+          );
+          expect(structured.signedManifestDowngradeReason).toBe(
+            "REGISTERED_KEY_BUT_UNSIGNED_SUBMISSION",
+          );
+        });
       });
     });
 
