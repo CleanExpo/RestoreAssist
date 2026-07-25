@@ -57,5 +57,5 @@ never so they look actionable.
 
 | When | Task | Stage reached | Evidence |
 |---|---|---|---|
-| 2026-07-26 | iOS billing-gate fix (out of band) | SHIPPED | PR #1989; type-check 0, 11/11 tests, positive control cited |
+| 2026-07-26 | iOS billing-gate fix (out of band) | REVIEWED, awaiting merge | PR #1989 **OPEN + draft, NOT merged** (`mergedAt: null`, 2 checks pending). type-check 0, 11/11 tests, positive control cited. **The App Review violation remains live on main until this merges.** |
 | 2026-07-26 | #1 Standards Currency Registry | DEFINED | Two verified findings: `nextRevisionExpected` has zero consumers repo-wide; NCC due 2025 is already past. Wiki recall MISSED (no vault page on standards currency) — index repair owed. |

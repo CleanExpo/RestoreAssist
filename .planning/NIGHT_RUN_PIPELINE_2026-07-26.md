@@ -109,6 +109,42 @@ never self-certify, never let silence read as approval.
 
 ---
 
+## Loop cadence — event-driven, not polled
+
+A short heartbeat is **wrong** for this pipeline and was corrected on the first night.
+Review dispatches (judge, Codex, Hermes, adversary) run 30–60+ minutes; a 20-minute wake
+fires mid-review, finds the same task in flight, and risks double-starting it.
+
+The contract:
+
+- **Primary wake signal is the task-notification.** Background agents and commands
+  re-invoke the loop automatically the moment they finish. That is the real clock.
+- **ScheduleWakeup is a fallback heartbeat only** — 3000s (50 min), long enough that a
+  quiet wake means something genuinely stalled rather than "the reviewer is still thinking".
+- **Every stage that dispatches an agent writes `IN_FLIGHT (<what>, <since>)` to the
+  ledger before dispatching.** A wake that finds a task `IN_FLIGHT` does not restart it:
+  it checks whether the dispatch is alive, kills and re-dispatches with a narrower brief
+  if it has blown its time box, and otherwise advances a **different** task.
+- **Founder-gated stages never occupy the loop.** A task needing a founder decision is
+  marked `BLOCKED` immediately and the loop moves on; it does not wait in cycle for a
+  human who is asleep.
+
+## Replenishment — when the queue empties
+
+If every task is `SHIPPED` or `BLOCKED`, the loop does not idle. It runs a discovery pass
+and appends the next 30 highest-priority items to the ledger, sourced in this order:
+
+1. Open Linear issues in the RestoreAssist team not already in the ledger (priority order).
+2. Deferred findings recorded in shipped PR bodies (each review wave leaves a "known
+   deferrals" list — those are pre-triaged work).
+3. A `security-audit` sweep and a `readiness-architect` gap pass against the go-live gate.
+4. Failing or missing test coverage on the highest-churn files (`git log` frequency
+   crossed with test presence).
+5. The four pre-existing full-suite failures on main, which nobody currently owns.
+
+Discovery is itself a task: it goes through DEFINE like anything else, and its output is
+ledger rows with sources, never invented work.
+
 ## Stop conditions (the loop halts and reports)
 
 - A **founder-gated** blocker is the only remaining work (credentials, DNS, spend, App Store).
