@@ -397,11 +397,19 @@ export default function CaptureWorkflowPage({
       const capture = await captureEvidencePhoto();
       // RA-7090: upload the captured bytes (multipart) so the server can
       // recompute and verify the evidence hash over the stored file. The
-      // Idempotency-Key derives from capture identity (hash + capturedAt) so
-      // a retried POST of the same capture replays instead of duplicating.
+      // Idempotency-Key derives from capture identity (hash + capturedAt)
+      // scoped by submission context, so a retried POST of the same capture
+      // replays instead of duplicating — without colliding across
+      // inspections, steps, or classes.
       const res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
         method: "POST",
-        headers: { "Idempotency-Key": evidenceIdempotencyKey(capture.manifest) },
+        headers: {
+          "Idempotency-Key": evidenceIdempotencyKey(capture.manifest, {
+            inspectionId,
+            workflowStepId: stepId,
+            evidenceClass,
+          }),
+        },
         body: buildEvidenceFormData(capture, {
           workflowStepId: stepId,
           evidenceClass,

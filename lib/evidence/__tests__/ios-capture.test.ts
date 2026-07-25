@@ -106,18 +106,45 @@ describe("captureEvidencePhoto", () => {
     }
   });
 
-  it("derives a deterministic Idempotency-Key from capture identity (review #9)", async () => {
+  it("derives a deterministic, context-scoped Idempotency-Key (review #9, round-3 #2)", async () => {
     const capture = await captureEvidencePhoto();
-    const key1 = evidenceIdempotencyKey(capture.manifest);
-    const key2 = evidenceIdempotencyKey(capture.manifest);
-    // Stable across retries of the SAME capture...
+    const context = {
+      inspectionId: "cinsp0001aaaaaaaaaaaaaaaa",
+      workflowStepId: "cstep0001bbbbbbbbbbbbbbbb",
+      evidenceClass: "PHOTO_DAMAGE",
+    };
+    const key1 = evidenceIdempotencyKey(capture.manifest, context);
+    const key2 = evidenceIdempotencyKey(capture.manifest, context);
+    // Stable across retries of the SAME capture in the SAME context...
     expect(key1).toBe(key2);
     // ...bound to the byte hash and capture time...
     expect(key1).toContain(EXPECTED_SHA256);
     expect(key1).toContain(capture.manifest.capturedAt);
-    // ...and within the server's 8-255 char Idempotency-Key bounds.
+    // ...within the server's 8-255 printable-ASCII bounds...
     expect(key1.length).toBeGreaterThanOrEqual(8);
     expect(key1.length).toBeLessThanOrEqual(255);
+    expect(/^[\x20-\x7e]+$/.test(key1)).toBe(true);
+
+    // ...and DIFFERENT when the same capture legitimately goes to another
+    // inspection, step, or class — no false 409 across contexts.
+    expect(
+      evidenceIdempotencyKey(capture.manifest, {
+        ...context,
+        inspectionId: "cinsp0002cccccccccccccccc",
+      }),
+    ).not.toBe(key1);
+    expect(
+      evidenceIdempotencyKey(capture.manifest, {
+        ...context,
+        workflowStepId: null,
+      }),
+    ).not.toBe(key1);
+    expect(
+      evidenceIdempotencyKey(capture.manifest, {
+        ...context,
+        evidenceClass: "PHOTO_PROGRESS",
+      }),
+    ).not.toBe(key1);
   });
 
   it("carries capture location into the manifest", async () => {

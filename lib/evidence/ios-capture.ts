@@ -56,8 +56,34 @@ export function buildEvidenceFormData(
 // RA-7090 review fix: a retried POST of the SAME capture must be genuinely
 // idempotent — derive the key from capture identity (byte hash + capture
 // time), not a fresh random UUID per attempt.
-export function evidenceIdempotencyKey(manifest: IOSCaptureManifest): string {
-  return `evidence-${manifest.sha256}-${manifest.capturedAt}`;
+// Round 3 (Codex #2): the key must ALSO be scoped by submission context
+// (inspection / workflow step / evidence class). The server fingerprint
+// includes those fields, so a context-free key made a legitimate submission
+// of the same capture to a DIFFERENT inspection or step collide into a
+// false 409.
+export function evidenceIdempotencyKey(
+  manifest: IOSCaptureManifest,
+  context: {
+    inspectionId: string;
+    workflowStepId?: string | null;
+    evidenceClass: string;
+  },
+): string {
+  const key = [
+    "evidence",
+    context.inspectionId,
+    context.workflowStepId || "none",
+    context.evidenceClass,
+    manifest.sha256,
+    manifest.capturedAt,
+  ].join("-");
+  // Server bound is 8-255 printable-ASCII chars. With cuid ids, enum class
+  // names, a 64-char hash and a 24-char ISO timestamp the composite sits
+  // near ~175 chars; degrade deterministically if an oversized id ever
+  // pushes it past the cap.
+  return key.length <= 255
+    ? key
+    : `evidence-${manifest.sha256}-${manifest.capturedAt}`;
 }
 
 export async function captureEvidencePhoto(): Promise<IOSCaptureResult> {
