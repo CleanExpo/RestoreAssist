@@ -44,6 +44,7 @@
  */
 
 import type { SignedEvidenceManifest } from "./manifest-canonical";
+import { verifyManifestSignature } from "./manifest-verify";
 
 /** Keys the server owns outright — a client value is never honoured. */
 const SERVER_OWNED_KEYS = [
@@ -106,10 +107,39 @@ const VERIFIED_MANIFEST_FIELDS = [
   "deviceKeyId",
 ] as const;
 
+/**
+ * Every top-level key a legitimately-signed manifest may carry — the
+ * persisted whitelist (VERIFIED_MANIFEST_FIELDS) plus `sha256`, which the
+ * server re-stamps from its own computed hash. This is the EXACT shape
+ * lib/evidence/manifest-canonical.ts signs, so a verified manifest whose
+ * top-level keys are all in this set canonicalises to the SAME bytes after
+ * whitelisting — meaning the stored signature still re-verifies over the
+ * persisted record.
+ *
+ * Round 5 (RA-7090 slice 2 P1): a manifest carrying ANY key outside this set
+ * was previously accepted, its signature verified over the FULL signed bytes,
+ * then the extra keys were silently DROPPED by the whitelist while
+ * signedManifestVerified was still set true — so crypto.verify over the
+ * persisted bytes would be FALSE against a record claiming verified. Such a
+ * manifest is now REJECTED at persistence rather than quietly downgraded to a
+ * verified-looking record.
+ */
+const ALLOWED_SIGNED_MANIFEST_KEYS: ReadonlySet<string> = new Set([
+  ...VERIFIED_MANIFEST_FIELDS,
+  "sha256",
+]);
+
 export interface VerifiedManifestInput {
   manifest: SignedEvidenceManifest;
   /** Base64 Ed25519 signature over the manifest's canonical bytes. */
   signature: string;
+  /**
+   * PEM of the registered device key that produced `signature`. RA-7090
+   * slice 2 (P1-2): the signature is re-verified over the EXACT persisted
+   * manifest subset before this record is stamped verified, so a stored
+   * signature always re-verifies over the bytes actually persisted.
+   */
+  publicKeyPem: string;
 }
 
 export interface BuildStructuredDataInput {
@@ -173,6 +203,22 @@ export function buildEvidenceStructuredDataObject(
   delete out.c2paManifest;
 
   if (verified) {
+    // (5) Fail-closed over the PERSISTED bytes: a verified manifest may carry
+    // ONLY the agreed top-level keys. Any extra key was covered by the
+    // signature but would be dropped by the whitelist below, so the stored
+    // signature could not re-verify over the persisted record while
+    // signedManifestVerified=true. Reject rather than silently downgrade.
+    const unknownKeys = Object.keys(
+      verified.manifest as unknown as Record<string, unknown>,
+    ).filter((key) => !ALLOWED_SIGNED_MANIFEST_KEYS.has(key));
+    if (unknownKeys.length > 0) {
+      throw new Error(
+        "Refusing to persist a verified manifest with unknown top-level " +
+          `field(s) [${unknownKeys.join(", ")}] — the whitelist would drop ` +
+          "them, so the stored signature could not re-verify over the " +
+          "persisted bytes",
+      );
+    }
     // (4) Whitelist — only known manifest fields cross into the record.
     const persisted: Record<string, unknown> = {};
     for (const field of VERIFIED_MANIFEST_FIELDS) {
@@ -184,6 +230,27 @@ export function buildEvidenceStructuredDataObject(
     // sha256 is the SERVER hash by construction (binding already proved the
     // manifest's own sha256 equals it).
     if (fileSha256) persisted.sha256 = fileSha256;
+
+    // (P1-2) Re-verify the signature over the EXACT persisted manifest subset
+    // — the bytes we are about to store — BEFORE stamping verified. The route
+    // verified the INCOMING canonical object, but the record persists a
+    // rebuilt subset; if the two ever diverge the stored signature would not
+    // re-verify over the persisted bytes while the record claimed verified.
+    // This closes that gap: a stored signature ALWAYS re-verifies over the
+    // persisted representation, or we fail CLOSED here.
+    if (
+      !verifyManifestSignature(
+        persisted as unknown as SignedEvidenceManifest,
+        verified.signature,
+        verified.publicKeyPem,
+      )
+    ) {
+      throw new Error(
+        "Refusing to persist a verified manifest whose signature does not " +
+          "re-verify over the persisted bytes",
+      );
+    }
+
     persisted.signature = verified.signature;
     persisted.algorithm = "Ed25519";
     out.c2paManifest = persisted;

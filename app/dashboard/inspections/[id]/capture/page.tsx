@@ -71,6 +71,7 @@ import {
   ensureDeviceKeyRegistered,
   recoverFromRejectedKey,
 } from "@/lib/evidence/device-signing";
+import { submitSignedCapture } from "@/lib/evidence/capture-submit";
 import { useSession } from "next-auth/react";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { getQueuedDraftCount } from "@/lib/offline/inspection-store";
@@ -408,89 +409,72 @@ export default function CaptureWorkflowPage({
       // scoped by submission context, so a retried POST of the same capture
       // replays instead of duplicating — without colliding across
       // inspections, steps, or classes.
-      const idempotencyKey = await evidenceIdempotencyKey(capture.manifest, {
-        inspectionId,
-        workflowStepId: stepId,
-        evidenceClass,
-      });
-      // RA-7090 slice 2: sign the capture manifest with this device's
-      // Ed25519 key so the server can verify it against the registered,
-      // non-revoked key. Best-effort by design — a signing/registration
-      // failure must never block field evidence capture; the record simply
-      // stays unsigned (the server refuses to mark it verified either way).
-      let signed: { manifestJson: string; signature: string } | undefined;
+      // RA-7090 slice 2 (P1): capture is SIGNED, fail-closed. A technician on
+      // this authenticated dashboard page must sign; a signing/registration
+      // failure SURFACES (outer catch → toast.error) rather than silently
+      // downgrading to an unsigned submission on a legal-facing
+      // chain-of-custody record. The orchestration in submitSignedCapture has
+      // no unsigned fallback: on a 403 (rejected key) it rotates to a fresh
+      // key and RE-SIGNS instead of resubmitting unsigned.
       const userId = session?.user?.id;
-      if (userId) {
-        try {
-          const deviceKey = await ensureDeviceKeyRegistered(
-            isNative ? "capacitor" : "web",
-          );
-          const payload = await createSignedManifest(
-            capture,
-            {
-              inspectionId,
-              workflowStepId: stepId,
-              evidenceClass,
-              userId,
-            },
-            deviceKey,
-          );
-          signed = {
-            manifestJson: payload.manifestJson,
-            signature: payload.signature,
-          };
-        } catch (signErr) {
-          console.warn(
-            "[capture] manifest signing unavailable — submitting unsigned",
-            signErr,
-          );
-        }
+      if (!userId) {
+        throw new Error("You must be signed in to capture signed evidence");
       }
-      let res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
-        method: "POST",
-        headers: { "Idempotency-Key": idempotencyKey },
-        body: buildEvidenceFormData(
+      const keyMode = isNative ? "capacitor" : "web";
+
+      // Keep the final Response so we can read its body after orchestration;
+      // the orchestration itself only needs the HTTP status.
+      let lastResponse: Response | null = null;
+      const signAndPost = async (attempt: "initial" | "resigned") => {
+        const deviceKey = await ensureDeviceKeyRegistered(keyMode);
+        const payload = await createSignedManifest(
           capture,
           {
+            inspectionId,
             workflowStepId: stepId,
             evidenceClass,
+            userId,
           },
-          signed,
-        ),
-      });
-      // Review round 1 (MUST-FIX 4): a 403 here means the server rejected
-      // the KEY we signed with (revoked, or registered elsewhere). Before
-      // this, that bricked the device — the dead key stayed cached, the
-      // upload threw, and the technician could not submit evidence at all.
-      // Rotate to a fresh key and resubmit UNSIGNED so capture always
-      // completes; the record is then honestly marked unsigned.
-      if (res.status === 403 && signed) {
-        console.warn(
-          "[capture] signing key rejected by server — rotating and resubmitting unsigned",
+          deviceKey,
         );
-        await recoverFromRejectedKey(isNative ? "capacitor" : "web");
-        const unsignedKey = await evidenceIdempotencyKey(capture.manifest, {
+        const idempotencyKey = await evidenceIdempotencyKey(capture.manifest, {
           inspectionId,
           workflowStepId: stepId,
           evidenceClass,
-          // Different submission shape ⇒ different server fingerprint, so
-          // this must not reuse the signed attempt's idempotency key.
-          variant: "unsigned-retry",
+          // The post-rotation re-signature is a distinct submission shape, so
+          // it must not reuse the first signed attempt's idempotency key.
+          ...(attempt === "resigned" ? { variant: "resigned-retry" } : {}),
         });
-        res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
+        const res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
           method: "POST",
-          headers: { "Idempotency-Key": unsignedKey },
-          body: buildEvidenceFormData(capture, {
-            workflowStepId: stepId,
-            evidenceClass,
-          }),
+          headers: { "Idempotency-Key": idempotencyKey },
+          body: buildEvidenceFormData(
+            capture,
+            { workflowStepId: stepId, evidenceClass },
+            { manifestJson: payload.manifestJson, signature: payload.signature },
+          ),
         });
+        lastResponse = res;
+        return { status: res.status, ok: res.ok };
+      };
+
+      const result = await submitSignedCapture({
+        signAndPost,
+        rotateKey: async () => {
+          console.warn(
+            "[capture] signing key rejected by server — rotating and re-signing",
+          );
+          await recoverFromRejectedKey(keyMode);
+        },
+      });
+
+      if (!result.ok || !lastResponse) {
+        const body = lastResponse
+          ? await (lastResponse as Response).json().catch(() => null)
+          : null;
+        throw new Error(body?.error?.message || "Failed to record evidence");
       }
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error?.message || "Failed to record evidence");
-      }
-      const data = await res.json();
+      const data = await (lastResponse as Response).json();
       setEvidenceItems((prev) => [data.evidenceItem, ...prev]);
       setSelectedEvidenceClass(null);
       toast.success(`${EVIDENCE_CLASS_LABELS[evidenceClass]} captured`);
@@ -506,6 +490,13 @@ export default function CaptureWorkflowPage({
     stepId: string,
     evidenceClass: EvidenceClass,
   ) => {
+    // RA-7090 slice 2 (P0 terminal fix) — INTERIM: this metadata-only text-note
+    // quick-add posts UNSIGNED JSON. Under the fail-closed signing policy (ON in
+    // production) the server now REJECTS unsigned metadata-only submissions
+    // (there is no unsigned-exempt path — that was an encoding-smuggle vector).
+    // Until a signed-metadata contract exists (client signs the canonical JSON,
+    // server verifies), this quick-add is disabled under policy ON and surfaces
+    // the server's rejection to the technician. See the evidence route.
     // For now, create a text-based evidence item (file upload uses Supabase Storage)
     try {
       setUploadingEvidence(true);

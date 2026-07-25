@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { POST } from "../route";
 
@@ -81,11 +81,19 @@ beforeEach(() => {
   userFindUnique.mockReset().mockResolvedValue({ organizationId: "org_1" });
   storageUpload.mockReset();
   signingKeyFindFirst.mockReset().mockResolvedValue(null);
-  delete process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST;
+  // RA-7090 slice 2 (P1): the batch writer carries real bytes and stays
+  // MANDATORY (no exemption) — an unsigned batch is fail-CLOSED by default
+  // (proven in its own test below). These byte-mechanics / downgrade-visibility
+  // fixtures opt into an EXPLICIT policy-OFF so their behaviour stays covered.
+  process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "false";
   evidenceCreate.mockReset().mockImplementation(async (args) => ({
     id: "evidence_1",
     ...args.data,
   }));
+});
+
+afterEach(() => {
+  delete process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST;
 });
 
 describe("POST /api/inspections/[id]/evidence/batch", () => {
@@ -142,6 +150,19 @@ describe("POST /api/inspections/[id]/evidence/batch", () => {
       const res = await POST(makeRequest(), ctx());
       expect(res.status).toBe(400);
       // Refused BEFORE any byte is stored or any row written.
+      expect(storageUpload).not.toHaveBeenCalled();
+      expect(evidenceCreate).not.toHaveBeenCalled();
+    });
+
+    // RA-7090 slice 2 (P1) fail-closed contract: an unsigned batch is rejected
+    // by DEFAULT (config unset ⇒ policy ON), even with NO registered key — the
+    // batch writer is mandatory and holds no exemption.
+    it("REFUSES an unsigned batch by DEFAULT (config unset ⇒ fail-closed), no key needed", async () => {
+      delete process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST;
+      uploadOk();
+
+      const res = await POST(makeRequest(), ctx());
+      expect(res.status).toBe(400);
       expect(storageUpload).not.toHaveBeenCalled();
       expect(evidenceCreate).not.toHaveBeenCalled();
     });

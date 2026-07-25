@@ -58,6 +58,18 @@ export async function POST(
     // portal uploads can never carry a technician's device signature — but
     // the sanitiser applies unconditionally, so a promoted row is stamped
     // signedManifestVerified:false and can never present as signed.
+    //
+    // RA-7090 slice 2 (P0-2 re-review) — RESIDUAL, founder-visible: this route
+    // promotes homeowner portal uploads into chain-of-custody EvidenceItems
+    // carrying file provenance (fileUrl/mime/size below) with fileSha256:null
+    // and NO signature — an unsigned byte-referencing evidence item that the
+    // CLIENT_PORTAL_PROMOTION exemption deliberately permits. It is PRE-EXISTING
+    // (introduced by #1987, unchanged by this slice). Closing it fully — proving
+    // a content hash over the promoted bytes, or a staff attestation signature —
+    // is the central client-portal issuance-gate change and is OUT OF SCOPE for
+    // this slice; forcing it fail-closed here would block legitimate homeowner
+    // evidence. Flagged for that follow-up rather than silently widened or left
+    // to masquerade as closed.
     const policy = exemptFromSigningPolicy("CLIENT_PORTAL_PROMOTION");
     const promotedStructuredData = buildEvidenceStructuredData({
       fileSha256: null,

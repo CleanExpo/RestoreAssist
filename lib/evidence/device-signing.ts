@@ -258,9 +258,13 @@ export async function ensureDeviceKeyRegistered(
 
 /**
  * Recover from a server-side rejection of the key we signed with (evidence
- * POST returned 403). Discards the dead key and registers a fresh one;
- * returns null when recovery itself fails so the caller can fall back to an
- * unsigned submission rather than blocking the technician.
+ * POST returned 403). Discards the dead key and registers a fresh one, then
+ * returns the fresh record (or null when the rotate/register itself fails).
+ *
+ * RA-7090 slice 2 (P1): the caller no longer downgrades to an UNSIGNED
+ * submission on failure. It rotates here and RE-SIGNS with the fresh key; if
+ * recovery fails (null / throw), the subsequent signing attempt surfaces the
+ * error to the technician rather than silently submitting unsigned evidence.
  */
 export async function recoverFromRejectedKey(
   devicePlatform: string = "capacitor",

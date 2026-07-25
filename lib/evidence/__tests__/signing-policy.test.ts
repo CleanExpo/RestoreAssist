@@ -32,13 +32,15 @@ afterEach(() => {
 });
 
 describe("evaluateUnsignedSubmission", () => {
-  it("allows with no downgrade reason when the user has no registered key", async () => {
+  it("POLICY OFF: allows with no downgrade reason when the user has no registered key", async () => {
+    process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "false";
     mFindFirst.mockResolvedValueOnce(null);
     const result = await evaluateUnsignedSubmission("u1");
     expect(result).toEqual({ ok: true, downgradeReason: null });
   });
 
-  it("allows but RECORDS the downgrade when the user holds a live key", async () => {
+  it("POLICY OFF: allows but RECORDS the downgrade when the user holds a live key", async () => {
+    process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "false";
     mFindFirst.mockResolvedValueOnce({ id: "dk1" });
     const result = await evaluateUnsignedSubmission("u1");
     expect(result).toEqual({
@@ -64,11 +66,15 @@ describe("evaluateUnsignedSubmission", () => {
     expect(result).toMatchObject({ status: 400, code: "VALIDATION" });
   });
 
-  it("allows under the policy when the user has NO key (nothing to downgrade from)", async () => {
+  // POSITIVE CONTROL #1 (fail-closed core): the old code ACCEPTED an unsigned
+  // submission from a no-key caller even under a required-signing policy — the
+  // control was bypassable by simply never registering a key. It must REJECT.
+  it("FAIL-CLOSED: REFUSES when the policy is ON and the user has NO key", async () => {
     process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "true";
     mFindFirst.mockResolvedValueOnce(null);
     const result = await evaluateUnsignedSubmission("u1");
-    expect(result).toEqual({ ok: true, downgradeReason: null });
+    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ status: 400, code: "VALIDATION" });
   });
 
   it("fails CLOSED on a probe error when the policy is ON", async () => {
@@ -81,6 +87,7 @@ describe("evaluateUnsignedSubmission", () => {
   });
 
   it("fails OPEN on a probe error when the policy is OFF (telemetry never blocks capture)", async () => {
+    process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "false";
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     mFindFirst.mockRejectedValueOnce(new Error("db down"));
     const result = await evaluateUnsignedSubmission("u1");
@@ -101,7 +108,7 @@ describe("evaluateUnsignedSubmission", () => {
       },
     );
 
-    it.each(["false", "FALSE", "0", "no", "off", "disabled", ""])(
+    it.each(["false", "FALSE", "0", "no", "off", "disabled"])(
       "treats %j as OFF",
       async (value) => {
         process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = value;
@@ -111,7 +118,26 @@ describe("evaluateUnsignedSubmission", () => {
       },
     );
 
-    it("treats an UNRECOGNISED value as OFF but logs loudly", async () => {
+    // POSITIVE CONTROL #1 (fail-closed default): an UNSET, EMPTY or
+    // UNRECOGNISED config must leave the policy ON — the previous default was
+    // OFF, the worst failure mode for a security control the operator believes
+    // is on.
+    it.each([undefined, "", "  ", "maybe", "1yes", "trueish"])(
+      "FAIL-CLOSED: treats %j as ON (unset/empty/unknown ⇒ enforced)",
+      async (value) => {
+        if (value === undefined) {
+          delete process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST;
+        } else {
+          process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = value;
+        }
+        vi.spyOn(console, "error").mockImplementation(() => undefined);
+        mFindFirst.mockResolvedValueOnce({ id: "dk1" });
+        const result = await evaluateUnsignedSubmission("u1");
+        expect(result.ok).toBe(false);
+      },
+    );
+
+    it("logs LOUDLY when an unrecognised value is treated as ON", async () => {
       const errorSpy = vi
         .spyOn(console, "error")
         .mockImplementation(() => undefined);
@@ -119,7 +145,7 @@ describe("evaluateUnsignedSubmission", () => {
       mFindFirst.mockResolvedValueOnce({ id: "dk1" });
 
       const result = await evaluateUnsignedSubmission("u1");
-      expect(result.ok).toBe(true);
+      expect(result.ok).toBe(false);
 
       const warned = errorSpy.mock.calls.find(([msg]) =>
         String(msg).includes("unrecognised value"),

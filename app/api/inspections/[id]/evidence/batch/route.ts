@@ -104,6 +104,18 @@ export async function POST(
     // real bytes and persists hashSha256 — review proved 20 files here
     // produced 20 unsigned policy-exempt rows while the policy was ON.
     // Evaluated ONCE for the whole batch, before any byte is stored.
+    //
+    // RA-7090 slice 2 (P1-1 re-review) — INTERIM CONTRACT, founder-visible:
+    // there is NO batch client-side signing yet (the device signer produces a
+    // per-CAPTURE manifest for the single-file multipart path only), so this
+    // route cannot accept a validly-signed batch. With enforcement ON (the
+    // production default) EVERY batch is therefore rejected — batch upload is
+    // effectively DISABLED under the policy. This is deliberate and safe (no
+    // unsigned byte-carrying evidence is admitted), but it is an interim state:
+    // the mandatory contract "a validly-signed batch is ACCEPTED" needs a batch
+    // manifest/signature format + client signer, which is a separate change
+    // (tracked as the batch-signing follow-up). Do not "fix" this by exempting
+    // the batch writer — that would reopen the unsigned byte-carrying hole.
     const policy = await evaluateUnsignedSubmission(session.user.id);
     if (!policy.ok) {
       return apiError(request, {
