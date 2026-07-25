@@ -152,6 +152,7 @@ import { GroupReadingsPanel } from "@/components/inspection/GroupReadingsPanel";
 import Link from "next/link";
 import { isLiveTeacherEnabled } from "@/lib/live-teacher/feature-flag";
 import { VoiceAssistant } from "@/components/live-teacher/VoiceAssistant";
+import { InspectionSidekick } from "@/components/live-teacher/InspectionSidekick";
 
 type Tab =
   | "overview"
@@ -2754,6 +2755,14 @@ export default function InspectionDetailPage({
         {/* Live Teacher Tab (RA-7031 / RA-1132i) — flag-gated */}
         {activeTab === "live-teacher" && isLiveTeacherEnabled() && (
           <VoiceAssistant inspectionId={inspection.id} />
+        )}
+
+        {/* Inspection Sidekick (P0 #2) — persistent bottom-sheet entry point,
+            same rollout flag as Live Teacher. Text-first, read-only tools. */}
+        {isLiveTeacherEnabled() && (
+          <div className="fixed bottom-4 right-4 z-40">
+            <InspectionSidekick inspectionId={inspection.id} />
+          </div>
         )}
 
         {/* Photos Tab */}
