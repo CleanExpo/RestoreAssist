@@ -351,21 +351,77 @@ describe("POST /evidence (multipart, RA-7090)", () => {
     });
   });
 
-  it("JSON path still works and cannot set hashSha256 from the client", async () => {
-    const res = await POST(
-      new NextRequest("http://localhost/api/inspections/i1/evidence", {
+  describe("JSON path (metadata-only, schema-correct after Opus #6)", () => {
+    function jsonRequest(body: Record<string, unknown>) {
+      return new NextRequest("http://localhost/api/inspections/i1/evidence", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify(body),
+      });
+    }
+
+    it("creates a schema-valid record: required title set, notes mapped to description", async () => {
+      const res = await POST(
+        jsonRequest({
           evidenceClass: "TECHNICIAN_NOTE",
           notes: "text-only evidence",
-          hashSha256: "attacker-controlled-value",
         }),
-      }),
-      params,
-    );
-    expect(res.status).toBe(201);
-    const created = mCreate.mock.calls[0][0].data;
-    expect(created.hashSha256).toBeUndefined();
+        params,
+      );
+      expect(res.status).toBe(201);
+      const created = mCreate.mock.calls[0][0].data;
+      // `title` is required by prisma/schema.prisma — the old `as any`
+      // create omitted it (and wrote a nonexistent `notes` column), so
+      // every production create on this path 500'd.
+      expect(created.title).toBe("TECHNICIAN_NOTE");
+      expect(created.description).toBe("text-only evidence");
+      expect("notes" in created).toBe(false);
+    });
+
+    it("honours an explicit title", async () => {
+      await POST(
+        jsonRequest({
+          evidenceClass: "TECHNICIAN_NOTE",
+          title: "North wall observation",
+          notes: "damp along skirting",
+        }),
+        params,
+      );
+      expect(mCreate.mock.calls[0][0].data.title).toBe(
+        "North wall observation",
+      );
+    });
+
+    it("rejects an invalid evidenceClass with 400", async () => {
+      const res = await POST(
+        jsonRequest({ evidenceClass: "NOT_A_REAL_CLASS", notes: "x" }),
+        params,
+      );
+      expect(res.status).toBe(400);
+      expect(mCreate).not.toHaveBeenCalled();
+    });
+
+    it("ignores forged integrity/verification/status fields from the client", async () => {
+      const res = await POST(
+        jsonRequest({
+          evidenceClass: "TECHNICIAN_NOTE",
+          notes: "text-only evidence",
+          // Forgery attempts — none may reach the create.
+          hashSha256: "attacker-controlled-value",
+          status: "ACTIVE",
+          isVerified: true,
+          verifiedById: "attacker",
+          verifiedAt: "2026-07-25T00:00:00.000Z",
+        }),
+        params,
+      );
+      expect(res.status).toBe(201);
+      const created = mCreate.mock.calls[0][0].data;
+      expect(created.hashSha256).toBeUndefined();
+      expect(created.status).toBeUndefined();
+      expect(created.isVerified).toBeUndefined();
+      expect(created.verifiedById).toBeUndefined();
+      expect(created.verifiedAt).toBeUndefined();
+    });
   });
 });

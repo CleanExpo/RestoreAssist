@@ -126,6 +126,7 @@ export async function POST(
         const {
           workflowStepId,
           evidenceClass,
+          title,
           fileUrl,
           fileMimeType,
           fileSizeBytes,
@@ -138,11 +139,37 @@ export async function POST(
           deviceType,
         } = body;
 
+        // RA-7090 review fix (Opus #6): validate the enum up front —
+        // mirrors the multipart path instead of 500ing inside Prisma.
+        if (
+          typeof evidenceClass !== "string" ||
+          !Object.values(EvidenceClass).includes(
+            evidenceClass as EvidenceClass,
+          )
+        ) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Valid evidenceClass is required",
+            status: 400,
+          });
+        }
+
+        // RA-7090 review fix (Opus #6): the old create was cast `as any`,
+        // which hid two schema violations — `title` is REQUIRED and there is
+        // NO `notes` column (field notes belong in `description`). In
+        // production every create on this path 500'd. The create below is
+        // fully typed so the compiler enforces the schema again.
         const evidenceItem = await prisma.evidenceItem.create({
           data: {
             inspectionId,
             workflowStepId: workflowStepId || null,
-            evidenceClass,
+            evidenceClass: evidenceClass as EvidenceClass,
+            title:
+              typeof title === "string" && title.trim()
+                ? title.trim()
+                : evidenceClass,
+            description:
+              typeof notes === "string" && notes.length > 0 ? notes : null,
             capturedById: userId,
             capturedByName: session.user.name || "Unknown",
             capturedAt: new Date(),
@@ -157,9 +184,6 @@ export async function POST(
             structuredData: structuredData
               ? JSON.stringify(structuredData)
               : null,
-            ...(notes !== undefined &&
-              notes !== null &&
-              ({ notes: notes || null } as any)),
           },
         });
 
