@@ -22,6 +22,48 @@ import { prisma } from "@/lib/prisma";
 export const DOWNGRADE_REASON_REGISTERED_KEY_UNSIGNED =
   "REGISTERED_KEY_BUT_UNSIGNED_SUBMISSION";
 
+/**
+ * Recorded on rows promoted out of the client portal. Round 3 review found a
+ * FOURTH writer — app/api/inspections/[id]/evidence/promote-client/route.ts —
+ * reaching EvidenceItem without either shared control.
+ */
+export const DOWNGRADE_REASON_CLIENT_PORTAL_PROMOTION =
+  "CLIENT_PORTAL_PROMOTION_UNSIGNED_BY_DESIGN";
+
+/**
+ * Writers EXEMPT from EVIDENCE_REQUIRE_SIGNED_MANIFEST, stated explicitly in
+ * code rather than left implicit by omission.
+ *
+ * CLIENT_PORTAL_PROMOTION — a homeowner uploads through a tokenised portal
+ * link from their own phone. They have no registered device signing key and
+ * never will, and the technician who later promotes the submission did not
+ * capture those bytes, so their key cannot honestly vouch for them.
+ * Enforcing the policy here would block staff from accepting legitimate
+ * client evidence while proving nothing about its origin. These rows are
+ * instead stamped unsigned with a reason naming exactly why, so the record
+ * is honest about what it is: third-party evidence, staff-verified at
+ * promotion, never device-signed.
+ */
+export type SigningPolicyExemption = "CLIENT_PORTAL_PROMOTION";
+
+const EXEMPTION_REASONS: Record<SigningPolicyExemption, string> = {
+  CLIENT_PORTAL_PROMOTION: DOWNGRADE_REASON_CLIENT_PORTAL_PROMOTION,
+};
+
+/**
+ * Declare a writer exempt from the signing policy. Deliberately a separate
+ * NAMED call rather than "just don't call evaluateUnsignedSubmission":
+ * three consecutive review rounds found writers that reached the dangerous
+ * state simply by not calling the shared control, so an exemption has to be
+ * visible at the call site and assertable in a test.
+ */
+export function exemptFromSigningPolicy(exemption: SigningPolicyExemption): {
+  ok: true;
+  downgradeReason: string;
+} {
+  return { ok: true, downgradeReason: EXEMPTION_REASONS[exemption] };
+}
+
 export type UnsignedSubmissionPolicy =
   | { ok: true; downgradeReason: string | null }
   | {

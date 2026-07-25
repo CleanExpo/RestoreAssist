@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import {
   evaluateUnsignedSubmission,
   DOWNGRADE_REASON_REGISTERED_KEY_UNSIGNED,
+  exemptFromSigningPolicy,
 } from "../signing-policy";
 
 const mFindFirst = prisma.deviceSigningKey.findFirst as unknown as ReturnType<
@@ -93,5 +94,30 @@ describe("evaluateUnsignedSubmission", () => {
       const result = await evaluateUnsignedSubmission("u1");
       expect(result.ok).toBe(true);
     }
+  });
+});
+
+// Round 3: an exemption must be a NAMED call, visible at the call site and
+// assertable here — three consecutive review rounds found writers reaching
+// the dangerous state simply by not calling the shared control.
+describe("exemptFromSigningPolicy", () => {
+  it("returns the client-portal reason without probing for a key", () => {
+    const result = exemptFromSigningPolicy("CLIENT_PORTAL_PROMOTION");
+    expect(result).toEqual({
+      ok: true,
+      downgradeReason: "CLIENT_PORTAL_PROMOTION_UNSIGNED_BY_DESIGN",
+    });
+    expect(mFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("holds the exemption even with the policy ON", () => {
+    process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "true";
+    expect(exemptFromSigningPolicy("CLIENT_PORTAL_PROMOTION").ok).toBe(true);
+  });
+
+  it("always records a reason — an exemption is never silent", () => {
+    expect(
+      exemptFromSigningPolicy("CLIENT_PORTAL_PROMOTION").downgradeReason,
+    ).toBeTruthy();
   });
 });
