@@ -1,8 +1,12 @@
 /**
  * RA-7090 slice 2: POST /api/devices/signing-key — device key registration.
  * Only a valid Ed25519 PUBLIC key enters the trust store; re-registration of
- * the same live key is idempotent; id collisions with a different key or
- * another user's key are 409.
+ * the same live key is idempotent.
+ *
+ * Review round 1 (MUST-FIX 3): `publicKeyId` is DERIVED server-side from the
+ * SPKI bytes and any client-supplied id is IGNORED. That is what makes
+ * revocation permanent — a revoked key re-registering collides with its own
+ * revoked row instead of returning under a fresh alias.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -15,12 +19,19 @@ vi.mock("@/lib/prisma", () => ({
     deviceSigningKey: {
       findUnique: vi.fn(),
       create: vi.fn(),
+      count: vi.fn(),
     },
   },
+}));
+// Rate limiting has its own test below; the default is "allowed" so the
+// contract tests are not order-dependent.
+vi.mock("@/lib/rate-limiter", () => ({
+  applyRateLimit: vi.fn(async () => null),
 }));
 
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limiter";
 import { POST } from "../route";
 
 const mSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
@@ -30,6 +41,10 @@ const mFindUnique = prisma.deviceSigningKey.findUnique as unknown as ReturnType<
 const mCreate = prisma.deviceSigningKey.create as unknown as ReturnType<
   typeof vi.fn
 >;
+const mCount = prisma.deviceSigningKey.count as unknown as ReturnType<
+  typeof vi.fn
+>;
+const mRateLimit = applyRateLimit as unknown as ReturnType<typeof vi.fn>;
 
 // Real Ed25519 keypair — the route must accept exactly this shape.
 const { publicKey: ED25519_PUBLIC } = crypto.generateKeyPairSync("ed25519");
@@ -57,8 +72,9 @@ function postRequest(body: unknown) {
   });
 }
 
+// No publicKeyId: the server derives it. (A client-supplied one is ignored —
+// asserted explicitly below.)
 const VALID_BODY = {
-  publicKeyId: KEY_ID,
   publicKeyPem: ED25519_PEM,
   devicePlatform: "ios",
 };
@@ -67,6 +83,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mSession.mockResolvedValue({ user: { id: "u1", name: "Tech One" } });
   mFindUnique.mockResolvedValue(null);
+  mCount.mockResolvedValue(0);
+  mRateLimit.mockResolvedValue(null);
   mCreate.mockImplementation(async ({ data }: any) => ({
     id: "dk1",
     createdAt: new Date("2026-07-25T00:00:00.000Z"),
@@ -86,10 +104,11 @@ describe("POST /api/devices/signing-key", () => {
     expect(mCreate).not.toHaveBeenCalled();
   });
 
-  it("registers a valid Ed25519 public key for the authenticated user (201)", async () => {
+  it("registers a valid Ed25519 public key for the authenticated user (201) with a DERIVED id", async () => {
     const res = await POST(postRequest(VALID_BODY));
     expect(res.status).toBe(201);
     const body = await res.json();
+    // Derived server-side as hex-SHA-256(SPKI DER)[0..16).
     expect(body.deviceSigningKey.publicKeyId).toBe(KEY_ID);
 
     const created = mCreate.mock.calls[0][0].data;
@@ -113,7 +132,7 @@ describe("POST /api/devices/signing-key", () => {
     expect(mCreate).not.toHaveBeenCalled();
   });
 
-  it("rejects an id collision with ANOTHER USER'S key (409)", async () => {
+  it("rejects the same key material registered to ANOTHER account (409)", async () => {
     mFindUnique.mockResolvedValueOnce({
       id: "dk1",
       userId: "someone-else",
@@ -127,41 +146,91 @@ describe("POST /api/devices/signing-key", () => {
     expect(mCreate).not.toHaveBeenCalled();
   });
 
-  it("rejects re-registration of a REVOKED key (409) — revocation is final", async () => {
-    mFindUnique.mockResolvedValueOnce({
-      id: "dk1",
-      userId: "u1",
-      publicKeyId: KEY_ID,
-      publicKeyPem: ED25519_PEM,
-      revokedAt: new Date("2026-07-24T00:00:00.000Z"),
-      createdAt: new Date(),
+  describe("MUST-FIX 3: revocation survives re-registration", () => {
+    it("refuses to re-register a REVOKED key (403) so the device rotates instead", async () => {
+      mFindUnique.mockResolvedValueOnce({
+        id: "dk1",
+        userId: "u1",
+        publicKeyId: KEY_ID,
+        publicKeyPem: ED25519_PEM,
+        revokedAt: new Date("2026-07-24T00:00:00.000Z"),
+        createdAt: new Date(),
+      });
+      const res = await POST(postRequest(VALID_BODY));
+      expect(res.status).toBe(403);
+      expect(mCreate).not.toHaveBeenCalled();
     });
-    const res = await POST(postRequest(VALID_BODY));
-    expect(res.status).toBe(409);
-    expect(mCreate).not.toHaveBeenCalled();
+
+    it("a revoked key CANNOT come back under a client-chosen alias — the id is derived from the key", async () => {
+      // The attack: re-register the revoked key claiming a brand-new id, so
+      // the lookup misses the revoked row and the key signs again.
+      const revokedRow = {
+        id: "dk1",
+        userId: "u1",
+        publicKeyId: KEY_ID,
+        publicKeyPem: ED25519_PEM,
+        revokedAt: new Date("2026-07-24T00:00:00.000Z"),
+        createdAt: new Date(),
+      };
+      // The route must look up by the DERIVED id, so the revoked row is
+      // found no matter what alias the client asks for.
+      mFindUnique.mockImplementation(async ({ where }: any) =>
+        where.publicKeyId === KEY_ID ? revokedRow : null,
+      );
+
+      const res = await POST(
+        postRequest({
+          ...VALID_BODY,
+          publicKeyId: "totally-different-alias-99",
+        }),
+      );
+      expect(res.status).toBe(403);
+      expect(mCreate).not.toHaveBeenCalled();
+      // Proof the lookup ignored the client's alias.
+      expect(mFindUnique).toHaveBeenCalledWith({
+        where: { publicKeyId: KEY_ID },
+      });
+    });
+
+    it("IGNORES a client-supplied publicKeyId and persists the derived id", async () => {
+      const res = await POST(
+        postRequest({ ...VALID_BODY, publicKeyId: "attacker-chosen-alias" }),
+      );
+      expect(res.status).toBe(201);
+      const created = mCreate.mock.calls[0][0].data;
+      expect(created.publicKeyId).toBe(KEY_ID);
+      expect(created.publicKeyId).not.toBe("attacker-chosen-alias");
+    });
   });
 
-  it("rejects the same id with a DIFFERENT public key (409)", async () => {
-    const { publicKey: other } = crypto.generateKeyPairSync("ed25519");
-    mFindUnique.mockResolvedValueOnce({
-      id: "dk1",
-      userId: "u1",
-      publicKeyId: KEY_ID,
-      publicKeyPem: other.export({ format: "pem", type: "spki" }).toString(),
-      revokedAt: null,
-      createdAt: new Date(),
+  describe("abuse limits (fold-in)", () => {
+    it("returns the limiter response when the per-user rate limit trips", async () => {
+      mRateLimit.mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: "rate limited" }), {
+          status: 429,
+        }),
+      );
+      const res = await POST(postRequest(VALID_BODY));
+      expect(res.status).toBe(429);
+      expect(mCreate).not.toHaveBeenCalled();
     });
-    const res = await POST(postRequest(VALID_BODY));
-    expect(res.status).toBe(409);
-    expect(mCreate).not.toHaveBeenCalled();
+
+    it("refuses to register beyond the per-user live-key cap (400)", async () => {
+      mCount.mockResolvedValueOnce(20);
+      const res = await POST(postRequest(VALID_BODY));
+      expect(res.status).toBe(400);
+      expect(mCreate).not.toHaveBeenCalled();
+    });
   });
 
   it.each([
-    ["a non-Ed25519 public key (P-256)", { ...VALID_BODY, publicKeyPem: EC_PEM }],
+    [
+      "a non-Ed25519 public key (P-256)",
+      { ...VALID_BODY, publicKeyPem: EC_PEM },
+    ],
     ["free text as PEM", { ...VALID_BODY, publicKeyPem: "not a pem at all" }],
-    ["a missing PEM", { publicKeyId: KEY_ID }],
-    ["a malformed publicKeyId", { ...VALID_BODY, publicKeyId: "nope!" }],
-    ["a too-short publicKeyId", { ...VALID_BODY, publicKeyId: "abc" }],
+    ["a missing PEM", { devicePlatform: "ios" }],
+    ["an empty PEM", { ...VALID_BODY, publicKeyPem: "" }],
   ])("rejects %s with 400", async (_label, body) => {
     const res = await POST(postRequest(body));
     expect(res.status).toBe(400);

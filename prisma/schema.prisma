@@ -7382,11 +7382,14 @@ model DeviceSigningKey {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Short identifier referenced by manifests (e.g. first 16 chars of a UUID)
+  // Short identifier referenced by manifests. RA-7090 slice 2: DERIVED
+  // server-side as hex-SHA-256(SPKI DER)[0..16) — never client-supplied, so
+  // the same key material always maps to the same id and a revoked key
+  // cannot come back under a fresh alias.
   publicKeyId String @unique
 
-  // Ed25519 public key in PEM
-  publicKeyPem String @db.Text
+  // Ed25519 public key in PEM (SPKI)
+  publicKeyPem String @db.VarChar(4096)
 
   // Device context
   deviceUuid     String?
@@ -7397,6 +7400,9 @@ model DeviceSigningKey {
   revokedAt  DateTime?
   lastUsedAt DateTime?
 
+  // Belt-and-braces alongside the derived-id uniqueness above: the same
+  // public key can never be registered twice under one account.
+  @@unique([userId, publicKeyPem])
   @@index([userId])
   @@index([publicKeyId])
   @@index([revokedAt])

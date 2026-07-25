@@ -15,14 +15,32 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
-// Client derives the id as hex-SHA-256(SPKI) truncated to 16 chars; accept a
-// small superset so a future id scheme doesn't need a route change.
-const PUBLIC_KEY_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 const MAX_PEM_LENGTH = 4096;
+
+// Per-user registration cap and rate limit (fold-in): a device registers
+// once and re-registers only on rotation, so a generous window still stops
+// key-stuffing.
+const REGISTRATION_WINDOW_MS = 60 * 60 * 1000;
+const MAX_REGISTRATIONS_PER_WINDOW = 10;
+const MAX_LIVE_KEYS_PER_USER = 20;
 
 function normalisePem(pem: string): string {
   return pem.replace(/\r\n/g, "\n").trim();
+}
+
+/**
+ * Review round 1 (MUST-FIX 3): the key id is DERIVED from the key material,
+ * server-side. It used to be client-supplied, which broke revocation: a
+ * revoked key could be re-registered under a fresh alias and go straight
+ * back to signing accepted manifests, and two accounts could register the
+ * same public key under different aliases. Deriving the id makes a revoked
+ * key collide with its own revoked record, so revocation is permanent.
+ */
+export function deriveDeviceKeyId(publicKey: crypto.KeyObject): string {
+  const spkiDer = publicKey.export({ format: "der", type: "spki" });
+  return crypto.createHash("sha256").update(spkiDer).digest("hex").slice(0, 16);
 }
 
 export async function POST(request: NextRequest) {
@@ -37,6 +55,15 @@ export async function POST(request: NextRequest) {
   const userId = session.user.id;
 
   try {
+    // Fold-in: per-user rate limit on registration.
+    const limited = await applyRateLimit(request, {
+      prefix: "device-signing-key",
+      key: userId,
+      windowMs: REGISTRATION_WINDOW_MS,
+      maxRequests: MAX_REGISTRATIONS_PER_WINDOW,
+    });
+    if (limited) return limited;
+
     let body: unknown;
     try {
       body = await request.json();
@@ -47,19 +74,11 @@ export async function POST(request: NextRequest) {
         status: 400,
       });
     }
-    const { publicKeyId, publicKeyPem, deviceUuid, devicePlatform } =
-      (body ?? {}) as Record<string, unknown>;
+    // NOTE: any client-supplied `publicKeyId` is deliberately IGNORED — the
+    // id is derived from the key material below (MUST-FIX 3).
+    const { publicKeyPem, deviceUuid, devicePlatform } = (body ??
+      {}) as Record<string, unknown>;
 
-    if (
-      typeof publicKeyId !== "string" ||
-      !PUBLIC_KEY_ID_PATTERN.test(publicKeyId)
-    ) {
-      return apiError(request, {
-        code: "VALIDATION",
-        message: "publicKeyId must be 8-64 chars of [A-Za-z0-9_-]",
-        status: 400,
-      });
-    }
     if (
       typeof publicKeyPem !== "string" ||
       publicKeyPem.length === 0 ||
@@ -107,15 +126,25 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // MUST-FIX 3: derive the id from the SPKI bytes. Because the id is a
+    // function of the key, a REVOKED key re-registering collides with its
+    // own revoked row below and is refused — revocation cannot be escaped
+    // by inventing a new alias.
+    const publicKeyId = deriveDeviceKeyId(keyObject);
+
     const existing = await prisma.deviceSigningKey.findUnique({
       where: { publicKeyId },
     });
     if (existing) {
-      if (
-        existing.userId === userId &&
-        normalisePem(existing.publicKeyPem) === pem &&
-        !existing.revokedAt
-      ) {
+      if (existing.revokedAt) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message:
+            "This signing key has been revoked and cannot be re-registered",
+          status: 403,
+        });
+      }
+      if (existing.userId === userId) {
         // Same user re-registering the same live key — idempotent.
         return NextResponse.json(
           {
@@ -127,10 +156,25 @@ export async function POST(request: NextRequest) {
           { status: 200 },
         );
       }
+      // Same key material under another account.
       return apiError(request, {
         code: "CONFLICT",
-        message: "publicKeyId is already registered",
+        message: "This signing key is already registered to another account",
         status: 409,
+      });
+    }
+
+    // Fold-in: cap live keys per user so registration cannot be used to
+    // stuff the trust store.
+    const liveKeyCount = await prisma.deviceSigningKey.count({
+      where: { userId, revokedAt: null },
+    });
+    if (liveKeyCount >= MAX_LIVE_KEYS_PER_USER) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "Too many registered signing keys — revoke an existing device key first",
+        status: 400,
       });
     }
 
