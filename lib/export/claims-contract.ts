@@ -21,7 +21,16 @@
  */
 import { z } from "zod/v4";
 
-import type { NirReportOutput } from "@/lib/nir-guidewire-integration";
+import type {
+  NirEvidenceClearance,
+  NirLossClassification,
+  NirPhotoManifest,
+  NirProperty,
+  NirReportOutput,
+  NirScopeLineItem,
+  NirStandardsCitation,
+  NirTechnician,
+} from "@/lib/nir-guidewire-integration";
 
 export const CLAIMS_INTEGRATION_SCHEMA_VERSION = "1.0";
 
@@ -119,20 +128,78 @@ const nirReportOutputSchema = z.strictObject({
   evidenceClearance: nirEvidenceClearanceSchema,
 });
 
-// Compile-time bind: the contract's report section must stay mutually
-// assignable with the canonical insurer payload type. If NirReportOutput
-// changes shape, this line breaks the build until the contract (and its
+// Compile-time bind: the contract must stay mutually assignable with the
+// canonical insurer payload type AND carry exactly the same keys at every
+// level. Mutual assignability alone would NOT catch a new OPTIONAL property
+// added to NirReportOutput (structural typing tolerates it, but the strict
+// runtime schema would reject real payloads carrying it) — the per-interface
+// key-equality asserts below close that hole. If any Nir* interface changes
+// shape, one of these lines breaks the build until the contract (and its
 // schemaVersion) are consciously updated.
 type MutuallyAssignable<A, B> = [A] extends [B]
   ? [B] extends [A]
     ? true
     : never
   : never;
-const _contractBindsCanonicalNirType: MutuallyAssignable<
+type ExactKeys<A, B> = [keyof A] extends [keyof B]
+  ? [keyof B] extends [keyof A]
+    ? true
+    : never
+  : never;
+type Bind<A, B> = MutuallyAssignable<A, B> extends true
+  ? ExactKeys<A, B>
+  : never;
+
+const _bindReport: Bind<
   z.infer<typeof nirReportOutputSchema>,
   NirReportOutput
 > = true;
-void _contractBindsCanonicalNirType;
+const _bindTechnician: Bind<
+  z.infer<typeof nirTechnicianSchema>,
+  NirTechnician
+> = true;
+const _bindProperty: Bind<z.infer<typeof nirPropertySchema>, NirProperty> =
+  true;
+const _bindLocationFlags: Bind<
+  z.infer<typeof nirPropertySchema>["locationFlags"],
+  NirProperty["locationFlags"]
+> = true;
+const _bindLossClassification: Bind<
+  z.infer<typeof nirLossClassificationSchema>,
+  NirLossClassification
+> = true;
+const _bindScopeLineItem: Bind<
+  z.infer<typeof nirScopeLineItemSchema>,
+  NirScopeLineItem
+> = true;
+const _bindStandardsCitation: Bind<
+  z.infer<typeof nirStandardsCitationSchema>,
+  NirStandardsCitation
+> = true;
+const _bindPhotoManifest: Bind<
+  z.infer<typeof nirPhotoManifestSchema>,
+  NirPhotoManifest
+> = true;
+const _bindPhoto: Bind<
+  z.infer<typeof nirPhotoManifestSchema>["photos"][number],
+  NirPhotoManifest["photos"][number]
+> = true;
+const _bindEvidenceClearance: Bind<
+  z.infer<typeof nirEvidenceClearanceSchema>,
+  NirEvidenceClearance
+> = true;
+void [
+  _bindReport,
+  _bindTechnician,
+  _bindProperty,
+  _bindLocationFlags,
+  _bindLossClassification,
+  _bindScopeLineItem,
+  _bindStandardsCitation,
+  _bindPhotoManifest,
+  _bindPhoto,
+  _bindEvidenceClearance,
+];
 
 export const claimsIntegrationExportSchema = z.strictObject({
   schemaVersion: z.literal(CLAIMS_INTEGRATION_SCHEMA_VERSION),
@@ -175,14 +242,16 @@ export function buildClaimsIntegrationExport(
     explicitOmissions.push("claimReference.policyNumber");
   }
 
-  return {
+  // Parse on build: every emitted envelope is guaranteed schema-valid at the
+  // boundary — callers cannot serialize a payload the contract would reject.
+  return claimsIntegrationExportSchema.parse({
     schemaVersion: CLAIMS_INTEGRATION_SCHEMA_VERSION,
     generatedAt: (input.generatedAt ?? new Date()).toISOString(),
     source: { system: "RestoreAssist", inspectionId: input.inspectionId },
     claimReference: { insurerClaimNumber, policyNumber },
     report: input.nir,
     explicitOmissions,
-  };
+  });
 }
 
 /** The JSON Schema artifact checked in at docs/contracts/. */

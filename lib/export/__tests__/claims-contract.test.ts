@@ -30,9 +30,26 @@ function makeInspection(overrides: Record<string, unknown> = {}) {
     propertyAddress: "123 Smith St, Parramatta NSW 2150",
     inspectionDate: new Date("2026-01-01T00:00:00.000Z"),
     submittedAt: new Date("2026-01-02T00:00:00.000Z"),
-    classifications: [],
-    scopeItems: [],
-    costEstimates: [],
+    classifications: [
+      {
+        category: "2",
+        class: "2",
+        standardReference: "IICRC S500:2021 §10.4",
+        confidence: 0.92,
+      },
+    ],
+    scopeItems: [
+      {
+        id: "scope_1",
+        itemType: "EQUIPMENT",
+        description: "Dehumidifier hire",
+        justification: "IICRC S500:2021 §8.3",
+        quantity: 2,
+        unit: "unit",
+        isRequired: true,
+      },
+    ],
+    costEstimates: [{ description: "Dehumidifier hire", rate: 45 }],
     affectedAreas: [],
     moistureReadings: [],
     environmentalData: [],
@@ -78,6 +95,12 @@ describe("claims integration contract v1", () => {
     expect(parsed.generatedAt).toBe("2026-07-25T00:00:00.000Z");
     expect(parsed.report.reportId).toBeTruthy();
     expect(parsed.report.photoManifest.totalPhotos).toBe(1);
+    // Populated nested sections survive the strict contract round-trip.
+    expect(parsed.report.scopeLineItems).toHaveLength(1);
+    expect(parsed.report.scopeLineItems[0].unitRate).toBe(45);
+    expect(parsed.report.lossClassification.classificationConfidence).toBe(
+      0.92,
+    );
     expect(parsed.claimReference.insurerClaimNumber).toBe("CLM-001");
     expect(parsed.claimReference.policyNumber).toBe("POL-99");
     expect(parsed.explicitOmissions).toEqual([]);
