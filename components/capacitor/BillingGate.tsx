@@ -13,8 +13,18 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { shouldHideBillingUI } from "@/lib/capacitor";
+
+// The platform never changes within a session, so there is nothing to
+// subscribe to — this store exists purely to read the platform SYNCHRONOUSLY
+// during render with a distinct server snapshot.
+const noopSubscribe = () => () => {};
+// A server request is never an iOS Capacitor shell, so SSR must render the
+// children: that is what keeps the public /pricing page crawlable and avoids
+// flashing a placeholder at web users. React tolerates the server/client
+// snapshot difference here by design — that is what getServerSnapshot is for.
+const getServerSnapshot = () => false;
 
 interface BillingGateProps {
   children: React.ReactNode;
@@ -27,38 +37,39 @@ interface BillingGateProps {
 }
 
 export default function BillingGate({ children, fallback }: BillingGateProps) {
-  const [hideBilling, setHideBilling] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
+  // Read synchronously during render. The previous implementation set this in
+  // useEffect, so on iOS the real billing UI was COMMITTED for one render
+  // before being hidden — an App Review 3.1.1 exposure at every call site.
+  const hideBilling = useSyncExternalStore(
+    noopSubscribe,
+    shouldHideBillingUI,
+    getServerSnapshot,
+  );
 
-  useEffect(() => {
-    setHideBilling(shouldHideBillingUI());
-    setHydrated(true);
-  }, []);
-
-  // Pre-hydration: render the children so SSR + non-iOS users see the
-  // page with no flash. Once hydrated, we may swap in the fallback.
-  if (!hydrated || !hideBilling) {
+  if (!hideBilling) {
     return <>{children}</>;
   }
 
+  // `fallback === undefined` means "not provided" — an explicitly passed
+  // `null` means "render nothing", which `??` would have swallowed.
+  if (fallback !== undefined) {
+    return <>{fallback}</>;
+  }
+
   return (
-    <>
-      {fallback ?? (
-        <div
-          className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6 text-center"
-          role="status"
-        >
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Managed by your workspace
-          </h1>
-          <p className="max-w-md text-sm text-muted-foreground">
-            The RestoreAssist iOS app is free for field use. Subscriptions,
-            billing and account upgrades are managed by your workspace
-            administrator. Sign in with your workspace email once your employer
-            activates a subscription.
-          </p>
-        </div>
-      )}
-    </>
+    <div
+      className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6 text-center"
+      role="status"
+    >
+      <h1 className="text-2xl font-semibold tracking-tight">
+        Managed by your workspace
+      </h1>
+      <p className="max-w-md text-sm text-muted-foreground">
+        The RestoreAssist iOS app is free for field use. Subscriptions, billing
+        and account upgrades are managed by your workspace administrator. Sign
+        in with your workspace email once your employer activates a
+        subscription.
+      </p>
+    </div>
   );
 }
