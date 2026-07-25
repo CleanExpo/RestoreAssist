@@ -11,6 +11,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
+// BillingGate reads shouldHideBillingUI() to detect the iOS Capacitor shell.
+// Default false (web); the App Review test flips it to true.
+const hideBillingUI = vi.fn(() => false);
+vi.mock("@/lib/capacitor", () => ({
+  shouldHideBillingUI: () => hideBillingUI(),
+}));
+
 import {
   InspectionSidekick,
   checklistFromToolCalls,
@@ -98,6 +105,7 @@ function ask(text: string) {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  hideBillingUI.mockReturnValue(false);
   Element.prototype.scrollIntoView = vi.fn();
 });
 
@@ -234,6 +242,35 @@ describe("InspectionSidekick", () => {
         screen.queryByText("Report gaps — edit before committing"),
       ).not.toBeInTheDocument(),
     );
+  });
+
+  // App Review 3.1.1: the iOS shell must show NO upgrade CTA — not even one
+  // leading to an explanatory placeholder (that is itself the upgrade UI
+  // Apple rejected). Web keeps the CTA; only the shell drops it.
+  it("renders no billing CTA in the iOS shell when the subscription gate fires", async () => {
+    hideBillingUI.mockReturnValue(true);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(sessionOk)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 402,
+        json: async () => ({ upgradeRequired: true }),
+      } as unknown as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<InspectionSidekick inspectionId="insp1" />);
+    openSheet();
+    ask("What's missing?");
+
+    await waitFor(() =>
+      expect(screen.getByText(/managed by your workspace/iu)).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByRole("button", { name: "View plans" }),
+    ).not.toBeInTheDocument();
+    // No route to a billing surface is reachable from the shell.
+    expect(screen.queryByText(/view plans/iu)).not.toBeInTheDocument();
   });
 
   it("shows the subscription gate on 402 upgradeRequired", async () => {

@@ -72,10 +72,13 @@ describe("POST /api/ai/voice-note-transcribe — Rule 5 subscription gate", () =
     },
   );
 
-  it.each(["TRIAL", "ACTIVE", "LIFETIME"])(
+  it.each(["TRIAL", "ACTIVE"])(
     "lets %s subscriptions past the gate",
     async (status) => {
-      userFindUnique.mockResolvedValueOnce({ subscriptionStatus: status });
+      userFindUnique.mockResolvedValueOnce({
+        subscriptionStatus: status,
+        lifetimeAccess: false,
+      });
 
       const res = await POST(makeRequest());
 
@@ -86,4 +89,21 @@ describe("POST /api/ai/voice-note-transcribe — Rule 5 subscription gate", () =
       expect(resolveWorkspaceAiKey).toHaveBeenCalledTimes(1);
     },
   );
+
+  // Previously asserted via `subscriptionStatus: "LIFETIME"` — a value the
+  // SubscriptionStatus enum cannot produce, so the test passed against a row
+  // that can never exist. A real lifetime buyer carries lifetimeAccess=true
+  // with a CANCELED/null status, and was being refused here.
+  it("lets a real lifetime customer past the gate", async () => {
+    userFindUnique.mockResolvedValueOnce({
+      subscriptionStatus: "CANCELED",
+      lifetimeAccess: true,
+    });
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).not.toBe(402);
+    expect(applyRateLimit).toHaveBeenCalledTimes(1);
+    expect(resolveWorkspaceAiKey).toHaveBeenCalledTimes(1);
+  });
 });

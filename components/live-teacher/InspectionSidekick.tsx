@@ -20,6 +20,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import BillingGate from "@/components/capacitor/BillingGate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -322,12 +323,27 @@ export function InspectionSidekick({
             role="alert"
             className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm"
           >
-            <p className="mb-2">
-              The Sidekick needs an active subscription.
-            </p>
-            <Button size="sm" onClick={() => router.push("/dashboard/pricing")}>
-              View plans
-            </Button>
+            {/* App Review 3.1.1: in the iOS shell there is no upgrade CTA at
+                all — not even one leading to an explanatory placeholder, which
+                is itself the upgrade UI Apple rejected (see TrialBanner). */}
+            <BillingGate
+              fallback={
+                <p>
+                  The Sidekick needs an active subscription. Subscriptions are
+                  managed by your workspace administrator.
+                </p>
+              }
+            >
+              <p className="mb-2">
+                The Sidekick needs an active subscription.
+              </p>
+              <Button
+                size="sm"
+                onClick={() => router.push("/dashboard/pricing")}
+              >
+                View plans
+              </Button>
+            </BillingGate>
           </div>
         )}
         {gate === "byok" && (
