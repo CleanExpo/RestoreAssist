@@ -89,29 +89,75 @@ describe("buildEvidenceStructuredData — forged status claims", () => {
     expect(out.originalStoragePath).toBe("evidence/real.jpg");
   });
 
-  // Round 2 item 5: the DOCUMENTED scope was narrowed to match the code,
-  // rather than the code broadened to match the documentation. A recursive
-  // strip of signature-shaped keys would be actively wrong in this domain —
-  // RestoreAssist legitimately stores signatures (approverSignature,
-  // signatureUrl, FormSignature, e-signature at inspection sign-off), so a
-  // blanket recursive delete risks destroying real customer data. These
-  // tests pin the ACTUAL guarantee so the docs cannot drift ahead again.
-  describe("documented sanitisation scope: top level + c2paManifest only", () => {
-    it("does NOT walk nested siblings — an unknown nested key survives verbatim", () => {
+  // Round 3 CORRECTION. Round 2 justified a narrow scope with "only
+  // qa-scorer.ts reads structuredData" — which was FALSE:
+  // lib/knowledge/index.ts JSON.parses structuredData into the exported
+  // knowledge graph wholesale, so a nested integrity claim DOES reach a
+  // consumer. The strip is now deep INSIDE the c2paManifest subtree, and
+  // still untouched outside it.
+  describe("sanitisation scope: deep inside c2paManifest, nothing outside", () => {
+    it("strips a NESTED c2paManifest.assertions.signature forgery", () => {
       const out = buildEvidenceStructuredDataObject({
         clientStructuredData: {
-          integrity: { signature: "FAKE", verified: true },
+          c2paManifest: {
+            capturedAt: "2026-07-25T00:00:00.000Z",
+            assertions: {
+              signature: "FAKE",
+              verified: true,
+              detail: { deviceKeyId: "attacker-key", label: "keep me" },
+            },
+          },
         },
         fileSha256: SERVER_HASH,
       });
-      // Documented and accepted: inert, because nothing reads it.
-      expect(out.integrity).toEqual({ signature: "FAKE", verified: true });
+      const manifest = out.c2paManifest as any;
+      expect(manifest.assertions.signature).toBeUndefined();
+      expect(manifest.assertions.verified).toBeUndefined();
+      expect(manifest.assertions.detail.deviceKeyId).toBeUndefined();
+      // Non-integrity metadata inside the subtree is preserved.
+      expect(manifest.assertions.detail.label).toBe("keep me");
+      expect(manifest.capturedAt).toBe("2026-07-25T00:00:00.000Z");
+      expect(manifest.sha256).toBe(SERVER_HASH);
     });
 
-    it("still guarantees the only two fields a consumer may trust", () => {
+    it("strips forgeries hidden inside an ARRAY within the manifest", () => {
       const out = buildEvidenceStructuredDataObject({
         clientStructuredData: {
-          integrity: { signature: "FAKE", verified: true },
+          c2paManifest: {
+            assertions: [
+              { signature: "FAKE", kind: "c2pa.hash.data" },
+              { isVerified: true, kind: "c2pa.actions" },
+            ],
+          },
+        },
+        fileSha256: SERVER_HASH,
+      });
+      const assertions = (out.c2paManifest as any).assertions;
+      expect(assertions).toHaveLength(2);
+      expect(assertions[0].signature).toBeUndefined();
+      expect(assertions[0].kind).toBe("c2pa.hash.data");
+      expect(assertions[1].isVerified).toBeUndefined();
+    });
+
+    it("does NOT touch anything outside the c2paManifest subtree", () => {
+      // A blanket recursive strip would destroy real customer data:
+      // approverSignature / signatureUrl / FormSignature are genuine domain
+      // fields (prisma/schema.prisma), so the strip is deliberately scoped.
+      const authorityForm = {
+        approverSignature: "data:image/png;base64,iVBORw0KG",
+        signatureUrl: "https://storage/sig.png",
+        signedBy: "Homeowner",
+      };
+      const out = buildEvidenceStructuredDataObject({
+        clientStructuredData: { authorityForm },
+        fileSha256: SERVER_HASH,
+      });
+      expect(out.authorityForm).toEqual(authorityForm);
+    });
+
+    it("guarantees the only two fields a consumer may trust", () => {
+      const out = buildEvidenceStructuredDataObject({
+        clientStructuredData: {
           signedManifestVerified: true,
           c2paManifest: { signature: "FAKE", sha256: "0".repeat(64) },
         },
@@ -121,18 +167,6 @@ describe("buildEvidenceStructuredData — forged status claims", () => {
       expect(
         (out.c2paManifest as Record<string, unknown>).signature,
       ).toBeUndefined();
-    });
-
-    it("preserves a legitimate nested signature payload (why recursion was rejected)", () => {
-      const authorityForm = {
-        approverSignature: "data:image/png;base64,iVBORw0KG",
-        signedBy: "Homeowner",
-      };
-      const out = buildEvidenceStructuredDataObject({
-        clientStructuredData: { authorityForm },
-        fileSha256: SERVER_HASH,
-      });
-      expect(out.authorityForm).toEqual(authorityForm);
     });
   });
 });

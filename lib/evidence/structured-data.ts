@@ -9,27 +9,27 @@
  * reach the same dangerous state. Estate doctrine: fix EVERY path to a
  * dangerous state through one shared helper, not one writer at a time.
  *
- * SCOPE (round 2 item 5 — the documented invariant is NARROWED to match the
- * code, rather than the code broadened to match the documentation).
- * This helper sanitises exactly TWO locations: the TOP LEVEL of
- * structuredData, and the contents of `c2paManifest`. It does NOT walk
- * arbitrary nested objects, so a sibling such as
- * `{"integrity":{"signature":"FAKE","verified":true}}` is persisted verbatim.
+ * SCOPE (round 3 — CORRECTED).
+ * Round 2 narrowed the documented invariant on the stated grounds that "only
+ * qa-scorer.ts reads structuredData". That was WRONG, and review caught it:
+ * lib/knowledge/index.ts selects structuredData and JSON.parses it into the
+ * exported knowledge graph wholesale, so a nested integrity claim DOES reach
+ * a consumer. The scope is therefore widened — surgically, not bluntly:
  *
- * That is a deliberate choice. A recursive strip of signature-shaped keys
- * would be actively wrong in this domain: RestoreAssist legitimately stores
- * signatures (`approverSignature`, `signatureUrl`, `FormSignature`,
- * e-signature capture at inspection sign-off), so a blanket recursive delete
- * risks silently destroying real customer signature data the moment any
- * writer nests it here. The narrow rule is enforceable and testable; the
- * broad one trades a live data-loss risk for protection against a field
- * nothing reads.
+ *   - INSIDE the `c2paManifest` subtree, integrity-shaped keys are stripped
+ *     at ANY depth, so `c2paManifest.assertions.signature` cannot survive.
+ *     That subtree is ours, and nothing legitimate nests a customer
+ *     signature inside a C2PA manifest.
+ *   - OUTSIDE that subtree nothing is touched. A blanket recursive strip
+ *     across all of structuredData would be actively harmful here:
+ *     RestoreAssist legitimately stores signatures (`approverSignature`,
+ *     `signatureUrl`, `FormSignature`, e-signature capture at inspection
+ *     sign-off), and deleting those on sight would destroy real customer
+ *     data to guard a field we do not own.
  *
- * An unknown nested key is inert today — the only reader of structuredData
- * is lib/evidence/qa-scorer.ts, on known domain keys. Any FUTURE consumer of
- * an integrity claim MUST read `signedManifestVerified` and `c2paManifest`,
- * which are the only fields this helper vouches for. Nothing else in
- * structuredData carries a trust guarantee.
+ * A consumer may trust exactly two things: `signedManifestVerified`, and the
+ * contents of `c2paManifest`. Nothing else in structuredData carries any
+ * trust guarantee, whatever it happens to be named.
  *
  * Invariants this helper enforces, within that scope:
  *   1. `signedManifestVerified` is SERVER-set, always. A client-supplied
@@ -54,13 +54,45 @@ const SERVER_OWNED_KEYS = [
   "thumbnailStoragePath",
 ] as const;
 
-/** Integrity claims that are meaningless without a verified signature. */
+/**
+ * Integrity claims that are meaningless without a verified signature.
+ * Round 3: stripped at ANY DEPTH inside the c2paManifest subtree (and only
+ * there) — `c2paManifest.assertions.signature` was surviving verbatim into
+ * the knowledge graph exported by lib/knowledge/index.ts.
+ */
 const INTEGRITY_CLAIM_KEYS = [
   "signature",
   "algorithm",
   "deviceKeyId",
   "sha256",
+  // Verified-status flags: a nested one reads as a verdict to any consumer
+  // that walks the manifest.
+  "verified",
+  "isVerified",
+  "signedManifestVerified",
 ] as const;
+
+const INTEGRITY_CLAIM_KEY_SET: ReadonlySet<string> = new Set(
+  INTEGRITY_CLAIM_KEYS,
+);
+
+/**
+ * Recursively remove integrity-shaped keys from a value that lives INSIDE
+ * the c2paManifest subtree. Arrays are walked so a forgery cannot hide in
+ * `assertions: [{ signature: "FAKE" }]`.
+ */
+function stripIntegrityClaimsDeep(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(stripIntegrityClaimsDeep);
+  }
+  if (value === null || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (INTEGRITY_CLAIM_KEY_SET.has(key)) continue;
+    out[key] = stripIntegrityClaimsDeep(child);
+  }
+  return out;
+}
 
 /** Exactly the manifest fields allowed to persist from a VERIFIED manifest. */
 const VERIFIED_MANIFEST_FIELDS = [
@@ -161,10 +193,13 @@ export function buildEvidenceStructuredDataObject(
       // (2)+(3) An UNVERIFIED manifest keeps its descriptive metadata but
       // loses every integrity claim; the server hash is re-stamped when one
       // exists so the record can still be checked against stored bytes.
-      const sanitised: Record<string, unknown> = { ...clientManifest };
-      for (const key of INTEGRITY_CLAIM_KEYS) {
-        delete sanitised[key];
-      }
+      // Round 3: stripped at ANY DEPTH within this subtree — a nested
+      // `assertions.signature` used to survive into the exported knowledge
+      // graph (lib/knowledge/index.ts).
+      const sanitised = stripIntegrityClaimsDeep(clientManifest) as Record<
+        string,
+        unknown
+      >;
       if (fileSha256) sanitised.sha256 = fileSha256;
       out.c2paManifest = sanitised;
     }
