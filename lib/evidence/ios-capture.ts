@@ -61,14 +61,14 @@ export function buildEvidenceFormData(
 // includes those fields, so a context-free key made a legitimate submission
 // of the same capture to a DIFFERENT inspection or step collide into a
 // false 409.
-export function evidenceIdempotencyKey(
+export async function evidenceIdempotencyKey(
   manifest: IOSCaptureManifest,
   context: {
     inspectionId: string;
     workflowStepId?: string | null;
     evidenceClass: string;
   },
-): string {
+): Promise<string> {
   const key = [
     "evidence",
     context.inspectionId,
@@ -79,11 +79,14 @@ export function evidenceIdempotencyKey(
   ].join("-");
   // Server bound is 8-255 printable-ASCII chars. With cuid ids, enum class
   // names, a 64-char hash and a 24-char ISO timestamp the composite sits
-  // near ~175 chars; degrade deterministically if an oversized id ever
-  // pushes it past the cap.
-  return key.length <= 255
-    ? key
-    : `evidence-${manifest.sha256}-${manifest.capturedAt}`;
+  // near ~175 chars. If an oversized id ever pushes past the cap, hash the
+  // FULL composite — context still differentiates the key (final round: a
+  // hash+time-only fallback would reintroduce the cross-context false 409).
+  if (key.length <= 255) return key;
+  const digest = await sha256Bytes(
+    new TextEncoder().encode(key).buffer as ArrayBuffer,
+  );
+  return `evidence-${digest}-${manifest.capturedAt}`;
 }
 
 export async function captureEvidencePhoto(): Promise<IOSCaptureResult> {

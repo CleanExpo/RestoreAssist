@@ -401,15 +401,14 @@ export default function CaptureWorkflowPage({
       // scoped by submission context, so a retried POST of the same capture
       // replays instead of duplicating — without colliding across
       // inspections, steps, or classes.
+      const idempotencyKey = await evidenceIdempotencyKey(capture.manifest, {
+        inspectionId,
+        workflowStepId: stepId,
+        evidenceClass,
+      });
       const res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
         method: "POST",
-        headers: {
-          "Idempotency-Key": evidenceIdempotencyKey(capture.manifest, {
-            inspectionId,
-            workflowStepId: stepId,
-            evidenceClass,
-          }),
-        },
+        headers: { "Idempotency-Key": idempotencyKey },
         body: buildEvidenceFormData(capture, {
           workflowStepId: stepId,
           evidenceClass,

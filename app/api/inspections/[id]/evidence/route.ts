@@ -12,7 +12,7 @@ import { EvidenceClass, Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
-import { BUCKET_OPTIMISED } from "@/lib/storage/types";
+import { BUCKET_OPTIMISED, BUCKET_ORIGINALS } from "@/lib/storage/types";
 import { apiError, fromException } from "@/lib/api-errors";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import {
@@ -496,8 +496,11 @@ async function handleMultipartEvidencePost(
           // row pointing at deleted bytes: a record the system itself made
           // permanently unverifiable (and the technician's retry would add
           // a second, good row while the corrupt one flows into reports).
-          const cleanupTargets: Array<{ path: string; bucket?: string }> = [
-            { path: uploadResult.storagePath },
+          // Final round: carry the EXACT real bucket names so GC/cleanup
+          // logs are actionable — the original lives in BUCKET_ORIGINALS
+          // (the provider's delete default, made explicit here).
+          const cleanupTargets: Array<{ path: string; bucket: string }> = [
+            { path: uploadResult.storagePath, bucket: BUCKET_ORIGINALS },
             { path: uploadResult.compressedPath, bucket: BUCKET_OPTIMISED },
             { path: uploadResult.thumbnailPath, bucket: BUCKET_OPTIMISED },
           ].filter(({ path }) => Boolean(path));
@@ -516,7 +519,7 @@ async function handleMultipartEvidencePost(
                   {
                     inspectionId,
                     path: cleanupTargets[idx].path,
-                    bucket: cleanupTargets[idx].bucket ?? "originals",
+                    bucket: cleanupTargets[idx].bucket,
                     error: result.reason,
                   },
                 );

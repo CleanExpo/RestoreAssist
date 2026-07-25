@@ -81,7 +81,7 @@ vi.mock("@/lib/storage", () => ({
 import { getServerSession } from "next-auth";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
-import { BUCKET_OPTIMISED } from "@/lib/storage/types";
+import { BUCKET_OPTIMISED, BUCKET_ORIGINALS } from "@/lib/storage/types";
 import { POST } from "../route";
 
 const mSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
@@ -258,7 +258,10 @@ describe("POST /evidence (multipart, RA-7090)", () => {
 
       // Full [path, bucket] tuples — a swapped-bucket regression must fail.
       const calls = deleteMock.mock.calls.map((c: any[]) => [c[0], c[1]]);
-      expect(calls).toContainEqual([UPLOAD_RESULT.storagePath, undefined]);
+      expect(calls).toContainEqual([
+        UPLOAD_RESULT.storagePath,
+        BUCKET_ORIGINALS,
+      ]);
       expect(calls).toContainEqual([
         UPLOAD_RESULT.compressedPath,
         BUCKET_OPTIMISED,
@@ -293,10 +296,19 @@ describe("POST /evidence (multipart, RA-7090)", () => {
         );
         expect(gcLog).toBeDefined();
         const payload = gcLog![1] as any;
-        const loggedPaths = payload.paths.map((p: any) => p.path);
-        expect(loggedPaths).toContain(UPLOAD_RESULT.storagePath);
-        expect(loggedPaths).toContain(UPLOAD_RESULT.compressedPath);
-        expect(loggedPaths).toContain(UPLOAD_RESULT.thumbnailPath);
+        // Exact {path, bucket} pairs — real bucket names, original included.
+        expect(payload.paths).toContainEqual({
+          path: UPLOAD_RESULT.storagePath,
+          bucket: BUCKET_ORIGINALS,
+        });
+        expect(payload.paths).toContainEqual({
+          path: UPLOAD_RESULT.compressedPath,
+          bucket: BUCKET_OPTIMISED,
+        });
+        expect(payload.paths).toContainEqual({
+          path: UPLOAD_RESULT.thumbnailPath,
+          bucket: BUCKET_OPTIMISED,
+        });
         expect(payload.fileSha256).toBe(FIXTURE_SHA256);
       } finally {
         errorSpy.mockRestore();
@@ -322,10 +334,22 @@ describe("POST /evidence (multipart, RA-7090)", () => {
           String(msg).includes("cleanup delete failed"),
         );
         expect(cleanupLogs).toHaveLength(3);
-        const loggedPaths = cleanupLogs.map((c) => (c[1] as any).path);
-        expect(loggedPaths).toContain(UPLOAD_RESULT.storagePath);
-        expect(loggedPaths).toContain(UPLOAD_RESULT.compressedPath);
-        expect(loggedPaths).toContain(UPLOAD_RESULT.thumbnailPath);
+        const loggedPairs = cleanupLogs.map((c) => ({
+          path: (c[1] as any).path,
+          bucket: (c[1] as any).bucket,
+        }));
+        expect(loggedPairs).toContainEqual({
+          path: UPLOAD_RESULT.storagePath,
+          bucket: BUCKET_ORIGINALS,
+        });
+        expect(loggedPairs).toContainEqual({
+          path: UPLOAD_RESULT.compressedPath,
+          bucket: BUCKET_OPTIMISED,
+        });
+        expect(loggedPairs).toContainEqual({
+          path: UPLOAD_RESULT.thumbnailPath,
+          bucket: BUCKET_OPTIMISED,
+        });
       } finally {
         errorSpy.mockRestore();
       }

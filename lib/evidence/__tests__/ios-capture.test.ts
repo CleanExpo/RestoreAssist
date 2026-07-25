@@ -113,8 +113,8 @@ describe("captureEvidencePhoto", () => {
       workflowStepId: "cstep0001bbbbbbbbbbbbbbbb",
       evidenceClass: "PHOTO_DAMAGE",
     };
-    const key1 = evidenceIdempotencyKey(capture.manifest, context);
-    const key2 = evidenceIdempotencyKey(capture.manifest, context);
+    const key1 = await evidenceIdempotencyKey(capture.manifest, context);
+    const key2 = await evidenceIdempotencyKey(capture.manifest, context);
     // Stable across retries of the SAME capture in the SAME context...
     expect(key1).toBe(key2);
     // ...bound to the byte hash and capture time...
@@ -123,28 +123,61 @@ describe("captureEvidencePhoto", () => {
     // ...within the server's 8-255 printable-ASCII bounds...
     expect(key1.length).toBeGreaterThanOrEqual(8);
     expect(key1.length).toBeLessThanOrEqual(255);
-    expect(/^[\x20-\x7e]+$/.test(key1)).toBe(true);
+    // Printable ASCII EXCLUDING space — the server rejects spaces.
+    expect(/^[\x21-\x7E]+$/.test(key1)).toBe(true);
 
     // ...and DIFFERENT when the same capture legitimately goes to another
     // inspection, step, or class — no false 409 across contexts.
     expect(
-      evidenceIdempotencyKey(capture.manifest, {
+      await evidenceIdempotencyKey(capture.manifest, {
         ...context,
         inspectionId: "cinsp0002cccccccccccccccc",
       }),
     ).not.toBe(key1);
     expect(
-      evidenceIdempotencyKey(capture.manifest, {
+      await evidenceIdempotencyKey(capture.manifest, {
         ...context,
         workflowStepId: null,
       }),
     ).not.toBe(key1);
     expect(
-      evidenceIdempotencyKey(capture.manifest, {
+      await evidenceIdempotencyKey(capture.manifest, {
         ...context,
         evidenceClass: "PHOTO_PROGRESS",
       }),
     ).not.toBe(key1);
+  });
+
+  it("oversized-key fallback stays bounded AND context-scoped (final round)", async () => {
+    const capture = await captureEvidencePhoto();
+    const hugeId = "x".repeat(300); // forces the composite past 255 chars
+    const contextA = {
+      inspectionId: hugeId,
+      workflowStepId: "cstep0001bbbbbbbbbbbbbbbb",
+      evidenceClass: "PHOTO_DAMAGE",
+    };
+    const keyA1 = await evidenceIdempotencyKey(capture.manifest, contextA);
+    const keyA2 = await evidenceIdempotencyKey(capture.manifest, contextA);
+
+    // Deterministic and within bounds.
+    expect(keyA1).toBe(keyA2);
+    expect(keyA1.length).toBeGreaterThanOrEqual(8);
+    expect(keyA1.length).toBeLessThanOrEqual(255);
+    expect(/^[\x21-\x7E]+$/.test(keyA1)).toBe(true);
+
+    // Context SURVIVES the fallback: a different step or inspection still
+    // yields a different key (the hash covers the full composite), so the
+    // cross-context false 409 cannot return through the fallback.
+    const keyB = await evidenceIdempotencyKey(capture.manifest, {
+      ...contextA,
+      workflowStepId: "cstep0002dddddddddddddddd",
+    });
+    expect(keyB).not.toBe(keyA1);
+    const keyC = await evidenceIdempotencyKey(capture.manifest, {
+      ...contextA,
+      inspectionId: "y".repeat(300),
+    });
+    expect(keyC).not.toBe(keyA1);
   });
 
   it("carries capture location into the manifest", async () => {
