@@ -10,7 +10,7 @@
  *   in-memory idempotencyRecord fake (replay 201 + fingerprint-conflict 409)
  * - 20 MB boundary, authz (401/404), storage compensation on create failure
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 import { createHash } from "crypto";
 
@@ -164,6 +164,18 @@ beforeEach(() => {
   uploadMock.mockResolvedValue(UPLOAD_RESULT);
   deleteMock.mockResolvedValue(undefined);
   mCreate.mockImplementation(async ({ data }: any) => ({ id: "e1", ...data }));
+  // RA-7090 slice 2 (P1): these fixtures submit UNSIGNED bytes to exercise the
+  // hash-recompute / compensation / idempotency / size mechanics, which are
+  // orthogonal to the signing policy. The production default is now fail-CLOSED
+  // (unsigned multipart REJECTED); the explicit fail-closed rejection is proven
+  // in its own describe below. Here we opt into policy-OFF so the mechanics
+  // stay covered. (This is the "TEST/DEV env where legacy unsigned fixtures are
+  // intentional" case.)
+  process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "false";
+});
+
+afterEach(() => {
+  delete process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST;
 });
 
 describe("POST /evidence (multipart, RA-7090)", () => {
@@ -478,6 +490,34 @@ describe("POST /evidence (multipart, RA-7090)", () => {
     });
   });
 
+  // RA-7090 slice 2 (P1): the fail-closed contract. A multipart upload
+  // carries real bytes and is the SAME evidence class as the signed path, so
+  // an UNSIGNED multipart submission MUST be rejected once the policy is ON —
+  // never accepted and silently stamped unsigned.
+  describe("fail-closed: unsigned multipart rejected under the policy", () => {
+    it("REJECTS an unsigned multipart upload with 400 when the policy is ON", async () => {
+      process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "true";
+      const res = await POST(
+        multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
+        params,
+      );
+      expect(res.status).toBe(400);
+      expect(uploadMock).not.toHaveBeenCalled();
+      expect(mCreate).not.toHaveBeenCalled();
+    });
+
+    it("REJECTS an unsigned multipart upload by DEFAULT (config unset ⇒ fail-closed ON)", async () => {
+      delete process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST;
+      const res = await POST(
+        multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
+        params,
+      );
+      expect(res.status).toBe(400);
+      expect(uploadMock).not.toHaveBeenCalled();
+      expect(mCreate).not.toHaveBeenCalled();
+    });
+  });
+
   describe("JSON path (metadata-only, schema-correct after Opus #6)", () => {
     function jsonRequest(body: Record<string, unknown>) {
       return new NextRequest("http://localhost/api/inspections/i1/evidence", {
@@ -528,6 +568,10 @@ describe("POST /evidence (multipart, RA-7090)", () => {
       expect(mCreate).not.toHaveBeenCalled();
     });
 
+    // Under policy OFF (beforeEach) an unsigned metadata record is accepted;
+    // forged DB-column fields never reach the create because the route maps
+    // only known columns. (Under policy ON the whole submission is rejected —
+    // proven in route.test.ts.)
     it("ignores forged integrity/verification/status fields from the client", async () => {
       const res = await POST(
         jsonRequest({

@@ -5,8 +5,12 @@
  * than per-writer.
  */
 import { describe, it, expect } from "vitest";
+import crypto from "crypto";
 import { buildEvidenceStructuredDataObject } from "../structured-data";
-import type { SignedEvidenceManifest } from "../manifest-canonical";
+import {
+  canonicalizeManifest,
+  type SignedEvidenceManifest,
+} from "../manifest-canonical";
 
 const SERVER_HASH = "a".repeat(64);
 
@@ -20,6 +24,29 @@ const MANIFEST: SignedEvidenceManifest = {
   deviceKeyId: "abcdef0123456789",
   sha256: SERVER_HASH,
 };
+
+// P1-2: buildEvidenceStructuredData now RE-VERIFIES the signature over the
+// EXACT persisted manifest subset, so tests must sign with a real Ed25519 key.
+const KEYPAIR = crypto.generateKeyPairSync("ed25519");
+const PUBLIC_PEM = KEYPAIR.publicKey
+  .export({ type: "spki", format: "pem" })
+  .toString();
+
+/** Sign the canonical bytes of a manifest-shaped object. */
+function sign(manifestSubset: Record<string, unknown>): string {
+  return crypto
+    .sign(
+      null,
+      Buffer.from(canonicalizeManifest(manifestSubset), "utf8"),
+      KEYPAIR.privateKey,
+    )
+    .toString("base64");
+}
+
+// The persisted subset for MANIFEST at fileSha256=SERVER_HASH is MANIFEST
+// itself (all fields whitelisted, sha256 already equals SERVER_HASH), so a
+// signature over MANIFEST re-verifies over the persisted bytes.
+const VALID_SIG = sign(MANIFEST as unknown as Record<string, unknown>);
 
 describe("buildEvidenceStructuredData — forged status claims", () => {
   it("strips a client-supplied signedManifestVerified:true", () => {
@@ -175,36 +202,129 @@ describe("buildEvidenceStructuredData — verified manifests", () => {
   it("persists the manifest, signature and algorithm with verified status", () => {
     const out = buildEvidenceStructuredDataObject({
       fileSha256: SERVER_HASH,
-      verified: { manifest: MANIFEST, signature: "sig-b64" },
+      verified: { manifest: MANIFEST, signature: VALID_SIG, publicKeyPem: PUBLIC_PEM },
     });
     expect(out.signedManifestVerified).toBe(true);
     expect(out.c2paManifest).toEqual({
       ...MANIFEST,
       sha256: SERVER_HASH,
-      signature: "sig-b64",
+      signature: VALID_SIG,
       algorithm: "Ed25519",
     });
   });
 
-  it("WHITELISTS manifest fields — a signer cannot smuggle extra keys in", () => {
+  // POSITIVE CONTROL (P1-2): the stored signature re-verifies over the EXACT
+  // persisted bytes — reconstruct the signed subset from the PERSISTED object
+  // (drop signature + algorithm) and verify it independently.
+  it("the persisted verified manifest re-verifies over its EXACT persisted bytes", () => {
     const out = buildEvidenceStructuredDataObject({
       fileSha256: SERVER_HASH,
-      verified: {
-        manifest: {
-          ...MANIFEST,
-          // Signed, but not part of the agreed manifest shape.
-          isVerified: true,
-          status: "ACTIVE",
-          capturedByName: "Someone Else",
-        } as unknown as SignedEvidenceManifest,
-        signature: "sig-b64",
-      },
+      verified: { manifest: MANIFEST, signature: VALID_SIG, publicKeyPem: PUBLIC_PEM },
     });
-    const manifest = out.c2paManifest as Record<string, unknown>;
-    expect(manifest.isVerified).toBeUndefined();
-    expect(manifest.status).toBeUndefined();
-    expect(manifest.capturedByName).toBeUndefined();
-    expect(manifest.inspectionId).toBe("i1");
+    const c2pa = out.c2paManifest as Record<string, unknown>;
+    const { signature, algorithm, ...persistedSubset } = c2pa;
+    expect(algorithm).toBe("Ed25519");
+    const ok = crypto.verify(
+      null,
+      Buffer.from(canonicalizeManifest(persistedSubset), "utf8"),
+      KEYPAIR.publicKey,
+      Buffer.from(signature as string, "base64"),
+    );
+    expect(ok).toBe(true);
+  });
+
+  // POSITIVE CONTROL (P1-2, tamper-after-persist): a signature that does NOT
+  // cover the persisted bytes is REJECTED — verified=true is impossible when
+  // crypto.verify over the persisted representation would be false.
+  it("FAIL-CLOSED: REJECTS a manifest whose signature does not cover the persisted bytes", () => {
+    // Signature is over the ORIGINAL manifest; the manifest handed in is
+    // tampered after signing, so the persisted subset no longer matches.
+    const tampered = {
+      ...MANIFEST,
+      capturedAt: "2020-01-01T00:00:00.000Z",
+    } as SignedEvidenceManifest;
+    expect(() =>
+      buildEvidenceStructuredDataObject({
+        fileSha256: SERVER_HASH,
+        verified: {
+          manifest: tampered,
+          signature: VALID_SIG,
+          publicKeyPem: PUBLIC_PEM,
+        },
+      }),
+    ).toThrow(/re-verify over the persisted bytes/i);
+  });
+
+  it("FAIL-CLOSED: REJECTS when the public key does not match the signature", () => {
+    const otherKey = crypto
+      .generateKeyPairSync("ed25519")
+      .publicKey.export({ type: "spki", format: "pem" })
+      .toString();
+    expect(() =>
+      buildEvidenceStructuredDataObject({
+        fileSha256: SERVER_HASH,
+        verified: {
+          manifest: MANIFEST,
+          signature: VALID_SIG,
+          publicKeyPem: otherKey,
+        },
+      }),
+    ).toThrow(/re-verify over the persisted bytes/i);
+  });
+
+  // POSITIVE CONTROL #3 (fail-closed persistence): the old code silently
+  // WHITELISTED away extra top-level manifest keys and still stored
+  // signedManifestVerified=true. The signature was computed over the FULL
+  // signed bytes (extras included), but the persisted manifest dropped them,
+  // so crypto.verify over the persisted bytes would be FALSE while the record
+  // claimed verified. An adversarial manifest carrying ANY unknown top-level
+  // field must now be REJECTED at persistence, never quietly downgraded to a
+  // verified-looking record.
+  it("FAIL-CLOSED: REJECTS a verified manifest carrying unknown top-level keys", () => {
+    expect(() =>
+      buildEvidenceStructuredDataObject({
+        fileSha256: SERVER_HASH,
+        verified: {
+          manifest: {
+            ...MANIFEST,
+            // Signed, but not part of the agreed manifest shape — the
+            // whitelist would drop these, breaking re-verification.
+            isVerified: true,
+            status: "ACTIVE",
+            capturedByName: "Someone Else",
+          } as unknown as SignedEvidenceManifest,
+          signature: "sig-b64",
+          publicKeyPem: PUBLIC_PEM,
+        },
+      }),
+    ).toThrow(/unknown top-level field/i);
+  });
+
+  it("FAIL-CLOSED: rejection names every offending field (a single extra is enough)", () => {
+    expect(() =>
+      buildEvidenceStructuredDataObject({
+        fileSha256: SERVER_HASH,
+        verified: {
+          manifest: {
+            ...MANIFEST,
+            extra: "one-extra-field",
+          } as unknown as SignedEvidenceManifest,
+          signature: "sig-b64",
+          publicKeyPem: PUBLIC_PEM,
+        },
+      }),
+    ).toThrow(/extra/);
+  });
+
+  it("accepts a clean manifest (only known top-level keys) as verified", () => {
+    const out = buildEvidenceStructuredDataObject({
+      fileSha256: SERVER_HASH,
+      verified: { manifest: MANIFEST, signature: VALID_SIG, publicKeyPem: PUBLIC_PEM },
+    });
+    expect(out.signedManifestVerified).toBe(true);
+    expect((out.c2paManifest as Record<string, unknown>).inspectionId).toBe(
+      "i1",
+    );
   });
 
   it("a verified manifest overrides any client c2paManifest wholesale", () => {
@@ -213,10 +333,10 @@ describe("buildEvidenceStructuredData — verified manifests", () => {
         c2paManifest: { sha256: "0".repeat(64), signature: "forged" },
       },
       fileSha256: SERVER_HASH,
-      verified: { manifest: MANIFEST, signature: "real-sig" },
+      verified: { manifest: MANIFEST, signature: VALID_SIG, publicKeyPem: PUBLIC_PEM },
     });
     const manifest = out.c2paManifest as Record<string, unknown>;
-    expect(manifest.signature).toBe("real-sig");
+    expect(manifest.signature).toBe(VALID_SIG);
     expect(manifest.sha256).toBe(SERVER_HASH);
   });
 });
@@ -236,7 +356,7 @@ describe("downgrade reason (fold-in)", () => {
   it("never records a downgrade reason on a VERIFIED record", () => {
     const out = buildEvidenceStructuredDataObject({
       fileSha256: SERVER_HASH,
-      verified: { manifest: MANIFEST, signature: "sig" },
+      verified: { manifest: MANIFEST, signature: VALID_SIG, publicKeyPem: PUBLIC_PEM },
       downgradeReason: "REGISTERED_KEY_BUT_UNSIGNED_SUBMISSION",
     });
     expect(out.signedManifestDowngradeReason).toBeUndefined();

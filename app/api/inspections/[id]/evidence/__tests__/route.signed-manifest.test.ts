@@ -364,7 +364,10 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
       expect(mCreate).not.toHaveBeenCalled();
     });
 
-    it("an UNSIGNED submission still uses the form-supplied coordinates", async () => {
+    it("an UNSIGNED submission still uses the form-supplied coordinates (policy OFF)", async () => {
+      // Byte-mechanics under an EXPLICIT policy-OFF: the fail-closed default
+      // now rejects unsigned multipart (proven in its own describe below).
+      process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "false";
       const form = new FormData();
       form.append(
         "file",
@@ -516,20 +519,20 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
       return form;
     }
 
-    it("a plain unsigned upload stays accepted (backwards compatible) with signedManifestVerified=false", async () => {
+    // RA-7090 slice 2 (P1): the fail-closed contract replaces the old
+    // "backwards compatible accepted" behaviour. A plain unsigned multipart
+    // upload is now REJECTED by default (config unset ⇒ policy ON) — it can
+    // never be accepted and stamped unsigned.
+    it("a plain unsigned upload is REJECTED by DEFAULT (config unset ⇒ fail-closed)", async () => {
       const res = await POST(
         multipartRequest(
           unsignedForm({ c2paManifest: { sha256: FIXTURE_SHA256 } }),
         ),
         params,
       );
-      expect(res.status).toBe(201);
-      const structured = JSON.parse(
-        mCreate.mock.calls[0][0].data.structuredData,
-      );
-      expect(structured.signedManifestVerified).toBe(false);
-      expect(structured.c2paManifest.signature).toBeUndefined();
-      expect(mKeyFind).not.toHaveBeenCalled();
+      expect(res.status).toBe(400);
+      expect(mCreate).not.toHaveBeenCalled();
+      // No key was signed with, so no key bookkeeping occurred.
       expect(mKeyUpdate).not.toHaveBeenCalled();
     });
 
@@ -546,68 +549,95 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
         });
       }
 
-      it("strips a forged signed status and signature from a plain JSON POST", async () => {
-        const res = await POST(
-          jsonRequest({
-            evidenceClass: "TECHNICIAN_NOTE",
-            notes: "text-only evidence",
-            structuredData: {
-              signedManifestVerified: true,
-              c2paManifest: {
-                sha256: "0".repeat(64),
-                signature: "AAAA",
-                algorithm: "Ed25519",
-                deviceKeyId: KEY_ID,
+      // Under an EXPLICIT policy-OFF, an unsigned metadata record is accepted;
+      // these exercise the sanitiser + downgrade-visibility mechanics.
+      describe("policy OFF (unsigned metadata accepted, sanitised)", () => {
+        beforeEach(() => {
+          process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "false";
+        });
+
+        it("strips a forged signed status and signature from a plain JSON POST", async () => {
+          const res = await POST(
+            jsonRequest({
+              evidenceClass: "TECHNICIAN_NOTE",
+              notes: "text-only evidence",
+              structuredData: {
+                signedManifestVerified: true,
+                c2paManifest: {
+                  sha256: "0".repeat(64),
+                  signature: "AAAA",
+                  algorithm: "Ed25519",
+                  deviceKeyId: KEY_ID,
+                },
               },
-            },
-          }),
-          params,
-        );
-        expect(res.status).toBe(201);
+            }),
+            params,
+          );
+          expect(res.status).toBe(201);
 
-        const structured = JSON.parse(
-          mCreate.mock.calls[0][0].data.structuredData,
-        );
-        expect(structured.signedManifestVerified).toBe(false);
-        expect(structured.c2paManifest.signature).toBeUndefined();
-        expect(structured.c2paManifest.algorithm).toBeUndefined();
-        expect(structured.c2paManifest.deviceKeyId).toBeUndefined();
-        // No server-computed hash exists on this path, so no hash claim
-        // may masquerade as one.
-        expect(structured.c2paManifest.sha256).toBeUndefined();
-      });
+          const structured = JSON.parse(
+            mCreate.mock.calls[0][0].data.structuredData,
+          );
+          expect(structured.signedManifestVerified).toBe(false);
+          expect(structured.c2paManifest.signature).toBeUndefined();
+          expect(structured.c2paManifest.algorithm).toBeUndefined();
+          expect(structured.c2paManifest.deviceKeyId).toBeUndefined();
+          expect(structured.c2paManifest.sha256).toBeUndefined();
+        });
 
-      it("keeps benign client metadata on the JSON path", async () => {
-        await POST(
-          jsonRequest({
-            evidenceClass: "TECHNICIAN_NOTE",
-            notes: "n",
-            structuredData: { readingCelsius: 21.5 },
-          }),
-          params,
-        );
-        const structured = JSON.parse(
-          mCreate.mock.calls[0][0].data.structuredData,
-        );
-        expect(structured.readingCelsius).toBe(21.5);
-        expect(structured.signedManifestVerified).toBe(false);
-      });
+        it("keeps benign client metadata on the JSON path", async () => {
+          await POST(
+            jsonRequest({
+              evidenceClass: "TECHNICIAN_NOTE",
+              notes: "n",
+              structuredData: { readingCelsius: 21.5 },
+            }),
+            params,
+          );
+          const structured = JSON.parse(
+            mCreate.mock.calls[0][0].data.structuredData,
+          );
+          expect(structured.readingCelsius).toBe(21.5);
+          expect(structured.signedManifestVerified).toBe(false);
+        });
 
-      it("leaves structuredData null when the client sends none", async () => {
-        await POST(
-          jsonRequest({ evidenceClass: "TECHNICIAN_NOTE", notes: "n" }),
-          params,
-        );
-        expect(mCreate.mock.calls[0][0].data.structuredData).toBeNull();
-      });
+        it("leaves structuredData null when the client sends none and has no key", async () => {
+          await POST(
+            jsonRequest({ evidenceClass: "TECHNICIAN_NOTE", notes: "n" }),
+            params,
+          );
+          expect(mCreate.mock.calls[0][0].data.structuredData).toBeNull();
+        });
 
-      // Round 2 MUST-FIX 2: the policy guarded the MULTIPART writer only —
-      // review proved this writer returned 201 with no downgrade reason
-      // under the identical conditions.
-      describe("is under the SAME signing policy as multipart", () => {
-        it("REFUSES a JSON POST when the policy is ON and the user holds a live key", async () => {
-          process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "true";
+        it("records the downgrade reason when the submitter HAS a live key", async () => {
           mKeyFindFirst.mockResolvedValueOnce({ id: "dk1" });
+          await POST(
+            jsonRequest({
+              evidenceClass: "TECHNICIAN_NOTE",
+              notes: "x",
+              structuredData: { readingCelsius: 21 },
+            }),
+            params,
+          );
+          const structured = JSON.parse(
+            mCreate.mock.calls[0][0].data.structuredData,
+          );
+          expect(structured.signedManifestDowngradeReason).toBe(
+            "REGISTERED_KEY_BUT_UNSIGNED_SUBMISSION",
+          );
+        });
+      });
+
+      // P0 terminal fix: under policy ON there is NO unsigned path. The
+      // metadata-only exemption (and its defeatable byte heuristic) is REMOVED,
+      // so an unsigned metadata JSON submission is REJECTED regardless of
+      // content — closing the whole encoding-smuggle class at the source.
+      describe("policy ON (no unsigned path — rejected)", () => {
+        beforeEach(() => {
+          process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "true";
+        });
+
+        it("REJECTS a plain metadata-only JSON POST with 400", async () => {
           const res = await POST(
             jsonRequest({ evidenceClass: "TECHNICIAN_NOTE", notes: "x" }),
             params,
@@ -616,8 +646,7 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
           expect(mCreate).not.toHaveBeenCalled();
         });
 
-        it("records the downgrade reason on a JSON record when the policy is OFF", async () => {
-          mKeyFindFirst.mockResolvedValueOnce({ id: "dk1" });
+        it("REJECTS metadata JSON carrying benign readings just the same", async () => {
           const res = await POST(
             jsonRequest({
               evidenceClass: "TECHNICIAN_NOTE",
@@ -626,36 +655,19 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
             }),
             params,
           );
-          expect(res.status).toBe(201);
-          const structured = JSON.parse(
-            mCreate.mock.calls[0][0].data.structuredData,
-          );
-          expect(structured.signedManifestVerified).toBe(false);
-          expect(structured.signedManifestDowngradeReason).toBe(
-            "REGISTERED_KEY_BUT_UNSIGNED_SUBMISSION",
-          );
-        });
-
-        it("records the downgrade even when the client sent NO structuredData", async () => {
-          mKeyFindFirst.mockResolvedValueOnce({ id: "dk1" });
-          await POST(
-            jsonRequest({ evidenceClass: "TECHNICIAN_NOTE", notes: "n" }),
-            params,
-          );
-          const structured = JSON.parse(
-            mCreate.mock.calls[0][0].data.structuredData,
-          );
-          expect(structured.signedManifestDowngradeReason).toBe(
-            "REGISTERED_KEY_BUT_UNSIGNED_SUBMISSION",
-          );
+          expect(res.status).toBe(400);
+          expect(mCreate).not.toHaveBeenCalled();
         });
       });
     });
 
-    // Fold-in (Codex P2): keep the client's fail-open behaviour, but make
-    // the downgrade VISIBLE on the record and give the server a policy hook.
-    describe("downgrade visibility + policy hook", () => {
-      it("records a downgrade reason when the submitter HAS a live registered key", async () => {
+    // RA-7090 slice 2 (P1): the multipart writer carries real bytes, so an
+    // unsigned submission is now fail-CLOSED by default. Under an EXPLICIT
+    // policy-OFF the downgrade is still accepted-but-VISIBLE; the default and
+    // the ON path REJECT.
+    describe("downgrade visibility + fail-closed policy", () => {
+      it("policy OFF records a downgrade reason when the submitter HAS a live registered key", async () => {
+        process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "false";
         mKeyFindFirst.mockResolvedValueOnce({ id: "dk1" });
         const res = await POST(multipartRequest(unsignedForm()), params);
         expect(res.status).toBe(201);
@@ -668,7 +680,8 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
         );
       });
 
-      it("records NO downgrade reason when the submitter has no key at all", async () => {
+      it("policy OFF records NO downgrade reason when the submitter has no key at all", async () => {
+        process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "false";
         const res = await POST(multipartRequest(unsignedForm()), params);
         expect(res.status).toBe(201);
         const structured = JSON.parse(
@@ -677,10 +690,11 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
         expect(structured.signedManifestDowngradeReason).toBeUndefined();
       });
 
-      it("default policy ACCEPTS the unsigned downgrade (backwards compatible)", async () => {
+      it("DEFAULT policy (config unset) REJECTS the unsigned submission (fail-closed)", async () => {
         mKeyFindFirst.mockResolvedValueOnce({ id: "dk1" });
         const res = await POST(multipartRequest(unsignedForm()), params);
-        expect(res.status).toBe(201);
+        expect(res.status).toBe(400);
+        expect(mCreate).not.toHaveBeenCalled();
       });
 
       it("with EVIDENCE_REQUIRE_SIGNED_MANIFEST=true the downgrade is REFUSED", async () => {
@@ -700,13 +714,17 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
       });
 
       it("policy OFF still captures when the probe errors (telemetry never blocks)", async () => {
+        process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "false";
         mKeyFindFirst.mockRejectedValueOnce(new Error("db down"));
         const res = await POST(multipartRequest(unsignedForm()), params);
         expect(res.status).toBe(201);
       });
     });
 
-    it("a FORGED signedManifestVerified claim inside structuredData is overwritten to false", async () => {
+    it("a FORGED signedManifestVerified claim inside structuredData is overwritten to false (policy OFF)", async () => {
+      // Sanitiser behaviour on an ACCEPTED unsigned upload — exercised under an
+      // explicit policy-OFF, since the default now rejects unsigned multipart.
+      process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "false";
       const res = await POST(
         multipartRequest(
           unsignedForm({

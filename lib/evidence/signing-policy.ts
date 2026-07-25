@@ -78,34 +78,51 @@ export type UnsignedSubmissionPolicy =
  * set to "TRUE" or "1" silently left the entire enforcement switch OFF — the
  * worst possible failure mode for a security control, because the operator
  * believes it is on. Accept the common truthy spellings, and log LOUDLY on
- * anything unrecognised rather than quietly treating it as off.
+ * anything unrecognised.
+ *
+ * Round 5 (RA-7090 slice 2 P0): the policy now FAILS CLOSED. An UNSET, EMPTY
+ * or UNRECOGNISED value leaves enforcement ON, so a missing/typo'd config can
+ * never silently disable the control. Only an EXPLICIT, recognised falsy
+ * value turns it off — a deliberate operator act, not an omission.
  */
 const TRUTHY = new Set(["true", "1", "yes", "on", "enabled"]);
-const FALSY = new Set(["false", "0", "no", "off", "disabled", ""]);
+const FALSY = new Set(["false", "0", "no", "off", "disabled"]);
 
 function requireSignedManifest(): boolean {
   const raw = process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST;
-  if (raw === undefined) return false;
+  // Unset ⇒ fail-closed default.
+  if (raw === undefined) return true;
   const normalised = raw.trim().toLowerCase();
-  if (TRUTHY.has(normalised)) return true;
+  // Empty/whitespace-only ⇒ effectively unset ⇒ fail-closed default.
+  if (normalised === "") return true;
   if (FALSY.has(normalised)) return false;
+  if (TRUTHY.has(normalised)) return true;
   console.error(
     "[evidence] EVIDENCE_REQUIRE_SIGNED_MANIFEST has an unrecognised value — " +
-      "treating it as OFF. Use one of: " +
-      `${[...TRUTHY].join(", ")} (on) or ${[...FALSY].filter(Boolean).join(", ")} (off).`,
+      "treating it as ON (fail-closed). Use one of: " +
+      `${[...TRUTHY].join(", ")} (on) or ${[...FALSY].join(", ")} (off).`,
     { value: raw },
   );
-  return false;
+  // Unrecognised ⇒ fail-closed.
+  return true;
 }
 
 /**
  * Decide how to treat an unsigned submission from `userId`.
  *
- * - No registered live key: nothing to report, submission proceeds.
- * - Live key present: record the downgrade reason so the fail-open is
- *   VISIBLE on the record; refuse outright when the policy is ON.
- * - Probe failure: never blocks a capture while the policy is OFF
- *   (telemetry must not break field work), but fails CLOSED when it is ON.
+ * Policy ON (the fail-closed default): an unsigned submission is REFUSED
+ * outright — whether or not the account holds a live key. Round 5 (P0)
+ * closed the bypass where a caller with NO registered key was accepted
+ * unsigned even under the policy: the control was defeatable by simply never
+ * registering a key. The message differs by key state only to guide the
+ * technician (sign vs. register-then-sign).
+ *
+ * Policy OFF (an explicit operator opt-out): the legacy behaviour — accept,
+ * but make a key-holder's unsigned submission VISIBLE via the downgrade
+ * reason; a no-key caller has nothing to downgrade from.
+ *
+ * Probe failure: never blocks a capture while the policy is OFF (telemetry
+ * must not break field work), but fails CLOSED when it is ON.
  *
  * Callers MUST invoke this only when no manifest verified.
  */
@@ -134,18 +151,21 @@ export async function evaluateUnsignedSubmission(
     return { ok: true, downgradeReason: null };
   }
 
-  if (!hasLiveKey) return { ok: true, downgradeReason: null };
-
   if (requireSigned) {
+    // Fail-closed: an unsigned submission is not accepted under the policy,
+    // key or no key.
     return {
       ok: false,
       status: 400,
       code: "VALIDATION",
-      message:
-        "This account has a registered signing key — evidence must be submitted with a signed manifest",
+      message: hasLiveKey
+        ? "This account has a registered signing key — evidence must be submitted with a signed manifest"
+        : "A signed manifest is required — register a device signing key and submit signed evidence",
     };
   }
 
+  // Policy OFF.
+  if (!hasLiveKey) return { ok: true, downgradeReason: null };
   return {
     ok: true,
     downgradeReason: DOWNGRADE_REASON_REGISTERED_KEY_UNSIGNED,

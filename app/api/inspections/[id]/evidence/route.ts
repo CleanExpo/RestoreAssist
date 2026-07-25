@@ -135,10 +135,6 @@ export async function POST(
           workflowStepId,
           evidenceClass,
           title,
-          fileUrl,
-          fileMimeType,
-          fileSizeBytes,
-          thumbnailUrl,
           structuredData,
           notes,
           capturedLat,
@@ -162,11 +158,27 @@ export async function POST(
           });
         }
 
-        // Round 2 MUST-FIX 2: this writer is unsigned by construction
-        // (metadata-only, no bytes to sign), so it goes through the SAME
-        // shared policy helper. It was proven policy-exempt: with the
-        // policy ON and the user holding a live key it returned 201 with
-        // no downgrade reason recorded.
+        // RA-7090 slice 2 (P0 terminal fix): there is NO unsigned-exempt path.
+        // The earlier metadata-only exemption relied on inspecting the payload
+        // for bytes, but an encoding-threshold check is a denylist and was
+        // defeatable (1x1 PNG at 92 base64 chars, hex bytes, int-string arrays,
+        // a data: URL split across two fields, a byte-bearing key, …). So the
+        // exemption and its heuristic guard are REMOVED: this writer goes
+        // through the SAME fail-closed gate as the byte-carrying writers. Under
+        // policy ON an unsigned submission is REJECTED regardless of content,
+        // which closes the whole encoding-smuggle class — there is no unsigned
+        // path left to smuggle bytes into.
+        //
+        // INTERIM (founder-visible): the client cannot yet sign a metadata-only
+        // JSON submission — the device signer produces a per-CAPTURE manifest
+        // (bound to a byte SHA-256) for the multipart path only, and nothing
+        // server-side verifies a signature over a canonical JSON body. So under
+        // the production default (policy ON) metadata-only JSON — including the
+        // capture page's text-note quick-add (handleAddEvidence in
+        // app/dashboard/inspections/[id]/capture/page.tsx) — is DISABLED until a
+        // signed-metadata contract is added (client signs the canonical JSON,
+        // server canonicalise-then-verifies). Same class of interim as the
+        // batch writer. Do NOT re-introduce byte-detection as a substitute.
         const policy = await evaluateUnsignedSubmission(userId);
         if (!policy.ok) {
           return apiError(request, {
@@ -202,10 +214,10 @@ export async function POST(
             capturedLng: capturedLng || null,
             deviceId: deviceId || null,
             deviceType: deviceType || "WEB_BROWSER",
-            fileUrl: fileUrl || null,
-            fileMimeType: fileMimeType || null,
-            fileSizeBytes: fileSizeBytes || null,
-            thumbnailUrl: thumbnailUrl || null,
+            // RA-7090 slice 2 (P0 re-review): NO file fields on this path.
+            // The metadata-only boundary above rejects any file/binary field,
+            // so a byte-bearing record can never be created here — it must go
+            // through the signed multipart path.
             // Review round 1 (MUST-FIX 1): this path used to persist client
             // structuredData VERBATIM, so a plain JSON POST could return 201
             // carrying signedManifestVerified:true and a fabricated
@@ -427,6 +439,7 @@ async function handleMultipartEvidencePost(
     const manifestSignatureRaw = formData.get("manifestSignature");
     let verifiedManifest: SignedEvidenceManifest | null = null;
     let verifiedSignature: string | null = null;
+    let verifiedPublicKeyPem: string | null = null;
     if (signedManifestRaw !== null || manifestSignatureRaw !== null) {
       if (
         typeof signedManifestRaw !== "string" ||
@@ -519,6 +532,7 @@ async function handleMultipartEvidencePost(
 
       verifiedManifest = parsedManifest.manifest;
       verifiedSignature = manifestSignatureRaw;
+      verifiedPublicKeyPem = signingKey.publicKeyPem;
     }
 
     // Round 2 MUST-FIX 2: the unsigned-submission policy now lives in ONE
@@ -593,8 +607,12 @@ async function handleMultipartEvidencePost(
           clientStructuredData,
           fileSha256,
           verified:
-            verifiedManifest && verifiedSignature
-              ? { manifest: verifiedManifest, signature: verifiedSignature }
+            verifiedManifest && verifiedSignature && verifiedPublicKeyPem
+              ? {
+                  manifest: verifiedManifest,
+                  signature: verifiedSignature,
+                  publicKeyPem: verifiedPublicKeyPem,
+                }
               : null,
           downgradeReason,
           storagePaths: {
