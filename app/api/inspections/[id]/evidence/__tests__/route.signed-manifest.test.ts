@@ -29,7 +29,11 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: vi.fn(async () => ({ organizationId: "org1" })) },
     evidenceItem: { create: vi.fn() },
-    deviceSigningKey: { findUnique: vi.fn(), update: vi.fn() },
+    deviceSigningKey: {
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      findFirst: vi.fn(),
+    },
     idempotencyRecord: {
       create: vi.fn(async ({ data }: any) => {
         if (idemStore.has(data.cacheKey)) {
@@ -81,6 +85,9 @@ const mKeyFind = prisma.deviceSigningKey.findUnique as unknown as ReturnType<
   typeof vi.fn
 >;
 const mKeyUpdate = prisma.deviceSigningKey.update as unknown as ReturnType<
+  typeof vi.fn
+>;
+const mKeyFindFirst = prisma.deviceSigningKey.findFirst as unknown as ReturnType<
   typeof vi.fn
 >;
 
@@ -191,10 +198,59 @@ beforeEach(() => {
   deleteMock.mockResolvedValue(undefined);
   mCreate.mockImplementation(async ({ data }: any) => ({ id: "e1", ...data }));
   mKeyFind.mockResolvedValue(REGISTERED_KEY_ROW);
-  mKeyUpdate.mockResolvedValue({ ...REGISTERED_KEY_ROW, lastUsedAt: new Date() });
+  mKeyUpdate.mockResolvedValue({
+    ...REGISTERED_KEY_ROW,
+    lastUsedAt: new Date(),
+  });
+  // Default: the submitter has no registered key, so an unsigned submission
+  // is not a downgrade.
+  mKeyFindFirst.mockResolvedValue(null);
+  delete process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST;
 });
 
 describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
+  // MUST-FIX 5a: every other test transmits ALREADY-CANONICAL JSON, so a
+  // verifier that checked the RAW bytes (or mishandled nested key order)
+  // would pass them all. This transmits a deliberately non-canonical
+  // encoding of the same manifest.
+  it("verifies a NON-CANONICAL transmission whose signature is over canonical bytes", async () => {
+    const manifest = manifestFixture();
+    const signature = signCanonical(canonicalizeManifest(manifest));
+
+    // Reordered keys (including inside the nested gps object) plus pretty
+    // whitespace — semantically identical, byte-wise very different.
+    const nonCanonicalJson = JSON.stringify(
+      {
+        sha256: manifest.sha256,
+        deviceKeyId: manifest.deviceKeyId,
+        userId: manifest.userId,
+        gps: {
+          accuracy: manifest.gps.accuracy,
+          lng: manifest.gps.lng,
+          lat: manifest.gps.lat,
+        },
+        capturedAt: manifest.capturedAt,
+        evidenceClass: manifest.evidenceClass,
+        workflowStepId: manifest.workflowStepId,
+        inspectionId: manifest.inspectionId,
+      },
+      null,
+      2,
+    );
+    expect(nonCanonicalJson).not.toBe(canonicalizeManifest(manifest));
+    expect(nonCanonicalJson).toContain("\n");
+
+    const res = await POST(
+      multipartRequest(
+        signedForm(manifest, { manifestJson: nonCanonicalJson, signature }),
+      ),
+      params,
+    );
+    expect(res.status).toBe(201);
+    const structured = JSON.parse(mCreate.mock.calls[0][0].data.structuredData);
+    expect(structured.signedManifestVerified).toBe(true);
+  });
+
   it("verifies a signed capture end-to-end and persists manifest + signature + keyId as VERIFIED", async () => {
     const manifest = manifestFixture();
     const manifestJson = canonicalizeManifest(manifest);
@@ -223,6 +279,79 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
     expect(mKeyUpdate).toHaveBeenCalledWith({
       where: { publicKeyId: KEY_ID },
       data: { lastUsedAt: expect.any(Date) },
+    });
+  });
+
+  describe("MUST-FIX 2: gps + capturedAt are bound and DERIVED from the signature", () => {
+    it("REJECTS Sydney-signed coordinates submitted with Melbourne form fields", async () => {
+      // The exploit: manifest signed in Sydney, form fields say Melbourne.
+      // Before the fix this returned 201 with signedManifestVerified:true
+      // and persisted MELBOURNE — which is what the dispute pack prints.
+      const manifest = manifestFixture(); // Sydney
+      const form = signedForm(manifest);
+      form.set("capturedLat", "-37.8136"); // Melbourne
+      form.set("capturedLng", "144.9631");
+
+      const res = await POST(multipartRequest(form), params);
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(JSON.stringify(body)).toContain("different capture location");
+      expect(mCreate).not.toHaveBeenCalled();
+    });
+
+    it("PERSISTS the signed coordinates and capture time, not the server clock", async () => {
+      const manifest = manifestFixture();
+      const res = await POST(multipartRequest(signedForm(manifest)), params);
+      expect(res.status).toBe(201);
+
+      const created = mCreate.mock.calls[0][0].data;
+      // These are the columns lib/dispute-pack.ts prints.
+      expect(created.capturedLat).toBe(manifest.gps.lat);
+      expect(created.capturedLng).toBe(manifest.gps.lng);
+      expect(created.capturedAt).toEqual(new Date(manifest.capturedAt));
+    });
+
+    it("rejects a capturedAt form field that disagrees with the signed manifest", async () => {
+      const form = signedForm(manifestFixture());
+      form.set("capturedAt", "2026-07-24T00:00:00.000Z");
+      const res = await POST(multipartRequest(form), params);
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(await res.json())).toContain(
+        "different capture time",
+      );
+      expect(mCreate).not.toHaveBeenCalled();
+    });
+
+    it("rejects a future-dated signed capture", async () => {
+      const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      const res = await POST(
+        multipartRequest(signedForm(manifestFixture({ capturedAt: future }))),
+        params,
+      );
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(await res.json())).toContain("future");
+      expect(mCreate).not.toHaveBeenCalled();
+    });
+
+    it("an UNSIGNED submission still uses the form-supplied coordinates", async () => {
+      const form = new FormData();
+      form.append(
+        "file",
+        new File([FIXTURE_BYTES], "capture-1.jpeg", { type: "image/jpeg" }),
+      );
+      form.append("evidenceClass", "PHOTO_DAMAGE");
+      form.append("workflowStepId", "step1");
+      form.append("capturedLat", "-37.8136");
+      form.append("capturedLng", "144.9631");
+
+      const res = await POST(multipartRequest(form), params);
+      expect(res.status).toBe(201);
+      const created = mCreate.mock.calls[0][0].data;
+      expect(created.capturedLat).toBe(-37.8136);
+      expect(created.capturedLng).toBe(144.9631);
+      expect(
+        JSON.parse(created.structuredData).signedManifestVerified,
+      ).toBe(false);
     });
   });
 
@@ -371,6 +500,129 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
       expect(structured.c2paManifest.signature).toBeUndefined();
       expect(mKeyFind).not.toHaveBeenCalled();
       expect(mKeyUpdate).not.toHaveBeenCalled();
+    });
+
+    // MUST-FIX 1: the JSON metadata writer is LIVE (the capture page's
+    // handleAddEvidence posts through it) and used to persist client
+    // structuredData VERBATIM — reviewers exploited it to get a 201 whose
+    // record read signedManifestVerified:true with a fabricated signature.
+    describe("JSON metadata writer (the exploited path)", () => {
+      function jsonRequest(body: Record<string, unknown>) {
+        return new NextRequest("http://localhost/api/inspections/i1/evidence", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      }
+
+      it("strips a forged signed status and signature from a plain JSON POST", async () => {
+        const res = await POST(
+          jsonRequest({
+            evidenceClass: "TECHNICIAN_NOTE",
+            notes: "text-only evidence",
+            structuredData: {
+              signedManifestVerified: true,
+              c2paManifest: {
+                sha256: "0".repeat(64),
+                signature: "AAAA",
+                algorithm: "Ed25519",
+                deviceKeyId: KEY_ID,
+              },
+            },
+          }),
+          params,
+        );
+        expect(res.status).toBe(201);
+
+        const structured = JSON.parse(
+          mCreate.mock.calls[0][0].data.structuredData,
+        );
+        expect(structured.signedManifestVerified).toBe(false);
+        expect(structured.c2paManifest.signature).toBeUndefined();
+        expect(structured.c2paManifest.algorithm).toBeUndefined();
+        expect(structured.c2paManifest.deviceKeyId).toBeUndefined();
+        // No server-computed hash exists on this path, so no hash claim
+        // may masquerade as one.
+        expect(structured.c2paManifest.sha256).toBeUndefined();
+      });
+
+      it("keeps benign client metadata on the JSON path", async () => {
+        await POST(
+          jsonRequest({
+            evidenceClass: "TECHNICIAN_NOTE",
+            notes: "n",
+            structuredData: { readingCelsius: 21.5 },
+          }),
+          params,
+        );
+        const structured = JSON.parse(
+          mCreate.mock.calls[0][0].data.structuredData,
+        );
+        expect(structured.readingCelsius).toBe(21.5);
+        expect(structured.signedManifestVerified).toBe(false);
+      });
+
+      it("leaves structuredData null when the client sends none", async () => {
+        await POST(
+          jsonRequest({ evidenceClass: "TECHNICIAN_NOTE", notes: "n" }),
+          params,
+        );
+        expect(mCreate.mock.calls[0][0].data.structuredData).toBeNull();
+      });
+    });
+
+    // Fold-in (Codex P2): keep the client's fail-open behaviour, but make
+    // the downgrade VISIBLE on the record and give the server a policy hook.
+    describe("downgrade visibility + policy hook", () => {
+      it("records a downgrade reason when the submitter HAS a live registered key", async () => {
+        mKeyFindFirst.mockResolvedValueOnce({ id: "dk1" });
+        const res = await POST(multipartRequest(unsignedForm()), params);
+        expect(res.status).toBe(201);
+        const structured = JSON.parse(
+          mCreate.mock.calls[0][0].data.structuredData,
+        );
+        expect(structured.signedManifestVerified).toBe(false);
+        expect(structured.signedManifestDowngradeReason).toBe(
+          "REGISTERED_KEY_BUT_UNSIGNED_SUBMISSION",
+        );
+      });
+
+      it("records NO downgrade reason when the submitter has no key at all", async () => {
+        const res = await POST(multipartRequest(unsignedForm()), params);
+        expect(res.status).toBe(201);
+        const structured = JSON.parse(
+          mCreate.mock.calls[0][0].data.structuredData,
+        );
+        expect(structured.signedManifestDowngradeReason).toBeUndefined();
+      });
+
+      it("default policy ACCEPTS the unsigned downgrade (backwards compatible)", async () => {
+        mKeyFindFirst.mockResolvedValueOnce({ id: "dk1" });
+        const res = await POST(multipartRequest(unsignedForm()), params);
+        expect(res.status).toBe(201);
+      });
+
+      it("with EVIDENCE_REQUIRE_SIGNED_MANIFEST=true the downgrade is REFUSED", async () => {
+        process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "true";
+        mKeyFindFirst.mockResolvedValueOnce({ id: "dk1" });
+        const res = await POST(multipartRequest(unsignedForm()), params);
+        expect(res.status).toBe(400);
+        expect(mCreate).not.toHaveBeenCalled();
+      });
+
+      it("policy ON fails CLOSED when the probe itself errors", async () => {
+        process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "true";
+        mKeyFindFirst.mockRejectedValueOnce(new Error("db down"));
+        const res = await POST(multipartRequest(unsignedForm()), params);
+        expect(res.status).toBe(500);
+        expect(mCreate).not.toHaveBeenCalled();
+      });
+
+      it("policy OFF still captures when the probe errors (telemetry never blocks)", async () => {
+        mKeyFindFirst.mockRejectedValueOnce(new Error("db down"));
+        const res = await POST(multipartRequest(unsignedForm()), params);
+        expect(res.status).toBe(201);
+      });
     });
 
     it("a FORGED signedManifestVerified claim inside structuredData is overwritten to false", async () => {

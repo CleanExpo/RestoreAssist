@@ -128,9 +128,20 @@ export type ManifestBindingResult =
   | { ok: true }
   | { ok: false; message: string };
 
+/** A future-dated capture is nonsense; allow only small clock skew. */
+export const MAX_CAPTURE_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
 /**
  * Bind the verified manifest to THIS submission: the byte hash must be the
  * server-computed one and the context fields must match the request.
+ *
+ * Review round 1 (MUST-FIX 2): `gps` and `capturedAt` are bound too. They
+ * were the two fields app/privacy/page.tsx claims are signed, yet a manifest
+ * signed with Sydney coordinates could be submitted alongside Melbourne form
+ * fields — the record persisted MELBOURNE while reporting signed status, and
+ * lib/dispute-pack.ts prints the PERSISTED coordinates, so the signed ones
+ * sat unread. The route now also DERIVES the persisted values from the
+ * signed manifest, making the printed record the signed record.
  */
 export function checkManifestBinding(
   manifest: SignedEvidenceManifest,
@@ -140,6 +151,15 @@ export function checkManifestBinding(
     userId: string;
     workflowStepId: string | null;
     fileSha256: string;
+    /**
+     * Form-supplied values. `undefined` means the client did not send the
+     * field (no conflict possible); `null` means it explicitly sent none.
+     */
+    capturedLat?: number | null;
+    capturedLng?: number | null;
+    capturedAt?: string | null;
+    /** Server clock — injected for deterministic tests. */
+    now?: Date;
   },
 ): ManifestBindingResult {
   if (manifest.sha256.toLowerCase() !== context.fileSha256) {
@@ -173,5 +193,54 @@ export function checkManifestBinding(
       message: "Signed manifest is bound to a different workflow step",
     };
   }
+
+  // GPS: the form fields ride outside the signature, so a mismatch means the
+  // submission is trying to persist a location the technician never signed.
+  if (
+    context.capturedLat !== undefined &&
+    (context.capturedLat ?? null) !== (manifest.gps.lat ?? null)
+  ) {
+    return {
+      ok: false,
+      message: "Signed manifest is bound to a different capture location",
+    };
+  }
+  if (
+    context.capturedLng !== undefined &&
+    (context.capturedLng ?? null) !== (manifest.gps.lng ?? null)
+  ) {
+    return {
+      ok: false,
+      message: "Signed manifest is bound to a different capture location",
+    };
+  }
+
+  // capturedAt must parse, must not be future-dated beyond clock skew, and
+  // must agree with any client-supplied timestamp.
+  const manifestCapturedAt = Date.parse(manifest.capturedAt);
+  if (Number.isNaN(manifestCapturedAt)) {
+    return {
+      ok: false,
+      message: "Signed manifest capturedAt is not a valid timestamp",
+    };
+  }
+  const now = context.now ?? new Date();
+  if (manifestCapturedAt - now.getTime() > MAX_CAPTURE_CLOCK_SKEW_MS) {
+    return {
+      ok: false,
+      message: "Signed manifest capturedAt is in the future",
+    };
+  }
+  if (
+    context.capturedAt !== undefined &&
+    context.capturedAt !== null &&
+    Date.parse(context.capturedAt) !== manifestCapturedAt
+  ) {
+    return {
+      ok: false,
+      message: "Signed manifest is bound to a different capture time",
+    };
+  }
+
   return { ok: true };
 }
