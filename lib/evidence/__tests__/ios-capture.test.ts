@@ -1,0 +1,189 @@
+/**
+ * RA-7090 slice 1: evidence hash must cover the uploaded BYTES,
+ * not the Data URL text the camera plugin returns.
+ */
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createHash } from "crypto";
+
+const getPhoto = vi.fn();
+vi.mock("@capacitor/camera", () => ({
+  Camera: { getPhoto: (...args: unknown[]) => getPhoto(...args) },
+  CameraResultType: { DataUrl: "dataUrl" },
+  CameraSource: { Camera: "CAMERA" },
+}));
+vi.mock("@/lib/capacitor", () => ({
+  getCurrentLocation: vi.fn(async () => ({
+    latitude: -33.8688,
+    longitude: 151.2093,
+  })),
+}));
+
+import {
+  buildEvidenceFormData,
+  captureEvidencePhoto,
+  evidenceIdempotencyKey,
+  sha256Bytes,
+} from "../ios-capture";
+
+// Known fixture: ASCII bytes "hello world"
+// SHA-256("hello world") — standard test vector.
+const FIXTURE_BYTES = new TextEncoder().encode("hello world");
+const FIXTURE_B64 = Buffer.from(FIXTURE_BYTES).toString("base64");
+const FIXTURE_DATA_URL = `data:image/jpeg;base64,${FIXTURE_B64}`;
+const EXPECTED_SHA256 =
+  "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
+
+beforeEach(() => {
+  getPhoto.mockReset();
+  getPhoto.mockResolvedValue({ dataUrl: FIXTURE_DATA_URL, format: "jpeg" });
+});
+
+describe("sha256Bytes", () => {
+  it("computes the standard SHA-256 over raw bytes", async () => {
+    const buf = FIXTURE_BYTES.slice().buffer;
+    await expect(sha256Bytes(buf)).resolves.toBe(EXPECTED_SHA256);
+  });
+});
+
+describe("captureEvidencePhoto", () => {
+  it("hashes the captured blob bytes, matching a server-side hash over the same bytes", async () => {
+    const result = await captureEvidencePhoto();
+
+    // The manifest hash covers the uploaded bytes...
+    expect(result.manifest.sha256).toBe(EXPECTED_SHA256);
+
+    // ...and equals what a server computes over the blob it receives.
+    const uploadedBytes = Buffer.from(await result.blob.arrayBuffer());
+    const serverSideHash = createHash("sha256")
+      .update(uploadedBytes)
+      .digest("hex");
+    expect(result.manifest.sha256).toBe(serverSideHash);
+    expect(uploadedBytes.equals(Buffer.from(FIXTURE_BYTES))).toBe(true);
+  });
+
+  it("no longer hashes the Data URL text (RA-7090 regression guard)", async () => {
+    const result = await captureEvidencePhoto();
+    const dataUrlTextHash = createHash("sha256")
+      .update(new TextEncoder().encode(FIXTURE_DATA_URL))
+      .digest("hex");
+    expect(result.manifest.sha256).not.toBe(dataUrlTextHash);
+  });
+
+  it("POSTed multipart payload carries the byte hash and the original file", async () => {
+    const capture = await captureEvidencePhoto();
+    const form = buildEvidenceFormData(capture, {
+      workflowStepId: "step1",
+      evidenceClass: "PHOTO_DAMAGE",
+    });
+
+    // Payload carries the byte hash the server will verify against.
+    expect(form.get("sha256")).toBe(EXPECTED_SHA256);
+    expect(form.get("evidenceClass")).toBe("PHOTO_DAMAGE");
+    expect(form.get("workflowStepId")).toBe("step1");
+    expect(form.get("deviceType")).toBe("IOS_CAPACITOR");
+    expect(form.get("capturedLat")).toBe("-33.8688");
+    expect(form.get("capturedLng")).toBe("151.2093");
+
+    const manifest = JSON.parse(form.get("structuredData") as string);
+    expect(manifest.c2paManifest.sha256).toBe(EXPECTED_SHA256);
+
+    // The original asset itself is in the payload, byte-identical.
+    const file = form.get("file") as File;
+    const bytes = Buffer.from(await file.arrayBuffer());
+    expect(bytes.equals(Buffer.from(FIXTURE_BYTES))).toBe(true);
+  });
+
+  it("fails the capture when hashing fails — never a silent empty hash (review #8)", async () => {
+    const digestSpy = vi
+      .spyOn(globalThis.crypto.subtle, "digest")
+      .mockRejectedValueOnce(new Error("webcrypto unavailable"));
+    try {
+      await expect(captureEvidencePhoto()).rejects.toThrow(
+        "webcrypto unavailable",
+      );
+    } finally {
+      digestSpy.mockRestore();
+    }
+  });
+
+  it("derives a deterministic, context-scoped Idempotency-Key (review #9, round-3 #2)", async () => {
+    const capture = await captureEvidencePhoto();
+    const context = {
+      inspectionId: "cinsp0001aaaaaaaaaaaaaaaa",
+      workflowStepId: "cstep0001bbbbbbbbbbbbbbbb",
+      evidenceClass: "PHOTO_DAMAGE",
+    };
+    const key1 = await evidenceIdempotencyKey(capture.manifest, context);
+    const key2 = await evidenceIdempotencyKey(capture.manifest, context);
+    // Stable across retries of the SAME capture in the SAME context...
+    expect(key1).toBe(key2);
+    // ...bound to the byte hash and capture time...
+    expect(key1).toContain(EXPECTED_SHA256);
+    expect(key1).toContain(capture.manifest.capturedAt);
+    // ...within the server's 8-255 printable-ASCII bounds...
+    expect(key1.length).toBeGreaterThanOrEqual(8);
+    expect(key1.length).toBeLessThanOrEqual(255);
+    // Printable ASCII EXCLUDING space — the server rejects spaces.
+    expect(/^[\x21-\x7E]+$/.test(key1)).toBe(true);
+
+    // ...and DIFFERENT when the same capture legitimately goes to another
+    // inspection, step, or class — no false 409 across contexts.
+    expect(
+      await evidenceIdempotencyKey(capture.manifest, {
+        ...context,
+        inspectionId: "cinsp0002cccccccccccccccc",
+      }),
+    ).not.toBe(key1);
+    expect(
+      await evidenceIdempotencyKey(capture.manifest, {
+        ...context,
+        workflowStepId: null,
+      }),
+    ).not.toBe(key1);
+    expect(
+      await evidenceIdempotencyKey(capture.manifest, {
+        ...context,
+        evidenceClass: "PHOTO_PROGRESS",
+      }),
+    ).not.toBe(key1);
+  });
+
+  it("oversized-key fallback stays bounded AND context-scoped (final round)", async () => {
+    const capture = await captureEvidencePhoto();
+    const hugeId = "x".repeat(300); // forces the composite past 255 chars
+    const contextA = {
+      inspectionId: hugeId,
+      workflowStepId: "cstep0001bbbbbbbbbbbbbbbb",
+      evidenceClass: "PHOTO_DAMAGE",
+    };
+    const keyA1 = await evidenceIdempotencyKey(capture.manifest, contextA);
+    const keyA2 = await evidenceIdempotencyKey(capture.manifest, contextA);
+
+    // Deterministic and within bounds.
+    expect(keyA1).toBe(keyA2);
+    expect(keyA1.length).toBeGreaterThanOrEqual(8);
+    expect(keyA1.length).toBeLessThanOrEqual(255);
+    expect(/^[\x21-\x7E]+$/.test(keyA1)).toBe(true);
+
+    // Context SURVIVES the fallback: a different step or inspection still
+    // yields a different key (the hash covers the full composite), so the
+    // cross-context false 409 cannot return through the fallback.
+    const keyB = await evidenceIdempotencyKey(capture.manifest, {
+      ...contextA,
+      workflowStepId: "cstep0002dddddddddddddddd",
+    });
+    expect(keyB).not.toBe(keyA1);
+    const keyC = await evidenceIdempotencyKey(capture.manifest, {
+      ...contextA,
+      inspectionId: "y".repeat(300),
+    });
+    expect(keyC).not.toBe(keyA1);
+  });
+
+  it("carries capture location into the manifest", async () => {
+    const result = await captureEvidencePhoto();
+    expect(result.manifest.lat).toBe(-33.8688);
+    expect(result.manifest.lng).toBe(151.2093);
+    expect(result.mimeType).toBe("image/jpeg");
+  });
+});

@@ -104,7 +104,7 @@ function makeRequest(headers: Record<string, string> = {}) {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify({
-      evidenceClass: "PHOTO",
+      evidenceClass: "PHOTO_DAMAGE",
       fileUrl: "https://example.com/photo.jpg",
       fileMimeType: "image/jpeg",
     }),
