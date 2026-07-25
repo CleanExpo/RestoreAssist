@@ -15,8 +15,10 @@ import type { SignedEvidenceManifest } from "../manifest-canonical";
 import {
   createSignedManifest,
   ensureDeviceKeyRegistered,
+  forgetDeviceKey,
   generateDeviceKey,
   getOrCreateDeviceKey,
+  recoverFromRejectedKey,
   signManifest,
 } from "../device-signing";
 import { buildEvidenceFormData, type IOSCaptureResult } from "../ios-capture";
@@ -60,6 +62,11 @@ function installFakeIndexedDb() {
               makeRequest(() => {
                 store.set(key, value);
                 return key;
+              }),
+            delete: (key: string) =>
+              makeRequest(() => {
+                store.delete(key);
+                return undefined;
               }),
           };
         },
@@ -154,6 +161,75 @@ describe("canonicalizeManifest", () => {
     expect(() => canonicalizeManifest("just a string")).toThrow();
     expect(() => canonicalizeManifest([1, 2])).toThrow();
     expect(() => canonicalizeManifest(null)).toThrow();
+  });
+
+  // MUST-FIX 5b: RFC 8785 (JCS) conformance vectors. Canonicalization is the
+  // contract between signer and verifier, so it is pinned against the
+  // standard rather than against our own implementation.
+  describe("RFC 8785 (JCS) vectors", () => {
+    it("sorts keys by UTF-16 code unit, not locale or insertion order", () => {
+      // RFC 8785 section 3.2.3 property-ordering example. Keys are built
+      // from explicit code points so the vector cannot drift with this
+      // file's own encoding.
+      const CR = String.fromCharCode(0x0d);
+      const C1 = String.fromCharCode(0x80); // C1 control, NOT JSON-escaped
+      const OUML = String.fromCharCode(0xf6);
+      const EURO = String.fromCharCode(0x20ac);
+      const EMOJI = String.fromCodePoint(0x1f600);
+      const DALET = String.fromCharCode(0x05d3) + String.fromCharCode(0x05bc);
+
+      const actual = canonicalizeManifest({
+        [EURO]: "Euro Sign",
+        [CR]: "Carriage Return",
+        [DALET]: "Hebrew Letter Dalet With Dagesh",
+        "1": "One",
+        [EMOJI]: "Emoji: Grinning Face",
+        [C1]: "Control",
+        [OUML]: "Latin Small Letter O With Diaeresis",
+      });
+
+      // Ordering is by UTF-16 code unit: CR(000D) < "1"(0031) < C1(0080) <
+      // ouml(00F6) < dalet(05D3) < euro(20AC) < emoji(D83D surrogate).
+      const expected =
+        '{"\\r":"Carriage Return",' +
+        '"1":"One",' +
+        JSON.stringify(C1) + ':"Control",' +
+        JSON.stringify(OUML) + ':"Latin Small Letter O With Diaeresis",' +
+        JSON.stringify(DALET) + ':"Hebrew Letter Dalet With Dagesh",' +
+        JSON.stringify(EURO) + ':"Euro Sign",' +
+        JSON.stringify(EMOJI) + ':"Emoji: Grinning Face"}';
+      expect(actual).toBe(expected);
+
+      // RFC 8785 escapes ONLY U+0000-U+001F, quote and backslash, so the C1
+      // control is emitted literally rather than as a \u escape.
+      expect(actual).toContain(C1);
+      expect(actual).not.toContain("\\u0080");
+    });
+
+    it("serialises numbers in shortest round-trip form (RFC 8785 §3.2.2.3)", () => {
+      expect(canonicalizeManifest({ a: 1 })).toBe('{"a":1}');
+      expect(canonicalizeManifest({ a: 1.0 })).toBe('{"a":1}');
+      expect(canonicalizeManifest({ a: -0 })).toBe('{"a":0}');
+      expect(canonicalizeManifest({ a: 1e21 })).toBe('{"a":1e+21}');
+      expect(canonicalizeManifest({ a: 1e-7 })).toBe('{"a":1e-7}');
+      expect(canonicalizeManifest({ a: 333333333.3333333 })).toBe(
+        '{"a":333333333.3333333}',
+      );
+    });
+
+    it("escapes control characters per RFC 8785 §3.2.2.2 and leaves other unicode literal", () => {
+      expect(canonicalizeManifest({ a: "\n\r\t\\\"" })).toBe(
+        '{"a":"\\b\\f\\n\\r\\t\\\\\\""}',
+      );
+      // Non-ASCII is NOT escaped — it is emitted as literal UTF-8.
+      expect(canonicalizeManifest({ a: "é😀" })).toBe('{"a":"é😀"}');
+    });
+
+    it("preserves array order while sorting object keys inside arrays", () => {
+      expect(
+        canonicalizeManifest({ a: [{ b: 1, a: 2 }, "z", { d: 4, c: 3 }] }),
+      ).toBe('{"a":[{"a":2,"b":1},"z",{"c":3,"d":4}]}');
+    });
   });
 });
 
@@ -266,16 +342,39 @@ describe("IndexedDB persistence + registration", () => {
     ];
     expect(url).toBe("/api/devices/signing-key");
     const payload = JSON.parse(String(init.body));
+    // MUST-FIX 3: the id is DERIVED server-side, so the client must not send
+    // one at all — a client-chosen alias is exactly how revocation was
+    // escaped.
     expect(payload).toEqual({
-      publicKeyId: registered.keyId,
       publicKeyPem: registered.publicKeyPem,
       devicePlatform: "ios",
     });
+    expect(payload).not.toHaveProperty("publicKeyId");
 
     // Second call: registered flag persisted — no network round-trip.
     const again = await ensureDeviceKeyRegistered("ios");
     expect(again.keyId).toBe(registered.keyId);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("adopts the SERVER-derived key id from the registration response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              deviceSigningKey: { publicKeyId: "server0derived01" },
+            }),
+            { status: 201 },
+          ),
+      ),
+    );
+    const registered = await ensureDeviceKeyRegistered("ios");
+    expect(registered.keyId).toBe("server0derived01");
+    // Persisted, so later captures sign under the id the server knows.
+    const reloaded = await getOrCreateDeviceKey();
+    expect(reloaded.keyId).toBe("server0derived01");
   });
 
   it("a failed registration does NOT mark the key registered", async () => {
@@ -288,6 +387,81 @@ describe("IndexedDB persistence + registration", () => {
     );
     const record = await getOrCreateDeviceKey();
     expect(record.registered).toBe(false);
+  });
+
+  describe("MUST-FIX 4: a revoked key must not brick the device", () => {
+    it("rotates to a FRESH key when registration is refused 403 (revoked)", async () => {
+      const first = await getOrCreateDeviceKey();
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(new Response("{}", { status: 403 }))
+        .mockResolvedValueOnce(new Response("{}", { status: 201 }));
+      vi.stubGlobal("fetch", fetchMock);
+
+      const recovered = await ensureDeviceKeyRegistered("ios");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      // A genuinely different keypair — not the dead one retried.
+      expect(recovered.keyId).not.toBe(first.keyId);
+      expect(recovered.publicKeyPem).not.toBe(first.publicKeyPem);
+      expect(recovered.registered).toBe(true);
+
+      // The dead key is gone; the fresh one is what later captures load.
+      const reloaded = await getOrCreateDeviceKey();
+      expect(reloaded.keyId).toBe(recovered.keyId);
+    });
+
+    it("rotates on 409 (key registered to another account) too", async () => {
+      const first = await getOrCreateDeviceKey();
+      vi.stubGlobal(
+        "fetch",
+        vi
+          .fn()
+          .mockResolvedValueOnce(new Response("{}", { status: 409 }))
+          .mockResolvedValueOnce(new Response("{}", { status: 201 })),
+      );
+      const recovered = await ensureDeviceKeyRegistered("ios");
+      expect(recovered.keyId).not.toBe(first.keyId);
+    });
+
+    it("does NOT rotate on a transient 500 — the key is still good", async () => {
+      const first = await getOrCreateDeviceKey();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response("{}", { status: 500 })),
+      );
+      await expect(ensureDeviceKeyRegistered("ios")).rejects.toThrow(
+        "Device key registration failed (500)",
+      );
+      const reloaded = await getOrCreateDeviceKey();
+      expect(reloaded.keyId).toBe(first.keyId);
+    });
+
+    it("recoverFromRejectedKey swaps in a fresh registered key after an upload 403", async () => {
+      const first = await getOrCreateDeviceKey();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response("{}", { status: 201 })),
+      );
+      const rotated = await recoverFromRejectedKey("ios");
+      expect(rotated).not.toBeNull();
+      expect(rotated!.keyId).not.toBe(first.keyId);
+      expect(rotated!.registered).toBe(true);
+    });
+
+    it("recoverFromRejectedKey returns null (never throws) so capture can fall back to unsigned", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response("{}", { status: 500 })),
+      );
+      await expect(recoverFromRejectedKey("ios")).resolves.toBeNull();
+    });
+
+    it("forgetDeviceKey clears the cached key so the next use generates a new one", async () => {
+      const first = await getOrCreateDeviceKey();
+      await forgetDeviceKey();
+      const next = await getOrCreateDeviceKey();
+      expect(next.keyId).not.toBe(first.keyId);
+    });
   });
 });
 

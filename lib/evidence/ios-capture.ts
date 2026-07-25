@@ -72,12 +72,17 @@ export function buildEvidenceFormData(
 // includes those fields, so a context-free key made a legitimate submission
 // of the same capture to a DIFFERENT inspection or step collide into a
 // false 409.
+// Review round 1 (MUST-FIX 4): `variant` scopes a retry whose SUBMISSION
+// SHAPE differs — re-sending unsigned after the device key was revoked has a
+// different server-side fingerprint, so reusing the signed attempt's key
+// would collide into a false 409 and block the technician entirely.
 export async function evidenceIdempotencyKey(
   manifest: IOSCaptureManifest,
   context: {
     inspectionId: string;
     workflowStepId?: string | null;
     evidenceClass: string;
+    variant?: string;
   },
 ): Promise<string> {
   const key = [
@@ -87,6 +92,7 @@ export async function evidenceIdempotencyKey(
     context.evidenceClass,
     manifest.sha256,
     manifest.capturedAt,
+    ...(context.variant ? [context.variant] : []),
   ].join("-");
   // Server bound is 8-255 printable-ASCII chars. With cuid ids, enum class
   // names, a 64-char hash and a 24-char ISO timestamp the composite sits

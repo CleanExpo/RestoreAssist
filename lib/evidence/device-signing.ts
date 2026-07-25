@@ -82,6 +82,45 @@ function idbPut(db: IDBDatabase, record: DeviceKeyRecord): Promise<void> {
   });
 }
 
+function idbDelete(db: IDBDatabase): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = db
+      .transaction(STORE_NAME, "readwrite")
+      .objectStore(STORE_NAME)
+      .delete(RECORD_KEY);
+    request.onsuccess = () => resolve();
+    request.onerror = () =>
+      reject(request.error ?? new Error("IndexedDB delete failed"));
+  });
+}
+
+/**
+ * Review round 1 (MUST-FIX 4): drop this device's cached key.
+ * Revoking a key used to BRICK the device — the dead key stayed cached
+ * forever, re-registration was refused permanently, and the technician could
+ * not upload evidence at all until IndexedDB was cleared by hand.
+ */
+export async function forgetDeviceKey(): Promise<void> {
+  const db = await openDatabase();
+  try {
+    await idbDelete(db);
+  } finally {
+    db.close();
+  }
+}
+
+/** Discard the cached key and generate + persist a fresh one. */
+export async function rotateDeviceKey(): Promise<DeviceKeyRecord> {
+  const db = await openDatabase();
+  try {
+    const record = await generateDeviceKey();
+    await idbPut(db, record);
+    return record;
+  } finally {
+    db.close();
+  }
+}
+
 function toBase64(bytes: ArrayBuffer): string {
   let binary = "";
   const view = new Uint8Array(bytes);
@@ -143,10 +182,58 @@ export async function getOrCreateDeviceKey(): Promise<DeviceKeyRecord> {
   }
 }
 
+/** Statuses meaning "this key is dead — rotate rather than retry it". */
+const KEY_REJECTED_STATUSES = new Set([403, 409]);
+
+async function registerKey(
+  record: DeviceKeyRecord,
+  devicePlatform: string,
+): Promise<{ ok: true; record: DeviceKeyRecord } | { ok: false; status: number }> {
+  const response = await fetch("/api/devices/signing-key", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      publicKeyPem: record.publicKeyPem,
+      devicePlatform,
+    }),
+  });
+  if (!response.ok) return { ok: false, status: response.status };
+
+  // The server DERIVES the authoritative key id from the SPKI bytes
+  // (MUST-FIX 3). Adopt what it returns so client and server can never
+  // disagree about which key signed a manifest.
+  let serverKeyId: string | undefined;
+  try {
+    const body = await response.json();
+    const id = body?.deviceSigningKey?.publicKeyId;
+    if (typeof id === "string" && id.length > 0) serverKeyId = id;
+  } catch {
+    // Body is advisory; the locally derived id matches by construction.
+  }
+
+  const registered: DeviceKeyRecord = {
+    ...record,
+    keyId: serverKeyId ?? record.keyId,
+    registered: true,
+  };
+  const db = await openDatabase();
+  try {
+    await idbPut(db, registered);
+  } finally {
+    db.close();
+  }
+  return { ok: true, record: registered };
+}
+
 /**
  * Register the device public key with the server (idempotent). Marks the
  * IndexedDB record registered on success so subsequent captures skip the
  * round-trip.
+ *
+ * Review round 1 (MUST-FIX 4): when the server REJECTS the key (403 revoked
+ * / 409 owned elsewhere), the cached key is discarded and a fresh one is
+ * generated and registered, so a revoked device recovers by itself instead
+ * of being locked out of evidence capture until IndexedDB is cleared.
  */
 export async function ensureDeviceKeyRegistered(
   devicePlatform: string = "capacitor",
@@ -154,27 +241,37 @@ export async function ensureDeviceKeyRegistered(
   const record = await getOrCreateDeviceKey();
   if (record.registered) return record;
 
-  const response = await fetch("/api/devices/signing-key", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      publicKeyId: record.keyId,
-      publicKeyPem: record.publicKeyPem,
-      devicePlatform,
-    }),
-  });
-  if (!response.ok) {
-    throw new Error(`Device key registration failed (${response.status})`);
+  const first = await registerKey(record, devicePlatform);
+  if (first.ok) return first.record;
+
+  if (KEY_REJECTED_STATUSES.has(first.status)) {
+    const rotated = await rotateDeviceKey();
+    const second = await registerKey(rotated, devicePlatform);
+    if (second.ok) return second.record;
+    throw new Error(
+      `Device key registration failed after rotation (${second.status})`,
+    );
   }
 
-  const registered: DeviceKeyRecord = { ...record, registered: true };
-  const db = await openDatabase();
+  throw new Error(`Device key registration failed (${first.status})`);
+}
+
+/**
+ * Recover from a server-side rejection of the key we signed with (evidence
+ * POST returned 403). Discards the dead key and registers a fresh one;
+ * returns null when recovery itself fails so the caller can fall back to an
+ * unsigned submission rather than blocking the technician.
+ */
+export async function recoverFromRejectedKey(
+  devicePlatform: string = "capacitor",
+): Promise<DeviceKeyRecord | null> {
   try {
-    await idbPut(db, registered);
-  } finally {
-    db.close();
+    const rotated = await rotateDeviceKey();
+    const result = await registerKey(rotated, devicePlatform);
+    return result.ok ? result.record : null;
+  } catch {
+    return null;
   }
-  return registered;
 }
 
 /** Sign a manifest's canonical bytes; returns base64 Ed25519 signature. */
