@@ -24,6 +24,14 @@ import {
   assertInspectionTenancy,
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
+import {
+  checkManifestBinding,
+  parseSignedManifest,
+  verifyManifestSignature,
+} from "@/lib/evidence/manifest-verify";
+import type { SignedEvidenceManifest } from "@/lib/evidence/manifest-canonical";
+import { buildEvidenceStructuredData } from "@/lib/evidence/structured-data";
+import { evaluateUnsignedSubmission } from "@/lib/evidence/signing-policy";
 
 export async function GET(
   request: NextRequest,
@@ -154,6 +162,20 @@ export async function POST(
           });
         }
 
+        // Round 2 MUST-FIX 2: this writer is unsigned by construction
+        // (metadata-only, no bytes to sign), so it goes through the SAME
+        // shared policy helper. It was proven policy-exempt: with the
+        // policy ON and the user holding a live key it returned 201 with
+        // no downgrade reason recorded.
+        const policy = await evaluateUnsignedSubmission(userId);
+        if (!policy.ok) {
+          return apiError(request, {
+            code: policy.code,
+            message: policy.message,
+            status: policy.status,
+          });
+        }
+
         // RA-7090 review fix (Opus #6): the old create was cast `as any`,
         // which hid two schema violations — `title` is REQUIRED and there is
         // NO `notes` column (field notes belong in `description`). In
@@ -184,9 +206,26 @@ export async function POST(
             fileMimeType: fileMimeType || null,
             fileSizeBytes: fileSizeBytes || null,
             thumbnailUrl: thumbnailUrl || null,
-            structuredData: structuredData
-              ? JSON.stringify(structuredData)
-              : null,
+            // Review round 1 (MUST-FIX 1): this path used to persist client
+            // structuredData VERBATIM, so a plain JSON POST could return 201
+            // carrying signedManifestVerified:true and a fabricated
+            // signature. It is a LIVE path (the capture page's
+            // handleAddEvidence uses it), so it goes through the same shared
+            // sanitiser as multipart. There is no server-computed hash here,
+            // so every integrity claim is stripped rather than re-stamped.
+            structuredData:
+              structuredData === undefined || structuredData === null
+                ? policy.downgradeReason
+                  ? buildEvidenceStructuredData({
+                      fileSha256: null,
+                      downgradeReason: policy.downgradeReason,
+                    })
+                  : null
+                : buildEvidenceStructuredData({
+                    clientStructuredData: structuredData,
+                    fileSha256: null,
+                    downgradeReason: policy.downgradeReason,
+                  }),
           },
         });
 
@@ -343,6 +382,7 @@ async function handleMultipartEvidencePost(
     }
 
     const workflowStepIdRaw = formData.get("workflowStepId");
+    const capturedAtRaw = formData.get("capturedAt");
     const deviceTypeRaw = formData.get("deviceType");
     const deviceIdRaw = formData.get("deviceId");
     const capturedLatRaw = formData.get("capturedLat");
@@ -371,6 +411,131 @@ async function handleMultipartEvidencePost(
           status: 400,
         });
       }
+    }
+
+    // RA-7090 slice 2: optional signed manifest. When present, the photo's
+    // manifest must verify against a registered, non-revoked Ed25519 device
+    // key belonging to the authenticated user, and must bind to the exact
+    // server-computed byte hash + submission context. Absence stays allowed
+    // (backwards compatible) — but only a verified manifest can ever mark
+    // the record signed.
+    const workflowStepId =
+      typeof workflowStepIdRaw === "string" && workflowStepIdRaw
+        ? workflowStepIdRaw
+        : null;
+    const signedManifestRaw = formData.get("signedManifest");
+    const manifestSignatureRaw = formData.get("manifestSignature");
+    let verifiedManifest: SignedEvidenceManifest | null = null;
+    let verifiedSignature: string | null = null;
+    if (signedManifestRaw !== null || manifestSignatureRaw !== null) {
+      if (
+        typeof signedManifestRaw !== "string" ||
+        signedManifestRaw.length === 0 ||
+        typeof manifestSignatureRaw !== "string" ||
+        manifestSignatureRaw.length === 0
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "signedManifest and manifestSignature must both be supplied",
+          status: 400,
+        });
+      }
+
+      const parsedManifest = parseSignedManifest(signedManifestRaw);
+      if (!parsedManifest.ok) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: parsedManifest.message,
+          status: 400,
+        });
+      }
+
+      const signingKey = await prisma.deviceSigningKey.findUnique({
+        where: { publicKeyId: parsedManifest.manifest.deviceKeyId },
+      });
+      if (!signingKey || signingKey.userId !== session.user.id) {
+        // Unknown key and someone else's key are indistinguishable to the
+        // caller — do not leak which.
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Signing key is not registered for this user",
+          status: 403,
+        });
+      }
+      if (signingKey.revokedAt) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Signing key has been revoked",
+          status: 403,
+        });
+      }
+
+      if (
+        !verifyManifestSignature(
+          parsedManifest.manifest,
+          manifestSignatureRaw,
+          signingKey.publicKeyPem,
+        )
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "Manifest signature verification failed — manifest may have been tampered with",
+          status: 400,
+        });
+      }
+
+      const binding = checkManifestBinding(parsedManifest.manifest, {
+        inspectionId,
+        evidenceClass,
+        userId: session.user.id,
+        workflowStepId,
+        fileSha256,
+        // MUST-FIX 2: bind the location/time that actually get persisted.
+        // `undefined` = the client sent no such field, which is not a
+        // conflict; a SUPPLIED value that disagrees with the signed manifest
+        // is rejected rather than silently overwriting the signed one.
+        capturedLat:
+          typeof capturedLatRaw === "string" && capturedLatRaw.length > 0
+            ? capturedLat
+            : undefined,
+        capturedLng:
+          typeof capturedLngRaw === "string" && capturedLngRaw.length > 0
+            ? capturedLng
+            : undefined,
+        capturedAt:
+          typeof capturedAtRaw === "string" && capturedAtRaw
+            ? capturedAtRaw
+            : undefined,
+      });
+      if (!binding.ok) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: binding.message,
+          status: 400,
+        });
+      }
+
+      verifiedManifest = parsedManifest.manifest;
+      verifiedSignature = manifestSignatureRaw;
+    }
+
+    // Round 2 MUST-FIX 2: the unsigned-submission policy now lives in ONE
+    // shared helper that EVERY evidence writer calls (this path, the JSON
+    // path below, and the batch route). The round-1 version guarded only
+    // this writer, leaving the other two policy-exempt.
+    let downgradeReason: string | null = null;
+    if (!verifiedManifest) {
+      const policy = await evaluateUnsignedSubmission(session.user.id);
+      if (!policy.ok) {
+        return apiError(request, {
+          code: policy.code,
+          message: policy.message,
+          status: policy.status,
+        });
+      }
+      downgradeReason = policy.downgradeReason;
     }
 
     const fingerprintFields = Array.from(formData.entries())
@@ -420,32 +585,23 @@ async function handleMultipartEvidencePost(
           inspectionId,
         });
 
-        // RA-7090 review fix: the client manifest travels inside a legal
-        // record — its sha256 must be the SERVER-verified hash. A client
-        // could otherwise plant a diverging c2paManifest.sha256 alongside
-        // verified bytes.
-        const c2paRaw = clientStructuredData.c2paManifest;
-        const structuredData = JSON.stringify({
-          ...clientStructuredData,
-          ...("c2paManifest" in clientStructuredData
-            ? {
-                c2paManifest:
-                  c2paRaw &&
-                  typeof c2paRaw === "object" &&
-                  !Array.isArray(c2paRaw)
-                    ? {
-                        ...(c2paRaw as Record<string, unknown>),
-                        sha256: fileSha256,
-                      }
-                    : // RA-7090 round 3: a non-object manifest (string,
-                      // array, null) must not persist verbatim and bypass
-                      // the server hash — normalise it.
-                      { sha256: fileSha256 },
-              }
-            : {}),
-          originalStoragePath: uploadResult.storagePath,
-          compressedStoragePath: uploadResult.compressedPath,
-          thumbnailStoragePath: uploadResult.thumbnailPath,
+        // Review round 1 (MUST-FIX 1): every writer goes through the ONE
+        // shared sanitiser. It strips client-supplied signedManifestVerified,
+        // whitelists the fields copied out of a verified manifest, and
+        // re-stamps the server-computed hash.
+        const structuredData = buildEvidenceStructuredData({
+          clientStructuredData,
+          fileSha256,
+          verified:
+            verifiedManifest && verifiedSignature
+              ? { manifest: verifiedManifest, signature: verifiedSignature }
+              : null,
+          downgradeReason,
+          storagePaths: {
+            originalStoragePath: uploadResult.storagePath,
+            compressedStoragePath: uploadResult.compressedPath,
+            thumbnailStoragePath: uploadResult.thumbnailPath,
+          },
         });
 
         let evidenceItem;
@@ -461,13 +617,20 @@ async function handleMultipartEvidencePost(
               title: file.name,
               capturedById: session.user.id,
               capturedByName: session.user.name || "Unknown",
-              capturedAt: new Date(),
-              capturedLat:
-                capturedLat !== null && !Number.isNaN(capturedLat)
+              // MUST-FIX 2: on a verified manifest the PERSISTED record is
+              // the SIGNED record — the dispute pack prints these columns,
+              // so they must come from the signed bytes, not the form.
+              capturedAt: verifiedManifest
+                ? new Date(verifiedManifest.capturedAt)
+                : new Date(),
+              capturedLat: verifiedManifest
+                ? verifiedManifest.gps.lat
+                : capturedLat !== null && !Number.isNaN(capturedLat)
                   ? capturedLat
                   : null,
-              capturedLng:
-                capturedLng !== null && !Number.isNaN(capturedLng)
+              capturedLng: verifiedManifest
+                ? verifiedManifest.gps.lng
+                : capturedLng !== null && !Number.isNaN(capturedLng)
                   ? capturedLng
                   : null,
               deviceId:
@@ -541,6 +704,19 @@ async function handleMultipartEvidencePost(
             );
           }
           throw createErr;
+        }
+
+        // Slice 2: key-usage bookkeeping. Best-effort — a failed timestamp
+        // write must never fail a capture that already persisted.
+        if (verifiedManifest) {
+          try {
+            await prisma.deviceSigningKey.update({
+              where: { publicKeyId: verifiedManifest.deviceKeyId },
+              data: { lastUsedAt: new Date() },
+            });
+          } catch {
+            // non-fatal
+          }
         }
 
         return NextResponse.json({ evidenceItem }, { status: 201 });

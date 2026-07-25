@@ -66,6 +66,12 @@ import {
   captureEvidencePhoto,
   evidenceIdempotencyKey,
 } from "@/lib/evidence/ios-capture";
+import {
+  createSignedManifest,
+  ensureDeviceKeyRegistered,
+  recoverFromRejectedKey,
+} from "@/lib/evidence/device-signing";
+import { useSession } from "next-auth/react";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { getQueuedDraftCount } from "@/lib/offline/inspection-store";
 import { AdaptiveGuidancePanel } from "@/components/inspections/adaptive-guidance-panel";
@@ -196,6 +202,7 @@ export default function CaptureWorkflowPage({
   const { id: inspectionId } = use(params);
   const router = useRouter();
   const { isNative } = useCapacitor();
+  const { data: session } = useSession();
   const [offlineCount, setOfflineCount] = useState(0);
 
   // Core state
@@ -406,14 +413,79 @@ export default function CaptureWorkflowPage({
         workflowStepId: stepId,
         evidenceClass,
       });
-      const res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
+      // RA-7090 slice 2: sign the capture manifest with this device's
+      // Ed25519 key so the server can verify it against the registered,
+      // non-revoked key. Best-effort by design — a signing/registration
+      // failure must never block field evidence capture; the record simply
+      // stays unsigned (the server refuses to mark it verified either way).
+      let signed: { manifestJson: string; signature: string } | undefined;
+      const userId = session?.user?.id;
+      if (userId) {
+        try {
+          const deviceKey = await ensureDeviceKeyRegistered(
+            isNative ? "capacitor" : "web",
+          );
+          const payload = await createSignedManifest(
+            capture,
+            {
+              inspectionId,
+              workflowStepId: stepId,
+              evidenceClass,
+              userId,
+            },
+            deviceKey,
+          );
+          signed = {
+            manifestJson: payload.manifestJson,
+            signature: payload.signature,
+          };
+        } catch (signErr) {
+          console.warn(
+            "[capture] manifest signing unavailable — submitting unsigned",
+            signErr,
+          );
+        }
+      }
+      let res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
         method: "POST",
         headers: { "Idempotency-Key": idempotencyKey },
-        body: buildEvidenceFormData(capture, {
+        body: buildEvidenceFormData(
+          capture,
+          {
+            workflowStepId: stepId,
+            evidenceClass,
+          },
+          signed,
+        ),
+      });
+      // Review round 1 (MUST-FIX 4): a 403 here means the server rejected
+      // the KEY we signed with (revoked, or registered elsewhere). Before
+      // this, that bricked the device — the dead key stayed cached, the
+      // upload threw, and the technician could not submit evidence at all.
+      // Rotate to a fresh key and resubmit UNSIGNED so capture always
+      // completes; the record is then honestly marked unsigned.
+      if (res.status === 403 && signed) {
+        console.warn(
+          "[capture] signing key rejected by server — rotating and resubmitting unsigned",
+        );
+        await recoverFromRejectedKey(isNative ? "capacitor" : "web");
+        const unsignedKey = await evidenceIdempotencyKey(capture.manifest, {
+          inspectionId,
           workflowStepId: stepId,
           evidenceClass,
-        }),
-      });
+          // Different submission shape ⇒ different server fingerprint, so
+          // this must not reuse the signed attempt's idempotency key.
+          variant: "unsigned-retry",
+        });
+        res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
+          method: "POST",
+          headers: { "Idempotency-Key": unsignedKey },
+          body: buildEvidenceFormData(capture, {
+            workflowStepId: stepId,
+            evidenceClass,
+          }),
+        });
+      }
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error?.message || "Failed to record evidence");

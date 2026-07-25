@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
+import { buildEvidenceStructuredData } from "@/lib/evidence/structured-data";
+import { exemptFromSigningPolicy } from "@/lib/evidence/signing-policy";
 
 /**
  * Promote client-submitted evidence out of quarantine (client portal Phase 2b-ii).
@@ -50,6 +52,18 @@ export async function POST(
     const reviewerName = session.user.name || "Staff";
     const now = new Date();
 
+    // RA-7090 round 3: this is the FOURTH EvidenceItem writer, and it
+    // previously passed through neither shared control. The signing-policy
+    // exemption is EXPLICIT (see lib/evidence/signing-policy.ts) — client
+    // portal uploads can never carry a technician's device signature — but
+    // the sanitiser applies unconditionally, so a promoted row is stamped
+    // signedManifestVerified:false and can never present as signed.
+    const policy = exemptFromSigningPolicy("CLIENT_PORTAL_PROMOTION");
+    const promotedStructuredData = buildEvidenceStructuredData({
+      fileSha256: null,
+      downgradeReason: policy.downgradeReason,
+    });
+
     // Promote the whole batch in a single transaction instead of opening one
     // interactive transaction per submission (N round-trips). All-or-nothing.
     const ops = pending.flatMap((s) => [
@@ -67,6 +81,7 @@ export async function POST(
           fileName: s.fileName ?? null,
           fileMimeType: s.fileMimeType ?? null,
           fileSizeBytes: s.fileSizeBytes ?? null,
+          structuredData: promotedStructuredData,
         },
       }),
       prisma.clientEvidenceSubmission.update({

@@ -8,6 +8,9 @@ export interface IOSCaptureManifest {
   sha256: string;
   lat: number | null;
   lng: number | null;
+  // RA-7090 slice 2: GPS accuracy travels into the signed manifest so the
+  // verifier (and later a court) can weigh the location claim.
+  accuracy: number | null;
 }
 
 export interface IOSCaptureResult {
@@ -33,6 +36,10 @@ export async function sha256Bytes(buffer: ArrayBuffer): Promise<string> {
 export function buildEvidenceFormData(
   capture: IOSCaptureResult,
   fields: { workflowStepId: string; evidenceClass: string },
+  // RA-7090 slice 2: optional signed manifest — when the device has a
+  // registered Ed25519 key, the canonical manifest bytes + signature ride
+  // along and the server verifies before granting signed status.
+  signed?: { manifestJson: string; signature: string },
 ): FormData {
   const form = new FormData();
   form.append("file", capture.blob, capture.filename);
@@ -50,6 +57,10 @@ export function buildEvidenceFormData(
     "structuredData",
     JSON.stringify({ c2paManifest: capture.manifest }),
   );
+  if (signed) {
+    form.append("signedManifest", signed.manifestJson);
+    form.append("manifestSignature", signed.signature);
+  }
   return form;
 }
 
@@ -61,12 +72,17 @@ export function buildEvidenceFormData(
 // includes those fields, so a context-free key made a legitimate submission
 // of the same capture to a DIFFERENT inspection or step collide into a
 // false 409.
+// Review round 1 (MUST-FIX 4): `variant` scopes a retry whose SUBMISSION
+// SHAPE differs — re-sending unsigned after the device key was revoked has a
+// different server-side fingerprint, so reusing the signed attempt's key
+// would collide into a false 409 and block the technician entirely.
 export async function evidenceIdempotencyKey(
   manifest: IOSCaptureManifest,
   context: {
     inspectionId: string;
     workflowStepId?: string | null;
     evidenceClass: string;
+    variant?: string;
   },
 ): Promise<string> {
   const key = [
@@ -76,6 +92,7 @@ export async function evidenceIdempotencyKey(
     context.evidenceClass,
     manifest.sha256,
     manifest.capturedAt,
+    ...(context.variant ? [context.variant] : []),
   ].join("-");
   // Server bound is 8-255 printable-ASCII chars. With cuid ids, enum class
   // names, a 64-char hash and a 24-char ISO timestamp the composite sits
@@ -119,6 +136,7 @@ export async function captureEvidencePhoto(): Promise<IOSCaptureResult> {
       sha256,
       lat: loc?.latitude ?? null,
       lng: loc?.longitude ?? null,
+      accuracy: loc?.accuracy ?? null,
     },
   };
 }

@@ -106,4 +106,66 @@ describe("POST promote-client", () => {
     expect((await (await POST(req(), params)).json()).data.promoted).toBe(0);
     expect(p.evidenceItem.create).not.toHaveBeenCalled();
   });
+
+  // RA-7090 round 3 MUST-FIX: this is the FOURTH EvidenceItem writer. Three
+  // consecutive review rounds found a writer reaching the dangerous state
+  // simply by not calling a shared control, and this one passed through
+  // NEITHER the sanitiser nor the signing policy.
+  describe("RA-7090: the shared controls apply to this writer too", () => {
+    function onePending() {
+      p.clientEvidenceSubmission.findMany.mockResolvedValue([
+        {
+          id: "s_1",
+          description: "Water damage",
+          fileUrl: "ws/insp/a.jpg",
+          fileName: "a.jpg",
+          fileMimeType: "image/jpeg",
+          fileSizeBytes: 1024,
+          submittedAt: new Date("2026-06-09"),
+        },
+      ]);
+    }
+
+    it("stamps every promoted row signedManifestVerified:false", async () => {
+      onePending();
+      await POST(req(), params);
+      const structured = JSON.parse(
+        p.evidenceItem.create.mock.calls[0][0].data.structuredData,
+      );
+      expect(structured.signedManifestVerified).toBe(false);
+      expect(structured.c2paManifest).toBeUndefined();
+    });
+
+    it("records WHY the row is unsigned — the exemption is explicit, not implied", async () => {
+      onePending();
+      await POST(req(), params);
+      const structured = JSON.parse(
+        p.evidenceItem.create.mock.calls[0][0].data.structuredData,
+      );
+      expect(structured.signedManifestDowngradeReason).toBe(
+        "CLIENT_PORTAL_PROMOTION_UNSIGNED_BY_DESIGN",
+      );
+    });
+
+    it("stays EXEMPT with the policy ON — client uploads can never carry a technician's signature", async () => {
+      process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST = "true";
+      try {
+        onePending();
+        const res = await POST(req(), params);
+        // Refusing here would block staff from accepting legitimate client
+        // evidence while proving nothing about its origin.
+        expect(res.status).toBe(200);
+        expect(p.evidenceItem.create).toHaveBeenCalledTimes(1);
+        const structured = JSON.parse(
+          p.evidenceItem.create.mock.calls[0][0].data.structuredData,
+        );
+        expect(structured.signedManifestVerified).toBe(false);
+        expect(structured.signedManifestDowngradeReason).toBe(
+          "CLIENT_PORTAL_PROMOTION_UNSIGNED_BY_DESIGN",
+        );
+      } finally {
+        delete process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST;
+      }
+    });
+  });
 });

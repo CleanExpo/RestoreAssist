@@ -7382,10 +7382,17 @@ model DeviceSigningKey {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Short identifier referenced by manifests (e.g. first 16 chars of a UUID)
+  // Short identifier referenced by manifests. RA-7090 slice 2: DERIVED
+  // server-side as hex-SHA-256(SPKI DER)[0..16) — never client-supplied, so
+  // the same key material always maps to the same id and a revoked key
+  // cannot come back under a fresh alias.
   publicKeyId String @unique
 
-  // Ed25519 public key in PEM
+  // Ed25519 public key in PEM (SPKI). Length is capped at the route
+  // (MAX_PEM_LENGTH). Round 2 MUST-FIX 3: a VARCHAR(4096) narrowing was
+  // reverted — it existed only to make publicKeyPem indexable for a
+  // compound unique that turned out to be unreachable (see below), so it
+  // was an ALTER on live data buying nothing.
   publicKeyPem String @db.Text
 
   // Device context
@@ -7397,6 +7404,14 @@ model DeviceSigningKey {
   revokedAt  DateTime?
   lastUsedAt DateTime?
 
+  // Round 2 MUST-FIX 3: a @@unique([userId, publicKeyPem]) was removed as
+  // unreachable. publicKeyId is derived as SHA-256(SPKI DER)[0..16) — 64
+  // retained hash bits, so collision-RESISTANT rather than literally globally
+  // unique (round-3 wording correction) — and carries the @unique constraint
+  // above. The same key material therefore always derives the same id and
+  // collides on publicKeyId first, including on the concurrent-insert race,
+  // which that DB constraint resolves to a 409. A constraint that can never fire
+  // is not defence in depth, it is an unsafe migration with no upside.
   @@index([userId])
   @@index([publicKeyId])
   @@index([revokedAt])

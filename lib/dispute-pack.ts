@@ -101,6 +101,11 @@ interface DisputePackData {
     description: string | null;
     capturedByName: string;
     capturedAt: Date;
+    // RA-7090 round 2 (MUST-FIX 1): the SERVER receipt time. capturedAt may
+    // come from a client-signed manifest, so the pack shows BOTH — a signed
+    // capture time is a claim made by the device, whereas createdAt is when
+    // this system actually received the bytes.
+    createdAt: Date;
     capturedLat: number | null;
     capturedLng: number | null;
     hashSha256: string | null;
@@ -139,6 +144,28 @@ function fmtDate(d: Date | string | null | undefined): string {
 }
 
 /** Format date with time */
+/**
+ * RA-7090 (MUST-FIX 1 / round-4 MUST-FIX A): the server receipt time, as a
+ * SECOND-LINE fragment for the Timestamp column — returns null when there is
+ * nothing to distinguish.
+ *
+ * On a signed record `capturedAt` is derived from the client's manifest, so
+ * it is a claim by the device; `createdAt` is a server default and cannot be
+ * backdated by a signer. Round 3 returned a single composed string with a
+ * newline, which sanitize() flattened and the 80pt column then truncated
+ * away — the receipt time never rendered. It is now drawn on its own line,
+ * so it survives to the page.
+ */
+export function receiptTimeFragment(item: {
+  capturedAt: Date | string | null | undefined;
+  createdAt?: Date | string | null;
+}): string | null {
+  if (!item.createdAt) return null;
+  const received = fmtDateTime(item.createdAt);
+  if (received === fmtDateTime(item.capturedAt)) return null;
+  return `Rec: ${received}`;
+}
+
 function fmtDateTime(d: Date | string | null | undefined): string {
   if (!d) return "N/A";
   const date = typeof d === "string" ? new Date(d) : d;
@@ -391,35 +418,77 @@ class PDFWriter {
     this.y -= 18;
   }
 
-  /** Draw a table data row */
+  /** Truncate text to fit a column at a given size, with an ellipsis. */
+  private fitToWidth(
+    text: string,
+    width: number,
+    size: number,
+    font: PDFFont,
+  ): string {
+    const cellText = sanitize(text);
+    let display = cellText;
+    while (display.length > 0 && font.widthOfTextAtSize(display, size) > width) {
+      display = display.slice(0, -1);
+    }
+    if (display.length < cellText.length && display.length > 3) {
+      display = display.slice(0, -3) + "...";
+    }
+    return display;
+  }
+
+  /**
+   * Draw a table data row.
+   *
+   * RA-7090 round 4 (MUST-FIX A): a cell may carry a `sub` fragment, drawn on
+   * a SECOND line at 6pt beneath the main value. Round 3 tried to pack the
+   * server receipt time into the main cell as "captured\nRec: received", but
+   * sanitize() collapses the newline to a space and the composed string
+   * (142.6pt at 7pt Helvetica) was then truncated to the 80pt Timestamp
+   * column — so the receipt time never reached the page at all, while the
+   * legend told the reader to look for it. A second line keeps both times
+   * visible without stealing width from Description.
+   */
   tableRow(
-    cells: { text: string; x: number; width: number; color?: RGB }[],
+    cells: {
+      text: string;
+      x: number;
+      width: number;
+      color?: RGB;
+      sub?: string | null;
+    }[],
     opts?: { bold?: boolean },
   ): void {
-    this.ensureSpace(16);
+    const hasSub = cells.some((c) => c.sub);
+    this.ensureSpace(hasSub ? 24 : 16);
+    const font = opts?.bold ? this.helveticaBold : this.helvetica;
     for (const cell of cells) {
-      const font = opts?.bold ? this.helveticaBold : this.helvetica;
-      const cellText = sanitize(cell.text);
-      // Truncate if text is wider than column
-      let display = cellText;
-      while (
-        display.length > 0 &&
-        font.widthOfTextAtSize(display, 7) > cell.width
-      ) {
-        display = display.slice(0, -1);
-      }
-      if (display.length < cellText.length && display.length > 3) {
-        display = display.slice(0, -3) + "...";
-      }
-      this.currentPage.drawText(display, {
-        x: cell.x,
-        y: this.y,
-        size: 7,
-        font,
-        color: cell.color ?? TEXT_COLOR,
-      });
+      this.currentPage.drawText(
+        this.fitToWidth(cell.text, cell.width, 7, font),
+        {
+          x: cell.x,
+          y: this.y,
+          size: 7,
+          font,
+          color: cell.color ?? TEXT_COLOR,
+        },
+      );
     }
-    this.y -= 14;
+    if (hasSub) {
+      for (const cell of cells) {
+        if (!cell.sub) continue;
+        this.currentPage.drawText(
+          this.fitToWidth(cell.sub, cell.width, 6, this.helvetica),
+          {
+            x: cell.x,
+            y: this.y - 7.5,
+            size: 6,
+            font: this.helvetica,
+            color: SECONDARY,
+          },
+        );
+      }
+    }
+    this.y -= hasSub ? 22 : 14;
   }
 
   /** Draw a key-value pair */
@@ -594,6 +663,7 @@ export async function generateDisputePack(
           description: true,
           capturedByName: true,
           capturedAt: true,
+          createdAt: true,
           capturedLat: true,
           capturedLng: true,
           hashSha256: true,
@@ -872,6 +942,12 @@ function drawEvidenceTimeline(w: PDFWriter, data: DisputePackData): void {
     "All evidence items captured during the inspection, ordered chronologically. Each item includes IICRC S500:2021 section references and chain-of-custody hash.",
     { size: 8, color: SECONDARY },
   );
+  // RA-7090 round 2 (MUST-FIX 1): make the distinction explicit in the
+  // document itself, not just in the data.
+  w.drawText(
+    'Timestamps show the capture time claimed by the capturing device, and "Rec:" the time this system received the evidence. Where the two differ materially, the received time is the independently verifiable one.',
+    { size: 8, color: SECONDARY },
+  );
   w.skip(8);
 
   // Table columns
@@ -889,7 +965,14 @@ function drawEvidenceTimeline(w: PDFWriter, data: DisputePackData): void {
   for (const item of data.evidenceItems) {
     w.tableRow([
       {
+        // RA-7090 (MUST-FIX 1 / round-4 MUST-FIX A): show the SERVER receipt
+        // time beneath the capture time. On a signed record capturedAt comes
+        // from the client's manifest, so printing it alone would let a
+        // backdated claim read as established fact. "Rec:" is what this
+        // system itself observed and cannot be signed into the past — it is
+        // drawn as its own line so the 80pt column cannot truncate it away.
         text: fmtDateTime(item.capturedAt),
+        sub: receiptTimeFragment(item),
         x: cols[0].x,
         width: cols[0].width,
       },
