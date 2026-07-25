@@ -351,8 +351,9 @@ export default function PrivacyPage() {
               The field app may request precise and approximate location access
               while in use, exclusively to stamp GPS coordinates onto inspection
               photographs and moisture readings. This is required for the
-              chain-of-custody manifest that backs each photo (C2PA-style:
-              SHA-256 + UTC + GPS + device + user hash). Location data is not
+              chain-of-custody manifest that backs each photo, which records a
+              SHA-256 hash of the captured photo together with the capture time
+              and, where permitted, the GPS coordinates. Location data is not
               collected when no photo or reading is being captured and is never
               tracked in the background.
             </p>
@@ -368,9 +369,8 @@ export default function PrivacyPage() {
               timestamp, exposure settings) and, where you have granted
               location permission, the GPS coordinates at the moment of
               capture. This metadata is required by IICRC S500:2021 §10.5 for
-              admissible chain-of-custody and is signed by a per-device
-              Ed25519 key so the photograph cannot be silently altered after
-              capture.
+              admissible chain-of-custody, and a SHA-256 hash of the captured
+              photo is recorded as part of that manifest.
             </p>
             <p className="mt-2">
               EXIF and GPS metadata are not shared with third parties beyond
