@@ -2,6 +2,13 @@
  * RA-7090 slice 1: multipart evidence upload — server recomputes SHA-256
  * over the exact stored bytes, rejects tampered uploads, and always
  * persists the server-computed hash.
+ *
+ * Review hardening (Codex/Opus, 2026-07-25):
+ * - the storage mock's sha256 deliberately DIFFERS from the fixture hash, so
+ *   an implementation trusting the storage result or the client hash fails
+ * - idempotency exercised against the REAL withIdempotencyFingerprint via an
+ *   in-memory idempotencyRecord fake (replay 201 + fingerprint-conflict 409)
+ * - 20 MB boundary, authz (401/404), storage compensation on create failure
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -16,23 +23,68 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
   })),
   resolveInspectionWrite: vi.fn(),
 }));
+
+// In-memory fake of the idempotencyRecord table — faithful to the contract
+// the real lib/idempotency.ts relies on: unique cacheKey (P2002 on dupe),
+// findUnique, update, deleteMany.
+const idemStore = new Map<string, any>();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: vi.fn(async () => ({ organizationId: "org1" })) },
     evidenceItem: { create: vi.fn() },
+    idempotencyRecord: {
+      create: vi.fn(async ({ data }: any) => {
+        if (idemStore.has(data.cacheKey)) {
+          const err: any = new Error("Unique constraint failed");
+          err.code = "P2002";
+          throw err;
+        }
+        idemStore.set(data.cacheKey, {
+          responseStatus: null,
+          responseBody: null,
+          responseContentType: null,
+          ...data,
+        });
+        return data;
+      }),
+      findUnique: vi.fn(
+        async ({ where }: any) => idemStore.get(where.cacheKey) ?? null,
+      ),
+      update: vi.fn(async ({ where, data }: any) => {
+        const rec = idemStore.get(where.cacheKey);
+        Object.assign(rec, data);
+        return rec;
+      }),
+      deleteMany: vi.fn(async ({ where }: any) => {
+        if (where?.cacheKey) {
+          idemStore.delete(where.cacheKey);
+        } else if (where?.expiresAt?.lt) {
+          for (const [k, v] of idemStore) {
+            if (v.expiresAt < where.expiresAt.lt) idemStore.delete(k);
+          }
+        }
+        return { count: 0 };
+      }),
+    },
   },
 }));
 
 const uploadMock = vi.fn();
+const deleteMock = vi.fn();
 vi.mock("@/lib/storage", () => ({
-  getStorageProvider: vi.fn(async () => ({ upload: uploadMock })),
+  getStorageProvider: vi.fn(async () => ({
+    upload: uploadMock,
+    delete: deleteMock,
+  })),
 }));
 
 import { getServerSession } from "next-auth";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { POST } from "../route";
 
 const mSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
+const mTenancy = assertInspectionTenancy as unknown as ReturnType<typeof vi.fn>;
 const mCreate = prisma.evidenceItem.create as unknown as ReturnType<
   typeof vi.fn
 >;
@@ -51,14 +103,20 @@ const UPLOAD_RESULT = {
   storagePath: "evidence/x-original.jpg",
   compressedPath: "evidence/x-compressed.jpg",
   thumbnailPath: "evidence/x-thumb.jpg",
-  sha256: FIXTURE_SHA256,
+  // Deliberately NOT the fixture hash: an implementation that persists the
+  // storage provider's claim (or the client's) instead of recomputing over
+  // the received bytes must fail the assertions below.
+  sha256: "deadbeef-storage-provider-claim-not-authoritative",
   sizeBytes: FIXTURE_BYTES.length,
 };
 
-function multipartRequest(form: FormData) {
+function multipartRequest(form: FormData, idempotencyKey?: string) {
   return new NextRequest("http://localhost/api/inspections/i1/evidence", {
     method: "POST",
     body: form,
+    ...(idempotencyKey
+      ? { headers: { "Idempotency-Key": idempotencyKey } }
+      : {}),
   });
 }
 
@@ -92,13 +150,15 @@ const params = { params: Promise.resolve({ id: "i1" }) };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  idemStore.clear();
   mSession.mockResolvedValue({ user: { id: "u1", name: "Tech One" } });
   uploadMock.mockResolvedValue(UPLOAD_RESULT);
+  deleteMock.mockResolvedValue(undefined);
   mCreate.mockImplementation(async ({ data }: any) => ({ id: "e1", ...data }));
 });
 
 describe("POST /evidence (multipart, RA-7090)", () => {
-  it("accepts a valid upload when the client hash matches the stored bytes", async () => {
+  it("accepts a valid upload and persists the SERVER-recomputed hash, not the storage or client claim", async () => {
     const res = await POST(
       multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
       params,
@@ -109,9 +169,11 @@ describe("POST /evidence (multipart, RA-7090)", () => {
     const uploadedBuffer = uploadMock.mock.calls[0][0].buffer as Buffer;
     expect(uploadedBuffer.equals(Buffer.from(FIXTURE_BYTES))).toBe(true);
 
-    // Persisted hash is the server-computed hash over those exact bytes.
+    // Persisted hash is recomputed over those exact bytes — NOT the storage
+    // provider's differing sha256 claim.
     const created = mCreate.mock.calls[0][0].data;
     expect(created.hashSha256).toBe(FIXTURE_SHA256);
+    expect(created.hashSha256).not.toBe(UPLOAD_RESULT.sha256);
     expect(created.fileUrl).toBe(UPLOAD_RESULT.compressedUrl);
     const structured = JSON.parse(created.structuredData);
     expect(structured.c2paManifest.sha256).toBe(FIXTURE_SHA256);
@@ -140,17 +202,153 @@ describe("POST /evidence (multipart, RA-7090)", () => {
   it("stores the server-computed hash even when no client hash is supplied", async () => {
     const res = await POST(multipartRequest(baseForm(FIXTURE_BYTES)), params);
     expect(res.status).toBe(201);
-    expect(mCreate.mock.calls[0][0].data.hashSha256).toBe(FIXTURE_SHA256);
+    const created = mCreate.mock.calls[0][0].data;
+    expect(created.hashSha256).toBe(FIXTURE_SHA256);
+    expect(created.hashSha256).not.toBe(UPLOAD_RESULT.sha256);
+  });
+
+  it("overwrites a forged c2paManifest.sha256 with the server-verified hash", async () => {
+    // Valid bytes + valid outer hash, but the manifest INSIDE structuredData
+    // claims a different sha256 — must not survive into the legal record.
+    const form = baseForm(FIXTURE_BYTES, FIXTURE_SHA256);
+    form.set(
+      "structuredData",
+      JSON.stringify({
+        c2paManifest: {
+          capturedAt: "2026-07-25T00:00:00.000Z",
+          sha256: "forged-divergent-manifest-hash",
+          lat: -33.8688,
+          lng: 151.2093,
+        },
+      }),
+    );
+
+    const res = await POST(multipartRequest(form), params);
+    expect(res.status).toBe(201);
+    const structured = JSON.parse(mCreate.mock.calls[0][0].data.structuredData);
+    expect(structured.c2paManifest.sha256).toBe(FIXTURE_SHA256);
+    // Other manifest fields survive.
+    expect(structured.c2paManifest.capturedAt).toBe("2026-07-25T00:00:00.000Z");
   });
 
   it("rejects files that are not images by magic bytes", async () => {
     const notAnImage = new TextEncoder().encode("plain text pretending");
-    const res = await POST(
-      multipartRequest(baseForm(notAnImage)),
-      params,
-    );
+    const res = await POST(multipartRequest(baseForm(notAnImage)), params);
     expect(res.status).toBe(400);
     expect(uploadMock).not.toHaveBeenCalled();
+  });
+
+  it("cleans up uploaded storage objects when the DB create fails", async () => {
+    mCreate.mockRejectedValueOnce(new Error("DB timeout"));
+
+    const res = await POST(
+      multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
+      params,
+    );
+    expect(res.status).toBe(500);
+
+    // All three uploaded objects are compensated.
+    const deleted = deleteMock.mock.calls.map((c: any[]) => c[0]);
+    expect(deleted).toContain(UPLOAD_RESULT.storagePath);
+    expect(deleted).toContain(UPLOAD_RESULT.compressedPath);
+    expect(deleted).toContain(UPLOAD_RESULT.thumbnailPath);
+    expect(deleteMock).toHaveBeenCalledTimes(3);
+  });
+
+  describe("idempotency (real withIdempotencyFingerprint)", () => {
+    const KEY = "evidence-ra7090-fixture-key";
+
+    it("replays the cached 201 for same key + same bytes without a second write", async () => {
+      const first = await POST(
+        multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256), KEY),
+        params,
+      );
+      expect(first.status).toBe(201);
+
+      const second = await POST(
+        multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256), KEY),
+        params,
+      );
+      expect(second.status).toBe(201);
+      expect(second.headers.get("Idempotent-Replayed")).toBe("true");
+
+      // One upload, one DB write — the retry did not duplicate evidence.
+      expect(uploadMock).toHaveBeenCalledTimes(1);
+      expect(mCreate).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns 409 for same key + different bytes", async () => {
+      const first = await POST(
+        multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256), KEY),
+        params,
+      );
+      expect(first.status).toBe(201);
+
+      const different = Uint8Array.from(FIXTURE_BYTES);
+      different[different.length - 1] ^= 0xff;
+      const second = await POST(
+        multipartRequest(baseForm(different), KEY),
+        params,
+      );
+      expect(second.status).toBe(409);
+      expect(mCreate).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("size guard (20 MB boundary)", () => {
+    function jpegOfSize(size: number): Uint8Array {
+      const bytes = new Uint8Array(size);
+      bytes[0] = 0xff;
+      bytes[1] = 0xd8;
+      bytes[2] = 0xff;
+      return bytes;
+    }
+
+    it("accepts a file of exactly 20 MiB", async () => {
+      const res = await POST(
+        multipartRequest(baseForm(jpegOfSize(20 * 1024 * 1024))),
+        params,
+      );
+      expect(res.status).toBe(201);
+    });
+
+    it("rejects a file of 20 MiB + 1 byte with 413 before buffering", async () => {
+      const res = await POST(
+        multipartRequest(baseForm(jpegOfSize(20 * 1024 * 1024 + 1))),
+        params,
+      );
+      expect(res.status).toBe(413);
+      expect(uploadMock).not.toHaveBeenCalled();
+      expect(mCreate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("authz", () => {
+    it("returns 401 when unauthenticated", async () => {
+      mSession.mockResolvedValueOnce(null);
+      const res = await POST(
+        multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
+        params,
+      );
+      expect(res.status).toBe(401);
+      expect(uploadMock).not.toHaveBeenCalled();
+      expect(mCreate).not.toHaveBeenCalled();
+    });
+
+    it("returns the tenancy status for a wrong-tenant inspection", async () => {
+      mTenancy.mockResolvedValueOnce({
+        ok: false,
+        reason: "Inspection not found",
+        status: 404,
+      });
+      const res = await POST(
+        multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
+        params,
+      );
+      expect(res.status).toBe(404);
+      expect(uploadMock).not.toHaveBeenCalled();
+      expect(mCreate).not.toHaveBeenCalled();
+    });
   });
 
   it("JSON path still works and cannot set hashSha256 from the client", async () => {

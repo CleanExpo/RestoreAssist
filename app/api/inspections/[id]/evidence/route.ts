@@ -12,6 +12,7 @@ import { EvidenceClass } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
+import { BUCKET_OPTIMISED } from "@/lib/storage/types";
 import { apiError, fromException } from "@/lib/api-errors";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import {
@@ -349,7 +350,10 @@ async function handleMultipartEvidencePost(
       )
       .digest("hex");
 
-    return withIdempotencyFingerprint({
+    // `await` is load-bearing: without it a handler throw (e.g. DB failure
+    // after compensation) escapes the try/catch below and never becomes a
+    // formatted 500.
+    return await withIdempotencyFingerprint({
       scope: session.user.id,
       key: idempotencyKey.key,
       method: request.method,
@@ -371,49 +375,83 @@ async function handleMultipartEvidencePost(
           inspectionId,
         });
 
-        const evidenceItem = await prisma.evidenceItem.create({
-          data: {
-            inspectionId,
-            workflowStepId:
-              typeof workflowStepIdRaw === "string" && workflowStepIdRaw
-                ? workflowStepIdRaw
-                : null,
-            evidenceClass,
-            title: file.name,
-            capturedById: session.user.id,
-            capturedByName: session.user.name || "Unknown",
-            capturedAt: new Date(),
-            capturedLat:
-              capturedLat !== null && !Number.isNaN(capturedLat)
-                ? capturedLat
-                : null,
-            capturedLng:
-              capturedLng !== null && !Number.isNaN(capturedLng)
-                ? capturedLng
-                : null,
-            deviceId:
-              typeof deviceIdRaw === "string" && deviceIdRaw
-                ? deviceIdRaw
-                : null,
-            deviceType:
-              typeof deviceTypeRaw === "string" && deviceTypeRaw
-                ? deviceTypeRaw
-                : "WEB_BROWSER",
-            fileUrl: uploadResult.compressedUrl,
-            fileName: file.name,
-            fileMimeType: file.type || "image/jpeg",
-            fileSizeBytes: file.size,
-            thumbnailUrl: uploadResult.thumbnailUrl ?? null,
-            // Integrity: ALWAYS the server-computed hash over stored bytes.
-            hashSha256: fileSha256,
-            structuredData: JSON.stringify({
-              ...clientStructuredData,
-              originalStoragePath: uploadResult.storagePath,
-              compressedStoragePath: uploadResult.compressedPath,
-              thumbnailStoragePath: uploadResult.thumbnailPath,
-            }),
-          },
+        // RA-7090 review fix: the client manifest travels inside a legal
+        // record — its sha256 must be the SERVER-verified hash. A client
+        // could otherwise plant a diverging c2paManifest.sha256 alongside
+        // verified bytes.
+        const c2paRaw = clientStructuredData.c2paManifest;
+        const structuredData = JSON.stringify({
+          ...clientStructuredData,
+          ...(c2paRaw && typeof c2paRaw === "object" && !Array.isArray(c2paRaw)
+            ? {
+                c2paManifest: {
+                  ...(c2paRaw as Record<string, unknown>),
+                  sha256: fileSha256,
+                },
+              }
+            : {}),
+          originalStoragePath: uploadResult.storagePath,
+          compressedStoragePath: uploadResult.compressedPath,
+          thumbnailStoragePath: uploadResult.thumbnailPath,
         });
+
+        let evidenceItem;
+        try {
+          evidenceItem = await prisma.evidenceItem.create({
+            data: {
+              inspectionId,
+              workflowStepId:
+                typeof workflowStepIdRaw === "string" && workflowStepIdRaw
+                  ? workflowStepIdRaw
+                  : null,
+              evidenceClass,
+              title: file.name,
+              capturedById: session.user.id,
+              capturedByName: session.user.name || "Unknown",
+              capturedAt: new Date(),
+              capturedLat:
+                capturedLat !== null && !Number.isNaN(capturedLat)
+                  ? capturedLat
+                  : null,
+              capturedLng:
+                capturedLng !== null && !Number.isNaN(capturedLng)
+                  ? capturedLng
+                  : null,
+              deviceId:
+                typeof deviceIdRaw === "string" && deviceIdRaw
+                  ? deviceIdRaw
+                  : null,
+              deviceType:
+                typeof deviceTypeRaw === "string" && deviceTypeRaw
+                  ? deviceTypeRaw
+                  : "WEB_BROWSER",
+              fileUrl: uploadResult.compressedUrl,
+              fileName: file.name,
+              fileMimeType: file.type || "image/jpeg",
+              fileSizeBytes: file.size,
+              thumbnailUrl: uploadResult.thumbnailUrl ?? null,
+              // Integrity: ALWAYS the server-computed hash over stored bytes.
+              hashSha256: fileSha256,
+              structuredData,
+            },
+          });
+        } catch (createErr) {
+          // RA-7090 review fix: a failed DB write must not orphan the
+          // just-uploaded storage objects (client retries would multiply
+          // orphans). Best-effort compensation — original lives in the
+          // originals bucket, compressed/thumbnail in the optimised bucket.
+          const cleanupTargets: Array<{ path: string; bucket?: string }> = [
+            { path: uploadResult.storagePath },
+            { path: uploadResult.compressedPath, bucket: BUCKET_OPTIMISED },
+            { path: uploadResult.thumbnailPath, bucket: BUCKET_OPTIMISED },
+          ];
+          await Promise.allSettled(
+            cleanupTargets
+              .filter(({ path }) => Boolean(path))
+              .map(({ path, bucket }) => storageProvider.delete(path, bucket)),
+          );
+          throw createErr;
+        }
 
         return NextResponse.json({ evidenceItem }, { status: 201 });
       },
