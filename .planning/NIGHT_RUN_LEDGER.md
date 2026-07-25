@@ -12,7 +12,7 @@ never so they look actionable.
 
 | # | Task | Source | Stage | Notes |
 |---|---|---|---|---|
-| 1 | Standards Currency Registry | backlog #6 | DEFINED | Spec: `.planning/specs/01-standards-currency-registry.spec.md`. 9 falsifiable criteria + 2 required positive controls. Open decision for the judge: block vs warn on `overdue`. |
+| 1 | Standards Currency Registry | backlog #6 | **REVISE — back to DEFINE** | Judge verdict: `.planning/specs/01-JUDGE-VERDICT-revise.md`. `nextRevisionExpected` is `year+5` arithmetic carrying zero information; the section index is a PARTIAL ToC so "unresolvable" proves nothing; `pnpm check:standards` already exists and the spec never mentioned it. Rescoped to extending `citation-validity.ts` and hardening the AI report citation path. No code until the spec is rewritten. |
 | 2 | ABR production credential | RA-6678 (P0) | BLOCKED | **Founder-gated.** `ABR_API_GUID` unset in prod; every ABN lookup returns MALFORMED. Agent scope limited to a health check + graceful degradation. |
 | 3 | Email DNS completion | RA-6955 | BLOCKED | **Founder-gated.** Root domain has no SPF/DKIM; Resend rejects sends. |
 | 4 | Sandbox release-gate repair | RA-5624 | TODO | Sandbox health `degraded`; release-gate smoke cannot certify. |
@@ -47,11 +47,22 @@ never so they look actionable.
 |---|---|---|---|---|
 | 19 | Technician Dispatch + Seat Enforcement | backlog #8 | TODO | The missing commercial bridge for BYOK monetisation. |
 | 20 | Integration Health Action Queue | backlog #9 | TODO | Turn Xero/MYOB/Ascora sync failures into an ordered queue. |
-| 21 | Subscription gate reconciliation | review deferral | TODO | `/turn` gates on `["TRIAL","ACTIVE"]`+boolean while the shared helper allows `LIFETIME`; a LIFETIME customer 402s wrongly. |
+| 21 | **Lifetime customers 402'd on 10 paid AI routes** | review deferral, reclassified P1 | BUILT + VERIFIED, awaiting review | Reading the code inverted the assumption: the shared helper never read `lifetimeAccess` and allowlisted a non-existent `LIFETIME` enum value. The turn route was right. Fixed; 94 consumer tests pass; RED observed on 6 tests first. Spec: `.planning/specs/21-lifetime-access-gate-defect.spec.md`. |
 | 22 | SEO playbook sign-off | RA-1664 | BLOCKED | **Founder-gated.** Dry-run complete, waiting on four answers. |
 | 23 | Software directory presence | RA-1664 finding | TODO | Absent from G2/Capterra/GetApp AU while competitors own comparison results. |
 | 24 | Board-meeting watchdog | RA-7085 | TODO | Scheduled task silent 475h. |
 | 25 | Launch marketing set | new | TODO | Explainer video + copy for the three shipped P0s. |
+
+## Wave 5 — discovered by the judge gate, 2026-07-26 (all evidence-backed)
+
+| # | Task | Source | Stage | Notes |
+|---|---|---|---|---|
+| 26 | Correct the §5.1 justification merged in PR #1988 | judge verdict | TODO | The code comment claims §5.1 "has no entry", which a partial index cannot prove. The §10.6 change stands on the semantic argument alone; the comment and test reason must be corrected. |
+| 27 | Fix three wrong citations in `app/compliance/page.tsx` | judge verdict | TODO | `:60` health & safety cites §5.1 (Psychrometry) → §8. `:68` and `:73` cite §4.2 (Building Science) → §9.2. Verify against the licensed PDF before changing. |
+| 28 | Replace superseded AS/NZS 4360:2004 in `lib/scope-biohazard.ts:50` | judge verdict | TODO | Cited as live authority; the file's own comment concedes ISO 31000 superseded it. |
+| 29 | Harden the AI report citation path | judge verdict | TODO | `lib/reports/generate-report-ai.ts:872-874` lets the model invent clause numbers into insurer PDFs; `:1028-1031` hard-codes wrong material→clause prose. Inject citations from `standardCite()` or validate model output before the PDF. **Highest liability item found tonight.** |
+| 30 | Wire `classifyClauseRef` into the report path | judge verdict | TODO | The five-value classifier exists and is scoped to Live Teacher only. Wiring it to reports is the 90% win the currency module was not. |
+| 31 | Registry coverage honesty | judge verdict | TODO | ~30 AS/NZS, NADCA and AS standards the product cites sit outside `STANDARDS_VERSIONS`. Either cover them or state coverage explicitly wherever status is shown. |
 
 ## Run log
 
