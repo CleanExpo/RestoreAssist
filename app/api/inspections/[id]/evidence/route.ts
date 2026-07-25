@@ -24,6 +24,12 @@ import {
   assertInspectionTenancy,
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
+import {
+  checkManifestBinding,
+  parseSignedManifest,
+  verifyManifestSignature,
+} from "@/lib/evidence/manifest-verify";
+import type { SignedEvidenceManifest } from "@/lib/evidence/manifest-canonical";
 
 export async function GET(
   request: NextRequest,
@@ -373,6 +379,98 @@ async function handleMultipartEvidencePost(
       }
     }
 
+    // RA-7090 slice 2: optional signed manifest. When present, the photo's
+    // manifest must verify against a registered, non-revoked Ed25519 device
+    // key belonging to the authenticated user, and must bind to the exact
+    // server-computed byte hash + submission context. Absence stays allowed
+    // (backwards compatible) — but only a verified manifest can ever mark
+    // the record signed.
+    const workflowStepId =
+      typeof workflowStepIdRaw === "string" && workflowStepIdRaw
+        ? workflowStepIdRaw
+        : null;
+    const signedManifestRaw = formData.get("signedManifest");
+    const manifestSignatureRaw = formData.get("manifestSignature");
+    let verifiedManifest: SignedEvidenceManifest | null = null;
+    let verifiedSignature: string | null = null;
+    if (signedManifestRaw !== null || manifestSignatureRaw !== null) {
+      if (
+        typeof signedManifestRaw !== "string" ||
+        signedManifestRaw.length === 0 ||
+        typeof manifestSignatureRaw !== "string" ||
+        manifestSignatureRaw.length === 0
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "signedManifest and manifestSignature must both be supplied",
+          status: 400,
+        });
+      }
+
+      const parsedManifest = parseSignedManifest(signedManifestRaw);
+      if (!parsedManifest.ok) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: parsedManifest.message,
+          status: 400,
+        });
+      }
+
+      const signingKey = await prisma.deviceSigningKey.findUnique({
+        where: { publicKeyId: parsedManifest.manifest.deviceKeyId },
+      });
+      if (!signingKey || signingKey.userId !== session.user.id) {
+        // Unknown key and someone else's key are indistinguishable to the
+        // caller — do not leak which.
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Signing key is not registered for this user",
+          status: 403,
+        });
+      }
+      if (signingKey.revokedAt) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Signing key has been revoked",
+          status: 403,
+        });
+      }
+
+      if (
+        !verifyManifestSignature(
+          parsedManifest.manifest,
+          manifestSignatureRaw,
+          signingKey.publicKeyPem,
+        )
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "Manifest signature verification failed — manifest may have been tampered with",
+          status: 400,
+        });
+      }
+
+      const binding = checkManifestBinding(parsedManifest.manifest, {
+        inspectionId,
+        evidenceClass,
+        userId: session.user.id,
+        workflowStepId,
+        fileSha256,
+      });
+      if (!binding.ok) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: binding.message,
+          status: 400,
+        });
+      }
+
+      verifiedManifest = parsedManifest.manifest;
+      verifiedSignature = manifestSignatureRaw;
+    }
+
     const fingerprintFields = Array.from(formData.entries())
       .filter(([name]) => name !== "file")
       .map(([name, value]) => [
@@ -424,25 +522,42 @@ async function handleMultipartEvidencePost(
         // record — its sha256 must be the SERVER-verified hash. A client
         // could otherwise plant a diverging c2paManifest.sha256 alongside
         // verified bytes.
+        // Slice 2: when an Ed25519-signed manifest VERIFIED above, it
+        // becomes the authoritative c2paManifest (with signature + keyId);
+        // signedManifestVerified is ALWAYS server-set — a client-supplied
+        // claim in structuredData can never survive the spread below.
         const c2paRaw = clientStructuredData.c2paManifest;
         const structuredData = JSON.stringify({
           ...clientStructuredData,
-          ...("c2paManifest" in clientStructuredData
+          ...(verifiedManifest
             ? {
-                c2paManifest:
-                  c2paRaw &&
-                  typeof c2paRaw === "object" &&
-                  !Array.isArray(c2paRaw)
-                    ? {
-                        ...(c2paRaw as Record<string, unknown>),
-                        sha256: fileSha256,
-                      }
-                    : // RA-7090 round 3: a non-object manifest (string,
-                      // array, null) must not persist verbatim and bypass
-                      // the server hash — normalise it.
-                      { sha256: fileSha256 },
+                c2paManifest: {
+                  ...verifiedManifest,
+                  // Equal to verifiedManifest.sha256 (binding-checked), kept
+                  // explicit so the invariant "persisted sha256 is server-
+                  // computed" holds by construction.
+                  sha256: fileSha256,
+                  signature: verifiedSignature,
+                  algorithm: "Ed25519",
+                },
               }
-            : {}),
+            : "c2paManifest" in clientStructuredData
+              ? {
+                  c2paManifest:
+                    c2paRaw &&
+                    typeof c2paRaw === "object" &&
+                    !Array.isArray(c2paRaw)
+                      ? {
+                          ...(c2paRaw as Record<string, unknown>),
+                          sha256: fileSha256,
+                        }
+                      : // RA-7090 round 3: a non-object manifest (string,
+                        // array, null) must not persist verbatim and bypass
+                        // the server hash — normalise it.
+                        { sha256: fileSha256 },
+                }
+              : {}),
+          signedManifestVerified: verifiedManifest !== null,
           originalStoragePath: uploadResult.storagePath,
           compressedStoragePath: uploadResult.compressedPath,
           thumbnailStoragePath: uploadResult.thumbnailPath,
@@ -541,6 +656,19 @@ async function handleMultipartEvidencePost(
             );
           }
           throw createErr;
+        }
+
+        // Slice 2: key-usage bookkeeping. Best-effort — a failed timestamp
+        // write must never fail a capture that already persisted.
+        if (verifiedManifest) {
+          try {
+            await prisma.deviceSigningKey.update({
+              where: { publicKeyId: verifiedManifest.deviceKeyId },
+              data: { lastUsedAt: new Date() },
+            });
+          } catch {
+            // non-fatal
+          }
         }
 
         return NextResponse.json({ evidenceItem }, { status: 201 });
