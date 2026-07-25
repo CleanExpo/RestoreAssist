@@ -29,6 +29,16 @@ import {
   checkReportGapsDefinition,
   checkReportGapsSchema,
 } from "./check-report-gaps";
+import {
+  lookupIicrc,
+  lookupIicrcDefinition,
+  lookupIicrcSchema,
+} from "./lookup-iicrc";
+import {
+  recommendMethod,
+  recommendMethodDefinition,
+  recommendMethodSchema,
+} from "./recommend-method";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { z } from "zod";
 
@@ -41,6 +51,8 @@ export const TOOL_DEFINITIONS = [
   fillScopeItemDefinition,
   flagWhsHazardDefinition,
   checkReportGapsDefinition,
+  lookupIicrcDefinition,
+  recommendMethodDefinition,
 ] as const;
 
 // ─── Tool name union (derived from definitions) ───────────────────────────────
@@ -74,6 +86,9 @@ export const TOOL_HANDLERS: Record<ToolName, Handler<AnySchema>> = {
     flagWhsHazard(flagWhsHazardSchema.parse(args), context),
   check_report_gaps: (args) =>
     checkReportGaps(checkReportGapsSchema.parse(args)),
+  lookup_iicrc: (args) => lookupIicrc(lookupIicrcSchema.parse(args)),
+  recommend_method: (args) =>
+    recommendMethod(recommendMethodSchema.parse(args)),
 };
 
 /**
@@ -138,6 +153,12 @@ export {
   checkReportGaps,
   checkReportGapsDefinition,
   checkReportGapsSchema,
+  lookupIicrc,
+  lookupIicrcDefinition,
+  lookupIicrcSchema,
+  recommendMethod,
+  recommendMethodDefinition,
+  recommendMethodSchema,
 };
 export type { TakeReadingArgs } from "./take-reading";
 export type { CapturePhotoArgs } from "./capture-photo";
@@ -145,3 +166,8 @@ export type { StartLidarScanArgs } from "./start-lidar-scan";
 export type { FillScopeItemArgs } from "./fill-scope-item";
 export type { FlagWhsHazardArgs } from "./flag-whs-hazard";
 export type { CheckReportGapsArgs, ReportGap } from "./check-report-gaps";
+export type { LookupIicrcArgs, IicrcSectionMatch } from "./lookup-iicrc";
+export type {
+  RecommendMethodArgs,
+  RecommendMethodResult,
+} from "./recommend-method";
