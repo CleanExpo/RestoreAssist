@@ -72,3 +72,61 @@ never so they look actionable.
 |---|---|---|---|
 | 2026-07-26 | iOS billing-gate fix (out of band) | REVIEWED, awaiting merge | PR #1989 **OPEN + draft, NOT merged** (`mergedAt: null`, 2 checks pending). type-check 0, 11/11 tests, positive control cited. **The App Review violation remains live on main until this merges.** |
 | 2026-07-26 | #1 Standards Currency Registry | DEFINED | Two verified findings: `nextRevisionExpected` has zero consumers repo-wide; NCC due 2025 is already past. Wiki recall MISSED (no vault page on standards currency) — index repair owed. |
+
+## Wave 6 — discovery pass 2026-07-26 (30 items, each evidenced to file:line)
+
+Ranked by (impact x confidence) / effort. Items 33-38 are the ship-first set: all small,
+all traceable to a single line.
+
+| # | Task | Evidence | Size |
+|---|---|---|---|
+| 33 | Duplicate legal invoice numbers under concurrency | `app/api/invoices/[id]/variations/route.ts:234` read-then-write outside a transaction; siblings do it inside one (`app/api/invoices/route.ts:315`) | S |
+| 34 | GST-free lines silently taxed at 10% | same file `:207-212` computes per-line GST, `:230` overwrites with flat `subtotal * 0.1` | S |
+| 35 | `puppeteer` prod dependency with zero imports | `package.json:226`; only other hit is a `serverExternalPackages` entry | S |
+| 36 | Android Google Sign-In ships a literal TODO client ID | `lib/oauth-native.ts:62`; var absent from `.env.example`, workflows and `vercel.json` — Play Store blocker | S |
+| 37 | The 4 red tests need no DB — lazy-Proxy getter throws on property access | `lib/prisma.ts:63`; fix is `vi.mock`. **Do NOT set a dummy DATABASE_URL** — 27 suites use `skipIf(!DATABASE_URL)` and would un-skip into real connection failures | S |
+| 38 | Prod builds ignore type + lint errors | `next.config.mjs:33,36` with 214 `as any` in API routes | S |
+| 39 | `findManyWithoutTake` guard false-negatives on a nested `take:` | `scripts/audit-api-routes.ts:146` matches the whole call block | S |
+| 40 | `hasUnsafeRawSql` misses generic-annotated tagged templates | `scripts/audit-api-routes.ts:157`; `app/api/search/route.ts:47,67,86` invisible to the gate | S |
+| 41 | 18 unbounded `findMany` in `lib/` — auditor only scans `app/api` | worst: `lib/restore/plan.ts:38`, `lib/telemetry/kpis.ts:40` | M |
+| 42 | Voice-note transcribe skips MIME allowlist when Content-Type absent | `app/api/ai/voice-note-transcribe/route.ts:108` — rule 11 violation on a paid path | S |
+| 43 | `parse-pdf` validates `file.type` only, no magic bytes | `:65`; canonical impl at `app/api/reports/upload/route.ts:43-53` | S |
+| 44 | `sign-in-as` can forge an ADMIN session in prod; sibling cannot | `app/api/test/sign-in-as/route.ts:35` vs `seed-trial-user/route.ts:28-31` | S |
+| 45 | NZ compliance gates are unconditional no-ops | `lib/compliance/nzbs-compliance-gate.ts:69` hardcodes `"AU"`; NZBC logic below is dead code | M |
+| 46 | ~100 `(prisma as any)` casts on models that exist | sketch geometry + integration credentials lose type checking | M |
+| 47 | 3 storage crons run 10-15min with watchdog disabled | `lib/cron/expected-jobs.ts:69-82`; the customer-evidence durability path | M |
+| 48 | Invoice send/checkout have no rate limit | `app/api/invoices/[id]/send`, `/checkout`, `/payments` | S |
+| 49 | `reopen` accepts `voidInvoice: true` and does nothing | `app/api/inspections/[id]/reopen/route.ts:193-205` | S |
+| 50 | Bluetooth GATT UUIDs + byte parser are unvalidated guesses | `lib/nir-bluetooth-service.ts:43,406,420` — silent moisture-reading corruption into insurer reports | M |
+| 51 | Flood/bushfire/heritage overlays are hardcoded stubs | `lib/nir-location-services.ts:61,146,197` | M |
+| 52 | NZ weather stub + snapshot never persisted | `lib/weather/weather-provider.ts:6,218`; `lib/weather/auto-tag.ts:8` | M |
+| 53 | 5 more files carry wrong S520:2024 chapter citations | `lib/iicrc-checklists.ts:844-908`, `lib/equipment-calculator-mould.ts:177+`, `lib/equipment-hepa-negative-air.ts:9` — founder-gated on licensed PDFs | M |
+| 54 | Setup-wizard SSE polls 1/s against a `max: 5` pool | `app/api/setup/hydrate/stream/route.ts:1` | S |
+| 55 | Setup hydrate rate limit not keyed on `session.user.id` | `app/api/setup/hydrate/route.ts:16` — rule 10 | S |
+| 56 | Deprecated + duplicated deps | legacy `@google/generative-ai` still the imported one; `framer-motion` + `motion`; Windows-only `lightningcss-win32`; `radix-ui` meta with zero imports | M |
+| 57 | Four PDF libraries + unmaintained `html2canvas` | decide and document the canonical PDF path | S |
+| 58 | Two suppressed advisories with no expiry | `package.json:44-47` | S |
+| 59 | N+1 in the evidence submission gate | `lib/evidence/submission-gate.ts:49-50` — runs on every rule-23 promotion check | M |
+| 60 | 11 icon-only buttons with no accessible name | `NotificationBell.tsx:172,182` and 9 others | S |
+| 61 | 90 `<Input>` with no id/aria-label/placeholder | in-table editable grids (contents-manifest, scope-items, payments) | M |
+| 62 | 5 client bundles over 2,000 lines | `InitialDataEntryForm.tsx` (5,006), `NIRTechnicianInputForm.tsx` (3,972) — the field surface on site 4G | M |
+
+**Verified clean, do not re-investigate:** rule 7 (`error.message` in 500s) is genuinely
+enforced; `app/api` unbounded `findMany` is clean and the `ra-query-ok` convention is used
+properly; zero `it.skip`/`.only` in the repo and the `skipIf(!DATABASE_URL)` pattern is
+correctly backed by `scripts/ci/test-with-db.sh` + parity check.
+
+## Measurement — `headers()` static-rendering cost (clean, 2026-07-26)
+
+Measured twice; the second run used an isolated worktree of untouched `origin/main` so no
+file mutation could contaminate it (the first run was tainted: the layout was restored
+mid-compile in the same directory the build reads from).
+
+| Build | Static | Dynamic |
+|---|---|---|
+| `origin/main` (clean baseline) | 68 | 290 |
+| With the fix | 7 | 351 |
+
+**61 routes lose static generation**, including `/pricing`, `/about`, `/features`, `/blog`,
+`/blog/[slug]`, `/contact`. Recommended remedy: middleware rewriting shell requests to a
+dedicated segment so only shell traffic is dynamic. Founder decision — blocks this branch.
