@@ -128,5 +128,29 @@ mid-compile in the same directory the build reads from).
 | With the fix | 7 | 351 |
 
 **61 routes lose static generation**, including `/pricing`, `/about`, `/features`, `/blog`,
-`/blog/[slug]`, `/contact`. Recommended remedy: middleware rewriting shell requests to a
-dedicated segment so only shell traffic is dynamic. Founder decision — blocks this branch.
+`/blog/[slug]`, `/contact`.
+
+### This is NOT a founder decision — it is a scoping bug in my implementation
+
+I put the `headers()` read in the ROOT layout, which opts the whole tree out of static
+generation. Measured from the clean baseline: **all 8 routes that actually render a
+BillingGate were already static** (`/compliance`, `/pricing`, `/dashboard/{credits,
+integrations,pricing,settings,subscription,success}`). Scoping the provider to just those
+segments costs **~8 routes instead of 61** — the 53 marketing and blog routes stay static.
+
+Insertion points, checked:
+- `app/compliance/layout.tsx` — **already a server component**, no refactor
+- `app/pricing/layout.tsx` — **already a server component**, no refactor
+- `app/dashboard/layout.tsx` — is `"use client"`, and there are no per-route layouts beneath
+  it, so this one needs a server wrapper with the client logic moved into a child
+
+The 7 dashboard routes are auth-gated with zero crawler value, so their going dynamic costs
+essentially nothing in business terms. The real win is keeping `/pricing`, `/blog` and the
+rest of the marketing surface static.
+
+Middleware segmentation was my earlier suggestion and should NOT be pursued first — it was
+proposed without a prototype or a cost comparison, and the scoped-layout approach above is
+cheaper, needs no request rewriting, and two of its three insertion points are free.
+
+**Next action:** move the read out of `app/layout.tsx` into the three scoped layouts, then
+re-measure to confirm the static count returns to ~60.
