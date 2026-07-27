@@ -15,6 +15,10 @@ import { pinPixelPosition, toNormalized } from "@/lib/sketch/pin-coords";
 export interface EvidencePinView {
   id: string;
   sketchRoomId?: string | null;
+  /** Display name from SketchRoom when the pin sits inside a room polygon. */
+  roomName?: string | null;
+  /** Present when the linked room came from RoomPlan. */
+  captureAdapter?: string | null;
   kind: string;
   x: number;
   y: number;
@@ -183,7 +187,11 @@ export function SketchEvidenceLayer({
                 "relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border-2 border-[#D4A574] bg-[#1C2E47] shadow-lg shadow-black/40",
                 "ring-2 ring-black/40 transition hover:scale-105",
               )}
-              aria-label={pin.caption || "Evidence photo"}
+              aria-label={
+                pin.roomName
+                  ? `${pin.caption || "Evidence"} — ${pin.roomName}`
+                  : pin.caption || "Evidence photo"
+              }
             >
               {thumb ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -197,6 +205,11 @@ export function SketchEvidenceLayer({
                 <RAIcon name="photo" decorative className="h-4 w-4" />
               )}
             </button>
+            {pin.roomName && (
+              <span className="absolute -bottom-5 left-1/2 max-w-[7rem] -translate-x-1/2 truncate rounded bg-black/75 px-1.5 py-0.5 text-[10px] text-white/90">
+                {pin.roomName}
+              </span>
+            )}
             {active && (
               <button
                 type="button"
@@ -243,9 +256,17 @@ export function SketchEvidenceLayer({
                   </div>
                 )}
                 <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-3">
-                  <p className="truncate text-sm text-white/80">
-                    {pin.caption || "Evidence pin"}
-                  </p>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-white/80">
+                      {pin.caption || "Evidence pin"}
+                    </p>
+                    {pin.roomName && (
+                      <p className="truncate text-xs text-white/50">
+                        {pin.roomName}
+                        {pin.captureAdapter === "roomplan" ? " · LiDAR" : ""}
+                      </p>
+                    )}
+                  </div>
                   <button
                     type="button"
                     className="rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white"

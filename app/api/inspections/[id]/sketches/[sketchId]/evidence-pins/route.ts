@@ -4,7 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
-import { findRoomIdAtPoint } from "@/lib/sketch/sync-room-graph";
+import {
+  attachRoomNamesToPins,
+  resolveEvidenceRoomLink,
+} from "@/lib/sketch/sync-room-graph";
 import { toNormalized } from "@/lib/sketch/pin-coords";
 
 const PIN_KINDS = new Set(["photo", "video", "document", "voice"]);
@@ -15,7 +18,12 @@ async function loadSketchForInspection(inspectionId: string, sketchId: string) {
     select: {
       id: true,
       rooms: {
-        select: { id: true, geometryJson: true },
+        select: {
+          id: true,
+          name: true,
+          fabricObjectId: true,
+          geometryJson: true,
+        },
         take: 500,
       },
     },
@@ -84,7 +92,9 @@ export async function GET(
       },
     });
 
-    return NextResponse.json({ pins });
+    return NextResponse.json({
+      pins: attachRoomNamesToPins(pins, sketch.rooms),
+    });
   } catch (error) {
     return fromException(request, error, { stage: "evidence-pins:list" });
   }
@@ -175,8 +185,21 @@ export async function POST(
     }
 
     let sketchRoomId = body.sketchRoomId ?? null;
+    let roomName: string | null = null;
+    let captureAdapter: string | null = null;
     if (!sketchRoomId) {
-      sketchRoomId = findRoomIdAtPoint(sketch.rooms, body.x, body.y);
+      const link = resolveEvidenceRoomLink(sketch.rooms, body.x, body.y);
+      sketchRoomId = link?.sketchRoomId ?? null;
+      roomName = link?.roomName ?? null;
+      captureAdapter = link?.captureAdapter ?? null;
+    } else {
+      const named = sketch.rooms.find((r) => r.id === sketchRoomId);
+      roomName = named?.name ?? null;
+      const geo = named?.geometryJson as { data?: { captureAdapter?: unknown } } | null;
+      captureAdapter =
+        typeof geo?.data?.captureAdapter === "string"
+          ? geo.data.captureAdapter
+          : null;
     }
 
     const pin = await prisma.evidencePin.create({
@@ -223,7 +246,10 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ pin }, { status: 201 });
+    return NextResponse.json(
+      { pin: { ...pin, roomName, captureAdapter } },
+      { status: 201 },
+    );
   } catch (error) {
     return fromException(request, error, { stage: "evidence-pins:create" });
   }

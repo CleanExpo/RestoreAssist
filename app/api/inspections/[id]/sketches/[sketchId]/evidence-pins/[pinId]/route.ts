@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { toNormalized } from "@/lib/sketch/pin-coords";
+import { resolveEvidenceRoomLink } from "@/lib/sketch/sync-room-graph";
 
 /** PATCH /api/inspections/[id]/sketches/[sketchId]/evidence-pins/[pinId] */
 export async function PATCH(
@@ -35,7 +36,7 @@ export async function PATCH(
 
     const existing = await prisma.evidencePin.findFirst({
       where: { id: pinId, sketchId },
-      select: { id: true },
+      select: { id: true, x: true, y: true },
     });
     if (!existing) {
       return apiError(request, {
@@ -74,6 +75,44 @@ export async function PATCH(
       ny = n.ny;
     }
 
+    const nextX = typeof body.x === "number" ? body.x : existing.x;
+    const nextY = typeof body.y === "number" ? body.y : existing.y;
+    const moved =
+      typeof body.x === "number" || typeof body.y === "number";
+
+    let sketchRoomId = body.sketchRoomId;
+    let roomName: string | null = null;
+    let captureAdapter: string | null = null;
+    if (sketchRoomId === undefined && moved) {
+      const rooms = await prisma.sketchRoom.findMany({
+        where: { sketchId },
+        select: {
+          id: true,
+          name: true,
+          fabricObjectId: true,
+          geometryJson: true,
+        },
+        take: 500,
+      });
+      const link = resolveEvidenceRoomLink(rooms, nextX, nextY);
+      sketchRoomId = link?.sketchRoomId ?? null;
+      roomName = link?.roomName ?? null;
+      captureAdapter = link?.captureAdapter ?? null;
+    } else if (typeof sketchRoomId === "string") {
+      const room = await prisma.sketchRoom.findFirst({
+        where: { id: sketchRoomId, sketchId },
+        select: { name: true, geometryJson: true },
+      });
+      roomName = room?.name ?? null;
+      const geo = room?.geometryJson as
+        | { data?: { captureAdapter?: unknown } }
+        | null;
+      captureAdapter =
+        typeof geo?.data?.captureAdapter === "string"
+          ? geo.data.captureAdapter
+          : null;
+    }
+
     const pin = await prisma.evidencePin.update({
       where: { id: pinId },
       data: {
@@ -81,9 +120,7 @@ export async function PATCH(
         ...(typeof body.y === "number" ? { y: body.y } : {}),
         ...(nx != null ? { nx } : {}),
         ...(ny != null ? { ny } : {}),
-        ...(body.sketchRoomId !== undefined
-          ? { sketchRoomId: body.sketchRoomId }
-          : {}),
+        ...(sketchRoomId !== undefined ? { sketchRoomId } : {}),
         ...(body.caption !== undefined ? { caption: body.caption } : {}),
         ...(typeof body.rotationDeg === "number"
           ? { rotationDeg: body.rotationDeg }
@@ -113,7 +150,12 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json({ pin });
+    return NextResponse.json({
+      pin: {
+        ...pin,
+        ...(roomName !== null || moved ? { roomName, captureAdapter } : {}),
+      },
+    });
   } catch (error) {
     return fromException(request, error, { stage: "evidence-pins:update" });
   }

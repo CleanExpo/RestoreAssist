@@ -945,7 +945,39 @@ export function SketchEditorV2({
             canvasHeight: height,
           }),
         },
-      );
+      )
+        .then(async (res) => {
+          if (!res.ok) return;
+          const json = (await res.json()) as {
+            pin?: {
+              sketchRoomId?: string | null;
+              roomName?: string | null;
+              captureAdapter?: string | null;
+            };
+          };
+          const updated = json.pin;
+          if (!updated) return;
+          setFloorsData((prev) =>
+            prev.map((fd, i) =>
+              i === activeIdx
+                ? {
+                    ...fd,
+                    evidencePins: fd.evidencePins.map((p) =>
+                      p.id === id
+                        ? {
+                            ...p,
+                            sketchRoomId: updated.sketchRoomId ?? null,
+                            roomName: updated.roomName ?? null,
+                            captureAdapter: updated.captureAdapter ?? null,
+                          }
+                        : p,
+                    ),
+                  }
+                : fd,
+            ),
+          );
+        })
+        .catch(() => {});
     },
     [activeIdx, floorsData, height, inspectionId, uid, width],
   );

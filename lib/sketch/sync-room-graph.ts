@@ -3,8 +3,12 @@
  *
  * Fabric remains the render SSOT. These rows give every room a stable UUID
  * that EvidencePin / moisture / damage / scope can join to (SKETCH-002).
+ *
+ * RA-7091: RoomPlan rooms use the same fabricObjectId (`data.id`) so evidence
+ * placed inside a LiDAR polygon binds to the same SketchRoom row after save.
  */
 import { createHash } from "node:crypto";
+import { polygonAbsolutePoints } from "./fabric-absolute";
 
 const DEFAULT_PX_PER_M = 100;
 
@@ -17,6 +21,7 @@ interface FabricObject {
   width?: number;
   height?: number;
   points?: Point[];
+  pathOffset?: { x: number; y: number };
   data?: {
     type?: string;
     id?: string;
@@ -27,6 +32,7 @@ interface FabricObject {
     material?: string;
     waterCategory?: string;
     provenance?: string;
+    captureAdapter?: string;
     [k: string]: unknown;
   };
   [k: string]: unknown;
@@ -45,7 +51,16 @@ export interface RoomGraphNodeInput {
   materialSlug: string | null;
   waterCategory: string | null;
   provenance: string;
+  /** Present when the room came from RoomPlan / underlay / etc. */
+  captureAdapter: string | null;
   geometryJson: FabricObject;
+}
+
+export interface EvidenceRoomLink {
+  sketchRoomId: string;
+  fabricObjectId: string | null;
+  roomName: string;
+  captureAdapter: string | null;
 }
 
 function xy(p: Point): { x: number; y: number } {
@@ -139,6 +154,10 @@ export function extractRoomGraphNodes(
         typeof obj.data.provenance === "string"
           ? obj.data.provenance
           : "operator_measured",
+      captureAdapter:
+        typeof obj.data.captureAdapter === "string"
+          ? obj.data.captureAdapter
+          : null,
       geometryJson: obj,
     });
   }
@@ -147,26 +166,98 @@ export function extractRoomGraphNodes(
 }
 
 /**
- * Point-in-polygon (ray cast) for assigning evidence pins to the nearest room.
- * Uses Fabric relative polygon points + left/top when present.
+ * Point-in-polygon for assigning evidence pins to a room.
+ * Uses Fabric absolute polygon points (pathOffset-aware) so RoomPlan and
+ * hand-drawn rooms both hit-test correctly after canvas transforms.
  */
 export function findRoomIdAtPoint(
   rooms: Array<{ id: string; geometryJson: unknown }>,
   x: number,
   y: number,
 ): string | null {
+  return resolveEvidenceRoomLink(rooms, x, y)?.sketchRoomId ?? null;
+}
+
+/**
+ * Scene-space polygon vertices for hit-testing.
+ * Prefers live Fabric transforms; falls back to serialized left/top (+ pathOffset).
+ */
+function roomPolygonScenePoints(
+  geo: FabricObject,
+): Array<{ x: number; y: number }> | null {
+  const hasLiveMatrix =
+    typeof (geo as { calcTransformMatrix?: unknown }).calcTransformMatrix ===
+    "function";
+  if (hasLiveMatrix) {
+    const abs = polygonAbsolutePoints(geo);
+    if (abs && abs.length >= 3) return abs;
+  }
+
+  if (!Array.isArray(geo.points) || geo.points.length < 3) return null;
+  const ox = typeof geo.left === "number" ? geo.left : 0;
+  const oy = typeof geo.top === "number" ? geo.top : 0;
+  const off = geo.pathOffset;
+  if (off && typeof off.x === "number" && typeof off.y === "number") {
+    return geo.points.map((p) => {
+      const c = xy(p);
+      return { x: c.x - off.x + ox, y: c.y - off.y + oy };
+    });
+  }
+  return geo.points.map((p) => {
+    const c = xy(p);
+    return { x: c.x + ox, y: c.y + oy };
+  });
+}
+
+/**
+ * Richer room link for evidence UI — includes display name + capture adapter.
+ */
+export function resolveEvidenceRoomLink(
+  rooms: Array<{
+    id: string;
+    name?: string | null;
+    fabricObjectId?: string | null;
+    geometryJson: unknown;
+  }>,
+  x: number,
+  y: number,
+): EvidenceRoomLink | null {
   for (const room of rooms) {
     const geo = room.geometryJson as FabricObject | null;
-    if (!geo || !Array.isArray(geo.points) || geo.points.length < 3) continue;
-    const ox = typeof geo.left === "number" ? geo.left : 0;
-    const oy = typeof geo.top === "number" ? geo.top : 0;
-    const pts = geo.points.map((p) => {
-      const c = xy(p);
-      return { x: c.x + ox, y: c.y + oy };
-    });
-    if (pointInPolygon(x, y, pts)) return room.id;
+    if (!geo) continue;
+    const pts = roomPolygonScenePoints(geo);
+    if (!pts || pts.length < 3) continue;
+    if (!pointInPolygon(x, y, pts)) continue;
+
+    const data = geo.data;
+    return {
+      sketchRoomId: room.id,
+      fabricObjectId:
+        room.fabricObjectId ??
+        (typeof data?.id === "string" ? data.id : null),
+      roomName:
+        (typeof room.name === "string" && room.name) ||
+        (typeof data?.label === "string" && data.label) ||
+        "Room",
+      captureAdapter:
+        typeof data?.captureAdapter === "string" ? data.captureAdapter : null,
+    };
   }
   return null;
+}
+
+/** Attach roomName onto evidence pin view models from SketchRoom rows. */
+export function attachRoomNamesToPins<
+  T extends { sketchRoomId?: string | null },
+>(
+  pins: T[],
+  rooms: Array<{ id: string; name: string }>,
+): Array<T & { roomName: string | null }> {
+  const byId = new Map(rooms.map((r) => [r.id, r.name]));
+  return pins.map((pin) => ({
+    ...pin,
+    roomName: pin.sketchRoomId ? (byId.get(pin.sketchRoomId) ?? null) : null,
+  }));
 }
 
 function pointInPolygon(
