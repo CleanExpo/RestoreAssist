@@ -99,7 +99,6 @@
     "app/dashboard/invoices/recurring/new/page.tsx": 1,
     "app/dashboard/invoices/recurring/page.tsx": 1,
     "app/dashboard/invoices/templates/page.tsx": 1,
-    "app/dashboard/layout.tsx": 1,
     "app/dashboard/margot/home/page.tsx": 1,
     "app/dashboard/margot/page.tsx": 1,
     "app/dashboard/media/page.tsx": 1,
@@ -357,6 +356,7 @@
     "components/VisualDashboardReport.tsx": 1,
     "components/VisualScopeOfWorksViewer.tsx": 1,
     "components/voice/voice-note-button.tsx": 1,
-    "components/WelcomeScreen.tsx": 1
+    "components/WelcomeScreen.tsx": 1,
+    "app/dashboard/DashboardShell.tsx": 1
   }
 }

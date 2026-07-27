@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { calculateInvoiceTotals } from "@/lib/invoices/calc";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -200,57 +201,54 @@ export async function POST(
       // If the original invoice is itself a variation, use its original
       const baseInvoiceId = originalInvoice.originalInvoiceId || id;
 
-      // Calculate financial totals
-      let subtotal = 0;
-      let gst = 0;
-
-      lineItems.forEach((item: any) => {
-        const itemSubtotal = Math.round(item.quantity * item.unitPrice * 100);
-        const itemGST = Math.round(itemSubtotal * (item.gstRate / 100));
-        subtotal += itemSubtotal;
-        gst += itemGST;
+      // RA-7096 — use the existing single source of truth (lib/invoices/calc.ts).
+      // This block previously summed per-line GST and then discarded it with
+      // `gst = Math.round(subtotal * 0.1)`, taxing GST-free lines at 10% on a
+      // tax invoice. calc.ts already implements the server algorithm including
+      // proportional discount scaling and GST on shipping.
+      const totals = calculateInvoiceTotals({
+        lineItems: lineItems.map((item: any) => ({
+          quantity: item.quantity,
+          unitPrice: Math.round(item.unitPrice * 100),
+          gstRate: item.gstRate,
+        })),
+        // Round the dollar->cent conversion HERE. calc.ts treats these as
+        // integer cents and does not round them itself, so an input like
+        // 10.555 would otherwise put fractional cents into the subtotal.
+        // The pre-calc.ts code rounded at exactly these two points.
+        discountAmount: discountAmount
+          ? Math.round(parseFloat(discountAmount) * 100)
+          : null,
+        discountPercentage: discountPercentage
+          ? parseFloat(discountPercentage)
+          : null,
+        shippingAmount: shippingAmount
+          ? Math.round(parseFloat(shippingAmount) * 100)
+          : null,
       });
+      const subtotal = totals.subtotalExGST;
+      const gst = totals.gstAmount;
+      const total = totals.totalIncGST;
 
-      // Apply discount
-      if (discountAmount) {
-        subtotal -= Math.round(parseFloat(discountAmount) * 100);
-      } else if (discountPercentage) {
-        const discount = Math.round(
-          subtotal * (parseFloat(discountPercentage) / 100),
-        );
-        subtotal -= discount;
-      }
-
-      // Add shipping
-      if (shippingAmount) {
-        subtotal += Math.round(parseFloat(shippingAmount) * 100);
-      }
-
-      // Recalculate GST
-      gst = Math.round(subtotal * 0.1);
-      const total = subtotal + gst;
-
-      // Get next invoice number
-      const sequence = await prisma.invoiceSequence.findFirst({
-        where: { userId: userId },
-      });
-
-      if (!sequence) {
-        return apiError(request, {
-          code: "INTERNAL",
-          message: "Invoice sequence not found",
-          status: 500,
-        });
-      }
-
+      // RA-7097 — atomic, schema-correct sequence allocation.
+      //
+      // This previously read `(sequence as any).nextNumber`, a field that has
+      // never existed on InvoiceSequence (schema has `lastNumber`), so the
+      // route threw `TypeError: Cannot read properties of undefined` on every
+      // call. The `as any` casts hid it from tsc. It also read-then-wrote
+      // outside a transaction, so concurrent variations could mint the same
+      // number. The upsert increment is atomic and mirrors
+      // app/api/invoices/route.ts.
       const year = new Date().getFullYear();
-      const invoiceNumber = `RA-${year}-${(sequence as any).nextNumber.toString().padStart(4, "0")}-V`;
-
-      // Update sequence
-      await prisma.invoiceSequence.update({
-        where: { id: sequence.id },
-        data: { nextNumber: (sequence as any).nextNumber + 1 } as any,
+      const sequence = await prisma.invoiceSequence.upsert({
+        where: { userId_year: { userId, year } },
+        update: { lastNumber: { increment: 1 } },
+        create: { userId, year, prefix: "RA", lastNumber: 1 },
       });
+
+      const invoiceNumber = `${sequence.prefix}-${year}-${String(
+        sequence.lastNumber,
+      ).padStart(4, "0")}-V`;
 
       // Calculate due date (default 30 days from now)
       const dueDate = new Date();
@@ -300,21 +298,30 @@ export async function POST(
           userId: userId,
           // Line items
           lineItems: {
-            create: lineItems.map((item: any, index: number) => ({
-              description: item.description,
-              category: item.category || null,
-              quantity: item.quantity,
-              unitPrice: Math.round(item.unitPrice * 100),
-              subtotal: Math.round(item.quantity * item.unitPrice * 100),
-              gstRate: item.gstRate || 10,
-              gstAmount: Math.round(
-                item.quantity * item.unitPrice * 100 * (item.gstRate / 100),
-              ),
-              total: Math.round(
-                item.quantity * item.unitPrice * 100 * (1 + item.gstRate / 100),
-              ),
-              sortOrder: index,
-            })),
+            create: lineItems.map((item: any, index: number) => {
+              // Derive each line from the SAME per-item maths calc.ts uses for
+              // the header: cents first, then multiply by quantity. Computing
+              // `qty * unitPrice * 100` here instead differs by a cent whenever
+              // quantity is fractional (InvoiceLineItem.quantity is Float —
+              // hours and m² are normal on a restoration invoice), which would
+              // make the header disagree with the sum of its own lines.
+              const unitPriceCents = Math.round(item.unitPrice * 100);
+              const lineSubtotal = Math.round(item.quantity * unitPriceCents);
+              const gstRate = item.gstRate ?? 10;
+              const lineGst = Math.round(lineSubtotal * (gstRate / 100));
+
+              return {
+                description: item.description,
+                category: item.category || null,
+                quantity: item.quantity,
+                unitPrice: unitPriceCents,
+                subtotal: lineSubtotal,
+                gstRate,
+                gstAmount: lineGst,
+                total: lineSubtotal + lineGst,
+                sortOrder: index,
+              };
+            }),
           },
         },
         include: {

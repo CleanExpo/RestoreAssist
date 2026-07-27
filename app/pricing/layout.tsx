@@ -1,3 +1,7 @@
+import { headers } from "next/headers";
+
+import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
+import { isIosShellUserAgent } from "@/lib/capacitor";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -25,10 +29,19 @@ export const metadata: Metadata = {
   alternates: { canonical: "/pricing" },
 };
 
-export default function PricingLayout({
+// App Review 3.1.1 — this segment renders a BillingGate, so the platform must
+// be resolved on the SERVER (the iOS shell loads server-rendered HTML). Scoped
+// here rather than in the root layout so only the segments that actually gate
+// billing opt out of static rendering.
+export default async function PricingLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  const isIosShell = isIosShellUserAgent((await headers()).get("user-agent"));
+  return (
+    <ShellPlatformProvider isIosShell={isIosShell}>
+      {children}
+    </ShellPlatformProvider>
+  );
 }

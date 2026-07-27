@@ -60,6 +60,19 @@ const config: CapacitorConfig = {
     contentInset: "automatic",
     scrollEnabled: true,
     backgroundColor: "#050505",
+    // App Review 3.1.1 — the SERVER must be able to identify this WebView.
+    //
+    // Because `server.url` above points the shell at the live site, every
+    // screen the shell shows is server-rendered HTML. Without a distinguishing
+    // token the server cannot tell an iOS shell request from a crawler or a
+    // desktop browser, so it emits billing UI that WKWebView then paints and
+    // holds for the whole bundle-download-and-hydrate window. A default
+    // Capacitor iOS WebView sends an ordinary Safari user-agent, which is why
+    // client-side detection alone can never close that window.
+    //
+    // Keep this token in sync with IOS_SHELL_UA_TOKEN in lib/capacitor.ts.
+    // Changing it requires a native rebuild to take effect.
+    appendUserAgent: "RestoreAssistIOSShell",
   },
   android: {
     backgroundColor: "#050505",

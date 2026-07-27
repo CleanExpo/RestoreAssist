@@ -64,9 +64,163 @@ never so they look actionable.
 | 30 | Wire `classifyClauseRef` into the report path | judge verdict | TODO | The five-value classifier exists and is scoped to Live Teacher only. Wiring it to reports is the 90% win the currency module was not. |
 | 31 | Registry coverage honesty | judge verdict | TODO | ~30 AS/NZS, NADCA and AS standards the product cites sit outside `STANDARDS_VERSIONS`. Either cover them or state coverage explicitly wherever status is shown. |
 
+| 32 | **BillingGate hydration fail-open — App Review 3.1.1** | frozen-head review of #1989 + independent review of 401ac914 | **BLOCKED — founder/Board** | The iOS shell loads server-rendered HTML (`capacitor.config.ts:22` → `https://restoreassist.app`, no `output:"export"`), and React 19 uses `getServerSnapshot` while hydrating, so WKWebView paints the billing UI and holds it for the whole bundle-download window. **Cannot be closed inside the component** — the server cannot distinguish an iOS shell request from a crawler. Needs `appendUserAgent`/`overrideUserAgent` in the native shell config plus server-side detection, which changes the App Store build. Partial fix (fresh-mount path + null-fallback bug) is committed at 2c8cab6a with two skipped tests asserting the correct end state. |
+
 ## Run log
 
 | When | Task | Stage reached | Evidence |
 |---|---|---|---|
 | 2026-07-26 | iOS billing-gate fix (out of band) | REVIEWED, awaiting merge | PR #1989 **OPEN + draft, NOT merged** (`mergedAt: null`, 2 checks pending). type-check 0, 11/11 tests, positive control cited. **The App Review violation remains live on main until this merges.** |
 | 2026-07-26 | #1 Standards Currency Registry | DEFINED | Two verified findings: `nextRevisionExpected` has zero consumers repo-wide; NCC due 2025 is already past. Wiki recall MISSED (no vault page on standards currency) — index repair owed. |
+
+## Wave 6 — discovery pass 2026-07-26 (30 items, each evidenced to file:line)
+
+Ranked by (impact x confidence) / effort. Items 33-38 are the ship-first set: all small,
+all traceable to a single line.
+
+| # | Task | Evidence | Size |
+|---|---|---|---|
+| 33 | Duplicate legal invoice numbers under concurrency | `app/api/invoices/[id]/variations/route.ts:234` read-then-write outside a transaction; siblings do it inside one (`app/api/invoices/route.ts:315`) | S |
+| 34 | GST-free lines silently taxed at 10% | same file `:207-212` computes per-line GST, `:230` overwrites with flat `subtotal * 0.1` | S |
+| 35 | `puppeteer` prod dependency with zero imports | `package.json:226`; only other hit is a `serverExternalPackages` entry | S |
+| 36 | Android Google Sign-In ships a literal TODO client ID | `lib/oauth-native.ts:62`; var absent from `.env.example`, workflows and `vercel.json` — Play Store blocker | S |
+| 37 | The 4 red tests need no DB — lazy-Proxy getter throws on property access | `lib/prisma.ts:63`; fix is `vi.mock`. **Do NOT set a dummy DATABASE_URL** — 27 suites use `skipIf(!DATABASE_URL)` and would un-skip into real connection failures | S |
+| 38 | Prod builds ignore type + lint errors | `next.config.mjs:33,36` with 214 `as any` in API routes | S |
+| 39 | `findManyWithoutTake` guard false-negatives on a nested `take:` | `scripts/audit-api-routes.ts:146` matches the whole call block | S |
+| 40 | `hasUnsafeRawSql` misses generic-annotated tagged templates | `scripts/audit-api-routes.ts:157`; `app/api/search/route.ts:47,67,86` invisible to the gate | S |
+| 41 | 18 unbounded `findMany` in `lib/` — auditor only scans `app/api` | worst: `lib/restore/plan.ts:38`, `lib/telemetry/kpis.ts:40` | M |
+| 42 | Voice-note transcribe skips MIME allowlist when Content-Type absent | `app/api/ai/voice-note-transcribe/route.ts:108` — rule 11 violation on a paid path | S |
+| 43 | `parse-pdf` validates `file.type` only, no magic bytes | `:65`; canonical impl at `app/api/reports/upload/route.ts:43-53` | S |
+| 44 | `sign-in-as` can forge an ADMIN session in prod; sibling cannot | `app/api/test/sign-in-as/route.ts:35` vs `seed-trial-user/route.ts:28-31` | S |
+| 45 | NZ compliance gates are unconditional no-ops | `lib/compliance/nzbs-compliance-gate.ts:69` hardcodes `"AU"`; NZBC logic below is dead code | M |
+| 46 | ~100 `(prisma as any)` casts on models that exist | sketch geometry + integration credentials lose type checking | M |
+| 47 | 3 storage crons run 10-15min with watchdog disabled | `lib/cron/expected-jobs.ts:69-82`; the customer-evidence durability path | M |
+| 48 | Invoice send/checkout have no rate limit | `app/api/invoices/[id]/send`, `/checkout`, `/payments` | S |
+| 49 | `reopen` accepts `voidInvoice: true` and does nothing | `app/api/inspections/[id]/reopen/route.ts:193-205` | S |
+| 50 | Bluetooth GATT UUIDs + byte parser are unvalidated guesses | `lib/nir-bluetooth-service.ts:43,406,420` — silent moisture-reading corruption into insurer reports | M |
+| 51 | Flood/bushfire/heritage overlays are hardcoded stubs | `lib/nir-location-services.ts:61,146,197` | M |
+| 52 | NZ weather stub + snapshot never persisted | `lib/weather/weather-provider.ts:6,218`; `lib/weather/auto-tag.ts:8` | M |
+| 53 | 5 more files carry wrong S520:2024 chapter citations | `lib/iicrc-checklists.ts:844-908`, `lib/equipment-calculator-mould.ts:177+`, `lib/equipment-hepa-negative-air.ts:9` — founder-gated on licensed PDFs | M |
+| 54 | Setup-wizard SSE polls 1/s against a `max: 5` pool | `app/api/setup/hydrate/stream/route.ts:1` | S |
+| 55 | Setup hydrate rate limit not keyed on `session.user.id` | `app/api/setup/hydrate/route.ts:16` — rule 10 | S |
+| 56 | Deprecated + duplicated deps | legacy `@google/generative-ai` still the imported one; `framer-motion` + `motion`; Windows-only `lightningcss-win32`; `radix-ui` meta with zero imports | M |
+| 57 | Four PDF libraries + unmaintained `html2canvas` | decide and document the canonical PDF path | S |
+| 58 | Two suppressed advisories with no expiry | `package.json:44-47` | S |
+| 59 | N+1 in the evidence submission gate | `lib/evidence/submission-gate.ts:49-50` — runs on every rule-23 promotion check | M |
+| 60 | 11 icon-only buttons with no accessible name | `NotificationBell.tsx:172,182` and 9 others | S |
+| 61 | 90 `<Input>` with no id/aria-label/placeholder | in-table editable grids (contents-manifest, scope-items, payments) | M |
+| 62 | 5 client bundles over 2,000 lines | `InitialDataEntryForm.tsx` (5,006), `NIRTechnicianInputForm.tsx` (3,972) — the field surface on site 4G | M |
+
+**Verified clean, do not re-investigate:** rule 7 (`error.message` in 500s) is genuinely
+enforced; `app/api` unbounded `findMany` is clean and the `ra-query-ok` convention is used
+properly; zero `it.skip`/`.only` in the repo and the `skipIf(!DATABASE_URL)` pattern is
+correctly backed by `scripts/ci/test-with-db.sh` + parity check.
+
+## Measurement — `headers()` static-rendering cost (clean, 2026-07-26)
+
+Measured twice; the second run used an isolated worktree of untouched `origin/main` so no
+file mutation could contaminate it (the first run was tainted: the layout was restored
+mid-compile in the same directory the build reads from).
+
+| Build | Static | Dynamic |
+|---|---|---|
+| `origin/main` (clean baseline) | 68 | 290 |
+| With the fix | 7 | 351 |
+
+**61 routes lose static generation**, including `/pricing`, `/about`, `/features`, `/blog`,
+`/blog/[slug]`, `/contact`.
+
+### This is NOT a founder decision — it is a scoping bug in my implementation
+
+I put the `headers()` read in the ROOT layout, which opts the whole tree out of static
+generation. Measured from the clean baseline: **all 8 routes that actually render a
+BillingGate were already static** (`/compliance`, `/pricing`, `/dashboard/{credits,
+integrations,pricing,settings,subscription,success}`). Scoping the provider to just those
+segments costs **~8 routes instead of 61** — the 53 marketing and blog routes stay static.
+
+Insertion points, checked:
+- `app/compliance/layout.tsx` — **already a server component**, no refactor
+- `app/pricing/layout.tsx` — **already a server component**, no refactor
+- `app/dashboard/layout.tsx` — is `"use client"`, and there are no per-route layouts beneath
+  it, so this one needs a server wrapper with the client logic moved into a child
+
+The 7 dashboard routes are auth-gated with zero crawler value, so their going dynamic costs
+essentially nothing in business terms. The real win is keeping `/pricing`, `/blog` and the
+rest of the marketing surface static.
+
+Middleware segmentation was my earlier suggestion and should NOT be pursued first — it was
+proposed without a prototype or a cost comparison, and the scoped-layout approach above is
+cheaper, needs no request rewriting, and two of its three insertion points are free.
+
+**Next action:** move the read out of `app/layout.tsx` into the three scoped layouts, then
+re-measure to confirm the static count returns to ~60.
+
+## Review gate — task #32 BillingGate, dual-family status 2026-07-27
+
+| Family | Scope reviewed | Verdict |
+|---|---|---|
+| Claude (adversarial) | full fix incl. hydrateRoot probe + positive control | FAIL → all P1/P2 drained |
+| Codex (cross-family) | **wiring only** — 4-link chain, 5 named files | **PASS** on `cd3c5234` |
+
+Codex evidence: token match `capacitor.config.ts:75` ↔ `lib/capacitor.ts:67`; computed verdict
+passed at `app/layout.tsx:141,164`; server verdict wins with client fallback at
+`BillingGate.tsx:67,73-79`; `undefined` vs explicit `null` distinguished at `:85-88`.
+
+**Scope honesty:** Codex answered the ONE narrow question it was asked (is the chain wired
+correctly). That is not a full-scope PASS and must not be reported as one. Its two caveats —
+`force-static` emptying the verdict, and pre-token shells being uncovered — are the same two
+already documented in the component header, which it cited back (`:29-31`, `:32-33`).
+
+**Process note:** three earlier Codex dispatches produced nothing. Root cause diagnosed —
+`codex exec` needs the brief piped with a trailing `-`; a positional prompt hangs on stdin in
+a non-TTY background run. Recorded as memory `feedback_codex_exec_stdin_invocation`. Two of
+those three were wrongly written up as "Codex stalled".
+
+**Still open on this branch:** the root-layout scoping bug (61 routes dynamic; 53 recoverable
+by moving the `headers()` read into the 3 segment layouts). That is mine to fix, not a
+founder decision.
+
+### Correction — RA-7096 "single source of truth" was overclaimed
+
+The commit message for `lib/invoices/totals.ts` says the extraction stops the two
+implementations drifting again. **Verified false the same session:**
+`grep -c "computeInvoiceTotals" app/api/invoices/route.ts` returns **0**, and that route
+still carries its own copy (`:256` `gstAmount += itemGst`, `:290`/`:297` discount handling).
+
+Actual state: the BROKEN caller (variations) now uses the helper and is fixed; the CORRECT
+caller was left untouched. Net effect is a third location, not one. The GST defect is
+genuinely closed; the duplication that caused it is not.
+
+**Follow-up (task #63):** migrate `app/api/invoices/route.ts` to `computeInvoiceTotals`.
+Non-trivial — that route also owns `validateAdjustments`, `estimateLineItemId` passthrough
+and different field shapes, and it is a working money path, so it needs its own tests and
+review rather than a rushed refactor at the end of a long session.
+
+### Measurement correction — all earlier static-route figures were understated
+
+My grep character class did not match the Unicode markers Next emits, so every
+static-route number quoted before this point is wrong. Recounted with a Python
+regex over the same build logs:
+
+| Build | Static (○+●) | Dynamic (ƒ) |
+|---|---|---|
+| Clean baseline (`origin/main`) | **135** | 573 |
+| `headers()` in root layout | **11** | 697 |
+| Scoped to 3 segment layouts | **35** | 673 |
+
+- Root-layout cost: **124 static routes**, not the 61 previously reported.
+- Scoping recovered **24**, not the 53 projected. The projection was wrong.
+
+**Why:** `/dashboard` holds **144 routes**. A `headers()` call in
+`app/dashboard/layout.tsx` makes that whole subtree dynamic, and it dominates
+everything else. Gating at the segment root is too coarse.
+
+**Next refinement (task #64):** push the provider down to per-route layouts for
+only the ~11 dashboard routes that actually render a BillingGate — credits,
+integrations, pricing, settings, subscription, success, clients,
+pricing-config, forms/interview, inspections/[id], reports/new — instead of one
+layout at `/dashboard`. That gates ~11 routes rather than 144.
+
+Current state is still strictly better than the root-layout version (35 static
+vs 11) and is correct on the App Review exposure, so it is committed rather
+than reverted.

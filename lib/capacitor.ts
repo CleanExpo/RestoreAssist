@@ -55,12 +55,38 @@ export function isCapacitor(): boolean {
   return /capacitor/i.test(navigator.userAgent);
 }
 
+/**
+ * Token appended to the iOS shell's WebView user-agent (see
+ * `ios.appendUserAgent` in capacitor.config.ts). This is the ONLY signal the
+ * server can use to identify the shell, because `server.url` makes every shell
+ * screen a server-rendered response and a default Capacitor iOS WebView is
+ * otherwise indistinguishable from Safari.
+ *
+ * Changing this string requires a native rebuild; keep both sides in sync.
+ */
+export const IOS_SHELL_UA_TOKEN = "RestoreAssistIOSShell";
+
+/**
+ * Server-safe shell detection from a raw user-agent string. Used by the root
+ * layout so SSR emits the correct HTML on the very first byte — the client
+ * helpers below cannot do this because they need `navigator`.
+ */
+export function isIosShellUserAgent(userAgent: string | null | undefined): boolean {
+  if (!userAgent) return false;
+  return userAgent.includes(IOS_SHELL_UA_TOKEN);
+}
+
 /** True when running inside the iOS Capacitor shell specifically. */
 export function isCapacitorIOS(): boolean {
   const cap = _getCapacitor();
   if (cap?.getPlatform?.() === "ios") return true;
   if (typeof navigator === "undefined") return false;
-  return /capacitor.*ios|ios.*capacitor/i.test(navigator.userAgent);
+  // The appended token is the reliable match; the legacy patterns are kept as
+  // a fallback for older shells built before the token was added.
+  return (
+    isIosShellUserAgent(navigator.userAgent) ||
+    /capacitor.*ios|ios.*capacitor/i.test(navigator.userAgent)
+  );
 }
 
 /** True when running inside the Android Capacitor shell specifically. */

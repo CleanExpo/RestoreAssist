@@ -126,6 +126,11 @@ export const viewport: Viewport = {
   themeColor: "#1C2E47",
 };
 
+// NOTE: the iOS-shell platform verdict is deliberately NOT resolved here.
+// Calling headers() in the root layout opts EVERY route out of static
+// rendering (measured: 68 static -> 7). It is scoped instead to the three
+// segments that contain a BillingGate — app/dashboard, app/pricing and
+// app/compliance — see their layouts.
 export default function RootLayout({
   children,
 }: {
