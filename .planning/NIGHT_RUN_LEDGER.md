@@ -179,3 +179,19 @@ those three were wrongly written up as "Codex stalled".
 **Still open on this branch:** the root-layout scoping bug (61 routes dynamic; 53 recoverable
 by moving the `headers()` read into the 3 segment layouts). That is mine to fix, not a
 founder decision.
+
+### Correction — RA-7096 "single source of truth" was overclaimed
+
+The commit message for `lib/invoices/totals.ts` says the extraction stops the two
+implementations drifting again. **Verified false the same session:**
+`grep -c "computeInvoiceTotals" app/api/invoices/route.ts` returns **0**, and that route
+still carries its own copy (`:256` `gstAmount += itemGst`, `:290`/`:297` discount handling).
+
+Actual state: the BROKEN caller (variations) now uses the helper and is fixed; the CORRECT
+caller was left untouched. Net effect is a third location, not one. The GST defect is
+genuinely closed; the duplication that caused it is not.
+
+**Follow-up (task #63):** migrate `app/api/invoices/route.ts` to `computeInvoiceTotals`.
+Non-trivial — that route also owns `validateAdjustments`, `estimateLineItemId` passthrough
+and different field shapes, and it is a working money path, so it needs its own tests and
+review rather than a rushed refactor at the end of a long session.
