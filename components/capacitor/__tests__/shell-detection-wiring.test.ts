@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, relative, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -16,6 +16,23 @@ import { IOS_SHELL_UA_TOKEN, isIosShellUserAgent } from "@/lib/capacitor";
  */
 const repoRoot = process.cwd();
 const read = (p: string) => readFileSync(join(repoRoot, p), "utf8");
+
+function findBillingGateFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const absolutePath = join(directory, entry.name);
+    if (entry.isDirectory()) return findBillingGateFiles(absolutePath);
+    if (
+      !entry.isFile() ||
+      !entry.name.endsWith(".tsx") ||
+      absolutePath.includes(`${sep}__tests__${sep}`) ||
+      !readFileSync(absolutePath, "utf8").includes("<BillingGate")
+    ) {
+      return [];
+    }
+
+    return [relative(repoRoot, absolutePath).split(sep).join("/")];
+  });
+}
 
 describe("iOS shell detection — cross-file wiring", () => {
   it("link 1: capacitor.config.ts appends the exact token lib/capacitor.ts matches", () => {
@@ -98,16 +115,8 @@ describe("iOS shell detection — cross-file wiring", () => {
   // branch exists to close — with every test still green. Regenerate from the
   // source tree and compare.
   it("the BillingGate manifest is complete — regenerated from the tree", () => {
-    const { execSync } = require("node:child_process") as typeof import("node:child_process");
-
-    const found = execSync(
-      "grep -rl '<BillingGate' --include='*.tsx' app components || true",
-      { cwd: repoRoot, encoding: "utf8" },
-    )
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .filter((f) => !f.includes("__tests__"))
+    const found = ["app", "components"]
+      .flatMap((root) => findBillingGateFiles(join(repoRoot, root)))
       .sort();
 
     const listed = read(".planning/BILLING_GATE_ROUTES.txt")
