@@ -298,21 +298,30 @@ export async function POST(
           userId: userId,
           // Line items
           lineItems: {
-            create: lineItems.map((item: any, index: number) => ({
-              description: item.description,
-              category: item.category || null,
-              quantity: item.quantity,
-              unitPrice: Math.round(item.unitPrice * 100),
-              subtotal: Math.round(item.quantity * item.unitPrice * 100),
-              gstRate: item.gstRate ?? 10,
-              gstAmount: Math.round(
-                item.quantity * item.unitPrice * 100 * (item.gstRate / 100),
-              ),
-              total: Math.round(
-                item.quantity * item.unitPrice * 100 * (1 + item.gstRate / 100),
-              ),
-              sortOrder: index,
-            })),
+            create: lineItems.map((item: any, index: number) => {
+              // Derive each line from the SAME per-item maths calc.ts uses for
+              // the header: cents first, then multiply by quantity. Computing
+              // `qty * unitPrice * 100` here instead differs by a cent whenever
+              // quantity is fractional (InvoiceLineItem.quantity is Float —
+              // hours and m² are normal on a restoration invoice), which would
+              // make the header disagree with the sum of its own lines.
+              const unitPriceCents = Math.round(item.unitPrice * 100);
+              const lineSubtotal = Math.round(item.quantity * unitPriceCents);
+              const gstRate = item.gstRate ?? 10;
+              const lineGst = Math.round(lineSubtotal * (gstRate / 100));
+
+              return {
+                description: item.description,
+                category: item.category || null,
+                quantity: item.quantity,
+                unitPrice: unitPriceCents,
+                subtotal: lineSubtotal,
+                gstRate,
+                gstAmount: lineGst,
+                total: lineSubtotal + lineGst,
+                sortOrder: index,
+              };
+            }),
           },
         },
         include: {

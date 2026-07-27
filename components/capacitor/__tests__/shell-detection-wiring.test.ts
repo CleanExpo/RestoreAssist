@@ -92,6 +92,58 @@ describe("iOS shell detection — cross-file wiring", () => {
     expect(isIosShellUserAgent("")).toBe(false);
   });
 
+  // P2 from adversarial review: the manifest is hand-maintained and nothing
+  // proved it complete. A future <BillingGate> added outside the three provider
+  // segments would have NO server verdict — the exact 3.1.1 exposure this
+  // branch exists to close — with every test still green. Regenerate from the
+  // source tree and compare.
+  it("the BillingGate manifest is complete — regenerated from the tree", () => {
+    const { execSync } = require("node:child_process") as typeof import("node:child_process");
+
+    const found = execSync(
+      "grep -rl '<BillingGate' --include='*.tsx' app components || true",
+      { cwd: repoRoot, encoding: "utf8" },
+    )
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .filter((f) => !f.includes("__tests__"))
+      .sort();
+
+    const listed = read(".planning/BILLING_GATE_ROUTES.txt")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith("#"))
+      .sort();
+
+    expect(
+      found,
+      "BILLING_GATE_ROUTES.txt is stale. Every file rendering a <BillingGate> " +
+        "must be listed AND must render under app/dashboard, app/pricing or " +
+        "app/compliance — those are the only segments whose layout supplies the " +
+        "server platform verdict.",
+    ).toEqual(listed);
+  });
+
+  it("every gated file resolves to a provider-covered segment", () => {
+    const listed = read(".planning/BILLING_GATE_ROUTES.txt")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith("#"));
+
+    // Pages must sit under a covered segment. Shared components cannot declare
+    // a route, so they are mapped to their importing page in the manifest
+    // comments; assert they are at least not orphaned at the app root.
+    const COVERED = ["app/dashboard/", "app/pricing/", "app/compliance/"];
+    for (const file of listed) {
+      if (!file.startsWith("app/")) continue; // component — checked by importer
+      expect(
+        COVERED.some((seg) => file.startsWith(seg)),
+        `${file} renders a BillingGate but is not under a segment whose layout supplies the server verdict`,
+      ).toBe(true);
+    }
+  });
+
   it("no BillingGate lives under a force-static route", () => {
     // force-static makes headers() return empty, so the server verdict
     // silently becomes false AND the fail-open response is CDN-cached.
