@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useSetupStore, type SetupOrganization } from './store';
 import { BusinessDetailsCard } from './BusinessDetailsCard';
 import { BrandCard } from './BrandCard';
@@ -13,7 +12,6 @@ import { FeatureHealthCard } from './FeatureHealthCard';
 import { VideoExplainer } from './VideoExplainer';
 import { AiKeyCard } from './AiKeyCard';
 import { SetupStepper, type SetupStepperItem } from './SetupStepper';
-import { Button } from '@/components/ui/button';
 
 type SectionKey = 'businessDetails' | 'branding' | 'pricing' | 'storage' | 'integrations';
 
@@ -114,12 +112,17 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
   // block. The flow ends on a "first report" step whose CTA is enabled once the
   // required steps are done.
   const businessComplete = !!(org?.legalName && org?.abn && org?.state);
+  const brandingComplete = !!(org?.logoUrl || org?.primaryColor);
+  const pricingComplete = !!org?.pricingConfig;
+
   const steps: SetupStepperItem[] = [
     {
       key: 'welcome',
       title: 'Welcome',
       required: false,
       complete: true,
+      description:
+        'A two-minute tour of what RestoreAssist does and how setup works.',
       content: <VideoExplainer slug="remotion-onboarding-welcome" />,
     },
     {
@@ -127,6 +130,8 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       title: 'Add your AI key',
       required: true,
       complete: hasApiKey,
+      description:
+        'Connect your own AI provider key — it powers report drafting and stays in your workspace.',
       content: <AiKeyCard />,
     },
     {
@@ -134,20 +139,26 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       title: 'Business details',
       required: true,
       complete: businessComplete,
+      description:
+        'Your legal name, ABN and state appear on every report and invoice you send.',
       content: <BusinessDetailsCard />,
     },
     {
       key: 'branding',
       title: 'Branding',
       required: false,
-      complete: !!(org?.logoUrl || org?.primaryColor),
+      complete: brandingComplete,
+      description:
+        'Add your logo and colours so client-facing documents look like yours.',
       content: <BrandCard />,
     },
     {
       key: 'pricing',
       title: 'Pricing',
       required: false,
-      complete: !!org?.pricingConfig,
+      complete: pricingComplete,
+      description:
+        'Set your rate card once — estimates and invoices pick it up automatically.',
       content: <PricingCard />,
     },
     {
@@ -155,6 +166,8 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       title: 'Storage',
       required: false,
       complete: false,
+      description:
+        'Choose where evidence photos and documents live, and check database health.',
       content: (
         <div className="space-y-6">
           <StorageCard />
@@ -167,6 +180,8 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       title: 'Integrations',
       required: false,
       complete: false,
+      description:
+        'Connect the tools you already use and confirm every feature is healthy.',
       content: (
         <div className="space-y-6">
           <IntegrationsCard />
@@ -179,34 +194,59 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       title: 'Your first report',
       required: false,
       complete: false,
+      description:
+        'Everything is in place — turn a job into an IICRC S500:2021 compliance report.',
       content: (
-        <div className="rounded-xl border p-6 space-y-3 text-center">
-          <h2 className="text-lg font-semibold">You&apos;re ready — let&apos;s make your first report</h2>
-          <p className="text-sm text-muted-foreground">
-            Turn a job into an IICRC S500:2021 compliance report. You can always
-            come back and finish the optional steps later.
-          </p>
-          <Button asChild>
-            <Link href="/dashboard/reports/new">Generate your first report</Link>
-          </Button>
+        <div className="overflow-hidden rounded-2xl border border-brand-navy/10 bg-white shadow-sm">
+          <div className="bg-linear-to-br from-brand-navy to-brand-deep px-6 py-8 text-center text-white sm:px-10">
+            <span
+              aria-hidden="true"
+              className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-gold/20 text-2xl ring-1 ring-brand-gold/40"
+            >
+              ✓
+            </span>
+            <h3 className="mt-4 text-xl font-semibold tracking-tight">
+              You&apos;re ready to go
+            </h3>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-white/70">
+              Use the button below to generate your first report. You can
+              always come back and finish the optional steps later from your
+              dashboard.
+            </p>
+          </div>
+          <ul className="divide-y divide-brand-navy/5 px-6 py-2 sm:px-10">
+            {[
+              { label: 'AI key connected', done: hasApiKey },
+              { label: 'Business details saved', done: businessComplete },
+              { label: 'Branding applied', done: brandingComplete },
+              { label: 'Pricing configured', done: pricingComplete },
+            ].map((row) => (
+              <li
+                key={row.label}
+                className="flex items-center justify-between py-3 text-sm"
+              >
+                <span className="text-brand-navy">{row.label}</span>
+                <span
+                  className={
+                    row.done
+                      ? 'rounded-full bg-success-subtle px-2.5 py-0.5 text-xs font-medium text-success-subtle-foreground'
+                      : 'rounded-full bg-brand-cloud px-2.5 py-0.5 text-xs font-medium text-brand-slate'
+                  }
+                >
+                  {row.done ? 'Done' : 'Later'}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       ),
     },
   ];
 
   return (
-    <main className="max-w-2xl mx-auto py-10 px-4 space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Let&apos;s get you set up</h1>
-        <p className="text-muted-foreground">
-          One step at a time — we&apos;ll have you generating your first report in
-          minutes.
-        </p>
-      </div>
-      <SetupStepper
-        items={steps}
-        onFinish={() => router.push('/dashboard/reports/new')}
-      />
-    </main>
+    <SetupStepper
+      items={steps}
+      onFinish={() => router.push('/dashboard/reports/new')}
+    />
   );
 }
