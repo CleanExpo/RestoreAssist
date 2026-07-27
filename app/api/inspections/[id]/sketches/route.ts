@@ -102,6 +102,7 @@ export async function POST(
       moisturePoints,
       equipmentPoints,
       country,
+      captureAdapter: captureAdapterRaw,
     } = body;
 
     // RA-120 (PR4): underlay opacity is a 0..1 slider value; clamp defensively
@@ -125,6 +126,15 @@ export async function POST(
     // If a sketch already exists for this floor, update it; otherwise create
     const existing = await (prisma as any).claimSketch.findFirst({
       where: { inspectionId: id, floorNumber },
+    });
+
+    const { resolveSketchCaptureAdapter } = await import(
+      "@/lib/sketch/ingest-roomplan"
+    );
+    const captureAdapter = resolveSketchCaptureAdapter({
+      sketchData,
+      explicit: captureAdapterRaw,
+      previous: existing?.captureAdapter ?? null,
     });
 
     // RA-1762 — staleness guard. The offline sketch queue can hold a
@@ -172,6 +182,7 @@ export async function POST(
             moisturePoints: moisturePoints ?? undefined,
             equipmentPoints: equipmentPoints ?? undefined,
             country: country ?? undefined,
+            captureAdapter,
           },
         })
       : await (prisma as any).claimSketch.create({
@@ -190,6 +201,7 @@ export async function POST(
             moisturePoints: moisturePoints ?? undefined,
             equipmentPoints: equipmentPoints ?? undefined,
             country: country ?? undefined,
+            captureAdapter,
           },
         });
 

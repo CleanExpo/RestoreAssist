@@ -79,6 +79,8 @@ export interface SketchSavePayload {
   backgroundImageUrl?: string | null;
   moisturePoints?: unknown;
   equipmentPoints?: unknown;
+  /** RA-7091 — ClaimSketch.captureAdapter (manual | roomplan | …). */
+  captureAdapter?: string;
   /** Epoch ms at the moment the local sketch state was captured. */
   clientUpdatedAt: number;
 }
