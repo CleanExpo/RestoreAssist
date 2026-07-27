@@ -25,31 +25,49 @@ describe("iOS shell detection — cross-file wiring", () => {
     expect(appended).toBe(IOS_SHELL_UA_TOKEN);
   });
 
-  it("link 2: the root layout computes the verdict from the request user-agent", () => {
-    const layout = read("app/layout.tsx");
+  // Every segment that can render a BillingGate must resolve the platform on
+  // the server. The read is deliberately NOT in the root layout — that opts
+  // every route out of static rendering (measured 68 static -> 7).
+  const GATED_SEGMENT_LAYOUTS = [
+    "app/dashboard/layout.tsx",
+    "app/pricing/layout.tsx",
+    "app/compliance/layout.tsx",
+  ];
 
-    expect(layout).toContain("isIosShellUserAgent");
-    expect(layout).toMatch(/headers\(\)/u);
-    expect(layout).toMatch(/user-agent/iu);
+  it.each(GATED_SEGMENT_LAYOUTS)(
+    "link 2: %s computes the verdict from the request user-agent",
+    (file) => {
+      const layout = read(file);
+
+      expect(layout).toContain("isIosShellUserAgent");
+      expect(layout).toMatch(/headers\(\)/u);
+      expect(layout).toMatch(/user-agent/iu);
+    },
+  );
+
+  it("the root layout does NOT call headers() — that would kill static rendering", () => {
+    const root = read("app/layout.tsx");
+    // Comments mentioning headers() are fine; an actual call is not.
+    expect(root).not.toMatch(/\bawait\s+headers\(\)/u);
   });
 
-  it("link 3: the root layout passes the COMPUTED verdict, not a literal", () => {
-    const layout = read("app/layout.tsx");
+  it.each(GATED_SEGMENT_LAYOUTS)(
+    "link 3: %s passes the COMPUTED verdict, not a literal",
+    (file) => {
+      const layout = read(file);
 
-    // A first attempt at this test matched `isIosShell={` and therefore passed
-    // against a hardcoded `isIosShell={false}` — a silent fail-open. Bind the
-    // prop to the variable derived from the request instead.
-    const passed = /<ShellPlatformProvider\s+isIosShell=\{([^}]+)\}/u.exec(
-      layout,
-    )?.[1];
+      // An earlier version of this test matched `isIosShell={` and therefore
+      // passed against a hardcoded `isIosShell={false}` — a silent fail-open.
+      // Bind the prop to the variable derived from the request instead.
+      const passed = /<ShellPlatformProvider\s+isIosShell=\{([^}]+)\}/u.exec(
+        layout,
+      )?.[1];
 
-    expect(passed).toBeDefined();
-    expect(passed?.trim()).toBe("isIosShell");
-    // And that variable must come from the user-agent, not be reassigned.
-    expect(layout).toMatch(
-      /const\s+isIosShell\s*=\s*isIosShellUserAgent\(/u,
-    );
-  });
+      expect(passed).toBeDefined();
+      expect(passed?.trim()).toBe("isIosShell");
+      expect(layout).toMatch(/const\s+isIosShell\s*=\s*isIosShellUserAgent\(/u);
+    },
+  );
 
   it("link 4: BillingGate prefers the server verdict over its client read", () => {
     const gate = read("components/capacitor/BillingGate.tsx");

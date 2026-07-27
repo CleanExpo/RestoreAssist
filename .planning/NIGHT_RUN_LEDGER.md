@@ -195,3 +195,32 @@ genuinely closed; the duplication that caused it is not.
 Non-trivial — that route also owns `validateAdjustments`, `estimateLineItemId` passthrough
 and different field shapes, and it is a working money path, so it needs its own tests and
 review rather than a rushed refactor at the end of a long session.
+
+### Measurement correction — all earlier static-route figures were understated
+
+My grep character class did not match the Unicode markers Next emits, so every
+static-route number quoted before this point is wrong. Recounted with a Python
+regex over the same build logs:
+
+| Build | Static (○+●) | Dynamic (ƒ) |
+|---|---|---|
+| Clean baseline (`origin/main`) | **135** | 573 |
+| `headers()` in root layout | **11** | 697 |
+| Scoped to 3 segment layouts | **35** | 673 |
+
+- Root-layout cost: **124 static routes**, not the 61 previously reported.
+- Scoping recovered **24**, not the 53 projected. The projection was wrong.
+
+**Why:** `/dashboard` holds **144 routes**. A `headers()` call in
+`app/dashboard/layout.tsx` makes that whole subtree dynamic, and it dominates
+everything else. Gating at the segment root is too coarse.
+
+**Next refinement (task #64):** push the provider down to per-route layouts for
+only the ~11 dashboard routes that actually render a BillingGate — credits,
+integrations, pricing, settings, subscription, success, clients,
+pricing-config, forms/interview, inspections/[id], reports/new — instead of one
+layout at `/dashboard`. That gates ~11 routes rather than 144.
+
+Current state is still strictly better than the root-layout version (35 static
+vs 11) and is correct on the App Review exposure, so it is committed rather
+than reverted.
