@@ -5,7 +5,8 @@ import type React from "react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { isCapacitorIOS } from "@/lib/capacitor";
+import { useServerIosShell } from "@/components/capacitor/ShellPlatformProvider";
+import { shouldHideBillingUI } from "@/lib/capacitor";
 import {
   LayoutDashboard,
   FileText,
@@ -77,11 +78,12 @@ export default function DashboardShell({
   // SSR (matches the worst case) and refine on mount via useEffect below.
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  // RA-1842 — suppress billing nav items on iOS shell (Apple 3.1.1).
-  const [hideBillingNav, setHideBillingNav] = useState(false);
-  useEffect(() => {
-    setHideBillingNav(isCapacitorIOS());
-  }, []);
+  // RA-1842 / App Review 3.1.1 — prefer the SERVER iOS-shell verdict so billing
+  // nav never paints for one frame before a client useEffect flips it off.
+  const serverIosShell = useServerIosShell();
+  const hideBillingNav =
+    serverIosShell === true ||
+    (serverIosShell === null && shouldHideBillingUI());
 
   // On mount, collapse sidebar by default for tablet-class viewports
   // (768px ≤ width < 1280px). Covers iPad portrait (1024px), iPad Pro 11"
@@ -482,7 +484,7 @@ export default function DashboardShell({
         {/* SP-3 T16 — trial-countdown banner. Renders at the very top of
             the dashboard chrome (above demo banner, sidebar, and nav) so
             it's the first thing every trial user sees on every page. */}
-        <TrialCountdownBanner />
+        {!hideBillingNav && <TrialCountdownBanner />}
         {/* RA-1583 — demo-mode banner. Makes it obvious the user is
             exploring sample data (seeded via /api/admin/seed-demo) so
             data they create during the demo session isn't mistaken
@@ -779,11 +781,11 @@ export default function DashboardShell({
               per-session. Escalates amber → orange → red at ≤3d and ≤1d. */}
           <TrialBanner />
 
-          {/* PAST_DUE dunning banner — RA-1244 */}
-          <PastDueBanner status={subscriptionStatus} />
+          {/* PAST_DUE dunning banner — RA-1244; hidden in iOS shell (3.1.1) */}
+          {!hideBillingNav && <PastDueBanner status={subscriptionStatus} />}
 
-          {/* Cancellation countdown — RA-1256 */}
-          <CancellationCountdownBanner />
+          {/* Cancellation countdown — RA-1256; hidden in iOS shell (3.1.1) */}
+          {!hideBillingNav && <CancellationCountdownBanner />}
 
           {/* Page Content */}
           <main
@@ -812,7 +814,7 @@ export default function DashboardShell({
       <ProductTour />
       {/* SP-3 T16 — credit-exhaustion modal. Listens for the
           `credit-exhausted` event; self-portals via fixed positioning. */}
-      <CreditExhaustModal />
+      {!hideBillingNav && <CreditExhaustModal />}
       {/* SP-8 T12 — global ⌘K help search modal. Self-portals via fixed
           positioning; listens for the ⌘K / Ctrl+K shortcut. */}
       <HelpSearchModal />

@@ -2,6 +2,9 @@
 # None may declare `dynamic = "force-static"` — headers() returns empty there,
 # so the server shell verdict silently becomes false and is CDN-cached.
 
+app/billing/upgrade/page.tsx
+app/billing/success/page.tsx
+app/dashboard/addons/page.tsx
 app/compliance/page.tsx
 app/dashboard/credits/page.tsx
 app/dashboard/integrations/page.tsx

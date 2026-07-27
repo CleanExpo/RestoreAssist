@@ -5,10 +5,14 @@ import { authOptions } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { prisma } from "@/lib/prisma";
+import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   try {
+    const iosBlocked = rejectIfIOSCapacitor(request);
+    if (iosBlocked) return iosBlocked;
+
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {

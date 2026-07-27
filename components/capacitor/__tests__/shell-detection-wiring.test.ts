@@ -119,9 +119,9 @@ describe("iOS shell detection — cross-file wiring", () => {
     expect(
       found,
       "BILLING_GATE_ROUTES.txt is stale. Every file rendering a <BillingGate> " +
-        "must be listed AND must render under app/dashboard, app/pricing or " +
-        "app/compliance — those are the only segments whose layout supplies the " +
-        "server platform verdict.",
+        "must be listed AND must render under app/dashboard, app/pricing, " +
+        "app/compliance or app/billing — those are the only segments whose layout " +
+        "supplies the server platform verdict.",
     ).toEqual(listed);
   });
 
@@ -134,7 +134,12 @@ describe("iOS shell detection — cross-file wiring", () => {
     // Pages must sit under a covered segment. Shared components cannot declare
     // a route, so they are mapped to their importing page in the manifest
     // comments; assert they are at least not orphaned at the app root.
-    const COVERED = ["app/dashboard/", "app/pricing/", "app/compliance/"];
+    const COVERED = [
+      "app/dashboard/",
+      "app/pricing/",
+      "app/compliance/",
+      "app/billing/",
+    ];
     for (const file of listed) {
       if (!file.startsWith("app/")) continue; // component — checked by importer
       expect(
