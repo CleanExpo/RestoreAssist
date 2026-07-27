@@ -98,6 +98,8 @@ export interface SketchSelectionPanelProps {
   ) => void;
   /** Promote reference (AI/imported) geometry to operator_measured (RA-6760). */
   onConfirmProvenance?: (id: string) => void;
+  /** RA-7091 — exclude a RoomPlan room from measured quantities. */
+  onExcludeRoomPlan?: (id: string) => void;
   onDelete?: (id: string) => void;
   onDeselect?: () => void;
   className?: string;
@@ -118,6 +120,7 @@ export function SketchSelectionPanel({
   onCauseChange,
   onWaterCategoryChange,
   onConfirmProvenance,
+  onExcludeRoomPlan,
   onDelete,
   onDeselect,
   className,
@@ -201,16 +204,36 @@ export function SketchSelectionPanel({
               ? "Confirm LiDAR measurement"
               : "Confirm measurement"}
           </button>
+          {selected.captureAdapter === "roomplan" && onExcludeRoomPlan && (
+            <button
+              type="button"
+              onClick={() => onExcludeRoomPlan(selected.id)}
+              className="w-full min-h-11 py-1.5 rounded-lg bg-white/5 text-white/70 border border-white/10 hover:bg-white/10 transition-colors text-xs font-medium"
+            >
+              Exclude from measured area
+            </button>
+          )}
         </div>
       )}
 
       {selected.captureAdapter === "roomplan" &&
         selected.provenance === "operator_measured" && (
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[10px] text-emerald-100/90">
-            LiDAR measurement confirmed
-            {(selected.correctionCount ?? 0) > 0
-              ? ` · ${selected.correctionCount} correction${selected.correctionCount === 1 ? "" : "s"}`
-              : ""}
+          <div className="space-y-2">
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[10px] text-emerald-100/90">
+              LiDAR measurement confirmed
+              {(selected.correctionCount ?? 0) > 0
+                ? ` · ${selected.correctionCount} correction${selected.correctionCount === 1 ? "" : "s"}`
+                : ""}
+            </div>
+            {onExcludeRoomPlan && (
+              <button
+                type="button"
+                onClick={() => onExcludeRoomPlan(selected.id)}
+                className="w-full min-h-11 py-1.5 rounded-lg bg-white/5 text-white/70 border border-white/10 hover:bg-white/10 transition-colors text-xs font-medium"
+              >
+                Exclude from measured area
+              </button>
+            )}
           </div>
         )}
 

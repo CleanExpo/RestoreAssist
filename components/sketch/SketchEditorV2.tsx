@@ -46,8 +46,12 @@ import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { startRoomPlanCapture } from "@/lib/capacitor-roomplan-bridge";
 import {
   confirmRoomPlanMeasurement,
+  recordRoomPlanExclude,
+  recordRoomPlanGeometryCorrection,
   recordRoomPlanLabelCorrection,
 } from "@/lib/sketch/roomplan-correction";
+import { shoelaceArea, PX_PER_METRE } from "@/lib/sketch/extract-rooms";
+import { polygonAbsolutePoints } from "@/lib/sketch/fabric-absolute";
 
 import { SketchDockToolbar } from "./SketchDockToolbar";
 import { SketchFloorTabs } from "./SketchFloorTabs";
@@ -210,6 +214,9 @@ export function SketchEditorV2({
   // walls square up and land on the grid; toggled off for freeform tracing.
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [selectedObj, setSelectedObj] = useState<SelectedObject | null>(null);
+  const selectedObjRef = useRef<SelectedObject | null>(null);
+  selectedObjRef.current = selectedObj;
+
   // Seed with the offline-bundled ANZ materials so the picker + WHS gate work
   // with no connectivity (spec §4.1); the API replaces this when reachable.
   const [materials, setMaterials] =
@@ -1167,11 +1174,11 @@ export function SketchEditorV2({
         throw new Error("Canvas not ready for LiDAR ingest");
       }
 
-      const { prepareRoomPlanIngest } = await import(
+      const { prepareRoomPlanSceneIngest } = await import(
         "@/lib/sketch/ingest-roomplan"
       );
-      const elements = prepareRoomPlanIngest(captured);
-      if (!elements.length) {
+      const scene = prepareRoomPlanSceneIngest(captured);
+      if (!scene.rooms.length) {
         throw new Error("Scan produced no usable room geometry");
       }
 
@@ -1184,13 +1191,21 @@ export function SketchEditorV2({
           ) => unknown;
         }
       ).Polygon;
+      const FabricLine = (
+        fabric as unknown as {
+          Line: new (
+            coords: [number, number, number, number],
+            opts: object,
+          ) => unknown;
+        }
+      ).Line;
       const FabricText = (
         fabric as unknown as {
           IText: new (text: string, opts: object) => unknown;
         }
       ).IText;
 
-      for (const el of elements) {
+      for (const el of scene.rooms) {
         const polygon = new FabricPolygon(el.points, {
           fill: el.fill,
           stroke: el.stroke,
@@ -1221,10 +1236,34 @@ export function SketchEditorV2({
         fc.add(polygon, label);
       }
 
+      for (const wall of scene.walls) {
+        fc.add(
+          new FabricLine([wall.x1, wall.y1, wall.x2, wall.y2], {
+            stroke: wall.stroke,
+            strokeWidth: wall.strokeWidth,
+            selectable: true,
+            evented: true,
+            data: wall.data,
+          }),
+        );
+      }
+
+      for (const opening of scene.openings) {
+        fc.add(
+          new FabricLine([opening.x1, opening.y1, opening.x2, opening.y2], {
+            stroke: opening.stroke,
+            strokeWidth: opening.strokeWidth,
+            selectable: true,
+            evented: true,
+            data: opening.data,
+          }),
+        );
+      }
+
       fc.renderAll();
       canvasHandle?.saveState();
       scheduleSave();
-      return elements.length;
+      return scene.rooms.length;
     },
     [floorsData, activeIdx, scheduleSave],
   );
@@ -1253,6 +1292,20 @@ export function SketchEditorV2({
           capturedRoom: captured,
         });
         custodyId = entry.id;
+
+        // Best-effort server custody (hash of stored JSON bytes). Offline /
+        // unsigned — never blocks the technician; local IDB remains SSOT until
+        // connectivity returns.
+        void fetch(`/api/inspections/${inspectionId}/roomplan-custody`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            capturedRoom: captured,
+            clientSha256: entry.contentSha256,
+            clientCustodyId: entry.id,
+            floorNumber,
+          }),
+        }).catch(() => {});
       } catch {
         // IDB unavailable — continue with in-memory ingest; do not block the tech.
       }
@@ -1631,6 +1684,56 @@ export function SketchEditorV2({
                 const c = fd.canvasRef.current;
                 if (c)
                   setHistoryState({ canUndo: c.canUndo, canRedo: c.canRedo });
+
+                // RA-7091: record geometry corrections on RoomPlan rooms.
+                const sel = selectedObjRef.current;
+                if (
+                  !sel ||
+                  sel.captureAdapter !== "roomplan" ||
+                  sel.type !== "room"
+                ) {
+                  return;
+                }
+                const fc = c?.getFabricCanvas() as {
+                  getObjects: () => unknown[];
+                  renderAll: () => void;
+                } | null;
+                if (!fc) return;
+                const obj = fc.getObjects().find((o) => {
+                  const d = (o as { data?: { id?: string } }).data;
+                  return d?.id === sel.id;
+                }) as
+                  | {
+                      data?: Record<string, unknown>;
+                      points?: { x: number; y: number }[];
+                    }
+                  | undefined;
+                if (!obj?.data || obj.data.captureAdapter !== "roomplan") return;
+                const pts =
+                  polygonAbsolutePoints(obj) ??
+                  (Array.isArray(obj.points) ? obj.points : null);
+                if (!pts || pts.length < 3) return;
+                const pxPerM =
+                  fd.scaleConfig?.pxPerMetre ?? PX_PER_METRE;
+                const areaM2 =
+                  Math.round(
+                    (shoelaceArea(pts) / (pxPerM * pxPerM)) * 100,
+                  ) / 100;
+                obj.data = recordRoomPlanGeometryCorrection(obj.data, {
+                  points: pts,
+                  areaM2,
+                });
+                const hist = obj.data.correctionHistory as unknown[] | undefined;
+                setSelectedObj((prev) =>
+                  prev && prev.id === sel.id
+                    ? {
+                        ...prev,
+                        correctionCount: Array.isArray(hist)
+                          ? hist.length
+                          : prev.correctionCount,
+                      }
+                    : prev,
+                );
               }}
               onSelect={setSelectedObj}
               className="w-full h-full"
@@ -1787,6 +1890,42 @@ export function SketchEditorV2({
             setSelectedObj((prev) =>
               prev && prev.id === id
                 ? { ...prev, provenance: "operator_measured" }
+                : prev,
+            );
+            scheduleSave();
+          }}
+          onExcludeRoomPlan={(id) => {
+            const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+              renderAll: () => void;
+            } | null;
+            if (!fc) return;
+            const obj = fc
+              .getObjects()
+              .find(
+                (o) =>
+                  (
+                    (o as Record<string, unknown>).data as
+                      | Record<string, unknown>
+                      | undefined
+                  )?.id === id,
+              ) as Record<string, unknown> | undefined;
+            if (!obj?.data) return;
+            const data = obj.data as Record<string, unknown>;
+            if (data.captureAdapter !== "roomplan") return;
+            obj.data = recordRoomPlanExclude(data);
+            fc.renderAll();
+            const hist = (obj.data as { correctionHistory?: unknown[] })
+              .correctionHistory;
+            setSelectedObj((prev) =>
+              prev && prev.id === id
+                ? {
+                    ...prev,
+                    provenance: "underlay_reference",
+                    correctionCount: Array.isArray(hist)
+                      ? hist.length
+                      : prev.correctionCount,
+                  }
                 : prev,
             );
             scheduleSave();

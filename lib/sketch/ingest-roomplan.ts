@@ -8,6 +8,10 @@ import {
   type CapturedRoom,
   type FabricPolygonElement,
 } from "./roomplan-to-fabric";
+import {
+  roomPlanOpeningsToFabric,
+  roomPlanWallsToFabric,
+} from "./roomplan-openings";
 
 const CAPTURE_ADAPTERS = new Set([
   "manual",
@@ -41,6 +45,26 @@ export function prepareRoomPlanIngest(
   captured: CapturedRoom | null | undefined,
 ): FabricPolygonElement[] {
   return roomPlanToFabric(captured);
+}
+
+/**
+ * Full scene ingest: rooms + walls + doors/windows/openings from the same scan.
+ */
+export function prepareRoomPlanSceneIngest(
+  captured: CapturedRoom | null | undefined,
+): {
+  rooms: FabricPolygonElement[];
+  walls: ReturnType<typeof roomPlanWallsToFabric>;
+  openings: ReturnType<typeof roomPlanOpeningsToFabric>;
+} {
+  const rooms = roomPlanToFabric(captured);
+  const walls = roomPlanWallsToFabric(captured?.walls);
+  const openings = [
+    ...roomPlanOpeningsToFabric(captured?.doors, "door"),
+    ...roomPlanOpeningsToFabric(captured?.windows, "window"),
+    ...roomPlanOpeningsToFabric(captured?.openings, "opening"),
+  ];
+  return { rooms, walls, openings };
 }
 
 /**

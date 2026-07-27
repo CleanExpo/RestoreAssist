@@ -41,6 +41,11 @@ export interface CapturedRoomSurface {
 export interface CapturedRoom {
   rooms: CapturedRoomSurface[];
   identifier?: string;
+  /** Wall / opening surfaces from native RoomPlanJSON.encode (metres). */
+  walls?: import("./roomplan-openings").CapturedSurface[];
+  doors?: import("./roomplan-openings").CapturedSurface[];
+  windows?: import("./roomplan-openings").CapturedSurface[];
+  openings?: import("./roomplan-openings").CapturedSurface[];
 }
 
 /**

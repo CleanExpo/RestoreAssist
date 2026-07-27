@@ -112,3 +112,67 @@ export function recordRoomPlanLabelCorrection(
     ),
   };
 }
+
+/**
+ * Record a geometry correction after the tech moves/scales a RoomPlan room.
+ * Updates areaM2; does not change provenance (still needs Confirm if pending).
+ */
+export function recordRoomPlanGeometryCorrection(
+  data: Record<string, unknown>,
+  next: {
+    points: { x: number; y: number }[];
+    areaM2: number;
+  },
+  opts?: { by?: string; at?: string },
+): Record<string, unknown> {
+  if (data.captureAdapter !== "roomplan") {
+    return { ...data, areaM2: next.areaM2 };
+  }
+  const beforeArea = data.areaM2;
+  const beforePoints = Array.isArray(data.originalPoints)
+    ? data.originalPoints
+    : undefined;
+  return {
+    ...data,
+    areaM2: next.areaM2,
+    correctionHistory: appendRoomPlanCorrection(
+      data.correctionHistory as RoomPlanCorrectionEntry[] | undefined,
+      {
+        at: opts?.at,
+        by: opts?.by,
+        field: "geometry",
+        before: { areaM2: beforeArea, points: beforePoints },
+        after: { areaM2: next.areaM2, points: next.points },
+      },
+    ),
+  };
+}
+
+/**
+ * Mark a RoomPlan room excluded from measured quantities (still on canvas).
+ * Forces underlay_reference so it cannot bill even after a prior confirm.
+ */
+export function recordRoomPlanExclude(
+  data: Record<string, unknown>,
+  opts?: { by?: string; at?: string; note?: string },
+): Record<string, unknown> {
+  if (data.captureAdapter !== "roomplan") {
+    return { ...data, provenance: "underlay_reference", excluded: true };
+  }
+  return {
+    ...data,
+    provenance: "underlay_reference",
+    excluded: true,
+    correctionHistory: appendRoomPlanCorrection(
+      data.correctionHistory as RoomPlanCorrectionEntry[] | undefined,
+      {
+        at: opts?.at,
+        by: opts?.by,
+        field: "exclude",
+        before: data.provenance,
+        after: "excluded",
+        note: opts?.note ?? "Technician excluded unscanned / incorrect region",
+      },
+    ),
+  };
+}

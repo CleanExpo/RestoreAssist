@@ -3,6 +3,8 @@ import {
   appendRoomPlanCorrection,
   confirmRoomPlanMeasurement,
   isRoomPlanPendingConfirm,
+  recordRoomPlanExclude,
+  recordRoomPlanGeometryCorrection,
   recordRoomPlanLabelCorrection,
 } from "../roomplan-correction";
 
@@ -86,5 +88,49 @@ describe("roomplan-correction", () => {
     );
     expect(history).toHaveLength(2);
     expect(history[1].field).toBe("confirm");
+  });
+
+  it("recordRoomPlanGeometryCorrection updates area and history", () => {
+    const next = recordRoomPlanGeometryCorrection(
+      {
+        captureAdapter: "roomplan",
+        areaM2: 12,
+        originalPoints: [
+          { x: 0, y: 0 },
+          { x: 100, y: 0 },
+          { x: 100, y: 100 },
+        ],
+        correctionHistory: [],
+      },
+      {
+        points: [
+          { x: 0, y: 0 },
+          { x: 200, y: 0 },
+          { x: 200, y: 100 },
+        ],
+        areaM2: 20,
+      },
+      { at: "2026-07-27T02:00:00.000Z" },
+    );
+    expect(next.areaM2).toBe(20);
+    expect(
+      (next.correctionHistory as { field: string }[])[0].field,
+    ).toBe("geometry");
+  });
+
+  it("recordRoomPlanExclude forces underlay_reference", () => {
+    const next = recordRoomPlanExclude(
+      {
+        captureAdapter: "roomplan",
+        provenance: "operator_measured",
+        correctionHistory: [],
+      },
+      { at: "2026-07-27T03:00:00.000Z" },
+    );
+    expect(next.provenance).toBe("underlay_reference");
+    expect(next.excluded).toBe(true);
+    expect(
+      (next.correctionHistory as { field: string }[])[0].field,
+    ).toBe("exclude");
   });
 });
