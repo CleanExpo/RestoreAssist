@@ -510,14 +510,26 @@ export default function CaptureWorkflowPage({
           deviceType: "WEB_BROWSER",
         }),
       });
-      if (!res.ok) throw new Error("Failed to add evidence");
+      if (!res.ok) {
+        const errBody = (await res.json().catch(() => null)) as {
+          message?: string;
+          error?: { message?: string };
+        } | null;
+        throw new Error(
+          errBody?.message ||
+            errBody?.error?.message ||
+            "Failed to add evidence — photo capture may be required when signing is enforced",
+        );
+      }
       const data = await res.json();
       setEvidenceItems((prev) => [data.evidenceItem, ...prev]);
       setEvidenceNotes("");
       setSelectedEvidenceClass(null);
       toast.success(`${EVIDENCE_CLASS_LABELS[evidenceClass]} recorded`);
     } catch (error) {
-      toast.error("Failed to record evidence");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to record evidence",
+      );
     } finally {
       setUploadingEvidence(false);
     }

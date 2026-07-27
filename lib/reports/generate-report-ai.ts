@@ -1025,10 +1025,10 @@ ${
 
 ## SECTION 8: DRYING PROTOCOL AND METHODOLOGY
 For each material type identified, provide specific protocols:
-${materials.includes("Yellow tongue particleboard") ? "- Yellow Tongue Particleboard Subfloor (Class 3/4 drying) - IICRC S500 Section 5.2" : ""}
-${materials.includes("Floating timber floors") ? "- Floating Timber Floors (Class 2/3) - IICRC S500 Section 5.1" : ""}
-${materials.includes("Carpet on concrete slab") ? "- Carpet on Concrete Slab (Class 1) - IICRC S500 Section 4.2" : ""}
-${materials.some((m: string) => m.includes("Plasterboard")) ? "- Plasterboard Walls & Ceilings - IICRC S500 Section 5.3" : ""}
+${materials.includes("Yellow tongue particleboard") ? "- Yellow Tongue Particleboard Subfloor (Class 3/4 drying) — cite only IICRC S500 sections verified against the licensed PDF; do not invent clause numbers" : ""}
+${materials.includes("Floating timber floors") ? "- Floating Timber Floors (Class 2/3) — cite only IICRC S500 sections verified against the licensed PDF; do not invent clause numbers" : ""}
+${materials.includes("Carpet on concrete slab") ? "- Carpet on Concrete Slab (Class 1) — cite only IICRC S500 sections verified against the licensed PDF; do not invent clause numbers" : ""}
+${materials.some((m: string) => m.includes("Plasterboard")) ? "- Plasterboard Walls & Ceilings — cite only IICRC S500 sections verified against the licensed PDF; do not invent clause numbers" : ""}
 
 ## SECTION 9: OCCUPANCY AND SAFETY CONSIDERATIONS
 ${isOccupied ? "Include: Access Restrictions, Air Quality, Utilities, Pet/Children Safety" : ""}

@@ -250,9 +250,15 @@ export function InspectionSidekick({
           prev.filter((t) => t.id !== assistantId && t.id !== userId),
         );
         setInput(utterance);
-        setError(
-          e instanceof Error ? e.message : "Something went wrong. Try again.",
-        );
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+          setError(
+            "You're offline — your question wasn't sent. Try again when you're back online.",
+          );
+        } else {
+          setError(
+            e instanceof Error ? e.message : "Something went wrong. Try again.",
+          );
+        }
       } finally {
         setBusy(false);
       }

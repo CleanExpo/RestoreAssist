@@ -15,9 +15,9 @@
  * Compliance anchors:
  *   - Safe Work Australia — PPE + biohazard handling
  *   - State EPA — waste disposal + manifest
- *   - AS/NZS 4360:2004 — risk management (superseded by ISO 31000:2018 in
- *     most jurisdictions, cited for historical continuity with insurer
- *     protocols that still reference AS/NZS 4360)
+ *   - ISO 31000:2018 — risk management (primary). AS/NZS 4360:2004 is cited
+ *     only as a historical cross-reference for insurer protocols that still
+ *     name the superseded standard.
  *   - IICRC S540:2023 — trauma + crime-scene cleaning
  */
 
@@ -47,7 +47,8 @@ export type AustralianState =
 
 const SAFEWORK_BIOHAZARD = "Safe Work Australia — Biological hazards CoP";
 const SAFEWORK_PPE = "Safe Work Australia — PPE Model Code of Practice";
-const AS_NZS_4360 = "AS/NZS 4360:2004 §3.2 (risk controls)";
+const ISO_31000_RISK =
+  "ISO 31000:2018 risk controls (historically AS/NZS 4360:2004 §3.2)";
 const S500_CAT3 = "S500:2021 §6.3 (Category 3 treatment)";
 const S540_TRAUMA = "IICRC S540:2023 §5";
 const S520_HEPA = "S520:2024 §6.1";
@@ -225,8 +226,8 @@ export function generateBiohazardScope(params: {
       itemType: "chemical_identification",
       description: "Chemical identification + SDS review",
       justification:
-        "MSDS/SDS identification of spilled chemical drives neutralisation method selection per AS/NZS 4360:2004 §3.2 risk controls.",
-      iicrcReference: AS_NZS_4360,
+        "MSDS/SDS identification of spilled chemical drives neutralisation method selection per ISO 31000:2018 risk controls.",
+      iicrcReference: ISO_31000_RISK,
       quantity: 1,
       unit: "job",
       isRequired: true,
@@ -235,8 +236,8 @@ export function generateBiohazardScope(params: {
       itemType: "neutralisation_agent",
       description: "Neutralisation agent application",
       justification:
-        "Chemical-specific neutralising agent rendered safe for mechanical cleanup per AS/NZS 4360:2004 §3.2.",
-      iicrcReference: AS_NZS_4360,
+        "Chemical-specific neutralising agent rendered safe for mechanical cleanup per ISO 31000:2018 risk controls.",
+      iicrcReference: ISO_31000_RISK,
       quantity: area,
       unit: "m²",
       unitCostAud: pricingConfig.biohazardTreatmentRate,
@@ -256,8 +257,8 @@ export function generateBiohazardScope(params: {
       itemType: "air_quality_clearance",
       description: "Air quality clearance testing",
       justification:
-        "VOC + gas testing to confirm air is safe for re-occupancy post-chemical-spill per AS/NZS 4360:2004 §3.2.",
-      iicrcReference: AS_NZS_4360,
+        "VOC + gas testing to confirm air is safe for re-occupancy post-chemical-spill per ISO 31000:2018 risk controls.",
+      iicrcReference: ISO_31000_RISK,
       quantity: 1,
       unit: "job",
       isRequired: true,

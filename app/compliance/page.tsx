@@ -57,25 +57,25 @@ const fieldMappings = [
   },
   {
     requirement: "Health and safety documentation",
-    section: "IICRC S500:2021 §5.1",
+    section: "IICRC S500:2021 §8",
     feature: "WHS section with hazard identification",
     reportSection: "Section 7 — Scope of Works",
   },
   {
     requirement: "Photo documentation of damage and equipment",
-    section: "IICRC S500:2021 §4.2",
+    section: "IICRC S500:2021 §9.2",
     feature: "Photo upload per area and per equipment placement",
     reportSection: "Embedded in relevant sections",
   },
   {
     requirement: "Standards citations for insurer audit trail",
-    section: "IICRC S500:2021 §4.2",
+    section: "IICRC S500:2021 §9.2",
     feature: "Auto-generated standards reference section",
     reportSection: "Section 9 — IICRC Standards Referenced",
   },
   {
     requirement: "Signatory confirmation for completion",
-    section: "IICRC S500:2021 §4.2",
+    section: "IICRC S500:2021 §9.2",
     feature: "Digital signature capture (technician and client)",
     reportSection: "Section 10 — Signatures",
   },
@@ -85,7 +85,7 @@ const reportSections = [
   {
     num: "1",
     title: "Property Information",
-    standard: "S500:2021 §4.2",
+    standard: "S500:2021 §9.2",
     desc: "Address, insurer, claim number, date of loss, inspecting technician",
   },
   {
@@ -133,13 +133,13 @@ const reportSections = [
   {
     num: "9",
     title: "IICRC Standards Referenced",
-    standard: "S500:2021 §4.2",
+    standard: "S500:2021 §9.2",
     desc: "Auto-generated list of all S500:2021 sections cited in the report",
   },
   {
     num: "10",
     title: "Signatures",
-    standard: "S500:2021 §4.2",
+    standard: "S500:2021 §9.2",
     desc: "Digital technician and client signatures with timestamp",
   },
 ];
