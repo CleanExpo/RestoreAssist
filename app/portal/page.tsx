@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import PortalNav from "@/components/portal/PortalNav";
+import {
+  getStoredClientSession,
+  portalFetch,
+} from "@/lib/portal/client-session";
 import Link from "next/link";
 import {
   FileText,
@@ -33,27 +36,28 @@ interface Report {
 }
 
 export default function PortalDashboard() {
-  const { data: session, status } = useSession();
   const router = useRouter();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
+    // JWT lives in localStorage — check client-side and bounce to login
+    // when missing/expired.
+    if (!getStoredClientSession()) {
       router.push("/portal/login");
-    } else if (status === "authenticated") {
-      if (session?.user?.userType !== "client") {
-        toast.error("Access denied. Client portal only.");
-        router.push("/login");
-        return;
-      }
-      fetchReports();
+      return;
     }
-  }, [status, session, router]);
+    fetchReports();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
 
   const fetchReports = async () => {
     try {
-      const response = await fetch("/api/portal/reports");
+      const response = await portalFetch("/api/portal/reports");
+      if (response.status === 401) {
+        router.push("/portal/login");
+        return;
+      }
       if (!response.ok) throw new Error("Failed to fetch reports");
       const data = await response.json();
       setReports(data.reports);
@@ -90,7 +94,7 @@ export default function PortalDashboard() {
     }
   };
 
-  if (status === "loading" || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-brand-cloud">
         <PortalNav />

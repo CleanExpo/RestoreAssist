@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
+import { storeClientToken } from "@/lib/portal/client-session";
 
 export default function PortalLoginPage() {
   const router = useRouter();
@@ -21,20 +21,25 @@ export default function PortalLoginPage() {
     setLoading(true);
 
     try {
-      const result = await signIn("client-credentials", {
-        email,
-        password,
-        redirect: false,
+      const response = await fetch("/api/portal/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
+      const data = await response.json().catch(() => ({}));
 
-      if (result?.error) {
-        setError("Invalid email or password");
-        toast.error("Invalid email or password");
-      } else if (result?.ok) {
-        toast.success("Login successful!");
-        router.push("/portal");
+      if (!response.ok || !data.token) {
+        const message =
+          data?.error ?? "Invalid email or password";
+        setError(message);
+        toast.error(message);
+        return;
       }
-    } catch (err) {
+
+      storeClientToken(data.token);
+      toast.success("Welcome back!");
+      router.push("/portal");
+    } catch {
       setError("An error occurred. Please try again.");
       toast.error("An error occurred. Please try again.");
     } finally {
@@ -66,38 +71,59 @@ export default function PortalLoginPage() {
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-destructive-subtle border border-destructive-subtle-foreground/30 rounded-lg text-destructive-subtle-foreground text-sm">
+          <div
+            role="alert"
+            className="mb-4 p-3 bg-destructive-subtle border border-destructive-subtle-foreground/30 rounded-lg text-destructive-subtle-foreground text-sm"
+          >
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-brand-navy mb-1">
+            <label
+              htmlFor="portal-email"
+              className="block text-sm font-medium text-brand-navy mb-1"
+            >
               Email
             </label>
             <input
+              id="portal-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
               className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze focus:border-transparent"
               placeholder="your@email.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-brand-navy mb-1">
+            <label
+              htmlFor="portal-password"
+              className="block text-sm font-medium text-brand-navy mb-1"
+            >
               Password
             </label>
             <input
+              id="portal-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
               className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze focus:border-transparent"
               placeholder="••••••••"
             />
+            <div className="mt-1 text-right">
+              <Link
+                href="/portal/reset-password"
+                className="text-xs text-brand-bronze hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
           </div>
 
           <button

@@ -2,12 +2,12 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { storeClientToken } from "@/lib/portal/client-session";
 
 function SignupForm() {
   const router = useRouter();
@@ -111,20 +111,12 @@ function SignupForm() {
 
       toast.success("Account created successfully!");
 
-      // Sign in automatically
-      const signInResult = await signIn("client-credentials", {
-        email: invitationData.email,
-        password: formData.password,
-        redirect: false,
-      });
-
-      if (signInResult?.error) {
-        toast.error(
-          "Account created but login failed. Please try logging in manually.",
-        );
-        router.push("/portal/login");
-      } else {
+      // The accept endpoint returns a portal JWT — store it and go straight in.
+      if (data.token) {
+        storeClientToken(data.token);
         router.push("/portal");
+      } else {
+        router.push("/portal/login");
       }
     } catch (err: any) {
       setError(err.message || "Failed to create account");

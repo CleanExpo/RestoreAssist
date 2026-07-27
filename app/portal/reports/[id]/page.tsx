@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import {
+  getStoredClientSession,
+  portalFetch,
+} from "@/lib/portal/client-session";
 import PortalNav from "@/components/portal/PortalNav";
 import {
   ArrowLeft,
@@ -64,7 +67,6 @@ export default function PortalReportDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,21 +82,22 @@ export default function PortalReportDetail({
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => {
-    if (sessionStatus === "unauthenticated") {
+    if (!getStoredClientSession()) {
       router.push("/portal/login");
-    } else if (sessionStatus === "authenticated") {
-      if (session?.user?.userType !== "client") {
-        router.push("/login");
-        return;
-      }
-      fetchReport();
+      return;
     }
-  }, [sessionStatus, session, router]);
+    fetchReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
 
   const fetchReport = async () => {
     try {
-      const response = await fetch(`/api/portal/reports/${id}`);
+      const response = await portalFetch(`/api/portal/reports/${id}`);
       if (!response.ok) {
+        if (response.status === 401) {
+          router.push("/portal/login");
+          return;
+        }
         if (response.status === 404) {
           toast.error("Report not found");
           router.push("/portal");
@@ -123,11 +126,14 @@ export default function PortalReportDetail({
     setSubmitting(true);
 
     try {
-      const response = await fetch(
+      const response = await portalFetch(
         `/api/portal/reports/${id}/approvals`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": crypto.randomUUID(),
+          },
           body: JSON.stringify({
             approvalType,
             status: approvalStatus,
@@ -167,7 +173,7 @@ export default function PortalReportDetail({
     if (!report) return;
     setDownloadingPdf(true);
     try {
-      const res = await fetch(`/api/portal/reports/${report.id}/download`);
+      const res = await portalFetch(`/api/portal/reports/${report.id}/download`);
       if (!res.ok) throw new Error("Download failed");
 
       const contentType = res.headers.get("content-type") ?? "";
@@ -224,7 +230,7 @@ export default function PortalReportDetail({
     return config[status as keyof typeof config] || config.PENDING;
   };
 
-  if (sessionStatus === "loading" || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-brand-cloud">
         <PortalNav />

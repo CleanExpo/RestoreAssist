@@ -1,17 +1,25 @@
 "use client";
 
-import { signOut, useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { LogOut, FileText, User } from "lucide-react";
+import { LogOut, FileText } from "lucide-react";
+import {
+  clearClientToken,
+  getStoredClientSession,
+} from "@/lib/portal/client-session";
 
 export default function PortalNav() {
-  const { data: session } = useSession();
   const router = useRouter();
+  const [clientName, setClientName] = useState<string | null>(null);
 
-  const handleSignOut = async () => {
-    await signOut({ redirect: false });
+  useEffect(() => {
+    setClientName(getStoredClientSession()?.name ?? null);
+  }, []);
+
+  const handleSignOut = () => {
+    clearClientToken();
     router.push("/portal/login");
   };
 
@@ -25,8 +33,8 @@ export default function PortalNav() {
               <h1 className="text-lg font-bold text-brand-navy">
                 Client Portal
               </h1>
-              {session?.user?.name && (
-                <p className="text-xs text-brand-slate">{session.user.name}</p>
+              {clientName && (
+                <p className="text-xs text-brand-slate">{clientName}</p>
               )}
             </div>
           </div>
