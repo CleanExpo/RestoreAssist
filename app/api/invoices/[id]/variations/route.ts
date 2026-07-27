@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { computeInvoiceTotals } from "@/lib/invoices/totals";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -200,35 +201,26 @@ export async function POST(
       // If the original invoice is itself a variation, use its original
       const baseInvoiceId = originalInvoice.originalInvoiceId || id;
 
-      // Calculate financial totals
-      let subtotal = 0;
-      let gst = 0;
-
-      lineItems.forEach((item: any) => {
-        const itemSubtotal = Math.round(item.quantity * item.unitPrice * 100);
-        const itemGST = Math.round(itemSubtotal * (item.gstRate / 100));
-        subtotal += itemSubtotal;
-        gst += itemGST;
+      // RA-7096 — shared helper (lib/invoices/totals.ts). Previously this block
+      // summed per-line GST and then discarded it with
+      // `gst = Math.round(subtotal * 0.1)`, taxing GST-free lines at 10% on a
+      // tax invoice. app/api/invoices/route.ts already had the correct logic;
+      // the two copies had drifted.
+      const totals = computeInvoiceTotals({
+        lineItems: lineItems.map((item: any) => ({
+          quantity: item.quantity,
+          unitPrice: Math.round(item.unitPrice * 100),
+          gstRate: item.gstRate,
+        })),
+        discountAmount: discountAmount ? parseFloat(discountAmount) * 100 : null,
+        discountPercentage: discountPercentage
+          ? parseFloat(discountPercentage)
+          : null,
+        shippingAmount: shippingAmount ? parseFloat(shippingAmount) * 100 : null,
       });
-
-      // Apply discount
-      if (discountAmount) {
-        subtotal -= Math.round(parseFloat(discountAmount) * 100);
-      } else if (discountPercentage) {
-        const discount = Math.round(
-          subtotal * (parseFloat(discountPercentage) / 100),
-        );
-        subtotal -= discount;
-      }
-
-      // Add shipping
-      if (shippingAmount) {
-        subtotal += Math.round(parseFloat(shippingAmount) * 100);
-      }
-
-      // Recalculate GST
-      gst = Math.round(subtotal * 0.1);
-      const total = subtotal + gst;
+      const subtotal = totals.subtotal;
+      const gst = totals.gst;
+      const total = totals.total;
 
       // Get next invoice number
       const sequence = await prisma.invoiceSequence.findFirst({
@@ -306,7 +298,7 @@ export async function POST(
               quantity: item.quantity,
               unitPrice: Math.round(item.unitPrice * 100),
               subtotal: Math.round(item.quantity * item.unitPrice * 100),
-              gstRate: item.gstRate || 10,
+              gstRate: item.gstRate ?? 10,
               gstAmount: Math.round(
                 item.quantity * item.unitPrice * 100 * (item.gstRate / 100),
               ),
