@@ -1,9 +1,8 @@
 import { z } from "zod";
-
-// Sketch model does NOT exist in the current schema.
-// ClaimSketch and SketchAnnotation exist but are not linked to inspections in a way
-// that supports LiDAR data. Native LiDAR plugin ships in RA-1133.
-// Graceful degradation: return status "not_implemented" without throwing.
+import {
+  getRoomPlanCapability,
+  type RoomPlanCapability,
+} from "../../sketch/roomplan-capability";
 
 export const startLidarScanSchema = z.object({
   inspectionId: z.string(),
@@ -12,19 +11,40 @@ export const startLidarScanSchema = z.object({
 
 export type StartLidarScanArgs = z.infer<typeof startLidarScanSchema>;
 
-export async function startLidarScan(args: StartLidarScanArgs) {
+export interface StartLidarScanDeps {
+  /** Defaults to `getRoomPlanCapability`; injectable for deterministic tests. */
+  resolveCapability?: () => Promise<RoomPlanCapability>;
+}
+
+export async function startLidarScan(
+  args: StartLidarScanArgs,
+  deps: StartLidarScanDeps = {},
+) {
   startLidarScanSchema.parse(args);
 
+  const resolveCapability = deps.resolveCapability ?? getRoomPlanCapability;
+  const capability = await resolveCapability();
+
+  if (capability.mode === "manual") {
+    return {
+      status: "manual_required" as const,
+      captureAdapter: "manual" as const,
+      reason: capability.reason,
+      hint: "RestoreAssist could not confirm native LiDAR capture for this session. Continue documenting this room in the existing Floor Plan manual drawing / entered-measurement workflow.",
+    };
+  }
+
   return {
-    status: "not_implemented" as const,
-    hint: "Native LiDAR plugin ships in RA-1133 (iOS / Apple ARKit LiDAR only — Android has no equivalent depth API)",
+    status: "native_scanner_pending" as const,
+    captureAdapter: "roomplan" as const,
+    hint: "Native RoomPlan support was detected on this device, but the native capture lifecycle is not yet wired up — no scan has been started. Continue using the Floor Plan manual drawing / entered-measurement workflow for this room.",
   };
 }
 
 export const startLidarScanDefinition = {
   name: "start_lidar_scan",
   description:
-    "Initiate a LiDAR room scan for the current inspection. Returns a graceful status until the native plugin ships in RA-1133.",
+    "Detect whether native LiDAR room scanning is supported on the current device, and fall back to the existing Floor Plan manual drawing / entered-measurement workflow when it is not. Does not perform any capture itself.",
   input_schema: {
     type: "object" as const,
     properties: {

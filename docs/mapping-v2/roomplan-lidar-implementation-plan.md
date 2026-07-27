@@ -1,4 +1,4 @@
-# RoomPlan (LiDAR) capture — implementation plan (pre-build, resourcing-gated)
+# Native Apple RoomPlan/ARKit LiDAR capture — implementation plan (no Matterport)
 
 **Status:** Plan for sign-off. **Hard gate: iOS/Swift resourcing decision** (hire/contract
 
@@ -100,3 +100,65 @@ convert it to editor geometry, and land it in Mapping V2 as `captureAdapter:"roo
 - Do **not** start native work before R3 resourcing is allocated.
 - Do **not** ship without device feature-detection (RoomPlan crashes/absent on non-LiDAR).
 - Do **not** assume Android — Apple-only; plan graceful absence.
+- Do **not** introduce Matterport, its SDK, cloud processing, cameras, subscriptions, exports,
+  account dependency, or data pipeline. The approved implementation is native Apple
+  RoomPlan/ARKit LiDAR on supported iPhone/iPad hardware.
+- Do **not** market RoomPlan output as survey-grade, millimetre-accurate, or a substitute for
+  independently validated measurement. Preserve captured values, correction history, device
+  metadata, and operator confirmation so the limitations remain visible.
+
+---
+
+## 5. July 2026 floor-plan findings added to the delivery scope
+
+### Existing foundations to reuse
+
+- `LidarScan` and `FloorPlan` data models already exist in `prisma/schema.prisma`.
+- `lib/sketch/roomplan-to-fabric.ts` already provides the pure RoomPlan-to-editor conversion
+  seam; extend and test it rather than creating a second converter.
+- Floor-plan underlays, homeowner capture surfaces, `ClaimSketch.captureAdapter="roomplan"`,
+  provenance controls, and the Capacitor iOS shell are present.
+- The production surface is the Capacitor app under `ios/App`; the Expo `mobile/` app is not
+  the Mapping V2 host.
+
+### Missing product work
+
+1. **Native Swift scanner:** implement the real `RoomCaptureSession`/`RoomCaptureView` flow,
+   capability detection, camera permission handling, cancellation, interruptions, and structured
+   error return on supported LiDAR-equipped Apple devices.
+2. **Capacitor bridge:** expose support detection, capture lifecycle, progress, cancel, and final
+   `CapturedRoom` payloads to the existing web editor without introducing a parallel save path.
+3. **Offline-first custody:** persist the native capture, canonical JSON and export artefacts in an
+   on-device queue; resume idempotent upload after connectivity returns; never treat a Data URL
+   string hash as proof of final stored bytes.
+4. **Technician correction workflow:** let the technician correct wall joins, dimensions, doors,
+   windows, openings, room labels and excluded geometry before confirmation. Preserve original
+   capture, corrections, operator identity, timestamps and revision history.
+5. **Room-linked evidence:** bind photos, moisture readings, notes, hazards, equipment and scope
+   items to stable room/surface identifiers so a floor plan is operational evidence, not a loose
+   drawing.
+6. **Report and portal rendering:** add consistent floor-plan views to inspection PDFs, claim
+   exports and the customer/insurer portal, with legends, scale caveats, provenance and correction
+   status.
+7. **Manual fallback:** provide the same room/evidence workflow through manual drawing and entered
+   measurements on non-LiDAR devices or failed scans; unsupported hardware must not dead-end an
+   inspection.
+8. **Accuracy validation:** run a bounded field study against independently measured rooms across
+   representative layouts and materials before publishing accuracy claims or using scans for
+   contractual quantities without operator confirmation.
+
+### Evidence-integrity prerequisite
+
+`RA-7090` is the prerequisite for stronger evidence claims. Before RoomPlan custody is represented
+as tamper-evident, the implementation must hash the exact final stored bytes, upload the inspected
+payload, verify any applicable signature, retain an auditable correction/deletion history, and
+remove public copy that overstates universal Ed25519 signing. Native scanning and converter tests
+may progress in parallel, but stronger custody claims fail closed until `RA-7090` is verified.
+
+### Updated acceptance path
+
+The end-to-end acceptance path is: supported-device check → native scan → durable offline queue →
+canonical conversion → technician correction and confirmation → room-linked evidence → idempotent
+upload → editable Mapping V2 floor plan → report/portal render → manual fallback verification. Test
+on at least one supported LiDAR device and one unsupported device. Matterport must be absent from
+dependencies, runtime traffic, documentation and acceptance evidence.
