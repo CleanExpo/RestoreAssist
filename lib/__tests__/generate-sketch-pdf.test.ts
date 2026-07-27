@@ -7,6 +7,10 @@ import {
   resolveSketchBranding,
   generateSketchPdf,
 } from "../generate-sketch-pdf";
+import {
+  formatProvenanceLegend,
+  summarizeSketchProvenance,
+} from "../sketch/sketch-provenance-summary";
 
 // RA-6687: Focused unit tests for the PURE, DB-free helpers in the sketch PDF
 // pipeline. `safe()` keeps user-supplied labels/notes encodable by pdf-lib's
@@ -91,6 +95,40 @@ describe("formatFloorMeta", () => {
   it("reflects a calibrated (non-default) scale and rounds px", () => {
     expect(formatFloorMeta({ totalAreaM2: 8, pxPerMetre: 128.4 })).toBe(
       "Total measured area: 8.0 m²   ·   Scale: 1 m = 128 px",
+    );
+  });
+});
+
+describe("formatProvenanceLegend (PDF footer)", () => {
+  it("summarises mixed LiDAR + hand-drawn floors for export legends", () => {
+    const line = formatProvenanceLegend(
+      summarizeSketchProvenance({
+        objects: [
+          {
+            type: "polygon",
+            data: {
+              type: "room",
+              provenance: "operator_measured",
+              captureAdapter: "roomplan",
+            },
+          },
+          {
+            type: "polygon",
+            data: { type: "room", provenance: "operator_measured" },
+          },
+          {
+            type: "polygon",
+            data: {
+              type: "room",
+              provenance: "underlay_reference",
+              captureAdapter: "roomplan",
+            },
+          },
+        ],
+      }),
+    );
+    expect(line).toBe(
+      "Provenance: 1 LiDAR confirmed · 1 hand-drawn · 1 LiDAR pending confirmation (not billed)",
     );
   });
 });

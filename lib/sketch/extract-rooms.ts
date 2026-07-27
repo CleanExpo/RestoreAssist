@@ -18,13 +18,21 @@ interface FabricObject {
   scaleY?: number;
   fill?: string;
   stroke?: string;
-  data?: { label?: string; roomType?: string; provenance?: string };
+  data?: {
+    label?: string;
+    roomType?: string;
+    provenance?: string;
+    captureAdapter?: string;
+    type?: string;
+  };
 }
 
 export interface RoomInfo {
   label: string;
   areaM2: number;
   stroke: string;
+  /** Present when the measured room came from RoomPlan. */
+  captureAdapter?: string | null;
 }
 
 /** Shoelace formula — area of a polygon given its vertices (px²). */
@@ -66,6 +74,10 @@ export function extractRooms(
       label: obj.data?.label ?? obj.data?.roomType ?? "Room",
       areaM2,
       stroke: obj.stroke ?? "#3b82f6",
+      captureAdapter:
+        typeof obj.data?.captureAdapter === "string"
+          ? obj.data.captureAdapter
+          : null,
     });
   }
 
