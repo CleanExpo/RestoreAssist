@@ -30,6 +30,8 @@
 	<string>RestoreAssist uses Bluetooth to read moisture meter and sensor readings.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>RestoreAssist uses your camera to photograph moisture meters, thermo-hygrometers, and laser measures so readings can be automatically extracted into your inspection report.</string>
+	<key>NSWorldSensingUsageDescription</key>
+	<string>RestoreAssist uses LiDAR and world sensing to capture room floor plans during water-damage inspections so technicians can measure and document affected areas on site.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>RestoreAssist uses Face ID to protect your account when the app resumes.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
