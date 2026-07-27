@@ -255,33 +255,14 @@ export async function POST(
       }
       await (prisma as any).$transaction(elementOps);
 
-      // RA-6763 pt2: mirror the moisture overlay pins into normalized
-      // SketchMoistureReading rows (source="pin"). Scoped delete+recreate so the
-      // technician's manual drying log (source="manual") is never touched.
-      const pinReadings = pinsToMoistureReadingInputs(
-        sketch.id,
-        moisturePoints,
-      );
-      await (prisma as any).$transaction([
-        (prisma as any).sketchMoistureReading.deleteMany({
-          where: { sketchId: sketch.id, source: "pin" },
-        }),
-        ...(pinReadings.length
-          ? [
-              (prisma as any).sketchMoistureReading.createMany({
-                data: pinReadings,
-              }),
-            ]
-          : []),
-      ]);
-
-      // RoomGraph V1 — upsert rooms by fabricObjectId; preserve EvidencePin links.
+      // RoomGraph V1 — upsert rooms BEFORE moisture pin sync so pins can bind
+      // to SketchRoom ids (EvidencePin / moisture / hazards join target).
       const roomNodes = extractRoomGraphNodes(
         sketchData as Record<string, unknown>,
       );
       const existingRooms = await (prisma as any).sketchRoom.findMany({
         where: { sketchId: sketch.id },
-        select: { id: true, fabricObjectId: true },
+        select: { id: true, fabricObjectId: true, name: true, geometryJson: true },
         take: 500,
       });
       const byFabric = new Map(
@@ -335,6 +316,38 @@ export async function POST(
           where: { id: { in: staleIds } },
         });
       }
+
+      const roomsForPins = await (prisma as any).sketchRoom.findMany({
+        where: { sketchId: sketch.id },
+        select: {
+          id: true,
+          name: true,
+          fabricObjectId: true,
+          geometryJson: true,
+        },
+        take: 500,
+      });
+
+      // RA-6763 pt2: mirror the moisture overlay pins into normalized
+      // SketchMoistureReading rows (source="pin"). Scoped delete+recreate so the
+      // technician's manual drying log (source="manual") is never touched.
+      const pinReadings = pinsToMoistureReadingInputs(
+        sketch.id,
+        moisturePoints,
+        roomsForPins,
+      );
+      await (prisma as any).$transaction([
+        (prisma as any).sketchMoistureReading.deleteMany({
+          where: { sketchId: sketch.id, source: "pin" },
+        }),
+        ...(pinReadings.length
+          ? [
+              (prisma as any).sketchMoistureReading.createMany({
+                data: pinReadings,
+              }),
+            ]
+          : []),
+      ]);
     } catch (e) {
       console.error(
         "[sketches] SketchElement / moisture / room-graph decomposition failed (non-fatal):",

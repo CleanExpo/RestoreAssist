@@ -18,6 +18,7 @@ describe("pinsToMoistureReadingInputs", () => {
       source: "pin",
       materialId: null,
       elementId: null,
+      sketchRoomId: null,
       targetMc: null,
       waterCategory: null,
       dryStandardMet: false,
@@ -30,6 +31,28 @@ describe("pinsToMoistureReadingInputs", () => {
     expect(rows[0].dryStandardMet).toBe(false);
     expect(rows[0].targetMc).toBeNull();
     expect(rows[0].source).toBe("pin");
+  });
+
+  it("binds moisture pins to SketchRoom via point-in-polygon", () => {
+    const rows = pinsToMoistureReadingInputs(
+      "sk1",
+      [{ wme: 22, x: 50, y: 50 }],
+      [
+        {
+          id: "room-1",
+          name: "Kitchen",
+          geometryJson: {
+            points: [
+              { x: 0, y: 0 },
+              { x: 100, y: 0 },
+              { x: 100, y: 100 },
+              { x: 0, y: 100 },
+            ],
+          },
+        },
+      ],
+    );
+    expect(rows[0].sketchRoomId).toBe("room-1");
   });
 
   it("skips pins without a usable numeric reading", () => {

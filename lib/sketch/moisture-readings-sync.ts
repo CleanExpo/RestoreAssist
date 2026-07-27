@@ -9,20 +9,21 @@
  *
  * Field mapping + deliberate limits:
  *   - currentMc ← pin.wme. A pin's reading IS the captured field moisture value.
- *     (Assumption flagged for domain review: if WME and %MC diverge for a given
- *     material, this is the raw captured number, not a converted %MC.)
  *   - dryStandardMet = false, targetMc = null — pin rows are captured readings,
- *     NOT dry-standard verdicts. Verdicts stay with the manual readings route,
- *     so a pin can never assert an unproven S500 "dry" claim.
- *   - materialId / elementId = null — a pin's `material` is a MaterialTypeId, not
- *     a Material.id; spatial element linkage is a separate concern. ("where
- *     available" per the spec — null when not.)
+ *     NOT dry-standard verdicts.
+ *   - sketchRoomId ← resolveEvidenceRoomLink(x,y) when rooms are provided, so
+ *     moisture pins bind to RoomPlan / hand-drawn SketchRoom rows like evidence.
  */
+
+import { resolveEvidenceRoomLink } from "./sync-room-graph";
 
 export interface MoisturePinLike {
   wme?: number;
   material?: string;
   note?: string;
+  x?: number;
+  y?: number;
+  sketchRoomId?: string | null;
 }
 
 export interface PinMoistureReadingInput {
@@ -31,6 +32,7 @@ export interface PinMoistureReadingInput {
   source: "pin";
   materialId: null;
   elementId: null;
+  sketchRoomId: string | null;
   targetMc: null;
   waterCategory: null;
   dryStandardMet: false;
@@ -39,20 +41,39 @@ export interface PinMoistureReadingInput {
 export function pinsToMoistureReadingInputs(
   sketchId: string,
   pins: unknown,
+  rooms?: Array<{
+    id: string;
+    name?: string | null;
+    fabricObjectId?: string | null;
+    geometryJson: unknown;
+  }>,
 ): PinMoistureReadingInput[] {
   if (!Array.isArray(pins)) return [];
   const out: PinMoistureReadingInput[] = [];
   for (const pin of pins) {
-    const wme = (pin as MoisturePinLike)?.wme;
-    // Skip pins without a usable numeric reading — a row with no currentMc would
-    // be meaningless in the drying log.
+    const p = pin as MoisturePinLike;
+    const wme = p?.wme;
     if (typeof wme !== "number" || Number.isNaN(wme)) continue;
+
+    let sketchRoomId: string | null =
+      typeof p.sketchRoomId === "string" ? p.sketchRoomId : null;
+    if (
+      !sketchRoomId &&
+      rooms?.length &&
+      typeof p.x === "number" &&
+      typeof p.y === "number"
+    ) {
+      sketchRoomId =
+        resolveEvidenceRoomLink(rooms, p.x, p.y)?.sketchRoomId ?? null;
+    }
+
     out.push({
       sketchId,
       currentMc: wme,
       source: "pin",
       materialId: null,
       elementId: null,
+      sketchRoomId,
       targetMc: null,
       waterCategory: null,
       dryStandardMet: false,
