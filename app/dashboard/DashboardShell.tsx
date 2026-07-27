@@ -404,7 +404,7 @@ export default function DashboardShell({
                 }
                 if (!data.canCreate) {
                   // RA-1842: iOS billing happens on web; do not auto-redirect.
-                  if (!isCapacitorIOS()) {
+                  if (!hideBillingNav) {
                     router.push("/dashboard/pricing");
                   } else {
                     toast.error(
