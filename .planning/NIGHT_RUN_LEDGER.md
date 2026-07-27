@@ -154,3 +154,28 @@ cheaper, needs no request rewriting, and two of its three insertion points are f
 
 **Next action:** move the read out of `app/layout.tsx` into the three scoped layouts, then
 re-measure to confirm the static count returns to ~60.
+
+## Review gate — task #32 BillingGate, dual-family status 2026-07-27
+
+| Family | Scope reviewed | Verdict |
+|---|---|---|
+| Claude (adversarial) | full fix incl. hydrateRoot probe + positive control | FAIL → all P1/P2 drained |
+| Codex (cross-family) | **wiring only** — 4-link chain, 5 named files | **PASS** on `cd3c5234` |
+
+Codex evidence: token match `capacitor.config.ts:75` ↔ `lib/capacitor.ts:67`; computed verdict
+passed at `app/layout.tsx:141,164`; server verdict wins with client fallback at
+`BillingGate.tsx:67,73-79`; `undefined` vs explicit `null` distinguished at `:85-88`.
+
+**Scope honesty:** Codex answered the ONE narrow question it was asked (is the chain wired
+correctly). That is not a full-scope PASS and must not be reported as one. Its two caveats —
+`force-static` emptying the verdict, and pre-token shells being uncovered — are the same two
+already documented in the component header, which it cited back (`:29-31`, `:32-33`).
+
+**Process note:** three earlier Codex dispatches produced nothing. Root cause diagnosed —
+`codex exec` needs the brief piped with a trailing `-`; a positional prompt hangs on stdin in
+a non-TTY background run. Recorded as memory `feedback_codex_exec_stdin_invocation`. Two of
+those three were wrongly written up as "Codex stalled".
+
+**Still open on this branch:** the root-layout scoping bug (61 routes dynamic; 53 recoverable
+by moving the `headers()` read into the 3 segment layouts). That is mine to fix, not a
+founder decision.
