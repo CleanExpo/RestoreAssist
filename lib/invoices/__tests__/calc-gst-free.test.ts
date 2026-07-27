@@ -115,6 +115,30 @@ describe("calculateInvoiceTotals — GST-free and mixed rates (RA-7096)", () => 
     expect(r.gstAmount).toBe(Math.round(r.subtotalExGST * 0.1));
   });
 
+  // Contract guard: calc.ts treats discountAmount/shippingAmount as INTEGER
+  // cents and does not round them. Callers converting from dollars must round
+  // at the call site. A regression here put fractional cents into a persisted
+  // invoice subtotal — see app/api/invoices/[id]/variations/route.ts.
+  it("propagates fractional input rather than silently rounding it", () => {
+    const r = calculateInvoiceTotals({
+      lineItems: [{ quantity: 1, unitPrice: 10000, gstRate: 10 }],
+      discountAmount: 1055.5, // what an unrounded 10.555 dollars would pass
+    });
+
+    expect(Number.isInteger(r.subtotalExGST)).toBe(false);
+  });
+
+  it("stays integral when the caller rounds, as callers must", () => {
+    const r = calculateInvoiceTotals({
+      lineItems: [{ quantity: 1, unitPrice: 10000, gstRate: 10 }],
+      discountAmount: Math.round(1055.5),
+    });
+
+    expect(Number.isInteger(r.subtotalExGST)).toBe(true);
+    expect(Number.isInteger(r.gstAmount)).toBe(true);
+    expect(Number.isInteger(r.totalIncGST)).toBe(true);
+  });
+
   it("never divides by zero on a fully discounted invoice", () => {
     const r = calculateInvoiceTotals({
       lineItems: [{ quantity: 1, unitPrice: 10000, gstRate: 10 }],

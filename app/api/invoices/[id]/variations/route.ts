@@ -212,11 +212,19 @@ export async function POST(
           unitPrice: Math.round(item.unitPrice * 100),
           gstRate: item.gstRate,
         })),
-        discountAmount: discountAmount ? parseFloat(discountAmount) * 100 : null,
+        // Round the dollar->cent conversion HERE. calc.ts treats these as
+        // integer cents and does not round them itself, so an input like
+        // 10.555 would otherwise put fractional cents into the subtotal.
+        // The pre-calc.ts code rounded at exactly these two points.
+        discountAmount: discountAmount
+          ? Math.round(parseFloat(discountAmount) * 100)
+          : null,
         discountPercentage: discountPercentage
           ? parseFloat(discountPercentage)
           : null,
-        shippingAmount: shippingAmount ? parseFloat(shippingAmount) * 100 : null,
+        shippingAmount: shippingAmount
+          ? Math.round(parseFloat(shippingAmount) * 100)
+          : null,
       });
       const subtotal = totals.subtotalExGST;
       const gst = totals.gstAmount;
