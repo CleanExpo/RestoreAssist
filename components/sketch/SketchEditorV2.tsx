@@ -42,6 +42,8 @@ import {
   type SketchSavePayload,
 } from "@/lib/nir-sync-queue";
 import toast from "react-hot-toast";
+import { useCapacitor } from "@/components/providers/CapacitorProvider";
+import { startRoomPlanCapture } from "@/lib/capacitor-roomplan-bridge";
 
 import { SketchDockToolbar } from "./SketchDockToolbar";
 import { SketchFloorTabs } from "./SketchFloorTabs";
@@ -176,6 +178,7 @@ export function SketchEditorV2({
   // Homeowner capture mode: save to the public token route; skip authed fetches.
   const captureMode = !!captureToken;
   const uid = useId();
+  const { hasNativeRoomPlan } = useCapacitor();
 
   // ── Floor state ────────────────────────────────────────
   const [floorsData, setFloorsData] = useState<FloorData[]>(() => [
@@ -393,6 +396,10 @@ export function SketchEditorV2({
         scaleConfig: fd.scaleConfig,
       };
       const clientUpdatedAt = Date.now();
+      const { resolveSketchCaptureAdapter } = await import(
+        "@/lib/sketch/ingest-roomplan"
+      );
+      const captureAdapter = resolveSketchCaptureAdapter({ sketchData });
 
       // RA-120 (PR2): on flush saves (floor switch / PDF export / scope gen),
       // rasterise the floor (underlay + annotations are both captured by Fabric
@@ -434,6 +441,7 @@ export function SketchEditorV2({
         backgroundImageOffsetY: fd.backgroundOffsetY ?? undefined,
         renderedPngUrl,
         country,
+        captureAdapter,
       };
 
       const saveUrl = captureToken
@@ -1103,6 +1111,90 @@ export function SketchEditorV2({
     [inspectionId, activeFloor, width, height, scheduleSave],
   );
 
+  // ── RA-7091: Scan room (LiDAR) via native RoomPlan ───────
+  const handleScanRoom = useCallback(async () => {
+    const canvasHandle = activeFloor?.canvasRef.current;
+    const fc = canvasHandle?.getFabricCanvas() as {
+      add: (...objs: unknown[]) => void;
+      renderAll: () => void;
+    } | null;
+    if (!fc) {
+      toast.error("Canvas not ready for LiDAR scan");
+      return;
+    }
+
+    try {
+      const captured = await startRoomPlanCapture();
+      const { prepareRoomPlanIngest } = await import(
+        "@/lib/sketch/ingest-roomplan"
+      );
+      const elements = prepareRoomPlanIngest(captured);
+      if (!elements.length) {
+        toast.error("Scan produced no usable room geometry");
+        return;
+      }
+
+      const fabric = await import("fabric");
+      const FabricPolygon = (
+        fabric as unknown as {
+          Polygon: new (
+            pts: { x: number; y: number }[],
+            opts: object,
+          ) => unknown;
+        }
+      ).Polygon;
+      const FabricText = (
+        fabric as unknown as {
+          IText: new (text: string, opts: object) => unknown;
+        }
+      ).IText;
+
+      for (const el of elements) {
+        const polygon = new FabricPolygon(el.points, {
+          fill: el.fill,
+          stroke: el.stroke,
+          strokeWidth: el.strokeWidth,
+          strokeLineJoin: "miter",
+          strokeMiterLimit: 10,
+          strokeUniform: true,
+          objectCaching: false,
+          selectable: true,
+          evented: true,
+          data: el.data,
+        });
+        const label = new FabricText(el.label.text, {
+          left: el.label.left,
+          top: el.label.top,
+          originX: "center",
+          originY: "center",
+          fontSize: 13,
+          fill: el.stroke,
+          selectable: true,
+          evented: true,
+          data: {
+            id: `${el.data.id}-label`,
+            type: "room-label",
+          },
+        });
+        fc.add(polygon, label);
+      }
+
+      fc.renderAll();
+      canvasHandle?.saveState();
+      scheduleSave();
+      toast.success(
+        elements.length === 1
+          ? "LiDAR room added to floor plan"
+          : `Added ${elements.length} rooms from LiDAR scan`,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "LiDAR scan failed";
+      // User cancel is expected — don't toast as an error.
+      if (/cancel/i.test(message)) return;
+      toast.error(message);
+    }
+  }, [activeFloor, scheduleSave]);
+
   // ── Tool mode change ────────────────────────────────────
   const handleToolChange = useCallback((mode: ToolMode) => {
     setToolMode(mode);
@@ -1656,6 +1748,11 @@ export function SketchEditorV2({
           }}
           onImportSketch={
             inspectionId && !readonly ? handleImportSketch : undefined
+          }
+          onScanRoom={
+            inspectionId && !readonly && !guided && hasNativeRoomPlan
+              ? handleScanRoom
+              : undefined
           }
           readonly={readonly}
         />

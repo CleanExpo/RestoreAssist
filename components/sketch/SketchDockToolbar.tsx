@@ -35,6 +35,7 @@ import {
   DoorOpen,
   AppWindow,
   Waves,
+  Scan,
 } from "lucide-react";
 import type { ToolMode } from "./SketchCanvas";
 import type { DamageKind } from "@/lib/sketch/damage-zone";
@@ -57,6 +58,11 @@ export interface SketchDockToolbarProps {
   onClear?: () => void;
   /** RA-1607: called with the chosen image File when the user picks a sketch to import. */
   onImportSketch?: (file: File) => Promise<void>;
+  /**
+   * RA-7091: start a native RoomPlan LiDAR scan. Only pass when the device
+   * supports RoomPlan — the toolbar hides the control otherwise.
+   */
+  onScanRoom?: () => Promise<void>;
   readonly?: boolean;
   /** Guided (homeowner) mode — restrict to basic capture tools. */
   guided?: boolean;
@@ -114,6 +120,7 @@ export function SketchDockToolbar({
   onZoomReset,
   onClear,
   onImportSketch,
+  onScanRoom,
   readonly = false,
   guided = false,
   className,
@@ -124,6 +131,7 @@ export function SketchDockToolbar({
   const [dock, setDock] = useState<DockPosition>("bottom");
   const [isDragging, setIsDragging] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number } | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -367,19 +375,52 @@ export function SketchDockToolbar({
             type="button"
             title="Import hand-drawn sketch (Claude Vision)"
             aria-label="Import hand-drawn sketch"
-            disabled={isImporting}
+            disabled={isImporting || isScanning}
             onClick={() => fileInputRef.current?.click()}
             className={cn(
               "w-14 h-14 flex items-center justify-center rounded-xl transition-all duration-150",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
               "text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300",
-              isImporting && "opacity-50 cursor-not-allowed",
+              (isImporting || isScanning) && "opacity-50 cursor-not-allowed",
             )}
           >
             {isImporting ? (
               <Loader2 size={20} className="animate-spin" />
             ) : (
               <Upload size={20} strokeWidth={1.8} />
+            )}
+          </button>
+        </>
+      )}
+
+      {/* RA-7091: Scan room (LiDAR) — only when onScanRoom is provided */}
+      {!readonly && !guided && onScanRoom && (
+        <>
+          {!onImportSketch && <div className={dividerCls} />}
+          <button
+            type="button"
+            title="Scan room (LiDAR)"
+            aria-label="Scan room with LiDAR"
+            disabled={isScanning || isImporting}
+            onClick={async () => {
+              setIsScanning(true);
+              try {
+                await onScanRoom();
+              } finally {
+                setIsScanning(false);
+              }
+            }}
+            className={cn(
+              "w-14 h-14 flex items-center justify-center rounded-xl transition-all duration-150",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+              "text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300",
+              (isScanning || isImporting) && "opacity-50 cursor-not-allowed",
+            )}
+          >
+            {isScanning ? (
+              <Loader2 size={20} className="animate-spin" />
+            ) : (
+              <Scan size={20} strokeWidth={1.8} />
             )}
           </button>
         </>
