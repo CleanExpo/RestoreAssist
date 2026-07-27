@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { isPortalInvitationToken } from "@/lib/public-token-shape";
+import { signClientPortalJwt } from "@/lib/portal/client-jwt";
 
 // POST /api/portal/invitations/accept - Accept invitation and create ClientUser account
 export async function POST(request: NextRequest) {
@@ -124,10 +125,20 @@ export async function POST(request: NextRequest) {
       return clientUser;
     });
 
+    // Issue the portal JWT immediately so signup flows straight into the
+    // portal without a second login round-trip.
+    const portalToken = await signClientPortalJwt({
+      clientUserId: result.id,
+      clientId: result.clientId,
+      email: result.email,
+      name: result.name,
+    });
+
     return NextResponse.json(
       {
         success: true,
         message: "Account created successfully",
+        token: portalToken,
         clientUser: {
           id: result.id,
           email: result.email,
