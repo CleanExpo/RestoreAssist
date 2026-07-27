@@ -1,25 +1,25 @@
 /**
- * RA-7091 — RoomPlan capability seam (contract groundwork only).
+ * RA-7091 — RoomPlan capability seam.
  *
- * This is the smallest fail-closed contract that decides whether the LiDAR
- * RoomPlan scan path is available or whether the app must stay on the existing
- * MANUAL floor-plan workflow (the hand-drawn Sketch tools + RA-6795 converter).
- * It adds NO native Swift, UI, persistence, APIs, or dependencies — only the
- * typed seam and the deterministic resolver that gates on it.
+ * Decides whether the LiDAR RoomPlan scan path is available or whether the app
+ * must stay on the existing MANUAL floor-plan workflow (hand-drawn Sketch tools
+ * + RA-6795 converter).
+ *
+ * Phase 1 wires the real Capacitor `RoomPlan` plugin probe via
+ * `lib/capacitor-roomplan-bridge.ts`. Capture session / editor ingest land in
+ * later phases — this module stays a fail-closed gate only.
  *
  * Fail-closed rule: "roomplan" mode is granted ONLY when we are demonstrably
  * running native iOS AND a real native support probe returns supported=true.
  * Web, Android, non-native iOS, an unsupported device, a malformed probe
  * result, a missing plugin, or a probe rejection ALL resolve to explicit
- * "manual" mode with a machine-readable reason. The resolver never throws, so
- * unsupported hardware can never dead-end the operator — it simply keeps the
- * manual workflow. No scanner availability, accuracy, or custody claim is made
- * here; that waits on the real native plugin landing behind RA-1133 / RA-7090.
+ * "manual" mode with a machine-readable reason. The resolver never throws.
  */
 import { isCapacitorIOS } from "@/lib/capacitor";
+import { getRoomPlanNativePlugin } from "@/lib/capacitor-roomplan-bridge";
 
 /**
- * The native RoomPlan plugin seam. For now it exposes ONLY a support probe —
+ * The native RoomPlan plugin seam. Phase 1 exposes ONLY a support probe —
  * enough to gate availability without committing to a capture API surface.
  */
 export interface RoomPlanPlugin {
@@ -82,31 +82,13 @@ export async function resolveRoomPlanCapability(
 }
 
 /**
- * Lazily resolve the registered native RoomPlan plugin via Capacitor's
- * `registerPlugin`, without adding a dependency (`@capacitor/core` is already
- * used by lib/capacitor.ts). Returns null off-native, when the core is
- * unavailable, or when registration fails — the resolver maps null to manual.
- */
-function loadRoomPlanPlugin(): RoomPlanPlugin | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const { registerPlugin } = require("@capacitor/core") as {
-      registerPlugin: <T>(name: string) => T;
-    };
-    return registerPlugin<RoomPlanPlugin>("RoomPlan");
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Default runtime wrapper — resolves capability from the real environment using
- * the existing Capacitor iOS detection and the registered native seam.
+ * Capacitor iOS detection and the registered native RoomPlan seam.
  */
 export async function getRoomPlanCapability(): Promise<RoomPlanCapability> {
   const isNativeIOS = isCapacitorIOS();
   return resolveRoomPlanCapability({
     isNativeIOS,
-    plugin: isNativeIOS ? loadRoomPlanPlugin() : null,
+    plugin: isNativeIOS ? getRoomPlanNativePlugin() : null,
   });
 }
