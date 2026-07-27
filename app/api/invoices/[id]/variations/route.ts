@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { computeInvoiceTotals } from "@/lib/invoices/totals";
+import { calculateInvoiceTotals } from "@/lib/invoices/calc";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -201,12 +201,12 @@ export async function POST(
       // If the original invoice is itself a variation, use its original
       const baseInvoiceId = originalInvoice.originalInvoiceId || id;
 
-      // RA-7096 — shared helper (lib/invoices/totals.ts). Previously this block
-      // summed per-line GST and then discarded it with
+      // RA-7096 — use the existing single source of truth (lib/invoices/calc.ts).
+      // This block previously summed per-line GST and then discarded it with
       // `gst = Math.round(subtotal * 0.1)`, taxing GST-free lines at 10% on a
-      // tax invoice. app/api/invoices/route.ts already had the correct logic;
-      // the two copies had drifted.
-      const totals = computeInvoiceTotals({
+      // tax invoice. calc.ts already implements the server algorithm including
+      // proportional discount scaling and GST on shipping.
+      const totals = calculateInvoiceTotals({
         lineItems: lineItems.map((item: any) => ({
           quantity: item.quantity,
           unitPrice: Math.round(item.unitPrice * 100),
@@ -218,9 +218,9 @@ export async function POST(
           : null,
         shippingAmount: shippingAmount ? parseFloat(shippingAmount) * 100 : null,
       });
-      const subtotal = totals.subtotal;
-      const gst = totals.gst;
-      const total = totals.total;
+      const subtotal = totals.subtotalExGST;
+      const gst = totals.gstAmount;
+      const total = totals.totalIncGST;
 
       // Get next invoice number
       const sequence = await prisma.invoiceSequence.findFirst({
