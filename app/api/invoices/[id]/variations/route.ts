@@ -222,27 +222,25 @@ export async function POST(
       const gst = totals.gstAmount;
       const total = totals.totalIncGST;
 
-      // Get next invoice number
-      const sequence = await prisma.invoiceSequence.findFirst({
-        where: { userId: userId },
-      });
-
-      if (!sequence) {
-        return apiError(request, {
-          code: "INTERNAL",
-          message: "Invoice sequence not found",
-          status: 500,
-        });
-      }
-
+      // RA-7097 — atomic, schema-correct sequence allocation.
+      //
+      // This previously read `(sequence as any).nextNumber`, a field that has
+      // never existed on InvoiceSequence (schema has `lastNumber`), so the
+      // route threw `TypeError: Cannot read properties of undefined` on every
+      // call. The `as any` casts hid it from tsc. It also read-then-wrote
+      // outside a transaction, so concurrent variations could mint the same
+      // number. The upsert increment is atomic and mirrors
+      // app/api/invoices/route.ts.
       const year = new Date().getFullYear();
-      const invoiceNumber = `RA-${year}-${(sequence as any).nextNumber.toString().padStart(4, "0")}-V`;
-
-      // Update sequence
-      await prisma.invoiceSequence.update({
-        where: { id: sequence.id },
-        data: { nextNumber: (sequence as any).nextNumber + 1 } as any,
+      const sequence = await prisma.invoiceSequence.upsert({
+        where: { userId_year: { userId, year } },
+        update: { lastNumber: { increment: 1 } },
+        create: { userId, year, prefix: "RA", lastNumber: 1 },
       });
+
+      const invoiceNumber = `${sequence.prefix}-${year}-${String(
+        sequence.lastNumber,
+      ).padStart(4, "0")}-V`;
 
       // Calculate due date (default 30 days from now)
       const dueDate = new Date();
