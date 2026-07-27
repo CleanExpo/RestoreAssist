@@ -6,8 +6,11 @@
  * crash or offline gap cannot lose the only copy of the LiDAR geometry.
  *
  * Integrity: SHA-256 is computed over UTF-8 bytes of stable JSON for the
- * CapturedRoom payload — never over a Data URL string. Stronger
- * tamper-evident claims still wait on RA-7090 for uploaded stored bytes.
+ * CapturedRoom payload — never over a Data URL string. After ingest, the
+ * editor also POSTs the same payload to `/api/inspections/.../roomplan-custody`
+ * so the server persists a receipt whose hash is over the exact stored bytes
+ * (RA-7090 bridge). Ed25519 tamper-evident claims still require a signed
+ * EvidenceItem; this queue alone is custody-of-bytes.
  *
  * Browser-only (IndexedDB). Tests inject an in-memory store.
  */

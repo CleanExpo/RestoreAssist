@@ -2065,6 +2065,7 @@ model Inspection {
 
   // AI Assistant Tier (Phase 3 - LiDAR)
   lidarScans LidarScan[]
+  roomPlanCaptureReceipts RoomPlanCaptureReceipt[]
 
   // AI Assistant Tier (Phase 4 - Voice AI)
   voiceNotes VoiceNote[]
@@ -6335,12 +6336,39 @@ model SketchRoom {
   geometryJson   Json?
   provenance     String        @default("operator_measured")
   evidencePins   EvidencePin[]
+  moistureReadings SketchMoistureReading[]
+  hazards        Hazard[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
   @@unique([sketchId, fabricObjectId])
   @@index([sketchId])
   @@index([sketchId, floorNumber])
+}
+
+// Server receipt for a RoomPlan CapturedRoom JSON payload (RA-7090 bridge).
+// Hash is always computed over the exact UTF-8 bytes stored in payloadJson —
+// never over a client-supplied digest or Data URL. Signing is optional; this
+// row alone is custody-of-bytes, not a tamper-evident Ed25519 claim.
+model RoomPlanCaptureReceipt {
+  id              String     @id @default(cuid())
+  inspectionId    String
+  inspection      Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  /// Client IndexedDB custody entry id (when uploaded from the editor).
+  clientCustodyId String?
+  floorNumber     Int        @default(0)
+  /// Canonical CapturedRoom JSON as stored (server SSOT for the hash).
+  payloadJson     Json
+  /// SHA-256 hex of UTF-8 bytes of the stored JSON string.
+  contentSha256   String
+  /// Optional client-side hash; must match contentSha256 when provided.
+  clientSha256    String?
+  evidenceItemId  String?
+  createdAt       DateTime   @default(now())
+
+  @@index([inspectionId])
+  @@index([inspectionId, contentSha256])
+  @@index([clientCustodyId])
 }
 
 // Evidence pins on the floor plan — photos/videos/docs/voice at canvas coords.
@@ -6479,6 +6507,8 @@ model Hazard {
   sketch         ClaimSketch    @relation(fields: [sketchId], references: [id], onDelete: Cascade)
   elementId      String?
   element        SketchElement? @relation(fields: [elementId], references: [id], onDelete: SetNull)
+  sketchRoomId   String?
+  sketchRoom     SketchRoom?    @relation(fields: [sketchRoomId], references: [id], onDelete: SetNull)
   type           String // asbestos | lead | silica | electrical | structural
   status         String         @default("suspected") // suspected | sampled | cleared | licensed_removal_required
   whsPathwayNote String?
@@ -6487,6 +6517,7 @@ model Hazard {
 
   @@index([sketchId])
   @@index([elementId])
+  @@index([sketchRoomId])
 }
 
 // Insurance pathway routing (spec §5.5).
@@ -6508,6 +6539,8 @@ model SketchMoistureReading {
   sketch          ClaimSketch    @relation(fields: [sketchId], references: [id], onDelete: Cascade)
   elementId       String?
   element         SketchElement? @relation(fields: [elementId], references: [id], onDelete: SetNull)
+  sketchRoomId    String?
+  sketchRoom      SketchRoom?    @relation(fields: [sketchRoomId], references: [id], onDelete: SetNull)
   materialId      String?
   material        Material?      @relation(fields: [materialId], references: [id])
   waterCategory   String? // cat1 | cat2 | cat3
@@ -6526,6 +6559,7 @@ model SketchMoistureReading {
   @@index([sketchId])
   @@index([sketchId, source])
   @@index([elementId])
+  @@index([sketchRoomId])
   @@index([materialId])
 }
 
