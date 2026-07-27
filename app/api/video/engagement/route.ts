@@ -17,13 +17,17 @@ import { authOptions } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
 import { fromException } from "@/lib/api-errors";
 
+/**
+ * Engagement tracking is best-effort analytics — when the Supabase public env
+ * is absent (local dev, fresh deploys) the route must no-op, not 500. The
+ * player fires these on every play/pause, so a hard failure spams the logs
+ * and surfaces errors for a feature the user never sees.
+ */
 function getSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!url || !key) {
-    throw new Error("Supabase public env is not configured");
-  }
+  if (!url || !key) return null;
 
   return createClient(url, key);
 }
@@ -60,8 +64,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = getSupabaseClient();
-
     const body = await req.json();
     const { videoSlug, eventType, watchDurationSec, totalDurationSec } = body;
 
@@ -70,6 +72,12 @@ export async function POST(req: NextRequest) {
         { ok: false, error: "Invalid videoSlug or eventType" },
         { status: 400 },
       );
+    }
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      // Analytics sink not configured — accept and drop the event.
+      return NextResponse.json({ ok: true, skipped: true });
     }
 
     const ua = req.headers.get("user-agent") || "";
