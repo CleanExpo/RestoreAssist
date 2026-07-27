@@ -211,6 +211,8 @@ export function describeToolObject(
           type: "room",
           id: `room-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
           provenance: "operator_measured",
+          // Non-LiDAR path — same room/evidence workflow without RoomPlan.
+          captureAdapter: "manual",
           areaM2,
         },
         label: {

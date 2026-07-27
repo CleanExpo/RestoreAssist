@@ -250,7 +250,11 @@ export function SketchDockToolbar({
             key={mode}
             active={toolMode === mode}
             onClick={() => onToolChange(mode)}
-            label={`${label} (${shortcut})`}
+            label={`${
+              mode === "room" && !onScanRoom && !guided
+                ? "Room — draw manually"
+                : label
+            } (${shortcut})`}
             Icon={Icon}
           />
         ))}

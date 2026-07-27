@@ -117,7 +117,13 @@ export function useSketchTools(opts: UseSketchToolsOptions) {
               strokeWidth: 2,
               selectable: true,
               evented: true,
-              data: { type: "room", roomType: "room", label: "Room" },
+              data: {
+                type: "room",
+                roomType: "room",
+                label: "Room",
+                provenance: "operator_measured",
+                captureAdapter: "manual",
+              },
             });
             canvas.add(poly);
             (canvas.requestRenderAll ?? canvas.renderAll).call(canvas);

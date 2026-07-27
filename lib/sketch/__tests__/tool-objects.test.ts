@@ -29,6 +29,7 @@ describe("describeToolObject — data.type contract", () => {
     expect(d?.kind).toBe("polygon");
     expect(d?.data.type).toBe("room");
     expect(d?.data.provenance).toBe("operator_measured");
+    expect(d?.data.captureAdapter).toBe("manual");
   });
 
   it("line → wall element with measured provenance and lengthM", () => {
