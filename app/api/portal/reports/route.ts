@@ -1,31 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { apiError, fromException } from "@/lib/api-errors";
+import { fromException } from "@/lib/api-errors";
+import { requireClientAuth } from "@/lib/portal/require-client-auth";
 
-// GET /api/portal/reports - Get reports for logged-in client
+// GET /api/portal/reports - Get reports for logged-in client (bearer JWT)
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const auth = await requireClientAuth(request);
+    if (!auth.ok) return auth.response;
 
-    if (!session?.user?.id || session.user.userType !== "client") {
-      return apiError(request, {
-        code: "UNAUTHORIZED",
-        message: "Unauthorized",
-        status: 401,
-      });
-    }
-
-    const clientId = session.user.clientId;
-
-    if (!clientId) {
-      return apiError(request, {
-        code: "VALIDATION",
-        message: "Client ID not found",
-        status: 400,
-      });
-    }
+    const clientId = auth.claims.clientId;
 
     // Fetch all reports linked to this client
     const reports = await prisma.report.findMany({

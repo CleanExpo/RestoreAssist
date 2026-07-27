@@ -1,32 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { requireClientAuth } from "@/lib/portal/require-client-auth";
 
-// POST /api/portal/reports/[id]/approvals - Create or update approval
+// POST /api/portal/reports/[id]/approvals - Create or update approval (bearer JWT)
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id || session.user.userType !== "client") {
-    return apiError(request, {
-      code: "UNAUTHORIZED",
-      message: "Unauthorized",
-      status: 401,
-    });
-  }
+  const auth = await requireClientAuth(request);
+  if (!auth.ok) return auth.response;
 
-  const clientId = session.user.clientId;
-  if (!clientId) {
-    return apiError(request, {
-      code: "VALIDATION",
-      message: "Client ID not found",
-      status: 400,
-    });
-  }
+  const clientId = auth.claims.clientId;
   const { id: reportId } = await params;
 
   // RA-1266: find-or-create pattern is race-prone — parallel retries
@@ -136,26 +122,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const auth = await requireClientAuth(request);
+    if (!auth.ok) return auth.response;
 
-    if (!session?.user?.id || session.user.userType !== "client") {
-      return apiError(request, {
-        code: "UNAUTHORIZED",
-        message: "Unauthorized",
-        status: 401,
-      });
-    }
-
-    const clientId = session.user.clientId;
-
-    if (!clientId) {
-      return apiError(request, {
-        code: "VALIDATION",
-        message: "Client ID not found",
-        status: 400,
-      });
-    }
-
+    const clientId = auth.claims.clientId;
     const { id: reportId } = await params;
 
     // Verify report belongs to this client

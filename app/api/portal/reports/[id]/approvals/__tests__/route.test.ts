@@ -5,11 +5,13 @@ import { NextRequest } from "next/server";
 // client-only auth, input validation, tenant-scoped report ownership, and the
 // find-or-create upsert that records an APPROVED/REJECTED decision.
 
-const getServerSession = vi.fn();
-vi.mock("next-auth", () => ({
-  getServerSession: (...a: unknown[]) => getServerSession(...a),
+// The route now authenticates via the standalone portal JWT (bearer header),
+// not a NextAuth session.
+const authenticateClientRequest = vi.fn();
+vi.mock("@/lib/portal/client-jwt", () => ({
+  authenticateClientRequest: (...a: unknown[]) =>
+    authenticateClientRequest(...a),
 }));
-vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: async (
     request: { text: () => Promise<string> },
@@ -44,8 +46,12 @@ vi.mock("@/lib/prisma", () => ({
 
 import { POST } from "../route";
 
-const clientSession = {
-  user: { id: "u_c", userType: "client", clientId: "c_1" },
+const clientClaims = {
+  sub: "u_c",
+  clientId: "c_1",
+  email: "homeowner@example.com",
+  name: "Home Owner",
+  typ: "client-portal",
 };
 function postReq(body: unknown): NextRequest {
   return new NextRequest("http://localhost/api/portal/reports/r_1/approvals", {
@@ -58,17 +64,17 @@ const ctx = { params: Promise.resolve({ id: "r_1" }) };
 const approve = { approvalType: "SCOPE_OF_WORK", status: "APPROVED" };
 
 beforeEach(() => {
-  getServerSession.mockReset();
+  authenticateClientRequest.mockReset();
   reportFindFirst.mockReset();
   approvalFindFirst.mockReset();
   approvalCreate.mockReset();
   approvalUpdate.mockReset();
-  getServerSession.mockResolvedValue(clientSession);
+  authenticateClientRequest.mockResolvedValue(clientClaims);
 });
 
 describe("POST /api/portal/reports/[id]/approvals", () => {
-  it("returns 401 for a non-client session", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "u_1", userType: "user" } });
+  it("returns 401 when the bearer token is missing or invalid", async () => {
+    authenticateClientRequest.mockResolvedValueOnce(null);
     const res = await POST(postReq(approve), ctx);
     expect(res.status).toBe(401);
   });

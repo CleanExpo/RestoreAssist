@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireClientAuth } from "@/lib/portal/require-client-auth";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import { isAiDraftPending } from "@/lib/reports/ai-ownership";
 import { resolveOrgBrandTheme } from "@/lib/clients/brand";
@@ -28,25 +27,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const auth = await requireClientAuth(request);
+    if (!auth.ok) return auth.response;
 
-    if (!session?.user?.id || session.user.userType !== "client") {
-      return apiError(request, {
-        code: "UNAUTHORIZED",
-        message: "Unauthorized",
-        status: 401,
-      });
-    }
-
-    const clientId = session.user.clientId;
-
-    if (!clientId) {
-      return apiError(request, {
-        code: "VALIDATION",
-        message: "Client ID not found",
-        status: 400,
-      });
-    }
+    const clientId = auth.claims.clientId;
 
     const { id: reportId } = await params;
 
