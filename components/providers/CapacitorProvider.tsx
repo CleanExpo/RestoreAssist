@@ -7,7 +7,7 @@
  * and exposes native capability flags via the `useCapacitor()` hook.
  *
  * Usage:
- *   const { isNative, platform, hasNativeCamera, hasNativeBluetooth } = useCapacitor()
+ *   const { isNative, platform, hasNativeCamera, hasNativeBluetooth, hasNativeRoomPlan } = useCapacitor()
  *
  * On web browsers all flags are false. On iOS/Android native shells the correct
  * flags are true. This lets components branch between web and native behaviour
@@ -39,6 +39,12 @@ export interface CapacitorContextValue {
    * Android: Web Bluetooth works in the Chromium WebView.
    */
   hasNativeBluetooth: boolean;
+  /**
+   * true only after a real RoomPlan support probe returns supported=true
+   * on native iOS (RA-7091). Stays false on web/Android/non-LiDAR /
+   * missing plugin — fail-closed to manual floor plans.
+   */
+  hasNativeRoomPlan: boolean;
 }
 
 // ── Context ───────────────────────────────────────────────────────────────────
@@ -48,6 +54,7 @@ const defaultValue: CapacitorContextValue = {
   platform: "web",
   hasNativeCamera: false,
   hasNativeBluetooth: false,
+  hasNativeRoomPlan: false,
 };
 
 const CapacitorContext = createContext<CapacitorContextValue>(defaultValue);
@@ -91,9 +98,21 @@ export function CapacitorProvider({ children }: { children: ReactNode }) {
       // iOS Safari/WKWebView blocks Web Bluetooth — use native BLE plugin on iOS
       // Android Chromium WebView supports Web Bluetooth natively
       hasNativeBluetooth: platform === "ios",
+      // RoomPlan: start fail-closed; probe upgrades only when LiDAR-capable
+      hasNativeRoomPlan: false,
     });
 
     if (platform === "ios") {
+      import("@/lib/sketch/roomplan-capability")
+        .then(({ getRoomPlanCapability }) => getRoomPlanCapability())
+        .then((cap) => {
+          if (cap.mode !== "roomplan") return;
+          setValue((prev) => ({ ...prev, hasNativeRoomPlan: true }));
+        })
+        .catch(() => {
+          // Probe failure stays fail-closed (hasNativeRoomPlan: false)
+        });
+
       import("@capacitor/push-notifications")
         .then(({ PushNotifications }) => {
           PushNotifications.requestPermissions().then(({ receive }) => {
