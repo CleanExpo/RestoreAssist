@@ -6,8 +6,9 @@
  * + RA-6795 converter).
  *
  * Phase 1 wires the real Capacitor `RoomPlan` plugin probe via
- * `lib/capacitor-roomplan-bridge.ts`. Capture session / editor ingest land in
- * later phases — this module stays a fail-closed gate only.
+ * `lib/capacitor-roomplan-bridge.ts`. Phase 2 adds startCapture / cancelCapture
+ * on the same native plugin. Editor ingest / Scan UI land in later phases —
+ * this module stays a fail-closed gate only.
  *
  * Fail-closed rule: "roomplan" mode is granted ONLY when we are demonstrably
  * running native iOS AND a real native support probe returns supported=true.
@@ -16,15 +17,17 @@
  * "manual" mode with a machine-readable reason. The resolver never throws.
  */
 import { isCapacitorIOS } from "@/lib/capacitor";
-import { getRoomPlanNativePlugin } from "@/lib/capacitor-roomplan-bridge";
+import {
+  getRoomPlanNativePlugin,
+  type RoomPlanNativePlugin,
+} from "@/lib/capacitor-roomplan-bridge";
 
 /**
- * The native RoomPlan plugin seam. Phase 1 exposes ONLY a support probe —
- * enough to gate availability without committing to a capture API surface.
+ * The native RoomPlan plugin seam used by the capability gate.
+ * Capture methods live on the same native plugin but are invoked via the
+ * bridge helpers (`startRoomPlanCapture`) — the gate only needs isSupported.
  */
-export interface RoomPlanPlugin {
-  isSupported(): Promise<{ supported: boolean }>;
-}
+export type RoomPlanPlugin = Pick<RoomPlanNativePlugin, "isSupported">;
 
 /** Deterministic, machine-readable reasons the app fell back to manual mode. */
 export type RoomPlanManualReason =
