@@ -821,7 +821,13 @@ async function renderTotalsSection(
 
   const totalsX = width - margin - 200;
 
-  // Subtotal
+  // Subtotal — undo baked-in discount/shipping so the printed breakdown
+  // (subtotal ± discount ± shipping + GST) reconciles with Total.
+  const displaySubtotalExGst =
+    invoice.subtotalExGST -
+    (invoice.shippingAmount ?? 0) +
+    (invoice.discountAmount ?? 0);
+
   page.drawText("Subtotal (Ex GST):", {
     x: totalsX,
     y: yPosition,
@@ -830,7 +836,7 @@ async function renderTotalsSection(
     color: colors.darkGray,
   });
 
-  page.drawText(formatCurrency(invoice.subtotalExGST), {
+  page.drawText(formatCurrency(displaySubtotalExGst), {
     x: width - margin - 70,
     y: yPosition,
     size: 10,

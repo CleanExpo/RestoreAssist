@@ -33,6 +33,30 @@ interface InvoiceSummary {
   customerEmail: string;
   invoiceDate: string;
   dueDate: string;
+  lineItems?: Array<{ gstRate?: number | null }>;
+}
+
+/** Prefer the parent invoice's modal GST rate so GST-free invoices stay GST-free (RA-7096). */
+function inheritGstRate(
+  lineItems: Array<{ gstRate?: number | null }> | undefined,
+): number {
+  if (!lineItems?.length) return 10;
+  const counts = new Map<number, number>();
+  for (const item of lineItems) {
+    const rate = Number.isFinite(Number(item.gstRate))
+      ? Number(item.gstRate)
+      : 10;
+    counts.set(rate, (counts.get(rate) ?? 0) + 1);
+  }
+  let bestRate = 10;
+  let bestCount = -1;
+  for (const [rate, count] of counts) {
+    if (count > bestCount) {
+      bestRate = rate;
+      bestCount = count;
+    }
+  }
+  return bestRate;
 }
 
 interface VariationInvoice {
@@ -187,7 +211,7 @@ export default function InvoiceVariationsPage({
         description: `[${adjustmentLabel}] ${form.reason.trim()}`,
         quantity: 1,
         unitPrice,
-        gstRate: 10,
+        gstRate: inheritGstRate(invoice?.lineItems),
       },
     ];
 

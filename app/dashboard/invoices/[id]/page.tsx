@@ -764,7 +764,9 @@ export default function InvoiceDetailPage({
                   <span className="font-medium text-slate-900 dark:text-white">
                     $
                     {(
-                      (invoice.subtotalExGST - (invoice.shippingAmount ?? 0)) /
+                      (invoice.subtotalExGST -
+                        (invoice.shippingAmount ?? 0) +
+                        (invoice.discountAmount ?? 0)) /
                       100
                     ).toFixed(2)}
                   </span>
