@@ -35,16 +35,16 @@ export async function startLidarScan(
   }
 
   return {
-    status: "native_scanner_pending" as const,
+    status: "native_scanner_ready" as const,
     captureAdapter: "roomplan" as const,
-    hint: "Native RoomPlan support was detected on this device, but the native capture lifecycle is not yet wired up — no scan has been started. Continue using the Floor Plan manual drawing / entered-measurement workflow for this room.",
+    hint: "Native RoomPlan capture is available on this device. Start a LiDAR scan from the Floor Plan screen (Scan room), or continue with the manual drawing / entered-measurement workflow.",
   };
 }
 
 export const startLidarScanDefinition = {
   name: "start_lidar_scan",
   description:
-    "Detect whether native LiDAR room scanning is supported on the current device, and fall back to the existing Floor Plan manual drawing / entered-measurement workflow when it is not. Does not perform any capture itself.",
+    "Detect whether native LiDAR room scanning is supported on the current device, and fall back to the existing Floor Plan manual drawing / entered-measurement workflow when it is not. Does not present the scanner itself — capture is started from the Floor Plan UI.",
   input_schema: {
     type: "object" as const,
     properties: {

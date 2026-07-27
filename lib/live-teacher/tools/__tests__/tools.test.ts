@@ -228,7 +228,7 @@ describe("startLidarScan", () => {
     },
   );
 
-  it("returns native_scanner_pending without claiming a scan started when capability resolves to roomplan", async () => {
+  it("returns native_scanner_ready without claiming a scan started when capability resolves to roomplan", async () => {
     const resolveCapability = vi.fn().mockResolvedValue({ mode: "roomplan" });
 
     const result = await startLidarScan(
@@ -237,10 +237,11 @@ describe("startLidarScan", () => {
     );
 
     expect(resolveCapability).toHaveBeenCalledOnce();
-    expect(result.status).toBe("native_scanner_pending");
+    expect(result.status).toBe("native_scanner_ready");
     expect(result.captureAdapter).toBe("roomplan");
     expect(result.hint).not.toMatch(/scan (has |)started/i);
-    expect(result.hint).toMatch(/not yet|pending|gated/i);
+    expect(result.hint).toMatch(/floor plan/i);
+    expect(result.hint).toMatch(/scan room|lidar|manual/i);
   });
 });
 
