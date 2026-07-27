@@ -32,5 +32,9 @@ export function fabricObjectToSelected(
     cause: data.cause as SelectedObject["cause"],
     waterCategory: data.waterCategory as SelectedObject["waterCategory"],
     provenance: data.provenance as SelectedObject["provenance"],
+    captureAdapter: data.captureAdapter as SelectedObject["captureAdapter"],
+    correctionCount: Array.isArray(data.correctionHistory)
+      ? data.correctionHistory.length
+      : undefined,
   };
 }

@@ -25,6 +25,11 @@ describe("fabricObjectToSelected", () => {
       opacity: 0.8,
       materialSlug: "carpet",
       whsPathwayNote: "Sampled — negative",
+      captureAdapter: undefined,
+      correctionCount: undefined,
+      cause: undefined,
+      waterCategory: undefined,
+      provenance: undefined,
     });
   });
 
@@ -40,17 +45,19 @@ describe("fabricObjectToSelected", () => {
     expect(fabricObjectToSelected(null)).toBeNull();
   });
 
-  it("surfaces provenance so the panel can show the confirm-flow (RA-6760)", () => {
-    const ref = fabricObjectToSelected({
+  it("surfaces RoomPlan captureAdapter + correction count for the confirm panel", () => {
+    const sel = fabricObjectToSelected({
       type: "polygon",
-      data: { id: "r1", type: "room", provenance: "underlay_reference" },
+      data: {
+        id: "rp1",
+        type: "room",
+        provenance: "underlay_reference",
+        captureAdapter: "roomplan",
+        correctionHistory: [{ at: "t", field: "label" }],
+      },
     });
-    expect(ref?.provenance).toBe("underlay_reference");
-
-    const measured = fabricObjectToSelected({
-      type: "polygon",
-      data: { id: "r2", type: "room", provenance: "operator_measured" },
-    });
-    expect(measured?.provenance).toBe("operator_measured");
+    expect(sel?.captureAdapter).toBe("roomplan");
+    expect(sel?.correctionCount).toBe(1);
+    expect(sel?.provenance).toBe("underlay_reference");
   });
 });

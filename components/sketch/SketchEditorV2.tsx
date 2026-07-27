@@ -44,6 +44,10 @@ import {
 import toast from "react-hot-toast";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { startRoomPlanCapture } from "@/lib/capacitor-roomplan-bridge";
+import {
+  confirmRoomPlanMeasurement,
+  recordRoomPlanLabelCorrection,
+} from "@/lib/sketch/roomplan-correction";
 
 import { SketchDockToolbar } from "./SketchDockToolbar";
 import { SketchFloorTabs } from "./SketchFloorTabs";
@@ -1179,6 +1183,7 @@ export function SketchEditorV2({
           data: {
             id: `${el.data.id}-label`,
             type: "room-label",
+            roomFor: el.data.id,
           },
         });
         fc.add(polygon, label);
@@ -1723,9 +1728,29 @@ export function SketchEditorV2({
                       | undefined
                   )?.id === id,
               ) as Record<string, unknown> | undefined;
-            if (obj?.data)
-              (obj.data as Record<string, unknown>).provenance =
-                "operator_measured";
+            if (!obj?.data) return;
+            const data = obj.data as Record<string, unknown>;
+            if (data.captureAdapter === "roomplan") {
+              obj.data = confirmRoomPlanMeasurement(data);
+              fc.renderAll();
+              const hist = (obj.data as { correctionHistory?: unknown[] })
+                .correctionHistory;
+              setSelectedObj((prev) =>
+                prev && prev.id === id
+                  ? {
+                      ...prev,
+                      provenance: "operator_measured",
+                      captureAdapter: "roomplan",
+                      correctionCount: Array.isArray(hist)
+                        ? hist.length
+                        : prev.correctionCount,
+                    }
+                  : prev,
+              );
+              scheduleSave();
+              return;
+            }
+            data.provenance = "operator_measured";
             fc.renderAll();
             setSelectedObj((prev) =>
               prev && prev.id === id
@@ -1800,10 +1825,16 @@ export function SketchEditorV2({
                       | undefined
                   )?.id === id,
               ) as Record<string, unknown> | undefined;
-            if (obj?.data) (obj.data as Record<string, unknown>).label = label;
+            if (!obj?.data) return;
+            const raw = obj.data as Record<string, unknown>;
+            if (raw.captureAdapter === "roomplan") {
+              obj.data = recordRoomPlanLabelCorrection(raw, label);
+            } else {
+              raw.label = label;
+            }
             // RA-6843 [A4]: a measured room owns a linked "room-label" caption —
             // rebuild it as "Name · 14.1 m²" so the rename reaches the canvas.
-            const objData = obj?.data as Record<string, unknown> | undefined;
+            const objData = obj.data as Record<string, unknown>;
             if (objData?.type === "room") {
               const roomLabel = fc
                 .getObjects()
@@ -1825,6 +1856,18 @@ export function SketchEditorV2({
               });
             }
             fc.renderAll();
+            const hist = objData.correctionHistory;
+            setSelectedObj((prev) =>
+              prev && prev.id === id
+                ? {
+                    ...prev,
+                    label,
+                    correctionCount: Array.isArray(hist)
+                      ? hist.length
+                      : prev.correctionCount,
+                  }
+                : prev,
+            );
             scheduleSave();
           }}
           onColorChange={(id, fill, stroke) => {
