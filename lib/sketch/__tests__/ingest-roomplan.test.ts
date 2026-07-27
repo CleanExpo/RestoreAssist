@@ -21,10 +21,10 @@ const SAMPLE: CapturedRoom = {
 };
 
 describe("prepareRoomPlanIngest", () => {
-  it("tags rooms operator_measured + captureAdapter roomplan for editor ingest", () => {
+  it("tags rooms captureAdapter roomplan pending confirmation for editor ingest", () => {
     const elements = prepareRoomPlanIngest(SAMPLE);
     expect(elements).toHaveLength(1);
-    expect(elements[0].data.provenance).toBe("operator_measured");
+    expect(elements[0].data.provenance).toBe("underlay_reference");
     expect(elements[0].data.captureAdapter).toBe("roomplan");
     expect(elements[0].data.type).toBe("room");
     expect(elements[0].label.text).toMatch(/Bedroom/);

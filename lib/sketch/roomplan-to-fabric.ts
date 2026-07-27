@@ -8,8 +8,10 @@
  * so a LiDAR-captured room measures identically to a hand-drawn one.
  *
  * Decision R2 (mapping-v2 plan): independently measured LiDAR is legitimately
- * measured → `provenance: "operator_measured"` + `captureAdapter: "roomplan"`.
- * (Unlike vision/underlay imports, which stay `underlay_reference` until confirmed.)
+ * measured **after** on-site technician confirmation (MVP R5). Fresh scans land
+ * as `underlay_reference` + `captureAdapter: "roomplan"` so they cannot inflate
+ * billed quantities until Confirm measurement — then provenance becomes
+ * `operator_measured` with original geometry + correction history preserved.
  */
 import { PX_PER_METRE, shoelaceArea } from "./extract-rooms";
 import {
@@ -61,10 +63,18 @@ export interface FabricPolygonElement {
     label: string;
     /** Floor area in m², via the shared shoelace convention. */
     areaM2: number;
-    /** R2: on-site LiDAR is operator-measured (not underlay/reference). */
-    provenance: "operator_measured";
+    /**
+     * Pending tech confirmation (RA-7091 correction workflow). Promoted to
+     * `operator_measured` via Confirm measurement in the selection panel.
+     */
+    provenance: "underlay_reference";
     /** Persisted adapter tag for Mapping V2 / ClaimSketch. */
     captureAdapter: "roomplan";
+    /** Pixel-space snapshot of the raw scan (pre-correction). */
+    originalPoints: { x: number; y: number }[];
+    originalLabel: string;
+    originalAreaM2: number;
+    correctionHistory: [];
   };
   /** Centered room caption (Name · m²), matching hand-drawn rooms. */
   label: {
@@ -157,8 +167,12 @@ export function roomPlanToFabric(
         id: newRoomId(i),
         label: labelText,
         areaM2,
-        provenance: "operator_measured",
+        provenance: "underlay_reference",
         captureAdapter: "roomplan",
+        originalPoints: points.map((p) => ({ ...p })),
+        originalLabel: labelText,
+        originalAreaM2: areaM2,
+        correctionHistory: [],
       },
       label: {
         text: formatRoomLabel(labelText, areaM2),

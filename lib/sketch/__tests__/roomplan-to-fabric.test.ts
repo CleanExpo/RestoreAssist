@@ -62,7 +62,7 @@ describe("roomPlanToFabric — vertex scaling", () => {
 });
 
 describe("roomPlanToFabric — polygon shape + closure", () => {
-  it("produces a Fabric polygon descriptor with brand styling and R2 provenance", () => {
+  it("produces a Fabric polygon descriptor pending tech confirmation (R5)", () => {
     const [poly] = roomPlanToFabric(RECT_ROOM);
     expect(poly.type).toBe("polygon");
     expect(poly.stroke).toBe("#1C2E47");
@@ -70,8 +70,11 @@ describe("roomPlanToFabric — polygon shape + closure", () => {
     expect(poly.objectCaching).toBe(false);
     expect(poly.data.type).toBe("room");
     expect(poly.data.label).toBe("Living Room");
-    expect(poly.data.provenance).toBe("operator_measured");
+    expect(poly.data.provenance).toBe("underlay_reference");
     expect(poly.data.captureAdapter).toBe("roomplan");
+    expect(poly.data.originalPoints).toEqual(poly.points);
+    expect(poly.data.originalLabel).toBe("Living Room");
+    expect(poly.data.correctionHistory).toEqual([]);
     expect(poly.data.id).toMatch(/^roomplan-/);
     expect(poly.label.text).toBe("Living Room · 12.0 m²");
   });
