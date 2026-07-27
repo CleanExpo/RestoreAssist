@@ -11,6 +11,9 @@
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
+		A17091B10000000100000001 /* RABridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17091B10000000100000002 /* RABridgeViewController.swift */; };
+		A17091B10000000100000003 /* RoomPlanPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17091B10000000100000004 /* RoomPlanPlugin.swift */; };
+		A17091B10000000100000005 /* RoomPlan.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A17091B10000000100000006 /* RoomPlan.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -29,6 +32,9 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		C51BFAEC2FADAD430028D6AF /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
+		A17091B10000000100000002 /* RABridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RABridgeViewController.swift; sourceTree = "<group>"; };
+		A17091B10000000100000004 /* RoomPlanPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomPlanPlugin.swift; sourceTree = "<group>"; };
+		A17091B10000000100000006 /* RoomPlan.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RoomPlan.framework; path = System/Library/Frameworks/RoomPlan.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,6 +43,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
+				A17091B10000000100000005 /* RoomPlan.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -60,12 +67,22 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		A17091B10000000100000007 /* Plugins */ = {
+			isa = PBXGroup;
+			children = (
+				A17091B10000000100000004 /* RoomPlanPlugin.swift */,
+			);
+			path = Plugins;
+			sourceTree = "<group>";
+		};
 		504EC3061FED79650016851F /* App */ = {
 			isa = PBXGroup;
 			children = (
 				C51BFAEC2FADAD430028D6AF /* App.entitlements */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
+				A17091B10000000100000002 /* RABridgeViewController.swift */,
+				A17091B10000000100000007 /* Plugins */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -159,6 +176,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				A17091B10000000100000001 /* RABridgeViewController.swift in Sources */,
+				A17091B10000000100000003 /* RoomPlanPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
