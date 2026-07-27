@@ -3,6 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateInvoiceTotals } from "@/lib/invoices/calc";
+import {
+  inheritGstRate,
+  resolveLineGstRate,
+} from "@/lib/invoices/inherit-gst-rate";
 import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -187,7 +191,6 @@ export async function POST(
         const item = lineItems[index];
         const quantity = parseFloat(item.quantity);
         const unitPriceDollars = parseFloat(item.unitPrice);
-        const gstRate = item.gstRate ?? 10.0;
         if (!Number.isFinite(quantity) || quantity < 0) {
           return apiError(request, {
             code: "VALIDATION",
@@ -202,7 +205,13 @@ export async function POST(
             status: 400,
           });
         }
-        if (!Number.isFinite(Number(gstRate)) || Number(gstRate) < 0) {
+        // Allow omitted gstRate (resolved via parent inherit below). Explicit
+        // 0 must remain valid — never coerce with `|| 10` (RA-7096).
+        if (
+          item.gstRate !== undefined &&
+          item.gstRate !== null &&
+          (!Number.isFinite(Number(item.gstRate)) || Number(item.gstRate) < 0)
+        ) {
           return apiError(request, {
             code: "VALIDATION",
             message: `Line item ${index + 1} has an invalid GST rate`,
@@ -250,29 +259,12 @@ export async function POST(
 
       // RA-7096 — when the client omits gstRate, inherit the parent's modal
       // rate so a GST-free parent does not mint a 10% variation by default.
-      const parentGstRates = originalInvoice.lineItems.map((l) =>
-        Number.isFinite(Number(l.gstRate)) ? Number(l.gstRate) : 10,
-      );
-      const gstRateCounts = new Map<number, number>();
-      for (const rate of parentGstRates) {
-        gstRateCounts.set(rate, (gstRateCounts.get(rate) ?? 0) + 1);
-      }
-      let inheritedGstRate = 10;
-      let inheritedCount = -1;
-      for (const [rate, count] of gstRateCounts) {
-        if (count > inheritedCount) {
-          inheritedGstRate = rate;
-          inheritedCount = count;
-        }
-      }
+      const inheritedGstRate = inheritGstRate(originalInvoice.lineItems);
 
       const lineItemsForCalc = lineItems.map((item: any) => ({
         quantity: item.quantity,
         unitPrice: Math.round(Number(item.unitPrice) * 100),
-        gstRate:
-          item.gstRate === undefined || item.gstRate === null
-            ? inheritedGstRate
-            : item.gstRate,
+        gstRate: resolveLineGstRate(item.gstRate, inheritedGstRate),
       }));
       const discountAmountCents = discountAmount
         ? Math.round(parseFloat(discountAmount) * 100)
@@ -378,10 +370,10 @@ export async function POST(
                 // make the header disagree with the sum of its own lines.
                 const unitPriceCents = Math.round(item.unitPrice * 100);
                 const lineSubtotal = Math.round(item.quantity * unitPriceCents);
-                const gstRate =
-                  item.gstRate === undefined || item.gstRate === null
-                    ? inheritedGstRate
-                    : item.gstRate;
+                const gstRate = resolveLineGstRate(
+                  item.gstRate,
+                  inheritedGstRate,
+                );
                 const lineGst = Math.round(lineSubtotal * (gstRate / 100));
 
                 return {

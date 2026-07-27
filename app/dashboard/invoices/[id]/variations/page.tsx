@@ -19,6 +19,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { getStatusConfig } from "@/lib/invoice-status";
 import { getVariationAmountDisplay } from "@/lib/invoices/variation-amount";
+import { inheritGstRate } from "@/lib/invoices/inherit-gst-rate";
 import toast from "react-hot-toast";
 import { useAsyncAction } from "@/lib/client/use-async-action";
 
@@ -34,29 +35,6 @@ interface InvoiceSummary {
   invoiceDate: string;
   dueDate: string;
   lineItems?: Array<{ gstRate?: number | null }>;
-}
-
-/** Prefer the parent invoice's modal GST rate so GST-free invoices stay GST-free (RA-7096). */
-function inheritGstRate(
-  lineItems: Array<{ gstRate?: number | null }> | undefined,
-): number {
-  if (!lineItems?.length) return 10;
-  const counts = new Map<number, number>();
-  for (const item of lineItems) {
-    const rate = Number.isFinite(Number(item.gstRate))
-      ? Number(item.gstRate)
-      : 10;
-    counts.set(rate, (counts.get(rate) ?? 0) + 1);
-  }
-  let bestRate = 10;
-  let bestCount = -1;
-  for (const [rate, count] of counts) {
-    if (count > bestCount) {
-      bestRate = rate;
-      bestCount = count;
-    }
-  }
-  return bestRate;
 }
 
 interface VariationInvoice {
@@ -220,7 +198,11 @@ export default function InvoiceVariationsPage({
     try {
       const res = await fetch(`/api/invoices/${id}/variations`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          // RA-1266 / RA-7097 — double-submit must not mint two variation invoices.
+          "Idempotency-Key": crypto.randomUUID(),
+        },
         body: JSON.stringify({ lineItems, notes }),
       });
 
