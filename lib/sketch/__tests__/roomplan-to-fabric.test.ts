@@ -62,15 +62,18 @@ describe("roomPlanToFabric — vertex scaling", () => {
 });
 
 describe("roomPlanToFabric — polygon shape + closure", () => {
-  it("produces a Fabric polygon descriptor with brand styling", () => {
+  it("produces a Fabric polygon descriptor with brand styling and R2 provenance", () => {
     const [poly] = roomPlanToFabric(RECT_ROOM);
     expect(poly.type).toBe("polygon");
     expect(poly.stroke).toBe("#1C2E47");
-    expect(poly.strokeWidth).toBe(2);
+    expect(poly.strokeWidth).toBe(11); // 0.11 m × 100 px/m — matches hand-drawn walls
     expect(poly.objectCaching).toBe(false);
     expect(poly.data.type).toBe("room");
     expect(poly.data.label).toBe("Living Room");
-    expect(poly.data.provenance).toBe("lidar_imported");
+    expect(poly.data.provenance).toBe("operator_measured");
+    expect(poly.data.captureAdapter).toBe("roomplan");
+    expect(poly.data.id).toMatch(/^roomplan-/);
+    expect(poly.label.text).toBe("Living Room · 12.0 m²");
   });
 
   it("keeps the polygon implicitly closed (no duplicated closing vertex)", () => {

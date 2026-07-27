@@ -1,21 +1,22 @@
 /**
- * RA-6795 — Phase-3 RoomPlan → Fabric.js converter (dependency-free).
+ * RA-6795 / RA-7091 Phase 3 — RoomPlan → Fabric.js converter (dependency-free).
  *
  * Apple RoomPlan (iOS/ARKit LiDAR) emits a `CapturedRoom` whose surfaces carry
  * floor polygons expressed in **metres**. This pure function projects those
  * metric vertices into the Sketch canvas's pixel space using the SAME
  * convention as the rest of lib/sketch (PX_PER_METRE = 100, shoelace area),
- * so a LiDAR-imported room measures identically to a hand-drawn one and the
- * human PDF / machine export can never drift.
+ * so a LiDAR-captured room measures identically to a hand-drawn one.
  *
- * No native deps, no I/O — just geometry. The caller materialises the returned
- * descriptor(s) into real Fabric polygons (mirrors lib/sketch/tool-objects.ts).
- *
- * Native capture (the ARKit scan itself) stays gated behind RA-1133; this
- * converter is the dependency-free TS win that lets us shape captured data the
- * moment a `CapturedRoom` JSON arrives.
+ * Decision R2 (mapping-v2 plan): independently measured LiDAR is legitimately
+ * measured → `provenance: "operator_measured"` + `captureAdapter: "roomplan"`.
+ * (Unlike vision/underlay imports, which stay `underlay_reference` until confirmed.)
  */
 import { PX_PER_METRE, shoelaceArea } from "./extract-rooms";
+import {
+  formatRoomLabel,
+  metresToPx,
+  WALL_THICKNESS_INTERNAL_M,
+} from "./tool-objects";
 
 /** A single floor-plane vertex in metres, as emitted by RoomPlan. */
 export interface RoomPlanPoint {
@@ -37,6 +38,7 @@ export interface CapturedRoomSurface {
 /** Minimal RoomPlan `CapturedRoom`-style input accepted by the converter. */
 export interface CapturedRoom {
   rooms: CapturedRoomSurface[];
+  identifier?: string;
 }
 
 /**
@@ -55,17 +57,25 @@ export interface FabricPolygonElement {
   /** Custom data persisted on the object — drives selection + decomposition. */
   data: {
     type: "room";
+    id: string;
     label: string;
     /** Floor area in m², via the shared shoelace convention. */
     areaM2: number;
-    /** Imported geometry is NOT operator-measured (mirrors RA-6760). */
-    provenance: "lidar_imported";
+    /** R2: on-site LiDAR is operator-measured (not underlay/reference). */
+    provenance: "operator_measured";
+    /** Persisted adapter tag for Mapping V2 / ClaimSketch. */
+    captureAdapter: "roomplan";
+  };
+  /** Centered room caption (Name · m²), matching hand-drawn rooms. */
+  label: {
+    text: string;
+    left: number;
+    top: number;
   };
 }
 
 const ROOM_FILL = "rgba(28,46,71,0.08)";
 const ROOM_STROKE = "#1C2E47"; // brand primary (CLAUDE.md)
-const ROOM_STROKE_WIDTH = 2;
 
 /**
  * Minimum floor area (m²) for an imported room to be materialised. A capture
@@ -79,6 +89,14 @@ const MIN_ROOM_AREA_M2 = 0.01;
 /** Read a vertex's depth axis, accepting RoomPlan's `z` or a flattened `y`. */
 function depthOf(p: RoomPlanPoint): number {
   return p.z ?? p.y ?? 0;
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function newRoomId(index: number): string {
+  return `roomplan-${Date.now().toString(36)}-${index}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /**
@@ -97,8 +115,10 @@ export function roomPlanToFabric(
   if (!rooms?.length) return [];
 
   const elements: FabricPolygonElement[] = [];
+  const strokeWidth = metresToPx(WALL_THICKNESS_INTERNAL_M, PX_PER_METRE);
 
-  for (const room of rooms) {
+  for (let i = 0; i < rooms.length; i++) {
+    const room = rooms[i];
     const vertices = room.floorPolygon;
     if (!vertices || vertices.length < 3) continue;
 
@@ -112,25 +132,38 @@ export function roomPlanToFabric(
     if (points.some((pt) => !Number.isFinite(pt.x) || !Number.isFinite(pt.y)))
       continue;
 
-    const areaM2 = shoelaceArea(points) / (PX_PER_METRE * PX_PER_METRE);
+    const areaM2 = round2(
+      shoelaceArea(points) / (PX_PER_METRE * PX_PER_METRE),
+    );
 
     // Skip degenerate captures (e.g. vertices with no depth axis) that collapse
     // to a line — they would otherwise emit a bogus 0 m² room measurement — and
     // any capture whose area is non-finite.
     if (!Number.isFinite(areaM2) || areaM2 < MIN_ROOM_AREA_M2) continue;
 
+    const labelText = room.label ?? room.category ?? "Room";
+    const cx = points.reduce((s, p) => s + p.x, 0) / points.length;
+    const cy = points.reduce((s, p) => s + p.y, 0) / points.length;
+
     elements.push({
       type: "polygon",
       points,
       fill: ROOM_FILL,
       stroke: ROOM_STROKE,
-      strokeWidth: ROOM_STROKE_WIDTH,
+      strokeWidth,
       objectCaching: false,
       data: {
         type: "room",
-        label: room.label ?? room.category ?? "Room",
+        id: newRoomId(i),
+        label: labelText,
         areaM2,
-        provenance: "lidar_imported",
+        provenance: "operator_measured",
+        captureAdapter: "roomplan",
+      },
+      label: {
+        text: formatRoomLabel(labelText, areaM2),
+        left: cx,
+        top: cy,
       },
     });
   }
