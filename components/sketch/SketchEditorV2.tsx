@@ -235,6 +235,8 @@ export function SketchEditorV2({
   });
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** RA-7091 — run pending RoomPlan custody recovery once per inspection. */
+  const roomPlanRecoveryKeyRef = useRef<string | null>(null);
 
   // ── Load sketch data from API ──────────────────────────
   useEffect(() => {
@@ -1111,27 +1113,30 @@ export function SketchEditorV2({
     [inspectionId, activeFloor, width, height, scheduleSave],
   );
 
-  // ── RA-7091: Scan room (LiDAR) via native RoomPlan ───────
-  const handleScanRoom = useCallback(async () => {
-    const canvasHandle = activeFloor?.canvasRef.current;
-    const fc = canvasHandle?.getFabricCanvas() as {
-      add: (...objs: unknown[]) => void;
-      renderAll: () => void;
-    } | null;
-    if (!fc) {
-      toast.error("Canvas not ready for LiDAR scan");
-      return;
-    }
+  // ── RA-7091: apply CapturedRoom JSON onto a floor canvas ─
+  const applyCapturedRoomToFloor = useCallback(
+    async (
+      captured: import("@/lib/sketch/roomplan-to-fabric").CapturedRoom,
+      floorNumber: number,
+    ): Promise<number> => {
+      const floor =
+        floorsData.find((f) => f.floor.floorNumber === floorNumber) ??
+        floorsData[activeIdx];
+      const canvasHandle = floor?.canvasRef.current;
+      const fc = canvasHandle?.getFabricCanvas() as {
+        add: (...objs: unknown[]) => void;
+        renderAll: () => void;
+      } | null;
+      if (!fc) {
+        throw new Error("Canvas not ready for LiDAR ingest");
+      }
 
-    try {
-      const captured = await startRoomPlanCapture();
       const { prepareRoomPlanIngest } = await import(
         "@/lib/sketch/ingest-roomplan"
       );
       const elements = prepareRoomPlanIngest(captured);
       if (!elements.length) {
-        toast.error("Scan produced no usable room geometry");
-        return;
+        throw new Error("Scan produced no usable room geometry");
       }
 
       const fabric = await import("fabric");
@@ -1182,18 +1187,137 @@ export function SketchEditorV2({
       fc.renderAll();
       canvasHandle?.saveState();
       scheduleSave();
-      toast.success(
-        elements.length === 1
-          ? "LiDAR room added to floor plan"
-          : `Added ${elements.length} rooms from LiDAR scan`,
-      );
+      return elements.length;
+    },
+    [floorsData, activeIdx, scheduleSave],
+  );
+
+  // ── RA-7091: Scan room (LiDAR) via native RoomPlan ───────
+  const handleScanRoom = useCallback(async () => {
+    if (!inspectionId) {
+      toast.error("Save the inspection before running a LiDAR scan");
+      return;
+    }
+    const floorNumber = activeFloor?.floor.floorNumber ?? 0;
+
+    try {
+      const captured = await startRoomPlanCapture();
+
+      // Custody FIRST — persist canonical JSON (+ sha256) before Fabric ingest
+      // so a crash mid-ingest cannot lose the only copy of the scan.
+      let custodyId: string | null = null;
+      try {
+        const { enqueueRoomPlanCapture } = await import(
+          "@/lib/sketch/roomplan-custody-queue"
+        );
+        const entry = await enqueueRoomPlanCapture({
+          inspectionId,
+          floorNumber,
+          capturedRoom: captured,
+        });
+        custodyId = entry.id;
+      } catch {
+        // IDB unavailable — continue with in-memory ingest; do not block the tech.
+      }
+
+      try {
+        const count = await applyCapturedRoomToFloor(captured, floorNumber);
+        if (custodyId) {
+          const { markRoomPlanCaptureIngested } = await import(
+            "@/lib/sketch/roomplan-custody-queue"
+          );
+          await markRoomPlanCaptureIngested(custodyId);
+        }
+        toast.success(
+          count === 1
+            ? "LiDAR room added to floor plan"
+            : `Added ${count} rooms from LiDAR scan`,
+        );
+      } catch (ingestErr) {
+        if (custodyId) {
+          const { markRoomPlanCaptureFailed } = await import(
+            "@/lib/sketch/roomplan-custody-queue"
+          );
+          await markRoomPlanCaptureFailed(
+            custodyId,
+            ingestErr instanceof Error ? ingestErr.message : "ingest failed",
+          );
+        }
+        throw ingestErr;
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "LiDAR scan failed";
-      // User cancel is expected — don't toast as an error.
       if (/cancel/i.test(message)) return;
       toast.error(message);
     }
-  }, [activeFloor, scheduleSave]);
+  }, [inspectionId, activeFloor, applyCapturedRoomToFloor]);
+
+  // ── RA-7091: re-ingest pending offline RoomPlan captures ─
+  useEffect(() => {
+    if (!inspectionId || readonly || guided || captureMode) return;
+    if (roomPlanRecoveryKeyRef.current === inspectionId) return;
+    roomPlanRecoveryKeyRef.current = inspectionId;
+    let cancelled = false;
+    (async () => {
+      try {
+        const {
+          listPendingRoomPlanCaptures,
+          verifyRoomPlanCustodyIntegrity,
+          markRoomPlanCaptureIngested,
+          markRoomPlanCaptureFailed,
+        } = await import("@/lib/sketch/roomplan-custody-queue");
+        const pending = await listPendingRoomPlanCaptures(inspectionId);
+        if (cancelled || !pending.length) return;
+
+        // Wait briefly for Fabric canvas handles to bind after load.
+        await new Promise((r) => setTimeout(r, 800));
+        if (cancelled) return;
+
+        let recovered = 0;
+        for (const entry of pending) {
+          const ok = await verifyRoomPlanCustodyIntegrity(entry.id);
+          if (!ok) {
+            await markRoomPlanCaptureFailed(
+              entry.id,
+              "custody hash mismatch — capture discarded",
+            );
+            continue;
+          }
+          try {
+            await applyCapturedRoomToFloor(
+              entry.capturedRoom,
+              entry.floorNumber,
+            );
+            await markRoomPlanCaptureIngested(entry.id);
+            recovered++;
+          } catch (err) {
+            await markRoomPlanCaptureFailed(
+              entry.id,
+              err instanceof Error ? err.message : "reingest failed",
+            );
+          }
+        }
+        if (!cancelled && recovered > 0) {
+          toast.success(
+            recovered === 1
+              ? "Recovered 1 offline LiDAR scan onto the floor plan"
+              : `Recovered ${recovered} offline LiDAR scans onto the floor plan`,
+          );
+        }
+      } catch {
+        // Custody queue optional — ignore if IDB blocked.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    inspectionId,
+    readonly,
+    guided,
+    captureMode,
+    applyCapturedRoomToFloor,
+  ]);
 
   // ── Tool mode change ────────────────────────────────────
   const handleToolChange = useCallback((mode: ToolMode) => {
