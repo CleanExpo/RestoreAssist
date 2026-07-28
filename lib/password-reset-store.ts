@@ -86,3 +86,68 @@ export async function verifyResetCode(
 
   return { valid: true };
 }
+
+export async function storeClientResetCode(
+  clientUserId: string,
+  email: string,
+  code: string,
+): Promise<void> {
+  const normalizedEmail = email.toLowerCase();
+
+  await prisma.clientPasswordResetToken.deleteMany({
+    where: { clientUserId, usedAt: null },
+  });
+
+  await prisma.clientPasswordResetToken.create({
+    data: {
+      token: code,
+      email: normalizedEmail,
+      clientUserId,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      attempts: 0,
+    },
+  });
+}
+
+export async function verifyClientResetCode(
+  clientUserId: string,
+  email: string,
+  code: string,
+): Promise<{ valid: boolean; error?: string }> {
+  const normalizedEmail = email.toLowerCase();
+  const entry = await prisma.clientPasswordResetToken.findFirst({
+    where: { clientUserId, email: normalizedEmail, usedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!entry || new Date() > entry.expiresAt || entry.attempts >= 5) {
+    if (entry) {
+      await prisma.clientPasswordResetToken.delete({
+        where: { id: entry.id },
+      });
+    }
+    return { valid: false, error: "Invalid or expired verification code." };
+  }
+
+  if (entry.token !== code) {
+    await prisma.clientPasswordResetToken.update({
+      where: { id: entry.id },
+      data: { attempts: { increment: 1 } },
+    });
+    return { valid: false, error: "Invalid or expired verification code." };
+  }
+
+  const consumed = await prisma.clientPasswordResetToken.updateMany({
+    where: {
+      id: entry.id,
+      usedAt: null,
+      expiresAt: { gt: new Date() },
+      attempts: { lt: 5 },
+    },
+    data: { usedAt: new Date() },
+  });
+
+  return consumed.count === 1
+    ? { valid: true }
+    : { valid: false, error: "Invalid or expired verification code." };
+}
