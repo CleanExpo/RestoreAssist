@@ -196,7 +196,7 @@ export default function FormTemplateDetailPage({
             This form template does not exist or you do not have access to it.
           </p>
           <Link
-            href="/dashboard/form-templates"
+            href="/dashboard/forms/templates"
             className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -214,7 +214,7 @@ export default function FormTemplateDetailPage({
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Back link */}
         <Link
-          href="/dashboard/form-templates"
+          href="/dashboard/forms/templates"
           className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />

@@ -81,7 +81,7 @@ export default function NewFormTemplatePage() {
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <Link
-            href="/dashboard/form-templates"
+            href="/dashboard/forms/templates"
             className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
           >
             <ArrowLeft size={20} className="text-slate-400" />
@@ -196,7 +196,7 @@ export default function NewFormTemplatePage() {
           {/* Actions */}
           <div className="flex gap-3">
             <Link
-              href="/dashboard/form-templates"
+              href="/dashboard/forms/templates"
               className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600/50 rounded-xl text-slate-300 font-medium text-center transition-colors"
             >
               Cancel
