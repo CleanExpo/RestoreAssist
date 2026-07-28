@@ -24,7 +24,11 @@
  * convention so the two stay in agreement):
  *   A file is considered auth-gated if its text contains any of:
  *     getServerSession(   |   getToken(   |   verifyAdminFromDb(
+ *     |   requireClientAuth(   |   requireOwner(
  *   (getServerSession(authOptions) from @/lib/auth is the canonical gate.)
+ *   requireClientAuth( is the homeowner-portal equivalent: it resolves to
+ *   jwtVerify() from jose over the Bearer token and fails closed with no
+ *   secret, so a route holding it is gated just as firmly as a session route.
  *
  * PAID-AI proxy detection — a route is a paid-AI proxy if EITHER:
  *   - its path (under app/api/) contains  heygen  or  elevenlabs ; OR
@@ -50,6 +54,11 @@
  *
  * ── Legit auth-exception patterns (NOT false-flagged) ────────────────────────
  *   1. Auth entry routes:        app/api/auth/**       (these ESTABLISH auth)
+ *      NOTE: app/api/portal/auth/** is deliberately NOT exempted here. Those
+ *      routes mutate, and one of them (reset-password) sets a new password
+ *      with no emailed verification code. A path exemption would hide that
+ *      from the scanner permanently; it is carried as an explicit, visible
+ *      baseline entry instead. Recognise gates, never exempt paths.
  *   2. Token-param routes:       any segment is a [token]/[...token] param —
  *                                the token in the path IS the auth.
  *   3. Signature-verified hooks: app/api/webhooks/**   (verified by signature,
@@ -97,7 +106,9 @@ function hasAuthGate(content) {
   return (
     content.includes("getServerSession(") ||
     content.includes("getToken(") ||
-    content.includes("verifyAdminFromDb(")
+    content.includes("verifyAdminFromDb(") ||
+    content.includes("requireClientAuth(") ||
+    content.includes("requireOwner(")
   );
 }
 

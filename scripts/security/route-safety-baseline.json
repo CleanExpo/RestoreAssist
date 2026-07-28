@@ -2,7 +2,7 @@
   "description": "Route-safety baseline. Pre-existing heuristic candidates for the route-safety guard. Findings listed here are KNOWN and do NOT fail CI. Triage candidates live in docs/security/route-safety-backlog.md. Regenerate with: node scripts/security/route-safety-scan.mjs --baseline",
   "generatedAt": "2026-06-09T03:17:51.608Z",
   "routeCount": 447,
-  "findingCount": 3,
+  "findingCount": 5,
   "findings": [
     {
       "file": "app/api/cron/sync-invoices/route.ts",
@@ -13,6 +13,16 @@
       "file": "app/api/cron/sync-xero-payments/route.ts",
       "class": "mutation-no-auth",
       "reason": "Route exports a mutating handler (POST/PUT/PATCH/DELETE) that performs a Prisma write but has no getServerSession/getToken/verifyAdminFromDb auth gate and is not a legit-exception (auth/webhook/[token]/test-helper) route."
+    },
+    {
+      "file": "app/api/portal/auth/login/route.ts",
+      "class": "mutation-no-auth",
+      "reason": "Auth-entry route: establishes auth by minting the portal JWT, so it cannot itself be session-gated. Writes only lastLoginAt on a successful bcrypt compare, and is rate-limited (10 requests / 15 min). Carried as a visible baseline entry rather than a path exemption."
+    },
+    {
+      "file": "app/api/portal/auth/reset-password/route.ts",
+      "class": "mutation-no-auth",
+      "reason": "KNOWN WEAKNESS — NOT a clean exception. Auth-entry route that sets a new password keyed only on knowing the account email, with no emailed verification code, then returns a valid portal JWT. Rate limiting is not verification. Deliberately baselined (visible) rather than path-exempted (invisible) so it stays on the triage list. Fix: require an expiring single-use emailed reset token before the write. See docs/security/route-safety-backlog.md."
     },
     {
       "file": "app/api/portal/invitations/accept/route.ts",

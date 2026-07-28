@@ -53,6 +53,8 @@ node scripts/security/route-safety-scan.mjs --json        # inspect machine-read
 | `app/api/cron/sync-invoices/route.ts` | Cron route. Documented to require `CRON_SECRET`; if the bearer-secret check is its real gate, this is a legitimate non-session pattern — confirm and keep baselined. |
 | `app/api/cron/sync-xero-payments/route.ts` | Cron route. Documented to be secured by `CRON_SECRET` bearer token via `verifyCronAuth` (timing-safe). Likely a legitimate non-session pattern — confirm. |
 | `app/api/portal/invitations/accept/route.ts` | Portal invitation acceptance. Authenticates via a one-time invitation token in the request body (`isPortalInvitationToken`), not a session. Confirm the token check is sufficient. |
+| `app/api/portal/auth/login/route.ts` | Homeowner login. Auth-entry route: it mints the portal JWT, so it cannot itself be session-gated. Writes only `lastLoginAt` after a successful bcrypt compare, rate-limited to 10 requests / 15 min. Likely a legitimate auth-entry pattern — confirm and keep baselined. |
+| `app/api/portal/auth/reset-password/route.ts` | **OPEN WEAKNESS — not a clean exception.** Sets a new password keyed only on knowing the account email, with no emailed verification code, then returns a valid portal JWT. Anyone who knows a homeowner's email can take over the account; rate limiting slows this but is not verification. The route's own comment records this as a product decision. Fix: require an expiring, single-use emailed reset token before the password write. Baselined deliberately so it stays visible — do NOT resolve this by path-exempting `app/api/portal/auth/`. |
 
 ---
 

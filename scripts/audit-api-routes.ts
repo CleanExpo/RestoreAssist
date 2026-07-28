@@ -91,7 +91,13 @@ function hasAuth(content: string): boolean {
     // requireOwner() is the codebase's named ownership gate; it resolves to
     // getServerSession internally. Recognising it here is behaviour-based
     // (any route that actually calls the gate passes) rather than path-exempt.
-    content.includes("requireOwner(")
+    content.includes("requireOwner(") ||
+    // requireClientAuth() is the homeowner-portal gate; it resolves to
+    // jwtVerify() from jose over the Bearer token and fails closed with no
+    // secret. Same behaviour-based rationale as requireOwner above. Kept in
+    // step with scripts/security/route-safety-scan.mjs, which the two are
+    // documented to agree on.
+    content.includes("requireClientAuth(")
   );
 }
 
