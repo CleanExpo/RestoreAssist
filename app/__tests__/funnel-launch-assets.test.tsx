@@ -61,6 +61,7 @@ vi.mock("framer-motion", () => {
       { get: (_t, tag: string) => passthrough(tag) },
     ),
     AnimatePresence: ({ children }: { children: React.ReactNode }) => children,
+    useReducedMotion: () => false,
   };
 });
 
@@ -178,22 +179,21 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
     });
   });
 
-  describe("finalized hero copy / CTA from the PR is present", () => {
-    it("home page renders the finalized primary CTA label", () => {
+  describe("premium hero copy / CTA is present", () => {
+    it("home page renders the primary trial CTA", () => {
       const { container, unmount } = render(<Home />);
-      expect(container.textContent).toContain(
-        "Start with your ABN — under 90 seconds",
-      );
+      expect(container.textContent).toContain("Start free — 3 trial reports");
       unmount();
     });
 
     it.each([
-      "One field in. Eleven fields out.",
-      "Every wired capability is checked before Activate.",
-      "IICRC S500:2021 §7.1 cited correctly in every report footer.",
-    ])("home page renders proof bullet: %s", (bullet) => {
+      "One System. Fewer Gaps. More Confidence.",
+      "Office and Field. One System.",
+      "From site to signed report.",
+      "IICRC S500:2021",
+    ])("home page renders brand/trust signal: %s", (copy) => {
       const { container, unmount } = render(<Home />);
-      expect(container.textContent).toContain(bullet);
+      expect(container.textContent).toContain(copy);
       unmount();
     });
   });
