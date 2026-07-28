@@ -1087,14 +1087,21 @@ export default function IntegrationsPage() {
                             Disconnect
                           </Button>
                         </>
-                      ) : integration.comingSoon ? (
+                      ) : integration.comingSoon || integration.betaUnverified ? (
                         <Button
                           variant="secondary"
                           size="sm"
                           className="w-full"
                           disabled
+                          title={
+                            integration.betaUnverified
+                              ? "OAuth exists but is not production-verified (RA-1248). Contact support if you need early access."
+                              : undefined
+                          }
                         >
-                          Coming Soon
+                          {integration.betaUnverified
+                            ? "Beta — not verified"
+                            : "Coming Soon"}
                         </Button>
                       ) : (
                         <Button
@@ -1257,14 +1264,21 @@ export default function IntegrationsPage() {
                             Disconnect
                           </Button>
                         </>
-                      ) : integration.comingSoon ? (
+                      ) : integration.comingSoon || integration.betaUnverified ? (
                         <Button
                           variant="secondary"
                           size="sm"
                           className="w-full"
                           disabled
+                          title={
+                            integration.betaUnverified
+                              ? "OAuth exists but is not production-verified (RA-1248). Contact support if you need early access."
+                              : undefined
+                          }
                         >
-                          Coming Soon
+                          {integration.betaUnverified
+                            ? "Beta — not verified"
+                            : "Coming Soon"}
                         </Button>
                       ) : (
                         <Button
@@ -1295,7 +1309,7 @@ export default function IntegrationsPage() {
                         Request Integration
                       </CardTitle>
                       <CardDescription className="text-xs mt-0.5">
-                        Need another platform? Let us know!
+                        Need another platform? Tell us what you use.
                       </CardDescription>
                     </div>
                   </div>
@@ -1305,9 +1319,11 @@ export default function IntegrationsPage() {
                     variant="secondary"
                     size="sm"
                     className="w-full"
-                    disabled
+                    asChild
                   >
-                    Coming Soon
+                    <a href="/dashboard/feedback?topic=integration-request">
+                      Request an integration
+                    </a>
                   </Button>
                 </CardFooter>
               </Card>

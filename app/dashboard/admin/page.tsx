@@ -338,7 +338,15 @@ export default function AdminDashboardPage() {
           <CardDescription>Common administrative tasks</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2"
+              onClick={() => router.push("/dashboard/admin/users")}
+            >
+              <Users className="h-5 w-5" />
+              <span className="text-sm">Users</span>
+            </Button>
             <Button
               variant="outline"
               className="flex-col h-auto py-4 gap-2"
@@ -346,6 +354,54 @@ export default function AdminDashboardPage() {
             >
               <Users className="h-5 w-5" />
               <span className="text-sm">Manage Team</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2"
+              onClick={() => router.push("/dashboard/admin/usage")}
+            >
+              <Activity className="h-5 w-5" />
+              <span className="text-sm">Usage</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2"
+              onClick={() => router.push("/dashboard/admin/cron-jobs")}
+            >
+              <Clock className="h-5 w-5" />
+              <span className="text-sm">Cron Jobs</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2"
+              onClick={() => router.push("/dashboard/governance")}
+            >
+              <Shield className="h-5 w-5" />
+              <span className="text-sm">Governance</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2"
+              onClick={() => router.push("/dashboard/admin/evidence-review")}
+            >
+              <CheckCircle className="h-5 w-5" />
+              <span className="text-sm">Evidence Review</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2"
+              onClick={() => router.push("/dashboard/admin/business")}
+            >
+              <Building2 className="h-5 w-5" />
+              <span className="text-sm">Business Metrics</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2"
+              onClick={() => router.push("/dashboard/admin/rag")}
+            >
+              <Database className="h-5 w-5" />
+              <span className="text-sm">RAG</span>
             </Button>
             <Button
               variant="outline"
