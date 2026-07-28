@@ -1256,7 +1256,11 @@ export default function NIRTechnicianInputForm({
       } else {
         const error = await response.json();
         if (showToast) {
-          toast.error(error.error || "Failed to create inspection");
+          const message =
+            (typeof error.error === "string" && error.error) ||
+            error.error?.message ||
+            "Failed to create inspection";
+          toast.error(message);
         }
       }
     } catch (error) {
@@ -3836,6 +3840,11 @@ export default function NIRTechnicianInputForm({
             // Save draft (auto-create inspection and save data without requiring photos)
             try {
               setSaving(true);
+              if (!claimType) {
+                toast.error("Please select a claim type first");
+                setSaving(false);
+                return;
+              }
               if (!propertyAddress.trim() || !propertyPostcode.trim()) {
                 toast.error("Please enter property address and postcode first");
                 setSaving(false);
