@@ -134,9 +134,10 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     "/dashboard/subscription": "Documents & Billing",
     "/dashboard/pricing": "Documents & Billing",
     "/dashboard/media": "Documents & Billing",
-    // Compliance & WHS
+    // Compliance & WHS (governance is adminOnly → Admin group via flag)
     "/dashboard/whs": "Compliance & WHS",
-    "/dashboard/governance": "Compliance & WHS",
+    "/dashboard/claims": "Compliance & WHS",
+    "/dashboard/cost-libraries": "Documents & Billing",
     // Insights — Analytics, Claims Analysis (+ Interviews)
     "/dashboard/analytics": "Insights",
     "/dashboard/claims-analysis": "Insights",
@@ -154,6 +155,7 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     "/dashboard/admin": "Admin",
     "/dashboard/admin/pilot": "Admin",
     "/dashboard/admin/content-gate": "Admin",
+    "/dashboard/governance": "Admin",
   };
 
   const groups: Record<GroupLabel, NavItem[]> = {

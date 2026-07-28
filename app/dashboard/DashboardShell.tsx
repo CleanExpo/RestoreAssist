@@ -37,6 +37,9 @@ import {
   Smartphone,
   Camera,
   PlayCircle,
+  HardHat,
+  Library,
+  FolderKanban,
 } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import dynamic from "next/dynamic";
@@ -256,6 +259,15 @@ export default function DashboardShell({
     },
     { icon: MessageSquare, label: "Interviews", href: "/dashboard/interviews" },
     { icon: Camera, label: "Media Library", href: "/dashboard/media" },
+    // Compliance & claims — pages existed but were orphaned from the sidebar
+    // even though HREF_TO_GROUP already mapped them (nav-config.ts).
+    { icon: HardHat, label: "WHS", href: "/dashboard/whs" },
+    { icon: FolderKanban, label: "Claims", href: "/dashboard/claims" },
+    {
+      icon: Library,
+      label: "Cost Libraries",
+      href: "/dashboard/cost-libraries",
+    },
     // Hide Subscription for team members and on iOS shell (Apple 3.1.1)
     ...(isTeamMember || hideBillingNav
       ? []
@@ -294,6 +306,14 @@ export default function DashboardShell({
             icon: Lock,
             label: "Content Gate",
             href: "/dashboard/admin/content-gate",
+            adminOnly: true,
+          },
+          // Governance board (RA-1390) — was grouped in nav-config but never
+          // listed in fullNavItems, so Advanced mode never showed it.
+          {
+            icon: Activity,
+            label: "Governance",
+            href: "/dashboard/governance",
             adminOnly: true,
           },
         ]
@@ -386,9 +406,11 @@ export default function DashboardShell({
 
   // Render a single nav entry. Shared by the flat (Simple/field) list and the
   // grouped (Advanced) sections so the styling stays identical across modes.
-  // "New Report" keeps its credit-check button behaviour.
+  // Credit/API-key gate is href-based so Simple mode ("Make a Report") and
+  // Advanced mode ("New Report") both enforce it — label string matching
+  // previously skipped Simple mode and let users hit /reports/new ungated.
   const renderNavItem = (item: NavItem) => {
-    if (item.label === "New Report") {
+    if (item.href === "/dashboard/reports/new") {
       return (
         <button
           key={item.href}
@@ -415,7 +437,7 @@ export default function DashboardShell({
                 }
               }
               router.push(item.href);
-            } catch (error) {
+            } catch {
               router.push(item.href);
             }
           }}
