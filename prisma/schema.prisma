@@ -419,9 +419,25 @@ model ClientUser {
   updatedAt          DateTime  @updatedAt
 
   contractorReviews ContractorReview[]
+  passwordResetTokens ClientPasswordResetToken[]
 
   @@index([email])
   @@index([clientId])
+}
+
+model ClientPasswordResetToken {
+  id           String     @id @default(cuid())
+  token        String
+  email        String
+  clientUserId String
+  clientUser   ClientUser @relation(fields: [clientUserId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  usedAt       DateTime?
+  attempts     Int        @default(0)
+  createdAt    DateTime   @default(now())
+
+  @@index([clientUserId])
+  @@index([email])
 }
 
 /// RA-4861 — first-class persistence for client portal access tokens.

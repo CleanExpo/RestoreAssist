@@ -23,7 +23,8 @@
  * AUTH-GATE detection (matches the existing scripts/audit-api-routes.ts
  * convention so the two stay in agreement):
  *   A file is considered auth-gated if its text contains any of:
- *     getServerSession(   |   getToken(   |   verifyAdminFromDb(
+ *     getServerSession(   |   getToken(   |   verifyAdminFromDb(   |
+ *     requireClientAuth(
  *   (getServerSession(authOptions) from @/lib/auth is the canonical gate.)
  *
  * PAID-AI proxy detection — a route is a paid-AI proxy if EITHER:
@@ -50,16 +51,18 @@
  *
  * ── Legit auth-exception patterns (NOT false-flagged) ────────────────────────
  *   1. Auth entry routes:        app/api/auth/**       (these ESTABLISH auth)
- *   2. Token-param routes:       any segment is a [token]/[...token] param —
+ *   2. Portal auth entry routes: app/api/portal/auth/{login,reset-password}/**
+ *                                (these establish the homeowner auth boundary)
+ *   3. Token-param routes:       any segment is a [token]/[...token] param —
  *                                the token in the path IS the auth.
- *   3. Signature-verified hooks: app/api/webhooks/**   (verified by signature,
+ *   4. Signature-verified hooks: app/api/webhooks/**   (verified by signature,
  *                                not by session)
- *   4. Hard-gated test helpers:  app/api/test/** that check
+ *   5. Hard-gated test helpers:  app/api/test/** that check
  *                                process.env.ALLOW_TEST_HELPERS !== "true"
  *                                (the env flag is off in prod, so the route is
  *                                inert there).
  *
- * NOTE: exceptions 1/3/4 suppress BOTH classes; exception 2 (token path)
+ * NOTE: exceptions 1/2/3/4/5 suppress BOTH classes; exception 3 (token path)
  * likewise suppresses both — a token route is self-authenticating.
  *
  * ── Baseline ─────────────────────────────────────────────────────────────────
@@ -97,7 +100,8 @@ function hasAuthGate(content) {
   return (
     content.includes("getServerSession(") ||
     content.includes("getToken(") ||
-    content.includes("verifyAdminFromDb(")
+    content.includes("verifyAdminFromDb(") ||
+    content.includes("requireClientAuth(")
   );
 }
 
@@ -140,6 +144,10 @@ function isAuthEntryRoute(relPath) {
   return relPath.startsWith("app/api/auth/");
 }
 
+function isPortalAuthEntryRoute(relPath) {
+  return /^app\/api\/portal\/auth\/(login|reset-password)\//.test(relPath);
+}
+
 function isWebhookRoute(relPath) {
   return relPath.startsWith("app/api/webhooks/");
 }
@@ -167,6 +175,7 @@ function isGuardedTestHelper(relPath, content) {
 function isLegitException(relPath, content) {
   return (
     isAuthEntryRoute(relPath) ||
+    isPortalAuthEntryRoute(relPath) ||
     isWebhookRoute(relPath) ||
     isTokenParamRoute(relPath) ||
     isGuardedTestHelper(relPath, content)

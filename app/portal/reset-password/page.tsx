@@ -8,12 +8,13 @@ import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { storeClientToken } from "@/lib/portal/client-session";
 
-type Step = "email" | "password";
+type Step = "email" | "code" | "password";
 
 export default function PortalResetPasswordPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,14 +39,7 @@ export default function PortalResetPasswordPage() {
         return;
       }
 
-      if (!data.exists) {
-        setError(
-          "No portal account found for this email. Check the address, or contact your restoration contractor for an invitation.",
-        );
-        return;
-      }
-
-      setStep("password");
+      setStep("code");
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -53,12 +47,22 @@ export default function PortalResetPasswordPage() {
     }
   };
 
+  const handleCodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!/^\d{6}$/.test(code)) {
+      setError("Enter the 6-digit verification code from your email.");
+      return;
+    }
+    setStep("password");
+  };
+
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters long");
+    if (password.length < 12) {
+      setError("Password must be at least 12 characters long");
       return;
     }
     if (password !== confirmPassword) {
@@ -71,7 +75,7 @@ export default function PortalResetPasswordPage() {
       const response = await fetch("/api/portal/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, confirmPassword }),
+        body: JSON.stringify({ email, code, password, confirmPassword }),
       });
       const data = await response.json().catch(() => ({}));
 
@@ -113,6 +117,8 @@ export default function PortalResetPasswordPage() {
           <p className="text-brand-slate text-sm">
             {step === "email"
               ? "Enter the email address on your portal account"
+            : step === "code"
+              ? "Enter the verification code from your email"
               : `Set a new password for ${email}`}
           </p>
         </div>
@@ -155,6 +161,36 @@ export default function PortalResetPasswordPage() {
               {loading ? "Checking..." : "Continue"}
             </button>
           </form>
+        ) : step === "code" ? (
+          <form onSubmit={handleCodeSubmit} className="space-y-4">
+            <div>
+              <label
+                htmlFor="reset-code"
+                className="block text-sm font-medium text-brand-navy mb-1"
+              >
+                Verification code
+              </label>
+              <input
+                id="reset-code"
+                type="text"
+                inputMode="numeric"
+                value={code}
+                onChange={(e) =>
+                  setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                }
+                required
+                autoComplete="one-time-code"
+                className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze focus:border-transparent"
+                placeholder="6-digit code"
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full py-3 bg-brand-bronze text-white rounded-lg font-medium hover:bg-brand-bronze/90 transition-colors"
+            >
+              Continue
+            </button>
+          </form>
         ) : (
           <form onSubmit={handleResetPassword} className="space-y-4">
             <div>
@@ -170,13 +206,13 @@ export default function PortalResetPasswordPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={8}
+                minLength={12}
                 autoComplete="new-password"
                 className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze focus:border-transparent"
-                placeholder="At least 8 characters"
+                placeholder="At least 12 characters"
               />
               <p className="text-xs text-brand-slate mt-1">
-                Minimum 8 characters
+                Minimum 12 characters
               </p>
             </div>
 
@@ -193,7 +229,7 @@ export default function PortalResetPasswordPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                minLength={8}
+                minLength={12}
                 autoComplete="new-password"
                 className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze focus:border-transparent"
                 placeholder="Re-enter new password"
@@ -212,6 +248,7 @@ export default function PortalResetPasswordPage() {
               type="button"
               onClick={() => {
                 setStep("email");
+                setCode("");
                 setPassword("");
                 setConfirmPassword("");
                 setError("");
