@@ -7,19 +7,41 @@ import { AvatarOrb } from "../AvatarOrb";
 afterEach(() => cleanup());
 
 describe("AvatarOrb graceful fallback", () => {
-  it("does not open a video modal when no video URL is provided", () => {
+  it("opens the assistant chatbox when no video URL is provided", () => {
     render(<AvatarOrb greetingText="Hello from Phill" />);
 
     const orb = screen.getByRole("button", {
-      name: /show restoreassist greeting from phill/i,
+      name: /open restoreassist assistant/i,
     });
     fireEvent.click(orb);
 
-    // No <video> element / modal should appear.
+    // Chat dialog opens — not an empty video modal.
     expect(document.querySelector("video")).toBeNull();
     expect(screen.queryByText(/video coming soon/i)).not.toBeInTheDocument();
-    // The greeting text is surfaced instead.
+    expect(
+      screen.getByRole("dialog", { name: /restoreassist assistant/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Hello from Phill")).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(/ask about restoreassist/i),
+    ).toBeInTheDocument();
+  });
+
+  it("answers a suggested question inside the chatbox", () => {
+    render(<AvatarOrb greetingText="Hello from Phill" />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /open restoreassist assistant/i }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /what is restoreassist/i }),
+    );
+
+    expect(screen.getByText(/what is restoreassist\?/i)).toBeInTheDocument();
+    // Brand description should appear as the assistant reply.
+    expect(
+      screen.getByText(/australia's first australian-designed full crm/i),
+    ).toBeInTheDocument();
   });
 
   it("opens the video modal when a greeting video URL is provided", () => {

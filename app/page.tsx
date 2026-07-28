@@ -34,7 +34,7 @@ export default function Home() {
       <LandingFooter />
 
       <AvatarOrb
-        className="fixed bottom-6 left-6 z-40 hidden md:flex"
+        className="fixed bottom-6 right-6 z-40 hidden md:flex"
         size={64}
         avatarImageUrl="/avatars/phill-mcgurk-orb.svg"
         greetingText="G'day — I'm Phill. Click to learn about RestoreAssist."
