@@ -8,11 +8,19 @@ import { isDraft } from "@/lib/invoice-status";
 import { withIdempotency } from "@/lib/idempotency";
 import { mintPublicToken } from "@/lib/invoices/public-token";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveResendConfig } from "@/lib/email/resolve-resend-config";
+import { withEmailTimeout } from "@/lib/email";
 
-// Initialize Resend only if API key is available
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
+function isResendConfigError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("api key") ||
+    m.includes("unauthorized") ||
+    m.includes("not configured") ||
+    m.includes("from address") ||
+    m.includes("domain is not verified")
+  );
+}
 
 export async function POST(
   request: NextRequest,
@@ -32,15 +40,6 @@ export async function POST(
   // when a client retries — customer annoyance + delivery-reputation hit.
   return withIdempotency(request, userId, async () => {
     try {
-      if (!resend) {
-        return apiError(request, {
-          code: "UPSTREAM_FAILED",
-          message:
-            "Email service not configured. Please set RESEND_API_KEY environment variable.",
-          status: 503,
-        });
-      }
-
       const { id } = await params;
 
       const invoice = await prisma.invoice.findUnique({
@@ -62,6 +61,7 @@ export async function POST(
               businessName: true,
               businessEmail: true,
               businessPhone: true,
+              organizationId: true,
             },
           },
         },
@@ -81,6 +81,18 @@ export async function POST(
           code: "VALIDATION",
           message: "Invoice cannot be sent in current status",
           status: 400,
+        });
+      }
+
+      const resendConfig = await resolveResendConfig(
+        invoice.user.organizationId,
+      );
+      if (!resendConfig?.apiKey?.trim()) {
+        return apiError(request, {
+          code: "UPSTREAM_FAILED",
+          message:
+            "Email service not configured. Set RESEND_API_KEY (and RESEND_FROM_EMAIL) or connect a Resend key in Integrations.",
+          status: 503,
         });
       }
 
@@ -104,15 +116,16 @@ export async function POST(
         newRotatedAt = minted.rotatedAt;
       }
 
-      // Send email via Resend
-      const fromEmail =
-        invoice.user.businessEmail ||
-        invoice.user.email ||
-        "invoices@restoreassist.app";
-      const fromName =
+      const displayName =
         invoice.user.businessName || invoice.user.name || "RestoreAssist";
+      const replyTo =
+        invoice.user.businessEmail || invoice.user.email || undefined;
 
-      // Generate professional email HTML
+      // Always send from the verified Resend "from" address. Using the
+      // technician's personal/business mailbox as `from` fails delivery
+      // unless that domain is verified on the Resend account.
+      const fromAddress = resendConfig.from;
+
       const emailHtml = generateInvoiceSentEmail({
         invoiceNumber: invoice.invoiceNumber,
         invoiceDate: invoice.invoiceDate,
@@ -121,29 +134,41 @@ export async function POST(
         amountDue: invoice.amountDue,
         customerName: invoice.customerName,
         publicToken,
-        businessName: fromName,
+        businessName: displayName,
         businessEmail: invoice.user.businessEmail || undefined,
         businessPhone: invoice.user.businessPhone || undefined,
         appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://restoreassist.app",
       });
 
+      const resend = new Resend(resendConfig.apiKey.trim());
+
       try {
-        const { data: emailData, error: emailError } = await resend.emails.send(
-          {
-            from: `${fromName} <${fromEmail}>`,
+        const { data: emailData, error: emailError } = await withEmailTimeout(
+          resend.emails.send({
+            from: fromAddress,
             to: invoice.customerEmail,
-            subject: `Invoice ${invoice.invoiceNumber} from ${fromName}`,
+            subject: `Invoice ${invoice.invoiceNumber} from ${displayName}`,
             html: emailHtml,
-            replyTo: invoice.user.businessEmail || invoice.user.email,
-          },
+            ...(replyTo ? { replyTo } : {}),
+          }),
         );
 
         if (emailError) {
-          throw new Error(`Email send failed: ${emailError.message}`);
+          const message = emailError.message || "Email provider rejected the send";
+          console.error("Email send error:", emailError);
+          return apiError(request, {
+            code: "UPSTREAM_FAILED",
+            message: isResendConfigError(message)
+              ? "Email service misconfigured — check RESEND_API_KEY and RESEND_FROM_EMAIL (verified domain)."
+              : "Failed to send invoice email. Please try again shortly.",
+            status: 503,
+            err: emailError,
+            stage: "send-email",
+          });
         }
 
         // Update invoice in transaction
-        const updatedInvoice = await prisma.$transaction([
+        await prisma.$transaction([
           prisma.invoice.update({
             where: { id, userId },
             data: {
@@ -182,12 +207,22 @@ export async function POST(
           message: "Invoice sent successfully",
           emailId: emailData?.id,
         });
-      } catch (emailError: any) {
-        // RA-786: do not leak emailError.message to clients
+      } catch (emailError: unknown) {
+        // RA-786: do not leak raw provider messages to clients
         console.error("Email send error:", emailError);
-        return fromException(request, emailError, { stage: "send-email" });
+        const raw =
+          emailError instanceof Error ? emailError.message : String(emailError);
+        return apiError(request, {
+          code: "UPSTREAM_FAILED",
+          message: isResendConfigError(raw)
+            ? "Email service misconfigured — check RESEND_API_KEY and RESEND_FROM_EMAIL (verified domain)."
+            : "Failed to send invoice email. Please try again shortly.",
+          status: 503,
+          err: emailError,
+          stage: "send-email",
+        });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error sending invoice:", error);
       return fromException(request, error, { stage: "send" });
     }

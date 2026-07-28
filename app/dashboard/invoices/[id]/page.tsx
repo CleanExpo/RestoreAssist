@@ -218,7 +218,12 @@ export default function InvoiceDetailPage({
         fetchInvoice();
       } else {
         const error = await response.json();
-        toast.error(error.message || "Failed to send invoice");
+        const message =
+          (typeof error.error === "string" && error.error) ||
+          error.error?.message ||
+          error.message ||
+          "Failed to send invoice";
+        toast.error(message);
       }
     } catch (error) {
       console.error("Failed to send invoice:", error);
