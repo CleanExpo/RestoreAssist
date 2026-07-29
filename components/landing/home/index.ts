@@ -8,3 +8,5 @@ export { StatesSection } from "./StatesSection";
 export { FAQSection } from "./FAQSection";
 export { FinalCTA } from "./FinalCTA";
 export { LandingFooter } from "./LandingFooter";
+export { MarketingShell } from "./MarketingShell";
+export { MarketingPageHero } from "./MarketingPageHero";
