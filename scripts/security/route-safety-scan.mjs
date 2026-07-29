@@ -24,7 +24,10 @@
  * convention so the two stay in agreement):
  *   A file is considered auth-gated if its text contains any of:
  *     getServerSession(   |   getToken(   |   verifyAdminFromDb(
- *     |   requireClientAuth(   |   requireOwner(
+ *     |   requireOwner(
+ *   plus requireClientAuth( , which is credited ONLY under app/api/portal/ —
+ *   it authenticates a homeowner JWT and must not vouch for a contractor route.
+ *   Comments are stripped first, so a commented-out gate call does not count.
  *   (getServerSession(authOptions) from @/lib/auth is the canonical gate.)
  *   requireClientAuth( is the homeowner-portal equivalent: it resolves to
  *   jwtVerify() from jose over the Bearer token and fails closed with no
@@ -102,13 +105,32 @@ const API_ROOT = path.join(REPO_ROOT, "app", "api");
 const BASELINE_PATH = path.join(__dirname, "route-safety-baseline.json");
 
 // ── Auth-gate detection (mirrors scripts/audit-api-routes.ts) ───────────────
-function hasAuthGate(content) {
+// Commented-out gate calls must not count. Without this, a route carrying only
+// `// requireOwner(request)` scores as gated while the mutation stays wide open.
+// Strips line comments and block comments before the substring test.
+function stripComments(content) {
+  return content
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "")
+    .replace(/\s\/\/.*$/gm, "");
+}
+
+function hasAuthGate(content, relPath = "") {
+  const code = stripComments(content);
+  if (
+    code.includes("getServerSession(") ||
+    code.includes("getToken(") ||
+    code.includes("verifyAdminFromDb(") ||
+    code.includes("requireOwner(")
+  ) {
+    return true;
+  }
+  // requireClientAuth() authenticates a HOMEOWNER portal JWT. It is only a valid
+  // gate on the portal surface. Crediting it repo-wide would let a homeowner
+  // token vouch for a contractor route — e.g. an app/api/ route deleting
+  // contractor reports would score gated. Scope it to the surface it belongs to.
   return (
-    content.includes("getServerSession(") ||
-    content.includes("getToken(") ||
-    content.includes("verifyAdminFromDb(") ||
-    content.includes("requireClientAuth(") ||
-    content.includes("requireOwner(")
+    code.includes("requireClientAuth(") && relPath.startsWith("app/api/portal/")
   );
 }
 
@@ -213,7 +235,7 @@ function scan() {
     const relPath = toRel(file);
     const content = readFileSync(file, "utf8");
 
-    const gated = hasAuthGate(content);
+    const gated = hasAuthGate(content, relPath);
     const exception = isLegitException(relPath, content);
 
     // (a) paid-AI proxy without auth — the critical class.
@@ -263,7 +285,11 @@ function loadBaseline() {
   if (!existsSync(BASELINE_PATH)) return null;
   try {
     const parsed = JSON.parse(readFileSync(BASELINE_PATH, "utf8"));
-    return new Set((parsed.findings || []).map(findingKey));
+    // Map, not Set: the baseline's own reason text is what distinguishes an
+    // accepted exception from an open weakness, and the console needs it.
+    return new Map(
+      (parsed.findings || []).map((f) => [findingKey(f), f.reason ?? ""]),
+    );
   } catch (err) {
     console.error(`[route-safety] could not parse baseline: ${err.message}`);
     process.exit(2);
@@ -335,7 +361,16 @@ function main() {
 
   if (known.length > 0) {
     console.log("Known (baselined) candidates — see docs/security/route-safety-backlog.md:");
-    for (const f of known) console.log(`  - [${f.class}] ${f.file}`);
+    for (const f of known) {
+      // Surface the reason, not just the path. Without it a documented-and-accepted
+      // cron route and an open account-takeover print identically, and the CI log
+      // is where people actually look.
+      const baselineReason = baseline?.get(findingKey(f)) ?? "";
+      const flag = /KNOWN WEAKNESS|OPEN WEAKNESS/i.test(baselineReason)
+        ? "  <-- OPEN WEAKNESS, not an accepted exception"
+        : "";
+      console.log(`  - [${f.class}] ${f.file}${flag}`);
+    }
     console.log("");
   }
 

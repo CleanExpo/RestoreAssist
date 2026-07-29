@@ -83,21 +83,35 @@ function addFinding(
   findings.push({ file, rule, severity, reason, exception });
 }
 
-function hasAuth(content: string): boolean {
-  return (
-    content.includes("getServerSession(") ||
-    content.includes("getToken(") ||
-    content.includes("verifyAdminFromDb(") ||
+// Commented-out gate calls must not count as gates. Kept in step with
+// stripComments() in scripts/security/route-safety-scan.mjs.
+function stripComments(content: string): string {
+  return content
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "")
+    .replace(/\s\/\/.*$/gm, "");
+}
+
+function hasAuth(content: string, relPath = ""): boolean {
+  const code = stripComments(content);
+  if (
+    code.includes("getServerSession(") ||
+    code.includes("getToken(") ||
+    code.includes("verifyAdminFromDb(") ||
     // requireOwner() is the codebase's named ownership gate; it resolves to
     // getServerSession internally. Recognising it here is behaviour-based
     // (any route that actually calls the gate passes) rather than path-exempt.
-    content.includes("requireOwner(") ||
-    // requireClientAuth() is the homeowner-portal gate; it resolves to
-    // jwtVerify() from jose over the Bearer token and fails closed with no
-    // secret. Same behaviour-based rationale as requireOwner above. Kept in
-    // step with scripts/security/route-safety-scan.mjs, which the two are
-    // documented to agree on.
-    content.includes("requireClientAuth(")
+    code.includes("requireOwner(")
+  ) {
+    return true;
+  }
+  // requireClientAuth() is the homeowner-portal gate: jwtVerify() from jose over
+  // the Bearer token, failing closed with no secret. Credited ONLY under
+  // app/api/portal/ — a homeowner JWT must not vouch for a contractor route.
+  // Kept in step with scripts/security/route-safety-scan.mjs, which the two are
+  // documented to agree on.
+  return (
+    code.includes("requireClientAuth(") && relPath.startsWith("app/api/portal/")
   );
 }
 
@@ -246,7 +260,7 @@ export function auditApiRoute(
     !isExempt &&
     !isPublicTokenRoute &&
     !isGuardedTestHelper &&
-    !hasAuth(content)
+    !hasAuth(content, normalized)
   ) {
     addFinding(
       findings,
@@ -310,7 +324,7 @@ export function auditApiRoute(
     );
   }
 
-  if (isPublicTokenRoute && !hasAuth(content)) {
+  if (isPublicTokenRoute && !hasAuth(content, normalized)) {
     addFinding(
       findings,
       normalized,
