@@ -25,7 +25,7 @@ const TRUST = [
 
 /**
  * Daylight Workshop hero — full-bleed photo plane.
- * Brand · headline · support · CTAs sit in a mist wash over the image.
+ * Problem first → RestoreAssist answers → support → CTAs.
  * Trust strip sits on a paper band below the first composition.
  */
 export function LandingHero() {
@@ -66,42 +66,67 @@ export function LandingHero() {
             variants={staggerContainer}
             initial={reduce ? false : "hidden"}
             animate="visible"
-            className="max-w-[36rem]"
+            className="max-w-[40rem]"
           >
-            <motion.p
+            {/* Problem context — quiet opener */}
+            <motion.div
               variants={fadeUp}
-              className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#3B6D8C]"
+              className="flex items-center gap-3"
             >
-              {BRAND.tagline}
-            </motion.p>
+              <span
+                className="h-px w-8 shrink-0 bg-[#3B6D8C]/70 sm:w-10"
+                aria-hidden
+              />
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#3B6D8C]">
+                {BRAND.tagline}
+              </p>
+            </motion.div>
 
+            {/* Problem first — the pain restoration teams feel */}
             <motion.h1
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mt-6 text-[2.85rem] font-bold leading-[0.98] tracking-[-0.035em] text-[#0B1F3A] sm:text-[3.75rem] lg:text-[4.15rem]`}
+              className={`${FONT_DISPLAY} mt-8 text-[2.35rem] font-semibold leading-[1.08] tracking-[-0.035em] text-[#0B1F3A] sm:mt-9 sm:text-[3.15rem] sm:leading-[1.05] lg:text-[3.5rem] lg:leading-[1.04]`}
+            >
+              Still rewriting the same job between the driveway and the desk?
+            </motion.h1>
+
+            {/* Brand answers — RestoreAssist as the system */}
+            <motion.p
+              variants={fadeUp}
+              className={`${FONT_DISPLAY} mt-8 text-[1.85rem] font-semibold leading-none tracking-[-0.03em] text-[#0B1F3A] sm:mt-9 sm:text-[2.35rem]`}
             >
               {BRAND.name}
-            </motion.h1>
+            </motion.p>
 
             <motion.p
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mt-6 text-[1.35rem] font-semibold leading-[1.25] tracking-[-0.02em] text-slate-800 sm:text-[1.65rem]`}
+              className={`${FONT_DISPLAY} mt-4 text-[1.2rem] font-medium leading-[1.3] tracking-[-0.02em] text-[#16345A] sm:text-[1.4rem] sm:leading-[1.28]`}
             >
               From site to signed report. One system.
             </motion.p>
 
+            {/* Spine slogan */}
             <motion.p
               variants={fadeUp}
-              className="mt-5 max-w-[32rem] text-[15px] leading-[1.75] text-slate-600 sm:text-[16.5px]"
+              className={`${FONT_DISPLAY} mt-7 border-l-2 border-[#3B6D8C]/45 pl-4 text-[15px] font-semibold leading-snug tracking-[-0.01em] text-[#0B1F3A] sm:mt-8 sm:pl-5 sm:text-base`}
             >
-              {BRAND.slogan} The Australian-designed restoration CRM for office
-              and field — capture evidence on site, finish IICRC-aligned
-              paperwork in the office, and get client approvals without
-              rewriting the same job twice.
+              {BRAND.slogan}
+            </motion.p>
+
+            {/* Support */}
+            <motion.p
+              variants={fadeUp}
+              className="mt-5 max-w-[34rem] text-[15px] font-normal leading-[1.8] text-slate-600 sm:mt-6 sm:text-[16.5px] sm:leading-[1.8]"
+            >
+              The Australian-designed restoration CRM for office and field —
+              capture evidence on site, finish IICRC-aligned paperwork in the
+              office, and get client approvals without rewriting the same job
+              twice.
             </motion.p>
 
             <motion.div
               variants={fadeUp}
-              className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center"
+              className="mt-10 flex flex-col gap-3 sm:mt-11 sm:flex-row sm:items-center sm:gap-3.5"
             >
               <Link href={BRAND.cta.primary.href} className={CTA_PRIMARY}>
                 Start free — 3 trial reports
