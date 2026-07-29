@@ -1,9 +1,10 @@
 {
   "note": "Baseline of pre-existing lucide-react imports. The guard blocks any increase. Regenerate after migrating icons to RAIcon to ratchet the limit down. See docs/RESTOREASSIST_ICON_SYSTEM.md.",
-  "total": 362,
+  "total": 360,
   "files": {
     "app/contractors/[slug]/page.tsx": 1,
     "app/contractors/page.tsx": 1,
+    "app/dashboard/__tests__/nav-config.test.tsx": 1,
     "app/dashboard/admin/ai-lab/page.tsx": 1,
     "app/dashboard/admin/business/page.tsx": 1,
     "app/dashboard/admin/content-gate/page.tsx": 1,
@@ -51,12 +52,12 @@
     "app/dashboard/cost-libraries/[id]/page.tsx": 1,
     "app/dashboard/cost-libraries/page.tsx": 1,
     "app/dashboard/credits/page.tsx": 1,
+    "app/dashboard/DashboardShell.tsx": 1,
     "app/dashboard/error.tsx": 1,
     "app/dashboard/feedback/page.tsx": 1,
     "app/dashboard/field/page.tsx": 1,
     "app/dashboard/form-templates/[id]/page.tsx": 1,
     "app/dashboard/form-templates/new/page.tsx": 1,
-    "app/dashboard/form-templates/page.tsx": 1,
     "app/dashboard/forms/authority/page.tsx": 1,
     "app/dashboard/forms/interview/page.tsx": 1,
     "app/dashboard/forms/submissions/page.tsx": 1,
@@ -142,7 +143,6 @@
     "app/invite/[token]/page.tsx": 1,
     "app/login/error.tsx": 1,
     "app/login/page.tsx": 1,
-    "app/page.tsx": 1,
     "app/pilot/adjuster-review/page.tsx": 1,
     "app/portal/page.tsx": 1,
     "app/portal/reports/[id]/page.tsx": 1,
@@ -280,11 +280,10 @@
     "components/landing/FeatureCard.tsx": 1,
     "components/landing/FinalCTASection.tsx": 1,
     "components/landing/Header.tsx": 1,
-    "components/landing/HeroSection.tsx": 1,
+    "components/landing/home/LandingNav.tsx": 1,
     "components/landing/PlatformFeaturesSection.tsx": 1,
     "components/landing/PricingCard.tsx": 1,
     "components/landing/StatesCoverageSection.tsx": 1,
-    "components/landing/TestimonialCard.tsx": 1,
     "components/landing/TopBanner.tsx": 1,
     "components/mobile/MobileNav.tsx": 1,
     "components/mobile/QuickMoistureEntry.tsx": 1,
@@ -356,7 +355,6 @@
     "components/VisualDashboardReport.tsx": 1,
     "components/VisualScopeOfWorksViewer.tsx": 1,
     "components/voice/voice-note-button.tsx": 1,
-    "components/WelcomeScreen.tsx": 1,
-    "app/dashboard/DashboardShell.tsx": 1
+    "components/WelcomeScreen.tsx": 1
   }
 }

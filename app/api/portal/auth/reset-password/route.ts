@@ -1,94 +1,33 @@
-import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
-import { applyRateLimit } from "@/lib/rate-limiter";
-import { signClientPortalJwt } from "@/lib/portal/client-jwt";
+import { NextResponse } from "next/server";
 
 /**
- * POST /api/portal/auth/reset-password — two-step homeowner password reset.
+ * POST /api/portal/auth/reset-password — DISABLED.
  *
- * Step 1 (check):  { email }                          → { exists }
- * Step 2 (reset):  { email, password, confirmPassword } → { token }
+ * This endpoint previously implemented a two-step homeowner reset in which
+ * knowing the account email was sufficient to set a new password and receive a
+ * signed 30-day portal JWT. That is an account-takeover path: any party who
+ * knew a homeowner's email address could take the account and read the claim
+ * and property data behind it. Step 1 also disclosed whether an account existed
+ * for a given address, which made the addresses cheap to find.
  *
- * NOTE: per product decision this flow does NOT require an emailed
- * verification code — knowing the account email is sufficient to set a new
- * password. The endpoint is tightly rate-limited to slow abuse; adding an
- * emailed one-time code later only touches this route.
+ * The surface is closed while the replacement — a single-use, expiring, hashed
+ * token delivered by email — goes through review. Both steps return 503: step 2
+ * is the takeover, step 1 is the enumeration oracle that made it targetable, so
+ * neither can stay up on its own.
+ *
+ * Homeowners who need access in the meantime go through their restoration
+ * contractor, who can re-issue a portal invitation via
+ * app/api/portal/invitations.
+ *
+ * Reversal: this commit is a clean revert, but reverting alone restores the
+ * takeover. Do not revert without the replacement flow in the same deploy.
  */
-export async function POST(request: NextRequest) {
-  try {
-    const rateLimited = await applyRateLimit(request, {
-      maxRequests: 5,
-      windowMs: 15 * 60 * 1000,
-      prefix: "portal-auth-reset",
-    });
-    if (rateLimited) return rateLimited;
-
-    const body = await request.json().catch(() => null);
-    const email =
-      typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
-
-    if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
-    }
-
-    const clientUser = await prisma.clientUser.findUnique({
-      where: { email },
-    });
-
-    // Step 1 — existence check only.
-    if (body.password === undefined) {
-      return NextResponse.json({ exists: Boolean(clientUser) });
-    }
-
-    // Step 2 — set the new password.
-    const password = typeof body.password === "string" ? body.password : "";
-    const confirmPassword =
-      typeof body.confirmPassword === "string" ? body.confirmPassword : "";
-
-    if (!clientUser) {
-      return NextResponse.json(
-        { error: "No account found for this email" },
-        { status: 404 },
-      );
-    }
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: "Password must be at least 8 characters long" },
-        { status: 400 },
-      );
-    }
-    if (password !== confirmPassword) {
-      return NextResponse.json(
-        { error: "Passwords do not match" },
-        { status: 400 },
-      );
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    await prisma.clientUser.update({
-      where: { id: clientUser.id },
-      data: {
-        passwordHash,
-        mustChangePassword: false,
-        lastLoginAt: new Date(),
-      },
-    });
-
-    // Sign the homeowner straight in after a successful reset.
-    const token = await signClientPortalJwt({
-      clientUserId: clientUser.id,
-      clientId: clientUser.clientId,
-      email: clientUser.email,
-      name: clientUser.name,
-    });
-
-    return NextResponse.json({ token });
-  } catch (error) {
-    console.error("Portal password reset error:", error);
-    return NextResponse.json(
-      { error: "Failed to reset password" },
-      { status: 500 },
-    );
-  }
+export async function POST() {
+  return NextResponse.json(
+    {
+      error:
+        "Password reset is temporarily unavailable. Please contact your restoration contractor, who can send you a new portal invitation.",
+    },
+    { status: 503, headers: { "Retry-After": "86400" } },
+  );
 }
