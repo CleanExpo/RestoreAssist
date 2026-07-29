@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Menu, X } from "lucide-react";
 import { BRAND } from "@/lib/brand";
-import { CTA_PRIMARY, CTA_SECONDARY, FONT_DISPLAY } from "./motion";
+import { CTA_PRIMARY, CTA_SECONDARY, FONT_DISPLAY, CONTAINER } from "./motion";
 
 const NAV_LINKS = [
   { href: "/features", label: "Features" },
@@ -62,7 +62,7 @@ export function LandingNav() {
             : "border-transparent bg-[#F3F5F7]/80 backdrop-blur-sm",
         ].join(" ")}
       >
-        <div className="mx-auto flex h-[4.25rem] max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8">
+        <div className={`${CONTAINER} flex h-[4.25rem] items-center justify-between`}>
           <Link
             href="/"
             className={`flex items-center gap-2.5 rounded-lg ${FOCUS}`}
