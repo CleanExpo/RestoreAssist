@@ -2,6 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { BRAND } from "@/lib/brand";
 
+const DISPLAY = "font-[family-name:var(--font-landing-display)]";
+
 const COLUMNS = [
   {
     title: "Product",
@@ -25,11 +27,14 @@ const COLUMNS = [
 
 export function LandingFooter() {
   return (
-    <footer className="border-t border-slate-800/50 bg-slate-950/80">
-      <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 lg:px-8">
-        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr]">
+    <footer className="border-t border-slate-200/90 bg-white">
+      <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8 lg:py-20">
+        <div className="grid gap-12 md:grid-cols-[1.5fr_1fr_1fr] md:gap-12">
           <div>
-            <Link href="/" className="inline-flex items-center gap-2.5">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50 focus-visible:ring-offset-2"
+            >
               <Image
                 src="/logo.png"
                 alt=""
@@ -37,27 +42,37 @@ export function LandingFooter() {
                 height={32}
                 className="object-contain"
               />
-              <span className="text-sm font-semibold text-white">
+              <span
+                className={`${DISPLAY} text-[15px] font-bold tracking-tight text-[#0B1F3A]`}
+              >
                 {BRAND.name}
               </span>
             </Link>
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">
+            <p className="mt-5 max-w-sm text-[15px] leading-[1.72] text-slate-600">
               {BRAND.shortDescription}
             </p>
-            <p className="mt-3 text-xs text-slate-500">{BRAND.slogan}</p>
+            <p
+              className={`${DISPLAY} mt-5 text-sm font-semibold tracking-tight text-[#0B1F3A]`}
+            >
+              {BRAND.slogan}
+            </p>
+            <p className="mt-2 max-w-xs text-xs leading-relaxed text-slate-500">
+              {BRAND.tagline} Designed for restoration companies across
+              Australia and New Zealand.
+            </p>
           </div>
 
           {COLUMNS.map((col) => (
             <div key={col.title}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                 {col.title}
               </p>
-              <ul className="mt-4 space-y-2.5">
+              <ul className="mt-5 space-y-3">
                 {col.links.map((l) => (
                   <li key={l.href}>
                     <Link
                       href={l.href}
-                      className="text-sm text-slate-400 transition-colors hover:text-cyan-300"
+                      className="rounded-sm text-[15px] text-slate-600 transition-colors hover:text-[#0B1F3A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50"
                     >
                       {l.label}
                     </Link>
@@ -68,7 +83,7 @@ export function LandingFooter() {
           ))}
         </div>
 
-        <div className="mt-12 flex flex-col gap-3 border-t border-slate-800/50 pt-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-14 flex flex-col gap-3 border-t border-slate-200 pt-8 text-xs leading-relaxed text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {new Date().getFullYear()} {BRAND.company.legal}
             {BRAND.company.abn ? ` · ABN ${BRAND.company.abn}` : ""}
@@ -76,7 +91,7 @@ export function LandingFooter() {
           <p>
             <a
               href={`mailto:${BRAND.company.supportEmail}`}
-              className="hover:text-cyan-300 transition-colors"
+              className="rounded-sm transition-colors hover:text-[#0B1F3A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50"
             >
               {BRAND.company.supportEmail}
             </a>
