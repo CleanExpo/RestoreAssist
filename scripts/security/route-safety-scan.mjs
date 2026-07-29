@@ -117,8 +117,10 @@ function stripComments(content) {
     .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
     .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
     .replace(/`(?:[^`\\]|\\.)*`/g, "``")
-    .replace(/^\s*\/\/.*$/gm, "")
-    .replace(/\s\/\/.*$/gm, "");
+    // Strings are already blanked, so a bare // is unambiguously a comment.
+    // Requiring whitespace before it let `x;//requireOwner(` score as gated —
+    // a fail-OPEN bypass.
+    .replace(/\/\/.*$/gm, "");
 }
 
 function hasAuthGate(content, relPath = "") {
