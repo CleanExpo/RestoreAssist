@@ -2,28 +2,43 @@
 
 import { useState } from "react";
 import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
-import { fadeUp, staggerContainer, GLASS_CARD } from "./motion";
+import {
+  fadeUp,
+  staggerContainer,
+  SECTION_EYEBROW,
+  SECTION_TITLE,
+  SECTION_BODY,
+  SECTION_PAD,
+  FONT_DISPLAY,
+  VIEWPORT,
+  HAIRLINE,
+  EASE_OUT,
+} from "./motion";
 
 const FAQS = [
   {
     q: "What is RestoreAssist?",
-    a: "RestoreAssist is Australia's first Australian-designed full CRM — an Office and Field Management System for the Australian Restoration Industry. It connects field capture, IICRC-aligned reporting, invoicing, and client approvals in one system.",
+    a: "RestoreAssist is Australia's first Australian-designed full CRM — an Office and Field Management System for the Australian Restoration Industry. It connects field capture, IICRC-aligned reporting, GST invoicing, and client approvals in one system so teams remove double-handling between the driveway and the desk.",
   },
   {
-    q: "Does it create IICRC S500 reports?",
-    a: "Yes. AI assists with S500:2021-aligned draft reports so writing time drops from hours to minutes. The operator always reviews and owns the final document — AI assists, never replaces.",
+    q: "Does RestoreAssist create IICRC S500 reports?",
+    a: "Yes. RestoreAssist helps produce S500:2021-aligned report drafts so writing time drops from hours to minutes. You review, edit, and own the final document — professional judgement stays with the operator on every claim.",
   },
   {
-    q: "Is it compliant with Australian building codes?",
-    a: "RestoreAssist includes inbuilt IICRC frameworks, WHS policies, and Australian Building Code / NCC 2022 references so compliance is part of the workflow, not an afterthought.",
+    q: "Is it compliant with Australian building codes and WHS?",
+    a: "RestoreAssist includes inbuilt IICRC frameworks, WHS policies, and Australian Building Code / NCC 2022 references so compliance is part of the daily workflow — not a separate checklist after the job.",
   },
   {
-    q: "Can I use it offline on site?",
-    a: "Field capture is designed for real job sites — evidence, moisture, and sketches can be captured offline and sync when you're back online.",
+    q: "Can field technicians use it offline on site?",
+    a: "Yes. Field capture is designed for real job sites — evidence, moisture readings, and sketches can be captured offline and sync when you are back online, so poor reception does not stall the job.",
   },
   {
-    q: "Do I need my own AI key?",
-    a: "Yes. You bring your own Anthropic or OpenAI key. Costs stay transparent and your workspace stays under your control.",
+    q: "What's included in the free trial?",
+    a: "Three complimentary trial reports with instant setup. Field capture, reporting, invoicing, and the client portal are ready from day one — so you can prove value on real work without rewriting your process.",
+  },
+  {
+    q: "Who is RestoreAssist built for?",
+    a: "Restoration company owners, office managers, and field technicians across Australia and New Zealand who need one reliable system for inspection, reporting, invoicing, and client communication.",
   },
 ] as const;
 
@@ -32,46 +47,62 @@ export function FAQSection() {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
-    <section className="relative border-t border-slate-800/50 py-24 sm:py-28">
+    <section
+      className={`relative bg-white ${HAIRLINE} ${SECTION_PAD}`}
+      aria-labelledby="faq-heading"
+    >
       <div className="mx-auto max-w-3xl px-5 sm:px-6 lg:px-8">
         <motion.div
           variants={staggerContainer}
           initial={reduce ? false : "hidden"}
           whileInView="visible"
-          viewport={{ once: true, margin: "-80px" }}
+          viewport={VIEWPORT}
           className="text-center"
         >
-          <motion.p
-            variants={fadeUp}
-            className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-400"
-          >
-            FAQ
+          <motion.p variants={fadeUp} className={SECTION_EYEBROW}>
+            Frequently asked questions
           </motion.p>
           <motion.h2
+            id="faq-heading"
             variants={fadeUp}
-            className="mt-3 text-3xl font-medium tracking-tight text-white sm:text-4xl"
+            className={SECTION_TITLE}
           >
-            Straight answers
+            Straight answers for restoration teams
           </motion.h2>
+          <motion.p
+            variants={fadeUp}
+            className={`${SECTION_BODY} mx-auto text-center`}
+          >
+            Clear detail on compliance, field use, reporting, and getting
+            started — so you can decide with confidence.
+          </motion.p>
         </motion.div>
 
-        <div className="mt-10 space-y-2">
+        <div className="mt-12 divide-y divide-slate-200/90 border-y border-slate-200/90">
           {FAQS.map((item, i) => {
             const isOpen = open === i;
+            const panelId = `faq-panel-${i}`;
+            const buttonId = `faq-button-${i}`;
             return (
-              <div key={item.q} className={`${GLASS_CARD} overflow-hidden`}>
+              <div key={item.q}>
                 <button
+                  id={buttonId}
                   type="button"
-                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left min-h-11"
+                  className="flex min-h-12 w-full items-center justify-between gap-4 py-5 text-left transition-colors hover:text-[#16345A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50 focus-visible:ring-offset-2"
                   onClick={() => setOpen(isOpen ? null : i)}
                   aria-expanded={isOpen}
+                  aria-controls={panelId}
                 >
-                  <span className="text-sm font-medium text-white sm:text-[15px]">
+                  <span
+                    className={`${FONT_DISPLAY} text-[15px] font-semibold tracking-[-0.01em] text-[#0B1F3A] sm:text-base`}
+                  >
                     {item.q}
                   </span>
                   <span
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-slate-600/50 text-slate-400 transition-transform duration-200 ${
-                      isOpen ? "rotate-45 text-cyan-400" : ""
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-300/90 text-slate-500 transition-all duration-300 ease-out ${
+                      isOpen
+                        ? "rotate-45 border-[#3B6D8C]/45 bg-[#F3F5F7] text-[#3B6D8C]"
+                        : ""
                     }`}
                     aria-hidden="true"
                   >
@@ -81,13 +112,18 @@ export function FAQSection() {
                 <AnimatePresence initial={false}>
                   {isOpen && (
                     <motion.div
-                      initial={reduce ? false : { height: 0, opacity: 0 }}
+                      id={panelId}
+                      role="region"
+                      aria-labelledby={buttonId}
+                      initial={
+                        reduce ? false : { height: 0, opacity: 0 }
+                      }
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.25 }}
+                      transition={{ duration: 0.28, ease: EASE_OUT }}
                       className="overflow-hidden"
                     >
-                      <p className="border-t border-slate-700/50 px-5 py-4 text-sm leading-relaxed text-slate-400">
+                      <p className="pb-6 pr-12 text-[15px] leading-[1.72] text-slate-600">
                         {item.a}
                       </p>
                     </motion.div>
@@ -98,21 +134,6 @@ export function FAQSection() {
           })}
         </div>
       </div>
-
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            mainEntity: FAQS.map((f) => ({
-              "@type": "Question",
-              name: f.q,
-              acceptedAnswer: { "@type": "Answer", text: f.a },
-            })),
-          }),
-        }}
-      />
     </section>
   );
 }
