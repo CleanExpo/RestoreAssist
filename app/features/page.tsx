@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   MarketingShell,
   MarketingPageHero,
@@ -13,6 +13,7 @@ import {
   SECTION_PAD,
   VIEWPORT,
 } from "@/components/landing/home/motion";
+import { useLandingReduceMotion } from "@/components/landing/home/useLandingReduceMotion";
 
 const features = [
   {
@@ -48,7 +49,7 @@ const features = [
 ] as const;
 
 export default function FeaturesPage() {
-  const reduce = useReducedMotion();
+  const reduce = useLandingReduceMotion();
 
   return (
     <MarketingShell>
