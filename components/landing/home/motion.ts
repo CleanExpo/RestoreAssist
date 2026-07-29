@@ -121,6 +121,7 @@ export const SECTION_BODY =
 
 export const SECTION_PAD = "py-24 sm:py-28 lg:py-[7.5rem]";
 
-export const CONTAINER = "mx-auto max-w-7xl px-5 sm:px-6 lg:px-8";
+/** Public content rail — 80% viewport width, shared across marketing pages. */
+export const CONTAINER = "mx-auto w-[80%] px-5 sm:px-6 lg:px-8";
 
 export const HAIRLINE = "border-t border-slate-200/90";
