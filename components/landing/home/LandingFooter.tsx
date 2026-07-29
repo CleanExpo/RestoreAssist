@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { BRAND } from "@/lib/brand";
+import { CONTAINER } from "./motion";
 
 const DISPLAY = "font-[family-name:var(--font-landing-display)]";
 
@@ -28,7 +29,7 @@ const COLUMNS = [
 export function LandingFooter() {
   return (
     <footer className="border-t border-slate-200/90 bg-white">
-      <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8 lg:py-20">
+      <div className={`${CONTAINER} py-16 lg:py-20`}>
         <div className="grid gap-12 md:grid-cols-[1.5fr_1fr_1fr] md:gap-12">
           <div>
             <Link
