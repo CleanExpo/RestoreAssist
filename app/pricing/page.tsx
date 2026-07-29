@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import BillingGate from "@/components/capacitor/BillingGate";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -21,9 +21,10 @@ import {
   CTA_SECONDARY,
   SURFACE,
 } from "@/components/landing/home/motion";
+import { useLandingReduceMotion } from "@/components/landing/home/useLandingReduceMotion";
 
 function PricingPageContent() {
-  const reduce = useReducedMotion();
+  const reduce = useLandingReduceMotion();
   const freeCfg = PRICING_CONFIG.free;
 
   type DisplayPlan = {
