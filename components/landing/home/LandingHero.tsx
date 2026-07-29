@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import { BRAND } from "@/lib/brand";
 import {
   CTA_PRIMARY,
@@ -15,6 +15,7 @@ import {
   VIEWPORT,
   CONTAINER,
 } from "./motion";
+import { useLandingReduceMotion } from "./useLandingReduceMotion";
 
 const TRUST = [
   "IICRC S500:2021",
@@ -30,7 +31,7 @@ const TRUST = [
  * Slogan lives in the closing CTA / footer — not stacked in the hero.
  */
 export function LandingHero() {
-  const reduce = useReducedMotion();
+  const reduce = useLandingReduceMotion();
 
   return (
     <section className="relative pt-[4.25rem]">
