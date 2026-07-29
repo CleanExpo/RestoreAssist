@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { useLandingReduceMotion } from "./useLandingReduceMotion";
 import {
   fadeUp,
   staggerContainer,
@@ -70,7 +71,7 @@ const FAQS = [
  * Not a stacked accordion wall.
  */
 export function FAQSection() {
-  const reduce = useReducedMotion();
+  const reduce = useLandingReduceMotion();
   const [active, setActive] = useState(0);
   const item = FAQS[active];
 
