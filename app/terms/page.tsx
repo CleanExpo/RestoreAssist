@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MarketingShell } from "@/components/landing/home";
 
 export const metadata: Metadata = {
   title: "Terms of Service — RestoreAssist",
@@ -13,18 +14,19 @@ const LEGAL_EMAIL = "legal@restoreassist.app";
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-white dark:bg-neutral-950 px-6 py-16">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-semibold text-neutral-900 dark:text-white mb-2">
+    <MarketingShell>
+      <div className="border-b border-slate-200/90 bg-[#F3F5F7]">
+        <div className="mx-auto max-w-3xl px-5 py-14 sm:px-6 sm:py-16 lg:px-8">
+        <h1 className="font-[family-name:var(--font-landing-display)] text-3xl font-semibold tracking-tight text-[#0B1F3A] mb-2 sm:text-4xl">
           Terms of Service
         </h1>
-        <p className="text-sm text-neutral-500 mb-10">
+        <p className="text-sm text-slate-500 mb-10">
           Effective: {EFFECTIVE_DATE}
         </p>
 
-        <div className="prose prose-neutral dark:prose-invert max-w-none space-y-8 text-sm leading-relaxed">
+        <div className="prose prose-slate max-w-none space-y-8 text-sm leading-relaxed">
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               1. Acceptance
             </h2>
             <p>
@@ -38,7 +40,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               2. Your account
             </h2>
             <p>
@@ -47,7 +49,7 @@ export default function TermsPage() {
               and for any activity under your account. Notify us immediately at{" "}
               <a
                 href={`mailto:${SUPPORT_EMAIL}`}
-                className="text-cyan-600 hover:underline"
+                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
               >
                 {SUPPORT_EMAIL}
               </a>{" "}
@@ -60,7 +62,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               3. Subscription &amp; billing
             </h2>
             <p>
@@ -81,7 +83,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               4. Acceptable use
             </h2>
             <p>You must not:</p>
@@ -110,7 +112,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               5. Content &amp; ownership
             </h2>
             <p>
@@ -126,7 +128,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               6. AI-generated output
             </h2>
             <p>
@@ -143,7 +145,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               7. Australian Consumer Law
             </h2>
             <p>
@@ -162,7 +164,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               8. Limitation of liability
             </h2>
             <p>
@@ -176,7 +178,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               9. Third-party integrations
             </h2>
             <p>
@@ -191,7 +193,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               10. Termination
             </h2>
             <p>
@@ -210,7 +212,7 @@ export default function TermsPage() {
               See the{" "}
               <a
                 href="/privacy#retention"
-                className="text-cyan-600 hover:underline"
+                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
               >
                 Privacy Policy retention table
               </a>{" "}
@@ -225,7 +227,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               11. Changes to these Terms
             </h2>
             <p>
@@ -237,7 +239,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               12. Governing law
             </h2>
             <p>
@@ -248,33 +250,34 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               13. Contact
             </h2>
             <p>
               Legal enquiries:{" "}
               <a
                 href={`mailto:${LEGAL_EMAIL}`}
-                className="text-cyan-600 hover:underline"
+                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
               >
                 {LEGAL_EMAIL}
               </a>
               . Support:{" "}
               <a
                 href={`mailto:${SUPPORT_EMAIL}`}
-                className="text-cyan-600 hover:underline"
+                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
               >
                 {SUPPORT_EMAIL}
               </a>
               .
             </p>
-            <p className="mt-2 text-neutral-400 text-xs">
+            <p className="mt-2 text-xs text-slate-500">
               Restore Assist by Unite-Group Nexus Pty Ltd | Australia | ABN 95
               691 477 844
             </p>
           </section>
         </div>
       </div>
-    </main>
+      </div>
+    </MarketingShell>
   );
 }
