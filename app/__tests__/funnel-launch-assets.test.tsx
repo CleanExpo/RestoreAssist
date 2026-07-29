@@ -208,6 +208,9 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
       "From site to signed report.",
       "IICRC S500:2021",
       "What's included in the free trial?",
+      "Same job. Two systems. Too many gaps.",
+      "Prove it on your next claim",
+      "How does pricing work?",
     ])("home page renders brand/trust signal: %s", (copy) => {
       const { container, unmount } = render(<Home />);
       expect(container.textContent).toContain(copy);
