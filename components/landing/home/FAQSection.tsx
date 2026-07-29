@@ -21,6 +21,18 @@ const FAQS = [
     a: "RestoreAssist is Australia's first Australian-designed full CRM — an Office and Field Management System for the Australian Restoration Industry. It connects field capture, IICRC-aligned reporting, GST invoicing, and client approvals in one system so teams remove double-handling between the driveway and the desk.",
   },
   {
+    q: "What's included in the free trial?",
+    a: "Three complimentary trial reports with instant setup. Field capture, reporting, invoicing, and the client portal are ready from day one — so you can prove value on real work without rewriting your process.",
+  },
+  {
+    q: "How does pricing work?",
+    a: "Start free with three trial reports, then choose a plan that fits your team. See current options on the pricing page — clear packages, no need to rebuild your process just to evaluate the product.",
+  },
+  {
+    q: "Can my whole team use it?",
+    a: "Yes. Roles, handoffs, and shared jobs keep owners, office managers, and field technicians aligned on the same claim — from first visit to final invoice.",
+  },
+  {
     q: "Does RestoreAssist create IICRC S500 reports?",
     a: "Yes. RestoreAssist helps produce S500:2021-aligned report drafts so writing time drops from hours to minutes. You review, edit, and own the final document — professional judgement stays with the operator on every claim.",
   },
@@ -33,12 +45,8 @@ const FAQS = [
     a: "Yes. Field capture is designed for real job sites — evidence, moisture readings, and sketches can be captured offline and sync when you are back online, so poor reception does not stall the job.",
   },
   {
-    q: "What's included in the free trial?",
-    a: "Three complimentary trial reports with instant setup. Field capture, reporting, invoicing, and the client portal are ready from day one — so you can prove value on real work without rewriting your process.",
-  },
-  {
-    q: "Who is RestoreAssist built for?",
-    a: "Restoration company owners, office managers, and field technicians across Australia and New Zealand who need one reliable system for inspection, reporting, invoicing, and client communication.",
+    q: "Does this replace our accounting tools?",
+    a: "RestoreAssist is built for restoration operations — field capture, reporting, invoicing workflows, and client approvals. It sits alongside the tools your office already uses for bookkeeping rather than forcing a full finance rip-and-replace.",
   },
 ] as const;
 
@@ -73,8 +81,8 @@ export function FAQSection() {
             variants={fadeUp}
             className={`${SECTION_BODY} mx-auto text-center`}
           >
-            Clear detail on compliance, field use, reporting, and getting
-            started — so you can decide with confidence.
+            Clear detail on trial, pricing, team use, compliance, and field
+            work — so you can decide with confidence.
           </motion.p>
         </motion.div>
 
@@ -115,9 +123,7 @@ export function FAQSection() {
                       id={panelId}
                       role="region"
                       aria-labelledby={buttonId}
-                      initial={
-                        reduce ? false : { height: 0, opacity: 0 }
-                      }
+                      initial={reduce ? false : { height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.28, ease: EASE_OUT }}
