@@ -13,6 +13,7 @@ import {
   staggerContainer,
   staggerFast,
   VIEWPORT,
+  CONTAINER,
 } from "./motion";
 
 const TRUST = [
@@ -61,7 +62,7 @@ export function LandingHero() {
           aria-hidden
         />
 
-        <div className="relative mx-auto flex min-h-[min(92dvh,56rem)] max-w-7xl flex-col justify-center px-5 py-20 sm:px-6 sm:py-24 lg:px-8 lg:py-28">
+        <div className={`${CONTAINER} relative flex min-h-[min(92dvh,56rem)] flex-col justify-center py-20 sm:py-24 lg:py-28`}>
           <motion.div
             variants={staggerContainer}
             initial={reduce ? false : "hidden"}
@@ -138,7 +139,7 @@ export function LandingHero() {
           initial={reduce ? false : "hidden"}
           whileInView="visible"
           viewport={VIEWPORT}
-          className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-5 sm:px-6 lg:px-8"
+          className={`${CONTAINER} flex flex-wrap items-center justify-between gap-x-6 gap-y-3 py-5`}
           aria-label="Compliance standards and coverage"
         >
           {TRUST.map((item) => (
