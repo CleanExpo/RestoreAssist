@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MarketingShell } from "@/components/landing/home";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — RestoreAssist",
@@ -14,18 +15,19 @@ const BUSINESS_ADDRESS =
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-white dark:bg-neutral-950 px-6 py-16">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-semibold text-neutral-900 dark:text-white mb-2">
+    <MarketingShell>
+      <div className="border-b border-slate-200/90 bg-[#F3F5F7]">
+        <div className="mx-auto max-w-3xl px-5 py-14 sm:px-6 sm:py-16 lg:px-8">
+        <h1 className="font-[family-name:var(--font-landing-display)] text-3xl font-semibold tracking-tight text-[#0B1F3A] mb-2 sm:text-4xl">
           Privacy Policy
         </h1>
-        <p className="text-sm text-neutral-500 mb-10">
+        <p className="text-sm text-slate-500 mb-10">
           Effective: {EFFECTIVE_DATE}
         </p>
 
-        <div className="prose prose-neutral dark:prose-invert max-w-none space-y-8 text-sm leading-relaxed">
+        <div className="prose prose-slate max-w-none space-y-8 text-sm leading-relaxed">
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               1. Who we are
             </h2>
             <p>
@@ -41,7 +43,7 @@ export default function PrivacyPage() {
               Contact:{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-cyan-600 hover:underline"
+                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
               >
                 {CONTACT_EMAIL}
               </a>
@@ -49,10 +51,10 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               2. Information we collect
             </h2>
-            <h3 className="font-medium text-neutral-800 dark:text-neutral-200 mb-2">
+            <h3 className="font-medium text-[#0B1F3A] mb-2">
               2.1 Account and business information
             </h3>
             <p>
@@ -62,7 +64,7 @@ export default function PrivacyPage() {
               and comply with applicable law.
             </p>
 
-            <h3 className="font-medium text-neutral-800 dark:text-neutral-200 mt-4 mb-2">
+            <h3 className="font-medium text-[#0B1F3A] mt-4 mb-2">
               2.2 Inspection and report data
             </h3>
             <p>
@@ -73,7 +75,7 @@ export default function PrivacyPage() {
               platform features you use.
             </p>
 
-            <h3 className="font-medium text-neutral-800 dark:text-neutral-200 mt-4 mb-2">
+            <h3 className="font-medium text-[#0B1F3A] mt-4 mb-2">
               2.3 Photographs and files
             </h3>
             <p>
@@ -82,7 +84,7 @@ export default function PrivacyPage() {
               only to authorised users of your account.
             </p>
 
-            <h3 className="font-medium text-neutral-800 dark:text-neutral-200 mt-4 mb-2">
+            <h3 className="font-medium text-[#0B1F3A] mt-4 mb-2">
               2.4 Video viewing data (CET app)
             </h3>
             <p>
@@ -95,7 +97,7 @@ export default function PrivacyPage() {
               personal details are collected from clients using the CET app.
             </p>
 
-            <h3 className="font-medium text-neutral-800 dark:text-neutral-200 mt-4 mb-2">
+            <h3 className="font-medium text-[#0B1F3A] mt-4 mb-2">
               2.5 Usage and technical data
             </h3>
             <p>
@@ -104,7 +106,7 @@ export default function PrivacyPage() {
               security monitoring and service improvement.
             </p>
 
-            <h3 className="font-medium text-neutral-800 dark:text-neutral-200 mt-4 mb-2">
+            <h3 className="font-medium text-[#0B1F3A] mt-4 mb-2">
               2.6 Support voice conversations
             </h3>
             <p>
@@ -118,7 +120,7 @@ export default function PrivacyPage() {
               assistant, you can contact us in writing at{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-cyan-600 hover:underline"
+                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
               >
                 {CONTACT_EMAIL}
               </a>{" "}
@@ -127,7 +129,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               3. How we use your information
             </h2>
             <ul className="list-disc pl-5 space-y-1">
@@ -153,7 +155,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               4. Third-party services
             </h2>
             <p>
@@ -190,7 +192,7 @@ export default function PrivacyPage() {
           </section>
 
           <section id="retention">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               5. Data storage, security, and retention
             </h2>
             <p>
@@ -206,124 +208,124 @@ export default function PrivacyPage() {
               dust-disease regimes that exceed that window.
             </p>
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-xs border-collapse border border-neutral-300 dark:border-neutral-700">
-                <thead className="bg-neutral-100 dark:bg-neutral-900">
+              <table className="w-full text-xs border-collapse border border-slate-200">
+                <thead className="bg-[#F3F5F7]">
                   <tr>
-                    <th className="text-left px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <th className="text-left px-3 py-2 border border-slate-200">
                       Data class
                     </th>
-                    <th className="text-left px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <th className="text-left px-3 py-2 border border-slate-200">
                       Minimum retention
                     </th>
-                    <th className="text-left px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <th className="text-left px-3 py-2 border border-slate-200">
                       Statutory authority
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       Tax invoices &amp; BAS working papers
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       7 years
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       Taxation Administration Act s.262A
                     </td>
                   </tr>
                   <tr>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       Payroll &amp; superannuation records
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       7 years
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       Fair Work Act s.535
                     </td>
                   </tr>
                   <tr>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       General contractual records
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       6 years
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       Competition and Consumer Act s.236
                     </td>
                   </tr>
                   <tr>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       QLD structural-defect records
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       6 years 6 months from practical completion
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       QBCC Act s.67AQ
                     </td>
                   </tr>
                   <tr>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       NSW building statutory warranty
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       6 years (major) / 2 years (minor)
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       Home Building Act 1989 s.18E
                     </td>
                   </tr>
                   <tr>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       VIC domestic building
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       10 years
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       Building Act 1993 s.134
                     </td>
                   </tr>
                   <tr>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       Dust-disease exposure records (asbestos, silica)
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700 font-semibold">
+                    <td className="px-3 py-2 border border-slate-200 font-semibold">
                       Indefinite
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       Dust Diseases Act 1942 (NSW) &amp; state analogues
                     </td>
                   </tr>
                   <tr>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       WHS incident records
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       5 years min (30+ years for exposure records)
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       WHS Act 2011 &amp; state variants
                     </td>
                   </tr>
                   <tr>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       General personal information
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       Until purpose satisfied or retention obligation expires
                     </td>
-                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                    <td className="px-3 py-2 border border-slate-200">
                       Privacy Act APP 11.2
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <p className="mt-3 text-xs text-neutral-500">
+            <p className="mt-3 text-xs text-slate-500">
               On request (see section 7), we will destroy personal information
               once the longest applicable retention period has expired. Building
               and dust-disease records may outlive account closure.
@@ -331,7 +333,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               6. Camera and device permissions
             </h2>
             <p>
@@ -360,7 +362,7 @@ export default function PrivacyPage() {
           </section>
 
           <section id="exif-metadata">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               6a. Photo metadata (EXIF, GPS, device fingerprint)
             </h2>
             <p>
@@ -380,7 +382,7 @@ export default function PrivacyPage() {
           </section>
 
           <section id="international-transfers">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               6b. International data transfers
             </h2>
             <p>
@@ -419,7 +421,7 @@ export default function PrivacyPage() {
           </section>
 
           <section id="children">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               6c. Children
             </h2>
             <p>
@@ -430,7 +432,7 @@ export default function PrivacyPage() {
               child has provided personal information to us, please contact{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-cyan-600 hover:underline"
+                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
               >
                 {CONTACT_EMAIL}
               </a>{" "}
@@ -439,7 +441,7 @@ export default function PrivacyPage() {
           </section>
 
           <section id="account-deletion">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               6d. Account deletion
             </h2>
             <p>
@@ -448,7 +450,7 @@ export default function PrivacyPage() {
               app, or by emailing{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}?subject=Account%20deletion%20request`}
-                className="text-cyan-600 hover:underline"
+                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
               >
                 {CONTACT_EMAIL}
               </a>{" "}
@@ -461,7 +463,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               7. Your rights under Australian privacy law
             </h2>
             <p>
@@ -478,7 +480,7 @@ export default function PrivacyPage() {
               To exercise any of these rights, contact{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-cyan-600 hover:underline"
+                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
               >
                 {CONTACT_EMAIL}
               </a>
@@ -487,7 +489,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               8. Cookies
             </h2>
             <p>
@@ -500,7 +502,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               9. Changes to this policy
             </h2>
             <p>
@@ -513,28 +515,29 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
               10. Contact
             </h2>
             <p>
               For privacy enquiries or complaints:{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-cyan-600 hover:underline"
+                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
               >
                 {CONTACT_EMAIL}
               </a>
             </p>
-            <p className="mt-2 text-neutral-400 text-xs">
+            <p className="mt-2 text-xs text-slate-500">
               Restore Assist by Unite-Group Nexus Pty Ltd | Australia | ABN 95
               691 477 844
             </p>
-            <p className="mt-1 text-neutral-400 text-xs">
+            <p className="mt-1 text-xs text-slate-500">
               Postal address: {BUSINESS_ADDRESS}
             </p>
           </section>
         </div>
       </div>
-    </main>
+      </div>
+    </MarketingShell>
   );
 }
