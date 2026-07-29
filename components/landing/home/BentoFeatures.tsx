@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   fadeUp,
   staggerContainer,
@@ -14,6 +14,7 @@ import {
   HAIRLINE,
   EASE_OUT,
 } from "./motion";
+import { useLandingReduceMotion } from "./useLandingReduceMotion";
 
 const FEATURES = [
   {
@@ -61,7 +62,7 @@ const FEATURES = [
  * Intentionally not a bento grid or card wall.
  */
 export function BentoFeatures() {
-  const reduce = useReducedMotion();
+  const reduce = useLandingReduceMotion();
 
   return (
     <section
