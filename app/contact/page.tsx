@@ -99,7 +99,7 @@ export default function ContactPage() {
           <div className="absolute top-20 right-10 w-72 h-72 bg-brand-bronze/10 rounded-full blur-3xl"></div>
           <div className="absolute bottom-20 left-10 w-96 h-96 bg-brand-bronze/8 rounded-full blur-3xl"></div>
         </div>
-        <div className="max-w-7xl mx-auto w-full relative z-10 text-center">
+        <div className="w-full max-w-[80%] mx-auto w-full relative z-10 text-center">
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
