@@ -7,20 +7,20 @@ export const BRAND = {
   slogan: "One System. Fewer Gaps. More Confidence.",
   tagline: "Office and Field. One System.",
   description:
-    "RestoreAssist is Australia's first Australian-designed full CRM — Office and Field Management System designed specifically for the Australian Restoration Industry. Inbuilt IICRC frameworks, WHS policies, and Australian Building Code references remove double-handling between field capture and office processing. AI assists administration and field technicians; the decisions stay with the operator. Designed in Australia, deployed across Australia and New Zealand.",
+    "RestoreAssist is Australia's first Australian-designed full CRM — an Office and Field Management System for the Australian Restoration Industry. Inbuilt IICRC frameworks, WHS policies, and Australian Building Code references remove double-handling between field capture and office processing. Designed in Australia, deployed across Australia and New Zealand.",
   shortDescription:
-    "Australia's first Australian-designed full CRM — Office and Field Management System for the Australian Restoration Industry.",
+    "Australia's first Australian-designed restoration CRM — office and field management with inbuilt IICRC, WHS, and building-code workflows for AU and NZ.",
   cta: {
     primary: { label: "Get Started", href: "/signup" },
     secondary: { label: "See How It Works", href: "/how-it-works" },
   },
   meta: {
     title:
-      "RestoreAssist — Australia's first Australian-designed Restoration CRM",
+      "RestoreAssist — Australian Restoration CRM | Field, Reports & Compliance",
     description:
-      "Australia's first Australian-designed full CRM — Office and Field Management System for the Australian Restoration Industry. Inbuilt IICRC, WHS, and Australian Building Code compliance. AI assists, never replaces.",
+      "Australian-designed restoration CRM for office and field. Capture on site, produce IICRC S500 reports, invoice with GST confidence, and get client approvals — one system across Australia and New Zealand.",
     ogDescription:
-      "Australia's first Australian-designed full CRM. Office + Field unified. Inbuilt IICRC, WHS, Australian Building Code. AI assists administration and field technicians.",
+      "One system for Australian restoration: field capture, IICRC-aligned reports, GST invoicing, and client approvals. Built for AU & NZ — fewer gaps, more confidence.",
   },
   company: {
     legal: "Restore Assist by Unite-Group Nexus Pty Ltd",
