@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useLandingReduceMotion } from "./useLandingReduceMotion";
 import { BRAND } from "@/lib/brand";
 import {
   CTA_PRIMARY,
@@ -25,7 +26,7 @@ const REASSURANCES = [
 ] as const;
 
 export function FinalCTA() {
-  const reduce = useReducedMotion();
+  const reduce = useLandingReduceMotion();
 
   return (
     <section
