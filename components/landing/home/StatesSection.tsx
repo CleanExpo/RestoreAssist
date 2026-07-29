@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useLandingReduceMotion } from "./useLandingReduceMotion";
 import {
   fadeUp,
   staggerContainer,
@@ -77,7 +78,7 @@ const BUILT_IN = [
  * Not a chip grid, not a map illustration, not a card wall.
  */
 export function StatesSection() {
-  const reduce = useReducedMotion();
+  const reduce = useLandingReduceMotion();
   const [active, setActive] = useState(0);
   const region = REGIONS[active];
 
