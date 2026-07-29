@@ -1,7 +1,20 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { fadeUp, staggerContainer, GLASS_CARD } from "./motion";
+import {
+  fadeUpSoft,
+  staggerContainer,
+  staggerFast,
+  SECTION_EYEBROW,
+  SECTION_TITLE,
+  SECTION_BODY,
+  SECTION_PAD,
+  CONTAINER,
+  FONT_DISPLAY,
+  SURFACE,
+  VIEWPORT,
+  HAIRLINE,
+} from "./motion";
 
 const STATES = [
   "NSW",
@@ -19,41 +32,46 @@ export function StatesSection() {
   const reduce = useReducedMotion();
 
   return (
-    <section className="relative border-t border-slate-800/50 py-24 sm:py-28">
-      <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+    <section
+      className={`relative bg-[#F3F5F7] ${HAIRLINE} ${SECTION_PAD}`}
+      aria-labelledby="coverage-heading"
+    >
+      <div className={CONTAINER}>
         <motion.div
           variants={staggerContainer}
           initial={reduce ? false : "hidden"}
           whileInView="visible"
-          viewport={{ once: true, margin: "-80px" }}
-          className={`${GLASS_CARD} overflow-hidden p-8 sm:p-10 lg:p-12`}
+          viewport={VIEWPORT}
+          className={`${SURFACE} overflow-hidden p-8 sm:p-10 lg:p-14`}
         >
-          <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div className="grid gap-12 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-16">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-400">
-                Coverage
-              </p>
-              <h2 className="mt-3 text-3xl font-medium tracking-tight text-white sm:text-4xl">
+              <p className={SECTION_EYEBROW}>Australia &amp; New Zealand</p>
+              <h2 id="coverage-heading" className={SECTION_TITLE}>
                 Designed in Australia.
-                <span className="mt-1 block text-slate-300">
+                <span
+                  className={`${FONT_DISPLAY} mt-3 block text-[1.35rem] font-medium leading-snug tracking-[-0.015em] text-slate-600 sm:text-2xl`}
+                >
                   Deployed across Australia and New Zealand.
                 </span>
               </h2>
-              <p className="mt-4 max-w-lg text-base leading-relaxed text-slate-400">
+              <p className={SECTION_BODY}>
                 State codes, GST, and jurisdictional references are built into
                 the workflow — so restoration software for Queensland works the
-                same way as New South Wales, without rewriting your process.
+                same way as New South Wales, without rewriting your process for
+                every border you cross.
               </p>
             </div>
             <motion.ul
-              variants={staggerContainer}
-              className="grid grid-cols-3 gap-2 sm:grid-cols-3"
+              variants={staggerFast}
+              className="grid grid-cols-3 gap-2.5"
+              aria-label="States and regions covered"
             >
               {STATES.map((s) => (
                 <motion.li
                   key={s}
-                  variants={fadeUp}
-                  className="flex items-center justify-center rounded-lg border border-slate-600/30 bg-slate-700/30 py-3 text-sm font-medium tabular-nums text-slate-200"
+                  variants={fadeUpSoft}
+                  className={`${FONT_DISPLAY} flex min-h-12 items-center justify-center rounded-xl border border-slate-200/90 bg-[#F3F5F7] text-sm font-semibold tabular-nums tracking-wide text-[#0B1F3A] transition-[background-color,border-color,box-shadow] duration-200 hover:border-[#3B6D8C]/35 hover:bg-white hover:shadow-[0_1px_3px_rgba(15,23,42,0.05)]`}
                 >
                   {s}
                 </motion.li>
