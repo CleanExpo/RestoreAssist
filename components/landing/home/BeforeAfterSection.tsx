@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useLandingReduceMotion } from "./useLandingReduceMotion";
 import {
   fadeUp,
   staggerContainer,
@@ -33,7 +34,7 @@ const AFTER = [
  * Open editorial columns, not heavy dashboard cards.
  */
 export function BeforeAfterSection() {
-  const reduce = useReducedMotion();
+  const reduce = useLandingReduceMotion();
 
   return (
     <section
