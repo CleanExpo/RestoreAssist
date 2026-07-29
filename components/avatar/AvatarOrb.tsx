@@ -20,7 +20,7 @@ import { Video, X, Volume2, VolumeX, Send, MessageCircle } from "lucide-react";
 import { BRAND } from "@/lib/brand";
 import {
   MARGOT_ACCENT,
-  MARGOT_AVATAR_PATH,
+  MARGOT_AVATAR_ORB_PATH,
   MARGOT_DISPLAY_NAME,
   MARGOT_ROLE_LABEL,
   MARGOT_WELCOME,
@@ -92,11 +92,12 @@ function answerFor(question: string): string {
 function MargotAvatar({ size }: { size: number }) {
   return (
     <Image
-      src={MARGOT_AVATAR_PATH}
+      src={MARGOT_AVATAR_ORB_PATH}
       alt={`${MARGOT_DISPLAY_NAME} avatar`}
       width={size}
       height={size}
-      className="rounded-full object-cover ring-2 ring-white/40"
+      className="aspect-square rounded-full object-cover object-center ring-2 ring-white/40"
+      style={{ width: size, height: size, minWidth: size, minHeight: size }}
       priority
     />
   );
@@ -105,7 +106,7 @@ function MargotAvatar({ size }: { size: number }) {
 export function AvatarOrb({
   className,
   size = 64,
-  avatarImageUrl = MARGOT_AVATAR_PATH,
+  avatarImageUrl = MARGOT_AVATAR_ORB_PATH,
   greetingVideoUrl,
   explainerVideoUrl,
   greetingText = MARGOT_WELCOME,
@@ -235,12 +236,13 @@ export function AvatarOrb({
 
   return (
     <>
-      {/* Floating FAB — matches client Margot Chatbot affordance */}
+      {/* Floating FAB — square icon, matches client Margot Chatbot */}
       <button
         ref={orbRef}
         onClick={handleOrbClick}
+        type="button"
         className={cn(
-          "group relative z-[100] flex cursor-pointer items-center justify-center rounded-full p-1 transition-all duration-300",
+          "group relative z-[100] flex aspect-square shrink-0 cursor-pointer items-center justify-center rounded-full p-1 transition-all duration-300",
           "hover:scale-110 hover:shadow-xl",
           entered ? "scale-100 opacity-100" : "scale-50 opacity-0",
           className,
@@ -248,6 +250,8 @@ export function AvatarOrb({
         style={{
           width: size,
           height: size,
+          minWidth: size,
+          minHeight: size,
           boxShadow: isChatOpen ? undefined : `0 8px 28px ${MARGOT_ACCENT}66`,
         }}
         aria-label={
@@ -261,33 +265,48 @@ export function AvatarOrb({
       >
         {isChatOpen && !hasVideo ? (
           <span
-            className="flex h-[88%] w-[88%] items-center justify-center rounded-full text-white"
-            style={{ background: MARGOT_ACCENT }}
+            className="flex aspect-square items-center justify-center rounded-full text-white"
+            style={{
+              width: size - 8,
+              height: size - 8,
+              background: MARGOT_ACCENT,
+            }}
           >
             <X className="h-6 w-6" />
           </span>
         ) : (
-          <span className="relative flex h-[88%] w-[88%] items-center justify-center">
-            {avatarImageUrl === MARGOT_AVATAR_PATH ? (
-              <MargotAvatar size={Math.round(size * 0.875)} />
+          <span
+            className="relative flex aspect-square shrink-0 items-center justify-center"
+            style={{ width: size - 8, height: size - 8 }}
+          >
+            {avatarImageUrl === MARGOT_AVATAR_ORB_PATH ? (
+              <MargotAvatar size={size - 8} />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={avatarImageUrl}
                 alt={`${MARGOT_DISPLAY_NAME} avatar`}
-                className="h-full w-full rounded-full object-cover ring-2 ring-white/40"
+                width={size - 8}
+                height={size - 8}
+                className="aspect-square rounded-full object-cover object-center ring-2 ring-white/40"
+                style={{
+                  width: size - 8,
+                  height: size - 8,
+                  minWidth: size - 8,
+                  minHeight: size - 8,
+                }}
                 loading="eager"
               />
             )}
             <span
-              className="absolute -right-0.5 -bottom-0.5 flex h-5 w-5 items-center justify-center rounded-full text-white ring-2 ring-white"
+              className="absolute -right-0.5 -bottom-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white ring-2 ring-white"
               style={{ background: MARGOT_ACCENT }}
               aria-hidden
             >
               <MessageCircle size={11} />
             </span>
             {!hasPlayed && (
-              <span className="absolute -top-1 -right-1 h-4 w-4 animate-pulse rounded-full bg-rose-500" />
+              <span className="absolute -top-1 -right-1 h-4 w-4 shrink-0 animate-pulse rounded-full bg-rose-500" />
             )}
           </span>
         )}
@@ -315,7 +334,7 @@ export function AvatarOrb({
           <div className="flex items-center justify-between rounded-t-lg border-b border-slate-200 bg-slate-50 px-4 py-3">
             <div className="flex items-center gap-3">
               <div
-                className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full"
+                className="flex aspect-square h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full"
                 style={{ border: `2px solid ${MARGOT_ACCENT}44` }}
               >
                 <MargotAvatar size={40} />

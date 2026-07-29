@@ -3,6 +3,11 @@
  * Pi-Dev-Ops packages/brand-config/src/margot-surfaces.ts
  */
 export const MARGOT_AVATAR_PATH = "/margot/avatar.png";
+/**
+ * Square, padded crop for circular FABs — full head stays inside the circle.
+ * Prefer this over `MARGOT_AVATAR_PATH` anywhere the image is clipped to a circle.
+ */
+export const MARGOT_AVATAR_ORB_PATH = "/margot/avatar-orb.png";
 export const MARGOT_DISPLAY_NAME = "Margot";
 export const MARGOT_ROLE_LABEL = "Client help";
 export const MARGOT_WELCOME =

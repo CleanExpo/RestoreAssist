@@ -18,7 +18,7 @@ import ReactMarkdown from "react-markdown";
 import { useSession } from "next-auth/react";
 import {
   MARGOT_ACCENT,
-  MARGOT_AVATAR_PATH,
+  MARGOT_AVATAR_ORB_PATH,
   MARGOT_DISPLAY_NAME,
   MARGOT_ROLE_LABEL,
   MARGOT_WELCOME,
@@ -106,11 +106,12 @@ interface SpeechRecognitionAlternative {
 function MargotAvatarBubble({ size = 56 }: { size?: number }) {
   return (
     <Image
-      src={MARGOT_AVATAR_PATH}
+      src={MARGOT_AVATAR_ORB_PATH}
       alt={`${MARGOT_DISPLAY_NAME} avatar`}
       width={size}
       height={size}
-      className="rounded-full object-cover ring-2 ring-white/30"
+      className="aspect-square rounded-full object-cover object-center ring-2 ring-white/30"
+      style={{ width: size, height: size, minWidth: size, minHeight: size }}
       priority
     />
   );
