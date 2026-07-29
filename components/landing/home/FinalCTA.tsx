@@ -15,6 +15,7 @@ import {
   SECTION_PAD,
   VIEWPORT,
   HAIRLINE,
+  CONTAINER,
 } from "./motion";
 
 const REASSURANCES = [
@@ -35,7 +36,8 @@ export function FinalCTA() {
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_0%,rgba(59,109,140,0.09),transparent_70%)]"
         aria-hidden
       />
-      <div className="relative mx-auto max-w-3xl px-5 text-center sm:px-6 lg:px-8">
+      <div className={`${CONTAINER} relative text-center`}>
+        <div className="mx-auto max-w-3xl">
         <motion.div
           variants={staggerContainer}
           initial={reduce ? false : "hidden"}
@@ -96,6 +98,7 @@ export function FinalCTA() {
             ))}
           </motion.ul>
         </motion.div>
+        </div>
       </div>
     </section>
   );
