@@ -22,6 +22,7 @@ import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { AnnouncerProvider } from "@/components/LiveRegion";
 import { Analytics } from "@vercel/analytics/next";
 import { ConvaiWidget } from "@/components/support/ConvaiWidget";
+import { PublicAssistantOrb } from "@/components/avatar";
 import { BotIdClient } from "botid/client";
 import "@/lib/env-check";
 import "./globals.css";
@@ -169,6 +170,8 @@ export default function RootLayout({
           {/* ElevenLabs convai support voice widget — dark by default; renders
               nothing until NEXT_PUBLIC_ELEVENLABS_AGENT_ID is set. */}
           <ConvaiWidget />
+          {/* Daylight floating guide on public pages (hidden on dashboard/portal). */}
+          <PublicAssistantOrb />
           <Toaster
             position="top-right"
             toastOptions={{
