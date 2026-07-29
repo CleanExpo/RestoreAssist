@@ -5,6 +5,7 @@ import {
   LandingNav,
   LandingHero,
   WorkflowSection,
+  BeforeAfterSection,
   BentoFeatures,
   DamageCoverage,
   StatesSection,
@@ -43,6 +44,7 @@ export default function Home() {
       <main id="main-content">
         <LandingHero />
         <WorkflowSection />
+        <BeforeAfterSection />
         <BentoFeatures />
         <DamageCoverage />
         <StatesSection />

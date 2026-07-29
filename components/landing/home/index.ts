@@ -1,6 +1,7 @@
 export { LandingNav } from "./LandingNav";
 export { LandingHero } from "./LandingHero";
 export { WorkflowSection } from "./WorkflowSection";
+export { BeforeAfterSection } from "./BeforeAfterSection";
 export { BentoFeatures } from "./BentoFeatures";
 export { DamageCoverage } from "./DamageCoverage";
 export { StatesSection } from "./StatesSection";
