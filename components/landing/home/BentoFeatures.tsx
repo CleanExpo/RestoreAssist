@@ -100,6 +100,13 @@ export function BentoFeatures() {
               insurer-ready paperwork, RestoreAssist keeps office and field on
               one system.
             </motion.p>
+            <motion.p
+              variants={fadeUp}
+              className={`${FONT_DISPLAY} mt-5 max-w-[38rem] text-[14px] font-medium leading-snug tracking-[-0.01em] text-[#16345A] sm:text-[15px]`}
+            >
+              Drafting runs on your workspace Anthropic or OpenAI key — your
+              spend, your control.
+            </motion.p>
           </motion.div>
 
           <motion.div
