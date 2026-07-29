@@ -103,7 +103,7 @@ export default function ComplianceLibraryPage() {
           <div className="absolute top-20 right-10 w-72 h-72 bg-brand-bronze/10 rounded-full blur-3xl"></div>
           <div className="absolute bottom-20 left-10 w-96 h-96 bg-brand-bronze/8 rounded-full blur-3xl"></div>
         </div>
-        <div className="max-w-7xl mx-auto w-full relative z-10">
+        <div className="w-full max-w-[80%] mx-auto w-full relative z-10">
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -137,7 +137,7 @@ export default function ComplianceLibraryPage() {
           <div className="absolute top-10 left-1/4 w-80 h-80 bg-brand-bronze/12 rounded-full blur-3xl"></div>
           <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-brand-bronze/10 rounded-full blur-3xl"></div>
         </div>
-        <div className="max-w-7xl mx-auto relative z-10">
+        <div className="w-full max-w-[80%] mx-auto relative z-10">
           <div className="space-y-12">
             {documents.map((category, index) => (
               <motion.div
