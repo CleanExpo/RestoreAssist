@@ -13,6 +13,7 @@ import {
   VIEWPORT,
   HAIRLINE,
   EASE_OUT,
+  CONTAINER,
 } from "./motion";
 
 const FAQS = [
@@ -59,7 +60,8 @@ export function FAQSection() {
       className={`relative bg-white ${HAIRLINE} ${SECTION_PAD}`}
       aria-labelledby="faq-heading"
     >
-      <div className="mx-auto max-w-3xl px-5 sm:px-6 lg:px-8">
+      <div className={CONTAINER}>
+        <div className="mx-auto max-w-3xl">
         <motion.div
           variants={staggerContainer}
           initial={reduce ? false : "hidden"}
@@ -138,6 +140,7 @@ export function FAQSection() {
               </div>
             );
           })}
+        </div>
         </div>
       </div>
     </section>
