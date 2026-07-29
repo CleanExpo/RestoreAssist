@@ -1,6 +1,6 @@
 "use client";
 
-import { AvatarOrb } from "@/components/avatar";
+import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import {
   LandingNav,
   LandingHero,
@@ -13,16 +13,34 @@ import {
   LandingFooter,
 } from "@/components/landing/home";
 
+/** Display — geometric, premium, distinctive for headlines. */
+const outfit = Outfit({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  display: "swap",
+  variable: "--font-landing-display",
+});
+
+/** Body — highly readable for long-form marketing copy. */
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-landing",
+});
+
 /**
- * Marketing home — visual language mirrors /dashboard:
- * slate-950 canvas, slate-800/50 glass cards, blue→cyan CTAs.
- * Spine-locked BRAND copy is preserved in hero, final CTA, and footer.
+ * Marketing home — Daylight Workshop (premium).
+ * Cool mist canvas · navy + steel · photo-led · operator-first.
+ * No dark SaaS chrome. No AI product theatre.
  */
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50">
+    <div
+      className={`${outfit.variable} ${jakarta.variable} ${jakarta.className} min-h-screen bg-[#F3F5F7] text-[#0B1F3A] antialiased [text-rendering:optimizeLegibility]`}
+    >
       <LandingNav />
-      <main>
+      <main id="main-content">
         <LandingHero />
         <WorkflowSection />
         <BentoFeatures />
@@ -32,13 +50,6 @@ export default function Home() {
         <FinalCTA />
       </main>
       <LandingFooter />
-
-      <AvatarOrb
-        className="fixed bottom-6 right-6 z-40 hidden md:flex"
-        size={64}
-        avatarImageUrl="/avatars/phill-mcgurk-orb.svg"
-        greetingText="G'day — I'm Phill. Click to learn about RestoreAssist."
-      />
     </div>
   );
 }
