@@ -16,27 +16,27 @@ import {
 
 const FEATURES = [
   {
-    title: "IICRC-aligned reports",
+    title: "Reports that hold up at audit",
     body: "Produce S500:2021-aligned report drafts that cut hours of writing. Every document stays under your review — professional judgement never leaves the operator.",
   },
   {
-    title: "GST-correct invoicing",
+    title: "Invoices that reconcile cleanly",
     body: "Variations, discounts, and professional PDF invoices that reconcile cleanly for Australian and New Zealand jobs — without spreadsheet rework.",
   },
   {
-    title: "Offline field capture",
+    title: "Capture on site — even offline",
     body: "Evidence, moisture readings, sketches, and voice notes capture on site even without signal — then sync when you are back online.",
   },
   {
-    title: "Client portal",
+    title: "Fewer chase-ups with homeowners",
     body: "Give homeowners a clear path to track progress, approve scopes, and download documents — fewer phone chases, faster sign-off.",
   },
   {
-    title: "Compliance library",
+    title: "Compliance inside the workflow",
     body: "IICRC, WHS, and NCC 2022 references live inside the workflow so standards guide the job instead of living in a separate folder.",
   },
   {
-    title: "Team-ready operations",
+    title: "Office and field on the same job",
     body: "Roles, handoffs, and shared jobs keep field technicians and the office aligned on the same claim — from first visit to final invoice.",
   },
 ] as const;
@@ -46,7 +46,7 @@ export function BentoFeatures() {
 
   return (
     <section
-      className={`relative bg-[#F3F5F7] ${HAIRLINE} ${SECTION_PAD}`}
+      className={`relative bg-white ${HAIRLINE} ${SECTION_PAD}`}
       aria-labelledby="platform-heading"
     >
       <div className={CONTAINER}>
