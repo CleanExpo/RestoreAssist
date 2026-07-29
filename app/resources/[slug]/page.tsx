@@ -2,6 +2,10 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getAllResources, getResourceBySlug } from "@/lib/resources";
+import { MarketingShell } from "@/components/landing/home";
+
+const CTA =
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F3A] px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white shadow-[0_1px_2px_rgba(11,31,58,0.1)] transition-colors hover:bg-[#16345A]";
 
 export async function generateStaticParams() {
   const resources = await getAllResources();
@@ -43,74 +47,70 @@ export default async function ResourceArticlePage({
   const sections = parseTranscript(resource.transcript);
 
   return (
-    <div className="min-h-screen bg-brand-navy">
-      {/* Minimal header breadcrumb */}
-      <div className="max-w-4xl mx-auto px-4 pt-8 pb-2">
-        <nav className="text-sm text-brand-mist">
-          <Link
-            href="/resources"
-            className="hover:text-white transition-colors"
-          >
-            Resources
-          </Link>
-          <span className="mx-2 opacity-40">/</span>
-          <span className="text-white truncate">{resource.title}</span>
-        </nav>
-      </div>
+    <MarketingShell>
+      <div className="border-b border-slate-200/90 bg-white">
+        <div className="mx-auto max-w-3xl px-5 py-10 sm:px-6 sm:py-14 lg:px-8">
+          <nav className="text-sm text-slate-500">
+            <Link
+              href="/resources"
+              className="transition-colors hover:text-[#0B1F3A]"
+            >
+              Resources
+            </Link>
+            <span className="mx-2 opacity-40">/</span>
+            <span className="truncate text-[#0B1F3A]">{resource.title}</span>
+          </nav>
 
-      <article className="max-w-4xl mx-auto px-4 py-8">
-        {/* Title */}
-        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4 leading-tight">
-          {resource.title}
-        </h1>
+          <article className="mt-8">
+            <h1 className="font-[family-name:var(--font-landing-display)] text-3xl font-semibold leading-tight tracking-tight text-[#0B1F3A] sm:text-4xl">
+              {resource.title}
+            </h1>
 
-        {/* Meta */}
-        <div className="flex flex-wrap items-center gap-3 text-sm text-brand-mist mb-8">
-          <span>
-            {new Date(resource.uploadDate).toLocaleDateString("en-AU", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </span>
-          <span className="opacity-40">·</span>
-          <span>{resource.author}</span>
-        </div>
-
-        {/* Article body from transcript */}
-        <div className="space-y-6">
-          {sections.map((section, i) => (
-            <div key={i}>
-              {section.heading && (
-                <h2 className="text-xl md:text-2xl font-bold text-white mt-10 mb-3">
-                  {section.heading}
-                </h2>
-              )}
-              {section.body && (
-                <p className="text-brand-mist leading-relaxed">{section.body}</p>
-              )}
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+              <span>
+                {new Date(resource.uploadDate).toLocaleDateString("en-AU", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </span>
+              <span className="opacity-40">·</span>
+              <span>{resource.author}</span>
             </div>
-          ))}
-        </div>
 
-        {/* CTA */}
-        <div className="mt-16 p-8 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-center shadow-xl">
-          <h3 className="text-xl font-bold mb-2">
-            Restore smarter with RestoreAssist
-          </h3>
-          <p className="mb-6 opacity-90 max-w-lg mx-auto">
-            IICRC S500-compliant inspections, automated scope generation, and
-            drying validation in one platform.
-          </p>
-          <Link
-            href="/signup"
-            className="inline-block px-8 py-3 bg-white text-cyan-600 font-semibold rounded-xl hover:bg-neutral-100 transition-colors"
-          >
-            Start Free Trial
-          </Link>
+            <div className="mt-10 space-y-6">
+              {sections.map((section, i) => (
+                <div key={i}>
+                  {section.heading ? (
+                    <h2 className="font-[family-name:var(--font-landing-display)] mb-3 mt-10 text-xl font-semibold tracking-tight text-[#0B1F3A] sm:text-2xl">
+                      {section.heading}
+                    </h2>
+                  ) : null}
+                  {section.body ? (
+                    <p className="leading-relaxed text-slate-600">
+                      {section.body}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-16 rounded-2xl border border-slate-200/90 bg-[#F3F5F7] p-8 text-center sm:p-10">
+              <h3 className="font-[family-name:var(--font-landing-display)] text-xl font-semibold text-[#0B1F3A]">
+                Restore smarter with RestoreAssist
+              </h3>
+              <p className="mx-auto mt-3 max-w-lg text-[15px] leading-relaxed text-slate-600">
+                IICRC S500-compliant inspections, automated scope generation, and
+                drying validation in one platform.
+              </p>
+              <Link href="/signup" className={`${CTA} mt-6`}>
+                Start Free Trial
+              </Link>
+            </div>
+          </article>
         </div>
-      </article>
-    </div>
+      </div>
+    </MarketingShell>
   );
 }
 
@@ -121,7 +121,6 @@ function parseTranscript(
   return blocks
     .map((block, i) => {
       if (i === 0) {
-        // May start with a ## heading if transcript begins with one
         const trimmed = block.startsWith("## ") ? block.slice(3) : block;
         const lines = trimmed.split("\n");
         if (block.startsWith("## ")) {
