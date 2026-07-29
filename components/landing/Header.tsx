@@ -18,7 +18,7 @@ export default function Header({ darkMode, setDarkMode }: HeaderProps) {
     <header
       className={`fixed top-0 w-full z-50 backdrop-blur-sm border-b transition-colors duration-300 ${darkMode ? "bg-brand-navy/95 border-brand-slate/30" : "bg-brand-cloud/95 border-brand-slate/20"}`}
     >
-      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div className="mx-auto flex w-full max-w-[80%] items-center justify-between px-5 py-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <Link href="/">
