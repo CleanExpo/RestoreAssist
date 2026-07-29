@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   MarketingShell,
   MarketingPageHero,
@@ -15,9 +15,10 @@ import {
   VIEWPORT,
   SURFACE,
 } from "@/components/landing/home/motion";
+import { useLandingReduceMotion } from "@/components/landing/home/useLandingReduceMotion";
 
 export default function ResourcesClientPage() {
-  const reduce = useReducedMotion();
+  const reduce = useLandingReduceMotion();
 
   const resourceCategories: {
     category: string;
