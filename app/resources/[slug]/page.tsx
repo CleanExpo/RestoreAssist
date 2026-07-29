@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getAllResources, getResourceBySlug } from "@/lib/resources";
 import { MarketingShell } from "@/components/landing/home";
+import { CONTAINER } from "@/components/landing/home/motion";
 
 const CTA =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F3A] px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white shadow-[0_1px_2px_rgba(11,31,58,0.1)] transition-colors hover:bg-[#16345A]";
@@ -49,7 +50,7 @@ export default async function ResourceArticlePage({
   return (
     <MarketingShell>
       <div className="border-b border-slate-200/90 bg-white">
-        <div className="mx-auto max-w-3xl px-5 py-10 sm:px-6 sm:py-14 lg:px-8">
+        <div className={`${CONTAINER} py-10 sm:py-14`}>
           <nav className="text-sm text-slate-500">
             <Link
               href="/resources"
