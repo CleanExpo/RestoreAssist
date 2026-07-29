@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useLandingReduceMotion } from "./useLandingReduceMotion";
 import {
   fadeUp,
   staggerContainer,
@@ -38,7 +39,7 @@ const STEPS = [
  * Breaks the split-pane pattern used previously.
  */
 export function WorkflowSection() {
-  const reduce = useReducedMotion();
+  const reduce = useLandingReduceMotion();
 
   return (
     <section
