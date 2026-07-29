@@ -85,9 +85,14 @@ function addFinding(
 
 // Commented-out gate calls must not count as gates. Kept in step with
 // stripComments() in scripts/security/route-safety-scan.mjs.
+// String contents are blanked BEFORE line comments are stripped, so a literal
+// such as "a // b" cannot swallow a real gate call later on the same line.
 function stripComments(content: string): string {
   return content
     .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
+    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
+    .replace(/`(?:[^`\\]|\\.)*`/g, "``")
     .replace(/^\s*\/\/.*$/gm, "")
     .replace(/\s\/\/.*$/gm, "");
 }

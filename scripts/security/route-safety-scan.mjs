@@ -108,9 +108,15 @@ const BASELINE_PATH = path.join(__dirname, "route-safety-baseline.json");
 // Commented-out gate calls must not count. Without this, a route carrying only
 // `// requireOwner(request)` scores as gated while the mutation stays wide open.
 // Strips line comments and block comments before the substring test.
+// String contents are blanked BEFORE line comments are stripped. Without that,
+// a literal such as "a // b" makes the rest of the line look like a comment and
+// a real gate call after it is eaten, falsely flagging a gated route.
 function stripComments(content) {
   return content
     .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
+    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
+    .replace(/`(?:[^`\\]|\\.)*`/g, "``")
     .replace(/^\s*\/\/.*$/gm, "")
     .replace(/\s\/\/.*$/gm, "");
 }
