@@ -57,7 +57,7 @@ export default function Footer({ darkMode }: FooterProps) {
           />
         </svg>
       </div>
-      <div className="max-w-7xl mx-auto relative z-10">
+      <div className="relative z-10 mx-auto w-full max-w-[80%] px-5 sm:px-6 lg:px-8">
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
