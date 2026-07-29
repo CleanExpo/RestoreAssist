@@ -25,8 +25,8 @@ const TRUST = [
 
 /**
  * Daylight Workshop hero — full-bleed photo plane.
- * Problem first → RestoreAssist answers → support → CTAs.
- * Trust strip sits on a paper band below the first composition.
+ * Problem first → RestoreAssist answers → value → support → CTAs.
+ * Slogan lives in the closing CTA / footer — not stacked in the hero.
  */
 export function LandingHero() {
   const reduce = useReducedMotion();
@@ -82,12 +82,13 @@ export function LandingHero() {
               </p>
             </motion.div>
 
-            {/* Problem first — the pain restoration teams feel */}
+            {/* Problem first — daily documentation pain */}
             <motion.h1
               variants={fadeUp}
               className={`${FONT_DISPLAY} mt-8 text-[2.35rem] font-semibold leading-[1.08] tracking-[-0.035em] text-[#0B1F3A] sm:mt-9 sm:text-[3.15rem] sm:leading-[1.05] lg:text-[3.5rem] lg:leading-[1.04]`}
             >
-              Still rewriting the same job between the driveway and the desk?
+              What you captured on site shouldn&apos;t need a second draft at
+              the desk.
             </motion.h1>
 
             {/* Brand answers — RestoreAssist as the system */}
@@ -105,23 +106,14 @@ export function LandingHero() {
               From site to signed report. One system.
             </motion.p>
 
-            {/* Spine slogan */}
+            {/* Support — reinforces without restating the headline */}
             <motion.p
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mt-7 border-l-2 border-[#3B6D8C]/45 pl-4 text-[15px] font-semibold leading-snug tracking-[-0.01em] text-[#0B1F3A] sm:mt-8 sm:pl-5 sm:text-base`}
+              className="mt-6 max-w-[32rem] text-[15px] font-normal leading-[1.8] text-slate-600 sm:mt-7 sm:text-[16.5px] sm:leading-[1.8]"
             >
-              {BRAND.slogan}
-            </motion.p>
-
-            {/* Support */}
-            <motion.p
-              variants={fadeUp}
-              className="mt-5 max-w-[34rem] text-[15px] font-normal leading-[1.8] text-slate-600 sm:mt-6 sm:text-[16.5px] sm:leading-[1.8]"
-            >
-              The Australian-designed restoration CRM for office and field —
-              capture evidence on site, finish IICRC-aligned paperwork in the
-              office, and get client approvals without rewriting the same job
-              twice.
+              The Australian restoration CRM that keeps field evidence,
+              IICRC-aligned paperwork, and client approvals on the same record —
+              so the office builds on the job, not beside it.
             </motion.p>
 
             <motion.div
