@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useLandingReduceMotion } from "./useLandingReduceMotion";
 import {
   fadeUp,
   staggerContainer,
@@ -25,7 +26,7 @@ export function MarketingPageHero({
   description,
   align = "left",
 }: Props) {
-  const reduce = useReducedMotion();
+  const reduce = useLandingReduceMotion();
   const centered = align === "center";
 
   return (
