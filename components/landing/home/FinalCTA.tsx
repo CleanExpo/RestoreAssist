@@ -50,11 +50,17 @@ export function FinalCTA() {
             variants={fadeUp}
             className={`${FONT_DISPLAY} mt-4 text-[1.9rem] font-semibold leading-[1.12] tracking-[-0.02em] text-[#0B1F3A] sm:text-[2.35rem] lg:text-[2.85rem] lg:leading-[1.08]`}
           >
-            {BRAND.slogan}
+            Prove it on your next claim
           </motion.h2>
           <motion.p
             variants={fadeUp}
-            className="mx-auto mt-5 max-w-xl text-[15px] leading-[1.72] text-slate-600 sm:text-[17px]"
+            className={`${FONT_DISPLAY} mx-auto mt-4 max-w-xl text-[15px] font-semibold leading-snug tracking-[-0.01em] text-[#16345A] sm:text-base`}
+          >
+            {BRAND.slogan}
+          </motion.p>
+          <motion.p
+            variants={fadeUp}
+            className="mx-auto mt-4 max-w-xl text-[15px] leading-[1.72] text-slate-600 sm:text-[17px]"
           >
             Start with three trial reports. Produce your first IICRC-aligned
             restoration report without rewriting the same job twice — then see
