@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { BRAND } from "@/lib/brand";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import {
@@ -28,6 +28,7 @@ import {
   CTA_SECONDARY,
   EASE_OUT,
 } from "@/components/landing/home/motion";
+import { useLandingReduceMotion } from "@/components/landing/home/useLandingReduceMotion";
 
 const trialDays = PRICING_CONFIG.free.trialDays;
 const trialReports = PRICING_CONFIG.free.trialReportCredits;
@@ -111,7 +112,7 @@ const ROLES = [
  * flipping a claim packet rather than another vertical step list.
  */
 function ClaimDossier() {
-  const reduce = useReducedMotion();
+  const reduce = useLandingReduceMotion();
   const labelId = useId();
   const [active, setActive] = useState(0);
   const step = JOURNEY[active];
@@ -316,7 +317,7 @@ function ClaimDossier() {
 }
 
 export default function HowItWorksPage() {
-  const reduce = useReducedMotion();
+  const reduce = useLandingReduceMotion();
 
   return (
     <MarketingShell>
