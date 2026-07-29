@@ -10,6 +10,8 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 import toast from "react-hot-toast";
+import { MarketingShell } from "@/components/landing/home";
+import { CONTAINER, FONT_DISPLAY } from "@/components/landing/home/motion";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -166,7 +168,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center px-4">
+    <div className={`${CONTAINER} flex justify-center py-14 sm:py-20`}>
       <motion.div
         initial={{ opacity: 1, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -174,14 +176,13 @@ function LoginForm() {
         className="w-full max-w-md"
       >
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="mb-8 text-center">
           <motion.h1
-            className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent mb-2"
-            style={{ fontFamily: "Titillium Web, sans-serif" }}
+            className={`${FONT_DISPLAY} mb-2 text-3xl font-semibold tracking-[-0.03em] text-[#0B1F3A] sm:text-4xl`}
           >
-            RestoreAssist{" "}
+            RestoreAssist
           </motion.h1>
-          <p className="text-slate-400">Sign in to your account</p>
+          <p className="text-slate-600">Sign in to your account</p>
         </div>
 
         {/* Login Form */}
@@ -189,7 +190,7 @@ function LoginForm() {
           initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8"
+          className="bg-white border border-slate-200/90 rounded-2xl p-8 shadow-[0_1px_3px_rgba(15,23,42,0.04)]"
         >
           <form
             onSubmit={handleSubmit}
@@ -206,14 +207,14 @@ function LoginForm() {
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium text-[#0B1F3A] mb-2"
               >
                 Email Address
               </label>
               <div className="relative">
                 <Mail
                   size={20}
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-600"
                 />
                 <input
                   id="email"
@@ -226,7 +227,7 @@ function LoginForm() {
                   autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-[#0B1F3A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3B6D8C]/25 focus:border-[#3B6D8C] transition-all duration-300"
                   placeholder="Enter your email"
                   required
                 />
@@ -237,14 +238,14 @@ function LoginForm() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium text-[#0B1F3A] mb-2"
               >
                 Password
               </label>
               <div className="relative">
                 <Lock
                   size={20}
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-600"
                 />
                 <input
                   id="password"
@@ -257,7 +258,7 @@ function LoginForm() {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
+                  className="w-full pl-10 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-[#0B1F3A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3B6D8C]/25 focus:border-[#3B6D8C] transition-all duration-300"
                   placeholder="Enter your password"
                   required
                 />
@@ -265,7 +266,7 @@ function LoginForm() {
                   type="button"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                  className="absolute right-1 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center p-3 text-slate-500 transition-colors hover:text-[#0B1F3A]"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -281,7 +282,7 @@ function LoginForm() {
               <div>
                 <label
                   htmlFor="totp"
-                  className="block text-sm font-medium text-slate-300 mb-2"
+                  className="block text-sm font-medium text-[#0B1F3A] mb-2"
                 >
                   6-digit code or recovery code
                 </label>
@@ -295,10 +296,10 @@ function LoginForm() {
                   onChange={(e) => setTotp(e.target.value.slice(0, 16))}
                   placeholder="123456 or ABCDE-FGHIJ"
                   required
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 tracking-widest text-center text-lg"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[#0B1F3A] placeholder:text-slate-400 focus:outline-none focus:border-[#3B6D8C] focus:ring-2 focus:ring-[#3B6D8C]/25 tracking-widest text-center text-lg"
                   autoFocus
                 />
-                <p className="text-xs text-slate-400 mt-2">
+                <p className="text-xs text-slate-600 mt-2">
                   Lost your device? Enter one of the recovery codes you saved
                   when you enabled 2FA. Each is single-use.
                 </p>
@@ -312,7 +313,7 @@ function LoginForm() {
             <div className="flex items-center justify-between">
               <label
                 htmlFor="rememberMe"
-                className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none"
+                className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none"
               >
                 <input
                   id="rememberMe"
@@ -320,7 +321,7 @@ function LoginForm() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-500 bg-slate-700 text-cyan-500 focus:ring-2 focus:ring-cyan-500/50"
+                  className="h-4 w-4 rounded border-slate-300 bg-white text-[#3B6D8C] focus:ring-2 focus:ring-[#3B6D8C]/30"
                 />
                 Stay signed in
               </label>
@@ -333,7 +334,7 @@ function LoginForm() {
                 aria-live="assertive"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm"
+                className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"
               >
                 {error}
               </motion.div>
@@ -343,10 +344,10 @@ function LoginForm() {
             <motion.button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-[#0B1F3A] rounded-xl font-semibold text-white hover:bg-[#16345A] transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              style={{ fontFamily: "Titillium Web, sans-serif" }}
+              style={{ fontFamily: "var(--font-landing-display), Outfit, sans-serif" }}
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -365,9 +366,9 @@ function LoginForm() {
               Capacitor shell. */}
           {/* Divider */}
           <div className="my-6 flex items-center">
-            <div className="flex-1 border-t border-slate-600/50" />
-            <span className="px-4 text-slate-400 text-sm">or</span>
-            <div className="flex-1 border-t border-slate-600/50" />
+            <div className="flex-1 border-t border-slate-200" />
+            <span className="px-4 text-slate-600 text-sm">or</span>
+            <div className="flex-1 border-t border-slate-200" />
           </div>
 
           {/* Google Sign In — 1.0.4 (RA-2076) re-enables this on iOS via
@@ -376,10 +377,10 @@ function LoginForm() {
           <motion.button
             onClick={handleGoogleSignIn}
             disabled={isLoading}
-            className="w-full py-3 bg-white/10 border border-slate-600/50 rounded-xl font-medium text-white hover:bg-white/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+            className="w-full py-3 bg-white border border-slate-200 rounded-xl font-medium text-[#0B1F3A] hover:bg-slate-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            style={{ fontFamily: "Titillium Web, sans-serif" }}
+            style={{ fontFamily: "var(--font-landing-display), Outfit, sans-serif" }}
           >
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -422,10 +423,10 @@ function LoginForm() {
             <motion.button
               onClick={handleAppleSignIn}
               disabled={isLoading}
-              className="mt-3 w-full py-3 bg-black/80 border border-slate-600/50 rounded-xl font-medium text-white hover:bg-black transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+              className="mt-3 flex w-full items-center justify-center gap-3 rounded-xl border border-[#0B1F3A] bg-[#0B1F3A] py-3 font-medium text-white transition-colors duration-200 hover:bg-[#16345A] disabled:cursor-not-allowed disabled:opacity-50"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              style={{ fontFamily: "Titillium Web, sans-serif" }}
+              style={{ fontFamily: "var(--font-landing-display), Outfit, sans-serif" }}
               aria-label="Continue with Apple"
             >
               {isLoading ? (
@@ -451,17 +452,17 @@ function LoginForm() {
             <div>
               <Link
                 href="/forgot-password"
-                className="text-cyan-400 hover:text-cyan-300 transition-colors text-sm font-medium"
+                className="text-[#3B6D8C] hover:text-[#0B1F3A] transition-colors text-sm font-medium"
               >
                 Forgot password?
               </Link>
             </div>
             <div>
-              <p className="text-slate-400">
+              <p className="text-slate-600">
                 Don't have an account?{" "}
                 <Link
                   href="/signup"
-                  className="text-cyan-400 hover:text-cyan-300 transition-colors font-medium"
+                  className="text-[#3B6D8C] hover:text-[#0B1F3A] transition-colors font-medium"
                 >
                   Sign up for free
                 </Link>
@@ -476,14 +477,16 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
-        </div>
-      }
-    >
-      <LoginForm />
-    </Suspense>
+    <MarketingShell>
+      <Suspense
+        fallback={
+          <div className="flex min-h-[40vh] items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#3B6D8C]/25 border-t-[#3B6D8C]" />
+          </div>
+        }
+      >
+        <LoginForm />
+      </Suspense>
+    </MarketingShell>
   );
 }
