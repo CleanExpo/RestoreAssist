@@ -117,6 +117,11 @@ function stripComments(content) {
     .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
     .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
     .replace(/`(?:[^`\\]|\\.)*`/g, "``")
+    // Regex literals are blanked too: `/requireOwner([//])/` otherwise spoofs a
+    // gate on a route that has none. This pattern is deliberately conservative
+    // and may occasionally eat a division expression - that direction only ever
+    // FLAGS a route (noise), never clears one (a hole).
+    .replace(/\/(?![*/])(?:\[(?:[^\]\\]|\\.)*\]|[^/\\\n[])+\/[gimsuyd]*/g, " RX ")
     // Strings are already blanked, so a bare // is unambiguously a comment.
     // Requiring whitespace before it let `x;//requireOwner(` score as gated —
     // a fail-OPEN bypass.

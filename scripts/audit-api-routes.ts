@@ -93,6 +93,9 @@ function stripComments(content: string): string {
     .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
     .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
     .replace(/`(?:[^`\\]|\\.)*`/g, "``")
+    // Regex literals are blanked: `/requireOwner([//])/` otherwise spoofs a gate.
+    // Conservative by design - eating a division only FLAGS a route, never clears one.
+    .replace(/\/(?![*/])(?:\[(?:[^\]\\]|\\.)*\]|[^/\\\n[])+\/[gimsuyd]*/g, " RX ")
     // Strings are already blanked, so a bare // is unambiguously a comment.
     // Requiring whitespace before it let `x;//requireOwner(` score as gated.
     .replace(/\/\/.*$/gm, "");
