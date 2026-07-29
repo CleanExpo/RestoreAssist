@@ -115,14 +115,16 @@ vi.mock("@/components/landing/MobileWorkflowCarousel", () => ({
   },
 }));
 vi.mock("@/components/avatar", () => ({
-  // Landing V1 (daylight workshop) no longer mounts AvatarOrb on home.
-  // Keep a stub so accidental re-imports don't pull HeyGen video paths.
   AvatarOrb: (props: Record<string, unknown>) => {
     const React = require("react");
     return React.createElement("div", {
       "data-testid": "avatar-orb-stub",
       "data-greeting-video-url": (props.greetingVideoUrl as string) ?? "",
     });
+  },
+  PublicAssistantOrb: () => {
+    const React = require("react");
+    return React.createElement("div", { "data-testid": "public-assistant-orb-stub" });
   },
 }));
 
@@ -160,9 +162,9 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
       unmount();
     });
 
-    it("home page does not mount the AvatarOrb assistant", () => {
-      const { queryByTestId, unmount } = render(<Home />);
-      expect(queryByTestId("avatar-orb-stub")).toBeNull();
+    it("home page does not reference the removed greeting video via AvatarOrb", () => {
+      const { container, unmount } = render(<Home />);
+      expect(container.innerHTML).not.toContain(DEAD_VIDEO_SRC);
       unmount();
     });
 
@@ -230,7 +232,6 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
         /AI-powered/i,
         /AI-driven/i,
         /assisted drafting/i,
-        /AvatarOrb/i,
       ];
       for (const pattern of forbidden) {
         expect(text).not.toMatch(pattern);
