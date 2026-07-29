@@ -97,7 +97,14 @@ function hasAuthGate(content) {
   return (
     content.includes("getServerSession(") ||
     content.includes("getToken(") ||
-    content.includes("verifyAdminFromDb(")
+    content.includes("verifyAdminFromDb(") ||
+    // The homeowner portal authenticates with a signed portal JWT, not a
+    // next-auth session — `requireClientAuth` verifies the token and returns the
+    // claims every portal route scopes its queries by. Omitting it here made the
+    // scanner report gated portal routes as ungated, which is a false positive
+    // that can only be silenced by baselining them — and a baseline entry on a
+    // file is permanent blindness to the next real regression in that file.
+    content.includes("requireClientAuth(")
   );
 }
 
@@ -136,8 +143,21 @@ function hasPrismaWrite(content) {
 }
 
 // ── Legit auth-exception patterns ───────────────────────────────────────────
+// Exempting the whole `app/api/portal/auth/` directory was rejected in review as a
+// P0: it would make the historically vulnerable reset-password route permanently
+// invisible, so restoring that account-takeover would not be detected. The
+// exemption is therefore per-file, and every other file in that directory —
+// including reset-password, now and in future — stays fully scanned.
+const PORTAL_AUTH_ENTRY_ROUTES = new Set([
+  // Cannot be session-gated: this is where the portal session is issued. It
+  // writes `lastLoginAt` on a successful credential check.
+  "app/api/portal/auth/login/route.ts",
+]);
+
 function isAuthEntryRoute(relPath) {
-  return relPath.startsWith("app/api/auth/");
+  return (
+    relPath.startsWith("app/api/auth/") || PORTAL_AUTH_ENTRY_ROUTES.has(relPath)
+  );
 }
 
 function isWebhookRoute(relPath) {

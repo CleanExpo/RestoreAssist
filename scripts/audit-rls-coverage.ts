@@ -476,6 +476,11 @@ export const PENDING_RLS = new Set<string>([
   "OAuthStateNonce",
   "ProgressAttestation",
   "ProgressTransition",
+  // Arrived with 20260727120000_roomplan_custody_receipt_room_links without an
+  // RLS-enable migration. Classified PENDING, not EXEMPT: payloadJson holds
+  // CapturedRoom data and the row hangs off Inspection via a cascading FK, so it
+  // is tenant data and genuinely needs a policy.
+  "RoomPlanCaptureReceipt",
   "ScopeTemplate",
   "ScopeVariation",
   "SketchAnnotation",
