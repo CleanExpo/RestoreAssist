@@ -180,7 +180,7 @@ export default function SignupPage() {
   };
 
   return (
-    <MarketingShell>
+    <MarketingShell chrome={false}>
     <div className={`${CONTAINER} flex justify-center py-14 sm:py-20`}>
       {/* Vercel BotID protects /api/auth/register — mounted once in the root
           layout <head> (RA-1286), not here. */}

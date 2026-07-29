@@ -477,7 +477,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <MarketingShell>
+    <MarketingShell chrome={false}>
       <Suspense
         fallback={
           <div className="flex min-h-[40vh] items-center justify-center">
