@@ -76,7 +76,7 @@ export default function SolutionsPage() {
     >
       {/* Header - Hamburger menu always visible, even on desktop */}
       <header className="fixed top-0 w-full z-[100] bg-brand-navy/60 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between">
+        <div className="w-full max-w-[80%] mx-auto px-6 py-2 flex items-center justify-between">
           {/* Logo - Left Side */}
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2">
@@ -213,7 +213,7 @@ export default function SolutionsPage() {
           <div className="absolute top-20 right-10 w-72 h-72 bg-brand-bronze/10 rounded-full blur-3xl"></div>
           <div className="absolute bottom-20 left-10 w-96 h-96 bg-brand-bronze/8 rounded-full blur-3xl"></div>
         </div>
-        <div className="max-w-7xl mx-auto w-full relative z-10">
+        <div className="w-full max-w-[80%] mx-auto w-full relative z-10">
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -247,7 +247,7 @@ export default function SolutionsPage() {
           <div className="absolute top-10 left-1/4 w-80 h-80 bg-brand-bronze/12 rounded-full blur-3xl"></div>
           <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-brand-bronze/10 rounded-full blur-3xl"></div>
         </div>
-        <div className="max-w-7xl mx-auto relative z-10">
+        <div className="w-full max-w-[80%] mx-auto relative z-10">
           <div className="grid md:grid-cols-3 gap-8">
             {solutions.map((solution, index) => (
               <motion.div
