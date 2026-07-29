@@ -69,7 +69,7 @@ vi.mock("framer-motion", () => {
 vi.mock("next/image", () => {
   const React = require("react");
   return {
-    default: ({ src, alt, ...rest }: Record<string, unknown>) =>
+    default: ({ src, alt, fill: _fill, priority: _priority, sizes: _sizes, ...rest }: Record<string, unknown>) =>
       React.createElement("img", { src, alt, ...rest }),
   };
 });
@@ -82,6 +82,17 @@ vi.mock("next/link", () => {
       React.createElement("a", { href, ...rest }, children as React.ReactNode),
   };
 });
+
+vi.mock("next/font/google", () => ({
+  Plus_Jakarta_Sans: () => ({
+    className: "font-landing",
+    variable: "--font-landing",
+  }),
+  Outfit: () => ({
+    className: "font-landing-display",
+    variable: "--font-landing-display",
+  }),
+}));
 
 // Landing chrome / heavy widgets — render as inert markers. These are NOT the
 // subject under test; stubbing them keeps the render deterministic.
@@ -104,9 +115,8 @@ vi.mock("@/components/landing/MobileWorkflowCarousel", () => ({
   },
 }));
 vi.mock("@/components/avatar", () => ({
-  // AvatarOrb takes a greetingVideoUrl prop that the PR intentionally omitted.
-  // Render the prop into the DOM so that IF a regression ever re-adds the
-  // phill-greeting.mp4 src, the video-404 guard below would catch it.
+  // Landing V1 (daylight workshop) no longer mounts AvatarOrb on home.
+  // Keep a stub so accidental re-imports don't pull HeyGen video paths.
   AvatarOrb: (props: Record<string, unknown>) => {
     const React = require("react");
     return React.createElement("div", {
@@ -150,10 +160,16 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
       unmount();
     });
 
-    it("AvatarOrb on the home page renders with NO greeting video url", () => {
-      const { getByTestId, unmount } = render(<Home />);
-      const orb = getByTestId("avatar-orb-stub");
-      expect(orb.getAttribute("data-greeting-video-url")).toBe("");
+    it("home page does not mount the AvatarOrb assistant", () => {
+      const { queryByTestId, unmount } = render(<Home />);
+      expect(queryByTestId("avatar-orb-stub")).toBeNull();
+      unmount();
+    });
+
+    it("home page uses the daylight workshop hero photo, not HeyGen video", () => {
+      const { container, unmount } = render(<Home />);
+      expect(container.innerHTML).toContain("/landing/hero-workshop.jpg");
+      expect(container.innerHTML).not.toContain(DEAD_VIDEO_SRC);
       unmount();
     });
   });
@@ -191,9 +207,39 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
       "Office and Field. One System.",
       "From site to signed report.",
       "IICRC S500:2021",
+      "What's included in the free trial?",
     ])("home page renders brand/trust signal: %s", (copy) => {
       const { container, unmount } = render(<Home />);
       expect(container.textContent).toContain(copy);
+      unmount();
+    });
+  });
+
+  describe("daylight / no-AI-feel guard", () => {
+    it("home page does not surface AI product language", () => {
+      const { container, unmount } = render(<Home />);
+      const text = container.textContent ?? "";
+      const forbidden = [
+        /AI key/i,
+        /Anthropic/i,
+        /OpenAI/i,
+        /chat widget/i,
+        /AI-powered/i,
+        /AI-driven/i,
+        /assisted drafting/i,
+        /AvatarOrb/i,
+      ];
+      for (const pattern of forbidden) {
+        expect(text).not.toMatch(pattern);
+      }
+      unmount();
+    });
+
+    it("home page stays on the daylight canvas (no dark SaaS shell)", () => {
+      const { container, unmount } = render(<Home />);
+      const root = container.firstElementChild as HTMLElement | null;
+      expect(root?.className ?? "").toContain("bg-[#F3F5F7]");
+      expect(root?.className ?? "").not.toMatch(/bg-slate-900|bg-zinc-950|bg-black/);
       unmount();
     });
   });
