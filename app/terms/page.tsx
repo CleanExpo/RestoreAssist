@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { MarketingShell } from "@/components/landing/home";
+import { CONTAINER } from "@/components/landing/home/motion";
 
 export const metadata: Metadata = {
   title: "Terms of Service — RestoreAssist",
@@ -16,7 +17,7 @@ export default function TermsPage() {
   return (
     <MarketingShell>
       <div className="border-b border-slate-200/90 bg-[#F3F5F7]">
-        <div className="mx-auto max-w-3xl px-5 py-14 sm:px-6 sm:py-16 lg:px-8">
+        <div className={`${CONTAINER} py-14 sm:py-16`}>
         <h1 className="font-[family-name:var(--font-landing-display)] text-3xl font-semibold tracking-tight text-[#0B1F3A] mb-2 sm:text-4xl">
           Terms of Service
         </h1>
