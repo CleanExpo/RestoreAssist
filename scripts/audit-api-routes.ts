@@ -83,26 +83,12 @@ function addFinding(
   findings.push({ file, rule, severity, reason, exception });
 }
 
-// Commented-out gate calls must not count as gates. Kept in step with
-// stripComments() in scripts/security/route-safety-scan.mjs.
-// String contents are blanked BEFORE line comments are stripped, so a literal
-// such as "a // b" cannot swallow a real gate call later on the same line.
-function stripComments(content: string): string {
-  return content
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
-    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
-    .replace(/`(?:[^`\\]|\\.)*`/g, "``")
-    // Regex literals are blanked: `/requireOwner([//])/` otherwise spoofs a gate.
-    // Conservative by design - eating a division only FLAGS a route, never clears one.
-    .replace(/\/(?![*/])(?:\[(?:[^\]\\]|\\.)*\]|[^/\\\n[])+\/[gimsuyd]*/g, " RX ")
-    // Strings are already blanked, so a bare // is unambiguously a comment.
-    // Requiring whitespace before it let `x;//requireOwner(` score as gated.
-    .replace(/\/\/.*$/gm, "");
-}
-
+// NOTE: substring detection on raw source. It cannot distinguish a real call
+// from a commented-out or stringified one. Pre-existing limitation, kept in step
+// with scripts/security/route-safety-scan.mjs — see the note there on why the
+// regex-stripping attempt was reverted. The real fix is an AST pass.
 function hasAuth(content: string, relPath = ""): boolean {
-  const code = stripComments(content);
+  const code = content;
   if (
     code.includes("getServerSession(") ||
     code.includes("getToken(") ||

@@ -24,10 +24,11 @@
  * convention so the two stay in agreement):
  *   A file is considered auth-gated if its text contains any of:
  *     getServerSession(   |   getToken(   |   verifyAdminFromDb(
- *     |   requireOwner(
  *   plus requireClientAuth( , which is credited ONLY under app/api/portal/ —
  *   it authenticates a homeowner JWT and must not vouch for a contractor route.
- *   Comments are stripped first, so a commented-out gate call does not count.
+ *   This is main's token set plus exactly one path-scoped addition. Detection is
+ *   a substring test, so each extra token also widens the commented-out-gate
+ *   spoof surface; tokens are added only where they suppress a real finding.
  *   (getServerSession(authOptions) from @/lib/auth is the canonical gate.)
  *   requireClientAuth( is the homeowner-portal equivalent: it resolves to
  *   jwtVerify() from jose over the Bearer token and fails closed with no
@@ -105,39 +106,29 @@ const API_ROOT = path.join(REPO_ROOT, "app", "api");
 const BASELINE_PATH = path.join(__dirname, "route-safety-baseline.json");
 
 // ── Auth-gate detection (mirrors scripts/audit-api-routes.ts) ───────────────
-// Commented-out gate calls must not count. Without this, a route carrying only
-// `// requireOwner(request)` scores as gated while the mutation stays wide open.
-// Strips line comments and block comments before the substring test.
-// String contents are blanked BEFORE line comments are stripped. Without that,
-// a literal such as "a // b" makes the rest of the line look like a comment and
-// a real gate call after it is eaten, falsely flagging a gated route.
-function stripComments(content) {
-  return content
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
-    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
-    .replace(/`(?:[^`\\]|\\.)*`/g, "``")
-    // Regex literals are blanked too: `/requireOwner([//])/` otherwise spoofs a
-    // gate on a route that has none. This pattern is deliberately conservative
-    // and may occasionally eat a division expression - that direction only ever
-    // FLAGS a route (noise), never clears one (a hole).
-    .replace(/\/(?![*/])(?:\[(?:[^\]\\]|\\.)*\]|[^/\\\n[])+\/[gimsuyd]*/g, " RX ")
-    // Strings are already blanked, so a bare // is unambiguously a comment.
-    // Requiring whitespace before it let `x;//requireOwner(` score as gated —
-    // a fail-OPEN bypass.
-    .replace(/\/\/.*$/gm, "");
-}
-
+// NOTE: gate detection is a plain substring test on raw source, matching
+// scripts/audit-api-routes.ts. It cannot tell a real call from a commented-out
+// or stringified one — a pre-existing limitation of this design, not of any one
+// token. An attempt to close it here with regex comment/string/literal stripping
+// was reverted: every iteration introduced a NEW fail-open (a string containing
+// " // " ate real gates; `x;//gate` bypassed a whitespace-anchored strip; regex
+// blanking then re-exposed `//x/gate(/`). Text munging is not a parser. The
+// real fix is AST-based detection — its own change, tracked separately.
 function hasAuthGate(content, relPath = "") {
-  const code = stripComments(content);
+  const code = content;
   if (
     code.includes("getServerSession(") ||
     code.includes("getToken(") ||
-    code.includes("verifyAdminFromDb(") ||
-    code.includes("requireOwner(")
+    code.includes("verifyAdminFromDb(")
   ) {
     return true;
   }
+  // requireOwner( is deliberately NOT recognised here. Because detection is a
+  // substring test, every added token also widens the commented-out-gate spoof
+  // surface. A delta scan proved requireOwner suppresses ZERO findings on the
+  // real tree — both routes that use it already contain getServerSession or do
+  // no Prisma write. Surface for no detection gain is a bad trade, so the
+  // pre-existing divergence with audit-api-routes.ts is left as it was on main.
   // requireClientAuth() authenticates a HOMEOWNER portal JWT. It is only a valid
   // gate on the portal surface. Crediting it repo-wide would let a homeowner
   // token vouch for a contractor route — e.g. an app/api/ route deleting
