@@ -1,25 +1,30 @@
 "use client";
 
 /**
- * AvatarOrb — Circular HeyGen avatar component for RestoreAssist landing pages
+ * AvatarOrb — Floating Margot assistant for RestoreAssist public pages.
  *
- * A small, branded avatar orb that floats on the page.
+ * Matches the client Chatbot identity (Margot avatar, name, accent, FAB).
  * - With a greeting/explainer video URL: click opens the video modal.
  * - Without video assets: click opens a lightweight assistant chat panel
- *   (marketing FAQ + signup CTA) so the orb never feels dead.
- *
- * Position: Typically fixed bottom-right or embedded inline.
- * Size: Default 80×80px (compact, mobile-friendly).
+ *   (marketing FAQ + signup CTA).
  *
  * @example
- *   <AvatarOrb className="fixed bottom-6 right-6 z-50" />
+ *   <AvatarOrb className="fixed bottom-6 right-6 z-[100]" />
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Video, X, Volume2, VolumeX, Send, MessageCircle } from "lucide-react";
 import { BRAND } from "@/lib/brand";
+import {
+  MARGOT_ACCENT,
+  MARGOT_AVATAR_PATH,
+  MARGOT_DISPLAY_NAME,
+  MARGOT_ROLE_LABEL,
+  MARGOT_WELCOME,
+} from "@/lib/margot-surface";
 
 interface AvatarOrbProps {
   /** Container className for positioning (e.g., fixed bottom-6 right-6) */
@@ -81,16 +86,29 @@ function answerFor(question: string): string {
     return `RestoreAssist covers National Inspection Reports (NIR), guided interviews, scope of works, cost estimates, and invoicing — one system from site visit to bill-out. ${BRAND.slogan}`;
   }
 
-  return `Happy to help. ${BRAND.shortDescription}\n\nTry one of the suggested questions, or ${BRAND.cta.primary.label.toLowerCase()} to explore the full product with Margot inside the dashboard.`;
+  return `Happy to help. ${BRAND.shortDescription}\n\nTry one of the suggested questions, or ${BRAND.cta.primary.label.toLowerCase()} to explore the full product — ${MARGOT_DISPLAY_NAME} can help inside your workspace too.`;
+}
+
+function MargotAvatar({ size }: { size: number }) {
+  return (
+    <Image
+      src={MARGOT_AVATAR_PATH}
+      alt={`${MARGOT_DISPLAY_NAME} avatar`}
+      width={size}
+      height={size}
+      className="rounded-full object-cover ring-2 ring-white/40"
+      priority
+    />
+  );
 }
 
 export function AvatarOrb({
   className,
-  size = 80,
-  avatarImageUrl = "/avatars/phill-mcgurk-orb.png",
+  size = 64,
+  avatarImageUrl = MARGOT_AVATAR_PATH,
   greetingVideoUrl,
   explainerVideoUrl,
-  greetingText = "G'day — I'm Phill. Click to learn about RestoreAssist.",
+  greetingText = MARGOT_WELCOME,
   autoPlay = false,
 }: AvatarOrbProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -217,94 +235,103 @@ export function AvatarOrb({
 
   return (
     <>
-      {/* ── Floating Orb ── */}
+      {/* Floating FAB — matches client Margot Chatbot affordance */}
       <button
         ref={orbRef}
         onClick={handleOrbClick}
         className={cn(
-          "relative flex items-center justify-center rounded-full cursor-pointer",
-          "transition-all duration-500 ease-out",
-          "shadow-[0_0_30px_rgba(37,99,235,0.35)] hover:shadow-[0_0_50px_rgba(34,211,238,0.45)]",
-          "border-2 border-blue-500/50 hover:border-cyan-400/70",
-          entered ? "opacity-100 scale-100" : "opacity-0 scale-50",
+          "group relative z-[100] flex cursor-pointer items-center justify-center rounded-full p-1 transition-all duration-300",
+          "hover:scale-110 hover:shadow-xl",
+          entered ? "scale-100 opacity-100" : "scale-50 opacity-0",
           className,
         )}
-        style={{ width: size, height: size }}
+        style={{
+          width: size,
+          height: size,
+          boxShadow: isChatOpen ? undefined : `0 8px 28px ${MARGOT_ACCENT}66`,
+        }}
         aria-label={
           hasVideo
             ? "Open RestoreAssist video greeting"
             : isChatOpen
-              ? "Close RestoreAssist assistant"
-              : "Open RestoreAssist assistant"
+              ? `Close ${MARGOT_DISPLAY_NAME}`
+              : `Open ${MARGOT_DISPLAY_NAME}`
         }
         aria-expanded={!hasVideo ? isChatOpen : undefined}
       >
         {isChatOpen && !hasVideo ? (
-          <span className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 text-white">
+          <span
+            className="flex h-[88%] w-[88%] items-center justify-center rounded-full text-white"
+            style={{ background: MARGOT_ACCENT }}
+          >
             <X className="h-6 w-6" />
           </span>
         ) : (
-          <>
-            <span className="absolute inset-0 rounded-full animate-ping bg-blue-500/20" />
-            <span className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500/25 to-cyan-400/15" />
-
-            {avatarImageUrl ? (
+          <span className="relative flex h-[88%] w-[88%] items-center justify-center">
+            {avatarImageUrl === MARGOT_AVATAR_PATH ? (
+              <MargotAvatar size={Math.round(size * 0.875)} />
+            ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={avatarImageUrl}
-                alt="Phill McGurk avatar"
-                className="w-full h-full rounded-full object-cover"
+                alt={`${MARGOT_DISPLAY_NAME} avatar`}
+                className="h-full w-full rounded-full object-cover ring-2 ring-white/40"
                 loading="eager"
               />
-            ) : (
-              <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center">
-                <MessageCircle className="w-6 h-6 text-cyan-300" />
-              </div>
             )}
-
+            <span
+              className="absolute -right-0.5 -bottom-0.5 flex h-5 w-5 items-center justify-center rounded-full text-white ring-2 ring-white"
+              style={{ background: MARGOT_ACCENT }}
+              aria-hidden
+            >
+              <MessageCircle size={11} />
+            </span>
             {!hasPlayed && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-cyan-400 rounded-full border-2 border-slate-950" />
+              <span className="absolute -top-1 -right-1 h-4 w-4 animate-pulse rounded-full bg-rose-500" />
             )}
-          </>
+          </span>
         )}
 
         {tooltipVisible && !isChatOpen && (
-          <div className="absolute bottom-full right-0 mb-3 w-48 p-3 bg-slate-900 border border-slate-700/80 rounded-lg shadow-xl animate-in fade-in slide-in-from-bottom-2">
-            <p className="text-xs text-slate-200 leading-relaxed">
+          <div className="absolute right-0 bottom-full mb-3 w-56 rounded-xl border border-slate-200/90 bg-white p-3 text-left shadow-[0_12px_32px_rgba(15,23,42,0.12)] animate-in fade-in slide-in-from-bottom-2">
+            <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+              {MARGOT_DISPLAY_NAME}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">
               {greetingText}
             </p>
-            <div className="absolute bottom-[-6px] right-5 w-3 h-3 bg-slate-900 border-r border-b border-slate-700/80 rotate-45" />
+            <div className="absolute right-5 bottom-[-6px] h-3 w-3 rotate-45 border-r border-b border-slate-200/90 bg-white" />
           </div>
         )}
       </button>
 
-      {/* ── Assistant chatbox (no-video mode) ── */}
+      {/* Assistant chatbox — Margot surface, same identity as client Chatbot */}
       {isChatOpen && !hasVideo && (
         <div
-          className="fixed bottom-24 right-6 z-[100] flex h-[min(560px,70vh)] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-950 shadow-2xl shadow-blue-950/40 animate-in fade-in slide-in-from-bottom-4"
+          className="fixed right-6 bottom-24 z-[100] flex h-[min(600px,70vh)] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl animate-in fade-in slide-in-from-bottom-4"
           role="dialog"
-          aria-label="RestoreAssist assistant"
+          aria-label={`${MARGOT_DISPLAY_NAME} assistant`}
         >
-          <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-4 py-3">
+          <div className="flex items-center justify-between rounded-t-lg border-b border-slate-200 bg-slate-50 px-4 py-3">
             <div className="flex items-center gap-3">
-              {avatarImageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={avatarImageUrl}
-                  alt=""
-                  className="h-9 w-9 rounded-full object-cover ring-2 ring-blue-500/40"
-                />
-              ) : null}
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full"
+                style={{ border: `2px solid ${MARGOT_ACCENT}44` }}
+              >
+                <MargotAvatar size={40} />
+              </div>
               <div>
-                <p className="text-sm font-semibold text-white">Phill</p>
-                <p className="text-xs text-slate-400">RestoreAssist guide</p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {MARGOT_DISPLAY_NAME}
+                </p>
+                <p className="text-xs text-slate-600">{MARGOT_ROLE_LABEL}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setIsChatOpen(false)}
-              className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-              aria-label="Close assistant"
+              className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              aria-label={`Close ${MARGOT_DISPLAY_NAME}`}
             >
               <X className="h-4 w-4" />
             </button>
@@ -317,9 +344,14 @@ export function AvatarOrb({
                 className={cn(
                   "max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
                   msg.role === "assistant"
-                    ? "bg-slate-900 text-slate-100 border border-slate-800"
-                    : "ml-auto bg-gradient-to-r from-blue-600 to-cyan-600 text-white",
+                    ? "border border-slate-200 bg-slate-50 text-slate-800"
+                    : "ml-auto text-white",
                 )}
+                style={
+                  msg.role === "user"
+                    ? { background: MARGOT_ACCENT }
+                    : undefined
+                }
               >
                 {msg.content}
               </div>
@@ -332,7 +364,7 @@ export function AvatarOrb({
                     key={q}
                     type="button"
                     onClick={() => sendChat(q)}
-                    className="rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1.5 text-left text-xs text-slate-300 transition-colors hover:border-cyan-500/50 hover:text-white"
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-left text-xs text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
                   >
                     {q}
                   </button>
@@ -342,7 +374,7 @@ export function AvatarOrb({
             <div ref={chatEndRef} />
           </div>
 
-          <div className="border-t border-slate-800 bg-slate-900/60 p-3">
+          <div className="border-t border-slate-200 bg-white p-3">
             <form
               className="flex items-center gap-2"
               onSubmit={(e) => {
@@ -355,13 +387,14 @@ export function AvatarOrb({
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 placeholder="Ask about RestoreAssist…"
-                className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:border-cyan-500/60"
+                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200"
                 aria-label="Message"
               />
               <button
                 type="submit"
                 disabled={!chatInput.trim()}
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white transition-opacity disabled:opacity-40"
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-white transition-opacity disabled:opacity-40"
+                style={{ background: MARGOT_ACCENT }}
                 aria-label="Send message"
               >
                 <Send className="h-4 w-4" />
@@ -369,7 +402,8 @@ export function AvatarOrb({
             </form>
             <Link
               href={BRAND.cta.primary.href}
-              className="mt-2 block text-center text-xs font-medium text-cyan-400 hover:text-cyan-300"
+              className="mt-2 block text-center text-xs font-medium hover:opacity-80"
+              style={{ color: MARGOT_ACCENT }}
             >
               {BRAND.cta.primary.label} →
             </Link>
