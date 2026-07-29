@@ -49,6 +49,11 @@ const FAQS = [
     a: "Yes. RestoreAssist helps produce S500:2021-aligned report drafts so writing time drops from hours to minutes. You review, edit, and own the final document — professional judgement stays with the operator on every claim.",
   },
   {
+    cat: "Setup",
+    q: "Do I need my own AI key?",
+    a: "Yes for drafting and Quick Fill. You add your Anthropic or OpenAI key once in workspace settings — RestoreAssist uses your key, not a shared platform meter. That keeps spend under your control. You still review and own every report before it leaves your company.",
+  },
+  {
     cat: "Compliance",
     q: "Is it compliant with Australian building codes and WHS?",
     a: "RestoreAssist includes inbuilt IICRC frameworks, WHS policies, and Australian Building Code / NCC 2022 references so compliance is part of the daily workflow — not a separate checklist after the job.",
