@@ -22,6 +22,8 @@ import {
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { MarketingShell } from "@/components/landing/home";
+import { CONTAINER, FONT_DISPLAY } from "@/components/landing/home/motion";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
@@ -178,7 +180,8 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center px-4">
+    <MarketingShell>
+    <div className={`${CONTAINER} flex justify-center py-14 sm:py-20`}>
       {/* Vercel BotID protects /api/auth/register — mounted once in the root
           layout <head> (RA-1286), not here. */}
       <motion.div
@@ -188,14 +191,13 @@ export default function SignupPage() {
         className="w-full max-w-md"
       >
         {/* Logo */}
-        <div className="text-center mb-6">
+        <div className="mb-6 text-center">
           <motion.h1
-            className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent mb-2"
-            style={{ fontFamily: "Titillium Web, sans-serif" }}
+            className={`${FONT_DISPLAY} mb-2 text-3xl font-semibold tracking-[-0.03em] text-[#0B1F3A] sm:text-4xl`}
           >
-            RestoreAssist{" "}
+            RestoreAssist
           </motion.h1>
-          <p className="text-slate-400">Create your account</p>
+          <p className="text-slate-600">Create your account</p>
         </div>
 
         {/* API Key requirement — always visible */}
@@ -203,20 +205,20 @@ export default function SignupPage() {
           initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.08 }}
-          className="mb-4 bg-amber-500/10 border border-amber-500/40 rounded-xl p-4"
+          className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4"
           role="note"
           aria-label="Anthropic API key required for AI features"
         >
           <div className="flex items-start gap-3">
-            <Key className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
+            <Key className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
             <div>
-              <p className="text-amber-300 font-semibold text-sm">
+              <p className="text-amber-900 font-semibold text-sm">
                 An Anthropic or OpenAI API key is required to operate
                 RestoreAssist
               </p>
-              <p className="text-amber-200/70 text-xs mt-1 leading-relaxed">
+              <p className="text-amber-800/80 text-xs mt-1 leading-relaxed">
                 You pay providers directly, at cost. Add it in{" "}
-                <span className="font-medium text-amber-300">
+                <span className="font-medium text-amber-900">
                   Settings → AI Providers
                 </span>
                 .
@@ -230,7 +232,7 @@ export default function SignupPage() {
           initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="mb-6 bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4"
+          className="mb-6 bg-[#3B6D8C]/8 border border-[#3B6D8C]/20 rounded-xl p-4"
         >
           <button
             type="button"
@@ -238,15 +240,15 @@ export default function SignupPage() {
             className="w-full flex items-center justify-between text-left"
           >
             <div className="flex items-center gap-2">
-              <Info className="w-5 h-5 text-cyan-400" />
-              <span className="text-cyan-400 font-medium">
+              <Info className="w-5 h-5 text-[#3B6D8C]" />
+              <span className="text-[#3B6D8C] font-medium">
                 What you'll need after signup
               </span>
             </div>
             {showInfo ? (
-              <ChevronUp className="w-5 h-5 text-cyan-400" />
+              <ChevronUp className="w-5 h-5 text-[#3B6D8C]" />
             ) : (
-              <ChevronDown className="w-5 h-5 text-cyan-400" />
+              <ChevronDown className="w-5 h-5 text-[#3B6D8C]" />
             )}
           </button>
 
@@ -255,18 +257,18 @@ export default function SignupPage() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-4 space-y-3 text-sm text-slate-300"
+              className="mt-4 space-y-3 text-sm text-slate-600"
             >
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">
+                <p className="font-semibold text-[#0B1F3A] mb-1">
                   1. Start Creating Reports ({PRICING_CONFIG.free.trialDays}-Day
                   Free Trial)
                 </p>
-                <p className="text-slate-400">
+                <p className="text-slate-600">
                   Get started immediately with{" "}
                   {PRICING_CONFIG.free.trialReportCredits} free report credits,
                   valid for {PRICING_CONFIG.free.trialDays} days.{" "}
-                  <span className="text-amber-400 font-medium">
+                  <span className="text-amber-700 font-medium">
                     You will need an Anthropic or OpenAI API key to generate
                     reports
                   </span>{" "}
@@ -275,13 +277,13 @@ export default function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">
+                <p className="font-semibold text-[#0B1F3A] mb-1">
                   2. Upgrade for Premium Features
                 </p>
-                <p className="text-slate-400 mb-2">
+                <p className="text-slate-600 mb-2">
                   Unlock powerful features when you're ready:
                 </p>
-                <ul className="list-disc list-inside space-y-1 text-slate-400 ml-2">
+                <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
                   <li>Unlimited Quick Fill (AI-powered form auto-fill)</li>
                   <li>Enhanced & Optimised report types</li>
                   <li>PDF upload and processing</li>
@@ -291,34 +293,34 @@ export default function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">
+                <p className="font-semibold text-[#0B1F3A] mb-1">
                   3. Optional: Setup Business Profile
                 </p>
-                <p className="text-slate-400">
+                <p className="text-slate-600">
                   Add your business details to personalize your reports
                   (available after upgrade).
                 </p>
               </div>
 
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">
+                <p className="font-semibold text-[#0B1F3A] mb-1">
                   4. Optional: Configure Pricing
                 </p>
-                <p className="text-slate-400">
+                <p className="text-slate-600">
                   Set your company's rates for accurate cost estimates
                   (available after upgrade).
                 </p>
               </div>
 
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">
+                <p className="font-semibold text-[#0B1F3A] mb-1">
                   5. Add Your Anthropic or OpenAI API Key
                 </p>
-                <p className="text-slate-400">
+                <p className="text-slate-600">
                   An Anthropic or OpenAI API key is required to operate
                   RestoreAssist — you pay providers directly, at cost. Add it
                   in{" "}
-                  <span className="font-medium text-white">
+                  <span className="font-medium text-[#0B1F3A]">
                     Settings → AI Providers
                   </span>
                   . Without a key configured, report generation will be
@@ -326,8 +328,8 @@ export default function SignupPage() {
                 </p>
               </div>
 
-              <div className="pt-2 border-t border-cyan-500/20">
-                <p className="text-xs text-slate-400">
+              <div className="pt-2 border-t border-[#3B6D8C]/15">
+                <p className="text-xs text-slate-600">
                   <strong>Tip:</strong> You can complete these steps after
                   signing up. We'll guide you through the process!
                 </p>
@@ -341,12 +343,12 @@ export default function SignupPage() {
           initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8"
+          className="bg-white border border-slate-200/90 rounded-2xl p-8 shadow-[0_1px_3px_rgba(15,23,42,0.04)]"
         >
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Account Type */}
             {/* <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-[#0B1F3A] mb-2">
                 Account Type
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -355,7 +357,7 @@ export default function SignupPage() {
                   onClick={() => setAccountType("admin")}
                   className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
                     accountType === "admin"
-                      ? "border-cyan-500/50 bg-cyan-500/10 text-cyan-300"
+                      ? "border-cyan-500/50 bg-cyan-500/10 text-[#0B1F3A]"
                       : "border-slate-600/50 bg-slate-700/30 text-slate-300 hover:bg-slate-700/50"
                   }`}
                 >
@@ -366,7 +368,7 @@ export default function SignupPage() {
                   onClick={() => setAccountType("technician")}
                   className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
                     accountType === "technician"
-                      ? "border-cyan-500/50 bg-cyan-500/10 text-cyan-300"
+                      ? "border-cyan-500/50 bg-cyan-500/10 text-[#0B1F3A]"
                       : "border-slate-600/50 bg-slate-700/30 text-slate-300 hover:bg-slate-700/50"
                   }`}
                 >
@@ -380,14 +382,14 @@ export default function SignupPage() {
             <div>
               <label
                 htmlFor="name"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium text-[#0B1F3A] mb-2"
               >
                 Full Name
               </label>
               <div className="relative">
                 <User
                   size={20}
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-600"
                 />
                 <input
                   id="name"
@@ -396,7 +398,7 @@ export default function SignupPage() {
                   autoComplete="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-[#0B1F3A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3B6D8C]/25 focus:border-[#3B6D8C] transition-all duration-300"
                   placeholder="Enter your full name"
                   required
                 />
@@ -407,14 +409,14 @@ export default function SignupPage() {
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium text-[#0B1F3A] mb-2"
               >
                 Email Address
               </label>
               <div className="relative">
                 <Mail
                   size={20}
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-600"
                 />
                 <input
                   id="email"
@@ -423,7 +425,7 @@ export default function SignupPage() {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-[#0B1F3A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3B6D8C]/25 focus:border-[#3B6D8C] transition-all duration-300"
                   placeholder="Enter your email"
                   required
                 />
@@ -434,14 +436,14 @@ export default function SignupPage() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium text-[#0B1F3A] mb-2"
               >
                 Password
               </label>
               <div className="relative">
                 <Lock
                   size={20}
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-600"
                 />
                 <input
                   id="password"
@@ -450,7 +452,7 @@ export default function SignupPage() {
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
+                  className="w-full pl-10 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-[#0B1F3A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3B6D8C]/25 focus:border-[#3B6D8C] transition-all duration-300"
                   placeholder="Create a password"
                   required
                 />
@@ -458,7 +460,7 @@ export default function SignupPage() {
                   type="button"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                  className="absolute right-1 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center p-3 text-slate-500 transition-colors hover:text-[#0B1F3A]"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -469,14 +471,14 @@ export default function SignupPage() {
             <div>
               <label
                 htmlFor="confirmPassword"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium text-[#0B1F3A] mb-2"
               >
                 Confirm Password
               </label>
               <div className="relative">
                 <Lock
                   size={20}
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-600"
                 />
                 <input
                   id="confirmPassword"
@@ -485,7 +487,7 @@ export default function SignupPage() {
                   autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
+                  className="w-full pl-10 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-[#0B1F3A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3B6D8C]/25 focus:border-[#3B6D8C] transition-all duration-300"
                   placeholder="Confirm your password"
                   required
                 />
@@ -497,7 +499,7 @@ export default function SignupPage() {
                       : "Show confirm password"
                   }
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                  className="absolute right-1 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center p-3 text-slate-500 transition-colors hover:text-[#0B1F3A]"
                 >
                   {showConfirmPassword ? (
                     <EyeOff size={20} />
@@ -515,19 +517,19 @@ export default function SignupPage() {
                 aria-live="assertive"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm"
+                className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"
               >
                 {error}
               </motion.div>
             )}
 
             {/* RA-1255: ToS + Privacy Policy acceptance */}
-            <label className="flex items-start gap-2 text-sm text-slate-300 cursor-pointer">
+            <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
               <input
                 type="checkbox"
                 checked={acceptedTerms}
                 onChange={(e) => setAcceptedTerms(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-slate-900"
+                className="mt-1 h-4 w-4 rounded border-slate-300 bg-white text-[#3B6D8C] focus:ring-[#3B6D8C] focus:ring-offset-white"
                 required
               />
               <span>
@@ -535,7 +537,7 @@ export default function SignupPage() {
                 <Link
                   href="/terms"
                   target="_blank"
-                  className="text-cyan-400 hover:text-cyan-300 underline"
+                  className="text-[#3B6D8C] hover:text-[#0B1F3A] underline"
                 >
                   Terms of Service
                 </Link>{" "}
@@ -543,7 +545,7 @@ export default function SignupPage() {
                 <Link
                   href="/privacy"
                   target="_blank"
-                  className="text-cyan-400 hover:text-cyan-300 underline"
+                  className="text-[#3B6D8C] hover:text-[#0B1F3A] underline"
                 >
                   Privacy Policy
                 </Link>
@@ -555,10 +557,10 @@ export default function SignupPage() {
             <motion.button
               type="submit"
               disabled={isLoading || !acceptedTerms}
-              className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-[#0B1F3A] rounded-xl font-semibold text-white hover:bg-[#16345A] transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              style={{ fontFamily: "Titillium Web, sans-serif" }}
+              style={{ fontFamily: "var(--font-landing-display), Outfit, sans-serif" }}
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -577,9 +579,9 @@ export default function SignupPage() {
               SiwA is a peer button to Google. */}
           {/* Divider */}
           <div className="my-6 flex items-center">
-            <div className="flex-1 border-t border-slate-600/50" />
-            <span className="px-4 text-slate-400 text-sm">or</span>
-            <div className="flex-1 border-t border-slate-600/50" />
+            <div className="flex-1 border-t border-slate-200" />
+            <span className="px-4 text-slate-600 text-sm">or</span>
+            <div className="flex-1 border-t border-slate-200" />
           </div>
 
           {/* Google Sign In */}
@@ -587,10 +589,10 @@ export default function SignupPage() {
             type="button"
             onClick={handleGoogleSignIn}
             disabled={isLoading}
-            className="w-full py-3 bg-white/10 border border-slate-600/50 rounded-xl font-medium text-white hover:bg-white/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+            className="w-full py-3 bg-white border border-slate-200 rounded-xl font-medium text-[#0B1F3A] hover:bg-slate-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            style={{ fontFamily: "Titillium Web, sans-serif" }}
+            style={{ fontFamily: "var(--font-landing-display), Outfit, sans-serif" }}
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -624,10 +626,10 @@ export default function SignupPage() {
             <motion.button
               onClick={handleAppleSignIn}
               disabled={isLoading}
-              className="mt-3 w-full py-3 bg-black/80 border border-slate-600/50 rounded-xl font-medium text-white hover:bg-black transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+              className="mt-3 flex w-full items-center justify-center gap-3 rounded-xl border border-[#0B1F3A] bg-[#0B1F3A] py-3 font-medium text-white transition-colors duration-200 hover:bg-[#16345A] disabled:cursor-not-allowed disabled:opacity-50"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              style={{ fontFamily: "Titillium Web, sans-serif" }}
+              style={{ fontFamily: "var(--font-landing-display), Outfit, sans-serif" }}
               aria-label="Continue with Apple"
             >
               {isLoading ? (
@@ -650,11 +652,11 @@ export default function SignupPage() {
 
           {/* Sign In Link */}
           <div className="mt-6 text-center">
-            <p className="text-slate-400">
+            <p className="text-slate-600">
               Already have an account?{" "}
               <Link
                 href="/login"
-                className="text-cyan-400 hover:text-cyan-300 transition-colors font-medium"
+                className="text-[#3B6D8C] hover:text-[#0B1F3A] transition-colors font-medium"
               >
                 Sign in
               </Link>
@@ -663,5 +665,6 @@ export default function SignupPage() {
         </motion.div>
       </motion.div>
     </div>
+    </MarketingShell>
   );
 }
