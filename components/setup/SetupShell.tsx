@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { RAIcon } from '@/components/brand/RAIcon';
 import { useSetupStore, type SetupOrganization } from './store';
 import { BusinessDetailsCard } from './BusinessDetailsCard';
 import { BrandCard } from './BrandCard';
@@ -199,11 +200,8 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       content: (
         <div className="overflow-hidden rounded-2xl border border-brand-navy/10 bg-white shadow-sm">
           <div className="bg-linear-to-br from-brand-navy to-brand-deep px-6 py-8 text-center text-white sm:px-10">
-            <span
-              aria-hidden="true"
-              className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-gold/20 text-2xl ring-1 ring-brand-gold/40"
-            >
-              ✓
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-gold/20 ring-1 ring-brand-gold/40">
+              <RAIcon name="success" size={24} decorative />
             </span>
             <h3 className="mt-4 text-xl font-semibold tracking-tight">
               You&apos;re ready to go
