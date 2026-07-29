@@ -1,284 +1,94 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X } from "lucide-react";
-import Footer from "@/components/landing/Footer";
+import { motion, useReducedMotion } from "framer-motion";
+import {
+  MarketingShell,
+  MarketingPageHero,
+} from "@/components/landing/home";
+import {
+  fadeUp,
+  staggerContainer,
+  FONT_DISPLAY,
+  CONTAINER,
+  SECTION_PAD,
+  VIEWPORT,
+} from "@/components/landing/home/motion";
+
+const features = [
+  {
+    title: "AI-Powered Damage Assessment",
+    description:
+      "Advanced AI technology analyses damage patterns and provides accurate assessments in real-time.",
+  },
+  {
+    title: "IICRC S500 Compliance",
+    description:
+      "Fully compliant with IICRC S500 standards for water damage restoration and assessment.",
+  },
+  {
+    title: "Multi-Hazard Support",
+    description:
+      "Comprehensive support for water, fire, mould, and storm damage assessments.",
+  },
+  {
+    title: "Photo & Data Capture",
+    description:
+      "Seamless integration for capturing photos and essential data during inspections.",
+  },
+  {
+    title: "Dynamic Workflow Engine",
+    description:
+      "Flexible workflow system that adapts to your specific restoration process.",
+  },
+  {
+    title: "Real-Time Cost Calculation",
+    description:
+      "Instant cost calculations with regional pricing libraries and equipment rates.",
+  },
+] as const;
 
 export default function FeaturesPage() {
-  const [darkMode, setDarkMode] = useState(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    if (!document.getElementById("google-fonts-preconnect")) {
-      const link1 = document.createElement("link");
-      link1.id = "google-fonts-preconnect";
-      link1.rel = "preconnect";
-      link1.href = "https://fonts.googleapis.com";
-      document.head.appendChild(link1);
-
-      const link2 = document.createElement("link");
-      link2.rel = "preconnect";
-      link2.href = "https://fonts.gstatic.com";
-      link2.crossOrigin = "anonymous";
-      document.head.appendChild(link2);
-
-      const link3 = document.createElement("link");
-      link3.href =
-        "https://fonts.googleapis.com/css2?family=Open+Sauce+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap";
-      link3.rel = "stylesheet";
-      document.head.appendChild(link3);
-    }
-  }, []);
-
-  const features = [
-    {
-      title: "AI-Powered Damage Assessment",
-      description:
-        "Advanced AI technology analyses damage patterns and provides accurate assessments in real-time.",
-    },
-    {
-      title: "IICRC S500 Compliance",
-      description:
-        "Fully compliant with IICRC S500 standards for water damage restoration and assessment.",
-    },
-    {
-      title: "Multi-Hazard Support",
-      description:
-        "Comprehensive support for water, fire, mould, and storm damage assessments.",
-    },
-    {
-      title: "Photo & Data Capture",
-      description:
-        "Seamless integration for capturing photos and essential data during inspections.",
-    },
-    {
-      title: "Dynamic Workflow Engine",
-      description:
-        "Flexible workflow system that adapts to your specific restoration process.",
-    },
-    {
-      title: "Real-Time Cost Calculation",
-      description:
-        "Instant cost calculations with regional pricing libraries and equipment rates.",
-    },
-  ];
+  const reduce = useReducedMotion();
 
   return (
-    <div
-      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-brand-navy" : "bg-brand-cloud"}`}
-    >
-      {/* Header - Hamburger menu always visible, even on desktop */}
-      <header className="fixed top-0 w-full z-[100] bg-brand-navy/60 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between">
-          {/* Logo - Left Side */}
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2">
-              {/* White circular logo */}
-              <div className=" flex items-center justify-center relative overflow-hidden">
-                <Image
-                  src="/logo.png"
-                  alt="Restore Assist Logo"
-                  width={100}
-                  height={100}
-                  className="object-contain p-1 md:p-2"
-                />
-              </div>
-            </Link>
-          </div>
+    <MarketingShell>
+      <MarketingPageHero
+        eyebrow="Platform"
+        title="AI Damage Assessment & IICRC S500 Compliance"
+        description="Powerful tools designed to streamline your restoration workflow."
+      />
 
-          {/* Hamburger Menu - Right Side, Bigger Size, Always Visible */}
-          <button
-            className="text-white hover:text-slate-300 transition-colors"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle menu"
+      <section className={`bg-white border-t border-slate-200/90 ${SECTION_PAD}`}>
+        <div className={CONTAINER}>
+          <motion.div
+            variants={staggerContainer}
+            initial={reduce ? false : "hidden"}
+            whileInView="visible"
+            viewport={VIEWPORT}
+            className="grid gap-px overflow-hidden rounded-2xl border border-slate-200/90 bg-slate-200/60 sm:grid-cols-2 lg:grid-cols-3"
           >
-            {mobileMenuOpen ? (
-              <X size={32} className="w-8 h-8" />
-            ) : (
-              <Menu size={32} className="w-8 h-8" />
-            )}
-          </button>
-        </div>
-      </header>
-
-      {/* Overlay when menu is open - Behind menu */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <>
-            {/* Backdrop Overlay */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[150]"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-
-            {/* Sidebar Menu - Slides in from right */}
-            <motion.div
-              initial={{ x: "100%", opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "100%", opacity: 0 }}
-              transition={{
-                duration: 0.35,
-                ease: [0.32, 0.72, 0, 1],
-                opacity: { duration: 0.2 },
-              }}
-              className="fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-brand-navy border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[160] overflow-hidden flex flex-col"
-            >
-              {/* Menu Header - Fixed at top */}
-              <div className="flex-shrink-0 bg-brand-navy border-b border-white/10 px-6 py-5 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white uppercase tracking-wider">
-                  Menu
-                </h2>
-                <button
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="text-white hover:text-slate-300 transition-colors p-2 -mr-2 rounded-lg hover:bg-white/10"
-                  aria-label="Close menu"
-                >
-                  <X size={24} />
-                </button>
-              </div>
-
-              {/* Menu Content - Scrollable */}
-              <div className="flex-1 overflow-y-auto">
-                <div className="p-6">
-                  <nav className="space-y-1">
-                    <Link
-                      href="/features"
-                      className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Features
-                    </Link>
-                    <Link
-                      href="/solutions"
-                      className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Solutions
-                    </Link>
-                    <Link
-                      href="/pricing"
-                      className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Pricing
-                    </Link>
-                    <Link
-                      href="/resources"
-                      className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Resources
-                    </Link>
-                  </nav>
-
-                  {/* Action Buttons */}
-                  <div className="pt-6 mt-6 border-t border-white/10 space-y-3">
-                    <Link
-                      href="/pricing"
-                      className="block w-full px-6 py-3 bg-brand-slate text-white rounded-lg text-center font-medium hover:bg-brand-slate/80 transition-all duration-200 shadow-lg"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Pricing
-                    </Link>
-                    <Link
-                      href="/login"
-                      className="block w-full px-6 py-3 bg-brand-bronze text-white rounded-lg text-center font-medium hover:bg-brand-bronze/80 transition-all duration-200 shadow-lg"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Log In
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Hero Section */}
-      <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-brand-mist/30 overflow-hidden">
-        {/* Golden Decorative Shapes */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-20 right-10 w-72 h-72 bg-brand-bronze/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-20 left-10 w-96 h-96 bg-brand-bronze/8 rounded-full blur-3xl"></div>
-        </div>
-        <div className="max-w-7xl mx-auto w-full relative z-10">
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
-            style={{
-              fontFamily:
-                '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            }}
-          >
-            AI Damage Assessment & IICRC S500 Compliance
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className={`text-xl md:text-2xl ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
-            style={{
-              fontFamily:
-                '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            }}
-          >
-            Powerful tools designed to streamline your restoration workflow.
-          </motion.p>
-        </div>
-      </section>
-
-      {/* Features Grid */}
-      <section className="py-20 px-6 relative bg-brand-mist/30 overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-10 left-1/4 w-80 h-80 bg-brand-bronze/12 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-brand-bronze/10 rounded-full blur-3xl"></div>
-        </div>
-        <div className="max-w-7xl mx-auto relative z-10">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                className={`p-6 rounded-lg ${darkMode ? "bg-brand-navy/50" : "bg-brand-cloud/50"} backdrop-blur-sm border ${darkMode ? "border-brand-slate/30" : "border-brand-slate/20"}`}
+              <motion.article
+                key={feature.title}
+                variants={fadeUp}
+                className="bg-white p-7 sm:p-8"
               >
-                <h3
-                  className={`text-2xl font-bold mb-3 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
-                  style={{
-                    fontFamily:
-                      '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                  }}
+                <p className="text-[11px] font-semibold tabular-nums tracking-[0.16em] text-[#3B6D8C]/85">
+                  {String(index + 1).padStart(2, "0")}
+                </p>
+                <h2
+                  className={`${FONT_DISPLAY} mt-3 text-lg font-semibold tracking-[-0.015em] text-[#0B1F3A] sm:text-[1.2rem]`}
                 >
                   {feature.title}
-                </h3>
-                <p
-                  className={`text-base ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
-                  style={{
-                    fontFamily:
-                      '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                  }}
-                >
+                </h2>
+                <p className="mt-3 text-[15px] leading-[1.72] text-slate-600">
                   {feature.description}
                 </p>
-              </motion.div>
+              </motion.article>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
-
-      <Footer darkMode={darkMode} />
-    </div>
+    </MarketingShell>
   );
 }
