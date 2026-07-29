@@ -221,13 +221,10 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
   });
 
   describe("daylight / no-AI-feel guard", () => {
-    it("home page does not surface AI product language", () => {
+    it("home page does not surface AI product theatre language", () => {
       const { container, unmount } = render(<Home />);
       const text = container.textContent ?? "";
       const forbidden = [
-        /AI key/i,
-        /Anthropic/i,
-        /OpenAI/i,
         /chat widget/i,
         /AI-powered/i,
         /AI-driven/i,
@@ -236,6 +233,16 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
       for (const pattern of forbidden) {
         expect(text).not.toMatch(pattern);
       }
+      unmount();
+    });
+
+    it("home page states BYOK as cost control, not a hero AI pitch", () => {
+      const { container, unmount } = render(<Home />);
+      const text = container.textContent ?? "";
+      expect(text).toContain("Do I need my own AI key?");
+      expect(text).toContain(
+        "Drafting runs on your workspace Anthropic or OpenAI key — your spend, your control.",
+      );
       unmount();
     });
 
