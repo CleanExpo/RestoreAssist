@@ -1,38 +1,43 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { fadeUp, staggerContainer, GLASS_CARD } from "./motion";
+import {
+  fadeUp,
+  staggerContainer,
+  SECTION_EYEBROW,
+  SECTION_TITLE,
+  SECTION_BODY,
+  SECTION_PAD,
+  CONTAINER,
+  FONT_DISPLAY,
+  VIEWPORT,
+  HAIRLINE,
+} from "./motion";
 
 const FEATURES = [
   {
-    title: "AI-assisted IICRC reports",
-    body: "S500:2021-aligned drafts that cut hours of writing. AI assists — you approve.",
-    span: "md:col-span-2",
-    accent: true,
+    title: "IICRC-aligned reports",
+    body: "Produce S500:2021-aligned report drafts that cut hours of writing. Every document stays under your review — professional judgement never leaves the operator.",
   },
   {
     title: "GST-correct invoicing",
-    body: "Variations, discounts, and professional PDFs that reconcile cleanly.",
-    span: "",
-    accent: false,
+    body: "Variations, discounts, and professional PDF invoices that reconcile cleanly for Australian and New Zealand jobs — without spreadsheet rework.",
   },
   {
     title: "Offline field capture",
-    body: "Evidence, moisture, and LiDAR sketches sync when you're back online.",
-    span: "",
-    accent: false,
+    body: "Evidence, moisture readings, sketches, and voice notes capture on site even without signal — then sync when you are back online.",
   },
   {
     title: "Client portal",
-    body: "Homeowners track progress, approve scopes, and download documents.",
-    span: "",
-    accent: false,
+    body: "Give homeowners a clear path to track progress, approve scopes, and download documents — fewer phone chases, faster sign-off.",
   },
   {
     title: "Compliance library",
-    body: "IICRC, WHS, and NCC 2022 references built into the workflow.",
-    span: "md:col-span-2",
-    accent: false,
+    body: "IICRC, WHS, and NCC 2022 references live inside the workflow so standards guide the job instead of living in a separate folder.",
+  },
+  {
+    title: "Team-ready operations",
+    body: "Roles, handoffs, and shared jobs keep field technicians and the office aligned on the same claim — from first visit to final invoice.",
   },
 ] as const;
 
@@ -40,34 +45,33 @@ export function BentoFeatures() {
   const reduce = useReducedMotion();
 
   return (
-    <section className="relative border-t border-slate-800/50 py-24 sm:py-28">
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div className="absolute top-1/2 left-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-600/10 blur-[140px]" />
-      </div>
-
-      <div className="relative mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+    <section
+      className={`relative bg-[#F3F5F7] ${HAIRLINE} ${SECTION_PAD}`}
+      aria-labelledby="platform-heading"
+    >
+      <div className={CONTAINER}>
         <motion.div
           variants={staggerContainer}
           initial={reduce ? false : "hidden"}
           whileInView="visible"
-          viewport={{ once: true, margin: "-80px" }}
-          className="max-w-2xl"
+          viewport={VIEWPORT}
+          className="max-w-[38rem]"
         >
-          <motion.p
-            variants={fadeUp}
-            className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-400"
-          >
-            Platform
+          <motion.p variants={fadeUp} className={SECTION_EYEBROW}>
+            Restoration CRM platform
           </motion.p>
           <motion.h2
+            id="platform-heading"
             variants={fadeUp}
-            className="mt-3 text-3xl font-medium tracking-tight text-white sm:text-4xl"
+            className={SECTION_TITLE}
           >
             Everything the job needs — without the gaps
           </motion.h2>
-          <motion.p variants={fadeUp} className="mt-4 text-base text-slate-400">
-            Built for Australian restorers who need compliance depth and field
-            speed in the same product.
+          <motion.p variants={fadeUp} className={SECTION_BODY}>
+            Built for Australian restoration companies that need compliance
+            depth and field speed in the same product. From moisture logs to
+            insurer-ready paperwork, RestoreAssist keeps office and field on one
+            system.
           </motion.p>
         </motion.div>
 
@@ -75,31 +79,32 @@ export function BentoFeatures() {
           variants={staggerContainer}
           initial={reduce ? false : "hidden"}
           whileInView="visible"
-          viewport={{ once: true, margin: "-40px" }}
-          className="mt-12 grid gap-4 md:grid-cols-3"
+          viewport={VIEWPORT}
+          className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-slate-200/90 bg-slate-200/60 shadow-[0_1px_2px_rgba(15,23,42,0.03)] sm:grid-cols-2 lg:mt-16 lg:grid-cols-3"
         >
-          {FEATURES.map((f) => (
+          {FEATURES.map((f, i) => (
             <motion.article
               key={f.title}
               variants={fadeUp}
-              className={[
-                GLASS_CARD,
-                "group p-6 sm:p-7",
-                f.span,
-                f.accent
-                  ? "md:bg-gradient-to-br md:from-slate-800/80 md:via-slate-800/50 md:to-cyan-950/30"
-                  : "",
-              ].join(" ")}
+              className="group relative bg-white p-7 sm:p-8 lg:p-9"
             >
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg shadow-blue-500/20 transition-transform duration-300 group-hover:scale-110">
-                <span className="h-2 w-2 rounded-full bg-white" />
+              <div
+                className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent to-[#F3F5F7]/40 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                aria-hidden
+              />
+              <div className="relative">
+                <p className="text-[11px] font-semibold tabular-nums tracking-[0.16em] text-[#3B6D8C]/85">
+                  {String(i + 1).padStart(2, "0")}
+                </p>
+                <h3
+                  className={`${FONT_DISPLAY} mt-3.5 text-lg font-semibold tracking-[-0.015em] text-[#0B1F3A] transition-colors duration-200 group-hover:text-[#16345A] sm:text-[1.2rem]`}
+                >
+                  {f.title}
+                </h3>
+                <p className="mt-3 text-[15px] leading-[1.72] text-slate-600">
+                  {f.body}
+                </p>
               </div>
-              <h3 className="text-lg font-medium text-white group-hover:text-cyan-300 transition-colors">
-                {f.title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-400">
-                {f.body}
-              </p>
             </motion.article>
           ))}
         </motion.div>
