@@ -27,7 +27,7 @@ export default function SectionWrapper({
       id={id}
       className={`py-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden ${backgroundClasses[background]} ${className}`}
     >
-      <div className="max-w-7xl mx-auto">{children}</div>
+      <div className="mx-auto w-full max-w-[80%]">{children}</div>
     </section>
   );
 }
