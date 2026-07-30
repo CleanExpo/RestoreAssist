@@ -50,11 +50,18 @@ vi.mock("framer-motion", () => {
           whileTap: _whileTap,
           viewport: _viewport,
           transition: _transition,
+          exit: _exit,
+          style: _style,
           ...rest
         }: Record<string, unknown>,
         ref: unknown,
       ) => React.createElement(tag, { ref, ...rest }, children as React.ReactNode),
     );
+  const motionValue = (v: unknown) => ({
+    get: () => v,
+    set: () => undefined,
+    on: () => () => undefined,
+  });
   return {
     motion: new Proxy(
       {},
@@ -62,6 +69,14 @@ vi.mock("framer-motion", () => {
     ),
     AnimatePresence: ({ children }: { children: React.ReactNode }) => children,
     useReducedMotion: () => false,
+    useScroll: () => ({
+      scrollY: motionValue(0),
+      scrollYProgress: motionValue(0),
+      scrollX: motionValue(0),
+      scrollXProgress: motionValue(0),
+    }),
+    useTransform: (_v: unknown, _a?: unknown, b?: unknown) =>
+      motionValue(Array.isArray(b) ? b[0] : b ?? 0),
   };
 });
 
@@ -82,6 +97,10 @@ vi.mock("next/link", () => {
       React.createElement("a", { href, ...rest }, children as React.ReactNode),
   };
 });
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+}));
 
 vi.mock("next/font/google", () => ({
   Plus_Jakarta_Sans: () => ({
@@ -131,8 +150,18 @@ vi.mock("@/components/avatar", () => ({
 import Home from "../page";
 import BlogPage from "../blog/page";
 import ComplianceLibraryPage from "../compliance-library/page";
+import ClaimFolioPage from "../landing/claim-folio/page";
+import OperatorAtlasPage from "../landing/operator-atlas/page";
+import { LANDING_CONCEPTS } from "@/components/landing/home/landingConcepts";
 
 const DEAD_VIDEO_SRC = "/videos/heygen/phill-greeting.mp4";
+
+const AI_THEATRE_FORBIDDEN = [
+  /chat widget/i,
+  /AI-powered/i,
+  /AI-driven/i,
+  /assisted drafting/i,
+] as const;
 
 describe("funnel launch assets — render smoke (PR #1303)", () => {
   describe("dead-link guard: no rendered anchor uses href=\"#\"", () => {
@@ -253,5 +282,48 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
       expect(root?.className ?? "").not.toMatch(/bg-slate-900|bg-zinc-950|bg-black/);
       unmount();
     });
+  });
+
+  describe("landing home versions dropdown + alternate pages", () => {
+    it("home Home menu exposes Home 1, Home 2, and Home 3 routes", () => {
+      const { container, unmount } = render(<Home />);
+      const hrefs = Array.from(container.querySelectorAll("a")).map((a) =>
+        a.getAttribute("href"),
+      );
+      for (const home of LANDING_CONCEPTS) {
+        expect(hrefs).toContain(home.href);
+      }
+      expect(container.textContent).toMatch(/\bHome\b/);
+      expect(container.textContent).toContain("Home 1");
+      expect(container.textContent).toContain("Home 2");
+      expect(container.textContent).toContain("Home 3");
+      unmount();
+    });
+
+    it.each([
+      ["Home 2", ClaimFolioPage, "What you captured on site"],
+      ["Home 3", OperatorAtlasPage, "What you captured on site"],
+    ] as const)(
+      "%s presents the same hero content with a different pattern",
+      (_name, Component, signal) => {
+        const { container, unmount } = render(<Component />);
+        const text = container.textContent ?? "";
+        expect(text).toContain("RestoreAssist");
+        expect(text).toContain("Start free — 3 trial reports");
+        expect(text).toContain(signal);
+        expect(text).toContain("Do I need my own AI key?");
+        expect(text).toContain(
+          "Drafting runs on your workspace Anthropic or OpenAI key — your spend, your control.",
+        );
+        for (const pattern of AI_THEATRE_FORBIDDEN) {
+          expect(text).not.toMatch(pattern);
+        }
+        const root = container.firstElementChild as HTMLElement | null;
+        expect(root?.className ?? "").toMatch(
+          /bg-\[#(F3F5F7|E8EEF2|F7F8FA|F0F3F6|FAFBFC)\]/,
+        );
+        unmount();
+      },
+    );
   });
 });
