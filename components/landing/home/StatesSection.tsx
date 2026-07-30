@@ -66,6 +66,12 @@ const REGIONS = [
   },
 ] as const;
 
+// REGIONS is `as const`, so only the NZ member carries `overseas` and a bare
+// `r.overseas` does not type-check against the union. Narrow with `in` rather
+// than adding `overseas: false` to all eight AU entries.
+type Region = (typeof REGIONS)[number];
+const isOverseas = (r: Region): boolean => "overseas" in r && r.overseas;
+
 const BUILT_IN = [
   { label: "GST", value: "AU 10% · NZ 15%" },
   { label: "Codes", value: "NCC 2022 · IICRC" },
@@ -210,7 +216,7 @@ export function StatesSection() {
                           "flex h-7 w-7 items-center justify-center rounded-full border-2 bg-[#F3F5F7] transition-all duration-200",
                           selected
                             ? "border-[#3B6D8C] scale-110 shadow-[0_0_0_4px_rgba(59,109,140,0.12)]"
-                            : r.overseas
+                            : isOverseas(r)
                               ? "border-[#3B6D8C]/45"
                               : "border-slate-300 group-hover:border-[#3B6D8C]/60",
                         ].join(" ")}
@@ -253,7 +259,9 @@ export function StatesSection() {
               >
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
-                    {region.overseas ? "Across the ditch" : "Australian jurisdiction"}
+                    {isOverseas(region)
+                      ? "Across the ditch"
+                      : "Australian jurisdiction"}
                   </p>
                   <p
                     className={`${FONT_DISPLAY} mt-2 text-2xl font-semibold tracking-[-0.025em] text-[#0B1F3A] sm:text-3xl`}
