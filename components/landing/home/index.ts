@@ -10,3 +10,4 @@ export { FinalCTA } from "./FinalCTA";
 export { LandingFooter } from "./LandingFooter";
 export { MarketingShell } from "./MarketingShell";
 export { MarketingPageHero } from "./MarketingPageHero";
+export { LANDING_HOMES, LANDING_CONCEPTS } from "./landingConcepts";
