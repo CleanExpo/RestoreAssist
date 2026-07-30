@@ -141,10 +141,34 @@ gate_tests() {
 gate_audits() {
   need_deps || return 77
   local rc=0
-  pnpm audit:ai  || rc=1
-  pnpm audit:api || rc=1
-  pnpm audit:rls || rc=1
+  pnpm audit:ai   || rc=1
+  pnpm audit:api  || rc=1
+  pnpm audit:rls  || rc=1
+  # audit:prod is ENFORCING in CI (pr-checks.yml, RA-6719): a new high/critical
+  # production advisory fails the PR. Omitting it here meant --full could report
+  # green while CI redded on a fresh CVE.
+  pnpm audit:prod || rc=1
   return $rc
+}
+
+# RA-1546 migration-drift gate. CI applies every migration against an ephemeral
+# Postgres and then runs `prisma migrate status`, failing on anything pending,
+# failed, or out of sync with schema.prisma. That gate blocks merges, so a local
+# run that ignores it can hand off a tree CI will reject.
+#
+# CI provisions the database; this script cannot. With no DATABASE_URL it SKIPS
+# loudly rather than passing — same contract as gate_tests. It also never runs
+# `migrate deploy` against a database it did not create: pointing this at a real
+# DATABASE_URL would apply migrations to whatever that URL names. Status only.
+gate_migrations() {
+  need_deps || return 77
+  if [[ -z "${DATABASE_URL:-}" ]]; then
+    echo "DATABASE_URL unset — migration-drift check cannot run here."
+    echo "This gate is NOT green, it did not run. CI applies migrations and"
+    echo "runs 'prisma migrate status' against an ephemeral Postgres."
+    return 77
+  fi
+  pnpm exec prisma migrate status
 }
 
 # ---- Dispatch by mode ----
@@ -177,6 +201,7 @@ case "$MODE" in
     run_gate "build"           gate_build_full
     run_gate "security-scan"   gate_security
     run_gate "tests"           gate_tests
+    run_gate "migrations"      gate_migrations
     run_gate "audits"          gate_audits
     ;;
 esac
