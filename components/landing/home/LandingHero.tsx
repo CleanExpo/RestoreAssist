@@ -14,126 +14,124 @@ import {
   staggerFast,
   VIEWPORT,
   CONTAINER,
+  EASE_OUT,
 } from "./motion";
 import { useLandingReduceMotion } from "./useLandingReduceMotion";
-
-const TRUST = [
-  "IICRC S500:2021",
-  "NCC 2022",
-  "WHS built-in",
-  "Australian-designed",
-  "Australia + New Zealand",
-] as const;
+import { HOME } from "./homeContent";
 
 /**
- * Daylight Workshop hero — full-bleed photo plane.
- * Problem first → RestoreAssist answers → value → support → CTAs.
- * Slogan lives in the closing CTA / footer — not stacked in the hero.
+ * Home 1 hero — "Dawn Split"
+ * Left: mist paper typography plane. Right: full-height photographic plane.
+ * Not a card, not a centered stack — an asymmetric first composition.
  */
 export function LandingHero() {
   const reduce = useLandingReduceMotion();
 
   return (
     <section className="relative pt-[4.25rem]">
-      {/* Full-bleed photographic plane */}
-      <div className="relative min-h-[min(92dvh,56rem)] overflow-hidden">
+      <div className="relative min-h-[min(92dvh,56rem)] overflow-hidden bg-[#F3F5F7]">
+        {/* Photographic plane — right half on desktop, full bleed under wash on mobile */}
         <motion.div
-          initial={reduce ? false : { opacity: 0, scale: 1.04 }}
+          initial={reduce ? false : { opacity: 0, scale: 1.06 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.05, ease: [0.22, 1, 0.36, 1] }}
-          className="absolute inset-0"
+          transition={{ duration: 1.2, ease: EASE_OUT }}
+          className="absolute inset-0 lg:left-[46%]"
         >
           <Image
             src="/landing/hero-workshop.jpg"
             alt="Daylight restoration workshop with tools and equipment ready for the next job"
             fill
             priority
-            sizes="100vw"
-            className="object-cover object-[center_40%]"
+            sizes="(min-width: 1024px) 54vw, 100vw"
+            className="object-cover object-[center_38%]"
+          />
+          {/* Soft edge into mist on desktop */}
+          <div
+            className="pointer-events-none absolute inset-y-0 left-0 hidden w-32 bg-gradient-to-r from-[#F3F5F7] to-transparent lg:block"
+            aria-hidden
+          />
+          {/* Mobile readability wash */}
+          <div
+            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#F3F5F7] via-[#F3F5F7]/88 to-[#F3F5F7]/35 lg:hidden"
+            aria-hidden
           />
         </motion.div>
 
-        {/* Daylight mist wash — readable copy without a dark theme */}
+        {/* Quiet atmospheric grain on mist side */}
         <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#F3F5F7] via-[#F3F5F7]/92 to-[#F3F5F7]/25 sm:via-[#F3F5F7]/88 sm:to-transparent"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#F3F5F7] via-transparent to-[#F3F5F7]/50"
+          className="pointer-events-none absolute inset-0 hidden bg-[radial-gradient(ellipse_80%_60%_at_10%_40%,rgba(59,109,140,0.07),transparent_55%)] lg:block"
           aria-hidden
         />
 
-        <div className={`${CONTAINER} relative flex min-h-[min(92dvh,56rem)] flex-col justify-center py-20 sm:py-24 lg:py-28`}>
+        <div
+          className={`${CONTAINER} relative grid min-h-[min(92dvh,56rem)] items-center py-20 sm:py-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:py-28`}
+        >
           <motion.div
             variants={staggerContainer}
             initial={reduce ? false : "hidden"}
             animate="visible"
-            className="max-w-[40rem]"
+            className="relative z-10 max-w-[38rem] lg:pr-8"
           >
-            {/* Problem context — quiet opener */}
+            <motion.p
+              variants={fadeUp}
+              className={`${FONT_DISPLAY} text-[15px] font-semibold tracking-[-0.01em] text-[#0B1F3A] sm:text-base`}
+            >
+              {HOME.hero.brand}
+            </motion.p>
+
             <motion.div
               variants={fadeUp}
-              className="flex items-center gap-3"
+              className="mt-5 flex items-center gap-3"
             >
               <span
-                className="h-px w-8 shrink-0 bg-[#3B6D8C]/70 sm:w-10"
+                className="h-px w-10 shrink-0 bg-[#3B6D8C]/80"
                 aria-hidden
               />
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#3B6D8C]">
-                {BRAND.tagline}
+              <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#3B6D8C]">
+                {HOME.hero.eyebrow}
               </p>
             </motion.div>
 
-            {/* Problem first — daily documentation pain */}
             <motion.h1
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mt-8 text-[2.35rem] font-semibold leading-[1.08] tracking-[-0.035em] text-[#0B1F3A] sm:mt-9 sm:text-[3.15rem] sm:leading-[1.05] lg:text-[3.5rem] lg:leading-[1.04]`}
+              className={`${FONT_DISPLAY} mt-6 text-[clamp(2rem,5vw,3.35rem)] font-bold leading-[1.06] tracking-[-0.035em] text-[#0B1F3A]`}
             >
-              What you captured on site shouldn&apos;t need a second draft at
-              the desk.
+              {HOME.hero.headline}
             </motion.h1>
 
-            {/* Brand answers — RestoreAssist as the system */}
             <motion.p
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mt-8 text-[1.85rem] font-semibold leading-none tracking-[-0.03em] text-[#0B1F3A] sm:mt-9 sm:text-[2.35rem]`}
+              className={`${FONT_DISPLAY} mt-6 text-[1.15rem] font-medium leading-snug tracking-[-0.02em] text-[#16345A] sm:text-[1.3rem]`}
             >
-              {BRAND.name}
+              {HOME.hero.valueLine}
             </motion.p>
 
             <motion.p
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mt-4 text-[1.2rem] font-medium leading-[1.3] tracking-[-0.02em] text-[#16345A] sm:text-[1.4rem] sm:leading-[1.28]`}
+              className="mt-5 max-w-[30rem] text-[15px] leading-[1.75] text-slate-600 sm:text-[16px]"
             >
-              From site to signed report. One system.
-            </motion.p>
-
-            {/* Support — reinforces without restating the headline */}
-            <motion.p
-              variants={fadeUp}
-              className="mt-6 max-w-[32rem] text-[15px] font-normal leading-[1.8] text-slate-600 sm:mt-7 sm:text-[16.5px] sm:leading-[1.8]"
-            >
-              The Australian restoration CRM that keeps field evidence,
-              IICRC-aligned paperwork, and client approvals on the same record —
-              so the office builds on the job, not beside it.
+              {HOME.hero.support}
             </motion.p>
 
             <motion.div
               variants={fadeUp}
-              className="mt-10 flex flex-col gap-3 sm:mt-11 sm:flex-row sm:items-center sm:gap-3.5"
+              className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center"
             >
               <Link href={BRAND.cta.primary.href} className={CTA_PRIMARY}>
-                Start free — 3 trial reports
+                {HOME.hero.primaryCta}
               </Link>
               <Link href={BRAND.cta.secondary.href} className={CTA_SECONDARY}>
-                See how it works
+                {HOME.hero.secondaryCta}
               </Link>
             </motion.div>
           </motion.div>
+
+          {/* Desktop spacer keeps photo plane readable */}
+          <div className="hidden lg:block" aria-hidden />
         </div>
       </div>
 
-      {/* Paper trust band — below the hero composition */}
+      {/* Trust — hairline paper rail */}
       <div className="border-y border-slate-200/90 bg-white">
         <motion.ul
           variants={staggerFast}
@@ -143,7 +141,7 @@ export function LandingHero() {
           className={`${CONTAINER} flex flex-wrap items-center justify-between gap-x-6 gap-y-3 py-5`}
           aria-label="Compliance standards and coverage"
         >
-          {TRUST.map((item) => (
+          {HOME.trust.map((item) => (
             <motion.li
               key={item}
               variants={fadeUpSoft}
