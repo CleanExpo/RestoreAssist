@@ -31,8 +31,8 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 /**
- * Marketing home — Daylight Workshop (premium).
- * Cool mist canvas · navy + steel · photo-led · operator-first.
+ * Marketing home — Home 1 · Dawn Split.
+ * Asymmetric mist + workshop photo · navy + steel · operator-first.
  * No dark SaaS chrome. No AI product theatre.
  */
 export default function Home() {
