@@ -100,6 +100,44 @@ gate_build_nodb(){ need_deps && pnpm validate:next-build-no-db; }
 gate_build_full(){ need_deps && pnpm build; }
 gate_security()  { need_deps && pnpm security:scan; }
 
+# The content/convention guards that .github/workflows/pr-checks.yml enforces on
+# every PR. They were absent here, so "RESULT: green" could — and on 2026-07-29
+# did — precede a PR that CI reds. check:no-lucide is the one that bit: an icon
+# swap passed every local gate and would have failed the Lucide guard remotely.
+# Runs every guard rather than short-circuiting, so one run reports all failures.
+gate_guards() {
+  need_deps || return 77
+  local rc=0
+  pnpm check:no-lucide          || rc=1
+  pnpm check:spec-docs          || rc=1
+  pnpm check:encoding           || rc=1
+  pnpm check:ssot               || rc=1
+  pnpm check:standards          || rc=1
+  pnpm check:no-verbatim        || rc=1
+  pnpm check:marketing-verbatim || rc=1
+  pnpm check:au-english         || rc=1
+  return $rc
+}
+
+# handoff-loop ran no tests at all. A gate that reports a tree "ready to hand
+# off" without executing the suite is asserting something it never checked.
+#
+# Measured on origin/main 2026-07-31: 4 of 5536 tests fail locally, every one with
+# "DATABASE_URL is required to initialize PrismaClient". They pass in CI, which
+# provisions an ephemeral Postgres and runs prisma migrate deploy first. So a
+# hard-failing tests gate would be red on a clean checkout and get ignored, and a
+# silently-passing one would be a lie. It SKIPS loudly instead — the summary
+# prints "skipped: tests" so nobody reads a DB-less run as full coverage.
+gate_tests() {
+  need_deps || return 77
+  if [[ -z "${DATABASE_URL:-}" ]]; then
+    echo "DATABASE_URL unset — DB-backed tests cannot run here."
+    echo "This gate is NOT green, it did not run. CI runs the full suite."
+    return 77
+  fi
+  pnpm exec vitest run --config config/vitest.config.js
+}
+
 gate_audits() {
   need_deps || return 77
   local rc=0
@@ -124,8 +162,10 @@ case "$MODE" in
     run_gate "type-check"      gate_type
     run_gate "lint"            gate_lint
     run_gate "no-emoji"        gate_emoji
+    run_gate "guards"          gate_guards
     run_gate "build (no-db)"   gate_build_nodb
     run_gate "security-scan"   gate_security
+    run_gate "tests"           gate_tests
     ;;
   full)
     run_gate "deps"            gate_deps
@@ -133,8 +173,10 @@ case "$MODE" in
     run_gate "type-check"      gate_type
     run_gate "lint"            gate_lint
     run_gate "no-emoji"        gate_emoji
+    run_gate "guards"          gate_guards
     run_gate "build"           gate_build_full
     run_gate "security-scan"   gate_security
+    run_gate "tests"           gate_tests
     run_gate "audits"          gate_audits
     ;;
 esac
