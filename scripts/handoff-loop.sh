@@ -138,8 +138,10 @@ gate_guards() {
 gate_tests() {
   need_deps || return 77
   if [[ -z "${DATABASE_URL:-}" ]]; then
-    echo "DATABASE_URL unset — DB-backed tests cannot run here."
-    echo "This gate is NOT green, it did not run. CI runs the full suite."
+    echo "DATABASE_URL unset — DB-backed suites would silently skip, so a plain"
+    echo "vitest run here is not CI-representative."
+    echo "This gate is NOT green, it did not run."
+    echo "For a CI-representative run use 'pnpm test:db' (Docker required)."
     return 77
   fi
   pnpm exec vitest run --config config/vitest.config.js
@@ -158,18 +160,29 @@ gate_audits() {
   return $rc
 }
 
-# NO migration-drift gate here, deliberately. CI's RA-1546 gate (pr-checks.yml)
-# runs three `prisma migrate resolve --applied`, then `migrate deploy`, then
-# `migrate status`, against an ephemeral Postgres it creates and discards. None
-# of that is safe or reproducible locally:
+# NO migration-drift gate inside this script, deliberately. CI's RA-1546 gate
+# (pr-checks.yml) runs three `prisma migrate resolve --applied`, then
+# `migrate deploy`, then `migrate status`.
 #
-#   - `migrate deploy` would apply migrations to whatever real database
-#     DATABASE_URL names, as a side effect of a handoff check.
-#   - a status-only substitute reads the migration ledger but never executes the
-#     SQL, so it cannot catch a new migration that fails on apply — the exact
-#     class RA-1546 exists to catch. It would advertise coverage it lacks.
+# That sequence IS reproducible locally — `pnpm test:db` (scripts/ci/test-with-db.sh)
+# provisions the same pgvector/pgvector:pg16 image CI uses, pre-resolves the same
+# migrations, applies them, and tears the container down on exit. What is unsafe
+# is running it from HERE against whatever DATABASE_URL happens to be set: that
+# would apply migrations to a real database as a side effect of a handoff check.
 #
-# Migration drift stays a CI-only gate. Do not add a local imitation of it.
+# A status-only substitute was tried and removed. It reads the migration ledger
+# but never executes migration SQL, so it cannot catch a migration that fails on
+# apply — the exact class RA-1546 exists to catch — while appearing to cover it.
+#
+# So: drift stays a CI gate, and `pnpm test:db` is the local parity path an
+# operator can run deliberately. gate_tests does NOT invoke it automatically:
+# measured 2026-07-31 on origin/main, `pnpm test:db` is currently RED — 125 test
+# files / 178 tests fail with "headers was called outside a request scope", a
+# Next.js request-context problem unrelated to the database. Wiring a gate to a
+# suite that is already red would just get the gate ignored. Fix test:db first,
+# then consider promoting it here.
+#
+# Do not add a migrate-deploy against an unknown DATABASE_URL in this script.
 #
 # STANDING HAZARD, pre-existing and NOT introduced here: --full runs
 # gate_build_full -> pnpm build -> scripts/build.sh:48, which itself runs
