@@ -128,6 +128,13 @@ gate_guards() {
 # hard-failing tests gate would be red on a clean checkout and get ignored, and a
 # silently-passing one would be a lie. It SKIPS loudly instead — the summary
 # prints "skipped: tests" so nobody reads a DB-less run as full coverage.
+#
+# LIMITATION, stated rather than papered over: a run with skips still exits 0,
+# the same code as a fully covered run. The distinction lives in stdout
+# ("RESULT: green (with skips: ...)"), not the exit status. A caller that
+# inspects only the exit code CAN misread a DB-less run as fully covered.
+# Changing the exit contract would break existing callers, so it is documented
+# here instead — parse the RESULT line, not just $?.
 gate_tests() {
   need_deps || return 77
   if [[ -z "${DATABASE_URL:-}" ]]; then
@@ -151,25 +158,25 @@ gate_audits() {
   return $rc
 }
 
-# RA-1546 migration-drift gate. CI applies every migration against an ephemeral
-# Postgres and then runs `prisma migrate status`, failing on anything pending,
-# failed, or out of sync with schema.prisma. That gate blocks merges, so a local
-# run that ignores it can hand off a tree CI will reject.
+# NO migration-drift gate here, deliberately. CI's RA-1546 gate (pr-checks.yml)
+# runs three `prisma migrate resolve --applied`, then `migrate deploy`, then
+# `migrate status`, against an ephemeral Postgres it creates and discards. None
+# of that is safe or reproducible locally:
 #
-# CI provisions the database; this script cannot. With no DATABASE_URL it SKIPS
-# loudly rather than passing — same contract as gate_tests. It also never runs
-# `migrate deploy` against a database it did not create: pointing this at a real
-# DATABASE_URL would apply migrations to whatever that URL names. Status only.
-gate_migrations() {
-  need_deps || return 77
-  if [[ -z "${DATABASE_URL:-}" ]]; then
-    echo "DATABASE_URL unset — migration-drift check cannot run here."
-    echo "This gate is NOT green, it did not run. CI applies migrations and"
-    echo "runs 'prisma migrate status' against an ephemeral Postgres."
-    return 77
-  fi
-  pnpm exec prisma migrate status
-}
+#   - `migrate deploy` would apply migrations to whatever real database
+#     DATABASE_URL names, as a side effect of a handoff check.
+#   - a status-only substitute reads the migration ledger but never executes the
+#     SQL, so it cannot catch a new migration that fails on apply — the exact
+#     class RA-1546 exists to catch. It would advertise coverage it lacks.
+#
+# Migration drift stays a CI-only gate. Do not add a local imitation of it.
+#
+# STANDING HAZARD, pre-existing and NOT introduced here: --full runs
+# gate_build_full -> pnpm build -> scripts/build.sh:48, which itself runs
+# `prisma migrate deploy` whenever DATABASE_URL is set and VERCEL_ENV is not
+# preview/development. So running --full against a real DATABASE_URL already
+# mutates that database. Run --full with DATABASE_URL unset, or against a
+# throwaway database only.
 
 # ---- Dispatch by mode ----
 
@@ -201,7 +208,6 @@ case "$MODE" in
     run_gate "build"           gate_build_full
     run_gate "security-scan"   gate_security
     run_gate "tests"           gate_tests
-    run_gate "migrations"      gate_migrations
     run_gate "audits"          gate_audits
     ;;
 esac
