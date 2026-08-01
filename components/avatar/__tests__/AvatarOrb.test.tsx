@@ -14,7 +14,9 @@ vi.mock("next/image", () => ({
     alt: string;
     [key: string]: unknown;
   }) => {
-    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+    // jsx-a11y is not in config/eslint.config.mjs, and disabling a rule that is
+    // not configured is itself an eslint error. The alt is passed through below.
+    // eslint-disable-next-line @next/next/no-img-element
     return <img src={src} alt={alt} {...rest} />;
   },
 }));
