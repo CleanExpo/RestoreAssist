@@ -135,16 +135,28 @@ gate_guards() {
 # inspects only the exit code CAN misread a DB-less run as fully covered.
 # Changing the exit contract would break existing callers, so it is documented
 # here instead — parse the RESULT line, not just $?.
+# This gate NEVER runs the suite automatically, and DATABASE_URL is deliberately
+# not the trigger. The DB-gated suites are `describe.skipIf(!process.env.DATABASE_URL)`,
+# so setting that variable is precisely what switches them ON — and their setup is
+# unscoped and destructive:
+#   scripts/__tests__/grandfather-payments-addon.test.ts:6-10
+#   scripts/__tests__/backfill-setup-wizard.test.ts:6-12
+# both call prisma.user.deleteMany({}) / workspace / organization deleteMany({}).
+# Triggering on "DATABASE_URL is set" would therefore wipe whatever database that
+# URL names as a side effect of a handoff check. Same hazard class this script
+# already refuses for `prisma migrate deploy`.
+#
+# The safe CI-representative path is `pnpm test:db`, which stands up its own
+# throwaway pgvector container and destroys it on exit. It is run deliberately by
+# an operator, never implicitly by this gate.
 gate_tests() {
   need_deps || return 77
-  if [[ -z "${DATABASE_URL:-}" ]]; then
-    echo "DATABASE_URL unset — DB-backed suites would silently skip, so a plain"
-    echo "vitest run here is not CI-representative."
-    echo "This gate is NOT green, it did not run."
-    echo "For a CI-representative run use 'pnpm test:db' (Docker required)."
-    return 77
-  fi
-  pnpm exec vitest run --config config/vitest.config.js
+  echo "Tests are NOT run by this gate, by design — see the comment above."
+  echo "The DB-backed suites truncate users/workspaces/organizations, so keying"
+  echo "them off DATABASE_URL would destroy data in whatever DB it points at."
+  echo "This gate is NOT green, it did not run."
+  echo "CI-representative run, isolated and disposable:  pnpm test:db"
+  return 77
 }
 
 gate_audits() {
