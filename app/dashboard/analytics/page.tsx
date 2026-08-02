@@ -159,6 +159,7 @@ export default function AnalyticsPage() {
   const [projectionData, setProjectionData] = useState<ProjectionData | null>(
     null,
   );
+  const [projectionUnavailable, setProjectionUnavailable] = useState(false);
   const [completionData, setCompletionData] = useState<CompletionData | null>(
     null,
   );
@@ -250,6 +251,13 @@ export default function AnalyticsPage() {
     };
   }, [data]);
 
+  // RA-1207: empty when API returns zeros (not only when `data` is null)
+  const isEmpty =
+    !data ||
+    (data.kpis?.totalReports?.value ?? 0) === 0 ||
+    ((data.reportTrendData?.length ?? 0) === 0 &&
+      (data.statePerformance?.length ?? 0) === 0);
+
   // Fetch analytics data
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -322,16 +330,24 @@ export default function AnalyticsPage() {
         if (projectionsRes.ok) {
           const projectionsJson = await projectionsRes.json();
           setProjectionData(projectionsJson);
+          setProjectionUnavailable(false);
+        } else {
+          setProjectionData(null);
+          setProjectionUnavailable(true);
         }
 
         if (completionRes.ok) {
           const completionJson = await completionRes.json();
           setCompletionData(completionJson);
+        } else {
+          setCompletionData(null);
         }
 
         if (activityFeedRes.ok) {
           const activityFeedJson = await activityFeedRes.json();
           setActivityFeedData(activityFeedJson);
+        } else {
+          setActivityFeedData(null);
         }
 
         if (insightsRes.ok) {
@@ -510,6 +526,69 @@ export default function AnalyticsPage() {
               </div>
             </div>
           </div>
+        ) : isEmpty ? (
+          <div className="text-center py-16 animate-in fade-in duration-500">
+            <div
+              className={cn(
+                "inline-flex items-center justify-center w-24 h-24 rounded-full border mb-6",
+                "bg-white/50 dark:bg-slate-800/50",
+                "border-neutral-200 dark:border-slate-700/50",
+              )}
+            >
+              <BarChart3
+                className={cn(
+                  "w-12 h-12",
+                  "text-neutral-500 dark:text-slate-400",
+                )}
+              />
+            </div>
+            <h3
+              className={cn(
+                "text-2xl font-semibold mb-2",
+                "text-neutral-900 dark:text-slate-300",
+              )}
+            >
+              No reports yet
+            </h3>
+            <p
+              className={cn(
+                "mb-6 max-w-md mx-auto",
+                "text-neutral-600 dark:text-slate-400",
+              )}
+            >
+              Create your first report to see revenue trends, performance
+              metrics, and analytics insights here.
+            </p>
+            <Link
+              href="/dashboard/reports/new"
+              className={cn(
+                "inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium mb-6",
+                "bg-cyan-600 hover:bg-cyan-700 text-white transition-colors",
+              )}
+            >
+              <FileText className="w-4 h-4" />
+              Create your first report
+            </Link>
+            <div
+              className={cn(
+                "flex items-center justify-center gap-4 text-sm",
+                "text-neutral-500 dark:text-slate-500",
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Revenue tracking</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Performance metrics</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Trend analysis</span>
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="space-y-8 animate-in fade-in duration-500">
             {/* Quick Insights Bar */}
@@ -649,22 +728,6 @@ export default function AnalyticsPage() {
                 loading={loading}
               />
             </div>
-
-            {/* Billing Overview (Admin Only) */}
-            {session?.user?.role === "ADMIN" && (
-              <div className="animate-in slide-in-from-bottom-4 duration-500 delay-150">
-                <div
-                  className={cn(
-                    "backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden",
-                    "bg-white/50 dark:bg-slate-800/50",
-                    "border border-neutral-200 dark:border-slate-700/50",
-                    "hover:border-emerald-500/30",
-                  )}
-                >
-                  <BillingOverview />
-                </div>
-              </div>
-            )}
 
             {/* Main Revenue Chart with Enhanced Styling */}
             <div className="animate-in slide-in-from-bottom-4 duration-500 delay-200">
@@ -948,6 +1011,23 @@ export default function AnalyticsPage() {
                     projected={projectionData.projected}
                     trend={projectionData.trend}
                   />
+                ) : projectionUnavailable ? (
+                  <div className="p-12 flex items-center justify-center">
+                    <div className="text-center space-y-2">
+                      <p
+                        className={cn(
+                          "font-medium",
+                          "text-neutral-700 dark:text-slate-300",
+                        )}
+                      >
+                        Revenue forecast unavailable
+                      </p>
+                      <p className={cn("text-sm text-neutral-600 dark:text-slate-400")}>
+                        Couldn&apos;t load the projection for this period.
+                        Try refreshing or changing the date range.
+                      </p>
+                    </div>
+                  </div>
                 ) : (
                   <div className="p-12 flex items-center justify-center">
                     <div className="text-center space-y-4">
@@ -1382,78 +1462,6 @@ export default function AnalyticsPage() {
               </div>
             )}
 
-            {/* Empty State — RA-1207: also fires when `data` is a valid object
-                whose underlying report set is empty (API returns zeros, not null).
-                Previous gate `!data && !loading` never matched that case, so
-                new tenants saw a page of zero-value insights instead of onboarding. */}
-            {!loading &&
-              (!data ||
-                (data.kpis?.totalReports?.value ?? 0) === 0 ||
-                ((data.reportTrendData?.length ?? 0) === 0 &&
-                  (data.statePerformance?.length ?? 0) === 0)) && (
-                <div className="text-center py-16 animate-in fade-in duration-500">
-                  <div
-                    className={cn(
-                      "inline-flex items-center justify-center w-24 h-24 rounded-full border mb-6",
-                      "bg-white/50 dark:bg-slate-800/50",
-                      "border-neutral-200 dark:border-slate-700/50",
-                    )}
-                  >
-                    <BarChart3
-                      className={cn(
-                        "w-12 h-12",
-                        "text-neutral-500 dark:text-slate-400",
-                      )}
-                    />
-                  </div>
-                  <h3
-                    className={cn(
-                      "text-2xl font-semibold mb-2",
-                      "text-neutral-900 dark:text-slate-300",
-                    )}
-                  >
-                    No reports yet
-                  </h3>
-                  <p
-                    className={cn(
-                      "mb-6 max-w-md mx-auto",
-                      "text-neutral-600 dark:text-slate-400",
-                    )}
-                  >
-                    Create your first report to see revenue trends, performance
-                    metrics, and analytics insights here.
-                  </p>
-                  <Link
-                    href="/dashboard/reports/new"
-                    className={cn(
-                      "inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium mb-6",
-                      "bg-cyan-600 hover:bg-cyan-700 text-white transition-colors",
-                    )}
-                  >
-                    <FileText className="w-4 h-4" />
-                    Create your first report
-                  </Link>
-                  <div
-                    className={cn(
-                      "flex items-center justify-center gap-4 text-sm",
-                      "text-neutral-500 dark:text-slate-500",
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Revenue tracking</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Performance metrics</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Trend analysis</span>
-                    </div>
-                  </div>
-                </div>
-              )}
           </div>
         )}
       </div>

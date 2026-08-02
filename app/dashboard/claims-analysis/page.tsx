@@ -534,14 +534,20 @@ export default function ClaimsAnalysisPage() {
             Comprehensive analysis and insights for restoration claim management
           </p>
         </div>
-        {!showNewAnalysisForm && (
-          <div className="flex items-center gap-3">
-            {summary && (
-              <div className="text-right mr-4">
-                <div className="text-sm text-muted-foreground">Total Files</div>
-                <div className="text-2xl font-bold">{summary.totalFiles}</div>
-              </div>
-            )}
+        <div className="flex items-center gap-3">
+          {!showNewAnalysisForm && summary && (
+            <div className="text-right mr-4">
+              <div className="text-sm text-muted-foreground">Total Files</div>
+              <div className="text-2xl font-bold">{summary.totalFiles}</div>
+            </div>
+          )}
+          <Button variant="outline" size="sm" asChild>
+            <a href="/dashboard/claims-analysis/export">
+              <BookOpen className="mr-2 h-4 w-4" />
+              Past Analyses
+            </a>
+          </Button>
+          {!showNewAnalysisForm && (
             <Button
               variant="outline"
               size="sm"
@@ -550,53 +556,53 @@ export default function ClaimsAnalysisPage() {
               <RotateCcw className="mr-2 h-4 w-4" />
               New Analysis
             </Button>
-            {summary && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <FileDown className="mr-2 h-4 w-4" />
-                    Export
-                    <ChevronDown className="ml-1 h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => {
-                      if (summary) exportClaimsCSV(analysisResults, summary);
-                    }}
-                  >
-                    <FileText className="mr-2 h-4 w-4" />
-                    Export CSV
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={async () => {
-                      if (!summary) return;
-                      try {
-                        toast.loading("Generating PDF…", { id: "claims-pdf" });
-                        await exportClaimsPDF(
-                          analysisResults,
-                          summary,
-                          folderName,
-                        );
-                        toast.success("PDF downloaded", { id: "claims-pdf" });
-                      } catch (e) {
-                        toast.error(
-                          e instanceof Error
-                            ? e.message
-                            : "Failed to generate PDF",
-                          { id: "claims-pdf" },
-                        );
-                      }
-                    }}
-                  >
-                    <FileDown className="mr-2 h-4 w-4" />
-                    Download PDF
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-        )}
+          )}
+          {!showNewAnalysisForm && summary && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FileDown className="mr-2 h-4 w-4" />
+                  Export
+                  <ChevronDown className="ml-1 h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (summary) exportClaimsCSV(analysisResults, summary);
+                  }}
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Export CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    if (!summary) return;
+                    try {
+                      toast.loading("Generating PDF…", { id: "claims-pdf" });
+                      await exportClaimsPDF(
+                        analysisResults,
+                        summary,
+                        folderName,
+                      );
+                      toast.success("PDF downloaded", { id: "claims-pdf" });
+                    } catch (e) {
+                      toast.error(
+                        e instanceof Error
+                          ? e.message
+                          : "Failed to generate PDF",
+                        { id: "claims-pdf" },
+                      );
+                    }
+                  }}
+                >
+                  <FileDown className="mr-2 h-4 w-4" />
+                  Download PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
 
       {latestLoadError && (
@@ -905,10 +911,18 @@ export default function ClaimsAnalysisPage() {
                 compliance gaps, missing elements, and revenue recovery
                 insights.
               </p>
-              <Button onClick={() => setShowNewAnalysisForm(true)} size="lg">
-                <Play className="mr-2 h-4 w-4" />
-                New Analysis
-              </Button>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Button onClick={() => setShowNewAnalysisForm(true)} size="lg">
+                  <Play className="mr-2 h-4 w-4" />
+                  New Analysis
+                </Button>
+                <Button variant="outline" size="lg" asChild>
+                  <a href="/dashboard/claims-analysis/export">
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    Past Analyses
+                  </a>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
