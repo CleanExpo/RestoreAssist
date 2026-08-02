@@ -37,15 +37,15 @@ export default function ActivityFeed({
       <div
         className={cn(
           "p-6 rounded-lg border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <div className="h-[400px] flex items-center justify-center">
           <div className="text-center space-y-4">
             <Loader2 className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
             <p
-              className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}
+              className={cn("text-sm", "text-muted-foreground")}
             >
               Loading activity feed...
             </p>
@@ -60,14 +60,14 @@ export default function ActivityFeed({
       <div
         className={cn(
           "p-6 rounded-lg border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <h3
           className={cn(
             "font-semibold mb-4",
-            "text-neutral-900 dark:text-slate-200",
+            "text-foreground",
           )}
         >
           Team Activity Feed
@@ -75,7 +75,7 @@ export default function ActivityFeed({
         <div
           className={cn(
             "flex items-center justify-center h-[300px]",
-            "text-neutral-600 dark:text-slate-400",
+            "text-muted-foreground",
           )}
         >
           No recent activity
@@ -106,7 +106,7 @@ export default function ActivityFeed({
       case "created":
         return "bg-cyan-100 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800";
       default:
-        return "bg-neutral-100 dark:bg-slate-700/20 border-neutral-200 dark:border-slate-600";
+        return "bg-muted/50 border-neutral-200 dark:border-slate-600";
     }
   };
 
@@ -131,7 +131,7 @@ export default function ActivityFeed({
     const roleInfo = roleMap[role] || {
       label: role,
       color:
-        "bg-neutral-100 dark:bg-slate-700/30 text-neutral-700 dark:text-slate-300",
+        "bg-muted text-foreground/90",
     };
     return (
       <span
@@ -149,20 +149,20 @@ export default function ActivityFeed({
     <div
       className={cn(
         "p-6 rounded-lg border",
-        "border-neutral-200 dark:border-slate-700/50",
-        "bg-white/50 dark:bg-slate-800/30",
+        "border-neutral-200 dark:border-slate-700/60",
+        "bg-white dark:bg-slate-900/50",
       )}
     >
       <div className="flex items-center justify-between mb-4">
         <h3
           className={cn(
             "font-semibold text-lg",
-            "text-neutral-900 dark:text-slate-200",
+            "text-foreground",
           )}
         >
           Team Activity Feed
         </h3>
-        <span className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
+        <span className={cn("text-xs", "text-muted-foreground")}>
           {activities.length} recent activities
         </span>
       </div>
@@ -180,7 +180,7 @@ export default function ActivityFeed({
             <div
               className={cn(
                 "p-2 rounded-lg flex-shrink-0",
-                "bg-white dark:bg-slate-800",
+                "bg-white dark:bg-slate-900/50",
               )}
             >
               {getActivityIcon(activity.type)}
@@ -190,7 +190,7 @@ export default function ActivityFeed({
                 <p
                   className={cn(
                     "text-sm font-medium",
-                    "text-neutral-900 dark:text-slate-200",
+                    "text-foreground",
                   )}
                 >
                   {activity.description}
@@ -198,7 +198,7 @@ export default function ActivityFeed({
                 <span
                   className={cn(
                     "text-xs whitespace-nowrap",
-                    "text-neutral-500 dark:text-slate-500",
+                    "text-muted-foreground",
                   )}
                 >
                   {formatDistanceToNow(new Date(activity.timestamp), {
@@ -210,7 +210,7 @@ export default function ActivityFeed({
                 <span
                   className={cn(
                     "text-xs",
-                    "text-neutral-600 dark:text-slate-400",
+                    "text-muted-foreground",
                   )}
                 >
                   {activity.user.name || activity.user.email}
@@ -219,7 +219,7 @@ export default function ActivityFeed({
                 <span
                   className={cn(
                     "text-xs",
-                    "text-neutral-500 dark:text-slate-500",
+                    "text-muted-foreground",
                   )}
                 >
                   • {activity.report.clientName}
