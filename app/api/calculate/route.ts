@@ -6,43 +6,11 @@ import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
 import { getRestorationInvoiceTypeById } from "@/lib/restoration-invoice-types";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
-import { z } from "zod";
-
-/** Minimum charge enforced on all quotes (ex-GST). */
-const MINIMUM_CHARGE_EX_GST = 2750;
-
-/** Australian GST rate. */
-const GST_RATE = 0.1;
-
-const QuoteRequestSchema = z.object({
-  jobType: z.enum(["water", "fire", "mould", "storm", "bioclean"]),
-  affectedAreaM2: z.number().min(1).max(10000),
-  numberOfRooms: z.number().int().min(1).max(50),
-  dryingDays: z.number().int().min(1).max(30),
-  labourHours: z.number().min(0).max(500),
-  labourTier: z
-    .enum(["masterQualified", "qualifiedTechnician", "labourer"])
-    .default("qualifiedTechnician"),
-  labourPeriod: z
-    .enum(["NormalHours", "Saturday", "Sunday"])
-    .default("NormalHours"),
-  airMoversAxial: z.number().int().min(0).max(50).default(0),
-  airMoversCentrifugal: z.number().int().min(0).max(50).default(0),
-  dehumidifiersLGR: z.number().int().min(0).max(20).default(0),
-  dehumidifiersDesiccant: z.number().int().min(0).max(20).default(0),
-  afdUnitsLarge: z.number().int().min(0).max(10).default(0),
-  extractionTruckMountedHours: z.number().min(0).max(24).default(0),
-  extractionElectricHours: z.number().min(0).max(24).default(0),
-  injectionDryingDays: z.number().int().min(0).max(30).default(0),
-  includeCallOut: z.boolean().default(true),
-  includeAdminFee: z.boolean().default(true),
-  includeThermalCamera: z.boolean().default(false),
-  clientName: z.string().max(200).optional(),
-  clientAddress: z.string().max(500).optional(),
-  clientPhone: z.string().max(50).optional(),
-  clientEmail: z.string().email().optional().or(z.literal("")),
-  jobDescription: z.string().max(2000).optional(),
-});
+import {
+  QuoteRequestSchema,
+  applyMinimumCharge,
+  calcGstOnSubtotal,
+} from "@/lib/quotes/quote-calc";
 
 /** Default pricing config (mirrors getDefaultPricingConfig in pricing-config route). */
 function getDefaultRates() {
@@ -391,17 +359,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Calculate totals
-    let subtotalExGST = lineItems.reduce((sum, item) => sum + item.subtotal, 0);
-    subtotalExGST = Math.round(subtotalExGST * 100) / 100;
-
-    const minimumApplied = subtotalExGST < MINIMUM_CHARGE_EX_GST;
-    if (minimumApplied) {
-      subtotalExGST = MINIMUM_CHARGE_EX_GST;
-    }
-
-    const gst = Math.round(subtotalExGST * GST_RATE * 100) / 100;
-    const totalIncGST = Math.round((subtotalExGST + gst) * 100) / 100;
+    // Calculate totals (min charge + GST via shared helpers)
+    const lineSubtotal = lineItems.reduce((sum, item) => sum + item.subtotal, 0);
+    const {
+      subtotalExGST,
+      minimumApplied,
+      minimumChargeAmount,
+    } = applyMinimumCharge(lineSubtotal);
+    const { gst, totalIncGST } = calcGstOnSubtotal(subtotalExGST);
 
     // Generate quote number
     const shortId = session.user.id.slice(-4).toUpperCase();
@@ -432,8 +397,11 @@ export async function POST(request: NextRequest) {
       gst,
       totalIncGST,
       minimumApplied,
-      minimumChargeAmount: MINIMUM_CHARGE_EX_GST,
+      minimumChargeAmount,
       jobDescription: input.jobDescription ?? "",
+      pricingSource: config ? "company_pricing_config" : "default_rates",
+      pricingNote:
+        "Rates come from Company Pricing Config (Settings → Pricing), not Cost Libraries. Use Estimation Engine + Cost Libraries for library-backed estimates.",
     });
   } catch (error) {
     return fromException(request, error, { stage: "calculate" });

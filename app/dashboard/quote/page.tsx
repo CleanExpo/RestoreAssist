@@ -10,8 +10,14 @@ import {
   Calculator,
   Printer,
   RotateCcw,
+  Save,
+  FileText,
+  Loader2,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { dollarsToCents } from "@/lib/quotes/quote-calc";
 
 /* ─── Types ─── */
 
@@ -45,6 +51,8 @@ interface QuoteResponse {
   minimumApplied: boolean;
   minimumChargeAmount: number;
   jobDescription: string;
+  pricingSource?: string;
+  pricingNote?: string;
 }
 
 /* ─── Job Type Definitions ─── */
@@ -117,10 +125,15 @@ const DEFAULT_FORM = {
 /* ─── Component ─── */
 
 export default function QuotePage() {
+  const router = useRouter();
   const [selectedJobType, setSelectedJobType] = useState<string | null>(null);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [quoteResult, setQuoteResult] = useState<QuoteResponse | null>(null);
   const [calculating, setCalculating] = useState(false);
+  const [savingEstimate, setSavingEstimate] = useState(false);
+  const [savingInvoice, setSavingInvoice] = useState(false);
+  const [savedEstimateId, setSavedEstimateId] = useState<string | null>(null);
+  const [savedInvoiceId, setSavedInvoiceId] = useState<string | null>(null);
 
   const updateField = (field: string, value: string | number | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -161,6 +174,111 @@ export default function QuotePage() {
     window.print();
   };
 
+  const handleSaveEstimate = async () => {
+    if (!quoteResult) return;
+    setSavingEstimate(true);
+    try {
+      const res = await fetch("/api/restoration-documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documentType: "ESTIMATE",
+          documentNumber: quoteResult.quoteNumber,
+          title: `${quoteResult.jobType} quote — ${quoteResult.client.name || "Client"}`,
+          data: {
+            source: "quote_generator",
+            quote: quoteResult,
+            formSnapshot: { jobType: selectedJobType, ...form },
+          },
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data?.error?.message || data?.error || "Failed to save estimate");
+        return;
+      }
+      const id = data.document?.id as string | undefined;
+      if (id) {
+        setSavedEstimateId(id);
+        toast.success("Saved as Restoration Document (Estimate)");
+      } else {
+        toast.success("Estimate saved");
+      }
+    } catch {
+      toast.error("Network error — could not save estimate");
+    } finally {
+      setSavingEstimate(false);
+    }
+  };
+
+  const handleCreateInvoiceDraft = async () => {
+    if (!quoteResult) return;
+    const email = quoteResult.client.email?.trim();
+    if (!email) {
+      toast.error("Add a client email before creating an AR invoice draft");
+      return;
+    }
+    setSavingInvoice(true);
+    try {
+      const due = new Date();
+      due.setDate(due.getDate() + 14);
+      const lineItems = quoteResult.lineItems.map((li) => ({
+        description: li.description,
+        category: "Quote",
+        quantity: li.qty,
+        unitPrice: dollarsToCents(li.rate),
+        gstRate: 10,
+      }));
+      // If minimum charge padded the subtotal without a matching line, add a top-up line
+      const linesEx = lineItems.reduce(
+        (sum, li) => sum + Math.round(li.quantity * li.unitPrice),
+        0,
+      );
+      const targetEx = dollarsToCents(quoteResult.subtotalExGST);
+      if (targetEx > linesEx) {
+        lineItems.push({
+          description: "Minimum engagement charge (industry minimum)",
+          category: "Quote",
+          quantity: 1,
+          unitPrice: targetEx - linesEx,
+          gstRate: 10,
+        });
+      }
+
+      const res = await fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: quoteResult.client.name || "Quote client",
+          customerEmail: email,
+          customerPhone: quoteResult.client.phone || undefined,
+          customerAddress: quoteResult.client.address || undefined,
+          dueDate: due.toISOString(),
+          notes: `Created from Quote Generator ${quoteResult.quoteNumber}`,
+          source: "quote_generator",
+          lineItems,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data?.error?.message || data?.error || "Failed to create invoice draft");
+        return;
+      }
+      const id = (data.invoice?.id || data.id) as string | undefined;
+      if (id) {
+        setSavedInvoiceId(id);
+        toast.success("AR Invoice draft created");
+        router.push(`/dashboard/invoices/${id}`);
+      } else {
+        toast.success("Invoice draft created");
+      }
+    } catch {
+      toast.error("Network error — could not create invoice");
+    } finally {
+      setSavingInvoice(false);
+    }
+  };
+
   const fmt = (n: number) =>
     n.toLocaleString("en-AU", { style: "currency", currency: "AUD" });
 
@@ -174,7 +292,8 @@ export default function QuotePage() {
             Quote Generator
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">
-            Generate NRPG-rated quotes using your saved pricing configuration
+            Generate NRPG-rated quotes using your Company Pricing rates (not Cost
+            Libraries). Save as a Restoration Estimate or AR Invoice draft when ready.
           </p>
         </div>
         {(selectedJobType || quoteResult) && (
@@ -446,18 +565,74 @@ export default function QuotePage() {
       {/* Step 3: Quote Result (Printable) */}
       {quoteResult && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between print:hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
             <h2 className="text-lg font-medium text-slate-800 dark:text-slate-200">
               Quote Generated
             </h2>
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-800 dark:bg-white dark:text-slate-800 rounded-lg hover:opacity-90 transition-opacity"
-            >
-              <Printer className="w-4 h-4" />
-              Print / Save PDF
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSaveEstimate}
+                disabled={savingEstimate}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 disabled:opacity-50"
+              >
+                {savingEstimate ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Save as Estimate
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateInvoiceDraft}
+                disabled={savingInvoice}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-800 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 dark:bg-slate-900 dark:text-white dark:border-slate-600 disabled:opacity-50"
+              >
+                {savingInvoice ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4" />
+                )}
+                Create Invoice Draft
+              </button>
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-800 dark:bg-white dark:text-slate-800 rounded-lg hover:opacity-90 transition-opacity"
+              >
+                <Printer className="w-4 h-4" />
+                Print / Save PDF
+              </button>
+            </div>
           </div>
+          {(savedEstimateId || savedInvoiceId || quoteResult.pricingNote) && (
+            <div className="print:hidden rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300 space-y-1">
+              {quoteResult.pricingNote && <p>{quoteResult.pricingNote}</p>}
+              {savedEstimateId && (
+                <p>
+                  Estimate saved —{" "}
+                  <Link
+                    href={`/dashboard/restoration-documents/invoice/${savedEstimateId}`}
+                    className="font-medium text-teal-700 underline dark:text-teal-400"
+                  >
+                    open document
+                  </Link>
+                </p>
+              )}
+              {savedInvoiceId && (
+                <p>
+                  Invoice draft —{" "}
+                  <Link
+                    href={`/dashboard/invoices/${savedInvoiceId}`}
+                    className="font-medium text-blue-700 underline dark:text-blue-400"
+                  >
+                    open invoice
+                  </Link>
+                </p>
+              )}
+            </div>
+          )}
 
           <div
             id="quote-print-content"
