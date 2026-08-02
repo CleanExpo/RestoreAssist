@@ -165,6 +165,26 @@ export interface TemplatePerformanceAnalytics {
   truncated: boolean;
 }
 
+/** Row shape for interview-analytics Templates tab (`type=template`). */
+export interface TemplatePerformanceListItem {
+  templateId: string;
+  name: string;
+  sessionCount: number;
+  completionRate: number;
+  averageDuration: number;
+  averageFieldsPopulated: number;
+}
+
+/** Row shape for interview-analytics Users tab (`type=user`). */
+export interface UserPerformanceListItem {
+  userId: string;
+  name: string | null;
+  email: string;
+  sessionCount: number;
+  completionRate: number;
+  averageConfidence: number;
+}
+
 /**
  * Interview Analytics Service
  */
@@ -554,6 +574,156 @@ export class InterviewAnalyticsService {
         truncated: false,
       };
     }
+  }
+
+  /**
+   * Per-template performance for sessions owned by the given user.
+   * Powers `/api/forms/interview/analytics?type=template`.
+   */
+  static async getTemplatePerformanceListForUser(
+    userId: string,
+  ): Promise<TemplatePerformanceListItem[]> {
+    const sessions = await prisma.interviewSession.findMany({
+      where: { userId },
+      select: {
+        formTemplateId: true,
+        status: true,
+        startedAt: true,
+        completedAt: true,
+        autoPopulatedFields: true,
+        formTemplate: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: MAX_SESSIONS_PER_ANALYTICS_QUERY,
+    });
+
+    type Acc = {
+      name: string;
+      total: number;
+      completed: number;
+      durationSum: number;
+      durationCount: number;
+      fieldsSum: number;
+    };
+    const byTemplate = new Map<string, Acc>();
+
+    for (const session of sessions) {
+      const existing = byTemplate.get(session.formTemplateId) ?? {
+        name: session.formTemplate?.name || session.formTemplateId,
+        total: 0,
+        completed: 0,
+        durationSum: 0,
+        durationCount: 0,
+        fieldsSum: 0,
+      };
+      existing.total++;
+      if (session.status === "COMPLETED") existing.completed++;
+      const duration = sessionDurationSeconds(
+        session.startedAt,
+        session.completedAt,
+      );
+      if (duration !== null) {
+        existing.durationSum += duration;
+        existing.durationCount++;
+      }
+      existing.fieldsSum += parseAutoPopulatedFieldStats(
+        session.autoPopulatedFields,
+      ).count;
+      byTemplate.set(session.formTemplateId, existing);
+    }
+
+    return Array.from(byTemplate.entries())
+      .map(([templateId, stats]) => ({
+        templateId,
+        name: stats.name,
+        sessionCount: stats.total,
+        completionRate:
+          stats.total > 0
+            ? Math.round((stats.completed / stats.total) * 100)
+            : 0,
+        averageDuration:
+          stats.durationCount > 0
+            ? Math.round(stats.durationSum / stats.durationCount)
+            : 0,
+        averageFieldsPopulated: Math.round(
+          stats.fieldsSum / Math.max(stats.total, 1),
+        ),
+      }))
+      .sort((a, b) => b.sessionCount - a.sessionCount);
+  }
+
+  /**
+   * Per-user interview performance for the given user IDs (org/team scoped by caller).
+   * Powers `/api/forms/interview/analytics?type=user`.
+   */
+  static async getUserPerformanceList(
+    userIds: string[],
+  ): Promise<UserPerformanceListItem[]> {
+    if (userIds.length === 0) return [];
+
+    const [users, sessions] = await Promise.all([
+      prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, name: true, email: true },
+        take: 500,
+      }),
+      prisma.interviewSession.findMany({
+        where: { userId: { in: userIds } },
+        select: {
+          userId: true,
+          status: true,
+          autoPopulatedFields: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: MAX_SESSIONS_PER_ANALYTICS_QUERY,
+      }),
+    ]);
+
+    type Acc = {
+      total: number;
+      completed: number;
+      confidenceSum: number;
+      confidenceCount: number;
+    };
+    const byUser = new Map<string, Acc>();
+
+    for (const session of sessions) {
+      const existing = byUser.get(session.userId) ?? {
+        total: 0,
+        completed: 0,
+        confidenceSum: 0,
+        confidenceCount: 0,
+      };
+      existing.total++;
+      if (session.status === "COMPLETED") existing.completed++;
+      const { confidences } = parseAutoPopulatedFieldStats(
+        session.autoPopulatedFields,
+      );
+      for (const c of confidences) {
+        existing.confidenceSum += c;
+        existing.confidenceCount++;
+      }
+      byUser.set(session.userId, existing);
+    }
+
+    return users
+      .map((user) => {
+        const stats = byUser.get(user.id);
+        if (!stats || stats.total === 0) return null;
+        return {
+          userId: user.id,
+          name: user.name,
+          email: user.email,
+          sessionCount: stats.total,
+          completionRate: Math.round((stats.completed / stats.total) * 100),
+          averageConfidence:
+            stats.confidenceCount > 0
+              ? Math.round(stats.confidenceSum / stats.confidenceCount)
+              : 0,
+        };
+      })
+      .filter((row): row is UserPerformanceListItem => row != null)
+      .sort((a, b) => b.sessionCount - a.sessionCount);
   }
 
   /**

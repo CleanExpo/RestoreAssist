@@ -81,9 +81,14 @@ export default function InterviewsPage() {
   const {
     data: sessionsData,
     loading,
+    error: sessionsError,
     refetch: refetchSessions,
-  } = useFetch<{ sessions: InterviewSession[] }>("/api/interviews");
+  } = useFetch<{
+    sessions: InterviewSession[];
+    pagination?: { page: number; limit: number; total: number; totalPages: number };
+  }>("/api/interviews?limit=100");
   const sessions = sessionsData?.sessions ?? [];
+  const sessionsTotal = sessionsData?.pagination?.total ?? sessions.length;
 
   const {
     data: stats,
@@ -139,7 +144,7 @@ export default function InterviewsPage() {
       router.push(
         `/dashboard/forms/interview?formTemplateId=${s.formTemplate.id}&sessionId=${s.id}`,
       );
-    } else if (s.status === "COMPLETED") {
+    } else if (s.status === "COMPLETED" || s.status === "ABANDONED") {
       router.push(`/dashboard/interviews/${s.id}`);
     }
   };
@@ -450,6 +455,28 @@ export default function InterviewsPage() {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="animate-spin text-cyan-500" size={32} />
         </div>
+      ) : sessionsError ? (
+        <div
+          role="alert"
+          className="text-center py-20 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10"
+        >
+          <XCircle
+            size={48}
+            className="mx-auto text-destructive mb-4"
+          />
+          <h3 className="text-lg font-semibold text-neutral-700 dark:text-slate-300">
+            Couldn&apos;t load interviews
+          </h3>
+          <p className="text-sm text-neutral-500 dark:text-slate-400 mt-1 mb-4">
+            {sessionsError}
+          </p>
+          <button
+            onClick={() => refetchSessions()}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20">
           <MessageSquare
@@ -576,6 +603,11 @@ export default function InterviewsPage() {
               </div>
             );
           })}
+          {sessionsTotal > sessions.length && (
+            <p className="text-center text-sm text-neutral-500 dark:text-slate-400 pt-2">
+              Showing {sessions.length} of {sessionsTotal} interviews
+            </p>
+          )}
         </div>
       )}
 

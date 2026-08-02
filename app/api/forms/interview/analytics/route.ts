@@ -4,6 +4,8 @@
  * GET /api/forms/interview/analytics?userId=<id>
  * GET /api/forms/interview/analytics?templateId=<id>
  * GET /api/forms/interview/analytics?type=aggregate
+ * GET /api/forms/interview/analytics?type=template  — list of templates used
+ * GET /api/forms/interview/analytics?type=user      — list of team users with sessions
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
     // Get user from database to get userId
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { id: true, role: true },
+      select: { id: true, role: true, organizationId: true },
     });
 
     if (!user) {
@@ -53,6 +55,49 @@ export async function GET(request: NextRequest) {
       const stats =
         await InterviewAnalyticsService.getAggregateStatisticsForUser(user.id);
       return NextResponse.json(stats);
+    }
+
+    // List template performance rows for the interview-analytics Templates tab
+    if (type === "template") {
+      const templates =
+        await InterviewAnalyticsService.getTemplatePerformanceListForUser(
+          user.id,
+        );
+      return NextResponse.json({ templates });
+    }
+
+    // List per-user performance for the interview-analytics Users tab.
+    // ADMIN/MANAGER with an org see org teammates; everyone else sees self.
+    if (type === "user") {
+      let memberIds: string[] = [user.id];
+
+      if (
+        user.organizationId &&
+        (user.role === "ADMIN" || user.role === "MANAGER")
+      ) {
+        const where =
+          user.role === "MANAGER"
+            ? {
+                organizationId: user.organizationId,
+                role: "USER" as const,
+              }
+            : { organizationId: user.organizationId };
+
+        const members = await prisma.user.findMany({
+          where,
+          select: { id: true },
+          take: 500,
+        });
+        memberIds = members.map((m) => m.id);
+        // Always include the caller (admin/manager) so their own sessions appear
+        if (!memberIds.includes(user.id)) {
+          memberIds.push(user.id);
+        }
+      }
+
+      const users =
+        await InterviewAnalyticsService.getUserPerformanceList(memberIds);
+      return NextResponse.json({ users });
     }
 
     // Get user-specific analytics

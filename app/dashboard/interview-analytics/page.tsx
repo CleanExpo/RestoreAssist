@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -16,16 +16,13 @@ import { Progress } from "@/components/ui/progress";
 import {
   TrendingUp,
   Users,
-  Clock,
-  CheckCircle2,
   AlertCircle,
   BarChart3,
   RefreshCw,
 } from "lucide-react";
-import { useInterviewAnalytics } from "@/lib/forms/hooks";
 import type {
-  UserAnalyticsSummary,
-  TemplatePerformanceAnalytics,
+  TemplatePerformanceListItem,
+  UserPerformanceListItem,
 } from "@/lib/forms/analytics";
 
 /**
@@ -35,17 +32,22 @@ import type {
  */
 export default function InterviewAnalyticsDashboard() {
   const [aggregateStats, setAggregateStats] = useState<any>(null);
-  const [templateStats, setTemplateStats] = useState<any[]>([]);
-  const [userStats, setUserStats] = useState<any[]>([]);
+  const [templateStats, setTemplateStats] = useState<
+    TemplatePerformanceListItem[]
+  >([]);
+  const [userStats, setUserStats] = useState<UserPerformanceListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [secondaryError, setSecondaryError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
-  const { data: userAnalytics, isLoading: isLoadingUser } =
-    useInterviewAnalytics({
-      type: "user",
-      autoFetch: false,
-    });
+  const templateNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const tpl of templateStats) {
+      map.set(tpl.templateId, tpl.name);
+    }
+    return map;
+  }, [templateStats]);
 
   /**
    * Fetch analytics data
@@ -54,6 +56,7 @@ export default function InterviewAnalyticsDashboard() {
     try {
       setIsLoading(true);
       setError(null);
+      setSecondaryError(null);
 
       // Fetch aggregate statistics
       const aggregateResponse = await fetch(
@@ -65,7 +68,9 @@ export default function InterviewAnalyticsDashboard() {
       const aggregateData = await aggregateResponse.json();
       setAggregateStats(aggregateData);
 
-      // Fetch template analytics
+      const secondaryFailures: string[] = [];
+
+      // Fetch template analytics (list shape: { templates: [...] })
       try {
         const templateResponse = await fetch(
           "/api/forms/interview/analytics?type=template",
@@ -73,12 +78,16 @@ export default function InterviewAnalyticsDashboard() {
         if (templateResponse.ok) {
           const templateData = await templateResponse.json();
           setTemplateStats(templateData.templates || []);
+        } else {
+          setTemplateStats([]);
+          secondaryFailures.push("templates");
         }
       } catch {
-        /* template stats optional */
+        setTemplateStats([]);
+        secondaryFailures.push("templates");
       }
 
-      // Fetch user analytics
+      // Fetch user analytics (list shape: { users: [...] })
       try {
         const userResponse = await fetch(
           "/api/forms/interview/analytics?type=user",
@@ -86,9 +95,19 @@ export default function InterviewAnalyticsDashboard() {
         if (userResponse.ok) {
           const userData = await userResponse.json();
           setUserStats(userData.users || []);
+        } else {
+          setUserStats([]);
+          secondaryFailures.push("users");
         }
       } catch {
-        /* user stats optional */
+        setUserStats([]);
+        secondaryFailures.push("users");
+      }
+
+      if (secondaryFailures.length > 0) {
+        setSecondaryError(
+          `Could not load ${secondaryFailures.join(" and ")} analytics. Overview still available.`,
+        );
       }
 
       setLastRefresh(new Date());
@@ -113,17 +132,6 @@ export default function InterviewAnalyticsDashboard() {
    */
   const formatPercentage = (value: number): string => {
     return `${Math.round(value)}%`;
-  };
-
-  /**
-   * Format currency
-   */
-  const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat("en-AU", {
-      style: "currency",
-      currency: "AUD",
-      maximumFractionDigits: 0,
-    }).format(value);
   };
 
   /**
@@ -177,6 +185,12 @@ export default function InterviewAnalyticsDashboard() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      {secondaryError && !error && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{secondaryError}</AlertDescription>
         </Alert>
       )}
 
@@ -321,12 +335,14 @@ export default function InterviewAnalyticsDashboard() {
                       {aggregateStats.topPerformingTemplates.map(
                         (template: any, index: number) => (
                           <div
-                            key={index}
-                            className="flex justify-between items-center p-3 bg-slate-50 rounded-lg"
+                            key={template.templateId || index}
+                            className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg"
                           >
                             <div>
-                              <p className="text-sm font-medium text-slate-900">
-                                {template.templateId}
+                              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                                {templateNameById.get(template.templateId) ||
+                                  template.name ||
+                                  template.templateId}
                               </p>
                               <p className="text-xs text-slate-500 mt-1">
                                 {template.sessionCount} sessions
@@ -379,13 +395,13 @@ export default function InterviewAnalyticsDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {templateStats.map((tpl: any, i: number) => (
+                      {templateStats.map((tpl, i) => (
                         <tr
-                          key={i}
-                          className="border-b last:border-0 hover:bg-slate-50"
+                          key={tpl.templateId || i}
+                          className="border-b last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/40"
                         >
                           <td className="py-3 px-4 text-sm font-medium">
-                            {tpl.templateId || tpl.name || `Template ${i + 1}`}
+                            {tpl.name || tpl.templateId || `Template ${i + 1}`}
                           </td>
                           <td className="py-3 px-4 text-sm text-right">
                             {tpl.sessionCount ?? 0}
@@ -457,13 +473,18 @@ export default function InterviewAnalyticsDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {userStats.map((user: any, i: number) => (
+                      {userStats.map((user, i) => (
                         <tr
-                          key={i}
-                          className="border-b last:border-0 hover:bg-slate-50"
+                          key={user.userId || i}
+                          className="border-b last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/40"
                         >
                           <td className="py-3 px-4 text-sm font-medium">
-                            {user.name || user.userId || `User ${i + 1}`}
+                            <div>{user.name || user.email || `User ${i + 1}`}</div>
+                            {user.name && user.email ? (
+                              <div className="text-xs text-slate-500 font-normal">
+                                {user.email}
+                              </div>
+                            ) : null}
                           </td>
                           <td className="py-3 px-4 text-sm text-right">
                             {user.sessionCount ?? 0}

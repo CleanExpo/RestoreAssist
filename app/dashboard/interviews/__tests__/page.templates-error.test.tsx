@@ -26,7 +26,10 @@ beforeEach(() => {
       return { ...idle, error: "Server error 500" };
     }
     if (url.startsWith("/api/interviews")) {
-      return { ...idle, data: { sessions: [] } };
+      return {
+        ...idle,
+        data: { sessions: [], pagination: { page: 1, limit: 100, total: 0, totalPages: 0 } },
+      };
     }
     return idle; // analytics/stats
   });
