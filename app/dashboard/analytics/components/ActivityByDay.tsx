@@ -44,8 +44,8 @@ export default function ActivityByDay({
       <div
         className={cn(
           "p-6 rounded-2xl border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <div className="h-[280px] flex items-center justify-center">
@@ -60,8 +60,8 @@ export default function ActivityByDay({
       <div
         className={cn(
           "p-6 rounded-2xl border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <div className="flex items-center gap-3 mb-4">
@@ -69,7 +69,7 @@ export default function ActivityByDay({
           <h3
             className={cn(
               "text-lg font-semibold",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             Activity by Day of Week
@@ -78,7 +78,7 @@ export default function ActivityByDay({
         <div
           className={cn(
             "flex items-center justify-center h-[200px]",
-            "text-neutral-600 dark:text-slate-400",
+            "text-muted-foreground",
           )}
         >
           No activity data for this period
@@ -91,8 +91,8 @@ export default function ActivityByDay({
     <div
       className={cn(
         "p-6 rounded-2xl border",
-        "border-neutral-200 dark:border-slate-700/50",
-        "bg-white/50 dark:bg-slate-800/30",
+        "border-neutral-200 dark:border-slate-700/60",
+        "bg-white dark:bg-slate-900/50",
         "hover:border-cyan-500/30",
       )}
     >
@@ -102,13 +102,13 @@ export default function ActivityByDay({
           <h3
             className={cn(
               "text-lg font-semibold",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             Activity by Day of Week
           </h3>
         </div>
-        <span className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
+        <span className={cn("text-xs", "text-muted-foreground")}>
           Reports created
         </span>
       </div>
@@ -120,12 +120,12 @@ export default function ActivityByDay({
           />
           <XAxis
             dataKey="day"
-            className="text-neutral-600 dark:text-slate-400"
+            className="text-muted-foreground"
             style={{ fontSize: "12px" }}
             tickLine={false}
           />
           <YAxis
-            className="text-neutral-600 dark:text-slate-400"
+            className="text-muted-foreground"
             style={{ fontSize: "12px" }}
             allowDecimals={false}
           />
@@ -162,30 +162,30 @@ export default function ActivityByDay({
       <div
         className={cn(
           "mt-4 pt-4 border-t grid grid-cols-2 gap-2",
-          "border-neutral-200 dark:border-slate-700/50",
+          "border-neutral-200 dark:border-slate-700/60",
         )}
       >
         <div>
-          <p className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
+          <p className={cn("text-xs", "text-muted-foreground")}>
             Total reports (week)
           </p>
           <p
             className={cn(
               "text-lg font-semibold",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             {data.reduce((s, d) => s + d.reports, 0)}
           </p>
         </div>
         <div>
-          <p className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
+          <p className={cn("text-xs", "text-muted-foreground")}>
             Total revenue (week pattern)
           </p>
           <p
             className={cn(
               "text-lg font-semibold",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             ${data.reduce((s, d) => s + d.revenue, 0).toLocaleString()}
