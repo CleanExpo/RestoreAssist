@@ -81,8 +81,12 @@ export default function HomeownerCapturePage() {
           automatically — your assessor reviews everything you submit.
         </p>
       </header>
-      <div className="relative flex-1">
-        <SketchEditorV2 mode="guided" captureToken={token} />
+      <div className="relative flex-1 min-h-0 flex flex-col">
+        <SketchEditorV2
+          mode="guided"
+          captureToken={token}
+          className="!h-full min-h-0 rounded-none"
+        />
       </div>
     </main>
   );

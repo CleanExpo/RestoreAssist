@@ -1919,10 +1919,11 @@ export default function InspectionDetailPage({
         )}
 
         {/* Floor Plan / Sketch Tab — keep mounted (hidden) so tab switches
-            don't dispose Fabric mid-debounce and wipe the saved drawing. */}
+            don't dispose Fabric mid-debounce and wipe the saved drawing.
+            SketchEditor owns viewport height; panels below scroll naturally. */}
         <div
           className={cn(
-            "min-h-[600px]",
+            "flex flex-col min-h-0",
             activeTab !== "sketch" && "hidden",
           )}
           hidden={activeTab !== "sketch"}
@@ -1933,7 +1934,7 @@ export default function InspectionDetailPage({
             propertyPostcode={inspection.propertyPostcode ?? undefined}
             autoFetchFloorPlan={autoFetchFloorPlan}
           />
-          <div className="mt-3 space-y-3">
+          <div className="mt-3 space-y-3 flex-shrink-0">
             <ClientPortalLinkButton inspectionId={inspection.id} />
             <ClientEvidenceReviewPanel inspectionId={inspection.id} />
             <HomeownerCapturePanel inspectionId={inspection.id} />

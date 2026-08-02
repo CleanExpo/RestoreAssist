@@ -168,6 +168,11 @@ export interface SketchEditorV2Props {
   captureToken?: string;
   className?: string;
   width?: number;
+  /**
+   * Logical canvas size used for PDF export / RoomPlan coordinate mapping and
+   * as the ResizeObserver fallback before the host has a measured size.
+   * Panel chrome height is viewport-driven (`h-[calc(100dvh-…)]`), not this value.
+   */
   height?: number;
   /**
    * RA-2967 — When true and a propertyAddress is present, the floor plan
@@ -209,7 +214,7 @@ export function SketchEditorV2({
   captureToken,
   className,
   width = 1200,
-  height = 800,
+  height = 820,
   autoFetchFloorPlan = false,
 }: SketchEditorV2Props) {
   const guided = mode === "guided";
@@ -1614,9 +1619,11 @@ export function SketchEditorV2({
       className={cn(
         "relative flex flex-col bg-brand-canvas rounded-2xl overflow-hidden",
         "border border-white/10 shadow-2xl",
+        // Fill remaining viewport under dashboard chrome + inspection tabs.
+        // Canvas host is flex-1; underlay strip stays compact at the bottom.
+        "h-[calc(100dvh-16rem)] min-h-[480px]",
         className,
       )}
-      style={{ minHeight: height + 80 }}
     >
       {/* ── Top bar ────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-2 bg-brand-deep border-b border-white/10 flex-shrink-0">
@@ -1866,13 +1873,13 @@ export function SketchEditorV2({
         onAdd={handleAddFloor}
         onRemove={handleRemoveFloor}
         readonly={readonly}
+        className="shrink-0"
       />
 
       {/* ── Canvas area ────────────────────────────────────── */}
       <div
         ref={canvasHostRef}
-        className="relative flex-1 overflow-hidden"
-        style={{ minHeight: height }}
+        className="relative flex-1 min-h-0 overflow-hidden"
       >
         {!sketchesHydrated && (
           <div className="absolute inset-0 flex items-center justify-center text-white/40 text-sm gap-2">
@@ -2564,7 +2571,7 @@ export function SketchEditorV2({
       {!readonly && !guided && (
         <div
           ref={underlayPanelRef}
-          className="px-4 pb-4 pt-2 border-t border-white/10 bg-brand-deep"
+          className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-white/10 bg-brand-deep"
         >
           <FloorPlanUnderlayLoader
             defaultAddress={propertyAddress}
