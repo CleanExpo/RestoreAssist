@@ -12,8 +12,6 @@ vi.mock("../AiKeyCard", () => ({ AiKeyCard: () => <div>AIKEY_BODY</div> }));
 vi.mock("../BusinessDetailsCard", () => ({ BusinessDetailsCard: () => <div>BIZ_BODY</div> }));
 vi.mock("../BrandCard", () => ({ BrandCard: () => <div>BRAND_BODY</div> }));
 vi.mock("../PricingCard", () => ({ PricingCard: () => <div>PRICING_BODY</div> }));
-vi.mock("../StorageCard", () => ({ StorageCard: () => <div>STORAGE_BODY</div> }));
-vi.mock("../DatabaseCard", () => ({ DatabaseCard: () => <div>DB_BODY</div> }));
 vi.mock("../IntegrationsCard", () => ({ IntegrationsCard: () => <div>INTEG_BODY</div> }));
 vi.mock("../FeatureHealthCard", () => ({ FeatureHealthCard: () => <div>HEALTH_BODY</div> }));
 
@@ -40,7 +38,7 @@ beforeEach(() => {
 describe("SetupShell — one-step wizard wiring", () => {
   it("renders the wizard starting at the Welcome step (one step visible)", async () => {
     render(<SetupShell initial={initial} />);
-    expect(await screen.findByText(/Step 1 of 8: Welcome/)).toBeInTheDocument();
+    expect(await screen.findByText(/Step 1 of 7: Welcome/)).toBeInTheDocument();
     expect(screen.getByText("VIDEO_BODY")).toBeInTheDocument();
     // Later steps' bodies are NOT mounted yet (locked one-step-at-a-time).
     expect(screen.queryByText("AIKEY_BODY")).not.toBeInTheDocument();
@@ -49,9 +47,9 @@ describe("SetupShell — one-step wizard wiring", () => {
 
   it("advances from the optional Welcome step to the AI-key step", async () => {
     render(<SetupShell initial={initial} />);
-    await screen.findByText(/Step 1 of 8: Welcome/);
+    await screen.findByText(/Step 1 of 7: Welcome/);
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
-    expect(screen.getByText(/Step 2 of 8: Add your AI key/)).toBeInTheDocument();
+    expect(screen.getByText(/Step 2 of 7: Add your AI key/)).toBeInTheDocument();
     expect(screen.getByText("AIKEY_BODY")).toBeInTheDocument();
     // AI-key is required + incomplete (status stub → completed:false) → locked.
     expect(screen.getByRole("button", { name: /next/i })).toBeDisabled();
