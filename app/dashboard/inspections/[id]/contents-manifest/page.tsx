@@ -386,71 +386,130 @@ export default function ContentsManifestPage({
   const [generating, setGenerating] = useState(false);
   const [viewMode, setViewMode] = useState<"room" | "category">("room");
 
-  // Fetch inspection metadata
+  // Fetch inspection metadata + any durable draft already saved
   const fetchMeta = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/inspections/${id}`);
-      if (!res.ok) {
+      const [inspRes, draftRes] = await Promise.all([
+        fetch(`/api/inspections/${id}`),
+        fetch(`/api/inspections/${id}/contents-manifest`),
+      ]);
+      if (!inspRes.ok) {
         toast.error("Inspection not found");
         router.push("/dashboard/inspections");
         return;
       }
-      const data = await res.json();
+      const data = await inspRes.json();
       const insp = data.inspection;
       setMeta({
         inspectionNumber: insp.inspectionNumber,
         propertyAddress: insp.propertyAddress,
         status: insp.status,
       });
+
+      if (draftRes.ok) {
+        const draftJson = await draftRes.json();
+        const draft = draftJson.data;
+        if (draft?.items?.length && !manifest) {
+          // Hydrate the vision UI from the durable draft so reload keeps work.
+          setManifest({
+            inspectionId: id,
+            items: draft.items.map(
+              (item: {
+                id: string;
+                description: string;
+                category: string;
+                roomLocation?: string;
+                condition: string;
+                restorableStatus: string;
+                estimatedValue?: number;
+                count: number;
+                confidence: number;
+                aiNote?: string;
+                flagForReview?: boolean;
+              }) => ({
+                id: item.id,
+                description: item.description,
+                category: item.category,
+                room: item.roomLocation ?? "Unknown",
+                condition: item.condition,
+                restorability:
+                  item.restorableStatus === "replace"
+                    ? "non_restorable"
+                    : item.restorableStatus === "uncertain"
+                      ? "questionable"
+                      : "restorable",
+                estimatedValueAud: item.estimatedValue ?? 0,
+                quantity: item.count,
+                confidence: (item.confidence ?? 0) / 100,
+                sourcePhotoIndices: [],
+                aiNotes: item.aiNote,
+                verified: !item.flagForReview,
+              }),
+            ),
+            photosAnalysed: draft.imageCount ?? 0,
+            totalEstimatedValueAud: (draft.items as { estimatedValue?: number; count: number }[]).reduce(
+              (sum, i) => sum + (i.estimatedValue ?? 0) * (i.count || 1),
+              0,
+            ),
+            overallConfidence: 0,
+            model: draft.model ?? "saved-draft",
+            tier: "premium",
+            durationMs: 0,
+            estimatedCostUsd: 0,
+            generatedAt: draft.generatedAt ?? new Date().toISOString(),
+          });
+        }
+      }
     } catch {
       toast.error("Failed to load inspection");
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once on mount/id
   }, [id, router]);
 
   useEffect(() => {
     fetchMeta();
   }, [fetchMeta]);
 
-  // Generate manifest from photos
+  // Generate manifest from photos (workspace BYOK resolved server-side)
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      // Fetch inspection photos from evidence items
       const photosRes = await fetch(`/api/inspections/${id}`);
       if (!photosRes.ok) throw new Error("Failed to fetch inspection data");
       const photosData = await photosRes.json();
       const insp = photosData.inspection;
 
-      // Collect photo evidence items
-      const photoEvidence = (insp.evidenceItems ?? []).filter(
-        (e: { evidenceClass: string; fileUrl?: string }) =>
-          e.evidenceClass?.startsWith("PHOTO_") && e.fileUrl,
+      const evidencePhotos = (insp.evidenceItems ?? []).filter(
+        (e: { evidenceClass?: string; fileUrl?: string }) =>
+          e.fileUrl &&
+          (e.evidenceClass === "AFFECTED_CONTENTS" ||
+            e.evidenceClass?.startsWith("PHOTO_")),
       );
+      const inspectionPhotos = (insp.photos ?? [])
+        .filter((p: { url?: string }) => p.url)
+        .map((p: { url: string; description?: string; location?: string }) => ({
+          fileUrl: p.url,
+          label: p.description ?? p.location ?? "Inspection photo",
+          evidenceClass: "PHOTO",
+        }));
 
-      if (photoEvidence.length === 0) {
+      const photoSources =
+        evidencePhotos.length > 0 ? evidencePhotos : inspectionPhotos;
+
+      if (photoSources.length === 0) {
         toast.error("No photos found. Upload inspection photos first.");
-        setGenerating(false);
         return;
       }
 
-      // Get user's BYOK settings
       const settingsRes = await fetch("/api/user/profile");
       const settingsData = settingsRes.ok ? await settingsRes.json() : null;
       const byokModel =
         settingsData?.user?.preferredAiModel ?? "claude-sonnet-4-6";
-      const byokKey = settingsData?.user?.byokApiKey;
 
-      if (!byokKey) {
-        toast.error("AI API key required. Set your BYOK key in Settings.");
-        setGenerating(false);
-        return;
-      }
-
-      // Fetch and encode photos (max 20)
-      const photosToProcess = photoEvidence.slice(0, 20);
+      const photosToProcess = photoSources.slice(0, 20);
       const encodedPhotos: Array<{
         data: string;
         mediaType: string;
@@ -481,11 +540,9 @@ export default function ContentsManifestPage({
 
       if (encodedPhotos.length === 0) {
         toast.error("Could not load any photos. Check photo URLs.");
-        setGenerating(false);
         return;
       }
 
-      // Call the manifest API
       const manifestRes = await fetch("/api/inspections/contents-manifest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -493,7 +550,6 @@ export default function ContentsManifestPage({
           inspectionId: id,
           photos: encodedPhotos,
           model: byokModel,
-          apiKey: byokKey,
           context: {
             jobType: insp.inspectionWorkflow?.jobType,
           },
@@ -502,13 +558,19 @@ export default function ContentsManifestPage({
 
       if (!manifestRes.ok) {
         const err = await manifestRes.json().catch(() => ({}));
-        throw new Error(err.error ?? "Manifest generation failed");
+        const message =
+          typeof err.error === "string"
+            ? err.error
+            : err.error?.message ?? "Manifest generation failed";
+        throw new Error(message);
       }
 
       const result = await manifestRes.json();
       setManifest(result.manifest);
       toast.success(
-        `Identified ${result.manifest.items.length} items from ${encodedPhotos.length} photos`,
+        result.persisted
+          ? `Identified ${result.manifest.items.length} items — saved to Contents Manifest`
+          : `Identified ${result.manifest.items.length} items from ${encodedPhotos.length} photos`,
       );
     } catch (err: unknown) {
       toast.error(
@@ -641,6 +703,15 @@ export default function ContentsManifestPage({
             </div>
 
             <div className="flex items-center gap-2">
+              <Button
+                onClick={() =>
+                  router.push(`/dashboard/inspections/${id}/contents`)
+                }
+                variant="outline"
+                className="shrink-0"
+              >
+                Open Contents editor
+              </Button>
               {manifest && (
                 <Button
                   onClick={handleExportCsv}
