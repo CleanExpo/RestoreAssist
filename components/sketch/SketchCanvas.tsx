@@ -80,6 +80,11 @@ export interface SketchCanvasProps {
   className?: string;
   /** When toolMode is "damage", brush stamps this damage kind onto the path. */
   damageKind?: import("@/lib/sketch/damage-zone").DamageKind;
+  /**
+   * Fabric JSON to restore during init (before onReady).
+   * Must be applied here — post-mount loadFromJSON races are unreliable on refresh.
+   */
+  initialData?: Record<string, unknown> | null;
 }
 
 export interface FabricCanvasRef {
@@ -139,6 +144,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       readonly = false,
       className,
       damageKind = "water",
+      initialData = null,
     },
     ref,
   ) {
@@ -147,6 +153,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
     const historyRef = useRef<string[]>([]);
     const historyIdxRef = useRef(-1);
     const isLoadingRef = useRef(false);
+    // Capture first-mount restore payload only (API-driven remounts pass a new instance).
+    const initialDataRef = useRef(initialData);
     // Keep latest viewport size for async Fabric init + resize without remount.
     const sizeRef = useRef({ width, height });
     sizeRef.current = { width, height };
@@ -188,14 +196,15 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
     const undo = useCallback(async () => {
       const canvas = fabricRef.current as {
-        loadFromJSON: (d: object, cb: () => void) => void;
+        // Fabric v6/v7: loadFromJSON returns a Promise; 2nd arg is a reviver, NOT a done cb.
+        loadFromJSON: (d: object) => Promise<unknown>;
         renderAll: () => void;
       } | null;
       if (!canvas || historyIdxRef.current <= 0) return;
       historyIdxRef.current -= 1;
       isLoadingRef.current = true;
       const json = JSON.parse(historyRef.current[historyIdxRef.current]);
-      await new Promise<void>((resolve) => canvas.loadFromJSON(json, resolve));
+      await canvas.loadFromJSON(json);
       canvas.renderAll();
       isLoadingRef.current = false;
       setHistoryState({
@@ -206,7 +215,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
     const redo = useCallback(async () => {
       const canvas = fabricRef.current as {
-        loadFromJSON: (d: object, cb: () => void) => void;
+        loadFromJSON: (d: object) => Promise<unknown>;
         renderAll: () => void;
       } | null;
       if (!canvas || historyIdxRef.current >= historyRef.current.length - 1)
@@ -214,7 +223,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       historyIdxRef.current += 1;
       isLoadingRef.current = true;
       const json = JSON.parse(historyRef.current[historyIdxRef.current]);
-      await new Promise<void>((resolve) => canvas.loadFromJSON(json, resolve));
+      await canvas.loadFromJSON(json);
       canvas.renderAll();
       isLoadingRef.current = false;
       setHistoryState({
@@ -235,11 +244,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         },
         loadFromJSON: async (data: object) => {
           const c = fabricRef.current as {
-            loadFromJSON: (d: object, cb: () => void) => void;
+            loadFromJSON: (d: object) => Promise<unknown>;
             renderAll: () => void;
           } | null;
           if (!c) return;
-          await new Promise<void>((resolve) => c.loadFromJSON(data, resolve));
+          // Fabric v7: must await the returned Promise. Passing a "done"
+          // callback as arg 2 treats it as a reviver and never restores objects.
+          await c.loadFromJSON(data);
           c.renderAll();
         },
         toDataURL: (opts) => {
@@ -334,7 +345,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           renderAll: () => void;
           isDrawingMode: boolean;
           freeDrawingBrush: { color: string; width: number };
-          loadFromJSON: (d: object, cb: () => void) => void;
+          loadFromJSON: (d: object) => Promise<unknown>;
           toJSON: () => object;
           toDataURL: (opts?: object) => string;
           dispose: () => void;
@@ -1287,7 +1298,21 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           }
         }
 
-        // Save initial empty state
+        // Restore persisted drawing BEFORE onReady/history so refresh shows work.
+        const bootstrap = initialDataRef.current;
+        if (bootstrap && typeof bootstrap === "object") {
+          try {
+            isLoadingRef.current = true;
+            await canvas.loadFromJSON(bootstrap);
+            canvas.renderAll();
+          } catch (e) {
+            console.error("SketchCanvas: initialData restore failed", e);
+          } finally {
+            isLoadingRef.current = false;
+          }
+        }
+
+        // Seed history from the restored (or empty) canvas
         saveState();
 
         // Notify parent
@@ -1296,8 +1321,15 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             (canvas as unknown as { toJSON: (e?: string[]) => object }).toJSON([
               "data",
             ]),
-          loadFromJSON: (data) =>
-            new Promise((resolve) => canvas.loadFromJSON(data, resolve)),
+          loadFromJSON: async (data) => {
+            isLoadingRef.current = true;
+            try {
+              await canvas.loadFromJSON(data);
+              canvas.renderAll();
+            } finally {
+              isLoadingRef.current = false;
+            }
+          },
           // RA-6847 [C1]: strip the underlay so the export never leaks it.
           toDataURL: (opts) =>
             exportSketchPng(canvas as unknown as ExportableCanvas, opts),
