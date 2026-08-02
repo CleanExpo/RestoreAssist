@@ -40,15 +40,15 @@ export default function RevenueChart({
       <div
         className={cn(
           "p-6 rounded-lg border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <div className="h-[400px] flex items-center justify-center">
           <div className="text-center space-y-4">
             <Loader2 className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
             <p
-              className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}
+              className={cn("text-sm", "text-muted-foreground")}
             >
               Loading chart...
             </p>
@@ -63,14 +63,14 @@ export default function RevenueChart({
       <div
         className={cn(
           "p-6 rounded-lg border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <h3
           className={cn(
             "font-semibold mb-4",
-            "text-neutral-900 dark:text-slate-200",
+            "text-foreground",
           )}
         >
           Revenue Trend
@@ -78,7 +78,7 @@ export default function RevenueChart({
         <div
           className={cn(
             "flex items-center justify-center h-[300px]",
-            "text-neutral-600 dark:text-slate-400",
+            "text-muted-foreground",
           )}
         >
           No data available for selected period
@@ -91,20 +91,20 @@ export default function RevenueChart({
     <div
       className={cn(
         "p-6 rounded-lg border",
-        "border-neutral-200 dark:border-slate-700/50",
-        "bg-white/50 dark:bg-slate-800/30",
+        "border-neutral-200 dark:border-slate-700/60",
+        "bg-white dark:bg-slate-900/50",
       )}
     >
       <div className="flex items-center justify-between mb-4">
         <h3
           className={cn(
             "font-semibold text-lg",
-            "text-neutral-900 dark:text-slate-200",
+            "text-foreground",
           )}
         >
           Revenue Trend
         </h3>
-        <span className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
+        <span className={cn("text-xs", "text-muted-foreground")}>
           {dateRange}
         </span>
       </div>
@@ -119,18 +119,18 @@ export default function RevenueChart({
           </defs>
           <CartesianGrid
             strokeDasharray="3 3"
-            className="stroke-neutral-300 dark:stroke-slate-700"
+            className="stroke-border"
           />
           <XAxis
             dataKey="date"
-            className="text-neutral-600 dark:text-slate-400"
+            className="text-muted-foreground"
             style={{ fontSize: "12px" }}
             angle={data.length > 10 ? -45 : 0}
             textAnchor={data.length > 10 ? "end" : "middle"}
             height={data.length > 10 ? 80 : 30}
           />
           <YAxis
-            className="text-neutral-600 dark:text-slate-400"
+            className="text-muted-foreground"
             style={{ fontSize: "12px" }}
           />
           <TooltipAny
@@ -140,7 +140,7 @@ export default function RevenueChart({
               borderRadius: "8px",
               color: "#111827",
             }}
-            className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
+            className=""
             formatter={(value: any) => [
               typeof value === "number" ? `$${value.toLocaleString()}` : value,
               "Revenue",
@@ -167,7 +167,7 @@ export default function RevenueChart({
           {data[0]?.reports !== undefined && (
             <YAxis
               yAxisId="right"
-              className="text-neutral-600 dark:text-slate-400"
+              className="text-muted-foreground"
               style={{ fontSize: "12px" }}
             />
           )}
@@ -178,14 +178,14 @@ export default function RevenueChart({
       <div
         className={cn(
           "grid grid-cols-3 gap-4 mt-6 pt-6 border-t",
-          "border-neutral-200 dark:border-slate-700",
+          "border-neutral-200 dark:border-slate-700/60",
         )}
       >
         <div>
           <p
             className={cn(
               "text-xs mb-1",
-              "text-neutral-600 dark:text-slate-400",
+              "text-muted-foreground",
             )}
           >
             Total Revenue
@@ -193,7 +193,7 @@ export default function RevenueChart({
           <p
             className={cn(
               "text-lg font-semibold",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             ${data.reduce((sum, d) => sum + d.revenue, 0).toLocaleString()}
@@ -203,7 +203,7 @@ export default function RevenueChart({
           <p
             className={cn(
               "text-xs mb-1",
-              "text-neutral-600 dark:text-slate-400",
+              "text-muted-foreground",
             )}
           >
             Average Daily
@@ -211,7 +211,7 @@ export default function RevenueChart({
           <p
             className={cn(
               "text-lg font-semibold",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             $
@@ -224,7 +224,7 @@ export default function RevenueChart({
           <p
             className={cn(
               "text-xs mb-1",
-              "text-neutral-600 dark:text-slate-400",
+              "text-muted-foreground",
             )}
           >
             Highest Day
@@ -232,7 +232,7 @@ export default function RevenueChart({
           <p
             className={cn(
               "text-lg font-semibold",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             ${Math.max(...data.map((d) => d.revenue)).toLocaleString()}
