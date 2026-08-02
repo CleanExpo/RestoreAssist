@@ -12,6 +12,11 @@ import { CATEGORY_VIDEOS } from "@/lib/help/category-videos";
 import { VIDEO_REGISTRY } from "@/components/setup/video-registry";
 import HelpArticleCard from "@/components/help/HelpArticleCard";
 import Link from "next/link";
+import {
+  DashboardPanel,
+  dashboardSurfaceClass,
+} from "@/app/dashboard/components/DashboardPanel";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +37,8 @@ export default async function HelpCategoryPage({
 }) {
   const session = await getServerSession(authOptions);
   const { category } = await params;
-  if (!session?.user?.id) redirect(`/login?callbackUrl=/dashboard/help/${category}`);
+  if (!session?.user?.id)
+    redirect(`/login?callbackUrl=/dashboard/help/${category}`);
   if (!isCategory(category)) notFound();
 
   const articles = await loadCategoryIndex(category);
@@ -42,36 +48,51 @@ export default async function HelpCategoryPage({
     .filter((v) => v.title);
 
   return (
-    <main className="container mx-auto max-w-5xl p-6">
-      <nav className="mb-4 text-sm text-white/50">
-        <Link href="/dashboard/help" className="hover:text-white">Help</Link>
+    <div className="w-full space-y-6 px-4 sm:px-6 py-6 sm:py-8">
+      <nav className="text-sm text-muted-foreground">
+        <Link href="/dashboard/help" className="hover:text-foreground">
+          Help
+        </Link>
         <span className="mx-2">/</span>
-        <span className="text-white">{HELP_CATEGORY_LABELS[category]}</span>
+        <span className="text-foreground font-medium">
+          {HELP_CATEGORY_LABELS[category]}
+        </span>
       </nav>
-      <h1 className="text-3xl font-semibold text-white">{HELP_CATEGORY_LABELS[category]}</h1>
 
-      {/* Video Walkthroughs Section */}
+      <header>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">
+          {HELP_CATEGORY_LABELS[category]}
+        </h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Videos and articles for this topic.
+        </p>
+      </header>
+
       {videos.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-4 text-lg font-semibold text-white">Video Walkthroughs</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-foreground">
+            Video walkthroughs
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {videos.map((video) => (
               <Link
                 key={video.slug}
                 href={`/dashboard/learn?video=${video.slug}`}
-                className="group relative overflow-hidden rounded-xl border border-white/10 bg-brand-surface p-4 hover:border-brand-bronze/50 transition-colors"
+                className={cn(
+                  "group flex items-start gap-3 rounded-lg p-4 transition-colors",
+                  dashboardSurfaceClass,
+                  "hover:border-slate-300 dark:hover:border-slate-600",
+                )}
               >
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-navy group-hover:bg-brand-bronze/20">
-                    <span className="h-5 w-5 text-brand-bronze group-hover:text-white" aria-hidden="true">▶</span>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <span aria-hidden="true">▶</span>
+                </div>
+                <div className="min-w-0">
+                  <div className="font-medium text-foreground group-hover:text-primary">
+                    {video.title}
                   </div>
-                  <div className="min-w-0">
-                    <div className="font-medium text-white group-hover:text-brand-gold">
-                      {video.title}
-                    </div>
-                    <div className="mt-1 text-xs text-white/50">
-                      {formatDuration(video.durationSec)}
-                    </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {formatDuration(video.durationSec)}
                   </div>
                 </div>
               </Link>
@@ -80,14 +101,15 @@ export default async function HelpCategoryPage({
         </section>
       )}
 
-      {/* Articles Section */}
-      <section className="mt-10">
-        <h2 className="mb-4 text-lg font-semibold text-white">Articles</h2>
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">Articles</h2>
         {articles.length === 0 ? (
-          <p className="text-sm text-white/50">More articles landing soon.</p>
+          <DashboardPanel className="py-8 text-center text-sm text-muted-foreground">
+            More articles landing soon.
+          </DashboardPanel>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {articles.map((a) => (
+          <div className="flex flex-col gap-2.5">
+            {articles.map((a, i) => (
               <HelpArticleCard
                 key={a.frontmatter.slug}
                 title={a.frontmatter.title}
@@ -96,11 +118,14 @@ export default async function HelpCategoryPage({
                 aiSummary={a.frontmatter.aiSummary}
                 readTimeMin={a.frontmatter.readTimeMin}
                 updatedAt={a.frontmatter.updatedAt}
+                hideCategory
+                variant="row"
+                index={i + 1}
               />
             ))}
           </div>
         )}
       </section>
-    </main>
+    </div>
   );
 }
