@@ -32,15 +32,15 @@ export default function TopClientsTable({
       <div
         className={cn(
           "p-6 rounded-lg border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <div className="h-[400px] flex items-center justify-center">
           <div className="text-center space-y-4">
             <Loader2 className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
             <p
-              className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}
+              className={cn("text-sm", "text-muted-foreground")}
             >
               Loading data...
             </p>
@@ -55,14 +55,14 @@ export default function TopClientsTable({
       <div
         className={cn(
           "p-6 rounded-lg border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <h3
           className={cn(
             "font-semibold mb-4",
-            "text-neutral-900 dark:text-slate-200",
+            "text-foreground",
           )}
         >
           Top Clients by Revenue
@@ -70,7 +70,7 @@ export default function TopClientsTable({
         <div
           className={cn(
             "flex items-center justify-center h-[300px]",
-            "text-neutral-600 dark:text-slate-400",
+            "text-muted-foreground",
           )}
         >
           No client data available
@@ -151,20 +151,20 @@ export default function TopClientsTable({
     <div
       className={cn(
         "p-6 rounded-lg border",
-        "border-neutral-200 dark:border-slate-700/50",
-        "bg-white/50 dark:bg-slate-800/30",
+        "border-neutral-200 dark:border-slate-700/60",
+        "bg-white dark:bg-slate-900/50",
       )}
     >
       <div className="flex items-center justify-between mb-4">
         <h3
           className={cn(
             "font-semibold text-lg",
-            "text-neutral-900 dark:text-slate-200",
+            "text-foreground",
           )}
         >
           Top Clients by Revenue
         </h3>
-        <span className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
+        <span className={cn("text-xs", "text-muted-foreground")}>
           {data.length} clients
         </span>
       </div>
@@ -175,13 +175,13 @@ export default function TopClientsTable({
             <tr
               className={cn(
                 "border-b",
-                "border-neutral-200 dark:border-slate-700",
+                "border-neutral-200 dark:border-slate-700/60",
               )}
             >
               <th
                 className={cn(
                   "px-4 py-3 text-left text-xs font-semibold cursor-pointer",
-                  "text-neutral-700 dark:text-slate-300",
+                  "text-foreground/90",
                   "hover:text-neutral-900 dark:hover:text-slate-200",
                 )}
                 onClick={() => handleSort("name")}
@@ -194,7 +194,7 @@ export default function TopClientsTable({
               <th
                 className={cn(
                   "px-4 py-3 text-right text-xs font-semibold cursor-pointer",
-                  "text-neutral-700 dark:text-slate-300",
+                  "text-foreground/90",
                   "hover:text-neutral-900 dark:hover:text-slate-200",
                 )}
                 onClick={() => handleSort("reports")}
@@ -207,7 +207,7 @@ export default function TopClientsTable({
               <th
                 className={cn(
                   "px-4 py-3 text-right text-xs font-semibold cursor-pointer",
-                  "text-neutral-700 dark:text-slate-300",
+                  "text-foreground/90",
                   "hover:text-neutral-900 dark:hover:text-slate-200",
                 )}
                 onClick={() => handleSort("revenue")}
@@ -220,7 +220,7 @@ export default function TopClientsTable({
               <th
                 className={cn(
                   "px-4 py-3 text-right text-xs font-semibold",
-                  "text-neutral-700 dark:text-slate-300",
+                  "text-foreground/90",
                 )}
               >
                 Avg Value
@@ -233,8 +233,8 @@ export default function TopClientsTable({
                 key={index}
                 className={cn(
                   "border-b transition-colors",
-                  "border-neutral-200 dark:border-slate-700/30",
-                  "hover:bg-neutral-50 dark:hover:bg-slate-700/10",
+                  "border-neutral-200 dark:border-slate-700/60/30",
+                  "hover:bg-muted/50",
                 )}
               >
                 <td className="px-4 py-3">
@@ -242,7 +242,7 @@ export default function TopClientsTable({
                     <p
                       className={cn(
                         "font-medium",
-                        "text-neutral-900 dark:text-slate-200",
+                        "text-foreground",
                       )}
                     >
                       {client.name}
@@ -250,7 +250,7 @@ export default function TopClientsTable({
                     <p
                       className={cn(
                         "text-xs",
-                        "text-neutral-600 dark:text-slate-400",
+                        "text-muted-foreground",
                       )}
                     >
                       #{index + 1} Client
@@ -272,7 +272,7 @@ export default function TopClientsTable({
                 <td
                   className={cn(
                     "px-4 py-3 text-right",
-                    "text-neutral-700 dark:text-slate-300",
+                    "text-foreground/90",
                   )}
                 >
                   {typeof client.avgValue === "number"
@@ -289,10 +289,10 @@ export default function TopClientsTable({
       <div
         className={cn(
           "mt-4 pt-4 border-t flex justify-between text-sm",
-          "border-neutral-200 dark:border-slate-700",
+          "border-neutral-200 dark:border-slate-700/60",
         )}
       >
-        <span className={cn("text-neutral-600 dark:text-slate-400")}>
+        <span className={cn("text-muted-foreground")}>
           Total for top clients
         </span>
         <span className="font-semibold text-success">
