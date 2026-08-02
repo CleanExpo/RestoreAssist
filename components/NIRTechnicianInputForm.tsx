@@ -37,6 +37,7 @@ import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas
 import ClassificationSuggestion from "@/components/inspection/ClassificationSuggestion";
 import ClaimTypePicker from "@/components/inspection/ClaimTypePicker";
 import NIRClaimAssessmentPanel from "@/components/inspection/NIRClaimAssessmentPanel";
+import { MakeSafeChecklist } from "@/components/inspection/MakeSafeChecklist";
 import {
   asIicrcClaimType,
   isWaterDamageClaim,
@@ -1058,18 +1059,30 @@ export default function NIRTechnicianInputForm({
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    // Always clear so the same file can be re-selected after a blocked attempt
+    const resetInput = () => {
+      if (e.target) e.target.value = "";
+    };
     if (files.length === 0) return;
+
+    if (!claimType) {
+      toast.error("Select a claim type before uploading photos");
+      resetInput();
+      return;
+    }
+    if (!propertyAddress.trim() || !propertyPostcode.trim()) {
+      toast.error("Enter property address and postcode before uploading photos");
+      resetInput();
+      return;
+    }
 
     // Auto-create inspection if it doesn't exist
     let currentInspectionId = inspectionId;
     if (!currentInspectionId) {
-      if (!propertyAddress.trim() || !propertyPostcode.trim()) {
-        toast.error("Please enter property address and postcode first");
-        return;
-      }
-
       currentInspectionId = await ensureInspectionExists(true); // Show toast
       if (!currentInspectionId) {
+        toast.error("Couldn’t create the inspection — check claim type, address, and postcode");
+        resetInput();
         return;
       }
     }
@@ -1100,7 +1113,12 @@ export default function NIRTechnicianInputForm({
           );
 
           if (!response.ok) {
-            throw new Error("Upload failed");
+            const body = await response.json().catch(() => null);
+            const message =
+              (typeof body?.error === "string" && body.error) ||
+              body?.error?.message ||
+              `Upload failed (${response.status})`;
+            throw new Error(message);
           }
 
           const data = await response.json();
@@ -1130,13 +1148,14 @@ export default function NIRTechnicianInputForm({
       await Promise.all(uploadPromises);
       toast.success(`${files.length} photo(s) uploaded successfully`);
     } catch (error) {
-      toast.error("Failed to upload some photos");
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to upload some photos";
+      toast.error(message);
     } finally {
       setUploadingPhotos(false);
-      // Reset file input
-      if (e.target) {
-        e.target.value = "";
-      }
+      resetInput();
     }
   };
 
@@ -1443,8 +1462,18 @@ export default function NIRTechnicianInputForm({
       );
 
       if (!submitResponse.ok) {
-        const error = await submitResponse.json();
-        throw new Error(error.error || "Failed to submit inspection");
+        const error = await submitResponse.json().catch(() => null);
+        const blockers = Array.isArray(error?.blockers)
+          ? error.blockers
+              .map((b: { label?: string }) => b?.label)
+              .filter(Boolean)
+              .join("; ")
+          : "";
+        throw new Error(
+          [error?.error || "Failed to submit inspection", blockers]
+            .filter(Boolean)
+            .join(" — "),
+        );
       }
 
       void fireHaptic("success");
@@ -3800,24 +3829,34 @@ export default function NIRTechnicianInputForm({
               accept="image/*"
               multiple
               onChange={handlePhotoUpload}
-              disabled={
-                uploadingPhotos ||
-                !propertyAddress.trim() ||
-                !propertyPostcode.trim()
-              }
+              // Keep enabled so the file picker always opens; prerequisites are
+              // validated in handlePhotoUpload with a toast (disabled inputs
+              // swallow clicks and look like "nothing happens").
+              disabled={uploadingPhotos}
               className="hidden"
             />
           </label>
         </div>
         <p className="text-xs text-slate-400 mt-2">
-          {!inspectionId &&
-          (!propertyAddress.trim() || !propertyPostcode.trim())
-            ? "Enter property address and postcode first. Inspection will be created automatically, then you can upload photos."
-            : inspectionId
-              ? "Upload photos of each affected area. Photos are automatically uploaded to Cloudinary and timestamps are added."
-              : "Enter property address and postcode to enable photo uploads. Photos are automatically uploaded to Cloudinary."}
+          {!claimType
+            ? "Select a claim type, then enter address and postcode before uploading photos."
+            : !propertyAddress.trim() || !propertyPostcode.trim()
+              ? "Enter property address and postcode first. Inspection will be created automatically, then you can upload photos."
+              : inspectionId
+                ? "Upload photos of each affected area. Photos are saved to Cloudinary with a timestamp."
+                : "Photos upload as soon as you pick them — the inspection is created automatically if needed."}
         </p>
       </div>
+
+      {inspectionId && (
+        <div className="space-y-2">
+          <MakeSafeChecklist inspectionId={inspectionId} />
+          <p className="text-xs text-muted-foreground">
+            Mark applicable stabilisation items complete (or leave as N/A), then
+            save the checklist before submitting.
+          </p>
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="sticky bottom-0 z-10 flex justify-end gap-4 py-4 px-0 bg-white dark:bg-slate-950 border-t border-neutral-200 dark:border-slate-800">
