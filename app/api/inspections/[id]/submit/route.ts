@@ -11,6 +11,7 @@ import { determineScopeItems } from "@/lib/nir-scope-determination";
 import { estimateCosts } from "@/lib/nir-cost-estimation";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
+import { ensureMakeSafeSeeded } from "@/lib/compliance/seed-make-safe";
 import { checkScopeVariationGate } from "@/lib/compliance/scope-variation-gate";
 import { checkNzMoistureGate } from "@/lib/compliance/nz-moisture-gate";
 import { checkSafeworkGate } from "@/lib/compliance/safework-notification-gate";
@@ -201,6 +202,9 @@ export async function POST(
       // ── RA-1136a: Make-Safe gate ────────────────────────────────────────────────
       // ICA Code of Practice §3.1 · AS/NZS 1170.0 · WHS Regulations 2011
       // All applicable hazard-control actions must be completed before submission.
+      // Seed N/A placeholders when intake never created rows (otherwise every
+      // new-inspection submit 422s with five "missing" blockers).
+      await ensureMakeSafeSeeded(id);
       const makeSafeResult = await checkMakeSafeGate(id);
       if (!makeSafeResult.canSubmit) {
         return NextResponse.json(
