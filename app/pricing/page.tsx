@@ -57,29 +57,29 @@ function PricingPageContent() {
 
   const plans: DisplayPlan[] = Object.values(PRICING_CONFIG.pricing).map(
     (plan) => {
-      const price =
-        plan.amount % 1 === 0 ? `$${plan.amount}` : `$${plan.amount.toFixed(2)}`;
-      const period =
-        "interval" in plan && plan.interval ? `/${plan.interval}` : "";
-      const description =
-        plan.name === "Monthly Plan"
-          ? "Perfect for growing restoration businesses with 50 reports per month."
-          : "Best value with 70 reports per month for long-term commitment.";
+    const price =
+      plan.amount % 1 === 0 ? `$${plan.amount}` : `$${plan.amount.toFixed(2)}`;
+    const period =
+      "interval" in plan && plan.interval ? `/${plan.interval}` : "";
+    const description =
+      plan.name === "Monthly Plan"
+        ? "Perfect for growing restoration businesses with 50 reports per month."
+        : "Best value with 70 reports per month for long-term commitment.";
 
-      return {
-        name: plan.displayName,
-        price,
-        period,
-        description,
-        features: plan.features,
-        popular: plan.popular,
-        badge: (plan as { badge?: string }).badge ?? null,
-        monthlyEquivalent:
-          (plan as { monthlyEquivalent?: number }).monthlyEquivalent ?? null,
-        reportLimit: plan.reportLimit,
-        signupBonus: (plan as { signupBonus?: number }).signupBonus ?? null,
-        isFree: false,
-      };
+    return {
+      name: plan.displayName,
+      price,
+      period,
+      description,
+      features: plan.features,
+      popular: plan.popular,
+      badge: (plan as { badge?: string }).badge ?? null,
+      monthlyEquivalent:
+        (plan as { monthlyEquivalent?: number }).monthlyEquivalent ?? null,
+      reportLimit: plan.reportLimit,
+      signupBonus: (plan as { signupBonus?: number }).signupBonus ?? null,
+      isFree: false,
+    };
     },
   );
 
@@ -120,7 +120,7 @@ function PricingPageContent() {
             </AlertDescription>
           </Alert>
 
-          <motion.div
+              <motion.div
             variants={staggerContainer}
             initial={reduce ? false : "hidden"}
             whileInView="visible"
@@ -267,20 +267,20 @@ function PricingPageContent() {
             ))}
           </motion.div>
 
-          <div className="mt-20">
+        <div className="mt-20">
             <div className="mx-auto mb-12 max-w-2xl text-center">
               <h2
                 className={`${FONT_DISPLAY} text-3xl font-semibold tracking-tight text-[#0B1F3A] sm:text-4xl`}
-              >
-                Add More Reports
-              </h2>
+            >
+              Add More Reports
+            </h2>
               <p className="mt-4 text-base leading-relaxed text-slate-600">
-                Need more reports? Add additional report packs to your
-                subscription
-              </p>
+              Need more reports? Add additional report packs to your
+              subscription
+            </p>
             </div>
 
-            <motion.div
+              <motion.div
               variants={staggerContainer}
               initial={reduce ? false : "hidden"}
               whileInView="visible"
@@ -297,8 +297,8 @@ function PricingPageContent() {
                 >
                   {addon.popular ? (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#0B1F3A] px-3 py-1 text-xs font-semibold text-white">
-                      Most Popular
-                    </div>
+                    Most Popular
+                  </div>
                   ) : null}
                   {addon.badge && !addon.popular ? (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#0B1F3A] px-3 py-1 text-xs font-semibold text-white">
@@ -307,33 +307,33 @@ function PricingPageContent() {
                   ) : null}
                   <h3
                     className={`${FONT_DISPLAY} text-lg font-semibold text-[#0B1F3A]`}
-                  >
-                    {addon.name}
-                  </h3>
+                >
+                  {addon.name}
+                </h3>
                   <p className="mt-2 text-sm text-slate-600">
-                    {addon.description}
-                  </p>
+                  {addon.description}
+                </p>
                   <div className="mt-5">
-                    <span
+                  <span
                       className={`${FONT_DISPLAY} text-3xl font-semibold text-[#0B1F3A]`}
-                    >
-                      {addon.price}
-                    </span>
+                  >
+                    {addon.price}
+                  </span>
                     <div className="mt-3 rounded-xl bg-[#F3F5F7] p-3">
                       <p className="text-sm font-semibold text-[#0B1F3A]">
-                        {addon.reportLimit} Additional Reports
-                      </p>
-                    </div>
+                      {addon.reportLimit} Additional Reports
+                    </p>
                   </div>
-                  <Link
-                    href="/signup"
+                </div>
+                <Link
+                  href="/signup"
                     className={`${addon.popular ? CTA_PRIMARY : CTA_SECONDARY} mt-6 w-full`}
-                  >
-                    Add to Plan
-                  </Link>
+                >
+                  Add to Plan
+                </Link>
                 </motion.article>
               ))}
-            </motion.div>
+              </motion.div>
           </div>
         </div>
       </section>
