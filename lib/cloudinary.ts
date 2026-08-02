@@ -6,43 +6,49 @@ let isConfigured = false;
 function ensureCloudinaryConfigured() {
   if (isConfigured) return;
 
-  // Preferred form (matches docs/PROD_ENV_VARS.md + lib/env-check.ts):
-  // a single CLOUDINARY_URL of the form
-  // cloudinary://<api_key>:<api_secret>@<cloud_name>. The SDK parses
-  // this automatically on a no-arg cloudinary.config() call.
   const url = process.env.CLOUDINARY_URL;
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+  // Prefer discrete vars when all three are present. CLOUDINARY_URL often
+  // drifts from CLOUDINARY_API_SECRET after key rotations and produces
+  // opaque "Invalid Signature" 401s from the SDK.
+  if (cloudName && apiKey && apiSecret) {
+    if (url) {
+      const urlSecret = url.match(/^cloudinary:\/\/[^:]+:([^@]+)@/)?.[1];
+      if (urlSecret && urlSecret !== apiSecret) {
+        console.warn(
+          "[Cloudinary] CLOUDINARY_URL api_secret does not match CLOUDINARY_API_SECRET — using discrete vars.",
+        );
+      }
+    }
+    cloudinary.config({
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
+    });
+    isConfigured = true;
+    return;
+  }
+
+  // Single-URL form (docs/PROD_ENV_VARS.md): cloudinary://key:secret@cloud
   if (url) {
     cloudinary.config(true); // re-parse env including CLOUDINARY_URL
     isConfigured = true;
     return;
   }
 
-  // Legacy form: three discrete vars. Kept for local dev / .env.example
-  // backwards-compat.
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  const apiKey = process.env.CLOUDINARY_API_KEY;
-  const apiSecret = process.env.CLOUDINARY_API_SECRET;
-
-  if (!cloudName || !apiKey || !apiSecret) {
-    console.error(
-      "[Cloudinary] Missing Cloudinary credentials in environment variables:",
-    );
-    console.error("  - CLOUDINARY_URL:", url ? "Set" : "Missing");
-    console.error("  - CLOUDINARY_CLOUD_NAME:", cloudName ? "Set" : "Missing");
-    console.error("  - CLOUDINARY_API_KEY:", apiKey ? "Set" : "Missing");
-    console.error("  - CLOUDINARY_API_SECRET:", apiSecret ? "Set" : "Missing");
-    throw new Error(
-      "Cloudinary credentials are not configured. Set CLOUDINARY_URL (preferred) or CLOUDINARY_CLOUD_NAME + CLOUDINARY_API_KEY + CLOUDINARY_API_SECRET.",
-    );
-  }
-
-  cloudinary.config({
-    cloud_name: cloudName,
-    api_key: apiKey,
-    api_secret: apiSecret,
-  });
-
-  isConfigured = true;
+  console.error(
+    "[Cloudinary] Missing Cloudinary credentials in environment variables:",
+  );
+  console.error("  - CLOUDINARY_URL:", url ? "Set" : "Missing");
+  console.error("  - CLOUDINARY_CLOUD_NAME:", cloudName ? "Set" : "Missing");
+  console.error("  - CLOUDINARY_API_KEY:", apiKey ? "Set" : "Missing");
+  console.error("  - CLOUDINARY_API_SECRET:", apiSecret ? "Set" : "Missing");
+  throw new Error(
+    "Cloudinary credentials are not configured. Set CLOUDINARY_CLOUD_NAME + CLOUDINARY_API_KEY + CLOUDINARY_API_SECRET (or CLOUDINARY_URL).",
+  );
 }
 
 export { cloudinary, ensureCloudinaryConfigured };
