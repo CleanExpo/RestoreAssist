@@ -167,12 +167,31 @@ export async function POST(
       }
     }
 
+    // Guard: never let an empty Fabric blob (common after dispose-on-unmount)
+    // wipe a previously saved drawing. Explicit clears should send objects:[].
+    const incomingObjects = Array.isArray(sketchData?.objects)
+      ? sketchData.objects.length
+      : -1;
+    const existingObjects = Array.isArray(existing?.sketchData?.objects)
+      ? existing.sketchData.objects.length
+      : 0;
+    const skipEmptyOverwrite =
+      !!existing &&
+      incomingObjects === 0 &&
+      existingObjects > 0 &&
+      !sketchData?.backgroundImage &&
+      !sketchData?.background;
+
+    const sketchDataToPersist = skipEmptyOverwrite
+      ? undefined
+      : (sketchData ?? undefined);
+
     const sketch = existing
       ? await (prisma as any).claimSketch.update({
           where: { id: existing.id },
           data: {
             sketchType,
-            sketchData: sketchData ?? undefined,
+            sketchData: sketchDataToPersist,
             backgroundImageUrl: backgroundImageUrl ?? undefined,
             renderedPngUrl: renderedPngUrl ?? undefined,
             backgroundImageOpacity: opacity,
