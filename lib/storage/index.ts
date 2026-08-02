@@ -1,11 +1,15 @@
 /**
  * Storage provider factory.
  * Returns the correct StorageProvider implementation based on the organisation's config.
- * Defaults to SupabaseStorageProvider for all existing organisations (null storageProvider).
+ *
+ * Default primary store is Cloudinary (durable CDN URLs on InspectionPhoto).
+ * Supabase remains available for restore/mirror tooling that constructs it
+ * directly; org-level GOOGLE_DRIVE / ONEDRIVE still dual-write via the mirror
+ * queue when configured.
  */
 
 import { prisma } from "@/lib/prisma";
-import { SupabaseStorageProvider } from "./supabase-provider";
+import { CloudinaryStorageProvider } from "./cloudinary-provider";
 import { GoogleDriveStorageProvider } from "./google-drive-provider";
 import { OneDriveStorageProvider } from "./onedrive-provider";
 import type { StorageProvider } from "./types";
@@ -20,14 +24,14 @@ export type {
 
 /**
  * Resolve the storage provider for an organisation.
- * Pass orgId as undefined/null to get the default Supabase provider
+ * Pass orgId as undefined/null to get the default Cloudinary provider
  * (e.g. for users without an org, or during onboarding).
  */
 export async function getStorageProvider(
   orgId: string | null | undefined,
 ): Promise<StorageProvider> {
   if (!orgId) {
-    return new SupabaseStorageProvider();
+    return new CloudinaryStorageProvider();
   }
 
   const org = await prisma.organization.findUnique({
@@ -36,8 +40,7 @@ export async function getStorageProvider(
   });
 
   if (!org) {
-    // Org not found — fall back to default Supabase provider
-    return new SupabaseStorageProvider();
+    return new CloudinaryStorageProvider();
   }
 
   switch (org.storageProvider) {
@@ -48,19 +51,21 @@ export async function getStorageProvider(
       // returning a provider that rejects on every call — a misconfigured org
       // must surface immediately, not silently on the first upload.
       throw new Error(
-        `Storage provider "${org.storageProvider}" (bring-your-own-storage) is not implemented yet (RA-409). Configure SUPABASE or GOOGLE_DRIVE.`,
+        `Storage provider "${org.storageProvider}" (bring-your-own-storage) is not implemented yet (RA-409). Configure Cloudinary (default) or GOOGLE_DRIVE.`,
       );
     case "GOOGLE_DRIVE":
     case "ONEDRIVE":
     case "LOCAL":
-      // SP-E ships dual-write: Supabase stays primary, the mirror queue
-      // pushes a background copy to Drive. The hot photo-upload path
-      // resolves Supabase here; only the queue invokes
-      // `getMirrorStorageProvider` below for the secondary Drive write.
-      return new SupabaseStorageProvider();
+      // SP-E dual-write: Cloudinary stays primary; the mirror queue pushes a
+      // background copy to Drive/OneDrive when configured.
+      return new CloudinaryStorageProvider();
     case "SUPABASE":
+      // Product default is Cloudinary for inspection photos. Orgs still marked
+      // SUPABASE in the enum use Cloudinary unless a future flag re-enables
+      // Supabase as primary (requires NEXT_PUBLIC_SUPABASE_URL + service role).
+      return new CloudinaryStorageProvider();
     default:
-      return new SupabaseStorageProvider();
+      return new CloudinaryStorageProvider();
   }
 }
 
@@ -72,7 +77,7 @@ export async function getStorageProvider(
  *
  * Only the mirror queue (`lib/queue/storage-mirror.ts`) should call this.
  * Callers on the hot write path use `getStorageProvider` and stay on
- * Supabase.
+ * the primary (Cloudinary).
  */
 export async function getMirrorStorageProvider(
   orgId: string,
