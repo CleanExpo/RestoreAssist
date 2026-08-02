@@ -19,31 +19,31 @@ export default function ExecutiveSummary({
       <div
         className={cn(
           "rounded-2xl p-6 animate-pulse",
-          "bg-card border border-border",
+          "bg-white dark:bg-slate-900/50 border border-neutral-200 dark:border-slate-700/60",
         )}
       >
         <div
           className={cn(
             "h-4 rounded w-1/3 mb-4",
-            "bg-neutral-200 dark:bg-slate-700",
+            "bg-muted",
           )}
         />
         <div
           className={cn(
             "h-3 rounded w-full mb-2",
-            "bg-neutral-200 dark:bg-slate-700",
+            "bg-muted",
           )}
         />
         <div
           className={cn(
             "h-3 rounded w-4/5 mb-2",
-            "bg-neutral-200 dark:bg-slate-700",
+            "bg-muted",
           )}
         />
         <div
           className={cn(
             "h-3 rounded w-2/3",
-            "bg-neutral-200 dark:bg-slate-700",
+            "bg-muted",
           )}
         />
       </div>
@@ -54,7 +54,7 @@ export default function ExecutiveSummary({
     <div
       className={cn(
         "rounded-2xl p-6 transition-colors",
-        "bg-card border border-border",
+        "bg-white dark:bg-slate-900/50 border border-neutral-200 dark:border-slate-700/60",
         "hover:border-ring/60",
       )}
     >
@@ -66,14 +66,14 @@ export default function ExecutiveSummary({
           <h3
             className={cn(
               "text-lg font-semibold",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             Executive Summary
           </h3>
           {periodLabel && (
             <p
-              className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}
+              className={cn("text-xs", "text-muted-foreground")}
             >
               {periodLabel}
             </p>
@@ -83,7 +83,7 @@ export default function ExecutiveSummary({
       <p
         className={cn(
           "text-sm leading-relaxed",
-          "text-neutral-700 dark:text-slate-300",
+          "text-foreground/90",
         )}
       >
         {summary ||
