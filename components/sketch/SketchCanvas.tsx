@@ -147,6 +147,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
     const historyRef = useRef<string[]>([]);
     const historyIdxRef = useRef(-1);
     const isLoadingRef = useRef(false);
+    // Keep latest viewport size for async Fabric init + resize without remount.
+    const sizeRef = useRef({ width, height });
+    sizeRef.current = { width, height };
     // ── Drawing state for the click/drag tools (read inside Fabric handlers) ──
     const toolModeRef = useRef<ToolMode>(toolMode);
     const damageKindRef = useRef(damageKind);
@@ -280,9 +283,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           }
         ).Canvas;
 
+        const initialSize = sizeRef.current;
         fabricCanvas = new Canvas(canvasElRef.current!, {
-          width,
-          height,
+          width: initialSize.width,
+          height: initialSize.height,
           selection: !readonly,
           isDrawingMode: false,
           stopContextMenu: true,
@@ -303,6 +307,22 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         ).freeDrawingBrush = new PencilBrush(fabricCanvas);
 
         fabricRef.current = fabricCanvas;
+        // ResizeObserver may have updated viewport while fabric was importing.
+        const latest = sizeRef.current;
+        if (
+          latest.width !== initialSize.width ||
+          latest.height !== initialSize.height
+        ) {
+          (
+            fabricCanvas as {
+              setDimensions: (d: { width: number; height: number }) => void;
+              calcOffset: () => void;
+            }
+          ).setDimensions({ width: latest.width, height: latest.height });
+          (
+            fabricCanvas as { calcOffset: () => void }
+          ).calcOffset();
+        }
         const canvas = fabricCanvas as {
           on: (event: string, cb: (e?: unknown) => void) => void;
           off: (event: string) => void;
@@ -1306,7 +1326,36 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           fabricRef.current = null;
         }
       };
+      // Init once — viewport changes use setDimensions below (avoids wiping strokes).
       // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // ── Keep Fabric surface in sync with the host viewport ───
+    useEffect(() => {
+      const canvas = fabricRef.current as {
+        getWidth?: () => number;
+        getHeight?: () => number;
+        setDimensions: (d: { width: number; height: number }) => void;
+        calcOffset: () => void;
+        requestRenderAll?: () => void;
+        renderAll: () => void;
+      } | null;
+      if (!canvas) return;
+      const currentW =
+        typeof canvas.getWidth === "function" ? canvas.getWidth() : undefined;
+      const currentH =
+        typeof canvas.getHeight === "function" ? canvas.getHeight() : undefined;
+      if (currentW === width && currentH === height) {
+        canvas.calcOffset();
+        return;
+      }
+      canvas.setDimensions({ width, height });
+      canvas.calcOffset();
+      if (typeof canvas.requestRenderAll === "function") {
+        canvas.requestRenderAll();
+      } else {
+        canvas.renderAll();
+      }
     }, [width, height]);
 
     // ── Update drawing mode when toolMode changes ────────────
