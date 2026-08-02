@@ -93,15 +93,15 @@ export default function MonthlyVolumeChart({
       <div
         className={cn(
           "p-6 rounded-lg border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <div className="h-[400px] flex items-center justify-center">
           <div className="text-center space-y-4">
             <Loader2 className="w-8 h-8 text-info animate-spin mx-auto" />
             <p
-              className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}
+              className={cn("text-sm", "text-muted-foreground")}
             >
               Loading monthly data...
             </p>
@@ -140,8 +140,8 @@ export default function MonthlyVolumeChart({
       <div
         className={cn(
           "p-6 rounded-lg border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <div className="flex items-center justify-between mb-6">
@@ -149,7 +149,7 @@ export default function MonthlyVolumeChart({
             <h3
               className={cn(
                 "font-semibold text-lg",
-                "text-neutral-900 dark:text-slate-200",
+                "text-foreground",
               )}
             >
               Monthly Report Volume
@@ -157,7 +157,7 @@ export default function MonthlyVolumeChart({
             <p
               className={cn(
                 "text-sm mt-1",
-                "text-neutral-600 dark:text-slate-400",
+                "text-muted-foreground",
               )}
             >
               Track your report production over the last {months} months
@@ -171,9 +171,9 @@ export default function MonthlyVolumeChart({
                 viewMode === "reports"
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : cn(
-                      "bg-neutral-100 dark:bg-slate-700/50",
-                      "text-neutral-700 dark:text-slate-300",
-                      "hover:bg-neutral-200 dark:hover:bg-slate-700",
+                      "bg-muted",
+                      "text-foreground/90",
+                      "hover:bg-muted",
                     ),
               )}
             >
@@ -186,9 +186,9 @@ export default function MonthlyVolumeChart({
                 viewMode === "revenue"
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : cn(
-                      "bg-neutral-100 dark:bg-slate-700/50",
-                      "text-neutral-700 dark:text-slate-300",
-                      "hover:bg-neutral-200 dark:hover:bg-slate-700",
+                      "bg-muted",
+                      "text-foreground/90",
+                      "hover:bg-muted",
                     ),
               )}
             >
@@ -203,8 +203,8 @@ export default function MonthlyVolumeChart({
             <div
               className={cn(
                 "p-4 rounded-lg border",
-                "bg-card",
-                "border-border",
+                "bg-white dark:bg-slate-900/50",
+                "border-neutral-200 dark:border-slate-700/60",
               )}
             >
               <div className="flex items-center gap-2 mb-2">
@@ -212,7 +212,7 @@ export default function MonthlyVolumeChart({
                 <p
                   className={cn(
                     "text-xs",
-                    "text-neutral-600 dark:text-slate-400",
+                    "text-muted-foreground",
                   )}
                 >
                   This Month
@@ -221,7 +221,7 @@ export default function MonthlyVolumeChart({
               <p
                 className={cn(
                   "text-2xl font-bold",
-                  "text-neutral-900 dark:text-slate-200",
+                  "text-foreground",
                 )}
               >
                 {currentMonth?.reports || 0}
@@ -244,8 +244,8 @@ export default function MonthlyVolumeChart({
             <div
               className={cn(
                 "p-4 rounded-lg border",
-                "bg-card",
-                "border-border",
+                "bg-white dark:bg-slate-900/50",
+                "border-neutral-200 dark:border-slate-700/60",
               )}
             >
               <div className="flex items-center gap-2 mb-2">
@@ -253,7 +253,7 @@ export default function MonthlyVolumeChart({
                 <p
                   className={cn(
                     "text-xs",
-                    "text-neutral-600 dark:text-slate-400",
+                    "text-muted-foreground",
                   )}
                 >
                   Monthly Avg
@@ -262,7 +262,7 @@ export default function MonthlyVolumeChart({
               <p
                 className={cn(
                   "text-2xl font-bold",
-                  "text-neutral-900 dark:text-slate-200",
+                  "text-foreground",
                 )}
               >
                 {summary.avgMonthlyReports}
@@ -270,7 +270,7 @@ export default function MonthlyVolumeChart({
               <p
                 className={cn(
                   "text-xs mt-1",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 reports/month
@@ -294,7 +294,7 @@ export default function MonthlyVolumeChart({
                 <p
                   className={cn(
                     "text-xs",
-                    "text-neutral-600 dark:text-slate-400",
+                    "text-muted-foreground",
                   )}
                 >
                   Growth Rate
@@ -312,7 +312,7 @@ export default function MonthlyVolumeChart({
               <p
                 className={cn(
                   "text-xs mt-1",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 vs previous quarter
@@ -322,8 +322,8 @@ export default function MonthlyVolumeChart({
             <div
               className={cn(
                 "p-4 rounded-lg border",
-                "bg-card",
-                "border-border",
+                "bg-white dark:bg-slate-900/50",
+                "border-neutral-200 dark:border-slate-700/60",
               )}
             >
               <div className="flex items-center gap-2 mb-2">
@@ -331,7 +331,7 @@ export default function MonthlyVolumeChart({
                 <p
                   className={cn(
                     "text-xs",
-                    "text-neutral-600 dark:text-slate-400",
+                    "text-muted-foreground",
                   )}
                 >
                   Best Month
@@ -340,7 +340,7 @@ export default function MonthlyVolumeChart({
               <p
                 className={cn(
                   "text-2xl font-bold",
-                  "text-neutral-900 dark:text-slate-200",
+                  "text-foreground",
                 )}
               >
                 {summary.bestMonth?.reports || 0}
@@ -348,7 +348,7 @@ export default function MonthlyVolumeChart({
               <p
                 className={cn(
                   "text-xs mt-1",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 {summary.bestMonth?.label || "N/A"}
@@ -384,18 +384,18 @@ export default function MonthlyVolumeChart({
             </defs>
             <CartesianGrid
               strokeDasharray="3 3"
-              className="stroke-neutral-300 dark:stroke-slate-700"
+              className="stroke-border"
             />
             <XAxis
               dataKey="monthLabel"
-              className="text-neutral-600 dark:text-slate-400"
+              className="text-muted-foreground"
               style={{ fontSize: "12px" }}
               angle={-45}
               textAnchor="end"
               height={80}
             />
             <YAxis
-              className="text-neutral-600 dark:text-slate-400"
+              className="text-muted-foreground"
               style={{ fontSize: "12px" }}
               label={{
                 value: viewMode === "reports" ? "Reports" : "Revenue ($)",
@@ -465,14 +465,14 @@ export default function MonthlyVolumeChart({
         <div
           className={cn(
             "p-6 rounded-lg border",
-            "border-neutral-200 dark:border-slate-700/50",
-            "bg-white/50 dark:bg-slate-800/30",
+            "border-neutral-200 dark:border-slate-700/60",
+            "bg-white dark:bg-slate-900/50",
           )}
         >
           <h4
             className={cn(
               "font-semibold mb-4",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             Year-to-Date Summary
@@ -482,7 +482,7 @@ export default function MonthlyVolumeChart({
               <p
                 className={cn(
                   "text-xs mb-1",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 YTD Reports
@@ -490,7 +490,7 @@ export default function MonthlyVolumeChart({
               <p
                 className={cn(
                   "text-xl font-bold",
-                  "text-neutral-900 dark:text-slate-200",
+                  "text-foreground",
                 )}
               >
                 {summary.ytd.reports}
@@ -500,7 +500,7 @@ export default function MonthlyVolumeChart({
               <p
                 className={cn(
                   "text-xs mb-1",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 YTD Revenue
@@ -513,7 +513,7 @@ export default function MonthlyVolumeChart({
               <p
                 className={cn(
                   "text-xs mb-1",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 Total Reports
@@ -521,7 +521,7 @@ export default function MonthlyVolumeChart({
               <p
                 className={cn(
                   "text-xl font-bold",
-                  "text-neutral-900 dark:text-slate-200",
+                  "text-foreground",
                 )}
               >
                 {summary.totalReports}
@@ -531,7 +531,7 @@ export default function MonthlyVolumeChart({
               <p
                 className={cn(
                   "text-xs mb-1",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 Total Revenue
