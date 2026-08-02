@@ -44,12 +44,23 @@ import {
 import {
   snapToNearestWall,
   pointAtParametric,
+  openingCutEndpoints,
+  resizeOpeningAlongWall,
 } from "@/lib/sketch/opening-geometry";
 import {
   wallAbsoluteSegment,
   polygonAbsolutePoints,
   footprintAbsolutePoints,
 } from "@/lib/sketch/fabric-absolute";
+import {
+  DEFAULT_ROOM_SIDE_M,
+  ROOM_TAP_THRESHOLD_PX,
+  rectRoomPoints,
+  rectRoomPointsFromDiagonal,
+  roomLengthWidthM,
+  roomEdgeHostSegments,
+  parseRoomEdgeHostWallId,
+} from "@/lib/sketch/room-defaults";
 import {
   exportSketchPng,
   type ExportableCanvas,
@@ -422,18 +433,33 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         // full canvas.toJSON() snapshot onto the undo history.
         const isDecoration = (obj: unknown): boolean => {
           const t = (obj as { data?: { type?: string } } | undefined)?.data?.type;
-          return t === "dim-label" || t === "room-label" || t === "guide";
+          return (
+            t === "dim-label" ||
+            t === "room-label" ||
+            t === "guide" ||
+            t === "opening-handle"
+          );
         };
 
         canvas.on("object:modified", (opt: unknown) => {
           const target = (opt as { target?: unknown } | undefined)?.target;
+          // Opening-handle drags are committed by the dedicated handler below.
+          if (isDecoration(target) &&
+            (target as { data?: { type?: string } })?.data?.type ===
+              "opening-handle") {
+            return;
+          }
           syncRoomLabel(target);
-          // RA-6980 [A2b]: a moved wall drags its bound openings with it.
+          // RA-6980 [A2b]: a moved wall (or room edge host) drags bound openings.
           reanchorOpeningsForWall(target);
+          reanchorOpeningsForRoom(target);
+          // Dimension lock: prevent scale/stretch from changing locked geometry.
+          enforceDimLock(target);
           if (!isLoadingRef.current && !isDecoration(target)) {
             saveState();
             onModified?.();
           }
+          refreshOpeningHandles();
         });
         canvas.on("object:added", (opt: unknown) => {
           const target = (opt as { target?: unknown } | undefined)?.target;
@@ -476,19 +502,43 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         });
 
         // ── Selection → SketchSelectionPanel ──
+        // Declared early; body assigned after opening-handle helpers exist below.
+        let refreshOpeningHandles: () => void = () => {};
+        let clearOpeningHandles: () => void = () => {};
+
         const emitSelection = () => {
           const active = (
             canvas as unknown as { getActiveObject: () => unknown }
           ).getActiveObject();
-          onSelect?.(
-            fabricObjectToSelected(
-              active as Parameters<typeof fabricObjectToSelected>[0],
-            ),
+          // Enrich room selection with derived L×W for the typed-dim panel.
+          const base = fabricObjectToSelected(
+            active as Parameters<typeof fabricObjectToSelected>[0],
           );
+          if (base?.type === "room") {
+            const pts = polygonAbsolutePoints(active);
+            const dims = pts ? roomLengthWidthM(pts, pxPerMetreRef.current) : null;
+            if (dims) {
+              onSelect?.({
+                ...base,
+                lengthM: dims.lengthM,
+                widthM: dims.widthM,
+                dimLocked:
+                  (active as { data?: { dimLocked?: boolean } })?.data
+                    ?.dimLocked === true,
+              });
+              refreshOpeningHandles();
+              return;
+            }
+          }
+          onSelect?.(base);
+          refreshOpeningHandles();
         };
         canvas.on("selection:created", emitSelection);
         canvas.on("selection:updated", emitSelection);
-        canvas.on("selection:cleared", () => onSelect?.(null));
+        canvas.on("selection:cleared", () => {
+          clearOpeningHandles();
+          onSelect?.(null);
+        });
 
         // ── Tool object creation (room/line/text/arrow/measure/photo) ──
         // RA-6759: each declared ToolMode now produces a real Fabric object
@@ -572,22 +622,54 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           return snapSegmentEnd(start, end, gridPx(), 45);
         };
 
-        // RA-6841 [A2]: Collect all wall-type line segments from the canvas so
-        // door/window tools can snap the placement anchor to the nearest wall.
-        // RA-6980 [A2b]: collect wall objects with their absolute segments so a
-        // placed opening can bind to the specific wall (by id) it snapped to.
-        const collectWalls = (): { obj: unknown; seg: { a: Point; b: Point } }[] => {
+        // RA-6841 [A2] + room-first P0: Collect host segments from standalone
+        // walls AND room polygon edges so doors/windows snap in the Xactimate
+        // room-first workflow (not only after drawing four Wall tools).
+        const collectWalls = (): {
+          obj: unknown;
+          seg: { a: Point; b: Point };
+          wallId?: string;
+        }[] => {
           const objs = (
             canvas as unknown as { getObjects: () => unknown[] }
           ).getObjects();
-          const walls: { obj: unknown; seg: { a: Point; b: Point } }[] = [];
+          const walls: {
+            obj: unknown;
+            seg: { a: Point; b: Point };
+            wallId?: string;
+          }[] = [];
           for (const o of objs) {
             const d = (o as { data?: Record<string, unknown> }).data;
-            if (d?.type !== "wall") continue;
-            const seg = wallAbsoluteSegment(o);
-            if (seg) walls.push({ obj: o, seg });
+            if (!d) continue;
+            if (d.provenance === "underlay_reference") continue;
+            if (d.type === "wall") {
+              const seg = wallAbsoluteSegment(o);
+              if (seg)
+                walls.push({
+                  obj: o,
+                  seg,
+                  wallId: d.wallId as string | undefined,
+                });
+              continue;
+            }
+            if (d.type === "room" && typeof d.id === "string") {
+              const pts = polygonAbsolutePoints(o);
+              if (!pts || pts.length < 2) continue;
+              for (const edge of roomEdgeHostSegments(d.id, pts)) {
+                walls.push({ obj: o, seg: edge.seg, wallId: edge.wallId });
+              }
+            }
           }
           return walls;
+        };
+
+        /** Resolve a host wall segment by stable wallId (wall or room edge). */
+        const findHostSegment = (
+          hostWallId: string,
+        ): { a: Point; b: Point } | null => {
+          const walls = collectWalls();
+          const hit = walls.find((w) => w.wallId === hostWallId);
+          return hit?.seg ?? null;
         };
 
         const materialize = (
@@ -771,6 +853,12 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               hostWallId: wd.wallId as string,
             });
             if (!d) continue;
+            // Preserve stable opening id + lock across rematerialize.
+            d.data = {
+              ...d.data,
+              id: od.id ?? d.data.id,
+              dimLocked: od.dimLocked === true,
+            };
             const fresh = materialize(d);
             if (!fresh) continue;
             c.remove(o);
@@ -778,6 +866,253 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           }
           c.renderAll();
         };
+
+        // Room-edge hosts: when a room polygon moves/resizes, re-anchor every
+        // opening whose hostWallId is `${roomId}:edge:N`.
+        const reanchorOpeningsForRoom = (roomObj: unknown): void => {
+          const rd = (roomObj as { data?: Record<string, unknown> } | undefined)
+            ?.data;
+          if (!rd || rd.type !== "room" || typeof rd.id !== "string") return;
+          const pts = polygonAbsolutePoints(roomObj);
+          if (!pts || pts.length < 2) return;
+          const edges = roomEdgeHostSegments(rd.id, pts);
+          const c = canvas as unknown as {
+            getObjects: () => unknown[];
+            remove: (o: unknown) => void;
+            add: (o: unknown) => void;
+            renderAll: () => void;
+          };
+          for (const o of c.getObjects()) {
+            const od = (o as { data?: Record<string, unknown> }).data;
+            if (!od || od.type !== "opening" || typeof od.hostWallId !== "string")
+              continue;
+            const parsed = parseRoomEdgeHostWallId(od.hostWallId);
+            if (!parsed || parsed.roomId !== rd.id) continue;
+            const edge = edges.find((e) => e.edgeIndex === parsed.edgeIndex);
+            if (!edge || typeof od.hostWallT !== "number") continue;
+            const anchor = pointAtParametric(od.hostWallT as number, edge.seg);
+            const d = describeToolObject({
+              tool: od.openingKind as ToolMode,
+              points: [anchor],
+              pxPerMetre: pxPerMetreRef.current,
+              wallSegment: edge.seg,
+              wallThicknessPx: pxPerMetreRef.current * 0.11,
+              hingeSide: od.hingeSide as "left" | "right" | undefined,
+              openingWidthM: od.widthM as number | undefined,
+              hostWallId: edge.wallId,
+            });
+            if (!d) continue;
+            d.data = {
+              ...d.data,
+              id: od.id ?? d.data.id,
+              dimLocked: od.dimLocked === true,
+            };
+            const fresh = materialize(d);
+            if (!fresh) continue;
+            c.remove(o);
+            c.add(fresh);
+          }
+          c.renderAll();
+        };
+
+        /** When dimLocked, revert scale/stretch so typed measurements stick. */
+        const enforceDimLock = (target: unknown): void => {
+          const t = target as {
+            data?: Record<string, unknown>;
+            scaleX?: number;
+            scaleY?: number;
+            set?: (o: object) => void;
+            setCoords?: () => void;
+            lockScalingX?: boolean;
+            lockScalingY?: boolean;
+          } | null;
+          if (!t?.data?.dimLocked) return;
+          t.lockScalingX = true;
+          t.lockScalingY = true;
+          if (t.scaleX !== 1 || t.scaleY !== 1) {
+            t.set?.({ scaleX: 1, scaleY: 1 });
+            t.setCoords?.();
+          }
+        };
+
+        // ── Opening end handles (red diamonds) ────────────────────────────────
+        let openingHandles: unknown[] = [];
+        clearOpeningHandles = () => {
+          if (!openingHandles.length) return;
+          const c = canvas as unknown as { remove: (...o: unknown[]) => void };
+          c.remove(...openingHandles);
+          openingHandles = [];
+        };
+
+        const rematerializeOpening = (
+          openingObj: unknown,
+          next: {
+            widthM: number;
+            hostWallT: number;
+            anchor: Point;
+            wall: { a: Point; b: Point };
+          },
+        ): unknown | null => {
+          const od = (openingObj as { data?: Record<string, unknown> }).data;
+          if (!od || od.type !== "opening") return null;
+          const d = describeToolObject({
+            tool: od.openingKind as ToolMode,
+            points: [next.anchor],
+            pxPerMetre: pxPerMetreRef.current,
+            wallSegment: next.wall,
+            wallThicknessPx: pxPerMetreRef.current * 0.11,
+            hingeSide: od.hingeSide as "left" | "right" | undefined,
+            openingWidthM: next.widthM,
+            hostWallId: od.hostWallId as string | undefined,
+          });
+          if (!d) return null;
+          d.data = {
+            ...d.data,
+            id: od.id ?? d.data.id,
+            hostWallT: next.hostWallT,
+            dimLocked: od.dimLocked === true,
+          };
+          return materialize(d);
+        };
+
+        refreshOpeningHandles = () => {
+          clearOpeningHandles();
+          if (readonly || toolModeRef.current !== "select") return;
+          const active = (
+            canvas as unknown as { getActiveObject: () => unknown }
+          ).getActiveObject() as { data?: Record<string, unknown> } | null;
+          const od = active?.data;
+          if (
+            !od ||
+            od.type !== "opening" ||
+            typeof od.hostWallId !== "string" ||
+            typeof od.hostWallT !== "number" ||
+            typeof od.widthM !== "number"
+          )
+            return;
+          const wall = findHostSegment(od.hostWallId);
+          if (!wall) return;
+          const [cutStart, cutEnd] = openingCutEndpoints(
+            pointAtParametric(od.hostWallT, wall),
+            wall,
+            od.widthM,
+            pxPerMetreRef.current,
+          );
+          const makeHandle = (pt: Point, which: "start" | "end") => {
+            const diamond = new F.Rect({
+              left: pt.x,
+              top: pt.y,
+              width: 14,
+              height: 14,
+              fill: "#ef4444",
+              stroke: "#ffffff",
+              strokeWidth: 1.5,
+              originX: "center",
+              originY: "center",
+              angle: 45,
+              selectable: !od.dimLocked,
+              evented: !od.dimLocked,
+              hasControls: false,
+              hasBorders: false,
+              hoverCursor: "ew-resize",
+            });
+            (diamond as { data?: Record<string, unknown> }).data = {
+              type: "opening-handle",
+              handle: which,
+              openingId: od.id,
+            };
+            // Drag along host wall → resize opening width (commit on modified).
+            (diamond as { on?: (ev: string, fn: () => void) => void }).on?.(
+              "moving",
+              () => {
+                const pointer = {
+                  x: (diamond as { left?: number }).left ?? pt.x,
+                  y: (diamond as { top?: number }).top ?? pt.y,
+                };
+                const resized = resizeOpeningAlongWall({
+                  wall,
+                  hostWallT: od.hostWallT as number,
+                  widthM: od.widthM as number,
+                  pxPerMetre: pxPerMetreRef.current,
+                  handle: which,
+                  pointer,
+                });
+                const [s, e] = openingCutEndpoints(
+                  resized.anchor,
+                  wall,
+                  resized.widthM,
+                  pxPerMetreRef.current,
+                );
+                const snap = which === "start" ? s : e;
+                (diamond as { set: (o: object) => void; setCoords?: () => void }).set({
+                  left: snap.x,
+                  top: snap.y,
+                });
+                (diamond as { setCoords?: () => void }).setCoords?.();
+                (diamond as { data?: Record<string, unknown> }).data = {
+                  type: "opening-handle",
+                  handle: which,
+                  openingId: od.id,
+                  pendingResize: resized,
+                };
+              },
+            );
+            return diamond;
+          };
+          const hStart = makeHandle(cutStart, "start");
+          const hEnd = makeHandle(cutEnd, "end");
+          openingHandles = [hStart, hEnd];
+          const c = canvas as unknown as {
+            add: (...o: unknown[]) => void;
+            renderAll: () => void;
+            on: (ev: string, fn: (opt: unknown) => void) => void;
+          };
+          c.add(hStart, hEnd);
+          c.renderAll();
+        };
+
+        // Commit opening resize when a handle drag finishes.
+        canvas.on("object:modified", (opt: unknown) => {
+          const target = (opt as { target?: { data?: Record<string, unknown> } })
+            ?.target;
+          if (target?.data?.type !== "opening-handle") return;
+          const openingId = target.data.openingId as string | undefined;
+          const pending = target.data.pendingResize as
+            | {
+                widthM: number;
+                hostWallT: number;
+                anchor: Point;
+              }
+            | undefined;
+          if (!openingId || !pending) return;
+          const c = canvas as unknown as {
+            getObjects: () => unknown[];
+            remove: (o: unknown) => void;
+            add: (o: unknown) => void;
+            setActiveObject: (o: unknown) => void;
+            renderAll: () => void;
+          };
+          const opening = c.getObjects().find((o) => {
+            const d = (o as { data?: Record<string, unknown> }).data;
+            return d?.type === "opening" && d.id === openingId;
+          }) as { data?: Record<string, unknown> } | undefined;
+          if (!opening || typeof opening.data?.hostWallId !== "string") return;
+          const wall = findHostSegment(opening.data.hostWallId);
+          if (!wall) return;
+          const fresh = rematerializeOpening(opening, { ...pending, wall });
+          if (!fresh) return;
+          clearOpeningHandles();
+          c.remove(opening);
+          c.add(fresh);
+          c.setActiveObject(fresh);
+          c.renderAll();
+          if (!isLoadingRef.current) {
+            saveState();
+            onModified?.();
+          }
+          refreshOpeningHandles();
+          emitSelection();
+        });
 
         // ── RA-6842 [A3] — Dimension string helpers ────────────────────────────
         // `liveDimLabel` is a transient Text that shows the current drag length;
@@ -843,9 +1178,11 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
                     Math.max(cur.x, ...matching.map((e) => e.x)),
                     g.coord,
                   ];
+            // Green snap indicators (magicplan assemble pattern) when aligning
+            // to an existing measured endpoint axis.
             const line = new F.Line(coords, {
-              stroke: "#00BAD4",
-              strokeWidth: 1,
+              stroke: "#22c55e",
+              strokeWidth: 1.5,
               strokeDashArray: [4, 4],
               selectable: false,
               evented: false,
@@ -1071,7 +1408,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             return;
           const p = scenePoint(e);
           if (tool === "room") {
-            polygonPtsRef.current.push(snapVertex(p)); // closed on double-click
+            // Shift+click = legacy polygon vertices (dblclick to close).
+            // Otherwise start tap/drag for room-first rect placement.
+            if (e.shiftKey) {
+              polygonPtsRef.current.push(snapVertex(p));
+              return;
+            }
+            drawStartRef.current = snapVertex(p);
             return;
           }
           if (tool === "text") {
@@ -1100,9 +1443,14 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             const anchor = snapped ? snapped.anchor : p;
             // RA-6980 [A2b]: bind the opening to the wall it snapped to so it
             // re-anchors when that wall later moves.
-            const hostWallId = (
-              hostWall?.obj as { data?: Record<string, unknown> } | undefined
-            )?.data?.wallId as string | undefined;
+            const hostWallId = hostWall?.wallId;
+            if (!hostWallId) {
+              // Soft guard: openings should bind to a wall/room edge. Still allow
+              // placement for empty canvases, but toast via console for field ops.
+              console.warn(
+                "SketchCanvas: door/window placed without a host wall — draw a room first",
+              );
+            }
             addToolObject(
               describeToolObject({
                 tool,
@@ -1129,8 +1477,28 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           removeLiveGuides();
           if (!start) return;
           drawStartRef.current = null;
+          const end = snapEnd(start, scenePoint((opt as { e: MouseEvent }).e));
+          if (tool === "room") {
+            const dragPx = Math.hypot(end.x - start.x, end.y - start.y);
+            const points =
+              dragPx < ROOM_TAP_THRESHOLD_PX
+                ? rectRoomPoints(
+                    start,
+                    DEFAULT_ROOM_SIDE_M,
+                    DEFAULT_ROOM_SIDE_M,
+                    pxPerMetreRef.current,
+                  )
+                : rectRoomPointsFromDiagonal(start, end);
+            addToolObject(
+              describeToolObject({
+                tool: "room",
+                points,
+                pxPerMetre: pxPerMetreRef.current,
+              }),
+            );
+            return;
+          }
           if (tool === "line" || tool === "measure" || tool === "arrow") {
-            const end = snapEnd(start, scenePoint((opt as { e: MouseEvent }).e));
             addToolObject(
               describeToolObject({
                 tool,
@@ -1174,11 +1542,14 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           const e = (opt as { e: MouseEvent }).e;
           const cur = scenePoint(e);
 
-          // Drag tools: line / wall / measure / arrow
+          // Drag tools: line / wall / measure / arrow / room-rect
           const dragStart = drawStartRef.current;
           if (
             dragStart &&
-            (tool === "line" || tool === "measure" || tool === "arrow")
+            (tool === "line" ||
+              tool === "measure" ||
+              tool === "arrow" ||
+              tool === "room")
           ) {
             removeLiveDimLabel();
             const end = snapEnd(dragStart, cur);
@@ -1186,7 +1557,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             drawAlignmentGuides(cur);
             const px = Math.hypot(end.x - dragStart.x, end.y - dragStart.y);
             if (px > 2) {
-              const text = formatDimension(px, pxPerMetreRef.current);
+              const text =
+                tool === "room"
+                  ? `${formatDimension(Math.abs(end.x - dragStart.x), pxPerMetreRef.current)} × ${formatDimension(Math.abs(end.y - dragStart.y), pxPerMetreRef.current)}`
+                  : formatDimension(px, pxPerMetreRef.current);
               const { labelPos } = segmentLabelPosition(dragStart, end, 18);
               liveDimLabel = makeDimText(text, labelPos.x, labelPos.y);
               c.add(liveDimLabel);
@@ -1195,11 +1569,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             return;
           }
 
-          // Room drawing: show dim from the last clicked vertex to cursor
+          // Shift+polygon room: show dim from the last clicked vertex to cursor
           const pts = polygonPtsRef.current;
           if (tool === "room" && pts.length > 0) {
             removeLiveDimLabel();
-            // RA-6969 [A5b]: show alignment guides while drawing room edges.
             drawAlignmentGuides(cur);
             const last = pts[pts.length - 1];
             const snapped = snapVertex(cur);

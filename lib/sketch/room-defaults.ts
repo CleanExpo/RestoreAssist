@@ -5,8 +5,16 @@
  * length × width. Pure / Fabric-free so unit tests and SketchCanvas share one
  * geometry contract.
  */
-import { DEFAULT_PX_PER_METRE, type Point } from "@/lib/sketch/tool-objects";
 import { centroid } from "@/lib/sketch/geometry-utils";
+
+/** Local point type — avoid importing tool-objects (circular with room dims). */
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/** Canvas default scale (mirrors tool-objects DEFAULT_PX_PER_METRE). */
+const DEFAULT_PX_PER_METRE = 100;
 
 /**
  * Xactimate mobile one-tap default is ~12′8″ × 12′8″.

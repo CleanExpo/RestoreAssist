@@ -85,7 +85,7 @@ const TOOLS: {
   shortcut: string;
 }[] = [
   { mode: "select", Icon: MousePointer2, label: "Select", shortcut: "V" },
-  { mode: "room", Icon: Square, label: "Room", shortcut: "R" },
+  { mode: "room", Icon: Square, label: "Room (tap/drag)", shortcut: "R" },
   { mode: "line", Icon: Minus, label: "Wall", shortcut: "L" },
   { mode: "door", Icon: DoorOpen, label: "Door", shortcut: "O" },
   { mode: "window", Icon: AppWindow, label: "Window", shortcut: "W" },

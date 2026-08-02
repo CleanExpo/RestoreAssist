@@ -29,6 +29,7 @@ import {
   parametricPositionOnSegment,
   type HingeSide,
 } from "@/lib/sketch/opening-geometry";
+import { roomLengthWidthM } from "@/lib/sketch/room-defaults";
 
 export interface Point {
   x: number;
@@ -191,6 +192,7 @@ export function describeToolObject(
       // (underlay_reference) rooms out of measured quantities.
       const areaM2 = round2(roomAreaM2(points, pxPerMetre));
       const c = centroid(points);
+      const rectDims = roomLengthWidthM(points, pxPerMetre);
       // RA-6840 [A1]: draw the perimeter as a filled wall band (thick mitred
       // stroke centered on the centerline) so the room reads as an
       // architectural floor plan, not a 2px wireframe. `points` stay the
@@ -214,6 +216,10 @@ export function describeToolObject(
           // Non-LiDAR path — same room/evidence workflow without RoomPlan.
           captureAdapter: "manual",
           areaM2,
+          dimLocked: false,
+          ...(rectDims
+            ? { lengthM: rectDims.lengthM, widthM: rectDims.widthM }
+            : {}),
         },
         label: {
           text: formatRoomLabel(input.text, areaM2),

@@ -30,6 +30,10 @@ describe("fabricObjectToSelected", () => {
       cause: undefined,
       waterCategory: undefined,
       provenance: undefined,
+      lengthM: undefined,
+      widthM: undefined,
+      dimLocked: false,
+      openingKind: undefined,
     });
   });
 
@@ -59,5 +63,21 @@ describe("fabricObjectToSelected", () => {
     expect(sel?.captureAdapter).toBe("roomplan");
     expect(sel?.correctionCount).toBe(1);
     expect(sel?.provenance).toBe("underlay_reference");
+  });
+
+  it("maps typed dimensions, lock, and opening kind for the selection panel", () => {
+    const door = fabricObjectToSelected({
+      type: "group",
+      data: {
+        id: "op1",
+        type: "opening",
+        openingKind: "door",
+        widthM: 0.82,
+        dimLocked: true,
+      },
+    });
+    expect(door?.openingKind).toBe("door");
+    expect(door?.widthM).toBe(0.82);
+    expect(door?.dimLocked).toBe(true);
   });
 });

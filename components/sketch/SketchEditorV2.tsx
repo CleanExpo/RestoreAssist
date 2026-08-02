@@ -31,6 +31,7 @@ import {
   RefreshCw,
   Trash2,
   X,
+  CircleCheck,
 } from "lucide-react";
 import {
   enqueueSketchSave,
@@ -60,6 +61,21 @@ import {
   isEmptySketchData,
   pickSketchDataForSave,
 } from "@/lib/sketch/sketch-data-guards";
+import {
+  isSketchFieldComplete,
+  withSketchFieldComplete,
+} from "@/lib/sketch/sketch-field-status";
+import {
+  resizeRectRoomFromDims,
+  roomLengthWidthM,
+  parseRoomEdgeHostWallId,
+} from "@/lib/sketch/room-defaults";
+import {
+  formatRoomLabel,
+  roomAreaM2,
+  DEFAULT_PX_PER_METRE,
+} from "@/lib/sketch/tool-objects";
+import { wallAbsoluteSegment } from "@/lib/sketch/fabric-absolute";
 
 import { SketchDockToolbar } from "./SketchDockToolbar";
 import { SketchFloorTabs } from "./SketchFloorTabs";
@@ -76,9 +92,9 @@ import { SketchScaleModal } from "./SketchScaleModal";
 import type { ScaleConfig } from "./SketchScaleModal";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
 import { UnderlayTransformControls } from "./UnderlayTransformControls";
+import { SketchStartOverlay } from "./SketchStartOverlay";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
 import { createRenderFreshnessTracker } from "@/lib/sketch/render-freshness";
-import { formatRoomLabel } from "@/lib/sketch/tool-objects";
 
 const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
   ssr: false,
@@ -126,6 +142,8 @@ interface FloorData {
   pendingSketchData?: Record<string, unknown> | null;
   /** Last non-empty toJSON — used when unmount flush runs after Fabric dispose. */
   sketchSnapshot?: Record<string, unknown> | null;
+  /** Technician marked this floor's sketch field-complete (local, not carrier sync). */
+  fieldComplete?: boolean;
 }
 
 // ─── Props ─────────────────────────────────────────────────
@@ -246,6 +264,9 @@ export function SketchEditorV2({
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [damageKind, setDamageKind] = useState<DamageKind>("water");
   const [evidenceUploading, setEvidenceUploading] = useState(false);
+  /** Dismiss empty-canvas start chooser after the tech picks a path. */
+  const [startOverlayDismissed, setStartOverlayDismissed] = useState(false);
+  const underlayPanelRef = useRef<HTMLDivElement>(null);
   // RA-6844 [A5]: grid + right-angle snap for the draw tools. On by default so
   // walls square up and land on the grid; toggled off for freeform tracing.
   const [snapEnabled, setSnapEnabled] = useState(true);
@@ -362,10 +383,22 @@ export function SketchEditorV2({
                 ) as ScaleConfig | null) ?? null,
               pendingSketchData,
               sketchSnapshot: pendingSketchData,
+              fieldComplete: isSketchFieldComplete(s.sketchData),
             };
           });
 
           setFloorsData(loaded);
+          // Existing geometry → skip the empty-canvas start chooser.
+          if (
+            loaded.some(
+              (fd) =>
+                !isEmptySketchData(fd.pendingSketchData) ||
+                fd.backgroundUrl ||
+                fd.moisturePins.length > 0,
+            )
+          ) {
+            setStartOverlayDismissed(true);
+          }
 
           // RoomGraph evidence pins (P0) — load per floor after sketch ids known
           await Promise.all(
@@ -426,6 +459,9 @@ export function SketchEditorV2({
   }, [captureMode]);
 
   const activeFloor = floorsData[activeIdx];
+  // Always-current floors for debounced saves (avoids stale fieldComplete / pins).
+  const floorsDataRef = useRef(floorsData);
+  floorsDataRef.current = floorsData;
 
   // Hidden floors skip layout; re-sync Fabric hit-testing after show/resize.
   useEffect(() => {
@@ -455,7 +491,7 @@ export function SketchEditorV2({
     let captureFailedThisTick = false;
     const tickStartedAt = Date.now();
 
-    const floorPromises = floorsData.map(async (fd) => {
+    const floorPromises = floorsDataRef.current.map(async (fd) => {
       const canvas = fd.canvasRef.current;
       let liveJson: Record<string, unknown> | null = null;
       if (canvas) {
@@ -473,7 +509,7 @@ export function SketchEditorV2({
       const base = pickSketchDataForSave(liveJson, fd.sketchSnapshot);
       if (!base) return;
       const sketchData = {
-        ...base,
+        ...withSketchFieldComplete(base, fd.fieldComplete === true),
         scaleConfig: fd.scaleConfig,
       };
       const clientUpdatedAt = Date.now();
@@ -604,7 +640,7 @@ export function SketchEditorV2({
     // so flag it whenever nothing saved online this tick.
     setCaptureSaveFailed(indicator.captureFailed);
     setSaving(false);
-  }, [inspectionId, floorsData, country, captureMode, captureToken]);
+  }, [inspectionId, country, captureMode, captureToken]);
 
   // PR4b freshness: debounced saves persist sketchData but NOT a fresh render
   // (performSave(false)), so after an edit the stored renderedPngUrl is stale
@@ -1557,6 +1593,10 @@ export function SketchEditorV2({
   const handleToolChange = useCallback((mode: ToolMode) => {
     setToolMode(mode);
     setSelectedObj(null);
+    // Any drawing / annotate tool dismisses the empty-canvas chooser.
+    if (mode !== "select" && mode !== "pan") {
+      setStartOverlayDismissed(true);
+    }
   }, []);
 
   // ── Canvas get element (for scale modal) ───────────────
@@ -1764,6 +1804,40 @@ export function SketchEditorV2({
             </span>
           )}
 
+          {/* Mark sketch complete — honest local status (not Cotality sync). */}
+          {!readonly && !guided && (
+            <button
+              type="button"
+              onClick={() => {
+                setFloorsData((prev) =>
+                  prev.map((fd, i) =>
+                    i === activeIdx
+                      ? { ...fd, fieldComplete: !fd.fieldComplete }
+                      : fd,
+                  ),
+                );
+                const next = !activeFloor?.fieldComplete;
+                toast.success(
+                  next
+                    ? "Sketch marked complete — still editable; auto-save will persist"
+                    : "Sketch unmarked — back to in-progress",
+                );
+                scheduleSave();
+              }}
+              aria-pressed={activeFloor?.fieldComplete === true}
+              title="Mark this floor's sketch complete for the field job (local status only — not carrier sync)"
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors border",
+                activeFloor?.fieldComplete
+                  ? "text-emerald-100 border-emerald-400/50 bg-emerald-500/20"
+                  : "text-white/50 border-white/10 hover:text-white hover:bg-white/5",
+              )}
+            >
+              <CircleCheck size={13} />
+              {activeFloor?.fieldComplete ? "Complete" : "Mark complete"}
+            </button>
+          )}
+
           {/* PDF export */}
           {!guided && inspectionId && (
             <button
@@ -1833,6 +1907,7 @@ export function SketchEditorV2({
               readonly={readonly}
               onReady={(canvas) => handleCanvasReady(fd.floor.id, canvas)}
               onModified={() => {
+                setStartOverlayDismissed(true);
                 scheduleSave();
                 const c = fd.canvasRef.current;
                 if (c)
@@ -1916,6 +1991,56 @@ export function SketchEditorV2({
             )}
           </div>
         ))}
+
+        {/* Scan / blank / moisture empty-state chooser (P0 happy path). */}
+        {!readonly && !guided && sketchesHydrated && (
+          <SketchStartOverlay
+            visible={
+              !startOverlayDismissed &&
+              !activeFloor?.backgroundUrl &&
+              (activeFloor?.moisturePins.length ?? 0) === 0 &&
+              (activeFloor?.evidencePins.length ?? 0) === 0 &&
+              isEmptySketchData(
+                activeFloor?.sketchSnapshot ?? activeFloor?.pendingSketchData,
+              )
+            }
+            canScan={Boolean(
+              inspectionId && hasNativeRoomPlan && !captureMode,
+            )}
+            onScan={
+              inspectionId && hasNativeRoomPlan
+                ? () => {
+                    setStartOverlayDismissed(true);
+                    void handleScanRoom();
+                  }
+                : undefined
+            }
+            onStartBlank={() => {
+              setStartOverlayDismissed(true);
+              setToolMode("room");
+              toast("Tap to place a room, or drag for a custom size", {
+                duration: 3500,
+              });
+            }}
+            onImportUnderlay={() => {
+              setStartOverlayDismissed(true);
+              underlayPanelRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "nearest",
+              });
+              toast("Import or fetch an underlay below, then confirm rooms", {
+                duration: 4000,
+              });
+            }}
+            onPlaceMoisture={() => {
+              setStartOverlayDismissed(true);
+              setToolMode("moisture");
+              toast("Moisture pins work before geometry is final", {
+                duration: 3500,
+              });
+            }}
+          />
+        )}
 
         {/* Selection panel */}
         <SketchSelectionPanel
@@ -2194,6 +2319,190 @@ export function SketchEditorV2({
             );
             scheduleSave();
           }}
+          onDimLockChange={(id, locked) => {
+            const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+              renderAll: () => void;
+            } | null;
+            if (!fc) return;
+            const obj = fc.getObjects().find((o) => {
+              const d = (o as { data?: { id?: string } }).data;
+              return d?.id === id;
+            }) as {
+              data?: Record<string, unknown>;
+              lockScalingX?: boolean;
+              lockScalingY?: boolean;
+              set?: (o: object) => void;
+            } | undefined;
+            if (!obj?.data) return;
+            obj.data.dimLocked = locked;
+            obj.lockScalingX = locked;
+            obj.lockScalingY = locked;
+            obj.set?.({ lockScalingX: locked, lockScalingY: locked });
+            fc.renderAll();
+            setSelectedObj((prev) =>
+              prev && prev.id === id ? { ...prev, dimLocked: locked } : prev,
+            );
+            scheduleSave();
+            toast.success(
+              locked
+                ? "Dimension locked — typed size will stick"
+                : "Dimension unlocked",
+            );
+          }}
+          onDimensionsChange={(id, dims) => {
+            const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+              remove: (o: unknown) => void;
+              add: (o: unknown) => void;
+              setActiveObject: (o: unknown) => void;
+              renderAll: () => void;
+            } | null;
+            if (!fc) return;
+            const obj = fc.getObjects().find((o) => {
+              const d = (o as { data?: { id?: string } }).data;
+              return d?.id === id;
+            }) as {
+              data?: Record<string, unknown>;
+              set?: (o: object) => void;
+              setCoords?: () => void;
+              points?: { x: number; y: number }[];
+              x1?: number;
+              y1?: number;
+              x2?: number;
+              y2?: number;
+            } | undefined;
+            if (!obj?.data) return;
+            if (obj.data.dimLocked) {
+              toast.error("Unlock the dimension before editing");
+              return;
+            }
+            const pxPerM =
+              activeFloor?.scaleConfig?.pxPerMetre ?? DEFAULT_PX_PER_METRE;
+
+            if (obj.data.type === "room") {
+              const pts =
+                polygonAbsolutePoints(obj) ??
+                (Array.isArray(obj.points) ? obj.points : null);
+              if (!pts) {
+                toast.error("Could not read room geometry");
+                return;
+              }
+              const current = roomLengthWidthM(pts, pxPerM);
+              if (!current) {
+                toast.error(
+                  "Typed L×W works on rectangular rooms — use handles for irregular shapes",
+                );
+                return;
+              }
+              const lengthM = dims.lengthM ?? current.lengthM;
+              const widthM = dims.widthM ?? current.widthM;
+              const nextPts = resizeRectRoomFromDims(
+                pts,
+                lengthM,
+                widthM,
+                pxPerM,
+              );
+              if (!nextPts) return;
+              obj.set?.({ points: nextPts });
+              obj.setCoords?.();
+              const areaM2 = roomAreaM2(nextPts, pxPerM);
+              obj.data = {
+                ...obj.data,
+                lengthM,
+                widthM,
+                areaM2: Math.round(areaM2 * 100) / 100,
+              };
+              const roomLabel = fc.getObjects().find((o) => {
+                const d = (o as { data?: { type?: string; roomFor?: string } })
+                  .data;
+                return d?.type === "room-label" && d.roomFor === id;
+              }) as { set: (o: object) => void } | undefined;
+              roomLabel?.set({
+                text: formatRoomLabel(
+                  (obj.data.label as string) ?? selectedObj?.label,
+                  areaM2,
+                ),
+              });
+              fc.renderAll();
+              setSelectedObj((prev) =>
+                prev && prev.id === id
+                  ? { ...prev, lengthM, widthM }
+                  : prev,
+              );
+              scheduleSave();
+              return;
+            }
+
+            if (obj.data.type === "wall" && typeof dims.lengthM === "number") {
+              const seg = wallAbsoluteSegment(obj);
+              if (!seg) return;
+              const dx = seg.b.x - seg.a.x;
+              const dy = seg.b.y - seg.a.y;
+              const curLen = Math.hypot(dx, dy) || 1;
+              const scale = (dims.lengthM * pxPerM) / curLen;
+              const nx2 = seg.a.x + dx * scale;
+              const ny2 = seg.a.y + dy * scale;
+              obj.set?.({ x1: seg.a.x, y1: seg.a.y, x2: nx2, y2: ny2 });
+              obj.setCoords?.();
+              obj.data = { ...obj.data, lengthM: dims.lengthM };
+              fc.renderAll();
+              setSelectedObj((prev) =>
+                prev && prev.id === id
+                  ? { ...prev, lengthM: dims.lengthM }
+                  : prev,
+              );
+              scheduleSave();
+              return;
+            }
+
+            if (
+              obj.data.type === "opening" &&
+              typeof dims.widthM === "number" &&
+              typeof obj.data.hostWallId === "string"
+            ) {
+              // Stamp the new width, then fire object:modified on the host so
+              // SketchCanvas reanchor rematerializes the door/window symbol.
+              obj.data = { ...obj.data, widthM: dims.widthM };
+              const hostId = obj.data.hostWallId as string;
+              const roomEdge = parseRoomEdgeHostWallId(hostId);
+              const fabric = fc as {
+                fire?: (ev: string, opt: object) => void;
+                getObjects: () => unknown[];
+                renderAll: () => void;
+              };
+              let host: unknown | null = null;
+              for (const o of fabric.getObjects()) {
+                const d = (o as { data?: Record<string, unknown> }).data;
+                if (!d) continue;
+                if (d.type === "wall" && d.wallId === hostId) {
+                  host = o;
+                  break;
+                }
+                if (
+                  roomEdge &&
+                  d.type === "room" &&
+                  d.id === roomEdge.roomId
+                ) {
+                  host = o;
+                  break;
+                }
+              }
+              if (host) {
+                fabric.fire?.("object:modified", { target: host });
+              } else {
+                toast.error("Host wall not found — width saved, reselect to refresh");
+              }
+              fabric.renderAll();
+              setSelectedObj((prev) =>
+                prev && prev.id === id
+                  ? { ...prev, widthM: dims.widthM }
+                  : prev,
+              );
+              scheduleSave();
+              toast.success("Opening width updated");
+            }
+          }}
           onColorChange={(id, fill, stroke) => {
             const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
               getObjects: () => unknown[];
@@ -2253,7 +2562,10 @@ export function SketchEditorV2({
       {/* RA-6922: the scrape API (requireAddon → 402) is the authoritative gate,
           surfaced by the loader as an upgrade CTA. Manual upload needs no add-on. */}
       {!readonly && !guided && (
-        <div className="px-4 pb-4 pt-2 border-t border-white/10 bg-brand-deep">
+        <div
+          ref={underlayPanelRef}
+          className="px-4 pb-4 pt-2 border-t border-white/10 bg-brand-deep"
+        >
           <FloorPlanUnderlayLoader
             defaultAddress={propertyAddress}
             defaultPostcode={propertyPostcode}

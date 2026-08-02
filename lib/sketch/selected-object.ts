@@ -36,5 +36,12 @@ export function fabricObjectToSelected(
     correctionCount: Array.isArray(data.correctionHistory)
       ? data.correctionHistory.length
       : undefined,
+    lengthM: typeof data.lengthM === "number" ? data.lengthM : undefined,
+    widthM: typeof data.widthM === "number" ? data.widthM : undefined,
+    dimLocked: data.dimLocked === true,
+    openingKind:
+      data.openingKind === "door" || data.openingKind === "window"
+        ? data.openingKind
+        : undefined,
   };
 }

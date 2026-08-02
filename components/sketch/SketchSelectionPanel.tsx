@@ -9,9 +9,11 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Trash2, X, AlertTriangle } from "lucide-react";
+import { Trash2, X, AlertTriangle, Lock, Unlock } from "lucide-react";
 import { evaluateWhsGate } from "@/lib/anz/whs-gate";
 import { classifyCover, type DamageCause } from "@/lib/nz/nhcover";
+import { parseMetresInput } from "@/lib/sketch/room-defaults";
+import toast from "react-hot-toast";
 
 const NZ_CAUSES: { id: DamageCause; label: string }[] = [
   { id: "earthquake", label: "Earthquake" },
@@ -67,6 +69,14 @@ export interface SelectedObject {
   captureAdapter?: "manual" | "roomplan" | "cloud_ai" | "underlay_import";
   /** Number of recorded RoomPlan corrections (label/confirm/geometry). */
   correctionCount?: number;
+  /** Wall length or room length (metres) for typed dimension edit. */
+  lengthM?: number;
+  /** Room width or opening width (metres). */
+  widthM?: number;
+  /** magicplan-style dimension lock — typed dims survive later nudges. */
+  dimLocked?: boolean;
+  /** Door / window when type === "opening". */
+  openingKind?: "door" | "window";
 }
 
 export interface MaterialOption {
@@ -100,6 +110,16 @@ export interface SketchSelectionPanelProps {
   onConfirmProvenance?: (id: string) => void;
   /** RA-7091 — exclude a RoomPlan room from measured quantities. */
   onExcludeRoomPlan?: (id: string) => void;
+  /**
+   * Typed L×W (rooms) / length (walls) / width (openings). Values are metres.
+   * Pass null for a field to leave it unchanged.
+   */
+  onDimensionsChange?: (
+    id: string,
+    dims: { lengthM?: number; widthM?: number },
+  ) => void;
+  /** Toggle dimension lock (magicplan assemble-safe measurements). */
+  onDimLockChange?: (id: string, locked: boolean) => void;
   onDelete?: (id: string) => void;
   onDeselect?: () => void;
   className?: string;
@@ -121,6 +141,8 @@ export function SketchSelectionPanel({
   onWaterCategoryChange,
   onConfirmProvenance,
   onExcludeRoomPlan,
+  onDimensionsChange,
+  onDimLockChange,
   onDelete,
   onDeselect,
   className,
@@ -132,6 +154,16 @@ export function SketchSelectionPanel({
   const isRoom = selected.type === "room" || selected.type === "polygon";
   const isText = selected.type === "text_label" || selected.type === "i-text";
   const isLine = selected.type === "wall" || selected.type === "line";
+  const isOpening = selected.type === "opening";
+
+  const commitDim = (field: "lengthM" | "widthM", raw: string) => {
+    const parsed = parseMetresInput(raw);
+    if (parsed === null) {
+      toast.error("Enter a valid length (e.g. 3.86 or 12'8\")");
+      return;
+    }
+    onDimensionsChange?.(selected.id, { [field]: parsed });
+  };
 
   const selectedMaterial = materials?.find(
     (m) => m.slug === selected.materialSlug,
@@ -160,7 +192,17 @@ export function SketchSelectionPanel({
       {/* Header */}
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold text-white/50 uppercase tracking-wide">
-          {isRoom ? "Room" : isText ? "Label" : isLine ? "Wall" : "Object"}
+          {isRoom
+            ? "Room"
+            : isText
+              ? "Label"
+              : isLine
+                ? "Wall"
+                : isOpening
+                  ? selected.openingKind === "window"
+                    ? "Window"
+                    : "Door"
+                  : "Object"}
         </span>
         <button
           type="button"
@@ -256,6 +298,129 @@ export function SketchSelectionPanel({
             className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
             placeholder="Room name…"
           />
+        </div>
+      )}
+
+      {/* Typed dimensions + lock (rooms / walls / openings) */}
+      {(isRoom || isLine || isOpening) && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-white/50">
+              {isOpening ? "Opening width" : isRoom ? "Size (L × W)" : "Length"}
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                onDimLockChange?.(selected.id, !selected.dimLocked)
+              }
+              aria-pressed={selected.dimLocked === true}
+              title={
+                selected.dimLocked
+                  ? "Unlock dimension — canvas resize can change it"
+                  : "Lock dimension — typed value stays put"
+              }
+              className={cn(
+                "inline-flex items-center gap-1 min-h-11 px-2 rounded-md border text-[11px]",
+                selected.dimLocked
+                  ? "bg-amber-500/15 border-amber-400/40 text-amber-100"
+                  : "border-white/10 text-white/50 hover:text-white/80",
+              )}
+            >
+              {selected.dimLocked ? <Lock size={12} /> : <Unlock size={12} />}
+              {selected.dimLocked ? "Locked" : "Lock"}
+            </button>
+          </div>
+          {isRoom && (
+            <div className="grid grid-cols-2 gap-1.5">
+              <div>
+                <label className="block text-[10px] text-white/40 mb-0.5">
+                  Length (m)
+                </label>
+                <input
+                  key={`L-${selected.id}-${selected.lengthM ?? ""}`}
+                  type="text"
+                  inputMode="decimal"
+                  defaultValue={
+                    selected.lengthM != null ? String(selected.lengthM) : ""
+                  }
+                  disabled={selected.dimLocked}
+                  onBlur={(e) => commitDim("lengthM", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter")
+                      commitDim(
+                        "lengthM",
+                        (e.target as HTMLInputElement).value,
+                      );
+                  }}
+                  className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
+                  placeholder="3.86"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-white/40 mb-0.5">
+                  Width (m)
+                </label>
+                <input
+                  key={`W-${selected.id}-${selected.widthM ?? ""}`}
+                  type="text"
+                  inputMode="decimal"
+                  defaultValue={
+                    selected.widthM != null ? String(selected.widthM) : ""
+                  }
+                  disabled={selected.dimLocked}
+                  onBlur={(e) => commitDim("widthM", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter")
+                      commitDim("widthM", (e.target as HTMLInputElement).value);
+                  }}
+                  className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
+                  placeholder="3.86"
+                />
+              </div>
+            </div>
+          )}
+          {isLine && (
+            <input
+              key={`wallL-${selected.id}-${selected.lengthM ?? ""}`}
+              type="text"
+              inputMode="decimal"
+              defaultValue={
+                selected.lengthM != null ? String(selected.lengthM) : ""
+              }
+              disabled={selected.dimLocked}
+              onBlur={(e) => commitDim("lengthM", e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter")
+                  commitDim("lengthM", (e.target as HTMLInputElement).value);
+              }}
+              className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
+              placeholder="Length in metres"
+              aria-label="Wall length in metres"
+            />
+          )}
+          {isOpening && (
+            <input
+              key={`openW-${selected.id}-${selected.widthM ?? ""}`}
+              type="text"
+              inputMode="decimal"
+              defaultValue={
+                selected.widthM != null ? String(selected.widthM) : ""
+              }
+              disabled={selected.dimLocked}
+              onBlur={(e) => commitDim("widthM", e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter")
+                  commitDim("widthM", (e.target as HTMLInputElement).value);
+              }}
+              className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
+              placeholder="Width in metres"
+              aria-label="Opening width in metres"
+            />
+          )}
+          <p className="text-[10px] text-white/35 leading-snug">
+            Tip: type metres or feet-inches (12&apos;8&quot;). Lock before
+            nudging nearby rooms.
+          </p>
         </div>
       )}
 
