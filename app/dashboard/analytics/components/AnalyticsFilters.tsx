@@ -169,176 +169,62 @@ export default function AnalyticsFilters({
     }
   };
 
+  const controlClass = cn(
+    "h-9 px-3 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/40 disabled:opacity-50",
+    "bg-background border border-neutral-200 dark:border-slate-700/60 text-foreground",
+  );
+
   return (
-    <div className="space-y-4">
-      {/* Header and Quick Export */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1
-            className={cn(
-              "text-3xl font-semibold mb-2",
-              "text-neutral-900 dark:text-slate-200",
-            )}
-          >
-            Analytics
-          </h1>
-          <p className={cn("text-neutral-600 dark:text-slate-400")}>
-            Business intelligence and performance metrics
-          </p>
-        </div>
-
-        {/* Export Button Group */}
-        <div className="relative">
-          <button
-            onClick={() => setShowExportMenu(!showExportMenu)}
-            disabled={exportLoading || isLoading}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg transition-colors disabled:opacity-50",
-              "border border-neutral-300 dark:border-slate-700",
-              "bg-white dark:bg-slate-800",
-              "hover:bg-neutral-50 dark:hover:bg-slate-700",
-              "text-neutral-900 dark:text-slate-200",
-            )}
-          >
-            {exportLoading ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <Download size={18} />
-            )}
-            Export
-            <ChevronDown size={16} />
-          </button>
-
-          {showExportMenu && (
-            <div
-              className={cn(
-                "absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-50",
-                "bg-white dark:bg-slate-800",
-                "border border-neutral-200 dark:border-slate-700",
-              )}
-            >
-              <button
-                onClick={() => handleExport("csv")}
-                className={cn(
-                  "block w-full text-left px-4 py-2 first:rounded-t-lg",
-                  "text-neutral-900 dark:text-slate-200",
-                  "hover:bg-neutral-100 dark:hover:bg-slate-700",
-                )}
-              >
-                Export as CSV
-              </button>
-              <button
-                onClick={() => handleExport("excel")}
-                className={cn(
-                  "block w-full text-left px-4 py-2",
-                  "text-neutral-900 dark:text-slate-200",
-                  "hover:bg-neutral-100 dark:hover:bg-slate-700",
-                )}
-              >
-                Export as Excel
-              </button>
-              <button
-                onClick={() => handleExport("pdf")}
-                className={cn(
-                  "block w-full text-left px-4 py-2 last:rounded-b-lg",
-                  "text-neutral-900 dark:text-slate-200",
-                  "hover:bg-neutral-100 dark:hover:bg-slate-700",
-                )}
-              >
-                Export as PDF
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Filters Row */}
-      <div
-        className={cn(
-          "flex flex-wrap gap-4 p-4 rounded-lg border",
-          "bg-neutral-50 dark:bg-slate-800/20",
-          "border-neutral-200 dark:border-slate-700/50",
-        )}
-      >
-        {/* Date Range */}
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
-          <label
-            className={cn("text-sm", "text-neutral-700 dark:text-slate-400")}
-          >
-            Date Range:
+          <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+            Date range
           </label>
           <select
             value={dateRange}
             onChange={(e) => handleDateRangeChange(e.target.value)}
             disabled={isLoading}
-            className={cn(
-              "px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-cyan-500 disabled:opacity-50",
-              "bg-white dark:bg-slate-700",
-              "border border-neutral-300 dark:border-slate-600",
-              "text-neutral-900 dark:text-slate-200",
-            )}
+            className={controlClass}
           >
             <option value="7days">Last 7 days</option>
             <option value="14days">Last 14 days</option>
             <option value="30days">Last 30 days</option>
             <option value="90days">Last 90 days</option>
             <option value="ytd">Year to date</option>
-            <option value="custom">Custom Range</option>
+            <option value="custom">Custom range</option>
           </select>
         </div>
 
-        {/* Custom Date Range (shown when custom is selected) */}
         {dateRange === "custom" && (
-          <>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={customFrom}
-                onChange={(e) => setCustomFrom(e.target.value)}
-                onBlur={handleCustomDateChange}
-                className={cn(
-                  "px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-cyan-500",
-                  "bg-white dark:bg-slate-700",
-                  "border border-neutral-300 dark:border-slate-600",
-                  "text-neutral-900 dark:text-slate-200",
-                )}
-              />
-              <span className={cn("text-neutral-600 dark:text-slate-400")}>
-                to
-              </span>
-              <input
-                type="date"
-                value={customTo}
-                onChange={(e) => setCustomTo(e.target.value)}
-                onBlur={handleCustomDateChange}
-                className={cn(
-                  "px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-cyan-500",
-                  "bg-white dark:bg-slate-700",
-                  "border border-neutral-300 dark:border-slate-600",
-                  "text-neutral-900 dark:text-slate-200",
-                )}
-              />
-            </div>
-          </>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={customFrom}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              onBlur={handleCustomDateChange}
+              className={controlClass}
+            />
+            <span className="text-muted-foreground text-xs">to</span>
+            <input
+              type="date"
+              value={customTo}
+              onChange={(e) => setCustomTo(e.target.value)}
+              onBlur={handleCustomDateChange}
+              className={controlClass}
+            />
+          </div>
         )}
 
-        {/* Hazard Type Filter */}
         <div className="flex items-center gap-2">
-          <label
-            className={cn("text-sm", "text-neutral-700 dark:text-slate-400")}
-          >
-            Hazard:
+          <label className="text-xs font-medium text-muted-foreground">
+            Hazard
           </label>
           <select
             value={hazardType}
             onChange={(e) => handleFilterChange(e.target.value, undefined)}
             disabled={isLoading}
-            className={cn(
-              "px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-cyan-500 disabled:opacity-50",
-              "bg-white dark:bg-slate-700",
-              "border border-neutral-300 dark:border-slate-600",
-              "text-neutral-900 dark:text-slate-200",
-            )}
+            className={controlClass}
           >
             {hazardTypes.map((h) => (
               <option key={h.value} value={h.value}>
@@ -348,23 +234,15 @@ export default function AnalyticsFilters({
           </select>
         </div>
 
-        {/* Status Filter */}
         <div className="flex items-center gap-2">
-          <label
-            className={cn("text-sm", "text-neutral-700 dark:text-slate-400")}
-          >
-            Status:
+          <label className="text-xs font-medium text-muted-foreground">
+            Status
           </label>
           <select
             value={status}
             onChange={(e) => handleFilterChange(undefined, e.target.value)}
             disabled={isLoading}
-            className={cn(
-              "px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-cyan-500 disabled:opacity-50",
-              "bg-white dark:bg-slate-700",
-              "border border-neutral-300 dark:border-slate-600",
-              "text-neutral-900 dark:text-slate-200",
-            )}
+            className={controlClass}
           >
             {statuses.map((s) => (
               <option key={s.value} value={s.value}>
@@ -374,17 +252,11 @@ export default function AnalyticsFilters({
           </select>
         </div>
 
-        {/* Team Member Filter (Admin and Manager) */}
         {canFilterByTeamMember && (
           <div className="flex items-center gap-2">
-            <label
-              className={cn(
-                "text-sm flex items-center gap-1",
-                "text-neutral-700 dark:text-slate-400",
-              )}
-            >
-              <Users className="w-4 h-4" />
-              {isManager ? "Technician:" : "Team Member:"}
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <Users className="w-3.5 h-3.5" />
+              {isManager ? "Technician" : "Team member"}
             </label>
             <select
               value={selectedUserId}
@@ -392,19 +264,14 @@ export default function AnalyticsFilters({
                 handleFilterChange(undefined, undefined, e.target.value)
               }
               disabled={isLoading || loadingMembers}
-              className={cn(
-                "px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-cyan-500 disabled:opacity-50 min-w-[200px]",
-                "bg-white dark:bg-slate-700",
-                "border border-neutral-300 dark:border-slate-600",
-                "text-neutral-900 dark:text-slate-200",
-              )}
+              className={cn(controlClass, "min-w-[180px]")}
             >
               <option value="">
-                All {isManager ? "Technicians" : "Team Members"}
+                All {isManager ? "technicians" : "team members"}
               </option>
               {loadingMembers ? (
                 <option value="" disabled>
-                  Loading...
+                  Loading…
                 </option>
               ) : teamMembers.length > 0 ? (
                 teamMembers.map((member) => (
@@ -415,22 +282,63 @@ export default function AnalyticsFilters({
                 ))
               ) : (
                 <option value="" disabled>
-                  No {isManager ? "Technicians" : "Team Members"} available
+                  No {isManager ? "technicians" : "team members"} available
                 </option>
               )}
             </select>
           </div>
         )}
 
-        {/* Refresh indicator */}
         {isLoading && (
-          <div className="flex items-center gap-2 ml-auto">
-            <Loader2 size={16} className="animate-spin text-cyan-500" />
-            <span
-              className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 size={14} className="animate-spin text-cyan-500" />
+            <span className="text-xs">Updating…</span>
+          </div>
+        )}
+      </div>
+
+      <div className="relative shrink-0">
+        <button
+          type="button"
+          onClick={() => setShowExportMenu(!showExportMenu)}
+          disabled={exportLoading || isLoading}
+          className={cn(
+            "inline-flex items-center gap-2 h-9 px-3 rounded-md text-sm font-medium transition-colors disabled:opacity-50",
+            "border border-neutral-200 dark:border-slate-700/60 bg-background text-foreground hover:bg-muted",
+          )}
+        >
+          {exportLoading ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Download size={16} />
+          )}
+          Export
+          <ChevronDown size={14} />
+        </button>
+
+        {showExportMenu && (
+          <div className="absolute right-0 mt-2 w-48 rounded-md border border-neutral-200 dark:border-slate-700/60 bg-white dark:bg-slate-900/50 shadow-lg z-50 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => handleExport("csv")}
+              className="block w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted"
             >
-              Updating...
-            </span>
+              Export as CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExport("excel")}
+              className="block w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted"
+            >
+              Export as Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExport("pdf")}
+              className="block w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted"
+            >
+              Export as PDF
+            </button>
           </div>
         )}
       </div>
