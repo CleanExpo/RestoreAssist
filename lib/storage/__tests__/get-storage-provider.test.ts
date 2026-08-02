@@ -1,7 +1,6 @@
 /**
- * STORM #17 — the storage factory must FAIL FAST for an unimplemented BYOS
- * provider (S3/GCS/AZURE) rather than returning a stub that rejects on every
- * call (a deferred, silent per-operation failure).
+ * Storage factory — Cloudinary is the default primary; unimplemented BYOS
+ * providers (S3/GCS/AZURE) must FAIL FAST.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
@@ -14,33 +13,43 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { getStorageProvider } from "../index";
-import { SupabaseStorageProvider } from "../supabase-provider";
+import { CloudinaryStorageProvider } from "../cloudinary-provider";
 
 beforeEach(() => {
   organizationMock.findUnique.mockReset();
 });
 
 describe("getStorageProvider", () => {
-  it("returns the Supabase provider when orgId is missing (no DB hit)", async () => {
+  it("returns the Cloudinary provider when orgId is missing (no DB hit)", async () => {
     const p = await getStorageProvider(null);
-    expect(p).toBeInstanceOf(SupabaseStorageProvider);
+    expect(p).toBeInstanceOf(CloudinaryStorageProvider);
     expect(organizationMock.findUnique).not.toHaveBeenCalled();
   });
 
-  it("returns the Supabase provider for a SUPABASE-configured org", async () => {
+  it("returns the Cloudinary provider for a SUPABASE-configured org", async () => {
     organizationMock.findUnique.mockResolvedValue({
       storageProvider: "SUPABASE",
       storageBucketUrl: null,
     });
     expect(await getStorageProvider("org_1")).toBeInstanceOf(
-      SupabaseStorageProvider,
+      CloudinaryStorageProvider,
     );
   });
 
-  it("falls back to Supabase when the org is not found", async () => {
+  it("falls back to Cloudinary when the org is not found", async () => {
     organizationMock.findUnique.mockResolvedValue(null);
     expect(await getStorageProvider("org_missing")).toBeInstanceOf(
-      SupabaseStorageProvider,
+      CloudinaryStorageProvider,
+    );
+  });
+
+  it("returns Cloudinary as primary for GOOGLE_DRIVE orgs (mirror is separate)", async () => {
+    organizationMock.findUnique.mockResolvedValue({
+      storageProvider: "GOOGLE_DRIVE",
+      storageBucketUrl: null,
+    });
+    expect(await getStorageProvider("org_1")).toBeInstanceOf(
+      CloudinaryStorageProvider,
     );
   });
 
