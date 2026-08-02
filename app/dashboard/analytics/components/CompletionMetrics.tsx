@@ -57,15 +57,15 @@ export default function CompletionMetrics({
       <div
         className={cn(
           "p-6 rounded-lg border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <div className="h-[400px] flex items-center justify-center">
           <div className="text-center space-y-4">
             <Loader2 className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
             <p
-              className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}
+              className={cn("text-sm", "text-muted-foreground")}
             >
               Loading metrics...
             </p>
@@ -80,7 +80,7 @@ export default function CompletionMetrics({
       ? "text-success"
       : trend === "declining"
         ? "text-destructive"
-        : "text-neutral-600 dark:text-slate-400";
+        : "text-muted-foreground";
 
   const trendIcon =
     trend === "improving" ? (
@@ -96,15 +96,15 @@ export default function CompletionMetrics({
         <div
           className={cn(
             "p-6 rounded-lg border",
-            "border-neutral-200 dark:border-slate-700/50",
-            "bg-white/50 dark:bg-slate-800/30",
+            "border-neutral-200 dark:border-slate-700/60",
+            "bg-white dark:bg-slate-900/50",
           )}
         >
           <div className="flex items-center justify-between mb-4">
             <h3
               className={cn(
                 "font-semibold text-lg",
-                "text-neutral-900 dark:text-slate-200",
+                "text-foreground",
               )}
             >
               Completion Time Overview
@@ -112,8 +112,8 @@ export default function CompletionMetrics({
             <div
               className={cn(
                 "flex items-center gap-2 px-3 py-1 rounded-full border",
-                "bg-neutral-100 dark:bg-slate-700/20",
-                "border-neutral-300 dark:border-slate-600",
+                "bg-muted/50",
+                "border-neutral-200 dark:border-slate-700/60",
                 trendColor,
               )}
             >
@@ -132,14 +132,14 @@ export default function CompletionMetrics({
             <div
               className={cn(
                 "p-4 rounded-lg border",
-                "bg-neutral-50 dark:bg-slate-700/20",
+                "bg-muted/40",
                 "border-neutral-200 dark:border-slate-600/20",
               )}
             >
               <p
                 className={cn(
                   "text-xs mb-2",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 Average Days
@@ -147,7 +147,7 @@ export default function CompletionMetrics({
               <p
                 className={cn(
                   "text-2xl font-semibold",
-                  "text-neutral-900 dark:text-slate-200",
+                  "text-foreground",
                 )}
               >
                 {overall.avgDays.toFixed(1)}
@@ -155,7 +155,7 @@ export default function CompletionMetrics({
               <p
                 className={cn(
                   "text-xs mt-1",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 typical completion
@@ -165,14 +165,14 @@ export default function CompletionMetrics({
             <div
               className={cn(
                 "p-4 rounded-lg border",
-                "bg-neutral-50 dark:bg-slate-700/20",
+                "bg-muted/40",
                 "border-neutral-200 dark:border-slate-600/20",
               )}
             >
               <p
                 className={cn(
                   "text-xs mb-2",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 Median Days
@@ -180,7 +180,7 @@ export default function CompletionMetrics({
               <p
                 className={cn(
                   "text-2xl font-semibold",
-                  "text-neutral-900 dark:text-slate-200",
+                  "text-foreground",
                 )}
               >
                 {overall.medianDays.toFixed(1)}
@@ -188,7 +188,7 @@ export default function CompletionMetrics({
               <p
                 className={cn(
                   "text-xs mt-1",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 50% complete by
@@ -198,14 +198,14 @@ export default function CompletionMetrics({
             <div
               className={cn(
                 "p-4 rounded-lg border",
-                "bg-neutral-50 dark:bg-slate-700/20",
+                "bg-muted/40",
                 "border-neutral-200 dark:border-slate-600/20",
               )}
             >
               <p
                 className={cn(
                   "text-xs mb-2",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 95th Percentile
@@ -213,7 +213,7 @@ export default function CompletionMetrics({
               <p
                 className={cn(
                   "text-2xl font-semibold",
-                  "text-neutral-900 dark:text-slate-200",
+                  "text-foreground",
                 )}
               >
                 {overall.p95Days.toFixed(1)}
@@ -221,7 +221,7 @@ export default function CompletionMetrics({
               <p
                 className={cn(
                   "text-xs mt-1",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 max expected days
@@ -238,7 +238,7 @@ export default function CompletionMetrics({
               <p
                 className={cn(
                   "text-xs mb-2",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 Completion Rate
@@ -256,7 +256,7 @@ export default function CompletionMetrics({
               <p
                 className={cn(
                   "text-xs mt-1",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 {overall.completedReports !== undefined
@@ -268,14 +268,14 @@ export default function CompletionMetrics({
             <div
               className={cn(
                 "p-4 rounded-lg border",
-                "bg-neutral-50 dark:bg-slate-700/20",
+                "bg-muted/40",
                 "border-neutral-200 dark:border-slate-600/20",
               )}
             >
               <p
                 className={cn(
                   "text-xs mb-2",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 Total Reports
@@ -283,7 +283,7 @@ export default function CompletionMetrics({
               <p
                 className={cn(
                   "text-2xl font-semibold",
-                  "text-neutral-900 dark:text-slate-200",
+                  "text-foreground",
                 )}
               >
                 {overall.totalReports}
@@ -291,7 +291,7 @@ export default function CompletionMetrics({
               <p
                 className={cn(
                   "text-xs mt-1",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 in period
@@ -306,14 +306,14 @@ export default function CompletionMetrics({
         <div
           className={cn(
             "p-6 rounded-lg border",
-            "border-neutral-200 dark:border-slate-700/50",
-            "bg-white/50 dark:bg-slate-800/30",
+            "border-neutral-200 dark:border-slate-700/60",
+            "bg-white dark:bg-slate-900/50",
           )}
         >
           <h3
             className={cn(
               "font-semibold text-lg mb-4",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             Completion Time by Hazard Type
@@ -323,15 +323,15 @@ export default function CompletionMetrics({
             <BarChart data={byHazardType}>
               <CartesianGrid
                 strokeDasharray="3 3"
-                className="stroke-neutral-300 dark:stroke-slate-700"
+                className="stroke-border"
               />
               <XAxis
                 dataKey="hazardType"
-                className="text-neutral-600 dark:text-slate-400"
+                className="text-muted-foreground"
                 style={{ fontSize: "12px" }}
               />
               <YAxis
-                className="text-neutral-600 dark:text-slate-400"
+                className="text-muted-foreground"
                 style={{ fontSize: "12px" }}
                 label={{
                   value: "Days",
@@ -347,7 +347,7 @@ export default function CompletionMetrics({
                   borderRadius: "8px",
                   color: "#111827",
                 }}
-                className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
+                className=""
                 formatter={(value: any) => [
                   `${(value as number).toFixed(1)} days`,
                   "Avg Time",
@@ -372,16 +372,16 @@ export default function CompletionMetrics({
                   key={hazard.hazardType}
                   className={cn(
                     "flex items-center justify-between p-3 rounded-lg border transition-colors",
-                    "bg-neutral-50 dark:bg-slate-700/10",
+                    "bg-muted/30",
                     "border-neutral-200 dark:border-slate-600/20",
-                    "hover:bg-neutral-100 dark:hover:bg-slate-700/20",
+                    "hover:bg-muted/60",
                   )}
                 >
                   <div className="flex items-center gap-3">
                     <span
                       className={cn(
                         "text-sm font-semibold min-w-[2rem]",
-                        "text-neutral-600 dark:text-slate-400",
+                        "text-muted-foreground",
                       )}
                     >
                       #{index + 1}
@@ -390,7 +390,7 @@ export default function CompletionMetrics({
                       <p
                         className={cn(
                           "font-medium",
-                          "text-neutral-900 dark:text-slate-200",
+                          "text-foreground",
                         )}
                       >
                         {hazard.hazardType}
@@ -398,7 +398,7 @@ export default function CompletionMetrics({
                       <p
                         className={cn(
                           "text-xs",
-                          "text-neutral-600 dark:text-slate-400",
+                          "text-muted-foreground",
                         )}
                       >
                         {hazard.count} reports
@@ -421,14 +421,14 @@ export default function CompletionMetrics({
         <div
           className={cn(
             "p-6 rounded-lg border",
-            "border-neutral-200 dark:border-slate-700/50",
-            "bg-white/50 dark:bg-slate-800/30",
+            "border-neutral-200 dark:border-slate-700/60",
+            "bg-white dark:bg-slate-900/50",
           )}
         >
           <h3
             className={cn(
               "font-semibold text-lg mb-4",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             Completion Time Trend
@@ -438,18 +438,18 @@ export default function CompletionMetrics({
             <LineChart data={timeSeries}>
               <CartesianGrid
                 strokeDasharray="3 3"
-                className="stroke-neutral-300 dark:stroke-slate-700"
+                className="stroke-border"
               />
               <XAxis
                 dataKey="date"
-                className="text-neutral-600 dark:text-slate-400"
+                className="text-muted-foreground"
                 style={{ fontSize: "12px" }}
                 angle={timeSeries.length > 10 ? -45 : 0}
                 textAnchor={timeSeries.length > 10 ? "end" : "middle"}
                 height={timeSeries.length > 10 ? 80 : 30}
               />
               <YAxis
-                className="text-neutral-600 dark:text-slate-400"
+                className="text-muted-foreground"
                 style={{ fontSize: "12px" }}
                 label={{
                   value: "Days",
@@ -465,7 +465,7 @@ export default function CompletionMetrics({
                   borderRadius: "8px",
                   color: "#111827",
                 }}
-                className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
+                className=""
                 formatter={(value: any) =>
                   `${(value as number).toFixed(1)} days`
                 }
