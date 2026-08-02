@@ -152,6 +152,116 @@ export async function provisionWorkspace(
   };
 }
 
+/**
+ * Ensure the user has a READY workspace they can configure (BYOK, settings).
+ *
+ * Signup historically created an Organization without calling
+ * `provisionWorkspace`, so setup step "Add your AI key" hit
+ * `checkPaymentGate` → 402 NO_WORKSPACE. This helper is the idempotent
+ * bridge for that gap (and for any future caller that needs a workspace
+ * before Stripe webhook wiring exists).
+ */
+export async function ensureWorkspaceForUser(
+  userId: string,
+): Promise<ProvisionResult | null> {
+  const existingOwned = await prisma.workspace.findFirst({
+    where: { ownerId: userId },
+    select: { id: true, name: true, status: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (existingOwned) {
+    // Incomplete provision runs can leave PROVISIONING forever — promote.
+    if (existingOwned.status === "PROVISIONING") {
+      await prisma.workspace.update({
+        where: { id: existingOwned.id },
+        data: { status: "READY" },
+      });
+    }
+    await ensureOwnerMembership(existingOwned.id, userId);
+    return {
+      workspaceId: existingOwned.id,
+      workspaceName: existingOwned.name,
+      alreadyExisted: true,
+    };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, name: true },
+  });
+  if (!user?.email) return null;
+
+  return provisionWorkspace({
+    userId,
+    userEmail: user.email,
+    userName: user.name,
+  });
+}
+
+/**
+ * Repair missing owner membership / Owner role binding on an existing workspace.
+ * Safe to call repeatedly.
+ */
+async function ensureOwnerMembership(
+  workspaceId: string,
+  userId: string,
+): Promise<void> {
+  let member = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId } },
+    select: {
+      id: true,
+      status: true,
+      roleBindings: { select: { id: true }, take: 1 },
+    },
+  });
+
+  if (!member) {
+    member = await prisma.workspaceMember.create({
+      data: {
+        workspaceId,
+        userId,
+        status: "ACTIVE",
+        joinedAt: new Date(),
+      },
+      select: {
+        id: true,
+        status: true,
+        roleBindings: { select: { id: true }, take: 1 },
+      },
+    });
+  } else if (member.status !== "ACTIVE") {
+    await prisma.workspaceMember.update({
+      where: { id: member.id },
+      data: { status: "ACTIVE", joinedAt: new Date() },
+    });
+  }
+
+  if (member.roleBindings.length > 0) return;
+
+  const ownerRole = await prisma.workspaceRole.findFirst({
+    where: { name: "Owner", isSystem: true, workspaceId: null },
+    select: { id: true },
+  });
+  if (!ownerRole) {
+    console.warn(
+      `[ensureOwnerMembership] System Owner role not found — role binding skipped for workspace ${workspaceId}`,
+    );
+    return;
+  }
+
+  await prisma.memberRoleBinding.upsert({
+    where: {
+      memberId_roleId: { memberId: member.id, roleId: ownerRole.id },
+    },
+    create: {
+      memberId: member.id,
+      roleId: ownerRole.id,
+    },
+    update: {},
+  });
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 /**
