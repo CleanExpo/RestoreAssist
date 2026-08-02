@@ -112,12 +112,8 @@ export default function RestorationDocumentsPage() {
     }
   }
 
-  const getDocHref = (doc: DocSummary) => {
-    if (doc.documentType === "RESTORATION_INVOICE") {
-      return `/dashboard/restoration-documents/invoice/${doc.id}`;
-    }
-    return `/dashboard/restoration-documents/${doc.id}`;
-  };
+  const getDocHref = (doc: DocSummary) =>
+    `/dashboard/restoration-documents/invoice/${doc.id}`;
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-slate-950">
@@ -128,20 +124,46 @@ export default function RestorationDocumentsPage() {
               Restoration Documents
             </h1>
             <p className="mt-1 text-sm text-neutral-600 dark:text-slate-400">
-              Australian-law tax invoices and restoration documentation.
-              Auto-filled from your profile and linked reports.
+              IICRC-worded tax invoices and estimates (JSON documents). Separate
+              from Accounts Receivable invoices under Billing → Invoices.
             </p>
           </div>
-          <Link
-            href="/dashboard/restoration-documents/invoice/new"
-            className={cn(
-              "inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-700",
-              "focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900",
-            )}
-          >
-            <Plus className="h-4 w-4" />
-            New Restoration Invoice
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/dashboard/quote"
+              className={cn(
+                "inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-800 hover:bg-neutral-50",
+                "dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800",
+              )}
+            >
+              <Plus className="h-4 w-4" />
+              New Estimate (Quote Generator)
+            </Link>
+            <Link
+              href="/dashboard/restoration-documents/invoice/new"
+              className={cn(
+                "inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-700",
+                "focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900",
+              )}
+            >
+              <Plus className="h-4 w-4" />
+              New Restoration Invoice
+            </Link>
+          </div>
+        </div>
+
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+          <p className="font-medium">Two invoice systems — keep them distinct</p>
+          <p className="mt-1 text-amber-800/90 dark:text-amber-100/80">
+            <strong>Restoration Documents</strong> are field/insurer-facing IICRC
+            tax invoices &amp; estimates.{" "}
+            <strong>Billing → Invoices</strong> are AR invoices (PDF, email,
+            payments, Xero). They are not auto-merged. To bill in AR, open{" "}
+            <Link href="/dashboard/invoices/new" className="underline font-medium">
+              New Invoice
+            </Link>{" "}
+            or use Quote Generator → Create Invoice Draft.
+          </p>
         </div>
 
         {loadError && (
