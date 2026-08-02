@@ -35,8 +35,8 @@ export default function InsightsMovers({
       <div
         className={cn(
           "p-6 rounded-2xl border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <div className="h-[320px] flex items-center justify-center">
@@ -55,8 +55,8 @@ export default function InsightsMovers({
       <div
         className={cn(
           "p-6 rounded-2xl border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <div className="flex items-center gap-3 mb-4">
@@ -64,13 +64,13 @@ export default function InsightsMovers({
           <h3
             className={cn(
               "text-lg font-semibold",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             Top Movers & Turnaround
           </h3>
         </div>
-        <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
+        <p className={cn("text-sm", "text-muted-foreground")}>
           No growth or turnaround data for this period. More reports will
           surface top growing clients and hazard turnaround times.
         </p>
@@ -82,8 +82,8 @@ export default function InsightsMovers({
     <div
       className={cn(
         "p-6 rounded-2xl border",
-        "border-neutral-200 dark:border-slate-700/50",
-        "bg-white/50 dark:bg-slate-800/30",
+        "border-neutral-200 dark:border-slate-700/60",
+        "bg-white dark:bg-slate-900/50",
         "hover:border-rose-500/30",
       )}
     >
@@ -92,7 +92,7 @@ export default function InsightsMovers({
         <h3
           className={cn(
             "text-lg font-semibold",
-            "text-neutral-900 dark:text-slate-200",
+            "text-foreground",
           )}
         >
           Top Movers & Turnaround
@@ -106,7 +106,7 @@ export default function InsightsMovers({
             <span
               className={cn(
                 "text-sm font-medium",
-                "text-neutral-700 dark:text-slate-300",
+                "text-foreground/90",
               )}
             >
               Top growing clients
@@ -118,7 +118,7 @@ export default function InsightsMovers({
                 key={i}
                 className={cn(
                   "flex items-center justify-between text-sm py-1.5 px-2 rounded-lg",
-                  "bg-neutral-50 dark:bg-slate-700/30",
+                  "bg-muted/40",
                 )}
               >
                 <span
@@ -146,7 +146,7 @@ export default function InsightsMovers({
           </ul>
           {topGrowingClients.length === 0 && (
             <p
-              className={cn("text-xs", "text-neutral-500 dark:text-slate-500")}
+              className={cn("text-xs", "text-muted-foreground")}
             >
               No client growth data
             </p>
@@ -159,7 +159,7 @@ export default function InsightsMovers({
             <span
               className={cn(
                 "text-sm font-medium",
-                "text-neutral-700 dark:text-slate-300",
+                "text-foreground/90",
               )}
             >
               Slowest turnaround
@@ -171,7 +171,7 @@ export default function InsightsMovers({
                 key={i}
                 className={cn(
                   "flex items-center justify-between text-sm py-1.5 px-2 rounded-lg",
-                  "bg-neutral-50 dark:bg-slate-700/30",
+                  "bg-muted/40",
                 )}
               >
                 <span
@@ -190,7 +190,7 @@ export default function InsightsMovers({
           </ul>
           {slowestHazards.length === 0 && (
             <p
-              className={cn("text-xs", "text-neutral-500 dark:text-slate-500")}
+              className={cn("text-xs", "text-muted-foreground")}
             >
               No completion data
             </p>
@@ -203,7 +203,7 @@ export default function InsightsMovers({
             <span
               className={cn(
                 "text-sm font-medium",
-                "text-neutral-700 dark:text-slate-300",
+                "text-foreground/90",
               )}
             >
               Fastest turnaround
@@ -215,7 +215,7 @@ export default function InsightsMovers({
                 key={i}
                 className={cn(
                   "flex items-center justify-between text-sm py-1.5 px-2 rounded-lg",
-                  "bg-neutral-50 dark:bg-slate-700/30",
+                  "bg-muted/40",
                 )}
               >
                 <span
@@ -234,7 +234,7 @@ export default function InsightsMovers({
           </ul>
           {fastestHazards.length === 0 && (
             <p
-              className={cn("text-xs", "text-neutral-500 dark:text-slate-500")}
+              className={cn("text-xs", "text-muted-foreground")}
             >
               No completion data
             </p>
