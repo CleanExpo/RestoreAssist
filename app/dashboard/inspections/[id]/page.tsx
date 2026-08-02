@@ -17,6 +17,7 @@ import InspectionEvidenceReadinessPanel, {
   type InspectionEvidenceTab,
 } from "@/components/inspection/InspectionEvidenceReadinessPanel";
 import HandoverPackagePanel from "@/components/inspection/HandoverPackagePanel";
+import { MakeSafeChecklist } from "@/components/inspection/MakeSafeChecklist";
 import {
   moistureReadingsRequired,
   type IicrcClaimType,
@@ -1474,6 +1475,11 @@ export default function InspectionDetailPage({
               </div>
             )}
 
+            {/* Make-safe is a hard submit blocker — keep it editable on the hub */}
+            <div className="lg:col-span-4 md:col-span-2">
+              <MakeSafeChecklist inspectionId={inspection.id} />
+            </div>
+
             {/* Portal Invite */}
             <div className="lg:col-span-4 md:col-span-2">
               <PortalInvitePanel
@@ -1912,22 +1918,27 @@ export default function InspectionDetailPage({
           </div>
         )}
 
-        {/* Floor Plan / Sketch Tab */}
-        {activeTab === "sketch" && (
-          <div className="min-h-[600px]">
-            <SketchEditor
-              inspectionId={inspection.id}
-              propertyAddress={inspection.propertyAddress ?? undefined}
-              propertyPostcode={inspection.propertyPostcode ?? undefined}
-              autoFetchFloorPlan={autoFetchFloorPlan}
-            />
-            <div className="mt-3 space-y-3">
-              <ClientPortalLinkButton inspectionId={inspection.id} />
-              <ClientEvidenceReviewPanel inspectionId={inspection.id} />
-              <HomeownerCapturePanel inspectionId={inspection.id} />
-            </div>
+        {/* Floor Plan / Sketch Tab — keep mounted (hidden) so tab switches
+            don't dispose Fabric mid-debounce and wipe the saved drawing. */}
+        <div
+          className={cn(
+            "min-h-[600px]",
+            activeTab !== "sketch" && "hidden",
+          )}
+          hidden={activeTab !== "sketch"}
+        >
+          <SketchEditor
+            inspectionId={inspection.id}
+            propertyAddress={inspection.propertyAddress ?? undefined}
+            propertyPostcode={inspection.propertyPostcode ?? undefined}
+            autoFetchFloorPlan={autoFetchFloorPlan}
+          />
+          <div className="mt-3 space-y-3">
+            <ClientPortalLinkButton inspectionId={inspection.id} />
+            <ClientEvidenceReviewPanel inspectionId={inspection.id} />
+            <HomeownerCapturePanel inspectionId={inspection.id} />
           </div>
-        )}
+        </div>
 
         {/* Affected Areas Tab */}
         {activeTab === "areas" && (
