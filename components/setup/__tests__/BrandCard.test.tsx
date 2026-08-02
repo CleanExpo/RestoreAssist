@@ -38,6 +38,18 @@ describe('BrandCard', () => {
     expect(screen.getByLabelText(/primary colour picker/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/accent colour picker/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/about your business/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/live brand preview/i)).toBeInTheDocument();
+    expect(screen.getByText(/acme/i)).toBeInTheDocument();
+  });
+
+  it('applies a suggested palette to primary and accent', async () => {
+    useSetupStore.getState().setSectionStatus('branding', 'ready');
+    render(<BrandCard />);
+    fireEvent.click(screen.getByRole('button', { name: /claim steel/i }));
+    await waitFor(() => {
+      expect(useSetupStore.getState().org?.primaryColor).toBe('#0B1F3A');
+      expect(useSetupStore.getState().org?.accentColor).toBe('#3B6D8C');
+    });
   });
 
   it('PATCH /api/setup/state is called when primary colour changes', async () => {
