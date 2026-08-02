@@ -27,21 +27,21 @@ export default function PeriodComparison({
       <div
         className={cn(
           "p-6 rounded-2xl border animate-pulse",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <div
           className={cn(
             "h-5 rounded w-1/3 mb-6",
-            "bg-neutral-200 dark:bg-slate-700",
+            "bg-muted",
           )}
         />
         <div className="grid grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className={cn("h-16 rounded", "bg-neutral-200 dark:bg-slate-700")}
+              className={cn("h-16 rounded", "bg-muted")}
             />
           ))}
         </div>
@@ -54,19 +54,19 @@ export default function PeriodComparison({
       <div
         className={cn(
           "p-6 rounded-2xl border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <h3
           className={cn(
             "text-lg font-semibold mb-4",
-            "text-neutral-900 dark:text-slate-200",
+            "text-foreground",
           )}
         >
           Period comparison
         </h3>
-        <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
+        <p className={cn("text-sm", "text-muted-foreground")}>
           No comparison data available.
         </p>
       </div>
@@ -84,15 +84,15 @@ export default function PeriodComparison({
     <div
       className={cn(
         "p-6 rounded-2xl border",
-        "border-neutral-200 dark:border-slate-700/50",
-        "bg-white/50 dark:bg-slate-800/30",
+        "border-neutral-200 dark:border-slate-700/60",
+        "bg-white dark:bg-slate-900/50",
         "hover:border-amber-500/30",
       )}
     >
       <h3
         className={cn(
           "text-lg font-semibold mb-6",
-          "text-neutral-900 dark:text-slate-200",
+          "text-foreground",
         )}
       >
         Period comparison
@@ -101,13 +101,13 @@ export default function PeriodComparison({
         <div
           className={cn(
             "rounded-xl p-4",
-            "bg-neutral-100 dark:bg-slate-700/50",
+            "bg-muted",
           )}
         >
           <p
             className={cn(
               "text-xs mb-1",
-              "text-neutral-600 dark:text-slate-400",
+              "text-muted-foreground",
             )}
           >
             {previousLabel}
@@ -115,18 +115,18 @@ export default function PeriodComparison({
           <p
             className={cn(
               "text-xl font-bold",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             {data.previous.reports}
           </p>
-          <p className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
+          <p className={cn("text-xs", "text-muted-foreground")}>
             reports
           </p>
           <p
             className={cn(
               "text-sm font-semibold mt-1",
-              "text-neutral-700 dark:text-slate-300",
+              "text-foreground/90",
             )}
           >
             ${(data.previous.revenue / 1000).toFixed(1)}K
@@ -170,7 +170,7 @@ export default function PeriodComparison({
           <p
             className={cn(
               "text-xs mb-1",
-              "text-neutral-600 dark:text-slate-400",
+              "text-muted-foreground",
             )}
           >
             {currentLabel}
@@ -178,12 +178,12 @@ export default function PeriodComparison({
           <p
             className={cn(
               "text-xl font-bold",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             {data.current.reports}
           </p>
-          <p className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
+          <p className={cn("text-xs", "text-muted-foreground")}>
             reports
           </p>
           <p
@@ -199,7 +199,7 @@ export default function PeriodComparison({
       <div
         className={cn(
           "mt-4 pt-4 border-t flex justify-center gap-6",
-          "border-neutral-200 dark:border-slate-700/50",
+          "border-neutral-200 dark:border-slate-700/60",
         )}
       >
         <div className="flex items-center gap-2">
@@ -211,7 +211,7 @@ export default function PeriodComparison({
             <Minus className="w-4 h-4 text-neutral-500" />
           )}
           <span
-            className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}
+            className={cn("text-sm", "text-muted-foreground")}
           >
             Reports {data.changes.reports}
           </span>
@@ -225,7 +225,7 @@ export default function PeriodComparison({
             <Minus className="w-4 h-4 text-neutral-500" />
           )}
           <span
-            className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}
+            className={cn("text-sm", "text-muted-foreground")}
           >
             Revenue {data.changes.revenue}
           </span>
