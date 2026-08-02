@@ -316,6 +316,12 @@ export default function DashboardShell({
             href: "/dashboard/governance",
             adminOnly: true,
           },
+          {
+            icon: BarChart3,
+            label: "Restoration Insights",
+            href: "/dashboard/admin/restoration-insights",
+            adminOnly: true,
+          },
         ]
       : []),
   ];

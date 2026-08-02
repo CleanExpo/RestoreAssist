@@ -83,7 +83,28 @@ export default function RestorationInsightsPage() {
   }, [status, session, year, load]);
 
   // Admin guard — after hooks (rules-of-hooks).
-  if (status !== "loading" && session?.user?.role !== "ADMIN") {
+  if (status === "loading") {
+    return (
+      <div className="p-6 space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <BarChart3 className="h-6 w-6" aria-hidden="true" />
+            Restoration Insights
+          </h1>
+          <p className="text-sm text-neutral-500 mt-1">
+            Checking access…
+          </p>
+        </div>
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-neutral-500">
+            Loading…
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (session?.user?.role !== "ADMIN") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Card className="w-full max-w-sm">

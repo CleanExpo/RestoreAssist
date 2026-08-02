@@ -155,6 +155,7 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     "/dashboard/admin": "Admin",
     "/dashboard/admin/pilot": "Admin",
     "/dashboard/admin/content-gate": "Admin",
+    "/dashboard/admin/restoration-insights": "Admin",
     "/dashboard/governance": "Admin",
   };
 
