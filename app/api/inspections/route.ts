@@ -423,6 +423,17 @@ export async function POST(request: NextRequest) {
         console.error("Error creating audit log (non-critical):", auditError);
       }
 
+      // Seed Stabilisation checklist rows (N/A) so submit isn't blocked by
+      // the make-safe gate treating missing rows as incomplete.
+      try {
+        const { ensureMakeSafeSeeded } = await import(
+          "@/lib/compliance/seed-make-safe"
+        );
+        await ensureMakeSafeSeeded(inspection.id);
+      } catch (seedErr) {
+        console.error("Error seeding make-safe rows (non-critical):", seedErr);
+      }
+
       return NextResponse.json({ inspection }, { status: 201 });
     } catch (error) {
       // RA-786: do not leak error.message / error.code to clients — fromException handles that.
