@@ -188,6 +188,30 @@ export function SketchEditorV2({
   const uid = useId();
   const { hasNativeRoomPlan } = useCapacitor();
 
+  // Fabric used a fixed 1200×800 surface while the host filled the panel, so the
+  // right half of wide viewports was dead space (strokes/clicks only on the left).
+  const canvasHostRef = useRef<HTMLDivElement>(null);
+  const [viewport, setViewport] = useState({ width, height });
+
+  useEffect(() => {
+    const el = canvasHostRef.current;
+    if (!el) return;
+
+    const applySize = () => {
+      const w = Math.max(320, Math.floor(el.clientWidth));
+      const h = Math.max(320, Math.floor(el.clientHeight));
+      if (w <= 0 || h <= 0) return;
+      setViewport((prev) =>
+        prev.width === w && prev.height === h ? prev : { width: w, height: h },
+      );
+    };
+
+    applySize();
+    const ro = new ResizeObserver(applySize);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // ── Floor state ────────────────────────────────────────
   const [floorsData, setFloorsData] = useState<FloorData[]>(() => [
     {
@@ -380,6 +404,14 @@ export function SketchEditorV2({
   }, [captureMode]);
 
   const activeFloor = floorsData[activeIdx];
+
+  // Hidden floors skip layout; re-sync Fabric hit-testing after show/resize.
+  useEffect(() => {
+    const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+      calcOffset?: () => void;
+    } | null;
+    fc?.calcOffset?.();
+  }, [activeIdx, activeFloor, viewport.width, viewport.height]);
 
   // ── Auto-save ───────────────────────────────────────────
   // RA-1762 — replaces the original empty `catch {}` that silently
@@ -1652,6 +1684,7 @@ export function SketchEditorV2({
 
       {/* ── Canvas area ────────────────────────────────────── */}
       <div
+        ref={canvasHostRef}
         className="relative flex-1 overflow-hidden"
         style={{ minHeight: height }}
       >
@@ -1665,8 +1698,8 @@ export function SketchEditorV2({
           >
             <SketchCanvas
               ref={fd.canvasRef}
-              width={width}
-              height={height}
+              width={viewport.width}
+              height={viewport.height}
               toolMode={toolMode}
               damageKind={damageKind}
               pxPerMetre={fd.scaleConfig?.pxPerMetre}
@@ -1744,8 +1777,8 @@ export function SketchEditorV2({
               pins={fd.moisturePins}
               onChange={handleMoisturePinsChange}
               active={toolMode === "moisture" && idx === activeIdx}
-              width={width}
-              height={height}
+              width={viewport.width}
+              height={viewport.height}
             />
 
             {/* Evidence pins on plan (P0) */}
@@ -1753,8 +1786,8 @@ export function SketchEditorV2({
               <SketchEvidenceLayer
                 pins={fd.evidencePins}
                 active={toolMode === "photo" && idx === activeIdx && !readonly}
-                width={width}
-                height={height}
+                width={viewport.width}
+                height={viewport.height}
                 uploading={evidenceUploading && idx === activeIdx}
                 onPlace={handleEvidencePlace}
                 onMove={handleEvidenceMove}
