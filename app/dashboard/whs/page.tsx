@@ -1,8 +1,10 @@
 "use client";
+// turbopack-bust
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   AlertTriangle,
   CheckCircle,
@@ -41,6 +43,7 @@ interface WHSCorrectiveAction {
 interface WHSIncident {
   id: string;
   userId: string;
+  inspectionId: string | null;
   incidentType: string;
   severity: WHSSeverity;
   status: WHSStatus;
@@ -54,6 +57,13 @@ interface WHSIncident {
   updatedAt: string;
 }
 
+interface InspectionOption {
+  id: string;
+  inspectionNumber: string | null;
+  propertyAddress: string | null;
+  status: string;
+}
+
 interface NewIncidentForm {
   incidentType: string;
   severity: WHSSeverity | "";
@@ -63,18 +73,31 @@ interface NewIncidentForm {
   description: string;
   injuredParty: string;
   injuryDescription: string;
+  inspectionId: string;
 }
 
 const BLANK_FORM: NewIncidentForm = {
   incidentType: "",
   severity: "",
-  status: "",
+  status: "OPEN",
   incidentDate: "",
   location: "",
   description: "",
   injuredParty: "",
   injuryDescription: "",
+  inspectionId: "",
 };
+
+function apiErrorMessage(data: unknown, fallback: string): string {
+  if (!data || typeof data !== "object") return fallback;
+  const err = (data as { error?: unknown }).error;
+  if (typeof err === "string" && err.trim()) return err;
+  if (err && typeof err === "object") {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return fallback;
+}
 
 type FilterTab = "ALL" | "OPEN" | "UNDER_REVIEW" | "CLOSED";
 
@@ -369,6 +392,26 @@ function CorrectiveActionsRow({
             </div>
           )}
 
+          {incident.inspectionId && (
+            <>
+              <Separator className="bg-slate-700/50" />
+              <div>
+                <p className="text-xs font-medium text-slate-400 mb-1">
+                  Linked inspection
+                </p>
+                <Link
+                  href={`/dashboard/inspections/${incident.inspectionId}`}
+                  className="text-sm text-cyan-400 hover:underline"
+                >
+                  Open inspection →
+                </Link>
+                <p className="text-xs text-slate-500 mt-1">
+                  Required for claim-lifecycle WHS hold transitions.
+                </p>
+              </div>
+            </>
+          )}
+
           {incident.description && (
             <>
               <Separator className="bg-slate-700/50" />
@@ -406,6 +449,8 @@ interface NewIncidentFormProps {
   onCancel: () => void;
   saving: boolean;
   errors: Partial<Record<keyof NewIncidentForm, string>>;
+  inspections: InspectionOption[];
+  inspectionsLoading: boolean;
 }
 
 function NewIncidentFormPanel({
@@ -415,6 +460,8 @@ function NewIncidentFormPanel({
   onCancel,
   saving,
   errors,
+  inspections,
+  inspectionsLoading,
 }: NewIncidentFormProps) {
   const set =
     (field: keyof NewIncidentForm) =>
@@ -422,8 +469,22 @@ function NewIncidentFormPanel({
       e: React.ChangeEvent<
         HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
       >,
-    ) =>
-      onChange({ ...form, [field]: e.target.value });
+    ) => {
+      const value = e.target.value;
+      if (field === "inspectionId") {
+        const selected = inspections.find((i) => i.id === value);
+        onChange({
+          ...form,
+          inspectionId: value,
+          location:
+            form.location.trim() ||
+            selected?.propertyAddress ||
+            form.location,
+        });
+        return;
+      }
+      onChange({ ...form, [field]: value });
+    };
 
   return (
     <div className="bg-slate-700/20 border border-slate-600 rounded-xl p-6 space-y-5">
@@ -508,6 +569,37 @@ function NewIncidentFormPanel({
           {errors.incidentDate && (
             <p className="text-xs text-destructive">{errors.incidentDate}</p>
           )}
+        </div>
+
+        {/* Linked inspection — needed for claim WHS_HOLD guards */}
+        <div className="space-y-1.5 md:col-span-2">
+          <Label htmlFor="inspectionId" className="text-slate-300">
+            Linked inspection{" "}
+            <span className="text-slate-500 font-normal">(recommended)</span>
+          </Label>
+          <select
+            id="inspectionId"
+            value={form.inspectionId}
+            onChange={set("inspectionId")}
+            disabled={inspectionsLoading}
+            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50"
+          >
+            <option value="">
+              {inspectionsLoading
+                ? "Loading inspections…"
+                : "No inspection link (site-only log)"}
+            </option>
+            {inspections.map((insp) => (
+              <option key={insp.id} value={insp.id}>
+                {(insp.inspectionNumber || insp.id.slice(0, 8)) +
+                  (insp.propertyAddress ? ` — ${insp.propertyAddress}` : "")}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-500">
+            Link HIGH/CRITICAL open incidents to an inspection so claim
+            &quot;Raise WHS incident&quot; / clear-hold steps can see them.
+          </p>
         </div>
 
         {/* Location — spans full width */}
@@ -597,6 +689,9 @@ export default function WHSPage() {
   const [incidents, setIncidents] = useState<WHSIncident[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiUnavailable, setApiUnavailable] = useState(false);
+  const [inspections, setInspections] = useState<InspectionOption[]>([]);
+  const [inspectionsLoading, setInspectionsLoading] = useState(false);
+  const [inspectionsFetched, setInspectionsFetched] = useState(false);
 
   const [activeTab, setActiveTab] = useState<FilterTab>("ALL");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -652,6 +747,43 @@ export default function WHSPage() {
     }
   }, []);
 
+  const fetchInspections = useCallback(async () => {
+    setInspectionsLoading(true);
+    try {
+      const res = await fetch("/api/inspections?limit=50&sort=recent");
+      if (!res.ok) {
+        setInspections([]);
+        return;
+      }
+      const data = await res.json();
+      const rows = (data.inspections ?? []) as Array<{
+        id: string;
+        inspectionNumber?: string | null;
+        propertyAddress?: string | null;
+        status?: string;
+      }>;
+      setInspections(
+        rows.map((r) => ({
+          id: r.id,
+          inspectionNumber: r.inspectionNumber ?? null,
+          propertyAddress: r.propertyAddress ?? null,
+          status: r.status ?? "",
+        })),
+      );
+    } catch {
+      setInspections([]);
+    } finally {
+      setInspectionsLoading(false);
+      setInspectionsFetched(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showForm && !inspectionsFetched && !inspectionsLoading) {
+      void fetchInspections();
+    }
+  }, [showForm, inspectionsFetched, inspectionsLoading, fetchInspections]);
+
   function showMsg(type: "success" | "error", text: string) {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), 4500);
@@ -684,6 +816,7 @@ export default function WHSPage() {
           description: form.description.trim() || null,
           injuredParty: form.injuredParty.trim() || null,
           injuryDescription: form.injuryDescription.trim() || null,
+          inspectionId: form.inspectionId || null,
         }),
       });
       if (res.ok) {
@@ -694,7 +827,7 @@ export default function WHSPage() {
         await fetchIncidents();
       } else {
         const data = await res.json().catch(() => ({}));
-        showMsg("error", data.error ?? "Failed to save incident.");
+        showMsg("error", apiErrorMessage(data, "Failed to save incident."));
       }
     } catch {
       showMsg("error", "Network error — please try again.");
@@ -740,7 +873,9 @@ export default function WHSPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setActionError(data.error ?? "Failed to add corrective action.");
+        setActionError(
+          apiErrorMessage(data, "Failed to add corrective action."),
+        );
         return;
       }
       showMsg("success", "Corrective action added.");
@@ -874,7 +1009,7 @@ export default function WHSPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* ── Toast ── */}
       {message && (
         <div
@@ -934,7 +1069,7 @@ export default function WHSPage() {
       )}
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-3 max-w-full">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-white">
             WHS Incident Register
@@ -1028,6 +1163,8 @@ export default function WHSPage() {
           }}
           saving={saving}
           errors={formErrors}
+          inspections={inspections}
+          inspectionsLoading={inspectionsLoading}
         />
       )}
 
@@ -1122,9 +1259,8 @@ export default function WHSPage() {
               {filteredIncidents.map((incident) => {
                 const isExpanded = expandedId === incident.id;
                 return (
-                  <>
+                  <Fragment key={incident.id}>
                     <tr
-                      key={incident.id}
                       className={`border-b border-slate-700/60 transition-colors ${
                         isExpanded ? "bg-slate-800/40" : "hover:bg-slate-800/30"
                       }`}
@@ -1170,7 +1306,6 @@ export default function WHSPage() {
 
                     {isExpanded && (
                       <CorrectiveActionsRow
-                        key={`${incident.id}-actions`}
                         incident={incident}
                         onAddAction={openAddAction}
                         onUpdateStatus={handleUpdateStatus}
@@ -1179,7 +1314,7 @@ export default function WHSPage() {
                         updatingStatusId={updatingStatusId}
                       />
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>

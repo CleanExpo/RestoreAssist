@@ -19,6 +19,7 @@ const patchSchema = z.object({
   description: z.string().trim().max(5000).nullable().optional(),
   injuredParty: z.string().trim().max(200).nullable().optional(),
   injuryDescription: z.string().trim().max(5000).nullable().optional(),
+  inspectionId: z.string().cuid().nullable().optional(),
 });
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -58,6 +59,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       });
     }
 
+    if (parsed.data.inspectionId) {
+      const inspection = await prisma.inspection.findFirst({
+        where: { id: parsed.data.inspectionId, userId: session.user.id },
+        select: { id: true },
+      });
+      if (!inspection) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
+    }
+
     const updated = await prisma.wHSIncident.update({
       where: { id },
       data: {
@@ -79,6 +94,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         ...(parsed.data.injuryDescription !== undefined
           ? { injuryDescription: parsed.data.injuryDescription }
           : {}),
+        ...(parsed.data.inspectionId !== undefined
+          ? { inspectionId: parsed.data.inspectionId }
+          : {}),
       },
       select: {
         id: true,
@@ -88,6 +106,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         description: true,
         injuredParty: true,
         injuryDescription: true,
+        inspectionId: true,
         updatedAt: true,
       },
     });

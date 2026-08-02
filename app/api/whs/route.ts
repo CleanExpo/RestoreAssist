@@ -40,6 +40,7 @@ const actionSelect = {
 const incidentSelect = {
   id: true,
   userId: true,
+  inspectionId: true,
   incidentType: true,
   severity: true,
   status: true,
@@ -85,6 +86,7 @@ function serializeAction(action: {
 function serializeIncident(incident: {
   id: string;
   userId: string;
+  inspectionId: string | null;
   incidentType: string;
   severity: string;
   status: string;
@@ -110,6 +112,7 @@ function serializeIncident(incident: {
   return {
     id: incident.id,
     userId: incident.userId,
+    inspectionId: incident.inspectionId,
     incidentType: incident.incidentType,
     severity: incident.severity,
     status: incident.status,
