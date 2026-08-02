@@ -105,7 +105,7 @@ export default function AINarrativeCard({
             <p
               className={cn(
                 "text-sm",
-                "text-neutral-700 dark:text-neutral-300",
+                "text-foreground/90",
               )}
             >
               Generate your first report to see trends.
@@ -120,8 +120,8 @@ export default function AINarrativeCard({
     return (
       <Card
         className={cn(
-          "bg-neutral-50 dark:bg-slate-800/50",
-          "border-neutral-200 dark:border-slate-700",
+          "bg-muted/40",
+          "border-neutral-200 dark:border-slate-700/60",
         )}
       >
         <CardContent className="p-6">
@@ -132,7 +132,7 @@ export default function AINarrativeCard({
                 <p
                   className={cn(
                     "text-sm font-medium",
-                    "text-neutral-700 dark:text-neutral-300",
+                    "text-foreground/90",
                   )}
                 >
                   Couldn&apos;t load the AI narrative.
@@ -140,7 +140,7 @@ export default function AINarrativeCard({
                 <p
                   className={cn(
                     "text-xs mt-1",
-                    "text-neutral-500 dark:text-neutral-400",
+                    "text-muted-foreground",
                   )}
                 >
                   {error}
@@ -153,9 +153,9 @@ export default function AINarrativeCard({
               aria-label="Retry loading AI narrative"
               className={cn(
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium",
-                "border border-neutral-300 dark:border-slate-600",
-                "bg-white dark:bg-slate-900",
-                "hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors",
+                "border border-neutral-200 dark:border-slate-700/60",
+                "bg-white dark:bg-slate-900/50",
+                "hover:bg-muted transition-colors",
               )}
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -201,8 +201,8 @@ export default function AINarrativeCard({
                 aria-label="Refresh AI narrative"
                 className={cn(
                   "p-1.5 rounded-md transition-colors",
-                  "text-neutral-500 dark:text-neutral-400",
-                  "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                  "text-muted-foreground",
+                  "hover:bg-muted",
                 )}
               >
                 <RefreshCw className="w-3.5 h-3.5" />
@@ -220,7 +220,7 @@ export default function AINarrativeCard({
               <p
                 className={cn(
                   "text-xs mt-3",
-                  "text-neutral-500 dark:text-neutral-400",
+                  "text-muted-foreground",
                 )}
               >
                 Generated {new Date(generatedAt).toLocaleString("en-AU")}
