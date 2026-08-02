@@ -128,13 +128,13 @@ export default function BillingOverview() {
           <div
             className={cn(
               "w-8 h-8 rounded-lg animate-pulse",
-              "bg-neutral-200 dark:bg-slate-700",
+              "bg-muted",
             )}
           />
           <div
             className={cn(
               "w-48 h-6 rounded animate-pulse",
-              "bg-neutral-200 dark:bg-slate-700",
+              "bg-muted",
             )}
           />
         </div>
@@ -144,7 +144,7 @@ export default function BillingOverview() {
               key={i}
               className={cn(
                 "h-28 rounded-xl animate-pulse",
-                "bg-neutral-200 dark:bg-slate-700/50",
+                "bg-muted/50",
               )}
             />
           ))}
@@ -214,13 +214,13 @@ export default function BillingOverview() {
             <h3
               className={cn(
                 "text-lg font-semibold",
-                "text-neutral-900 dark:text-slate-200",
+                "text-foreground",
               )}
             >
               Revenue & Billing Overview
             </h3>
             <p
-              className={cn("text-xs", "text-neutral-500 dark:text-slate-400")}
+              className={cn("text-xs", "text-muted-foreground")}
             >
               Subscription health & revenue metrics
             </p>
@@ -230,8 +230,8 @@ export default function BillingOverview() {
           onClick={fetchBillingData}
           className={cn(
             "p-2 rounded-lg transition-colors",
-            "text-neutral-500 dark:text-slate-400",
-            "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
+            "text-muted-foreground",
+            "hover:bg-muted/60",
           )}
           title="Refresh billing data"
         >
@@ -242,11 +242,11 @@ export default function BillingOverview() {
       {/* MRR & ARR Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* MRR */}
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-white dark:bg-slate-900/50 border border-neutral-200 dark:border-slate-700/60 rounded-xl p-4">
           <p
             className={cn(
               "text-xs mb-1",
-              "text-neutral-600 dark:text-slate-400",
+              "text-muted-foreground",
             )}
           >
             Monthly Recurring Revenue
@@ -256,7 +256,7 @@ export default function BillingOverview() {
           </p>
           <div className="flex items-center gap-1 mt-1">
             <span
-              className={cn("text-xs", "text-neutral-500 dark:text-slate-500")}
+              className={cn("text-xs", "text-muted-foreground")}
             >
               {data.subscriptions.byPlan.monthly} monthly,{" "}
               {data.subscriptions.byPlan.yearly} yearly
@@ -265,11 +265,11 @@ export default function BillingOverview() {
         </div>
 
         {/* ARR */}
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-white dark:bg-slate-900/50 border border-neutral-200 dark:border-slate-700/60 rounded-xl p-4">
           <p
             className={cn(
               "text-xs mb-1",
-              "text-neutral-600 dark:text-slate-400",
+              "text-muted-foreground",
             )}
           >
             Annual Recurring Revenue
@@ -279,7 +279,7 @@ export default function BillingOverview() {
           </p>
           <div className="flex items-center gap-1 mt-1">
             <span
-              className={cn("text-xs", "text-neutral-500 dark:text-slate-500")}
+              className={cn("text-xs", "text-muted-foreground")}
             >
               {data.subscriptions.active} active subscribers
             </span>
@@ -287,11 +287,11 @@ export default function BillingOverview() {
         </div>
 
         {/* Add-on Revenue */}
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-white dark:bg-slate-900/50 border border-neutral-200 dark:border-slate-700/60 rounded-xl p-4">
           <p
             className={cn(
               "text-xs mb-1",
-              "text-neutral-600 dark:text-slate-400",
+              "text-muted-foreground",
             )}
           >
             Add-on Revenue (30d)
@@ -323,7 +323,7 @@ export default function BillingOverview() {
               <span
                 className={cn(
                   "text-xs",
-                  "text-neutral-500 dark:text-slate-500",
+                  "text-muted-foreground",
                 )}
               >
                 {data.addonRevenue.purchaseCount} purchases
@@ -333,11 +333,11 @@ export default function BillingOverview() {
         </div>
 
         {/* Total Users */}
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-white dark:bg-slate-900/50 border border-neutral-200 dark:border-slate-700/60 rounded-xl p-4">
           <p
             className={cn(
               "text-xs mb-1",
-              "text-neutral-600 dark:text-slate-400",
+              "text-muted-foreground",
             )}
           >
             Total Users
@@ -347,7 +347,7 @@ export default function BillingOverview() {
           </p>
           <div className="flex items-center gap-1 mt-1">
             <span
-              className={cn("text-xs", "text-neutral-500 dark:text-slate-500")}
+              className={cn("text-xs", "text-muted-foreground")}
             >
               {data.subscriptions.active + data.subscriptions.trial}{" "}
               paying/trial
@@ -362,8 +362,8 @@ export default function BillingOverview() {
         <div
           className={cn(
             "flex items-center gap-3 p-3 rounded-xl",
-            "bg-neutral-50 dark:bg-slate-800/30",
-            "border border-neutral-200 dark:border-slate-700/30",
+            "bg-muted/40",
+            "border border-neutral-200 dark:border-slate-700/60/30",
           )}
         >
           <div className="p-2 rounded-lg bg-emerald-500/10">
@@ -371,14 +371,14 @@ export default function BillingOverview() {
           </div>
           <div>
             <p
-              className={cn("text-xs", "text-neutral-500 dark:text-slate-400")}
+              className={cn("text-xs", "text-muted-foreground")}
             >
               Conversion Rate
             </p>
             <p
               className={cn(
                 "text-lg font-bold",
-                "text-neutral-900 dark:text-slate-200",
+                "text-foreground",
               )}
             >
               {data.metrics.conversionRate}%
@@ -390,8 +390,8 @@ export default function BillingOverview() {
         <div
           className={cn(
             "flex items-center gap-3 p-3 rounded-xl",
-            "bg-neutral-50 dark:bg-slate-800/30",
-            "border border-neutral-200 dark:border-slate-700/30",
+            "bg-muted/40",
+            "border border-neutral-200 dark:border-slate-700/60/30",
           )}
         >
           <div className="p-2 rounded-lg bg-red-500/10">
@@ -399,7 +399,7 @@ export default function BillingOverview() {
           </div>
           <div>
             <p
-              className={cn("text-xs", "text-neutral-500 dark:text-slate-400")}
+              className={cn("text-xs", "text-muted-foreground")}
             >
               Churn Rate (30d)
             </p>
@@ -408,7 +408,7 @@ export default function BillingOverview() {
                 "text-lg font-bold",
                 data.metrics.churnRate > 5
                   ? "text-destructive"
-                  : "text-neutral-900 dark:text-slate-200",
+                  : "text-foreground",
               )}
             >
               {data.metrics.churnRate}%
@@ -420,8 +420,8 @@ export default function BillingOverview() {
         <div
           className={cn(
             "flex items-center gap-3 p-3 rounded-xl",
-            "bg-neutral-50 dark:bg-slate-800/30",
-            "border border-neutral-200 dark:border-slate-700/30",
+            "bg-muted/40",
+            "border border-neutral-200 dark:border-slate-700/60/30",
           )}
         >
           <div className="p-2 rounded-lg bg-amber-500/10">
@@ -429,7 +429,7 @@ export default function BillingOverview() {
           </div>
           <div>
             <p
-              className={cn("text-xs", "text-neutral-500 dark:text-slate-400")}
+              className={cn("text-xs", "text-muted-foreground")}
             >
               Trials Expiring (7d)
             </p>
@@ -438,7 +438,7 @@ export default function BillingOverview() {
                 "text-lg font-bold",
                 data.metrics.trialsExpiringSoon > 0
                   ? "text-warning"
-                  : "text-neutral-900 dark:text-slate-200",
+                  : "text-foreground",
               )}
             >
               {data.metrics.trialsExpiringSoon}
@@ -450,8 +450,8 @@ export default function BillingOverview() {
         <div
           className={cn(
             "flex items-center gap-3 p-3 rounded-xl",
-            "bg-neutral-50 dark:bg-slate-800/30",
-            "border border-neutral-200 dark:border-slate-700/30",
+            "bg-muted/40",
+            "border border-neutral-200 dark:border-slate-700/60/30",
           )}
         >
           <div className="p-2 rounded-lg bg-slate-500/10">
@@ -459,14 +459,14 @@ export default function BillingOverview() {
           </div>
           <div>
             <p
-              className={cn("text-xs", "text-neutral-500 dark:text-slate-400")}
+              className={cn("text-xs", "text-muted-foreground")}
             >
               Canceled (30d)
             </p>
             <p
               className={cn(
                 "text-lg font-bold",
-                "text-neutral-900 dark:text-slate-200",
+                "text-foreground",
               )}
             >
               {data.metrics.canceledLast30Days}
@@ -482,7 +482,7 @@ export default function BillingOverview() {
           <h4
             className={cn(
               "text-sm font-semibold mb-4",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             Subscription Distribution
@@ -524,7 +524,7 @@ export default function BillingOverview() {
                     <span
                       className={cn(
                         "text-xs",
-                        "text-neutral-700 dark:text-slate-300",
+                        "text-foreground/90",
                       )}
                     >
                       {value}
@@ -538,7 +538,7 @@ export default function BillingOverview() {
               <p
                 className={cn(
                   "text-sm",
-                  "text-neutral-500 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 No subscription data
@@ -554,7 +554,7 @@ export default function BillingOverview() {
             <h4
               className={cn(
                 "text-sm font-semibold mb-3",
-                "text-neutral-900 dark:text-slate-200",
+                "text-foreground",
               )}
             >
               Active Plan Breakdown
@@ -578,7 +578,7 @@ export default function BillingOverview() {
                   key={plan.label}
                   className={cn(
                     "flex items-center justify-between p-3 rounded-lg",
-                    "bg-neutral-50 dark:bg-slate-700/30",
+                    "bg-muted/40",
                   )}
                 >
                   <div className="flex items-center gap-3">
@@ -586,7 +586,7 @@ export default function BillingOverview() {
                     <span
                       className={cn(
                         "text-sm font-medium",
-                        "text-neutral-700 dark:text-slate-300",
+                        "text-foreground/90",
                       )}
                     >
                       {plan.label}
@@ -596,7 +596,7 @@ export default function BillingOverview() {
                     <span
                       className={cn(
                         "text-sm font-bold",
-                        "text-neutral-900 dark:text-slate-200",
+                        "text-foreground",
                       )}
                     >
                       {plan.count}
@@ -604,7 +604,7 @@ export default function BillingOverview() {
                     <p
                       className={cn(
                         "text-xs",
-                        "text-neutral-500 dark:text-slate-400",
+                        "text-muted-foreground",
                       )}
                     >
                       {plan.revenue}
@@ -620,7 +620,7 @@ export default function BillingOverview() {
             <h4
               className={cn(
                 "text-sm font-semibold mb-3",
-                "text-neutral-900 dark:text-slate-200",
+                "text-foreground",
               )}
             >
               Credit Usage (Active Users)
@@ -629,13 +629,13 @@ export default function BillingOverview() {
               <div
                 className={cn(
                   "p-3 rounded-lg",
-                  "bg-neutral-50 dark:bg-slate-700/30",
+                  "bg-muted/40",
                 )}
               >
                 <p
                   className={cn(
                     "text-xs mb-1",
-                    "text-neutral-500 dark:text-slate-400",
+                    "text-muted-foreground",
                   )}
                 >
                   Total Used
@@ -643,7 +643,7 @@ export default function BillingOverview() {
                 <p
                   className={cn(
                     "text-lg font-bold",
-                    "text-neutral-900 dark:text-slate-200",
+                    "text-foreground",
                   )}
                 >
                   {data.creditUsage.totalUsed.toLocaleString()}
@@ -652,13 +652,13 @@ export default function BillingOverview() {
               <div
                 className={cn(
                   "p-3 rounded-lg",
-                  "bg-neutral-50 dark:bg-slate-700/30",
+                  "bg-muted/40",
                 )}
               >
                 <p
                   className={cn(
                     "text-xs mb-1",
-                    "text-neutral-500 dark:text-slate-400",
+                    "text-muted-foreground",
                   )}
                 >
                   Remaining
@@ -666,7 +666,7 @@ export default function BillingOverview() {
                 <p
                   className={cn(
                     "text-lg font-bold",
-                    "text-neutral-900 dark:text-slate-200",
+                    "text-foreground",
                   )}
                 >
                   {data.creditUsage.totalRemaining.toLocaleString()}
@@ -683,7 +683,7 @@ export default function BillingOverview() {
           <h4
             className={cn(
               "text-sm font-semibold mb-3",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             Recent Add-on Purchases
@@ -694,7 +694,7 @@ export default function BillingOverview() {
                 key={idx}
                 className={cn(
                   "flex items-center justify-between p-3 rounded-lg",
-                  "bg-neutral-50 dark:bg-slate-700/20",
+                  "bg-muted/40",
                   "border border-neutral-100 dark:border-slate-700/30",
                 )}
               >
@@ -706,7 +706,7 @@ export default function BillingOverview() {
                     <p
                       className={cn(
                         "text-sm font-medium",
-                        "text-neutral-700 dark:text-slate-300",
+                        "text-foreground/90",
                       )}
                     >
                       {addon.addonName}
@@ -714,7 +714,7 @@ export default function BillingOverview() {
                     <p
                       className={cn(
                         "text-xs",
-                        "text-neutral-500 dark:text-slate-400",
+                        "text-muted-foreground",
                       )}
                     >
                       {addon.userName}
@@ -728,7 +728,7 @@ export default function BillingOverview() {
                   <p
                     className={cn(
                       "text-xs",
-                      "text-neutral-500 dark:text-slate-400",
+                      "text-muted-foreground",
                     )}
                   >
                     {new Date(addon.purchasedAt).toLocaleDateString()}
