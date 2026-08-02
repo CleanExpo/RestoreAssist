@@ -45,6 +45,9 @@ vi.mock("@/lib/nir-tiered-completion", () => ({
 vi.mock("@/lib/compliance/make-safe-gate", () => ({
   checkMakeSafeGate: vi.fn().mockResolvedValue({ canSubmit: true, blockers: [] }),
 }));
+vi.mock("@/lib/compliance/seed-make-safe", () => ({
+  ensureMakeSafeSeeded: vi.fn().mockResolvedValue(false),
+}));
 vi.mock("@/lib/compliance/scope-variation-gate", () => ({
   checkScopeVariationGate: vi
     .fn()
