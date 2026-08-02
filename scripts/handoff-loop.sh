@@ -100,14 +100,108 @@ gate_build_nodb(){ need_deps && pnpm validate:next-build-no-db; }
 gate_build_full(){ need_deps && pnpm build; }
 gate_security()  { need_deps && pnpm security:scan; }
 
+# The content/convention guards that .github/workflows/pr-checks.yml enforces on
+# every PR. They were absent here, so "RESULT: green" could — and on 2026-07-29
+# did — precede a PR that CI reds. check:no-lucide is the one that bit: an icon
+# swap passed every local gate and would have failed the Lucide guard remotely.
+# Runs every guard rather than short-circuiting, so one run reports all failures.
+gate_guards() {
+  need_deps || return 77
+  local rc=0
+  pnpm check:no-lucide          || rc=1
+  pnpm check:spec-docs          || rc=1
+  pnpm check:encoding           || rc=1
+  pnpm check:ssot               || rc=1
+  pnpm check:standards          || rc=1
+  pnpm check:no-verbatim        || rc=1
+  pnpm check:marketing-verbatim || rc=1
+  pnpm check:au-english         || rc=1
+  return $rc
+}
+
+# handoff-loop ran no tests at all. A gate that reports a tree "ready to hand
+# off" without executing the suite is asserting something it never checked.
+#
+# Measured on origin/main 2026-07-31: 4 of 5536 tests fail locally, every one with
+# "DATABASE_URL is required to initialize PrismaClient". They pass in CI, which
+# provisions an ephemeral Postgres and runs prisma migrate deploy first. So a
+# hard-failing tests gate would be red on a clean checkout and get ignored, and a
+# silently-passing one would be a lie. It SKIPS loudly instead — the summary
+# prints "skipped: tests" so nobody reads a DB-less run as full coverage.
+#
+# LIMITATION, stated rather than papered over: a run with skips still exits 0,
+# the same code as a fully covered run. The distinction lives in stdout
+# ("RESULT: green (with skips: ...)"), not the exit status. A caller that
+# inspects only the exit code CAN misread a DB-less run as fully covered.
+# Changing the exit contract would break existing callers, so it is documented
+# here instead — parse the RESULT line, not just $?.
+# This gate NEVER runs the suite automatically, and DATABASE_URL is deliberately
+# not the trigger. The DB-gated suites are `describe.skipIf(!process.env.DATABASE_URL)`,
+# so setting that variable is precisely what switches them ON — and their setup is
+# unscoped and destructive:
+#   scripts/__tests__/grandfather-payments-addon.test.ts:6-10
+#   scripts/__tests__/backfill-setup-wizard.test.ts:6-12
+# both call prisma.user.deleteMany({}) / workspace / organization deleteMany({}).
+# Triggering on "DATABASE_URL is set" would therefore wipe whatever database that
+# URL names as a side effect of a handoff check. Same hazard class this script
+# already refuses for `prisma migrate deploy`.
+#
+# The safe CI-representative path is `pnpm test:db`, which stands up its own
+# throwaway pgvector container and destroys it on exit. It is run deliberately by
+# an operator, never implicitly by this gate.
+gate_tests() {
+  need_deps || return 77
+  echo "Tests are NOT run by this gate, by design — see the comment above."
+  echo "The DB-backed suites truncate users/workspaces/organizations, so keying"
+  echo "them off DATABASE_URL would destroy data in whatever DB it points at."
+  echo "This gate is NOT green, it did not run."
+  echo "CI-representative run, isolated and disposable:  pnpm test:db"
+  return 77
+}
+
 gate_audits() {
   need_deps || return 77
   local rc=0
-  pnpm audit:ai  || rc=1
-  pnpm audit:api || rc=1
-  pnpm audit:rls || rc=1
+  pnpm audit:ai   || rc=1
+  pnpm audit:api  || rc=1
+  pnpm audit:rls  || rc=1
+  # audit:prod is ENFORCING in CI (pr-checks.yml, RA-6719): a new high/critical
+  # production advisory fails the PR. Omitting it here meant --full could report
+  # green while CI redded on a fresh CVE.
+  pnpm audit:prod || rc=1
   return $rc
 }
+
+# NO migration-drift gate inside this script, deliberately. CI's RA-1546 gate
+# (pr-checks.yml) runs three `prisma migrate resolve --applied`, then
+# `migrate deploy`, then `migrate status`.
+#
+# That sequence IS reproducible locally — `pnpm test:db` (scripts/ci/test-with-db.sh)
+# provisions the same pgvector/pgvector:pg16 image CI uses, pre-resolves the same
+# migrations, applies them, and tears the container down on exit. What is unsafe
+# is running it from HERE against whatever DATABASE_URL happens to be set: that
+# would apply migrations to a real database as a side effect of a handoff check.
+#
+# A status-only substitute was tried and removed. It reads the migration ledger
+# but never executes migration SQL, so it cannot catch a migration that fails on
+# apply — the exact class RA-1546 exists to catch — while appearing to cover it.
+#
+# So: drift stays a CI gate, and `pnpm test:db` is the local parity path an
+# operator can run deliberately. gate_tests does NOT invoke it automatically:
+# measured 2026-07-31 on origin/main, `pnpm test:db` is currently RED — 125 test
+# files / 178 tests fail with "headers was called outside a request scope", a
+# Next.js request-context problem unrelated to the database. Wiring a gate to a
+# suite that is already red would just get the gate ignored. Fix test:db first,
+# then consider promoting it here.
+#
+# Do not add a migrate-deploy against an unknown DATABASE_URL in this script.
+#
+# STANDING HAZARD, pre-existing and NOT introduced here: --full runs
+# gate_build_full -> pnpm build -> scripts/build.sh:48, which itself runs
+# `prisma migrate deploy` whenever DATABASE_URL is set and VERCEL_ENV is not
+# preview/development. So running --full against a real DATABASE_URL already
+# mutates that database. Run --full with DATABASE_URL unset, or against a
+# throwaway database only.
 
 # ---- Dispatch by mode ----
 
@@ -124,8 +218,10 @@ case "$MODE" in
     run_gate "type-check"      gate_type
     run_gate "lint"            gate_lint
     run_gate "no-emoji"        gate_emoji
+    run_gate "guards"          gate_guards
     run_gate "build (no-db)"   gate_build_nodb
     run_gate "security-scan"   gate_security
+    run_gate "tests"           gate_tests
     ;;
   full)
     run_gate "deps"            gate_deps
@@ -133,8 +229,10 @@ case "$MODE" in
     run_gate "type-check"      gate_type
     run_gate "lint"            gate_lint
     run_gate "no-emoji"        gate_emoji
+    run_gate "guards"          gate_guards
     run_gate "build"           gate_build_full
     run_gate "security-scan"   gate_security
+    run_gate "tests"           gate_tests
     run_gate "audits"          gate_audits
     ;;
 esac
