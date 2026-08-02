@@ -1,10 +1,10 @@
 /**
- * RA-408: Photo upload migrated to pluggable storage provider (Supabase Storage)
+ * Photo upload via pluggable storage provider (default: Cloudinary).
  * POST /api/inspections/[id]/photos
  *
- * Existing Cloudinary URLs stored in InspectionPhoto.url continue to resolve
- * (read-only fallback — no database migration needed).
- * New uploads go to Supabase Storage with compression pipeline.
+ * Uploads go to Cloudinary; durable CDN URLs are stored on InspectionPhoto
+ * (url + thumbnailUrl). Legacy Supabase-hosted URLs still resolve on GET
+ * via signStoredMediaUrl pass-through for non-Supabase hosts.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -349,18 +349,31 @@ export async function POST(
           inspectionId: id,
         });
 
-        // Create photo record — store compressed URL for dashboard viewing
-        // originalUrl (signed) is stored in structuredData for download-original flows
-        // RA-447: label fields are spread in if provided at upload time
+        const photoUrl =
+          uploadResult.compressedUrl || uploadResult.originalUrl || "";
+        if (!photoUrl) {
+          return apiError(request, {
+            code: "INTERNAL",
+            message: "Storage upload returned no URL",
+            status: 500,
+          });
+        }
+
+        // Create photo record — store CDN URL for dashboard viewing.
+        // affectedMaterial / secondaryDamageIndicators are NOT NULL in Postgres
+        // (and some DBs lost the ARRAY[] default) — always seed empty arrays.
+        // RA-447: label fields are spread in if provided at upload time.
         const photo = await prisma.inspectionPhoto.create({
           data: {
             inspectionId: id,
-            url: uploadResult.compressedUrl,
-            thumbnailUrl: uploadResult.thumbnailUrl ?? null,
+            url: photoUrl,
+            thumbnailUrl: uploadResult.thumbnailUrl || null,
             location: location || null,
             fileSize: file.size,
-            mimeType: file.type,
+            mimeType: file.type || null,
             timestamp: new Date(),
+            affectedMaterial: [],
+            secondaryDamageIndicators: [],
             ...labelData,
             // Cocoa chain-of-custody
             cocoaSha256,
