@@ -50,8 +50,8 @@ export default function StatusPipeline({
       <div
         className={cn(
           "p-6 rounded-2xl border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <div className="h-[280px] flex items-center justify-center">
@@ -66,8 +66,8 @@ export default function StatusPipeline({
       <div
         className={cn(
           "p-6 rounded-2xl border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <div className="flex items-center gap-3 mb-4">
@@ -75,7 +75,7 @@ export default function StatusPipeline({
           <h3
             className={cn(
               "text-lg font-semibold",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             Report Pipeline
@@ -101,8 +101,8 @@ export default function StatusPipeline({
     <div
       className={cn(
         "p-6 rounded-2xl border",
-        "border-neutral-200 dark:border-slate-700/50",
-        "bg-white/50 dark:bg-slate-800/30",
+        "border-neutral-200 dark:border-slate-700/60",
+        "bg-white dark:bg-slate-900/50",
         "hover:border-violet-500/30",
       )}
     >
@@ -112,13 +112,13 @@ export default function StatusPipeline({
           <h3
             className={cn(
               "text-lg font-semibold",
-              "text-neutral-900 dark:text-slate-200",
+              "text-foreground",
             )}
           >
             Report Pipeline
           </h3>
         </div>
-        <span className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
+        <span className={cn("text-xs", "text-muted-foreground")}>
           By status
         </span>
       </div>
@@ -135,14 +135,14 @@ export default function StatusPipeline({
           />
           <XAxis
             type="number"
-            className="text-neutral-600 dark:text-slate-400"
+            className="text-muted-foreground"
             style={{ fontSize: "12px" }}
           />
           <YAxis
             type="category"
             dataKey="name"
             width={72}
-            className="text-neutral-600 dark:text-slate-400"
+            className="text-muted-foreground"
             style={{ fontSize: "12px" }}
           />
           <Tooltip
@@ -179,7 +179,7 @@ export default function StatusPipeline({
       <div
         className={cn(
           "mt-4 pt-4 border-t flex flex-wrap gap-3",
-          "border-neutral-200 dark:border-slate-700/50",
+          "border-neutral-200 dark:border-slate-700/60",
         )}
       >
         {chartData.map((d) => (
@@ -189,7 +189,7 @@ export default function StatusPipeline({
               style={{ backgroundColor: d.fill }}
             />
             <span
-              className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}
+              className={cn("text-xs", "text-muted-foreground")}
             >
               {d.name}: {d.count} · ${(d.revenue / 1000).toFixed(1)}K
             </span>
