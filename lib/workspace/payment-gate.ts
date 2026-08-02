@@ -64,35 +64,53 @@ export class PaymentGateError extends Error {
 
 // ─── Core lookup ─────────────────────────────────────────────────────────────
 
+const workspaceSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  status: true,
+  ownerId: true,
+  stripeCustomerId: true,
+  stripeSubscriptionId: true,
+} as const;
+
 /**
  * Look up the primary workspace for a user (first READY, then any).
  * Returns null if the user has no workspace at all.
+ *
+ * Note: do not order by `status` ASC — enum string order puts
+ * PROVISIONING before READY, which incorrectly blocks paid users.
  */
 async function lookupUserWorkspace(
   userId: string,
 ): Promise<WorkspaceContext | null> {
-  // Prefer READY workspace; fall back to any owned workspace
-  const workspace = await prisma.workspace.findFirst({
-    where: { ownerId: userId },
-    orderBy: [
-      // READY first, then others
-      { status: "asc" },
-      { createdAt: "asc" },
-    ],
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      status: true,
-      ownerId: true,
-      stripeCustomerId: true,
-      stripeSubscriptionId: true,
-    },
+  const readyOwned = await prisma.workspace.findFirst({
+    where: { ownerId: userId, status: "READY" },
+    orderBy: { createdAt: "asc" },
+    select: workspaceSelect,
   });
+  if (readyOwned) return readyOwned as WorkspaceContext;
 
-  if (!workspace) return null;
+  const readyMembership = await prisma.workspaceMember.findFirst({
+    where: {
+      userId,
+      status: "ACTIVE",
+      workspace: { status: "READY" },
+    },
+    orderBy: { joinedAt: "asc" },
+    select: { workspace: { select: workspaceSelect } },
+  });
+  if (readyMembership?.workspace) {
+    return readyMembership.workspace as WorkspaceContext;
+  }
 
-  return workspace as WorkspaceContext;
+  // Fall back so callers can surface PROVISIONING / SUSPENDED distinctly
+  const anyOwned = await prisma.workspace.findFirst({
+    where: { ownerId: userId },
+    orderBy: { createdAt: "asc" },
+    select: workspaceSelect,
+  });
+  return (anyOwned as WorkspaceContext) ?? null;
 }
 
 // ─── Primary gate check ───────────────────────────────────────────────────────
