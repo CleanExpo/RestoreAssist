@@ -130,6 +130,7 @@ import {
   Building2,
   ExternalLink,
   Mic,
+  Package,
   RotateCcw,
 } from "lucide-react";
 import {
@@ -1080,6 +1081,13 @@ export default function InspectionDetailPage({
               Voice Copilot
             </Link>
             <Link
+              href={`/dashboard/inspections/${inspection.id}/contents`}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-amber-500 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10 text-xs font-semibold transition-colors"
+            >
+              <Package size={14} />
+              Contents
+            </Link>
+            <Link
               href={`/dashboard/inspections/${inspection.id}/invoice`}
               className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
             >
@@ -1290,6 +1298,15 @@ export default function InspectionDetailPage({
             )}
           </button>
         ))}
+        <Link
+          href={`/dashboard/inspections/${inspection.id}/contents`}
+          role="tab"
+          aria-selected={false}
+          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
+        >
+          <Package size={16} aria-hidden="true" />
+          Contents
+        </Link>
       </div>
 
       {/* Tab Content */}
