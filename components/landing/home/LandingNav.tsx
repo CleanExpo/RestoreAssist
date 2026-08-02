@@ -1,13 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { ChevronDown, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { BRAND } from "@/lib/brand";
 import { CTA_PRIMARY, CTA_SECONDARY, FONT_DISPLAY, CONTAINER } from "./motion";
-import { LANDING_HOMES } from "./landingConcepts";
 
 const NAV_LINKS = [
   { href: "/features", label: "Features" },
@@ -20,14 +18,8 @@ const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50 focus-visible:ring-offset-2";
 
 export function LandingNav() {
-  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [homesOpen, setHomesOpen] = useState(false);
-  const homesRef = useRef<HTMLDivElement>(null);
-
-  const activeHome =
-    LANDING_HOMES.find((c) => c.href === pathname) ?? LANDING_HOMES[0];
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -43,40 +35,16 @@ export function LandingNav() {
     };
   }, [open]);
 
-  const close = useCallback(() => {
-    setOpen(false);
-    setHomesOpen(false);
-  }, []);
+  const close = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
-    if (!open && !homesOpen) return;
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setHomesOpen(false);
-        if (open) close();
-      }
+      if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, homesOpen, close]);
-
-  useEffect(() => {
-    if (!homesOpen) return;
-    const onPointer = (e: MouseEvent) => {
-      if (
-        homesRef.current &&
-        !homesRef.current.contains(e.target as Node)
-      ) {
-        setHomesOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onPointer);
-    return () => document.removeEventListener("mousedown", onPointer);
-  }, [homesOpen]);
-
-  useEffect(() => {
-    setHomesOpen(false);
-  }, [pathname]);
+  }, [open, close]);
 
   return (
     <>
@@ -91,7 +59,7 @@ export function LandingNav() {
           "fixed top-0 z-100 w-full border-b transition-[background-color,border-color,box-shadow] duration-300 ease-out",
           scrolled
             ? "border-slate-200/90 bg-white/95 shadow-[0_1px_0_rgba(15,23,42,0.04)] backdrop-blur-md"
-            : "border-transparent bg-[#F3F5F7]/80 backdrop-blur-sm",
+            : "border-transparent bg-[#F0F3F6]/80 backdrop-blur-sm",
         ].join(" ")}
       >
         <div
@@ -133,74 +101,6 @@ export function LandingNav() {
                 />
               </Link>
             ))}
-
-            <div ref={homesRef} className="relative ml-1">
-              <button
-                type="button"
-                className={`inline-flex items-center gap-1 rounded-lg px-3.5 py-2 text-[13.5px] font-medium transition-colors duration-200 ${FOCUS} ${
-                  homesOpen ||
-                  LANDING_HOMES.some((c) => c.href === pathname)
-                    ? "text-[#0B1F3A]"
-                    : "text-slate-600 hover:text-[#0B1F3A]"
-                }`}
-                aria-expanded={homesOpen}
-                aria-haspopup="menu"
-                aria-controls="homes-menu"
-                onClick={() => setHomesOpen((v) => !v)}
-              >
-                Home
-                <ChevronDown
-                  size={14}
-                  className={`transition-transform duration-200 ${homesOpen ? "rotate-180" : ""}`}
-                  aria-hidden
-                />
-              </button>
-              <div
-                id="homes-menu"
-                role="menu"
-                aria-label="Home page versions"
-                className={`absolute top-full left-0 z-50 mt-2 w-[22rem] origin-top-left rounded-xl border border-slate-200/90 bg-white p-2 shadow-[0_8px_30px_rgba(15,23,42,0.08)] transition-[opacity,transform] duration-200 ${
-                  homesOpen
-                    ? "pointer-events-auto scale-100 opacity-100"
-                    : "pointer-events-none scale-[0.98] opacity-0"
-                }`}
-              >
-                {LANDING_HOMES.map((home) => {
-                  const active = pathname === home.href;
-                  return (
-                    <Link
-                      key={home.href}
-                      href={home.href}
-                      role="menuitem"
-                      aria-current={active ? "page" : undefined}
-                      onClick={() => setHomesOpen(false)}
-                      className={`block rounded-lg px-3.5 py-3 transition-colors ${FOCUS} ${
-                        active
-                          ? "bg-[#F3F5F7] text-[#0B1F3A]"
-                          : "text-slate-700 hover:bg-slate-50 hover:text-[#0B1F3A]"
-                      }`}
-                    >
-                      <span className="flex items-baseline justify-between gap-3">
-                        <span
-                          className={`${FONT_DISPLAY} text-[13.5px] font-semibold tracking-tight`}
-                        >
-                          {home.label}
-                        </span>
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
-                          {home.pattern}
-                        </span>
-                      </span>
-                      <span className="mt-1 block text-[12.5px] leading-snug text-slate-500">
-                        {home.description}
-                      </span>
-                    </Link>
-                  );
-                })}
-                <p className="px-3.5 pt-1.5 pb-1 text-[11px] leading-snug text-slate-400">
-                  Viewing: {activeHome.label} · {activeHome.pattern}
-                </p>
-              </div>
-            </div>
           </nav>
 
           <div className="hidden items-center gap-2 lg:flex">
@@ -272,45 +172,6 @@ export function LandingNav() {
               {link.label}
             </Link>
           ))}
-
-          <div className="mt-4 border-t border-slate-200 pt-4">
-            <p
-              className={`${FONT_DISPLAY} px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#3B6D8C]`}
-            >
-              Home
-            </p>
-            <ul className="mt-2 space-y-1">
-              {LANDING_HOMES.map((home) => {
-                const active = pathname === home.href;
-                return (
-                  <li key={home.href}>
-                    <Link
-                      href={home.href}
-                      onClick={close}
-                      aria-current={active ? "page" : undefined}
-                      className={`block rounded-xl px-4 py-3 transition-colors ${
-                        active
-                          ? "bg-[#F3F5F7] text-[#0B1F3A]"
-                          : "text-slate-700 hover:bg-slate-50 hover:text-[#0B1F3A]"
-                      }`}
-                    >
-                      <span className="flex items-baseline justify-between gap-2">
-                        <span className="text-[15px] font-medium">
-                          {home.label}
-                        </span>
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#3B6D8C]">
-                          {home.pattern}
-                        </span>
-                      </span>
-                      <span className="mt-0.5 block text-[12.5px] leading-snug text-slate-500">
-                        {home.description}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
         </nav>
         <div className="space-y-2.5 border-t border-slate-200 p-4">
           <Link

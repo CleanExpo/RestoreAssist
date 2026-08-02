@@ -1,28 +1,34 @@
 /**
- * Alternate home presentations for client comparison.
- * Same copy (see homeContent.ts); distinct visual identity per route.
+ * Landing presentations kept in the codebase after Home 2 was approved as `/`.
+ * Not linked from the public nav — retained for reference / A-B archive.
  */
 export const LANDING_HOMES = [
   {
     href: "/",
-    label: "Home 1",
+    label: "Home (live)",
+    pattern: "Claim Spine",
+    description:
+      "Client-approved live homepage — diagonal paper cut over field photo.",
+  },
+  {
+    href: "/landing/dawn-split",
+    label: "Dawn Split (archive)",
     pattern: "Dawn Split",
     description:
-      "Asymmetric mist + workshop photo plane — operator-first daylight stack.",
+      "Archived asymmetric mist + workshop photo stack — former Home 1.",
   },
   {
     href: "/landing/claim-folio",
-    label: "Home 2",
+    label: "Claim Spine (alias)",
     pattern: "Claim Spine",
-    description:
-      "Diagonal paper cut over field photo — folio index and monumental type.",
+    description: "Alias of the live homepage at /.",
   },
   {
     href: "/landing/operator-atlas",
-    label: "Home 3",
+    label: "Dual Plane (archive)",
     pattern: "Dual Plane",
     description:
-      "Dual-plane film strip hero — workshop above, field below; headline-led.",
+      "Archived dual-plane film-strip hero — former Home 3.",
   },
 ] as const;
 

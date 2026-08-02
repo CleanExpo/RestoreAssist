@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Claim Spine (alias) — RestoreAssist",
+  title: "Dawn Split (archive) — RestoreAssist",
   description:
-    "Alias of the live Claim Spine homepage. Canonical URL is /.",
+    "Archived homepage presentation (Dawn Split). Kept for reference; not the live homepage.",
   robots: { index: false, follow: false },
-  alternates: { canonical: "/" },
 };
 
-export default function ClaimFolioLayout({
+export default function DawnSplitLayout({
   children,
 }: {
   children: React.ReactNode;

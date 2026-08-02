@@ -150,6 +150,7 @@ vi.mock("@/components/avatar", () => ({
 import Home from "../page";
 import BlogPage from "../blog/page";
 import ComplianceLibraryPage from "../compliance-library/page";
+import DawnSplitPage from "../landing/dawn-split/page";
 import ClaimFolioPage from "../landing/claim-folio/page";
 import OperatorAtlasPage from "../landing/operator-atlas/page";
 import { LANDING_CONCEPTS } from "@/components/landing/home/landingConcepts";
@@ -197,9 +198,9 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
       unmount();
     });
 
-    it("home page uses the daylight workshop hero photo, not HeyGen video", () => {
+    it("home page uses the field-capture hero photo, not HeyGen video", () => {
       const { container, unmount } = render(<Home />);
-      expect(container.innerHTML).toContain("/landing/hero-workshop.jpg");
+      expect(container.innerHTML).toContain("/landing/field-capture.jpg");
       expect(container.innerHTML).not.toContain(DEAD_VIDEO_SRC);
       unmount();
     });
@@ -278,52 +279,50 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
     it("home page stays on the daylight canvas (no dark SaaS shell)", () => {
       const { container, unmount } = render(<Home />);
       const root = container.firstElementChild as HTMLElement | null;
-      expect(root?.className ?? "").toContain("bg-[#F3F5F7]");
+      expect(root?.className ?? "").toContain("bg-[#F0F3F6]");
       expect(root?.className ?? "").not.toMatch(/bg-slate-900|bg-zinc-950|bg-black/);
       unmount();
     });
   });
 
-  describe("landing home versions dropdown + alternate pages", () => {
-    it("home Home menu exposes Home 1, Home 2, and Home 3 routes", () => {
+  describe("archived landing presentations (kept, not nav-linked)", () => {
+    it("public nav does not expose Home version switching", () => {
       const { container, unmount } = render(<Home />);
-      const hrefs = Array.from(container.querySelectorAll("a")).map((a) =>
-        a.getAttribute("href"),
-      );
-      for (const home of LANDING_CONCEPTS) {
-        expect(hrefs).toContain(home.href);
-      }
-      expect(container.textContent).toMatch(/\bHome\b/);
-      expect(container.textContent).toContain("Home 1");
-      expect(container.textContent).toContain("Home 2");
-      expect(container.textContent).toContain("Home 3");
+      const text = container.textContent ?? "";
+      expect(text).not.toContain("Home 1");
+      expect(text).not.toContain("Home 2");
+      expect(text).not.toContain("Home 3");
+      expect(text).not.toContain("Dawn Split (archive)");
+      expect(container.querySelector("#homes-menu")).toBeNull();
       unmount();
     });
 
     it.each([
-      ["Home 2", ClaimFolioPage, "What you captured on site"],
-      ["Home 3", OperatorAtlasPage, "What you captured on site"],
+      ["Dawn Split archive", DawnSplitPage, "/landing/hero-workshop.jpg"],
+      ["Claim Spine alias", ClaimFolioPage, "/landing/field-capture.jpg"],
+      ["Dual Plane archive", OperatorAtlasPage, "/landing/hero-workshop.jpg"],
     ] as const)(
-      "%s presents the same hero content with a different pattern",
-      (_name, Component, signal) => {
+      "%s still renders shared hero content",
+      (_name, Component, heroSrc) => {
         const { container, unmount } = render(<Component />);
         const text = container.textContent ?? "";
         expect(text).toContain("RestoreAssist");
         expect(text).toContain("Start free — 3 trial reports");
-        expect(text).toContain(signal);
-        expect(text).toContain("Do I need my own AI key?");
-        expect(text).toContain(
-          "Drafting runs on your workspace Anthropic or OpenAI key — your spend, your control.",
-        );
+        expect(text).toContain("What you captured on site");
+        expect(container.innerHTML).toContain(heroSrc);
         for (const pattern of AI_THEATRE_FORBIDDEN) {
           expect(text).not.toMatch(pattern);
         }
-        const root = container.firstElementChild as HTMLElement | null;
-        expect(root?.className ?? "").toMatch(
-          /bg-\[#(F3F5F7|E8EEF2|F7F8FA|F0F3F6|FAFBFC)\]/,
-        );
         unmount();
       },
     );
+
+    it("landing homes registry still lists live + archive routes", () => {
+      const hrefs = LANDING_CONCEPTS.map((h) => h.href);
+      expect(hrefs).toContain("/");
+      expect(hrefs).toContain("/landing/dawn-split");
+      expect(hrefs).toContain("/landing/claim-folio");
+      expect(hrefs).toContain("/landing/operator-atlas");
+    });
   });
 });

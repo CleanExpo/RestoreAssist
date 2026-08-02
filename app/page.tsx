@@ -1,18 +1,8 @@
 "use client";
 
 import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
-import {
-  LandingNav,
-  LandingHero,
-  WorkflowSection,
-  BeforeAfterSection,
-  BentoFeatures,
-  DamageCoverage,
-  StatesSection,
-  FAQSection,
-  FinalCTA,
-  LandingFooter,
-} from "@/components/landing/home";
+import { LandingNav, LandingFooter } from "@/components/landing/home";
+import { ClaimFolioLanding } from "@/components/landing/concepts/claim-folio/ClaimFolioLanding";
 
 /** Display — geometric, premium, distinctive for headlines. */
 const outfit = Outfit({
@@ -31,25 +21,18 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 /**
- * Marketing home — Home 1 · Dawn Split.
- * Asymmetric mist + workshop photo · navy + steel · operator-first.
+ * Marketing home — Claim Spine (client-approved).
+ * Diagonal paper cut · field photography · navy + steel · operator-first.
  * No dark SaaS chrome. No AI product theatre.
  */
 export default function Home() {
   return (
     <div
-      className={`${outfit.variable} ${jakarta.variable} ${jakarta.className} min-h-screen bg-[#F3F5F7] text-[#0B1F3A] antialiased [text-rendering:optimizeLegibility]`}
+      className={`${outfit.variable} ${jakarta.variable} ${jakarta.className} min-h-screen bg-[#F0F3F6] text-[#0B1F3A] antialiased [text-rendering:optimizeLegibility]`}
     >
       <LandingNav />
       <main id="main-content">
-        <LandingHero />
-        <WorkflowSection />
-        <BeforeAfterSection />
-        <BentoFeatures />
-        <DamageCoverage />
-        <StatesSection />
-        <FAQSection />
-        <FinalCTA />
+        <ClaimFolioLanding />
       </main>
       <LandingFooter />
     </div>

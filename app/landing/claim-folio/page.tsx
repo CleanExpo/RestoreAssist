@@ -18,6 +18,10 @@ const jakarta = Plus_Jakarta_Sans({
   variable: "--font-landing",
 });
 
+/**
+ * Alias of the live Claim Spine homepage at `/`.
+ * Kept so prior review links continue to work.
+ */
 export default function ClaimFolioPage() {
   return (
     <div
