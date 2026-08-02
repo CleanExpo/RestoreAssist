@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
 const inspectionFindFirst = vi.fn();
+const inspectionUpdate = vi.fn();
 const generateContentsManifest = vi.fn();
 const resolveWorkspaceRouterConfig = vi.fn();
 
@@ -14,6 +15,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: {
       findFirst: (...args: unknown[]) => inspectionFindFirst(...args),
+      update: (...args: unknown[]) => inspectionUpdate(...args),
     },
   },
 }));
@@ -27,12 +29,20 @@ vi.mock("@/lib/ai/workspace-byok-dispatch", () => ({
   resolveWorkspaceRouterConfig: (...args: unknown[]) =>
     resolveWorkspaceRouterConfig(...args),
 }));
+vi.mock("@/lib/ai/contents-manifest-draft-bridge", () => ({
+  visionManifestToDraft: (manifest: unknown) => ({
+    inspectionId: "inspection_1",
+    items: [],
+    draftFrom: manifest,
+  }),
+}));
 
 import { POST } from "../route";
 
 beforeEach(() => {
   getServerSession.mockReset();
   inspectionFindFirst.mockReset();
+  inspectionUpdate.mockReset();
   generateContentsManifest.mockReset();
   resolveWorkspaceRouterConfig.mockReset();
 
@@ -44,11 +54,18 @@ beforeEach(() => {
     propertyAddress: "1 Test St",
     inspectionWorkflow: { jobType: "water_damage" },
   });
+  inspectionUpdate.mockResolvedValue({ id: "inspection_1" });
   resolveWorkspaceRouterConfig.mockResolvedValue({
     byokModel: "claude-sonnet-4-6",
     byokApiKey: "server-resolved-key",
   });
-  generateContentsManifest.mockResolvedValue({ items: [] });
+  generateContentsManifest.mockResolvedValue({
+    inspectionId: "inspection_1",
+    items: [],
+    photosAnalysed: 1,
+    model: "claude-sonnet-4-6",
+    generatedAt: new Date().toISOString(),
+  });
 });
 
 function postRequest(extra?: Record<string, unknown>) {
@@ -88,6 +105,16 @@ describe("POST /api/inspections/contents-manifest", () => {
     const response = await POST(postRequest());
     expect(response.status).toBe(200);
     expect(generateContentsManifest).toHaveBeenCalled();
+  });
+
+  it("persists the generated manifest into contentsManifestDraft", async () => {
+    const response = await POST(postRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(inspectionUpdate).toHaveBeenCalled();
+    expect(body.persisted).toBe(true);
+    expect(body.draft).toBeTruthy();
   });
 
   it("returns 422 when the workspace has no active provider", async () => {
