@@ -27,7 +27,6 @@ export const WIZARD_STEPS: WizardStepDef[] = [
   { key: "business", title: "Business details", required: true },
   { key: "branding", title: "Branding", required: false },
   { key: "pricing", title: "Pricing", required: false },
-  { key: "storage", title: "Storage", required: false },
   { key: "integrations", title: "Integrations", required: false },
   { key: "first_report", title: "Your first report", required: false },
 ];
