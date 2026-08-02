@@ -35,10 +35,20 @@ import {
   type AiProvider,
 } from "@/lib/workspace/provider-connections";
 import { checkPaymentGate } from "@/lib/workspace/payment-gate";
+import { ensureWorkspaceForUser } from "@/lib/workspace/provision";
 import { hasPermission } from "@/lib/workspace/permissions";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+
+/**
+ * Signup creates an Organization but historically skipped workspace
+ * provisioning. Setup "Add your AI key" needs a READY workspace first.
+ */
+async function ensureReadyWorkspaceGate(userId: string) {
+  await ensureWorkspaceForUser(userId);
+  return checkPaymentGate(userId);
+}
 
 const VALID_PROVIDERS: AiProvider[] = [
   "ANTHROPIC",
@@ -67,7 +77,7 @@ export async function GET(_req: NextRequest) {
       });
     }
 
-    const gate = await checkPaymentGate(session.user.id);
+    const gate = await ensureReadyWorkspaceGate(session.user.id);
     if (!gate.allowed) return gate.response;
     const { workspace } = gate;
 
@@ -100,7 +110,7 @@ export async function POST(req: NextRequest) {
   // write of the same key on retry.
   return withIdempotency(req, userId, async (rawBody) => {
     try {
-      const gate = await checkPaymentGate(userId);
+      const gate = await ensureReadyWorkspaceGate(userId);
       if (!gate.allowed) return gate.response;
       const { workspace } = gate;
 
@@ -203,7 +213,7 @@ export async function DELETE(req: NextRequest) {
       });
     }
 
-    const gate = await checkPaymentGate(session.user.id);
+    const gate = await ensureReadyWorkspaceGate(session.user.id);
     if (!gate.allowed) return gate.response;
     const { workspace } = gate;
 
