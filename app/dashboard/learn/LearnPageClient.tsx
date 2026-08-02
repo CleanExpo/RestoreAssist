@@ -128,7 +128,7 @@ export function LearnPageClient() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="w-full space-y-6 px-4 sm:px-6 py-6 sm:py-8">
       <header className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Tutorials</h1>
         <p className="mt-2 text-muted-foreground">
@@ -168,10 +168,10 @@ export function LearnPageClient() {
           <button
             key={key}
             onClick={() => setActiveCategory(key)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
               activeCategory === key
-                ? "bg-brand-navy text-white"
-                : "bg-brand-navy/5 text-brand-navy hover:bg-brand-navy/10"
+                ? "border-transparent bg-primary text-primary-foreground"
+                : "border-border bg-background text-foreground hover:bg-muted"
             }`}
           >
             {label}
