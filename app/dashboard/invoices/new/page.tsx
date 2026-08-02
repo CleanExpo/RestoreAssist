@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Plus,
@@ -37,6 +37,7 @@ interface LineItem {
 
 export default function NewInvoicePage() {
   const router = useRouter();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const [loading, setLoading] = useState(false);
   const [loadingClients, setLoadingClients] = useState(false);
 
@@ -47,7 +48,7 @@ export default function NewInvoicePage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
 
-  // Manual customer details
+  // Manual customer details (optional prefill from Restoration Documents / Quote)
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -89,6 +90,15 @@ export default function NewInvoicePage() {
     "Payment is due within 30 days from the date of this invoice. Late payments may incur additional charges.",
   );
   const [footer, setFooter] = useState("Thank you for your business!");
+
+  useEffect(() => {
+    const name = searchParams.get("customerName");
+    const email = searchParams.get("customerEmail");
+    const prefillNotes = searchParams.get("notes");
+    if (name) setCustomerName(name);
+    if (email) setCustomerEmail(email);
+    if (prefillNotes) setNotes(prefillNotes);
+  }, [searchParams]);
 
   useEffect(() => {
     fetchClients();

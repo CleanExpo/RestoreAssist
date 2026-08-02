@@ -176,6 +176,7 @@ export async function POST(request: NextRequest) {
         discountAmount,
         discountPercentage,
         shippingAmount,
+        source: bodySource,
       } = body;
 
       // Validate required fields
@@ -358,7 +359,12 @@ export async function POST(request: NextRequest) {
               notes,
               terms,
               footer,
-              source: estimateId ? "estimate" : "manual",
+              source:
+                typeof bodySource === "string" && bodySource.trim()
+                  ? String(bodySource).slice(0, 80)
+                  : estimateId
+                    ? "estimate"
+                    : "manual",
               lineItems: {
                 create: processedLineItems,
               },

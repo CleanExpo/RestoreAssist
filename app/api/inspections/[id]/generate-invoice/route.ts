@@ -40,11 +40,15 @@ export async function GET(
       });
     }
 
-    // Look up invoice by notes containing inspectionNumber
+    // Prefer durable source key `inspection:{id}`; fall back to legacy notes match
     const invoice = await prisma.invoice.findFirst({
       where: {
         userId: session.user.id,
-        notes: { contains: inspection.inspectionNumber },
+        OR: [
+          { source: `inspection:${inspection.id}` },
+          { source: "inspection", notes: { contains: inspection.inspectionNumber } },
+          { notes: { contains: inspection.inspectionNumber } },
+        ],
       },
       include: {
         lineItems: {
@@ -216,7 +220,7 @@ export async function POST(
               totalIncGST,
               amountDue: totalIncGST,
               notes,
-              source: "inspection",
+              source: `inspection:${inspection.id}`,
               lineItems: {
                 create: lineItemsData,
               },

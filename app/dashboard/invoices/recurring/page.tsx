@@ -391,6 +391,16 @@ export default function RecurringInvoicesPage() {
 
       <Separator />
 
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100">
+        <p className="font-medium">Automatic generation not scheduled yet</p>
+        <p className="mt-1 text-amber-800/90 dark:text-amber-100/80">
+          You can create and pause recurring schedules, but there is no cron
+          job yet that auto-generates invoices on <code>nextInvoiceDate</code>.
+          Until that ships, generate invoices manually from templates or
+          create a draft under Billing → Invoices.
+        </p>
+      </div>
+
       {loading ? (
         <LoadingSkeleton />
       ) : (
