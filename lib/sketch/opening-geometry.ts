@@ -96,6 +96,81 @@ export function pointAtParametric(t: number, seg: WallSegment): Point {
   };
 }
 
+/**
+ * Resize a wall-hosted opening by dragging one end handle along the host wall
+ * (Xactimate / magicplan red-diamond pattern).
+ *
+ * The opposite end stays fixed; the dragged handle projects onto the wall and
+ * the new width + center parametric `t` are derived. Width is clamped so both
+ * ends remain on the segment and never shrink below `minWidthM`.
+ */
+export function resizeOpeningAlongWall(input: {
+  wall: WallSegment;
+  hostWallT: number;
+  widthM: number;
+  pxPerMetre: number;
+  /** Which cut endpoint the user is dragging. */
+  handle: "start" | "end";
+  pointer: Point;
+  minWidthM?: number;
+}): { widthM: number; hostWallT: number; anchor: Point } {
+  const {
+    wall,
+    hostWallT,
+    widthM,
+    pxPerMetre,
+    handle,
+    pointer,
+    minWidthM = 0.3,
+  } = input;
+  const dx = wall.b.x - wall.a.x;
+  const dy = wall.b.y - wall.a.y;
+  const wallLenPx = Math.hypot(dx, dy);
+  const scale = pxPerMetre || 100;
+  if (wallLenPx < 1) {
+    const anchor = pointAtParametric(hostWallT, wall);
+    return { widthM, hostWallT, anchor };
+  }
+
+  const [cutStart, cutEnd] = openingCutEndpoints(
+    pointAtParametric(hostWallT, wall),
+    wall,
+    widthM,
+    scale,
+  );
+  const fixed = handle === "start" ? cutEnd : cutStart;
+  const dragged = projectPointOntoSegment(pointer, wall);
+
+  // Parametric distances in px along the wall (a → b).
+  const tFixed =
+    ((fixed.x - wall.a.x) * dx + (fixed.y - wall.a.y) * dy) / wallLenPx;
+  let tDrag =
+    ((dragged.x - wall.a.x) * dx + (dragged.y - wall.a.y) * dy) / wallLenPx;
+  tDrag = Math.max(0, Math.min(wallLenPx, tDrag));
+
+  const minPx = minWidthM * scale;
+  let tLo = Math.min(tFixed, tDrag);
+  let tHi = Math.max(tFixed, tDrag);
+  if (tHi - tLo < minPx) {
+    // Keep the fixed end; push the free end just enough for min width.
+    if (handle === "start") {
+      tLo = Math.max(0, tFixed - minPx);
+      tHi = tFixed;
+      if (tHi - tLo < minPx) tHi = Math.min(wallLenPx, tLo + minPx);
+    } else {
+      tHi = Math.min(wallLenPx, tFixed + minPx);
+      tLo = tFixed;
+      if (tHi - tLo < minPx) tLo = Math.max(0, tHi - minPx);
+    }
+  }
+
+  const newWidthM = Math.round(((tHi - tLo) / scale) * 100) / 100;
+  const midT = (tLo + tHi) / 2 / wallLenPx; // normalize to [0,1]
+  const hostT = Math.max(0, Math.min(1, midT));
+  const anchor = pointAtParametric(hostT, wall);
+  return { widthM: Math.max(minWidthM, newWidthM), hostWallT: hostT, anchor };
+}
+
 // ─── Opening cut (shared by door + window) ────────────────────────────────────
 
 /**

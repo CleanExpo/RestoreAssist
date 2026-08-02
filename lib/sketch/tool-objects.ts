@@ -242,7 +242,13 @@ export function describeToolObject(
           strokeLineCap: "square",
           strokeUniform: true,
         },
-        data: { type: "wall", provenance: "operator_measured", lengthM },
+        data: {
+          type: "wall",
+          provenance: "operator_measured",
+          lengthM,
+          /** magicplan-style lock — typed length survives later nudges when true. */
+          dimLocked: false,
+        },
       };
     }
 
@@ -356,6 +362,8 @@ export function describeToolObject(
         data: {
           type: "opening",
           openingKind: "door",
+          // Stable id so selection panel + opening handles can target the group.
+          id: `opening-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
           provenance: "operator_measured",
           widthM,
           hingeSide: input.hingeSide ?? "left",
@@ -395,6 +403,7 @@ export function describeToolObject(
         data: {
           type: "opening",
           openingKind: "window",
+          id: `opening-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
           provenance: "operator_measured",
           widthM,
           // RA-6980 [A2b]: parent–child binding to the host wall.

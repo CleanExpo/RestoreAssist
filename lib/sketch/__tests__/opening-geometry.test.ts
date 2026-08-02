@@ -14,6 +14,7 @@ import {
   windowGeometry,
   parametricPositionOnSegment,
   pointAtParametric,
+  resizeOpeningAlongWall,
   type WallSegment,
 } from "../opening-geometry";
 import { decomposeElements } from "../decompose-elements";
@@ -492,5 +493,58 @@ describe("RA-6841 [A2] — opening provenance firewall", () => {
     const els = decomposeElements(mixed);
     // 200x200 at 100px/m = 2m × 2m = 4 m²
     expect(totalMeasuredFloorAreaM2(els)).toBeCloseTo(4, 5);
+  });
+});
+
+// ─── resizeOpeningAlongWall (red-diamond handle drag) ────────────────────────
+
+describe("resizeOpeningAlongWall", () => {
+  it("widens the opening when the end handle is dragged farther along the wall", () => {
+    // 0.82 m door centered at midpoint of 5 m horizontal wall
+    const result = resizeOpeningAlongWall({
+      wall: HWALL,
+      hostWallT: 0.5,
+      widthM: 0.82,
+      pxPerMetre: PX,
+      handle: "end",
+      pointer: { x: 400, y: 210 },
+    });
+    expect(result.widthM).toBeGreaterThan(0.82);
+    expect(result.hostWallT).toBeGreaterThan(0.5); // center shifts toward dragged end
+    expect(result.anchor.y).toBeCloseTo(200, 5);
+  });
+
+  it("keeps both ends on the segment and respects min width", () => {
+    const result = resizeOpeningAlongWall({
+      wall: HWALL,
+      hostWallT: 0.5,
+      widthM: 0.82,
+      pxPerMetre: PX,
+      handle: "start",
+      pointer: { x: 250, y: 200 }, // collapse toward center
+      minWidthM: 0.4,
+    });
+    expect(result.widthM).toBeGreaterThanOrEqual(0.4);
+    expect(result.hostWallT).toBeGreaterThanOrEqual(0);
+    expect(result.hostWallT).toBeLessThanOrEqual(1);
+  });
+
+  it("clamps a drag past the wall end", () => {
+    const result = resizeOpeningAlongWall({
+      wall: HWALL,
+      hostWallT: 0.9,
+      widthM: 0.5,
+      pxPerMetre: PX,
+      handle: "end",
+      pointer: { x: 900, y: 200 },
+    });
+    const [start, end] = openingCutEndpoints(
+      result.anchor,
+      HWALL,
+      result.widthM,
+      PX,
+    );
+    expect(start.x).toBeGreaterThanOrEqual(0);
+    expect(end.x).toBeLessThanOrEqual(500);
   });
 });
