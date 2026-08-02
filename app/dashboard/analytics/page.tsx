@@ -6,13 +6,14 @@ import {
   Loader2,
   TrendingUp,
   TrendingDown,
-  CheckCircle2,
   Clock,
   DollarSign,
   FileText,
   BarChart3,
   Activity,
   Zap,
+  UserCog,
+  Wrench,
 } from "lucide-react";
 import {
   BarChart,
@@ -30,6 +31,12 @@ import {
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import type { ComponentProps, ComponentType } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import {
+  DashboardPanel,
+  DashboardPanelHeader,
+} from "../components/DashboardPanel";
 
 // RA-1209: Recharts `Tooltip` props don't type `className`, though the
 // underlying div accepts it. Narrow typed escape hatch replaces the
@@ -58,7 +65,19 @@ import ActivityByDay from "./components/ActivityByDay";
 import PeriodComparison from "./components/PeriodComparison";
 import InsightsMovers from "./components/InsightsMovers";
 import AINarrativeCard from "./components/AINarrativeCard";
-import { UserCog, Wrench } from "lucide-react";
+
+const CHART_CYAN = "#06b6d4";
+const CHART_AMBER = "#f59e0b";
+const STATE_PALETTE = [
+  "#06b6d4",
+  "#0ea5e9",
+  "#f59e0b",
+  "#10b981",
+  "#64748b",
+  "#e07020",
+  "#3b82f6",
+  "#14b8a6",
+];
 
 interface AnalyticsData {
   kpis: {
@@ -410,562 +429,384 @@ export default function AnalyticsPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Page header */}
-      <div className="p-4 border-b border-border bg-card">
-        <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Reports, revenue, and completion trends across your team.
-        </p>
-        <div className="mt-4">
-          <AnalyticsFilters
-            onFiltersChange={setFilters}
-            isLoading={loading}
-            onExport={handleExport}
-          />
-        </div>
-      </div>
+  const periodLabel =
+    filters.dateRange === "7days"
+      ? "Last 7 days"
+      : filters.dateRange === "30days"
+        ? "Last 30 days"
+        : filters.dateRange === "90days"
+          ? "Last 90 days"
+          : "Year to date";
 
-      <div className=" mx-auto px-4  py-8 space-y-8">
-        {/* Selected Team Member Indicator (Admin and Manager) */}
-        {selectedMember &&
-          (session?.user?.role === "ADMIN" ||
-            session?.user?.role === "MANAGER") && (
+  return (
+    <div className="space-y-6 w-full">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-cyan-500" aria-hidden />
+            Analytics
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Reports, revenue, and completion trends across your team.
+          </p>
+        </div>
+      </header>
+
+      <DashboardPanel className="p-3 sm:p-4">
+        <AnalyticsFilters
+          onFiltersChange={setFilters}
+          isLoading={loading}
+          onExport={handleExport}
+        />
+      </DashboardPanel>
+
+      {selectedMember &&
+        (session?.user?.role === "ADMIN" ||
+          session?.user?.role === "MANAGER") && (
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
             <div
               className={cn(
-                "p-4 rounded-xl border animate-in slide-in-from-top-4",
-                "bg-card border-border",
+                "rounded-lg p-2",
+                selectedMember.role === "MANAGER"
+                  ? "bg-info-subtle text-info-subtle-foreground"
+                  : "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
               )}
             >
-              <div className="flex items-center gap-3">
-                <div
-                  className={cn(
-                    "p-2 rounded-lg",
-                    selectedMember.role === "MANAGER"
-                      ? "bg-blue-100 dark:bg-blue-900/30"
-                      : "bg-cyan-100 dark:bg-cyan-900/30",
-                  )}
-                >
-                  {selectedMember.role === "MANAGER" ? (
-                    <UserCog className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  ) : (
-                    <Wrench className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
-                  )}
-                </div>
-                <div>
-                  <p
-                    className={cn(
-                      "text-sm font-medium",
-                      "text-neutral-700 dark:text-neutral-300",
-                    )}
-                  >
-                    Viewing analytics for:{" "}
-                    <strong>
-                      {selectedMember.name || selectedMember.email}
-                    </strong>
-                  </p>
-                  <p
-                    className={cn(
-                      "text-xs mt-0.5",
-                      "text-neutral-600 dark:text-neutral-400",
-                    )}
-                  >
-                    {selectedMember.role === "MANAGER"
-                      ? "Manager"
-                      : "Technician"}{" "}
-                    • {selectedMember.email}
-                  </p>
-                </div>
-              </div>
+              {selectedMember.role === "MANAGER" ? (
+                <UserCog className="h-5 w-5" />
+              ) : (
+                <Wrench className="h-5 w-5" />
+              )}
             </div>
-          )}
-
-        {/* Error Alert with Animation */}
-        {error && (
-          <div className="animate-in slide-in-from-top-4 duration-300">
-            <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/30">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
-                <p className="font-medium text-destructive">{error}</p>
-              </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                Viewing analytics for{" "}
+                <span className="font-semibold">
+                  {selectedMember.name || selectedMember.email}
+                </span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {selectedMember.role === "MANAGER" ? "Manager" : "Technician"} ·{" "}
+                {selectedMember.email}
+              </p>
             </div>
           </div>
         )}
 
-        {/* Loading State with Enhanced Design */}
-        {loading ? (
-          <div className="flex items-center justify-center min-h-[600px]">
-            <div className="text-center space-y-6">
-              <div className="relative">
-                <div
-                  className={cn(
-                    "w-20 h-20 border-4 rounded-full",
-                    "border-neutral-300 dark:border-slate-700",
-                  )}
-                ></div>
-                <div className="w-20 h-20 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
-              </div>
-              <div className="space-y-2">
-                <p
-                  className={cn(
-                    "text-lg font-semibold",
-                    "text-neutral-900 dark:text-slate-200",
-                  )}
-                >
-                  Loading Analytics
-                </p>
-                <p
-                  className={cn(
-                    "text-sm",
-                    "text-neutral-600 dark:text-slate-400",
-                  )}
-                >
-                  Gathering insights from your data...
-                </p>
-              </div>
-            </div>
+      {error && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
+          <p className="text-sm font-medium text-destructive">{error}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setFilters((f) => ({ ...f }))}
+          >
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="space-y-6" aria-busy="true" aria-label="Loading analytics">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <DashboardPanel key={i}>
+                <Skeleton className="h-3 w-24 mb-3" />
+                <Skeleton className="h-8 w-20" />
+              </DashboardPanel>
+            ))}
           </div>
-        ) : isEmpty ? (
-          <div className="text-center py-16 animate-in fade-in duration-500">
-            <div
-              className={cn(
-                "inline-flex items-center justify-center w-24 h-24 rounded-full border mb-6",
-                "bg-white/50 dark:bg-slate-800/50",
-                "border-neutral-200 dark:border-slate-700/50",
-              )}
-            >
-              <BarChart3
-                className={cn(
-                  "w-12 h-12",
-                  "text-neutral-500 dark:text-slate-400",
-                )}
-              />
-            </div>
-            <h3
-              className={cn(
-                "text-2xl font-semibold mb-2",
-                "text-neutral-900 dark:text-slate-300",
-              )}
-            >
-              No reports yet
-            </h3>
-            <p
-              className={cn(
-                "mb-6 max-w-md mx-auto",
-                "text-neutral-600 dark:text-slate-400",
-              )}
-            >
+          <DashboardPanel>
+            <Skeleton className="h-4 w-40 mb-4" />
+            <Skeleton className="h-48 w-full" />
+          </DashboardPanel>
+          <div className="grid lg:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <DashboardPanel key={i}>
+                <Skeleton className="h-4 w-32 mb-4" />
+                <Skeleton className="h-32 w-full" />
+              </DashboardPanel>
+            ))}
+          </div>
+        </div>
+      ) : isEmpty ? (
+        <div className="rounded-lg border border-border bg-card p-8 sm:p-12 text-center space-y-4">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+            <BarChart3 className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold text-foreground">No reports yet</h2>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
               Create your first report to see revenue trends, performance
               metrics, and analytics insights here.
             </p>
-            <Link
-              href="/dashboard/reports/new"
-              className={cn(
-                "inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium mb-6",
-                "bg-cyan-600 hover:bg-cyan-700 text-white transition-colors",
-              )}
-            >
-              <FileText className="w-4 h-4" />
-              Create your first report
-            </Link>
-            <div
-              className={cn(
-                "flex items-center justify-center gap-4 text-sm",
-                "text-neutral-500 dark:text-slate-500",
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Revenue tracking</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Performance metrics</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Trend analysis</span>
-              </div>
-            </div>
           </div>
-        ) : (
-          <div className="space-y-8 animate-in fade-in duration-500">
-            {/* Quick Insights Bar */}
-            {insights && (
-              <div className="animate-in slide-in-from-bottom-4 duration-500 delay-75">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-card border border-border rounded-xl p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs mb-1 text-muted-foreground">
-                          Growth Rate
-                        </p>
-                        <p
-                          className={cn(
-                            "text-2xl font-bold tabular-nums",
-                            insights.isGrowing
-                              ? "text-success"
-                              : "text-destructive",
-                          )}
-                        >
-                          {insights.revenueGrowth > 0 ? "+" : ""}
-                          {insights.revenueGrowth.toFixed(1)}%
-                        </p>
-                      </div>
-                      {insights.isGrowing ? (
-                        <TrendingUp className="w-8 h-8 text-success" />
-                      ) : (
-                        <TrendingDown className="w-8 h-8 text-destructive" />
+          <div className="flex flex-wrap justify-center gap-2 pt-1">
+            <Button asChild>
+              <Link href="/dashboard/reports/new">
+                <FileText className="h-4 w-4 mr-2" />
+                Create your first report
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/inspections">Go to inspections</Link>
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {insights && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <DashboardPanel>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Growth rate
+                    </p>
+                    <p
+                      className={cn(
+                        "text-2xl font-semibold tabular-nums mt-1",
+                        insights.isGrowing ? "text-success" : "text-destructive",
                       )}
-                    </div>
+                    >
+                      {insights.revenueGrowth > 0 ? "+" : ""}
+                      {insights.revenueGrowth.toFixed(1)}%
+                    </p>
                   </div>
-
-                  <div className="bg-card border border-border rounded-xl p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs mb-1 text-muted-foreground">
-                          Efficiency Score
-                        </p>
-                        <p className="text-2xl font-bold text-foreground tabular-nums">
-                          {insights.efficiencyScore}%
-                        </p>
-                      </div>
-                      <Zap className="w-8 h-8 text-muted-foreground" />
-                    </div>
-                  </div>
-
-                  <div className="bg-card border border-border rounded-xl p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs mb-1 text-muted-foreground">
-                          Top Hazard Type
-                        </p>
-                        <p className="text-lg font-bold text-foreground">
-                          {insights.topHazard}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {insights.topHazardCount} reports
-                        </p>
-                      </div>
-                      <Activity className="w-8 h-8 text-muted-foreground" />
-                    </div>
-                  </div>
-
-                  <div className="bg-card border border-border rounded-xl p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs mb-1 text-muted-foreground">
-                          Avg Value/Report
-                        </p>
-                        <p className="text-lg font-bold text-foreground tabular-nums">
-                          ${(insights.avgValuePerReport / 1000).toFixed(1)}K
-                        </p>
-                      </div>
-                      <DollarSign className="w-8 h-8 text-muted-foreground" />
-                    </div>
-                  </div>
+                  {insights.isGrowing ? (
+                    <TrendingUp className="h-7 w-7 text-success shrink-0" />
+                  ) : (
+                    <TrendingDown className="h-7 w-7 text-destructive shrink-0" />
+                  )}
                 </div>
-              </div>
-            )}
+              </DashboardPanel>
 
-            {/* RA-1208: AI-generated "what changed this period" narrative */}
-            <div className="animate-in slide-in-from-bottom-4 duration-500 delay-50">
-              <AINarrativeCard
-                period={
-                  filters.dateRange === "90days"
-                    ? "quarter"
-                    : filters.dateRange === "ytd"
-                      ? "year"
-                      : "month"
-                }
-              />
+              <DashboardPanel>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Efficiency score
+                    </p>
+                    <p className="text-2xl font-semibold text-foreground tabular-nums mt-1">
+                      {insights.efficiencyScore}%
+                    </p>
+                  </div>
+                  <Zap className="h-7 w-7 text-muted-foreground shrink-0" />
+                </div>
+              </DashboardPanel>
+
+              <DashboardPanel>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Top hazard type
+                    </p>
+                    <p className="text-lg font-semibold text-foreground mt-1 truncate">
+                      {insights.topHazard}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {insights.topHazardCount} reports
+                    </p>
+                  </div>
+                  <Activity className="h-7 w-7 text-muted-foreground shrink-0" />
+                </div>
+              </DashboardPanel>
+
+              <DashboardPanel>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Avg value / report
+                    </p>
+                    <p className="text-2xl font-semibold text-foreground tabular-nums mt-1">
+                      ${(insights.avgValuePerReport / 1000).toFixed(1)}K
+                    </p>
+                  </div>
+                  <DollarSign className="h-7 w-7 text-muted-foreground shrink-0" />
+                </div>
+              </DashboardPanel>
             </div>
+          )}
 
-            {/* Executive Summary - Next-level insight */}
-            <div className="animate-in slide-in-from-bottom-4 duration-500 delay-75">
-              <ExecutiveSummary
-                summary={insightsData?.summary ?? ""}
-                periodLabel={
-                  filters.dateRange === "7days"
-                    ? "Last 7 days"
-                    : filters.dateRange === "30days"
-                      ? "Last 30 days"
-                      : filters.dateRange === "90days"
-                        ? "Last 90 days"
-                        : "Year to date"
-                }
-                loading={loading}
-              />
-            </div>
+          <AINarrativeCard
+            period={
+              filters.dateRange === "90days"
+                ? "quarter"
+                : filters.dateRange === "ytd"
+                  ? "year"
+                  : "month"
+            }
+          />
 
-            {/* KPI Cards Section */}
-            <div className="animate-in slide-in-from-bottom-4 duration-500 delay-100">
-              <KPICards data={data?.kpis || null} />
-            </div>
+          <ExecutiveSummary
+            summary={insightsData?.summary ?? ""}
+            periodLabel={periodLabel}
+            loading={loading}
+          />
 
-            {/* Period Comparison + Report Pipeline + Activity by Day */}
-            <div className="grid lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-500 delay-125">
-              <PeriodComparison
-                data={data?.periodComparison ?? null}
-                currentLabel="This period"
-                previousLabel="Previous period"
-                loading={loading}
-              />
-              <StatusPipeline
-                data={data?.statusDistribution ?? []}
-                loading={loading}
-              />
-              <ActivityByDay data={data?.byDayOfWeek ?? []} loading={loading} />
-            </div>
+          <KPICards data={data?.kpis || null} />
 
-            {/* Top Movers & Turnaround (from insights API) */}
-            <div className="animate-in slide-in-from-bottom-4 duration-500 delay-150">
-              <InsightsMovers
-                topGrowingClients={insightsData?.topGrowingClients ?? []}
-                slowestHazards={insightsData?.slowestHazards ?? []}
-                fastestHazards={insightsData?.fastestHazards ?? []}
-                loading={loading}
-              />
-            </div>
+          <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
+            <PeriodComparison
+              data={data?.periodComparison ?? null}
+              currentLabel="This period"
+              previousLabel="Previous period"
+              loading={loading}
+            />
+            <StatusPipeline
+              data={data?.statusDistribution ?? []}
+              loading={loading}
+            />
+            <ActivityByDay data={data?.byDayOfWeek ?? []} loading={loading} />
+          </div>
 
-            {/* Main Revenue Chart with Enhanced Styling */}
-            <div className="animate-in slide-in-from-bottom-4 duration-500 delay-200">
-              <div
-                className={cn(
-                  "backdrop-blur-sm rounded-2xl shadow-2xl p-6 transition-all duration-300",
-                  "bg-white/50 dark:bg-slate-800/50",
-                  "border border-neutral-200 dark:border-slate-700/50",
-                  "hover:border-cyan-500/30",
-                )}
-              >
-                <RevenueChart
-                  data={data?.reportTrendData || []}
-                  dateRange={filters.dateRange}
+          <InsightsMovers
+            topGrowingClients={insightsData?.topGrowingClients ?? []}
+            slowestHazards={insightsData?.slowestHazards ?? []}
+            fastestHazards={insightsData?.fastestHazards ?? []}
+            loading={loading}
+          />
+
+          <DashboardPanel>
+            <RevenueChart
+              data={data?.reportTrendData || []}
+              dateRange={filters.dateRange}
+            />
+          </DashboardPanel>
+
+          <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
+            <DashboardPanel padded={false}>
+              <DamageTypesChart data={data?.hazardDistribution || []} />
+            </DashboardPanel>
+
+            {data?.insuranceTypeData && data.insuranceTypeData.length > 0 && (
+              <DashboardPanel>
+                <DashboardPanelHeader
+                  title="Insurance distribution"
+                  action={
+                    <BarChart3 className="h-5 w-5 text-muted-foreground" />
+                  }
                 />
-              </div>
-            </div>
-
-            {/* Charts Grid with Better Layout */}
-            <div className="grid lg:grid-cols-2 gap-6 animate-in slide-in-from-bottom-4 duration-500 delay-300">
-              {/* Damage Types Chart */}
-              <div
-                className={cn(
-                  "backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 overflow-hidden",
-                  "bg-white/50 dark:bg-slate-800/50",
-                  "border border-neutral-200 dark:border-slate-700/50",
-                  "hover:border-purple-500/30",
-                )}
-              >
-                <DamageTypesChart data={data?.hazardDistribution || []} />
-              </div>
-
-              {/* Insurance Type Chart with Visual Bar */}
-              {data?.insuranceTypeData && data.insuranceTypeData.length > 0 && (
-                <div
-                  className={cn(
-                    "backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 p-6",
-                    "bg-white/50 dark:bg-slate-800/50",
-                    "border border-neutral-200 dark:border-slate-700/50",
-                    "hover:border-blue-500/30",
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-6">
-                    <h3
-                      className={cn(
-                        "text-lg font-semibold",
-                        "text-neutral-900 dark:text-slate-200",
-                      )}
-                    >
-                      Insurance Distribution
-                    </h3>
-                    <BarChart3 className="w-5 h-5 text-blue-400" />
-                  </div>
-
-                  {/* Bar Chart Visualization */}
-                  <div className="space-y-4 mb-4">
-                    {data.insuranceTypeData.map((item, idx) => {
-                      const maxCount = Math.max(
-                        ...data.insuranceTypeData.map((i) => i.count),
-                      );
-                      const percentage = (item.count / maxCount) * 100;
-                      return (
-                        <div key={idx} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span
-                              className={cn(
-                                "text-sm font-medium",
-                                "text-neutral-700 dark:text-slate-300",
-                              )}
-                            >
-                              {item.type || "Unknown"}
-                            </span>
-                            <span className="text-sm font-bold text-cyan-400">
-                              {item.count}
-                            </span>
-                          </div>
-                          <div
-                            className={cn(
-                              "w-full rounded-full h-2.5 overflow-hidden",
-                              "bg-neutral-200 dark:bg-slate-700/30",
-                            )}
-                          >
-                            <div
-                              className="h-full bg-info rounded-full transition-all duration-1000"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
+                <div className="space-y-4">
+                  {data.insuranceTypeData.map((item, idx) => {
+                    const maxCount = Math.max(
+                      ...data.insuranceTypeData.map((i) => i.count),
+                    );
+                    const percentage =
+                      maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+                    return (
+                      <div key={`${item.type}-${idx}`} className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium text-foreground truncate">
+                            {item.type || "Unknown"}
+                          </span>
+                          <span className="text-sm font-semibold text-cyan-600 dark:text-cyan-400 tabular-nums">
+                            {item.count}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Total Count */}
-                  <div
-                    className={cn(
-                      "pt-4 border-t",
-                      "border-neutral-200 dark:border-slate-700/50",
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={cn(
-                          "text-sm",
-                          "text-neutral-600 dark:text-slate-400",
-                        )}
-                      >
-                        Total Insurance Types
-                      </span>
-                      <span className="text-lg font-bold text-blue-400">
-                        {data.insuranceTypeData.length}
-                      </span>
-                    </div>
-                  </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-cyan-500 transition-all duration-500"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
+                <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Insurance types
+                  </span>
+                  <span className="text-sm font-semibold text-foreground tabular-nums">
+                    {data.insuranceTypeData.length}
+                  </span>
+                </div>
+              </DashboardPanel>
+            )}
+          </div>
 
-            {/* Additional Metrics Row */}
-            <div className="grid lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-500 delay-350">
-              {/* State Performance with Chart */}
+          {(data?.statePerformance?.length ||
+            data?.turnaroundTime?.length) && (
+            <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
               {data?.statePerformance && data.statePerformance.length > 0 && (
-                <div
-                  className={cn(
-                    "lg:col-span-2 backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 p-6",
-                    "bg-white/50 dark:bg-slate-800/50",
-                    "border border-neutral-200 dark:border-slate-700/50",
-                    "hover:border-amber-500/30",
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-6">
-                    <h3
-                      className={cn(
-                        "text-lg font-semibold",
-                        "text-neutral-900 dark:text-slate-200",
-                      )}
-                    >
-                      Performance by State
-                    </h3>
-                    <Activity className="w-5 h-5 text-amber-400" />
-                  </div>
-
+                <DashboardPanel className="lg:col-span-2">
+                  <DashboardPanelHeader
+                    title="Performance by state"
+                    action={
+                      <Activity className="h-5 w-5 text-muted-foreground" />
+                    }
+                  />
                   <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={data.statePerformance.slice(0, 8)}>
                       <CartesianGrid
                         strokeDasharray="3 3"
-                        className="stroke-neutral-300 dark:stroke-slate-700"
+                        className="stroke-border"
                       />
                       <XAxis
                         dataKey="state"
-                        className="text-neutral-600 dark:text-slate-400"
-                        style={{ fontSize: "12px" }}
+                        tick={{ fontSize: 12 }}
+                        className="text-muted-foreground"
                         angle={-45}
                         textAnchor="end"
                         height={80}
                       />
                       <YAxis
-                        className="text-neutral-600 dark:text-slate-400"
-                        style={{ fontSize: "12px" }}
+                        tick={{ fontSize: 12 }}
+                        className="text-muted-foreground"
                       />
                       <TooltipAny
                         contentStyle={{
-                          backgroundColor: "rgb(255 255 255 / 0.95)",
-                          border: "1px solid rgb(229 231 235)",
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
                           borderRadius: "8px",
-                          color: "#111827",
+                          color: "hsl(var(--foreground))",
                         }}
-                        className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
-                        formatter={(value: any) => [
+                        formatter={(value: number | string) => [
                           `${value} reports`,
                           "Count",
                         ]}
                       />
-                      <Bar dataKey="value" fill="#f59e0b" radius={[8, 8, 0, 0]}>
-                        {data.statePerformance
-                          .slice(0, 8)
-                          .map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={`hsl(${30 + index * 15}, 70%, 50%)`}
-                            />
-                          ))}
+                      <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                        {data.statePerformance.slice(0, 8).map((_, index) => (
+                          <Cell
+                            key={`state-${index}`}
+                            fill={STATE_PALETTE[index % STATE_PALETTE.length]}
+                          />
+                        ))}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
-                </div>
+                </DashboardPanel>
               )}
 
-              {/* Turnaround Time Summary */}
               {data?.turnaroundTime && data.turnaroundTime.length > 0 && (
-                <div
-                  className={cn(
-                    "backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 p-6",
-                    "bg-white/50 dark:bg-slate-800/50",
-                    "border border-neutral-200 dark:border-slate-700/50",
-                    "hover:border-orange-500/30",
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-6">
-                    <h3
-                      className={cn(
-                        "text-lg font-semibold",
-                        "text-neutral-900 dark:text-slate-200",
-                      )}
-                    >
-                      Turnaround Time
-                    </h3>
-                    <Clock className="w-5 h-5 text-orange-400" />
-                  </div>
-
+                <DashboardPanel>
+                  <DashboardPanelHeader
+                    title="Turnaround time"
+                    action={<Clock className="h-5 w-5 text-muted-foreground" />}
+                  />
                   <div className="space-y-4">
                     {data.turnaroundTime.slice(0, 5).map((item, idx) => {
                       const maxHours = Math.max(
                         ...data.turnaroundTime.map((t) => t.hours),
                       );
-                      const percentage = (item.hours / maxHours) * 100;
+                      const percentage =
+                        maxHours > 0 ? (item.hours / maxHours) * 100 : 0;
                       return (
-                        <div key={idx} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span
-                              className={cn(
-                                "text-sm font-medium",
-                                "text-neutral-700 dark:text-slate-300",
-                              )}
-                            >
+                        <div key={`${item.hazard}-${idx}`} className="space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium text-foreground truncate">
                               {item.hazard}
                             </span>
-                            <span className="text-sm font-bold text-orange-500 dark:text-orange-400">
+                            <span className="text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums">
                               {item.hours.toFixed(1)}h
                             </span>
                           </div>
-                          <div
-                            className={cn(
-                              "w-full rounded-full h-2 overflow-hidden",
-                              "bg-neutral-200 dark:bg-slate-700/30",
-                            )}
-                          >
+                          <div className="h-2 rounded-full bg-muted overflow-hidden">
                             <div
-                              className="h-full bg-warning rounded-full transition-all duration-1000"
+                              className="h-full rounded-full bg-amber-500 transition-all duration-500"
                               style={{ width: `${percentage}%` }}
                             />
                           </div>
@@ -973,498 +814,194 @@ export default function AnalyticsPage() {
                       );
                     })}
                   </div>
-
                   {data.turnaroundTime.length > 5 && (
-                    <div
-                      className={cn(
-                        "mt-4 pt-4 border-t text-center",
-                        "border-neutral-200 dark:border-slate-700/50",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "text-xs",
-                          "text-neutral-600 dark:text-slate-400",
-                        )}
-                      >
-                        +{data.turnaroundTime.length - 5} more hazard types
-                      </span>
-                    </div>
+                    <p className="mt-4 pt-4 border-t border-border text-center text-xs text-muted-foreground">
+                      +{data.turnaroundTime.length - 5} more hazard types
+                    </p>
                   )}
-                </div>
+                </DashboardPanel>
               )}
             </div>
+          )}
 
-            {/* Revenue Projection - Full Width with Enhanced Design */}
-            <div className="animate-in slide-in-from-bottom-4 duration-500 delay-400">
-              <div
-                className={cn(
-                  "backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden",
-                  "bg-white/50 dark:bg-slate-800/50",
-                  "border border-neutral-200 dark:border-slate-700/50",
-                  "hover:border-cyan-500/30",
-                )}
-              >
-                {projectionData ? (
-                  <RevenueProjection
-                    historical={projectionData.historical}
-                    projected={projectionData.projected}
-                    trend={projectionData.trend}
-                  />
-                ) : projectionUnavailable ? (
-                  <div className="p-12 flex items-center justify-center">
-                    <div className="text-center space-y-2">
-                      <p
-                        className={cn(
-                          "font-medium",
-                          "text-neutral-700 dark:text-slate-300",
-                        )}
-                      >
-                        Revenue forecast unavailable
-                      </p>
-                      <p className={cn("text-sm text-neutral-600 dark:text-slate-400")}>
-                        Couldn&apos;t load the projection for this period.
-                        Try refreshing or changing the date range.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-12 flex items-center justify-center">
-                    <div className="text-center space-y-4">
-                      <Loader2 className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
-                      <p className={cn("text-neutral-600 dark:text-slate-400")}>
-                        Calculating revenue forecast...
-                      </p>
-                    </div>
-                  </div>
-                )}
+          <DashboardPanel padded={false}>
+            {projectionData ? (
+              <RevenueProjection
+                historical={projectionData.historical}
+                projected={projectionData.projected}
+                trend={projectionData.trend}
+              />
+            ) : projectionUnavailable ? (
+              <div className="p-10 sm:p-12 text-center space-y-2">
+                <p className="font-medium text-foreground">
+                  Revenue forecast unavailable
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Couldn&apos;t load the projection for this period. Try
+                  refreshing or changing the date range.
+                </p>
               </div>
-            </div>
-
-            {/* Additional Metrics Grid */}
-            <div className="grid lg:grid-cols-2 gap-6 animate-in slide-in-from-bottom-4 duration-500 delay-500">
-              {/* Top Clients */}
-              <div
-                className={cn(
-                  "backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 overflow-hidden",
-                  "bg-white/50 dark:bg-slate-800/50",
-                  "border border-neutral-200 dark:border-slate-700/50",
-                  "hover:border-emerald-500/30",
-                )}
-              >
-                <TopClientsTable
-                  data={
-                    data?.topClients?.map((client) => ({
-                      name: client.name,
-                      reports: client.reports,
-                      revenue: client.revenue,
-                    })) || []
-                  }
-                />
-              </div>
-
-              {/* State Performance (if available) */}
-              {data?.statePerformance && data.statePerformance.length > 0 && (
-                <div
-                  className={cn(
-                    "backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 p-6",
-                    "bg-white/50 dark:bg-slate-800/50",
-                    "border border-neutral-200 dark:border-slate-700/50",
-                    "hover:border-amber-500/30",
-                  )}
-                >
-                  <h3
-                    className={cn(
-                      "text-lg font-semibold mb-4",
-                      "text-neutral-900 dark:text-slate-200",
-                    )}
-                  >
-                    Performance by State
-                  </h3>
-                  <div className="space-y-3">
-                    {data.statePerformance.slice(0, 5).map((state, idx) => (
-                      <div
-                        key={idx}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-lg",
-                          "bg-neutral-100 dark:bg-slate-700/30",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "font-medium",
-                            "text-neutral-700 dark:text-slate-300",
-                          )}
-                        >
-                          {state.state || "Unknown"}
-                        </span>
-                        <span className="text-amber-400 font-semibold">
-                          {state.value} reports
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Monthly Volume Chart */}
-            <div className="animate-in slide-in-from-bottom-4 duration-500 delay-550">
-              <div
-                className={cn(
-                  "backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden",
-                  "bg-white/50 dark:bg-slate-800/50",
-                  "border border-neutral-200 dark:border-slate-700/50",
-                  "hover:border-cyan-500/30",
-                )}
-              >
-                <MonthlyVolumeChart userId={filters.userId} months={12} />
-              </div>
-            </div>
-
-            {/* Completion Metrics - Full Width */}
-            {completionData && (
-              <div className="animate-in slide-in-from-bottom-4 duration-500 delay-600">
-                <div
-                  className={cn(
-                    "backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden",
-                    "bg-white/50 dark:bg-slate-800/50",
-                    "border border-neutral-200 dark:border-slate-700/50",
-                    "hover:border-purple-500/30",
-                  )}
-                >
-                  <CompletionMetrics
-                    overall={completionData.overall}
-                    byHazardType={completionData.byHazardType}
-                    timeSeries={completionData.timeSeries}
-                    trend={completionData.trend}
-                  />
-                </div>
+            ) : (
+              <div className="p-10 sm:p-12 text-center space-y-3">
+                <Loader2 className="h-7 w-7 text-cyan-500 animate-spin mx-auto" />
+                <p className="text-sm text-muted-foreground">
+                  Calculating revenue forecast…
+                </p>
               </div>
             )}
+          </DashboardPanel>
 
-            {/* Billing Overview - Admin Only (fetches its own data) */}
-            {isAdmin && (
-              <div className="animate-in slide-in-from-bottom-4 duration-500 delay-700">
-                <div
-                  className={cn(
-                    "backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden",
-                    "bg-white/50 dark:bg-slate-800/50",
-                    "border border-neutral-200 dark:border-slate-700/50",
-                    "hover:border-emerald-500/30",
-                  )}
-                >
-                  <BillingOverview />
-                </div>
-              </div>
-            )}
+          <DashboardPanel padded={false}>
+            <TopClientsTable
+              data={
+                data?.topClients?.map((client) => ({
+                  name: client.name,
+                  reports: client.reports,
+                  revenue: client.revenue,
+                })) || []
+              }
+            />
+          </DashboardPanel>
 
-            {/* Team Activity Feed - Full Width */}
-            {activityFeedData && (
-              <div className="animate-in slide-in-from-bottom-4 duration-500 delay-900">
-                <div
-                  className={cn(
-                    "backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden",
-                    "bg-white/50 dark:bg-slate-800/50",
-                    "border border-neutral-200 dark:border-slate-700/50",
-                    "hover:border-cyan-500/30",
-                  )}
-                >
-                  <ActivityFeed activities={activityFeedData.activities} />
-                </div>
-              </div>
-            )}
+          <DashboardPanel padded={false}>
+            <MonthlyVolumeChart userId={filters.userId} months={12} />
+          </DashboardPanel>
 
-            {/* Revenue Trend Analysis */}
-            {data?.reportTrendData && data.reportTrendData.length > 0 && (
-              <div className="animate-in slide-in-from-bottom-4 duration-500 delay-700">
-                <div
-                  className={cn(
-                    "backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 p-6",
-                    "bg-white/50 dark:bg-slate-800/50",
-                    "border border-neutral-200 dark:border-slate-700/50",
-                    "hover:border-indigo-500/30",
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-6">
-                    <h3
+          {completionData && (
+            <DashboardPanel padded={false}>
+              <CompletionMetrics
+                overall={completionData.overall}
+                byHazardType={completionData.byHazardType}
+                timeSeries={completionData.timeSeries}
+                trend={completionData.trend}
+              />
+            </DashboardPanel>
+          )}
+
+          {isAdmin && (
+            <DashboardPanel padded={false}>
+              <BillingOverview />
+            </DashboardPanel>
+          )}
+
+          {activityFeedData && (
+            <DashboardPanel padded={false}>
+              <ActivityFeed activities={activityFeedData.activities} />
+            </DashboardPanel>
+          )}
+
+          {data?.reportTrendData && data.reportTrendData.length > 0 && (
+            <DashboardPanel>
+              <DashboardPanelHeader
+                title="Revenue vs reports trend"
+                action={
+                  <div className="flex gap-1 rounded-lg border border-border p-0.5 bg-muted/40">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMetric("revenue")}
                       className={cn(
-                        "text-lg font-semibold",
-                        "text-neutral-900 dark:text-slate-200",
+                        "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                        selectedMetric === "revenue"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground",
                       )}
                     >
-                      Revenue vs Reports Trend
-                    </h3>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setSelectedMetric("revenue")}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95",
-                          selectedMetric === "revenue"
-                            ? "bg-primary text-primary-foreground shadow-sm"
-                            : "bg-muted text-muted-foreground hover:bg-muted/80",
-                        )}
-                        title="View revenue metrics"
-                      >
-                        Revenue
-                      </button>
-                      <button
-                        onClick={() => setSelectedMetric("reports")}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95",
-                          selectedMetric === "reports"
-                            ? "bg-primary text-primary-foreground shadow-sm"
-                            : "bg-muted text-muted-foreground hover:bg-muted/80",
-                        )}
-                        title="View report metrics"
-                      >
-                        Reports
-                      </button>
-                    </div>
-                  </div>
-
-                  <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={data.reportTrendData}>
-                      <defs>
-                        <linearGradient
-                          id="colorRevenue"
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop
-                            offset="5%"
-                            stopColor="#6366f1"
-                            stopOpacity={0.8}
-                          />
-                          <stop
-                            offset="95%"
-                            stopColor="#6366f1"
-                            stopOpacity={0}
-                          />
-                        </linearGradient>
-                        <linearGradient
-                          id="colorReports"
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop
-                            offset="5%"
-                            stopColor="#8b5cf6"
-                            stopOpacity={0.8}
-                          />
-                          <stop
-                            offset="95%"
-                            stopColor="#8b5cf6"
-                            stopOpacity={0}
-                          />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        className="stroke-neutral-300 dark:stroke-slate-700"
-                      />
-                      <XAxis
-                        dataKey="date"
-                        className="text-neutral-600 dark:text-slate-400"
-                        style={{ fontSize: "12px" }}
-                        angle={data.reportTrendData.length > 10 ? -45 : 0}
-                        textAnchor={
-                          data.reportTrendData.length > 10 ? "end" : "middle"
-                        }
-                        height={data.reportTrendData.length > 10 ? 80 : 30}
-                      />
-                      <YAxis
-                        yAxisId="left"
-                        className="text-neutral-600 dark:text-slate-400"
-                        style={{ fontSize: "12px" }}
-                        label={
-                          selectedMetric === "revenue"
-                            ? {
-                                value: "Revenue ($)",
-                                angle: -90,
-                                position: "insideLeft",
-                                style: {
-                                  textAnchor: "middle",
-                                  fill: "rgb(75 85 99)",
-                                },
-                              }
-                            : undefined
-                        }
-                      />
-                      <YAxis
-                        yAxisId="right"
-                        orientation="right"
-                        className="text-neutral-600 dark:text-slate-400"
-                        style={{ fontSize: "12px" }}
-                        label={
-                          selectedMetric === "reports"
-                            ? {
-                                value: "Reports",
-                                angle: 90,
-                                position: "insideRight",
-                                style: {
-                                  textAnchor: "middle",
-                                  fill: "rgb(75 85 99)",
-                                },
-                              }
-                            : undefined
-                        }
-                      />
-                      <TooltipAny
-                        contentStyle={{
-                          backgroundColor: "rgb(255 255 255 / 0.95)",
-                          border: "1px solid rgb(229 231 235)",
-                          borderRadius: "8px",
-                          color: "#111827",
-                        }}
-                        className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
-                        formatter={(value, name) => {
-                          if (String(name) === "revenue")
-                            return [
-                              `$${Number(value).toLocaleString()}`,
-                              "Revenue",
-                            ];
-                          return [value, "Reports"];
-                        }}
-                      />
-                      <Legend />
-                      {selectedMetric === "revenue" ? (
-                        <Area
-                          type="monotone"
-                          dataKey="revenue"
-                          stroke="#6366f1"
-                          fillOpacity={1}
-                          fill="url(#colorRevenue)"
-                          name="Revenue"
-                          yAxisId="left"
-                        />
-                      ) : (
-                        <Area
-                          type="monotone"
-                          dataKey="reports"
-                          stroke="#8b5cf6"
-                          fillOpacity={1}
-                          fill="url(#colorReports)"
-                          name="Reports"
-                          yAxisId="right"
-                        />
+                      Revenue
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMetric("reports")}
+                      className={cn(
+                        "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                        selectedMetric === "reports"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground",
                       )}
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
-
-            {/* Summary Stats Footer */}
-            {data && (
-              <div className="animate-in slide-in-from-bottom-4 duration-500 delay-800">
-                <div
-                  className={cn(
-                    "backdrop-blur-sm rounded-2xl p-6",
-                    "bg-white/50 dark:bg-slate-800/30",
-                    "border border-neutral-200 dark:border-slate-700/30",
-                  )}
-                >
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-500/10 mb-3">
-                        <FileText className="w-6 h-6 text-blue-400" />
-                      </div>
-                      <p
-                        className={cn(
-                          "text-2xl font-bold",
-                          "text-neutral-900 dark:text-slate-200",
-                        )}
-                      >
-                        {data.kpis.totalReports.value}
-                      </p>
-                      <p
-                        className={cn(
-                          "text-xs mt-1",
-                          "text-neutral-600 dark:text-slate-400",
-                        )}
-                      >
-                        Total Reports
-                      </p>
-                    </div>
-
-                    <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 mb-3">
-                        <DollarSign className="w-6 h-6 text-success" />
-                      </div>
-                      <p
-                        className={cn(
-                          "text-2xl font-bold",
-                          "text-neutral-900 dark:text-slate-200",
-                        )}
-                      >
-                        {data.kpis.totalRevenue.formatted}
-                      </p>
-                      <p
-                        className={cn(
-                          "text-xs mt-1",
-                          "text-neutral-600 dark:text-slate-400",
-                        )}
-                      >
-                        Total Revenue
-                      </p>
-                    </div>
-
-                    <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-info/10 mb-3">
-                        <BarChart3 className="w-6 h-6 text-info" />
-                      </div>
-                      <p
-                        className={cn(
-                          "text-2xl font-bold",
-                          "text-neutral-900 dark:text-slate-200",
-                        )}
-                      >
-                        {data.hazardDistribution.length}
-                      </p>
-                      <p
-                        className={cn(
-                          "text-xs mt-1",
-                          "text-neutral-600 dark:text-slate-400",
-                        )}
-                      >
-                        Hazard Types
-                      </p>
-                    </div>
-
-                    <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-orange-500/10 mb-3">
-                        <Clock className="w-6 h-6 text-orange-400" />
-                      </div>
-                      <p
-                        className={cn(
-                          "text-2xl font-bold",
-                          "text-neutral-900 dark:text-slate-200",
-                        )}
-                      >
-                        {data.kpis.avgCompletion.formatted}
-                      </p>
-                      <p
-                        className={cn(
-                          "text-xs mt-1",
-                          "text-neutral-600 dark:text-slate-400",
-                        )}
-                      >
-                        Avg Completion
-                      </p>
-                    </div>
+                    >
+                      Reports
+                    </button>
                   </div>
-                </div>
-              </div>
-            )}
-
-          </div>
-        )}
-      </div>
+                }
+              />
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={data.reportTrendData}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={CHART_CYAN} stopOpacity={0.35} />
+                      <stop offset="95%" stopColor={CHART_CYAN} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorReports" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={CHART_AMBER} stopOpacity={0.35} />
+                      <stop offset="95%" stopColor={CHART_AMBER} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12 }}
+                    className="text-muted-foreground"
+                    angle={data.reportTrendData.length > 10 ? -45 : 0}
+                    textAnchor={
+                      data.reportTrendData.length > 10 ? "end" : "middle"
+                    }
+                    height={data.reportTrendData.length > 10 ? 80 : 30}
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    tick={{ fontSize: 12 }}
+                    className="text-muted-foreground"
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    tick={{ fontSize: 12 }}
+                    className="text-muted-foreground"
+                  />
+                  <TooltipAny
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                      color: "hsl(var(--foreground))",
+                    }}
+                    formatter={(value, name) => {
+                      if (String(name) === "revenue")
+                        return [
+                          `$${Number(value).toLocaleString()}`,
+                          "Revenue",
+                        ];
+                      return [value, "Reports"];
+                    }}
+                  />
+                  <Legend />
+                  {selectedMetric === "revenue" ? (
+                    <Area
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke={CHART_CYAN}
+                      fillOpacity={1}
+                      fill="url(#colorRevenue)"
+                      name="Revenue"
+                      yAxisId="left"
+                    />
+                  ) : (
+                    <Area
+                      type="monotone"
+                      dataKey="reports"
+                      stroke={CHART_AMBER}
+                      fillOpacity={1}
+                      fill="url(#colorReports)"
+                      name="Reports"
+                      yAxisId="right"
+                    />
+                  )}
+                </AreaChart>
+              </ResponsiveContainer>
+            </DashboardPanel>
+          )}
+        </div>
+      )}
     </div>
   );
 }
+
