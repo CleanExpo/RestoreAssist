@@ -3,10 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  DashboardPanel,
+  DashboardPanelHeader,
+} from "@/app/dashboard/components/DashboardPanel";
 import {
   Select,
   SelectContent,
@@ -111,9 +114,9 @@ function getTotalIssues(analysis: Analysis): number {
 }
 
 function scoreColor(score: number | null): string {
-  if (score === null) return "text-slate-400";
+  if (score === null) return "text-muted-foreground";
   if (score >= 80) return "text-success";
-  if (score >= 60) return "text-yellow-600";
+  if (score >= 60) return "text-amber-600 dark:text-amber-400";
   return "text-destructive";
 }
 
@@ -324,356 +327,356 @@ export default function ClaimsAnalysisExportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <Link
-                href="/dashboard/claims-analysis"
-                className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Claims Analysis
-              </Link>
-              <div className="h-4 w-px bg-slate-300" />
-              <h1 className="text-lg font-semibold text-slate-900">
-                Export Claims Analyses
-              </h1>
-            </div>
-
-            {/* Export toolbar */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportSelected}
-                disabled={!someSelected || loading}
-                className="gap-2"
-              >
-                <FileDown className="h-4 w-4" />
-                Export Selected ({selectedIds.size})
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleExportAll}
-                disabled={analyses.length === 0 || loading}
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Export All ({analyses.length})
-              </Button>
-            </div>
+    <div className="space-y-6 w-full">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 space-y-2">
+          <Link
+            href="/dashboard/claims-analysis"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Claims Analysis
+          </Link>
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+              <FileDown className="h-6 w-6 text-cyan-500 shrink-0" aria-hidden />
+              Past Analyses
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Browse, filter, and export saved claim gap analyses.
+            </p>
           </div>
         </div>
-      </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportSelected}
+            disabled={!someSelected || loading}
+            className="gap-2"
+          >
+            <FileDown className="h-4 w-4" />
+            Export selected ({selectedIds.size})
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleExportAll}
+            disabled={analyses.length === 0 || loading}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export all ({analyses.length})
+          </Button>
+        </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Filters panel */}
-        <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Filters
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="space-y-1">
-                <Label htmlFor="date-from" className="text-xs">
-                  Date From
-                </Label>
-                <Input
-                  id="date-from"
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="date-to" className="text-xs">
-                  Date To
-                </Label>
-                <Input
-                  id="date-to"
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="claim-type" className="text-xs">
-                  Issue Category
-                </Label>
-                <Select
-                  value={claimTypeFilter}
-                  onValueChange={setClaimTypeFilter}
-                >
-                  <SelectTrigger id="claim-type" className="h-8 text-sm">
-                    <SelectValue placeholder="All Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CLAIM_TYPE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="technician" className="text-xs">
-                  Technician
-                </Label>
-                <Input
-                  id="technician"
-                  type="text"
-                  placeholder="Filter by name"
-                  value={technicianFilter}
-                  onChange={(e) => setTechnicianFilter(e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="min-score" className="text-xs">
-                  Min Score
-                </Label>
-                <Input
-                  id="min-score"
-                  type="number"
-                  min={0}
-                  max={100}
-                  placeholder="0–100"
-                  value={minScore}
-                  onChange={(e) => setMinScore(e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
+      <DashboardPanel className="w-full">
+        <DashboardPanelHeader
+          title="Filters"
+          action={<Filter className="h-4 w-4 text-muted-foreground" />}
+        />
+        <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="date-from" className="text-xs">
+                Date from
+              </Label>
+              <Input
+                id="date-from"
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="h-9 text-sm"
+              />
             </div>
 
-            <div className="flex items-center gap-2 mt-4">
-              <Button
-                size="sm"
-                onClick={applyFilters}
-                disabled={loading}
-                className="gap-2"
-              >
-                {loading ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Filter className="h-3 w-3" />
-                )}
-                Apply Filters
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={resetFilters}
-                disabled={loading}
-                className="gap-2 text-slate-500"
-              >
-                <RefreshCw className="h-3 w-3" />
-                Reset
-              </Button>
+            <div className="space-y-1.5">
+              <Label htmlFor="date-to" className="text-xs">
+                Date to
+              </Label>
+              <Input
+                id="date-to"
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="h-9 text-sm"
+              />
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Results table */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">
-                {loading ? (
-                  <span className="text-slate-400">Loading...</span>
-                ) : (
-                  <span>
-                    Showing{" "}
-                    <span className="font-bold text-slate-900">
-                      {analyses.length}
-                    </span>{" "}
-                    {pagination && pagination.total !== analyses.length ? (
-                      <span className="text-slate-500 text-sm">
-                        (filtered from {pagination.total} total)
-                      </span>
-                    ) : null}{" "}
-                    {analyses.length === 1 ? "analysis" : "analyses"}
-                  </span>
-                )}
-              </CardTitle>
-              {someSelected && (
-                <Badge variant="secondary" className="text-xs">
-                  {selectedIds.size} selected
-                </Badge>
+            <div className="space-y-1.5">
+              <Label htmlFor="claim-type" className="text-xs">
+                Issue category
+              </Label>
+              <Select
+                value={claimTypeFilter}
+                onValueChange={setClaimTypeFilter}
+              >
+                <SelectTrigger id="claim-type" className="h-9 text-sm">
+                  <SelectValue placeholder="All types" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CLAIM_TYPE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="technician" className="text-xs">
+                Technician
+              </Label>
+              <Input
+                id="technician"
+                type="text"
+                placeholder="Filter by name"
+                value={technicianFilter}
+                onChange={(e) => setTechnicianFilter(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="min-score" className="text-xs">
+                Min score
+              </Label>
+              <Input
+                id="min-score"
+                type="number"
+                min={0}
+                max={100}
+                placeholder="0–100"
+                value={minScore}
+                onChange={(e) => setMinScore(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 mt-4">
+            <Button
+              size="sm"
+              onClick={applyFilters}
+              disabled={loading}
+              className="gap-2"
+            >
+              {loading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Filter className="h-3.5 w-3.5" />
               )}
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="p-6 space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-10 w-full rounded" />
-                ))}
-              </div>
-            ) : analyses.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                <FileDown className="h-10 w-10 mb-3 opacity-30" />
-                <p className="text-sm font-medium">
-                  No analyses match your filters
-                </p>
-                <p className="text-xs mt-1">
-                  Try adjusting your filters or{" "}
-                  <button
-                    onClick={resetFilters}
-                    className="underline hover:text-slate-600"
-                  >
-                    reset to show all
-                  </button>
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50">
-                      <TableHead className="w-10 pl-4">
-                        <Checkbox
-                          checked={allSelected}
-                          onCheckedChange={(checked) =>
-                            toggleAll(Boolean(checked))
-                          }
-                          aria-label="Select all"
-                        />
-                      </TableHead>
-                      <TableHead className="text-xs font-semibold">
-                        Date
-                      </TableHead>
-                      <TableHead className="text-xs font-semibold">
-                        File / Claim
-                      </TableHead>
-                      <TableHead className="text-xs font-semibold">
-                        Property
-                      </TableHead>
-                      <TableHead className="text-xs font-semibold">
-                        Technician
-                      </TableHead>
-                      <TableHead className="text-xs font-semibold text-center">
-                        Score
-                      </TableHead>
-                      <TableHead className="text-xs font-semibold text-center">
-                        Issues Found
-                      </TableHead>
-                      <TableHead className="text-xs font-semibold text-center">
-                        Status
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {analyses.map((analysis) => {
-                      const score = getOverallScore(analysis);
-                      const issues = getTotalIssues(analysis);
-                      const isSelected = selectedIds.has(analysis.id);
+              Apply filters
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetFilters}
+              disabled={loading}
+              className="gap-2 text-muted-foreground"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Reset
+            </Button>
+          </div>
+        </div>
+      </DashboardPanel>
 
-                      return (
-                        <TableRow
-                          key={analysis.id}
-                          className={
-                            isSelected
-                              ? "bg-blue-50 hover:bg-blue-50"
-                              : "hover:bg-slate-50"
-                          }
-                        >
-                          <TableCell className="pl-4">
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={(checked) =>
-                                toggleRow(analysis.id, Boolean(checked))
-                              }
-                              aria-label={`Select ${analysis.fileName}`}
-                            />
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-600 whitespace-nowrap">
-                            {new Date(analysis.createdAt).toLocaleDateString(
-                              "en-AU",
-                            )}
-                          </TableCell>
-                          <TableCell className="max-w-[200px]">
-                            <p className="text-sm font-medium text-slate-900 truncate">
-                              {analysis.fileName}
-                            </p>
-                            {analysis.claimNumber && (
-                              <p className="text-xs text-slate-500">
-                                #{analysis.claimNumber}
-                              </p>
-                            )}
-                          </TableCell>
-                          <TableCell className="max-w-[180px]">
-                            <span className="text-sm text-slate-700 truncate block">
-                              {analysis.propertyAddress ?? (
-                                <span className="text-slate-400 italic">—</span>
-                              )}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-sm text-slate-700">
-                            {analysis.technicianName ?? (
-                              <span className="text-slate-400 italic">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {score !== null ? (
-                              <span
-                                className={`text-sm font-semibold ${scoreColor(score)}`}
-                              >
-                                {score}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 text-xs">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {issues > 0 ? (
-                              <Badge
-                                variant="outline"
-                                className="text-xs border-orange-200 text-orange-700 bg-orange-50"
-                              >
-                                {issues}
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant="outline"
-                                className="text-xs border-success-subtle-foreground/30 text-success-subtle-foreground bg-success-subtle"
-                              >
-                                0
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                STATUS_COLOR[analysis.status] ??
-                                "bg-slate-100 text-slate-700"
-                              }`}
-                            >
-                              {analysis.status}
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+      <DashboardPanel padded={false} className="w-full">
+        <div className="p-4 sm:p-6 pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-base font-medium text-foreground">
+              {loading ? (
+                <span className="text-muted-foreground">Loading…</span>
+              ) : (
+                <span>
+                  Showing{" "}
+                  <span className="font-semibold tabular-nums">
+                    {analyses.length}
+                  </span>{" "}
+                  {pagination && pagination.total !== analyses.length ? (
+                    <span className="text-muted-foreground text-sm font-normal">
+                      (filtered from {pagination.total} total)
+                    </span>
+                  ) : null}{" "}
+                  {analyses.length === 1 ? "analysis" : "analyses"}
+                </span>
+              )}
+            </h3>
+            {someSelected ? (
+              <Badge variant="secondary" className="text-xs tabular-nums">
+                {selectedIds.size} selected
+              </Badge>
+            ) : null}
+          </div>
+        </div>
+        <div>
+          {loading ? (
+            <div className="p-6 space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full rounded" />
+              ))}
+            </div>
+          ) : analyses.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted mb-4">
+                <FileDown className="h-7 w-7 text-muted-foreground" />
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              <p className="text-sm font-medium text-foreground">
+                No analyses match your filters
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                Try adjusting your filters or{" "}
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="underline hover:text-foreground"
+                >
+                  reset to show all
+                </button>
+                .
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="w-10 pl-4">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={(checked) =>
+                          toggleAll(Boolean(checked))
+                        }
+                        aria-label="Select all"
+                      />
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">Date</TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      File / Claim
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Property
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Technician
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-center">
+                      Score
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-center">
+                      Issues
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-center">
+                      Status
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {analyses.map((analysis) => {
+                    const score = getOverallScore(analysis);
+                    const issues = getTotalIssues(analysis);
+                    const isSelected = selectedIds.has(analysis.id);
+
+                    return (
+                      <TableRow
+                        key={analysis.id}
+                        className={
+                          isSelected
+                            ? "bg-cyan-500/5 hover:bg-cyan-500/10"
+                            : "hover:bg-muted/40"
+                        }
+                      >
+                        <TableCell className="pl-4">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) =>
+                              toggleRow(analysis.id, Boolean(checked))
+                            }
+                            aria-label={`Select ${analysis.fileName}`}
+                          />
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
+                          {new Date(analysis.createdAt).toLocaleDateString(
+                            "en-AU",
+                          )}
+                        </TableCell>
+                        <TableCell className="max-w-[220px]">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {analysis.fileName}
+                          </p>
+                          {analysis.claimNumber ? (
+                            <p className="text-xs text-muted-foreground">
+                              #{analysis.claimNumber}
+                            </p>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="max-w-[200px]">
+                          <span className="text-sm text-foreground/80 truncate block">
+                            {analysis.propertyAddress ?? (
+                              <span className="text-muted-foreground italic">
+                                —
+                              </span>
+                            )}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm text-foreground/80">
+                          {analysis.technicianName ?? (
+                            <span className="text-muted-foreground italic">
+                              —
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {score !== null ? (
+                            <span
+                              className={`text-sm font-semibold tabular-nums ${scoreColor(score)}`}
+                            >
+                              {score}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">
+                              —
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {issues > 0 ? (
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-amber-500/30 text-amber-700 dark:text-amber-400 bg-amber-500/10"
+                            >
+                              {issues}
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-success-subtle-foreground/30 text-success-subtle-foreground bg-success-subtle"
+                            >
+                              0
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              STATUS_COLOR[analysis.status] ??
+                              "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {analysis.status}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      </DashboardPanel>
     </div>
   );
 }
