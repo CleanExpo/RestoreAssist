@@ -113,7 +113,7 @@ export default function KPICards({ data, loading = false }: KPICardsProps) {
         {cards.map((_, i) => (
           <div
             key={i}
-            className="p-4 rounded-lg border border-border bg-card animate-pulse"
+            className="p-4 rounded-lg border border-neutral-200 dark:border-slate-700/60 bg-white dark:bg-slate-900/50 animate-pulse"
           >
             <div className="h-4 rounded w-1/2 mb-3 bg-muted" />
             <div className="h-8 rounded w-3/4 bg-muted" />
@@ -130,7 +130,7 @@ export default function KPICards({ data, loading = false }: KPICardsProps) {
         return (
           <div
             key={i}
-            className="relative p-4 rounded-lg border border-border bg-card transition-colors hover:border-ring/60"
+            className="relative p-4 rounded-lg border border-neutral-200 dark:border-slate-700/60 bg-white dark:bg-slate-900/50 transition-colors hover:border-ring/60"
           >
             {/* Header with label and icon */}
             <div className="flex items-center justify-between mb-3">
