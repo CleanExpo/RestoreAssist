@@ -52,6 +52,14 @@ import {
 } from "@/lib/sketch/roomplan-correction";
 import { shoelaceArea, PX_PER_METRE } from "@/lib/sketch/extract-rooms";
 import { polygonAbsolutePoints } from "@/lib/sketch/fabric-absolute";
+import {
+  fabricJsonFromStoredSketchData,
+  scaleConfigFromStoredSketchData,
+} from "@/lib/sketch/pending-sketch-load";
+import {
+  isEmptySketchData,
+  pickSketchDataForSave,
+} from "@/lib/sketch/sketch-data-guards";
 
 import { SketchDockToolbar } from "./SketchDockToolbar";
 import { SketchFloorTabs } from "./SketchFloorTabs";
@@ -114,6 +122,10 @@ interface FloorData {
   backgroundOffsetY: number | null;
   backgroundLockAspect: boolean;
   scaleConfig: ScaleConfig | null;
+  /** Fabric JSON waiting for SketchCanvas onReady (reload persistence). */
+  pendingSketchData?: Record<string, unknown> | null;
+  /** Last non-empty toJSON — used when unmount flush runs after Fabric dispose. */
+  sketchSnapshot?: Record<string, unknown> | null;
 }
 
 // ─── Props ─────────────────────────────────────────────────
@@ -268,6 +280,11 @@ export function SketchEditorV2({
     canUndo: false,
     canRedo: false,
   });
+  // Don't mount Fabric until GET /sketches finishes — avoids an empty canvas
+  // winning the race against restore on full page refresh.
+  const [sketchesHydrated, setSketchesHydrated] = useState(
+    () => !inspectionId || captureMode,
+  );
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** RA-7091 — run pending RoomPlan custody recovery once per inspection. */
@@ -275,12 +292,18 @@ export function SketchEditorV2({
 
   // ── Load sketch data from API ──────────────────────────
   useEffect(() => {
-    if (!inspectionId || captureMode) return; // capture mode starts fresh (no authed load)
+    if (!inspectionId || captureMode) {
+      setSketchesHydrated(true);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch(`/api/inspections/${inspectionId}/sketches`);
-        if (!res.ok || cancelled) return;
+        if (!res.ok) {
+          if (!cancelled) setSketchesHydrated(true);
+          return;
+        }
         const { sketches } = (await res.json()) as {
           sketches: Array<{
             id: string;
@@ -296,83 +319,82 @@ export function SketchEditorV2({
             country?: "AU" | "NZ" | null;
           }>;
         };
-        if (cancelled || !sketches?.length) return;
+        if (cancelled) return;
 
-        setCountry(sketches.some((s) => s.country === "NZ") ? "NZ" : "AU");
+        if (sketches?.length) {
+          setCountry(sketches.some((s) => s.country === "NZ") ? "NZ" : "AU");
 
-        const loaded: FloorData[] = sketches.map((s, i) => {
-          const canvasRef = makeFabricCanvas();
-          const floorData: FloorData = {
-            floor: {
-              id: s.id ?? `${uid}-f${i}`,
-              floorNumber: s.floorNumber,
-              floorLabel: s.floorLabel,
-            },
-            canvasRef,
-            moisturePins: (s.moisturePoints as MoisturePin[] | null) ?? [],
-            evidencePins: [],
-            backgroundUrl: s.backgroundImageUrl ?? null,
-            // RA-120 (PR4): restore the persisted opacity instead of resetting
-            // to the default on every reload (was a per-floor data-loss bug).
-            backgroundOpacity:
-              typeof s.backgroundImageOpacity === "number"
-                ? s.backgroundImageOpacity
-                : 0.35,
-            backgroundScale:
-              typeof s.backgroundImageScale === "number"
-                ? s.backgroundImageScale
-                : null,
-            backgroundOffsetX:
-              typeof s.backgroundImageOffsetX === "number"
-                ? s.backgroundImageOffsetX
-                : null,
-            backgroundOffsetY:
-              typeof s.backgroundImageOffsetY === "number"
-                ? s.backgroundImageOffsetY
-                : null,
-            backgroundLockAspect: true,
-            scaleConfig:
-              ((s.sketchData as Record<string, unknown> | null)
-                ?.scaleConfig as ScaleConfig | null) ?? null,
-          };
-          return floorData;
-        });
+          const loaded: FloorData[] = sketches.map((s, i) => {
+            const canvasRef = makeFabricCanvas();
+            const pendingSketchData = fabricJsonFromStoredSketchData(
+              s.sketchData,
+            );
+            return {
+              floor: {
+                id: s.id ?? `${uid}-f${i}`,
+                floorNumber: s.floorNumber,
+                floorLabel: s.floorLabel,
+              },
+              canvasRef,
+              moisturePins: (s.moisturePoints as MoisturePin[] | null) ?? [],
+              evidencePins: [],
+              backgroundUrl: s.backgroundImageUrl ?? null,
+              backgroundOpacity:
+                typeof s.backgroundImageOpacity === "number"
+                  ? s.backgroundImageOpacity
+                  : 0.35,
+              backgroundScale:
+                typeof s.backgroundImageScale === "number"
+                  ? s.backgroundImageScale
+                  : null,
+              backgroundOffsetX:
+                typeof s.backgroundImageOffsetX === "number"
+                  ? s.backgroundImageOffsetX
+                  : null,
+              backgroundOffsetY:
+                typeof s.backgroundImageOffsetY === "number"
+                  ? s.backgroundImageOffsetY
+                  : null,
+              backgroundLockAspect: true,
+              scaleConfig:
+                (scaleConfigFromStoredSketchData(
+                  s.sketchData,
+                ) as ScaleConfig | null) ?? null,
+              pendingSketchData,
+              sketchSnapshot: pendingSketchData,
+            };
+          });
 
-        setFloorsData(loaded);
+          setFloorsData(loaded);
 
-        // Load canvas JSON after floors are set
-        sketches.forEach((s, i) => {
-          if (!s.sketchData) return;
-          const ref = loaded[i].canvasRef.current;
-          if (ref) {
-            ref.loadFromJSON(s.sketchData).catch(() => {});
-          }
-        });
-
-        // RoomGraph evidence pins (P0) — load per floor after sketch ids known
-        await Promise.all(
-          sketches.map(async (s, i) => {
-            if (!s.id) return;
-            try {
-              const er = await fetch(
-                `/api/inspections/${inspectionId}/sketches/${s.id}/evidence-pins`,
-              );
-              if (!er.ok) return;
-              const ej = (await er.json()) as { pins?: EvidencePinView[] };
-              setFloorsData((prev) =>
-                prev.map((fd, idx) =>
-                  idx === i
-                    ? { ...fd, evidencePins: ej.pins ?? [] }
-                    : fd,
-                ),
-              );
-            } catch {
-              /* non-fatal */
-            }
-          }),
-        );
+          // RoomGraph evidence pins (P0) — load per floor after sketch ids known
+          await Promise.all(
+            sketches.map(async (s, i) => {
+              if (!s.id) return;
+              try {
+                const er = await fetch(
+                  `/api/inspections/${inspectionId}/sketches/${s.id}/evidence-pins`,
+                );
+                if (!er.ok) return;
+                const ej = (await er.json()) as { pins?: EvidencePinView[] };
+                if (cancelled) return;
+                setFloorsData((prev) =>
+                  prev.map((fd, idx) =>
+                    idx === i
+                      ? { ...fd, evidencePins: ej.pins ?? [] }
+                      : fd,
+                  ),
+                );
+              } catch {
+                /* non-fatal */
+              }
+            }),
+          );
+        }
       } catch {
-        // Fail silently — editor starts with empty canvas
+        // Fail soft — editor starts with empty canvas
+      } finally {
+        if (!cancelled) setSketchesHydrated(true);
       }
     })();
     return () => {
@@ -435,9 +457,23 @@ export function SketchEditorV2({
 
     const floorPromises = floorsData.map(async (fd) => {
       const canvas = fd.canvasRef.current;
-      if (!canvas) return;
+      let liveJson: Record<string, unknown> | null = null;
+      if (canvas) {
+        try {
+          liveJson = canvas.toJSON() as Record<string, unknown>;
+          // Keep a durable snapshot while the canvas is still alive so
+          // unmount/dispose flushes don't POST an empty objects:[].
+          if (!isEmptySketchData(liveJson)) {
+            fd.sketchSnapshot = liveJson;
+          }
+        } catch {
+          liveJson = null;
+        }
+      }
+      const base = pickSketchDataForSave(liveJson, fd.sketchSnapshot);
+      if (!base) return;
       const sketchData = {
-        ...(canvas.toJSON() as Record<string, unknown>),
+        ...base,
         scaleConfig: fd.scaleConfig,
       };
       const clientUpdatedAt = Date.now();
@@ -452,7 +488,7 @@ export function SketchEditorV2({
       // plan. Best-effort: the sketchData save below stays authoritative, so a
       // failed render/upload must never block the save or surface an error.
       let renderedPngUrl: string | undefined;
-      if (renderImage && inspectionId && !captureMode) {
+      if (renderImage && inspectionId && !captureMode && canvas) {
         try {
           // Lazy import so the Supabase client (instantiated at module load in
           // lib/supabase) stays out of this component's import graph — eager
@@ -501,8 +537,19 @@ export function SketchEditorV2({
           },
           body: JSON.stringify(body),
         });
-        if (!res.ok) throw new Error(`save ${res.status}`);
-        succeededOnline++;
+        if (res.ok) {
+          succeededOnline++;
+          return;
+        }
+        // 409 stale = server already has newer state. Do NOT queue — the
+        // offline drain would only hit 409 again and risk confusing the UI.
+        if (res.status === 409) {
+          const payload = (await res.json().catch(() => null)) as {
+            stale?: boolean;
+          } | null;
+          if (payload?.stale === true) return;
+        }
+        throw new Error(`save ${res.status}`);
       } catch {
         // Capture mode has no offline queue (the queue is bound to the authed
         // sketches route); a failed homeowner save must surface as an error,
@@ -702,19 +749,84 @@ export function SketchEditorV2({
   }, []);
 
   // ── Canvas ready handler ────────────────────────────────
+  const clearPendingAfterRestore = useCallback(
+    (floorId: string, pending: Record<string, unknown> | null | undefined) => {
+      setFloorsData((prev) =>
+        prev.map((fd) =>
+          fd.floor.id === floorId
+            ? {
+                ...fd,
+                pendingSketchData: null,
+                sketchSnapshot: pending ?? fd.sketchSnapshot ?? null,
+              }
+            : fd,
+        ),
+      );
+    },
+    [],
+  );
+
+  const applyPendingSketch = useCallback(
+    async (floorId: string, canvas: FabricCanvasRef, pending: Record<string, unknown>) => {
+      try {
+        const fc = canvas.getFabricCanvas() as {
+          getObjects?: () => unknown[];
+        } | null;
+        const alreadyRestored = (fc?.getObjects?.()?.length ?? 0) > 0;
+        if (!alreadyRestored) {
+          await canvas.loadFromJSON(pending);
+        }
+        clearPendingAfterRestore(floorId, pending);
+        setHistoryState({
+          canUndo: canvas.canUndo,
+          canRedo: canvas.canRedo,
+        });
+      } catch (err) {
+        console.error("SketchEditorV2: failed to restore floor plan", err);
+        toast.error("Could not restore floor plan drawing");
+      }
+    },
+    [clearPendingAfterRestore],
+  );
+
   const handleCanvasReady = useCallback(
     (floorId: string, canvas: FabricCanvasRef) => {
+      let pending: Record<string, unknown> | null | undefined;
       setFloorsData((prev) =>
         prev.map((fd) => {
           if (fd.floor.id !== floorId) return fd;
           fd.canvasRef.current = canvas;
+          pending = fd.pendingSketchData;
           return fd;
         }),
       );
-      setHistoryState({ canUndo: canvas.canUndo, canRedo: canvas.canRedo });
+      // SketchCanvas loads initialData during Fabric init; only fall back
+      // to loadFromJSON here if the canvas is still empty.
+      if (pending) {
+        void applyPendingSketch(floorId, canvas, pending);
+      } else {
+        setHistoryState({ canUndo: canvas.canUndo, canRedo: canvas.canRedo });
+      }
     },
-    [],
+    [applyPendingSketch],
   );
+
+  // If API load lands after Fabric onReady (empty canvas), apply pending JSON.
+  const restoringFloorIdsRef = useRef(new Set<string>());
+  useEffect(() => {
+    for (const fd of floorsData) {
+      if (!fd.pendingSketchData) continue;
+      const canvas = fd.canvasRef.current;
+      if (!canvas) continue;
+      if (restoringFloorIdsRef.current.has(fd.floor.id)) continue;
+      restoringFloorIdsRef.current.add(fd.floor.id);
+      void applyPendingSketch(fd.floor.id, canvas, fd.pendingSketchData).finally(
+        () => {
+          restoringFloorIdsRef.current.delete(fd.floor.id);
+        },
+      );
+    }
+  }, [floorsData, applyPendingSketch]);
 
   // ── History ─────────────────────────────────────────────
   const handleUndo = useCallback(() => {
@@ -1688,7 +1800,14 @@ export function SketchEditorV2({
         className="relative flex-1 overflow-hidden"
         style={{ minHeight: height }}
       >
-        {floorsData.map((fd, idx) => (
+        {!sketchesHydrated && (
+          <div className="absolute inset-0 flex items-center justify-center text-white/40 text-sm gap-2">
+            <Loader2 size={16} className="animate-spin" />
+            Loading floor plan…
+          </div>
+        )}
+        {sketchesHydrated &&
+          floorsData.map((fd, idx) => (
           <div
             key={fd.floor.id}
             className={cn(
@@ -1710,6 +1829,7 @@ export function SketchEditorV2({
               backgroundImageOffsetX={fd.backgroundOffsetX}
               backgroundImageOffsetY={fd.backgroundOffsetY}
               backgroundImageLockAspect={fd.backgroundLockAspect}
+              initialData={fd.pendingSketchData ?? null}
               readonly={readonly}
               onReady={(canvas) => handleCanvasReady(fd.floor.id, canvas)}
               onModified={() => {
