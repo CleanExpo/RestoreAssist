@@ -44,15 +44,15 @@ export default function DamageTypesChart({
       <div
         className={cn(
           "p-6 rounded-lg border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <div className="h-[400px] flex items-center justify-center">
           <div className="text-center space-y-4">
             <Loader2 className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
             <p
-              className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}
+              className={cn("text-sm", "text-muted-foreground")}
             >
               Loading chart...
             </p>
@@ -67,14 +67,14 @@ export default function DamageTypesChart({
       <div
         className={cn(
           "p-6 rounded-lg border",
-          "border-neutral-200 dark:border-slate-700/50",
-          "bg-white/50 dark:bg-slate-800/30",
+          "border-neutral-200 dark:border-slate-700/60",
+          "bg-white dark:bg-slate-900/50",
         )}
       >
         <h3
           className={cn(
             "font-semibold mb-4",
-            "text-neutral-900 dark:text-slate-200",
+            "text-foreground",
           )}
         >
           Reports by Damage Type
@@ -82,7 +82,7 @@ export default function DamageTypesChart({
         <div
           className={cn(
             "flex items-center justify-center h-[300px]",
-            "text-neutral-600 dark:text-slate-400",
+            "text-muted-foreground",
           )}
         >
           No data available
@@ -101,14 +101,14 @@ export default function DamageTypesChart({
     <div
       className={cn(
         "p-6 rounded-lg border",
-        "border-neutral-200 dark:border-slate-700/50",
-        "bg-white/50 dark:bg-slate-800/30",
+        "border-neutral-200 dark:border-slate-700/60",
+        "bg-white dark:bg-slate-900/50",
       )}
     >
       <h3
         className={cn(
           "font-semibold text-lg mb-4",
-          "text-neutral-900 dark:text-slate-200",
+          "text-foreground",
         )}
       >
         Reports by Damage Type
@@ -149,7 +149,7 @@ export default function DamageTypesChart({
               borderRadius: "8px",
               color: "#111827",
             }}
-            className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
+            className=""
             formatter={(value: any) => [`${value} reports`, "Count"]}
           />
         </PieChart>
@@ -162,7 +162,7 @@ export default function DamageTypesChart({
             key={item.name}
             className={cn(
               "flex items-center justify-between p-2 rounded transition-colors",
-              "hover:bg-neutral-100 dark:hover:bg-slate-700/20",
+              "hover:bg-muted/60",
             )}
             onMouseEnter={() => setHoveredSegment(item.name)}
             onMouseLeave={() => setHoveredSegment(null)}
@@ -175,7 +175,7 @@ export default function DamageTypesChart({
               <span
                 className={cn(
                   "text-sm",
-                  "text-neutral-700 dark:text-slate-300",
+                  "text-foreground/90",
                 )}
               >
                 {item.name}
@@ -185,7 +185,7 @@ export default function DamageTypesChart({
               <span
                 className={cn(
                   "text-sm font-medium",
-                  "text-neutral-900 dark:text-slate-200",
+                  "text-foreground",
                 )}
               >
                 {item.value}
@@ -193,7 +193,7 @@ export default function DamageTypesChart({
               <span
                 className={cn(
                   "text-xs ml-2",
-                  "text-neutral-600 dark:text-slate-400",
+                  "text-muted-foreground",
                 )}
               >
                 ({((item.value / total) * 100).toFixed(1)}%)
