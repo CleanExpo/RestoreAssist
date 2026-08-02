@@ -97,6 +97,7 @@ export default async function ClaimDetailPage({ params }: Props) {
       previousState: true,
       version: true,
       closedAt: true,
+      managerReviewRequired: true,
       createdAt: true,
       updatedAt: true,
       report: {
@@ -200,6 +201,11 @@ export default async function ClaimDetailPage({ params }: Props) {
           <span className="font-mono rounded bg-muted px-2 py-0.5">
             {cp.currentState}
           </span>
+          {cp.managerReviewRequired ? (
+            <span className="rounded bg-warning-subtle text-warning-subtle-foreground px-2 py-0.5 text-xs">
+              Manager review required
+            </span>
+          ) : null}
           {cp.closedAt ? (
             <span className="text-muted-foreground">
               Closed {new Date(cp.closedAt).toISOString().slice(0, 10)}

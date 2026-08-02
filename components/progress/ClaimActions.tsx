@@ -14,6 +14,7 @@
  */
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SignaturePad from "./SignaturePad";
 
@@ -88,13 +89,22 @@ export default function ClaimActions({
       );
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) {
+        const err = (json as { error?: unknown }).error;
         const msg =
-          (json as { error?: string }).error ??
+          (typeof err === "string" && err) ||
+          (err &&
+          typeof err === "object" &&
+          typeof (err as { message?: unknown }).message === "string"
+            ? ((err as { message: string }).message)
+            : null) ||
           `Transition failed (${resp.status})`;
         setError(msg);
         return null;
       }
       return (json as { data: { id: string } }).data;
+    } catch {
+      setError("Network error — please try again.");
+      return null;
     } finally {
       setSubmitting(false);
     }
@@ -202,7 +212,23 @@ export default function ClaimActions({
             </div>
           )}
 
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? (
+            <div className="space-y-1.5">
+              <p className="text-sm text-destructive">{error}</p>
+              {/linked inspection/i.test(error) ? (
+                <p className="text-xs text-muted-foreground">
+                  Log the incident on{" "}
+                  <Link
+                    href="/dashboard/whs"
+                    className="text-foreground underline underline-offset-2"
+                  >
+                    WHS
+                  </Link>{" "}
+                  and link it to the inspection for this claim, then try again.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

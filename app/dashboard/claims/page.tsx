@@ -10,6 +10,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { FolderKanban } from "lucide-react";
 
 export const metadata = {
   title: "Claims — RestoreAssist",
@@ -35,6 +36,7 @@ export default async function ClaimsIndexPage() {
       currentState: true,
       version: true,
       closedAt: true,
+      managerReviewRequired: true,
       createdAt: true,
       updatedAt: true,
       report: {
@@ -50,34 +52,65 @@ export default async function ClaimsIndexPage() {
     take: 100,
   });
 
+  const openCount = claims.filter((c) => !c.closedAt).length;
+  const reviewCount = claims.filter((c) => c.managerReviewRequired).length;
+
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Claims</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {isAdmin
-            ? "All claims across the workspace."
-            : "Claims you have progress access to."}
-        </p>
+    <div className="max-w-9xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Claims</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isAdmin
+              ? "All claims across the workspace."
+              : "Claims you have progress access to."}
+          </p>
+        </div>
+        {claims.length > 0 ? (
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full border px-2.5 py-1 text-muted-foreground">
+              {claims.length} total
+            </span>
+            <span className="rounded-full border px-2.5 py-1 text-muted-foreground">
+              {openCount} open
+            </span>
+            {reviewCount > 0 ? (
+              <span className="rounded-full border border-warning-subtle-foreground/30 bg-warning-subtle px-2.5 py-1 text-warning-subtle-foreground">
+                {reviewCount} need review
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       </header>
 
       {claims.length === 0 ? (
-        <div className="rounded-md border p-6 space-y-3">
-          <p className="text-base font-medium">No claims yet</p>
-          <p className="text-sm text-muted-foreground">
-            Claims appear here once you start an inspection. Open a report from
-            the inspections list and tap{" "}
-            <span className="font-medium text-foreground">
-              Start stabilisation
-            </span>{" "}
-            to begin the compliance lifecycle.
-          </p>
-          <div className="flex flex-wrap gap-2 pt-1">
+        <div className="rounded-lg border p-8 space-y-4 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+            <FolderKanban className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <div className="space-y-2">
+            <p className="text-base font-medium">No claims yet</p>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Claims appear here once a report enters the compliance lifecycle.
+              Open a report from inspections and tap{" "}
+              <span className="font-medium text-foreground">
+                Start stabilisation
+              </span>{" "}
+              (or initialise progress) to begin.
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2 pt-1">
             <Link
               href="/dashboard/inspections"
               className="px-3 py-1.5 text-sm rounded bg-foreground text-background"
             >
               Go to inspections →
+            </Link>
+            <Link
+              href="/dashboard/reports"
+              className="px-3 py-1.5 text-sm rounded border"
+            >
+              View reports
             </Link>
             <Link
               href="/dashboard/help"
@@ -103,7 +136,14 @@ export default async function ClaimsIndexPage() {
               {claims.map((c) => (
                 <tr key={c.id} className="border-t">
                   <td className="px-4 py-2">
-                    {c.report?.propertyAddress ?? c.report?.title ?? "—"}
+                    <div className="font-medium">
+                      {c.report?.propertyAddress ?? c.report?.title ?? "—"}
+                    </div>
+                    {c.managerReviewRequired ? (
+                      <div className="text-xs text-warning-subtle-foreground mt-0.5">
+                        Manager review required
+                      </div>
+                    ) : null}
                   </td>
                   <td className="px-4 py-2">{c.report?.hazardType ?? "—"}</td>
                   <td className="px-4 py-2">
@@ -132,7 +172,7 @@ export default async function ClaimsIndexPage() {
 
 function StateBadge({ state, closed }: { state: string; closed: boolean }) {
   const tone = closed
-    ? "bg-zinc-100 text-zinc-600"
+    ? "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
     : state.includes("DISPUTED")
       ? "bg-warning-subtle text-warning-subtle-foreground"
       : state.includes("HOLD")
