@@ -6,8 +6,6 @@ import { useSetupStore, type SetupOrganization } from './store';
 import { BusinessDetailsCard } from './BusinessDetailsCard';
 import { BrandCard } from './BrandCard';
 import { PricingCard } from './PricingCard';
-import { StorageCard } from './StorageCard';
-import { DatabaseCard } from './DatabaseCard';
 import { IntegrationsCard } from './IntegrationsCard';
 import { FeatureHealthCard } from './FeatureHealthCard';
 import { VideoExplainer } from './VideoExplainer';
@@ -133,7 +131,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       complete: hasApiKey,
       description:
         'Connect your own AI provider key — it powers report drafting and stays in your workspace.',
-      content: <AiKeyCard />,
+      content: <AiKeyCard onSaved={() => setHasApiKey(true)} />,
     },
     {
       key: 'business',
@@ -150,7 +148,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       required: false,
       complete: brandingComplete,
       description:
-        'Add your logo and colours so client-facing documents look like yours.',
+        'Preview your letterhead live — logo, colours, and a short company line for every client document.',
       content: <BrandCard />,
     },
     {
@@ -161,20 +159,6 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       description:
         'Set your rate card once — estimates and invoices pick it up automatically.',
       content: <PricingCard />,
-    },
-    {
-      key: 'storage',
-      title: 'Storage',
-      required: false,
-      complete: false,
-      description:
-        'Choose where evidence photos and documents live, and check database health.',
-      content: (
-        <div className="space-y-6">
-          <StorageCard />
-          <DatabaseCard />
-        </div>
-      ),
     },
     {
       key: 'integrations',
