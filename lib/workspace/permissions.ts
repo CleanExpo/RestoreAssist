@@ -116,6 +116,14 @@ export async function hasPermission(
   workspaceId: string,
   permissionKey: PermissionKey,
 ): Promise<boolean> {
+  // Owners always have full access — covers missing role seed/bindings
+  // after repairable provision gaps (setup BYOK, local/dev DBs).
+  const owned = await prisma.workspace.findFirst({
+    where: { id: workspaceId, ownerId: userId },
+    select: { id: true },
+  });
+  if (owned) return true;
+
   const result = await prisma.workspaceMember.findFirst({
     where: {
       userId,
