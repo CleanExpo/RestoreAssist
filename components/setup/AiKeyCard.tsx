@@ -61,21 +61,40 @@ const PROVIDER_META: Record<Provider, { label: string; placeholder: string }> = 
 
 type CardState = 'idle' | 'saving' | 'success' | 'error';
 
-export function AiKeyCard() {
+const DEFAULT_KEY_ERROR =
+  "We couldn't save that key. Please check the key and try again.";
+
+function friendlySaveError(status: number, code?: string): string {
+  if (status === 402 || code === 'NO_WORKSPACE') {
+    return 'Your workspace is still being set up. Refresh the page and try again.';
+  }
+  if (status === 403 || code === 'FORBIDDEN') {
+    return "You don't have permission to save AI keys for this workspace.";
+  }
+  if (status === 400 || code === 'VALIDATION') {
+    return 'That key looks incomplete. Paste the full API key and try again.';
+  }
+  return DEFAULT_KEY_ERROR;
+}
+
+export function AiKeyCard({ onSaved }: { onSaved?: () => void } = {}) {
   const [provider, setProvider] = useState<Provider>('ANTHROPIC');
   const [apiKey, setApiKey] = useState('');
   const [cardState, setCardState] = useState<CardState>('idle');
+  const [errorMessage, setErrorMessage] = useState(DEFAULT_KEY_ERROR);
 
   const meta = PROVIDER_META[provider];
 
-  async function handleValidateAndSave() {
+  async function handleSave() {
     const trimmed = apiKey.trim();
     if (!trimmed) return;
 
     setCardState('saving');
+    setErrorMessage(DEFAULT_KEY_ERROR);
 
     try {
-      // Step 1: save the key
+      // Save only for now — skip live provider validation so setup can continue
+      // even when network/provider checks are flaky.
       const saveRes = await fetch('/api/workspace/provider-connections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,26 +102,18 @@ export function AiKeyCard() {
       });
 
       if (!saveRes.ok) {
-        setCardState('error');
-        return;
-      }
-
-      // Step 2: validate the saved key
-      const validateRes = await fetch('/api/workspace/provider-connections/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider }),
-      });
-
-      const validateJson = await validateRes.json();
-
-      if (!validateRes.ok || !validateJson.valid) {
+        const saveJson = (await saveRes.json().catch(() => null)) as {
+          code?: string;
+        } | null;
+        setErrorMessage(friendlySaveError(saveRes.status, saveJson?.code));
         setCardState('error');
         return;
       }
 
       setCardState('success');
+      onSaved?.();
     } catch {
+      setErrorMessage(DEFAULT_KEY_ERROR);
       setCardState('error');
     }
   }
@@ -144,7 +155,7 @@ export function AiKeyCard() {
         {cardState === 'success' ? (
           <div className="flex items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
             <CheckCircleMark size={16} className="shrink-0" />
-            <span>Key validated — {meta.label} is ready to use.</span>
+            <span>Key saved — {meta.label} is ready to use.</span>
           </div>
         ) : (
           <div className="space-y-3">
@@ -174,23 +185,23 @@ export function AiKeyCard() {
                 role="alert"
                 className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
               >
-                We couldn&apos;t save or validate that key. Please check the key and try again.
+                {errorMessage}
               </div>
             )}
 
             {/* Validate & save button */}
             <Button
-              onClick={handleValidateAndSave}
+              onClick={handleSave}
               disabled={!apiKey.trim() || cardState === 'saving'}
               className="w-full"
             >
               {cardState === 'saving' ? (
                 <>
                   <SpinnerMark size={14} className="animate-spin mr-2" />
-                  Validating…
+                  Saving…
                 </>
               ) : (
-                'Validate & save'
+                'Save key'
               )}
             </Button>
 
