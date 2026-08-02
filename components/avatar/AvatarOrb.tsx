@@ -90,6 +90,7 @@ function answerFor(question: string): string {
 }
 
 function MargotAvatar({ size }: { size: number }) {
+  const px = `${size}px`;
   return (
     <Image
       src={MARGOT_AVATAR_ORB_PATH}
@@ -97,7 +98,7 @@ function MargotAvatar({ size }: { size: number }) {
       width={size}
       height={size}
       className="aspect-square rounded-full object-cover object-center ring-2 ring-white/40"
-      style={{ width: size, height: size, minWidth: size, minHeight: size }}
+      style={{ width: px, height: px, minWidth: px, minHeight: px }}
       priority
     />
   );
@@ -248,10 +249,10 @@ export function AvatarOrb({
           className,
         )}
         style={{
-          width: size,
-          height: size,
-          minWidth: size,
-          minHeight: size,
+          width: `${size}px`,
+          height: `${size}px`,
+          minWidth: `${size}px`,
+          minHeight: `${size}px`,
           boxShadow: isChatOpen ? undefined : `0 8px 28px ${MARGOT_ACCENT}66`,
         }}
         aria-label={
@@ -267,8 +268,8 @@ export function AvatarOrb({
           <span
             className="flex aspect-square items-center justify-center rounded-full text-white"
             style={{
-              width: size - 8,
-              height: size - 8,
+              width: `${size - 8}px`,
+              height: `${size - 8}px`,
               background: MARGOT_ACCENT,
             }}
           >
@@ -277,7 +278,10 @@ export function AvatarOrb({
         ) : (
           <span
             className="relative flex aspect-square shrink-0 items-center justify-center"
-            style={{ width: size - 8, height: size - 8 }}
+            style={{
+              width: `${size - 8}px`,
+              height: `${size - 8}px`,
+            }}
           >
             {avatarImageUrl === MARGOT_AVATAR_ORB_PATH ? (
               <MargotAvatar size={size - 8} />
@@ -290,10 +294,10 @@ export function AvatarOrb({
                 height={size - 8}
                 className="aspect-square rounded-full object-cover object-center ring-2 ring-white/40"
                 style={{
-                  width: size - 8,
-                  height: size - 8,
-                  minWidth: size - 8,
-                  minHeight: size - 8,
+                  width: `${size - 8}px`,
+                  height: `${size - 8}px`,
+                  minWidth: `${size - 8}px`,
+                  minHeight: `${size - 8}px`,
                 }}
                 loading="eager"
               />

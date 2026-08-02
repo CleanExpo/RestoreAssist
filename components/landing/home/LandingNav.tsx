@@ -75,7 +75,8 @@ export function LandingNav() {
               width={36}
               height={36}
               priority
-              className="object-contain"
+              className="h-9 w-9 object-contain"
+              style={{ width: "auto", height: "auto" }}
             />
             <span
               className={`${FONT_DISPLAY} text-[15px] font-bold tracking-tight text-[#0B1F3A] transition-colors hover:text-[#16345A]`}
