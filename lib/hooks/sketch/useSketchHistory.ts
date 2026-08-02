@@ -4,16 +4,16 @@ import { useRef, useState, useCallback } from "react";
 
 const MAX_HISTORY = 50;
 
+type FabricHistoryCanvas = {
+  toJSON: (extras?: string[]) => object;
+  loadFromJSON: (d: object) => Promise<unknown>;
+  renderAll: () => void;
+};
+
 export interface SketchHistoryHandle {
   saveState: (canvas: { toJSON: (extras?: string[]) => object }) => void;
-  undo: (canvas: {
-    loadFromJSON: (d: object, cb: () => void) => void;
-    renderAll: () => void;
-  }) => Promise<void>;
-  redo: (canvas: {
-    loadFromJSON: (d: object, cb: () => void) => void;
-    renderAll: () => void;
-  }) => Promise<void>;
+  undo: (canvas: FabricHistoryCanvas) => Promise<void>;
+  redo: (canvas: FabricHistoryCanvas) => Promise<void>;
   canUndo: boolean;
   canRedo: boolean;
   isLoading: boolean;
@@ -48,45 +48,34 @@ export function useSketchHistory(): SketchHistoryHandle {
     [],
   );
 
-  const undo = useCallback(
-    async (canvas: {
-      loadFromJSON: (d: object, cb: () => void) => void;
-      renderAll: () => void;
-    }) => {
-      if (idxRef.current <= 0) return;
-      idxRef.current -= 1;
-      isLoadingRef.current = true;
-      const json = JSON.parse(stackRef.current[idxRef.current]);
-      await new Promise<void>((res) => canvas.loadFromJSON(json, res));
-      canvas.renderAll();
-      isLoadingRef.current = false;
-      setState({
-        canUndo: idxRef.current > 0,
-        canRedo: idxRef.current < stackRef.current.length - 1,
-      });
-    },
-    [],
-  );
+  const undo = useCallback(async (canvas: FabricHistoryCanvas) => {
+    if (idxRef.current <= 0) return;
+    idxRef.current -= 1;
+    isLoadingRef.current = true;
+    const json = JSON.parse(stackRef.current[idxRef.current]);
+    // Fabric v7: loadFromJSON returns a Promise (2nd arg is reviver, not done cb).
+    await canvas.loadFromJSON(json);
+    canvas.renderAll();
+    isLoadingRef.current = false;
+    setState({
+      canUndo: idxRef.current > 0,
+      canRedo: idxRef.current < stackRef.current.length - 1,
+    });
+  }, []);
 
-  const redo = useCallback(
-    async (canvas: {
-      loadFromJSON: (d: object, cb: () => void) => void;
-      renderAll: () => void;
-    }) => {
-      if (idxRef.current >= stackRef.current.length - 1) return;
-      idxRef.current += 1;
-      isLoadingRef.current = true;
-      const json = JSON.parse(stackRef.current[idxRef.current]);
-      await new Promise<void>((res) => canvas.loadFromJSON(json, res));
-      canvas.renderAll();
-      isLoadingRef.current = false;
-      setState({
-        canUndo: idxRef.current > 0,
-        canRedo: idxRef.current < stackRef.current.length - 1,
-      });
-    },
-    [],
-  );
+  const redo = useCallback(async (canvas: FabricHistoryCanvas) => {
+    if (idxRef.current >= stackRef.current.length - 1) return;
+    idxRef.current += 1;
+    isLoadingRef.current = true;
+    const json = JSON.parse(stackRef.current[idxRef.current]);
+    await canvas.loadFromJSON(json);
+    canvas.renderAll();
+    isLoadingRef.current = false;
+    setState({
+      canUndo: idxRef.current > 0,
+      canRedo: idxRef.current < stackRef.current.length - 1,
+    });
+  }, []);
 
   return {
     saveState,
