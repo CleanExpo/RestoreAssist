@@ -13,6 +13,7 @@ import type {
 } from "@/lib/ai/byok-client";
 import { resolveWorkspaceRouterConfig } from "@/lib/ai/workspace-byok-dispatch";
 import { BYOK_ALLOWED_MODELS } from "@/lib/ai/byok-client";
+import { visionManifestToDraft } from "@/lib/ai/contents-manifest-draft-bridge";
 import { apiError, fromException } from "@/lib/api-errors";
 
 const CONTENTS_MANIFEST_FAILURE_ERROR = "Contents manifest generation failed";
@@ -189,8 +190,18 @@ export async function POST(request: NextRequest) {
       context,
     );
 
+    // Persist into the durable Contents Manifest draft so /contents and
+    // reload don't lose AI-from-photos results (technician SSOT).
+    const draft = visionManifestToDraft(manifest);
+    await prisma.inspection.update({
+      where: { id: inspection.id, userId: session.user.id },
+      data: { contentsManifestDraft: JSON.stringify(draft) },
+    });
+
     return NextResponse.json({
       manifest,
+      draft,
+      persisted: true,
       inspection: {
         id: inspection.id,
         inspectionNumber: inspection.inspectionNumber,
