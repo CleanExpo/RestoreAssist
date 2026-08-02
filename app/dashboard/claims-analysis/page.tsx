@@ -526,21 +526,23 @@ export default function ClaimsAnalysisPage() {
   };
 
   return (
-    <div className=" mx-auto py-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Claim Manager Dashboard</h1>
-          <p className="text-muted-foreground mt-2">
-            Comprehensive analysis and insights for restoration claim management
+    <div className="space-y-6 w-full">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+            <FileSearch className="h-6 w-6 text-cyan-500 shrink-0" aria-hidden />
+            Claims Analysis
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Gap analysis and revenue recovery insights from claim reports.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {!showNewAnalysisForm && summary && (
-            <div className="text-right mr-4">
-              <div className="text-sm text-muted-foreground">Total Files</div>
-              <div className="text-2xl font-bold">{summary.totalFiles}</div>
-            </div>
-          )}
+        <div className="flex flex-wrap items-center gap-2">
+          {!showNewAnalysisForm && summary ? (
+            <span className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground tabular-nums">
+              {summary.totalFiles} files
+            </span>
+          ) : null}
           <Button variant="outline" size="sm" asChild>
             <a href="/dashboard/claims-analysis/export">
               <BookOpen className="mr-2 h-4 w-4" />
@@ -603,29 +605,44 @@ export default function ClaimsAnalysisPage() {
             </DropdownMenu>
           )}
         </div>
-      </div>
+      </header>
 
       {latestLoadError && (
-        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          {latestLoadError}
-          <button
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <span>{latestLoadError}</span>
+          <Button
             type="button"
-            className="ml-3 underline"
+            variant="outline"
+            size="sm"
             onClick={() => void loadLatestAnalysis()}
           >
             Retry
-          </button>
+          </Button>
         </div>
       )}
 
       {/* New Analysis form - only when user clicked New Analysis */}
       {showNewAnalysisForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>New Analysis</CardTitle>
-            <CardDescription>
-              Upload and analyse claim reports from Google Drive
-            </CardDescription>
+        <Card className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!">
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-lg">New analysis</CardTitle>
+                <CardDescription className="mt-1">
+                  Select a Google Drive folder of claim PDFs to analyse.
+                </CardDescription>
+              </div>
+              {summary ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowNewAnalysisForm(false)}
+                  disabled={processing}
+                >
+                  Cancel
+                </Button>
+              ) : null}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Folder selection */}
@@ -850,7 +867,7 @@ export default function ClaimsAnalysisPage() {
                         className="p-3 hover:bg-muted/50 transition-colors flex items-center justify-between"
                       >
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                          <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">
                               {file.name}
@@ -863,7 +880,7 @@ export default function ClaimsAnalysisPage() {
                             )}
                           </div>
                         </div>
-                        <Badge variant="outline" className="ml-2 flex-shrink-0">
+                        <Badge variant="outline" className="ml-2 shrink-0">
                           #{index + 1}
                         </Badge>
                       </div>
@@ -888,10 +905,10 @@ export default function ClaimsAnalysisPage() {
         loadingLatest &&
         analysisResults.length === 0 &&
         !summary && (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <Loader2 className="h-12 w-12 text-muted-foreground animate-spin mb-4" />
-              <p className="text-muted-foreground">
+          <Card className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-3">
+              <Loader2 className="h-8 w-8 text-cyan-500 animate-spin" />
+              <p className="text-sm text-muted-foreground">
                 Loading your latest analysis…
               </p>
             </CardContent>
@@ -902,45 +919,49 @@ export default function ClaimsAnalysisPage() {
         !latestLoadError &&
         analysisResults.length === 0 &&
         !summary && (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <FileSearch className="h-16 w-16 text-muted-foreground mb-4" />
-              <h2 className="text-xl font-semibold mb-2">No analysis yet</h2>
-              <p className="text-muted-foreground mb-6 max-w-md">
+          <div className="rounded-lg border border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50! p-8 sm:p-12 text-center space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+              <FileSearch className="h-7 w-7 text-muted-foreground" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-lg font-semibold text-foreground">
+                No analysis yet
+              </h2>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 Run an analysis on claim reports from Google Drive to see
                 compliance gaps, missing elements, and revenue recovery
                 insights.
               </p>
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <Button onClick={() => setShowNewAnalysisForm(true)} size="lg">
-                  <Play className="mr-2 h-4 w-4" />
-                  New Analysis
-                </Button>
-                <Button variant="outline" size="lg" asChild>
-                  <a href="/dashboard/claims-analysis/export">
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    Past Analyses
-                  </a>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+              <Button onClick={() => setShowNewAnalysisForm(true)}>
+                <Play className="mr-2 h-4 w-4" />
+                New Analysis
+              </Button>
+              <Button variant="outline" asChild>
+                <a href="/dashboard/claims-analysis/export">
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  Past Analyses
+                </a>
+              </Button>
+            </div>
+          </div>
         )}
       {!showNewAnalysisForm && analysisResults.length > 0 && summary && (
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="h-auto w-full flex flex-wrap justify-start gap-1 p-1">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="analyses">Individual Analyses</TabsTrigger>
-            <TabsTrigger value="issues">Top Issues</TabsTrigger>
+            <TabsTrigger value="analyses">Individual analyses</TabsTrigger>
+            <TabsTrigger value="issues">Top issues</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-8">
+          <TabsContent value="overview" className="space-y-6">
             {/* Hero Statistics Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
               {/* Score Rings */}
-              <Card className="col-span-1 lg:col-span-2">
+              <Card className="col-span-1 lg:col-span-2 border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!">
                 <CardHeader>
-                  <CardTitle>Quality Scores</CardTitle>
+                  <CardTitle className="text-lg">Quality scores</CardTitle>
                   <CardDescription>
                     Average completeness and compliance across all analysed
                     reports
@@ -978,9 +999,9 @@ export default function ClaimsAnalysisPage() {
               </Card>
 
               {/* Severity Distribution */}
-              <Card>
+              <Card className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!">
                 <CardHeader>
-                  <CardTitle>Issue Severity</CardTitle>
+                  <CardTitle className="text-lg">Issue severity</CardTitle>
                   <CardDescription>
                     Distribution of {summary.totalIssues} total issues
                   </CardDescription>
@@ -1056,80 +1077,89 @@ export default function ClaimsAnalysisPage() {
             </StatCardGrid>
 
             {/* Missing Elements Breakdown */}
-            <Card>
+            <Card className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!">
               <CardHeader>
-                <CardTitle>Missing Elements by Category</CardTitle>
+                <CardTitle className="text-lg">
+                  Missing elements by category
+                </CardTitle>
                 <CardDescription>
-                  Breakdown of gaps identified across all reports
+                  Gaps identified across all analysed reports
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-1">
-                      {summary.totalMissingElements.iicrc || 0}
-                    </div>
-                    <div className="text-xs text-muted-foreground">IICRC</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-success mb-1">
-                      {(summary.totalMissingElements as MissingElementsSummary)
-                        .australianStandards || 0}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      AU Standards
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-destructive mb-1">
-                      {(summary.totalMissingElements.ohs || 0) +
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+                  {[
+                    {
+                      label: "IICRC",
+                      value: summary.totalMissingElements.iicrc || 0,
+                      tone: "text-cyan-600 dark:text-cyan-400",
+                    },
+                    {
+                      label: "AU Standards",
+                      value:
+                        (
+                          summary.totalMissingElements as MissingElementsSummary
+                        ).australianStandards || 0,
+                      tone: "text-success",
+                    },
+                    {
+                      label: "OH&S/WHS",
+                      value:
+                        (summary.totalMissingElements.ohs || 0) +
                         ((
                           summary.totalMissingElements as MissingElementsSummary
-                        ).whs || 0)}
+                        ).whs || 0),
+                      tone: "text-destructive",
+                    },
+                    {
+                      label: "Scope",
+                      value:
+                        (
+                          summary.totalMissingElements as MissingElementsSummary
+                        ).scopeOfWorks || 0,
+                      tone: "text-amber-600 dark:text-amber-400",
+                    },
+                    {
+                      label: "Billing",
+                      value: summary.totalMissingElements.billing || 0,
+                      tone: "text-emerald-600 dark:text-emerald-400",
+                    },
+                    {
+                      label: "Documentation",
+                      value: summary.totalMissingElements.documentation || 0,
+                      tone: "text-muted-foreground",
+                    },
+                    {
+                      label: "Equipment",
+                      value:
+                        (
+                          summary.totalMissingElements as MissingElementsSummary
+                        ).equipment || 0,
+                      tone: "text-orange-600 dark:text-orange-400",
+                    },
+                    {
+                      label: "Monitoring",
+                      value:
+                        (
+                          summary.totalMissingElements as MissingElementsSummary
+                        ).monitoring || 0,
+                      tone: "text-sky-600 dark:text-sky-400",
+                    },
+                  ].map((cell) => (
+                    <div
+                      key={cell.label}
+                      className="rounded-lg border border-border bg-muted/30 px-3 py-3 text-center"
+                    >
+                      <div
+                        className={`text-2xl font-semibold tabular-nums mb-1 ${cell.tone}`}
+                      >
+                        {cell.value}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {cell.label}
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      OH&S/WHS
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-1">
-                      {(summary.totalMissingElements as MissingElementsSummary)
-                        .scopeOfWorks || 0}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Scope</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-success mb-1">
-                      {summary.totalMissingElements.billing || 0}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Billing</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-slate-600 dark:text-slate-400 mb-1">
-                      {summary.totalMissingElements.documentation || 0}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Documentation
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mb-1">
-                      {(summary.totalMissingElements as MissingElementsSummary)
-                        .equipment || 0}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Equipment
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400 mb-1">
-                      {(summary.totalMissingElements as MissingElementsSummary)
-                        .monitoring || 0}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Monitoring
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -1137,158 +1167,129 @@ export default function ClaimsAnalysisPage() {
 
           <TabsContent value="analyses" className="space-y-4">
             {viewMode === "list" ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {analysisResults.map((result, idx) => (
                   <Card
-                    key={idx}
-                    className="cursor-pointer hover:border-primary transition-colors"
+                    key={`${result.fileId}-${idx}`}
+                    className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50! cursor-pointer transition-colors hover:border-cyan-500/40"
                     onClick={() => {
                       setSelectedDocument(result);
                       setViewMode("detail");
                     }}
                   >
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">
-                          {result.fileName}
-                        </CardTitle>
-                        <Button variant="ghost" size="sm">
-                          View Details →
+                    <CardHeader className="pb-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <CardTitle className="text-base sm:text-lg truncate">
+                            {result.fileName}
+                          </CardTitle>
+                          <CardDescription className="mt-1">
+                            {result.issues.length} issue
+                            {result.issues.length === 1 ? "" : "s"}
+                            {result.estimatedMissingRevenue &&
+                            result.estimatedMissingRevenue > 0
+                              ? ` · $${result.estimatedMissingRevenue.toFixed(2)} recoverable`
+                              : ""}
+                          </CardDescription>
+                        </div>
+                        <Button variant="ghost" size="sm" className="shrink-0">
+                          View details →
                         </Button>
                       </div>
                     </CardHeader>
-                    <CardContent className="pt-6">
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-                        <div>
-                          <div className="text-sm text-muted-foreground">
-                            Completeness
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                        {[
+                          {
+                            label: "Completeness",
+                            value: `${result.scores.completeness.toFixed(0)}%`,
+                          },
+                          {
+                            label: "Compliance",
+                            value: `${result.scores.compliance.toFixed(0)}%`,
+                          },
+                          {
+                            label: "Scope",
+                            value: result.scores.scopeAccuracy
+                              ? `${result.scores.scopeAccuracy.toFixed(0)}%`
+                              : "—",
+                          },
+                          {
+                            label: "Billing",
+                            value: result.scores.billingAccuracy
+                              ? `${result.scores.billingAccuracy.toFixed(0)}%`
+                              : "—",
+                          },
+                          {
+                            label: "Standardisation",
+                            value: `${result.scores.standardization.toFixed(0)}%`,
+                          },
+                        ].map((score) => (
+                          <div
+                            key={score.label}
+                            className="rounded-lg border border-border bg-muted/30 px-3 py-2"
+                          >
+                            <div className="text-xs text-muted-foreground">
+                              {score.label}
+                            </div>
+                            <div className="text-lg font-semibold tabular-nums text-foreground">
+                              {score.value}
+                            </div>
                           </div>
-                          <div className="text-lg font-semibold">
-                            {result.scores.completeness.toFixed(0)}%
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">
-                            Compliance
-                          </div>
-                          <div className="text-lg font-semibold">
-                            {result.scores.compliance.toFixed(0)}%
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">
-                            Scope Accuracy
-                          </div>
-                          <div className="text-lg font-semibold">
-                            {result.scores.scopeAccuracy?.toFixed(0) || "N/A"}%
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">
-                            Billing Accuracy
-                          </div>
-                          <div className="text-lg font-semibold">
-                            {result.scores.billingAccuracy?.toFixed(0) || "N/A"}
-                            %
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">
-                            Standardisation
-                          </div>
-                          <div className="text-lg font-semibold">
-                            {result.scores.standardization.toFixed(0)}%
-                          </div>
-                        </div>
+                        ))}
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                        <div>
-                          <div className="text-sm text-muted-foreground">
-                            IICRC Missing
-                          </div>
-                          <div className="text-lg font-semibold">
-                            {result.missingElements.iicrc}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">
-                            AU Standards Missing
-                          </div>
-                          <div className="text-lg font-semibold">
-                            {result.missingElements.australianStandards || 0}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">
-                            OH&S/WHS Missing
-                          </div>
-                          <div className="text-lg font-semibold">
-                            {(result.missingElements.ohs || 0) +
-                              (result.missingElements.whs || 0)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">
-                            Scope Missing
-                          </div>
-                          <div className="text-lg font-semibold">
-                            {result.missingElements.scopeOfWorks || 0}
-                          </div>
-                        </div>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <span className="rounded-full border border-border px-2.5 py-1 text-muted-foreground">
+                          IICRC {result.missingElements.iicrc}
+                        </span>
+                        <span className="rounded-full border border-border px-2.5 py-1 text-muted-foreground">
+                          AU {result.missingElements.australianStandards || 0}
+                        </span>
+                        <span className="rounded-full border border-border px-2.5 py-1 text-muted-foreground">
+                          OH&S/WHS{" "}
+                          {(result.missingElements.ohs || 0) +
+                            (result.missingElements.whs || 0)}
+                        </span>
+                        <span className="rounded-full border border-border px-2.5 py-1 text-muted-foreground">
+                          Scope {result.missingElements.scopeOfWorks || 0}
+                        </span>
                       </div>
-                      {result.estimatedMissingRevenue &&
-                        result.estimatedMissingRevenue > 0 && (
-                          <Alert>
-                            <DollarSign className="h-4 w-4" />
-                            <AlertDescription>
-                              Estimated missing revenue:{" "}
-                              <strong>
-                                ${result.estimatedMissingRevenue.toFixed(2)}
-                              </strong>
-                            </AlertDescription>
-                          </Alert>
-                        )}
                       {result.issues.length > 0 && (
-                        <div className="mt-4">
-                          <h4 className="text-sm font-semibold mb-2">
-                            Issues Found ({result.issues.length})
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-foreground">
+                            Top issues
                           </h4>
-                          <div className="space-y-1 max-h-40 overflow-y-auto">
+                          <div className="space-y-1.5 max-h-40 overflow-y-auto">
                             {result.issues
                               .slice(0, 5)
                               .map((issue, issueIdx) => (
                                 <div
                                   key={issueIdx}
-                                  className="flex items-start gap-2 text-sm p-2 border rounded"
+                                  className="flex items-start gap-2 text-sm p-2.5 rounded-lg border border-border bg-muted/20"
                                 >
                                   <Badge
                                     className={getSeverityColor(issue.severity)}
                                   >
                                     {issue.severity}
                                   </Badge>
-                                  <div className="flex-1">
-                                    <div className="font-medium">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium truncate">
                                       {issue.elementName}
                                     </div>
                                     {issue.standardReference && (
-                                      <div className="text-xs text-muted-foreground mt-1">
+                                      <div className="text-xs text-muted-foreground mt-0.5 truncate">
                                         {issue.standardReference}
                                       </div>
                                     )}
-                                    {issue.description && (
-                                      <div className="text-xs text-muted-foreground mt-1">
-                                        {issue.description.substring(0, 150)}...
-                                      </div>
-                                    )}
                                   </div>
-                                  {issue.isBillable && issue.estimatedCost && (
+                                  {issue.isBillable && issue.estimatedCost ? (
                                     <Badge
                                       variant="outline"
-                                      className="text-success"
+                                      className="text-success shrink-0"
                                     >
                                       ${issue.estimatedCost.toFixed(2)}
                                     </Badge>
-                                  )}
+                                  ) : null}
                                 </div>
                               ))}
                             {result.issues.length > 5 && (
@@ -1305,24 +1306,24 @@ export default function ClaimsAnalysisPage() {
               </div>
             ) : selectedDocument ? (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <Button
                     variant="ghost"
+                    className="w-fit"
                     onClick={() => {
                       setViewMode("list");
                       setSelectedDocument(null);
                     }}
                   >
-                    ← Back to List
+                    ← Back to list
                   </Button>
-                  <h2 className="text-2xl font-bold">
+                  <h2 className="text-lg sm:text-xl font-semibold text-foreground truncate">
                     {selectedDocument.fileName}
                   </h2>
-                  <div></div>
                 </div>
 
                 {/* Original Document */}
-                <Card>
+                <Card className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!">
                   <CardHeader>
                     <CardTitle>Original Document</CardTitle>
                     <CardDescription>
@@ -1365,7 +1366,7 @@ export default function ClaimsAnalysisPage() {
                 </Card>
 
                 {/* Summary Stats Bar */}
-                <Card>
+                <Card className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!">
                   <CardContent className="py-6">
                     <SeveritySummaryBar
                       critical={
@@ -1408,7 +1409,7 @@ export default function ClaimsAnalysisPage() {
                 </Card>
 
                 {/* Missing Elements by Category */}
-                <Card>
+                <Card className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!">
                   <CardHeader>
                     <CardTitle>Missing Elements Analysis</CardTitle>
                     <CardDescription>
@@ -1505,7 +1506,7 @@ export default function ClaimsAnalysisPage() {
                                   {sevIssues.map((issue, idx) => (
                                     <Card
                                       key={idx}
-                                      className="border-l-4"
+                                      className="border-l-4 border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!"
                                       style={{
                                         borderLeftColor:
                                           severity === "CRITICAL"
@@ -1688,7 +1689,7 @@ export default function ClaimsAnalysisPage() {
                             .map((issue, idx) => (
                               <Card
                                 key={idx}
-                                className="border-l-4"
+                                className="border-l-4 border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!"
                                 style={{
                                   borderLeftColor:
                                     issue.severity === "CRITICAL"
@@ -1815,7 +1816,7 @@ export default function ClaimsAnalysisPage() {
 
                 {/* Report Structure Analysis */}
                 {selectedDocument.reportStructure && (
-                  <Card>
+                  <Card className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!">
                     <CardHeader>
                       <CardTitle>Report Structure & Flow Analysis</CardTitle>
                     </CardHeader>
@@ -1872,7 +1873,7 @@ export default function ClaimsAnalysisPage() {
 
                 {/* Technician Pattern Analysis */}
                 {selectedDocument.technicianPattern && (
-                  <Card>
+                  <Card className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!">
                     <CardHeader>
                       <CardTitle>Technician Pattern Analysis</CardTitle>
                     </CardHeader>
@@ -1946,40 +1947,51 @@ export default function ClaimsAnalysisPage() {
           </TabsContent>
 
           <TabsContent value="issues" className="space-y-4">
-            <Card>
+            <Card className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!">
               <CardHeader>
-                <CardTitle>Top Issues Across All Reports</CardTitle>
+                <CardTitle className="text-lg">
+                  Top issues across all reports
+                </CardTitle>
+                <CardDescription>
+                  Most frequent gaps ranked by occurrence
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {summary.topIssues.map((issue, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge className={getSeverityColor(issue.severity)}>
-                            {issue.severity}
-                          </Badge>
-                          <span className="font-medium">
-                            {issue.elementName}
-                          </span>
+                  {summary.topIssues.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-6 text-center">
+                      No recurring issues in this analysis.
+                    </p>
+                  ) : (
+                    summary.topIssues.map((issue, idx) => (
+                      <div
+                        key={`${issue.elementName}-${idx}`}
+                        className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 border border-border rounded-lg bg-muted/20"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <Badge className={getSeverityColor(issue.severity)}>
+                              {issue.severity}
+                            </Badge>
+                            <span className="font-medium text-foreground">
+                              {issue.elementName}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {issue.description}
+                          </p>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {issue.description}
-                        </p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="outline">{issue.count}×</Badge>
+                          {issue.isBillable && issue.totalCost > 0 ? (
+                            <Badge className="bg-success-subtle text-success-subtle-foreground border border-success-subtle-foreground/30">
+                              ${issue.totalCost.toFixed(2)}
+                            </Badge>
+                          ) : null}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 ml-4">
-                        <Badge variant="outline">{issue.count}x</Badge>
-                        {issue.isBillable && issue.totalCost > 0 && (
-                          <Badge className="bg-green-500">
-                            ${issue.totalCost.toFixed(2)}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1988,12 +2000,12 @@ export default function ClaimsAnalysisPage() {
       )}
 
       {processing && (
-        <Card>
+        <Card className="bg-white! dark:bg-slate-900/50! border-cyan-500/40">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <CardTitle className="text-lg">Analysing Claims</CardTitle>
+                <Loader2 className="h-5 w-5 animate-spin text-cyan-500" />
+                <CardTitle className="text-lg">Analysing claims</CardTitle>
               </div>
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
