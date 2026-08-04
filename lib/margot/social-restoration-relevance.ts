@@ -166,7 +166,7 @@ export function resolveSocialCommentChatGate(userMessage: string): {
     assessment,
     refuseReply:
       `I will not draft a social comment on that.${industryHint} ` +
-      `For RestoreAssist, restoration means property and insurance work after water, flood, storm, fire, smoke, mould, or sewage — not cars, teeth, furniture, art, or other industries.`,
+      `For RestoreAssist, restoration means property and insurance work after water, flood, storm, fire, smoke, mould, or sewage - not cars, teeth, furniture, art, or other industries.`,
   };
 }
 
