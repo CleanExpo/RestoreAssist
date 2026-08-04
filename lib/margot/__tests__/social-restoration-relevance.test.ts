@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   assessSocialRestorationRelevance,
+  isSocialCommentDraftRequest,
+  resolveSocialCommentChatGate,
   shouldEngageSocialPost,
 } from "../social-restoration-relevance";
 
 const MUST_IGNORE = [
   "Just finished a classic car restoration on this 1967 Mustang",
+  "Any tips for restoring a rusted Toyota Hilux body?",
   "Best teeth restoration clinic in Brisbane for veneers",
   "Dental smile restoration before and after photos",
   "Auto body restoration tips for rust repair",
@@ -49,7 +52,6 @@ describe("assessSocialRestorationRelevance", () => {
       const result = assessSocialRestorationRelevance({ text });
       if (result.relevant) engageCount += 1;
       else {
-        // Fail with context
         expect(result, text).toMatchObject({ relevant: true });
       }
     }
@@ -97,5 +99,41 @@ describe("assessSocialRestorationRelevance", () => {
       text: "Motorcycle restoration weekend project",
     });
     expect(result.relevant).toBe(false);
+  });
+});
+
+describe("resolveSocialCommentChatGate", () => {
+  it("does not gate ordinary product / tip questions", () => {
+    const gate = resolveSocialCommentChatGate(
+      "Any tips for restoring a rusted Toyota Hilux body?",
+    );
+    expect(gate.applyGate).toBe(false);
+    expect(gate.refuseReply).toBeNull();
+    expect(isSocialCommentDraftRequest("What is RestoreAssist?")).toBe(false);
+  });
+
+  it("refuses social drafts on car / teeth posts and explains our restoration", () => {
+    const car = resolveSocialCommentChatGate(
+      "Draft a LinkedIn comment on this post: Finished a classic car restoration on this Mustang",
+    );
+    expect(car.applyGate).toBe(true);
+    expect(car.canDraft).toBe(false);
+    expect(car.refuseReply).toMatch(/will not draft/i);
+    expect(car.refuseReply).toMatch(/property and insurance/i);
+
+    const teeth = resolveSocialCommentChatGate(
+      "Write a Facebook reply to: Best teeth restoration clinic for veneers in Brisbane",
+    );
+    expect(teeth.canDraft).toBe(false);
+    expect(teeth.refuseReply).toMatch(/teeth|dental|property/i);
+  });
+
+  it("allows social drafts on clear property posts", () => {
+    const gate = resolveSocialCommentChatGate(
+      "Draft a short comment on: Water damage restoration after a burst pipe — moisture mapping tips?",
+    );
+    expect(gate.applyGate).toBe(true);
+    expect(gate.canDraft).toBe(true);
+    expect(gate.refuseReply).toBeNull();
   });
 });
