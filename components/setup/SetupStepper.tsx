@@ -87,13 +87,9 @@ function LogoMark({ size = 22, className }: { size?: number; className?: string 
 }
 
 /**
- * Locked one-step-at-a-time setup wizard (Phase 4), presented as a split-screen
- * onboarding experience: a branded rail with the full step map on the left, and
- * a fixed-viewport content pane with pinned navigation on the right. Renders
- * exactly one step's content at a time, disables "Next" until a required step
- * is complete, and ends with a "Generate your first report" CTA that only
- * enables once every required step is done. Presentational + self-contained so
- * it can be unit tested in isolation (RTL) without the live page's auth/DB.
+ * Locked one-step-at-a-time setup wizard — full-viewport split layout.
+ * Left rail + content pane + pinned footer fill the screen with no empty
+ * navy void under the card.
  */
 export function SetupStepper({
   items,
@@ -140,16 +136,14 @@ export function SetupStepper({
   };
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-brand-cloud">
+    <div className="fixed inset-0 z-40 flex w-full overflow-hidden bg-white">
       {/* Screen-reader + test-visible canonical step announcement */}
       <p className="sr-only" aria-live="polite">
-        Step {state.currentIndex + 1} of {state.totalSteps}:{" "}
-        {current.title}
+        Step {state.currentIndex + 1} of {state.totalSteps}: {current.title}
       </p>
 
       {/* ————— Brand rail (desktop) ————— */}
-      <aside className="relative hidden w-90 shrink-0 flex-col justify-between overflow-hidden bg-brand-navy px-9 py-10 text-white lg:flex xl:w-100">
-        {/* Decorative depth — soft radial glows, no content */}
+      <aside className="relative hidden h-full w-80 shrink-0 flex-col overflow-hidden bg-brand-navy text-white lg:flex xl:w-96">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0"
@@ -159,31 +153,36 @@ export function SetupStepper({
           <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-black/25" />
         </div>
 
-        <div className="relative">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/15">
-              <LogoMark className="text-brand-gold" />
-            </span>
-            <span className="text-[15px] font-semibold tracking-tight">
-              RestoreAssist
-            </span>
+        <div className="relative flex min-h-0 flex-1 flex-col px-8 py-8 lg:px-10 xl:px-12 xl:py-10">
+          <div className="shrink-0">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/15">
+                <LogoMark className="text-brand-gold" />
+              </span>
+              <span className="text-[15px] font-semibold tracking-tight">
+                RestoreAssist
+              </span>
+            </div>
+
+            <div className="mt-8">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-gold">
+                Workspace setup
+              </p>
+              <h1 className="mt-2 text-[26px] font-semibold leading-snug tracking-tight">
+                Let&apos;s get you set up
+              </h1>
+              <p className="mt-2 text-sm leading-relaxed text-white/60">
+                One step at a time — we&apos;ll have you generating your first
+                report in minutes.
+              </p>
+            </div>
           </div>
 
-          <div className="mt-10">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-gold">
-              Workspace setup
-            </p>
-            <h1 className="mt-2 text-[26px] font-semibold leading-snug tracking-tight">
-              Let&apos;s get you set up
-            </h1>
-            <p className="mt-2 text-sm leading-relaxed text-white/60">
-              One step at a time — we&apos;ll have you generating your first
-              report in minutes.
-            </p>
-          </div>
-
-          {/* Step map */}
-          <ol className="mt-9 space-y-1" aria-label="Setup steps">
+          {/* Step map scrolls if needed; progress stays pinned below */}
+          <ol
+            className="mt-8 min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1"
+            aria-label="Setup steps"
+          >
             {items.map((item, i) => {
               const isCurrent = i === state.currentIndex;
               return (
@@ -191,14 +190,14 @@ export function SetupStepper({
                   key={item.key}
                   aria-current={isCurrent ? "step" : undefined}
                   className={[
-                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors duration-200",
+                    "flex items-center gap-3 rounded-lg px-4 py-2 transition-colors duration-200",
                     isCurrent ? "bg-white/10 ring-1 ring-white/10" : "",
                   ].join(" ")}
                 >
                   {stepBadge(item, i)}
                   <span
                     className={[
-                      "flex-1 truncate text-sm",
+                      "min-w-0 flex-1 truncate text-sm",
                       isCurrent
                         ? "font-medium text-white"
                         : item.complete
@@ -209,7 +208,7 @@ export function SetupStepper({
                     {item.title}
                   </span>
                   {!item.required && (
-                    <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/40">
+                    <span className="shrink-0 rounded-full border border-white/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/40">
                       Optional
                     </span>
                   )}
@@ -217,36 +216,36 @@ export function SetupStepper({
               );
             })}
           </ol>
-        </div>
 
-        {/* Rail footer — overall progress */}
-        <div className="relative mt-8">
-          <div className="flex items-center justify-between text-xs text-white/60">
-            <span>
-              {state.completedCount} of {state.totalSteps} complete
-            </span>
-            <span className="font-medium text-brand-gold">{progressPct}%</span>
-          </div>
-          <div
-            className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10"
-            role="progressbar"
-            aria-label="Setup progress"
-            aria-valuenow={progressPct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
+          <div className="relative mt-6 shrink-0 border-t border-white/10 pt-5">
+            <div className="flex items-center justify-between gap-3 text-xs text-white/60">
+              <span className="min-w-0 truncate">
+                {state.completedCount} of {state.totalSteps} complete
+              </span>
+              <span className="shrink-0 font-medium text-brand-gold">
+                {progressPct}%
+              </span>
+            </div>
             <div
-              className="h-full rounded-full bg-linear-to-r from-brand-bronze to-brand-gold transition-all duration-500"
-              style={{ width: `${progressPct}%` }}
-            />
+              className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10"
+              role="progressbar"
+              aria-label="Setup progress"
+              aria-valuenow={progressPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                className="h-full rounded-full bg-linear-to-r from-brand-bronze to-brand-gold transition-all duration-500"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
           </div>
         </div>
       </aside>
 
-      {/* ————— Content pane ————— */}
-      <div className="flex h-dvh min-w-0 flex-1 flex-col bg-white">
-        {/* Compact header (mobile / tablet) */}
-        <header className="border-b border-brand-navy/10 bg-white/90 px-5 py-3 backdrop-blur lg:hidden">
+      {/* ————— Content pane (fills remaining viewport) ————— */}
+      <div className="flex h-full min-w-0 flex-1 flex-col bg-white">
+        <header className="shrink-0 border-b border-brand-navy/10 bg-white px-5 py-3 lg:hidden">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-navy">
@@ -273,10 +272,9 @@ export function SetupStepper({
           </div>
         </header>
 
-        {/* Scrollable step body */}
-        <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 lg:px-12 lg:py-10">
-            <div className="mb-7">
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col px-5 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
+            <div className="mb-6 shrink-0 sm:mb-7">
               <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
                 <span
                   className={
@@ -301,11 +299,13 @@ export function SetupStepper({
               )}
             </div>
 
-            <div key={current.key}>{current.content}</div>
+            <div key={current.key} className="min-h-0 flex-1">
+              {current.content}
+            </div>
 
             {current.required && !current.complete && (
               <p
-                className="mt-5 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-700"
+                className="mt-5 flex shrink-0 items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-700"
                 role="status"
               >
                 <span
@@ -318,9 +318,8 @@ export function SetupStepper({
           </div>
         </main>
 
-        {/* Pinned navigation */}
-        <footer className="border-t border-brand-navy/10 bg-white shadow-[0_-4px_16px_-8px_rgba(28,46,71,0.12)]">
-          <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-5 sm:px-8 lg:px-12">
+        <footer className="shrink-0 border-t border-brand-navy/10 bg-white shadow-[0_-4px_16px_-8px_rgba(28,46,71,0.12)]">
+          <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-4 sm:px-8 sm:py-5 lg:px-12">
             <Button
               variant="outline"
               className="h-12 gap-2 rounded-xl border-brand-navy/20 px-6 text-[15px] font-medium text-brand-navy hover:bg-brand-navy/5"
