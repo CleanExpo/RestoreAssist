@@ -69,15 +69,19 @@ export default function MissionControlPage() {
   const online = health?.online === true;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <header>
         <p className="text-sm text-muted-foreground">Unite-Group · Nexus Hub</p>
-        <h1 className="text-2xl font-semibold mt-1">Mission Control</h1>
-        <p className="text-muted-foreground mt-2">
-          Group operator surface — not RestoreAssist field CRM. Your primary
-          home UI is the Nexus Hub{" "}
-          <strong>Command Center</strong> on disk (large type + read-aloud), not
-          this page or the Hermes admin sidebar.
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+          Mission Control
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Group operator surface — not RestoreAssist field CRM. Primary home UI
+          is the Nexus Hub Command Center on disk. Use{" "}
+          <Link href="/dashboard/margot/home" className="text-primary underline-offset-4 hover:underline">
+            Margot Overview
+          </Link>{" "}
+          for status tiles and social-comment training.
         </p>
       </header>
 
