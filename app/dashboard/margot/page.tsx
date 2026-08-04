@@ -1,22 +1,27 @@
 /**
- * RA-1652 — Margot dashboard (v1).
- *
- * Web chat UI that talks to Claude with Margot's persona so Phill can reach
- * the same voice from the browser, not just Telegram. v1 routes directly to
- * Claude via /api/margot/chat; the Hermes bridge (RA-1630) lands later.
- *
- * Layout: left sidebar (240px) → main conversation → bottom prompt input.
- * File upload UI ships, but the v1 backend ignores attachments.
+ * Admin Margot workspace — ops chat + social-comment relevance tools.
+ * Layout matches elevated dashboard surfaces (WHS / Analytics / Help).
  */
 
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { PlusIcon, LinkIcon, ExternalLinkIcon } from "lucide-react";
+import {
+  PlusIcon,
+  ExternalLinkIcon,
+  Bot,
+  ShieldCheck,
+  PanelRightOpen,
+  PanelRightClose,
+  Radio,
+  Sparkles,
+} from "lucide-react";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import {
   Conversation,
@@ -46,14 +51,41 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { Attachments } from "@/components/ai-elements/attachments";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { SocialRelevanceTester } from "@/components/margot/SocialRelevanceTester";
+import {
+  DashboardPanel,
+  dashboardSurfaceClass,
+} from "@/app/dashboard/components/DashboardPanel";
+import { cn } from "@/lib/utils";
+import {
+  MARGOT_AVATAR_ORB_PATH,
+  MARGOT_DISPLAY_NAME,
+} from "@/lib/margot-surface";
 
-// Thread history API is not shipped yet — keep Recent empty rather than fake chats.
-const RECENT_THREADS: { id: string; title: string; preview: string }[] = [];
+const STARTER_PROMPTS = [
+  {
+    label: "Briefing",
+    text: "Give me a short ops briefing for RestoreAssist this week.",
+  },
+  {
+    label: "Social: refuse car",
+    text: "Draft a LinkedIn comment on this post: Finished a classic car restoration on this Mustang",
+  },
+  {
+    label: "Social: refuse teeth",
+    text: "Write a Facebook reply to: Best teeth restoration clinic for veneers in Brisbane",
+  },
+  {
+    label: "Social: engage water",
+    text: "Draft a short comment on: Water damage restoration after a burst pipe — moisture mapping tips?",
+  },
+];
 
 export default function MargotDashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [toolsOpen, setToolsOpen] = useState(true);
 
   const transport = useMemo(
     () => new DefaultChatTransport({ api: "/api/margot/chat" }),
@@ -63,13 +95,13 @@ export default function MargotDashboardPage() {
   const {
     messages,
     sendMessage,
+    setMessages,
     status: chatStatus,
     error,
   } = useChat({
     transport,
   });
 
-  // Auth gate — matches the pattern in app/dashboard/admin/page.tsx.
   useEffect(() => {
     if (status === "loading") return;
     if (status === "unauthenticated") {
@@ -81,8 +113,6 @@ export default function MargotDashboardPage() {
     }
   }, [status, session, router]);
 
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-
   const handleSubmit = (msg: PromptInputMessage) => {
     const text = msg.text?.trim();
     if (!text) return;
@@ -93,9 +123,6 @@ export default function MargotDashboardPage() {
     action: "linear_create_issue" | "linear_comment_on_issue",
     pending: Record<string, unknown>,
   ) => {
-    // Second-pass instruction: tell Margot to call the same tool again,
-    // this time with confirmed=true. The model is responsible for replaying
-    // the correct args from context.
     const summary =
       action === "linear_create_issue"
         ? `Yes, file it. Call linear_create_issue again with confirmed=true and the same args (title: ${JSON.stringify(
@@ -113,11 +140,8 @@ export default function MargotDashboardPage() {
 
   if (status === "loading" || !session) {
     return (
-      <div
-        className="flex h-full items-center justify-center"
-        style={{ backgroundColor: "#F5F0E8", color: "#141413" }}
-      >
-        <span className="text-base">Loading Margot…</span>
+      <div className="flex min-h-[50vh] items-center justify-center text-sm text-muted-foreground">
+        Loading {MARGOT_DISPLAY_NAME}…
       </div>
     );
   }
@@ -125,329 +149,392 @@ export default function MargotDashboardPage() {
   const isBusy = chatStatus === "submitted" || chatStatus === "streaming";
 
   return (
-    <div
-      className="flex h-[calc(100vh-4rem)] w-full"
-      style={{
-        backgroundColor: "#F5F0E8",
-        color: "#141413",
-        fontFamily: "Inter, system-ui, sans-serif",
-        fontSize: "16px",
-      }}
-    >
-      {/* Left sidebar */}
-      <aside
-        className="flex h-full w-[240px] shrink-0 flex-col border-r"
-        style={{ borderColor: "#E7E0D3", backgroundColor: "#EFE7D5" }}
+    <div className="-mx-2 -my-8 flex min-h-[calc(100dvh-7.5rem)] flex-col sm:-mx-4 lg:-mx-6">
+      {/* Page header */}
+      <header
+        className={cn(
+          "shrink-0 border-b px-4 py-4 sm:px-6",
+          "bg-white dark:bg-slate-950",
+          "border-neutral-200 dark:border-slate-800",
+        )}
       >
-        <div className="px-5 pt-5 pb-3">
-          <h2
-            className="text-xl"
-            style={{ fontFamily: "Georgia, serif", fontWeight: 600 }}
-          >
-            Margot
-          </h2>
-        </div>
-        <div className="px-4 pb-4">
-          <Button
-            variant="outline"
-            className="w-full justify-start"
-            onClick={() => {
-              setActiveThreadId(null);
-              window.location.reload();
-            }}
-          >
-            <PlusIcon className="mr-2 h-4 w-4" />
-            New chat
-          </Button>
-        </div>
-        <div className="px-5 pt-2 pb-2 text-xs uppercase tracking-wide opacity-60">
-          Recent
-        </div>
-        <nav className="flex-1 overflow-y-auto px-2">
-          {RECENT_THREADS.length === 0 ? (
-            <p className="px-3 py-2 text-xs opacity-60">
-              No saved threads yet. Start a new chat below.
-            </p>
-          ) : (
-            RECENT_THREADS.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setActiveThreadId(t.id)}
-                className={`w-full rounded-md px-3 py-2 text-left text-sm transition ${
-                  activeThreadId === t.id
-                    ? "bg-brand-cream-2"
-                    : "hover:bg-brand-cream"
-                }`}
-              >
-                <div className="truncate font-medium">{t.title}</div>
-                <div className="truncate text-xs opacity-60">{t.preview}</div>
-              </button>
-            ))
-          )}
-        </nav>
-        <div
-          className="border-t px-4 py-3 text-xs opacity-60"
-          style={{ borderColor: "#E7E0D3" }}
-        >
-          v1 · Claude + Margot persona
-        </div>
-      </aside>
-
-      {/* Main column */}
-      <div className="flex h-full flex-1 flex-col">
-        {/* Top bar */}
-        <header
-          className="flex h-14 shrink-0 items-center justify-between border-b px-6"
-          style={{ borderColor: "#E7E0D3", backgroundColor: "#F5F0E8" }}
-        >
-          <h1
-            className="text-2xl"
-            style={{ fontFamily: "Georgia, serif", fontWeight: 600 }}
-          >
-            Margot
-          </h1>
-          <span
-            className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs"
-            style={{ borderColor: "#141413", color: "#141413" }}
-          >
-            <LinkIcon className="h-3 w-3" />
-            linked to @piceo247agent_bot
-          </span>
-        </header>
-
-        {/* Conversation */}
-        <div className="flex-1 overflow-hidden">
-          <Conversation>
-            <ConversationContent>
-              {messages.length === 0 ? (
-                <ConversationEmptyState
-                  title="What's on your mind, Phill?"
-                  description="Margot's bulldog-on-a-bone. Ask for a briefing, a draft, a research sweep, or route a build to Pi-CEO."
-                />
-              ) : (
-                messages.map((message) => (
-                  <Message from={message.role} key={message.id}>
-                    <MessageContent>
-                      {message.parts.map((part, i) => {
-                        if (part.type === "text") {
-                          return message.role === "assistant" ? (
-                            <MessageResponse key={i}>
-                              {part.text}
-                            </MessageResponse>
-                          ) : (
-                            <span key={i}>{part.text}</span>
-                          );
-                        }
-                        if (part.type === "tool-linear_list_issues") {
-                          return (
-                            <Tool
-                              key={i}
-                              defaultOpen={part.state !== "output-available"}
-                            >
-                              <ToolHeader
-                                type="tool-linear_list_issues"
-                                state={part.state}
-                                title="linear_list_issues"
-                              />
-                              <ToolContent>
-                                {(part.state === "input-available" ||
-                                  part.state === "output-available" ||
-                                  part.state === "output-error") &&
-                                part.input ? (
-                                  <ToolInput input={part.input} />
-                                ) : null}
-                                {part.state === "output-available" ? (
-                                  <LinearIssueList output={part.output} />
-                                ) : null}
-                                {part.state === "output-error" ? (
-                                  <ToolOutput
-                                    output={undefined}
-                                    errorText={part.errorText}
-                                  />
-                                ) : null}
-                              </ToolContent>
-                            </Tool>
-                          );
-                        }
-                        if (
-                          part.type === "tool-linear_create_issue" ||
-                          part.type === "tool-linear_comment_on_issue"
-                        ) {
-                          const label =
-                            part.type === "tool-linear_create_issue"
-                              ? "linear_create_issue"
-                              : "linear_comment_on_issue";
-                          return (
-                            <Tool
-                              key={i}
-                              defaultOpen={part.state !== "output-available"}
-                            >
-                              <ToolHeader
-                                type={part.type}
-                                state={part.state}
-                                title={label}
-                              />
-                              <ToolContent>
-                                {(part.state === "input-available" ||
-                                  part.state === "output-available" ||
-                                  part.state === "output-error") &&
-                                part.input ? (
-                                  <ToolInput input={part.input} />
-                                ) : null}
-                                {part.state === "output-available" ? (
-                                  <LinearWriteResult
-                                    action={
-                                      part.type === "tool-linear_create_issue"
-                                        ? "linear_create_issue"
-                                        : "linear_comment_on_issue"
-                                    }
-                                    output={part.output}
-                                    onConfirm={confirmLinearAction}
-                                    onCancel={cancelLinearAction}
-                                  />
-                                ) : null}
-                                {part.state === "output-error" ? (
-                                  <ToolOutput
-                                    output={undefined}
-                                    errorText={part.errorText}
-                                  />
-                                ) : null}
-                              </ToolContent>
-                            </Tool>
-                          );
-                        }
-                        if (part.type === "tool-image_generate") {
-                          const isRunning =
-                            part.state === "input-streaming" ||
-                            part.state === "input-available";
-                          return (
-                            <Tool
-                              key={i}
-                              defaultOpen={part.state !== "output-available"}
-                            >
-                              <ToolHeader
-                                type="tool-image_generate"
-                                state={part.state}
-                                title="image_generate"
-                              />
-                              <ToolContent>
-                                {isRunning ? (
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-current" />
-                                    Generating image…
-                                  </div>
-                                ) : null}
-                                {(part.state === "input-available" ||
-                                  part.state === "output-available" ||
-                                  part.state === "output-error") &&
-                                part.input ? (
-                                  <ToolInput input={part.input} />
-                                ) : null}
-                                {part.state === "output-available" ? (
-                                  <ImageGenResult output={part.output} />
-                                ) : null}
-                                {part.state === "output-error" ? (
-                                  <ToolOutput
-                                    output={undefined}
-                                    errorText={part.errorText}
-                                  />
-                                ) : null}
-                              </ToolContent>
-                            </Tool>
-                          );
-                        }
-                        if (part.type === "tool-deep_research") {
-                          const isRunning =
-                            part.state === "input-streaming" ||
-                            part.state === "input-available";
-                          return (
-                            <Tool
-                              key={i}
-                              defaultOpen={part.state !== "output-available"}
-                            >
-                              <ToolHeader
-                                type="tool-deep_research"
-                                state={part.state}
-                                title="deep_research"
-                              />
-                              <ToolContent>
-                                {isRunning ? (
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-current" />
-                                    Margot is researching…
-                                  </div>
-                                ) : null}
-                                {(part.state === "input-available" ||
-                                  part.state === "output-available" ||
-                                  part.state === "output-error") &&
-                                part.input ? (
-                                  <ToolInput input={part.input} />
-                                ) : null}
-                                {part.state === "output-available" ? (
-                                  <ToolOutput
-                                    output={part.output}
-                                    errorText={undefined}
-                                  />
-                                ) : null}
-                                {part.state === "output-error" ? (
-                                  <ToolOutput
-                                    output={undefined}
-                                    errorText={part.errorText}
-                                  />
-                                ) : null}
-                              </ToolContent>
-                            </Tool>
-                          );
-                        }
-                        return null;
-                      })}
-                    </MessageContent>
-                  </Message>
-                ))
-              )}
-              {error ? (
-                <div
-                  className="mx-4 my-2 rounded-md border px-3 py-2 text-sm"
-                  style={{ borderColor: "#B33A3A", color: "#B33A3A" }}
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 ring-brand-bronze/30">
+              <Image
+                src={MARGOT_AVATAR_ORB_PATH}
+                alt={`${MARGOT_DISPLAY_NAME} avatar`}
+                fill
+                className="object-cover"
+                sizes="48px"
+                priority
+              />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                  {MARGOT_DISPLAY_NAME}
+                </h1>
+                <Badge variant="secondary" className="font-normal">
+                  Admin
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className="gap-1 font-normal text-muted-foreground"
                 >
-                  Margot hit a snag: {error.message}
+                  <Radio className="h-3 w-3" aria-hidden />
+                  Ops assistant
+                </Badge>
+              </div>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                Briefings, research, Linear, and social-comment training. Use the
+                social tools to verify what &quot;restoration&quot; means before
+                commenting on posts.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/dashboard/mission-control">
+                Mission Control
+                <ExternalLinkIcon className="ml-1.5 h-3.5 w-3.5" />
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/dashboard/admin">Admin home</Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setToolsOpen((v) => !v)}
+              aria-pressed={toolsOpen}
+            >
+              {toolsOpen ? (
+                <PanelRightClose className="mr-1.5 h-4 w-4" />
+              ) : (
+                <PanelRightOpen className="mr-1.5 h-4 w-4" />
+              )}
+              Social tools
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setMessages([])}
+              disabled={isBusy || messages.length === 0}
+            >
+              <PlusIcon className="mr-1.5 h-4 w-4" />
+              New chat
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Workspace */}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* Chat column */}
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-hidden px-3 pt-3 sm:px-4">
+            <DashboardPanel
+              padded={false}
+              className="flex h-full min-h-[420px] flex-col"
+            >
+              <div className="flex items-center justify-between gap-2 border-b border-neutral-200 px-4 py-2.5 dark:border-slate-700/60">
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Bot className="h-4 w-4 text-brand-bronze" aria-hidden />
+                  Conversation
                 </div>
-              ) : null}
-            </ConversationContent>
-            <ConversationScrollButton />
-          </Conversation>
-        </div>
+                <span className="text-xs text-muted-foreground">
+                  {isBusy ? "Margot is working…" : "Ready"}
+                </span>
+              </div>
 
-        {/* Social gate tester + prompt */}
-        <div
-          className="shrink-0 space-y-3 border-t p-4 max-h-[45vh] overflow-y-auto"
-          style={{ borderColor: "#E7E0D3" }}
-        >
-          <SocialRelevanceTester />
-          <PromptInput
-            accept="image/*,.pdf"
-            multiple
-            onSubmit={handleSubmit}
-            globalDrop
-          >
-            <PromptInputBody>
-              <Attachments />
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <Conversation className="h-full">
+                  <ConversationContent>
+                    {messages.length === 0 ? (
+                      <div className="flex h-full flex-col items-center justify-center gap-6 px-4 py-10">
+                        <ConversationEmptyState
+                          title={`What's on your mind?`}
+                          description="Ask for a briefing, draft, research sweep, or test a social comment before it goes live."
+                        />
+                        <div className="flex w-full max-w-xl flex-wrap justify-center gap-2">
+                          {STARTER_PROMPTS.map((prompt) => (
+                            <Button
+                              key={prompt.label}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-auto max-w-full whitespace-normal px-3 py-2 text-left text-xs"
+                              disabled={isBusy}
+                              onClick={() =>
+                                sendMessage({ text: prompt.text })
+                              }
+                            >
+                              <Sparkles className="mr-1.5 h-3.5 w-3.5 shrink-0 text-brand-bronze" />
+                              {prompt.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      messages.map((message) => (
+                        <Message from={message.role} key={message.id}>
+                          <MessageContent>
+                            {message.parts.map((part, i) => {
+                              if (part.type === "text") {
+                                return message.role === "assistant" ? (
+                                  <MessageResponse key={i}>
+                                    {part.text}
+                                  </MessageResponse>
+                                ) : (
+                                  <span key={i}>{part.text}</span>
+                                );
+                              }
+                              if (part.type === "tool-linear_list_issues") {
+                                return (
+                                  <Tool
+                                    key={i}
+                                    defaultOpen={
+                                      part.state !== "output-available"
+                                    }
+                                  >
+                                    <ToolHeader
+                                      type="tool-linear_list_issues"
+                                      state={part.state}
+                                      title="linear_list_issues"
+                                    />
+                                    <ToolContent>
+                                      {(part.state === "input-available" ||
+                                        part.state === "output-available" ||
+                                        part.state === "output-error") &&
+                                      part.input ? (
+                                        <ToolInput input={part.input} />
+                                      ) : null}
+                                      {part.state === "output-available" ? (
+                                        <LinearIssueList output={part.output} />
+                                      ) : null}
+                                      {part.state === "output-error" ? (
+                                        <ToolOutput
+                                          output={undefined}
+                                          errorText={part.errorText}
+                                        />
+                                      ) : null}
+                                    </ToolContent>
+                                  </Tool>
+                                );
+                              }
+                              if (
+                                part.type === "tool-linear_create_issue" ||
+                                part.type === "tool-linear_comment_on_issue"
+                              ) {
+                                const label =
+                                  part.type === "tool-linear_create_issue"
+                                    ? "linear_create_issue"
+                                    : "linear_comment_on_issue";
+                                return (
+                                  <Tool
+                                    key={i}
+                                    defaultOpen={
+                                      part.state !== "output-available"
+                                    }
+                                  >
+                                    <ToolHeader
+                                      type={part.type}
+                                      state={part.state}
+                                      title={label}
+                                    />
+                                    <ToolContent>
+                                      {(part.state === "input-available" ||
+                                        part.state === "output-available" ||
+                                        part.state === "output-error") &&
+                                      part.input ? (
+                                        <ToolInput input={part.input} />
+                                      ) : null}
+                                      {part.state === "output-available" ? (
+                                        <LinearWriteResult
+                                          action={
+                                            part.type ===
+                                            "tool-linear_create_issue"
+                                              ? "linear_create_issue"
+                                              : "linear_comment_on_issue"
+                                          }
+                                          output={part.output}
+                                          onConfirm={confirmLinearAction}
+                                          onCancel={cancelLinearAction}
+                                        />
+                                      ) : null}
+                                      {part.state === "output-error" ? (
+                                        <ToolOutput
+                                          output={undefined}
+                                          errorText={part.errorText}
+                                        />
+                                      ) : null}
+                                    </ToolContent>
+                                  </Tool>
+                                );
+                              }
+                              if (part.type === "tool-image_generate") {
+                                const isRunning =
+                                  part.state === "input-streaming" ||
+                                  part.state === "input-available";
+                                return (
+                                  <Tool
+                                    key={i}
+                                    defaultOpen={
+                                      part.state !== "output-available"
+                                    }
+                                  >
+                                    <ToolHeader
+                                      type="tool-image_generate"
+                                      state={part.state}
+                                      title="image_generate"
+                                    />
+                                    <ToolContent>
+                                      {isRunning ? (
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-current" />
+                                          Generating image…
+                                        </div>
+                                      ) : null}
+                                      {(part.state === "input-available" ||
+                                        part.state === "output-available" ||
+                                        part.state === "output-error") &&
+                                      part.input ? (
+                                        <ToolInput input={part.input} />
+                                      ) : null}
+                                      {part.state === "output-available" ? (
+                                        <ImageGenResult output={part.output} />
+                                      ) : null}
+                                      {part.state === "output-error" ? (
+                                        <ToolOutput
+                                          output={undefined}
+                                          errorText={part.errorText}
+                                        />
+                                      ) : null}
+                                    </ToolContent>
+                                  </Tool>
+                                );
+                              }
+                              if (part.type === "tool-deep_research") {
+                                const isRunning =
+                                  part.state === "input-streaming" ||
+                                  part.state === "input-available";
+                                return (
+                                  <Tool
+                                    key={i}
+                                    defaultOpen={
+                                      part.state !== "output-available"
+                                    }
+                                  >
+                                    <ToolHeader
+                                      type="tool-deep_research"
+                                      state={part.state}
+                                      title="deep_research"
+                                    />
+                                    <ToolContent>
+                                      {isRunning ? (
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-current" />
+                                          Margot is researching…
+                                        </div>
+                                      ) : null}
+                                      {(part.state === "input-available" ||
+                                        part.state === "output-available" ||
+                                        part.state === "output-error") &&
+                                      part.input ? (
+                                        <ToolInput input={part.input} />
+                                      ) : null}
+                                      {part.state === "output-available" ? (
+                                        <ToolOutput
+                                          output={part.output}
+                                          errorText={undefined}
+                                        />
+                                      ) : null}
+                                      {part.state === "output-error" ? (
+                                        <ToolOutput
+                                          output={undefined}
+                                          errorText={part.errorText}
+                                        />
+                                      ) : null}
+                                    </ToolContent>
+                                  </Tool>
+                                );
+                              }
+                              return null;
+                            })}
+                          </MessageContent>
+                        </Message>
+                      ))
+                    )}
+                    {error ? (
+                      <div className="mx-4 my-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                        Margot hit a snag: {error.message}
+                      </div>
+                    ) : null}
+                  </ConversationContent>
+                  <ConversationScrollButton />
+                </Conversation>
+              </div>
 
-              <PromptInputTextarea placeholder="What's on your mind, Phill?" />
-              <PromptInputFooter>
-                <div className="flex-1" />
-                <PromptInputSubmit status={chatStatus} disabled={isBusy} />
-              </PromptInputFooter>
-            </PromptInputBody>
-          </PromptInput>
-        </div>
+              <div
+                className={cn(
+                  "shrink-0 border-t p-3 sm:p-4",
+                  "border-neutral-200 dark:border-slate-700/60",
+                  "bg-neutral-50/80 dark:bg-slate-900/40",
+                )}
+              >
+                <PromptInput
+                  accept="image/*,.pdf"
+                  multiple
+                  onSubmit={handleSubmit}
+                  globalDrop
+                >
+                  <PromptInputBody>
+                    <Attachments />
+                    <PromptInputTextarea placeholder="Message Margot… Ask for a briefing, or draft a social comment to test the gate." />
+                    <PromptInputFooter>
+                      <p className="hidden text-xs text-muted-foreground sm:block">
+                        Admin-only · social gate applies to comment drafts
+                      </p>
+                      <div className="flex-1" />
+                      <PromptInputSubmit
+                        status={chatStatus}
+                        disabled={isBusy}
+                      />
+                    </PromptInputFooter>
+                  </PromptInputBody>
+                </PromptInput>
+              </div>
+            </DashboardPanel>
+          </div>
+        </section>
+
+        {/* Social tools column */}
+        {toolsOpen ? (
+          <aside className="flex w-full shrink-0 flex-col border-t border-neutral-200 p-3 dark:border-slate-800 lg:w-[380px] lg:border-t-0 lg:border-l lg:p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-brand-bronze" aria-hidden />
+              <h2 className="text-sm font-semibold text-foreground">
+                Social comments add-on
+              </h2>
+            </div>
+            <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+              Phil rule: only engage when restoration means property or
+              insurance work. Refuse cars, teeth, and other false matches before
+              Hermes posts.
+            </p>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <SocialRelevanceTester />
+            </div>
+          </aside>
+        ) : null}
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Linear tool renderers (v2 inc2)
+// Linear tool renderers
 // ---------------------------------------------------------------------------
 
 interface LinearIssueListItem {
@@ -461,7 +548,6 @@ interface LinearIssueListItem {
 }
 
 function priorityToTone(priority: number): { tone: StatusTone; label: string } {
-  // Linear: 0 none, 1 urgent, 2 high, 3 medium, 4 low.
   switch (priority) {
     case 1:
       return { tone: "danger", label: "Urgent" };
@@ -477,7 +563,6 @@ function priorityToTone(priority: number): { tone: StatusTone; label: string } {
 }
 
 function LinearIssueList({ output }: { output: unknown }) {
-  // Error payload shape: { error, retryable }.
   if (
     output &&
     typeof output === "object" &&
@@ -512,11 +597,13 @@ function LinearIssueList({ output }: { output: unknown }) {
         return (
           <li
             key={issue.id}
-            className="flex items-start gap-3 rounded-md border bg-white px-3 py-2"
-            style={{ borderColor: "#E7E0D3" }}
+            className={cn(
+              "flex items-start gap-3 rounded-md border px-3 py-2",
+              dashboardSurfaceClass,
+            )}
           >
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="font-mono font-medium">
                   {issue.identifier}
                 </span>
@@ -532,7 +619,7 @@ function LinearIssueList({ output }: { output: unknown }) {
               href={issue.url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex shrink-0 items-center gap-1 text-xs text-sky-700 hover:underline"
+              className="inline-flex shrink-0 items-center gap-1 text-xs text-primary hover:underline"
             >
               Linear
               <ExternalLinkIcon className="h-3 w-3" />
@@ -578,12 +665,9 @@ function LinearWriteResult({
     const verb =
       output.action === "linear_create_issue" ? "create" : "comment on";
     return (
-      <div
-        className="rounded-md border px-3 py-3 text-sm"
-        style={{ borderColor: "#E4C972", backgroundColor: "#FBF5E2" }}
-      >
+      <div className="rounded-md border border-amber-300/50 bg-amber-50 px-3 py-3 text-sm dark:border-amber-500/30 dark:bg-amber-500/10">
         <div className="mb-2 font-medium">Confirm: {verb} Linear issue?</div>
-        <pre className="mb-3 max-h-48 overflow-auto rounded bg-white p-2 text-xs">
+        <pre className="mb-3 max-h-48 overflow-auto rounded-md border bg-background p-2 text-xs">
           {JSON.stringify(output.pending, null, 2)}
         </pre>
         <div className="flex gap-2">
@@ -628,7 +712,7 @@ function LinearWriteResult({
           href={parsed.url}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1 text-sky-700 hover:underline"
+          className="inline-flex items-center gap-1 text-primary hover:underline"
         >
           Open in Linear
           <ExternalLinkIcon className="h-3 w-3" />
@@ -638,14 +722,14 @@ function LinearWriteResult({
   }
 
   return (
-    <pre className="max-h-48 overflow-auto rounded bg-white p-2 text-xs">
+    <pre className="max-h-48 overflow-auto rounded-md border bg-background p-2 text-xs">
       {JSON.stringify(output, null, 2)}
     </pre>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Image generation renderer (v2 inc3)
+// Image generation renderer
 // ---------------------------------------------------------------------------
 
 interface ImageGenOutput {
@@ -671,7 +755,7 @@ function ImageGenResult({ output }: { output: unknown }) {
 
   if (!data.image_url) {
     return (
-      <pre className="max-h-48 overflow-auto rounded bg-white p-2 text-xs">
+      <pre className="max-h-48 overflow-auto rounded-md border bg-background p-2 text-xs">
         {JSON.stringify(output, null, 2)}
       </pre>
     );
@@ -684,9 +768,12 @@ function ImageGenResult({ output }: { output: unknown }) {
 
   return (
     <figure
-      className="flex flex-col gap-2 rounded-md border bg-white p-2"
-      style={{ borderColor: "#E7E0D3" }}
+      className={cn(
+        "flex flex-col gap-2 rounded-md border p-2",
+        dashboardSurfaceClass,
+      )}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- remote gen URL */}
       <img
         src={data.image_url}
         alt={promptExcerpt || "Generated image"}
