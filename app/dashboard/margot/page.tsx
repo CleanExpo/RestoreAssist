@@ -5,22 +5,19 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import {
   PlusIcon,
-  ExternalLinkIcon,
   Bot,
   ShieldCheck,
   PanelRightOpen,
   PanelRightClose,
-  Radio,
   Sparkles,
+  ExternalLinkIcon,
 } from "lucide-react";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import {
@@ -51,41 +48,42 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { Attachments } from "@/components/ai-elements/attachments";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { SocialRelevanceTester } from "@/components/margot/SocialRelevanceTester";
 import {
   DashboardPanel,
   dashboardSurfaceClass,
 } from "@/app/dashboard/components/DashboardPanel";
 import { cn } from "@/lib/utils";
-import {
-  MARGOT_AVATAR_ORB_PATH,
-  MARGOT_DISPLAY_NAME,
-} from "@/lib/margot-surface";
+import { MARGOT_SOCIAL_TRAINING_CHECKS } from "@/lib/margot/social-role-prompt";
 
 const STARTER_PROMPTS = [
   {
     label: "Briefing",
     text: "Give me a short ops briefing for RestoreAssist this week.",
   },
-  {
-    label: "Social: refuse car",
-    text: "Draft a LinkedIn comment on this post: Finished a classic car restoration on this Mustang",
-  },
-  {
-    label: "Social: refuse teeth",
-    text: "Write a Facebook reply to: Best teeth restoration clinic for veneers in Brisbane",
-  },
-  {
-    label: "Social: engage water",
-    text: "Draft a short comment on: Water damage restoration after a burst pipe — moisture mapping tips?",
-  },
+  ...MARGOT_SOCIAL_TRAINING_CHECKS.filter((c) =>
+    ["Refuse car / ute", "Refuse teeth", "Engage water"].includes(c.label),
+  ).map((c) => ({ label: c.label, text: c.prompt })),
 ];
 
 export default function MargotDashboardPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
+          Loading chat…
+        </div>
+      }
+    >
+      <MargotChatWorkspace />
+    </Suspense>
+  );
+}
+
+function MargotChatWorkspace() {
+  const searchParams = useSearchParams();
   const [toolsOpen, setToolsOpen] = useState(true);
+  const autoSent = useRef<string | null>(null);
 
   const transport = useMemo(
     () => new DefaultChatTransport({ api: "/api/margot/chat" }),
@@ -102,16 +100,13 @@ export default function MargotDashboardPage() {
     transport,
   });
 
+  // Deep-link drills from /dashboard/margot/social? → ?q=
   useEffect(() => {
-    if (status === "loading") return;
-    if (status === "unauthenticated") {
-      router.push("/login");
-      return;
-    }
-    if (session?.user?.role !== "ADMIN") {
-      router.push("/dashboard");
-    }
-  }, [status, session, router]);
+    const q = searchParams.get("q")?.trim();
+    if (!q || autoSent.current === q) return;
+    autoSent.current = q;
+    sendMessage({ text: q });
+  }, [searchParams, sendMessage]);
 
   const handleSubmit = (msg: PromptInputMessage) => {
     const text = msg.text?.trim();
@@ -138,102 +133,43 @@ export default function MargotDashboardPage() {
     sendMessage({ text: "Cancel that — don't file/post it." });
   };
 
-  if (status === "loading" || !session) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center text-sm text-muted-foreground">
-        Loading {MARGOT_DISPLAY_NAME}…
-      </div>
-    );
-  }
-
   const isBusy = chatStatus === "submitted" || chatStatus === "streaming";
 
   return (
-    <div className="-mx-2 -my-8 flex min-h-[calc(100dvh-7.5rem)] flex-col sm:-mx-4 lg:-mx-6">
-      {/* Page header */}
-      <header
-        className={cn(
-          "shrink-0 border-b px-4 py-4 sm:px-6",
-          "bg-white dark:bg-slate-950",
-          "border-neutral-200 dark:border-slate-800",
-        )}
-      >
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 ring-brand-bronze/30">
-              <Image
-                src={MARGOT_AVATAR_ORB_PATH}
-                alt={`${MARGOT_DISPLAY_NAME} avatar`}
-                fill
-                className="object-cover"
-                sizes="48px"
-                priority
-              />
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-                  {MARGOT_DISPLAY_NAME}
-                </h1>
-                <Badge variant="secondary" className="font-normal">
-                  Admin
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className="gap-1 font-normal text-muted-foreground"
-                >
-                  <Radio className="h-3 w-3" aria-hidden />
-                  Ops assistant
-                </Badge>
-              </div>
-              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                Briefings, research, Linear, and social-comment training. Use the
-                social tools to verify what &quot;restoration&quot; means before
-                commenting on posts.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard/mission-control">
-                Mission Control
-                <ExternalLinkIcon className="ml-1.5 h-3.5 w-3.5" />
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard/admin">Admin home</Link>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setToolsOpen((v) => !v)}
-              aria-pressed={toolsOpen}
-            >
-              {toolsOpen ? (
-                <PanelRightClose className="mr-1.5 h-4 w-4" />
-              ) : (
-                <PanelRightOpen className="mr-1.5 h-4 w-4" />
-              )}
-              Social tools
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setMessages([])}
-              disabled={isBusy || messages.length === 0}
-            >
-              <PlusIcon className="mr-1.5 h-4 w-4" />
-              New chat
-            </Button>
-          </div>
+    <div className="flex min-h-[calc(100dvh-14rem)] flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          Ask for a briefing, or draft a social comment to train the
+          restoration gate.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setToolsOpen((v) => !v)}
+            aria-pressed={toolsOpen}
+          >
+            {toolsOpen ? (
+              <PanelRightClose className="mr-1.5 h-4 w-4" />
+            ) : (
+              <PanelRightOpen className="mr-1.5 h-4 w-4" />
+            )}
+            Social tools
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setMessages([])}
+            disabled={isBusy || messages.length === 0}
+          >
+            <PlusIcon className="mr-1.5 h-4 w-4" />
+            New chat
+          </Button>
         </div>
-      </header>
+      </div>
 
-      {/* Workspace */}
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* Chat column */}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:gap-4">
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-hidden px-3 pt-3 sm:px-4">
+          <div className="min-h-0 flex-1 overflow-hidden">
             <DashboardPanel
               padded={false}
               className="flex h-full min-h-[420px] flex-col"
@@ -509,21 +445,27 @@ export default function MargotDashboardPage() {
           </div>
         </section>
 
-        {/* Social tools column */}
         {toolsOpen ? (
-          <aside className="flex w-full shrink-0 flex-col border-t border-neutral-200 p-3 dark:border-slate-800 lg:w-[380px] lg:border-t-0 lg:border-l lg:p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-brand-bronze" aria-hidden />
-              <h2 className="text-sm font-semibold text-foreground">
-                Social comments add-on
-              </h2>
+          <aside className="flex w-full shrink-0 flex-col gap-3 lg:w-[380px]">
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-brand-bronze" aria-hidden />
+                <h2 className="text-sm font-semibold text-foreground">
+                  Social gate
+                </h2>
+              </div>
+              <Button asChild variant="ghost" size="sm" className="h-8 px-2">
+                <Link href="/dashboard/margot/social">
+                  Full training
+                  <ExternalLinkIcon className="ml-1.5 h-3.5 w-3.5" />
+                </Link>
+              </Button>
             </div>
-            <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
-              Phil rule: only engage when restoration means property or
-              insurance work. Refuse cars, teeth, and other false matches before
-              Hermes posts.
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Engage only for property / insurance restoration. Refuse cars,
+              teeth, furniture, and other false matches.
             </p>
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto pb-2">
               <SocialRelevanceTester />
             </div>
           </aside>
