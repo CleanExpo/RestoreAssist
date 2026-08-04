@@ -6,7 +6,7 @@
  * Matches the client Chatbot identity (Margot avatar, name, accent, FAB).
  * - With a greeting/explainer video URL: click opens the video modal.
  * - Without video assets: click opens a lightweight assistant chat panel
- *   (marketing FAQ + signup CTA).
+ *   backed by /api/margot/public-chat (with an honest offline message on failure).
  *
  * @example
  *   <AvatarOrb className="fixed bottom-6 right-6 z-[100]" />
@@ -15,8 +15,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
-import { Video, X, Volume2, VolumeX, Send, MessageCircle } from "lucide-react";
+import { Video, X, Volume2, VolumeX, Send, MessageCircle, Loader2 } from "lucide-react";
 import { BRAND } from "@/lib/brand";
 import {
   MARGOT_ACCENT,
@@ -56,38 +57,11 @@ const SUGGESTED_QUESTIONS = [
   "How do I get started?",
 ];
 
-function answerFor(question: string): string {
-  const q = question.toLowerCase();
+const PUBLIC_CHAT_OFFLINE_MESSAGE =
+  "I'm having trouble connecting right now. Please try again in a moment — if this keeps happening, use Get Started below to explore RestoreAssist inside your workspace.";
 
-  if (q.includes("what is") || q.includes("restoreassist") || q.includes("product")) {
-    return BRAND.description;
-  }
-  if (q.includes("field") || q.includes("workflow") || q.includes("office")) {
-    return `${BRAND.tagline} Capture inspections in the field, then finish reports, scope, and invoices in the office — without re-keying. AI assists administration and technicians; decisions stay with you.`;
-  }
-  if (
-    q.includes("australia") ||
-    q.includes("iicrc") ||
-    q.includes("compliance") ||
-    q.includes("whs")
-  ) {
-    return `Yes — RestoreAssist is Australian-designed for the restoration industry, with inbuilt IICRC frameworks, WHS policies, and Australian Building Code references so field capture and office processing stay aligned.`;
-  }
-  if (
-    q.includes("start") ||
-    q.includes("sign") ||
-    q.includes("price") ||
-    q.includes("trial") ||
-    q.includes("cost")
-  ) {
-    return `You can ${BRAND.cta.primary.label.toLowerCase()} free and explore the platform. For pricing details, visit /pricing — or create an account and we'll walk you through setup.`;
-  }
-  if (q.includes("report") || q.includes("inspection") || q.includes("invoice")) {
-    return `RestoreAssist covers National Inspection Reports (NIR), guided interviews, scope of works, cost estimates, and invoicing — one system from site visit to bill-out. ${BRAND.slogan}`;
-  }
-
-  return `Happy to help. ${BRAND.shortDescription}\n\nTry one of the suggested questions, or ${BRAND.cta.primary.label.toLowerCase()} to explore the full product — ${MARGOT_DISPLAY_NAME} can help inside your workspace too.`;
-}
+const PUBLIC_CHAT_RATE_LIMIT_MESSAGE =
+  "I am getting a lot of questions right now. Give me a minute and try again.";
 
 function MargotAvatar({ size }: { size: number }) {
   const px = `${size}px`;
@@ -120,6 +94,7 @@ export function AvatarOrb({
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const orbRef = useRef<HTMLButtonElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -214,22 +189,76 @@ export function AvatarOrb({
     });
   };
 
-  const sendChat = (raw: string) => {
+  const sendChat = async (raw: string) => {
     const content = raw.trim();
-    if (!content) return;
+    if (!content || chatLoading) return;
 
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
       role: "user",
       content,
     };
-    const assistantMsg: ChatMessage = {
-      id: `a-${Date.now() + 1}`,
-      role: "assistant",
-      content: answerFor(content),
-    };
-    setChatMessages((prev) => [...prev, userMsg, assistantMsg]);
+    const nextMessages = [...chatMessages, userMsg];
+    setChatMessages(nextMessages);
     setChatInput("");
+    setChatLoading(true);
+
+    try {
+      const response = await fetch("/api/margot/public-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: nextMessages
+            .filter((msg) => msg.id !== "welcome")
+            .map((msg) => ({
+              role: msg.role,
+              content: msg.content,
+            })),
+        }),
+      });
+
+      if (response.ok) {
+        const data = (await response.json()) as { response?: string };
+        const reply = data.response?.trim();
+        if (reply) {
+          setChatMessages((prev) => [
+            ...prev,
+            {
+              id: `a-${Date.now() + 1}`,
+              role: "assistant",
+              content: reply,
+            },
+          ]);
+          return;
+        }
+      }
+
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: `a-${Date.now() + 1}`,
+          role: "assistant",
+          content:
+            response.status === 429
+              ? PUBLIC_CHAT_RATE_LIMIT_MESSAGE
+              : PUBLIC_CHAT_OFFLINE_MESSAGE,
+        },
+      ]);
+      return;
+    } catch {
+      // Fall through to the honest offline message below.
+    } finally {
+      setChatLoading(false);
+    }
+
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        id: `a-${Date.now() + 1}`,
+        role: "assistant",
+        content: PUBLIC_CHAT_OFFLINE_MESSAGE,
+      },
+    ]);
   };
 
   const activeVideoUrl =
@@ -365,10 +394,10 @@ export function AvatarOrb({
               <div
                 key={msg.id}
                 className={cn(
-                  "max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
+                  "max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
                   msg.role === "assistant"
                     ? "border border-slate-200 bg-slate-50 text-slate-800"
-                    : "ml-auto text-white",
+                    : "ml-auto whitespace-pre-wrap text-white",
                 )}
                 style={
                   msg.role === "user"
@@ -376,7 +405,48 @@ export function AvatarOrb({
                     : undefined
                 }
               >
-                {msg.content}
+                {msg.role === "assistant" ? (
+                  <div className="prose prose-sm max-w-none text-slate-800 prose-p:my-1.5 prose-p:leading-relaxed prose-ol:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-strong:font-semibold prose-strong:text-slate-900">
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => (
+                          <p className="mb-2 last:mb-0">{children}</p>
+                        ),
+                        ol: ({ children }) => (
+                          <ol className="mb-2 list-decimal space-y-1 pl-5 last:mb-0">
+                            {children}
+                          </ol>
+                        ),
+                        ul: ({ children }) => (
+                          <ul className="mb-2 list-disc space-y-1 pl-5 last:mb-0">
+                            {children}
+                          </ul>
+                        ),
+                        li: ({ children }) => <li>{children}</li>,
+                        strong: ({ children }) => (
+                          <strong className="font-semibold text-slate-900">
+                            {children}
+                          </strong>
+                        ),
+                        em: ({ children }) => <em className="italic">{children}</em>,
+                        a: ({ href, children }) => (
+                          <a
+                            href={href}
+                            className="font-medium text-brand-navy underline underline-offset-2"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {children}
+                          </a>
+                        ),
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  msg.content
+                )}
               </div>
             ))}
 
@@ -386,12 +456,19 @@ export function AvatarOrb({
                   <button
                     key={q}
                     type="button"
-                    onClick={() => sendChat(q)}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-left text-xs text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
+                    onClick={() => void sendChat(q)}
+                    disabled={chatLoading}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-left text-xs text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:opacity-50"
                   >
                     {q}
                   </button>
                 ))}
+              </div>
+            )}
+            {chatLoading && (
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                Margot is thinking…
               </div>
             )}
             <div ref={chatEndRef} />
@@ -402,7 +479,7 @@ export function AvatarOrb({
               className="flex items-center gap-2"
               onSubmit={(e) => {
                 e.preventDefault();
-                sendChat(chatInput);
+                void sendChat(chatInput);
               }}
             >
               <input
@@ -410,12 +487,13 @@ export function AvatarOrb({
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 placeholder="Ask about RestoreAssist…"
-                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200"
+                disabled={chatLoading}
+                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
                 aria-label="Message"
               />
               <button
                 type="submit"
-                disabled={!chatInput.trim()}
+                disabled={!chatInput.trim() || chatLoading}
                 className="flex h-10 w-10 items-center justify-center rounded-xl text-white transition-opacity disabled:opacity-40"
                 style={{ background: MARGOT_ACCENT }}
                 aria-label="Send message"
