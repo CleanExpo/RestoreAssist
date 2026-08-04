@@ -34,40 +34,40 @@ const trialDays = PRICING_CONFIG.free.trialDays;
 const trialReports = PRICING_CONFIG.free.trialReportCredits;
 
 const JOURNEY = [
-  {
-    number: "01",
+    {
+      number: "01",
     phase: "Setup",
     title: "Open the job in one workspace",
     body: `Create your account and land in a ${trialDays}-day trial with ${trialReports} report credits. Add your Anthropic or OpenAI key once — RestoreAssist drafts with your workspace key, not a hidden platform meter. Then open an inspection for the property and claim type (water, fire, mould, storm, and more).`,
     tags: ["Account", "AI key", "Business details", "First inspection"],
     carries: "Inspection opened on the claim",
-  },
-  {
-    number: "02",
+    },
+    {
+      number: "02",
     phase: "Field",
     title: "Capture once on site",
     body: "On the driveway or inside the property, record what the claim needs: photos, moisture readings, sketches, notes, and hazards. Field mode is built for the job site — including offline capture that syncs when you are back online — so evidence stays tied to the inspection instead of living in a camera roll.",
     tags: ["Photos", "Moisture", "Sketches", "Voice notes", "Offline sync"],
     carries: "Evidence attached to the same job",
-  },
-  {
-    number: "03",
+    },
+    {
+      number: "03",
     phase: "Desk",
     title: "Draft the report — then own the words",
     body: "From what you captured, RestoreAssist helps produce an IICRC S500-aligned report draft in minutes. Completeness and weakness checks surface gaps before you send. You review, rewrite, and acknowledge ownership before a clean export — professional judgement stays with the holder on every claim.",
     tags: ["IICRC S500 draft", "Gap checks", "You own the export"],
     carries: "Owned report ready for billing",
-  },
-  {
-    number: "04",
+    },
+    {
+      number: "04",
     phase: "Office",
     title: "Invoice with GST confidence",
     body: "Raise GST-ready invoices from the desk — or seed lines from the report — with Australian 10% or New Zealand 15% rules built in. Connect Xero, QuickBooks, MYOB, ServiceM8, or Ascora when your office already runs those systems.",
     tags: ["AU & NZ GST", "Accounting sync", "Credit notes"],
     carries: "Invoice linked to the report",
-  },
-  {
-    number: "05",
+    },
+    {
+      number: "05",
     phase: "Approval",
     title: "Get sign-off without retyping",
     body: "Share the job through the client portal so homeowners can review status, upload, and approve scope or cost estimates. Send insurers a read-only link when they need visibility. Authority forms can be signed remotely — so approval does not mean another round of copy-paste.",
@@ -253,7 +253,7 @@ function ClaimDossier() {
               <motion.div
                 key={step.number}
                 initial={reduce ? false : { opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
+            animate={{ opacity: 1, y: 0 }}
                 exit={reduce ? undefined : { opacity: 0, y: -8 }}
                 transition={{ duration: 0.35, ease: EASE_OUT }}
               >
@@ -384,7 +384,7 @@ export default function HowItWorksPage() {
             >
               Evidence captured once stays with the job
             </motion.h2>
-            <motion.p
+          <motion.p
               variants={fadeUp}
               className={`${SECTION_BODY} mx-auto text-center`}
             >
@@ -470,7 +470,7 @@ export default function HowItWorksPage() {
         aria-labelledby="roles-heading"
       >
         <div className={CONTAINER}>
-          <motion.div
+              <motion.div
             variants={staggerContainer}
             initial={reduce ? false : "hidden"}
             whileInView="visible"
