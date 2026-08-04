@@ -22,6 +22,7 @@ import {
   loadNexusContextBundle,
   nexusContextEnabled,
 } from "@/lib/nexus-hub-context";
+import { withMargotSocialRules } from "@/lib/margot/margot-system-extensions";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -100,10 +101,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    let system = HERMES_PROXY_BASE;
+    let system = withMargotSocialRules(HERMES_PROXY_BASE);
     if (nexusContextEnabled()) {
       const bundle = await loadNexusContextBundle();
-      system = `${HERMES_PROXY_BASE}\n\n${formatNexusContextForPrompt(bundle)}`;
+      system = `${system}\n\n${formatNexusContextForPrompt(bundle)}`;
     }
 
     const startedAt = Date.now();
