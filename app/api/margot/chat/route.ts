@@ -44,6 +44,7 @@ import { appendCopyrightGroundingInstruction } from "@/lib/standards/copyright-g
 import { buildPricingGrounding, PRICING_HINT } from "@/lib/pricing/org-pricing";
 import { prisma } from "@/lib/prisma";
 import { withMargotSocialRules } from "@/lib/margot/margot-system-extensions";
+import { resolveSocialCommentChatGate } from "@/lib/margot/social-restoration-relevance";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -405,6 +406,22 @@ export async function POST(request: NextRequest) {
     }
 
     const query = latestUserText(messages);
+
+    // Phil social gate: when drafting a comment on cars/teeth/etc., refuse
+    // with our restoration definition — do not invent a social reply.
+    const socialGate = resolveSocialCommentChatGate(query);
+    if (socialGate.applyGate && !socialGate.canDraft && socialGate.refuseReply) {
+      const refuse = streamText({
+        model: createMargotModel(),
+        system:
+          "Reply with the user message verbatim. No greeting, no extra words, no markdown.",
+        messages: [{ role: "user", content: socialGate.refuseReply }],
+        maxOutputTokens: 220,
+        temperature: 0,
+      });
+      return refuse.toUIMessageStreamResponse();
+    }
+
     // RA-7026: pricing intent drives BOTH the pricing injection and the
     // KNOWLEDGE-tier exclusion on standards retrieval.
     const pricingIntent = PRICING_HINT.test(query);
