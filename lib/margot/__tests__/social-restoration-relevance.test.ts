@@ -120,6 +120,7 @@ describe("resolveSocialCommentChatGate", () => {
     expect(car.canDraft).toBe(false);
     expect(car.refuseReply).toMatch(/will not draft/i);
     expect(car.refuseReply).toMatch(/property and insurance/i);
+    expect(car.refuseReply).not.toMatch(/[—–]/);
 
     const teeth = resolveSocialCommentChatGate(
       "Write a Facebook reply to: Best teeth restoration clinic for veneers in Brisbane",
