@@ -67,6 +67,20 @@ const NEGATIVE_SIGNALS: { label: string; pattern: RegExp }[] = [
     pattern:
       /\b(car|auto|automotive|vehicle|classic\s*car|muscle\s*car|motorcycle|bike|boat|yacht)\s+restoration\b/i,
   },
+  {
+    label: "vehicle restore",
+    pattern:
+      /\brestor(e|ing|ation|ed)\b[\s\S]{0,40}\b(car|auto|automotive|vehicle|toyota|hilux|ute|truck|mustang|motorbike|motorcycle|boat)\b/i,
+  },
+  {
+    label: "vehicle subject",
+    pattern:
+      /\b(car|auto|automotive|vehicle|toyota|hilux|ute|truck|mustang|motorbike|motorcycle)\b[\s\S]{0,40}\brestor(e|ing|ation|ed)\b/i,
+  },
+  {
+    label: "rusted vehicle body",
+    pattern: /\brusted?\b[\s\S]{0,30}\b(body|panel|chassis|hilux|ute|truck|car)\b/i,
+  },
   { label: "auto body", pattern: /\b(auto\s*body|body\s*shop|panel\s*beat)\b/i },
   {
     label: "dental",
@@ -93,6 +107,74 @@ const NEGATIVE_SIGNALS: { label: string; pattern: RegExp }[] = [
       /#(car|auto|automotive|dental|teeth|smile|hair|art|furniture|film|watch)restoration\b/i,
   },
 ];
+
+/**
+ * True when the user is asking Margot to draft / post a social comment.
+ * Phil's gate applies here — not to ordinary product help questions.
+ */
+export function isSocialCommentDraftRequest(text: string): boolean {
+  return (
+    /\b(draft|write|compose|suggest|craft)\b[\s\S]{0,60}\b(comment|reply|response)\b/i.test(
+      text,
+    ) ||
+    /\b(comment|reply)\s+on\s+(this|a|the|my)\b/i.test(text) ||
+    /\b(linkedin|facebook|instagram|twitter|\bx\b)\b[\s\S]{0,40}\b(comment|reply|post)\b/i.test(
+      text,
+    ) ||
+    /\b(social\s*(media|post|comment)|post\s+a\s+comment)\b/i.test(text)
+  );
+}
+
+/**
+ * When Margot is asked to draft a social reply on a wrong-industry post,
+ * refuse with a short trained explanation (what restoration means for us).
+ * Ordinary help questions (e.g. car tips as product chat) are left to the LLM.
+ */
+export function resolveSocialCommentChatGate(userMessage: string): {
+  applyGate: boolean;
+  canDraft: boolean;
+  assessment: SocialRelevanceResult | null;
+  refuseReply: string | null;
+} {
+  if (!isSocialCommentDraftRequest(userMessage)) {
+    return {
+      applyGate: false,
+      canDraft: false,
+      assessment: null,
+      refuseReply: null,
+    };
+  }
+
+  const assessment = assessSocialRestorationRelevance({ text: userMessage });
+  if (assessment.relevant) {
+    return {
+      applyGate: true,
+      canDraft: true,
+      assessment,
+      refuseReply: null,
+    };
+  }
+
+  const industryHint =
+    assessment.negativeHits.length > 0
+      ? ` That looks like ${assessment.negativeHits[0]}, not property work.`
+      : "";
+
+  return {
+    applyGate: true,
+    canDraft: false,
+    assessment,
+    refuseReply:
+      `I will not draft a social comment on that.${industryHint} ` +
+      `For RestoreAssist, restoration means property and insurance work after water, flood, storm, fire, smoke, mould, or sewage — not cars, teeth, furniture, art, or other industries.`,
+  };
+}
+
+/** @deprecated Use resolveSocialCommentChatGate — social gate only, not all chat. */
+export function shouldHardSkipWrongIndustryRestoration(text: string): boolean {
+  const gate = resolveSocialCommentChatGate(text);
+  return gate.applyGate && !gate.canDraft;
+}
 
 function collectHits(
   haystack: string,
