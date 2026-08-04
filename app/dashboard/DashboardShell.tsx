@@ -40,6 +40,7 @@ import {
   HardHat,
   Library,
   FolderKanban,
+  Bot,
 } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import dynamic from "next/dynamic";
@@ -320,6 +321,12 @@ export default function DashboardShell({
             icon: BarChart3,
             label: "Restoration Insights",
             href: "/dashboard/admin/restoration-insights",
+            adminOnly: true,
+          },
+          {
+            icon: Bot,
+            label: "Margot",
+            href: "/dashboard/margot",
             adminOnly: true,
           },
         ]
