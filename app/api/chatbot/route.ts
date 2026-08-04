@@ -12,6 +12,12 @@ import {
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
 import { markProviderConnectionFailed } from "@/lib/workspace/provider-connections";
+import {
+  MARGOT_PLAIN_TEXT_STYLE,
+  sanitizeMargotCustomerReply,
+  withMargotSocialRules,
+} from "@/lib/margot/margot-system-extensions";
+import { resolveSocialCommentChatGate } from "@/lib/margot/social-restoration-relevance";
 
 export async function GET(request: NextRequest) {
   try {
@@ -185,11 +191,22 @@ export async function POST(request: NextRequest) {
       // Get the last user message
       const lastUserMessage = messages[messages.length - 1]?.content || "";
 
+      // Social-comment add-on (Phil): when drafting social replies, refuse
+      // car/teeth/etc. and state what restoration means for RestoreAssist.
+      const socialGate = resolveSocialCommentChatGate(lastUserMessage);
+      if (
+        socialGate.applyGate &&
+        !socialGate.canDraft &&
+        socialGate.refuseReply
+      ) {
+        return NextResponse.json({ response: socialGate.refuseReply });
+      }
+
       // Get user's name from session
       const userName = session.user?.name || "there";
 
-      // System prompt for the chatbot
-      const systemPrompt = `You are Margot, the RestoreAssist client help assistant. You have deep knowledge of the Restore Assist platform, its features, workflows, and capabilities. Your responses should ALWAYS be specific to Restore Assist and its actual features.
+      // System prompt for the chatbot (includes social-comment rules for Margot agent parity)
+      const systemPrompt = withMargotSocialRules(`You are Margot, the RestoreAssist client help assistant. You have deep knowledge of the Restore Assist platform, its features, workflows, and capabilities. Your responses should ALWAYS be specific to Restore Assist and its actual features.
 
 PROJECT SCOPE (mandatory):
 You operate ONLY for RestoreAssist (Australian water-damage restoration platform). Use RestoreAssist features, workflows, and help content only. Do not discuss Unite-Group internal ops, CARSI courses, or unrelated portfolio businesses.
@@ -276,12 +293,14 @@ The platform uses an 8-step workflow to create reports:
 - If you don't know a specific Restore Assist feature, admit it rather than guessing
 - Direct users to Help & Support (/dashboard/help) for complex issues
 
-**EXAMPLE RESPONSES:**
-- "In Restore Assist, you can create a new report by clicking 'New Report' in the sidebar, which takes you through the 8-step workflow starting with Initial Data Entry."
-- "Restore Assist's Cost Libraries feature allows you to configure regional pricing. Go to Pricing Configuration in the dashboard to set up your cost libraries."
-- "The Claims Analysis feature in Restore Assist can analyze Google Drive folders to identify compliance gaps and missing revenue opportunities."
+${MARGOT_PLAIN_TEXT_STYLE}
 
-Remember: You are a Restore Assist expert, not a generic restoration advisor. Always be specific to the platform!`;
+**EXAMPLE RESPONSES:**
+- "In Restore Assist, you can create a new report by clicking New Report in the sidebar, which takes you through the 8-step workflow starting with Initial Data Entry."
+- "Restore Assist Cost Libraries let you configure regional pricing. Go to Pricing Configuration in the dashboard to set up your cost libraries."
+- "Claims Analysis can analyze Google Drive folders to identify compliance gaps and missing revenue opportunities."
+
+Remember: You are a Restore Assist expert, not a generic restoration advisor. Always be specific to the platform!`);
 
       // Build the conversation context
       // For Anthropic, we'll include conversation history in the system prompt
@@ -299,12 +318,13 @@ Remember: You are a Restore Assist expert, not a generic restoration advisor. Al
       // Use Anthropic with conversation context in system prompt
       const fullSystemPrompt = systemPrompt + conversationContext;
 
-      const response = await callAIProvider(integration, {
+      const rawResponse = await callAIProvider(integration, {
         system: fullSystemPrompt,
         prompt: lastUserMessage,
         maxTokens: 4000,
         temperature: 0.7,
       });
+      const response = sanitizeMargotCustomerReply(rawResponse);
 
       // Save messages to database
       try {
