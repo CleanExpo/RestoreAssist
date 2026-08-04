@@ -14,6 +14,7 @@ const HIDDEN_PREFIXES = [
   "/sign",
   "/invite",
   "/onboarding",
+  "/setup",
 ] as const;
 
 /**
