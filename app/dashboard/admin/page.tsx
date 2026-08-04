@@ -20,6 +20,7 @@ import {
   Database,
   Loader2,
   HelpCircle,
+  Bot,
 } from "lucide-react";
 import {
   Card,
@@ -194,6 +195,18 @@ export default function AdminDashboardPage() {
       )}
 
       <div className="flex flex-wrap gap-3 text-sm">
+        <a
+          href="/dashboard/margot"
+          className="underline text-cyan-600 dark:text-cyan-400"
+        >
+          Margot
+        </a>
+        <a
+          href="/dashboard/mission-control"
+          className="underline text-cyan-600 dark:text-cyan-400"
+        >
+          Mission Control
+        </a>
         <a
           href="/dashboard/admin/rag"
           className="underline text-cyan-600 dark:text-cyan-400"
@@ -402,6 +415,14 @@ export default function AdminDashboardPage() {
             >
               <Database className="h-5 w-5" />
               <span className="text-sm">RAG</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2"
+              onClick={() => router.push("/dashboard/margot")}
+            >
+              <Bot className="h-5 w-5" />
+              <span className="text-sm">Margot</span>
             </Button>
             <Button
               variant="outline"
