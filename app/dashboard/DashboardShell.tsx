@@ -326,7 +326,7 @@ export default function DashboardShell({
           {
             icon: Bot,
             label: "Margot",
-            href: "/dashboard/margot",
+            href: "/dashboard/margot/home",
             adminOnly: true,
           },
         ]
