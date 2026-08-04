@@ -163,6 +163,12 @@ export async function applyRateLimit(
     key?: string;
     /** When true, limiter store failures return 429 instead of falling back. */
     failClosedOnUpstashError?: boolean;
+    /**
+     * Skip Prisma entirely and rate-limit in process memory.
+     * Use for unauthenticated public surfaces where a local DB outage
+     * must not block the product (e.g. marketing Margot chat).
+     */
+    memoryOnly?: boolean;
   } = {},
 ): Promise<NextResponse | null> {
   const {
@@ -171,6 +177,7 @@ export async function applyRateLimit(
     prefix = "api",
     key: customKey,
     failClosedOnUpstashError = false,
+    memoryOnly = false,
   } = opts;
 
   const rateLimitKey = customKey
@@ -178,14 +185,19 @@ export async function applyRateLimit(
     : `${prefix}:${getClientIp(req)}`;
 
   let result: RateLimitResult;
-  try {
-    result = await rateLimitDurable(rateLimitKey, { windowMs, maxRequests });
-  } catch (error) {
-    console.error("[rate-limit] durable limiter unavailable", error);
-    if (failClosedOnUpstashError) {
-      return build429(maxRequests, Math.ceil(windowMs / 1000));
-    }
+  if (memoryOnly) {
     result = rateLimitInMemory(rateLimitKey, { windowMs, maxRequests });
+  } else {
+    try {
+      result = await rateLimitDurable(rateLimitKey, { windowMs, maxRequests });
+    } catch (error) {
+      console.error("[rate-limit] durable limiter unavailable", error);
+      if (failClosedOnUpstashError) {
+        return build429(maxRequests, Math.ceil(windowMs / 1000));
+      }
+      // Fail open: keep serving with the in-memory limiter.
+      result = rateLimitInMemory(rateLimitKey, { windowMs, maxRequests });
+    }
   }
 
   if (!result.success) {
