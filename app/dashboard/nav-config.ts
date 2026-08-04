@@ -157,6 +157,8 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     "/dashboard/admin/content-gate": "Admin",
     "/dashboard/admin/restoration-insights": "Admin",
     "/dashboard/governance": "Admin",
+    "/dashboard/margot": "Admin",
+    "/dashboard/mission-control": "Admin",
   };
 
   const groups: Record<GroupLabel, NavItem[]> = {
