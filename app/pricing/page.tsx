@@ -303,7 +303,7 @@ function PricingPageContent() {
                   {addon.badge && !addon.popular ? (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#0B1F3A] px-3 py-1 text-xs font-semibold text-white">
                       {String(addon.badge)}
-                    </div>
+                  </div>
                   ) : null}
                   <h3
                     className={`${FONT_DISPLAY} text-lg font-semibold text-[#0B1F3A]`}
