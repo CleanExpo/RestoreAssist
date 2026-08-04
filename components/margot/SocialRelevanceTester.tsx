@@ -40,10 +40,21 @@ const SAMPLES = [
     draft: "Great smile results. Who was your dentist?",
   },
   {
+    label: "Ignore: furniture",
+    text: "Antique furniture restoration workshop this weekend",
+    draft: "Love a good refinish. What finish are you using?",
+  },
+  {
     label: "Engage: water",
     text: "Water damage restoration after a burst pipe - moisture mapping tips?",
     draft:
       "Water damage jobs get messy fast when moisture maps are thin. How are you capturing readings on site right now?",
+  },
+  {
+    label: "Engage: fire",
+    text: "Fire and smoke restoration - contents vs structure on this claim",
+    draft:
+      "Contents vs structure calls get sticky after smoke. How are you documenting the split for the insurer?",
   },
 ];
 
