@@ -162,4 +162,20 @@ describe("applyRateLimit", () => {
     expect(limited?.status).toBe(429);
     expect(limited?.headers.get("Retry-After")).toBe("900");
   });
+
+  it("memoryOnly skips the durable store even when it is down", async () => {
+    rateLimitDb.setFailStore(true);
+    const opts = {
+      prefix: "memory-only",
+      key: "user_1",
+      maxRequests: 2,
+      memoryOnly: true,
+    };
+
+    await expect(applyRateLimit(makeReq(), opts)).resolves.toBeNull();
+    await expect(applyRateLimit(makeReq(), opts)).resolves.toBeNull();
+    const limited = await applyRateLimit(makeReq(), opts);
+    expect(limited?.status).toBe(429);
+    expect(rateLimitDb.hits.size).toBe(0);
+  });
 });
