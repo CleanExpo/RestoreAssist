@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, afterEach, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import { AvatarOrb } from "../AvatarOrb";
 
 vi.mock("next/image", () => ({
@@ -21,7 +21,10 @@ vi.mock("next/image", () => ({
   },
 }));
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("AvatarOrb graceful fallback", () => {
   it(
@@ -49,7 +52,18 @@ describe("AvatarOrb graceful fallback", () => {
     15_000,
   );
 
-  it("answers a suggested question inside the chatbox", () => {
+  it("answers a suggested question via public-chat API", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response:
+            "RestoreAssist is Australia's purpose-built CRM for restoration contractors.",
+        }),
+      }),
+    );
+
     render(<AvatarOrb greetingText="Hello from Margot" />);
 
     fireEvent.click(screen.getByRole("button", { name: /open margot/i }));
@@ -57,10 +71,40 @@ describe("AvatarOrb graceful fallback", () => {
       screen.getByRole("button", { name: /what is restoreassist/i }),
     );
 
-    expect(screen.getByText(/what is restoreassist\?/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByText(/purpose-built crm for restoration contractors/i),
+      ).toBeInTheDocument();
+    });
     expect(
-      screen.getByText(/australia's first australian-designed full crm/i),
-    ).toBeInTheDocument();
+      screen.queryByText(/australia's first australian-designed full crm/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows an honest offline message when public-chat fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+      }),
+    );
+
+    render(<AvatarOrb greetingText="Hello from Margot" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /open margot/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /what is restoreassist/i }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/having trouble connecting right now/i),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText(/try one of the suggested questions/i),
+    ).not.toBeInTheDocument();
   });
 
   it("opens the video modal when a greeting video URL is provided", () => {
