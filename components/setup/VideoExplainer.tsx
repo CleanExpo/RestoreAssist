@@ -160,7 +160,7 @@ export function VideoExplainer({
 
   const wrapperClass =
     className ??
-    "relative aspect-video w-full overflow-hidden rounded-xl border-2 border-brand-bronze/30 shadow-2xl bg-brand-canvas";
+    "relative aspect-video w-full max-h-[min(56vh,560px)] overflow-hidden rounded-xl border border-brand-navy/15 bg-brand-canvas shadow-sm";
 
   // ─── Video element with captions + mobile optimisation ───
   const renderVideo = (src: string) => {
