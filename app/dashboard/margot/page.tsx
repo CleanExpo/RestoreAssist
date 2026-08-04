@@ -46,6 +46,7 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { Attachments } from "@/components/ai-elements/attachments";
 import { Button } from "@/components/ui/button";
+import { SocialRelevanceTester } from "@/components/margot/SocialRelevanceTester";
 
 // Thread history API is not shipped yet — keep Recent empty rather than fake chats.
 const RECENT_THREADS: { id: string; title: string; preview: string }[] = [];
@@ -417,8 +418,12 @@ export default function MargotDashboardPage() {
           </Conversation>
         </div>
 
-        {/* Prompt input */}
-        <div className="border-t p-4" style={{ borderColor: "#E7E0D3" }}>
+        {/* Social gate tester + prompt */}
+        <div
+          className="shrink-0 space-y-3 border-t p-4 max-h-[45vh] overflow-y-auto"
+          style={{ borderColor: "#E7E0D3" }}
+        >
+          <SocialRelevanceTester />
           <PromptInput
             accept="image/*,.pdf"
             multiple
