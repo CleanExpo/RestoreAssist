@@ -22,7 +22,7 @@ describe("MARGOT_PUBLIC_CHAT_SYSTEM_PROMPT", () => {
   it("keeps a first-person Margot persona without the full social dump", () => {
     expect(MARGOT_PUBLIC_CHAT_SYSTEM_PROMPT).toContain("Speak in first person");
     expect(MARGOT_PUBLIC_CHAT_SYSTEM_PROMPT).toContain("claim summaries");
-    expect(MARGOT_PUBLIC_CHAT_SYSTEM_PROMPT).toContain("Social comments");
+    expect(MARGOT_PUBLIC_CHAT_SYSTEM_PROMPT).toContain("Social commenting");
     expect(MARGOT_PUBLIC_CHAT_SYSTEM_PROMPT).not.toContain(
       "Relevance gate (run before every reply)",
     );
@@ -68,5 +68,17 @@ describe("sanitizeMargotCustomerReply", () => {
         "Create a dummy water‑damage case and **run a test job**.",
       ),
     ).toBe("Create a dummy water-damage case and **run a test job**.");
+  });
+});
+
+describe("MARGOT_SOCIAL_ROLE_PROMPT", () => {
+  it("states the Phil restoration rule in plain language", async () => {
+    const { MARGOT_SOCIAL_ROLE_PROMPT } = await import(
+      "../social-role-prompt"
+    );
+    expect(MARGOT_SOCIAL_ROLE_PROMPT).toMatch(/Role:\s*You are Margot/i);
+    expect(MARGOT_SOCIAL_ROLE_PROMPT).toMatch(/car/i);
+    expect(MARGOT_SOCIAL_ROLE_PROMPT).toMatch(/teeth|dental/i);
+    expect(MARGOT_SOCIAL_ROLE_PROMPT).toMatch(/property and insurance/i);
   });
 });
