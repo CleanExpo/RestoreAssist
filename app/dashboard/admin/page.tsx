@@ -196,10 +196,16 @@ export default function AdminDashboardPage() {
 
       <div className="flex flex-wrap gap-3 text-sm">
         <a
-          href="/dashboard/margot"
+          href="/dashboard/margot/home"
           className="underline text-cyan-600 dark:text-cyan-400"
         >
           Margot
+        </a>
+        <a
+          href="/dashboard/margot/social"
+          className="underline text-cyan-600 dark:text-cyan-400"
+        >
+          Social training
         </a>
         <a
           href="/dashboard/mission-control"
@@ -419,7 +425,7 @@ export default function AdminDashboardPage() {
             <Button
               variant="outline"
               className="flex-col h-auto py-4 gap-2"
-              onClick={() => router.push("/dashboard/margot")}
+              onClick={() => router.push("/dashboard/margot/home")}
             >
               <Bot className="h-5 w-5" />
               <span className="text-sm">Margot</span>
