@@ -158,6 +158,8 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     "/dashboard/admin/restoration-insights": "Admin",
     "/dashboard/governance": "Admin",
     "/dashboard/margot": "Admin",
+    "/dashboard/margot/home": "Admin",
+    "/dashboard/margot/social": "Admin",
     "/dashboard/mission-control": "Admin",
   };
 
