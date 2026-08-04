@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { dashboardSurfaceClass } from "@/app/dashboard/components/DashboardPanel";
 
 type ApiResult = {
   canPost: boolean;
@@ -64,7 +65,9 @@ export function SocialRelevanceTester() {
       });
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(json?.error?.message || json?.error || `HTTP ${res.status}`);
+        throw new Error(
+          json?.error?.message || json?.error || `HTTP ${res.status}`,
+        );
       }
       setResult(json as ApiResult);
     } catch (err) {
@@ -85,21 +88,17 @@ export function SocialRelevanceTester() {
 
   return (
     <section
-      className="rounded-xl border p-4 sm:p-5 space-y-4"
-      style={{ borderColor: "#E7E0D3", backgroundColor: "#FFFCF7" }}
+      className={cn("space-y-4 rounded-lg p-4", dashboardSurfaceClass)}
       data-testid="social-relevance-tester"
     >
       <div>
-        <h3
-          className="text-lg font-semibold"
-          style={{ fontFamily: "Georgia, serif" }}
-        >
-          Social relevance gate
+        <h3 className="text-base font-semibold text-foreground">
+          Relevance gate
         </h3>
-        <p className="mt-1 text-sm opacity-70">
-          Phil rule: only reply when restoration means property damage. Skip
-          cars, teeth, and other false matches. Drafts cannot use apostrophes or
-          dashes that look AI-written.
+        <p className="mt-1 text-sm text-muted-foreground">
+          Paste a social post (and optional draft). Engage only for property /
+          insurance restoration. Drafts must stay human — no apostrophes or
+          fancy dashes.
         </p>
       </div>
 
@@ -129,7 +128,7 @@ export function SocialRelevanceTester() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={3}
-          className="bg-white"
+          className="bg-background"
         />
       </div>
 
@@ -140,16 +139,21 @@ export function SocialRelevanceTester() {
           value={draftReply}
           onChange={(e) => setDraftReply(e.target.value)}
           rows={3}
-          className="bg-white"
+          className="bg-background"
         />
       </div>
 
-      <Button type="button" onClick={runCheck} disabled={loading || !text.trim()}>
+      <Button
+        type="button"
+        className="w-full"
+        onClick={runCheck}
+        disabled={loading || !text.trim()}
+      >
         {loading ? "Checking…" : "Run gate"}
       </Button>
 
       {error ? (
-        <p className="text-sm text-rose-700" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {error}
         </p>
       ) : null}
@@ -157,7 +161,7 @@ export function SocialRelevanceTester() {
       {result ? (
         <div className="space-y-3 text-sm" data-testid="social-relevance-result">
           <div className={cn("rounded-lg border px-3 py-2", decisionTone)}>
-            <p className="font-semibold uppercase tracking-wide text-xs">
+            <p className="text-xs font-semibold uppercase tracking-wide">
               {result.relevance.decision}
               {result.canPost ? " · can post" : " · do not post"}
             </p>
@@ -185,12 +189,17 @@ export function SocialRelevanceTester() {
             </div>
           )}
           {result.reply ? (
-            <div className="rounded-lg border px-3 py-2 space-y-1" style={{ borderColor: "#E7E0D3" }}>
+            <div
+              className={cn(
+                "space-y-1 rounded-lg border px-3 py-2",
+                dashboardSurfaceClass,
+              )}
+            >
               <p className="font-medium">
                 Style: {result.reply.canPost ? "clean" : "needs rewrite"}
               </p>
               {result.reply.issues.length > 0 ? (
-                <p className="text-xs opacity-70">
+                <p className="text-xs text-muted-foreground">
                   Issues: {result.reply.issues.join("; ")}
                 </p>
               ) : null}
