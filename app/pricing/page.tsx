@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { perReportRate, formatPerReport } from "@/lib/pricing/unit-rate";
+import { VolumePicker } from "@/components/pricing/VolumePicker";
+import { TierComparison, PAID_ONLY_CAPABILITIES } from "@/components/pricing/TierComparison";
+import { CostDisclosure } from "@/components/pricing/CostDisclosure";
 import BillingGate from "@/components/capacitor/BillingGate";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { RAIcon } from "@/components/brand/RAIcon";
@@ -30,6 +34,9 @@ function PricingPageContent() {
   type DisplayPlan = {
     name: string;
     price: string;
+    /** Numeric amount, kept alongside the display string so the per-report rate
+     *  can be derived rather than parsed back out of "$99". */
+    amountAud: number;
     period: string;
     description: string;
     features: readonly string[];
@@ -44,6 +51,7 @@ function PricingPageContent() {
   const freePlan: DisplayPlan = {
     name: freeCfg.displayName,
     price: "$0",
+    amountAud: freeCfg.amount,
     period: "",
     description: freeCfg.description,
     features: [...freeCfg.features],
@@ -61,14 +69,18 @@ function PricingPageContent() {
       plan.amount % 1 === 0 ? `$${plan.amount}` : `$${plan.amount.toFixed(2)}`;
     const period =
       "interval" in plan && plan.interval ? `/${plan.interval}` : "";
-    const description =
-      plan.name === "Monthly Plan"
-        ? "Perfect for growing restoration businesses with 50 reports per month."
-        : "Best value with 70 reports per month for long-term commitment.";
+    // There is exactly one paid SKU: the yearly plan was retired in the
+    // billing-correctness collapse (lib/pricing.ts:47-57). The branch that used
+    // to sit here still described a "70 reports per month" yearly plan that
+    // could never render. Derive the figure from reportLimit rather than
+    // restating it — restating it is how the retired copy drifted in the first
+    // place.
+    const description = `For restoration businesses running ${plan.reportLimit} inspection reports a month.`;
 
     return {
       name: plan.displayName,
       price,
+      amountAud: plan.amount,
       period,
       description,
       features: plan.features,
@@ -91,6 +103,7 @@ function PricingPageContent() {
       addon.amount % 1 === 0
         ? `$${addon.amount}`
         : `$${addon.amount.toFixed(2)}`,
+    amountAud: addon.amount,
     reportLimit: addon.reportLimit,
     description: addon.description,
     popular: "popular" in addon ? addon.popular : false,
@@ -201,6 +214,20 @@ function PricingPageContent() {
                           +{plan.signupBonus} bonus reports on first month
                         </p>
                       ) : null}
+                      {/* The unit rate is the number a volume buyer actually
+                          compares on, and it was absent from this page
+                          entirely. Derived from the plan amount, never
+                          authored, so it cannot drift from PRICING_CONFIG. */}
+                      {!plan.isFree ? (
+                        <p className="mt-2 border-t border-slate-200/90 pt-2 text-sm font-semibold text-[#0B1F3A]">
+                          {formatPerReport(
+                            perReportRate(plan.amountAud, plan.reportLimit),
+                          )}{" "}
+                          <span className="font-normal text-slate-500">
+                            per report
+                          </span>
+                        </p>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -217,44 +244,26 @@ function PricingPageContent() {
                       {feature}
                     </li>
                   ))}
-                  {!plan.isFree ? (
-                    <>
-                      <li className="flex items-start gap-2 text-sm text-slate-600">
-                        <span className="mt-0.5 text-[#3B6D8C]">
-                          <RAIcon name="success" size={16} decorative />
-                        </span>
-                        <span>
-                          Unlimited Quick Fill (AI-powered form auto-fill)
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2 text-sm text-slate-600">
-                        <span className="mt-0.5 text-[#3B6D8C]">
-                          <RAIcon name="success" size={16} decorative />
-                        </span>
-                        <span>Enhanced & Optimised report types</span>
-                      </li>
-                      <li className="flex items-start gap-2 text-sm text-slate-600">
-                        <span className="mt-0.5 text-[#3B6D8C]">
-                          <RAIcon name="success" size={16} decorative />
-                        </span>
-                        <span>PDF upload & processing</span>
-                      </li>
-                      <li className="flex items-start gap-2 text-sm text-slate-600">
-                        <span className="mt-0.5 text-[#3B6D8C]">
-                          <RAIcon name="success" size={16} decorative />
-                        </span>
-                        <span>Full profile & pricing configuration</span>
-                      </li>
-                      <li className="flex items-start gap-2 text-sm text-slate-600">
-                        <span className="mt-0.5 text-[#3B6D8C]">
-                          <RAIcon name="success" size={16} decorative />
-                        </span>
-                        <span>
-                          Premium API integrations (Claude, GPT, etc.)
-                        </span>
-                      </li>
-                    </>
-                  ) : null}
+                  {/* These five paid-only capabilities used to be five copies of
+                      the same hand-written <li> here, which PRICING_CONFIG has
+                      never heard of and pricing-integrity.test.ts therefore
+                      cannot assert on. They now come from one array. That is a
+                      bridge, not a fix: the strings still belong in
+                      PRICING_CONFIG.pricing.monthly under a paidOnlyFeatures
+                      key, after which this import should go away. */}
+                  {!plan.isFree
+                    ? PAID_ONLY_CAPABILITIES.map((capability) => (
+                        <li
+                          key={capability}
+                          className="flex items-start gap-2 text-sm text-slate-600"
+                        >
+                          <span className="mt-0.5 text-[#3B6D8C]">
+                            <RAIcon name="success" size={16} decorative />
+                          </span>
+                          <span>{capability}</span>
+                        </li>
+                      ))
+                    : null}
                 </ul>
 
                 <Link
@@ -266,6 +275,19 @@ function PricingPageContent() {
               </motion.article>
             ))}
           </motion.div>
+
+          {/* Work out what a given month actually costs, before signing up.
+              Volume pricing that a buyer has to compute themselves is not
+              legible pricing. */}
+          <div className="mt-20">
+            <VolumePicker />
+          </div>
+
+          {/* What the $99 changes, on one shared row per capability, rather
+              than two bullet lists the buyer has to diff by eye. */}
+          <div className="mt-20">
+            <TierComparison />
+          </div>
 
         <div className="mt-20">
             <div className="mx-auto mb-12 max-w-2xl text-center">
@@ -323,6 +345,19 @@ function PricingPageContent() {
                       <p className="text-sm font-semibold text-[#0B1F3A]">
                       {addon.reportLimit} Additional Reports
                     </p>
+                      {/* Printed on every pack so the packs can be compared
+                          against each other and against the plan's own rate.
+                          Two of the three are dearer per report than the plan
+                          they extend; that is a pricing fact, and hiding it is
+                          exactly what this piece is judged against. */}
+                      <p className="mt-2 border-t border-slate-200/90 pt-2 text-sm font-semibold text-[#0B1F3A]">
+                        {formatPerReport(
+                          perReportRate(addon.amountAud, addon.reportLimit),
+                        )}{" "}
+                        <span className="font-normal text-slate-500">
+                          per report
+                        </span>
+                      </p>
                   </div>
                 </div>
                 <Link
@@ -334,6 +369,13 @@ function PricingPageContent() {
                 </motion.article>
               ))}
               </motion.div>
+          </div>
+
+          {/* The full ledger of what a contractor pays, including the cost we
+              do NOT bill — report generation runs on their own AI key. The
+              Alert above flags it early; this states it completely. */}
+          <div className="mt-20">
+            <CostDisclosure />
           </div>
         </div>
       </section>
