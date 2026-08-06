@@ -108,7 +108,7 @@ ${JSON.stringify(data.monitoringData, null, 2)}
 ## INSURANCE INFORMATION
 ${JSON.stringify(data.insuranceData, null, 2)}
 
-Please generate a comprehensive, professional IICRC S500 compliant water damage restoration report that includes:
+Please generate a comprehensive, professional water damage restoration report, structured on the IICRC S500:2021 sections, that includes:
 
 1. **EXECUTIVE SUMMARY** - Overview of the water damage incident, assessment findings, and recommended actions
 2. **SITE ASSESSMENT** - Detailed evaluation of the affected areas, moisture levels, and structural conditions
@@ -127,7 +127,12 @@ Please generate a comprehensive, professional IICRC S500 compliant water damage 
 
 The report should be:
 - Professional and comprehensive
-- IICRC S500 compliant
+- Structured on the IICRC S500:2021 sections, cited by section number
+- Careful never to state or imply that the work, the property, or the report
+  itself "complies with", "meets", "is certified against", or "is required by
+  law" under any standard. Describe what was observed, measured and done, and
+  cite the section it maps to. A compliance determination belongs to the reader,
+  not to this report.
 - Technically accurate
 - Client-friendly language where appropriate
 - Include specific measurements, calculations, and technical details

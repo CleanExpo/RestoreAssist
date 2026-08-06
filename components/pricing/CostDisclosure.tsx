@@ -20,8 +20,8 @@ import { useLandingReduceMotion } from "@/components/landing/home/useLandingRedu
 /**
  * Full cost disclosure for the public pricing page.
  *
- * Two separate parties charge a contractor who runs Restore Assist, and this
- * component names both in one place:
+ * More than one party charges a contractor who runs Restore Assist, and this
+ * component names every one of them in one place:
  *
  *   1. Restore Assist, plan and report packs — itemised from PRICING_CONFIG
  *      (lib/pricing.ts) so the page can never drift from the catalogue the
@@ -166,10 +166,23 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
             >
               Everything you pay to run Restore Assist
             </h2>
+            {/*
+              This read "Two parties charge you. We are one of them." A critic
+              checked it against the add-on table directly below and it is
+              wrong: ElevenLabs Voice needs the customer's own ElevenLabs key,
+              the Bookkeeping add-on needs their Xero / QuickBooks / MYOB
+              account, and the Service CRM add-on needs Ascora or DR-NRPG. Each
+              is a further party billing them directly. "Two" was true only for
+              a buyer who switches none of those on.
+
+              Worth naming precisely because this section invites the reader to
+              report a missing cost — a page that asks to be held to
+              completeness has to be right about how many parties are involved.
+            */}
             <p className="mt-5 text-base leading-relaxed text-slate-600">
-              Two parties charge you. We are one of them. Both are set out
-              below, including the cost we do not bill and cannot quote for
-              you.
+              We are not the only party that charges you. Everything we bill is
+              below, along with the costs we do not bill — your AI provider on
+              every plan, and the third-party accounts some add-ons connect to.
             </p>
           </motion.div>
 

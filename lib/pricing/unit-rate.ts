@@ -40,13 +40,39 @@ type Pack = {
   cents: number;
 };
 
+/**
+ * FAIL CLOSED — do not remove the filter.
+ *
+ * This derives the pack ladder from every key in `PRICING_CONFIG.addons`, which
+ * is safe only while that object holds report packs exclusively. The seven
+ * recurring $11/month add-ons live somewhere else entirely
+ * (`lib/billing/addon-registry.ts`), so today the assumption holds.
+ *
+ * If a non-report add-on is ever registered here, `reportLimit` is `undefined`,
+ * every arithmetic step downstream becomes `NaN`, and `planForVolume` returns a
+ * quote whose total and per-report rate are both `NaN` — silently, with no
+ * error, on the page whose whole job is telling a buyer what they will pay. A
+ * wrong price shown confidently is worse than no price.
+ *
+ * So entries without a usable positive integer `reportLimit` are dropped rather
+ * than trusted. Dropping one means the optimiser cannot buy it; it does not
+ * make the quote wrong for the packs that remain.
+ */
 const PACKS: readonly Pack[] = (
   Object.keys(PRICING_CONFIG.addons) as AddonPack[]
-).map((pack) => ({
-  pack,
-  reports: PRICING_CONFIG.addons[pack].reportLimit,
-  cents: toCents(PRICING_CONFIG.addons[pack].amount),
-}));
+)
+  .map((pack) => ({
+    pack,
+    reports: PRICING_CONFIG.addons[pack].reportLimit,
+    cents: toCents(PRICING_CONFIG.addons[pack].amount),
+  }))
+  .filter(
+    (entry) =>
+      Number.isInteger(entry.reports) &&
+      entry.reports > 0 &&
+      Number.isFinite(entry.cents) &&
+      entry.cents > 0,
+  );
 
 /** Dollars per report, or null when reports <= 0. */
 export function perReportRate(

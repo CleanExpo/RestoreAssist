@@ -91,7 +91,18 @@ export const PRICING_CONFIG = {
         "Integrations available as separately-priced add-ons",
         // See the note on the free tier's equivalent bullet.
         "Reports structured on IICRC S500:2021 sections",
-        "Priority processing",
+        // "Priority processing" was REMOVED because it does not exist. It is
+        // not gated-but-unenforced like the report-type bullets — there is no
+        // implementation of any kind. Searched app/, lib/ and components/ for
+        // "priority": the only hits are the sitemap's SEO weights in
+        // app/sitemap.ts. No queue, no priority column, no ordering logic, and
+        // the generation-route rate limits are identical for trial and paid.
+        // A positive control on the same search (quickFillCredits, 19 hits)
+        // confirms the search itself works.
+        //
+        // This is the worst class of claim on a pricing page: not a capability
+        // the buyer can obtain another way, but one that was never built and is
+        // being charged for. Build it before selling it.
       ],
     },
   },

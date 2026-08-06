@@ -184,11 +184,13 @@ const GROUPS: readonly ComparisonGroup[] = [
         paid: { included: true },
         headline: true,
       },
-      {
-        capability: "Priority processing",
-        free: { included: false },
-        paid: { included: true },
-      },
+      // "Priority processing" was removed, not reworded. Unlike the report-type
+      // rows — which are real capabilities merely gated client-side — this one
+      // has no implementation anywhere. Searching app/, lib/ and components/
+      // for "priority" returns only the sitemap's SEO weights; there is no
+      // queue, no priority column, no ordering logic, and trial and paid share
+      // identical rate limits on the generation route. It was a tier difference
+      // that did not exist.
     ],
   },
   {
