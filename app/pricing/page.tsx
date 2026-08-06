@@ -257,7 +257,20 @@ function PricingPageContent() {
                       </p>
                       {plan.signupBonus && !plan.isFree ? (
                         <p className="mt-1 text-xs text-slate-500">
-                          +{plan.signupBonus} bonus reports on first month
+                          {/*
+                            NOT "on first month". app/api/webhooks/stripe/route.ts
+                            grants the bonus as `addonReports: { increment }` —
+                            the same field lib/report-limits.ts adds to the
+                            monthly allowance and NEVER resets, unlike
+                            monthlyReportsUsed. So there is no evidence the bonus
+                            stops after month one, and the page must not assert a
+                            cut-off the code does not implement. Whether it is
+                            meant to be permanent is a billing-model question for
+                            the founder; until it is answered, this states the
+                            grant and claims nothing about when it ends.
+                          */}
+                          +{plan.signupBonus} bonus reports added when you
+                          subscribe
                         </p>
                       ) : null}
                       {/* The unit rate is the number a volume buyer actually
@@ -282,22 +295,28 @@ function PricingPageContent() {
                             )}{" "}
                             <span className="font-normal text-slate-500">
                               per report, plan and packs only
-                              {plan.signupBonus ? ", ongoing" : ""}
                             </span>
                           </p>
                           {plan.signupBonus ? (
                             <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                              Your first month is{" "}
-                              {plan.reportLimit + plan.signupBonus} reports for
-                              the same {plan.price}, which is{" "}
-                              {formatPerReport(
-                                perReportRate(
-                                  plan.amountAud,
-                                  plan.reportLimit + plan.signupBonus,
-                                ),
-                              )}{" "}
-                              per report. The rate above is what you pay from
-                              the second month on.
+                              {/*
+                                This used to say the first month was cheaper and
+                                "the rate above is what you pay from the second
+                                month on". That was backwards. The bonus lands in
+                                the never-reset addonReports field, so nothing in
+                                the code makes it first-month-only, and a
+                                subscriber holding 60 reports for $99 is at
+                                $1.65, not $1.98 — i.e. the figure presented as
+                                the ongoing one may be a rate no subscriber ever
+                                pays. Rather than swap one unproven recurrence
+                                claim for another, the rate is stated against the
+                                allowance the plan actually sells and the bonus
+                                is described as a bonus.
+                              */}
+                              That is {plan.reportLimit} reports for{" "}
+                              {plan.price}. The {plan.signupBonus} bonus reports
+                              are on top of it, so your first {plan.period.replace("/", "")}{" "}
+                              works out cheaper still.
                             </p>
                           ) : null}
                         </>
@@ -357,12 +376,13 @@ function PricingPageContent() {
               whole cost of producing a report. Saying so once, plainly, next
               to the rates rather than only in the disclosure at the bottom. */}
           <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-slate-500">
-            Every per-report figure on this page is the Restore Assist software
-            cost only. Report generation runs on your own AI provider key and
-            that provider bills you separately — we take no share of it, and we
-            do not publish an estimate we cannot stand behind. The full ledger,
-            including the optional add-ons, is set out at the bottom of this
-            page.
+            Every per-report figure on this page covers the plan and report
+            packs only. Two other things can add to your bill and are not in
+            those figures: any optional add-ons you switch on, and your own AI
+            provider — report generation runs on your key, that provider bills
+            you directly, we take no share of it, and we do not publish an
+            estimate we cannot stand behind. The full ledger of all three is set
+            out at the bottom of this page.
           </p>
 
           {/* Work out what a given month actually costs, before signing up.

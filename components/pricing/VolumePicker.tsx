@@ -1,26 +1,37 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { RAIcon } from "@/components/brand/RAIcon";
 import { cn } from "@/lib/utils";
 import { FONT_DISPLAY, SURFACE } from "@/components/landing/home/motion";
 import {
   formatPerReport,
+  packRung,
   perReportRate,
   planForVolume,
+  PACK_LADDER,
+  PACK_SIZES,
 } from "@/lib/pricing/unit-rate";
 
 /**
  * Volume picker for the public pricing page.
  *
  * The contractor sets the reports they write in a month and immediately sees
- * the plan, the packs added on top, the monthly total, and — the number this
- * page exists to make legible — the effective rate per report.
+ * the plan, the packs added on top, what the first month costs, what every
+ * month after costs, and — the numbers this page exists to make legible — the
+ * effective rate per report for each.
  *
  * All pricing arithmetic comes from `@/lib/pricing/unit-rate`. This component
  * only formats and lays out what the quote returns; it must never recompute a
  * total, a pack split, or a rate of its own.
+ *
+ * THAT INCLUDES THE PACK LADDER. This file used to rebuild it from
+ * `PRICING_CONFIG.addons` with no filter and a `reportLimit as number` cast,
+ * defeating the fail-closed filter `unit-rate.ts` exists for: register one
+ * non-report add-on there and the buyer-facing sentence read "blocks of 8, 25,
+ * 60 and undefined reports", while the rate card grew a row saying "undefined
+ * reports for $11.00 — —". `PACK_LADDER` is the single source now.
  */
 
 const MIN_REPORTS = 1;
@@ -28,6 +39,18 @@ const MAX_REPORTS = 500;
 /** Reports per tap on the stepper. Exact figures go in the field directly. */
 const STEP = 5;
 const PRESETS = [50, 80, 120, 200] as const;
+/**
+ * How long the figures must sit still before the live region is updated.
+ *
+ * The summary is one text node holding the notice and a thirty-word quote
+ * sentence, and `aria-live="polite"` re-reads the whole thing on every change.
+ * Undebounced, typing "120" queues three complete announcements and a phone
+ * screen reader talks over the rest of the interaction. 600ms is longer than
+ * the gap between keystrokes in a three-digit number and short enough that the
+ * result still feels immediate once typing stops. The announcement is delayed,
+ * never dropped.
+ */
+const ANNOUNCE_DELAY_MS = 600;
 
 const AUD = new Intl.NumberFormat("en-AU", {
   style: "currency",
@@ -44,19 +67,23 @@ const MONTHLY = PRICING_CONFIG.pricing.monthly;
 /**
  * The rate card behind the recommendation — every purchasable block priced per
  * report, so the contractor can see for themselves why a bigger pack wins.
+ *
+ * The cadence is spelled out on each rung rather than left to the reader: the
+ * plan is billed every month, a pack is billed once. Rows come from
+ * `PACK_LADDER`, so a malformed add-on is dropped here as well as in the maths.
  */
 const RATE_LADDER = [
   {
     key: "plan",
     label: MONTHLY.displayName,
-    detail: `${MONTHLY.reportLimit} reports for ${AUD.format(MONTHLY.amount)}`,
+    detail: `${MONTHLY.reportLimit} reports for ${AUD.format(MONTHLY.amount)} a month`,
     rate: perReportRate(MONTHLY.amount, MONTHLY.reportLimit),
   },
-  ...Object.entries(PRICING_CONFIG.addons).map(([key, addon]) => ({
-    key,
-    label: addon.displayName,
-    detail: `${addon.reportLimit} reports for ${AUD.format(addon.amount)}`,
-    rate: perReportRate(addon.amount, addon.reportLimit),
+  ...PACK_LADDER.map((rung) => ({
+    key: rung.pack,
+    label: rung.displayName,
+    detail: `${rung.reports} reports for ${AUD.format(rung.amountAud)}, bought once`,
+    rate: rung.rate,
   })),
 ];
 
@@ -86,11 +113,6 @@ function parseReports(value: string): number | null {
 function reportWord(count: number): string {
   return count === 1 ? "report" : "reports";
 }
-
-/** Pack sizes as sold, smallest first — the granularity behind every overshoot. */
-const PACK_SIZES = Object.values(PRICING_CONFIG.addons)
-  .map((addon) => addon.reportLimit as number)
-  .sort((a, b) => a - b);
 
 const SMALLEST_PACK = PACK_SIZES[0] ?? 0;
 
@@ -180,32 +202,50 @@ export function VolumePicker({
   const quote = useMemo(() => planForVolume(reports), [reports]);
 
   const overshoot = quote.reportsProvided - quote.reportsPerMonth;
-  const effectiveRate = formatPerReport(quote.effectiveRate);
+  const firstMonthRate = formatPerReport(quote.firstMonthRate);
+  const ongoingRate = formatPerReport(quote.ongoingRate);
+
+  /**
+   * Whether anything one-off is being bought. Only then do the first month and
+   * every month after differ, and only then is a split worth the extra reading.
+   */
+  const buysPacks = quote.packs.length > 0;
 
   // Two very different reasons produce spare reports, and they need different
   // copy. Below the plan allowance nothing was bought at all — the spare comes
   // from the plan's own 50. Above it, the spare comes from the pack combination.
-  const packSpare = quote.packs.length > 0 && overshoot > 0;
-  const planSpare = quote.packs.length === 0 && overshoot > 0;
+  const packSpare = buysPacks && overshoot > 0;
+  const planSpare = !buysPacks && overshoot > 0;
 
-  const singlePack =
-    quote.packs.length === 1 && quote.packs[0].qty === 1 ? quote.packs[0] : null;
-  const singlePackSize = singlePack
-    ? (PRICING_CONFIG.addons[singlePack.pack].reportLimit as number)
-    : 0;
   /**
-   * True only when ONE pack, bought once, covers the whole overage on its own
-   * and is not merely the smallest block sold. `planForVolume` is a min-cost
-   * cover, so in that case no mix of smaller packs covers the same overage for
-   * less — the only situation where "buying up is cheaper" is the real reason.
-   * Every other overshoot is block granularity, not pack value: at 80 reports
-   * the optimiser buys a 25-pack and an 8-pack, the two DEAREST packs per
-   * report, purely because 30 is not a buyable amount.
+   * The whole spoken summary as one string, so the debounce below has a single
+   * value to settle on. The mismatch goes first: the figures mean nothing until
+   * you know which number they were worked out for.
    */
-  const boughtUpForValue =
-    singlePack !== null &&
-    singlePackSize > quote.overage &&
-    singlePackSize > SMALLEST_PACK;
+  const summary =
+    (notice ? `${notice} ` : "") +
+    `At ${quote.reportsPerMonth} ${reportWord(quote.reportsPerMonth)} a month: ` +
+    (buysPacks
+      ? `${AUD.format(quote.firstMonthAud)} in the first month, then ${AUD.format(quote.ongoingMonthlyAud)} a month. ` +
+        `That is ${firstMonthRate} per report to start and ${ongoingRate} per report from the second month on, in software, plus your own AI provider's charges. ` +
+        `${quote.reportsProvided} reports available each month.`
+      : `${AUD.format(quote.ongoingMonthlyAud)} a month, ${ongoingRate} per report for plan and packs, plus your own AI provider's charges. ` +
+        `${quote.reportsProvided} reports available each month.`);
+
+  /**
+   * What the live region is currently holding. Lags `summary` by
+   * {@link ANNOUNCE_DELAY_MS}, so a screen-reader user hears the settled
+   * figures once instead of one announcement per keystroke.
+   */
+  const [announcement, setAnnouncement] = useState(summary);
+
+  useEffect(() => {
+    // Every change restarts the timer, so only a pause in typing announces.
+    // React bails out of an identical state write, so a value that comes back
+    // to where it started costs no re-render and no second announcement.
+    const timer = setTimeout(() => setAnnouncement(summary), ANNOUNCE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [summary]);
 
   return (
     <section
@@ -374,47 +414,103 @@ export function VolumePicker({
 
       {/* ── Result ──────────────────────────────────────────────────────── */}
       <div className="mt-8 rounded-2xl bg-[#F3F5F7] p-5 sm:p-6">
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
-              Software cost per report
-            </p>
-            <p
-              className={cn(
-                FONT_DISPLAY,
-                "mt-2 text-4xl font-semibold tracking-tight text-[#0B1F3A] sm:text-5xl",
-              )}
-            >
-              {effectiveRate}
-            </p>
-            <p className="mt-2 text-sm text-slate-600">
-              {quote.reportsPerMonth === 1
-                ? "on the 1 report you write."
-                : `on each of the ${quote.reportsPerMonth} reports you write.`}
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-slate-500">
-              Software only. Generating a report also runs on your own Anthropic
-              or OpenAI key, and that provider bills you for it directly.
-            </p>
-          </div>
+        {/*
+          Two figures, not one, whenever a pack is involved. The packs are a
+          one-off charge that raises the monthly allowance permanently
+          (`mode: "payment"` at checkout, `addonReports: { increment }` at
+          fulfilment, and nothing in the codebase ever winds it back), so a
+          single blended "total each month" is right for the buying month and
+          roughly double the truth for every month after it.
+        */}
+        {buysPacks ? (
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
+                Your first month
+              </p>
+              <p
+                className={cn(
+                  FONT_DISPLAY,
+                  "mt-2 text-4xl font-semibold tracking-tight text-[#0B1F3A] sm:text-5xl",
+                )}
+              >
+                {AUD.format(quote.firstMonthAud)}
+              </p>
+              <p className="mt-2 text-sm text-slate-600">
+                {firstMonthRate} per report &mdash; the plan plus the report
+                packs, which you buy once.
+              </p>
+            </div>
 
-          <div className="sm:text-right">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
-              Total each month
-            </p>
-            <p
-              className={cn(
-                FONT_DISPLAY,
-                "mt-2 text-4xl font-semibold tracking-tight text-[#0B1F3A] sm:text-5xl",
-              )}
-            >
-              {AUD.format(quote.totalAud)}
-            </p>
-            <p className="mt-2 text-sm text-slate-600">
-              AUD, incl. GST. Cancel any time.
-            </p>
+            <div className="sm:text-right">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
+                Every month after
+              </p>
+              <p
+                className={cn(
+                  FONT_DISPLAY,
+                  "mt-2 text-4xl font-semibold tracking-tight text-[#0B1F3A] sm:text-5xl",
+                )}
+              >
+                {AUD.format(quote.ongoingMonthlyAud)}
+              </p>
+              <p className="mt-2 text-sm text-slate-600">
+                {ongoingRate} per report, on the same {quote.reportsProvided} a
+                month.
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
+                Plan and packs, per report
+              </p>
+              <p
+                className={cn(
+                  FONT_DISPLAY,
+                  "mt-2 text-4xl font-semibold tracking-tight text-[#0B1F3A] sm:text-5xl",
+                )}
+              >
+                {ongoingRate}
+              </p>
+              <p className="mt-2 text-sm text-slate-600">
+                {quote.reportsPerMonth === 1
+                  ? "on the 1 report you write."
+                  : `on each of the ${quote.reportsPerMonth} reports you write.`}
+              </p>
+            </div>
+
+            <div className="sm:text-right">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
+                Total each month
+              </p>
+              <p
+                className={cn(
+                  FONT_DISPLAY,
+                  "mt-2 text-4xl font-semibold tracking-tight text-[#0B1F3A] sm:text-5xl",
+                )}
+              >
+                {AUD.format(quote.ongoingMonthlyAud)}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {buysPacks ? (
+          <p className="mt-4 text-sm leading-relaxed text-slate-600">
+            The report packs are a one-off purchase, not a second subscription.
+            The reports they add stay on your account, so from month two you are
+            back to the {MONTHLY.displayName} plan alone and still have{" "}
+            {quote.reportsProvided} reports a month to write against.
+          </p>
+        ) : null}
+
+        <p className="mt-2 text-sm leading-relaxed text-slate-500">
+          AUD, incl. GST. Cancel any time. Software only &mdash; generating a
+          report also runs on your own Anthropic or OpenAI key, and that
+          provider bills you for it directly.
+        </p>
 
         {/* Line items */}
         <ul className="mt-6 space-y-2 border-t border-slate-200/90 pt-5 text-sm">
@@ -429,12 +525,15 @@ export function VolumePicker({
               </span>
             </span>
             <span className="shrink-0 font-semibold text-[#0B1F3A]">
-              {AUD.format(MONTHLY.amount)}
+              {AUD.format(MONTHLY.amount)} a month
             </span>
           </li>
 
           {quote.packs.map((purchase) => {
-            const addon = PRICING_CONFIG.addons[purchase.pack];
+            // From the filtered ladder, never the raw catalogue — a malformed
+            // add-on must not be able to render "undefined reports" here.
+            const rung = packRung(purchase.pack);
+            if (!rung) return null;
             return (
               <li
                 key={purchase.pack}
@@ -445,23 +544,22 @@ export function VolumePicker({
                     <RAIcon name="task" size={16} decorative />
                   </span>
                   <span>
-                    {purchase.qty} &times; {addon.displayName} &mdash;{" "}
-                    {addon.reportLimit} reports at {AUD.format(addon.amount)}{" "}
-                    each
+                    {purchase.qty} &times; {rung.displayName} &mdash;{" "}
+                    {rung.reports} reports at {AUD.format(rung.amountAud)} each
                   </span>
                 </span>
               </li>
             );
           })}
 
-          {quote.packs.length > 0 ? (
+          {buysPacks ? (
             <li className="flex items-start justify-between gap-4 text-slate-600">
               <span className="pl-6">
                 Report packs to cover the {quote.overage}{" "}
                 {reportWord(quote.overage)} beyond your plan allowance
               </span>
               <span className="shrink-0 font-semibold text-[#0B1F3A]">
-                {AUD.format(quote.packsTotalAud)}
+                {AUD.format(quote.packsTotalAud)} once
               </span>
             </li>
           ) : (
@@ -485,8 +583,8 @@ export function VolumePicker({
                 <RAIcon name="moisture" size={16} decorative />
               </span>
               <span>
-                {quote.reportsProvided} reports available &mdash; {overshoot}{" "}
-                more than the {quote.reportsPerMonth} you asked for.
+                {quote.reportsProvided} reports available each month &mdash;{" "}
+                {overshoot} more than the {quote.reportsPerMonth} you asked for.
               </span>
             </p>
             <p className="mt-2 pl-6 text-sm leading-relaxed text-slate-600">
@@ -498,23 +596,32 @@ export function VolumePicker({
                     : index === quote.packs.length - 1
                       ? " and "
                       : ", "}
-                  {purchase.qty} &times;{" "}
-                  {PRICING_CONFIG.addons[purchase.pack].displayName}
+                  {purchase.qty} &times; {packRung(purchase.pack)?.displayName}
                 </span>
               ))}{" "}
               is the cheapest combination that covers the {quote.overage}{" "}
               {reportWord(quote.overage)} you need beyond your plan, and it runs{" "}
-              {overshoot} over.{" "}
-              {boughtUpForValue
-                ? "No mix of smaller packs covers that for less, so buying the bigger block really is the cheaper move."
-                : quote.overage < SMALLEST_PACK
-                  ? `The smallest pack sold is ${SMALLEST_PACK} reports, so going even one over your plan means buying ${SMALLEST_PACK}.`
-                  : "The spare reports are what the block sizes leave behind, not a bulk discount."}
+              {overshoot} over.
+            </p>
+            {/*
+              The two causes of that excess, kept apart. Blaming all of it on
+              block granularity was false wherever an equally cheap, leaner
+              combination existed — at 152 a month, 8 of the 18 spare reports
+              are the blocks and the other 10 are the choice.
+            */}
+            <p className="mt-2 pl-6 text-sm leading-relaxed text-slate-600">
+              {quote.spareFromBuyingUp > 0 && quote.spareFromBlockSizes > 0
+                ? `${quote.spareFromBlockSizes} of those spare ${reportWord(quote.spareFromBlockSizes)} are what the fixed blocks leave behind. The other ${quote.spareFromBuyingUp} we could have left out: a leaner combination covering the same ${quote.overage} costs exactly the same, so we quote the one that leaves you more.`
+                : quote.spareFromBuyingUp > 0
+                  ? `A combination fitting your ${quote.overage} exactly is available for the same money, so none of the spare ${reportWord(overshoot)} are forced by the block sizes. We quote the larger one because at an identical price it leaves you more.`
+                  : quote.overage < SMALLEST_PACK
+                    ? `The smallest pack sold is ${SMALLEST_PACK} reports, so going even one over your plan means buying ${SMALLEST_PACK}.`
+                    : "Every spare report there is what the block sizes leave behind: no cheaper combination, and no equally cheap one, gets closer to what you need."}
             </p>
             <p className="mt-2 pl-6 text-sm leading-relaxed text-slate-600">
-              The rate above is worked out over the {quote.reportsPerMonth}{" "}
+              Both rates above are worked out over the {quote.reportsPerMonth}{" "}
               {reportWord(quote.reportsPerMonth)} you actually write, so the
-              spare ones are not flattering the figure.
+              spare ones are not flattering the figures.
             </p>
           </div>
         ) : null}
@@ -537,8 +644,8 @@ export function VolumePicker({
               {reportWord(quote.reportsPerMonth)} a month you still pay the full{" "}
               {AUD.format(MONTHLY.amount)} and {overshoot} of the{" "}
               {quote.baseIncluded} {overshoot === 1 ? "goes" : "go"} unused.
-              That is why the rate above is{" "}
-              {effectiveRate}: it spreads the plan across the{" "}
+              That is why the rate above is {ongoingRate}: it spreads the plan
+              across the{" "}
               {quote.reportsPerMonth} {reportWord(quote.reportsPerMonth)} you
               actually write, not the {quote.baseIncluded} available to you.
             </p>
@@ -546,15 +653,19 @@ export function VolumePicker({
         ) : null}
       </div>
 
-      {/* Screen-reader summary of the live result. */}
+      {/*
+        Screen-reader summary of the live result, DEBOUNCED.
+
+        This node holds the notice and the whole quote sentence, and
+        aria-live="polite" re-reads all of it on any change. Bound directly to
+        the quote, typing "120" queued three full announcements and a phone
+        screen reader spent the rest of the interaction talking. It now renders
+        `announcement`, which trails the figures by ANNOUNCE_DELAY_MS, so an
+        unbroken run of keystrokes produces exactly one settled announcement.
+        The visible figures are not debounced — they update immediately.
+      */}
       <p role="status" aria-live="polite" className="sr-only">
-        {/* The mismatch goes first: the figures mean nothing until you know
-            which number they were worked out for. */}
-        {notice ? `${notice} ` : ""}
-        At {quote.reportsPerMonth} {reportWord(quote.reportsPerMonth)} a month:{" "}
-        {AUD.format(quote.totalAud)} per month, {effectiveRate} per report in
-        software, plus your own AI provider&rsquo;s charges.{" "}
-        {quote.reportsProvided} reports available.
+        {announcement}
       </p>
 
       {/* ── Rate ladder ─────────────────────────────────────────────────── */}

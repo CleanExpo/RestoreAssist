@@ -133,7 +133,12 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
       label: monthly.displayName,
       amount: formatAud(monthly.amount),
       cadence: `per ${monthly.interval}`,
-      included: `${monthly.reportLimit} inspection reports per ${monthly.interval}, plus ${monthly.signupBonus} bonus reports in your first ${monthly.interval}`,
+      // NOT "in your first month". The bonus is granted as
+      // `addonReports: { increment }` in app/api/webhooks/stripe/route.ts — the
+      // never-reset field lib/report-limits.ts adds to the allowance — so no
+      // code makes it first-month-only. State the grant, claim nothing about
+      // when it ends.
+      included: `${monthly.reportLimit} inspection reports per ${monthly.interval}, plus ${monthly.signupBonus} bonus reports when you subscribe`,
       perReport: perReportRate(monthly.amount, monthly.reportLimit),
     },
     ...Object.values(PRICING_CONFIG.addons).map((addon) => ({
@@ -237,7 +242,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                       scope="col"
                       className="py-3 text-right font-semibold text-[#0B1F3A]"
                     >
-                      Software per report
+                      Plan and packs per report
                     </th>
                   </tr>
                 </thead>

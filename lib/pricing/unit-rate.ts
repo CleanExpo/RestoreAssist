@@ -21,6 +21,28 @@
  * `planForVolume` runs a min-cost cover (unbounded knapsack) over the packs, so
  * it finds the genuinely cheapest combination and may deliberately overshoot.
  * `reportsProvided` is therefore allowed to exceed `reportsPerMonth`.
+ *
+ * THE SECOND TRAP: THE PLAN RECURS, THE PACKS DO NOT. Not a presentation
+ * detail — it moves the headline rate by about 2x. Traced through the shipped
+ * billing code, not inferred:
+ *
+ *   - `app/api/addons/checkout/route.ts` opens the pack checkout with
+ *     `mode: "payment"` — a one-off charge, not a subscription line.
+ *   - `lib/billing/fulfill-one-time.ts` fulfils it with
+ *     `addonReports: { increment: n }` on the user row.
+ *   - `lib/report-limits.ts` computes `totalLimit = baseLimit + addonReports`
+ *     and zeroes `monthlyReportsUsed` on every month roll. `addonReports` is
+ *     never zeroed, decremented or date-filtered anywhere in this repo, and the
+ *     `addonPurchase.findMany` behind it filters on `status: "COMPLETED"` with
+ *     no date bound at all.
+ *
+ * So one pack purchase raises the MONTHLY allowance permanently, while the
+ * usage counter it is spent against resets each month. A contractor writing
+ * 110 reports a month pays $199 in the month they buy the 60-pack and $99 a
+ * month from then on, for the same 110 reports — $1.81 per report once, then
+ * $0.90 per report for good. A single blended "monthly total" is right for at
+ * most one month, so every quote carries a first-month figure and an ongoing
+ * figure, each with its own rate.
  */
 
 import { PRICING_CONFIG, type AddonPack } from "@/lib/pricing";
@@ -35,6 +57,7 @@ const BASE_PLAN = PRICING_CONFIG.pricing.monthly;
 
 type Pack = {
   pack: AddonPack;
+  displayName: string;
   /** Reports the pack adds to the monthly allowance. */
   reports: number;
   cents: number;
@@ -57,12 +80,20 @@ type Pack = {
  * So entries without a usable positive integer `reportLimit` are dropped rather
  * than trusted. Dropping one means the optimiser cannot buy it; it does not
  * make the quote wrong for the packs that remain.
+ *
+ * THIS IS THE ONLY PLACE THE LADDER IS BUILT. Anything that needs the sellable
+ * packs — a rate card, a "packs come in blocks of 8, 25 and 60" sentence, a
+ * line item — must read `PACK_LADDER` below rather than re-deriving from
+ * `PRICING_CONFIG.addons`. A second, unfiltered derivation elsewhere reinstates
+ * exactly the hole this filter closes: the component that used to do it
+ * rendered "8, 25, 60 and undefined" into buyer-facing copy.
  */
 const PACKS: readonly Pack[] = (
   Object.keys(PRICING_CONFIG.addons) as AddonPack[]
 )
   .map((pack) => ({
     pack,
+    displayName: PRICING_CONFIG.addons[pack].displayName,
     reports: PRICING_CONFIG.addons[pack].reportLimit,
     cents: toCents(PRICING_CONFIG.addons[pack].amount),
   }))
@@ -73,6 +104,9 @@ const PACKS: readonly Pack[] = (
       Number.isFinite(entry.cents) &&
       entry.cents > 0,
   );
+
+/** Look-up of a filtered pack by key. Callers only ever hold filtered keys. */
+const PACK_BY_KEY = new Map<AddonPack, Pack>(PACKS.map((p) => [p.pack, p]));
 
 /** Dollars per report, or null when reports <= 0. */
 export function perReportRate(
@@ -95,6 +129,49 @@ export function formatPerReport(rate: number | null): string {
   return `$${rate.toFixed(2)}`;
 }
 
+/** One sellable report pack, already through the fail-closed filter. */
+export type PackRung = {
+  pack: AddonPack;
+  displayName: string;
+  /** Reports the pack adds. Guaranteed a positive integer. */
+  reports: number;
+  amountAud: number;
+  /** amountAud / reports. Never null for a rung — the filter guarantees it. */
+  rate: number | null;
+};
+
+/**
+ * Every pack a buyer can actually be quoted, smallest first.
+ *
+ * The single source for pack presentation. Empty is a legitimate value (a
+ * catalogue of nothing but malformed entries), and a caller rendering from it
+ * must survive that rather than assume at least one rung.
+ */
+export const PACK_LADDER: readonly PackRung[] = [...PACKS]
+  .sort((a, b) => a.reports - b.reports)
+  .map((entry) => ({
+    pack: entry.pack,
+    displayName: entry.displayName,
+    reports: entry.reports,
+    amountAud: entry.cents / 100,
+    rate: perReportRate(entry.cents / 100, entry.reports),
+  }));
+
+/** Pack block sizes as sold, smallest first. */
+export const PACK_SIZES: readonly number[] = PACK_LADDER.map((r) => r.reports);
+
+/**
+ * The rung for a pack key, or null when that key was filtered out.
+ *
+ * Every key reachable from a `VolumeQuote` is a filtered one, so a caller
+ * rendering a quote will never see null. It is still nullable rather than
+ * asserted, because the alternative is a cast, and a cast is how the unfiltered
+ * `undefined` reached buyer-facing copy the first time.
+ */
+export function packRung(pack: AddonPack): PackRung | null {
+  return PACK_LADDER.find((rung) => rung.pack === pack) ?? null;
+}
+
 export type PackPurchase = { pack: AddonPack; qty: number };
 
 export type VolumeQuote = {
@@ -103,51 +180,121 @@ export type VolumeQuote = {
   baseIncluded: number;
   /** Reports beyond the base plan. */
   overage: number;
-  /** Cheapest combination covering the overage. */
+  /** Cheapest combination covering the overage. Bought ONCE, not monthly. */
   packs: PackPurchase[];
+  /** One-off cost of `packs`. Charged in the first month and never again. */
   packsTotalAud: number;
-  /** Base plan + packs. */
+  /**
+   * Base plan + packs. This is the FIRST MONTH only — see `ongoingMonthlyAud`.
+   * Retained under its original name because callers outside this repo may
+   * hold it; new code should read `firstMonthAud`, which says what it means.
+   */
   totalAud: number;
+  /** Plan + one-off packs: what the buyer pays in the month they buy. */
+  firstMonthAud: number;
+  /**
+   * What the buyer pays every month after: the plan alone.
+   *
+   * The packs are not re-bought, because they were never a subscription and
+   * the allowance they bought never expires (see the module header). The
+   * allowance stays at `reportsProvided` a month for this price.
+   */
+  ongoingMonthlyAud: number;
   /**
    * baseIncluded + reports from purchased packs. May legitimately EXCEED
    * `reportsPerMonth` — overshooting with one larger pack is often cheaper
    * than an exact fill from smaller ones.
    */
   reportsProvided: number;
-  /** totalAud / reportsPerMonth. */
+  /**
+   * Spare reports that no equally cheap combination could avoid, because packs
+   * are sold in fixed blocks. Zero when no pack is bought.
+   */
+  spareFromBlockSizes: number;
+  /**
+   * Spare reports on top of that, which the chosen combination adds at NO
+   * extra cost over the leanest equally priced one.
+   *
+   * At 152 reports a month, 2 x 60-pack and 1 x 60-pack + 2 x 25-pack both
+   * cost $200. The first is chosen because at the same price it leaves a
+   * larger permanent allowance. 8 of the 18 spare reports are forced by the
+   * block sizes; the other 10 are this. The two are separated because copy
+   * that blames all 18 on block granularity is false.
+   */
+  spareFromBuyingUp: number;
+  /**
+   * firstMonthAud / reportsPerMonth. Same value as `firstMonthRate`; kept
+   * because the name predates the first-month/ongoing split.
+   */
   effectiveRate: number;
+  /** firstMonthAud / reportsPerMonth — true for the buying month only. */
+  firstMonthRate: number;
+  /** ongoingMonthlyAud / reportsPerMonth — true from the second month on. */
+  ongoingRate: number;
 };
 
 /**
- * Cheapest set of packs providing at least `overage` reports.
+ * Cheapest set of packs providing at least `overage` reports, plus the fewest
+ * reports any EQUALLY CHEAP set would have provided.
  *
- * Min-cost cover by dynamic programming: `best[n]` is the cheapest way to
+ * Min-cost cover by dynamic programming: `cost[n]` is the cheapest way to
  * provide AT LEAST n reports. Buying a pack of size s reduces the requirement
- * to `max(0, n - s)`, which is what lets the optimum overshoot. Ties on cost
- * are broken toward the combination that provides more reports, so the result
- * is deterministic and never worse for the customer.
+ * to `max(0, n - s)`, which is what lets the optimum overshoot.
+ *
+ * TIES ARE BROKEN TOWARD MORE REPORTS, DELIBERATELY, and the reason changed
+ * once the packs were traced as one-off purchases. A pack permanently raises
+ * the monthly allowance, so at identical cost the combination providing more
+ * reports is strictly better value for the buyer, every month, forever. Taking
+ * the leaner tie would be spending the same money for less.
+ *
+ * What that tie-break must NOT do is let the page blame the resulting excess on
+ * block granularity. So `leanestReports` runs the same recurrence with the
+ * opposite tie-break: the fewest reports achievable at the same minimum cost.
+ * The difference between the two is the part of the overshoot that is a free
+ * extra rather than a rounding artefact, and the caller reports them apart.
+ *
+ * Both extremes are exact, not heuristics: any cover of `need` decomposes into
+ * a first pack `i` plus a cover of `max(0, need - s_i)`, the sub-problem's cost
+ * is optimal by induction, and the loop tries every `i`.
  */
-function cheapestPacks(overage: number): PackPurchase[] {
-  if (overage <= 0 || PACKS.length === 0) return [];
+function cheapestPacks(overage: number): {
+  packs: PackPurchase[];
+  leanestReports: number;
+} {
+  if (overage <= 0 || PACKS.length === 0) {
+    return { packs: [], leanestReports: 0 };
+  }
 
   const cost = new Array<number>(overage + 1).fill(Number.POSITIVE_INFINITY);
-  const provided = new Array<number>(overage + 1).fill(0);
+  /** Most reports achievable at `cost[need]` — drives the chosen combination. */
+  const providedMax = new Array<number>(overage + 1).fill(0);
+  /** Fewest reports achievable at `cost[need]` — reported, never bought. */
+  const providedMin = new Array<number>(overage + 1).fill(0);
   const choice = new Array<number>(overage + 1).fill(-1);
   cost[0] = 0;
 
   for (let need = 1; need <= overage; need++) {
+    // Pass 1 — settle the minimum cost for `need`.
     for (let i = 0; i < PACKS.length; i++) {
       const rest = Math.max(0, need - PACKS[i].reports);
-      const candidateCost = cost[rest] + PACKS[i].cents;
-      const candidateProvided = provided[rest] + PACKS[i].reports;
-      const better =
-        candidateCost < cost[need] ||
-        (candidateCost === cost[need] && candidateProvided > provided[need]);
-      if (better) {
-        cost[need] = candidateCost;
-        provided[need] = candidateProvided;
+      const candidate = cost[rest] + PACKS[i].cents;
+      if (candidate < cost[need]) cost[need] = candidate;
+    }
+    // Pass 2 — among the ways to reach that cost, take both extremes. Split
+    // from pass 1 on purpose: a single interleaved pass compares against a
+    // cost[need] that is still provisional, and would settle the extremes
+    // against a cost it later beats.
+    providedMin[need] = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < PACKS.length; i++) {
+      const rest = Math.max(0, need - PACKS[i].reports);
+      if (cost[rest] + PACKS[i].cents !== cost[need]) continue;
+      const asMax = providedMax[rest] + PACKS[i].reports;
+      if (choice[need] === -1 || asMax > providedMax[need]) {
+        providedMax[need] = asMax;
         choice[need] = i;
       }
+      const asMin = providedMin[rest] + PACKS[i].reports;
+      if (asMin < providedMin[need]) providedMin[need] = asMin;
     }
   }
 
@@ -158,9 +305,12 @@ function cheapestPacks(overage: number): PackPurchase[] {
     need = Math.max(0, need - PACKS[i].reports);
   }
 
-  return [...qtyByIndex.entries()]
-    .sort((a, b) => PACKS[b[0]].reports - PACKS[a[0]].reports)
-    .map(([i, qty]) => ({ pack: PACKS[i].pack, qty }));
+  return {
+    packs: [...qtyByIndex.entries()]
+      .sort((a, b) => PACKS[b[0]].reports - PACKS[a[0]].reports)
+      .map(([i, qty]) => ({ pack: PACKS[i].pack, qty })),
+    leanestReports: providedMin[overage],
+  };
 }
 
 /**
@@ -182,18 +332,24 @@ export function planForVolume(reportsPerMonth: number): VolumeQuote {
   // and would narrow the `reportsProvided` accumulator below to that literal.
   const baseIncluded: number = BASE_PLAN.reportLimit;
   const overage = Math.max(0, reportsPerMonth - baseIncluded);
-  const packs = cheapestPacks(overage);
+  const { packs, leanestReports } = cheapestPacks(overage);
 
+  // Both reduces read the FILTERED ladder, not PRICING_CONFIG.addons. Every
+  // key here came from the filter already, so this cannot change a number; it
+  // means there is no second path into the raw catalogue to go stale.
   const packsTotalCents = packs.reduce((sum, { pack, qty }) => {
-    return sum + toCents(PRICING_CONFIG.addons[pack].amount) * qty;
+    return sum + (PACK_BY_KEY.get(pack)?.cents ?? 0) * qty;
   }, 0);
-  const totalCents = toCents(BASE_PLAN.amount) + packsTotalCents;
+  const ongoingCents = toCents(BASE_PLAN.amount);
+  const firstMonthCents = ongoingCents + packsTotalCents;
 
-  const reportsProvided = packs.reduce((sum, { pack, qty }) => {
-    return sum + PRICING_CONFIG.addons[pack].reportLimit * qty;
-  }, baseIncluded);
+  const packsReports = packs.reduce((sum, { pack, qty }) => {
+    return sum + (PACK_BY_KEY.get(pack)?.reports ?? 0) * qty;
+  }, 0);
+  const reportsProvided = baseIncluded + packsReports;
 
-  const totalAud = totalCents / 100;
+  const firstMonthAud = firstMonthCents / 100;
+  const ongoingMonthlyAud = ongoingCents / 100;
 
   return {
     reportsPerMonth,
@@ -201,9 +357,15 @@ export function planForVolume(reportsPerMonth: number): VolumeQuote {
     overage,
     packs,
     packsTotalAud: packsTotalCents / 100,
-    totalAud,
+    totalAud: firstMonthAud,
+    firstMonthAud,
+    ongoingMonthlyAud,
     reportsProvided,
+    spareFromBlockSizes: Math.max(0, leanestReports - overage),
+    spareFromBuyingUp: Math.max(0, packsReports - leanestReports),
     // Same formula as perReportRate; reportsPerMonth >= 1 is guaranteed above.
-    effectiveRate: totalAud / reportsPerMonth,
+    effectiveRate: firstMonthAud / reportsPerMonth,
+    firstMonthRate: firstMonthAud / reportsPerMonth,
+    ongoingRate: ongoingMonthlyAud / reportsPerMonth,
   };
 }
