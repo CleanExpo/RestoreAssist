@@ -36,9 +36,20 @@ export const PRICING_CONFIG = {
     features: [
       "15-day free trial",
       "50 inspection report credits",
-      "30 Quick Fill credits (AI-powered form auto-fill)",
+      // NOT "AI-powered". The shipped Quick Fill copies hardcoded scenario
+      // data; `generateQuickFillData` (lib/deepseek-api.ts:74) has zero callers
+      // anywhere in the repository, so there is no AI in this path to sell.
+      "30 Quick Fill credits (form auto-fill)",
       "Basic report type",
-      "IICRC S500 compliant reports",
+      // NOT "IICRC S500 compliant". lib/iicrc-inclusion-check.ts states the
+      // hard rule that this product never asserts "complies", "certifies",
+      // "meets [the standard]" or "required by law", enforced by
+      // lib/__tests__/iicrc-inclusion-check.test.ts, and full S500 clause
+      // ingestion is blocked pending legal clearance. Alignment is the only
+      // claim the build supports: the section INDEX ships
+      // (lib/standards/s500-sections.ts), the licensed wording does not.
+      // Wording matches app/features/page.tsx so the two surfaces agree.
+      "Reports structured on IICRC S500:2021 sections",
       "PDF & Excel export",
       "Email support",
     ],
@@ -70,8 +81,16 @@ export const PRICING_CONFIG = {
         "First month signup bonus: +10 reports",
         "PDF & Excel export",
         "Email support",
-        "All integrations",
-        "IICRC S500 compliant",
+        // NOT "All integrations". Three of the seven recurring add-ons in
+        // lib/billing/addon-registry.ts ARE integrations — Online Bookkeeping
+        // Connection, Service CRM Connection and Payments Collection — each a
+        // separate monthly subscription on top of this plan. Promising "all
+        // integrations" here promised things that cost extra. Their real
+        // prices are rendered on the pricing page by CostDisclosure, read
+        // straight from the registry.
+        "Integrations available as separately-priced add-ons",
+        // See the note on the free tier's equivalent bullet.
+        "Reports structured on IICRC S500:2021 sections",
         "Priority processing",
       ],
     },

@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useLayoutEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { RECURRING_ADDONS } from "@/lib/billing/addon-registry";
 import { RAIcon } from "@/components/brand/RAIcon";
 import {
   fadeUp,
@@ -21,12 +23,23 @@ import { useLandingReduceMotion } from "@/components/landing/home/useLandingRedu
  * Two separate parties charge a contractor who runs Restore Assist, and this
  * component names both in one place:
  *
- *   1. Restore Assist — every subscription and add-on charge, itemised from
- *      PRICING_CONFIG (lib/pricing.ts) so the page can never drift from the
- *      catalogue the checkout actually sells from. The effective per-report
- *      rate is derived by division from those same authored numbers.
+ *   1. Restore Assist, plan and report packs — itemised from PRICING_CONFIG
+ *      (lib/pricing.ts) so the page can never drift from the catalogue the
+ *      checkout actually sells from. The effective per-report rate is derived
+ *      by division from those same authored numbers.
  *
- *   2. The customer's AI provider — report generation runs on the customer's
+ *   2. Restore Assist, recurring add-ons — itemised from RECURRING_ADDONS
+ *      (lib/billing/addon-registry.ts), the same registry
+ *      app/api/addons/checkout/route.ts prices the Stripe subscription from.
+ *      Every descriptor is rendered; nothing is filtered and no price is
+ *      restated locally, so a new add-on registered there appears here with no
+ *      edit to this file. Until this block existed these seven charges were
+ *      discoverable only AFTER signup, at app/dashboard/addons/page.tsx behind
+ *      BillingGate, while this page called itself "the complete price list"
+ *      and denied there was any per-seat fee. Both statements were false: the
+ *      registry ships a per-seat Field Technician Seat charge.
+ *
+ *   3. The customer's AI provider — report generation runs on the customer's
  *      own Anthropic or OpenAI key, billed directly by that provider.
  *
  * DELIBERATELY UNQUANTIFIED: the per-report AI cost. There is no authored
@@ -61,12 +74,47 @@ function perReportRate(amount: number, reports: number): string {
   return `$${(amount / reports).toFixed(2)}`;
 }
 
+/**
+ * Every recurring add-on the checkout can sell, in registry order. Read from
+ * lib/billing/addon-registry.ts — the same object app/api/addons/checkout and
+ * the Stripe webhook read — so no price, name or interval is authored here.
+ */
+const ADDON_ROWS = Object.values(RECURRING_ADDONS);
+
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+/**
+ * The entrance animation is an ENHANCEMENT, never a precondition for reading
+ * this page.
+ *
+ * framer-motion resolves `initial="hidden"` during server rendering, so a
+ * section written that way ships as `style="opacity:0;transform:translateY(16px)"`
+ * — invisible until a `whileInView` reveal runs. With JavaScript blocked, slow
+ * or failed, the page's content never appears at all. For a page whose whole
+ * job is disclosing what a buyer pays, that is not an acceptable failure mode.
+ *
+ * So the server render, and the first client render that must hydrate against
+ * it, pass `initial={false}`: framer-motion emits no initial state and the
+ * markup arrives visible. The reveal is armed only once the client has
+ * hydrated. Arming changes the subtree `key`, which re-mounts it with the
+ * hidden initial state; because that happens in a LAYOUT effect it commits
+ * before the browser paints, so users who do get JavaScript still see the full
+ * animation and no flash.
+ */
+function useRevealArmed(): boolean {
+  const [armed, setArmed] = useState(false);
+  useIsomorphicLayoutEffect(() => setArmed(true), []);
+  return armed;
+}
+
 export interface CostDisclosureProps {
   className?: string;
 }
 
 export function CostDisclosure({ className }: CostDisclosureProps) {
   const reduce = useLandingReduceMotion();
+  const armed = useRevealArmed();
 
   const free = PRICING_CONFIG.free;
   const monthly = PRICING_CONFIG.pricing.monthly;
@@ -104,8 +152,9 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
     >
       <div className={CONTAINER}>
         <motion.div
+          key={armed ? "reveal-armed" : "reveal-static"}
           variants={staggerContainer}
-          initial={reduce ? false : "hidden"}
+          initial={armed && !reduce ? "hidden" : false}
           whileInView="visible"
           viewport={VIEWPORT}
           className="mx-auto max-w-4xl"
@@ -134,11 +183,13 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                 <h3
                   className={`${FONT_DISPLAY} text-xl font-semibold tracking-tight text-[#0B1F3A]`}
                 >
-                  1. Billed by Restore Assist
+                  1. Billed by Restore Assist — plan and report packs
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                  This is the complete price list. There is no setup fee, no
-                  per-seat fee, and no charge to export your own reports.
+                  The subscription and the report top-up packs. There is no
+                  setup fee and no charge to export your own reports. The
+                  optional add-ons are separate recurring charges and are
+                  listed in full below, not buried behind signup.
                 </p>
               </div>
             </div>
@@ -173,7 +224,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                       scope="col"
                       className="py-3 text-right font-semibold text-[#0B1F3A]"
                     >
-                      Per report
+                      Software per report
                     </th>
                   </tr>
                 </thead>
@@ -212,11 +263,106 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
             <p className="mt-5 text-xs leading-relaxed text-slate-500">
               Amounts in {monthly.currency}. Plan pricing includes GST and tax
               invoices are issued monthly. The per-report column is the plan or
-              pack price divided by the reports it covers. Cancel any time.
+              pack price divided by the reports it covers, and it is the
+              Restore Assist software cost only — the AI generation cost in
+              section 3 sits on top of it and is not included in that figure.
+              Cancel any time.
             </p>
           </motion.div>
 
-          {/* 2 — What the AI provider bills. The honest gap. */}
+          {/* 2 — The recurring add-ons. Every descriptor the checkout can sell,
+              rendered from lib/billing/addon-registry.ts. Do NOT filter this
+              list or restate a price: the whole point of the block is that the
+              page cannot quietly omit a charge the buyer will be billed. */}
+          <motion.div variants={fadeUp} className={`${SURFACE} mt-6 p-7 sm:p-8`}>
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 text-[#3B6D8C]">
+                <RAIcon name="task" size={20} decorative />
+              </span>
+              <div>
+                <h3
+                  className={`${FONT_DISPLAY} text-xl font-semibold tracking-tight text-[#0B1F3A]`}
+                >
+                  2. Billed by Restore Assist — optional add-ons
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                  None of these is required to run the product, and none is
+                  included in the plan above. Each is a separate recurring
+                  subscription you switch on yourself, and each can be
+                  cancelled on its own. All {ADDON_ROWS.length} are listed
+                  here.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 overflow-x-auto">
+              <table className="w-full min-w-[34rem] border-collapse text-left text-sm">
+                <caption className="sr-only">
+                  Every optional recurring Restore Assist add-on, with its
+                  price and billing interval.
+                </caption>
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th
+                      scope="col"
+                      className="py-3 pr-4 font-semibold text-[#0B1F3A]"
+                    >
+                      Add-on
+                    </th>
+                    <th
+                      scope="col"
+                      className="py-3 pr-4 font-semibold text-[#0B1F3A]"
+                    >
+                      What it covers
+                    </th>
+                    <th
+                      scope="col"
+                      className="py-3 text-right font-semibold text-[#0B1F3A]"
+                    >
+                      Amount
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ADDON_ROWS.map((addon) => (
+                    <tr
+                      key={addon.sku}
+                      className="border-b border-slate-200/70 align-top"
+                    >
+                      <th
+                        scope="row"
+                        className="py-4 pr-4 font-medium text-[#0B1F3A]"
+                      >
+                        {addon.name}
+                      </th>
+                      <td className="py-4 pr-4 leading-relaxed text-slate-600">
+                        {addon.description}
+                      </td>
+                      <td className="py-4 text-right text-slate-600">
+                        <span className="font-semibold text-[#0B1F3A]">
+                          {formatAud(addon.amount)}
+                        </span>
+                        <span className="block text-xs text-slate-500">
+                          per {addon.interval}
+                          {addon.perSeat ? ", per seat" : ""}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="mt-5 text-xs leading-relaxed text-slate-500">
+              Amounts in {ADDON_ROWS[0]?.currency ?? monthly.currency},
+              GST-inclusive, each billed as its own subscription alongside the
+              plan. A per-seat add-on is charged once for every seat you buy,
+              so its monthly cost is the amount above multiplied by your seat
+              count.
+            </p>
+          </motion.div>
+
+          {/* 3 — What the AI provider bills. The honest gap. */}
           <motion.div variants={fadeUp} className={`${SURFACE} mt-6 p-7 sm:p-8`}>
             <div className="flex items-start gap-3">
               <span className="mt-0.5 text-[#3B6D8C]">
@@ -226,7 +372,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                 <h3
                   className={`${FONT_DISPLAY} text-xl font-semibold tracking-tight text-[#0B1F3A]`}
                 >
-                  2. Billed by your AI provider, not by us
+                  3. Billed by your AI provider, not by us
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">
                   Report generation on every plan, including the{" "}

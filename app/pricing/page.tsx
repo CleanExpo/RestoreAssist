@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useLayoutEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { PRICING_CONFIG } from "@/lib/pricing";
@@ -27,8 +28,40 @@ import {
 } from "@/components/landing/home/motion";
 import { useLandingReduceMotion } from "@/components/landing/home/useLandingReduceMotion";
 
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+/**
+ * The entrance animation is an ENHANCEMENT, never a precondition for reading
+ * the prices.
+ *
+ * framer-motion resolves `initial="hidden"` during server rendering, so these
+ * grids used to ship as `style="opacity:0;transform:translateY(16px)"` —
+ * present in the HTML but invisible until a `whileInView` reveal ran. With
+ * JavaScript blocked, slow or failed, a buyer got a pricing page with no
+ * prices on it.
+ *
+ * So the server render, and the first client render that must hydrate against
+ * it, pass `initial={false}`: framer-motion emits no initial state and the
+ * markup arrives visible. The reveal is armed only once the client has
+ * hydrated. Arming changes the subtree `key`, which re-mounts it with the
+ * hidden initial state; because that commits in a LAYOUT effect it happens
+ * before the browser paints, so users who do get JavaScript still see the full
+ * animation and no flash.
+ *
+ * NOT FIXED HERE: `MarketingPageHero` and the rest of
+ * components/landing/home/* have the same server-rendered-invisible problem
+ * and are outside this change's ownership. The same pattern applies there.
+ */
+function useRevealArmed(): boolean {
+  const [armed, setArmed] = useState(false);
+  useIsomorphicLayoutEffect(() => setArmed(true), []);
+  return armed;
+}
+
 function PricingPageContent() {
   const reduce = useLandingReduceMotion();
+  const armed = useRevealArmed();
   const freeCfg = PRICING_CONFIG.free;
 
   type DisplayPlan = {
@@ -112,11 +145,18 @@ function PricingPageContent() {
 
   return (
     <MarketingShell>
+      {/* "Upgrade to unlock unlimited Quick Fill" was false and is gone:
+          app/api/user/quick-fill-credits/route.ts returns hasUnlimited: true
+          for `isTrialWithinPeriod` exactly as it does for ACTIVE, so a trial
+          user already has unlimited Quick Fill. Paying keeps it after the
+          trial window closes — that is the real change, and it is what the
+          comparison table says too. The bonus figure is read from the config
+          rather than restated. */}
       <MarketingPageHero
         align="center"
         eyebrow="Plans"
         title="Restoration Report Software Plans"
-        description={`Start with a ${freeCfg.trialDays}-day free trial — ${freeCfg.trialReportCredits} inspection report credits and basic features, no credit card required. Upgrade to unlock unlimited Quick Fill, enhanced reports, PDF uploads, and more. All paid plans include first month signup bonus of 10 additional reports.`}
+        description={`Start with a ${freeCfg.trialDays}-day free trial — ${freeCfg.trialReportCredits} inspection report credits and basic features, no credit card required. Paying gets you a report allowance that comes back every month, Quick Fill that stays unlimited once the trial ends, enhanced and optimised report types, PDF upload and processing, and full profile and pricing configuration. Your first month carries a signup bonus of ${PRICING_CONFIG.pricing.monthly.signupBonus} additional reports.`}
       />
 
       <section className={`bg-white border-t border-slate-200/90 ${SECTION_PAD}`}>
@@ -134,8 +174,9 @@ function PricingPageContent() {
           </Alert>
 
               <motion.div
+            key={armed ? "plans-armed" : "plans-static"}
             variants={staggerContainer}
-            initial={reduce ? false : "hidden"}
+            initial={armed && !reduce ? "hidden" : false}
             whileInView="visible"
             viewport={VIEWPORT}
             className="grid gap-6 md:grid-cols-3 md:gap-8"
@@ -157,12 +198,17 @@ function PricingPageContent() {
                     {freeCfg.trialDays}-Day Free Trial
                   </div>
                 ) : null}
-                {plan.popular && !plan.isFree ? (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#0B1F3A] px-3 py-1 text-xs font-semibold text-white">
-                    Most Popular
-                  </div>
-                ) : null}
-                {plan.badge && !plan.popular && !plan.isFree ? (
+                {/* The "Most Popular" badge is NOT rendered. Nothing in this
+                    repository measures how many customers buy which SKU, so
+                    the claim could not be substantiated if a buyer asked —
+                    and there is exactly one paid plan, which makes "most
+                    popular" vacuous even if we did measure it. `popular` stays
+                    in PRICING_CONFIG untouched (founder-owned data) and still
+                    drives this card's visual emphasis and its primary CTA; it
+                    just no longer asserts a fact about other customers. The
+                    verifiable "Best Value" badge, which the printed per-report
+                    rates below back up arithmetically, is still rendered. */}
+                {plan.badge && !plan.isFree ? (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#0B1F3A] px-3 py-1 text-xs font-semibold text-white">
                     {plan.badge}
                   </div>
@@ -217,16 +263,44 @@ function PricingPageContent() {
                       {/* The unit rate is the number a volume buyer actually
                           compares on, and it was absent from this page
                           entirely. Derived from the plan amount, never
-                          authored, so it cannot drift from PRICING_CONFIG. */}
+                          authored, so it cannot drift from PRICING_CONFIG.
+
+                          The headline rate is the ONGOING rate, and it is
+                          labelled as such, because the first month is not that
+                          rate: the signup bonus makes it reportLimit +
+                          signupBonus reports for the same price. Printing
+                          $1.98 beside "+10 bonus reports" told a first-time
+                          buyer the wrong number for the only month they can
+                          actually evaluate. Both rates are shown, both derived
+                          by division, and the bonus is not quietly dropped to
+                          make the arithmetic tidy. */}
                       {!plan.isFree ? (
-                        <p className="mt-2 border-t border-slate-200/90 pt-2 text-sm font-semibold text-[#0B1F3A]">
-                          {formatPerReport(
-                            perReportRate(plan.amountAud, plan.reportLimit),
-                          )}{" "}
-                          <span className="font-normal text-slate-500">
-                            per report
-                          </span>
-                        </p>
+                        <>
+                          <p className="mt-2 border-t border-slate-200/90 pt-2 text-sm font-semibold text-[#0B1F3A]">
+                            {formatPerReport(
+                              perReportRate(plan.amountAud, plan.reportLimit),
+                            )}{" "}
+                            <span className="font-normal text-slate-500">
+                              per report, software only
+                              {plan.signupBonus ? ", ongoing" : ""}
+                            </span>
+                          </p>
+                          {plan.signupBonus ? (
+                            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                              Your first month is{" "}
+                              {plan.reportLimit + plan.signupBonus} reports for
+                              the same {plan.price}, which is{" "}
+                              {formatPerReport(
+                                perReportRate(
+                                  plan.amountAud,
+                                  plan.reportLimit + plan.signupBonus,
+                                ),
+                              )}{" "}
+                              per report. The rate above is what you pay from
+                              the second month on.
+                            </p>
+                          ) : null}
+                        </>
                       ) : null}
                     </div>
                   ) : null}
@@ -276,6 +350,21 @@ function PricingPageContent() {
             ))}
           </motion.div>
 
+          {/* Every "per report" figure on this page — plan cards, pack cards,
+              volume picker, cost disclosure — is the Restore Assist software
+              cost only. Report generation runs on the buyer's own AI key and
+              is billed to them by their provider, so the unit rate is not the
+              whole cost of producing a report. Saying so once, plainly, next
+              to the rates rather than only in the disclosure at the bottom. */}
+          <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-slate-500">
+            Every per-report figure on this page is the Restore Assist software
+            cost only. Report generation runs on your own AI provider key and
+            that provider bills you separately — we take no share of it, and we
+            do not publish an estimate we cannot stand behind. The full ledger,
+            including the optional add-ons, is set out at the bottom of this
+            page.
+          </p>
+
           {/* Work out what a given month actually costs, before signing up.
               Volume pricing that a buyer has to compute themselves is not
               legible pricing. */}
@@ -303,8 +392,9 @@ function PricingPageContent() {
             </div>
 
               <motion.div
+              key={armed ? "packs-armed" : "packs-static"}
               variants={staggerContainer}
-              initial={reduce ? false : "hidden"}
+              initial={armed && !reduce ? "hidden" : false}
               whileInView="visible"
               viewport={VIEWPORT}
               className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3 md:gap-8"
@@ -317,12 +407,19 @@ function PricingPageContent() {
                     addon.popular ? "border-[#0B1F3A]/25" : ""
                   }`}
                 >
-                  {addon.popular ? (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#0B1F3A] px-3 py-1 text-xs font-semibold text-white">
-                    Most Popular
-                  </div>
-                  ) : null}
-                  {addon.badge && !addon.popular ? (
+                  {/* The "Most Popular" badge is NOT rendered on the packs
+                      either. It sat on the 25-pack, which at $50 for 25
+                      reports is $2.00 each — DEARER than the $1.98 base-plan
+                      rate and dearer than the 60-pack's $1.67. A badge that
+                      nothing in this repository measures, steering buyers to
+                      the worst unit rate on the page, is the one thing a
+                      pricing page must not do. `popular` stays in
+                      PRICING_CONFIG (founder-owned) and still drives this
+                      card's border emphasis and primary CTA. "Best Value" on
+                      the 60-pack IS still rendered, because it is a claim the
+                      per-report rates printed on these three cards actually
+                      support. */}
+                  {addon.badge ? (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#0B1F3A] px-3 py-1 text-xs font-semibold text-white">
                       {String(addon.badge)}
                   </div>
@@ -355,7 +452,7 @@ function PricingPageContent() {
                           perReportRate(addon.amountAud, addon.reportLimit),
                         )}{" "}
                         <span className="font-normal text-slate-500">
-                          per report
+                          per report, software only
                         </span>
                       </p>
                   </div>

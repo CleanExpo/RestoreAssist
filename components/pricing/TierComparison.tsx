@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useLayoutEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { RECURRING_ADDONS } from "@/lib/billing/addon-registry";
 import { RAIcon } from "@/components/brand/RAIcon";
 import type { RAIconName } from "@/lib/brand/icon-registry";
 import {
@@ -34,11 +36,25 @@ import { useLandingReduceMotion } from "@/components/landing/home/useLandingRedu
  * and then delete this block, reading from the config instead.
  */
 const PAID_ONLY = {
-  quickFill: "Unlimited Quick Fill (AI-powered form auto-fill)",
+  // "Unlimited Quick Fill" and "Premium API integrations" used to sit here and
+  // were both FALSE as paid-only claims, verified against the handlers:
+  //
+  //   - app/api/user/quick-fill-credits/route.ts returns hasUnlimited: true for
+  //     `isTrialWithinPeriod` exactly as it does for ACTIVE. A trial user has
+  //     unlimited Quick Fill too. The real difference is only what happens when
+  //     the window closes, which is what the row now says.
+  //   - app/api/onboarding/status/route.ts (RA-6932) records that trial AND
+  //     paid users are both hard-402'd on report generation without their own
+  //     BYOK key. The AI key is required for everyone, so it cannot be sold as
+  //     an upgrade. That row is gone rather than reworded.
+  //
+  // Also dropped "AI-powered" from the Quick Fill wording: the shipped Quick
+  // Fill copies hardcoded scenario data, and `generateQuickFillData`
+  // (lib/deepseek-api.ts:74) has zero callers anywhere in the repo.
+  quickFill: "Quick Fill stays unlimited after the trial ends",
   reportTypes: "Enhanced & Optimised report types",
   pdfUpload: "PDF upload & processing",
   configuration: "Full profile & pricing configuration",
-  premiumApi: "Premium API integrations (Claude, GPT, etc.)",
 } as const;
 
 /** The five strings above, for any surface that needs to render them as a list. */
@@ -50,6 +66,25 @@ const addons = PRICING_CONFIG.addons;
 
 const paidPrice =
   paid.amount % 1 === 0 ? `$${paid.amount}` : `$${paid.amount.toFixed(2)}`;
+
+/**
+ * The recurring add-ons the checkout can sell, read from
+ * lib/billing/addon-registry.ts. Three of them ARE integrations — Online
+ * Bookkeeping Connection, Service CRM Connection, Payments Collection — which
+ * is why the Integrations row below can no longer say "All integrations". The
+ * count and the entry price are derived here so this row cannot drift when an
+ * add-on is registered or repriced; the full itemised list with every price
+ * lives in CostDisclosure.
+ */
+const RECURRING_ADDON_LIST = Object.values(RECURRING_ADDONS);
+const CHEAPEST_ADDON_AMOUNT = Math.min(
+  ...RECURRING_ADDON_LIST.map((addon) => addon.amount),
+);
+const CHEAPEST_ADDON_PRICE =
+  CHEAPEST_ADDON_AMOUNT % 1 === 0
+    ? `$${CHEAPEST_ADDON_AMOUNT}`
+    : `$${CHEAPEST_ADDON_AMOUNT.toFixed(2)}`;
+const ADDON_INTERVAL = RECURRING_ADDON_LIST[0]?.interval ?? paid.interval;
 
 type Cell = {
   /** Whether the plan grants this capability at all. */
@@ -102,10 +137,10 @@ const GROUPS: readonly ComparisonGroup[] = [
         },
       },
       {
-        capability: "Quick Fill (AI form auto-fill)",
+        capability: "Quick Fill (form auto-fill)",
         free: {
           included: true,
-          label: `${free.trialQuickFillCredits} credits, once`,
+          label: `Unlimited during the trial, then ${free.trialQuickFillCredits} credits`,
         },
         paid: { included: true, label: PAID_ONLY.quickFill },
         headline: true,
@@ -131,9 +166,17 @@ const GROUPS: readonly ComparisonGroup[] = [
         headline: true,
       },
       {
-        capability: "IICRC S500 compliant reports",
+        // NOT "IICRC S500 compliant". lib/iicrc-inclusion-check.ts sets the
+        // hard rule that this product never asserts "complies", "certifies",
+        // "meets [the standard]" or "required by law" (regression-tested in
+        // lib/__tests__/iicrc-inclusion-check.test.ts), and full S500 clause
+        // ingestion is blocked pending legal clearance. Alignment is what the
+        // build supports and what app/features/page.tsx now claims: the
+        // section index ships, the licensed wording does not.
+        capability: "IICRC S500:2021 section structure",
         free: { included: true },
         paid: { included: true },
+        note: "Reports are structured on, and cite, indexed S500:2021 section numbers. That is alignment with the standard, not certification against it — no one is certifying your job but you.",
       },
       {
         capability: PAID_ONLY.pdfUpload,
@@ -158,15 +201,23 @@ const GROUPS: readonly ComparisonGroup[] = [
         paid: { included: true },
       },
       {
+        // "All integrations" was the claim here and in
+        // PRICING_CONFIG.pricing.monthly.features. It was wrong: bookkeeping,
+        // service CRM and payments are each a SEPARATE recurring subscription
+        // in lib/billing/addon-registry.ts, on top of the $99 plan.
         capability: "Integrations",
-        free: { included: false },
-        paid: { included: true, label: "All integrations" },
+        free: { included: false, label: "Subscription required" },
+        paid: {
+          included: true,
+          label: "Available to switch on, priced separately",
+        },
+        note: `Integrations are not bundled into the ${paidPrice}. They are ${RECURRING_ADDON_LIST.length} optional recurring add-ons from ${CHEAPEST_ADDON_PRICE} per ${ADDON_INTERVAL} each, itemised in full in the cost disclosure below.`,
       },
-      {
-        capability: "Premium API integrations",
-        free: { included: false },
-        paid: { included: true, label: PAID_ONLY.premiumApi },
-      },
+      // The "Premium API integrations" row was removed, not reworded. Report
+      // generation runs on the customer's own Anthropic or OpenAI key on EVERY
+      // plan — app/api/onboarding/status/route.ts (RA-6932) makes the key a
+      // required onboarding step for trial users too, and both tiers are
+      // hard-402'd without one. There is no upgrade here to sell.
     ],
   },
   {
@@ -193,6 +244,33 @@ const HEADLINE_ROWS = GROUPS.flatMap((group) => group.rows).filter(
 
 function cellText(cell: Cell): string {
   return cell.label ?? (cell.included ? "Included" : "Not included");
+}
+
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+/**
+ * The entrance animation is an ENHANCEMENT, never a precondition for reading
+ * this comparison.
+ *
+ * framer-motion resolves `initial="hidden"` during server rendering, so this
+ * section used to ship as `style="opacity:0;transform:translateY(16px)"` —
+ * server-rendered but invisible until a `whileInView` reveal ran. With
+ * JavaScript blocked, slow or failed, the best content on the pricing page was
+ * a blank block.
+ *
+ * So the server render, and the first client render that must hydrate against
+ * it, pass `initial={false}`: framer-motion emits no initial state and the
+ * markup arrives visible. The reveal is armed only after hydration. Arming
+ * changes the subtree `key`, re-mounting it with the hidden initial state;
+ * because that commits in a LAYOUT effect it happens before the browser
+ * paints, so users who do get JavaScript still see the full animation with no
+ * flash of un-animated content.
+ */
+function useRevealArmed(): boolean {
+  const [armed, setArmed] = useState(false);
+  useIsomorphicLayoutEffect(() => setArmed(true), []);
+  return armed;
 }
 
 /**
@@ -238,6 +316,7 @@ function CellBody({ planLabel, cell }: { planLabel: string; cell: Cell }) {
  */
 export function TierComparison() {
   const reduce = useLandingReduceMotion();
+  const armed = useRevealArmed();
 
   return (
     <section
@@ -246,8 +325,9 @@ export function TierComparison() {
     >
       <div className={CONTAINER}>
         <motion.div
+          key={armed ? "reveal-armed" : "reveal-static"}
           variants={staggerContainer}
-          initial={reduce ? false : "hidden"}
+          initial={armed && !reduce ? "hidden" : false}
           whileInView="visible"
           viewport={VIEWPORT}
         >
