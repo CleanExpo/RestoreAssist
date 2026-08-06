@@ -281,7 +281,7 @@ function PricingPageContent() {
                               perReportRate(plan.amountAud, plan.reportLimit),
                             )}{" "}
                             <span className="font-normal text-slate-500">
-                              per report, software only
+                              per report, plan and packs only
                               {plan.signupBonus ? ", ongoing" : ""}
                             </span>
                           </p>
@@ -452,7 +452,7 @@ function PricingPageContent() {
                           perReportRate(addon.amountAud, addon.reportLimit),
                         )}{" "}
                         <span className="font-normal text-slate-500">
-                          per report, software only
+                          per report, plan and packs only
                         </span>
                       </p>
                   </div>

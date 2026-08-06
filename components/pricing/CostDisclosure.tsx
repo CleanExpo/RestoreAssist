@@ -277,9 +277,19 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
               Amounts in {monthly.currency}. Plan pricing includes GST and tax
               invoices are issued monthly. The per-report column is the plan or
               pack price divided by the reports it covers, and it is the
-              Restore Assist software cost only — the AI generation cost in
-              section 3 sits on top of it and is not included in that figure.
-              Cancel any time.
+              {/*
+                This previously named the AI cost as the ONLY thing sitting on
+                top, which was still incomplete: the seven add-ons listed in
+                section 2 are Restore Assist charges and are also excluded from
+                the per-report column. A critic worked the example — a
+                three-technician shop at 50 reports a month pays $99 + $33 =
+                $132, i.e. $2.64 per report against a headline of $1.98 labelled
+                "software cost per report". Naming one excluded cost and not the
+                other is the same partial disclosure this section exists to end.
+              */}
+              Restore Assist plan and pack cost only. Two things sit on top of
+              it and are not in that figure: any add-ons from section 2, and the
+              AI generation cost in section 3. Cancel any time.
             </p>
           </motion.div>
 
