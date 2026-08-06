@@ -61,8 +61,14 @@ export function SoftwareApplicationSchema() {
     // public review system backing a rating here, so emitting one risks a
     // manual action (and is misleading under AU consumer law). Re-add only when
     // wired to real review data.
+    // "used by certified restorers" removed. It is a social-proof claim and
+    // nothing in this repo substantiates it — there is no customer registry, no
+    // review system, no case-study data. That is the same class of claim as the
+    // aggregateRating omitted above, for the same reason, and this one is
+    // machine-readable so it is consumed directly rather than read in context.
+    // Restore it when there is something to cite, not before.
     description:
-      "Restoration report software with AI-assisted assessment used by certified restorers, IICRC S500 alignment, and comprehensive cost estimation for Australian restoration contractors.",
+      "Restoration report software with AI-assisted assessment, IICRC S500 alignment, and comprehensive cost estimation for Australian restoration contractors.",
     // "Real-time collaboration" was removed: nothing implements it. Searched
     // app/, lib/ and components/ for supabase.channel, .channel(, WebSocket,
     // socket.io, yjs, CRDT, presence and broadcast. The only hits are a comment
