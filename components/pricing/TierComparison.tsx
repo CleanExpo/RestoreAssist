@@ -160,9 +160,20 @@ const GROUPS: readonly ComparisonGroup[] = [
     icon: "inspection",
     rows: [
       {
+        // These are INTENDED as paid features and are gated in the app, but the
+        // server does not hold the boundary today:
+        //   app/api/reports/generate-enhanced/route.ts allows "TRIAL" in its
+        //   ALLOWED_SUBSCRIPTION_STATUSES, and save-tier-responses writes
+        //   reportDepthLevel = "Enhanced" / "Optimised" after auth and ownership
+        //   alone. The only gate is a client-side toast.
+        // Two critics found this independently. Until enforcement lands, saying
+        // "Free Trial: not included" is a statement a buyer can disprove in
+        // about a minute, so the row says what is true now and flags the intent
+        // rather than asserting a boundary that is not there.
         capability: "Report types",
-        free: { included: true, label: "Basic report type" },
-        paid: { included: true, label: `Basic, plus ${PAID_ONLY.reportTypes}` },
+        free: { included: true, label: "Basic, and currently Enhanced and Optimised too" },
+        paid: { included: true, label: "Basic, Enhanced and Optimised" },
+        note: "Enhanced and Optimised are meant to be part of the paid plan and we are still wiring that up, so during the trial you can reach them as well. We would rather say so than claim a limit that is not switched on.",
         headline: true,
       },
       {
@@ -179,10 +190,14 @@ const GROUPS: readonly ComparisonGroup[] = [
         note: "Reports are structured on, and cite, indexed S500:2021 section numbers. That is alignment with the standard, not certification against it — no one is certifying your job but you.",
       },
       {
+        // Same shape as the report-types row above. app/api/reports/parse-pdf
+        // contains no subscriptionStatus check at all — auth plus rate limiting
+        // — and app/api/reports/upload allows "TRIAL" in its
+        // ALLOWED_SUBSCRIPTION_STATUSES. The gate is a client-side toast.
         capability: PAID_ONLY.pdfUpload,
-        free: { included: false },
+        free: { included: true, label: "Currently available during the trial" },
         paid: { included: true },
-        headline: true,
+        note: "Also meant to be part of the paid plan, and also not yet enforced on the server. Same reasoning as report types.",
       },
       // "Priority processing" was removed, not reworded. Unlike the report-type
       // rows — which are real capabilities merely gated client-side — this one

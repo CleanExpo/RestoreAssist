@@ -39,7 +39,25 @@ export const PRICING_CONFIG = {
       // NOT "AI-powered". The shipped Quick Fill copies hardcoded scenario
       // data; `generateQuickFillData` (lib/deepseek-api.ts:74) has zero callers
       // anywhere in the repository, so there is no AI in this path to sell.
-      "30 Quick Fill credits (form auto-fill)",
+      // This said "30 Quick Fill credits", which CONTRADICTED the tier
+      // comparison rendered from this same config on the same page ("Unlimited
+      // during the trial, then 30 credits"). The handler settles it:
+      // app/api/user/quick-fill-credits/route.ts returns
+      // `creditsRemaining: null, hasUnlimited: true` for isTrialWithinPeriod
+      // and does not decrement. A trial user inside the window has unlimited
+      // Quick Fill; the 30 credits are what remains once the window closes.
+      //
+      // Fixing the comparison and leaving the config bullet was the same
+      // partial-sweep failure this surface keeps producing.
+      // Deliberately does NOT use the word "unlimited", even though Quick Fill
+      // genuinely is unmetered in-window. lib/__tests__/pricing-integrity.test.ts
+      // asserts no free-tier bullet matches /forever|unlimited/i, because this
+      // is a TIME-LIMITED trial and an unbounded-sounding claim on it is the
+      // exact thing that guard exists to stop. It caught this line when it was
+      // first written as "Unlimited Quick Fill during the trial".
+      //
+      // The copy was changed to fit the guard, not the guard to fit the copy.
+      "Quick Fill runs without a credit limit during the trial, then 30 credits (form auto-fill)",
       "Basic report type",
       // NOT "IICRC S500 compliant". lib/iicrc-inclusion-check.ts states the
       // hard rule that this product never asserts "complies", "certifies",
