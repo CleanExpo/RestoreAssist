@@ -69,7 +69,7 @@ const GROUPS: readonly FeatureGroup[] = [
       {
         label: "62 indexed S500:2021 sections and subsections",
         detail:
-          "Plus 13 chapters of S520:2024 for mould work. The index holds section numbers and titles only — the licensed wording stays with the IICRC. A build-time check rejects any citation whose chapter is absent from the index, and any invented subsection inside the three subtrees transcribed in full.",
+          "Plus 13 chapters of S520:2024 for mould work. The index holds section numbers and titles only — the licensed wording stays with the IICRC. A check in pull-request CI rejects any citation whose chapter is absent from the index, and any invented subsection inside the three subtrees transcribed in full. It runs on every pull request, not in the deploy build.",
       },
       {
         label: "22 report sections",
@@ -124,9 +124,9 @@ const GROUPS: readonly FeatureGroup[] = [
           "Captured, uploaded, reviewed, annotated, exported, shared, archived, deleted.",
       },
       {
-        label: "15 S500 label fields per photo",
+        label: "12 S500 label fields per photo",
         detail:
-          "Category CAT 1 to 3, class 1 to 4, section reference, room type, moisture source, affected materials, surface orientation, extent, stage and capture angle. Flagging a suspected asbestos indicator raises a stop-work prompt.",
+          "Category CAT 1 to 3, class 1 to 4, section reference, room type, moisture source, affected materials, surface orientation, extent, whether equipment is visible, secondary damage indicators, stage and capture angle. Three further fields record provenance rather than taxonomy: who applied the labels, technician notes, and a link to the moisture reading. Flagging a suspected asbestos indicator puts a stop-work banner on the inspection's photo screen — a warning to the crew, not a lock on the software.",
       },
       {
         label: "An audit trail that records the device, not just the user",
@@ -161,9 +161,9 @@ const GROUPS: readonly FeatureGroup[] = [
           "A 2048 pixel long edge at 80 percent WebP, so a day of captures does not exhaust device storage. The queued file is hashed after compression, so the hash covers exactly the bytes that will be uploaded.",
       },
       {
-        label: "Background Sync where the browser has it",
+        label: "Background Sync on the evidence and inspection queues",
         detail:
-          "An online-event listener covers the browsers that do not, so the drain trigger is never the only one.",
+          "Those two register a sync tag the service worker handles, so the browser can drain them without the page open, and both fall back to an online-event listener where it does not. The other three do not have that: the voice-note queue registers a tag the service worker does not yet handle, so it drains on the online event alone; inspection drafts flush on the native network-status listener; room-scan custody records are held as a pending list a caller drains.",
       },
       {
         label: "Native iOS and Android builds",
@@ -205,17 +205,17 @@ const GROUPS: readonly FeatureGroup[] = [
       {
         label: "230 V / 50 Hz equipment, 10 A GPO circuit maths",
         detail:
-          "Circuit counts follow the AS/NZS 3012:2019 80 percent continuous-load rule because drying equipment runs around the clock. 15 A and 20 A circuits are offered as options.",
+          "In the water equipment calculator, circuit counts follow the AS/NZS 3012:2019 80 percent continuous-load rule because drying equipment runs around the clock. 15 A and 20 A circuits are offered as options.",
       },
       {
         label: "Weather from Bureau of Meteorology observations",
         detail:
-          "Rainfall, temperature, humidity and peak wind gust for the job postcode, from the public BOM feeds, with the observing station named and the source feed URL kept for the audit trail.",
+          "Rainfall, temperature, humidity and peak wind gust for an Australian or New Zealand postcode and date, from the public BOM feeds, with the observing station named and the source feed URL kept for the audit trail. The lookup takes the postcode it is given; reading it straight off the inspection record is written but not yet called from anywhere.",
       },
       {
         label: "Application compute pinned to Sydney",
         detail:
-          "The deployment config pins every serverless function and scheduled job to the syd1 region, so requests are served from Australia rather than routed offshore by default. AI inference is the exception: it runs wherever your own provider runs it, because the key is yours.",
+          "One project-level region setting in the deployment config places the deployment's serverless functions in syd1, so requests are served from Australia rather than routed offshore by default. Two things sit outside it: middleware, which runs on the edge network that setting does not pin, and AI inference, which runs wherever your own provider runs it, because the key is yours.",
       },
     ],
   },
@@ -225,9 +225,9 @@ const GROUPS: readonly FeatureGroup[] = [
       "Every quantity on an estimate should trace back to a dimension, a classification or a published specification. These are the inputs that make that possible.",
     items: [
       {
-        label: "11 equipment groups, every model carrying its source",
+        label: "11 equipment groups, and 14 models that all carry a source",
         detail:
-          "LGR and desiccant dehumidifiers, air movers, negative-air units and heat drying — each annotated with manufacturer, model and where the specification is published. Models whose 230 V figures could not be verified from a published source were removed rather than estimated.",
+          "LGR and desiccant dehumidifiers, air movers, negative-air units and heat drying. All fourteen models in the table today are annotated with manufacturer, model and where the specification is published. Models whose 230 V figures could not be verified from a published source were removed rather than estimated. The source field is a convention held by review, not a required field in the type.",
       },
       {
         label: "Psychrometrics from the Magnus formula",
@@ -242,7 +242,7 @@ const GROUPS: readonly FeatureGroup[] = [
       {
         label: "Equipment calculators for water and for mould",
         detail:
-          "Room dimensions plus category and class produce a defensible equipment list, with dehumidification, airflow and negative air each tied to a verified section. Fire and storm calculators are written but not yet wired to a screen.",
+          "Room dimensions plus category and class produce a defensible equipment list, with dehumidification, airflow and negative air each tied to a verified section. The two do not yet share one electrical basis: the water calculator uses the AS/NZS 3012:2019 module above, while the mould calculator sizes circuits on its own 20 A assumption. Fire and storm calculators are written but not yet wired to a screen.",
       },
       {
         label: "Running cost at a sourced default tariff",
@@ -272,7 +272,7 @@ const GROUPS: readonly FeatureGroup[] = [
           "A .docx of the report, scope and cost sections for anyone who needs to edit in Word, or a ZIP of the package PDF with its structured JSON alongside.",
       },
       {
-        label: "A complete package up to 200 photos",
+        label: "A complete package up to 500 photos",
         detail:
           "Plus 20 floor plans and 50 signed authority forms in a single export.",
       },
@@ -301,7 +301,7 @@ const GROUPS: readonly FeatureGroup[] = [
       {
         label: "The key is encrypted with AES-256-GCM",
         detail:
-          "Stored as ciphertext with its own initialisation vector and authentication tag, and never handed back to the browser except masked. The report, scope, vision and assistant routes resolve your workspace key through a single entry point that returns a payment-required error when there is none, rather than falling back to a platform key.",
+          "Stored as ciphertext with its own initialisation vector and authentication tag, and never handed back to the browser except masked. The report, vision and assistant routes resolve your workspace key through a single entry point that returns a payment-required error when there is none, rather than falling back to a platform key. The scope-of-works and cost-estimation routes are not on that list because they make no AI call at all — they are built deterministically and resolve no key.",
       },
       {
         label: "A daily spend ceiling on the heaviest AI routes",
@@ -311,12 +311,12 @@ const GROUPS: readonly FeatureGroup[] = [
       {
         label: "AI output is a draft until you have rewritten it",
         detail:
-          "The draft announces itself as a draft in its own opening line, and the model is instructed that it is a documentation assistant rather than the author of record.",
+          "The model is instructed to open the report body with an AI-assisted-draft line, and told it is a documentation assistant rather than the author of record. That is an instruction in the prompt, not a check on the output — nothing verifies the model complied. The watermark below is the part that is enforced.",
       },
       {
         label: "A watermark that only you can remove",
         detail:
-          "PDF, Word and ZIP exports carry the AI-draft watermark until you have saved your own edits and confirmed, in writing, that the report is yours.",
+          "PDF, Word and ZIP exports carry the AI-draft watermark until you have saved your own edits and then acknowledged ownership. The acknowledgement route refuses while the draft is still unedited, and records who acknowledged and when.",
       },
     ],
   },
@@ -325,18 +325,34 @@ const GROUPS: readonly FeatureGroup[] = [
 const freeCfg = PRICING_CONFIG.free;
 const monthlyCfg = PRICING_CONFIG.pricing.monthly;
 
+/**
+ * What separates the two columns is REPORT VOLUME and the settings a paid
+ * account may write — not report depth. Verified 2026-08-07:
+ *   - lib/report-limits.ts canCreateReport: TRIAL spends a finite credit grant
+ *     inside the trial window; ACTIVE spends a monthly limit that resets and
+ *     can be topped up with add-on packs. That is the enforced boundary.
+ *   - app/api/pricing-config/route.ts:105 returns 403 to TRIAL on write, so
+ *     custom rates really are a paid capability.
+ *   - The Enhanced and Optimised report types are NOT gated:
+ *     generate-enhanced/route.ts:130 admits TRIAL, and
+ *     save-tier-responses/route.ts sets reportDepthLevel after auth and
+ *     ownership only. PDF upload is not gated either — parse-pdf/route.ts
+ *     checks a session and a rate limit and nothing else. Both were listed
+ *     here as things paying unlocked; both were removed rather than reworded,
+ *     because the API does not hold the boundary. If either is ever gated in
+ *     code, put it back — not before.
+ */
 const TRIAL_INCLUDES: readonly string[] = [
   `${freeCfg.trialDays} days, no credit card`,
   `${freeCfg.trialReportCredits} inspection report credits`,
-  "The Basic report type",
+  "Basic, Enhanced and Optimised report types, same as on the paid plan",
   "Every capture, evidence, standards and export capability above",
   "Your own AI key, same as on the paid plan",
 ];
 
 const PAID_ADDS: readonly string[] = [
   `${monthlyCfg.reportLimit} inspection reports a month, plus ${monthlyCfg.signupBonus} in your first`,
-  "The Enhanced and Optimised report types",
-  "PDF upload and processing",
+  "A monthly allowance that resets, in place of a one-off trial credit grant",
   "Your own labour, equipment and chemical rates, in place of the state defaults",
   "Xero and Ascora connections (MYOB, QuickBooks and ServiceM8 are in beta)",
   "Report packs when a month runs long, from $20 for 8",
