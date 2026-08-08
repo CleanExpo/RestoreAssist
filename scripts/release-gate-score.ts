@@ -152,7 +152,10 @@ const CRITERIA: Criterion[] = [
     points: 10,
     kind: "machine",
     description: "Middleware/auth/paywall tests pass",
-    run: () => shellOK("npx vitest run lib/__tests__/middleware-*.test.ts"),
+    run: () =>
+      shellOK(
+        "npx vitest run --config config/vitest.config.js lib/__tests__/middleware-*.test.ts",
+      ),
   },
   {
     id: "A3-no-sev1-sev2-open",
@@ -185,8 +188,11 @@ const CRITERIA: Criterion[] = [
     section: "B",
     points: 5,
     kind: "machine",
-    description: "`npx vitest run` 0 failures",
-    run: () => shellOK("npx vitest run", { timeout: 600_000 }),
+    description: "`pnpm test:unit` 0 failures",
+    run: () =>
+      shellOK("npx vitest run --config config/vitest.config.js", {
+        timeout: 600_000,
+      }),
   },
   {
     id: "B4-smoke-sandbox",
@@ -232,7 +238,7 @@ const CRITERIA: Criterion[] = [
     description: "Billing + webhook test suites pass",
     run: () =>
       shellOK(
-        "npx vitest run lib/billing/__tests__/ app/api/webhooks/stripe/__tests__/",
+        "npx vitest run --config config/vitest.config.js lib/billing/__tests__/ app/api/webhooks/stripe/__tests__/",
       ),
   },
   {
