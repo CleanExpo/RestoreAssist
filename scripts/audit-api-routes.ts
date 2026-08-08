@@ -46,6 +46,12 @@ const PUBLIC_TOKEN_ROUTE_PREFIXES = [
   "app/api/observability/client-error/",
   "app/api/properties/scrape/health/",
   "app/api/authority-forms/sign/",
+  // Public invoice viewer — token + expiry gated (isPublicTokenValid),
+  // unauthenticated-by-design like the capture flow. No end-user session applies.
+  "app/api/invoices/public/",
+  // Public marketing-page Margot chat — rate-limited (applyRateLimit), platform
+  // key, no auth by design; serves the home/features/pricing pages.
+  "app/api/margot/public-chat/",
 ];
 
 function normalisePath(file: string): string {
