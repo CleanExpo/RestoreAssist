@@ -29,6 +29,7 @@ import {
   type NirScopeLineItem,
   type NirStandardsCitation,
   type NirPhotoManifest,
+  type NirPhotoGeotag,
   type NirEvidenceClearance,
 } from "@/lib/nir-guidewire-integration";
 import { getPropertyLocationFlags } from "@/lib/nir-location-services";
@@ -211,7 +212,7 @@ export async function fetchTechnicianCertifications(
 export function resolvePhotoGeotag(
   latitude: number | null | undefined,
   longitude: number | null | undefined,
-): { latitude: number | null; longitude: number | null } {
+): NirPhotoGeotag {
   const inRange = (value: number | null | undefined, limit: number): boolean =>
     typeof value === "number" &&
     Number.isFinite(value) &&

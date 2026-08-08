@@ -381,3 +381,30 @@ were found in `.planning/` video docs.
     writes them today (`mobileLocalId` has zero references), so no fallback to them was
     added — that would be speculative. When the mobile sync path lands, `resolvePhotoGeotag`
     is the single place to add the fallback.
+  - **Independent review round 1 (Codex, FAIL → drained).** Two P1 findings, both accepted:
+    (1) *the pair invariant was prose, not type* — the doc comment promised coordinates are
+    always a pair, but `latitude`/`longitude` were two independently-nullable fields, so the
+    exported `buildClaimsIntegrationExport` boundary still accepted a one-sided geotag
+    (`resolvePhotoGeotag` guarded only the single in-repo caller). Re-encoded as a
+    both-or-neither union (`NirPhotoGeotag`) in TypeScript **and** in zod, so the invariant
+    is enforced by the compiler, by the contract boundary, and by the published JSON Schema
+    (`anyOf` of a both-number and a both-null branch — a `.refine()` would have enforced it
+    in-process but vanished from the artifact a carrier validates against). The zod↔interface
+    `Bind` assertion proves the two agree. Added four contract tests: complete pair and
+    explicitly-absent pair accepted, each one-sided pair rejected.
+    (2) *the version note was incoherent* — it told "consumers pinned to 1.0" to accept
+    `null`, which the 1.0 schema forbids. Rewritten to state plainly that 1.1 **withdraws**
+    the 1.0 shape rather than running beside it, and why that is safe here: 1.0 declared both
+    coordinates required, a shape this system can only satisfy for an un-geotagged photo by
+    inventing a position, so no honest 1.0 output remains; and 1.0 has no bound consumer
+    (contract landed #1986 two weeks prior, the endpoint has no version negotiation and emits
+    exactly one envelope, carrier-integration scope is an open owner decision). Codex's
+    alternative — retain an immutable 1.0 and publish nullable as v2 — was **not** adopted:
+    dual-version artifacts plus negotiation is infrastructure for a consumer base that does
+    not exist, and it would enshrine a contract satisfiable only by fabricated data. Flagged
+    for the founder as the point to revisit if a carrier ever pins a version.
+    Codex independently reproduced the mutation control (reintroducing `?? 0` failed the
+    missing-GPS and half-coordinate tests; source restored byte-identical) and confirmed
+    exact ±90/±180 are accepted and an explicitly-stored 0,0 is correctly preserved.
+    Post-drain: vitest 309/309 across `lib/export` + `app/api/inspections`, eslint 0 errors,
+    full `tsc --noEmit` 0 errors, all 12 CI guards green.

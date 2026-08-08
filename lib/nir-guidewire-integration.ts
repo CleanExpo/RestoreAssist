@@ -108,29 +108,36 @@ export interface NirStandardsCitation {
   complianceStatus: "COMPLIANT" | "NON_COMPLIANT" | "REQUIRES_ACTION";
 }
 
+/**
+ * A photo's capture coordinates — present as a pair, or absent as a pair.
+ *
+ * The pair is a union rather than two independently-nullable fields so the
+ * invariant is enforced by the type system and by the published JSON Schema,
+ * not merely promised in prose. An insurer must never receive a half
+ * coordinate, and must never receive a fabricated one (a missing geotag once
+ * serialised as 0,0 — a real position in the Gulf of Guinea).
+ */
+export type NirPhotoGeotag =
+  | { latitude: number; longitude: number }
+  | { latitude: null; longitude: null };
+
+export interface NirPhotoManifestEntry {
+  photoId: string;
+  capturedAt: string;
+  sequenceNumber: number;
+  category:
+    | "overview"
+    | "damage"
+    | "moisture-reading"
+    | "equipment"
+    | "content"
+    | "post-restoration";
+  standardRef: string;
+}
+
 export interface NirPhotoManifest {
   totalPhotos: number;
-  photos: Array<{
-    photoId: string;
-    capturedAt: string;
-    /**
-     * Capture coordinates, or `null` when the photo carries no usable
-     * geotag. Always a pair — an insurer must never receive a half or
-     * fabricated coordinate (a missing geotag once serialised as 0,0,
-     * which reads as a real position in the Gulf of Guinea).
-     */
-    latitude: number | null;
-    longitude: number | null;
-    sequenceNumber: number;
-    category:
-      | "overview"
-      | "damage"
-      | "moisture-reading"
-      | "equipment"
-      | "content"
-      | "post-restoration";
-    standardRef: string;
-  }>;
+  photos: Array<NirPhotoManifestEntry & NirPhotoGeotag>;
 }
 
 export interface NirEvidenceClearance {

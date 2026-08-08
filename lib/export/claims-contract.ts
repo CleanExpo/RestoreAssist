@@ -32,9 +32,23 @@ import type {
   NirTechnician,
 } from "@/lib/nir-guidewire-integration";
 
-// 1.1 — photoManifest latitude/longitude became nullable so an un-geotagged
-// photo reports explicit absence instead of a fabricated 0,0 coordinate.
-// Consumers pinned to 1.0 must treat both as `number | null`.
+/**
+ * 1.1 — `photoManifest.photos[].latitude/longitude` became a both-or-neither
+ * union, so an un-geotagged photo reports explicit absence instead of a
+ * fabricated 0,0 coordinate.
+ *
+ * This WITHDRAWS the 1.0 output shape rather than running alongside it, and
+ * 1.0 is not retained as a parallel artifact. That is deliberate: 1.0
+ * declared both coordinates as required numbers, a shape this system can only
+ * satisfy for an un-geotagged photo by inventing a position — so there is no
+ * honest 1.0 output left to serve. Withdrawing it is safe here because 1.0 has
+ * no bound consumer: the contract landed two weeks before this change (#1986),
+ * the endpoint has no version negotiation and emits exactly one envelope, and
+ * carrier-integration scope is still an open owner decision.
+ *
+ * If a carrier ever pins a version, that is the point to introduce real
+ * negotiation and retain immutable per-version artifacts — not before.
+ */
 export const CLAIMS_INTEGRATION_SCHEMA_VERSION = "1.1";
 
 const isoDateTime = z.iso.datetime();
@@ -89,29 +103,43 @@ const nirStandardsCitationSchema = z.strictObject({
   complianceStatus: z.enum(["COMPLIANT", "NON_COMPLIANT", "REQUIRES_ACTION"]),
 });
 
+const nirPhotoManifestEntryShape = {
+  photoId: z.string(),
+  capturedAt: z.string(),
+  sequenceNumber: z.number(),
+  category: z.enum([
+    "overview",
+    "damage",
+    "moisture-reading",
+    "equipment",
+    "content",
+    "post-restoration",
+  ]),
+  standardRef: z.string(),
+};
+
+// The geotag is a union of "both present" and "both absent", not two
+// independently-nullable fields. Expressed as a union so the pair invariant
+// survives into the published JSON Schema as an `anyOf` a carrier can
+// actually validate against — a `.refine()` would enforce it in-process and
+// vanish from the artifact. A photo with no usable geotag reports null for
+// both, never a fabricated or one-sided coordinate.
+const nirPhotoManifestPhotoSchema = z.union([
+  z.strictObject({
+    ...nirPhotoManifestEntryShape,
+    latitude: z.number(),
+    longitude: z.number(),
+  }),
+  z.strictObject({
+    ...nirPhotoManifestEntryShape,
+    latitude: z.null(),
+    longitude: z.null(),
+  }),
+]);
+
 const nirPhotoManifestSchema = z.strictObject({
   totalPhotos: z.number(),
-  photos: z.array(
-    z.strictObject({
-      photoId: z.string(),
-      capturedAt: z.string(),
-      // Nullable, always as a pair: a photo with no usable geotag reports
-      // `null`, never a fabricated coordinate. Same explicit-absence
-      // convention as `locationFlags.windRegion` above.
-      latitude: z.number().nullable(),
-      longitude: z.number().nullable(),
-      sequenceNumber: z.number(),
-      category: z.enum([
-        "overview",
-        "damage",
-        "moisture-reading",
-        "equipment",
-        "content",
-        "post-restoration",
-      ]),
-      standardRef: z.string(),
-    }),
-  ),
+  photos: z.array(nirPhotoManifestPhotoSchema),
 });
 
 const nirEvidenceClearanceSchema = z.strictObject({

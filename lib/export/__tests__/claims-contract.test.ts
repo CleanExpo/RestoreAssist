@@ -135,4 +135,44 @@ describe("claims integration contract v1", () => {
 
     expect(() => claimsIntegrationExportSchema.parse(payload)).toThrow();
   });
+
+  describe("photo geotag pair invariant", () => {
+    // The contract boundary must enforce both-or-neither itself. The route's
+    // resolvePhotoGeotag also guarantees it, but buildClaimsIntegrationExport
+    // is exported and accepts any NirReportOutput, so the guarantee cannot
+    // rest on the single in-repo caller.
+    function withPhotoGeotag(latitude: unknown, longitude: unknown) {
+      const payload = makeExport() as unknown as {
+        report: {
+          photoManifest: { photos: Array<Record<string, unknown>> };
+        };
+      };
+      payload.report.photoManifest.photos[0].latitude = latitude;
+      payload.report.photoManifest.photos[0].longitude = longitude;
+      return payload;
+    }
+
+    it("accepts a complete coordinate pair", () => {
+      expect(() =>
+        claimsIntegrationExportSchema.parse(withPhotoGeotag(-33.815, 151.001)),
+      ).not.toThrow();
+    });
+
+    it("accepts an explicitly absent pair", () => {
+      expect(() =>
+        claimsIntegrationExportSchema.parse(withPhotoGeotag(null, null)),
+      ).not.toThrow();
+    });
+
+    it.each([
+      ["latitude without longitude", -33.815, null],
+      ["longitude without latitude", null, 151.001],
+    ])("rejects %s", (_label, latitude, longitude) => {
+      expect(() =>
+        claimsIntegrationExportSchema.parse(
+          withPhotoGeotag(latitude, longitude),
+        ),
+      ).toThrow();
+    });
+  });
 });

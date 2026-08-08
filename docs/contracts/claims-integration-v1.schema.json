@@ -314,62 +314,96 @@
             "photos": {
               "type": "array",
               "items": {
-                "type": "object",
-                "properties": {
-                  "photoId": {
-                    "type": "string"
-                  },
-                  "capturedAt": {
-                    "type": "string"
-                  },
-                  "latitude": {
-                    "anyOf": [
-                      {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "photoId": {
+                        "type": "string"
+                      },
+                      "capturedAt": {
+                        "type": "string"
+                      },
+                      "sequenceNumber": {
                         "type": "number"
                       },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "longitude": {
-                    "anyOf": [
-                      {
+                      "category": {
+                        "type": "string",
+                        "enum": [
+                          "overview",
+                          "damage",
+                          "moisture-reading",
+                          "equipment",
+                          "content",
+                          "post-restoration"
+                        ]
+                      },
+                      "standardRef": {
+                        "type": "string"
+                      },
+                      "latitude": {
                         "type": "number"
                       },
-                      {
+                      "longitude": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "photoId",
+                      "capturedAt",
+                      "sequenceNumber",
+                      "category",
+                      "standardRef",
+                      "latitude",
+                      "longitude"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "photoId": {
+                        "type": "string"
+                      },
+                      "capturedAt": {
+                        "type": "string"
+                      },
+                      "sequenceNumber": {
+                        "type": "number"
+                      },
+                      "category": {
+                        "type": "string",
+                        "enum": [
+                          "overview",
+                          "damage",
+                          "moisture-reading",
+                          "equipment",
+                          "content",
+                          "post-restoration"
+                        ]
+                      },
+                      "standardRef": {
+                        "type": "string"
+                      },
+                      "latitude": {
+                        "type": "null"
+                      },
+                      "longitude": {
                         "type": "null"
                       }
-                    ]
-                  },
-                  "sequenceNumber": {
-                    "type": "number"
-                  },
-                  "category": {
-                    "type": "string",
-                    "enum": [
-                      "overview",
-                      "damage",
-                      "moisture-reading",
-                      "equipment",
-                      "content",
-                      "post-restoration"
-                    ]
-                  },
-                  "standardRef": {
-                    "type": "string"
+                    },
+                    "required": [
+                      "photoId",
+                      "capturedAt",
+                      "sequenceNumber",
+                      "category",
+                      "standardRef",
+                      "latitude",
+                      "longitude"
+                    ],
+                    "additionalProperties": false
                   }
-                },
-                "required": [
-                  "photoId",
-                  "capturedAt",
-                  "latitude",
-                  "longitude",
-                  "sequenceNumber",
-                  "category",
-                  "standardRef"
-                ],
-                "additionalProperties": false
+                ]
               }
             }
           },
