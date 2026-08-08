@@ -327,7 +327,13 @@ describe("welcomeEmailCheck (Resend domain probe)", () => {
   });
 });
 
-describe("pricingCheck (unit — presence not truthiness)", () => {
+// Spying on prisma delegate methods forces the lazy PrismaClient proxy to
+// construct, which throws without DATABASE_URL (RA-7079). Gated like the
+// runAllChecks suite above: runs in CI (which provisions Postgres, RA-6685),
+// skips cleanly in the no-DB release-gate/local run.
+describe.skipIf(!process.env.DATABASE_URL)(
+  "pricingCheck (unit — presence not truthiness)",
+  () => {
   let findUniqueSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -357,7 +363,9 @@ describe("pricingCheck (unit — presence not truthiness)", () => {
   });
 });
 
-describe("sampleReportRenderCheck note redaction", () => {
+describe.skipIf(!process.env.DATABASE_URL)(
+  "sampleReportRenderCheck note redaction",
+  () => {
   let orgFindUniqueSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {

@@ -284,7 +284,20 @@ export default function SignupPage() {
                   Unlock powerful features when you're ready:
                 </p>
                 <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
-                  <li>Unlimited Quick Fill (AI-powered form auto-fill)</li>
+                  {/*
+                    This list previously opened with "Unlimited Quick Fill
+                    (AI-powered form auto-fill)", which was wrong twice over and
+                    is the same defect just corrected on /pricing:
+                      - Not an upgrade. app/api/user/quick-fill-credits/route.ts
+                        returns hasUnlimited: true for isTrialWithinPeriod
+                        exactly as it does for ACTIVE, so a trial user already
+                        has it. What paying buys is that it KEEPS working once
+                        the trial window closes.
+                      - Not AI-powered. The shipped Quick Fill copies hardcoded
+                        scenario data; generateQuickFillData
+                        (lib/deepseek-api.ts:74) has zero callers in the repo.
+                  */}
+                  <li>Quick Fill stays unlimited after your trial ends</li>
                   <li>Enhanced & Optimised report types</li>
                   <li>PDF upload and processing</li>
                   <li>Full profile and pricing configuration</li>

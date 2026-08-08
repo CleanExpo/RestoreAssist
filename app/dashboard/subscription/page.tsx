@@ -473,17 +473,26 @@ function SubscriptionPageContent() {
                   <Check className="w-5 h-5 text-success" />
                   <span className="text-slate-300">Email support</span>
                 </div>
+                {/*
+                  Three claims corrected here to match /pricing:
+                    - "All integrations" promised things that cost extra. Three
+                      of the seven $11/month add-ons in
+                      lib/billing/addon-registry.ts ARE integrations
+                      (bookkeeping, service CRM, payments).
+                    - "NCC 2022 compliant" is a compliance assertion of the same
+                      class lib/iicrc-inclusion-check.ts forbids for IICRC —
+                      "complies", "certifies", "meets [the standard]". Nothing
+                      in this repo certifies against the National Construction
+                      Code.
+                    - "Priority processing" was removed outright: it has no
+                      implementation. Searching app/, lib/ and components/ for
+                      "priority" returns only the sitemap's SEO weights.
+                */}
                 <div className="flex items-center gap-3">
                   <Check className="w-5 h-5 text-success" />
-                  <span className="text-slate-300">All integrations</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-success" />
-                  <span className="text-slate-300">NCC 2022 compliant</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-success" />
-                  <span className="text-slate-300">Priority processing</span>
+                  <span className="text-slate-300">
+                    Integrations available as separately-priced add-ons
+                  </span>
                 </div>
               </div>
             </div>

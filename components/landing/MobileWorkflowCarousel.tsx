@@ -38,7 +38,12 @@ const phoneScreens: PhoneScreen[] = [
     label: "ESTIMATING",
     description: "Accurate cost estimates with regional pricing",
     features: [
-      "NCC 2022 compliant",
+      // "NCC 2022 compliant" was a compliance assertion of the same class
+      // lib/iicrc-inclusion-check.ts forbids for IICRC — "complies", "meets",
+      // "certifies". Nothing in this repo certifies anything against the
+      // National Construction Code. This is the landing page, so it was the
+      // first claim a buyer read.
+      "Australian rates and units",
       "Regional cost libraries",
       "Equipment & labour rates",
       "PDF & Excel export",

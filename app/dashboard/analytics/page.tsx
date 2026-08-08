@@ -763,10 +763,11 @@ export default function AnalyticsPage() {
                           borderRadius: "8px",
                           color: "hsl(var(--foreground))",
                         }}
-                        formatter={(value: number | string) => [
-                          `${value} reports`,
-                          "Count",
-                        ]}
+                        // Let recharts infer the type. An explicit `number | string`
+                        // is narrower than recharts' ValueType (which includes
+                        // undefined) and fails to satisfy the overload; `?? 0` keeps
+                        // an undefined value from rendering as "undefined reports".
+                        formatter={(value) => [`${value ?? 0} reports`, "Count"]}
                       />
                       <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                         {data.statePerformance.slice(0, 8).map((_, index) => (

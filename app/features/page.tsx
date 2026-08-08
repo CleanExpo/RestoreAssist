@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
+import { PRICING_CONFIG } from "@/lib/pricing";
 import {
   MarketingShell,
   MarketingPageHero,
@@ -11,42 +13,350 @@ import {
   FONT_DISPLAY,
   CONTAINER,
   SECTION_PAD,
+  SECTION_EYEBROW,
+  SECTION_TITLE,
+  SECTION_BODY,
+  SURFACE,
+  CTA_PRIMARY,
+  CTA_SECONDARY,
   VIEWPORT,
 } from "@/components/landing/home/motion";
 import { useLandingReduceMotion } from "@/components/landing/home/useLandingReduceMotion";
 
-const features = [
+type FeatureItem = {
+  /** The concrete, checkable part of the claim. */
+  label: string;
+  detail: string;
+};
+
+type FeatureGroup = {
+  title: string;
+  summary: string;
+  items: readonly FeatureItem[];
+};
+
+/**
+ * Every number and named capability below is a property of this codebase, not a
+ * marketing estimate. Where a figure is a count, it is a count of entries in a
+ * file that ships:
+ *   - S500 / S520 section index ....... lib/standards/s500-sections.ts, s520-sections.ts
+ *   - 22 report sections, 6 insurers .. lib/insurer-profiles.ts
+ *   - 17 evidence classes ............. lib/evidence/evidence-classes.ts
+ *   - 13 job-type workflows ........... lib/evidence/workflow-definitions.ts
+ *   - photo label schema .............. prisma/schema.prisma (RA-446 block)
+ *   - signing / custody ............... lib/evidence/device-signing.ts, manifest-canonical.ts
+ *   - offline queues .................. lib/evidence-upload-queue.ts, lib/nir-sync-queue.ts,
+ *                                       lib/offline/inspection-store.ts, lib/voice-note-queue.ts,
+ *                                       lib/sketch/roomplan-custody-queue.ts
+ *   - region pin ...................... vercel.json ("regions": ["syd1"])
+ *   - AI key resolution / budget ...... lib/ai/resolve-workspace-ai-key.ts, lib/ai/budget-guard.ts
+ *   - AU tax / ABN / ABR .............. lib/gst-rules.ts, lib/abn/checksum.ts,
+ *                                       lib/integrations/abr/parse.ts
+ *   - electrical + equipment .......... lib/equipment-power.ts, lib/equipment-matrix.ts
+ *   - drying maths .................... lib/psychrometric-calculations.ts, lib/iicrc-dry-standards.ts
+ *   - exports ......................... lib/excel-export.ts, lib/exports/report-docx.ts,
+ *                                       lib/zip-archive.ts, lib/portal-token.ts
+ *   - AI ownership .................... lib/reports/ai-ownership.ts
+ * If a capability cannot be pointed at in the repository, it does not belong on
+ * this page. Do not add a number here to make a group look fuller.
+ */
+const GROUPS: readonly FeatureGroup[] = [
   {
-    title: "AI-Powered Damage Assessment",
-    description:
-      "Advanced AI technology analyses damage patterns and provides accurate assessments in real-time.",
+    title: "Reports built on the standard's own structure",
+    summary:
+      "Reports cite IICRC S500:2021 by edition and section number rather than gesturing at industry practice. Section numbers and titles are indexed in the product; the standard's licensed wording never is.",
+    items: [
+      {
+        label: "62 indexed S500:2021 sections and subsections",
+        detail:
+          "Plus 13 chapters of S520:2024 for mould work. The index holds section numbers and titles only — the licensed wording stays with the IICRC. A check in pull-request CI rejects any citation whose chapter is absent from the index, and any invented subsection inside the three subtrees transcribed in full. It runs on every pull request, not in the deploy build.",
+      },
+      {
+        label: "22 report sections",
+        detail:
+          "Executive summary, scope of works, moisture data, thermal imaging, damage classification, drying plan, health and safety, chain of custody, insurer declaration, and the rest.",
+      },
+      {
+        label: "17 evidence classes, each carrying its section reference",
+        detail:
+          "Site overview, damage close-up, moisture readings, thermal images, equipment placement, containment setup, air-quality readings, material samples, safety hazards, utility status and the rest. References are validated at chapter level against the index; a subsection the index does not carry is rendered as a plain standards reference rather than given an invented title.",
+      },
+      {
+        label: "13 job-type workflows",
+        detail:
+          "Water, mould, fire and smoke, sewage, storm, impact, vandalism, clandestine and hazardous, stabilisation only, contents only, commercial, strata, residential. Each step declares the evidence it needs before it will close.",
+      },
+      {
+        label: "6 Australian insurer profiles",
+        detail:
+          "IAG, Suncorp, QBE, Allianz, Zurich and AIG, each with its own expected section set and page guidance.",
+      },
+    ],
   },
   {
-    title: "IICRC S500 Compliance",
-    description:
-      "Fully compliant with IICRC S500 standards for water damage restoration and assessment.",
+    title: "Photographs that hold up when someone argues with them",
+    summary:
+      "A photo is only worth what it can prove about where and when it was taken. Guided captures are signed on the device before they leave it.",
+    items: [
+      {
+        label: "An Ed25519 key per device",
+        detail:
+          "Generated by WebCrypto as non-extractable, so the private half never exists in readable memory. Only the public half is registered with the server.",
+      },
+      {
+        label: "SHA-256 bound to the bytes that were actually uploaded",
+        detail:
+          "The server re-hashes the file it received and refuses the upload if it does not match the hash inside the signed manifest. On the iOS guided capture the hash is taken on the camera's original bytes before anything is resized.",
+      },
+      {
+        label: "Location, accuracy and time inside the signature",
+        detail:
+          "Latitude, longitude and GPS accuracy travel in the signed manifest, so the location claim can be weighed rather than assumed. EXIF is read server-side to decimal degrees, WGS84.",
+      },
+      {
+        label: "A canonical manifest, so verification is deterministic",
+        detail:
+          "Keys sorted, no whitespace, RFC 8785 style. A manifest that cannot serialise identically on both sides is refused rather than signed.",
+      },
+      {
+        label: "8 custody actions recorded",
+        detail:
+          "Captured, uploaded, reviewed, annotated, exported, shared, archived, deleted.",
+      },
+      {
+        label: "12 S500 label fields per photo",
+        detail:
+          "Category CAT 1 to 3, class 1 to 4, section reference, room type, moisture source, affected materials, surface orientation, extent, whether equipment is visible, secondary damage indicators, stage and capture angle. Three further fields record provenance rather than taxonomy: who applied the labels, technician notes, and a link to the moisture reading. Flagging a suspected asbestos indicator puts a stop-work banner on the inspection's photo screen — a warning to the crew, not a lock on the software.",
+      },
+      {
+        label: "An audit trail that records the device, not just the user",
+        detail:
+          "Each logged action keeps the actor, the device, the location, the previous value and the new one, with IP address and timestamp. Admin support access is written to its own separate trail.",
+      },
+    ],
   },
   {
-    title: "Multi-Hazard Support",
-    description:
-      "Comprehensive support for water, fire, mould, and storm damage assessments.",
+    title: "Field capture that survives no signal",
+    summary:
+      "Restoration work happens in basements, in car parks and behind concrete. Nothing in the capture path assumes a connection.",
+    items: [
+      {
+        label: "Five separate offline queues",
+        detail:
+          "Evidence uploads, inspection writes, inspection drafts, voice notes and room-scan custody records. Each is its own IndexedDB database on the device, so one stalled queue cannot block another.",
+      },
+      {
+        label: "The evidence queue holds 50 captures and retries 5 times",
+        detail:
+          "Enough headroom for a long offline session without letting the queue grow without limit. A capture that has failed five times is parked rather than retried forever.",
+      },
+      {
+        label: "The inspection queue backs off at 1, 2, 5, 10 and 30 seconds",
+        detail:
+          "That is the inspection sync queue specifically. Floor-plan saves are its exception and retry effectively without limit, because a sketch can represent half an hour of irrecoverable canvas work.",
+      },
+      {
+        label: "Photos compressed before they queue",
+        detail:
+          "A 2048 pixel long edge at 80 percent WebP, so a day of captures does not exhaust device storage. The queued file is hashed after compression, so the hash covers exactly the bytes that will be uploaded.",
+      },
+      {
+        label: "Background Sync on the evidence and inspection queues",
+        detail:
+          "Those two register a sync tag the service worker handles, so the browser can drain them without the page open, and both fall back to an online-event listener where it does not. The other three do not have that: the voice-note queue registers a tag the service worker does not yet handle, so it drains on the online event alone; inspection drafts flush on the native network-status listener; room-scan custody records are held as a pending list a caller drains.",
+      },
+      {
+        label: "Native iOS and Android builds",
+        detail:
+          "Camera, geolocation, network state, filesystem and the system share sheet, through the same code path as the web app.",
+      },
+      {
+        label: "Bluetooth readings from ESS thermo-hygrometers",
+        detail:
+          "Testo 605-H1 and Vaisala HM70 pair over the standard Bluetooth Environmental Sensing service and write temperature and humidity straight into the reading form. Pin and pinless moisture meters are not paired yet — those readings are still keyed in.",
+      },
+    ],
   },
   {
-    title: "Photo & Data Capture",
-    description:
-      "Seamless integration for capturing photos and essential data during inspections.",
+    title: "Priced for Australia, not converted into it",
+    summary:
+      "Tax, business identity, labour rates and electrical assumptions are Australian and New Zealand first. None of it is a translated US product.",
+    items: [
+      {
+        label: "GST at 10 percent in Australia, 15 percent in New Zealand",
+        detail:
+          "The correct Xero, MYOB and QuickBooks tax code is resolved per jurisdiction rather than left to the operator.",
+      },
+      {
+        label: "ABNs checked on the 11-digit modulus-89 checksum",
+        detail:
+          "A mistyped ABN is rejected before it reaches a document, not after an insurer queries it.",
+      },
+      {
+        label: "Australian Business Register lookup at setup",
+        detail:
+          "Legal name, trading names, ACN, entity type, GST registration and its effective date, state and postcode.",
+      },
+      {
+        label: "Rate defaults that move with the state",
+        detail:
+          "All eight states and territories, adjusted again by entity type. The labour ladder, equipment day rates, call-out, mobilisation, administration, thermal camera use and the per-square-metre treatment rates all scale. The dimensionless figures — weekend, after-hours and public-holiday multipliers, and the project management percentage — are held flat on purpose.",
+      },
+      {
+        label: "230 V / 50 Hz equipment, 10 A GPO circuit maths",
+        detail:
+          "In the water equipment calculator, circuit counts follow the AS/NZS 3012:2019 80 percent continuous-load rule because drying equipment runs around the clock. 15 A and 20 A circuits are offered as options.",
+      },
+      {
+        label: "Weather from Bureau of Meteorology observations",
+        detail:
+          "Rainfall, temperature, humidity and peak wind gust for an Australian or New Zealand postcode and date, from the public BOM feeds, with the observing station named and the source feed URL kept for the audit trail. The lookup takes the postcode it is given; reading it straight off the inspection record is written but not yet called from anywhere.",
+      },
+      {
+        label: "Application compute pinned to Sydney",
+        detail:
+          "One project-level region setting in the deployment config places the deployment's serverless functions in syd1, so requests are served from Australia rather than routed offshore by default. Two things sit outside it: middleware, which runs on the edge network that setting does not pin, and AI inference, which runs wherever your own provider runs it, because the key is yours.",
+      },
+    ],
   },
   {
-    title: "Dynamic Workflow Engine",
-    description:
-      "Flexible workflow system that adapts to your specific restoration process.",
+    title: "Scope and cost maths you can show your working on",
+    summary:
+      "Every quantity on an estimate should trace back to a dimension, a classification or a published specification. These are the inputs that make that possible.",
+    items: [
+      {
+        label: "11 equipment groups, and 14 models that all carry a source",
+        detail:
+          "LGR and desiccant dehumidifiers, air movers, negative-air units and heat drying. All fourteen models in the table today are annotated with manufacturer, model and where the specification is published. Models whose 230 V figures could not be verified from a published source were removed rather than estimated. The source field is a convention held by review, not a required field in the type.",
+      },
+      {
+        label: "Psychrometrics from the Magnus formula",
+        detail:
+          "Grains per pound, vapour pressure differential and a drying potential rating, computed rather than read off a chart by eye.",
+      },
+      {
+        label: "Dry standards per material, in three bands",
+        detail:
+          "Every material carries its own dry threshold and wet threshold, and a reading that falls between the two reads as still drying rather than as done. Two threshold tables are in use across the product, so the figures are shown against the material in the app rather than quoted here.",
+      },
+      {
+        label: "Equipment calculators for water and for mould",
+        detail:
+          "Room dimensions plus category and class produce a defensible equipment list, with dehumidification, airflow and negative air each tied to a verified section. The two do not yet share one electrical basis: the water calculator uses the AS/NZS 3012:2019 module above, while the mould calculator sizes circuits on its own 20 A assumption. Fire and storm calculators are written but not yet wired to a screen.",
+      },
+      {
+        label: "Running cost at a sourced default tariff",
+        detail:
+          "34 cents per kilowatt hour as the population-weighted national default, overridable with the client's actual supply contract.",
+      },
+    ],
   },
   {
-    title: "Real-Time Cost Calculation",
-    description:
-      "Instant cost calculations with regional pricing libraries and equipment rates.",
+    title: "Getting the work out the door",
+    summary:
+      "The report is only finished when it is in the format the person on the other end asked for.",
+    items: [
+      {
+        label: "A4 PDFs across the document set",
+        detail:
+          "Inspection report, scope of works, cost estimation, enhanced and forensic reports, floor plans, invoices, signed authority forms, dispute defence pack, stabilisation certificate and close-out pack.",
+      },
+      {
+        label: "Excel workbooks",
+        detail:
+          "Single report, bulk export, and an analytics workbook split into summary, reports and hazard analysis sheets.",
+      },
+      {
+        label: "Word documents and ZIP bundles",
+        detail:
+          "A .docx of the report, scope and cost sections for anyone who needs to edit in Word, or a ZIP of the package PDF with its structured JSON alongside.",
+      },
+      {
+        label: "A complete package up to 500 photos",
+        detail:
+          "Plus 20 floor plans and 50 signed authority forms in a single export.",
+      },
+      {
+        label: "Client portal links signed with HMAC-SHA256",
+        detail:
+          "Valid for 7 days, compared in constant time, with no login required at the other end.",
+      },
+    ],
+  },
+  {
+    title: "Your key, your words, your report",
+    summary:
+      "Two things about this product are deliberately not ours: the model that drafts your report, and the liability for what it says.",
+    items: [
+      {
+        label: "Report generation runs on your own provider key",
+        detail:
+          "Adding one is a required step in setup on every plan, including the free trial. You pay your provider directly, at cost, and the usage sits in your account rather than ours.",
+      },
+      {
+        label: "Anthropic today, four more connectable",
+        detail:
+          "Most report routes call Anthropic. The inspection report will also run on OpenAI, OpenRouter or Google Gemini, and a self-hosted Gemma endpoint can be connected in settings.",
+      },
+      {
+        label: "The key is encrypted with AES-256-GCM",
+        detail:
+          "Stored as ciphertext with its own initialisation vector and authentication tag, and never handed back to the browser except masked. The report, vision and assistant routes resolve your workspace key through a single entry point that returns a payment-required error when there is none, rather than falling back to a platform key. The scope-of-works and cost-estimation routes are not on that list because they make no AI call at all — they are built deterministically and resolve no key.",
+      },
+      {
+        label: "A daily spend ceiling on the heaviest AI routes",
+        detail:
+          "Image import, contents manifests and assessment prose price the call before making it and stop at a daily workspace ceiling. The guard fails closed: if the day's spend cannot be read, the call is blocked rather than let through. The ceiling is an operator default of fifty US dollars a day, not yet a setting you can change.",
+      },
+      {
+        label: "AI output is a draft until you have rewritten it",
+        detail:
+          "The model is instructed to open the report body with an AI-assisted-draft line, and told it is a documentation assistant rather than the author of record. That is an instruction in the prompt, not a check on the output — nothing verifies the model complied. The watermark below is the part that is enforced.",
+      },
+      {
+        label: "A watermark that only you can remove",
+        detail:
+          "PDF, Word and ZIP exports carry the AI-draft watermark until you have saved your own edits and then acknowledged ownership. The acknowledgement route refuses while the draft is still unedited, and records who acknowledged and when.",
+      },
+    ],
   },
 ] as const;
+
+const freeCfg = PRICING_CONFIG.free;
+const monthlyCfg = PRICING_CONFIG.pricing.monthly;
+
+/**
+ * What separates the two columns is REPORT VOLUME and the settings a paid
+ * account may write — not report depth. Verified 2026-08-07:
+ *   - lib/report-limits.ts canCreateReport: TRIAL spends a finite credit grant
+ *     inside the trial window; ACTIVE spends a monthly limit that resets and
+ *     can be topped up with add-on packs. That is the enforced boundary.
+ *   - app/api/pricing-config/route.ts:105 returns 403 to TRIAL on write, so
+ *     custom rates really are a paid capability.
+ *   - The Enhanced and Optimised report types are NOT gated:
+ *     generate-enhanced/route.ts:130 admits TRIAL, and
+ *     save-tier-responses/route.ts sets reportDepthLevel after auth and
+ *     ownership only. PDF upload is not gated either — parse-pdf/route.ts
+ *     checks a session and a rate limit and nothing else. Both were listed
+ *     here as things paying unlocked; both were removed rather than reworded,
+ *     because the API does not hold the boundary. If either is ever gated in
+ *     code, put it back — not before.
+ */
+const TRIAL_INCLUDES: readonly string[] = [
+  `${freeCfg.trialDays} days, no credit card`,
+  `${freeCfg.trialReportCredits} inspection report credits`,
+  "Basic, Enhanced and Optimised report types, same as on the paid plan",
+  "Every capture, evidence, standards and export capability above",
+  "Your own AI key, same as on the paid plan",
+];
+
+const PAID_ADDS: readonly string[] = [
+  `${monthlyCfg.reportLimit} inspection reports a month, plus ${monthlyCfg.signupBonus} in your first`,
+  "A monthly allowance that resets, in place of a one-off trial credit grant",
+  "Your own labour, equipment and chemical rates, in place of the state defaults",
+  "Xero and Ascora connections (MYOB, QuickBooks and ServiceM8 are in beta)",
+  "Report packs when a month runs long, from $20 for 8",
+];
 
 export default function FeaturesPage() {
   const reduce = useLandingReduceMotion();
@@ -54,11 +364,12 @@ export default function FeaturesPage() {
   return (
     <MarketingShell>
       <MarketingPageHero
-        eyebrow="Platform"
-        title="AI Damage Assessment & IICRC S500 Compliance"
-        description="Powerful tools designed to streamline your restoration workflow."
+        eyebrow="What the plan includes"
+        title="What your subscription actually buys"
+        description="Not adjectives. The report structure, the evidence guarantees, the Australian tax and electrical assumptions, and the export formats you get for ninety-nine dollars a month."
       />
 
+      {/* ── What the trial gets, and what paying adds ─────────────────────── */}
       <section className={`bg-white border-t border-slate-200/90 ${SECTION_PAD}`}>
         <div className={CONTAINER}>
           <motion.div
@@ -66,27 +377,192 @@ export default function FeaturesPage() {
             initial={reduce ? false : "hidden"}
             whileInView="visible"
             viewport={VIEWPORT}
-            className="grid gap-px overflow-hidden rounded-2xl border border-slate-200/90 bg-slate-200/60 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-6 lg:grid-cols-2 lg:gap-8"
           >
-            {features.map((feature, index) => (
-              <motion.article
-                key={feature.title}
-                variants={fadeUp}
-                className="bg-white p-7 sm:p-8"
+            <motion.article
+              variants={fadeUp}
+              className={`${SURFACE} border-[#3B6D8C]/25 p-7 sm:p-9`}
+            >
+              <p className={SECTION_EYEBROW}>Free trial</p>
+              <h2
+                className={`${FONT_DISPLAY} mt-4 text-2xl font-semibold tracking-[-0.02em] text-[#0B1F3A] sm:text-[1.75rem]`}
               >
-                <p className="text-[11px] font-semibold tabular-nums tracking-[0.16em] text-[#3B6D8C]/85">
-                  {String(index + 1).padStart(2, "0")}
-                </p>
-                <h2
-                  className={`${FONT_DISPLAY} mt-3 text-lg font-semibold tracking-[-0.015em] text-[#0B1F3A] sm:text-[1.2rem]`}
-                >
-                  {feature.title}
-                </h2>
-                <p className="mt-3 text-[15px] leading-[1.72] text-slate-600">
-                  {feature.description}
-                </p>
-              </motion.article>
+                $0 for {freeCfg.trialDays} days
+              </h2>
+              <ul className="mt-7 space-y-3.5">
+                {TRIAL_INCLUDES.map((line) => (
+                  <li
+                    key={line}
+                    className="flex gap-3 text-[15px] leading-[1.7] text-slate-600"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="mt-[0.6rem] h-px w-4 shrink-0 bg-[#3B6D8C]/60"
+                    />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link href="/signup" className={`${CTA_SECONDARY} mt-9 w-full`}>
+                Start the trial
+              </Link>
+            </motion.article>
+
+            <motion.article
+              variants={fadeUp}
+              className={`${SURFACE} border-[#0B1F3A]/25 p-7 ring-1 ring-[#0B1F3A]/10 sm:p-9`}
+            >
+              <p className={SECTION_EYEBROW}>Monthly plan</p>
+              <h2
+                className={`${FONT_DISPLAY} mt-4 text-2xl font-semibold tracking-[-0.02em] text-[#0B1F3A] sm:text-[1.75rem]`}
+              >
+                ${monthlyCfg.amount} a month, and it adds
+              </h2>
+              <ul className="mt-7 space-y-3.5">
+                {PAID_ADDS.map((line) => (
+                  <li
+                    key={line}
+                    className="flex gap-3 text-[15px] leading-[1.7] text-slate-600"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="mt-[0.6rem] h-px w-4 shrink-0 bg-[#0B1F3A]/50"
+                    />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link href="/pricing" className={`${CTA_PRIMARY} mt-9 w-full`}>
+                See the full pricing
+              </Link>
+            </motion.article>
+          </motion.div>
+
+          <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-[1.7] text-slate-500">
+            {monthlyCfg.currency}, incl. GST. Bookkeeping connections to Xero,
+            MYOB and QuickBooks also require the Bookkeeping add-on. Report
+            generation on both plans runs on your own AI provider key, billed to
+            you by that provider.
+          </p>
+        </div>
+      </section>
+
+      {/* ── The capability groups ─────────────────────────────────────────── */}
+      <section
+        className={`border-t border-slate-200/90 bg-[#F3F5F7] ${SECTION_PAD}`}
+        aria-labelledby="capabilities-heading"
+      >
+        <div className={CONTAINER}>
+          <motion.div
+            variants={staggerContainer}
+            initial={reduce ? false : "hidden"}
+            whileInView="visible"
+            viewport={VIEWPORT}
+            className="max-w-3xl"
+          >
+            <motion.p variants={fadeUp} className={SECTION_EYEBROW}>
+              Included on every plan
+            </motion.p>
+            <motion.h2
+              id="capabilities-heading"
+              variants={fadeUp}
+              className={SECTION_TITLE}
+            >
+              What is in the box
+            </motion.h2>
+            <motion.p variants={fadeUp} className={SECTION_BODY}>
+              Everything below ships today and can be pointed at in the product.
+              Where a number appears, it is a count of something real: sections
+              in the standards index, evidence classes in the schema, states in
+              the rate table. Nothing here is rounded up to sound better.
+            </motion.p>
+          </motion.div>
+
+          <div className="mt-16 space-y-px overflow-hidden rounded-2xl border border-slate-200/90 bg-slate-200/60 sm:mt-20">
+            {GROUPS.map((group, index) => (
+              <motion.section
+                key={group.title}
+                variants={fadeUp}
+                initial={reduce ? false : "hidden"}
+                whileInView="visible"
+                viewport={VIEWPORT}
+                className="bg-white p-7 sm:p-9 lg:p-12"
+                aria-labelledby={`group-${index}`}
+              >
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,22rem)_1fr] lg:gap-16">
+                  <div>
+                    <p className="text-[11px] font-semibold tabular-nums tracking-[0.16em] text-[#3B6D8C]/85">
+                      {String(index + 1).padStart(2, "0")}
+                    </p>
+                    <h3
+                      id={`group-${index}`}
+                      className={`${FONT_DISPLAY} mt-3 text-xl font-semibold tracking-[-0.02em] text-[#0B1F3A] sm:text-[1.45rem] sm:leading-[1.25]`}
+                    >
+                      {group.title}
+                    </h3>
+                    <p className="mt-4 text-[15px] leading-[1.72] text-slate-600">
+                      {group.summary}
+                    </p>
+                  </div>
+
+                  <ul className="grid gap-x-12 sm:grid-cols-2">
+                    {group.items.map((item) => (
+                      <li
+                        key={item.label}
+                        className="border-t border-[#0B1F3A]/10 py-5 first:border-t-0 sm:first:border-t sm:py-6"
+                      >
+                        <p className="text-[15px] font-semibold leading-[1.5] tracking-[-0.01em] text-[#0B1F3A]">
+                          {item.label}
+                        </p>
+                        <p className="mt-2 text-[14.5px] leading-[1.7] text-slate-600">
+                          {item.detail}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </motion.section>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Closing ───────────────────────────────────────────────────────── */}
+      <section className={`border-t border-slate-200/90 bg-white ${SECTION_PAD}`}>
+        <div className={`${CONTAINER} text-center`}>
+          <motion.div
+            variants={staggerContainer}
+            initial={reduce ? false : "hidden"}
+            whileInView="visible"
+            viewport={VIEWPORT}
+            className="mx-auto max-w-2xl"
+          >
+            <motion.h2
+              variants={fadeUp}
+              className={`${FONT_DISPLAY} text-[1.9rem] font-semibold leading-[1.12] tracking-[-0.02em] text-[#0B1F3A] sm:text-[2.35rem]`}
+            >
+              Try it on a job you have already written up
+            </motion.h2>
+            <motion.p
+              variants={fadeUp}
+              className="mx-auto mt-5 max-w-xl text-[15px] leading-[1.75] text-slate-600 sm:text-[17px]"
+            >
+              {freeCfg.trialDays} days and {freeCfg.trialReportCredits} report
+              credits is enough to take a real claim from the first photo to a
+              signed report, then hold the output against what you sent last
+              time.
+            </motion.p>
+            <motion.div
+              variants={fadeUp}
+              className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
+            >
+              <Link href="/signup" className={CTA_PRIMARY}>
+                Start free trial
+              </Link>
+              <Link href="/pricing" className={CTA_SECONDARY}>
+                See pricing
+              </Link>
+            </motion.div>
           </motion.div>
         </div>
       </section>
