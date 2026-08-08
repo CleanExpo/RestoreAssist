@@ -196,6 +196,33 @@ export async function fetchTechnicianCertifications(
   );
 }
 
+// ─── PHOTO GEOTAG ────────────────────────────────────────────────────────────
+
+/**
+ * Resolve a photo's capture coordinates for the insurer manifest.
+ *
+ * Integrity rule: a geotag is published only when BOTH coordinates are
+ * present, finite and in range — otherwise the pair is `null`. The columns
+ * are independently nullable (`InspectionPhoto.gpsLatitude/gpsLongitude`) and
+ * the upload route writes them independently, so a half or out-of-range
+ * coordinate is reachable. Publishing `0` for a missing value would place the
+ * evidence at 0°,0° — a real position, and never an Australian one.
+ */
+export function resolvePhotoGeotag(
+  latitude: number | null | undefined,
+  longitude: number | null | undefined,
+): { latitude: number | null; longitude: number | null } {
+  const inRange = (value: number | null | undefined, limit: number): boolean =>
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    Math.abs(value) <= limit;
+
+  if (!inRange(latitude, 90) || !inRange(longitude, 180)) {
+    return { latitude: null, longitude: null };
+  }
+  return { latitude: latitude as number, longitude: longitude as number };
+}
+
 // ─── NIR → GUIDEWIRE PAYLOAD BUILDER ─────────────────────────────────────────
 
 export function buildNirReportOutput(
@@ -317,8 +344,7 @@ export function buildNirReportOutput(
       capturedAt: p.timestamp
         ? new Date(p.timestamp).toISOString()
         : new Date().toISOString(),
-      latitude: p.gpsLatitude ?? 0,
-      longitude: p.gpsLongitude ?? 0,
+      ...resolvePhotoGeotag(p.gpsLatitude, p.gpsLongitude),
       sequenceNumber: idx + 1,
       category: mapPhotoCategory(p.damageCategory),
       standardRef: "IICRC S500:2021 §12.2",

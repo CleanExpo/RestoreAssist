@@ -338,3 +338,46 @@ were found in `.planning/` video docs.
   2026-07-09). The brand-logo upload half is still unwired
   (`components/setup/BrandCard.tsx:34`, `TODO(setup-wizard Phase 8+)`) and is in progress
   in a parallel PR.
+- [PASS] **Guidewire claim payload zeroed GPS (Missing connections medium; backlog #4 —
+  "Guidewire cert+GPS")** — the certifications half was closed earlier by
+  `fetchTechnicianCertifications`; this closes the GPS half. The insurer photo manifest
+  built `latitude: p.gpsLatitude ?? 0, longitude: p.gpsLongitude ?? 0`
+  (`app/api/inspections/[id]/guidewire/route.ts`), so a photo with no geotag was published
+  to the carrier as **0°,0°** — a real position in the Gulf of Guinea, and never an
+  Australian one. An insurer could not distinguish "no GPS recorded" from "photo taken at
+  Null Island", and any carrier-side proximity check would read fabricated coordinates as
+  evidence of location. This is the same evidence-integrity class as the RA-7090
+  chain-of-custody work. Note the fabrication was at *serialisation* time only — the
+  upload path (`app/api/inspections/[id]/photos/route.ts`) already omits the columns when
+  absent, so `null` was always the intended representation and the manifest was overriding
+  it.
+  - **Fix:** added `resolvePhotoGeotag()`, which publishes a geotag only when BOTH
+    coordinates are present, finite and in range, and otherwise nulls the pair. Pair-wise
+    is load-bearing: `gpsLatitude`/`gpsLongitude` are independently nullable columns that
+    the upload route writes independently, so half coordinates are reachable; range
+    validation is load-bearing because ingest `parseFloat`s client input with a NaN guard
+    but no bounds check.
+  - **Contract:** `NirPhotoManifest.latitude/longitude` and the zod
+    `nirPhotoManifestSchema` are now `number | null` — matching the explicit-absence
+    convention already used by `locationFlags.windRegion` in the same file, and the
+    contract's own stated doctrine ("EXPLICIT omissions … never silent gaps").
+    `CLAIMS_INTEGRATION_SCHEMA_VERSION` bumped **1.0 → 1.1** (nullable widening is
+    consumer-visible) and `docs/contracts/claims-integration-v1.schema.json` regenerated
+    via `scripts/generate-claims-schema.ts`. No other code reads these fields —
+    `GUIDEWIRE_FIELD_MAP.photoEvidence` is documentation metadata, not a consumer.
+  - **No schema change, no migration** — deliberately scoped to the serialisation layer.
+  - **Tests:** rewrote the case that had locked in the defect ("falls back to 0 only when
+    GPS columns are genuinely null" → asserts `null`), added a half-coordinate case, and
+    added a `resolvePhotoGeotag` table covering valid pairs, a genuine explicit 0,0
+    (preserved — the resolver reports storage, it does not second-guess supplied data),
+    both-null, one-sided, out-of-range and non-finite inputs.
+  - Verified: **positive control first** — reverting only the route change failed exactly
+    the two behaviour tests (`expected +0 to be null`, `expected -33.815 to be null`),
+    proving the guards bind; then vitest 13/13 on the manifest suite and 305/305 across
+    `lib/export` + `app/api/inspections`, eslint (0 errors, project config), full
+    `NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit` (0 errors).
+  - **Observation (not actioned):** `InspectionPhoto` also carries RA-6996 mobile-capture
+    `latitude`/`longitude`/`mobileLocalId` columns, distinct from the EXIF pair. No code
+    writes them today (`mobileLocalId` has zero references), so no fallback to them was
+    added — that would be speculative. When the mobile sync path lands, `resolvePhotoGeotag`
+    is the single place to add the fallback.

@@ -9,7 +9,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: { inspection: { findUnique: vi.fn() } }
 vi.mock("@/lib/idempotency", () => ({ withIdempotency: vi.fn() }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({ assertInspectionTenancy: vi.fn() }));
 
-import { buildNirReportOutput } from "../guidewire/route";
+import { buildNirReportOutput, resolvePhotoGeotag } from "../guidewire/route";
 
 // Minimal inspection shape matching fetchInspectionForGuidewire's projection.
 function makeInspection(overrides: Record<string, unknown> = {}) {
@@ -82,8 +82,64 @@ describe("Guidewire photo manifest", () => {
     const photo = buildNirReportOutput(inspection, "Tech", "user_1")
       .photoManifest.photos[0];
 
-    expect(photo.latitude).toBe(0);
-    expect(photo.longitude).toBe(0);
+    // Absence is published as absence. It used to serialise as 0,0 — a real
+    // position off West Africa, indistinguishable to an insurer from a photo
+    // genuinely geotagged there.
+    expect(photo.latitude).toBeNull();
+    expect(photo.longitude).toBeNull();
     expect(photo.category).toBe("damage");
+  });
+
+  it("never publishes a half coordinate", () => {
+    // gpsLatitude/gpsLongitude are independently nullable columns and the
+    // upload route writes them independently, so one-sided rows are reachable.
+    const inspection = makeInspection({
+      photos: [
+        {
+          id: "photo_3",
+          timestamp: new Date("2026-01-01T12:00:00.000Z"),
+          gpsLatitude: -33.815,
+          gpsLongitude: null,
+          damageCategory: null,
+        },
+      ],
+    });
+
+    const photo = buildNirReportOutput(inspection, "Tech", "user_1")
+      .photoManifest.photos[0];
+
+    expect(photo.latitude).toBeNull();
+    expect(photo.longitude).toBeNull();
+  });
+});
+
+describe("resolvePhotoGeotag", () => {
+  it("passes through a valid Australian coordinate pair", () => {
+    expect(resolvePhotoGeotag(-33.815, 151.001)).toEqual({
+      latitude: -33.815,
+      longitude: 151.001,
+    });
+  });
+
+  it("preserves a genuine zero coordinate when the pair is complete", () => {
+    // 0,0 is only ever fabricated when it stands in for null — an explicitly
+    // supplied pair is data, and the resolver must not second-guess it.
+    expect(resolvePhotoGeotag(0, 0)).toEqual({ latitude: 0, longitude: 0 });
+  });
+
+  it.each([
+    ["both null", null, null],
+    ["missing longitude", -33.815, null],
+    ["missing latitude", null, 151.001],
+    ["undefined pair", undefined, undefined],
+    ["latitude out of range", 91, 151.001],
+    ["longitude out of range", -33.815, 181],
+    ["non-finite latitude", Number.NaN, 151.001],
+    ["infinite longitude", -33.815, Number.POSITIVE_INFINITY],
+  ])("nulls the pair when %s", (_label, lat, lng) => {
+    expect(resolvePhotoGeotag(lat, lng)).toEqual({
+      latitude: null,
+      longitude: null,
+    });
   });
 });

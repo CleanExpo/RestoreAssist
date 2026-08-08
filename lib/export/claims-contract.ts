@@ -32,7 +32,10 @@ import type {
   NirTechnician,
 } from "@/lib/nir-guidewire-integration";
 
-export const CLAIMS_INTEGRATION_SCHEMA_VERSION = "1.0";
+// 1.1 — photoManifest latitude/longitude became nullable so an un-geotagged
+// photo reports explicit absence instead of a fabricated 0,0 coordinate.
+// Consumers pinned to 1.0 must treat both as `number | null`.
+export const CLAIMS_INTEGRATION_SCHEMA_VERSION = "1.1";
 
 const isoDateTime = z.iso.datetime();
 
@@ -92,8 +95,11 @@ const nirPhotoManifestSchema = z.strictObject({
     z.strictObject({
       photoId: z.string(),
       capturedAt: z.string(),
-      latitude: z.number(),
-      longitude: z.number(),
+      // Nullable, always as a pair: a photo with no usable geotag reports
+      // `null`, never a fabricated coordinate. Same explicit-absence
+      // convention as `locationFlags.windRegion` above.
+      latitude: z.number().nullable(),
+      longitude: z.number().nullable(),
       sequenceNumber: z.number(),
       category: z.enum([
         "overview",

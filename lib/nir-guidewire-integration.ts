@@ -113,8 +113,14 @@ export interface NirPhotoManifest {
   photos: Array<{
     photoId: string;
     capturedAt: string;
-    latitude: number;
-    longitude: number;
+    /**
+     * Capture coordinates, or `null` when the photo carries no usable
+     * geotag. Always a pair — an insurer must never receive a half or
+     * fabricated coordinate (a missing geotag once serialised as 0,0,
+     * which reads as a real position in the Gulf of Guinea).
+     */
+    latitude: number | null;
+    longitude: number | null;
     sequenceNumber: number;
     category:
       | "overview"
