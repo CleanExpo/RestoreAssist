@@ -70,7 +70,7 @@ const CLAIM = /(?:free plan|free trial|trial)([^"'`\n]{0,60}?)\b(\d{1,3})\b([^"'
  *    rather than a violation.
  */
 function isFalsePositive(before: string, after: string): boolean {
-  if (/[:\-]\s*$/.test(before)) return true;
+  if (/[:-]\s*$/.test(before)) return true;
   return before.includes("${") || after.includes("${");
 }
 
