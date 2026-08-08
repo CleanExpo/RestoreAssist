@@ -6,7 +6,7 @@ This SUPERSEDES `.claude/aggregation/MASTER_PLAN.md` (82 days stale) and the pro
 throughput has not been the constraint. What follows is only the **still-open** set, filtered to
 what actually bears on shipping RestoreAssist.
 
-## ⚠️ The finding that overturns the audit docs
+## [!] The finding that overturns the audit docs
 
 **RA-7098 (High · Backlog · 2026-07-27) — "RA prod RLS is 3 tables, not 119 — SketchRoom,
 EvidencePin, PortalContent."** This post-dates `docs/audits/restoreassist-audit-2026-07-12.md`,
