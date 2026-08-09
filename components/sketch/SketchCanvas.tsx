@@ -63,8 +63,16 @@ import {
 } from "@/lib/sketch/room-defaults";
 import {
   exportSketchPng,
+  EXPORT_REPORT_MULTIPLIER,
   type ExportableCanvas,
 } from "@/lib/sketch/export-sketch-png";
+import {
+  DAMAGE_KIND_STYLES,
+  damageAnchorPoint,
+  findContainingRoom,
+  roomsFromFabricObjects,
+  type RoomClipCandidate,
+} from "@/lib/sketch/damage-zone";
 import type { SelectedObject } from "./SketchSelectionPanel";
 
 export interface SketchCanvasProps {
@@ -266,8 +274,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         },
         toDataURL: (opts) => {
           const c = fabricRef.current as ExportableCanvas | null;
-          // RA-6847 [C1]: strip the underlay so the export never leaks it.
-          return c ? exportSketchPng(c, opts) : "";
+          // RA-6847 [C1]: strip underlay + crop to content for report fidelity.
+          return c
+            ? exportSketchPng(c, {
+                multiplier: EXPORT_REPORT_MULTIPLIER,
+                ...opts,
+              })
+            : "";
         },
         clear: () => {
           const c = fabricRef.current as {
@@ -441,6 +454,11 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           );
         };
 
+        // Assigned after Fabric constructors (`F`) / opening-handle helpers exist.
+        let bindDamagePathToRoom: (path: Record<string, unknown>) => void =
+          () => {};
+        let refreshDamageRoomClips: () => void = () => {};
+
         canvas.on("object:modified", (opt: unknown) => {
           const target = (opt as { target?: unknown } | undefined)?.target;
           // Opening-handle drags are committed by the dedicated handler below.
@@ -455,6 +473,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           reanchorOpeningsForRoom(target);
           // Dimension lock: prevent scale/stretch from changing locked geometry.
           enforceDimLock(target);
+          // Keep damage fills clipped to room walls after geometry edits.
+          if (
+            (target as { data?: { type?: string } } | undefined)?.data?.type ===
+            "room"
+          ) {
+            refreshDamageRoomClips();
+          }
           if (!isLoadingRef.current && !isDecoration(target)) {
             saveState();
             onModified?.();
@@ -484,13 +509,22 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           if (!path) return;
           if (toolModeRef.current === "damage") {
             const kind = damageKindRef.current;
-            // Dynamic import avoided — styles inlined via string lookup at call site
+            const style = DAMAGE_KIND_STYLES[kind] ?? DAMAGE_KIND_STYLES.water;
             path.data = {
               type: "damage",
               damageKind: kind,
               provenance: "operator_measured",
               id: `dmg-${Date.now().toString(36)}`,
             };
+            // Keep stroke colour authoritative; fill is applied as a room-bound
+            // tint (see bindDamagePathToRoom) so open freehand strokes don't
+            // self-fill into floating blobs.
+            if (typeof path.set === "function") {
+              (path.set as (o: object) => void)({ stroke: style.stroke });
+            } else {
+              path.stroke = style.stroke;
+            }
+            bindDamagePathToRoom(path);
           } else {
             path.data = {
               ...(typeof path.data === "object" && path.data
@@ -549,6 +583,163 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           string,
           new (...args: unknown[]) => unknown
         >;
+
+        /** Clip a damage path to the containing room polygon (scene coords). */
+        const applyRoomClip = (
+          path: {
+            clipPath?: unknown;
+            data?: Record<string, unknown>;
+            set?: (o: object) => void;
+            setCoords?: () => void;
+          },
+          room: RoomClipCandidate,
+        ) => {
+          const clip = new F.Polygon(room.points.map((p) => ({ ...p })), {
+            absolutePositioned: true,
+            inverted: false,
+            fill: "#000000",
+            strokeWidth: 0,
+            selectable: false,
+            evented: false,
+            objectCaching: false,
+          });
+          path.clipPath = clip;
+          path.data = {
+            ...(typeof path.data === "object" && path.data ? path.data : {}),
+            roomId: room.id,
+          };
+          path.setCoords?.();
+        };
+
+        /**
+         * Ensure the host room carries a light damage tint so affected areas
+         * read as room-bound fills in the editor and report PNG (not just a
+         * freehand stroke). Idempotent per roomId+kind.
+         */
+        const ensureRoomDamageTint = (
+          room: RoomClipCandidate,
+          kind: string,
+        ) => {
+          const style =
+            DAMAGE_KIND_STYLES[kind as keyof typeof DAMAGE_KIND_STYLES] ??
+            DAMAGE_KIND_STYLES.water;
+          const objs = (
+            canvas as unknown as { getObjects: () => unknown[] }
+          ).getObjects();
+          const tintId = `dmg-tint-${room.id}-${kind}`;
+          const exists = objs.some(
+            (o) =>
+              (o as { data?: { id?: string } }).data?.id === tintId,
+          );
+          if (exists) return;
+          const tint = new F.Polygon(room.points.map((p) => ({ ...p })), {
+            fill: style.fill,
+            stroke: style.stroke,
+            strokeWidth: 1,
+            selectable: false,
+            evented: false,
+            objectCaching: false,
+            opacity: 1,
+          });
+          (tint as { data?: Record<string, unknown> }).data = {
+            type: "damage",
+            damageKind: kind,
+            provenance: "operator_measured",
+            id: tintId,
+            roomId: room.id,
+            role: "room-tint",
+          };
+          (
+            canvas as unknown as { add: (...o: unknown[]) => void }
+          ).add(tint);
+          // Keep tint under walls/labels: send to back, then underlay stays bg.
+          (
+            canvas as unknown as { sendObjectToBack?: (o: unknown) => void }
+          ).sendObjectToBack?.(tint);
+        };
+
+        bindDamagePathToRoom = (path) => {
+          const objs = (
+            canvas as unknown as { getObjects: () => unknown[] }
+          ).getObjects();
+          const rooms = roomsFromFabricObjects(objs);
+          const anchor = damageAnchorPoint(
+            path as Parameters<typeof damageAnchorPoint>[0],
+          );
+          const room = findContainingRoom(anchor.x, anchor.y, rooms);
+          if (!room) return;
+          applyRoomClip(
+            path as {
+              clipPath?: unknown;
+              data?: Record<string, unknown>;
+              set?: (o: object) => void;
+              setCoords?: () => void;
+            },
+            room,
+          );
+          const kind =
+            typeof (path.data as { damageKind?: string } | undefined)
+              ?.damageKind === "string"
+              ? (path.data as { damageKind: string }).damageKind
+              : "water";
+          ensureRoomDamageTint(room, kind);
+          const c = canvas as unknown as {
+            requestRenderAll?: () => void;
+            renderAll: () => void;
+          };
+          if (typeof c.requestRenderAll === "function") c.requestRenderAll();
+          else c.renderAll();
+        };
+
+        // Re-bind damage clips + room tints after room moves or JSON restore so
+        // fills stay glued to wall polygons in the editor and in report exports.
+        refreshDamageRoomClips = () => {
+          const c = canvas as unknown as {
+            getObjects: () => unknown[];
+            remove: (...o: unknown[]) => void;
+          };
+          const objs = c.getObjects();
+          const rooms = roomsFromFabricObjects(objs);
+          if (!rooms.length) return;
+
+          // Recreate room tints from current absolute room geometry (Fabric
+          // polygon local points go stale after move/scale).
+          const tints = objs.filter((o) => {
+            const d = (o as { data?: Record<string, unknown> }).data;
+            return d?.type === "damage" && d.role === "room-tint";
+          });
+          for (const tint of tints) {
+            const d = (tint as { data?: Record<string, unknown> }).data!;
+            const room =
+              typeof d.roomId === "string"
+                ? rooms.find((r) => r.id === d.roomId)
+                : undefined;
+            const kind =
+              typeof d.damageKind === "string" ? d.damageKind : "water";
+            c.remove(tint);
+            if (room) ensureRoomDamageTint(room, kind);
+          }
+
+          for (const o of c.getObjects()) {
+            const d = (o as { data?: Record<string, unknown> }).data;
+            if (!d || d.type !== "damage" || d.role === "room-tint") continue;
+            const byId =
+              typeof d.roomId === "string"
+                ? rooms.find((r) => r.id === d.roomId)
+                : undefined;
+            const anchor = damageAnchorPoint(
+              o as Parameters<typeof damageAnchorPoint>[0],
+            );
+            const stillInside =
+              byId &&
+              findContainingRoom(anchor.x, anchor.y, [byId]) !== null;
+            const room = stillInside
+              ? byId
+              : findContainingRoom(anchor.x, anchor.y, rooms);
+            if (room) applyRoomClip(o as Parameters<typeof applyRoomClip>[0], room);
+          }
+        };
+
         const scenePoint = (e: MouseEvent): Point => {
           const c = canvas as unknown as {
             getScenePoint?: (e: MouseEvent) => { x: number; y: number };
@@ -1677,6 +1868,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           try {
             isLoadingRef.current = true;
             await canvas.loadFromJSON(bootstrap);
+            refreshDamageRoomClips();
             canvas.renderAll();
           } catch (e) {
             console.error("SketchCanvas: initialData restore failed", e);
@@ -1698,14 +1890,18 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             isLoadingRef.current = true;
             try {
               await canvas.loadFromJSON(data);
+              refreshDamageRoomClips();
               canvas.renderAll();
             } finally {
               isLoadingRef.current = false;
             }
           },
-          // RA-6847 [C1]: strip the underlay so the export never leaks it.
+          // RA-6847 [C1]: strip underlay + crop to content for report fidelity.
           toDataURL: (opts) =>
-            exportSketchPng(canvas as unknown as ExportableCanvas, opts),
+            exportSketchPng(canvas as unknown as ExportableCanvas, {
+              multiplier: EXPORT_REPORT_MULTIPLIER,
+              ...opts,
+            }),
           clear: () => {
             (canvas as unknown as { clear: () => void }).clear();
             canvas.renderAll();
