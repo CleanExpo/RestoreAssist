@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const toastError = vi.fn();
@@ -21,6 +27,9 @@ import InspectionInvoicePage from "../page";
 describe("InspectionInvoicePage", () => {
   beforeEach(() => {
     toastError.mockReset();
+    vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(
+      "11111111-1111-4111-8111-111111111111",
+    );
   });
 
   it("renders a structured invoice-generation error as text without crashing", async () => {
@@ -35,7 +44,17 @@ describe("InspectionInvoicePage", () => {
         json: async () => ({
           error: {
             code: "VALIDATION_ERROR",
-            message: "No selected scope items available for invoicing",
+            message: "An approved estimate is required before invoicing",
+            eventId: "evt_mock",
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "An approved estimate is required before invoicing",
             eventId: "evt_mock",
           },
         }),
@@ -57,13 +76,31 @@ describe("InspectionInvoicePage", () => {
 
     await waitFor(() =>
       expect(toastError).toHaveBeenCalledWith(
-        "No selected scope items available for invoicing",
+        "An approved estimate is required before invoicing",
       ),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       "/api/inspections/inspection_mock/generate-invoice",
-      { method: "POST" },
+      {
+        method: "POST",
+        headers: {
+          "Idempotency-Key": "11111111-1111-4111-8111-111111111111",
+        },
+      },
+    );
+
+    fireEvent.click(generateButtons[0]);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "/api/inspections/inspection_mock/generate-invoice",
+      {
+        method: "POST",
+        headers: {
+          "Idempotency-Key": "11111111-1111-4111-8111-111111111111",
+        },
+      },
     );
     expect(screen.getByText("No invoice generated yet")).toBeInTheDocument();
   });

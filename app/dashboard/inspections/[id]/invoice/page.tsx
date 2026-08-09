@@ -80,6 +80,7 @@ export default function InspectionInvoicePage({
   const [invoice, setInvoice] = useState<InvoiceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   useEffect(() => {
     fetchInvoice();
@@ -107,13 +108,20 @@ export default function InspectionInvoicePage({
       setGenerating(true);
       const res = await fetch(`/api/inspections/${id}/generate-invoice`, {
         method: "POST",
+        headers: {
+          "Idempotency-Key": idempotencyKey,
+        },
       });
       const data = await res.json();
       if (!res.ok) {
         toast.error(apiErrorMessage(data) ?? "Failed to generate invoice");
         return;
       }
-      toast.success(`Invoice ${data.invoiceNumber} created`);
+      toast.success(
+        data.reused
+          ? `Invoice ${data.invoiceNumber} already exists`
+          : `Invoice ${data.invoiceNumber} created`,
+      );
       await fetchInvoice();
     } catch {
       toast.error("Failed to generate invoice");
@@ -143,11 +151,11 @@ export default function InspectionInvoicePage({
         <div className="flex-1">
           <h1 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
             <Receipt size={22} className="text-cyan-500" />
-            Invoice from Scope Items
+            Invoice from Approved Estimate
           </h1>
           <p className="text-sm text-neutral-500 dark:text-slate-400 mt-0.5">
-            Generate a draft invoice from this inspection&apos;s selected scope
-            items
+            Generate a draft invoice from this inspection&apos;s approved
+            estimate
           </p>
         </div>
 
@@ -188,7 +196,7 @@ export default function InspectionInvoicePage({
           </p>
           <p className="text-sm text-neutral-400 dark:text-slate-500">
             Click &quot;Generate Invoice&quot; to create a draft invoice from
-            this inspection&apos;s selected scope items.
+            this inspection&apos;s approved estimate.
           </p>
           <button
             onClick={handleGenerate}
@@ -344,8 +352,8 @@ export default function InspectionInvoicePage({
 
           {/* Footer note */}
           <p className="text-xs text-neutral-400 dark:text-slate-500 text-center pb-4">
-            Unit prices default to $50.00 — edit line items in the full invoice
-            view to set actual rates.
+            Line items and prices are copied from the approved estimate. Review
+            the draft in the full invoice editor before sending.
           </p>
         </>
       )}
