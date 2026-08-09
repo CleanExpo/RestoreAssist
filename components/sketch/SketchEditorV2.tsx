@@ -268,6 +268,9 @@ export function SketchEditorV2({
   // ── UI state ───────────────────────────────────────────
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [damageKind, setDamageKind] = useState<DamageKind>("water");
+  const [equipmentKind, setEquipmentKind] = useState<
+    import("@/lib/sketch/equipment-symbols").EquipmentKind
+  >("dehumidifier");
   const [evidenceUploading, setEvidenceUploading] = useState(false);
   /** Dismiss empty-canvas start chooser after the tech picks a path. */
   const [startOverlayDismissed, setStartOverlayDismissed] = useState(false);
@@ -1909,6 +1912,7 @@ export function SketchEditorV2({
               height={viewport.height}
               toolMode={toolMode}
               damageKind={damageKind}
+              equipmentKind={equipmentKind}
               pxPerMetre={fd.scaleConfig?.pxPerMetre}
               snapEnabled={snapEnabled}
               backgroundImageUrl={fd.backgroundUrl}
@@ -2549,6 +2553,8 @@ export function SketchEditorV2({
           onToolChange={handleToolChange}
           damageKind={damageKind}
           onDamageKindChange={setDamageKind}
+          equipmentKind={equipmentKind}
+          onEquipmentKindChange={setEquipmentKind}
           canUndo={historyState.canUndo}
           canRedo={historyState.canRedo}
           onUndo={handleUndo}
