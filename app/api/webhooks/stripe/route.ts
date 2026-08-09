@@ -157,8 +157,7 @@ export async function POST(request: NextRequest) {
       const isStalePending =
         existing?.status === "PENDING" &&
         Date.now() - existing.createdAt.getTime() > STALE_PENDING_MS;
-      const shouldReprocess =
-        existing?.status === "FAILED" || isStalePending;
+      const shouldReprocess = existing?.status === "FAILED" || isStalePending;
 
       if (!shouldReprocess) {
         // Already COMPLETED/SKIPPED, or a fresh PENDING delivery is in flight.
@@ -300,9 +299,6 @@ export async function POST(request: NextRequest) {
       }
 
       case "payment_intent.succeeded": {
-        // RA-893: Mark the RestoreAssist invoice PAID when Stripe confirms payment.
-        // invoiceId is embedded in PaymentIntent metadata at checkout creation
-        // (app/api/invoices/[id]/checkout/route.ts → payment_intent_data.metadata.invoiceId).
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         const invoiceId = paymentIntent.metadata?.invoiceId;
 
@@ -333,16 +329,226 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Idempotency guard — don't double-update if already reconciled
-        const existingInvoice = await prisma.invoice.findUnique({
-          where: { id: invoiceId },
-          select: { status: true },
-        });
+        const amountReceived = paymentIntent.amount_received;
+        const currency = paymentIntent.currency?.toUpperCase();
+        const stripeChargeId =
+          typeof paymentIntent.latest_charge === "string"
+            ? paymentIntent.latest_charge
+            : paymentIntent.latest_charge?.id;
 
-        // RA-1139: Orphaned invoiceId — Invoice row not found.
-        // Return 200 to stop Stripe retrying (orphaned data won't self-heal),
-        // but log critically so ops can investigate.
-        if (!existingInvoice) {
+        if (
+          paymentIntent.status !== "succeeded" ||
+          !Number.isInteger(amountReceived) ||
+          amountReceived <= 0 ||
+          !currency
+        ) {
+          throw new Error(
+            `Invalid succeeded PaymentIntent payload for ${paymentIntent.id}`,
+          );
+        }
+
+        let paymentResult:
+          | { kind: "recorded" }
+          | { kind: "already-recorded" }
+          | { kind: "orphan" }
+          | undefined;
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            paymentResult = await prisma.$transaction(
+              async (tx) => {
+                const invoice = await tx.invoice.findUnique({
+                  where: { id: invoiceId },
+                  select: {
+                    id: true,
+                    invoiceNumber: true,
+                    userId: true,
+                    status: true,
+                    currency: true,
+                    totalIncGST: true,
+                    amountPaid: true,
+                    amountDue: true,
+                  },
+                });
+
+                if (!invoice) return { kind: "orphan" as const };
+
+                if (
+                  paymentIntent.metadata?.type !== "invoice" ||
+                  paymentIntent.metadata?.userId !== invoice.userId ||
+                  paymentIntent.metadata?.invoiceNumber !==
+                    invoice.invoiceNumber
+                ) {
+                  throw new Error(
+                    `PaymentIntent ${paymentIntent.id} metadata does not match invoice ${invoiceId}`,
+                  );
+                }
+
+                if (currency !== invoice.currency.toUpperCase()) {
+                  throw new Error(
+                    `PaymentIntent ${paymentIntent.id} currency does not match invoice ${invoiceId}`,
+                  );
+                }
+
+                const existingPayment = await tx.invoicePayment.findUnique({
+                  where: { stripePaymentIntentId: paymentIntent.id },
+                  select: {
+                    id: true,
+                    invoiceId: true,
+                    amount: true,
+                    currency: true,
+                    stripeChargeId: true,
+                    reconciled: true,
+                  },
+                });
+
+                if (existingPayment) {
+                  if (
+                    existingPayment.invoiceId !== invoiceId ||
+                    existingPayment.amount !== amountReceived ||
+                    existingPayment.currency.toUpperCase() !== currency ||
+                    (existingPayment.stripeChargeId &&
+                      stripeChargeId &&
+                      existingPayment.stripeChargeId !== stripeChargeId) ||
+                    !existingPayment.reconciled
+                  ) {
+                    throw new Error(
+                      `PaymentIntent ${paymentIntent.id} conflicts with existing payment evidence`,
+                    );
+                  }
+                  if (
+                    invoice.status !== "PAID" ||
+                    invoice.amountPaid !== invoice.totalIncGST ||
+                    invoice.amountDue !== 0
+                  ) {
+                    throw new Error(
+                      `PaymentIntent ${paymentIntent.id} evidence conflicts with invoice balance`,
+                    );
+                  }
+
+                  const existingAllocation =
+                    await tx.invoicePaymentAllocation.findUnique({
+                      where: {
+                        paymentId_invoiceId: {
+                          paymentId: existingPayment.id,
+                          invoiceId,
+                        },
+                      },
+                      select: { allocatedAmount: true },
+                    });
+                  if (
+                    existingAllocation &&
+                    existingAllocation.allocatedAmount !== amountReceived
+                  ) {
+                    throw new Error(
+                      `PaymentIntent ${paymentIntent.id} conflicts with its invoice allocation`,
+                    );
+                  }
+                  if (!existingAllocation) {
+                    await tx.invoicePaymentAllocation.create({
+                      data: {
+                        paymentId: existingPayment.id,
+                        invoiceId,
+                        allocatedAmount: amountReceived,
+                      },
+                    });
+                  }
+                  return { kind: "already-recorded" as const };
+                }
+
+                if (
+                  invoice.status === "DRAFT" ||
+                  invoice.status === "CANCELLED" ||
+                  invoice.status === "WRITTEN_OFF" ||
+                  invoice.status === "REFUNDED" ||
+                  amountReceived !== invoice.amountDue ||
+                  invoice.amountPaid + amountReceived !== invoice.totalIncGST
+                ) {
+                  throw new Error(
+                    `PaymentIntent ${paymentIntent.id} amount or invoice state does not match invoice ${invoiceId}`,
+                  );
+                }
+
+                const paidAt = new Date();
+                const invoiceUpdated = await tx.invoice.updateMany({
+                  where: {
+                    id: invoiceId,
+                    amountPaid: invoice.amountPaid,
+                    amountDue: invoice.amountDue,
+                  },
+                  data: {
+                    amountPaid: invoice.totalIncGST,
+                    amountDue: 0,
+                    status: "PAID",
+                    paidDate: paidAt,
+                  },
+                });
+                if (invoiceUpdated.count === 0) {
+                  throw Object.assign(
+                    new Error("Invoice changed during Stripe reconciliation"),
+                    { code: "P2034" },
+                  );
+                }
+
+                const payment = await tx.invoicePayment.create({
+                  data: {
+                    amount: amountReceived,
+                    currency: invoice.currency,
+                    paymentMethod: "STRIPE",
+                    paymentDate: paymentIntent.created
+                      ? new Date(paymentIntent.created * 1000)
+                      : paidAt,
+                    reference: paymentIntent.id,
+                    notes: "Automatically reconciled from Stripe webhook",
+                    stripePaymentIntentId: paymentIntent.id,
+                    stripeChargeId: stripeChargeId ?? null,
+                    webhookEventId: event.id,
+                    invoiceId,
+                    userId: invoice.userId,
+                    reconciled: true,
+                    reconciledAt: paidAt,
+                  },
+                  select: { id: true },
+                });
+
+                await tx.invoicePaymentAllocation.create({
+                  data: {
+                    paymentId: payment.id,
+                    invoiceId,
+                    allocatedAmount: amountReceived,
+                  },
+                });
+
+                await tx.invoiceAuditLog.create({
+                  data: {
+                    invoiceId,
+                    userId: invoice.userId,
+                    action: "payment_received",
+                    description: `Stripe payment ${(amountReceived / 100).toFixed(2)} ${currency} reconciled`,
+                    metadata: {
+                      paymentId: payment.id,
+                      paymentIntentId: paymentIntent.id,
+                      stripeChargeId: stripeChargeId ?? null,
+                      webhookEventId: event.id,
+                      amount: amountReceived,
+                      currency,
+                    },
+                  },
+                });
+
+                return { kind: "recorded" as const };
+              },
+              { isolationLevel: "Serializable" },
+            );
+            break;
+          } catch (error) {
+            const code = (error as { code?: string })?.code;
+            if (code === "P2034" && attempt < 3) continue;
+            throw error;
+          }
+        }
+
+        if (paymentResult?.kind === "orphan") {
           console.error(
             "[stripe-webhook] orphaned invoiceId — Invoice row not found",
             {
@@ -351,26 +557,25 @@ export async function POST(request: NextRequest) {
               paymentIntentId: paymentIntent.id,
             },
           );
+          await prisma.stripeWebhookEvent.updateMany({
+            where: { stripeEventId: event.id },
+            data: {
+              status: "SKIPPED",
+              processedAt: new Date(),
+              errorMessage: `Invoice ${invoiceId} was not found`,
+            },
+          });
           return NextResponse.json({
             received: true,
             warning: "orphaned_invoice_id",
           });
         }
 
-        if (existingInvoice.status === "PAID") {
-          break;
+        if (!paymentResult) {
+          throw new Error(
+            `Stripe reconciliation did not complete for ${paymentIntent.id}`,
+          );
         }
-
-        // Note: stripePaymentIntentId lives on InvoicePayment, not Invoice.
-        // Record the core reconciliation state on the Invoice row directly.
-        await prisma.invoice.update({
-          where: { id: invoiceId },
-          data: {
-            status: "PAID",
-            paidDate: new Date(),
-            amountDue: 0,
-          },
-        });
 
         // Punch-list P1 #21 — fire-and-forget invoice-paid subscriber.
         // Notifies the tradie + writes AuditLog. Deliberately does NOT
@@ -379,12 +584,14 @@ export async function POST(request: NextRequest) {
         // the subscriber is fire-and-forget so its failure cannot block
         // the webhook's 200 to Stripe. The subscriber catches internally
         // and returns a result; .catch here is a defense-in-depth net.
-        void onInvoicePaid(invoiceId).catch((err) => {
-          console.error(
-            "[stripe-webhook] onInvoicePaid subscriber threw (non-fatal):",
-            err instanceof Error ? err.message : err,
-          );
-        });
+        if (paymentResult.kind === "recorded") {
+          void onInvoicePaid(invoiceId).catch((err) => {
+            console.error(
+              "[stripe-webhook] onInvoicePaid subscriber threw (non-fatal):",
+              err instanceof Error ? err.message : err,
+            );
+          });
+        }
 
         break;
       }
@@ -840,7 +1047,7 @@ async function customerEmailFromSubscription(
   if (typeof customer === "object") {
     return "deleted" in customer && customer.deleted
       ? null
-      : (customer as Stripe.Customer).email ?? null;
+      : ((customer as Stripe.Customer).email ?? null);
   }
 
   const retrieved = await stripe.customers.retrieve(customer);
@@ -924,7 +1131,9 @@ export async function handleChargeRefunded(event: Stripe.Event) {
   if (!refundedCharge.refunded) return;
 
   const customerId =
-    typeof refundedCharge.customer === "string" ? refundedCharge.customer : null;
+    typeof refundedCharge.customer === "string"
+      ? refundedCharge.customer
+      : null;
   if (!customerId) return;
 
   const paymentIntentId =
