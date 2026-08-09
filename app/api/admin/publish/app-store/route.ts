@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyStorePublishingOperator,
+} from "@/lib/admin-auth";
 import { apiError, fromException } from "@/lib/api-errors";
 import { SignJWT, importPKCS8 } from "jose";
 
@@ -70,40 +73,47 @@ async function fetchAppDetails(token: string) {
   return res.json();
 }
 
+interface AppStoreApp {
+  id: string;
+  attributes: {
+    name?: string;
+    bundleId?: string;
+    primaryLocale?: string;
+  };
+  relationships?: {
+    appStoreVersions?: { data?: { id: string; type: string }[] };
+  };
+}
+
+function allowedApps(appData: { data?: AppStoreApp[] }): AppStoreApp[] {
+  return (appData.data ?? []).filter(
+    (app) => app.attributes.bundleId === BUNDLE_ID,
+  );
+}
+
 /**
  * GET /api/admin/publish/app-store
  * Returns App Store Connect app details for com.restoreassist.app.
- * Auth: ADMIN only.
+ * Auth: explicitly configured store-publishing operator only.
  */
 export async function GET(_req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const auth = await verifyAdminFromDb(session);
-  if (auth.response) return auth.response;
+  const adminAuth = await verifyAdminFromDb(session);
+  if (adminAuth.response) return adminAuth.response;
+  const operatorAuth = verifyStorePublishingOperator(adminAuth);
+  if (operatorAuth.response) return operatorAuth.response;
 
   try {
     const token = await signAscJwt();
     const appData = await fetchAppDetails(token);
 
-    const apps = (appData.data ?? []).map(
-      (app: {
-        id: string;
-        attributes: {
-          name?: string;
-          bundleId?: string;
-          primaryLocale?: string;
-        };
-        relationships?: {
-          appStoreVersions?: { data?: { id: string; type: string }[] };
-        };
-      }) => ({
-        id: app.id,
-        name: app.attributes.name,
-        bundleId: app.attributes.bundleId,
-        primaryLocale: app.attributes.primaryLocale,
-        appStoreVersionsSummary:
-          app.relationships?.appStoreVersions?.data ?? [],
-      }),
-    );
+    const apps = allowedApps(appData).map((app) => ({
+      id: app.id,
+      name: app.attributes.name,
+      bundleId: app.attributes.bundleId,
+      primaryLocale: app.attributes.primaryLocale,
+      appStoreVersionsSummary: app.relationships?.appStoreVersions?.data ?? [],
+    }));
 
     return NextResponse.json({ data: apps });
   } catch (error) {
@@ -116,14 +126,16 @@ export async function GET(_req: NextRequest) {
  * Body: { action: "submit_review" | "status"; appId?: string }
  * - "status": returns app details (same as GET but can scope to a specific app)
  * - "submit_review": submits the latest version for App Store review
- * Auth: ADMIN only.
+ * Auth: explicitly configured store-publishing operator only.
  */
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const auth = await verifyAdminFromDb(session);
-  if (auth.response) return auth.response;
+  const adminAuth = await verifyAdminFromDb(session);
+  if (adminAuth.response) return adminAuth.response;
+  const operatorAuth = verifyStorePublishingOperator(adminAuth);
+  if (operatorAuth.response) return operatorAuth.response;
 
-  let body: { action: "submit_review" | "status"; appId?: string };
+  let body: Record<string, unknown>;
 
   try {
     body = await req.json();
@@ -137,129 +149,129 @@ export async function POST(req: NextRequest) {
 
   const { action, appId } = body;
 
-  if (!action) {
+  if (action !== "status" && action !== "submit_review") {
     return apiError(req, {
       code: "VALIDATION",
-      message: "Missing required field: action",
+      message: "Invalid action",
+      status: 400,
+    });
+  }
+  if (appId !== undefined && typeof appId !== "string") {
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "appId must be a string",
+      status: 400,
+    });
+  }
+  if (action === "submit_review" && !appId) {
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "appId is required for submit_review action",
       status: 400,
     });
   }
 
   try {
     const token = await signAscJwt();
+    const appData = await fetchAppDetails(token);
+    const apps = allowedApps(appData);
 
     if (action === "status") {
       if (appId) {
-        // Fetch specific app details
-        const res = await fetch(`${ASC_BASE_URL}/apps/${appId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!res.ok) {
-          const errorBody = await res.text();
-          throw new Error(`ASC API error ${res.status}: ${errorBody}`);
+        const app = apps.find((candidate) => candidate.id === appId);
+        if (!app) {
+          return apiError(req, {
+            code: "NOT_FOUND",
+            message: "App not found",
+            status: 404,
+          });
         }
-
-        const data = await res.json();
-        return NextResponse.json({ data: data.data });
+        return NextResponse.json({ data: app });
       }
 
-      // Fall back to listing all apps (same as GET)
-      const appData = await fetchAppDetails(token);
-      return NextResponse.json({ data: appData.data ?? [] });
+      return NextResponse.json({ data: apps });
     }
 
-    if (action === "submit_review") {
-      const resolvedAppId = appId;
-      if (!resolvedAppId) {
-        return apiError(req, {
-          code: "VALIDATION",
-          message: "appId is required for submit_review action",
-          status: 400,
-        });
-      }
-
-      // Fetch the latest app store version for the app
-      const versionsRes = await fetch(
-        `${ASC_BASE_URL}/apps/${resolvedAppId}/appStoreVersions?filter[appStoreState]=PREPARE_FOR_SUBMISSION&limit=1`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!versionsRes.ok) {
-        const errorBody = await versionsRes.text();
-        throw new Error(
-          `Failed to fetch app versions: ${versionsRes.status}: ${errorBody}`,
-        );
-      }
-
-      const versionsData = await versionsRes.json();
-      const latestVersion = versionsData.data?.[0];
-
-      if (!latestVersion) {
-        return apiError(req, {
-          code: "NOT_FOUND",
-          message:
-            "No version in PREPARE_FOR_SUBMISSION state found. Ensure the app version is ready for review.",
-          status: 404,
-        });
-      }
-
-      const versionId = latestVersion.id as string;
-
-      // Submit the version for review
-      const submitRes = await fetch(
-        `${ASC_BASE_URL}/appStoreVersionSubmissions`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            data: {
-              type: "appStoreVersionSubmissions",
-              relationships: {
-                appStoreVersion: {
-                  data: {
-                    type: "appStoreVersions",
-                    id: versionId,
-                  },
-                },
-              },
-            },
-          }),
-        },
-      );
-
-      if (!submitRes.ok) {
-        const errorBody = await submitRes.text();
-        throw new Error(
-          `Failed to submit version for review: ${submitRes.status}: ${errorBody}`,
-        );
-      }
-
-      const submitData = await submitRes.json();
-      return NextResponse.json({
-        data: {
-          message: "Version submitted for App Store review",
-          submission: submitData.data,
-          versionId,
-        },
+    const resolvedAppId = appId as string;
+    if (!apps.some((candidate) => candidate.id === resolvedAppId)) {
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "App not found",
+        status: 404,
       });
     }
 
-    return apiError(req, {
-      code: "VALIDATION",
-      message: `Unknown action: ${action}`,
-      status: 400,
+    // Fetch the latest app store version for the app
+    const versionsRes = await fetch(
+      `${ASC_BASE_URL}/apps/${resolvedAppId}/appStoreVersions?filter[appStoreState]=PREPARE_FOR_SUBMISSION&limit=1`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    if (!versionsRes.ok) {
+      const errorBody = await versionsRes.text();
+      throw new Error(
+        `Failed to fetch app versions: ${versionsRes.status}: ${errorBody}`,
+      );
+    }
+
+    const versionsData = await versionsRes.json();
+    const latestVersion = versionsData.data?.[0];
+
+    if (!latestVersion) {
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message:
+          "No version in PREPARE_FOR_SUBMISSION state found. Ensure the app version is ready for review.",
+        status: 404,
+      });
+    }
+
+    const versionId = latestVersion.id as string;
+
+    // Submit the version for review
+    const submitRes = await fetch(
+      `${ASC_BASE_URL}/appStoreVersionSubmissions`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          data: {
+            type: "appStoreVersionSubmissions",
+            relationships: {
+              appStoreVersion: {
+                data: {
+                  type: "appStoreVersions",
+                  id: versionId,
+                },
+              },
+            },
+          },
+        }),
+      },
+    );
+
+    if (!submitRes.ok) {
+      const errorBody = await submitRes.text();
+      throw new Error(
+        `Failed to submit version for review: ${submitRes.status}: ${errorBody}`,
+      );
+    }
+
+    const submitData = await submitRes.json();
+    return NextResponse.json({
+      data: {
+        message: "Version submitted for App Store review",
+        submission: submitData.data,
+        versionId,
+      },
     });
   } catch (error) {
     return fromException(req, error, { stage: "app-store-post" });
