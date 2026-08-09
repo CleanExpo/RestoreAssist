@@ -11,22 +11,35 @@ const h = vi.hoisted(() => ({
     store: vi.fn(async () => {}),
     markReady: vi.fn(async () => {}),
   },
+  cron: {
+    verifyCronAuth: vi.fn(),
+    runCronJob: vi.fn(),
+  },
 }));
 
-vi.mock("@/lib/tenant/provision-deps", () => ({ buildProvisionDeps: () => h.deps }));
+vi.mock("@/lib/tenant/provision-deps", () => ({
+  buildProvisionDeps: () => h.deps,
+}));
 vi.mock("@/lib/credential-vault", () => ({
   decrypt: vi.fn(() => "postgres://t:pw@tenant-host:5432/acme"),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: { workspace: { findMany: vi.fn(), update: vi.fn() } },
 }));
+vi.mock("@/lib/cron", () => h.cron);
 
 import { prisma } from "@/lib/prisma";
+import { GET as getProvisionTenantDb } from "@/app/api/cron/provision-tenant-db/route";
 import { provisionPendingTenantDbs } from "../provision-tenant-db";
 
-const ws = (prisma as unknown as {
-  workspace: { findMany: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
-}).workspace;
+const ws = (
+  prisma as unknown as {
+    workspace: {
+      findMany: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
+    };
+  }
+).workspace;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -80,7 +93,9 @@ describe("provisionPendingTenantDbs — worker", () => {
 
   it("records error + phase=migrate when the baseline migration fails", async () => {
     ws.findMany.mockResolvedValueOnce([pending()]);
-    h.deps.migrate.mockRejectedValue(new Error("Tenant baseline migration failed."));
+    h.deps.migrate.mockRejectedValue(
+      new Error("Tenant baseline migration failed."),
+    );
 
     await provisionPendingTenantDbs();
 
@@ -93,7 +108,9 @@ describe("provisionPendingTenantDbs — worker", () => {
   });
 
   it("resumes from the stored phase, skipping earlier phases", async () => {
-    ws.findMany.mockResolvedValueOnce([pending({ tenantDbProvisionPhase: "migrate" })]);
+    ws.findMany.mockResolvedValueOnce([
+      pending({ tenantDbProvisionPhase: "migrate" }),
+    ]);
 
     const r = await provisionPendingTenantDbs();
 
@@ -110,14 +127,18 @@ describe("provisionPendingTenantDbs — worker", () => {
     const r = await provisionPendingTenantDbs();
 
     const arg = ws.findMany.mock.calls[0][0];
-    expect(arg.where).toEqual({ tenantDbStatus: { in: ["provisioning", "error"] } });
+    expect(arg.where).toEqual({
+      tenantDbStatus: { in: ["provisioning", "error"] },
+    });
     expect(typeof arg.take).toBe("number");
     expect(r.itemsProcessed).toBe(0);
     expect(r.metadata?.reason).toBe("no-pending-workspaces");
   });
 
   it("pins a workspace with no stored connection string to error without running phases", async () => {
-    ws.findMany.mockResolvedValueOnce([pending({ tenantDbConnectionEnc: null })]);
+    ws.findMany.mockResolvedValueOnce([
+      pending({ tenantDbConnectionEnc: null }),
+    ]);
 
     await provisionPendingTenantDbs();
 
@@ -129,20 +150,16 @@ describe("provisionPendingTenantDbs — worker", () => {
   });
 });
 
-describe("cron route — CRON auth fail-closed", () => {
-  const ORIGINAL = process.env.CRON_SECRET;
-  afterEach(() => {
-    if (ORIGINAL === undefined) delete process.env.CRON_SECRET;
-    else process.env.CRON_SECRET = ORIGINAL;
-  });
-
-  it("returns 401 when CRON_SECRET is unset", async () => {
-    delete process.env.CRON_SECRET;
-    const { GET } = await import("@/app/api/cron/provision-tenant-db/route");
-    const req = { headers: { get: () => "" } } as unknown as Parameters<typeof GET>[0];
-    const res = await GET(req);
+describe("cron route — auth short-circuit", () => {
+  it("returns the auth error without running the worker", async () => {
+    h.cron.verifyCronAuth.mockReturnValue({ status: 401 });
+    const req = {
+      headers: { get: () => "" },
+    } as unknown as Parameters<typeof getProvisionTenantDb>[0];
+    const res = await getProvisionTenantDb(req);
     expect(res.status).toBe(401);
-    // Must not have run the worker when auth fails closed.
+    expect(h.cron.verifyCronAuth).toHaveBeenCalledWith(req);
+    expect(h.cron.runCronJob).not.toHaveBeenCalled();
     expect(ws.findMany).not.toHaveBeenCalled();
   });
 });
