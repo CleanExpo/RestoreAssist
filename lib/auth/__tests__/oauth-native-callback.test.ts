@@ -64,4 +64,26 @@ describe("native OAuth callback completion", () => {
       "/dashboard/inspections/inspection_1?tab=scope",
     );
   });
+
+  it("forces a fresh Google credential and binds its nonce to the exchange", async () => {
+    await signInWithOAuth("google", { callbackUrl: "/dashboard" });
+
+    const loginRequest = socialLogin.mock.calls[0][0] as {
+      provider: string;
+      options: { nonce: string; forcePrompt?: boolean };
+    };
+    expect(loginRequest.provider).toBe("google");
+    expect(loginRequest.options.forcePrompt).toBe(true);
+    expect(loginRequest.options.nonce).toMatch(/^[A-Za-z0-9_-]+$/);
+
+    const exchangeInit = fetchMock.mock.calls[0][1] as RequestInit;
+    const exchangeBody = JSON.parse(String(exchangeInit.body)) as {
+      provider: string;
+      nonce: string;
+    };
+    expect(exchangeBody).toMatchObject({
+      provider: "google",
+      nonce: loginRequest.options.nonce,
+    });
+  });
 });

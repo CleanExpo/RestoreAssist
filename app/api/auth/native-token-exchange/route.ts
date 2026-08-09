@@ -38,6 +38,7 @@ import { prisma } from "@/lib/prisma";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { isUniqueConstraintError } from "@/lib/webhook-idempotency";
 
 // Free-trial grant — sourced from PRICING_CONFIG (the SSOT) so the native iOS
 // signup path grants the identical 15-day / 30-credit trial as email/register
@@ -69,6 +70,8 @@ const SESSION_COOKIE_NAME =
     ? "__Secure-next-auth.session-token"
     : "next-auth.session-token";
 const SESSION_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
+const TOKEN_REPLAY_RECORD_TTL_MS = 24 * 60 * 60 * 1000;
+const TOKEN_REPLAY_EXPIRY_SKEW_MS = 5 * 60 * 1000;
 const TOKEN_VERIFICATION_FAILED_MESSAGE = "Token verification failed";
 const USER_CREATE_FAILED_MESSAGE = "User create failed";
 const SESSION_JWT_ENCODE_FAILED_MESSAGE = "Session JWT encode failed";
@@ -104,6 +107,7 @@ function jsonError(
 
 interface VerifiedClaims {
   sub: string;
+  expiresAtSeconds: number;
   email: string | null;
   emailVerified: boolean;
   name: string | null;
@@ -193,6 +197,14 @@ async function verifyAndNormaliseToken(
 
   const sub = typeof payload.sub === "string" ? payload.sub : null;
   if (!sub) throw new Error(`${provider} token missing sub claim`);
+  const expiresAtSeconds = payload.exp;
+  if (
+    typeof expiresAtSeconds !== "number" ||
+    !Number.isFinite(expiresAtSeconds) ||
+    expiresAtSeconds <= Math.floor(Date.now() / 1000)
+  ) {
+    throw new Error(`${provider} token missing or expired exp claim`);
+  }
 
   const email =
     typeof payload.email === "string" ? payload.email.toLowerCase() : null;
@@ -204,6 +216,7 @@ async function verifyAndNormaliseToken(
   if (provider === "apple") {
     return {
       sub,
+      expiresAtSeconds,
       email,
       emailVerified,
       name,
@@ -213,7 +226,7 @@ async function verifyAndNormaliseToken(
         payload.is_private_email === "true",
     };
   }
-  return { sub, email, emailVerified, name, picture };
+  return { sub, expiresAtSeconds, email, emailVerified, name, picture };
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -291,6 +304,63 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
   const email = claims.email;
 
+  // Consume the verified provider token exactly once before it can select a
+  // user or mint a RestoreAssist session. The globally unique digest closes
+  // replay across serverless instances without storing bearer credentials or
+  // relying on a tenant/user identity that does not exist yet at this seam.
+  const tokenDigest = crypto
+    .createHash("sha256")
+    .update(`native-oauth-id-token\0${provider}\0${body.idToken}`)
+    .digest("hex");
+  const tokenReplayCacheKey = `native-oauth-id-token:${tokenDigest}`;
+  const replayRecordExpiresAt = new Date(
+    Math.max(
+      Date.now() + TOKEN_REPLAY_RECORD_TTL_MS,
+      claims.expiresAtSeconds * 1000 + TOKEN_REPLAY_EXPIRY_SKEW_MS,
+    ),
+  );
+  try {
+    await prisma.idempotencyRecord.create({
+      data: {
+        cacheKey: tokenReplayCacheKey,
+        scope: "native-oauth-id-token",
+        key: tokenDigest,
+        fingerprint: tokenDigest,
+        status: "COMPLETE",
+        expiresAt: replayRecordExpiresAt,
+      },
+    });
+  } catch (err) {
+    if (isUniqueConstraintError(err)) {
+      return jsonError(
+        request,
+        401,
+        "TOKEN_VERIFICATION_FAILED",
+        TOKEN_VERIFICATION_FAILED_MESSAGE,
+      );
+    }
+    console.error("[native-token-exchange] replay check failed:", err);
+    return jsonError(
+      request,
+      500,
+      "TOKEN_REPLAY_CHECK_FAILED",
+      "Internal server error",
+    );
+  }
+
+  const releaseTokenReplayReservation = async (): Promise<void> => {
+    try {
+      await prisma.idempotencyRecord.deleteMany({
+        where: { cacheKey: tokenReplayCacheKey },
+      });
+    } catch (err) {
+      console.error(
+        "[native-token-exchange] replay reservation rollback failed:",
+        err,
+      );
+    }
+  };
+
   // Find-or-create user. PrismaAdapter normally handles this for OAuth;
   // for our native flow we replicate the same shape — including the
   // exact field set events.createUser stamps in lib/auth.ts:317-338.
@@ -319,6 +389,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         });
       } catch (err) {
         console.error("[native-token-exchange] user create failed:", err);
+        await releaseTokenReplayReservation();
         return jsonError(
           request,
           500,
@@ -330,6 +401,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   } catch (err) {
     console.error("[native-token-exchange] user lookup failed:", err);
+    await releaseTokenReplayReservation();
     return jsonError(
       request,
       500,
@@ -390,6 +462,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
   } catch (err) {
     console.error("[native-token-exchange] session JWT encode failed:", err);
+    await releaseTokenReplayReservation();
     return jsonError(
       request,
       500,

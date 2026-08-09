@@ -167,6 +167,10 @@ export async function signInWithOAuth(
         options: {
           scopes: ["email", "profile"],
           nonce: noncePlaintext,
+          // Never restore a previous Google credential here. A fresh token
+          // gives each exchange a distinct replay boundary and preserves a
+          // recovery path when the prior Set-Cookie response was lost.
+          forcePrompt: true,
         },
       });
       // GoogleLoginResponse exposes idToken at result.idToken (top-level

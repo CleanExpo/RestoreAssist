@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 const jwtVerify = vi.fn();
 const userFindUnique = vi.fn();
 const userCreate = vi.fn();
+const idempotencyRecordCreate = vi.fn();
+const idempotencyRecordDeleteMany = vi.fn();
 const encodeJwt = vi.fn();
 const logSecurityEvent = vi.fn();
 const applyRateLimit = vi.fn();
@@ -21,6 +23,10 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: (...args: unknown[]) => userFindUnique(...args),
       create: (...args: unknown[]) => userCreate(...args),
     },
+    idempotencyRecord: {
+      create: (...args: unknown[]) => idempotencyRecordCreate(...args),
+      deleteMany: (...args: unknown[]) => idempotencyRecordDeleteMany(...args),
+    },
   },
 }));
 vi.mock("@/lib/security-audit", () => ({
@@ -37,11 +43,15 @@ beforeEach(() => {
   jwtVerify.mockReset();
   userFindUnique.mockReset();
   userCreate.mockReset();
+  idempotencyRecordCreate.mockReset();
+  idempotencyRecordDeleteMany.mockReset();
   encodeJwt.mockReset();
   logSecurityEvent.mockReset();
   applyRateLimit.mockReset();
   logSecurityEvent.mockResolvedValue(undefined);
   applyRateLimit.mockResolvedValue(null);
+  idempotencyRecordCreate.mockResolvedValue({ id: "replay_record_1" });
+  idempotencyRecordDeleteMany.mockResolvedValue({ count: 1 });
 });
 
 function postRequest(body: Record<string, unknown>) {
@@ -58,6 +68,7 @@ const VALID_BODY = {
 
 const VALID_CLAIMS = {
   sub: "google_sub",
+  exp: Math.floor(Date.now() / 1000) + 60 * 60,
   email: "USER@EXAMPLE.COM",
   email_verified: true,
   name: "Test User",
@@ -101,6 +112,23 @@ describe("POST /api/auth/native-token-exchange", () => {
         message: "Token verification failed",
       },
     });
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["non-numeric", "tomorrow"],
+    ["expired", Math.floor(Date.now() / 1000) - 1],
+  ])("rejects a %s exp claim before replay consumption", async (_label, exp) => {
+    jwtVerify.mockResolvedValueOnce({
+      payload: { ...VALID_CLAIMS, exp },
+    });
+
+    const response = await POST(postRequest(VALID_BODY));
+
+    expect(response.status).toBe(401);
+    expect(idempotencyRecordCreate).not.toHaveBeenCalled();
+    expect(userFindUnique).not.toHaveBeenCalled();
+    expect(encodeJwt).not.toHaveBeenCalled();
   });
 
   it("does not expose user create exception details", async () => {
@@ -148,6 +176,126 @@ describe("POST /api/auth/native-token-exchange", () => {
         message: "Session JWT encode failed",
       },
     });
+  });
+});
+
+describe("POST /api/auth/native-token-exchange — token replay", () => {
+  const EXISTING_USER = {
+    id: "user_1",
+    email: "user@example.com",
+    name: "Test User",
+    image: null,
+    role: "ADMIN",
+    needsOnboarding: false,
+  };
+
+  function primeSuccessfulExchange(
+    claims: Record<string, unknown> = VALID_CLAIMS,
+  ) {
+    jwtVerify.mockResolvedValue({ payload: claims });
+    userFindUnique
+      .mockResolvedValueOnce(EXISTING_USER)
+      .mockResolvedValueOnce({ organization: { setupCompletedAt: null } });
+    encodeJwt.mockResolvedValue("encoded.session.jwt");
+  }
+
+  it("consumes an id-token digest once without persisting the raw token", async () => {
+    const farFutureExp = Math.floor(Date.now() / 1000) + 48 * 60 * 60;
+    primeSuccessfulExchange({ ...VALID_CLAIMS, exp: farFutureExp });
+
+    const response = await POST(postRequest(VALID_BODY));
+
+    expect(response.status).toBe(200);
+    expect(idempotencyRecordCreate).toHaveBeenCalledTimes(1);
+    const data = idempotencyRecordCreate.mock.calls[0][0].data as Record<
+      string,
+      unknown
+    >;
+    expect(data.scope).toBe("native-oauth-id-token");
+    expect(data.key).toMatch(/^[a-f0-9]{64}$/);
+    expect(data.fingerprint).toBe(data.key);
+    expect(data.cacheKey).toBe(`native-oauth-id-token:${data.key}`);
+    expect(data.status).toBe("COMPLETE");
+    expect(data.expiresAt).toBeInstanceOf(Date);
+    expect((data.expiresAt as Date).getTime()).toBeGreaterThan(
+      farFutureExp * 1000,
+    );
+    expect(JSON.stringify(data)).not.toContain(VALID_BODY.idToken);
+  });
+
+  it("rejects a replay before user lookup or session minting", async () => {
+    jwtVerify.mockResolvedValue({ payload: VALID_CLAIMS });
+    idempotencyRecordCreate.mockRejectedValueOnce({ code: "P2002" });
+
+    const response = await POST(postRequest(VALID_BODY));
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: {
+        code: "TOKEN_VERIFICATION_FAILED",
+        message: "Token verification failed",
+      },
+    });
+    expect(userFindUnique).not.toHaveBeenCalled();
+    expect(userCreate).not.toHaveBeenCalled();
+    expect(encodeJwt).not.toHaveBeenCalled();
+    expect(findSessionCookie(response)).toBeUndefined();
+  });
+
+  it("allows exactly one of two concurrent exchanges for the same token", async () => {
+    const consumed = new Set<string>();
+    idempotencyRecordCreate.mockImplementation(
+      async ({ data }: { data: { cacheKey: string } }) => {
+        if (consumed.has(data.cacheKey)) throw { code: "P2002" };
+        consumed.add(data.cacheKey);
+        return { id: "replay_record_1" };
+      },
+    );
+    primeSuccessfulExchange();
+
+    const responses = await Promise.all([
+      POST(postRequest(VALID_BODY)),
+      POST(postRequest(VALID_BODY)),
+    ]);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      200, 401,
+    ]);
+    expect(userFindUnique).toHaveBeenCalledTimes(2);
+    expect(encodeJwt).toHaveBeenCalledTimes(1);
+    expect(
+      responses.filter((response) => findSessionCookie(response)).length,
+    ).toBe(1);
+  });
+
+  it("fails closed when the replay ledger write fails unexpectedly", async () => {
+    jwtVerify.mockResolvedValue({ payload: VALID_CLAIMS });
+    idempotencyRecordCreate.mockRejectedValueOnce(new Error("database offline"));
+
+    const response = await POST(postRequest(VALID_BODY));
+
+    expect(response.status).toBe(500);
+    expect(userFindUnique).not.toHaveBeenCalled();
+    expect(encodeJwt).not.toHaveBeenCalled();
+    expect(findSessionCookie(response)).toBeUndefined();
+  });
+
+  it("releases the consumed digest when downstream session minting fails", async () => {
+    jwtVerify.mockResolvedValueOnce({ payload: VALID_CLAIMS });
+    userFindUnique
+      .mockResolvedValueOnce(EXISTING_USER)
+      .mockResolvedValueOnce({ organization: { setupCompletedAt: null } });
+    encodeJwt.mockRejectedValueOnce(new Error("NEXTAUTH_SECRET invalid"));
+
+    const response = await POST(postRequest(VALID_BODY));
+
+    expect(response.status).toBe(500);
+    const cacheKey = idempotencyRecordCreate.mock.calls[0][0].data.cacheKey;
+    expect(idempotencyRecordDeleteMany).toHaveBeenCalledWith({
+      where: { cacheKey },
+    });
+    expect(findSessionCookie(response)).toBeUndefined();
   });
 });
 
