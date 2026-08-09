@@ -9,9 +9,14 @@ server_pid=""
 server_log="/tmp/restoreassist-owner-acceptance-$$.log"
 
 cleanup() {
+  local exit_status=$?
   if [[ -n "${server_pid}" ]]; then
     kill "${server_pid}" >/dev/null 2>&1 || true
     wait "${server_pid}" >/dev/null 2>&1 || true
+  fi
+  if (( exit_status != 0 )) && [[ -f "${server_log}" ]]; then
+    echo "Owner acceptance server log (last 120 lines):" >&2
+    tail -n 120 "${server_log}" >&2
   fi
   docker rm -f "${container_name}" >/dev/null 2>&1 || true
   rm -f "${server_log}"
@@ -57,9 +62,10 @@ CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
 LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
 SQL
 
-pnpm build
+pnpm prisma:generate
+pnpm exec prisma migrate deploy
 
-pnpm start --hostname 127.0.0.1 --port "${app_port}" >"${server_log}" 2>&1 &
+pnpm exec next dev --webpack --hostname 127.0.0.1 --port "${app_port}" >"${server_log}" 2>&1 &
 server_pid=$!
 for _ in $(seq 1 90); do
   readiness_status="$(
