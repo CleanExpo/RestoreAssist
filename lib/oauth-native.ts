@@ -39,6 +39,7 @@
 
 import { signIn, signOut, type SignInOptions } from "next-auth/react";
 import { isCapacitorAndroid, isCapacitorIOS } from "@/lib/capacitor";
+import { safeCallbackUrl } from "@/lib/auth/safe-callback-url";
 
 export type OAuthProvider = "google" | "apple";
 
@@ -124,12 +125,15 @@ export async function signInWithOAuth(
   provider: OAuthProvider,
   options?: SignInOptions,
 ): Promise<void> {
+  const callbackUrl = safeCallbackUrl(options?.callbackUrl);
+  const safeOptions = { ...options, callbackUrl };
+
   if (!isCapacitorIOS() && !isCapacitorAndroid()) {
     // NextAuth's OAuth callback decodes the existing JWT before resolving the
     // selected provider account. Clear it first so a user can switch accounts
     // from /login without triggering OAuthAccountNotLinked.
     await signOut({ redirect: false });
-    await signIn(provider, options);
+    await signIn(provider, safeOptions);
     return;
   }
 
@@ -223,7 +227,6 @@ export async function signInWithOAuth(
   }
 
   // Cookie is now in WKWebView's jar. Navigate to the requested target.
-  const callbackUrl = options?.callbackUrl ?? "/dashboard";
   if (typeof window !== "undefined") {
     window.location.href = callbackUrl;
   }

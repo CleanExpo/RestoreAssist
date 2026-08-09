@@ -47,4 +47,22 @@ describe("signInWithOAuth web account switching", () => {
       callbackUrl: "/dashboard",
     });
   });
+
+  it("replaces an external Google callback URL before starting OAuth", async () => {
+    await signInWithOAuth("google", {
+      callbackUrl: "https://evil.example/steal",
+    });
+
+    expect(signInMock).toHaveBeenCalledWith("google", {
+      callbackUrl: "/dashboard",
+    });
+  });
+
+  it("replaces a protocol-relative Apple callback URL before starting OAuth", async () => {
+    await signInWithOAuth("apple", { callbackUrl: "//evil.example/steal" });
+
+    expect(signInMock).toHaveBeenCalledWith("apple", {
+      callbackUrl: "/dashboard",
+    });
+  });
 });
