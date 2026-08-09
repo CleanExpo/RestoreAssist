@@ -40,20 +40,25 @@
 
 ---
 
-## Deferred (P1 / P2 from research)
+## Later ships
+
+See `docs/research/2026-08-09-encircle-parity-next-level.md` for the 2026-08-09
+Encircle-style bundle (one-tap room damage, equipment symbols, opening jambs,
+short-dim hide, PDF north arrow + scale bar).
+
+## Deferred (still open)
 
 | Item | Why deferred |
 | --- | --- |
-| Restoration equipment symbol library | Separate object set + report legend |
 | Room assembly adjacency snap (green join between rooms) | Needs shared-edge detector beyond alignment guides |
 | L / T room templates + flip/rotate | Beyond rect tap/drag |
 | Missing wall / opening tool distinct from door/window | New tool mode |
+| True wall-band rematerialize from solid segments | White cut + jambs ship; polygon stroke still continuous |
 | Room-crop moisture map export | Report pipeline work |
 | Bluetooth laser | Hardware bridge |
 | ESX / FML estimate export | Carrier integration — do not fake |
 | Cotality lock / sync / desktop ownership | No equivalent; **Mark complete** is the honest substitute |
 | Dim label tap-on-canvas edit (vs panel) | Panel covers edit+lock; on-canvas edit later |
-| Auto-hide short underlay dims | Encircle readability rule |
 
 ---
 
