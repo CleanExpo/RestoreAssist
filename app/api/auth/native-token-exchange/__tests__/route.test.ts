@@ -171,6 +171,68 @@ function findSessionCookie(response: Awaited<ReturnType<typeof POST>>) {
     .find((c) => /next-auth\.session-token$/.test(c.name));
 }
 
+describe("POST /api/auth/native-token-exchange — verified email", () => {
+  const EXISTING_USER = {
+    id: "user_1",
+    email: "user@example.com",
+    name: "Test User",
+    image: null,
+    role: "ADMIN",
+    needsOnboarding: false,
+  };
+
+  it.each([
+    ["missing", undefined],
+    ["false", false],
+  ])(
+    "rejects a %s email_verified claim before any downstream work",
+    async (_label, emailVerified) => {
+      const claims = { ...VALID_CLAIMS } as Record<string, unknown>;
+      if (emailVerified === undefined) {
+        delete claims.email_verified;
+      } else {
+        claims.email_verified = emailVerified;
+      }
+      jwtVerify.mockResolvedValueOnce({ payload: claims });
+
+      const response = await POST(postRequest(VALID_BODY));
+
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({
+        ok: false,
+        error: {
+          code: "TOKEN_VERIFICATION_FAILED",
+          message: "Token verification failed",
+        },
+      });
+      expect(userFindUnique).not.toHaveBeenCalled();
+      expect(userCreate).not.toHaveBeenCalled();
+      expect(encodeJwt).not.toHaveBeenCalled();
+      expect(findSessionCookie(response)).toBeUndefined();
+    },
+  );
+
+  it.each([
+    ["boolean true", true],
+    ["string true", "true"],
+  ])("accepts email_verified as %s", async (_label, emailVerified) => {
+    jwtVerify.mockResolvedValueOnce({
+      payload: { ...VALID_CLAIMS, email_verified: emailVerified },
+    });
+    userFindUnique
+      .mockResolvedValueOnce(EXISTING_USER)
+      .mockResolvedValueOnce({ organization: { setupCompletedAt: null } });
+    encodeJwt.mockResolvedValueOnce("encoded.session.jwt");
+
+    const response = await POST(postRequest(VALID_BODY));
+
+    expect(response.status).toBe(200);
+    expect(userFindUnique).toHaveBeenCalled();
+    expect(encodeJwt).toHaveBeenCalledTimes(1);
+    expect(findSessionCookie(response)?.value).toBe("encoded.session.jwt");
+  });
+});
+
 describe("POST /api/auth/native-token-exchange — persistence contract", () => {
   const EXISTING_USER = {
     id: "user_1",

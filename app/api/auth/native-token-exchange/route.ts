@@ -264,6 +264,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Native accounts are linked by email below. Require the provider to have
+  // verified that address before it can select or create a RestoreAssist user.
+  if (!claims.emailVerified) {
+    return jsonError(
+      request,
+      401,
+      "TOKEN_VERIFICATION_FAILED",
+      TOKEN_VERIFICATION_FAILED_MESSAGE,
+    );
+  }
+
   if (!claims.email) {
     // Apple sometimes omits email on subsequent sign-ins (only first
     // returns it). Google omits it only if the user revoked the email
