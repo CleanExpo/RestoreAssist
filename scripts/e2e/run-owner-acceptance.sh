@@ -32,6 +32,7 @@ unset RESEND_API_KEY STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET
 export DATABASE_URL="${database_url}"
 export DIRECT_URL="${database_url}"
 export NEXTAUTH_URL="http://127.0.0.1:${app_port}"
+export NEXT_PUBLIC_APP_URL="${NEXTAUTH_URL}"
 export PLAYWRIGHT_BASE_URL="${NEXTAUTH_URL}"
 export PLAYWRIGHT_HTML_OPEN="never"
 export NEXTAUTH_SECRET="local-owner-acceptance-secret-not-for-deployment"

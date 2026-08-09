@@ -278,9 +278,12 @@ test.describe("mock-only owner lifecycle acceptance", () => {
       await page
         .getByRole("link", { name: new RegExp(`Mock acceptance report`) })
         .click();
+      await page.waitForURL(`/portal/reports/${reportId}`, {
+        timeout: 30_000,
+      });
       await expect(
         page.getByRole("heading", { name: "Approvals Required" }),
-      ).toBeVisible();
+      ).toBeVisible({ timeout: 30_000 });
       await page.getByRole("button", { name: "Review & Respond" }).click();
       await expect(
         page.getByRole("heading", { name: "Cost Estimate Approval" }),
@@ -371,7 +374,7 @@ test.describe("mock-only owner lifecycle acceptance", () => {
       await expect(page.getByText(/Status: PAID/i)).toBeVisible();
 
       await page.goto(`/dashboard/inspections/${inspectionId}`);
-      await page.getByRole("button", { name: "Share with Client" }).click();
+      await page.getByRole("button", { name: "Send to Client" }).click();
       const clientUrl = await page
         .getByLabel("Client portal link", { exact: true })
         .inputValue();
@@ -437,7 +440,7 @@ test.describe("mock-only owner lifecycle acceptance", () => {
       timeout: 30_000,
     });
     await expect(
-      page.getByRole("button", { name: "Share with Client" }),
+      page.getByRole("button", { name: "Send to Client" }),
     ).toBeVisible({ timeout: 30_000 });
     await expect
       .poll(() =>
