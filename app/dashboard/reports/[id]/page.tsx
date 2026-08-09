@@ -13,6 +13,7 @@ import {
   CheckSquare,
   Download,
   Share2,
+  Mail,
   Check,
   Loader2,
 } from "lucide-react";
@@ -55,6 +56,10 @@ export default function ReportDetailPage({
   >("inspection");
   const [sharingInsurer, setSharingInsurer] = useState(false);
   const [insurerLinkCopied, setInsurerLinkCopied] = useState(false);
+  const [sendingReport, setSendingReport] = useState(false);
+  const [reportSendIdempotencyKey, setReportSendIdempotencyKey] = useState(() =>
+    crypto.randomUUID(),
+  );
 
   // RA-5041 (UI follow-up): the weakness-check route is advisory-only —
   // this page is what turns an unresolved P0 finding into a hard stop.
@@ -181,6 +186,35 @@ export default function ReportDetailPage({
     }
   };
 
+  const handleSendReport = async () => {
+    if (!reportId) return;
+    if (!report.client?.email) {
+      toast.error("Add an email address to the linked client before sending.");
+      return;
+    }
+
+    setSendingReport(true);
+    try {
+      const res = await fetch(`/api/reports/${reportId}/send`, {
+        method: "POST",
+        headers: { "Idempotency-Key": reportSendIdempotencyKey },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error?.message ?? "Failed to send report");
+      }
+
+      toast.success(
+        `Email provider accepted the report for ${data.recipientEmail}.`,
+      );
+      setReportSendIdempotencyKey(crypto.randomUUID());
+    } catch (err: any) {
+      toast.error(err.message ?? "Could not send report");
+    } finally {
+      setSendingReport(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -241,6 +275,24 @@ export default function ReportDetailPage({
             <Share2 size={16} />
           )}
           {insurerLinkCopied ? "Link Copied" : "Generate Insurer Link"}
+        </button>
+
+        <button
+          onClick={() => requestExport(handleSendReport)}
+          disabled={sendingReport}
+          title={
+            report.client?.email
+              ? `Email report to ${report.client.email}`
+              : "Add an email address to the linked client before sending"
+          }
+          className="flex items-center gap-2 px-3 py-2 bg-cyan-600 text-white rounded-lg font-medium hover:bg-cyan-500 disabled:opacity-60 transition-colors text-sm"
+        >
+          {sendingReport ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Mail size={16} />
+          )}
+          {sendingReport ? "Sending…" : "Email Report"}
         </button>
 
         <button
