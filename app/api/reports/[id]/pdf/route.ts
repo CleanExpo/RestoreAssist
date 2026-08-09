@@ -5,10 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import { resolveOrgBrandTheme } from "@/lib/clients/brand";
 import {
-  claimSketchesToFloors,
-  uploadedFloorPlanToFloor,
+  claimSketchesToFloorPlanOutput,
+  uploadedFloorPlanToOutput,
 } from "@/lib/reports/claim-sketch-floors";
-import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
+import { appendFloorPlanPagesWithDisclosure } from "@/lib/reports/append-sketch-pages";
 import { inspectionPhotosToImages } from "@/lib/reports/inspection-photos-to-images";
 import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
 import { verifyInsurerToken } from "@/lib/portal-token";
@@ -179,27 +179,32 @@ export async function GET(
       showAiDraftWatermark: isAiDraftPending(report),
     });
 
-    // RA-120 (PR2): embed each floor's sketch (underlay + annotations) as its
-    // own page so the floor plan lives inside the canonical report. A failed
-    // image fetch skips that floor — it must never block the download.
-    const parsedFloors = await claimSketchesToFloors(
+    // RA-120 (PR2): embed each floor independently so one malformed image cannot
+    // remove valid floor pages. Missing, unreadable, or unembeddable floors are
+    // named explicitly on an availability page in the canonical report.
+    const floorPlanOutput = await claimSketchesToFloorPlanOutput(
       report.inspection?.claimSketches ?? [],
     );
-    const { floors, labelsByPhotoId } =
-      crossReferenceEvidencePhotos(parsedFloors);
     // RA-7006 Gap 6: also append an uploaded floor-plan image (viewer-only until
-    // now). Best-effort — a broken image is skipped, never blocks the download.
-    const uploadedFloor = await uploadedFloorPlanToFloor(
+    // now), preserving a named unavailable status when its render cannot be used.
+    const uploadedFloorPlan = await uploadedFloorPlanToOutput(
       report.inspection?.floorPlanImageUrl,
     );
-    pdfBytes = await appendSketchPages(
+    const appendedFloorPlans = await appendFloorPlanPagesWithDisclosure(
       pdfBytes,
-      uploadedFloor ? [...floors, uploadedFloor] : floors,
+      uploadedFloorPlan
+        ? [...floorPlanOutput, uploadedFloorPlan]
+        : floorPlanOutput,
       {
         propertyAddress: report.propertyAddress ?? undefined,
         reportNumber: report.reportNumber ?? undefined,
       },
     );
+    pdfBytes = appendedFloorPlans.pdfBytes;
+    const embeddedFloors = appendedFloorPlans.floorPlans.flatMap(({ floor }) =>
+      floor ? [floor] : [],
+    );
+    const { labelsByPhotoId } = crossReferenceEvidencePhotos(embeddedFloors);
 
     // RA-120 (PR3): append the inspection's evidence photos as a captioned
     // grid. A broken image is skipped — it must never block the download.

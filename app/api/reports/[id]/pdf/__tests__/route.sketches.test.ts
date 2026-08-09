@@ -127,7 +127,7 @@ describe("GET /api/reports/[id]/pdf — floor plan embedding", () => {
     expect(await pageCountOf(res)).toBe(3); // 1 base + 2 floors
   });
 
-  it("leaves the report unchanged when no sketch has been rendered", async () => {
+  it("adds a disclosure page naming a floor whose sketch has not been rendered", async () => {
     reportFindUnique.mockResolvedValueOnce(
       reportBase({
         claimSketches: [
@@ -143,7 +143,42 @@ describe("GET /api/reports/[id]/pdf — floor plan embedding", () => {
 
     const res = await GET(req(), ctx);
     expect(res.status).toBe(200);
-    expect(await pageCountOf(res)).toBe(1); // base only
+    expect(await pageCountOf(res)).toBe(2); // base + disclosure
+  });
+
+  it("keeps a good floor when another fetched render cannot be embedded", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => ({
+        ok: true,
+        arrayBuffer: async () =>
+          url.endsWith("broken.png")
+            ? new TextEncoder().encode("not a png").buffer
+            : pngBytes().buffer,
+      })),
+    );
+    reportFindUnique.mockResolvedValueOnce(
+      reportBase({
+        claimSketches: [
+          {
+            floorNumber: 0,
+            floorLabel: "Ground Floor",
+            renderedPngUrl: "https://x/0.png",
+            sketchData: null,
+          },
+          {
+            floorNumber: 1,
+            floorLabel: "Level 1",
+            renderedPngUrl: "https://x/broken.png",
+            sketchData: null,
+          },
+        ],
+      }),
+    );
+
+    const res = await GET(req(), ctx);
+    expect(res.status).toBe(200);
+    expect(await pageCountOf(res)).toBe(3); // base + good floor + disclosure
   });
 
   it("handles reports with no inspection", async () => {

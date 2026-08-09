@@ -4,6 +4,9 @@ import { NextRequest } from "next/server";
 const requireClientAuth = vi.fn();
 const reportFindFirst = vi.fn();
 const generateIICRCReportPDF = vi.fn();
+const claimSketchesToFloorPlanOutput = vi.fn();
+const uploadedFloorPlanToOutput = vi.fn();
+const appendFloorPlanPagesWithDisclosure = vi.fn();
 
 vi.mock("@/lib/portal/require-client-auth", () => ({
   requireClientAuth: (...args: unknown[]) => requireClientAuth(...args),
@@ -24,11 +27,14 @@ vi.mock("@/lib/clients/brand", () => ({
   resolveOrgBrandTheme: () => ({}),
 }));
 vi.mock("@/lib/reports/claim-sketch-floors", () => ({
-  claimSketchesToFloors: () => Promise.resolve([]),
-  uploadedFloorPlanToFloor: () => Promise.resolve(null),
+  claimSketchesToFloorPlanOutput: (...args: unknown[]) =>
+    claimSketchesToFloorPlanOutput(...args),
+  uploadedFloorPlanToOutput: (...args: unknown[]) =>
+    uploadedFloorPlanToOutput(...args),
 }));
 vi.mock("@/lib/reports/append-sketch-pages", () => ({
-  appendSketchPages: (pdf: Uint8Array) => Promise.resolve(pdf),
+  appendFloorPlanPagesWithDisclosure: (...args: unknown[]) =>
+    appendFloorPlanPagesWithDisclosure(...args),
 }));
 vi.mock("@/lib/reports/inspection-photos-to-images", () => ({
   inspectionPhotosToImages: () => Promise.resolve([]),
@@ -76,6 +82,14 @@ beforeEach(() => {
   generateIICRCReportPDF.mockResolvedValue(
     new Uint8Array([0x25, 0x50, 0x44, 0x46]),
   );
+  claimSketchesToFloorPlanOutput.mockResolvedValue([]);
+  uploadedFloorPlanToOutput.mockResolvedValue(null);
+  appendFloorPlanPagesWithDisclosure.mockImplementation(
+    async (pdfBytes: Uint8Array, floorPlans: unknown[]) => ({
+      pdfBytes,
+      floorPlans,
+    }),
+  );
 });
 
 describe("GET /api/portal/reports/[id]/download", () => {
@@ -112,5 +126,42 @@ describe("GET /api/portal/reports/[id]/download", () => {
       clientId: "client_1",
       status: "COMPLETED",
     });
+  });
+
+  it("passes named unavailable floors into the portal PDF disclosure pipeline", async () => {
+    const unavailableFloor = {
+      status: {
+        label: "Level 1",
+        source: "rendered_sketch",
+        status: "unavailable",
+        reason: "No rendered floor-plan image was available.",
+      },
+      floor: null,
+    };
+    reportFindFirst.mockResolvedValueOnce(
+      report({
+        inspection: {
+          floorPlanImageUrl: null,
+          claimSketches: [
+            {
+              floorNumber: 1,
+              floorLabel: "Level 1",
+              renderedPngUrl: null,
+            },
+          ],
+          photos: [],
+        },
+      }),
+    );
+    claimSketchesToFloorPlanOutput.mockResolvedValueOnce([unavailableFloor]);
+
+    const response = await GET(request(), context);
+
+    expect(response.status).toBe(200);
+    expect(appendFloorPlanPagesWithDisclosure).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      [unavailableFloor],
+      expect.objectContaining({ reportNumber: "R-1" }),
+    );
   });
 });

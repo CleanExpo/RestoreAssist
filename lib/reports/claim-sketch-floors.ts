@@ -22,6 +22,25 @@ export interface ClaimSketchRow {
   evidencePins?: unknown;
 }
 
+export interface ReportFloorPlanStatus {
+  label: string;
+  source: "rendered_sketch" | "uploaded_floor_plan";
+  status: "included" | "unavailable";
+  reason?: string;
+}
+
+export interface ReportFloorPlanOutput {
+  status: ReportFloorPlanStatus;
+  floor: SketchFloor | null;
+}
+
+const NO_RENDER_REASON =
+  "No rendered floor-plan image was available at report generation time.";
+const RETRIEVAL_REASON =
+  "The stored floor-plan image could not be retrieved at report generation time.";
+const UPLOAD_RETRIEVAL_REASON =
+  "The uploaded floor-plan image could not be retrieved at report generation time.";
+
 /**
  * Convert persisted `ClaimSketch` rows into `SketchFloor`s for
  * {@link embedSketchesInPdf}. Only sketches with a `renderedPngUrl` are
@@ -38,38 +57,70 @@ export async function claimSketchesToFloors(
   sketches: ClaimSketchRow[],
   fetchImpl: typeof fetch = fetch,
 ): Promise<SketchFloor[]> {
-  const renderable = sketches
-    .filter((s): s is ClaimSketchRow & { renderedPngUrl: string } =>
-      Boolean(s.renderedPngUrl),
-    )
-    .sort((a, b) => a.floorNumber - b.floorNumber);
+  const output = await claimSketchesToFloorPlanOutput(sketches, fetchImpl);
+  return output.flatMap(({ floor }) => (floor ? [floor] : []));
+}
 
-  const floors = await Promise.all(
-    renderable.map(async (s): Promise<SketchFloor | null> => {
+/**
+ * Resolve every persisted sketch to both its optional renderable floor and an
+ * explicit report status. Unlike {@link claimSketchesToFloors}, this keeps rows
+ * whose render is missing or unreadable so canonical PDFs can disclose the
+ * named omission instead of silently dropping it.
+ */
+export async function claimSketchesToFloorPlanOutput(
+  sketches: ClaimSketchRow[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<ReportFloorPlanOutput[]> {
+  const sorted = [...sketches].sort((a, b) => a.floorNumber - b.floorNumber);
+
+  return Promise.all(
+    sorted.map(async (s): Promise<ReportFloorPlanOutput> => {
+      const unavailable: ReportFloorPlanStatus = {
+        label: s.floorLabel,
+        source: "rendered_sketch",
+        status: "unavailable",
+      };
+
+      if (!s.renderedPngUrl) {
+        return {
+          status: { ...unavailable, reason: NO_RENDER_REASON },
+          floor: null,
+        };
+      }
+
       try {
         // P0-1: sketch-media is private; re-sign the stored URL before fetching
         // its bytes for PDF embedding. Non-storage URLs pass through unchanged.
         const signedUrl = await signStoredMediaUrl(s.renderedPngUrl);
         const res = await fetchImpl(signedUrl ?? s.renderedPngUrl);
-        if (!res.ok) return null;
+        if (!res.ok) {
+          return {
+            status: { ...unavailable, reason: RETRIEVAL_REASON },
+            floor: null,
+          };
+        }
         const base64 = Buffer.from(await res.arrayBuffer()).toString("base64");
         return {
-          label: s.floorLabel,
-          pngDataUrl: `data:image/png;base64,${base64}`,
-          fabricJson:
-            s.sketchData && typeof s.sketchData === "object"
-              ? (s.sketchData as Record<string, unknown>)
-              : null,
-          moisturePins: parseMoisturePins(s.moisturePoints),
-          evidencePins: parseEvidencePins(s.evidencePins),
+          status: { ...unavailable, status: "included" },
+          floor: {
+            label: s.floorLabel,
+            pngDataUrl: `data:image/png;base64,${base64}`,
+            fabricJson:
+              s.sketchData && typeof s.sketchData === "object"
+                ? (s.sketchData as Record<string, unknown>)
+                : null,
+            moisturePins: parseMoisturePins(s.moisturePoints),
+            evidencePins: parseEvidencePins(s.evidencePins),
+          },
         };
       } catch {
-        return null;
+        return {
+          status: { ...unavailable, reason: RETRIEVAL_REASON },
+          floor: null,
+        };
       }
     }),
   );
-
-  return floors.filter((f): f is SketchFloor => f !== null);
 }
 
 /**
@@ -83,20 +134,45 @@ export async function uploadedFloorPlanToFloor(
   floorPlanImageUrl: string | null | undefined,
   fetchImpl: typeof fetch = fetch,
 ): Promise<SketchFloor | null> {
+  const output = await uploadedFloorPlanToOutput(floorPlanImageUrl, fetchImpl);
+  return output?.floor ?? null;
+}
+
+/** Keep an explicitly supplied but unreadable uploaded plan visible in reports. */
+export async function uploadedFloorPlanToOutput(
+  floorPlanImageUrl: string | null | undefined,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ReportFloorPlanOutput | null> {
   if (!floorPlanImageUrl) return null;
+  const unavailable: ReportFloorPlanStatus = {
+    label: "Uploaded Floor Plan",
+    source: "uploaded_floor_plan",
+    status: "unavailable",
+  };
   try {
     const res = await fetchImpl(floorPlanImageUrl);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return {
+        status: { ...unavailable, reason: UPLOAD_RETRIEVAL_REASON },
+        floor: null,
+      };
+    }
     const contentType = res.headers.get("content-type") || "image/png";
     const base64 = Buffer.from(await res.arrayBuffer()).toString("base64");
     return {
-      label: "Uploaded Floor Plan",
-      pngDataUrl: `data:${contentType};base64,${base64}`,
-      fabricJson: null,
-      moisturePins: null,
-      evidencePins: null,
+      status: { ...unavailable, status: "included" },
+      floor: {
+        label: "Uploaded Floor Plan",
+        pngDataUrl: `data:${contentType};base64,${base64}`,
+        fabricJson: null,
+        moisturePins: null,
+        evidencePins: null,
+      },
     };
   } catch {
-    return null;
+    return {
+      status: { ...unavailable, reason: UPLOAD_RETRIEVAL_REASON },
+      floor: null,
+    };
   }
 }

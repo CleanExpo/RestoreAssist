@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { PDFDocument } from "pdf-lib";
-import { appendSketchPages } from "../append-sketch-pages";
+import {
+  appendFloorPlanPagesWithDisclosure,
+  appendSketchPages,
+  floorPlanDisclosureLines,
+} from "../append-sketch-pages";
 
 // A valid 1x1 transparent PNG — pdf-lib's embedPng must be able to parse it.
 const PNG_1x1 =
@@ -34,5 +38,72 @@ describe("appendSketchPages", () => {
     expect(out).toBe(base);
     const doc = await PDFDocument.load(out);
     expect(doc.getPageCount()).toBe(2);
+  });
+});
+
+describe("appendFloorPlanPagesWithDisclosure", () => {
+  it("preserves good floors and discloses a named unembeddable floor", async () => {
+    const base = await basePdf(1);
+    const result = await appendFloorPlanPagesWithDisclosure(
+      base,
+      [
+        {
+          status: {
+            label: "Ground Floor",
+            source: "rendered_sketch",
+            status: "included",
+          },
+          floor: {
+            label: "Ground Floor",
+            pngDataUrl: PNG_1x1,
+            fabricJson: null,
+          },
+        },
+        {
+          status: {
+            label: "Level 1",
+            source: "rendered_sketch",
+            status: "included",
+          },
+          floor: {
+            label: "Level 1",
+            pngDataUrl: "data:image/png;base64,bm90LWEtcG5n",
+            fabricJson: null,
+          },
+        },
+      ],
+      { reportNumber: "RPT-1" },
+    );
+
+    const doc = await PDFDocument.load(result.pdfBytes);
+    expect(doc.getPageCount()).toBe(3); // base + good floor + disclosure
+    expect(result.floorPlans[0].status.status).toBe("included");
+    expect(result.floorPlans[1]).toMatchObject({
+      floor: null,
+      status: {
+        label: "Level 1",
+        status: "unavailable",
+        reason:
+          "The stored floor-plan image could not be embedded at report generation time.",
+      },
+    });
+  });
+
+  it("formats unavailable floor names and statuses for the disclosure page", () => {
+    expect(
+      floorPlanDisclosureLines([
+        {
+          label: "Ground Floor",
+          source: "rendered_sketch",
+          status: "unavailable",
+          reason: "No render was saved.",
+        },
+        {
+          label: "Level 1",
+          source: "rendered_sketch",
+          status: "included",
+        },
+      ]),
+    ).toEqual(["Ground Floor: unavailable", "No render was saved."]);
   });
 });

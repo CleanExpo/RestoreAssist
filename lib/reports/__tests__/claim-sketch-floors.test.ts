@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { claimSketchesToFloors } from "../claim-sketch-floors";
+import {
+  claimSketchesToFloorPlanOutput,
+  claimSketchesToFloors,
+  uploadedFloorPlanToOutput,
+} from "../claim-sketch-floors";
 
 /** Minimal stand-in PNG bytes — content is irrelevant to the mapper. */
 function pngBytes(marker: number): Uint8Array {
@@ -45,7 +49,9 @@ describe("claimSketchesToFloors", () => {
     const floors = await claimSketchesToFloors(sketches, fetchImpl as never);
 
     expect(floors.map((f) => f.label)).toEqual(["Ground Floor", "Level 1"]);
-    expect(floors[0].pngDataUrl.startsWith("data:image/png;base64,")).toBe(true);
+    expect(floors[0].pngDataUrl.startsWith("data:image/png;base64,")).toBe(
+      true,
+    );
     expect(floors[0].fabricJson).toEqual({ b: 2 });
   });
 
@@ -96,6 +102,65 @@ describe("claimSketchesToFloors", () => {
     const floors = await claimSketchesToFloors(sketches, fetchImpl as never);
 
     expect(floors.map((f) => f.label)).toEqual(["Ground Floor"]);
+  });
+
+  it("retains named unavailable statuses for missing and unreadable renders", async () => {
+    const output = await claimSketchesToFloorPlanOutput(
+      [
+        {
+          floorNumber: 1,
+          floorLabel: "Level 1",
+          renderedPngUrl: "https://x/broken.png",
+        },
+        {
+          floorNumber: 0,
+          floorLabel: "Ground Floor",
+          renderedPngUrl: null,
+        },
+      ],
+      fakeFetch({ "https://x/broken.png": "fail" }) as never,
+    );
+
+    expect(output).toEqual([
+      {
+        status: {
+          label: "Ground Floor",
+          source: "rendered_sketch",
+          status: "unavailable",
+          reason:
+            "No rendered floor-plan image was available at report generation time.",
+        },
+        floor: null,
+      },
+      {
+        status: {
+          label: "Level 1",
+          source: "rendered_sketch",
+          status: "unavailable",
+          reason:
+            "The stored floor-plan image could not be retrieved at report generation time.",
+        },
+        floor: null,
+      },
+    ]);
+  });
+
+  it("retains an unavailable status for a supplied uploaded plan that cannot be read", async () => {
+    const output = await uploadedFloorPlanToOutput(
+      "https://x/upload.png",
+      fakeFetch({ "https://x/upload.png": "fail" }) as never,
+    );
+
+    expect(output).toEqual({
+      status: {
+        label: "Uploaded Floor Plan",
+        source: "uploaded_floor_plan",
+        status: "unavailable",
+        reason:
+          "The uploaded floor-plan image could not be retrieved at report generation time.",
+      },
+      floor: null,
+    });
   });
 
   it("returns [] for empty input", async () => {

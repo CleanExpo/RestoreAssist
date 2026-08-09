@@ -5,10 +5,10 @@ import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import { isAiDraftPending } from "@/lib/reports/ai-ownership";
 import { resolveOrgBrandTheme } from "@/lib/clients/brand";
 import {
-  claimSketchesToFloors,
-  uploadedFloorPlanToFloor,
+  claimSketchesToFloorPlanOutput,
+  uploadedFloorPlanToOutput,
 } from "@/lib/reports/claim-sketch-floors";
-import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
+import { appendFloorPlanPagesWithDisclosure } from "@/lib/reports/append-sketch-pages";
 import { inspectionPhotosToImages } from "@/lib/reports/inspection-photos-to-images";
 import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -132,21 +132,25 @@ export async function GET(
       showAiDraftWatermark: isAiDraftPending(report),
     });
 
-    // Append floor-plan sketches + any uploaded floor-plan image (Gap 6).
-    const floors = await claimSketchesToFloors(
+    // Append valid floor plans independently, then name every missing,
+    // unreadable, or unembeddable render on an availability page.
+    const floorPlanOutput = await claimSketchesToFloorPlanOutput(
       report.inspection?.claimSketches ?? [],
     );
-    const uploadedFloor = await uploadedFloorPlanToFloor(
+    const uploadedFloorPlan = await uploadedFloorPlanToOutput(
       report.inspection?.floorPlanImageUrl,
     );
-    pdfBytes = await appendSketchPages(
+    const appendedFloorPlans = await appendFloorPlanPagesWithDisclosure(
       pdfBytes,
-      uploadedFloor ? [...floors, uploadedFloor] : floors,
+      uploadedFloorPlan
+        ? [...floorPlanOutput, uploadedFloorPlan]
+        : floorPlanOutput,
       {
         propertyAddress: report.propertyAddress ?? undefined,
         reportNumber: report.reportNumber ?? undefined,
       },
     );
+    pdfBytes = appendedFloorPlans.pdfBytes;
 
     // Append inspection evidence photos (a broken image is skipped).
     const photos = await inspectionPhotosToImages(
