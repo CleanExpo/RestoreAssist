@@ -99,6 +99,10 @@ describe("POST /api/reports/[id]/approvals", () => {
       update: expect.objectContaining({
         status: "PENDING",
         respondedAt: null,
+        responseSource: null,
+        respondedByClientUserId: null,
+        responseReportVersion: null,
+        responseReportUpdatedAt: null,
         clientComments: null,
         amount: 1500,
         requestedAt: expect.any(Date),

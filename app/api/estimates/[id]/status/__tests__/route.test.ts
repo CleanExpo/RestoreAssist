@@ -34,6 +34,7 @@ vi.mock("@/lib/audit-log", () => ({
 import { PATCH } from "../route";
 
 const respondedAt = new Date("2026-08-09T10:00:00.000Z");
+const reportUpdatedAt = new Date("2026-08-09T09:55:00.000Z");
 
 function request(status: string) {
   return new NextRequest("http://localhost/api/estimates/estimate_1/status", {
@@ -50,6 +51,10 @@ function estimate(status: string) {
     id: "estimate_1",
     userId: "user_1",
     reportId: "report_1",
+    report: {
+      reportVersion: 3,
+      updatedAt: reportUpdatedAt,
+    },
     status,
     subtotalExGST: 1000,
     totalIncGST: 1100,
@@ -131,6 +136,7 @@ describe("PATCH /api/estimates/[id]/status", () => {
       id: "approval_1",
       respondedAt,
       amount: 1100,
+      respondedByClientUserId: "client_user_1",
     });
 
     const res = await PATCH(request("APPROVED"), params);
@@ -142,8 +148,17 @@ describe("PATCH /api/estimates/[id]/status", () => {
         approvalType: "COST_ESTIMATE",
         status: "APPROVED",
         respondedAt: { not: null },
+        responseSource: "CLIENT_PORTAL",
+        respondedByClientUserId: { not: null },
+        responseReportVersion: 3,
+        responseReportUpdatedAt: reportUpdatedAt,
       },
-      select: { id: true, respondedAt: true, amount: true },
+      select: {
+        id: true,
+        respondedAt: true,
+        amount: true,
+        respondedByClientUserId: true,
+      },
     });
     expect(estimateUpdateMany).toHaveBeenCalledWith({
       where: {
@@ -176,11 +191,32 @@ describe("PATCH /api/estimates/[id]/status", () => {
       id: "approval_1",
       respondedAt,
       amount: 900,
+      respondedByClientUserId: "client_user_1",
     });
 
     const res = await PATCH(request("APPROVED"), params);
 
     expect(res.status).toBe(409);
+    expect(estimateUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects a legacy approval without durable portal provenance", async () => {
+    estimateFindUnique.mockResolvedValueOnce(estimate("CLIENT_REVIEW"));
+    reportApprovalFindFirst.mockResolvedValueOnce(null);
+
+    const res = await PATCH(request("APPROVED"), params);
+
+    expect(res.status).toBe(409);
+    expect(reportApprovalFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          responseSource: "CLIENT_PORTAL",
+          respondedByClientUserId: { not: null },
+          responseReportVersion: 3,
+          responseReportUpdatedAt: reportUpdatedAt,
+        }),
+      }),
+    );
     expect(estimateUpdateMany).not.toHaveBeenCalled();
   });
 

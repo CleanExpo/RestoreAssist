@@ -61,6 +61,10 @@ const pendingApproval = {
   status: "PENDING",
   requestedAt: new Date("2026-08-09T10:01:00.000Z"),
   respondedAt: null,
+  responseSource: null,
+  respondedByClientUserId: null,
+  responseReportVersion: null,
+  responseReportUpdatedAt: null,
   clientComments: null,
   amount: null,
   createdAt: new Date("2026-08-09T10:01:00.000Z"),
@@ -193,12 +197,29 @@ describe("POST /api/portal/reports/[id]/approvals", () => {
         approvalType: "SCOPE_OF_WORK",
         status: "PENDING",
         requestedAt: pendingApproval.requestedAt,
+        report: {
+          is: {
+            clientId: "c_1",
+            reportVersion: 3,
+            updatedAt: new Date(reportUpdatedAt),
+          },
+        },
       },
       data: {
         status: "APPROVED",
         respondedAt: expect.any(Date),
+        responseSource: "CLIENT_PORTAL",
+        respondedByClientUserId: "u_c",
+        responseReportVersion: 3,
+        responseReportUpdatedAt: new Date(reportUpdatedAt),
         clientComments: null,
       },
+    });
+    expect(body.approval).toMatchObject({
+      responseSource: "CLIENT_PORTAL",
+      respondedByClientUserId: "u_c",
+      responseReportVersion: 3,
+      responseReportUpdatedAt: reportUpdatedAt,
     });
   });
 
@@ -208,5 +229,20 @@ describe("POST /api/portal/reports/[id]/approvals", () => {
     const response = await POST(postReq(approve), ctx);
 
     expect(response.status).toBe(409);
+  });
+
+  it("fails closed when the report revision changes during the response", async () => {
+    approvalUpdateMany.mockResolvedValueOnce({ count: 0 });
+
+    const response = await POST(postReq(approve), ctx);
+
+    expect(response.status).toBe(409);
+    expect(approvalUpdateMany.mock.calls[0][0].where.report).toEqual({
+      is: {
+        clientId: "c_1",
+        reportVersion: 3,
+        updatedAt: new Date(reportUpdatedAt),
+      },
+    });
   });
 });

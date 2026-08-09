@@ -81,7 +81,6 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [respondingId, setRespondingId] = useState<string | null>(null);
 
   // Form state for creating a new approval
   const [newType, setNewType] = useState<ApprovalType | "">("");
@@ -128,30 +127,6 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
       console.error("Failed to create approval:", err);
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleRespond = async (
-    approvalId: string,
-    status: "APPROVED" | "REJECTED",
-  ) => {
-    setRespondingId(approvalId);
-    try {
-      const res = await fetch(
-        `/api/reports/${reportId}/approvals/${approvalId}/respond`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status }),
-        },
-      );
-      if (res.ok) {
-        await fetchApprovals();
-      }
-    } catch (err) {
-      console.error("Failed to respond to approval:", err);
-    } finally {
-      setRespondingId(null);
     }
   };
 
@@ -205,7 +180,10 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
                         />
                       )}
                       {approval.status === "REJECTED" && (
-                        <XCircle size={15} className="text-destructive shrink-0" />
+                        <XCircle
+                          size={15}
+                          className="text-destructive shrink-0"
+                        />
                       )}
                       {approval.status === "PENDING" && (
                         <Clock size={15} className="text-amber-400 shrink-0" />
@@ -233,25 +211,9 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
                     </span>
 
                     {approval.status === "PENDING" && (
-                      <div className="flex gap-2 shrink-0">
-                        <Button
-                          size="sm"
-                          disabled={respondingId === approval.id}
-                          onClick={() => handleRespond(approval.id, "APPROVED")}
-                          className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={respondingId === approval.id}
-                          onClick={() => handleRespond(approval.id, "REJECTED")}
-                          className="h-7 text-xs border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                        >
-                          Reject
-                        </Button>
-                      </div>
+                      <span className="text-xs text-slate-400 shrink-0">
+                        Awaiting client portal response
+                      </span>
                     )}
                   </div>
 
