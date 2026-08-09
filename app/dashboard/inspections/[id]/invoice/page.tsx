@@ -11,6 +11,7 @@ import {
   Loader2,
   Receipt,
 } from "lucide-react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
 
 interface LineItem {
@@ -109,7 +110,7 @@ export default function InspectionInvoicePage({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Failed to generate invoice");
+        toast.error(apiErrorMessage(data) ?? "Failed to generate invoice");
         return;
       }
       toast.success(`Invoice ${data.invoiceNumber} created`);

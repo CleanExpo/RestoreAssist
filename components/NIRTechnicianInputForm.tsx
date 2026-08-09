@@ -25,6 +25,7 @@ import {
   Locate,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
 import { buildAffectedAreaPayload } from "@/lib/forms/affected-area-payload";
 import {
@@ -1310,6 +1311,57 @@ export default function NIRTechnicianInputForm({
     }
   }, [claimType, propertyAddress, propertyPostcode, inspectionId, loading]);
 
+  const saveDraftSnapshot = async (currentInspectionId: string) => {
+    const response = await fetch(
+      `/api/inspections/${currentInspectionId}/draft-snapshot`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lossDescription: damageDescription.trim(),
+          environmentalData,
+          moistureReadings: moistureReadings.map((reading) => {
+            const mapPoint = moistureMapPoints.find(
+              (point) => point.id === reading.id,
+            );
+            return {
+              location: reading.location,
+              surfaceType: reading.surfaceType,
+              moistureLevel: reading.moistureLevel,
+              depth: reading.depth,
+              mapX: mapPoint?.x ?? null,
+              mapY: mapPoint?.y ?? null,
+            };
+          }),
+          affectedAreas: affectedAreas.map(buildAffectedAreaPayload),
+          scopeItems: Array.from(selectedScopeItems).flatMap((itemId) => {
+            const item = SCOPE_ITEM_TYPES.find((candidate) => candidate.id === itemId);
+            return item
+              ? [
+                  {
+                    itemType: itemId,
+                    description: item.label,
+                    specification: scopeItemSpecs[itemId] || null,
+                  },
+                ]
+              : [];
+          }),
+          manualClassification:
+            manualClassification?.category && manualClassification.class
+              ? manualClassification
+              : null,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(
+        apiErrorMessage(data) ?? "Failed to synchronise inspection draft",
+      );
+    }
+  };
+
   const handleSubmit = async () => {
     // Validate photos are required for final submission
     if (photos.length === 0) {
@@ -1347,60 +1399,11 @@ export default function NIRTechnicianInputForm({
         }
       }
 
-      // Step 1b: Persist loss description if provided
-      if (damageDescription.trim()) {
-        const lossDescRes = await fetch(
-          `/api/inspections/${currentInspectionId}`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              lossDescription: damageDescription.trim(),
-            }),
-          },
-        );
-        if (!lossDescRes.ok) throw new Error("Failed to save loss description");
-      }
+      // A draft save is a snapshot. Synchronise the editable child records in
+      // one transaction so retries and repeated saves cannot append duplicates.
+      await saveDraftSnapshot(currentInspectionId);
 
-      // Step 2: Save environmental data
-      const environmentalRes = await fetch(
-        `/api/inspections/${currentInspectionId}/environmental`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(environmentalData),
-        },
-      );
-      if (!environmentalRes.ok)
-        throw new Error("Failed to save environmental data");
-
-      // Step 3: Save moisture readings with coordinates
-      for (const reading of moistureReadings) {
-        // Find corresponding point in map if exists
-        const mapPoint = moistureMapPoints.find((p) => p.id === reading.id);
-
-        const moistureRes = await fetch(
-          `/api/inspections/${currentInspectionId}/moisture`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              location: reading.location,
-              surfaceType: reading.surfaceType,
-              moistureLevel: reading.moistureLevel,
-              depth: reading.depth,
-              mapX: mapPoint?.x || null,
-              mapY: mapPoint?.y || null,
-            }),
-          },
-        );
-        if (!moistureRes.ok)
-          throw new Error(
-            `Failed to save moisture reading for ${reading.location}`,
-          );
-      }
-
-      // Step 3.5: Save floor plan image URL if exists
+      // Save floor plan image URL if one has been uploaded.
       if (floorPlanImageUrl) {
         const floorPlanRes = await fetch(
           `/api/inspections/${currentInspectionId}/floor-plan`,
@@ -1415,49 +1418,17 @@ export default function NIRTechnicianInputForm({
         if (!floorPlanRes.ok) throw new Error("Failed to save floor plan");
       }
 
-      // Step 4: Save affected areas
-      for (const area of affectedAreas) {
-        const affectedAreaRes = await fetch(
-          `/api/inspections/${currentInspectionId}/affected-areas`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(buildAffectedAreaPayload(area)),
-          },
-        );
-        if (!affectedAreaRes.ok)
-          throw new Error("Failed to save affected area");
-      }
-
-      // Step 5: Photos are already uploaded to Cloudinary via handlePhotoUpload
+      // Photos are already uploaded to Cloudinary via handlePhotoUpload.
       // No need to upload again here - they're already saved in the database
 
-      // Step 6: Save scope items
-      for (const itemId of selectedScopeItems) {
-        const item = SCOPE_ITEM_TYPES.find((i) => i.id === itemId);
-        if (item) {
-          const scopeItemRes = await fetch(
-            `/api/inspections/${currentInspectionId}/scope-items`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                itemType: itemId,
-                description: item.label,
-                specification: scopeItemSpecs[itemId] || undefined,
-              }),
-            },
-          );
-          if (!scopeItemRes.ok)
-            throw new Error(`Failed to save scope item: ${item.label}`);
-        }
-      }
-
-      // Step 7: Submit for processing
+      // Submit for processing.
       const submitResponse = await fetch(
         `/api/inspections/${currentInspectionId}/submit`,
         {
           method: "POST",
+          headers: {
+            "Idempotency-Key": `inspection-submit-${currentInspectionId}`,
+          },
         },
       );
 
@@ -1540,7 +1511,17 @@ export default function NIRTechnicianInputForm({
     );
   }
 
-  const classificationPreview = calculateClassificationPreview();
+  const calculatedClassificationPreview = calculateClassificationPreview();
+  const classificationPreview = calculatedClassificationPreview
+    ? {
+        ...calculatedClassificationPreview,
+        category:
+          manualClassification?.category ||
+          calculatedClassificationPreview.category,
+        class:
+          manualClassification?.class || calculatedClassificationPreview.class,
+      }
+    : null;
 
   // Review/Summary View
   if (showReview) {
@@ -3900,48 +3881,20 @@ export default function NIRTechnicianInputForm({
               }
 
               if (currentInspectionId) {
-                // Save environmental data
-                await fetch(
-                  `/api/inspections/${currentInspectionId}/environmental`,
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(environmentalData),
-                  },
-                );
+                await saveDraftSnapshot(currentInspectionId);
 
-                // Save moisture readings
-                for (const reading of moistureReadings) {
-                  const mapPoint = moistureMapPoints.find(
-                    (p) => p.id === reading.id,
-                  );
-                  await fetch(
-                    `/api/inspections/${currentInspectionId}/moisture`,
+                if (floorPlanImageUrl) {
+                  const floorPlanResponse = await fetch(
+                    `/api/inspections/${currentInspectionId}/floor-plan`,
                     {
-                      method: "POST",
+                      method: "PUT",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        location: reading.location,
-                        surfaceType: reading.surfaceType,
-                        moistureLevel: reading.moistureLevel,
-                        depth: reading.depth,
-                        mapX: mapPoint?.x || null,
-                        mapY: mapPoint?.y || null,
-                      }),
+                      body: JSON.stringify({ imageUrl: floorPlanImageUrl }),
                     },
                   );
-                }
-
-                // Save affected areas
-                for (const area of affectedAreas) {
-                  await fetch(
-                    `/api/inspections/${currentInspectionId}/affected-areas`,
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(buildAffectedAreaPayload(area)),
-                    },
-                  );
+                  if (!floorPlanResponse.ok) {
+                    throw new Error("Failed to save floor plan");
+                  }
                 }
 
                 toast.success(
