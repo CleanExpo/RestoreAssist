@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Loader2, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const REASONS = [
   { value: "CUSTOMER_REFUND", label: "Customer Refund" },
@@ -118,7 +119,9 @@ export default function NewCreditNotePage() {
       });
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to create credit note");
+        throw new Error(
+          apiErrorMessage(data) ?? "Failed to create credit note",
+        );
       }
       toast.success("Credit note created");
       router.push("/dashboard/invoices/credit-notes");
