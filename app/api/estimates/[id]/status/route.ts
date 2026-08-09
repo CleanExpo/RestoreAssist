@@ -41,6 +41,18 @@ const ALLOWED_STATUSES = [
 
 type EstimateStatus = (typeof ALLOWED_STATUSES)[number];
 
+const LEGAL_TRANSITIONS: Record<EstimateStatus, readonly EstimateStatus[]> = {
+  DRAFT: ["INTERNAL_REVIEW", "WITHDRAWN"],
+  INTERNAL_REVIEW: ["DRAFT", "SENT", "WITHDRAWN"],
+  SENT: ["CLIENT_REVIEW", "EXPIRED", "WITHDRAWN"],
+  CLIENT_REVIEW: ["APPROVED", "REJECTED", "EXPIRED", "WITHDRAWN"],
+  APPROVED: ["LOCKED"],
+  LOCKED: [],
+  REJECTED: [],
+  EXPIRED: [],
+  WITHDRAWN: [],
+};
+
 function isEstimateStatus(v: unknown): v is EstimateStatus {
   return (
     typeof v === "string" && (ALLOWED_STATUSES as readonly string[]).includes(v)
@@ -80,8 +92,10 @@ export async function PATCH(
       select: {
         id: true,
         userId: true,
+        reportId: true,
         status: true,
         subtotalExGST: true,
+        totalIncGST: true,
         estimatedDuration: true,
         metadata: true,
         scope: {
@@ -117,6 +131,53 @@ export async function PATCH(
         message: "Forbidden",
         status: 403,
       });
+    }
+
+    const currentStatus = estimate.status as EstimateStatus;
+    if (!LEGAL_TRANSITIONS[currentStatus]?.includes(body.status)) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: `Cannot transition estimate from ${currentStatus} to ${body.status}`,
+        status: 409,
+      });
+    }
+
+    let approvalEvidence: {
+      id: string;
+      respondedAt: Date | null;
+      amount: number | null;
+    } | null = null;
+    if (body.status === "APPROVED") {
+      approvalEvidence = await prisma.reportApproval.findFirst({
+        where: {
+          reportId: estimate.reportId,
+          approvalType: "COST_ESTIMATE",
+          status: "APPROVED",
+          respondedAt: { not: null },
+        },
+        select: { id: true, respondedAt: true, amount: true },
+      });
+
+      if (!approvalEvidence?.respondedAt) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "Client cost approval is required before the estimate can be approved",
+          status: 409,
+        });
+      }
+
+      if (
+        approvalEvidence.amount !== null &&
+        Math.abs(approvalEvidence.amount - (estimate.totalIncGST ?? 0)) > 0.01
+      ) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "Client approval amount does not match the current estimate total",
+          status: 409,
+        });
+      }
     }
 
     // Run the completeness check only when transitioning to INTERNAL_REVIEW.
@@ -174,10 +235,20 @@ export async function PATCH(
         );
       }
 
-      const updated = await prisma.estimate.update({
-        where: { id, userId: session.user.id },
+      const transitioned = await prisma.estimate.updateMany({
+        where: { id, userId: session.user.id, status: currentStatus },
         data: { status: body.status, updatedBy: session.user.id },
       });
+
+      if (transitioned.count === 0) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "Estimate status changed before this transition completed",
+          status: 409,
+        });
+      }
+
+      const updated = await prisma.estimate.findUnique({ where: { id } });
 
       await recordMutationAudit({
         resource: "estimate",
@@ -186,7 +257,7 @@ export async function PATCH(
         action: "estimate.status.transition",
         actorUserId: session.user.id,
         metadata: {
-          from: estimate.status,
+          from: currentStatus,
           to: body.status,
           warnings: result.warnings,
         },
@@ -200,10 +271,30 @@ export async function PATCH(
     }
 
     // Non-gated transitions — update and return
-    const updated = await prisma.estimate.update({
-      where: { id, userId: session.user.id },
-      data: { status: body.status, updatedBy: session.user.id },
+    const transitioned = await prisma.estimate.updateMany({
+      where: { id, userId: session.user.id, status: currentStatus },
+      data: {
+        status: body.status,
+        updatedBy: session.user.id,
+        ...(approvalEvidence
+          ? {
+              approvedAt: approvalEvidence.respondedAt,
+              approverName: "Client portal approval",
+              approverRole: "CLIENT",
+            }
+          : {}),
+      },
     });
+
+    if (transitioned.count === 0) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "Estimate status changed before this transition completed",
+        status: 409,
+      });
+    }
+
+    const updated = await prisma.estimate.findUnique({ where: { id } });
 
     await recordMutationAudit({
       resource: "estimate",
@@ -211,7 +302,11 @@ export async function PATCH(
       verb: "UPDATE",
       action: "estimate.status.transition",
       actorUserId: session.user.id,
-      metadata: { from: estimate.status, to: body.status },
+      metadata: {
+        from: currentStatus,
+        to: body.status,
+        ...(approvalEvidence ? { clientApprovalId: approvalEvidence.id } : {}),
+      },
       request,
     });
 

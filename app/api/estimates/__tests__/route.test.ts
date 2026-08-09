@@ -195,4 +195,63 @@ describe("POST /api/estimates", () => {
     expect(estimateUpdate).not.toHaveBeenCalled();
     expect(prismaTransaction).not.toHaveBeenCalled();
   });
+
+  it("rejects direct self-approval through the content save endpoint", async () => {
+    estimateFindFirst.mockResolvedValueOnce(null);
+
+    const res = await POST(
+      makeRequest({ reportId: "report-own", status: "APPROVED" }),
+    );
+
+    expect(res.status).toBe(409);
+    expect(estimateCreate).not.toHaveBeenCalled();
+    expect(prismaTransaction).not.toHaveBeenCalled();
+  });
+
+  it.each(["APPROVED", "LOCKED"])(
+    "rejects content changes to a %s estimate",
+    async (status) => {
+      estimateFindFirst.mockResolvedValueOnce({
+        id: "estimate-existing",
+        reportId: "report-own",
+        scopeId: null,
+        userId: "user-1",
+        status,
+        version: 4,
+        lineItems: [],
+      });
+
+      const res = await POST(
+        makeRequest({
+          reportId: "report-own",
+          lineItems: [{ description: "Changed after approval" }],
+        }),
+      );
+
+      expect(res.status).toBe(409);
+      expect(estimateLineItemFindMany).not.toHaveBeenCalled();
+      expect(estimateUpdate).not.toHaveBeenCalled();
+      expect(prismaTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it("requires status changes to use the status endpoint", async () => {
+    estimateFindFirst.mockResolvedValueOnce({
+      id: "estimate-existing",
+      reportId: "report-own",
+      scopeId: null,
+      userId: "user-1",
+      status: "DRAFT",
+      version: 1,
+      lineItems: [],
+    });
+
+    const res = await POST(
+      makeRequest({ reportId: "report-own", status: "INTERNAL_REVIEW" }),
+    );
+
+    expect(res.status).toBe(409);
+    expect(estimateUpdate).not.toHaveBeenCalled();
+    expect(prismaTransaction).not.toHaveBeenCalled();
+  });
 });
