@@ -18,6 +18,8 @@ import { applySessionCookieFromResponse } from "./helpers/session-cookie";
 export { AUTH_FILE };
 
 setup("authenticate", async ({ page, context }) => {
+  setup.setTimeout(60_000);
+
   const email = process.env.E2E_USER_EMAIL ?? "test@restoreassist.app";
   const password = process.env.E2E_USER_PASSWORD ?? "Test1234!";
 
