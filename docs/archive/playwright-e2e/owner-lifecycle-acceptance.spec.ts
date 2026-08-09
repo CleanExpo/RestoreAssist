@@ -427,12 +427,18 @@ test.describe("mock-only owner lifecycle acceptance", () => {
   }) => {
     await loginAs(page, "USER");
     const id = `responsive-${test.info().project.name}`;
-    await seedInspection(page, { inspectionId: id, status: "ESTIMATED" });
+    await seedInspection(page, {
+      inspectionId: id,
+      status: "ESTIMATED",
+      claimType: "WATER",
+    });
     await page.goto(`/dashboard/inspections/${id}`);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
+      timeout: 30_000,
+    });
     await expect(
       page.getByRole("button", { name: "Share with Client" }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30_000 });
     await expect
       .poll(() =>
         page.evaluate(

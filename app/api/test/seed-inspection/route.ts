@@ -10,6 +10,7 @@
  *   - inspectionId  (string)  — defaults to "test-inspection" (stable ID for E2E).
  *   - status        (string)  — InspectionStatus enum value. Defaults to "COMPLETED".
  *                                Ignored when `readyForClose=true` (forced IN_BILLING).
+ *   - claimType     (string)  — ClaimType enum value. New rows default to "WATER".
  *   - source        (string)  — Stamps Inspection.source (e.g. "DR_NRPG").
  *   - acceptedAt    (string|null) — Sets Inspection.acceptedAt; null leaves unset.
  *   - readyForClose (boolean) — When true, ALSO upserts a linked Report
@@ -28,12 +29,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-errors";
-import type { InspectionStatus } from "@prisma/client";
+import type { ClaimType, InspectionStatus } from "@prisma/client";
 import { testHelpersBlocked } from "../_helpers";
 
 interface SeedBody {
   inspectionId?: string;
   status?: InspectionStatus;
+  claimType?: ClaimType;
   /** When set (e.g. "DR_NRPG"), stamps Inspection.source so the
    *  dashboard <InboundJobAlert> picks the row up. */
   source?: string;
@@ -92,8 +94,16 @@ export async function POST(req: NextRequest) {
   // inspectionNumber constraint (the upsert key is `id`, not inspectionNumber).
   const inspectionNumber = `TEST-${id}`;
 
-  const extraCreate: Record<string, unknown> = {};
+  // A valid claim type keeps downstream evidence workflows from receiving an
+  // impossible null fixture. Do not overwrite an existing fixture unless the
+  // caller explicitly requests a claim type.
+  const extraCreate: Record<string, unknown> = {
+    claimType: body.claimType ?? "WATER",
+  };
   const extraUpdate: Record<string, unknown> = {};
+  if (body.claimType !== undefined) {
+    extraUpdate.claimType = body.claimType;
+  }
   if (typeof body.source === "string") {
     extraCreate.source = body.source;
     extraUpdate.source = body.source;

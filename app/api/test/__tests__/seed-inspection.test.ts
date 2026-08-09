@@ -102,6 +102,7 @@ describe("POST /api/test/seed-inspection", () => {
         id: "test-inspection",
         inspectionNumber: "TEST-test-inspection",
         status: "COMPLETED",
+        claimType: "WATER",
         userId: "u_test",
         propertyAddress: expect.any(String),
         propertyPostcode: expect.any(String),

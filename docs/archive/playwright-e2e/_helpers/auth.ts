@@ -29,6 +29,7 @@ export async function seedInspection(
   body: {
     inspectionId?: string;
     status?: string;
+    claimType?: string;
     source?: string;
     acceptedAt?: string | null;
   } = {},
