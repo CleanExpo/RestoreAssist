@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { apiError, fromException } from "@/lib/api-errors";
 
+const MAX_FLOOR_PLAN_BYTES = 10 * 1024 * 1024;
+
 // POST - Upload floor plan image
 export async function POST(
   request: NextRequest,
@@ -47,6 +49,14 @@ export async function POST(
         code: "VALIDATION",
         message: "File is required",
         status: 400,
+      });
+    }
+
+    if (file.size > MAX_FLOOR_PLAN_BYTES) {
+      return apiError(request, {
+        code: "PAYLOAD_TOO_LARGE",
+        message: "Floor plan must be 10 MB or smaller",
+        status: 413,
       });
     }
 
