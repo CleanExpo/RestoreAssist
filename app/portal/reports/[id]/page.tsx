@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useRef, useState, use, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import {
   getStoredClientSession,
@@ -14,6 +14,7 @@ import {
   Calendar,
   DollarSign,
   CheckCircle,
+  X,
   XCircle,
   Clock,
   AlertCircle,
@@ -22,6 +23,146 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+type ApprovalType = "SCOPE_OF_WORK" | "COST_ESTIMATE";
+type ApprovalDecision = "APPROVED" | "REJECTED" | "CHANGES_REQUESTED";
+
+function ApprovalDecisionDialog({
+  open,
+  approvalType,
+  approvalStatus,
+  comments,
+  submitting,
+  returnFocusRef,
+  onOpenChange,
+  onApprovalStatusChange,
+  onCommentsChange,
+  onSubmit,
+}: {
+  open: boolean;
+  approvalType: ApprovalType;
+  approvalStatus: ApprovalDecision;
+  comments: string;
+  submitting: boolean;
+  returnFocusRef: RefObject<HTMLButtonElement | null>;
+  onOpenChange: (open: boolean) => void;
+  onApprovalStatusChange: (status: ApprovalDecision) => void;
+  onCommentsChange: (comments: string) => void;
+  onSubmit: () => void;
+}) {
+  const documentLabel =
+    approvalType === "SCOPE_OF_WORK" ? "Scope of Work" : "Cost Estimate";
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!submitting) onOpenChange(nextOpen);
+      }}
+    >
+      <DialogContent
+        className="max-w-md bg-white text-brand-navy"
+        showCloseButton={false}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          returnFocusRef.current?.focus();
+        }}
+      >
+        {!submitting && (
+          <DialogClose className="absolute right-2 top-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-brand-slate transition-colors hover:bg-brand-cloud focus:outline-none focus:ring-2 focus:ring-brand-bronze focus:ring-offset-2">
+            <X className="h-5 w-5" aria-hidden="true" />
+            <span className="sr-only">Close</span>
+          </DialogClose>
+        )}
+        <DialogHeader>
+          <DialogTitle>{documentLabel} Approval</DialogTitle>
+          <DialogDescription>
+            Review the published document before recording your decision. Your
+            response applies to this report revision.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <label
+              htmlFor="approval-decision"
+              className="block text-sm font-medium text-brand-navy mb-2"
+            >
+              Your Decision
+            </label>
+            <select
+              id="approval-decision"
+              value={approvalStatus}
+              disabled={submitting}
+              onChange={(event) =>
+                onApprovalStatusChange(event.target.value as ApprovalDecision)
+              }
+              className="min-h-11 w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="APPROVED">Approve</option>
+              <option value="REJECTED">Reject</option>
+              <option value="CHANGES_REQUESTED">Request Changes</option>
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="approval-comments"
+              className="block text-sm font-medium text-brand-navy mb-2"
+            >
+              Comments (Optional)
+            </label>
+            <textarea
+              id="approval-comments"
+              value={comments}
+              disabled={submitting}
+              onChange={(event) => onCommentsChange(event.target.value)}
+              rows={4}
+              className="min-h-11 w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze disabled:cursor-not-allowed disabled:opacity-50"
+              placeholder="Add any comments or feedback..."
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+            className="min-h-11 flex-1 px-4 py-2 border border-brand-slate/30 text-brand-navy rounded-lg hover:bg-brand-cloud transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={submitting}
+            aria-busy={submitting}
+            className="min-h-11 flex-1 px-4 py-2 bg-brand-bronze text-white rounded-lg hover:bg-brand-bronze/90 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Submitting approval...
+              </span>
+            ) : (
+              "Submit decision"
+            )}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 interface Report {
   id: string;
@@ -72,15 +213,13 @@ export default function PortalReportDetail({
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
-  const [approvalType, setApprovalType] = useState<
-    "SCOPE_OF_WORK" | "COST_ESTIMATE" | null
-  >(null);
-  const [approvalStatus, setApprovalStatus] = useState<
-    "APPROVED" | "REJECTED" | "CHANGES_REQUESTED"
-  >("APPROVED");
+  const [approvalType, setApprovalType] = useState<ApprovalType | null>(null);
+  const [approvalStatus, setApprovalStatus] =
+    useState<ApprovalDecision>("APPROVED");
   const [comments, setComments] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const approvalTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!getStoredClientSession()) {
@@ -116,9 +255,18 @@ export default function PortalReportDetail({
     }
   };
 
-  const handleApprovalClick = (type: "SCOPE_OF_WORK" | "COST_ESTIMATE") => {
+  const handleApprovalClick = (
+    type: ApprovalType,
+    trigger: HTMLButtonElement,
+  ) => {
+    approvalTriggerRef.current = trigger;
     setApprovalType(type);
     setShowApprovalModal(true);
+  };
+
+  const handleApprovalModalOpenChange = (open: boolean) => {
+    setShowApprovalModal(open);
+    if (!open) setComments("");
   };
 
   const handleSubmitApproval = async () => {
@@ -154,8 +302,7 @@ export default function PortalReportDetail({
       if (!response.ok) throw new Error("Failed to submit approval");
 
       toast.success("Approval submitted successfully!");
-      setShowApprovalModal(false);
-      setComments("");
+      handleApprovalModalOpenChange(false);
       fetchReport(); // Refresh report data
     } catch (error) {
       console.error("Error submitting approval:", error);
@@ -442,7 +589,9 @@ export default function PortalReportDetail({
                   </div>
                 ) : pendingScopeApproval && report.scopeOfWorksDocument ? (
                   <button
-                    onClick={() => handleApprovalClick("SCOPE_OF_WORK")}
+                    onClick={(event) =>
+                      handleApprovalClick("SCOPE_OF_WORK", event.currentTarget)
+                    }
                     className="px-4 py-2 bg-brand-bronze text-white rounded-lg text-sm font-medium hover:bg-brand-bronze/90 transition-colors"
                   >
                     Review & Respond
@@ -497,7 +646,9 @@ export default function PortalReportDetail({
                   </div>
                 ) : pendingCostApproval && report.costEstimationDocument ? (
                   <button
-                    onClick={() => handleApprovalClick("COST_ESTIMATE")}
+                    onClick={(event) =>
+                      handleApprovalClick("COST_ESTIMATE", event.currentTarget)
+                    }
                     className="px-4 py-2 bg-brand-bronze text-white rounded-lg text-sm font-medium hover:bg-brand-bronze/90 transition-colors"
                   >
                     Review & Respond
@@ -566,67 +717,19 @@ export default function PortalReportDetail({
       </div>
 
       {/* Approval Modal */}
-      {showApprovalModal && approvalType && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-brand-navy mb-4">
-              {approvalType === "SCOPE_OF_WORK"
-                ? "Scope of Work"
-                : "Cost Estimate"}{" "}
-              Approval
-            </h3>
-
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-brand-navy mb-2">
-                  Your Decision
-                </label>
-                <select
-                  value={approvalStatus}
-                  onChange={(e) => setApprovalStatus(e.target.value as any)}
-                  className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze"
-                >
-                  <option value="APPROVED">Approve</option>
-                  <option value="REJECTED">Reject</option>
-                  <option value="CHANGES_REQUESTED">Request Changes</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-brand-navy mb-2">
-                  Comments (Optional)
-                </label>
-                <textarea
-                  value={comments}
-                  onChange={(e) => setComments(e.target.value)}
-                  rows={4}
-                  className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze"
-                  placeholder="Add any comments or feedback..."
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowApprovalModal(false);
-                  setComments("");
-                }}
-                disabled={submitting}
-                className="flex-1 px-4 py-2 border border-brand-slate/30 text-brand-navy rounded-lg hover:bg-brand-cloud transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmitApproval}
-                disabled={submitting}
-                className="flex-1 px-4 py-2 bg-brand-bronze text-white rounded-lg hover:bg-brand-bronze/90 transition-colors disabled:opacity-50"
-              >
-                {submitting ? "Submitting..." : "Submit"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {approvalType && (
+        <ApprovalDecisionDialog
+          open={showApprovalModal}
+          approvalType={approvalType}
+          approvalStatus={approvalStatus}
+          comments={comments}
+          submitting={submitting}
+          returnFocusRef={approvalTriggerRef}
+          onOpenChange={handleApprovalModalOpenChange}
+          onApprovalStatusChange={setApprovalStatus}
+          onCommentsChange={setComments}
+          onSubmit={handleSubmitApproval}
+        />
       )}
     </div>
   );
