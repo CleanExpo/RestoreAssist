@@ -8,6 +8,8 @@
  * Behaviour:
  *   - Returns `null` when the token is missing, malformed, not in the
  *     DB, or attached to a revoked account.
+ *   - Returns `accessMode: "READ_ONLY"` for grandfathered links without an
+ *     expiry and `"INTERACTIVE"` for current, unexpired links.
  *   - On success, stamps `lastAccessedAt = NOW()` so admins can spot
  *     dormant portals (best-effort; failure to write the timestamp must
  *     NOT block the read — the user still gets their page).
@@ -25,6 +27,7 @@ export interface PortalAccountLookupResult {
   createdAt: Date;
   tokenRotatedAt: Date | null;
   expiresAt: Date | null;
+  accessMode: "READ_ONLY" | "INTERACTIVE";
 }
 
 export async function lookupPortalAccount(
@@ -66,5 +69,8 @@ export async function lookupPortalAccount(
     // Swallow — stamp is observability, not correctness.
   }
 
-  return account;
+  return {
+    ...account,
+    accessMode: account.expiresAt === null ? "READ_ONLY" : "INTERACTIVE",
+  };
 }

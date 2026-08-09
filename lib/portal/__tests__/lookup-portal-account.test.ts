@@ -72,6 +72,23 @@ describe("lookupPortalAccount", () => {
     });
     const r = await lookupPortalAccount("fresh");
     expect(r?.clientId).toBe("c_y");
+    expect(r?.accessMode).toBe("INTERACTIVE");
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a legacy no-expiry link readable but marks it read-only", async () => {
+    findFirst.mockResolvedValueOnce({
+      id: "cpa_legacy",
+      clientId: "c_legacy",
+      createdAt: new Date(),
+      tokenRotatedAt: null,
+      expiresAt: null,
+    });
+
+    await expect(lookupPortalAccount("legacy")).resolves.toMatchObject({
+      clientId: "c_legacy",
+      accessMode: "READ_ONLY",
+    });
     expect(update).toHaveBeenCalledTimes(1);
   });
 
@@ -84,7 +101,7 @@ describe("lookupPortalAccount", () => {
     };
     findFirst.mockResolvedValueOnce(row);
     const r = await lookupPortalAccount("good-tok");
-    expect(r).toEqual(row);
+    expect(r).toEqual({ ...row, accessMode: "INTERACTIVE" });
     expect(update).toHaveBeenCalledTimes(1);
     expect(update.mock.calls[0][0].where).toEqual({ id: "cpa_1" });
     expect(update.mock.calls[0][0].data.lastAccessedAt).toBeInstanceOf(Date);

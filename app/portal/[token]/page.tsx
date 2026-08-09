@@ -48,9 +48,11 @@ export default async function ClientPortalPage({ params }: PageProps) {
   //    The legacy "Link Expired" friendly card remains below for the
   //    legacy-path miss case (verified but inspection deleted).
   let inspectionId: string | null = null;
+  let showInteractiveActions = true;
 
   const portalAccount = await lookupPortalAccount(token);
   if (portalAccount) {
+    showInteractiveActions = portalAccount.accessMode === "INTERACTIVE";
     // Inspection has no direct `clientId` — it links to Client through
     // `Report.clientId` (1:0..1 between Report and Inspection). Pick
     // the newest Inspection whose Report points at this Client.
@@ -191,8 +193,21 @@ export default async function ClientPortalPage({ params }: PageProps) {
         {/* Live claim status — polls the client-safe updates feed */}
         <ClientPortalStatus token={token} />
 
+        {!showInteractiveActions && (
+          <div
+            role="status"
+            className="rounded-xl border border-slate-200 bg-white p-4"
+          >
+            <p className="text-sm font-semibold text-slate-700">Viewing only</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Uploads and approvals are unavailable from this link. Please
+              contact your technician for assistance.
+            </p>
+          </div>
+        )}
+
         {/* Approvals the client still needs to sign (hides itself when none) */}
-        <ClientPortalAuthorities token={token} />
+        {showInteractiveActions && <ClientPortalAuthorities token={token} />}
 
         {/* Affected areas */}
         {inspection.affectedAreas.length > 0 && (
@@ -291,7 +306,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
         )}
 
         {/* Client evidence upload — photos + a note (quarantined for staff review) */}
-        <ClientPortalUpload token={token} />
+        {showInteractiveActions && <ClientPortalUpload token={token} />}
 
         <PortalAboutSection
           logoUrl={org?.logoUrl}

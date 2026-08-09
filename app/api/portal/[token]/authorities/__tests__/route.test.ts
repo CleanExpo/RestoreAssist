@@ -23,7 +23,10 @@ const p = prisma as unknown as {
 beforeEach(() => {
   vi.clearAllMocks();
   mRate.mockResolvedValue(null);
-  mLookup.mockResolvedValue({ clientId: "c_1" });
+  mLookup.mockResolvedValue({
+    clientId: "c_1",
+    accessMode: "INTERACTIVE",
+  });
 });
 
 const req = () =>
@@ -36,6 +39,19 @@ describe("GET /api/portal/[token]/authorities", () => {
   it("404 on an invalid/expired link", async () => {
     mLookup.mockResolvedValueOnce(null);
     expect((await GET(req(), params)).status).toBe(404);
+  });
+
+  it("404s a legacy read-only link without retrieving signature tokens", async () => {
+    mLookup.mockResolvedValueOnce({
+      clientId: "c_1",
+      accessMode: "READ_ONLY",
+    });
+
+    const res = await GET(req(), params);
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "invalid_or_expired_link" });
+    expect(p.authorityFormInstance.findMany).not.toHaveBeenCalled();
   });
 
   it("lists pending client authorities with their sign token, scoped to the token's client", async () => {

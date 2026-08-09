@@ -53,7 +53,7 @@ export async function POST(
   if (csrf) return csrf;
 
   const account = await lookupPortalAccount(token);
-  if (!account) {
+  if (!account || account.accessMode !== "INTERACTIVE") {
     return apiError(request, {
       code: "NOT_FOUND",
       message: "invalid_or_expired_link",

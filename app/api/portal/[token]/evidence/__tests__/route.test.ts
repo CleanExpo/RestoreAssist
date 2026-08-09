@@ -43,7 +43,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mRate.mockResolvedValue(null);
   mBot.mockResolvedValue({ ok: true });
-  mLookup.mockResolvedValue({ clientId: "c_1" });
+  mLookup.mockResolvedValue({
+    clientId: "c_1",
+    accessMode: "INTERACTIVE",
+  });
   p.inspection.findFirst.mockResolvedValue({
     id: "insp_1",
     workspaceId: "ws_1",
@@ -68,6 +71,23 @@ describe("POST /api/portal/[token]/evidence", () => {
   it("404 on an invalid/expired link", async () => {
     mLookup.mockResolvedValueOnce(null);
     expect((await POST(post({ description: "x" }), params)).status).toBe(404);
+  });
+
+  it("404s a legacy read-only link before resolving or writing a claim", async () => {
+    mLookup.mockResolvedValueOnce({
+      clientId: "c_1",
+      accessMode: "READ_ONLY",
+    });
+
+    const res = await POST(post({ description: "blocked" }), params);
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toMatchObject({
+      error: { code: "NOT_FOUND", message: "invalid_or_expired_link" },
+    });
+    expect(p.inspection.findFirst).not.toHaveBeenCalled();
+    expect(uploadMock).not.toHaveBeenCalled();
+    expect(p.clientEvidenceSubmission.create).not.toHaveBeenCalled();
   });
 
   it("uploads an image to the quarantine table (storagePath, from token's client)", async () => {

@@ -24,10 +24,10 @@ vi.mock("@/components/portal/ClientPortalStatus", () => ({
   ClientPortalStatus: () => null,
 }));
 vi.mock("@/components/portal/ClientPortalAuthorities", () => ({
-  ClientPortalAuthorities: () => null,
+  ClientPortalAuthorities: () => <div data-testid="portal-authorities" />,
 }));
 vi.mock("@/components/portal/ClientPortalUpload", () => ({
-  ClientPortalUpload: () => null,
+  ClientPortalUpload: () => <div data-testid="portal-upload" />,
 }));
 vi.mock("@/lib/portal/fetch-portal-content", () => ({
   fetchPublishedPortalContent: vi.fn().mockResolvedValue([]),
@@ -43,7 +43,7 @@ vi.mock("@/components/portal/PortalContentHub", () => ({
 import { verifyPortalToken } from "@/lib/portal-token";
 import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
 import { prisma } from "@/lib/prisma";
-import ClientPortalPage from "../page";
+import ClientPortalPage from "../portal/[token]/page";
 
 const mVerify = verifyPortalToken as unknown as ReturnType<typeof vi.fn>;
 const mLookup = lookupPortalAccount as unknown as ReturnType<typeof vi.fn>;
@@ -82,8 +82,8 @@ beforeEach(() => {
 
 const params = Promise.resolve({ token: "tok" });
 
-describe("ClientPortalPage — no raw moisture exposure (RA-6995)", () => {
-  it("never renders a raw NN%-style moisture value anywhere on the page", async () => {
+describe("ClientPortalPage", () => {
+  it("never renders a raw NN%-style moisture value anywhere on the page (RA-6995)", async () => {
     const jsx = await ClientPortalPage({ params });
     render(jsx);
 
@@ -101,5 +101,39 @@ describe("ClientPortalPage — no raw moisture exposure (RA-6995)", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/Drying complete/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Drying in progress/)).not.toBeInTheDocument();
+  });
+
+  it("keeps a legacy no-expiry account readable without interactive controls", async () => {
+    mLookup.mockResolvedValueOnce({
+      clientId: "c_legacy",
+      accessMode: "READ_ONLY",
+    });
+    p.inspection.findFirst.mockResolvedValueOnce({ id: "insp_1" });
+
+    const jsx = await ClientPortalPage({ params });
+    render(jsx);
+
+    expect(screen.getByText("12 Test St, Brisbane")).toBeInTheDocument();
+    expect(screen.getByText("Viewing only")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Uploads and approvals are unavailable/),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("portal-authorities")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("portal-upload")).not.toBeInTheDocument();
+  });
+
+  it("preserves interactive controls for a current unexpired account", async () => {
+    mLookup.mockResolvedValueOnce({
+      clientId: "c_current",
+      accessMode: "INTERACTIVE",
+    });
+    p.inspection.findFirst.mockResolvedValueOnce({ id: "insp_1" });
+
+    const jsx = await ClientPortalPage({ params });
+    render(jsx);
+
+    expect(screen.queryByText("Viewing only")).not.toBeInTheDocument();
+    expect(screen.getByTestId("portal-authorities")).toBeInTheDocument();
+    expect(screen.getByTestId("portal-upload")).toBeInTheDocument();
   });
 });

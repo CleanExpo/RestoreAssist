@@ -41,7 +41,7 @@ export async function GET(
     if (limited) return limited;
 
     const account = await lookupPortalAccount(token);
-    if (!account) {
+    if (!account || account.accessMode !== "INTERACTIVE") {
       return NextResponse.json(
         { error: "invalid_or_expired_link" },
         { status: 404 },
