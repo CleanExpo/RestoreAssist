@@ -380,3 +380,107 @@ export function windowGeometry(
 
   return { cutStart, cutEnd, glazingLines };
 }
+
+/**
+ * Perpendicular jamb ticks at each opening cut end so the wall band reads as
+ * terminated (Matterport / Encircle opening convention) rather than a floating
+ * white stripe over a continuous stroke.
+ */
+export function openingJambLines(
+  cutStart: Point,
+  cutEnd: Point,
+  wallThicknessPx: number,
+): [[Point, Point], [Point, Point]] {
+  const dx = cutEnd.x - cutStart.x;
+  const dy = cutEnd.y - cutStart.y;
+  const len = Math.hypot(dx, dy);
+  const ux = len > 0 ? dx / len : 1;
+  const uy = len > 0 ? dy / len : 0;
+  const px = -uy;
+  const py = ux;
+  const half = Math.max(1, wallThicknessPx / 2);
+  const jambAt = (pt: Point): [Point, Point] => [
+    { x: pt.x + px * half, y: pt.y + py * half },
+    { x: pt.x - px * half, y: pt.y - py * half },
+  ];
+  return [jambAt(cutStart), jambAt(cutEnd)];
+}
+
+export interface OpeningCutInterval {
+  /** Parametric start along the host wall in [0, 1]. */
+  t0: number;
+  /** Parametric end along the host wall in [0, 1]. */
+  t1: number;
+}
+
+/**
+ * Split a wall centerline into solid segments that remain after openings cut
+ * gaps. Used for continuous wall behaviour: doors/windows punch holes so the
+ * remaining pieces can be drawn as separate bands.
+ *
+ * Openings that fall outside [0,1] or have zero width are ignored. Overlapping
+ * cuts are merged before splitting.
+ */
+export function wallSolidSegments(
+  wall: WallSegment,
+  openings: ReadonlyArray<OpeningCutInterval>,
+): WallSegment[] {
+  const dx = wall.b.x - wall.a.x;
+  const dy = wall.b.y - wall.a.y;
+  const wallLen = Math.hypot(dx, dy);
+  if (wallLen < 1e-6) return [];
+
+  const cuts = openings
+    .map((o) => {
+      const a = Math.max(0, Math.min(1, Math.min(o.t0, o.t1)));
+      const b = Math.max(0, Math.min(1, Math.max(o.t0, o.t1)));
+      return { t0: a, t1: b };
+    })
+    .filter((o) => o.t1 - o.t0 > 1e-6)
+    .sort((a, b) => a.t0 - b.t0);
+
+  // Merge overlapping / abutting cuts.
+  const merged: OpeningCutInterval[] = [];
+  for (const c of cuts) {
+    const last = merged[merged.length - 1];
+    if (!last || c.t0 > last.t1) merged.push({ ...c });
+    else last.t1 = Math.max(last.t1, c.t1);
+  }
+
+  const solids: WallSegment[] = [];
+  let cursor = 0;
+  for (const c of merged) {
+    if (c.t0 > cursor + 1e-6) {
+      solids.push({
+        a: pointAtParametric(cursor, wall),
+        b: pointAtParametric(c.t0, wall),
+      });
+    }
+    cursor = Math.max(cursor, c.t1);
+  }
+  if (cursor < 1 - 1e-6) {
+    solids.push({
+      a: pointAtParametric(cursor, wall),
+      b: pointAtParametric(1, wall),
+    });
+  }
+  return solids;
+}
+
+/**
+ * Build an OpeningCutInterval from a placed opening's hostWallT + width.
+ */
+export function openingCutInterval(
+  hostWallT: number,
+  widthM: number,
+  wall: WallSegment,
+  pxPerMetre: number,
+): OpeningCutInterval {
+  const wallLenPx = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y);
+  if (wallLenPx < 1e-6) return { t0: hostWallT, t1: hostWallT };
+  const half = (widthM * (pxPerMetre || 100)) / 2 / wallLenPx;
+  return {
+    t0: Math.max(0, hostWallT - half),
+    t1: Math.min(1, hostWallT + half),
+  };
+}
