@@ -14,6 +14,7 @@ import {
   footprintDimensions,
   snapToNearbyEndpoint,
   alignmentGuidesFor,
+  pointInPolygon,
 } from "../geometry-utils";
 
 describe("geometry-utils — distance", () => {
@@ -326,6 +327,27 @@ describe("geometry-utils — snapToNearbyEndpoint", () => {
     const p = { x: 100, y: 100 };
     expect(snapToNearbyEndpoint(p, endpoints, 0).snapped).toBe(false);
     expect(snapToNearbyEndpoint(p, [], 12).snapped).toBe(false);
+  });
+});
+
+describe("geometry-utils — pointInPolygon", () => {
+  const square = [
+    { x: 0, y: 0 },
+    { x: 10, y: 0 },
+    { x: 10, y: 10 },
+    { x: 0, y: 10 },
+  ];
+
+  it("returns true for an interior point", () => {
+    expect(pointInPolygon(5, 5, square)).toBe(true);
+  });
+
+  it("returns false for an exterior point", () => {
+    expect(pointInPolygon(20, 5, square)).toBe(false);
+  });
+
+  it("returns false for fewer than 3 vertices", () => {
+    expect(pointInPolygon(1, 1, [{ x: 0, y: 0 }, { x: 1, y: 0 }])).toBe(false);
   });
 });
 
