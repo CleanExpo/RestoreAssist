@@ -28,10 +28,10 @@ import { authOptions } from "@/lib/auth";
 import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
-import { canAttest, resolveProgressRole } from "@/lib/progress/permissions";
-import { assertReportOwnership } from "@/lib/progress/service";
+import { canAttest } from "@/lib/progress/permissions";
 import { computeContentHash } from "@/lib/progress/signature";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveProgressAuthority } from "../_authority";
 
 const ALLOWED_TYPES = new Set([
   "TECHNICIAN_SIGN_OFF",
@@ -131,6 +131,15 @@ export async function POST(
     });
   }
 
+  const authority = await resolveProgressAuthority(session, reportId);
+  if (!authority.ok) {
+    return apiError(request, {
+      code: authority.status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",
+      message: authority.reason,
+      status: authority.status,
+    });
+  }
+
   // Confirm a ClaimProgress exists for this report and the user has
   // attestation rights for the current state. This blocks pre-issuing
   // tokens against reports the user can't actually sign on.
@@ -145,32 +154,10 @@ export async function POST(
       status: 404,
     });
   }
-  const userRow = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { isJuniorTechnician: true },
-  });
-  const role = resolveProgressRole({
-    userRole: session.user.role ?? "USER",
-    isJuniorTechnician: userRow?.isJuniorTechnician ?? false,
-  });
-
-  // RA-1828 IDOR fix: bind the caller to THIS report before issuing a
-  // consent token. Without it any authenticated user could mint a signing
-  // token against another tenant's claim. 404 (not 403) avoids leaking the
-  // existence of another tenant's report.
-  const access = await assertReportOwnership(reportId, userId, role);
-  if (!access.ok) {
-    return apiError(request, {
-      code: "NOT_FOUND",
-      message: "Report not found",
-      status: 404,
-    });
-  }
-
-  if (!canAttest(role, cp.currentState)) {
+  if (!canAttest(authority.role, cp.currentState)) {
     return apiError(request, {
       code: "FORBIDDEN",
-      message: `Role ${role} cannot attest in state ${cp.currentState}`,
+      message: `Role ${authority.role} cannot attest in state ${cp.currentState}`,
       status: 403,
     });
   }

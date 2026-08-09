@@ -14,9 +14,9 @@ import { authOptions } from "@/lib/auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { init } from "@/lib/progress/service";
-import { resolveProgressRole } from "@/lib/progress/permissions";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveProgressAuthority } from "../_authority";
 
 export async function POST(
   request: NextRequest,
@@ -43,11 +43,21 @@ export async function POST(
   });
   if (rateLimited) return rateLimited;
 
+  const { reportId } = await params;
+
   // RA-1266: layered with the 409 ALREADY_EXISTS guard — catches retries
   // in the TOCTOU window before the first init commits.
   return withIdempotency(request, userId, async (rawBody) => {
     try {
-      const { reportId } = await params;
+      const authority = await resolveProgressAuthority(session, reportId);
+      if (!authority.ok) {
+        return apiError(request, {
+          code: authority.status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",
+          message: authority.reason,
+          status: authority.status,
+        });
+      }
+
       let body: { inspectionId?: string } = {};
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
@@ -55,14 +65,10 @@ export async function POST(
         body = {};
       }
 
-      const role = resolveProgressRole({
-        userRole: session.user.role ?? "USER",
-      });
-
       const result = await init({
         reportId,
         actorUserId: userId,
-        actorRole: role,
+        actorRole: authority.role,
         actorName: session.user.name ?? session.user.email ?? "unknown",
         inspectionId: body.inspectionId ?? null,
       });

@@ -28,14 +28,9 @@ vi.mock("@/lib/progress/service", () => ({
   TRANSITION_KEYS: ["submit_report"],
   transition: (...a: unknown[]) => transition(...a),
 }));
-const resolveProgressRole = vi.fn();
-vi.mock("@/lib/progress/permissions", () => ({
-  resolveProgressRole: (...a: unknown[]) => resolveProgressRole(...a),
-}));
-
-const userFindUnique = vi.fn();
-vi.mock("@/lib/prisma", () => ({
-  prisma: { user: { findUnique: (...a: unknown[]) => userFindUnique(...a) } },
+const resolveProgressAuthority = vi.fn();
+vi.mock("../_authority", () => ({
+  resolveProgressAuthority: (...a: unknown[]) => resolveProgressAuthority(...a),
 }));
 
 import { POST } from "../transition/route";
@@ -52,10 +47,12 @@ const ctx = { params: Promise.resolve({ reportId: "r_1" }) };
 beforeEach(() => {
   getServerSession.mockReset();
   transition.mockReset();
-  resolveProgressRole.mockReset();
-  userFindUnique.mockReset();
-  resolveProgressRole.mockReturnValue("TECHNICIAN_JUNIOR");
-  userFindUnique.mockResolvedValue({ isJuniorTechnician: true });
+  resolveProgressAuthority.mockReset();
+  resolveProgressAuthority.mockResolvedValue({
+    ok: true,
+    role: "TECHNICIAN_JUNIOR",
+    user: { email: "u@test.com", name: "Test User" },
+  });
   getServerSession.mockResolvedValue({ user: { id: "u_1", role: "USER" } });
 });
 
@@ -72,23 +69,31 @@ describe("POST /api/progress/[reportId]/transition", () => {
   });
 
   it("advances the claim and plumbs the junior-technician flag through", async () => {
-    transition.mockResolvedValueOnce({ ok: true, data: { state: "REPORT_SUBMITTED" } });
+    transition.mockResolvedValueOnce({
+      ok: true,
+      data: { state: "REPORT_SUBMITTED" },
+    });
     const res = await POST(postReq({ key: "submit_report" }), ctx);
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.data).toEqual({ state: "REPORT_SUBMITTED" });
-    // The ring-fence only works if the per-user flag reaches role resolution.
-    expect(resolveProgressRole).toHaveBeenCalledWith(
-      expect.objectContaining({ isJuniorTechnician: true }),
+    expect(resolveProgressAuthority).toHaveBeenCalledWith(
+      expect.objectContaining({ user: expect.objectContaining({ id: "u_1" }) }),
+      "r_1",
     );
     expect(transition.mock.calls[0][0]).toMatchObject({
       reportId: "r_1",
       actorUserId: "u_1",
+      actorRole: "TECHNICIAN_JUNIOR",
     });
   });
 
   it("returns 409 on an optimistic-lock (stale version) conflict", async () => {
-    transition.mockResolvedValueOnce({ ok: false, code: "STALE_VERSION", message: "stale" });
+    transition.mockResolvedValueOnce({
+      ok: false,
+      code: "STALE_VERSION",
+      message: "stale",
+    });
     const res = await POST(
       postReq({ key: "submit_report", expectedVersion: 1 }),
       ctx,
@@ -97,7 +102,11 @@ describe("POST /api/progress/[reportId]/transition", () => {
   });
 
   it("returns 403 when the junior-technician guard forbids the transition", async () => {
-    transition.mockResolvedValueOnce({ ok: false, code: "FORBIDDEN", message: "not allowed" });
+    transition.mockResolvedValueOnce({
+      ok: false,
+      code: "FORBIDDEN",
+      message: "not allowed",
+    });
     const res = await POST(postReq({ key: "submit_report" }), ctx);
     expect(res.status).toBe(403);
   });

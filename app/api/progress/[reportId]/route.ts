@@ -9,8 +9,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { getState } from "@/lib/progress/service";
-import { resolveProgressRole } from "@/lib/progress/permissions";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveProgressAuthority } from "./_authority";
 
 export async function GET(
   request: NextRequest,
@@ -35,11 +35,16 @@ export async function GET(
     if (rateLimited) return rateLimited;
 
     const { reportId } = await params;
-    const role = resolveProgressRole({
-      userRole: session.user.role ?? "USER",
-    });
+    const authority = await resolveProgressAuthority(session, reportId);
+    if (!authority.ok) {
+      return apiError(request, {
+        code: authority.status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",
+        message: authority.reason,
+        status: authority.status,
+      });
+    }
 
-    const result = await getState(reportId, session.user.id, role);
+    const result = await getState(reportId, session.user.id, authority.role);
     if (!result.ok) {
       const status =
         result.code === "NOT_FOUND"
