@@ -422,11 +422,15 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label
+                  htmlFor="settings-full-name"
+                  className="block text-sm font-medium mb-2"
+                >
                   Full Name
                 </label>
                 {editing ? (
                   <input
+                    id="settings-full-name"
                     type="text"
                     value={formData.name}
                     onChange={(e) =>
@@ -442,11 +446,15 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label
+                  htmlFor="settings-email-address"
+                  className="block text-sm font-medium mb-2"
+                >
                   Email Address
                 </label>
                 {editing ? (
                   <input
+                    id="settings-email-address"
                     type="email"
                     value={formData.email}
                     onChange={(e) =>

@@ -244,6 +244,7 @@ function SearchPageInner() {
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           <input
             type="text"
+            aria-label="Search reports, clients, and inspections"
             value={inputValue}
             onChange={(e) => handleInputChange(e.target.value)}
             placeholder="Search reports, clients, inspections..."

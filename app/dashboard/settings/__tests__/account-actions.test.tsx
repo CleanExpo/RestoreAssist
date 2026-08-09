@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { session } = vi.hoisted(() => ({
@@ -63,6 +63,28 @@ beforeEach(() => {
 });
 
 describe("Settings account actions", () => {
+  it("associates the profile field labels with their edit controls", async () => {
+    render(<SettingsPage />);
+
+    const personalInformationHeading = await screen.findByRole("heading", {
+      name: "Personal Information",
+    });
+    fireEvent.click(
+      within(personalInformationHeading.parentElement!).getByRole("button", {
+        name: "Edit",
+      }),
+    );
+
+    expect(screen.getByLabelText("Full Name")).toHaveAttribute(
+      "id",
+      "settings-full-name",
+    );
+    expect(screen.getByLabelText("Email Address")).toHaveAttribute(
+      "id",
+      "settings-email-address",
+    );
+  });
+
   it("links notification preferences to the notifications page", async () => {
     render(<SettingsPage />);
 
