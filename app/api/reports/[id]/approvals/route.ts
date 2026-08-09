@@ -5,6 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { ApprovalType } from "@prisma/client";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  hasPublishedApprovalDocument,
+  isApprovalForCurrentRevision,
+  isPortalReportPublished,
+} from "@/lib/portal/report-publication";
 
 export async function GET(
   request: NextRequest,
@@ -15,10 +20,10 @@ export async function GET(
 
     if (!session?.user?.id) {
       return apiError(request, {
-      code: "UNAUTHORIZED",
-      message: "Unauthorized",
-      status: 401,
-    });
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -27,6 +32,15 @@ export async function GET(
       where: {
         id,
         userId: session.user.id,
+      },
+      select: {
+        id: true,
+        status: true,
+        updatedAt: true,
+        inspectionPdfUrl: true,
+        detailedReport: true,
+        scopeOfWorksDocument: true,
+        costEstimationDocument: true,
       },
     });
 
@@ -45,6 +59,7 @@ export async function GET(
         reportId: true,
         approvalType: true,
         status: true,
+        requestedAt: true,
         amount: true,
         clientComments: true,
         respondedAt: true,
@@ -55,7 +70,11 @@ export async function GET(
       take: 50,
     });
 
-    return NextResponse.json({ approvals });
+    return NextResponse.json({
+      approvals: approvals.filter((approval) =>
+        isApprovalForCurrentRevision(report, approval),
+      ),
+    });
   } catch (error) {
     return fromException(request, error, { stage: "approvals-get" });
   }
@@ -90,15 +109,7 @@ export async function POST(
           status: 400,
         });
       }
-      const { approvalType, amount: rawAmount } = body;
-      const amount = rawAmount != null ? Number(rawAmount) : null;
-      if (amount !== null && (!isFinite(amount) || amount < 0)) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: "Amount must be a non-negative finite number",
-          status: 400,
-        });
-      }
+      const { approvalType } = body;
 
       // Validate approvalType
       if (
@@ -117,6 +128,16 @@ export async function POST(
           id,
           userId,
         },
+        select: {
+          id: true,
+          status: true,
+          updatedAt: true,
+          totalCost: true,
+          inspectionPdfUrl: true,
+          detailedReport: true,
+          scopeOfWorksDocument: true,
+          costEstimationDocument: true,
+        },
       });
 
       if (!report) {
@@ -127,12 +148,47 @@ export async function POST(
         });
       }
 
-      const approval = await prisma.reportApproval.create({
-        data: {
+      if (!isPortalReportPublished(report)) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "Complete and publish the report before requesting approval",
+          status: 409,
+        });
+      }
+
+      if (!hasPublishedApprovalDocument(report, approvalType)) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "Publish the approval document before requesting approval",
+          status: 409,
+        });
+      }
+
+      if (approvalType === "COST_ESTIMATE" && report.totalCost === null) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "Set the report total before requesting cost approval",
+          status: 409,
+        });
+      }
+
+      const approval = await prisma.reportApproval.upsert({
+        where: {
+          reportId_approvalType: { reportId: id, approvalType },
+        },
+        create: {
           reportId: id,
           approvalType,
           status: "PENDING",
-          amount: amount ?? null,
+          requestedAt: new Date(),
+          amount: approvalType === "COST_ESTIMATE" ? report.totalCost : null,
+        },
+        update: {
+          status: "PENDING",
+          requestedAt: new Date(),
+          respondedAt: null,
+          clientComments: null,
+          amount: approvalType === "COST_ESTIMATE" ? report.totalCost : null,
         },
       });
 

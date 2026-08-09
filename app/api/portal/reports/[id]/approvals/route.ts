@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { ApprovalStatus, ApprovalType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { requireClientAuth } from "@/lib/portal/require-client-auth";
+import {
+  hasPublishedApprovalDocument,
+  isApprovalForCurrentRevision,
+  isPortalReportPublished,
+} from "@/lib/portal/report-publication";
 
 // POST /api/portal/reports/[id]/approvals - Create or update approval (bearer JWT)
 export async function POST(
@@ -19,7 +25,7 @@ export async function POST(
   // without idempotency can both fail the find and create duplicate rows.
   return withIdempotency(request, clientId, async (rawBody) => {
     try {
-      let body: any;
+      let body: Record<string, unknown>;
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
@@ -29,11 +35,18 @@ export async function POST(
           status: 400,
         });
       }
-      const { approvalType, status, clientComments, amount } = body;
+      const {
+        approvalId,
+        approvalType,
+        status,
+        clientComments,
+        reportVersion,
+        reportUpdatedAt,
+      } = body;
 
       // Validate approvalType and status
       if (
-        !approvalType ||
+        typeof approvalType !== "string" ||
         !["SCOPE_OF_WORK", "COST_ESTIMATE"].includes(approvalType)
       ) {
         return apiError(request, {
@@ -43,8 +56,43 @@ export async function POST(
         });
       }
 
+      const validatedApprovalType = approvalType as ApprovalType;
+
+      if (typeof approvalId !== "string" || !approvalId) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Approval request ID is required",
+          status: 400,
+        });
+      }
+
       if (
-        !status ||
+        typeof reportVersion !== "number" ||
+        !Number.isInteger(reportVersion) ||
+        typeof reportUpdatedAt !== "string" ||
+        !Number.isFinite(new Date(reportUpdatedAt).getTime())
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Report revision is required",
+          status: 400,
+        });
+      }
+
+      if (
+        clientComments !== undefined &&
+        clientComments !== null &&
+        (typeof clientComments !== "string" || clientComments.length > 5000)
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Comments must be 5000 characters or fewer",
+          status: 400,
+        });
+      }
+
+      if (
+        typeof status !== "string" ||
         !["APPROVED", "REJECTED", "CHANGES_REQUESTED"].includes(status)
       ) {
         return apiError(request, {
@@ -54,15 +102,28 @@ export async function POST(
         });
       }
 
+      const validatedStatus = status as ApprovalStatus;
+
       // Verify report belongs to this client
       const report = await prisma.report.findFirst({
         where: {
           id: reportId,
           clientId,
         },
+        select: {
+          id: true,
+          status: true,
+          reportVersion: true,
+          updatedAt: true,
+          totalCost: true,
+          inspectionPdfUrl: true,
+          detailedReport: true,
+          scopeOfWorksDocument: true,
+          costEstimationDocument: true,
+        },
       });
 
-      if (!report) {
+      if (!report || !isPortalReportPublished(report)) {
         return apiError(request, {
           code: "NOT_FOUND",
           message: "Report not found",
@@ -70,43 +131,115 @@ export async function POST(
         });
       }
 
-      // Check if there's already a pending approval for this type
-      const existingApproval = await prisma.reportApproval.findFirst({
-        where: {
-          reportId,
-          approvalType,
-          status: "PENDING",
-        },
-      });
-
-      let approval;
-
-      if (existingApproval) {
-        // Update existing approval
-        approval = await prisma.reportApproval.update({
-          where: { id: existingApproval.id },
-          data: {
-            status,
-            respondedAt: new Date(),
-            clientComments: clientComments || null,
-            amount: amount || null,
-          },
-        });
-      } else {
-        // Create new approval
-        approval = await prisma.reportApproval.create({
-          data: {
-            reportId,
-            approvalType,
-            status,
-            respondedAt: new Date(),
-            clientComments: clientComments || null,
-            amount: amount || null,
-          },
+      if (!hasPublishedApprovalDocument(report, validatedApprovalType)) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "The requested approval document is not available",
+          status: 409,
         });
       }
 
-      return NextResponse.json({ approval }, { status: 201 });
+      if (
+        report.reportVersion !== reportVersion ||
+        report.updatedAt.getTime() !== new Date(reportUpdatedAt).getTime()
+      ) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "The report changed after it was opened. Review it again.",
+          status: 409,
+        });
+      }
+
+      // A client can only respond to the exact pending request rendered in the
+      // portal. Never manufacture an approval from a bare report/type pair.
+      const existingApproval = await prisma.reportApproval.findFirst({
+        where: {
+          id: approvalId,
+          reportId,
+          approvalType: validatedApprovalType,
+          status: "PENDING",
+        },
+        select: {
+          id: true,
+          reportId: true,
+          approvalType: true,
+          status: true,
+          requestedAt: true,
+          respondedAt: true,
+          clientComments: true,
+          amount: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      if (!existingApproval) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "No pending approval request is available",
+          status: 409,
+        });
+      }
+
+      if (!isApprovalForCurrentRevision(report, existingApproval)) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "This approval request is stale. Ask for a new request.",
+          status: 409,
+        });
+      }
+
+      if (
+        validatedApprovalType === "COST_ESTIMATE" &&
+        (existingApproval.amount === null ||
+          report.totalCost === null ||
+          Math.abs(existingApproval.amount - report.totalCost) > 0.01)
+      ) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "The cost estimate changed. Ask for a new approval request.",
+          status: 409,
+        });
+      }
+
+      const respondedAt = new Date();
+      const updateResult = await prisma.reportApproval.updateMany({
+        where: {
+          id: existingApproval.id,
+          reportId,
+          approvalType: validatedApprovalType,
+          status: "PENDING",
+          requestedAt: existingApproval.requestedAt,
+        },
+        data: {
+          status: validatedStatus,
+          respondedAt,
+          clientComments:
+            typeof clientComments === "string" && clientComments
+              ? clientComments
+              : null,
+        },
+      });
+
+      if (updateResult.count !== 1) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "This approval request has already been answered",
+          status: 409,
+        });
+      }
+
+      return NextResponse.json({
+        approval: {
+          ...existingApproval,
+          status: validatedStatus,
+          respondedAt,
+          clientComments:
+            typeof clientComments === "string" && clientComments
+              ? clientComments
+              : null,
+        },
+      });
     } catch (error) {
       console.error("Error creating/updating approval:", error);
       return fromException(request, error, {
@@ -134,9 +267,18 @@ export async function GET(
         id: reportId,
         clientId,
       },
+      select: {
+        id: true,
+        status: true,
+        updatedAt: true,
+        inspectionPdfUrl: true,
+        detailedReport: true,
+        scopeOfWorksDocument: true,
+        costEstimationDocument: true,
+      },
     });
 
-    if (!report) {
+    if (!report || !isPortalReportPublished(report)) {
       return apiError(request, {
         code: "NOT_FOUND",
         message: "Report not found",
@@ -151,6 +293,7 @@ export async function GET(
         reportId: true,
         approvalType: true,
         status: true,
+        requestedAt: true,
         amount: true,
         clientComments: true,
         respondedAt: true,
@@ -161,7 +304,11 @@ export async function GET(
       take: 50,
     });
 
-    return NextResponse.json({ approvals });
+    return NextResponse.json({
+      approvals: approvals.filter((approval) =>
+        isApprovalForCurrentRevision(report, approval),
+      ),
+    });
   } catch (error) {
     console.error("Error fetching approvals:", error);
     return fromException(request, error, {

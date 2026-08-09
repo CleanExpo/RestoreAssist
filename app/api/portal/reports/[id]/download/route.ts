@@ -12,6 +12,7 @@ import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
 import { inspectionPhotosToImages } from "@/lib/reports/inspection-photos-to-images";
 import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
 import { apiError, fromException } from "@/lib/api-errors";
+import { isPortalReportPublished } from "@/lib/portal/report-publication";
 
 // GET /api/portal/reports/[id]/download - Download PDF for client portal users.
 //
@@ -37,7 +38,17 @@ export async function GET(
     // Fetch report — verify it belongs to this client — with the same artifact
     // relations the dashboard PDF pipeline reads.
     const report = await prisma.report.findFirst({
-      where: { id: reportId, clientId },
+      where: {
+        id: reportId,
+        clientId,
+        status: "COMPLETED",
+        OR: [
+          { inspectionPdfUrl: { not: null } },
+          { detailedReport: { not: null } },
+          { scopeOfWorksDocument: { not: null } },
+          { costEstimationDocument: { not: null } },
+        ],
+      },
       include: {
         user: {
           select: {
@@ -82,20 +93,11 @@ export async function GET(
       },
     });
 
-    if (!report) {
+    if (!report || !isPortalReportPublished(report)) {
       return apiError(request, {
         code: "NOT_FOUND",
         message: "Report not found",
         status: 404,
-      });
-    }
-
-    // Don't expose draft reports to clients
-    if (report.status === "DRAFT") {
-      return apiError(request, {
-        code: "FORBIDDEN",
-        message: "Report is not available for download",
-        status: 403,
       });
     }
 
@@ -165,11 +167,10 @@ export async function GET(
       });
     }
 
-    const filename =
-      `report-${report.reportNumber || report.id}.pdf`.replace(
-        /[^a-zA-Z0-9.\-_]/g,
-        "-",
-      );
+    const filename = `report-${report.reportNumber || report.id}.pdf`.replace(
+      /[^a-zA-Z0-9.\-_]/g,
+      "-",
+    );
 
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
