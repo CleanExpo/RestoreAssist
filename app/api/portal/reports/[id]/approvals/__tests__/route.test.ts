@@ -33,8 +33,12 @@ const reportFindFirst = vi.fn();
 const approvalFindFirst = vi.fn();
 const approvalCreate = vi.fn();
 const approvalUpdate = vi.fn();
+const clientUserFindUnique = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    clientUser: {
+      findUnique: (...a: unknown[]) => clientUserFindUnique(...a),
+    },
     report: { findFirst: (...a: unknown[]) => reportFindFirst(...a) },
     reportApproval: {
       findFirst: (...a: unknown[]) => approvalFindFirst(...a),
@@ -69,7 +73,9 @@ beforeEach(() => {
   approvalFindFirst.mockReset();
   approvalCreate.mockReset();
   approvalUpdate.mockReset();
+  clientUserFindUnique.mockReset();
   authenticateClientRequest.mockResolvedValue(clientClaims);
+  clientUserFindUnique.mockResolvedValue({ id: "u_c", clientId: "c_1" });
 });
 
 describe("POST /api/portal/reports/[id]/approvals", () => {
