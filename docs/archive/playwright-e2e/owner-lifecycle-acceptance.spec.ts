@@ -269,7 +269,9 @@ test.describe("mock-only owner lifecycle acceptance", () => {
       );
       await page.getByRole("button", { name: "Sign In" }).click();
       expect((await portalLogin).ok()).toBe(true);
-      await page.waitForURL("**/portal/inspections", { timeout: 30_000 });
+      await page.waitForURL((url) => url.pathname === "/portal", {
+        timeout: 30_000,
+      });
       await expect(
         page.getByRole("heading", { name: "My Restoration Reports" }),
       ).toBeVisible({ timeout: 30_000 });
