@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
       maxRequests: 30,
       windowMs: 15 * 60 * 1000,
       prefix: "portal-invitation-verify",
+      failClosedOnUpstashError: true,
     });
     if (rateLimited) return rateLimited;
 

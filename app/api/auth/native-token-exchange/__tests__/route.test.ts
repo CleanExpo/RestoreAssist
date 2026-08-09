@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const jwtVerify = vi.fn();
 const userFindUnique = vi.fn();
 const userCreate = vi.fn();
 const encodeJwt = vi.fn();
 const logSecurityEvent = vi.fn();
+const applyRateLimit = vi.fn();
 
 vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => "jwks"),
@@ -26,6 +27,9 @@ vi.mock("@/lib/security-audit", () => ({
   extractRequestContext: vi.fn(() => ({ ip: "127.0.0.1" })),
   logSecurityEvent: (...args: unknown[]) => logSecurityEvent(...args),
 }));
+vi.mock("@/lib/rate-limiter", () => ({
+  applyRateLimit: (...args: unknown[]) => applyRateLimit(...args),
+}));
 
 import { POST } from "../route";
 
@@ -35,7 +39,9 @@ beforeEach(() => {
   userCreate.mockReset();
   encodeJwt.mockReset();
   logSecurityEvent.mockReset();
+  applyRateLimit.mockReset();
   logSecurityEvent.mockResolvedValue(undefined);
+  applyRateLimit.mockResolvedValue(null);
 });
 
 function postRequest(body: Record<string, unknown>) {
@@ -59,6 +65,26 @@ const VALID_CLAIMS = {
 };
 
 describe("POST /api/auth/native-token-exchange", () => {
+  it("stops before token verification when rate limited", async () => {
+    const request = postRequest(VALID_BODY);
+    applyRateLimit.mockResolvedValueOnce(
+      NextResponse.json({ error: "Too many requests" }, { status: 429 }),
+    );
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(429);
+    expect(applyRateLimit).toHaveBeenCalledWith(request, {
+      maxRequests: 10,
+      windowMs: 15 * 60 * 1000,
+      prefix: "native-token-exchange",
+      failClosedOnUpstashError: true,
+    });
+    expect(jwtVerify).not.toHaveBeenCalled();
+    expect(userFindUnique).not.toHaveBeenCalled();
+    expect(encodeJwt).not.toHaveBeenCalled();
+  });
+
   it("does not expose token verification exception details", async () => {
     jwtVerify.mockRejectedValueOnce(
       new Error("signature failed for kid internal-secret"),

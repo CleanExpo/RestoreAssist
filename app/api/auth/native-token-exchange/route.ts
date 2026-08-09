@@ -37,6 +37,7 @@ import { encode as encodeJwt } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 // Free-trial grant — sourced from PRICING_CONFIG (the SSOT) so the native iOS
 // signup path grants the identical 15-day / 30-credit trial as email/register
@@ -216,6 +217,14 @@ async function verifyAndNormaliseToken(
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 10,
+    windowMs: 15 * 60 * 1000,
+    prefix: "native-token-exchange",
+    failClosedOnUpstashError: true,
+  });
+  if (rateLimited) return rateLimited;
+
   let body: ExchangeBody;
   try {
     body = (await request.json()) as ExchangeBody;

@@ -33,6 +33,10 @@ const HARDENED_SITES: Record<string, string[]> = {
   "app/api/auth/2fa/disable/route.ts": ["2fa-disable"],
   "app/api/auth/google-signin/route.ts": ["google-signin"],
   "app/api/auth/google-session/route.ts": ["google-session"],
+  "app/api/auth/native-token-exchange/route.ts": ["native-token-exchange"],
+  "app/api/portal/auth/login/route.ts": ["portal-auth-login"],
+  "app/api/portal/invitations/accept/route.ts": ["portal-invitation-accept"],
+  "app/api/portal/invitations/verify/route.ts": ["portal-invitation-verify"],
   // AI-spend surfaces (each burns provider tokens per request).
   "app/api/ai/vision/route.ts": ["ai-vision"],
   "app/api/ai/auto-classify-photo/[photoId]/route.ts": ["auto-classify-photo"],

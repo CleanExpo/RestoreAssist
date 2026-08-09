@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
       maxRequests: 10,
       windowMs: 15 * 60 * 1000,
       prefix: "portal-auth-login",
+      failClosedOnUpstashError: true,
     });
     if (rateLimited) return rateLimited;
 
