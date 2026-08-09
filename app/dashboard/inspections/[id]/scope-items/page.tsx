@@ -145,14 +145,32 @@ function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
   // debounce refs
   const qtyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notesDraft = useRef(item.specification ?? "");
+  const notesRequest = useRef<{
+    value: string;
+    promise: Promise<boolean>;
+  } | null>(null);
+  const saveNotesRef = useRef<(value: string) => void>(() => undefined);
 
   useEffect(() => {
     setLocalQty(item.quantity?.toString() ?? "");
   }, [item.quantity]);
 
   useEffect(() => {
-    setLocalNotes(item.specification ?? "");
+    const specification = item.specification ?? "";
+    if (!notesTimer.current && !notesRequest.current) {
+      notesDraft.current = specification;
+      setLocalNotes(specification);
+    }
   }, [item.specification]);
+
+  useEffect(
+    () => () => {
+      if (qtyTimer.current) clearTimeout(qtyTimer.current);
+      if (notesTimer.current) clearTimeout(notesTimer.current);
+    },
+    [],
+  );
 
   const handleSelectedChange = async (checked: boolean) => {
     setSavingSelected(true);
@@ -178,21 +196,59 @@ function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
     }, 500);
   };
 
-  const handleNotesChange = (val: string) => {
-    setLocalNotes(val);
-    if (notesTimer.current) clearTimeout(notesTimer.current);
-    notesTimer.current = setTimeout(async () => {
-      setSavingNotes(true);
-      try {
-        const saved = await onPatchField(
-          item.id,
-          "specification",
-          val || null,
-        );
-        if (!saved) setLocalNotes(item.specification ?? "");
-      } finally {
-        setSavingNotes(false);
+  const saveNotes = useCallback(
+    (value: string) => {
+      if (value === (item.specification ?? "") && !notesRequest.current) {
+        return;
       }
+      if (notesRequest.current) return;
+
+      const previousValue = item.specification ?? "";
+      setSavingNotes(true);
+      const promise = onPatchField(item.id, "specification", value || null);
+      notesRequest.current = { value, promise };
+
+      void promise.then((saved) => {
+        if (notesRequest.current?.promise !== promise) return;
+
+        notesRequest.current = null;
+        const latestDraft = notesDraft.current;
+        if (!saved && latestDraft === value) {
+          notesDraft.current = previousValue;
+          setLocalNotes(previousValue);
+          setSavingNotes(false);
+          return;
+        }
+
+        if (latestDraft !== value) {
+          saveNotesRef.current(latestDraft);
+        } else {
+          setSavingNotes(false);
+        }
+      });
+    },
+    [item.id, item.specification, onPatchField],
+  );
+
+  useEffect(() => {
+    saveNotesRef.current = saveNotes;
+  }, [saveNotes]);
+
+  const flushNotes = useCallback(() => {
+    if (notesTimer.current) {
+      clearTimeout(notesTimer.current);
+      notesTimer.current = null;
+    }
+    saveNotes(notesDraft.current);
+  }, [saveNotes]);
+
+  const handleNotesChange = (value: string) => {
+    notesDraft.current = value;
+    setLocalNotes(value);
+    if (notesTimer.current) clearTimeout(notesTimer.current);
+    notesTimer.current = setTimeout(() => {
+      notesTimer.current = null;
+      saveNotes(value);
     }, 500);
   };
 
@@ -277,6 +333,7 @@ function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
           <Input
             value={localNotes}
             onChange={(e) => handleNotesChange(e.target.value)}
+            onBlur={flushNotes}
             className="h-8 text-sm"
             placeholder="Add notes…"
           />
@@ -412,6 +469,7 @@ export default function ScopeItemsPage({
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
+            keepalive: true,
           },
         );
         if (res.ok) return true;
@@ -419,9 +477,7 @@ export default function ScopeItemsPage({
         // Network failures use the same rollback path as rejected responses.
       }
 
-      setItems((prev) =>
-        prev.map((it) => (it.id === itemId ? previous : it)),
-      );
+      setItems((prev) => prev.map((it) => (it.id === itemId ? previous : it)));
       toast.error("Failed to save scope item. Changes were reverted.");
       return false;
     },

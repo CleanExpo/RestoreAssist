@@ -92,6 +92,7 @@ describe("ScopeItemsPage", () => {
       "/api/inspections/inspection-1/scope-items/scope-1",
       expect.objectContaining({ method: "PATCH" }),
     );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("restores the displayed quantity when a debounced PATCH rejects", async () => {
@@ -114,5 +115,94 @@ describe("ScopeItemsPage", () => {
       { timeout: 2_000 },
     );
     expect(quantity).toHaveValue(1);
+  });
+
+  it("flushes a non-empty specification body on blur without a later duplicate", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(inspectionResponse())
+      .mockResolvedValueOnce({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderPage();
+
+    const notes = await screen.findByPlaceholderText("Add notes…");
+    fireEvent.change(notes, { target: { value: "Place behind skirting" } });
+    fireEvent.blur(notes);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/inspections/inspection-1/scope-items/scope-1",
+      expect.objectContaining({
+        method: "PATCH",
+        keepalive: true,
+        body: JSON.stringify({ specification: "Place behind skirting" }),
+      }),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 550));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("restores the displayed specification when the blur PATCH is rejected", async () => {
+    const initialResponse = inspectionResponse();
+    const responseBody = await initialResponse.json();
+    responseBody.inspection.scopeItems[0].specification = "Original note";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => responseBody,
+      })
+      .mockResolvedValueOnce({ ok: false });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderPage();
+
+    const notes = await screen.findByPlaceholderText("Add notes…");
+    expect(notes).toHaveValue("Original note");
+    fireEvent.change(notes, { target: { value: "Unsaved replacement" } });
+    fireEvent.blur(notes);
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        "Failed to save scope item. Changes were reverted.",
+      ),
+    );
+    expect(notes).toHaveValue("Original note");
+  });
+
+  it("serializes an edit made while a specification PATCH is in flight", async () => {
+    let resolveFirstPatch: ((response: { ok: boolean }) => void) | undefined;
+    const firstPatch = new Promise<{ ok: boolean }>((resolve) => {
+      resolveFirstPatch = resolve;
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(inspectionResponse())
+      .mockReturnValueOnce(firstPatch)
+      .mockResolvedValueOnce({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderPage();
+
+    const notes = await screen.findByPlaceholderText("Add notes…");
+    fireEvent.change(notes, { target: { value: "First draft" } });
+    fireEvent.blur(notes);
+    fireEvent.change(notes, { target: { value: "Latest draft" } });
+    fireEvent.blur(notes);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      specification: "First draft",
+    });
+
+    resolveFirstPatch?.({ ok: true });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({
+      specification: "Latest draft",
+    });
   });
 });
