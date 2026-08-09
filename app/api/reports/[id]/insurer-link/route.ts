@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateInsurerToken } from "@/lib/portal-token";
 import { apiError, fromException } from "@/lib/api-errors";
+import { REPORT_SHARED_WITH_INSURER_ACTION } from "@/lib/lifecycle/report-delivery";
 
 /**
  * POST /api/reports/[id]/insurer-link
@@ -29,7 +30,13 @@ export async function POST(
 
     const report = await prisma.report.findFirst({
       where: { id, userId: session.user.id },
-      select: { id: true, reportNumber: true, propertyAddress: true },
+      select: {
+        id: true,
+        reportNumber: true,
+        propertyAddress: true,
+        status: true,
+        inspection: { select: { id: true } },
+      },
     });
 
     if (!report) {
@@ -40,11 +47,48 @@ export async function POST(
       });
     }
 
+    if (report.status !== "COMPLETED") {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "Complete the report before sharing it with an insurer",
+        status: 409,
+      });
+    }
+
+    if (!report.inspection) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "Report is not linked to an inspection",
+        status: 409,
+      });
+    }
+
     const token = generateInsurerToken(report.id);
     const baseUrl =
       process.env.NEXTAUTH_URL?.replace(/\/$/, "") ??
       "https://restoreassist.app";
     const url = `${baseUrl}/portal/insurer/${token}`;
+
+    // The UI's "Share with Insurer" action is the supported report handoff
+    // path. Persist the event before returning the link so a successful HTTP
+    // response always has report-scoped, append-only delivery evidence. Never
+    // store the bearer token itself in the audit trail.
+    await prisma.auditLog.create({
+      data: {
+        inspectionId: report.inspection.id,
+        userId: session.user.id,
+        action: REPORT_SHARED_WITH_INSURER_ACTION,
+        entityType: "Report",
+        entityId: report.id,
+        changes: JSON.stringify({
+          channel: "signed_insurer_link",
+          audience: "insurer",
+          reportStatus: report.status,
+          expiresInDays: 30,
+        }),
+      },
+      select: { id: true, timestamp: true },
+    });
 
     return NextResponse.json({
       url,

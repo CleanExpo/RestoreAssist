@@ -44,26 +44,26 @@ export interface TransitionContext {
     | "ISSUED"
     | "VOID"
     | null;
+  /** A PAID invoice cannot close while any recorded payment awaits reconciliation. */
+  invoiceHasUnreconciledPayment: boolean;
   /**
-   * Current report status. Per the `ReportStatus` enum, "COMPLETED" is the
-   * terminal good state (the report has been finalised + delivered). The
-   * spec's `report_sent` gate maps to ReportStatus === "COMPLETED".
+   * Current report status. Per the `ReportStatus` enum, "COMPLETED" proves
+   * finalisation; delivery is independently proven by `reportDeliveredAt`.
    */
   reportStatus:
-    | "DRAFT"
-    | "PENDING"
-    | "APPROVED"
-    | "COMPLETED"
-    | "ARCHIVED"
-    | "SENT"
-    | null;
+    "DRAFT" | "PENDING" | "APPROVED" | "COMPLETED" | "ARCHIVED" | "SENT" | null;
+  /**
+   * Successful explicit report-share audit event. Report status alone is not
+   * delivery evidence: COMPLETED can be written by report-generation flows
+   * before the supported insurer handoff action occurs.
+   */
+  reportDeliveredAt: Date | null;
   /** SP-J handover completion timestamp. `null` ⇒ handover not recorded; soft gap, never blocker. */
   handoverCompletedAt: Date | null;
 }
 
 export type TransitionResult =
-  | { ok: true; softGaps: string[] }
-  | { ok: false; missing: string[] };
+  { ok: true; softGaps: string[] } | { ok: false; missing: string[] };
 
 export interface SuggestedAction {
   key: string;
@@ -97,7 +97,8 @@ export const TRANSITION_REQUIREMENTS = {
     soft: [] as const,
   },
   // IN_BILLING → CLOSED — the terminal-state transition this whole plan
-  // exists to ship. Hard preconditions: invoice paid + report sent.
+  // exists to ship. Hard preconditions: invoice paid + report finalised and
+  // backed by successful delivery evidence.
   // Soft gap: handover (SP-J) recorded.
   close_job: {
     required: ["invoice_paid", "report_sent"] as const,
@@ -182,13 +183,17 @@ function evaluateGate(
   for (const gate of required) {
     switch (gate) {
       case "invoice_paid":
-        if (ctx.invoiceStatus !== "PAID") missing.push(gate);
+        if (ctx.invoiceStatus !== "PAID" || ctx.invoiceHasUnreconciledPayment)
+          missing.push(gate);
         break;
       case "report_sent":
-        // Accept "COMPLETED" (the actual ReportStatus terminal value) or
-        // the alias "SENT" for forward-compat if a Report.sentAt-driven
-        // semantic ever lands.
-        if (ctx.reportStatus !== "COMPLETED" && ctx.reportStatus !== "SENT")
+        // A terminal report status proves finalisation, not delivery. Require
+        // an exact REPORT_SHARED_WITH_INSURER audit event as the independently
+        // persisted delivery fact so setting COMPLETED cannot unlock closure.
+        if (
+          (ctx.reportStatus !== "COMPLETED" && ctx.reportStatus !== "SENT") ||
+          !ctx.reportDeliveredAt
+        )
           missing.push(gate);
         break;
       case "handover_not_yet_done":

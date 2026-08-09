@@ -29,6 +29,10 @@ import { deriveRestorationIncident } from "@/lib/analytics/deriveRestorationInci
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { dispatchReviewAskNotification } from "@/lib/pulse/review-ask";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  canPerformTransition,
+  resolveProgressRole,
+} from "@/lib/progress/permissions";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -41,7 +45,11 @@ interface CloseRequestBody {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id: inspectionId } = await params;
@@ -51,17 +59,61 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
       body = rawBody ? JSON.parse(rawBody) : {};
     } catch {
-      return apiError(request, { code: "VALIDATION", message: "Invalid JSON body", status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
     }
     const closeSummary = body.closeSummary?.trim();
     if (!closeSummary) {
-      return apiError(request, { code: "VALIDATION", message: "closeSummary required", status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "closeSummary required",
+        status: 400,
+      });
     }
+
+    // Resolve close authority from the current database row, never the JWT's
+    // long-lived role claim. Passing that fresh role into the tenancy helper
+    // also lets a newly promoted ADMIN take the intended global admin path.
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, isJuniorTechnician: true },
+    });
+    if (!currentUser) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
+    }
+    const actorRole = resolveProgressRole({
+      userRole: currentUser.role,
+      isJuniorTechnician: currentUser.isJuniorTechnician,
+    });
+    if (
+      !canPerformTransition(actorRole, ClaimState.INVOICE_PAID, "close_claim")
+    ) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
+    }
+
+    const freshRoleSession = {
+      ...session,
+      user: { ...session.user, role: currentUser.role },
+    };
 
     // Tenancy gate before the transaction. Admin bypass handled inside.
     // RA-6800 — resolve write scopes here (before $transaction opens) so the
     // CAS writes inside the tx re-assert ownership atomically.
-    const tenancy = await resolveInspectionWrite(session, inspectionId);
+    const tenancy = await resolveInspectionWrite(
+      freshRoleSession,
+      inspectionId,
+    );
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },
@@ -109,15 +161,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         const transition = await writeLifecycleTransition({
           inspectionId,
-          fromState: ClaimState.INVOICE_ISSUED,
+          fromState: ClaimState.INVOICE_PAID,
           toState: ClaimState.CLOSED,
-          transitionKey: "close_job",
+          transitionKey: "close_claim",
           actorUserId: userId,
-          actorRole: (session.user as { role?: string }).role ?? "USER",
+          actorRole,
           actorName: session.user.name ?? "User",
           guardSnapshot: {
             softGaps: gate.softGaps,
-            preconditions: { invoice_paid: true, report_sent: true },
+            preconditions: {
+              invoice_paid:
+                ctx.invoiceStatus === "PAID" &&
+                !ctx.invoiceHasUnreconciledPayment,
+              report_sent: Boolean(ctx.reportDeliveredAt),
+            },
+            evidence: {
+              invoiceStatus: ctx.invoiceStatus,
+              invoiceHasUnreconciledPayment: ctx.invoiceHasUnreconciledPayment,
+              reportStatus: ctx.reportStatus,
+              reportDeliveredAt: ctx.reportDeliveredAt?.toISOString() ?? null,
+            },
           } as Prisma.InputJsonValue,
           auditAction: "JOB_CLOSED",
           prismaTx: tx,
@@ -134,7 +197,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             }),
           },
           data: {
-            previousState: ClaimState.INVOICE_ISSUED,
+            previousState: ClaimState.INVOICE_PAID,
             currentState: ClaimState.CLOSED,
             closedAt: completedAt,
           },
@@ -191,10 +254,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           });
         })
         .catch((err) => {
-          console.error(
-            `[close] SP-E mirror failed for ${inspectionId}:`,
-            err,
-          );
+          console.error(`[close] SP-E mirror failed for ${inspectionId}:`, err);
         });
 
       return NextResponse.json({

@@ -58,6 +58,18 @@ describe("permissions", () => {
       ).toBe(false);
     });
 
+    it("allows MANAGER and ADMIN, but not TECHNICIAN, to close a paid claim", () => {
+      expect(
+        canPerformTransition("MANAGER", "INVOICE_PAID", "close_claim"),
+      ).toBe(true);
+      expect(canPerformTransition("ADMIN", "INVOICE_PAID", "close_claim")).toBe(
+        true,
+      );
+      expect(
+        canPerformTransition("TECHNICIAN", "INVOICE_PAID", "close_claim"),
+      ).toBe(false);
+    });
+
     it("allows ACCOUNTING to record_payment and issue_invoice", () => {
       expect(
         canPerformTransition("ACCOUNTING", "CLOSEOUT", "issue_invoice"),

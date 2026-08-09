@@ -133,8 +133,8 @@ const STATE_PERMISSIONS: Record<
     EXTERNAL_LAWYER: ["R", "W"],
   },
   INVOICE_PAID: {
-    MANAGER: ["R"],
-    ADMIN: ["R"],
+    MANAGER: ["R", "W"],
+    ADMIN: ["R", "W"],
     ACCOUNTING: ["R", "W"],
     CARRIER: ["R"],
     EXTERNAL_LAWYER: ["R"],
