@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import { InspectionStatus } from "@prisma/client";
 import { loadTransitionContext } from "../load-context";
+import { canTransition } from "../inspection-state-machine";
 
 function dbFixture(input: {
-  delivery?: { timestamp: Date } | null;
+  auditEvents?: Array<{ action: string; timestamp: Date }>;
   invoice?: { id: string; status: string } | null;
   unreconciledPayment?: { id: string } | null;
 }) {
@@ -27,15 +29,26 @@ function dbFixture(input: {
       findFirst: vi.fn().mockResolvedValue(input.unreconciledPayment ?? null),
     },
     auditLog: {
-      findFirst: vi.fn().mockResolvedValue(input.delivery ?? null),
+      findFirst: vi
+        .fn()
+        .mockImplementation(
+          ({ where }: { where: { action: { in: string[] } } }) =>
+            [...(input.auditEvents ?? [])]
+              .filter((event) => where.action.in.includes(event.action))
+              .sort(
+                (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
+              )[0] ?? null,
+        ),
     },
   };
 }
 
 describe("loadTransitionContext — report delivery evidence", () => {
-  it("hydrates the latest explicit insurer-share audit", async () => {
+  it("hydrates the latest genuine report-delivery audit", async () => {
     const sentAt = new Date("2026-08-09T03:00:00.000Z");
-    const db = dbFixture({ delivery: { timestamp: sentAt } });
+    const db = dbFixture({
+      auditEvents: [{ action: "REPORT_SENT", timestamp: sentAt }],
+    });
 
     const context = await loadTransitionContext(db as never, "inspection-1");
 
@@ -51,7 +64,7 @@ describe("loadTransitionContext — report delivery evidence", () => {
     expect(db.auditLog.findFirst).toHaveBeenCalledWith({
       where: {
         inspectionId: "inspection-1",
-        action: "REPORT_SHARED_WITH_INSURER",
+        action: { in: ["REPORT_SENT", "REPORT_DELIVERED"] },
         entityType: "Report",
         entityId: "report-1",
       },
@@ -60,18 +73,58 @@ describe("loadTransitionContext — report delivery evidence", () => {
     });
   });
 
-  it("returns no delivery evidence when only report status is complete", async () => {
-    const db = dbFixture({ delivery: null });
+  it("does not let link generation alone satisfy close eligibility", async () => {
+    const db = dbFixture({
+      auditEvents: [
+        {
+          action: "REPORT_SHARED_WITH_INSURER",
+          timestamp: new Date("2026-08-09T02:00:00.000Z"),
+        },
+        {
+          action: "REPORT_INSURER_LINK_GENERATED",
+          timestamp: new Date("2026-08-09T03:00:00.000Z"),
+        },
+      ],
+    });
 
     const context = await loadTransitionContext(db as never, "inspection-1");
+    const closure = canTransition(
+      InspectionStatus.IN_BILLING,
+      InspectionStatus.CLOSED,
+      context,
+    );
 
     expect(context.reportStatus).toBe("COMPLETED");
     expect(context.reportDeliveredAt).toBeNull();
+    expect(closure.ok).toBe(false);
+    if (!closure.ok) expect(closure.missing).toContain("report_sent");
+  });
+
+  it("preserves genuine delivery evidence when a link was also generated", async () => {
+    const sentAt = new Date("2026-08-09T03:00:00.000Z");
+    const db = dbFixture({
+      auditEvents: [
+        { action: "REPORT_SENT", timestamp: sentAt },
+        {
+          action: "REPORT_INSURER_LINK_GENERATED",
+          timestamp: new Date("2026-08-09T04:00:00.000Z"),
+        },
+      ],
+    });
+
+    const context = await loadTransitionContext(db as never, "inspection-1");
+
+    expect(context.reportDeliveredAt).toEqual(sentAt);
   });
 
   it("flags a PAID invoice backed by an unreconciled payment", async () => {
     const db = dbFixture({
-      delivery: { timestamp: new Date("2026-08-09T03:00:00.000Z") },
+      auditEvents: [
+        {
+          action: "REPORT_DELIVERED",
+          timestamp: new Date("2026-08-09T03:00:00.000Z"),
+        },
+      ],
       unreconciledPayment: { id: "payment-1" },
     });
 

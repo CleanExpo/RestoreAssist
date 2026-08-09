@@ -13,7 +13,6 @@ import {
   CheckSquare,
   Download,
   Share2,
-  Copy,
   Check,
   Loader2,
 } from "lucide-react";
@@ -171,7 +170,8 @@ export default function ReportDetailPage({
       await navigator.clipboard.writeText(data.url);
       setInsurerLinkCopied(true);
       toast.success(
-        `Insurer link copied — valid for ${data.expiresInDays} days`,
+        `Link copied — valid for ${data.expiresInDays} days. This does not mark the report as sent or delivered.`,
+        { duration: 6000 },
       );
       setTimeout(() => setInsurerLinkCopied(false), 3000);
     } catch (err: any) {
@@ -226,7 +226,7 @@ export default function ReportDetailPage({
           PDF Report
         </button>
 
-        {/* Share with Insurer */}
+        {/* Generate insurer link */}
         <button
           onClick={() => requestExport(handleShareWithInsurer)}
           disabled={sharingInsurer}
@@ -240,7 +240,7 @@ export default function ReportDetailPage({
           ) : (
             <Share2 size={16} />
           )}
-          {insurerLinkCopied ? "Copied!" : "Share with Insurer"}
+          {insurerLinkCopied ? "Link Copied" : "Generate Insurer Link"}
         </button>
 
         <button

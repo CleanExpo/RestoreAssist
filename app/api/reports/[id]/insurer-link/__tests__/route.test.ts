@@ -47,24 +47,35 @@ beforeEach(() => {
   auditLogCreate.mockResolvedValue({ id: "audit_1", timestamp: new Date() });
 });
 
-describe("POST /api/reports/[id]/insurer-link — delivery evidence", () => {
-  it("records auditable evidence for the supported explicit insurer share action", async () => {
+describe("POST /api/reports/[id]/insurer-link — link-generation evidence", () => {
+  it("records link generation without claiming the report was delivered", async () => {
     const response = await POST(request, params);
+    const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(body.deliveryRecorded).toBe(false);
     expect(auditLogCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         inspectionId: "inspection_1",
         userId: "manager_1",
-        action: "REPORT_SHARED_WITH_INSURER",
+        action: "REPORT_INSURER_LINK_GENERATED",
         entityType: "Report",
         entityId: "report_1",
+        changes: expect.stringContaining('"deliveryStatus":"not_sent"'),
       }),
       select: { id: true, timestamp: true },
     });
+    expect(auditLogCreate).not.toHaveBeenCalledWith({
+      data: expect.objectContaining({ action: "REPORT_SENT" }),
+      select: expect.anything(),
+    });
+    expect(auditLogCreate).not.toHaveBeenCalledWith({
+      data: expect.objectContaining({ action: "REPORT_DELIVERED" }),
+      select: expect.anything(),
+    });
   });
 
-  it("does not record delivery evidence for a report that is not final", async () => {
+  it("does not generate a link for a report that is not final", async () => {
     reportFindFirst.mockResolvedValueOnce({
       id: "report_1",
       reportNumber: "NIR-001",
@@ -79,7 +90,7 @@ describe("POST /api/reports/[id]/insurer-link — delivery evidence", () => {
     expect(auditLogCreate).not.toHaveBeenCalled();
   });
 
-  it("does not record evidence for an unrelated or inaccessible report", async () => {
+  it("does not generate a link for an unrelated or inaccessible report", async () => {
     reportFindFirst.mockResolvedValueOnce(null);
 
     const response = await POST(request, params);
@@ -88,7 +99,7 @@ describe("POST /api/reports/[id]/insurer-link — delivery evidence", () => {
     expect(auditLogCreate).not.toHaveBeenCalled();
   });
 
-  it("does not return a share link when evidence persistence fails", async () => {
+  it("does not return a link when generation evidence persistence fails", async () => {
     auditLogCreate.mockRejectedValueOnce(new Error("database unavailable"));
 
     const response = await POST(request, params);

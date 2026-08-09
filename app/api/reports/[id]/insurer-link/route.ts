@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateInsurerToken } from "@/lib/portal-token";
 import { apiError, fromException } from "@/lib/api-errors";
-import { REPORT_SHARED_WITH_INSURER_ACTION } from "@/lib/lifecycle/report-delivery";
+import { REPORT_INSURER_LINK_GENERATED_ACTION } from "@/lib/lifecycle/report-delivery";
 
 /**
  * POST /api/reports/[id]/insurer-link
@@ -69,20 +69,20 @@ export async function POST(
       "https://restoreassist.app";
     const url = `${baseUrl}/portal/insurer/${token}`;
 
-    // The UI's "Share with Insurer" action is the supported report handoff
-    // path. Persist the event before returning the link so a successful HTTP
-    // response always has report-scoped, append-only delivery evidence. Never
-    // store the bearer token itself in the audit trail.
+    // Persist link-generation evidence before returning the bearer URL. This
+    // does not prove the link was sent, opened, delivered, or acknowledged.
+    // Never store the bearer token itself in the audit trail.
     await prisma.auditLog.create({
       data: {
         inspectionId: report.inspection.id,
         userId: session.user.id,
-        action: REPORT_SHARED_WITH_INSURER_ACTION,
+        action: REPORT_INSURER_LINK_GENERATED_ACTION,
         entityType: "Report",
         entityId: report.id,
         changes: JSON.stringify({
           channel: "signed_insurer_link",
           audience: "insurer",
+          deliveryStatus: "not_sent",
           reportStatus: report.status,
           expiresInDays: 30,
         }),
@@ -96,6 +96,7 @@ export async function POST(
       expiresInDays: 30,
       reportNumber: report.reportNumber,
       propertyAddress: report.propertyAddress,
+      deliveryRecorded: false,
     });
   } catch (error) {
     return fromException(request, error, { stage: "insurer-link" });

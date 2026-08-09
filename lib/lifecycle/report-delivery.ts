@@ -1,6 +1,9 @@
-/**
- * Audit action written only after the explicit "Share with Insurer" route
- * successfully creates a final report's signed handoff link.
- */
-export const REPORT_SHARED_WITH_INSURER_ACTION =
-  "REPORT_SHARED_WITH_INSURER" as const;
+/** A signed bearer link was generated. This is not evidence it was delivered. */
+export const REPORT_INSURER_LINK_GENERATED_ACTION =
+  "REPORT_INSURER_LINK_GENERATED" as const;
+
+/** Existing audit actions that prove a report was actually sent or delivered. */
+export const REPORT_DELIVERY_EVIDENCE_ACTIONS = [
+  "REPORT_SENT",
+  "REPORT_DELIVERED",
+] as const;

@@ -9,12 +9,12 @@
  */
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { TransitionContext } from "./inspection-state-machine";
-import { REPORT_SHARED_WITH_INSURER_ACTION } from "./report-delivery";
+import { REPORT_DELIVERY_EVIDENCE_ACTIONS } from "./report-delivery";
 
 /**
  * Pulls the minimal data needed to evaluate canTransition for the given
  * inspection: latest invoice status and reconciliation state, report status,
- * explicit insurer-share event, and handover timestamp.
+ * genuine report sent/delivered event, and handover timestamp.
  *
  * Accepts a `PrismaClient` or `Prisma.TransactionClient` so it composes
  * with the close route's `$transaction` boundary.
@@ -50,7 +50,7 @@ export async function loadTransitionContext(
       db.auditLog.findFirst({
         where: {
           inspectionId,
-          action: REPORT_SHARED_WITH_INSURER_ACTION,
+          action: { in: [...REPORT_DELIVERY_EVIDENCE_ACTIONS] },
           entityType: "Report",
           entityId: inspection.reportId,
         },
