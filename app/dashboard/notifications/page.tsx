@@ -353,20 +353,13 @@ export default function NotificationsPage() {
     [],
   );
 
-  const handleSavePrefs = useCallback(async () => {
+  const handleSavePrefs = useCallback(() => {
     setSavingPrefs(true);
     try {
       localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(preferences));
-      // Also persist to user profile for future cross-device sync
-      await fetch("/api/user/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notificationPreferences: preferences }),
-      });
-      toast.success("Notification preferences saved");
+      toast.success("Notification preferences saved on this device");
     } catch {
-      // Still saved locally — treat as success
-      toast.success("Preferences saved locally");
+      toast.error("Could not save notification preferences on this device");
     } finally {
       setSavingPrefs(false);
     }
@@ -469,7 +462,8 @@ export default function NotificationsPage() {
               Notification Preferences
             </h2>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
-              Choose which events trigger in-app notifications.
+              Choose which events trigger in-app notifications. Preferences are
+              stored only on this device and browser.
             </p>
           </div>
           <Button

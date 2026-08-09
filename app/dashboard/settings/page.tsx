@@ -550,15 +550,22 @@ export default function SettingsPage() {
             </h2>
 
             <div className="space-y-4">
-              <button type="button" className="w-full flex items-center gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors touch-manipulation">
+              <a
+                href="/dashboard/notifications"
+                className="w-full flex items-center gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors touch-manipulation"
+              >
                 <Bell className="w-4 h-4" />
                 <span>Notification Preferences</span>
-              </button>
+              </a>
 
-              <button type="button" className="w-full flex items-center gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors touch-manipulation">
+              <a
+                href="/api/user/export"
+                download
+                className="w-full flex items-center gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors touch-manipulation"
+              >
                 <Download className="w-4 h-4" />
                 <span>Export Data</span>
-              </button>
+              </a>
 
               <button
                 type="button"

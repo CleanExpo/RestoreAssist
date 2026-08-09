@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { router, toast } = vi.hoisted(() => ({
   router: { push: vi.fn() },
@@ -43,6 +43,10 @@ beforeEach(() => {
   localStorage.clear();
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe("notifications page mark-all contract", () => {
   it("keeps the optimistic read state and reports success after HTTP 200", async () => {
     const fetchMock = vi
@@ -82,6 +86,53 @@ describe("notifications page mark-all contract", () => {
     );
     expect(screen.getByText("1 unread")).toBeInTheDocument();
     expect(toast.success).not.toHaveBeenCalled();
+  });
+});
+
+describe("notification preference persistence", () => {
+  it("labels preferences as device-local and never sends an ignored profile update", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(true, { notifications: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<NotificationsPage />);
+    await screen.findByText("You're all set — no notifications");
+
+    expect(
+      screen.getByText(/stored only on this device and browser/i),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        "Notification preferences saved on this device",
+      ),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem("ra_notification_preferences")).not.toBeNull();
+  });
+
+  it("reports failure instead of false success when device storage rejects the save", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(true, { notifications: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("Storage quota exceeded", "QuotaExceededError");
+    });
+
+    render(<NotificationsPage />);
+    await screen.findByText("You're all set — no notifications");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Could not save notification preferences on this device",
+      ),
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 
