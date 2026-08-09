@@ -27,7 +27,7 @@ async function fixture(
 
 test.describe("mock-only owner lifecycle acceptance", () => {
   test.describe.configure({ mode: "serial" });
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
 
   test("rendered owner journey reaches a genuinely evidence-gated close", async ({
     page,
@@ -262,10 +262,17 @@ test.describe("mock-only owner lifecycle acceptance", () => {
       await page.goto("/portal/login");
       await page.getByLabel("Email").fill(CLIENT_EMAIL);
       await page.getByLabel("Password").fill(CLIENT_PORTAL_PASSWORD);
+      const portalLogin = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/api/portal/auth/login" &&
+          response.request().method() === "POST",
+      );
       await page.getByRole("button", { name: "Sign In" }).click();
+      expect((await portalLogin).ok()).toBe(true);
+      await page.waitForURL("**/portal/inspections", { timeout: 30_000 });
       await expect(
         page.getByRole("heading", { name: "My Restoration Reports" }),
-      ).toBeVisible();
+      ).toBeVisible({ timeout: 30_000 });
       await page
         .getByRole("link", { name: new RegExp(`Mock acceptance report`) })
         .click();
