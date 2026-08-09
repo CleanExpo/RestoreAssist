@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyPortalToken } from "@/lib/portal-token";
 import { prisma } from "@/lib/prisma";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { SQFT_TO_SQM, resolveAreaSqm } from "@/lib/units";
+import { resolvePortalInspectionAccess } from "@/lib/portal/resolve-portal-inspection-access";
 
-const MAX_PORTAL_PDF_MOISTURE_READINGS = 500;
+const MAX_PORTAL_PDF_MOISTURE_READINGS = 20;
 const MAX_PORTAL_PDF_AFFECTED_AREAS = 100;
 const MAX_PORTAL_PDF_SCOPE_ITEMS = 200;
 
@@ -17,24 +17,29 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> },
 ) {
   try {
+    const { token } = await params;
     const rateLimited = await applyRateLimit(request, {
       maxRequests: 30,
       windowMs: 15 * 60 * 1000,
       prefix: "portal-token-pdf",
+      failClosedOnUpstashError: true,
     });
     if (rateLimited) return rateLimited;
 
-    const { token } = await params;
-    const verified = verifyPortalToken(token);
+    const access = await resolvePortalInspectionAccess(token);
 
-    if (!verified) {
+    if (!access) {
       return NextResponse.json(
         { error: "Link has expired or is invalid" },
         { status: 401 },
       );
     }
 
-    const { inspectionId } = verified;
+    const { inspectionId, clientId } = access;
+    const inspectionWhere =
+      clientId === null
+        ? { id: inspectionId }
+        : { id: inspectionId, report: { clientId } };
 
     const [
       inspection,
@@ -45,7 +50,7 @@ export async function GET(
       scopeItemCount,
     ] = await Promise.all([
       prisma.inspection.findUnique({
-        where: { id: inspectionId },
+        where: inspectionWhere,
         include: {
           moistureReadings: {
             orderBy: [{ recordedAt: "asc" }, { id: "asc" }],
@@ -411,10 +416,13 @@ export async function GET(
         y -= 13;
       }
       if (moistureCount > 20) {
-        page.drawText(
-          `... and ${moistureCount - 20} more readings`,
-          { x: 48, y, size: 8, font, color: MUTED },
-        );
+        page.drawText(`... and ${moistureCount - 20} more readings`, {
+          x: 48,
+          y,
+          size: 8,
+          font,
+          color: MUTED,
+        });
         y -= 13;
       }
     } else {

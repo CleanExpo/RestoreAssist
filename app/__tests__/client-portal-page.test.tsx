@@ -11,13 +11,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Child client components are stubbed so this test stays focused on the
 // server component's own render output.
 vi.mock("next/navigation", () => ({ notFound: vi.fn() }));
-vi.mock("@/lib/portal-token", () => ({ verifyPortalToken: vi.fn() }));
-vi.mock("@/lib/portal/lookup-portal-account", () => ({
-  lookupPortalAccount: vi.fn(),
+vi.mock("@/lib/portal/resolve-portal-inspection-access", () => ({
+  resolvePortalInspectionAccess: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    inspection: { findFirst: vi.fn(), findUnique: vi.fn() },
+    inspection: { findUnique: vi.fn() },
   },
 }));
 vi.mock("@/components/portal/ClientPortalStatus", () => ({
@@ -40,25 +39,27 @@ vi.mock("@/components/portal/PortalContentHub", () => ({
   PortalAboutSection: () => null,
 }));
 
-import { verifyPortalToken } from "@/lib/portal-token";
-import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
+import { resolvePortalInspectionAccess } from "@/lib/portal/resolve-portal-inspection-access";
 import { prisma } from "@/lib/prisma";
 import ClientPortalPage from "../portal/[token]/page";
 
-const mVerify = verifyPortalToken as unknown as ReturnType<typeof vi.fn>;
-const mLookup = lookupPortalAccount as unknown as ReturnType<typeof vi.fn>;
+const mResolve = resolvePortalInspectionAccess as unknown as ReturnType<
+  typeof vi.fn
+>;
 const p = prisma as unknown as {
   inspection: {
-    findFirst: ReturnType<typeof vi.fn>;
     findUnique: ReturnType<typeof vi.fn>;
   };
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mLookup.mockResolvedValue(null);
-  mVerify.mockReturnValue({ inspectionId: "insp_1" });
-  p.inspection.findFirst.mockResolvedValue(null);
+  mResolve.mockResolvedValue({
+    inspectionId: "insp_1",
+    clientId: null,
+    source: "LEGACY_HMAC",
+    accessMode: "READ_ONLY",
+  });
   p.inspection.findUnique.mockResolvedValue({
     id: "insp_1",
     inspectionNumber: "INSP-001",
@@ -104,11 +105,12 @@ describe("ClientPortalPage", () => {
   });
 
   it("keeps a legacy no-expiry account readable without interactive controls", async () => {
-    mLookup.mockResolvedValueOnce({
+    mResolve.mockResolvedValueOnce({
+      inspectionId: "insp_1",
       clientId: "c_legacy",
+      source: "ACCOUNT",
       accessMode: "READ_ONLY",
     });
-    p.inspection.findFirst.mockResolvedValueOnce({ id: "insp_1" });
 
     const jsx = await ClientPortalPage({ params });
     render(jsx);
@@ -134,11 +136,12 @@ describe("ClientPortalPage", () => {
   });
 
   it("preserves interactive controls for a current unexpired account", async () => {
-    mLookup.mockResolvedValueOnce({
+    mResolve.mockResolvedValueOnce({
+      inspectionId: "insp_1",
       clientId: "c_current",
+      source: "ACCOUNT",
       accessMode: "INTERACTIVE",
     });
-    p.inspection.findFirst.mockResolvedValueOnce({ id: "insp_1" });
 
     const jsx = await ClientPortalPage({ params });
     render(jsx);

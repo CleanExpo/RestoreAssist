@@ -1,6 +1,4 @@
 import { notFound } from "next/navigation";
-import { verifyPortalToken } from "@/lib/portal-token";
-import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
 import { prisma } from "@/lib/prisma";
 import { resolveAreaSqm } from "@/lib/units";
 import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
@@ -12,6 +10,7 @@ import {
   PortalContentSections,
 } from "@/components/portal/PortalContentHub";
 import { fetchPublishedPortalContent } from "@/lib/portal/fetch-portal-content";
+import { resolvePortalInspectionAccess } from "@/lib/portal/resolve-portal-inspection-access";
 
 const CATEGORY_COLOURS: Record<string, string> = {
   "1": "bg-success-subtle text-success-subtle-foreground",
@@ -47,34 +46,20 @@ export default async function ClientPortalPage({ params }: PageProps) {
   // 3. If neither resolves, render the framework 404 (notFound()).
   //    The legacy "Link Expired" friendly card remains below for the
   //    legacy-path miss case (verified but inspection deleted).
-  let inspectionId: string | null = null;
-  let showInteractiveActions = false;
-
-  const portalAccount = await lookupPortalAccount(token);
-  if (portalAccount) {
-    showInteractiveActions = portalAccount.accessMode === "INTERACTIVE";
-    // Inspection has no direct `clientId` — it links to Client through
-    // `Report.clientId` (1:0..1 between Report and Inspection). Pick
-    // the newest Inspection whose Report points at this Client.
-    const latest = await prisma.inspection.findFirst({
-      where: { report: { clientId: portalAccount.clientId } },
-      orderBy: { createdAt: "desc" },
-      select: { id: true },
-    });
-    inspectionId = latest?.id ?? null;
-  }
-
-  if (!portalAccount) {
-    const verified = verifyPortalToken(token);
-    if (verified) inspectionId = verified.inspectionId;
-  }
-
-  if (!inspectionId) {
+  const access = await resolvePortalInspectionAccess(token);
+  if (!access) {
     notFound();
   }
 
+  const { inspectionId, clientId } = access;
+  const isPortalAccount = access.source === "ACCOUNT";
+  const showInteractiveActions = access.accessMode === "INTERACTIVE";
+
   const inspection = await prisma.inspection.findUnique({
-    where: { id: inspectionId },
+    where:
+      clientId === null
+        ? { id: inspectionId }
+        : { id: inspectionId, report: { clientId } },
     include: {
       affectedAreas: true,
       scopeItems: {
@@ -191,7 +176,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
         </div>
 
         {/* Live claim status is available only to revocable DB-backed links. */}
-        {portalAccount && <ClientPortalStatus token={token} />}
+        {isPortalAccount && <ClientPortalStatus token={token} />}
 
         {!showInteractiveActions && (
           <div
