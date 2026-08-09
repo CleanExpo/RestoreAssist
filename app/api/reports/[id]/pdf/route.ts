@@ -16,6 +16,7 @@ import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 import { isAiDraftPending } from "@/lib/reports/ai-ownership";
 import { crossReferenceEvidencePhotos } from "@/lib/reports/evidence-map";
+import { parseStoredJson } from "@/lib/reports/parse-stored-json";
 
 /**
  * GET /api/reports/[id]/pdf
@@ -163,21 +164,11 @@ export async function GET(
       detailedReport: report.detailedReport?.trimStart().startsWith("{")
         ? null
         : report.detailedReport,
-      moistureReadings: report.moistureReadings
-        ? JSON.parse(report.moistureReadings as string)
-        : null,
-      psychrometricReadings: report.psychrometricReadings
-        ? JSON.parse(report.psychrometricReadings as string)
-        : null,
-      psychrometricAssessment: report.psychrometricAssessment
-        ? JSON.parse(report.psychrometricAssessment as string)
-        : null,
-      equipmentSelection: report.equipmentSelection
-        ? JSON.parse(report.equipmentSelection as string)
-        : null,
-      scopeAreas: report.scopeAreas
-        ? JSON.parse(report.scopeAreas as string)
-        : null,
+      moistureReadings: parseStoredJson(report.moistureReadings),
+      psychrometricReadings: parseStoredJson(report.psychrometricReadings),
+      psychrometricAssessment: parseStoredJson(report.psychrometricAssessment),
+      equipmentSelection: parseStoredJson(report.equipmentSelection),
+      scopeAreas: parseStoredJson(report.scopeAreas),
     };
 
     // Brand the report with the contractor's own firm identity (logo + accent

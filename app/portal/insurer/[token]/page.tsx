@@ -1,6 +1,6 @@
 import { verifyInsurerToken } from "@/lib/portal-token";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
+import { parseStoredJson } from "@/lib/reports/parse-stored-json";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -38,16 +38,11 @@ export default async function InsurerPortalPage({ params }: PageProps) {
     return <ExpiredPage />;
   }
 
-  // Parse JSON fields
-  const moistureReadings = report.moistureReadings
-    ? JSON.parse(report.moistureReadings as string)
-    : null;
-  const scopeAreas = report.scopeAreas
-    ? JSON.parse(report.scopeAreas as string)
-    : null;
-  const equipmentSelection = report.equipmentSelection
-    ? JSON.parse(report.equipmentSelection as string)
-    : null;
+  // Legacy rows can contain malformed JSON. Treat those optional sections as
+  // unavailable rather than crashing the public insurer portal.
+  const moistureReadings = parseStoredJson(report.moistureReadings);
+  const scopeAreas = parseStoredJson(report.scopeAreas);
+  const equipmentSelection = parseStoredJson(report.equipmentSelection);
 
   const eqArr = Array.isArray(equipmentSelection)
     ? equipmentSelection
