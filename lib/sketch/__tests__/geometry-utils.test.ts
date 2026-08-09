@@ -10,6 +10,8 @@ import {
   snapPointToGrid,
   snapSegmentEnd,
   formatDimension,
+  shouldShowEdgeDimension,
+  MIN_EDGE_DIM_M,
   segmentLabelPosition,
   footprintDimensions,
   snapToNearbyEndpoint,
@@ -172,6 +174,21 @@ describe("geometry-utils — snapSegmentEnd", () => {
   it("skips the angle lock when angleStep >= 360 (grid only)", () => {
     const end = snapSegmentEnd(start, { x: 218, y: 103 }, 25, 360);
     expect(end).toEqual({ x: 225, y: 100 });
+  });
+});
+
+describe("geometry-utils — shouldShowEdgeDimension", () => {
+  it("hides short stubs below the Encircle-style minimum", () => {
+    expect(shouldShowEdgeDimension(40, 100)).toBe(false); // 0.40 m
+    expect(shouldShowEdgeDimension(MIN_EDGE_DIM_M * 100, 100)).toBe(true);
+    expect(shouldShowEdgeDimension(200, 100)).toBe(true);
+  });
+
+  it("honours a calibrated scale", () => {
+    // 30 px at 50 px/m = 0.60 m → show
+    expect(shouldShowEdgeDimension(30, 50)).toBe(true);
+    // 20 px at 50 px/m = 0.40 m → hide
+    expect(shouldShowEdgeDimension(20, 50)).toBe(false);
   });
 });
 
