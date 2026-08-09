@@ -29,6 +29,11 @@ import {
 } from "@/lib/reports/moisture-map";
 import { fitSketchImageInBox } from "@/lib/sketch/export-content-bounds";
 import { extractDamageLegend } from "@/lib/sketch/damage-zone";
+import { extractEquipmentLegend } from "@/lib/sketch/equipment-symbols";
+import {
+  northArrowGeometry,
+  scaleBarLayout,
+} from "@/lib/sketch/pdf-plan-chrome";
 
 // ── Constants ─────────────────────────────────────────────
 
@@ -311,9 +316,10 @@ async function addSketchPage(
     });
   }
 
-  // ── Room + damage legends ──
+  // ── Room + damage + equipment legends ──
   const rooms = extractRooms(floor.fabricJson);
   const damageLegend = extractDamageLegend(floor.fabricJson ?? null);
+  const equipmentLegend = extractEquipmentLegend(floor.fabricJson ?? null);
 
   // ── Floor sub-header: total measured area + calibrated scale (RA-6846/6843) ──
   // scaleConfig is stored at the top level of the sketch blob (SketchScaleModal);
@@ -322,9 +328,10 @@ async function addSketchPage(
   const scaleCfg = (
     floor.fabricJson as { scaleConfig?: { pxPerMetre?: number } } | null | undefined
   )?.scaleConfig;
+  const pxPerMetre = scaleCfg?.pxPerMetre ?? PX_PER_METRE;
   const metaLine = formatFloorMeta({
     totalAreaM2: rooms.reduce((a, r) => a + r.areaM2, 0),
-    pxPerMetre: scaleCfg?.pxPerMetre ?? PX_PER_METRE,
+    pxPerMetre,
   });
   const metaText = safe(metaLine);
   const metaW = helvetica.widthOfTextAtSize(metaText, 8);
@@ -337,15 +344,26 @@ async function addSketchPage(
   });
   let legendW = 0;
 
-  if (rooms.length > 0 || damageLegend.length > 0) {
+  if (
+    rooms.length > 0 ||
+    damageLegend.length > 0 ||
+    equipmentLegend.length > 0
+  ) {
     legendW = 140;
     const legendX = PAGE_W - MARGIN - legendW;
     const legendTop = CONTENT_Y_TOP - 4;
     const damageBlockH =
       damageLegend.length > 0 ? damageLegend.length * 14 + 22 : 0;
+    const equipBlockH =
+      equipmentLegend.length > 0 ? equipmentLegend.length * 14 + 22 : 0;
     const roomBlockH = rooms.length > 0 ? rooms.length * 16 + 28 : 0;
-    const gap = rooms.length > 0 && damageLegend.length > 0 ? 8 : 0;
-    const totalH = roomBlockH + damageBlockH + gap;
+    const gaps =
+      (rooms.length > 0 && damageLegend.length > 0 ? 8 : 0) +
+      ((rooms.length > 0 || damageLegend.length > 0) &&
+      equipmentLegend.length > 0
+        ? 8
+        : 0);
+    const totalH = roomBlockH + damageBlockH + equipBlockH + gaps;
 
     // Legend box
     page.drawRectangle({
@@ -445,6 +463,40 @@ async function addSketchPage(
         ly -= 14;
       }
     }
+
+    if (equipmentLegend.length > 0) {
+      if (rooms.length > 0 || damageLegend.length > 0) ly -= 6;
+      page.drawText("Equipment", {
+        x: legendX + 8,
+        y: ly,
+        size: 8,
+        font: bold,
+        color: TEXT_MAIN,
+      });
+      ly -= 14;
+      for (const entry of equipmentLegend) {
+        const hex = entry.swatch.replace("#", "");
+        const r = parseInt(hex.slice(0, 2), 16) / 255;
+        const g = parseInt(hex.slice(2, 4), 16) / 255;
+        const b = parseInt(hex.slice(4, 6), 16) / 255;
+        page.drawCircle({
+          x: legendX + 12,
+          y: ly + 5,
+          size: 4,
+          color: rgb(0.97, 0.97, 0.97),
+          borderColor: rgb(r, g, b),
+          borderWidth: 1,
+        });
+        page.drawText(safe(`${entry.short} ${entry.label}`), {
+          x: legendX + 20,
+          y: ly + 2,
+          size: 7,
+          font: helvetica,
+          color: TEXT_MAIN,
+        });
+        ly -= 14;
+      }
+    }
   }
 
   // ── Sketch image ──
@@ -473,6 +525,79 @@ async function addSketchPage(
     color: rgb(1, 1, 1),
   });
   page.drawImage(pngImg, { x: imgX, y: imgY, width: drawW, height: drawH });
+
+  // ── North arrow + graphic scale bar (inspection-grade report chrome) ──
+  {
+    const arrow = northArrowGeometry(
+      { x: imgX + drawW - 18, y: imgY + drawH - 36 },
+      20,
+    );
+    page.drawLine({
+      start: arrow.stemEnd,
+      end: arrow.tip,
+      thickness: 1.25,
+      color: BRAND_DARK,
+    });
+    page.drawLine({
+      start: arrow.baseLeft,
+      end: arrow.tip,
+      thickness: 1.25,
+      color: BRAND_DARK,
+    });
+    page.drawLine({
+      start: arrow.baseRight,
+      end: arrow.tip,
+      thickness: 1.25,
+      color: BRAND_DARK,
+    });
+    const nLabel = arrow.label.text;
+    const nW = bold.widthOfTextAtSize(nLabel, 8);
+    page.drawText(nLabel, {
+      x: arrow.label.x - nW / 2,
+      y: arrow.label.y,
+      size: 8,
+      font: bold,
+      color: BRAND_DARK,
+    });
+
+    const bar = scaleBarLayout(pxPerMetre, drawW, imgW, 110);
+    if (bar) {
+      // Bottom-right so moisture legend (bottom-left) never overlaps.
+      const barX = imgX + Math.max(10, drawW - bar.barLengthPt - 12);
+      const barY = imgY + 14;
+      page.drawLine({
+        start: { x: barX, y: barY },
+        end: { x: barX + bar.barLengthPt, y: barY },
+        thickness: 1.5,
+        color: BRAND_DARK,
+      });
+      for (const t of bar.ticks) {
+        const tx = barX + t * bar.barLengthPt;
+        page.drawLine({
+          start: { x: tx, y: barY - 3 },
+          end: { x: tx, y: barY + 3 },
+          thickness: 1,
+          color: BRAND_DARK,
+        });
+      }
+      page.drawText("0", {
+        x: barX - 2,
+        y: barY + 5,
+        size: 6.5,
+        font: helvetica,
+        color: TEXT_MUTED,
+      });
+      const endLabel = safe(bar.label);
+      const endW = helvetica.widthOfTextAtSize(endLabel, 6.5);
+      page.drawText(endLabel, {
+        x: barX + bar.barLengthPt - endW / 2,
+        y: barY + 5,
+        size: 6.5,
+        font: helvetica,
+        color: TEXT_MUTED,
+      });
+    }
+  }
 
   // ── Moisture map overlay (RA-120 acceptance §3) ──
   // The moisture pins are a client DOM overlay that never bakes into the
