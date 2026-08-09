@@ -43,6 +43,30 @@ export function centroid(points: ReadonlyArray<{ x: number; y: number }>): {
 }
 
 /**
+ * Ray-cast point-in-polygon test (inclusive of edges within float epsilon).
+ * Used to bind damage fills / moisture / evidence to room polygons.
+ */
+export function pointInPolygon(
+  x: number,
+  y: number,
+  pts: ReadonlyArray<{ x: number; y: number }>,
+): boolean {
+  if (pts.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const xi = pts[i].x;
+    const yi = pts[i].y;
+    const xj = pts[j].x;
+    const yj = pts[j].y;
+    const intersect =
+      yi > y !== yj > y &&
+      x < ((xj - xi) * (y - yi)) / (yj - yi + Number.EPSILON) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+/**
  * Snap a value to the nearest multiple of `grid`.
  * Used for grid snapping during shape drawing.
  */
