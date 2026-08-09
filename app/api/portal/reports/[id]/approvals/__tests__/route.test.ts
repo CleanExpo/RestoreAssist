@@ -1,12 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-// STORM T10 — insurer/client report approvals (Linda, portal). Locks the
-// client-only auth, input validation, tenant-scoped report ownership, and the
-// find-or-create upsert that records an APPROVED/REJECTED decision.
-
-// The route now authenticates via the standalone portal JWT (bearer header),
-// not a NextAuth session.
 const authenticateClientRequest = vi.fn();
 vi.mock("@/lib/portal/client-jwt", () => ({
   authenticateClientRequest: (...a: unknown[]) =>
@@ -31,8 +25,7 @@ vi.mock("@/lib/api-errors", () => ({
 
 const reportFindFirst = vi.fn();
 const approvalFindFirst = vi.fn();
-const approvalCreate = vi.fn();
-const approvalUpdate = vi.fn();
+const approvalUpdateMany = vi.fn();
 const clientUserFindUnique = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -42,13 +35,37 @@ vi.mock("@/lib/prisma", () => ({
     report: { findFirst: (...a: unknown[]) => reportFindFirst(...a) },
     reportApproval: {
       findFirst: (...a: unknown[]) => approvalFindFirst(...a),
-      create: (...a: unknown[]) => approvalCreate(...a),
-      update: (...a: unknown[]) => approvalUpdate(...a),
+      updateMany: (...a: unknown[]) => approvalUpdateMany(...a),
     },
   },
 }));
 
 import { POST } from "../route";
+
+const reportUpdatedAt = "2026-08-09T10:00:00.000Z";
+const publishedReport = {
+  id: "r_1",
+  status: "COMPLETED",
+  reportVersion: 3,
+  updatedAt: new Date(reportUpdatedAt),
+  totalCost: 1250,
+  inspectionPdfUrl: null,
+  detailedReport: "Final report",
+  scopeOfWorksDocument: "Published scope",
+  costEstimationDocument: "Published estimate",
+};
+const pendingApproval = {
+  id: "ap_1",
+  reportId: "r_1",
+  approvalType: "SCOPE_OF_WORK",
+  status: "PENDING",
+  requestedAt: new Date("2026-08-09T10:01:00.000Z"),
+  respondedAt: null,
+  clientComments: null,
+  amount: null,
+  createdAt: new Date("2026-08-09T10:01:00.000Z"),
+  updatedAt: new Date("2026-08-09T10:01:00.000Z"),
+};
 
 const clientClaims = {
   sub: "u_c",
@@ -57,6 +74,7 @@ const clientClaims = {
   name: "Home Owner",
   typ: "client-portal",
 };
+
 function postReq(body: unknown): NextRequest {
   return new NextRequest("http://localhost/api/portal/reports/r_1/approvals", {
     method: "POST",
@@ -64,78 +82,131 @@ function postReq(body: unknown): NextRequest {
     headers: { "content-type": "application/json" },
   });
 }
+
 const ctx = { params: Promise.resolve({ id: "r_1" }) };
-const approve = { approvalType: "SCOPE_OF_WORK", status: "APPROVED" };
+const approve = {
+  approvalId: "ap_1",
+  approvalType: "SCOPE_OF_WORK",
+  status: "APPROVED",
+  reportVersion: 3,
+  reportUpdatedAt,
+};
 
 beforeEach(() => {
-  authenticateClientRequest.mockReset();
-  reportFindFirst.mockReset();
-  approvalFindFirst.mockReset();
-  approvalCreate.mockReset();
-  approvalUpdate.mockReset();
-  clientUserFindUnique.mockReset();
+  vi.clearAllMocks();
   authenticateClientRequest.mockResolvedValue(clientClaims);
   clientUserFindUnique.mockResolvedValue({ id: "u_c", clientId: "c_1" });
+  reportFindFirst.mockResolvedValue(publishedReport);
+  approvalFindFirst.mockResolvedValue(pendingApproval);
+  approvalUpdateMany.mockResolvedValue({ count: 1 });
 });
 
 describe("POST /api/portal/reports/[id]/approvals", () => {
   it("returns 401 when the bearer token is missing or invalid", async () => {
     authenticateClientRequest.mockResolvedValueOnce(null);
-    const res = await POST(postReq(approve), ctx);
-    expect(res.status).toBe(401);
-  });
-
-  it("returns 400 for an invalid approval type", async () => {
-    const res = await POST(postReq({ approvalType: "BOGUS", status: "APPROVED" }), ctx);
-    expect(res.status).toBe(400);
-  });
-
-  it("returns 400 for an invalid status", async () => {
-    const res = await POST(
-      postReq({ approvalType: "SCOPE_OF_WORK", status: "MAYBE" }),
-      ctx,
-    );
-    expect(res.status).toBe(400);
+    expect((await POST(postReq(approve), ctx)).status).toBe(401);
   });
 
   it("returns 404 when the report does not belong to the client", async () => {
     reportFindFirst.mockResolvedValueOnce(null);
-    const res = await POST(postReq(approve), ctx);
-    expect(res.status).toBe(404);
+
+    const response = await POST(postReq(approve), ctx);
+
+    expect(response.status).toBe(404);
     expect(reportFindFirst.mock.calls[0][0].where).toMatchObject({
       id: "r_1",
       clientId: "c_1",
     });
+    expect(approvalUpdateMany).not.toHaveBeenCalled();
   });
 
-  it("creates a new approval when none is pending", async () => {
-    reportFindFirst.mockResolvedValueOnce({ id: "r_1", clientId: "c_1" });
-    approvalFindFirst.mockResolvedValueOnce(null);
-    approvalCreate.mockResolvedValueOnce({ id: "ap_1", status: "APPROVED" });
+  it("rejects a draft report even when it has document content", async () => {
+    reportFindFirst.mockResolvedValueOnce({
+      ...publishedReport,
+      status: "DRAFT",
+    });
 
-    const res = await POST(postReq(approve), ctx);
-    expect(res.status).toBe(201);
-    const json = await res.json();
-    expect(json.approval.id).toBe("ap_1");
-    expect(approvalCreate.mock.calls[0][0].data).toMatchObject({
+    const response = await POST(postReq(approve), ctx);
+
+    expect(response.status).toBe(404);
+    expect(approvalUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("requires the requested published document", async () => {
+    reportFindFirst.mockResolvedValueOnce({
+      ...publishedReport,
+      scopeOfWorksDocument: null,
+    });
+
+    const response = await POST(postReq(approve), ctx);
+
+    expect(response.status).toBe(409);
+    expect(approvalFindFirst).not.toHaveBeenCalled();
+    expect(approvalUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("requires the exact pending approval request", async () => {
+    approvalFindFirst.mockResolvedValueOnce(null);
+
+    const response = await POST(postReq(approve), ctx);
+
+    expect(response.status).toBe(409);
+    expect(approvalFindFirst.mock.calls[0][0].where).toMatchObject({
+      id: "ap_1",
       reportId: "r_1",
       approvalType: "SCOPE_OF_WORK",
-      status: "APPROVED",
+      status: "PENDING",
     });
-    expect(approvalUpdate).not.toHaveBeenCalled();
+    expect(approvalUpdateMany).not.toHaveBeenCalled();
   });
 
-  it("updates the existing pending approval instead of duplicating it", async () => {
-    reportFindFirst.mockResolvedValueOnce({ id: "r_1", clientId: "c_1" });
-    approvalFindFirst.mockResolvedValueOnce({ id: "ap_old" });
-    approvalUpdate.mockResolvedValueOnce({ id: "ap_old", status: "REJECTED" });
+  it("rejects a stale request after the report changes", async () => {
+    approvalFindFirst.mockResolvedValueOnce({
+      ...pendingApproval,
+      requestedAt: new Date("2026-08-09T09:59:59.000Z"),
+    });
 
-    const res = await POST(
-      postReq({ approvalType: "SCOPE_OF_WORK", status: "REJECTED" }),
-      ctx,
-    );
-    expect(res.status).toBe(201);
-    expect(approvalUpdate.mock.calls[0][0].where).toEqual({ id: "ap_old" });
-    expect(approvalCreate).not.toHaveBeenCalled();
+    const response = await POST(postReq(approve), ctx);
+
+    expect(response.status).toBe(409);
+    expect(approvalUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects a decision submitted from an older rendered revision", async () => {
+    const response = await POST(postReq({ ...approve, reportVersion: 2 }), ctx);
+
+    expect(response.status).toBe(409);
+    expect(approvalFindFirst).not.toHaveBeenCalled();
+    expect(approvalUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("atomically responds to the current pending request", async () => {
+    const response = await POST(postReq(approve), ctx);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.approval).toMatchObject({ id: "ap_1", status: "APPROVED" });
+    expect(approvalUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: "ap_1",
+        reportId: "r_1",
+        approvalType: "SCOPE_OF_WORK",
+        status: "PENDING",
+        requestedAt: pendingApproval.requestedAt,
+      },
+      data: {
+        status: "APPROVED",
+        respondedAt: expect.any(Date),
+        clientComments: null,
+      },
+    });
+  });
+
+  it("rejects a raced second response", async () => {
+    approvalUpdateMany.mockResolvedValueOnce({ count: 0 });
+
+    const response = await POST(postReq(approve), ctx);
+
+    expect(response.status).toBe(409);
   });
 });

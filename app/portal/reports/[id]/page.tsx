@@ -28,6 +28,7 @@ interface Report {
   title: string;
   description: string | null;
   status: string;
+  reportVersion: number;
   propertyAddress: string;
   hazardType: string;
   totalCost: number | null;
@@ -122,6 +123,11 @@ export default function PortalReportDetail({
 
   const handleSubmitApproval = async () => {
     if (!approvalType) return;
+    const pendingApproval = getPendingApprovalForType(approvalType);
+    if (!pendingApproval || !report) {
+      toast.error("This approval request is no longer available");
+      return;
+    }
 
     setSubmitting(true);
 
@@ -135,10 +141,12 @@ export default function PortalReportDetail({
             "Idempotency-Key": crypto.randomUUID(),
           },
           body: JSON.stringify({
+            approvalId: pendingApproval.id,
             approvalType,
             status: approvalStatus,
             clientComments: comments || null,
-            amount: report?.totalCost || null,
+            reportVersion: report.reportVersion,
+            reportUpdatedAt: report.updatedAt,
           }),
         },
       );
@@ -173,7 +181,9 @@ export default function PortalReportDetail({
     if (!report) return;
     setDownloadingPdf(true);
     try {
-      const res = await portalFetch(`/api/portal/reports/${report.id}/download`);
+      const res = await portalFetch(
+        `/api/portal/reports/${report.id}/download`,
+      );
       if (!res.ok) throw new Error("Download failed");
 
       const contentType = res.headers.get("content-type") ?? "";
@@ -295,25 +305,23 @@ export default function PortalReportDetail({
               >
                 {report.status}
               </div>
-              {report.status !== "DRAFT" && (
-                <button
-                  onClick={handleDownloadPdf}
-                  disabled={downloadingPdf}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium disabled:opacity-50 transition-colors"
-                >
-                  {downloadingPdf ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      Download PDF
-                    </>
-                  )}
-                </button>
-              )}
+              <button
+                onClick={handleDownloadPdf}
+                disabled={downloadingPdf}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium disabled:opacity-50 transition-colors"
+              >
+                {downloadingPdf ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    Download PDF
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
@@ -432,20 +440,17 @@ export default function PortalReportDetail({
                     {getStatusBadge(scopeApproval.status).icon}
                     {scopeApproval.status.replace("_", " ")}
                   </div>
-                ) : pendingScopeApproval ? (
-                  <div
-                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge("PENDING").bg} ${getStatusBadge("PENDING").text}`}
-                  >
-                    {getStatusBadge("PENDING").icon}
-                    PENDING
-                  </div>
-                ) : (
+                ) : pendingScopeApproval && report.scopeOfWorksDocument ? (
                   <button
                     onClick={() => handleApprovalClick("SCOPE_OF_WORK")}
                     className="px-4 py-2 bg-brand-bronze text-white rounded-lg text-sm font-medium hover:bg-brand-bronze/90 transition-colors"
                   >
-                    Review & Approve
+                    Review & Respond
                   </button>
+                ) : (
+                  <span className="text-xs font-medium text-brand-slate">
+                    Awaiting contractor request
+                  </span>
                 )}
               </div>
               <p className="text-sm text-brand-slate">
@@ -490,20 +495,17 @@ export default function PortalReportDetail({
                     {getStatusBadge(costApproval.status).icon}
                     {costApproval.status.replace("_", " ")}
                   </div>
-                ) : pendingCostApproval ? (
-                  <div
-                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge("PENDING").bg} ${getStatusBadge("PENDING").text}`}
-                  >
-                    {getStatusBadge("PENDING").icon}
-                    PENDING
-                  </div>
-                ) : (
+                ) : pendingCostApproval && report.costEstimationDocument ? (
                   <button
                     onClick={() => handleApprovalClick("COST_ESTIMATE")}
                     className="px-4 py-2 bg-brand-bronze text-white rounded-lg text-sm font-medium hover:bg-brand-bronze/90 transition-colors"
                   >
-                    Review & Approve
+                    Review & Respond
                   </button>
+                ) : (
+                  <span className="text-xs font-medium text-brand-slate">
+                    Awaiting contractor request
+                  </span>
                 )}
               </div>
               <p className="text-sm text-brand-slate">

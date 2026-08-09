@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { requireClientAuth } from "@/lib/portal/require-client-auth";
+import {
+  isApprovalForCurrentRevision,
+  isPortalReportPublished,
+} from "@/lib/portal/report-publication";
 
 // GET /api/portal/reports/[id] - Get single report for logged-in client (bearer JWT)
 export async function GET(
@@ -21,6 +25,13 @@ export async function GET(
       where: {
         id: reportId,
         clientId,
+        status: "COMPLETED",
+        OR: [
+          { inspectionPdfUrl: { not: null } },
+          { detailedReport: { not: null } },
+          { scopeOfWorksDocument: { not: null } },
+          { costEstimationDocument: { not: null } },
+        ],
       },
       include: {
         client: {
@@ -42,11 +53,12 @@ export async function GET(
           orderBy: {
             createdAt: "desc",
           },
+          take: 2,
         },
       },
     });
 
-    if (!report) {
+    if (!report || !isPortalReportPublished(report)) {
       return apiError(request, {
         code: "NOT_FOUND",
         message: "Report not found",
@@ -54,7 +66,14 @@ export async function GET(
       });
     }
 
-    return NextResponse.json({ report });
+    return NextResponse.json({
+      report: {
+        ...report,
+        approvals: report.approvals.filter((approval) =>
+          isApprovalForCurrentRevision(report, approval),
+        ),
+      },
+    });
   } catch (error) {
     console.error("Error fetching report:", error);
     return fromException(request, error, { stage: "portal/reports:get" });
