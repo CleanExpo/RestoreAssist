@@ -1,5 +1,6 @@
 import type { SketchFloor } from "@/lib/generate-sketch-pdf";
 import { parseMoisturePins } from "@/lib/reports/moisture-map";
+import { parseEvidencePins } from "@/lib/reports/evidence-map";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 
 /**
@@ -18,6 +19,7 @@ export interface ClaimSketchRow {
    * parsed here and overlaid onto the sketch image in the report PDF.
    */
   moisturePoints?: unknown;
+  evidencePins?: unknown;
 }
 
 /**
@@ -59,6 +61,7 @@ export async function claimSketchesToFloors(
               ? (s.sketchData as Record<string, unknown>)
               : null,
           moisturePins: parseMoisturePins(s.moisturePoints),
+          evidencePins: parseEvidencePins(s.evidencePins),
         };
       } catch {
         return null;
@@ -91,6 +94,7 @@ export async function uploadedFloorPlanToFloor(
       pngDataUrl: `data:${contentType};base64,${base64}`,
       fabricJson: null,
       moisturePins: null,
+      evidencePins: null,
     };
   } catch {
     return null;

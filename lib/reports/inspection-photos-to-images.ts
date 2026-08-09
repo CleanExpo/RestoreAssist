@@ -2,6 +2,7 @@
  * The subset of an `InspectionPhoto` row needed to embed it in a report.
  */
 export interface InspectionPhotoRow {
+  id?: string;
   url: string;
   thumbnailUrl?: string | null;
   description?: string | null;
@@ -49,6 +50,7 @@ function captionOf(p: InspectionPhotoRow): string {
 export async function inspectionPhotosToImages(
   photos: InspectionPhotoRow[],
   fetchImpl: typeof fetch = fetch,
+  evidenceLabelsByPhotoId: ReadonlyMap<string, string[]> = new Map(),
 ): Promise<ReportPhoto[]> {
   const results = await Promise.all(
     photos.map(async (p): Promise<ReportPhoto | null> => {
@@ -59,7 +61,18 @@ export async function inspectionPhotosToImages(
         if (!res.ok) return null;
         const bytes = new Uint8Array(await res.arrayBuffer());
         if (bytes.length === 0) return null;
-        return { bytes, isPng: looksLikePng(bytes), caption: captionOf(p) };
+        const caption = captionOf(p);
+        const evidenceLabels = p.id
+          ? (evidenceLabelsByPhotoId.get(p.id) ?? [])
+          : [];
+        return {
+          bytes,
+          isPng: looksLikePng(bytes),
+          caption:
+            evidenceLabels.length > 0
+              ? `${evidenceLabels.join(", ")} · ${caption || "Inspection evidence"}`
+              : caption,
+        };
       } catch {
         return null;
       }

@@ -6,6 +6,7 @@ import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { toNormalized } from "@/lib/sketch/pin-coords";
 import { resolveEvidenceRoomLink } from "@/lib/sketch/sync-room-graph";
+import { signEvidencePinUrls } from "../sign-response";
 
 /** PATCH /api/inspections/[id]/sketches/[sketchId]/evidence-pins/[pinId] */
 export async function PATCH(
@@ -150,12 +151,12 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json({
-      pin: {
-        ...pin,
-        ...(roomName !== null || moved ? { roomName, captureAdapter } : {}),
-      },
+    const responsePin = await signEvidencePinUrls({
+      ...pin,
+      ...(roomName !== null || moved ? { roomName, captureAdapter } : {}),
     });
+
+    return NextResponse.json({ pin: responsePin });
   } catch (error) {
     return fromException(request, error, { stage: "evidence-pins:update" });
   }

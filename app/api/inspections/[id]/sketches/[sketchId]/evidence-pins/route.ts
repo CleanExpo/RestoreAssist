@@ -9,6 +9,7 @@ import {
   resolveEvidenceRoomLink,
 } from "@/lib/sketch/sync-room-graph";
 import { toNormalized } from "@/lib/sketch/pin-coords";
+import { signEvidencePinUrls } from "./sign-response";
 
 const PIN_KINDS = new Set(["photo", "video", "document", "voice"]);
 
@@ -92,9 +93,11 @@ export async function GET(
       },
     });
 
-    return NextResponse.json({
-      pins: attachRoomNamesToPins(pins, sketch.rooms),
-    });
+    const responsePins = await Promise.all(
+      attachRoomNamesToPins(pins, sketch.rooms).map(signEvidencePinUrls),
+    );
+
+    return NextResponse.json({ pins: responsePins });
   } catch (error) {
     return fromException(request, error, { stage: "evidence-pins:list" });
   }
@@ -155,6 +158,28 @@ export async function POST(
       scale?: number;
     };
 
+    const linkedPhoto = body.inspectionPhotoId
+      ? await prisma.inspectionPhoto.findFirst({
+          where: { id: body.inspectionPhotoId, inspectionId: id },
+          select: {
+            id: true,
+            url: true,
+            thumbnailUrl: true,
+            description: true,
+            location: true,
+            mimeType: true,
+            fileSize: true,
+          },
+        })
+      : null;
+    if (body.inspectionPhotoId && !linkedPhoto) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Inspection photo not found",
+        status: 400,
+      });
+    }
+
     const kind = body.kind ?? "photo";
     if (!PIN_KINDS.has(kind)) {
       return apiError(request, {
@@ -206,7 +231,7 @@ export async function POST(
       data: {
         sketchId,
         sketchRoomId,
-        inspectionPhotoId: body.inspectionPhotoId ?? null,
+        inspectionPhotoId: linkedPhoto?.id ?? null,
         kind,
         x: body.x,
         y: body.y,
@@ -214,12 +239,20 @@ export async function POST(
         ny: ny ?? null,
         rotationDeg: body.rotationDeg ?? 0,
         scale: body.scale ?? 1,
-        fileUrl: body.fileUrl ?? null,
-        thumbnailUrl: body.thumbnailUrl ?? null,
+        fileUrl: linkedPhoto?.url ?? body.fileUrl ?? null,
+        thumbnailUrl:
+          linkedPhoto?.thumbnailUrl ??
+          linkedPhoto?.url ??
+          body.thumbnailUrl ??
+          null,
         fileName: body.fileName ?? null,
-        fileMimeType: body.fileMimeType ?? null,
-        fileSizeBytes: body.fileSizeBytes ?? null,
-        caption: body.caption ?? null,
+        fileMimeType: linkedPhoto?.mimeType ?? body.fileMimeType ?? null,
+        fileSizeBytes: linkedPhoto?.fileSize ?? body.fileSizeBytes ?? null,
+        caption:
+          linkedPhoto?.description ??
+          linkedPhoto?.location ??
+          body.caption ??
+          null,
         capturedByUserId: session.user.id,
         captureSource: body.captureSource ?? "web",
         syncState: "synced",
@@ -246,10 +279,13 @@ export async function POST(
       },
     });
 
-    return NextResponse.json(
-      { pin: { ...pin, roomName, captureAdapter } },
-      { status: 201 },
-    );
+    const responsePin = await signEvidencePinUrls({
+      ...pin,
+      roomName,
+      captureAdapter,
+    });
+
+    return NextResponse.json({ pin: responsePin }, { status: 201 });
   } catch (error) {
     return fromException(request, error, { stage: "evidence-pins:create" });
   }
