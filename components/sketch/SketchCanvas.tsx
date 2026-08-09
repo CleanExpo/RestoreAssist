@@ -14,7 +14,8 @@ export type ToolMode =
   | "room" // Room polygon drawing
   | "line" // Single wall/line segments
   | "freehand" // Freehand annotation (legacy)
-  | "damage" // Structured damage zone brush
+  | "damage" // Affected-area: tap room or brush
+  | "equipment" // Restoration equipment symbols
   | "text" // Text label
   | "arrow" // Arrow annotation
   | "measure" // Measurement tool
@@ -40,13 +41,19 @@ import {
   formatDimension,
   segmentLabelPosition,
   footprintDimensions,
+  shouldShowEdgeDimension,
 } from "@/lib/sketch/geometry-utils";
 import {
   snapToNearestWall,
   pointAtParametric,
   openingCutEndpoints,
+  openingJambLines,
   resizeOpeningAlongWall,
 } from "@/lib/sketch/opening-geometry";
+import {
+  describeEquipmentSymbol,
+  type EquipmentKind,
+} from "@/lib/sketch/equipment-symbols";
 import {
   wallAbsoluteSegment,
   polygonAbsolutePoints,
@@ -69,7 +76,10 @@ import {
 import {
   DAMAGE_KIND_STYLES,
   damageAnchorPoint,
+  describeRoomDamageTint,
   findContainingRoom,
+  resolveRoomDamageTap,
+  roomDamageTintId,
   roomsFromFabricObjects,
   type RoomClipCandidate,
 } from "@/lib/sketch/damage-zone";
@@ -97,8 +107,10 @@ export interface SketchCanvasProps {
   onSelect?: (obj: SelectedObject | null) => void;
   readonly?: boolean;
   className?: string;
-  /** When toolMode is "damage", brush stamps this damage kind onto the path. */
+  /** When toolMode is "damage", tap/brush stamps this damage kind. */
   damageKind?: import("@/lib/sketch/damage-zone").DamageKind;
+  /** When toolMode is "equipment", place this restoration symbol. */
+  equipmentKind?: EquipmentKind;
   /**
    * Fabric JSON to restore during init (before onReady).
    * Must be applied here — post-mount loadFromJSON races are unreliable on refresh.
@@ -163,6 +175,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       readonly = false,
       className,
       damageKind = "water",
+      equipmentKind = "dehumidifier",
       initialData = null,
     },
     ref,
@@ -179,6 +192,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
     sizeRef.current = { width, height };
     // ── Drawing state for the click/drag tools (read inside Fabric handlers) ──
     const toolModeRef = useRef<ToolMode>(toolMode);
+    const equipmentKindRef = useRef<EquipmentKind>(equipmentKind);
     const damageKindRef = useRef(damageKind);
     const pxPerMetreRef = useRef<number>(pxPerMetre);
     const snapEnabledRef = useRef<boolean>(snapEnabled);
@@ -458,6 +472,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         let bindDamagePathToRoom: (path: Record<string, unknown>) => void =
           () => {};
         let refreshDamageRoomClips: () => void = () => {};
+        let applyRoomDamageTap: (x: number, y: number) => boolean = () =>
+          false;
 
         canvas.on("object:modified", (opt: unknown) => {
           const target = (opt as { target?: unknown } | undefined)?.target;
@@ -510,6 +526,37 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           if (toolModeRef.current === "damage") {
             const kind = damageKindRef.current;
             const style = DAMAGE_KIND_STYLES[kind] ?? DAMAGE_KIND_STYLES.water;
+            // Tap vs brush: a click/tap produces a tiny path — treat as
+            // Encircle one-tap room colorize and drop the stroke.
+            const br =
+              typeof (path as { getBoundingRect?: (a?: boolean) => {
+                width: number;
+                height: number;
+              } }).getBoundingRect === "function"
+                ? (
+                    path as {
+                      getBoundingRect: (a?: boolean) => {
+                        width: number;
+                        height: number;
+                      };
+                    }
+                  ).getBoundingRect(true)
+                : null;
+            const tapPx = ROOM_TAP_THRESHOLD_PX * 2.5;
+            const isTap =
+              !!br &&
+              br.width <= tapPx &&
+              br.height <= tapPx;
+            if (isTap) {
+              const anchor = damageAnchorPoint(
+                path as Parameters<typeof damageAnchorPoint>[0],
+              );
+              (
+                canvas as unknown as { remove: (o: unknown) => void }
+              ).remove(path);
+              applyRoomDamageTap(anchor.x, anchor.y);
+              return;
+            }
             path.data = {
               type: "damage",
               damageKind: kind,
@@ -620,35 +667,30 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           room: RoomClipCandidate,
           kind: string,
         ) => {
-          const style =
-            DAMAGE_KIND_STYLES[kind as keyof typeof DAMAGE_KIND_STYLES] ??
-            DAMAGE_KIND_STYLES.water;
+          const damageKind =
+            kind in DAMAGE_KIND_STYLES
+              ? (kind as keyof typeof DAMAGE_KIND_STYLES)
+              : "water";
           const objs = (
             canvas as unknown as { getObjects: () => unknown[] }
           ).getObjects();
-          const tintId = `dmg-tint-${room.id}-${kind}`;
+          const tintId = roomDamageTintId(room.id, damageKind);
           const exists = objs.some(
             (o) =>
               (o as { data?: { id?: string } }).data?.id === tintId,
           );
           if (exists) return;
-          const tint = new F.Polygon(room.points.map((p) => ({ ...p })), {
-            fill: style.fill,
-            stroke: style.stroke,
-            strokeWidth: 1,
+          const desc = describeRoomDamageTint(room, damageKind);
+          const tint = new F.Polygon(desc.points, {
+            fill: desc.fill,
+            stroke: desc.stroke,
+            strokeWidth: desc.strokeWidth,
             selectable: false,
             evented: false,
             objectCaching: false,
             opacity: 1,
           });
-          (tint as { data?: Record<string, unknown> }).data = {
-            type: "damage",
-            damageKind: kind,
-            provenance: "operator_measured",
-            id: tintId,
-            roomId: room.id,
-            role: "room-tint",
-          };
+          (tint as { data?: Record<string, unknown> }).data = { ...desc.data };
           (
             canvas as unknown as { add: (...o: unknown[]) => void }
           ).add(tint);
@@ -656,6 +698,52 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           (
             canvas as unknown as { sendObjectToBack?: (o: unknown) => void }
           ).sendObjectToBack?.(tint);
+        };
+
+        /** One-tap Encircle-style room colorize / toggle. */
+        applyRoomDamageTap = (x: number, y: number) => {
+          const c = canvas as unknown as {
+            getObjects: () => unknown[];
+            remove: (...o: unknown[]) => void;
+            requestRenderAll?: () => void;
+            renderAll: () => void;
+          };
+          const objs = c.getObjects();
+          const rooms = roomsFromFabricObjects(objs);
+          const existing = new Set<string>();
+          for (const o of objs) {
+            const id = (o as { data?: { id?: string } }).data?.id;
+            if (typeof id === "string") existing.add(id);
+          }
+          const kind = damageKindRef.current;
+          const resolved = resolveRoomDamageTap(x, y, rooms, kind, existing);
+          if (resolved.action === "none") return false;
+          if (resolved.action === "clear") {
+            const toRemove = objs.filter(
+              (o) =>
+                (o as { data?: { id?: string } }).data?.id === resolved.tintId,
+            );
+            if (toRemove.length) c.remove(...toRemove);
+          } else {
+            // One category per room — remove other tints for this room first.
+            const stale = objs.filter((o) => {
+              const d = (o as { data?: Record<string, unknown> }).data;
+              return (
+                d?.type === "damage" &&
+                d.role === "room-tint" &&
+                d.roomId === resolved.room.id
+              );
+            });
+            if (stale.length) c.remove(...stale);
+            ensureRoomDamageTint(resolved.room, resolved.kind);
+          }
+          if (typeof c.requestRenderAll === "function") c.requestRenderAll();
+          else c.renderAll();
+          if (!isLoadingRef.current) {
+            saveState();
+            onModified?.();
+          }
+          return true;
         };
 
         bindDamagePathToRoom = (path) => {
@@ -919,7 +1007,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               originY: "center",
             });
           } else if (d.kind === "door-opening") {
-            // RA-6841 [A2]: Door symbol — opening cut line (white gap), leaf
+            // RA-6841 [A2]: Door symbol — opening cut (white gap + jambs), leaf
             // line, and a quarter-circle swing arc rendered as a Fabric Path.
             const p = d.props as {
               cutStart: { x: number; y: number };
@@ -936,11 +1024,23 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               [p.cutStart.x, p.cutStart.y, p.cutEnd.x, p.cutEnd.y],
               {
                 stroke: "#ffffff",
-                strokeWidth: p.wallThicknessPx,
+                strokeWidth: p.wallThicknessPx + 1,
                 strokeLineCap: "butt",
                 selectable: false,
                 evented: false,
               },
+            );
+            const jambs = openingJambLines(
+              p.cutStart,
+              p.cutEnd,
+              p.wallThicknessPx,
+            ).map(
+              ([s, e]) =>
+                new F.Line([s.x, s.y, e.x, e.y], {
+                  stroke: p.stroke,
+                  strokeWidth: Math.max(2, p.strokeWidth),
+                  strokeLineCap: "butt",
+                }),
             );
             const leafLine = new F.Line(
               [p.hingePoint.x, p.hingePoint.y, p.freeCorner.x, p.freeCorner.y],
@@ -951,10 +1051,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               strokeWidth: p.strokeWidth,
               fill: "transparent",
             });
-            obj = new F.Group([cutLine, leafLine, arc]);
+            obj = new F.Group([cutLine, ...jambs, leafLine, arc]);
           } else if (d.kind === "window-opening") {
-            // RA-6841 [A2]: Window symbol — opening cut line (white gap) and
-            // three glazing lines perpendicular to the wall band.
+            // RA-6841 [A2]: Window symbol — opening cut + jambs + three glazing
+            // lines perpendicular to the wall band.
             const p = d.props as {
               cutStart: { x: number; y: number };
               cutEnd: { x: number; y: number };
@@ -968,13 +1068,26 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               [p.cutStart.x, p.cutStart.y, p.cutEnd.x, p.cutEnd.y],
               {
                 stroke: "#ffffff",
-                strokeWidth: p.wallThicknessPx,
+                strokeWidth: p.wallThicknessPx + 1,
                 strokeLineCap: "butt",
                 selectable: false,
                 evented: false,
               },
             );
             members.push(cutLine);
+            for (const [s, e] of openingJambLines(
+              p.cutStart,
+              p.cutEnd,
+              p.wallThicknessPx,
+            )) {
+              members.push(
+                new F.Line([s.x, s.y, e.x, e.y], {
+                  stroke: p.stroke,
+                  strokeWidth: Math.max(2, p.strokeWidth),
+                  strokeLineCap: "butt",
+                }),
+              );
+            }
             for (const [s, e] of p.glazingLines) {
               members.push(
                 new F.Line([s.x, s.y, e.x, e.y], {
@@ -987,6 +1100,42 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           }
           if (obj) (obj as { data?: unknown }).data = d.data;
           return obj;
+        };
+
+        const materializeEquipment = (
+          desc: ReturnType<typeof describeEquipmentSymbol>,
+        ): unknown => {
+          const p = desc.props;
+          const circle = new F.Circle({
+            left: 0,
+            top: 0,
+            radius: p.radius,
+            fill: p.fill,
+            stroke: p.stroke,
+            strokeWidth: p.strokeWidth,
+            originX: "center",
+            originY: "center",
+          });
+          const label = new F.Text(p.short, {
+            left: 0,
+            top: 0,
+            fontSize: Math.max(10, Math.round(p.radius * 0.7)),
+            fill: p.stroke,
+            fontFamily: "sans-serif",
+            fontWeight: "bold",
+            originX: "center",
+            originY: "center",
+            selectable: false,
+            evented: false,
+          });
+          const group = new F.Group([circle, label], {
+            left: p.left,
+            top: p.top,
+            originX: "center",
+            originY: "center",
+          });
+          (group as { data?: unknown }).data = desc.data;
+          return group;
         };
 
         // ── RA-6980 [A2b]: parent–child binding (openings ↔ host wall) ────────
@@ -1417,6 +1566,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             const a = points[i];
             const b = points[(i + 1) % points.length];
             const px = Math.hypot(b.x - a.x, b.y - a.y);
+            // Encircle readability: skip short stubs / interior reveals.
+            if (!shouldShowEdgeDimension(px, scale)) continue;
             const text = formatDimension(px, scale);
             const { labelPos } = segmentLabelPosition(a, b, 18);
             const lbl = makeDimText(text, labelPos.x, labelPos.y);
@@ -1566,11 +1717,16 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             const a = { x: lp.x1, y: lp.y1 };
             const b = { x: lp.x2, y: lp.y2 };
             const px = Math.hypot(b.x - a.x, b.y - a.y);
-            const text = formatDimension(px, pxPerMetreRef.current);
-            const { labelPos } = segmentLabelPosition(a, b, 18);
-            const dimLbl = makeDimText(text, labelPos.x, labelPos.y);
-            (dimLbl as { data?: unknown }).data = { type: "dim-label", dimFor: `wall-${Date.now()}` };
-            c.add(dimLbl);
+            if (shouldShowEdgeDimension(px, pxPerMetreRef.current)) {
+              const text = formatDimension(px, pxPerMetreRef.current);
+              const { labelPos } = segmentLabelPosition(a, b, 18);
+              const dimLbl = makeDimText(text, labelPos.x, labelPos.y);
+              (dimLbl as { data?: unknown }).data = {
+                type: "dim-label",
+                dimFor: `wall-${Date.now()}`,
+              };
+              c.add(dimLbl);
+            }
             c.setActiveObject(obj);
             canvas.renderAll();
             return;
@@ -1598,6 +1754,24 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           )
             return;
           const p = scenePoint(e);
+          if (tool === "equipment") {
+            const desc = describeEquipmentSymbol({
+              x: p.x,
+              y: p.y,
+              equipmentKind: equipmentKindRef.current,
+              pxPerMetre: pxPerMetreRef.current,
+            });
+            const obj = materializeEquipment(desc);
+            (
+              canvas as unknown as { add: (o: unknown) => void; renderAll: () => void }
+            ).add(obj);
+            canvas.renderAll();
+            if (!isLoadingRef.current) {
+              saveState();
+              onModified?.();
+            }
+            return;
+          }
           if (tool === "room") {
             // Shift+click = legacy polygon vertices (dblclick to close).
             // Otherwise start tap/drag for room-first rect placement.
@@ -1973,6 +2147,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       // (e.g. a half-finished room polygon) when the tool changes.
       toolModeRef.current = toolMode;
       damageKindRef.current = damageKind;
+      equipmentKindRef.current = equipmentKind;
       pxPerMetreRef.current = pxPerMetre;
       snapEnabledRef.current = snapEnabled;
       snapGridMetresRef.current = snapGridMetres;
@@ -1982,6 +2157,14 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       const brushMode = toolMode === "freehand" || toolMode === "damage";
       canvas.isDrawingMode = brushMode;
       canvas.selection = toolMode === "select" && !readonly;
+      canvas.defaultCursor =
+        toolMode === "pan"
+          ? "grab"
+          : toolMode === "equipment" || toolMode === "door" || toolMode === "window"
+            ? "crosshair"
+            : brushMode
+              ? "crosshair"
+              : "default";
 
       if (toolMode === "freehand") {
         canvas.freeDrawingBrush.color = "#3b82f680";
@@ -2001,9 +2184,15 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           styles[damageKind]?.stroke ?? styles.water.stroke;
         canvas.freeDrawingBrush.width = 24;
       }
-
-      canvas.defaultCursor = toolMode === "pan" ? "grab" : "default";
-    }, [toolMode, readonly, pxPerMetre, snapEnabled, snapGridMetres, damageKind]);
+    }, [
+      toolMode,
+      readonly,
+      pxPerMetre,
+      snapEnabled,
+      snapGridMetres,
+      damageKind,
+      equipmentKind,
+    ]);
 
     // ── Update background image when URL/opacity changes (Fabric.js v6) ──
     useEffect(() => {
