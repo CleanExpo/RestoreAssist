@@ -57,10 +57,9 @@ CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
 LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
 SQL
 
-pnpm prisma:generate
-pnpm exec prisma migrate deploy
+pnpm build
 
-pnpm dev --hostname 127.0.0.1 --port "${app_port}" >"${server_log}" 2>&1 &
+pnpm start --hostname 127.0.0.1 --port "${app_port}" >"${server_log}" 2>&1 &
 server_pid=$!
 for _ in $(seq 1 90); do
   readiness_status="$(
