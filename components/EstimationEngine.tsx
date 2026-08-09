@@ -165,11 +165,20 @@ export default function EstimationEngine({
   const prevLineItemsRef = useRef<string>("");
   const prevParamsRef = useRef<string>("");
   const isInitialMount = useRef(true);
+  const skipNextTotalsCalculation = useRef(false);
 
   // Load initial estimate data if editing
   useEffect(() => {
     if (initialEstimateData && isInitialMount.current) {
       try {
+        const initialTotals = initialEstimateData.totals || {};
+        const initialMoneyValue = (field: string) => {
+          const nestedValue = initialTotals[field];
+          if (typeof nestedValue === "number") return nestedValue;
+
+          const legacyValue = initialEstimateData[field];
+          return typeof legacyValue === "number" ? legacyValue : 0;
+        };
         const parsedData = {
           ...estimateData,
           rateTables:
@@ -190,20 +199,38 @@ export default function EstimationEngine({
           disclaimer: initialEstimateData.disclaimer || "",
           status: initialEstimateData.status || "DRAFT",
           version: initialEstimateData.version || 1,
-          labourSubtotal: initialEstimateData.labourSubtotal || 0,
-          equipmentSubtotal: initialEstimateData.equipmentSubtotal || 0,
-          chemicalsSubtotal: initialEstimateData.chemicalsSubtotal || 0,
-          subcontractorSubtotal: initialEstimateData.subcontractorSubtotal || 0,
-          travelSubtotal: initialEstimateData.travelSubtotal || 0,
-          wasteSubtotal: initialEstimateData.wasteSubtotal || 0,
-          overheads: initialEstimateData.overheads || 0,
-          profit: initialEstimateData.profit || 0,
-          contingency: initialEstimateData.contingency || 0,
-          escalation: initialEstimateData.escalation || 0,
-          subtotalExGST: initialEstimateData.subtotalExGST || 0,
-          gst: initialEstimateData.gst || 0,
-          totalIncGST: initialEstimateData.totalIncGST || 0,
+          labourSubtotal: initialMoneyValue("labourSubtotal"),
+          equipmentSubtotal: initialMoneyValue("equipmentSubtotal"),
+          chemicalsSubtotal: initialMoneyValue("chemicalsSubtotal"),
+          subcontractorSubtotal: initialMoneyValue("subcontractorSubtotal"),
+          travelSubtotal: initialMoneyValue("travelSubtotal"),
+          wasteSubtotal: initialMoneyValue("wasteSubtotal"),
+          overheads: initialMoneyValue("overheads"),
+          profit: initialMoneyValue("profit"),
+          contingency: initialMoneyValue("contingency"),
+          escalation: initialMoneyValue("escalation"),
+          subtotalExGST: initialMoneyValue("subtotalExGST"),
+          gst: initialMoneyValue("gst"),
+          totalIncGST: initialMoneyValue("totalIncGST"),
         };
+        prevLineItemsRef.current = JSON.stringify(
+          parsedData.lineItems.map((item: any) => ({
+            qty: item.qty,
+            rate: item.rate,
+            code: item.code,
+            equipmentData: item.equipmentData,
+          })),
+        );
+        prevParamsRef.current = JSON.stringify({
+          overheadsPercent: parsedData.commercialParams.overheadsPercent,
+          profitPercent: parsedData.commercialParams.profitPercent,
+          profitAppliedAfter: parsedData.commercialParams.profitAppliedAfter,
+          contingencyPercent: parsedData.commercialParams.contingencyPercent,
+          escalationPercent: parsedData.commercialParams.escalationPercent,
+          gstPercent: parsedData.commercialParams.gstPercent,
+          roundTo: parsedData.commercialParams.roundTo,
+        });
+        skipNextTotalsCalculation.current = true;
         setEstimateData(parsedData);
       } catch (error) {
         console.error("Error parsing initial estimate data:", error);
@@ -228,6 +255,11 @@ export default function EstimationEngine({
 
   // Calculate totals only when actual values change (using stringified comparison)
   useEffect(() => {
+    if (skipNextTotalsCalculation.current) {
+      skipNextTotalsCalculation.current = false;
+      return;
+    }
+
     // Stringify current values for comparison
     const currentLineItemsStr = JSON.stringify(
       estimateData.lineItems.map((item) => ({
