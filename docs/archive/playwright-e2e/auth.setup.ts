@@ -17,9 +17,11 @@ import { applySessionCookieFromResponse } from "./helpers/session-cookie";
 // Re-export for back-compat with any existing importer.
 export { AUTH_FILE };
 
-setup("authenticate", async ({ page, context }) => {
-  setup.setTimeout(60_000);
+// Configure this before the test is registered so the allowance also covers
+// browser/context/page fixture creation on a cold local runner.
+setup.setTimeout(60_000);
 
+setup("authenticate", async ({ page, context }) => {
   const email = process.env.E2E_USER_EMAIL ?? "test@restoreassist.app";
   const password = process.env.E2E_USER_PASSWORD ?? "Test1234!";
 
