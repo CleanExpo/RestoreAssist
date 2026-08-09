@@ -50,6 +50,7 @@ import {
   LineItemLibraryPicker,
   type LibraryPickItem,
 } from "@/components/estimation/LineItemLibraryPicker";
+import { EstimateStatusWorkflow } from "@/components/estimation/EstimateStatusWorkflow";
 
 interface EstimationEngineProps {
   reportId: string;
@@ -545,12 +546,12 @@ export default function EstimationEngine({
     setEstimateData((prev) => ({ ...prev, lineItems: items }));
   };
 
-  const handleSave = async () => {
+  const persistEstimate = async (showSuccess = true): Promise<boolean> => {
     if (estimateIsImmutable) {
       toast.error(
         "Approved and locked estimates cannot be edited. Use the variation workflow.",
       );
-      return;
+      return false;
     }
     setLoading(true);
     try {
@@ -569,18 +570,29 @@ export default function EstimationEngine({
 
       if (response.ok) {
         const savedEstimate = await response.json();
-        toast.success("Estimate saved successfully!");
+        if (showSuccess) toast.success("Estimate saved successfully!");
         onEstimateComplete(savedEstimate);
+        return true;
       } else {
         const error = await response.json();
-        toast.error(error.error || "Failed to save estimate");
+        toast.error(
+          (typeof error.error === "string"
+            ? error.error
+            : error.error?.message) || "Failed to save estimate",
+        );
+        return false;
       }
     } catch (error) {
       console.error("Error saving estimate:", error);
       toast.error("Failed to save estimate");
+      return false;
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSave = async () => {
+    await persistEstimate();
   };
 
   const handleSaveAndNext = async () => {
@@ -1460,13 +1472,27 @@ export default function EstimationEngine({
         <h3 className="text-lg font-semibold text-white mb-4">
           Workflow Status
         </h3>
-        <div className="w-fit rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm font-medium text-white">
-          {estimateData.status.replace(/_/g, " ")}
-        </div>
-        <p className="mt-2 max-w-2xl text-sm text-slate-400">
-          Workflow status is controlled by the review process. Client approval
-          cannot be recorded from the contractor estimator.
-        </p>
+        <EstimateStatusWorkflow
+          estimateId={initialEstimateData?.id}
+          status={estimateData.status}
+          beforeTransition={() =>
+            estimateIsImmutable ? Promise.resolve(true) : persistEstimate(false)
+          }
+          onTransition={(updatedEstimate) => {
+            setEstimateData((previous) => ({
+              ...previous,
+              status:
+                typeof updatedEstimate.status === "string"
+                  ? updatedEstimate.status
+                  : previous.status,
+              version:
+                typeof updatedEstimate.version === "number"
+                  ? updatedEstimate.version
+                  : previous.version,
+            }));
+            onEstimateComplete(updatedEstimate);
+          }}
+        />
       </div>
 
       <div className="bg-slate-800/50 p-4 rounded-lg">
