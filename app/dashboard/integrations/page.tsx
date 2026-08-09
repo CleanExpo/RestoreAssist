@@ -27,6 +27,7 @@ import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { uiAiKeyTypeToProvider } from "@/lib/workspace/ai-key-type";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -143,6 +144,25 @@ interface SubscriptionStatus {
   subscriptionPlan?: string;
 }
 
+function getApiErrorMessage(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== "object") return fallback;
+
+  const { error, message } = payload as {
+    error?: unknown;
+    message?: unknown;
+  };
+  if (typeof error === "string") return error;
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  return typeof message === "string" ? message : fallback;
+}
+
 export default function IntegrationsPage() {
   const confirm = useConfirmDialog();
   const router = useRouter();
@@ -152,13 +172,16 @@ export default function IntegrationsPage() {
   const errorMessage = searchParams.get("error");
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [externalIntegrations, setExternalIntegrations] = useState<
-    Record<ProviderSlug, ExternalIntegration>
-  >({} as Record<ProviderSlug, ExternalIntegration>);
+    Partial<Record<ProviderSlug, ExternalIntegration>>
+  >({});
   const [externalIntegrationsLoading, setExternalIntegrationsLoading] =
     useState(true);
   const [externalIntegrationsError, setExternalIntegrationsError] = useState<
     string | null
   >(null);
+  const [unavailableProviders, setUnavailableProviders] = useState<
+    ReadonlySet<ProviderSlug>
+  >(new Set());
   const [loading, setLoading] = useState(true);
   const [syncingProvider, setSyncingProvider] = useState<ProviderSlug | null>(
     null,
@@ -179,8 +202,9 @@ export default function IntegrationsPage() {
     "openai" | "anthropic" | "gemini"
   >("anthropic");
   const [newApiKey, setNewApiKey] = useState("");
-  // Ascora modal removed — Ascora uses static API key auth via ASCORA_API_KEY env var.
-  // Connect flow now goes through the generic handleConnectExternal path.
+  const [showAscoraModal, setShowAscoraModal] = useState(false);
+  const [ascoraApiKey, setAscoraApiKey] = useState("");
+  const [ascoraConnecting, setAscoraConnecting] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
   // DR-NRPG state
@@ -242,14 +266,14 @@ export default function IntegrationsPage() {
   const fetchExternalIntegrations = async () => {
     setExternalIntegrationsLoading(true);
     setExternalIntegrationsError(null);
+    setUnavailableProviders(new Set());
     try {
-      const results: Record<ProviderSlug, ExternalIntegration> = {} as Record<
-        ProviderSlug,
-        ExternalIntegration
-      >;
+      const results: Partial<Record<ProviderSlug, ExternalIntegration>> = {};
 
-      // Fetch all integrations from the main API
-      const response = await fetch("/api/integrations");
+      const [response, ascoraResponse] = await Promise.all([
+        fetch("/api/integrations"),
+        fetch("/api/ascora/connect"),
+      ]);
       if (!response.ok) {
         throw new Error("External integration status request failed");
       }
@@ -280,11 +304,46 @@ export default function IntegrationsPage() {
         }
       }
 
+      // Ascora is configured per user with an API key. Never infer its
+      // dashboard state from the generic integration row or a server env key.
+      delete results.ascora;
+      if (ascoraResponse.ok) {
+        try {
+          const ascoraData = await ascoraResponse.json();
+          const ascoraIntegration = ascoraData.integration;
+          results.ascora = {
+            provider: "Ascora",
+            connected: Boolean(ascoraIntegration?.isActive),
+            status: ascoraIntegration?.isActive ? "CONNECTED" : "DISCONNECTED",
+            lastSyncAt: ascoraIntegration?.lastSyncAt,
+            counts: ascoraIntegration
+              ? {
+                  clients: 0,
+                  jobs: ascoraIntegration.totalJobsImported ?? 0,
+                }
+              : undefined,
+          };
+        } catch {
+          setUnavailableProviders(new Set(["ascora"]));
+          setExternalIntegrationsError(
+            "Ascora status is unavailable. Retry before connecting or disconnecting.",
+          );
+        }
+      } else {
+        setUnavailableProviders(new Set(["ascora"]));
+        setExternalIntegrationsError(
+          "Ascora status is unavailable. Retry before connecting or disconnecting.",
+        );
+      }
+
       setExternalIntegrations(results);
     } catch (error) {
       console.error("Error fetching external integrations:", error);
       setExternalIntegrationsError(
         "Integration status is unavailable. Retry before connecting or disconnecting.",
+      );
+      setUnavailableProviders(
+        new Set(EXTERNAL_INTEGRATIONS.map((integration) => integration.slug)),
       );
     } finally {
       setExternalIntegrationsLoading(false);
@@ -292,6 +351,12 @@ export default function IntegrationsPage() {
   };
 
   const handleConnectExternal = async (slug: ProviderSlug) => {
+    if (slug === "ascora") {
+      setAscoraApiKey("");
+      setShowAscoraModal(true);
+      return;
+    }
+
     try {
       const response = await fetch(`/api/integrations/oauth/${slug}/connect`, {
         method: "POST",
@@ -320,16 +385,50 @@ export default function IntegrationsPage() {
     }
   };
 
+  const handleConnectAscora = async () => {
+    const apiKey = ascoraApiKey.trim();
+    if (!apiKey) {
+      toast.error("API key is required");
+      return;
+    }
+
+    setAscoraConnecting(true);
+    try {
+      const response = await fetch("/api/ascora/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok) {
+        setShowAscoraModal(false);
+        setAscoraApiKey("");
+        toast.success(data.message || "Ascora connected");
+        await fetchExternalIntegrations();
+      } else if (response.status === 402) {
+        setShowUpgradeModal(true);
+      } else {
+        toast.error(getApiErrorMessage(data, "Failed to connect Ascora"));
+      }
+    } catch (error) {
+      console.error("Error connecting Ascora:", error);
+      toast.error("Failed to connect Ascora");
+    } finally {
+      setAscoraConnecting(false);
+    }
+  };
+
   const handleDisconnectExternal = async (slug: ProviderSlug) => {
     try {
-      const response = await fetch(
-        `/api/integrations/oauth/${slug}/disconnect`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-        },
-      );
+      const response =
+        slug === "ascora"
+          ? await fetch("/api/ascora/connect", { method: "DELETE" })
+          : await fetch(`/api/integrations/oauth/${slug}/disconnect`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({}),
+            });
 
       if (response.ok) {
         toast.success(
@@ -337,8 +436,8 @@ export default function IntegrationsPage() {
         );
         fetchExternalIntegrations();
       } else {
-        const data = await response.json();
-        toast.error(data.error || "Failed to disconnect");
+        const data = await response.json().catch(() => ({}));
+        toast.error(getApiErrorMessage(data, "Failed to disconnect"));
       }
     } catch (error) {
       console.error("Error disconnecting:", error);
@@ -349,29 +448,39 @@ export default function IntegrationsPage() {
   const handleSyncExternal = async (slug: ProviderSlug) => {
     setSyncingProvider(slug);
     try {
-      const response = await fetch(`/api/integrations/oauth/${slug}/sync`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ syncClients: true, syncJobs: true }),
-      });
+      const response =
+        slug === "ascora"
+          ? await fetch("/api/ascora/sync?incremental=true", {
+              method: "POST",
+            })
+          : await fetch(`/api/integrations/oauth/${slug}/sync`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ syncClients: true, syncJobs: true }),
+            });
 
       if (response.ok) {
         const data = await response.json();
-        const clientsCount = data.clientsSynced || 0;
-        const jobsCount = data.jobsSynced || 0;
-        toast.success(`Synced ${clientsCount} clients and ${jobsCount} jobs`);
+        if (slug === "ascora") {
+          toast.success(
+            data.message || `Imported ${data.jobsImported ?? 0} Ascora jobs`,
+          );
+        } else {
+          const clientsCount = data.clientsSynced || 0;
+          const jobsCount = data.jobsSynced || 0;
+          toast.success(`Synced ${clientsCount} clients and ${jobsCount} jobs`);
+        }
         fetchExternalIntegrations();
-      } else if (response.status === 403) {
-        // Subscription required
-        const data = await response.json();
-        if (data.upgradeRequired) {
+      } else if (response.status === 402 || response.status === 403) {
+        const data = await response.json().catch(() => ({}));
+        if (response.status === 402 || data.upgradeRequired) {
           setShowUpgradeModal(true);
         } else {
-          toast.error(data.error || "Access denied");
+          toast.error(getApiErrorMessage(data, "Access denied"));
         }
       } else {
-        const data = await response.json();
-        toast.error(data.error || "Sync failed");
+        const data = await response.json().catch(() => ({}));
+        toast.error(getApiErrorMessage(data, "Sync failed"));
       }
     } catch (error) {
       console.error("Error syncing:", error);
@@ -997,7 +1106,7 @@ export default function IntegrationsPage() {
                 const status = externalIntegrations[integration.slug];
                 const isStatusKnown =
                   !externalIntegrationsLoading &&
-                  !externalIntegrationsError &&
+                  !unavailableProviders.has(integration.slug) &&
                   Boolean(status);
                 const isConnected = status?.connected;
                 const isSyncing =
@@ -1128,7 +1237,8 @@ export default function IntegrationsPage() {
                             Disconnect
                           </Button>
                         </>
-                      ) : integration.comingSoon || integration.betaUnverified ? (
+                      ) : integration.comingSoon ||
+                        integration.betaUnverified ? (
                         <Button
                           variant="secondary"
                           size="sm"
@@ -1189,7 +1299,7 @@ export default function IntegrationsPage() {
                 const status = externalIntegrations[integration.slug];
                 const isStatusKnown =
                   !externalIntegrationsLoading &&
-                  !externalIntegrationsError &&
+                  !unavailableProviders.has(integration.slug) &&
                   Boolean(status);
                 const isConnected = status?.connected;
                 const isSyncing =
@@ -1320,7 +1430,8 @@ export default function IntegrationsPage() {
                             Disconnect
                           </Button>
                         </>
-                      ) : integration.comingSoon || integration.betaUnverified ? (
+                      ) : integration.comingSoon ||
+                        integration.betaUnverified ? (
                         <Button
                           variant="secondary"
                           size="sm"
@@ -1477,6 +1588,59 @@ export default function IntegrationsPage() {
           </div>
         </>
       )}
+
+      {/* ── Ascora Modal ──────────────────────────── */}
+      <Dialog
+        open={showAscoraModal}
+        onOpenChange={(open) => {
+          setShowAscoraModal(open);
+          if (!open) setAscoraApiKey("");
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Connect Ascora</DialogTitle>
+            <DialogDescription>
+              Enter the API key from Administration → API Settings in Ascora.
+              The key is stored securely for your user account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5 py-2">
+            <label
+              htmlFor="ascora-api-key"
+              className="text-sm font-medium text-foreground"
+            >
+              Ascora API Key
+            </label>
+            <Input
+              id="ascora-api-key"
+              type="password"
+              value={ascoraApiKey}
+              onChange={(event) => setAscoraApiKey(event.target.value)}
+              placeholder="Enter your Ascora API key"
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowAscoraModal(false)}>
+              Close
+            </Button>
+            <Button
+              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+              onClick={handleConnectAscora}
+              disabled={ascoraConnecting || !ascoraApiKey.trim()}
+            >
+              {ascoraConnecting ? (
+                <>
+                  <Loader2 className="animate-spin" /> Connecting...
+                </>
+              ) : (
+                "Connect"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── DR-NRPG Modal ─────────────────────────── */}
       <Dialog open={showDrNrpgModal} onOpenChange={setShowDrNrpgModal}>
