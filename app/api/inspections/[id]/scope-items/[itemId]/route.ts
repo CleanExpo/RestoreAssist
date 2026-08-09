@@ -30,7 +30,44 @@ export async function PATCH(
         status: 404,
       });
 
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
+    }
+
+    const editableFields = [
+      "description",
+      "quantity",
+      "unit",
+      "isSelected",
+      "justification",
+      "specification",
+    ];
+    if (!editableFields.some((field) => field in body)) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "At least one editable field is required",
+        status: 400,
+      });
+    }
+
+    if (
+      body.specification !== undefined &&
+      body.specification !== null &&
+      (typeof body.specification !== "string" ||
+        body.specification.length > 2000)
+    ) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "specification must be a string up to 2,000 characters or null",
+        status: 400,
+      });
+    }
     // Update only provided fields
     // Scope update to this inspection — prevents cross-inspection IDOR
     const item = await prisma.scopeItem.findFirst({
@@ -57,7 +94,11 @@ export async function PATCH(
     }
 
     const updated = await prisma.scopeItem.update({
-      where: { id: itemId, inspection: { userId: session.user.id } },
+      where: {
+        id: itemId,
+        inspectionId: id,
+        inspection: { userId: session.user.id },
+      },
       data: {
         ...(body.description !== undefined && {
           description: String(body.description).slice(0, 2000),
@@ -75,6 +116,9 @@ export async function PATCH(
           justification: body.justification
             ? String(body.justification).slice(0, 2000)
             : null,
+        }),
+        ...(body.specification !== undefined && {
+          specification: body.specification,
         }),
       },
     });
