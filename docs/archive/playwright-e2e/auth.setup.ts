@@ -19,7 +19,7 @@ export { AUTH_FILE };
 
 // Configure this before the test is registered so the allowance also covers
 // browser/context/page fixture creation on a cold local runner.
-setup.setTimeout(60_000);
+setup.setTimeout(120_000);
 
 setup("authenticate", async ({ page, context }) => {
   const email = process.env.E2E_USER_EMAIL ?? "test@restoreassist.app";
