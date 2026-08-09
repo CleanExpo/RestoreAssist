@@ -64,7 +64,10 @@ export function NotificationBell({ className }: NotificationBellProps) {
 
   const markAllAsRead = async () => {
     try {
-      await fetch("/api/notifications/read-all", { method: "POST" });
+      const response = await fetch("/api/notifications/read-all", {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error("Failed to mark all as read");
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     } catch (error) {
       console.error("Error marking all as read:", error);

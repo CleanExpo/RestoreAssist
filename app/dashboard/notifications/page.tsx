@@ -330,15 +330,20 @@ export default function NotificationsPage() {
 
   // ── Mark all as read ─────────────────────────────────────────────────────────
   const handleMarkAllRead = useCallback(async () => {
+    const previousNotifications = notifications;
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
 
     try {
-      await fetch("/api/notifications/read-all", { method: "POST" });
+      const response = await fetch("/api/notifications/read-all", {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error("Failed to mark all as read");
       toast.success("All notifications marked as read");
     } catch {
+      setNotifications(previousNotifications);
       toast.error("Failed to mark all as read");
     }
-  }, []);
+  }, [notifications]);
 
   // ── Update preferences ───────────────────────────────────────────────────────
   const handlePrefToggle = useCallback(

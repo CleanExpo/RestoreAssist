@@ -16,19 +16,15 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    try {
-      await prisma.notification.updateMany({
-        where: {
-          userId: session.user.id,
-          read: false,
-        },
-        data: { read: true },
-      });
+    await prisma.notification.updateMany({
+      where: {
+        userId: session.user.id,
+        read: false,
+      },
+      data: { read: true },
+    });
 
-      return NextResponse.json({ success: true });
-    } catch {
-      return NextResponse.json({ success: true });
-    }
+    return NextResponse.json({ success: true });
   } catch (error) {
     return fromException(request, error, { stage: "mark-all-read" });
   }
