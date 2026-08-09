@@ -194,7 +194,7 @@ export async function POST(
     // double-tap race where two simultaneous submissions both read signedAt=null,
     // both pass the guard, and both record the signature (firing completion emails twice).
     const result = await prisma.authorityFormSignature.updateMany({
-      where: { id: signature.id, signedAt: null },
+      where: { id: signature.id, signatureRequestToken: token, signedAt: null },
       data: {
         signatureData,
         signatoryName: signatoryName || signature.signatoryName,

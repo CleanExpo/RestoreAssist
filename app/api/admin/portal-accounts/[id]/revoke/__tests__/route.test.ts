@@ -1,7 +1,7 @@
 /**
  * RA-4861 — tests for POST /api/admin/portal-accounts/[id]/revoke.
- * Idempotent: re-revoking a revoked row is a no-op (returns 200 with
- * `alreadyRevoked: true` and does NOT call update again).
+ * Idempotent: re-revoking does not rewrite revokedAt or duplicate its audit,
+ * but still clears outstanding client signing capabilities.
  */
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
@@ -12,6 +12,7 @@ const accountFindUnique = vi.fn();
 const accountUpdate = vi.fn();
 const inspectionFindFirst = vi.fn();
 const auditLogCreate = vi.fn();
+const signatureUpdateMany = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
@@ -26,6 +27,22 @@ vi.mock("@/lib/prisma", () => ({
     },
     inspection: { findFirst: (...a: unknown[]) => inspectionFindFirst(...a) },
     auditLog: { create: (...a: unknown[]) => auditLogCreate(...a) },
+    authorityFormSignature: {
+      updateMany: (...a: unknown[]) => signatureUpdateMany(...a),
+    },
+    $transaction: (callback: (tx: unknown) => unknown) =>
+      callback({
+        clientPortalAccount: {
+          update: (...a: unknown[]) => accountUpdate(...a),
+        },
+        inspection: {
+          findFirst: (...a: unknown[]) => inspectionFindFirst(...a),
+        },
+        auditLog: { create: (...a: unknown[]) => auditLogCreate(...a) },
+        authorityFormSignature: {
+          updateMany: (...a: unknown[]) => signatureUpdateMany(...a),
+        },
+      }),
   },
 }));
 
@@ -41,8 +58,10 @@ beforeEach(() => {
   accountUpdate.mockReset();
   inspectionFindFirst.mockReset();
   auditLogCreate.mockReset();
+  signatureUpdateMany.mockReset();
   auditLogCreate.mockResolvedValue({});
   inspectionFindFirst.mockResolvedValue(null);
+  signatureUpdateMany.mockResolvedValue({ count: 0 });
 });
 
 function adminAuthOk() {
@@ -146,6 +165,7 @@ describe("POST /api/admin/portal-accounts/[id]/revoke", () => {
     expect(body.data.alreadyRevoked).toBe(true);
     expect(accountUpdate).not.toHaveBeenCalled();
     expect(auditLogCreate).not.toHaveBeenCalled();
+    expect(signatureUpdateMany).toHaveBeenCalledTimes(1);
   });
 
   it("revokes a live account, stamps revokedAt, and writes an AuditLog row when an inspection exists", async () => {
@@ -161,6 +181,7 @@ describe("POST /api/admin/portal-accounts/[id]/revoke", () => {
       revokedAt: data.revokedAt,
     }));
     inspectionFindFirst.mockResolvedValueOnce({ id: "ins_1" });
+    signatureUpdateMany.mockResolvedValueOnce({ count: 1 });
 
     const res = await revokeRoute(
       new NextRequest(
@@ -185,6 +206,15 @@ describe("POST /api/admin/portal-accounts/[id]/revoke", () => {
     expect(auditArg.data.entityId).toBe("cpa_1");
     expect(auditArg.data.inspectionId).toBe("ins_1");
     expect(auditArg.data.userId).toBe("u_admin");
+    expect(signatureUpdateMany).toHaveBeenCalledWith({
+      where: {
+        instance: { report: { clientId: "c_1" } },
+        signatoryRole: { in: ["CLIENT", "PROPERTY_OWNER"] },
+        signedAt: null,
+        signatureRequestToken: { not: null },
+      },
+      data: { signatureRequestToken: null },
+    });
   });
 
   it("still revokes when the client has no inspection (AuditLog skipped, no FK violation)", async () => {

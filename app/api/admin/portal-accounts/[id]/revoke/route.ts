@@ -5,7 +5,9 @@
  * `revokedAt = NOW()`. The row stays in the DB for audit purposes —
  * `lookupPortalAccount` filters out revoked rows so the token stops
  * working immediately. Idempotent: re-revoking a revoked row is a
- * no-op (returns 200 with the existing revokedAt).
+ * does not rewrite revokedAt (returns 200 with the existing value), while
+ * still invalidating any outstanding client signing capabilities that may
+ * pre-date this containment.
  *
  * Audit trail: matches the pattern in
  * `app/api/inspections/[id]/reopen/route.ts`. The existing `AuditLog`
@@ -53,49 +55,57 @@ export async function POST(
       status: 404,
     });
   }
-  if (existing.revokedAt) {
-    return Response.json({
-      data: {
-        id: existing.id,
-        clientId: existing.clientId,
-        revokedAt: existing.revokedAt,
-        alreadyRevoked: true,
-      },
-    });
-  }
+  const alreadyRevoked = existing.revokedAt !== null;
 
   try {
-    const updated = await prisma.clientPortalAccount.update({
-      where: ownershipWhere!,
-      data: { revokedAt: new Date() },
-      select: { id: true, clientId: true, revokedAt: true },
-    });
+    const updated = await prisma.$transaction(async (tx) => {
+      const revoked = alreadyRevoked
+        ? existing
+        : await tx.clientPortalAccount.update({
+            where: ownershipWhere!,
+            data: { revokedAt: new Date() },
+            select: { id: true, clientId: true, revokedAt: true },
+          });
 
-    // Audit trail. Scope to the most-recent inspection for the client so
-    // we satisfy the inspection-FK. If no inspection exists we skip the
-    // audit — the row's own `revokedAt` is still the durable record.
-    // Inspection has no direct `clientId` — it links to Client through
-    // `Report.clientId`. Pick the newest Inspection whose Report points
-    // at this Client; if none exists we skip the audit cleanly.
-    const anchor = await prisma.inspection.findFirst({
-      where: { report: { clientId: existing.clientId } },
-      orderBy: { createdAt: "desc" },
-      select: { id: true },
-    });
-    if (anchor) {
-      await prisma.auditLog.create({
-        data: {
-          inspectionId: anchor.id,
-          action: "CLIENT_PORTAL_ACCOUNT_REVOKED",
-          entityType: "ClientPortalAccount",
-          entityId: existing.id,
-          userId: adminUserId,
-          changes: JSON.stringify({ clientId: existing.clientId }),
+      await tx.authorityFormSignature.updateMany({
+        where: {
+          instance: { report: { clientId: existing.clientId } },
+          signatoryRole: { in: ["CLIENT", "PROPERTY_OWNER"] },
+          signedAt: null,
+          signatureRequestToken: { not: null },
         },
+        data: { signatureRequestToken: null },
       });
-    }
 
-    return Response.json({ data: updated });
+      // Audit trail. Scope to the most-recent inspection for the client so
+      // we satisfy the inspection-FK. If no inspection exists we skip the
+      // audit — the row's own `revokedAt` is still the durable record.
+      if (!alreadyRevoked) {
+        const anchor = await tx.inspection.findFirst({
+          where: { report: { clientId: existing.clientId } },
+          orderBy: { createdAt: "desc" },
+          select: { id: true },
+        });
+        if (anchor) {
+          await tx.auditLog.create({
+            data: {
+              inspectionId: anchor.id,
+              action: "CLIENT_PORTAL_ACCOUNT_REVOKED",
+              entityType: "ClientPortalAccount",
+              entityId: existing.id,
+              userId: adminUserId,
+              changes: JSON.stringify({ clientId: existing.clientId }),
+            },
+          });
+        }
+      }
+
+      return revoked;
+    });
+
+    return Response.json({
+      data: alreadyRevoked ? { ...updated, alreadyRevoked: true } : updated,
+    });
   } catch (err) {
     return fromException(request, err, { stage: "revoke" });
   }

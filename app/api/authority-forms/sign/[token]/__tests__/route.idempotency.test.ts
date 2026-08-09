@@ -79,29 +79,48 @@ describe("POST /api/authority-forms/sign/[token]", () => {
 
   it("signs successfully on the first submission (atomic guard on signedAt=null)", async () => {
     sigFindUnique
-      .mockResolvedValueOnce({ id: "s_1", instanceId: "f_1", signatoryName: "Margaret" })
+      .mockResolvedValueOnce({
+        id: "s_1",
+        instanceId: "f_1",
+        signatoryName: "Margaret",
+      })
       .mockResolvedValueOnce({ id: "s_1", instanceId: "f_1" });
     sigUpdateMany.mockResolvedValueOnce({ count: 1 });
     sigCount.mockResolvedValueOnce(0); // no remaining unsigned → form complete
     instanceUpdate.mockResolvedValueOnce({});
 
-    const res = await POST(postReq({ signatureData: "data:image/png;base64,AA" }), ctx());
+    const res = await POST(
+      postReq({ signatureData: "data:image/png;base64,AA" }),
+      ctx(),
+    );
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json).toMatchObject({ success: true, allSigned: true, formId: "f_1" });
+    expect(json).toMatchObject({
+      success: true,
+      allSigned: true,
+      formId: "f_1",
+    });
 
     // The guard must scope the write to an unsigned row.
     expect(sigUpdateMany.mock.calls[0][0].where).toMatchObject({
       id: "s_1",
+      signatureRequestToken: VALID_TOKEN,
       signedAt: null,
     });
   });
 
   it("rejects a duplicate/concurrent second submission with 400 (idempotent)", async () => {
-    sigFindUnique.mockResolvedValueOnce({ id: "s_1", instanceId: "f_1", signatoryName: "Margaret" });
+    sigFindUnique.mockResolvedValueOnce({
+      id: "s_1",
+      instanceId: "f_1",
+      signatoryName: "Margaret",
+    });
     sigUpdateMany.mockResolvedValueOnce({ count: 0 }); // already signed — guard matched 0 rows
 
-    const res = await POST(postReq({ signatureData: "data:image/png;base64,AA" }), ctx());
+    const res = await POST(
+      postReq({ signatureData: "data:image/png;base64,AA" }),
+      ctx(),
+    );
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.error).toMatch(/already been signed/i);
