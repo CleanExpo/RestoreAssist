@@ -4,11 +4,19 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   generateNIRPDF,
+  type NirFloorPlanStatus,
   type NirReportInspectionData,
 } from "@/lib/nir-report-generation";
 import { generateVerificationChecklist } from "@/lib/nir-verification-checklist";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveAreaSqm } from "@/lib/units";
+import {
+  claimSketchesToFloors,
+  uploadedFloorPlanToFloor,
+} from "@/lib/reports/claim-sketch-floors";
+import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
+import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
+import type { SketchFloor } from "@/lib/generate-sketch-pdf";
 
 // Dynamic import for ExcelJS to handle cases where it's not installed
 let ExcelJS: typeof import("exceljs") | null = null;
@@ -127,6 +135,17 @@ export async function GET(
             url: true,
             location: true,
             timestamp: true,
+          },
+        },
+        claimSketches: {
+          orderBy: { floorNumber: "asc" },
+          take: 50,
+          select: {
+            floorNumber: true,
+            floorLabel: true,
+            renderedPngUrl: true,
+            sketchData: true,
+            moisturePoints: true,
           },
         },
         report: {
@@ -271,7 +290,51 @@ function generateJSONReport(inspection: NirReportInspectionData) {
 // ─── PDF ──────────────────────────────────────────────────────────────────────
 
 async function generatePDFReport(inspection: NirReportInspectionData) {
-  const pdfBuffer = await generateNIRPDF(inspection);
+  const floorPlanOutput = await resolveFloorPlanOutput(inspection);
+  let reportData = {
+    ...inspection,
+    floorPlans: floorPlanOutput.map(({ status }) => status),
+  };
+  let pdfBuffer: Uint8Array = await generateNIRPDF(reportData);
+  const includedFloors: SketchFloor[] = [];
+  let embeddingFailure = false;
+
+  for (const output of floorPlanOutput) {
+    if (!output.floor) continue;
+
+    try {
+      pdfBuffer = await appendSketchPages(pdfBuffer, [output.floor], {
+        propertyAddress: inspection.propertyAddress ?? undefined,
+        reportNumber: inspection.inspectionNumber ?? inspection.id,
+      });
+      includedFloors.push(output.floor);
+    } catch {
+      output.status = {
+        ...output.status,
+        status: "unavailable",
+        reason:
+          "The stored image could not be embedded at report generation time.",
+      };
+      output.floor = null;
+      embeddingFailure = true;
+    }
+  }
+
+  // If an image decoded successfully but could not be embedded, rebuild the
+  // narrative pages with the corrected status before appending the known-good
+  // floors. The finished report must not claim a floor plan is included when
+  // its page is absent.
+  if (embeddingFailure) {
+    reportData = {
+      ...inspection,
+      floorPlans: floorPlanOutput.map(({ status }) => status),
+    };
+    pdfBuffer = await generateNIRPDF(reportData);
+    pdfBuffer = await appendSketchPages(pdfBuffer, includedFloors, {
+      propertyAddress: inspection.propertyAddress ?? undefined,
+      reportNumber: inspection.inspectionNumber ?? inspection.id,
+    });
+  }
 
   return new NextResponse(pdfBuffer as unknown as BodyInit, {
     headers: {
@@ -279,6 +342,105 @@ async function generatePDFReport(inspection: NirReportInspectionData) {
       "Content-Disposition": `attachment; filename="NIR-${inspection.inspectionNumber ?? inspection.id}.pdf"`,
     },
   });
+}
+
+interface FloorPlanOutput {
+  status: NirFloorPlanStatus;
+  floor: SketchFloor | null;
+}
+
+async function resolveFloorPlanOutput(
+  inspection: NirReportInspectionData,
+): Promise<FloorPlanOutput[]> {
+  const sketches = [...(inspection.claimSketches ?? [])].sort(
+    (a, b) => a.floorNumber - b.floorNumber,
+  );
+
+  const sketchOutput = await Promise.all(
+    sketches.map(async (sketch): Promise<FloorPlanOutput> => {
+      const status: NirFloorPlanStatus = {
+        label: sketch.floorLabel,
+        source: "rendered_sketch",
+        status: "unavailable",
+      };
+
+      if (!sketch.renderedPngUrl) {
+        return {
+          status: {
+            ...status,
+            reason:
+              "No rendered sketch image was available at report generation time.",
+          },
+          floor: null,
+        };
+      }
+
+      if (!(await isSafePublicHttpsUrl(sketch.renderedPngUrl))) {
+        return {
+          status: {
+            ...status,
+            reason:
+              "The stored image location was not eligible for secure retrieval.",
+          },
+          floor: null,
+        };
+      }
+
+      const [floor] = await claimSketchesToFloors([sketch]);
+      return floor
+        ? { status: { ...status, status: "included" }, floor }
+        : {
+            status: {
+              ...status,
+              reason:
+                "The stored image could not be retrieved at report generation time.",
+            },
+            floor: null,
+          };
+    }),
+  );
+
+  if (!inspection.floorPlanImageUrl) return sketchOutput;
+
+  const uploadedStatus: NirFloorPlanStatus = {
+    label: "Uploaded Floor Plan",
+    source: "uploaded_floor_plan",
+    status: "unavailable",
+  };
+
+  if (!(await isSafePublicHttpsUrl(inspection.floorPlanImageUrl))) {
+    return [
+      ...sketchOutput,
+      {
+        status: {
+          ...uploadedStatus,
+          reason:
+            "The stored image location was not eligible for secure retrieval.",
+        },
+        floor: null,
+      },
+    ];
+  }
+
+  const uploadedFloor = await uploadedFloorPlanToFloor(
+    inspection.floorPlanImageUrl,
+  );
+  return [
+    ...sketchOutput,
+    uploadedFloor
+      ? {
+          status: { ...uploadedStatus, status: "included" },
+          floor: uploadedFloor,
+        }
+      : {
+          status: {
+            ...uploadedStatus,
+            reason:
+              "The stored image could not be retrieved at report generation time.",
+          },
+          floor: null,
+        },
+  ];
 }
 
 // ─── EXCEL ────────────────────────────────────────────────────────────────────
