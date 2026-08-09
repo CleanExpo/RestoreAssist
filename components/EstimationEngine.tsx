@@ -165,7 +165,10 @@ export default function EstimationEngine({
   const prevLineItemsRef = useRef<string>("");
   const prevParamsRef = useRef<string>("");
   const isInitialMount = useRef(true);
-  const skipNextTotalsCalculation = useRef(false);
+  const pendingInitialHydrationInputs = useRef<{
+    lineItems: string;
+    params: string;
+  } | null>(null);
 
   // Load initial estimate data if editing
   useEffect(() => {
@@ -213,7 +216,7 @@ export default function EstimationEngine({
           gst: initialMoneyValue("gst"),
           totalIncGST: initialMoneyValue("totalIncGST"),
         };
-        prevLineItemsRef.current = JSON.stringify(
+        const hydratedLineItems = JSON.stringify(
           parsedData.lineItems.map((item: any) => ({
             qty: item.qty,
             rate: item.rate,
@@ -221,7 +224,7 @@ export default function EstimationEngine({
             equipmentData: item.equipmentData,
           })),
         );
-        prevParamsRef.current = JSON.stringify({
+        const hydratedParams = JSON.stringify({
           overheadsPercent: parsedData.commercialParams.overheadsPercent,
           profitPercent: parsedData.commercialParams.profitPercent,
           profitAppliedAfter: parsedData.commercialParams.profitAppliedAfter,
@@ -230,7 +233,12 @@ export default function EstimationEngine({
           gstPercent: parsedData.commercialParams.gstPercent,
           roundTo: parsedData.commercialParams.roundTo,
         });
-        skipNextTotalsCalculation.current = true;
+        prevLineItemsRef.current = hydratedLineItems;
+        prevParamsRef.current = hydratedParams;
+        pendingInitialHydrationInputs.current = {
+          lineItems: hydratedLineItems,
+          params: hydratedParams,
+        };
         setEstimateData(parsedData);
       } catch (error) {
         console.error("Error parsing initial estimate data:", error);
@@ -255,11 +263,6 @@ export default function EstimationEngine({
 
   // Calculate totals only when actual values change (using stringified comparison)
   useEffect(() => {
-    if (skipNextTotalsCalculation.current) {
-      skipNextTotalsCalculation.current = false;
-      return;
-    }
-
     // Stringify current values for comparison
     const currentLineItemsStr = JSON.stringify(
       estimateData.lineItems.map((item) => ({
@@ -278,6 +281,17 @@ export default function EstimationEngine({
       gstPercent: estimateData.commercialParams.gstPercent,
       roundTo: estimateData.commercialParams.roundTo,
     });
+
+    const pendingHydration = pendingInitialHydrationInputs.current;
+    if (pendingHydration) {
+      if (
+        pendingHydration.lineItems !== currentLineItemsStr ||
+        pendingHydration.params !== currentParamsStr
+      ) {
+        return;
+      }
+      pendingInitialHydrationInputs.current = null;
+    }
 
     // Only calculate if values actually changed
     if (
