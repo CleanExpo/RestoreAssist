@@ -98,6 +98,7 @@ import { UnderlayTransformControls } from "./UnderlayTransformControls";
 import { SketchStartOverlay } from "./SketchStartOverlay";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
 import { createRenderFreshnessTracker } from "@/lib/sketch/render-freshness";
+import { mapNormalizedVerticesToCanvas } from "@/lib/sketch/import-coordinates";
 
 const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
   ssr: false,
@@ -1372,6 +1373,8 @@ export function SketchEditorV2({
       const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
         add: (...objs: unknown[]) => void;
         renderAll: () => void;
+        getWidth: () => number;
+        getHeight: () => number;
       } | null;
       if (!fc) return;
 
@@ -1392,10 +1395,7 @@ export function SketchEditorV2({
 
       rooms.forEach((room, i) => {
         const color = ROOM_COLORS[i % ROOM_COLORS.length];
-        const pts = room.vertices.map((v) => ({
-          x: v.x * width,
-          y: v.y * height,
-        }));
+        const pts = mapNormalizedVerticesToCanvas(room.vertices, fc);
 
         const polygon = new FabricPolygon(pts, {
           fill: color.fill,
@@ -1434,7 +1434,7 @@ export function SketchEditorV2({
       fc.renderAll();
       scheduleSave();
     },
-    [inspectionId, activeFloor, width, height, scheduleSave],
+    [inspectionId, activeFloor, scheduleSave],
   );
 
   // ── RA-7091: apply CapturedRoom JSON onto a floor canvas ─
