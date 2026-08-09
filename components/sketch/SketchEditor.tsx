@@ -536,9 +536,10 @@ export function SketchEditor({
 
   // ── Export ────────────────────────────────────────────────
   const handleExport = () => {
-    const c = getFabric();
-    if (!c) return;
-    const url = c.toDataURL({ format: "png", multiplier: 2 });
+    const handle = canvasRef?.current;
+    if (!handle) return;
+    // Handle toDataURL → exportSketchPng (underlay stripped + content crop).
+    const url = handle.toDataURL({ format: "png" });
     const a = document.createElement("a");
     a.href = url;
     a.download = `sketch-${activeFloor.floorLabel.toLowerCase().replace(/\s+/g, "-")}.png`;
@@ -554,18 +555,10 @@ export function SketchEditor({
         .map((floor) => {
           const c = floor.canvasRef.current;
           if (!c) return null;
-          const fabricCanvas = c.getFabricCanvas() as {
-            toDataURL: (opts: object) => string;
-            toJSON: () => object;
-          } | null;
-          if (!fabricCanvas) return null;
           return {
             label: floor.floorLabel,
-            pngDataUrl: fabricCanvas.toDataURL({
-              format: "png",
-              multiplier: 2,
-            }),
-            fabricJson: fabricCanvas.toJSON(),
+            pngDataUrl: c.toDataURL({ format: "png" }),
+            fabricJson: c.toJSON(),
           };
         })
         .filter(Boolean);
