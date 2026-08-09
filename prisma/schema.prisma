@@ -4228,7 +4228,7 @@ model VoiceCopilotSession {
 
   mode         String
   state        String     @default("idle")
-  missingItems Json?
+  missingItems Json       @default("[]")
   startedAt    DateTime   @default(now())
   endedAt      DateTime?
   expiresAt    DateTime
