@@ -590,12 +590,26 @@ export default function DashboardShell({
               </Link>
             )}
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
               className={cn(
-                "p-1 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95",
+                "inline-flex h-11 w-11 items-center justify-center rounded-lg transition-all duration-200 active:scale-95 md:hidden",
                 "hover:bg-neutral-100 dark:hover:bg-slate-800",
                 "text-neutral-700 dark:text-slate-300",
               )}
+              aria-label="Close menu"
+            >
+              <X size={20} className="transition-transform duration-200" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className={cn(
+                "hidden h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 md:inline-flex",
+                "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                "text-neutral-700 dark:text-slate-300",
+              )}
+              aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
               title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
             >
               {sidebarOpen ? (
