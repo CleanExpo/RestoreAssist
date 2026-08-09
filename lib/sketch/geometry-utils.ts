@@ -236,6 +236,22 @@ export function formatDimension(
 }
 
 /**
+ * Encircle-style readability: omit dimension labels on short edge segments so
+ * interior stubs / door reveals don't clutter the plan. Default 0.45 m (~18").
+ */
+export const MIN_EDGE_DIM_M = 0.45;
+
+export function shouldShowEdgeDimension(
+  lengthPx: number,
+  pxPerMetre = 100,
+  minMetres = MIN_EDGE_DIM_M,
+): boolean {
+  const scale = pxPerMetre || 100;
+  if (!(lengthPx > 0) || !(scale > 0)) return false;
+  return lengthPx / scale >= minMetres;
+}
+
+/**
  * Midpoint of a segment and the perpendicular label offset position.
  *
  * Returns `{ mid, labelPos }` where `labelPos` is shifted `offsetPx` pixels
