@@ -97,7 +97,11 @@ import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
 import { UnderlayTransformControls } from "./UnderlayTransformControls";
 import { SketchStartOverlay } from "./SketchStartOverlay";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
-import { createRenderFreshnessTracker } from "@/lib/sketch/render-freshness";
+import {
+  createRenderFreshnessTracker,
+  didForcedRenderSaveSucceed,
+  type RenderedFloorSaveOutcome,
+} from "@/lib/sketch/render-freshness";
 import { mapNormalizedVerticesToCanvas } from "@/lib/sketch/import-coordinates";
 
 const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
@@ -540,7 +544,7 @@ export function SketchEditorV2({
         }
       }
       const base = pickSketchDataForSave(liveJson, fd.sketchSnapshot);
-      if (!base) return;
+      if (!base) return null;
       const sketchData = {
         ...withSketchFieldComplete(base, fd.fieldComplete === true),
         scaleConfig: fd.scaleConfig,
@@ -555,9 +559,13 @@ export function SketchEditorV2({
       // rasterise the floor (underlay + annotations are both captured by Fabric
       // toDataURL) and upload it so the canonical report can embed the floor
       // plan. Best-effort: the sketchData save below stays authoritative, so a
-      // failed render/upload must never block the save or surface an error.
+      // failed render/upload never blocks the vector save; flushSaveNow warns
+      // that the report image remains stale and keeps it eligible for retry.
       let renderedPngUrl: string | undefined;
-      if (renderImage && inspectionId && !captureMode && canvas) {
+      const renderRequired =
+        renderImage && Boolean(inspectionId) && !captureMode;
+      let renderUploaded = !renderRequired;
+      if (renderRequired && canvas && inspectionId) {
         try {
           // Lazy import so the Supabase client (instantiated at module load in
           // lib/supabase) stays out of this component's import graph — eager
@@ -573,6 +581,7 @@ export function SketchEditorV2({
             fd.floor.floorNumber,
           );
           renderedPngUrl = uploaded.publicUrl;
+          renderUploaded = true;
         } catch {
           // leave renderedPngUrl undefined → Prisma keeps the prior render
         }
@@ -628,7 +637,10 @@ export function SketchEditorV2({
             );
           }
           succeededOnline++;
-          return;
+          return {
+            vectorPersisted: true,
+            renderUploaded,
+          } satisfies RenderedFloorSaveOutcome;
         }
         // 409 stale = server already has newer state. Do NOT queue — the
         // offline drain would only hit 409 again and risk confusing the UI.
@@ -636,7 +648,12 @@ export function SketchEditorV2({
           const payload = (await res.json().catch(() => null)) as {
             stale?: boolean;
           } | null;
-          if (payload?.stale === true) return;
+          if (payload?.stale === true) {
+            return {
+              vectorPersisted: false,
+              renderUploaded,
+            } satisfies RenderedFloorSaveOutcome;
+          }
         }
         throw new Error(`save ${res.status}`);
       } catch {
@@ -645,7 +662,10 @@ export function SketchEditorV2({
         // never as a "Saved" indicator (silent data loss).
         if (captureMode || !inspectionId) {
           captureFailedThisTick = true;
-          return;
+          return {
+            vectorPersisted: false,
+            renderUploaded,
+          } satisfies RenderedFloorSaveOutcome;
         }
         // Network failure or non-2xx — queue locally, drain later.
         try {
@@ -660,10 +680,25 @@ export function SketchEditorV2({
           // surfaces the lack of a fresh savedAt so the user knows
           // something is off.
         }
+        return {
+          vectorPersisted: false,
+          renderUploaded,
+        } satisfies RenderedFloorSaveOutcome;
       }
     });
 
-    await Promise.allSettled(floorPromises);
+    const settledFloors = await Promise.allSettled(floorPromises);
+    const floorOutcomes = settledFloors.flatMap((result) =>
+      result.status === "fulfilled" && result.value ? [result.value] : [],
+    );
+    const forcedRenderSaved =
+      renderImage &&
+      settledFloors.every((result) => result.status === "fulfilled") &&
+      didForcedRenderSaveSucceed(floorOutcomes);
+    const allVectorsPersisted =
+      floorOutcomes.length > 0 &&
+      settledFloors.every((result) => result.status === "fulfilled") &&
+      floorOutcomes.every((outcome) => outcome.vectorPersisted);
 
     // Refresh the offline-pending count from the queue so it reflects
     // ground truth (entries can also get added/removed by the SW
@@ -693,6 +728,7 @@ export function SketchEditorV2({
     // so flag it whenever nothing saved online this tick.
     setCaptureSaveFailed(indicator.captureFailed);
     setSaving(false);
+    return { forcedRenderSaved, allVectorsPersisted };
   }, [inspectionId, country, captureMode, captureToken, uid]);
 
   // PR4b freshness: debounced saves persist sketchData but NOT a fresh render
@@ -720,10 +756,19 @@ export function SketchEditorV2({
     }
     if (readonly) return;
     if (!inspectionId && !captureToken) return;
-    await performSave(true);
-    // A render was just captured — edits are no longer un-rendered.
-    freshnessRef.current.markRendered();
-  }, [readonly, inspectionId, captureToken, performSave]);
+    const outcome = await performSave(true);
+    freshnessRef.current.recordRenderAttempt(outcome.forcedRenderSaved);
+    if (outcome.forcedRenderSaved) {
+      toast.dismiss("sketch-render-refresh-failed");
+    } else if (inspectionId && !captureMode) {
+      toast.error(
+        outcome.allVectorsPersisted
+          ? "Drawing saved, but the report image could not be refreshed. It will retry when you switch floors, leave, or export again."
+          : "Floor plan changes are not fully synced, and the report image may be out of date. Check the offline status and retry before exporting.",
+        { id: "sketch-render-refresh-failed" },
+      );
+    }
+  }, [readonly, inspectionId, captureToken, performSave, captureMode]);
 
   // PR4b freshness: flush one render on unmount when edits happened since the
   // last render, so navigating away (e.g. to download the canonical report)

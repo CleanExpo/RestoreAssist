@@ -11,10 +11,27 @@
 export interface RenderFreshnessTracker {
   /** Call whenever the canvas changes (a debounced save was scheduled). */
   markEdited(): void;
-  /** Call whenever a fresh render has been captured + uploaded (a flush save). */
-  markRendered(): void;
+  /** Record whether a forced render + sketch persistence attempt fully succeeded. */
+  recordRenderAttempt(succeeded: boolean): void;
   /** True when edits exist that a leave-time flush should capture. */
   shouldFlushOnLeave(): boolean;
+}
+
+export interface RenderedFloorSaveOutcome {
+  vectorPersisted: boolean;
+  renderUploaded: boolean;
+}
+
+/** A report render is fresh only when every relevant floor completed both steps. */
+export function didForcedRenderSaveSucceed(
+  outcomes: readonly RenderedFloorSaveOutcome[],
+): boolean {
+  return (
+    outcomes.length > 0 &&
+    outcomes.every(
+      (outcome) => outcome.vectorPersisted && outcome.renderUploaded,
+    )
+  );
 }
 
 export function createRenderFreshnessTracker(): RenderFreshnessTracker {
@@ -23,8 +40,8 @@ export function createRenderFreshnessTracker(): RenderFreshnessTracker {
     markEdited() {
       unrenderedEdits = true;
     },
-    markRendered() {
-      unrenderedEdits = false;
+    recordRenderAttempt(succeeded) {
+      if (succeeded) unrenderedEdits = false;
     },
     shouldFlushOnLeave() {
       return unrenderedEdits;
