@@ -32,8 +32,11 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
+  turbopack: {
+    // Pin resolution to this repository. Without this, a parent-directory
+    // package-lock.json makes Next infer /Users/phill-mac as the workspace
+    // root and trace unrelated files into the build graph.
+    root: process.cwd(),
   },
   async redirects() {
     // Legacy / muscle-memory auth route aliases. Password managers and
@@ -152,7 +155,7 @@ const nextConfig = {
   //   Native binaries:   sharp, puppeteer, exifr — platform-specific .node files
   //   AI SDKs:           @anthropic-ai/sdk, openai, @google/generative-ai
   //   Cloud/infra:       firebase-admin, googleapis, cloudinary, stripe, resend, nodemailer
-  //   PDF generation:    pdf-lib, jspdf, pdf-parse, pdfjs-dist
+  //   PDF generation:    pdf-lib, jspdf, pdf-parse
   //   Office formats:    exceljs, mammoth
   //   Media/video:       @remotion/lambda
   //   Utilities:         archiver, jsonwebtoken, bcryptjs, qrcode
@@ -177,7 +180,6 @@ const nextConfig = {
     "pdf-lib",
     "jspdf",
     "pdf-parse",
-    "pdfjs-dist",
     // Office formats — server-only
     "exceljs",
     "mammoth",
