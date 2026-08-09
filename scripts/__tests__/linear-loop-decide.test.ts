@@ -9,30 +9,37 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 
 const CLI_PATH = join(__dirname, "..", "linear-loop-decide.ts");
+const require = createRequire(import.meta.url);
+const TSX_CLI_PATH = require.resolve("tsx/cli");
 
 // The CLI's dispatch path Nexus-wraps every non-owner-gated task, which reads
 // NEXUS_PROMPT.md. That file lives in the `nexus` skill (~/.claude/skills/nexus)
 // and is absent on CI runners, so point NEXUS_PROMPT_PATH at a committed fixture
 // to keep this subprocess hermetic — the test must not depend on a file outside
 // the repo.
-const NEXUS_PROMPT_FIXTURE = join(__dirname, "fixtures", "nexus-prompt.fixture.md");
+const NEXUS_PROMPT_FIXTURE = join(
+  __dirname,
+  "fixtures",
+  "nexus-prompt.fixture.md",
+);
 
 function runCli(issue: unknown): string {
-  // Pass the issue JSON via an env var (not shell-interpolated into the
-  // command string) so payload content — quotes, apostrophes, etc. — can
-  // never break shell argument parsing.
-  return execSync(`npx tsx "${CLI_PATH}" --issue-json "$ISSUE_JSON"`, {
-    encoding: "utf-8",
-    env: {
-      ...process.env,
-      ISSUE_JSON: JSON.stringify(issue),
-      NEXUS_PROMPT_PATH: NEXUS_PROMPT_FIXTURE,
+  return execFileSync(
+    process.execPath,
+    [TSX_CLI_PATH, CLI_PATH, "--issue-json", JSON.stringify(issue)],
+    {
+      encoding: "utf-8",
+      env: {
+        ...process.env,
+        NEXUS_PROMPT_PATH: NEXUS_PROMPT_FIXTURE,
+      },
     },
-  });
+  );
 }
 
 describe("linear-loop-decide CLI", () => {
