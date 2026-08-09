@@ -36,10 +36,16 @@ import {
   AppWindow,
   Waves,
   Scan,
+  Fan,
 } from "lucide-react";
 import type { ToolMode } from "./SketchCanvas";
 import type { DamageKind } from "@/lib/sketch/damage-zone";
 import { DAMAGE_KINDS, DAMAGE_KIND_STYLES } from "@/lib/sketch/damage-zone";
+import type { EquipmentKind } from "@/lib/sketch/equipment-symbols";
+import {
+  EQUIPMENT_KINDS,
+  EQUIPMENT_KIND_STYLES,
+} from "@/lib/sketch/equipment-symbols";
 
 export type DockPosition = "bottom" | "top" | "left" | "right";
 
@@ -48,6 +54,8 @@ export interface SketchDockToolbarProps {
   onToolChange: (mode: ToolMode) => void;
   damageKind?: DamageKind;
   onDamageKindChange?: (kind: DamageKind) => void;
+  equipmentKind?: EquipmentKind;
+  onEquipmentKindChange?: (kind: EquipmentKind) => void;
   canUndo?: boolean;
   canRedo?: boolean;
   onUndo?: () => void;
@@ -85,12 +93,18 @@ const TOOLS: {
   shortcut: string;
 }[] = [
   { mode: "select", Icon: MousePointer2, label: "Select", shortcut: "V" },
-  { mode: "room", Icon: Square, label: "Room (tap/drag)", shortcut: "R" },
+  { mode: "room", Icon: Square, label: "Room", shortcut: "R" },
   { mode: "line", Icon: Minus, label: "Wall", shortcut: "L" },
   { mode: "door", Icon: DoorOpen, label: "Door", shortcut: "O" },
   { mode: "window", Icon: AppWindow, label: "Window", shortcut: "W" },
-  { mode: "damage", Icon: Waves, label: "Damage", shortcut: "G" },
-  { mode: "freehand", Icon: Pencil, label: "Freehand", shortcut: "P" },
+  {
+    mode: "damage",
+    Icon: Waves,
+    label: "Affected area (tap room)",
+    shortcut: "G",
+  },
+  { mode: "equipment", Icon: Fan, label: "Equipment", shortcut: "E" },
+  { mode: "freehand", Icon: Pencil, label: "Markup", shortcut: "P" },
   { mode: "text", Icon: Type, label: "Label", shortcut: "T" },
   { mode: "arrow", Icon: ArrowUpRight, label: "Arrow", shortcut: "A" },
   { mode: "measure", Icon: Ruler, label: "Measure", shortcut: "M" },
@@ -111,6 +125,8 @@ export function SketchDockToolbar({
   onToolChange,
   damageKind = "water",
   onDamageKindChange,
+  equipmentKind = "dehumidifier",
+  onEquipmentKindChange,
   canUndo = false,
   canRedo = false,
   onUndo,
@@ -267,6 +283,8 @@ export function SketchDockToolbar({
               "flex gap-1",
               isVertical ? "flex-col max-h-48 overflow-y-auto" : "flex-row",
             )}
+            role="group"
+            aria-label="Affected area category"
           >
             {DAMAGE_KINDS.map((kind) => (
               <button
@@ -285,6 +303,43 @@ export function SketchDockToolbar({
                 style={{ background: DAMAGE_KIND_STYLES[kind].fill }}
               >
                 {kind.slice(0, 1)}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {!readonly && toolMode === "equipment" && onEquipmentKindChange && (
+        <>
+          <div className={dividerCls} />
+          <div
+            className={cn(
+              "flex gap-1",
+              isVertical ? "flex-col max-h-48 overflow-y-auto" : "flex-row",
+            )}
+            role="group"
+            aria-label="Equipment type"
+          >
+            {EQUIPMENT_KINDS.map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                title={EQUIPMENT_KIND_STYLES[kind].label}
+                aria-label={EQUIPMENT_KIND_STYLES[kind].label}
+                aria-pressed={equipmentKind === kind}
+                onClick={() => onEquipmentKindChange(kind)}
+                className={cn(
+                  "h-8 min-w-8 px-1 rounded-lg border text-[9px] font-semibold tracking-wide",
+                  equipmentKind === kind
+                    ? "border-[#D4A574] ring-1 ring-[#D4A574] text-white"
+                    : "border-white/10 opacity-70 hover:opacity-100 text-white/80",
+                )}
+                style={{
+                  background: EQUIPMENT_KIND_STYLES[kind].fill,
+                  color: EQUIPMENT_KIND_STYLES[kind].stroke,
+                }}
+              >
+                {EQUIPMENT_KIND_STYLES[kind].short}
               </button>
             ))}
           </div>
