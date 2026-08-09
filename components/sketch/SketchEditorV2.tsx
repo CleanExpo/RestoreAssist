@@ -524,10 +524,11 @@ export function SketchEditorV2({
       const captureAdapter = resolveSketchCaptureAdapter({ sketchData });
 
       // RA-120 (PR2): on flush saves (floor switch / PDF export / scope gen),
-      // rasterise the floor (underlay + annotations are both captured by Fabric
-      // toDataURL) and upload it so the canonical report can embed the floor
-      // plan. Best-effort: the sketchData save below stays authoritative, so a
-      // failed render/upload must never block the save or surface an error.
+      // rasterise the floor via exportSketchPng (underlay stripped, content
+      // cropped, high-res) so the canonical report embeds a professional plan
+      // — not a full-viewport screenshot. Best-effort: the sketchData save
+      // below stays authoritative, so a failed render/upload must never block
+      // the save or surface an error.
       let renderedPngUrl: string | undefined;
       if (renderImage && inspectionId && !captureMode && canvas) {
         try {
@@ -538,7 +539,14 @@ export function SketchEditorV2({
           const { uploadRenderedSketch, dataUrlToBlob } = await import(
             "@/lib/sketch-storage"
           );
-          const dataUrl = canvas.toDataURL({ format: "png", multiplier: 2 });
+          const { EXPORT_REPORT_MULTIPLIER } = await import(
+            "@/lib/sketch/export-content-bounds"
+          );
+          // SketchCanvasHandle.toDataURL → exportSketchPng (firewall + crop).
+          const dataUrl = canvas.toDataURL({
+            format: "png",
+            multiplier: EXPORT_REPORT_MULTIPLIER,
+          });
           const uploaded = await uploadRenderedSketch(
             dataUrlToBlob(dataUrl),
             inspectionId,
@@ -1220,15 +1228,14 @@ export function SketchEditorV2({
       const floorPayload = floorsData
         .map((fd) => {
           const canvas = fd.canvasRef.current;
-          const fc = canvas?.getFabricCanvas() as {
-            toDataURL: (opts: object) => string;
-            toJSON: () => object;
-          } | null;
-          if (!fc) return null;
+          // Use the handle's toDataURL (export firewall + content crop), never
+          // the raw Fabric canvas — that would leak the underlay and include
+          // empty viewport void in the PDF.
+          if (!canvas) return null;
           return {
             label: fd.floor.floorLabel,
-            pngDataUrl: fc.toDataURL({ format: "png", multiplier: 2 }),
-            fabricJson: fc.toJSON(),
+            pngDataUrl: canvas.toDataURL({ format: "png" }),
+            fabricJson: canvas.toJSON(),
           };
         })
         .filter(Boolean);
