@@ -2,8 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   findContainingRoom,
   damageAnchorPoint,
+  describeRoomDamageTint,
   extractDamageLegend,
+  resolveRoomDamageTap,
   roomClipPathDescriptor,
+  roomDamageTintId,
   roomsFromFabricObjects,
 } from "../damage-zone";
 
@@ -113,5 +116,41 @@ describe("extractDamageLegend", () => {
   it("returns empty for missing fabric JSON", () => {
     expect(extractDamageLegend(null)).toEqual([]);
     expect(extractDamageLegend({})).toEqual([]);
+  });
+});
+
+describe("one-tap room damage", () => {
+  it("builds a stable tint id and room-fill descriptor", () => {
+    expect(roomDamageTintId("kitchen", "water")).toBe("dmg-tint-kitchen-water");
+    const d = describeRoomDamageTint(kitchen, "water");
+    expect(d.data.role).toBe("room-tint");
+    expect(d.data.roomId).toBe("kitchen");
+    expect(d.points).toHaveLength(4);
+    expect(d.fill).toContain("37, 99, 235");
+  });
+
+  it("paints when the tap is inside a room with no existing tint", () => {
+    const r = resolveRoomDamageTap(100, 75, [kitchen], "water", new Set());
+    expect(r.action).toBe("paint");
+    if (r.action === "paint") expect(r.room.id).toBe("kitchen");
+  });
+
+  it("clears when the same tint already exists (toggle)", () => {
+    const id = roomDamageTintId("kitchen", "water");
+    const r = resolveRoomDamageTap(
+      100,
+      75,
+      [kitchen],
+      "water",
+      new Set([id]),
+    );
+    expect(r.action).toBe("clear");
+    if (r.action === "clear") expect(r.tintId).toBe(id);
+  });
+
+  it("returns none outside every room", () => {
+    expect(
+      resolveRoomDamageTap(900, 900, [kitchen], "fire", new Set()).action,
+    ).toBe("none");
   });
 });
