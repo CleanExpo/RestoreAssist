@@ -38,7 +38,7 @@ describe("sendEmail (lib/email-send)", () => {
   it("is loud (console.error + reportError), not silent, when RESEND_API_KEY is unset", async () => {
     delete process.env.RESEND_API_KEY;
 
-    await expect(sendEmail(payload)).resolves.toBeUndefined();
+    await expect(sendEmail(payload)).resolves.toEqual({ sent: false });
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(console.error).toHaveBeenCalledWith(
@@ -54,7 +54,9 @@ describe("sendEmail (lib/email-send)", () => {
   it("passes an abort signal (timeout) and reply_to to the Resend fetch", async () => {
     fetchMock.mockResolvedValue({ ok: true });
 
-    await sendEmail({ ...payload, replyTo: "support@restoreassist.app" });
+    await expect(
+      sendEmail({ ...payload, replyTo: "support@restoreassist.app" }),
+    ).resolves.toEqual({ sent: true });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, options] = fetchMock.mock.calls[0];
@@ -81,7 +83,7 @@ describe("sendEmail (lib/email-send)", () => {
   it("never throws when the fetch fails, but reports the error", async () => {
     fetchMock.mockRejectedValue(new Error("network down"));
 
-    await expect(sendEmail(payload)).resolves.toBeUndefined();
+    await expect(sendEmail(payload)).resolves.toEqual({ sent: false });
 
     expect(reportError).toHaveBeenCalledWith(
       expect.any(Error),
@@ -96,7 +98,7 @@ describe("sendEmail (lib/email-send)", () => {
       text: () => Promise.resolve("invalid from"),
     });
 
-    await expect(sendEmail(payload)).resolves.toBeUndefined();
+    await expect(sendEmail(payload)).resolves.toEqual({ sent: false });
 
     expect(console.error).toHaveBeenCalledWith(
       expect.stringContaining("[email-send] Resend error 422"),

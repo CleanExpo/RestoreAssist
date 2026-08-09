@@ -6,7 +6,12 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
 }));
-vi.mock("@/lib/email-send", () => ({ sendEmail: vi.fn(async () => {}) }));
+vi.mock("@/lib/email-send", () => ({
+  sendEmail: vi.fn(async () => ({ sent: true })),
+}));
+vi.mock("@/lib/app-url", () => ({
+  getAppUrl: vi.fn(() => "https://restoreassist.app"),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findUnique: vi.fn() },
@@ -46,12 +51,13 @@ beforeEach(() => {
   p.clientPortalAccount.findFirst.mockResolvedValue(null);
   p.clientPortalAccount.create.mockResolvedValue({ token: "NEWTOK" });
   p.clientPortalAccount.update.mockResolvedValue({});
+  mEmail.mockResolvedValue({ sent: true });
 });
 
 const req = () =>
   new NextRequest("http://localhost/api/inspections/i1/client-portal-link", {
     method: "POST",
-    headers: { origin: "https://restoreassist.app" },
+    headers: { origin: "https://attacker.example" },
   });
 const params = { params: Promise.resolve({ id: "i1" }) };
 
@@ -59,11 +65,16 @@ describe("POST /api/inspections/[id]/client-portal-link", () => {
   it("401 without a session", async () => {
     mSession.mockResolvedValueOnce(null);
     expect((await POST(req(), params)).status).toBe(401);
+    expect(mTenancy).not.toHaveBeenCalled();
+    expect(p.inspection.findUnique).not.toHaveBeenCalled();
+    expect(mEmail).not.toHaveBeenCalled();
   });
 
   it("403 when tenancy fails", async () => {
     mTenancy.mockResolvedValueOnce({ ok: false, status: 403, reason: "no" });
     expect((await POST(req(), params)).status).toBe(403);
+    expect(p.inspection.findUnique).not.toHaveBeenCalled();
+    expect(mEmail).not.toHaveBeenCalled();
   });
 
   it("422 when the claim's client has no email", async () => {
@@ -81,17 +92,35 @@ describe("POST /api/inspections/[id]/client-portal-link", () => {
     const body = await res.json();
     expect(body.data.url).toBe("https://restoreassist.app/portal/NEWTOK");
     expect(body.data.emailed).toBe(true);
+    expect(body.data.expiresAt).toEqual(expect.any(String));
     expect(mEmail).toHaveBeenCalledWith(
       expect.objectContaining({ to: "client@x.com" }),
     );
   });
 
   it("reuses an existing active token instead of minting a new one", async () => {
-    p.clientPortalAccount.findFirst.mockResolvedValueOnce({ token: "OLDTOK" });
+    p.clientPortalAccount.findFirst.mockResolvedValueOnce({
+      id: "portal_1",
+      token: "OLDTOK",
+    });
     const res = await POST(req(), params);
     expect(p.clientPortalAccount.create).not.toHaveBeenCalled();
+    expect(p.clientPortalAccount.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "portal_1" } }),
+    );
     expect((await res.json()).data.url).toBe(
       "https://restoreassist.app/portal/OLDTOK",
     );
+  });
+
+  it("returns the link without claiming email delivery when Resend fails", async () => {
+    mEmail.mockResolvedValueOnce({ sent: false });
+
+    const res = await POST(req(), params);
+    expect(res.status).toBe(200);
+    expect((await res.json()).data).toMatchObject({
+      url: "https://restoreassist.app/portal/NEWTOK",
+      emailed: false,
+    });
   });
 });

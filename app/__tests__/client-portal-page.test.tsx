@@ -21,7 +21,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/components/portal/ClientPortalStatus", () => ({
-  ClientPortalStatus: () => null,
+  ClientPortalStatus: () => <div data-testid="portal-status" />,
 }));
 vi.mock("@/components/portal/ClientPortalAuthorities", () => ({
   ClientPortalAuthorities: () => <div data-testid="portal-authorities" />,
@@ -115,9 +115,20 @@ describe("ClientPortalPage", () => {
 
     expect(screen.getByText("12 Test St, Brisbane")).toBeInTheDocument();
     expect(screen.getByText("Viewing only")).toBeInTheDocument();
+    expect(screen.getByTestId("portal-status")).toBeInTheDocument();
     expect(
       screen.getByText(/Uploads and approvals are unavailable/),
     ).toBeInTheDocument();
+    expect(screen.queryByTestId("portal-authorities")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("portal-upload")).not.toBeInTheDocument();
+  });
+
+  it("keeps legacy HMAC inspection links read-only while they expire", async () => {
+    const jsx = await ClientPortalPage({ params });
+    render(jsx);
+
+    expect(screen.getByText("Viewing only")).toBeInTheDocument();
+    expect(screen.queryByTestId("portal-status")).not.toBeInTheDocument();
     expect(screen.queryByTestId("portal-authorities")).not.toBeInTheDocument();
     expect(screen.queryByTestId("portal-upload")).not.toBeInTheDocument();
   });
@@ -133,6 +144,7 @@ describe("ClientPortalPage", () => {
     render(jsx);
 
     expect(screen.queryByText("Viewing only")).not.toBeInTheDocument();
+    expect(screen.getByTestId("portal-status")).toBeInTheDocument();
     expect(screen.getByTestId("portal-authorities")).toBeInTheDocument();
     expect(screen.getByTestId("portal-upload")).toBeInTheDocument();
   });

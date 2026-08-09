@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { sendEmail } from "@/lib/email-send";
+import { getAppUrl } from "@/lib/app-url";
+import { escapeHtml } from "@/lib/email";
 
 /**
  * The "single button" (Client portal Phase 1).
@@ -88,19 +90,25 @@ export async function POST(
       ).token;
     }
 
-    const origin = request.headers.get("origin") ?? "";
-    const url = `${origin}/portal/${token}`;
+    const url = `${getAppUrl()}/portal/${token}`;
 
-    await sendEmail({
+    const safeUrl = escapeHtml(url);
+    const delivery = await sendEmail({
       to: client.email,
       subject: "Your RestoreAssist claim — view and respond",
       html: `<p>Your assessor has shared your claim with you.</p>
 <p>Use this secure link to view your claim, add photos, and approve the authorities required:</p>
-<p><a href="${url}">${url}</a></p>
+<p><a href="${safeUrl}">${safeUrl}</a></p>
 <p>If you didn’t expect this, you can ignore this email.</p>`,
     });
 
-    return NextResponse.json({ data: { url, emailed: true } });
+    return NextResponse.json({
+      data: {
+        url,
+        emailed: delivery.sent,
+        expiresAt: expiresAt.toISOString(),
+      },
+    });
   } catch (e) {
     return fromException(request, e);
   }

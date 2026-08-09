@@ -154,6 +154,15 @@ const nextConfig = {
           },
         ],
       },
+      {
+        source: "/portal(.*)",
+        headers: [
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow, noarchive, noimageindex",
+          },
+        ],
+      },
     ];
   },
   // Keep heavy server-only packages external — do NOT bundle into serverless functions.

@@ -1,7 +1,8 @@
 /**
  * Lightweight Resend email sender — uses raw fetch (no SDK).
- * Fire-and-forget: reports errors loudly but never throws, so callers
- * don't fail. Every failure path emits `[email-send]` via console.error
+ * Reports errors loudly but never throws. The result lets user-facing callers
+ * distinguish accepted delivery from a failed attempt without duplicating the
+ * Resend transport. Every failure path emits `[email-send]` via console.error
  * plus a structured reportError so Vercel Observability can alert on it.
  */
 
@@ -20,7 +21,13 @@ export interface EmailPayload {
 /** Hard ceiling so a hung Resend cannot pin the serverless function. */
 export const EMAIL_SEND_TIMEOUT_MS = 10_000;
 
-export async function sendEmail(payload: EmailPayload): Promise<void> {
+export interface EmailSendResult {
+  sent: boolean;
+}
+
+export async function sendEmail(
+  payload: EmailPayload,
+): Promise<EmailSendResult> {
   const config = await resolveResendConfig(payload.organizationId);
 
   if (!config) {
@@ -34,7 +41,7 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
       ),
       { stage: "email-send-config", subject: payload.subject },
     );
-    return;
+    return { sent: false };
   }
 
   const body: Record<string, unknown> = {
@@ -68,9 +75,12 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
         resendStatus: res.status,
         source: config.source,
       });
+      return { sent: false };
     }
+    return { sent: true };
   } catch (err) {
     console.error("[email-send] Fetch failed:", err);
     reportError(err, { stage: "email-send", subject: payload.subject });
+    return { sent: false };
   }
 }

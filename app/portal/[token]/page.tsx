@@ -48,7 +48,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
   //    The legacy "Link Expired" friendly card remains below for the
   //    legacy-path miss case (verified but inspection deleted).
   let inspectionId: string | null = null;
-  let showInteractiveActions = true;
+  let showInteractiveActions = false;
 
   const portalAccount = await lookupPortalAccount(token);
   if (portalAccount) {
@@ -64,7 +64,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
     inspectionId = latest?.id ?? null;
   }
 
-  if (!inspectionId) {
+  if (!portalAccount) {
     const verified = verifyPortalToken(token);
     if (verified) inspectionId = verified.inspectionId;
   }
@@ -190,8 +190,8 @@ export default async function ClientPortalPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Live claim status — polls the client-safe updates feed */}
-        <ClientPortalStatus token={token} />
+        {/* Live claim status is available only to revocable DB-backed links. */}
+        {portalAccount && <ClientPortalStatus token={token} />}
 
         {!showInteractiveActions && (
           <div

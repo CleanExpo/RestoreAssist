@@ -83,4 +83,16 @@ describe("inspection lifecycle controls", () => {
     );
     expect(source).toMatch(/\{showCloseJobPrompt && \(\s*<CloseJobPrompt/);
   });
+
+  it("issues the prominent client share link through the revocable portal account route", () => {
+    expect(source).toContain(
+      "`/api/inspections/${inspection.id}/client-portal-link`",
+    );
+    expect(source).toContain('{ method: "POST" }');
+    expect(source).not.toContain('fetch("/api/portal/generate"');
+    expect(source).not.toContain("<ClientPortalLinkButton");
+    expect(source).toMatch(
+      /onClick=\{handleShareWithClient\}[\s\S]*?disabled=\{shareLoading\}/,
+    );
+  });
 });
