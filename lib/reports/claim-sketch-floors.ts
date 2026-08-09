@@ -2,6 +2,7 @@ import type { SketchFloor } from "@/lib/generate-sketch-pdf";
 import { parseMoisturePins } from "@/lib/reports/moisture-map";
 import { parseEvidencePins } from "@/lib/reports/evidence-map";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
+import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
 
 /**
  * The subset of a `ClaimSketch` row needed to build a report floor page.
@@ -9,6 +10,7 @@ import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
  * stored in the `sketch-media/exports` bucket.
  */
 export interface ClaimSketchRow {
+  inspectionId?: string;
   floorNumber: number;
   floorLabel: string;
   renderedPngUrl: string | null;
@@ -91,8 +93,25 @@ export async function claimSketchesToFloorPlanOutput(
       try {
         // P0-1: sketch-media is private; re-sign the stored URL before fetching
         // its bytes for PDF embedding. Non-storage URLs pass through unchanged.
-        const signedUrl = await signStoredMediaUrl(s.renderedPngUrl);
-        const res = await fetchImpl(signedUrl ?? s.renderedPngUrl);
+        const signedUrl = await signStoredMediaUrl(s.renderedPngUrl, {
+          expectedBucket: "sketch-media",
+          requiredPathPrefix: s.inspectionId
+            ? `inspections/${s.inspectionId}/`
+            : "missing-authorised-inspection/",
+        });
+        if (!signedUrl) {
+          return {
+            status: { ...unavailable, reason: RETRIEVAL_REASON },
+            floor: null,
+          };
+        }
+        if (!(await isSafePublicHttpsUrl(signedUrl))) {
+          return {
+            status: { ...unavailable, reason: RETRIEVAL_REASON },
+            floor: null,
+          };
+        }
+        const res = await fetchImpl(signedUrl, { redirect: "error" });
         if (!res.ok) {
           return {
             status: { ...unavailable, reason: RETRIEVAL_REASON },

@@ -7,6 +7,64 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { decomposeElements } from "@/lib/sketch/decompose-elements";
 import { pinsToMoistureReadingInputs } from "@/lib/sketch/moisture-readings-sync";
 import { extractRoomGraphNodes } from "@/lib/sketch/sync-room-graph";
+import {
+  parseSupabaseStorageUrl,
+  signStoredMediaUrl,
+} from "@/lib/storage/sign-stored-url";
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+async function signSketchMediaUrl(
+  storedUrl: string | null | undefined,
+  inspectionId: string,
+): Promise<string | null> {
+  if (!storedUrl) return null;
+
+  try {
+    const signedUrl = await signStoredMediaUrl(storedUrl, {
+      expectedBucket: "sketch-media",
+      requiredPathPrefix: `inspections/${inspectionId}/`,
+    });
+    if (!signedUrl) return null;
+
+    // The shared signer intentionally passes legacy/non-Supabase URLs through.
+    // Sketch media is private, so also guard against any unchanged private URL
+    // reaching the response if that shared fail-closed contract regresses.
+    const storageRef = parseSupabaseStorageUrl(storedUrl);
+    if (storageRef?.bucket === "sketch-media" && signedUrl === storedUrl) {
+      return null;
+    }
+
+    return signedUrl;
+  } catch {
+    return null;
+  }
+}
+
+function responseSketchData(
+  sketchData: unknown,
+  signedBackgroundUrl: string | null,
+): unknown {
+  const data = asRecord(sketchData);
+  if (!data) return sketchData;
+
+  const copy = { ...data };
+  const backgroundImage = asRecord(data.backgroundImage);
+  if (signedBackgroundUrl && backgroundImage) {
+    copy.backgroundImage = {
+      ...backgroundImage,
+      src: signedBackgroundUrl,
+    };
+  } else if (!signedBackgroundUrl) {
+    delete copy.backgroundImage;
+  }
+
+  return copy;
+}
 
 // GET /api/inspections/[id]/sketches — list all sketches for an inspection
 export async function GET(
@@ -54,7 +112,31 @@ export async function GET(
       take: 50,
     });
 
-    return NextResponse.json({ sketches });
+    const signedSketches = await Promise.all(
+      sketches.map(async (sketch: Record<string, unknown>) => {
+        const backgroundSource =
+          typeof sketch.backgroundImageUrl === "string"
+            ? sketch.backgroundImageUrl
+            : null;
+        const renderedSource =
+          typeof sketch.renderedPngUrl === "string"
+            ? sketch.renderedPngUrl
+            : null;
+        const [backgroundImageUrl, renderedPngUrl] = await Promise.all([
+          signSketchMediaUrl(backgroundSource, id),
+          signSketchMediaUrl(renderedSource, id),
+        ]);
+
+        return {
+          ...sketch,
+          backgroundImageUrl,
+          renderedPngUrl,
+          sketchData: responseSketchData(sketch.sketchData, backgroundImageUrl),
+        };
+      }),
+    );
+
+    return NextResponse.json({ sketches: signedSketches });
   } catch (error) {
     return fromException(request, error, { stage: "sketches:list" });
   }

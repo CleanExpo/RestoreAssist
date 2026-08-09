@@ -32,6 +32,9 @@ vi.mock("@/lib/rate-limiter", () => ({
   applyRateLimit: vi.fn().mockResolvedValue(null),
   getClientIp: vi.fn().mockReturnValue("1.2.3.4"),
 }));
+vi.mock("@/lib/security/safe-external-url", () => ({
+  isSafePublicHttpsUrl: vi.fn().mockResolvedValue(true),
+}));
 vi.mock("@/lib/api-errors", () => ({
   apiError: (_r: unknown, o: { status: number }) =>
     new Response("e", { status: o.status }),
@@ -198,6 +201,9 @@ describe("GET /api/reports/[id]/pdf — floor plan embedding", () => {
     const arg = reportFindUnique.mock.calls[0][0];
     expect(
       arg.include.inspection.select.claimSketches.select.moisturePoints,
+    ).toBe(true);
+    expect(
+      arg.include.inspection.select.claimSketches.select.inspectionId,
     ).toBe(true);
   });
 

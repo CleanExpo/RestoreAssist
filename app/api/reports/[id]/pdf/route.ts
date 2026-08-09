@@ -107,6 +107,7 @@ export async function GET(
             floorPlanImageUrl: true,
             claimSketches: {
               select: {
+                inspectionId: true,
                 floorNumber: true,
                 floorLabel: true,
                 renderedPngUrl: true,

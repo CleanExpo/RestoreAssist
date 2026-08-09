@@ -164,11 +164,33 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
     const historyRef = useRef<string[]>([]);
     const historyIdxRef = useRef(-1);
     const isLoadingRef = useRef(false);
+    const backgroundLoadVersionRef = useRef(0);
+    const backgroundReadyRef = useRef(false);
     // Capture first-mount restore payload only (API-driven remounts pass a new instance).
     const initialDataRef = useRef(initialData);
     // Keep latest viewport size for async Fabric init + resize without remount.
     const sizeRef = useRef({ width, height });
     sizeRef.current = { width, height };
+    const backgroundConfigRef = useRef({
+      url: backgroundImageUrl,
+      opacity: backgroundImageOpacity,
+      scale: backgroundImageScale,
+      offsetX: backgroundImageOffsetX,
+      offsetY: backgroundImageOffsetY,
+      lockAspect: backgroundImageLockAspect,
+      width,
+      height,
+    });
+    backgroundConfigRef.current = {
+      url: backgroundImageUrl,
+      opacity: backgroundImageOpacity,
+      scale: backgroundImageScale,
+      offsetX: backgroundImageOffsetX,
+      offsetY: backgroundImageOffsetY,
+      lockAspect: backgroundImageLockAspect,
+      width,
+      height,
+    };
     // ── Drawing state for the click/drag tools (read inside Fabric handlers) ──
     const toolModeRef = useRef<ToolMode>(toolMode);
     const damageKindRef = useRef(damageKind);
@@ -181,6 +203,93 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       canUndo: false,
       canRedo: false,
     });
+
+    const applyBackgroundImage = useCallback(
+      async (
+        canvas: { backgroundImage: unknown; renderAll: () => void },
+        config: typeof backgroundConfigRef.current,
+      ) => {
+        const requestVersion = ++backgroundLoadVersionRef.current;
+        const render = () => {
+          if ("requestRenderAll" in canvas) {
+            (
+              canvas as typeof canvas & { requestRenderAll: () => void }
+            ).requestRenderAll();
+          } else {
+            canvas.renderAll();
+          }
+        };
+
+        if (!config.url) {
+          canvas.backgroundImage = null;
+          render();
+          return;
+        }
+
+        // Never leave the previous floor visible while a replacement loads.
+        // If the current request fails, the canvas remains safely blank.
+        canvas.backgroundImage = null;
+        render();
+
+        try {
+          const fabric = await import("fabric");
+          const { FabricImage } = fabric as {
+            FabricImage: {
+              fromURL: (url: string, opts?: object) => Promise<unknown>;
+            };
+          };
+          const opts = config.url.startsWith("data:")
+            ? {}
+            : { crossOrigin: "anonymous" };
+          const img = await FabricImage.fromURL(config.url, opts);
+
+          if (
+            requestVersion !== backgroundLoadVersionRef.current ||
+            fabricRef.current !== canvas
+          ) {
+            return;
+          }
+
+          const imgEl = img as {
+            set: (opts: object) => void;
+            width?: number;
+            height?: number;
+          };
+          const transform = computeUnderlayTransform({
+            imageWidth: imgEl.width ?? config.width,
+            imageHeight: imgEl.height ?? config.height,
+            canvasWidth: config.width,
+            canvasHeight: config.height,
+            scale: config.scale ?? 1,
+            offsetX: config.offsetX ?? 0,
+            offsetY: config.offsetY ?? 0,
+            lockAspect: config.lockAspect,
+          });
+          imgEl.set({
+            selectable: false,
+            evented: false,
+            opacity: config.opacity,
+            scaleX: transform.scaleX,
+            scaleY: transform.scaleY,
+            left: transform.left,
+            top: transform.top,
+          });
+          canvas.backgroundImage = img;
+          render();
+        } catch (error) {
+          if (
+            requestVersion === backgroundLoadVersionRef.current &&
+            fabricRef.current === canvas
+          ) {
+            console.error(
+              "SketchCanvas: failed to load background image",
+              error,
+            );
+          }
+        }
+      },
+      [],
+    );
 
     // ── Undo/Redo helpers ─────────────────────────────────────
     const saveState = useCallback(() => {
@@ -209,6 +318,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       const canvas = fabricRef.current as {
         // Fabric v6/v7: loadFromJSON returns a Promise; 2nd arg is a reviver, NOT a done cb.
         loadFromJSON: (d: object) => Promise<unknown>;
+        backgroundImage: unknown;
         renderAll: () => void;
       } | null;
       if (!canvas || historyIdxRef.current <= 0) return;
@@ -216,17 +326,18 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       isLoadingRef.current = true;
       const json = JSON.parse(historyRef.current[historyIdxRef.current]);
       await canvas.loadFromJSON(json);
-      canvas.renderAll();
+      await applyBackgroundImage(canvas, backgroundConfigRef.current);
       isLoadingRef.current = false;
       setHistoryState({
         canUndo: historyIdxRef.current > 0,
         canRedo: historyIdxRef.current < historyRef.current.length - 1,
       });
-    }, []);
+    }, [applyBackgroundImage]);
 
     const redo = useCallback(async () => {
       const canvas = fabricRef.current as {
         loadFromJSON: (d: object) => Promise<unknown>;
+        backgroundImage: unknown;
         renderAll: () => void;
       } | null;
       if (!canvas || historyIdxRef.current >= historyRef.current.length - 1)
@@ -235,13 +346,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       isLoadingRef.current = true;
       const json = JSON.parse(historyRef.current[historyIdxRef.current]);
       await canvas.loadFromJSON(json);
-      canvas.renderAll();
+      await applyBackgroundImage(canvas, backgroundConfigRef.current);
       isLoadingRef.current = false;
       setHistoryState({
         canUndo: historyIdxRef.current > 0,
         canRedo: historyIdxRef.current < historyRef.current.length - 1,
       });
-    }, []);
+    }, [applyBackgroundImage]);
 
     // ── Expose imperative handle ─────────────────────────────
     useImperativeHandle(
@@ -256,13 +367,14 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         loadFromJSON: async (data: object) => {
           const c = fabricRef.current as {
             loadFromJSON: (d: object) => Promise<unknown>;
+            backgroundImage: unknown;
             renderAll: () => void;
           } | null;
           if (!c) return;
           // Fabric v7: must await the returned Promise. Passing a "done"
           // callback as arg 2 treats it as a reviver and never restores objects.
           await c.loadFromJSON(data);
-          c.renderAll();
+          await applyBackgroundImage(c, backgroundConfigRef.current);
         },
         toDataURL: (opts) => {
           const c = fabricRef.current as ExportableCanvas | null;
@@ -284,7 +396,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         canUndo: historyState.canUndo,
         canRedo: historyState.canRedo,
       }),
-      [saveState, undo, redo, historyState],
+      [applyBackgroundImage, saveState, undo, redo, historyState],
     );
 
     // ── Initialise Fabric.js canvas ─────────────────────────
@@ -1620,57 +1732,6 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         };
         document.addEventListener("keydown", handleKeyDown);
 
-        // ── Background image (Fabric.js v6: backgroundImage property) ──
-        if (backgroundImageUrl) {
-          try {
-            const { FabricImage } = fabric as {
-              FabricImage: {
-                fromURL: (url: string, opts?: object) => Promise<unknown>;
-              };
-            };
-            const isDataUrl = backgroundImageUrl.startsWith("data:");
-            const opts = isDataUrl ? {} : { crossOrigin: "anonymous" };
-            const img = await FabricImage.fromURL(backgroundImageUrl, opts);
-            const imgEl = img as {
-              set: (opts: object) => void;
-              scaleToWidth: (w: number) => void;
-              width?: number;
-              height?: number;
-            };
-            const t = computeUnderlayTransform({
-              imageWidth: imgEl.width ?? width,
-              imageHeight: imgEl.height ?? height,
-              canvasWidth: width,
-              canvasHeight: height,
-              scale: backgroundImageScale ?? 1,
-              offsetX: backgroundImageOffsetX ?? 0,
-              offsetY: backgroundImageOffsetY ?? 0,
-              lockAspect: backgroundImageLockAspect,
-            });
-            imgEl.set({
-              selectable: false,
-              evented: false,
-              opacity: backgroundImageOpacity,
-              scaleX: t.scaleX,
-              scaleY: t.scaleY,
-              left: t.left,
-              top: t.top,
-            });
-            (
-              canvas as unknown as { backgroundImage: unknown }
-            ).backgroundImage = img;
-            if ("requestRenderAll" in (canvas as object)) {
-              (
-                canvas as unknown as { requestRenderAll: () => void }
-              ).requestRenderAll();
-            } else {
-              canvas.renderAll();
-            }
-          } catch (e) {
-            console.error("SketchCanvas: mount background load failed", e);
-          }
-        }
-
         // Restore persisted drawing BEFORE onReady/history so refresh shows work.
         const bootstrap = initialDataRef.current;
         if (bootstrap && typeof bootstrap === "object") {
@@ -1685,6 +1746,19 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           }
         }
 
+        // Fabric JSON owns `backgroundImage`, so the current underlay must be
+        // applied only after restoration. The readiness gate also prevents the
+        // prop effect from racing JSON hydration during async canvas startup.
+        backgroundReadyRef.current = true;
+        await applyBackgroundImage(
+          canvas as unknown as {
+            backgroundImage: unknown;
+            renderAll: () => void;
+          },
+          backgroundConfigRef.current,
+        );
+        if (destroyed) return;
+
         // Seed history from the restored (or empty) canvas
         saveState();
 
@@ -1698,7 +1772,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             isLoadingRef.current = true;
             try {
               await canvas.loadFromJSON(data);
-              canvas.renderAll();
+              await applyBackgroundImage(
+                canvas as unknown as {
+                  backgroundImage: unknown;
+                  renderAll: () => void;
+                },
+                backgroundConfigRef.current,
+              );
             } finally {
               isLoadingRef.current = false;
             }
@@ -1726,6 +1806,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
       return () => {
         destroyed = true;
+        backgroundReadyRef.current = false;
+        backgroundLoadVersionRef.current += 1;
         if (fabricRef.current) {
           (fabricRef.current as { dispose: () => void }).dispose();
           fabricRef.current = null;
@@ -1815,64 +1897,14 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         renderAll: () => void;
         backgroundImage: unknown;
       } | null;
-      if (!canvas) return;
-      if (!backgroundImageUrl) {
-        // Clear background
-        canvas.backgroundImage = null;
-        canvas.renderAll();
-        return;
-      }
-      (async () => {
-        try {
-          const fabric = await import("fabric");
-          const { FabricImage } = fabric as {
-            FabricImage: {
-              fromURL: (url: string, opts?: object) => Promise<unknown>;
-            };
-          };
-          // Avoid crossOrigin on data URLs — it causes silent failures
-          const isDataUrl = backgroundImageUrl.startsWith("data:");
-          const opts = isDataUrl ? {} : { crossOrigin: "anonymous" };
-          const img = await FabricImage.fromURL(backgroundImageUrl, opts);
-          const imgEl = img as {
-            set: (opts: object) => void;
-            scaleToWidth: (w: number) => void;
-            width?: number;
-            height?: number;
-          };
-          const t = computeUnderlayTransform({
-            imageWidth: imgEl.width ?? width,
-            imageHeight: imgEl.height ?? height,
-            canvasWidth: width,
-            canvasHeight: height,
-            scale: backgroundImageScale ?? 1,
-            offsetX: backgroundImageOffsetX ?? 0,
-            offsetY: backgroundImageOffsetY ?? 0,
-            lockAspect: backgroundImageLockAspect,
-          });
-          imgEl.set({
-            selectable: false,
-            evented: false,
-            opacity: backgroundImageOpacity,
-            scaleX: t.scaleX,
-            scaleY: t.scaleY,
-            left: t.left,
-            top: t.top,
-          });
-          canvas.backgroundImage = img;
-          // v6: requestRenderAll is preferred; fall back to renderAll
-          if ("requestRenderAll" in (canvas as object)) {
-            (
-              canvas as unknown as { requestRenderAll: () => void }
-            ).requestRenderAll();
-          } else {
-            canvas.renderAll();
-          }
-        } catch (e) {
-          console.error("SketchCanvas: failed to load background image", e);
-        }
-      })();
+      if (!canvas || !backgroundReadyRef.current) return;
+
+      void applyBackgroundImage(canvas, backgroundConfigRef.current);
+      return () => {
+        backgroundLoadVersionRef.current += 1;
+      };
     }, [
+      applyBackgroundImage,
       backgroundImageUrl,
       backgroundImageOpacity,
       backgroundImageScale,

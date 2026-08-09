@@ -1,4 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
+
+const signStoredMediaUrl = vi.hoisted(() => vi.fn());
+const isSafePublicHttpsUrl = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/storage/sign-stored-url", () => ({ signStoredMediaUrl }));
+vi.mock("@/lib/security/safe-external-url", () => ({
+  isSafePublicHttpsUrl,
+}));
+
 import {
   claimSketchesToFloorPlanOutput,
   claimSketchesToFloors,
@@ -24,6 +33,11 @@ function fakeFetch(map: Record<string, Uint8Array | "fail">) {
     };
   });
 }
+
+beforeEach(() => {
+  signStoredMediaUrl.mockReset().mockImplementation(async (url) => url);
+  isSafePublicHttpsUrl.mockReset().mockResolvedValue(true);
+});
 
 describe("claimSketchesToFloors", () => {
   it("maps rendered sketches to floors as data URLs, sorted by floorNumber", async () => {
@@ -143,6 +157,70 @@ describe("claimSketchesToFloors", () => {
         floor: null,
       },
     ]);
+  });
+
+  it("does not fetch the persisted private URL when re-signing fails", async () => {
+    signStoredMediaUrl.mockResolvedValueOnce(null);
+    const fetchImpl = fakeFetch({
+      "https://abc.supabase.co/storage/v1/object/sign/sketch-media/inspections/i1/exports/floor-0.png?token=expired":
+        pngBytes(0),
+    });
+
+    const output = await claimSketchesToFloorPlanOutput(
+      [
+        {
+          inspectionId: "i1",
+          floorNumber: 0,
+          floorLabel: "Ground Floor",
+          renderedPngUrl:
+            "https://abc.supabase.co/storage/v1/object/sign/sketch-media/inspections/i1/exports/floor-0.png?token=expired",
+        },
+      ],
+      fetchImpl as never,
+    );
+
+    expect(output).toEqual([
+      {
+        status: {
+          label: "Ground Floor",
+          source: "rendered_sketch",
+          status: "unavailable",
+          reason:
+            "The stored floor-plan image could not be retrieved at report generation time.",
+        },
+        floor: null,
+      },
+    ]);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(signStoredMediaUrl).toHaveBeenCalledWith(
+      expect.any(String),
+      {
+        expectedBucket: "sketch-media",
+        requiredPathPrefix: "inspections/i1/",
+      },
+    );
+  });
+
+  it("rejects a server-fetch destination that is not public HTTPS", async () => {
+    isSafePublicHttpsUrl.mockResolvedValueOnce(false);
+    const fetchImpl = fakeFetch({
+      "https://127.0.0.1/internal.png": pngBytes(0),
+    });
+
+    const output = await claimSketchesToFloorPlanOutput(
+      [
+        {
+          inspectionId: "i1",
+          floorNumber: 0,
+          floorLabel: "Ground Floor",
+          renderedPngUrl: "https://127.0.0.1/internal.png",
+        },
+      ],
+      fetchImpl as never,
+    );
+
+    expect(output[0].floor).toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("retains an unavailable status for a supplied uploaded plan that cannot be read", async () => {

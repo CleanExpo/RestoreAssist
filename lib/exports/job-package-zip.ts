@@ -119,6 +119,7 @@ export async function buildJobPackageStream(
           const sketches = await prisma.claimSketch.findMany({
             where: { inspectionId: inspection.id },
             select: {
+              inspectionId: true,
               floorNumber: true,
               floorLabel: true,
               renderedPngUrl: true,

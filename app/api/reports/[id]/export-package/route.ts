@@ -43,6 +43,7 @@ async function appendArtifactsToPackage(
     select: {
       claimSketches: {
         select: {
+          inspectionId: true,
           floorNumber: true,
           floorLabel: true,
           renderedPngUrl: true,

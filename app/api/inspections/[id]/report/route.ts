@@ -148,6 +148,7 @@ export async function GET(
           orderBy: { floorNumber: "asc" },
           take: 50,
           select: {
+            inspectionId: true,
             floorNumber: true,
             floorLabel: true,
             renderedPngUrl: true,
