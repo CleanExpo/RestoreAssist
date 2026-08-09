@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
+const inspectionFindUnique = vi.fn();
 const inspectionUpsert = vi.fn();
 const reportUpsert = vi.fn();
 const invoiceUpsert = vi.fn();
@@ -13,7 +14,10 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    inspection: { upsert: (...a: unknown[]) => inspectionUpsert(...a) },
+    inspection: {
+      findUnique: (...a: unknown[]) => inspectionFindUnique(...a),
+      upsert: (...a: unknown[]) => inspectionUpsert(...a),
+    },
     report: { upsert: (...a: unknown[]) => reportUpsert(...a) },
     invoice: { upsert: (...a: unknown[]) => invoiceUpsert(...a) },
     claimProgress: { upsert: (...a: unknown[]) => claimProgressUpsert(...a) },
@@ -30,6 +34,8 @@ function makeReq(body: unknown): NextRequest {
 
 beforeEach(() => {
   getServerSession.mockReset();
+  inspectionFindUnique.mockReset();
+  inspectionFindUnique.mockResolvedValue(null);
   inspectionUpsert.mockReset();
   reportUpsert.mockReset();
   invoiceUpsert.mockReset();
@@ -46,6 +52,39 @@ describe("POST /api/test/seed-inspection", () => {
     vi.unstubAllEnvs();
   });
 
+  it("returns 404 in a production environment without the second opt-in", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("ALLOW_TEST_HELPERS_IN_PROD_ENV", "");
+    vi.resetModules();
+    const { POST } = await import("../seed-inspection/route");
+    const res = await POST(makeReq({}));
+    expect(res.status).toBe(404);
+    expect(getServerSession).not.toHaveBeenCalled();
+    expect(inspectionFindUnique).not.toHaveBeenCalled();
+    expect(inspectionUpsert).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
+  it("rejects an inspection id already owned by another tenant before any writes", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_test" } });
+    inspectionFindUnique.mockResolvedValueOnce({ userId: "u_other" });
+
+    vi.resetModules();
+    const { POST } = await import("../seed-inspection/route");
+    const res = await POST(
+      makeReq({ inspectionId: "other-inspection", readyForClose: true }),
+    );
+
+    expect(res.status).toBe(404);
+    expect(reportUpsert).not.toHaveBeenCalled();
+    expect(invoiceUpsert).not.toHaveBeenCalled();
+    expect(inspectionUpsert).not.toHaveBeenCalled();
+    expect(claimProgressUpsert).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
   it("returns 200 happy path with default id + status COMPLETED", async () => {
     vi.stubEnv("ALLOW_TEST_HELPERS", "true");
     getServerSession.mockResolvedValueOnce({ user: { id: "u_test" } });
@@ -58,7 +97,7 @@ describe("POST /api/test/seed-inspection", () => {
     expect(await res.json()).toEqual({ inspectionId: "test-inspection" });
 
     expect(inspectionUpsert).toHaveBeenCalledWith({
-      where: { id: "test-inspection" },
+      where: { id: "test-inspection", userId: "u_test" },
       create: expect.objectContaining({
         id: "test-inspection",
         inspectionNumber: "TEST-test-inspection",
@@ -84,7 +123,7 @@ describe("POST /api/test/seed-inspection", () => {
     expect(await res.json()).toEqual({ inspectionId: "custom-id" });
     expect(inspectionUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "custom-id" },
+        where: { id: "custom-id", userId: "u_test" },
         create: expect.objectContaining({
           id: "custom-id",
           inspectionNumber: "TEST-custom-id",
@@ -153,7 +192,10 @@ describe("POST /api/test/seed-inspection", () => {
 
       // Inspection forced to IN_BILLING regardless of caller-provided status.
       const inspectionCall = inspectionUpsert.mock.calls[0][0];
-      expect(inspectionCall.where).toEqual({ id: "test-inspection" });
+      expect(inspectionCall.where).toEqual({
+        id: "test-inspection",
+        userId: "u_test",
+      });
       expect(inspectionCall.create.status).toBe("IN_BILLING");
       expect(inspectionCall.update.status).toBe("IN_BILLING");
       // Inspection is FK-linked to the seeded report so loadTransitionContext

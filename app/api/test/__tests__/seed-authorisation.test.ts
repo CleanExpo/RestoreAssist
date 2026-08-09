@@ -40,6 +40,19 @@ describe("POST /api/test/seed-authorisation", () => {
     vi.unstubAllEnvs();
   });
 
+  it("returns 404 in a production environment without the second opt-in", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("ALLOW_TEST_HELPERS_IN_PROD_ENV", "");
+    vi.resetModules();
+    const { POST } = await import("../seed-authorisation/route");
+    const res = await POST(makeReq({}));
+    expect(res.status).toBe(404);
+    expect(getServerSession).not.toHaveBeenCalled();
+    expect(authCreate).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
   it("returns 401 when no session", async () => {
     vi.stubEnv("ALLOW_TEST_HELPERS", "true");
     getServerSession.mockResolvedValueOnce(null);

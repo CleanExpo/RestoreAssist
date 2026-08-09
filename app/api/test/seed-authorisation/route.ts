@@ -4,7 +4,7 @@
  * spec, which needs an existing Authorisation row to verify the banner
  * disappears after one is added.
  *
- * HARD GUARD — returns 404 unless ALLOW_TEST_HELPERS === "true".
+ * HARD GUARD — uses the shared two-key production test-helper guard.
  *
  * Body: { subjectLicenceNumber: string, whsCardNumber: string, ... }
  * Returns: { authorisationId: string }
@@ -14,6 +14,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-errors";
+import { testHelpersBlocked } from "../_helpers";
 
 // P1 #19 step 1 of 2: enum mirror of prisma `enum AuthorisationLicenceClass`.
 const AUTHORISATION_LICENCE_CLASSES = [
@@ -40,10 +41,7 @@ interface SeedAuthBody {
 }
 
 export async function POST(req: NextRequest) {
-  // Vercel preview deploys run with NODE_ENV=production, so we cannot use
-  // NODE_ENV to gate. The sandbox Vercel project sets ALLOW_TEST_HELPERS=true;
-  // prod does not. Local dev sets it via .env.local for the E2E suite to work.
-  if (process.env.ALLOW_TEST_HELPERS !== "true") {
+  if (testHelpersBlocked()) {
     return apiError(req, {
       code: "NOT_FOUND",
       message: "Test helpers are not enabled in this environment",
