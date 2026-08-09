@@ -16,8 +16,6 @@ import {
   Camera,
   Upload,
   AlertTriangle,
-  ChevronDown,
-  ChevronUp,
   X,
   Save,
   Loader2,
@@ -25,8 +23,14 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -274,7 +278,6 @@ function PhotoCard({ photo, onClick }: { photo: Photo; onClick: () => void }) {
     >
       {/* Thumbnail */}
       {photo.thumbnailUrl || photo.url ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={photo.thumbnailUrl ?? photo.url}
           alt={photo.location ?? "Inspection photo"}
@@ -313,7 +316,7 @@ function PhotoCard({ photo, onClick }: { photo: Photo; onClick: () => void }) {
 }
 
 /** Full-view photo panel with label display and edit form */
-function PhotoPanel({
+export function PhotoPanel({
   photo,
   inspectionId,
   onClose,
@@ -395,21 +398,31 @@ function PhotoPanel({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-stretch bg-black/80"
-      onClick={onClose}
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      <div
-        className="relative ml-auto flex h-full w-full max-w-lg flex-col overflow-y-auto bg-brand-ink shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+      <DialogContent
+        showCloseButton={false}
+        className="left-auto right-0 top-0 h-full max-h-none w-full max-w-lg translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none border-0 bg-brand-ink p-0 shadow-2xl sm:max-w-lg sm:p-0"
       >
+        <DialogTitle className="sr-only">Inspection photo details</DialogTitle>
+        <DialogDescription className="sr-only">
+          Review and edit evidence labels for this inspection photo.
+        </DialogDescription>
+
         {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute right-3 top-3 z-10 rounded-full bg-black/60 p-1.5 text-neutral-400 hover:text-white"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <DialogClose asChild>
+          <button
+            type="button"
+            aria-label="Close photo details"
+            className="absolute right-3 top-3 z-10 flex size-11 items-center justify-center rounded-full bg-black/60 text-neutral-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <X aria-hidden="true" className="h-4 w-4" />
+          </button>
+        </DialogClose>
 
         {/* Asbestos stop-work warning */}
         {(hasAsbestos || asbestosWarning) && (
@@ -422,7 +435,6 @@ function PhotoPanel({
         )}
 
         {/* Photo */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={photo.url}
           alt="Inspection photo"
@@ -818,6 +830,10 @@ function PhotoPanel({
                 Equipment visible in frame
               </label>
               <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(patch.equipmentVisible)}
+                aria-label="Equipment visible in frame"
                 onClick={() =>
                   setPatch((p) => ({
                     ...p,
@@ -825,7 +841,7 @@ function PhotoPanel({
                   }))
                 }
                 className={cn(
-                  "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                  "relative inline-flex h-11 w-12 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-ink",
                   patch.equipmentVisible ? "bg-blue-600" : "bg-neutral-700",
                 )}
               >
@@ -1030,8 +1046,8 @@ function PhotoPanel({
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
