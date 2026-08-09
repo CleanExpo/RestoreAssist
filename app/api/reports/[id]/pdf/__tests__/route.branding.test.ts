@@ -98,4 +98,26 @@ describe("GET /api/reports/[id]/pdf — firm branding", () => {
     expect(theme.primaryColor).toBe("#1C2E47"); // RA navy default
     expect(theme.logoUrl).toBe(""); // text-only header
   });
+
+  it("omits malformed legacy JSON fields instead of failing the PDF", async () => {
+    reportFindUnique.mockResolvedValueOnce({
+      ...reportWithOrg(null),
+      moistureReadings: '[{"room":"Kitchen"}',
+      psychrometricReadings: "not-json",
+      psychrometricAssessment: "{",
+      equipmentSelection: "[",
+      scopeAreas: '{"broken"',
+    });
+
+    const res = await GET(req(), ctx);
+
+    expect(res.status).toBe(200);
+    expect(generateIICRCReportPDF.mock.calls[0][0]).toMatchObject({
+      moistureReadings: null,
+      psychrometricReadings: null,
+      psychrometricAssessment: null,
+      equipmentSelection: null,
+      scopeAreas: null,
+    });
+  });
 });
