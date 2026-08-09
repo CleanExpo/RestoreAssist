@@ -8,7 +8,7 @@ import { EngagementLicenceModal } from "@/components/attestation/EngagementLicen
 import { cn } from "@/lib/utils";
 import { resolveAreaSqm } from "@/lib/units";
 import { parseReadingInput } from "@/lib/forms/parse-reading-input";
-import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
+import { InspectionMoistureMap } from "@/components/inspection/InspectionMoistureMap";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { NirPilotSurvey } from "@/components/nir-pilot-survey";
 import { MobileNav } from "@/components/mobile/MobileNav";
@@ -184,6 +184,7 @@ interface Inspection {
   signedAt: string | null;
   signedByName: string | null;
   claimType: string | null;
+  floorPlanImageUrl: string | null;
   // SP-A — terminal-state fields.
   completedAt: string | null;
   closeSummary: string | null;
@@ -1917,15 +1918,10 @@ export default function InspectionDetailPage({
 
         {/* Moisture Map Tab */}
         {activeTab === "moisture-map" && showMoistureTabs && (
-          <div>
-            {moistureReadings.length > 0 ? (
-              <MoistureMappingCanvas readings={moistureReadings} />
-            ) : (
-              <div className="text-center py-12 text-neutral-400">
-                No moisture readings to map — add readings first
-              </div>
-            )}
-          </div>
+          <InspectionMoistureMap
+            readings={moistureReadings}
+            floorPlanImageUrl={inspection.floorPlanImageUrl ?? null}
+          />
         )}
 
         {/* Floor Plan / Sketch Tab — keep mounted (hidden) so tab switches
