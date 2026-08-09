@@ -8,6 +8,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { sendEmail } from "@/lib/email-send";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/email";
+import { Prisma } from "@prisma/client";
 
 /**
  * The "single button" (Client portal Phase 1).
@@ -70,25 +71,30 @@ export async function POST(
     // (re)set a 30-day expiry on send — the link authorises signing, so it must
     // not be an unbounded-lifetime bearer token (security review must-fix).
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    const existing = await prisma.clientPortalAccount.findFirst({
-      where: { clientId: client.id, revokedAt: null },
-      select: { id: true, token: true },
-    });
-    let token: string;
-    if (existing) {
-      await prisma.clientPortalAccount.update({
-        where: { id: existing.id },
-        data: { expiresAt },
+    const token = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "Client" WHERE "id" = ${client.id} FOR UPDATE`,
+      );
+
+      const existing = await tx.clientPortalAccount.findFirst({
+        where: { clientId: client.id, revokedAt: null },
+        select: { id: true, token: true },
       });
-      token = existing.token;
-    } else {
-      token = (
-        await prisma.clientPortalAccount.create({
+      if (existing) {
+        await tx.clientPortalAccount.update({
+          where: { id: existing.id },
+          data: { expiresAt },
+        });
+        return existing.token;
+      }
+
+      return (
+        await tx.clientPortalAccount.create({
           data: { clientId: client.id, token: mintToken(), expiresAt },
           select: { token: true },
         })
       ).token;
-    }
+    });
 
     const url = `${getAppUrl()}/portal/${token}`;
 

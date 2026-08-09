@@ -20,6 +20,8 @@ vi.mock("@/lib/prisma", () => ({
       create: vi.fn(),
       update: vi.fn(),
     },
+    $queryRaw: vi.fn(),
+    $transaction: vi.fn(),
   },
 }));
 
@@ -39,6 +41,8 @@ const p = prisma as unknown as {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
+  $queryRaw: ReturnType<typeof vi.fn>;
+  $transaction: ReturnType<typeof vi.fn>;
 };
 
 beforeEach(() => {
@@ -51,6 +55,10 @@ beforeEach(() => {
   p.clientPortalAccount.findFirst.mockResolvedValue(null);
   p.clientPortalAccount.create.mockResolvedValue({ token: "NEWTOK" });
   p.clientPortalAccount.update.mockResolvedValue({});
+  p.$queryRaw.mockResolvedValue([]);
+  p.$transaction.mockImplementation((callback: (tx: typeof p) => unknown) =>
+    callback(p),
+  );
   mEmail.mockResolvedValue({ sent: true });
 });
 
@@ -95,6 +103,14 @@ describe("POST /api/inspections/[id]/client-portal-link", () => {
     expect(body.data.expiresAt).toEqual(expect.any(String));
     expect(mEmail).toHaveBeenCalledWith(
       expect.objectContaining({ to: "client@x.com" }),
+    );
+    expect(p.$transaction).toHaveBeenCalledTimes(1);
+    expect(p.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(p.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      p.clientPortalAccount.findFirst.mock.invocationCallOrder[0],
+    );
+    expect(p.$transaction.mock.invocationCallOrder[0]).toBeLessThan(
+      mEmail.mock.invocationCallOrder[0],
     );
   });
 
