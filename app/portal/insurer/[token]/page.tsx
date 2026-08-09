@@ -44,9 +44,20 @@ export default async function InsurerPortalPage({ params }: PageProps) {
   const scopeAreas = parseStoredJson(report.scopeAreas);
   const equipmentSelection = parseStoredJson(report.equipmentSelection);
 
+  const equipmentRecord =
+    equipmentSelection !== null &&
+    typeof equipmentSelection === "object" &&
+    !Array.isArray(equipmentSelection)
+      ? (equipmentSelection as Record<string, unknown>)
+      : null;
+  const nestedEquipment =
+    equipmentRecord?.equipment ?? equipmentRecord?.items ?? null;
+
   const eqArr = Array.isArray(equipmentSelection)
     ? equipmentSelection
-    : (equipmentSelection?.equipment ?? equipmentSelection?.items ?? []);
+    : Array.isArray(nestedEquipment)
+      ? nestedEquipment
+      : [];
 
   const moistureArr = Array.isArray(moistureReadings) ? moistureReadings : [];
 
