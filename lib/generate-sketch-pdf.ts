@@ -27,6 +27,8 @@ import {
   moistureLegendClasses,
   type MoistureMapPin,
 } from "@/lib/reports/moisture-map";
+import { fitSketchImageInBox } from "@/lib/sketch/export-content-bounds";
+import { extractDamageLegend } from "@/lib/sketch/damage-zone";
 
 // ── Constants ─────────────────────────────────────────────
 
@@ -309,8 +311,9 @@ async function addSketchPage(
     });
   }
 
-  // ── Room legend ──
+  // ── Room + damage legends ──
   const rooms = extractRooms(floor.fabricJson);
+  const damageLegend = extractDamageLegend(floor.fabricJson ?? null);
 
   // ── Floor sub-header: total measured area + calibrated scale (RA-6846/6843) ──
   // scaleConfig is stored at the top level of the sketch blob (SketchScaleModal);
@@ -334,84 +337,130 @@ async function addSketchPage(
   });
   let legendW = 0;
 
-  if (rooms.length > 0) {
+  if (rooms.length > 0 || damageLegend.length > 0) {
     legendW = 140;
     const legendX = PAGE_W - MARGIN - legendW;
     const legendTop = CONTENT_Y_TOP - 4;
+    const damageBlockH =
+      damageLegend.length > 0 ? damageLegend.length * 14 + 22 : 0;
+    const roomBlockH = rooms.length > 0 ? rooms.length * 16 + 28 : 0;
+    const gap = rooms.length > 0 && damageLegend.length > 0 ? 8 : 0;
+    const totalH = roomBlockH + damageBlockH + gap;
 
     // Legend box
     page.drawRectangle({
       x: legendX,
-      y: legendTop - rooms.length * 16 - 28,
+      y: legendTop - totalH,
       width: legendW,
-      height: rooms.length * 16 + 28,
+      height: totalH,
       color: rgb(0.97, 0.97, 0.97),
       borderColor: DIVIDER,
       borderWidth: 0.5,
     });
 
-    page.drawText("Room Legend", {
-      x: legendX + 8,
-      y: legendTop - 16,
-      size: 8,
-      font: bold,
-      color: TEXT_MAIN,
-    });
-
-    let ly = legendTop - 30;
-    for (const room of rooms) {
-      // Colour swatch
-      const hex = room.stroke.replace("#", "");
-      const r = parseInt(hex.slice(0, 2), 16) / 255;
-      const g = parseInt(hex.slice(2, 4), 16) / 255;
-      const b = parseInt(hex.slice(4, 6), 16) / 255;
-      page.drawRectangle({
+    let ly = legendTop - 16;
+    if (rooms.length > 0) {
+      page.drawText("Room Legend", {
         x: legendX + 8,
-        y: ly + 1,
-        width: 8,
-        height: 8,
-        color: rgb(r, g, b),
-      });
-
-      const lidarTag = room.captureAdapter === "roomplan" ? " · LiDAR" : "";
-      const safeLabel = safe(room.label);
-      const maxLen = lidarTag ? 10 : 14;
-      const truncated =
-        safeLabel.length > maxLen
-          ? safeLabel.slice(0, maxLen - 1) + "…"
-          : safeLabel;
-      page.drawText(`${truncated}${lidarTag}`, {
-        x: legendX + 20,
-        y: ly + 2,
-        size: 7.5,
-        font: helvetica,
+        y: ly,
+        size: 8,
+        font: bold,
         color: TEXT_MAIN,
       });
 
-      const areaText = `${room.areaM2.toFixed(1)} m²`;
-      const areaX =
-        legendX + legendW - 8 - helvetica.widthOfTextAtSize(areaText, 7.5);
-      page.drawText(areaText, {
-        x: areaX,
-        y: ly + 2,
-        size: 7.5,
-        font: helvetica,
-        color: TEXT_MUTED,
-      });
+      ly -= 14;
+      for (const room of rooms) {
+        // Colour swatch
+        const hex = room.stroke.replace("#", "");
+        const r = parseInt(hex.slice(0, 2), 16) / 255;
+        const g = parseInt(hex.slice(2, 4), 16) / 255;
+        const b = parseInt(hex.slice(4, 6), 16) / 255;
+        page.drawRectangle({
+          x: legendX + 8,
+          y: ly + 1,
+          width: 8,
+          height: 8,
+          color: rgb(r, g, b),
+        });
 
-      ly -= 16;
+        const lidarTag = room.captureAdapter === "roomplan" ? " · LiDAR" : "";
+        const safeLabel = safe(room.label);
+        const maxLen = lidarTag ? 10 : 14;
+        const truncated =
+          safeLabel.length > maxLen
+            ? safeLabel.slice(0, maxLen - 1) + "…"
+            : safeLabel;
+        page.drawText(`${truncated}${lidarTag}`, {
+          x: legendX + 20,
+          y: ly + 2,
+          size: 7.5,
+          font: helvetica,
+          color: TEXT_MAIN,
+        });
+
+        const areaText = `${room.areaM2.toFixed(1)} m²`;
+        const areaX =
+          legendX + legendW - 8 - helvetica.widthOfTextAtSize(areaText, 7.5);
+        page.drawText(areaText, {
+          x: areaX,
+          y: ly + 2,
+          size: 7.5,
+          font: helvetica,
+          color: TEXT_MUTED,
+        });
+
+        ly -= 16;
+      }
+    }
+
+    if (damageLegend.length > 0) {
+      if (rooms.length > 0) ly -= 6;
+      page.drawText("Affected Areas", {
+        x: legendX + 8,
+        y: ly,
+        size: 8,
+        font: bold,
+        color: TEXT_MAIN,
+      });
+      ly -= 14;
+      for (const entry of damageLegend) {
+        const hex = entry.swatch.replace("#", "");
+        const r = parseInt(hex.slice(0, 2), 16) / 255;
+        const g = parseInt(hex.slice(2, 4), 16) / 255;
+        const b = parseInt(hex.slice(4, 6), 16) / 255;
+        page.drawRectangle({
+          x: legendX + 8,
+          y: ly + 1,
+          width: 8,
+          height: 8,
+          color: rgb(r, g, b),
+        });
+        page.drawText(safe(entry.label), {
+          x: legendX + 20,
+          y: ly + 2,
+          size: 7.5,
+          font: helvetica,
+          color: TEXT_MAIN,
+        });
+        ly -= 14;
+      }
     }
   }
 
   // ── Sketch image ──
+  // Content-cropped PNGs are often smaller than the page box; allow upscale so
+  // the plan fills the frame (Encircle-style) instead of sitting in empty void.
   const pngBytes = dataUrlToBytes(floor.pngDataUrl);
   const pngImg = await doc.embedPng(pngBytes);
   const { width: imgW, height: imgH } = pngImg.scale(1);
 
   const availW = CONTENT_W - legendW - (legendW > 0 ? 8 : 0);
-  const scale = Math.min(availW / imgW, CONTENT_H / imgH, 1);
-  const drawW = imgW * scale;
-  const drawH = imgH * scale;
+  const { drawW, drawH } = fitSketchImageInBox(
+    imgW,
+    imgH,
+    availW,
+    CONTENT_H,
+  );
   const imgX = MARGIN + (availW - drawW) / 2;
   const imgY = CONTENT_Y_TOP - CONTENT_H + (CONTENT_H - drawH) / 2;
 
@@ -773,7 +822,7 @@ function addComplianceAnnexPage(
 
 export interface SketchFloor {
   label: string;
-  /** canvas.toDataURL({ format: 'png', multiplier: 2 }) */
+  /** Content-cropped PNG from exportSketchPng (typically multiplier: 3). */
   pngDataUrl: string;
   /** Fabric.js toJSON() output (for room area extraction) */
   fabricJson?: Record<string, unknown> | null;
