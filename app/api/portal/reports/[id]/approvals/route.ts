@@ -210,10 +210,21 @@ export async function POST(
           approvalType: validatedApprovalType,
           status: "PENDING",
           requestedAt: existingApproval.requestedAt,
+          report: {
+            is: {
+              clientId,
+              reportVersion: report.reportVersion,
+              updatedAt: report.updatedAt,
+            },
+          },
         },
         data: {
           status: validatedStatus,
           respondedAt,
+          responseSource: "CLIENT_PORTAL",
+          respondedByClientUserId: auth.claims.sub,
+          responseReportVersion: report.reportVersion,
+          responseReportUpdatedAt: report.updatedAt,
           clientComments:
             typeof clientComments === "string" && clientComments
               ? clientComments
@@ -234,6 +245,10 @@ export async function POST(
           ...existingApproval,
           status: validatedStatus,
           respondedAt,
+          responseSource: "CLIENT_PORTAL",
+          respondedByClientUserId: auth.claims.sub,
+          responseReportVersion: report.reportVersion,
+          responseReportUpdatedAt: report.updatedAt,
           clientComments:
             typeof clientComments === "string" && clientComments
               ? clientComments

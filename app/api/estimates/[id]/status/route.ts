@@ -93,6 +93,12 @@ export async function PATCH(
         id: true,
         userId: true,
         reportId: true,
+        report: {
+          select: {
+            reportVersion: true,
+            updatedAt: true,
+          },
+        },
         status: true,
         subtotalExGST: true,
         totalIncGST: true,
@@ -146,6 +152,7 @@ export async function PATCH(
       id: string;
       respondedAt: Date | null;
       amount: number | null;
+      respondedByClientUserId: string | null;
     } | null = null;
     if (body.status === "APPROVED") {
       approvalEvidence = await prisma.reportApproval.findFirst({
@@ -154,22 +161,35 @@ export async function PATCH(
           approvalType: "COST_ESTIMATE",
           status: "APPROVED",
           respondedAt: { not: null },
+          responseSource: "CLIENT_PORTAL",
+          respondedByClientUserId: { not: null },
+          responseReportVersion: estimate.report.reportVersion,
+          responseReportUpdatedAt: estimate.report.updatedAt,
         },
-        select: { id: true, respondedAt: true, amount: true },
+        select: {
+          id: true,
+          respondedAt: true,
+          amount: true,
+          respondedByClientUserId: true,
+        },
       });
 
-      if (!approvalEvidence?.respondedAt) {
+      if (
+        !approvalEvidence?.respondedAt ||
+        !approvalEvidence.respondedByClientUserId
+      ) {
         return apiError(request, {
           code: "CONFLICT",
           message:
-            "Client cost approval is required before the estimate can be approved",
+            "Current client portal cost approval is required before the estimate can be approved",
           status: 409,
         });
       }
 
       if (
-        approvalEvidence.amount !== null &&
-        Math.abs(approvalEvidence.amount - (estimate.totalIncGST ?? 0)) > 0.01
+        approvalEvidence.amount === null ||
+        estimate.totalIncGST === null ||
+        Math.abs(approvalEvidence.amount - estimate.totalIncGST) > 0.01
       ) {
         return apiError(request, {
           code: "CONFLICT",

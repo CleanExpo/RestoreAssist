@@ -474,17 +474,21 @@ model PortalInvitation {
 }
 
 model ReportApproval {
-  id             String         @id @default(cuid())
-  reportId       String
-  report         Report         @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  approvalType   ApprovalType // SCOPE_OF_WORK, COST_ESTIMATE
-  status         ApprovalStatus @default(PENDING)
-  requestedAt    DateTime       @default(now())
-  respondedAt    DateTime?
-  clientComments String?        @db.Text
-  amount         Float? // For cost estimate approvals
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id                      String                        @id @default(cuid())
+  reportId                String
+  report                  Report                        @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  approvalType            ApprovalType // SCOPE_OF_WORK, COST_ESTIMATE
+  status                  ApprovalStatus                @default(PENDING)
+  requestedAt             DateTime                      @default(now())
+  respondedAt             DateTime?
+  responseSource          ReportApprovalResponseSource?
+  respondedByClientUserId String?
+  responseReportVersion   Int?
+  responseReportUpdatedAt DateTime?
+  clientComments          String?                       @db.Text
+  amount                  Float? // For cost estimate approvals
+  createdAt               DateTime                      @default(now())
+  updatedAt               DateTime                      @updatedAt
 
   @@unique([reportId, approvalType])
   @@index([status])
@@ -1053,6 +1057,10 @@ enum ApprovalStatus {
   APPROVED
   REJECTED
   CHANGES_REQUESTED
+}
+
+enum ReportApprovalResponseSource {
+  CLIENT_PORTAL
 }
 
 enum CertificationType {
