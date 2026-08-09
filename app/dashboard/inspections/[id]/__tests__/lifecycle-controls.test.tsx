@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { shouldRenderCloseJobPrompt } from "@/components/inspection/close-job-visibility";
 
 const source = readFileSync(
   join(process.cwd(), "app/dashboard/inspections/[id]/page.tsx"),
@@ -31,5 +32,55 @@ describe("inspection lifecycle controls", () => {
     expect(source).toMatch(
       /\{canGenerateReport && \(\s*<button[\s\S]*?Generate NIR Report/,
     );
+  });
+
+  it("hides the active close prompt from non-manager roles", () => {
+    expect(
+      shouldRenderCloseJobPrompt({
+        role: "USER",
+        status: "IN_BILLING",
+        completedAt: null,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRenderCloseJobPrompt({
+        role: "TECHNICIAN",
+        status: "IN_BILLING",
+        completedAt: null,
+      }),
+    ).toBe(false);
+  });
+
+  it.each(["MANAGER", "ADMIN"])(
+    "shows the active close prompt to %s",
+    (role) => {
+      expect(
+        shouldRenderCloseJobPrompt({
+          role,
+          status: "IN_BILLING",
+          completedAt: null,
+        }),
+      ).toBe(true);
+    },
+  );
+
+  it.each(["USER", "TECHNICIAN", "MANAGER", "ADMIN"])(
+    "keeps the completed close summary visible to %s",
+    (role) => {
+      expect(
+        shouldRenderCloseJobPrompt({
+          role,
+          status: "CLOSED",
+          completedAt: "2026-08-09T00:00:00.000Z",
+        }),
+      ).toBe(true);
+    },
+  );
+
+  it("uses the role-aware close prompt gate on the inspection page", () => {
+    expect(source).toMatch(
+      /const showCloseJobPrompt = shouldRenderCloseJobPrompt\(\{[\s\S]*?role: session\?\.user\?\.role,[\s\S]*?completedAt: inspection\.completedAt,[\s\S]*?\}\)/,
+    );
+    expect(source).toMatch(/\{showCloseJobPrompt && \(\s*<CloseJobPrompt/);
   });
 });

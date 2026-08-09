@@ -18,6 +18,7 @@ import InspectionEvidenceReadinessPanel, {
 } from "@/components/inspection/InspectionEvidenceReadinessPanel";
 import HandoverPackagePanel from "@/components/inspection/HandoverPackagePanel";
 import { MakeSafeChecklist } from "@/components/inspection/MakeSafeChecklist";
+import { shouldRenderCloseJobPrompt } from "@/components/inspection/close-job-visibility";
 import {
   moistureReadingsRequired,
   type IicrcClaimType,
@@ -88,8 +89,8 @@ const FieldEvidenceChecklistPanel = dynamic(
     ),
   { ssr: false },
 );
-// SP-A — close-job Sidekick card. Mounts conditional on IN_BILLING status
-// (or once-closed render of the locked terminal card via `completedAt`).
+// SP-A — close-job Sidekick card. Active controls require manager/admin roles;
+// the locked terminal card remains visible once `completedAt` is set.
 const CloseJobPrompt = dynamic(
   () => import("@/components/inspection/CloseJobPrompt"),
   { ssr: false },
@@ -936,6 +937,11 @@ export default function InspectionDetailPage({
   const canGenerateReport = ["ESTIMATED", "SUBMITTED", "COMPLETED"].includes(
     inspection.status,
   );
+  const showCloseJobPrompt = shouldRenderCloseJobPrompt({
+    role: session?.user?.role,
+    status: inspection.status,
+    completedAt: inspection.completedAt,
+  });
 
   const TABS: {
     key: Tab;
@@ -1233,10 +1239,10 @@ export default function InspectionDetailPage({
         <FieldEvidenceChecklistPanel inspectionId={inspection.id} />
       )}
 
-      {/* SP-A close-job Sidekick card. Renders while the inspection is in
-          its pre-close billing state, and stays mounted in its locked
-          terminal state once `completedAt` is set. */}
-      {(inspection.status === "IN_BILLING" || inspection.completedAt) && (
+      {/* SP-A close-job Sidekick card. Managers/admins can act in the
+          pre-close billing state; the locked terminal summary remains visible
+          after completion. */}
+      {showCloseJobPrompt && (
         <CloseJobPrompt
           inspectionId={inspection.id}
           inspectionNumber={inspection.inspectionNumber}
