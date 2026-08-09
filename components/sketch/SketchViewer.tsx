@@ -216,15 +216,11 @@ export function SketchViewer({
         .map((floor) => {
           const canvas = canvasRefs.current.get(floor.floorNumber);
           if (!canvas) return null;
-          const fc = canvas.getFabricCanvas() as {
-            toDataURL: (opts: object) => string;
-            toJSON: () => object;
-          } | null;
-          if (!fc) return null;
+          // Handle toDataURL → exportSketchPng (underlay stripped + content crop).
           return {
             label: floor.floorLabel,
-            pngDataUrl: fc.toDataURL({ format: "png", multiplier: 2 }),
-            fabricJson: fc.toJSON(),
+            pngDataUrl: canvas.toDataURL({ format: "png" }),
+            fabricJson: canvas.toJSON(),
           };
         })
         .filter(Boolean);
