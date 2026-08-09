@@ -216,3 +216,71 @@ export function roomClipPathDescriptor(
     absolutePositioned: true,
   };
 }
+
+/** Stable Fabric `data.id` for a room-level affected-area tint. */
+export function roomDamageTintId(roomId: string, kind: DamageKind): string {
+  return `dmg-tint-${roomId}-${kind}`;
+}
+
+export interface RoomDamageTintDescriptor {
+  points: Array<{ x: number; y: number }>;
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+  data: {
+    type: "damage";
+    damageKind: DamageKind;
+    provenance: "operator_measured";
+    id: string;
+    roomId: string;
+    role: "room-tint";
+  };
+}
+
+/** Encircle-style whole-room affected fill (no freehand stroke required). */
+export function describeRoomDamageTint(
+  room: RoomClipCandidate,
+  kind: DamageKind,
+): RoomDamageTintDescriptor {
+  const style = DAMAGE_KIND_STYLES[kind] ?? DAMAGE_KIND_STYLES.water;
+  return {
+    points: room.points.map((p) => ({ x: p.x, y: p.y })),
+    fill: style.fill,
+    stroke: style.stroke,
+    strokeWidth: 1,
+    data: {
+      type: "damage",
+      damageKind: kind,
+      provenance: "operator_measured",
+      id: roomDamageTintId(room.id, kind),
+      roomId: room.id,
+      role: "room-tint",
+    },
+  };
+}
+
+export type RoomDamageTapAction =
+  | { action: "paint"; room: RoomClipCandidate; kind: DamageKind }
+  | { action: "clear"; room: RoomClipCandidate; kind: DamageKind; tintId: string }
+  | { action: "none" };
+
+/**
+ * One-tap room colorize: paint the containing room with `kind`, or clear that
+ * same tint if it already exists (toggle). Different kinds replace via paint
+ * after the caller removes prior tints for the room.
+ */
+export function resolveRoomDamageTap(
+  x: number,
+  y: number,
+  rooms: ReadonlyArray<RoomClipCandidate>,
+  kind: DamageKind,
+  existingTintIds: ReadonlySet<string>,
+): RoomDamageTapAction {
+  const room = findContainingRoom(x, y, rooms);
+  if (!room) return { action: "none" };
+  const tintId = roomDamageTintId(room.id, kind);
+  if (existingTintIds.has(tintId)) {
+    return { action: "clear", room, kind, tintId };
+  }
+  return { action: "paint", room, kind };
+}
