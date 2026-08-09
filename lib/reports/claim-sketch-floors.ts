@@ -4,8 +4,8 @@ import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 
 /**
  * The subset of a `ClaimSketch` row needed to build a report floor page.
- * `renderedPngUrl` is the client-rasterised floor (underlay + annotations)
- * stored in the `sketch-media/exports` bucket.
+ * `renderedPngUrl` is the client-rasterised floor (operator geometry only —
+ * underlay stripped, content-cropped) stored in the `sketch-media/exports` bucket.
  */
 export interface ClaimSketchRow {
   floorNumber: number;
