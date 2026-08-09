@@ -335,9 +335,7 @@ export default function InspectionReportViewer({
     }
 
     try {
-      const response = await fetch(
-        `/api/reports/${reportId}/download-inspection-report`,
-      );
+      const response = await fetch(`/api/reports/${reportId}/download`);
 
       if (!response.ok) {
         const error = await response.json();
