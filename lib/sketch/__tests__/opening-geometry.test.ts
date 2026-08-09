@@ -9,12 +9,15 @@ import {
   projectPointOntoSegment,
   snapToNearestWall,
   openingCutEndpoints,
+  openingJambLines,
   doorGeometry,
   doorArcPath,
   windowGeometry,
   parametricPositionOnSegment,
   pointAtParametric,
   resizeOpeningAlongWall,
+  wallSolidSegments,
+  openingCutInterval,
   type WallSegment,
 } from "../opening-geometry";
 import { decomposeElements } from "../decompose-elements";
@@ -546,5 +549,48 @@ describe("resizeOpeningAlongWall", () => {
     );
     expect(start.x).toBeGreaterThanOrEqual(0);
     expect(end.x).toBeLessThanOrEqual(500);
+  });
+});
+
+describe("openingJambLines", () => {
+  it("returns perpendicular ticks at both cut ends", () => {
+    const [j0, j1] = openingJambLines(
+      { x: 100, y: 200 },
+      { x: 182, y: 200 },
+      22,
+    );
+    // Horizontal opening → jambs are vertical
+    expect(j0[0].x).toBeCloseTo(j0[1].x);
+    expect(j0[0].y).not.toBeCloseTo(j0[1].y);
+    expect(j1[0].x).toBeCloseTo(j1[1].x);
+    expect(Math.abs(j0[0].y - j0[1].y)).toBeCloseTo(22);
+  });
+});
+
+describe("wallSolidSegments", () => {
+  it("returns the full wall when there are no openings", () => {
+    const solids = wallSolidSegments(HWALL, []);
+    expect(solids).toHaveLength(1);
+    expect(solids[0]).toEqual(HWALL);
+  });
+
+  it("cuts a centred opening into two solid stubs", () => {
+    const cut = openingCutInterval(0.5, 1.0, HWALL, PX); // 1 m gap at mid
+    const solids = wallSolidSegments(HWALL, [cut]);
+    expect(solids).toHaveLength(2);
+    expect(solids[0].a).toEqual({ x: 0, y: 200 });
+    expect(solids[0].b.x).toBeCloseTo(200); // 0.5*500 - 0.5*100
+    expect(solids[1].a.x).toBeCloseTo(300);
+    expect(solids[1].b).toEqual({ x: 500, y: 200 });
+  });
+
+  it("merges overlapping openings before splitting", () => {
+    const solids = wallSolidSegments(HWALL, [
+      { t0: 0.2, t1: 0.4 },
+      { t0: 0.35, t1: 0.55 },
+    ]);
+    expect(solids).toHaveLength(2);
+    expect(solids[0].b.x).toBeCloseTo(100); // 0.2 * 500
+    expect(solids[1].a.x).toBeCloseTo(275); // 0.55 * 500
   });
 });
