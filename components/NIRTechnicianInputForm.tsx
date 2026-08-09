@@ -29,6 +29,10 @@ import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
 import { buildAffectedAreaPayload } from "@/lib/forms/affected-area-payload";
 import {
+  fromNormalizedMoistureMapPoint,
+  toNormalizedMoistureMapPoint,
+} from "@/lib/nir-moisture-map-coordinates";
+import {
   isCapacitorIOS,
   getCurrentLocation,
   fireHaptic,
@@ -784,19 +788,24 @@ export default function NIRTechnicianInputForm({
             // Load moisture map points if coordinates exist
             const pointsWithCoords = data.inspection.moistureReadings
               .filter((r: any) => r.mapX !== null && r.mapY !== null)
-              .map((r: any) => ({
-                id: r.id,
-                x: r.mapX,
-                y: r.mapY,
-                reading: {
+              .map((r: any) => {
+                const point = fromNormalizedMoistureMapPoint({
+                  mapX: r.mapX,
+                  mapY: r.mapY,
+                });
+                return {
                   id: r.id,
-                  location: r.location,
-                  surfaceType: r.surfaceType,
-                  moistureLevel: r.moistureLevel,
-                  depth: r.depth,
-                  notes: r.notes || null,
-                },
-              }));
+                  ...point,
+                  reading: {
+                    id: r.id,
+                    location: r.location,
+                    surfaceType: r.surfaceType,
+                    moistureLevel: r.moistureLevel,
+                    depth: r.depth,
+                    notes: r.notes || null,
+                  },
+                };
+              });
             setMoistureMapPoints(pointsWithCoords);
           }
 
@@ -1324,13 +1333,16 @@ export default function NIRTechnicianInputForm({
             const mapPoint = moistureMapPoints.find(
               (point) => point.id === reading.id,
             );
+            const normalizedPoint = mapPoint
+              ? toNormalizedMoistureMapPoint(mapPoint)
+              : null;
             return {
               location: reading.location,
               surfaceType: reading.surfaceType,
               moistureLevel: reading.moistureLevel,
               depth: reading.depth,
-              mapX: mapPoint?.x ?? null,
-              mapY: mapPoint?.y ?? null,
+              mapX: normalizedPoint?.mapX ?? null,
+              mapY: normalizedPoint?.mapY ?? null,
             };
           }),
           affectedAreas: affectedAreas.map(buildAffectedAreaPayload),
