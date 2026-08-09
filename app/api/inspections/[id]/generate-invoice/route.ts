@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import type { Prisma } from "@prisma/client";
+import { ClaimState, InspectionStatus, type Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
+import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
+import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 
 const GST_RATE = 10.0;
 
@@ -14,6 +17,16 @@ const gstRateForTaxType = (taxType: string) =>
   taxType === "EXEMPT" || taxType === "EXEMPTOUTPUT" || taxType === "NONE"
     ? 0
     : GST_RATE;
+
+const ISSUE_INVOICE_CONTEXT = {
+  invoiceStatus: null,
+  invoiceHasUnreconciledPayment: false,
+  reportStatus: null,
+  reportDeliveredAt: null,
+  handoverCompletedAt: null,
+} as const;
+
+class BillingTransitionConflict extends Error {}
 
 const existingInvoiceSelect = {
   id: true,
@@ -45,6 +58,64 @@ function invoiceResponse(
     },
     { status: reused ? 200 : 201 },
   );
+}
+
+async function advanceInspectionToBilling(
+  tx: Prisma.TransactionClient,
+  args: {
+    inspectionId: string;
+    userId: string;
+    actorName: string;
+    actorRole: string;
+  },
+): Promise<"transitioned" | "already-in-billing"> {
+  const cas = await tx.inspection.updateMany({
+    where: {
+      id: args.inspectionId,
+      userId: args.userId,
+      status: InspectionStatus.SUBMITTED,
+      signedAt: { not: null },
+    },
+    data: { status: InspectionStatus.IN_BILLING },
+  });
+
+  if (cas.count === 0) {
+    const current = await tx.inspection.findFirst({
+      where: { id: args.inspectionId, userId: args.userId },
+      select: { status: true, signedAt: true },
+    });
+    if (current?.status === InspectionStatus.IN_BILLING && current.signedAt) {
+      return "already-in-billing";
+    }
+    throw new BillingTransitionConflict();
+  }
+
+  await writeLifecycleTransition({
+    inspectionId: args.inspectionId,
+    fromState: ClaimState.CLOSEOUT,
+    toState: ClaimState.INVOICE_ISSUED,
+    transitionKey: "issue_invoice",
+    actorUserId: args.userId,
+    actorRole: args.actorRole,
+    actorName: args.actorName,
+    guardSnapshot: {
+      previousInspectionStatus: InspectionStatus.SUBMITTED,
+      newInspectionStatus: InspectionStatus.IN_BILLING,
+      signed: true,
+    } as Prisma.InputJsonValue,
+    auditAction: "INVOICE_ISSUED",
+    prismaTx: tx,
+  });
+
+  await tx.claimProgress.updateMany({
+    where: { inspectionId: args.inspectionId },
+    data: {
+      previousState: ClaimState.CLOSEOUT,
+      currentState: ClaimState.INVOICE_ISSUED,
+    },
+  });
+
+  return "transitioned";
 }
 
 // GET — return existing invoice generated from this inspection (if any)
@@ -153,6 +224,8 @@ export async function POST(
         where: { id, userId },
         select: {
           id: true,
+          status: true,
+          signedAt: true,
           reportId: true,
           inspectionNumber: true,
           propertyAddress: true,
@@ -209,6 +282,43 @@ export async function POST(
         });
       }
 
+      if (!inspection.signedAt) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "Inspection sign-off is required before generating an invoice.",
+          status: 409,
+        });
+      }
+
+      const currentStatus = inspection.status as InspectionStatus;
+      if (currentStatus !== InspectionStatus.IN_BILLING) {
+        const gate = canTransition(
+          currentStatus,
+          InspectionStatus.IN_BILLING,
+          ISSUE_INVOICE_CONTEXT,
+        );
+        if (!gate.ok) {
+          return NextResponse.json(
+            {
+              error: {
+                code: "CONFLICT",
+                message: `Inspection cannot enter billing from ${inspection.status}.`,
+              },
+              missing: gate.missing,
+            },
+            { status: 409 },
+          );
+        }
+      }
+
+      const billingActor = {
+        inspectionId: inspection.id,
+        userId,
+        actorName: session.user.name ?? "User",
+        actorRole: session.user.role ?? "USER",
+      };
+
       // A durable source + report + estimate link is the business-level
       // idempotency fallback. It protects replays after the 24-hour
       // Idempotency-Key cache expires and callers that accidentally send a
@@ -225,6 +335,17 @@ export async function POST(
       });
 
       if (existingInvoice) {
+        if (currentStatus !== InspectionStatus.IN_BILLING) {
+          const billingResult = await prisma.$transaction((tx) =>
+            advanceInspectionToBilling(tx, billingActor),
+          );
+          if (billingResult === "transitioned") {
+            void onNextAction(inspection.id, InspectionStatus.IN_BILLING).catch(
+              (error) =>
+                console.error("[next-action] IN_BILLING nudge failed:", error),
+            );
+          }
+        }
         return invoiceResponse(existingInvoice, true);
       }
 
@@ -369,7 +490,15 @@ export async function POST(
             orderBy: { createdAt: "desc" },
           });
           if (existingInvoice) {
-            return { kind: "existing" as const, invoice: existingInvoice };
+            const billingResult = await advanceInspectionToBilling(
+              tx,
+              billingActor,
+            );
+            return {
+              kind: "existing" as const,
+              invoice: existingInvoice,
+              billingResult,
+            };
           }
 
           // APPROVED -> LOCKED is an existing lifecycle transition. Keeping
@@ -392,10 +521,24 @@ export async function POST(
               select: existingInvoiceSelect,
               orderBy: { createdAt: "desc" },
             });
-            return racedInvoice
-              ? { kind: "existing" as const, invoice: racedInvoice }
-              : { kind: "estimate-unavailable" as const };
+            if (!racedInvoice) {
+              return { kind: "estimate-unavailable" as const };
+            }
+            const billingResult = await advanceInspectionToBilling(
+              tx,
+              billingActor,
+            );
+            return {
+              kind: "existing" as const,
+              invoice: racedInvoice,
+              billingResult,
+            };
           }
+
+          const billingResult = await advanceInspectionToBilling(
+            tx,
+            billingActor,
+          );
 
           const sequence = await tx.invoiceSequence.upsert({
             where: { userId_year: { userId: userId, year } },
@@ -479,7 +622,7 @@ export async function POST(
             },
           });
 
-          return { kind: "created" as const, invoice };
+          return { kind: "created" as const, invoice, billingResult };
         });
 
       let result;
@@ -529,8 +672,23 @@ export async function POST(
         });
       }
 
+      if (result.billingResult === "transitioned") {
+        void onNextAction(inspection.id, InspectionStatus.IN_BILLING).catch(
+          (error) =>
+            console.error("[next-action] IN_BILLING nudge failed:", error),
+        );
+      }
+
       return invoiceResponse(result.invoice, result.kind === "existing");
     } catch (error) {
+      if (error instanceof BillingTransitionConflict) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "Inspection status changed before billing could begin. Refresh and try again.",
+          status: 409,
+        });
+      }
       return fromException(request, error, {
         stage: "inspection-generate-invoice-post",
       });

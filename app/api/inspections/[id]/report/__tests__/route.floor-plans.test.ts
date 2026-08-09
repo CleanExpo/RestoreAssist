@@ -101,6 +101,39 @@ beforeEach(() => {
 });
 
 describe("GET /api/inspections/[id]/report — floor-plan output", () => {
+  it.each(["ESTIMATED", "SUBMITTED"])(
+    "generates a report for review-ready %s work",
+    async (status) => {
+      inspectionFindFirst.mockResolvedValue(inspection({ status }));
+
+      const response = await GET(request(), context);
+
+      expect(response.status).toBe(200);
+      expect(generateNIRPDF).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([
+    "DRAFT",
+    "PROCESSING",
+    "CLASSIFIED",
+    "SCOPED",
+    "REJECTED",
+    "IN_BILLING",
+    "CLOSED",
+    "ARCHIVED",
+  ])(
+    "rejects report generation from %s",
+    async (status) => {
+      inspectionFindFirst.mockResolvedValue(inspection({ status }));
+
+      const response = await GET(request(), context);
+
+      expect(response.status).toBe(400);
+      expect(generateNIRPDF).not.toHaveBeenCalled();
+    },
+  );
+
   it("queries only the signed-in user's inspection and appends rendered and uploaded plans", async () => {
     inspectionFindFirst.mockResolvedValue(
       inspection({

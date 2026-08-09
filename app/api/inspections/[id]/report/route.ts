@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { InspectionStatus } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -31,6 +32,12 @@ const AU_DATE = (d: Date | string | null | undefined): string =>
 
 const AU_DATETIME = (d: Date | string | null | undefined): string =>
   d ? new Date(d).toLocaleString("en-AU") : "—";
+
+const REPORT_READY_STATUSES = new Set<InspectionStatus>([
+  InspectionStatus.ESTIMATED,
+  InspectionStatus.SUBMITTED,
+  InspectionStatus.COMPLETED,
+]);
 
 // GET — Generate report in requested format (json | pdf | excel)
 export async function GET(
@@ -172,10 +179,10 @@ export async function GET(
       });
     }
 
-    if (inspection.status !== "COMPLETED") {
+    if (!REPORT_READY_STATUSES.has(inspection.status)) {
       return apiError(request, {
         code: "VALIDATION",
-        message: "Inspection must be completed before generating report",
+        message: "Inspection must be review-ready before generating report",
         status: 400,
       });
     }

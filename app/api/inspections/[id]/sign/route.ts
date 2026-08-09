@@ -82,6 +82,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           id: inspectionId,
           userId: userId,
           ...({ signedAt: null } as any),
+          status: {
+            in: [
+              InspectionStatus.ESTIMATED,
+              InspectionStatus.COMPLETED,
+              InspectionStatus.SUBMITTED,
+            ],
+          },
         },
         data: {
           ...({
@@ -107,7 +114,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // Distinguish "not found" from "already signed" for correct HTTP status
         const exists = await prisma.inspection.findFirst({
           where: { id: inspectionId, userId: userId },
-          select: { id: true },
+          select: { id: true, status: true, signedAt: true },
         });
         if (!exists) {
           return apiError(request, {
@@ -118,7 +125,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
         return apiError(request, {
           code: "CONFLICT",
-          message: "Inspection has already been signed. Contact admin to reset.",
+          message: exists.signedAt
+            ? "Inspection has already been signed. Contact admin to reset."
+            : `Inspection cannot be signed while in ${exists.status} status. Complete processing first.`,
           status: 409,
         });
       }

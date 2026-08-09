@@ -7,6 +7,16 @@ vi.mock("@/lib/idempotency", () => ({
   withIdempotency: (_req: unknown, _uid: string, fn: () => Promise<unknown>) =>
     fn(),
 }));
+vi.mock("@prisma/client", () => ({
+  InspectionStatus: {
+    SUBMITTED: "SUBMITTED",
+    IN_BILLING: "IN_BILLING",
+  },
+  ClaimState: {
+    CLOSEOUT: "CLOSEOUT",
+    INVOICE_ISSUED: "INVOICE_ISSUED",
+  },
+}));
 
 const {
   inspectionFindFirst,
@@ -20,6 +30,11 @@ const {
   txSequenceUpsert,
   txAuditCreate,
   txInspectionAuditCreate,
+  txInspectionUpdateMany,
+  txClaimProgressUpdateMany,
+  writeLifecycleTransition,
+  onNextAction,
+  canTransition,
 } = vi.hoisted(() => ({
   inspectionFindFirst: vi.fn(),
   estimateFindFirst: vi.fn(),
@@ -32,6 +47,22 @@ const {
   txSequenceUpsert: vi.fn(),
   txAuditCreate: vi.fn(),
   txInspectionAuditCreate: vi.fn(),
+  txInspectionUpdateMany: vi.fn(),
+  txClaimProgressUpdateMany: vi.fn(),
+  writeLifecycleTransition: vi.fn(),
+  onNextAction: vi.fn(),
+  canTransition: vi.fn(),
+}));
+
+vi.mock("@/lib/lifecycle/inspection-state-machine", () => ({
+  canTransition: (...args: unknown[]) => canTransition(...args),
+}));
+vi.mock("@/lib/audit/lifecycle-event", () => ({
+  writeLifecycleTransition: (...args: unknown[]) =>
+    writeLifecycleTransition(...args),
+}));
+vi.mock("@/lib/lifecycle/subscribers/next-action", () => ({
+  onNextAction: (...args: unknown[]) => onNextAction(...args),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -61,6 +92,14 @@ beforeEach(() => {
   txSequenceUpsert.mockResolvedValue({ prefix: "RA", lastNumber: 1 });
   txAuditCreate.mockResolvedValue({});
   txInspectionAuditCreate.mockResolvedValue({});
+  txInspectionUpdateMany.mockResolvedValue({ count: 1 });
+  txClaimProgressUpdateMany.mockResolvedValue({ count: 1 });
+  writeLifecycleTransition.mockResolvedValue({
+    id: "transition_1",
+    auditLogId: "audit_1",
+  });
+  onNextAction.mockResolvedValue(undefined);
+  canTransition.mockReturnValue({ ok: true, softGaps: [] });
   $transaction.mockImplementation(async (cb: any) =>
     cb({
       invoiceSequence: { upsert: txSequenceUpsert },
@@ -69,8 +108,10 @@ beforeEach(() => {
         create: txInvoiceCreate,
       },
       estimate: { updateMany: txEstimateUpdateMany },
+      inspection: { updateMany: txInspectionUpdateMany },
       invoiceAuditLog: { create: txAuditCreate },
       auditLog: { create: txInspectionAuditCreate },
+      claimProgress: { updateMany: txClaimProgressUpdateMany },
     }),
   );
 });
@@ -100,6 +141,8 @@ describe("inspection generate-invoice source link", () => {
   it("POST persists source as inspection:{id}", async () => {
     inspectionFindFirst.mockResolvedValue({
       id: "insp_1",
+      status: "SUBMITTED",
+      signedAt: new Date("2026-08-09T00:00:00.000Z"),
       reportId: "report_1",
       inspectionNumber: "INS-100",
       propertyAddress: "1 Test St",
@@ -186,6 +229,8 @@ describe("inspection generate-invoice source link", () => {
   it("creates the invoice from the linked client and latest approved estimate", async () => {
     inspectionFindFirst.mockResolvedValue({
       id: "insp_1",
+      status: "SUBMITTED",
+      signedAt: new Date("2026-08-09T00:00:00.000Z"),
       reportId: "report_1",
       inspectionNumber: "INS-100",
       propertyAddress: "1 Inspection St",
@@ -300,6 +345,8 @@ describe("inspection generate-invoice source link", () => {
   it("does not fall back to freehand scope lines without an approved estimate", async () => {
     inspectionFindFirst.mockResolvedValue({
       id: "insp_1",
+      status: "SUBMITTED",
+      signedAt: new Date("2026-08-09T00:00:00.000Z"),
       reportId: "report_1",
       inspectionNumber: "INS-100",
       propertyAddress: "1 Inspection St",
@@ -341,6 +388,8 @@ describe("inspection generate-invoice source link", () => {
   it("reuses an existing inspection invoice before looking for another approved estimate", async () => {
     inspectionFindFirst.mockResolvedValue({
       id: "insp_1",
+      status: "IN_BILLING",
+      signedAt: new Date("2026-08-09T00:00:00.000Z"),
       reportId: "report_1",
       inspectionNumber: "INS-100",
       propertyAddress: "1 Inspection St",
@@ -397,6 +446,8 @@ describe("inspection generate-invoice source link", () => {
   it("zero-rates EXEMPT lines while retaining GST on taxable lines", async () => {
     inspectionFindFirst.mockResolvedValue({
       id: "insp_1",
+      status: "SUBMITTED",
+      signedAt: new Date("2026-08-09T00:00:00.000Z"),
       reportId: "report_1",
       inspectionNumber: "INS-100",
       propertyAddress: "1 Inspection St",
@@ -491,6 +542,8 @@ describe("inspection generate-invoice source link", () => {
   it("preserves the approved nearest-$5 total as an explicit rounding adjustment", async () => {
     inspectionFindFirst.mockResolvedValue({
       id: "insp_1",
+      status: "SUBMITTED",
+      signedAt: new Date("2026-08-09T00:00:00.000Z"),
       reportId: "report_1",
       inspectionNumber: "INS-100",
       propertyAddress: "1 Inspection St",
@@ -564,6 +617,8 @@ describe("inspection generate-invoice source link", () => {
   it("rejects a report client outside the inspection tenant", async () => {
     inspectionFindFirst.mockResolvedValue({
       id: "insp_1",
+      status: "SUBMITTED",
+      signedAt: new Date("2026-08-09T00:00:00.000Z"),
       reportId: "report_1",
       inspectionNumber: "INS-100",
       propertyAddress: "1 Inspection St",
