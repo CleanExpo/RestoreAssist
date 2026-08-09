@@ -104,6 +104,12 @@ export async function POST(
       country,
       captureAdapter: captureAdapterRaw,
     } = body;
+    const backgroundImageUrlToPersist = Object.prototype.hasOwnProperty.call(
+      body,
+      "backgroundImageUrl",
+    )
+      ? backgroundImageUrl
+      : undefined;
 
     // RA-120 (PR4): underlay opacity is a 0..1 slider value; clamp defensively
     // so a malformed client can't store an out-of-range opacity.
@@ -192,7 +198,7 @@ export async function POST(
           data: {
             sketchType,
             sketchData: sketchDataToPersist,
-            backgroundImageUrl: backgroundImageUrl ?? undefined,
+            backgroundImageUrl: backgroundImageUrlToPersist,
             renderedPngUrl: renderedPngUrl ?? undefined,
             backgroundImageOpacity: opacity,
             backgroundImageScale: bgScale,
@@ -211,7 +217,7 @@ export async function POST(
             floorLabel,
             sketchType,
             sketchData: sketchData ?? undefined,
-            backgroundImageUrl: backgroundImageUrl ?? undefined,
+            backgroundImageUrl: backgroundImageUrlToPersist,
             renderedPngUrl: renderedPngUrl ?? undefined,
             backgroundImageOpacity: opacity,
             backgroundImageScale: bgScale,
