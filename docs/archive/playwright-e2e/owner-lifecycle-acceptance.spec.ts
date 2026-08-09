@@ -46,15 +46,26 @@ test.describe("mock-only owner lifecycle acceptance", () => {
       ).toBeVisible();
       await page.getByLabel("Client Name *").fill("Mock Acceptance Owner");
       await page.getByLabel("Email *").fill(CLIENT_EMAIL);
+      const created = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return (
+          url.pathname === "/api/clients" &&
+          response.request().method() === "POST"
+        );
+      });
       await page
         .getByRole("button", { name: "Add Client", exact: true })
         .last()
         .click();
+      expect((await created).ok()).toBe(true);
+      await expect(
+        page.getByRole("heading", { name: "Add New Client" }),
+      ).not.toBeVisible({ timeout: 15_000 });
       await expect(
         page.getByRole("row", {
           name: new RegExp(`Mock Acceptance Owner ${CLIENT_EMAIL}`),
         }),
-      ).toBeVisible();
+      ).toBeVisible({ timeout: 15_000 });
     });
 
     let inspectionId = "";
