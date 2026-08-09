@@ -26,7 +26,7 @@ vi.mock("@/lib/rate-limiter", () => ({
 }));
 
 import { getToken } from "next-auth/jwt";
-import { middleware } from "../../middleware";
+import { proxy } from "../../proxy";
 
 const mockGetToken = vi.mocked(getToken);
 
@@ -63,7 +63,7 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
     mockGetToken.mockResolvedValue(
       baseToken({ subscriptionStatus: "TRIAL", trialEndsAt: yesterday }) as any,
     );
-    const res = await middleware(mkReq("/dashboard"));
+    const res = await proxy(mkReq("/dashboard"));
     expect((res as any).status).toBe(307);
     expect((res as any).headers.get("location")).toContain(
       "/billing/upgrade?reason=trial-expired",
@@ -75,7 +75,7 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
     mockGetToken.mockResolvedValue(
       baseToken({ subscriptionStatus: "ACTIVE", trialEndsAt: yesterday }) as any,
     );
-    const res = await middleware(mkReq("/dashboard"));
+    const res = await proxy(mkReq("/dashboard"));
     expect((res as any).status).not.toBe(307);
   });
 
@@ -84,7 +84,7 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
     mockGetToken.mockResolvedValue(
       baseToken({ subscriptionStatus: "TRIAL", trialEndsAt: tomorrow }) as any,
     );
-    const res = await middleware(mkReq("/dashboard"));
+    const res = await proxy(mkReq("/dashboard"));
     expect((res as any).status).not.toBe(307);
   });
 
@@ -95,7 +95,7 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
         lifetimeAccess: true,
       }) as any,
     );
-    const res = await middleware(mkReq("/dashboard"));
+    const res = await proxy(mkReq("/dashboard"));
     expect((res as any).status).not.toBe(307);
   });
 
@@ -103,7 +103,7 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
     mockGetToken.mockResolvedValue(
       baseToken({ subscriptionStatus: "CANCELED" }) as any,
     );
-    const res = await middleware(mkReq("/dashboard"));
+    const res = await proxy(mkReq("/dashboard"));
     expect((res as any).status).toBe(307);
     expect((res as any).headers.get("location")).toContain(
       "/billing/upgrade?reason=trial-expired",
@@ -114,7 +114,7 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
     mockGetToken.mockResolvedValue(
       baseToken({ subscriptionStatus: "PAST_DUE" }) as any,
     );
-    const res = await middleware(mkReq("/dashboard"));
+    const res = await proxy(mkReq("/dashboard"));
     expect((res as any).status).toBe(307);
   });
 
@@ -122,7 +122,7 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
     mockGetToken.mockResolvedValue(
       baseToken({ subscriptionStatus: "CANCELED" }) as any,
     );
-    const res = await middleware(mkReq("/pricing"));
+    const res = await proxy(mkReq("/pricing"));
     expect((res as any).status).not.toBe(307);
   });
 
@@ -130,7 +130,7 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
     mockGetToken.mockResolvedValue(
       baseToken({ subscriptionStatus: "CANCELED" }) as any,
     );
-    const res = await middleware(mkReq("/billing/upgrade"));
+    const res = await proxy(mkReq("/billing/upgrade"));
     expect((res as any).status).not.toBe(307);
   });
 
@@ -138,7 +138,7 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
     mockGetToken.mockResolvedValue(
       baseToken({ subscriptionStatus: undefined }) as any,
     );
-    const res = await middleware(mkReq("/dashboard"));
+    const res = await proxy(mkReq("/dashboard"));
     expect((res as any).status).not.toBe(307);
   });
 });

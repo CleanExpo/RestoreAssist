@@ -9,7 +9,7 @@ import { applyRateLimitEdge } from "@/lib/rate-limiter-edge";
  *   2. `/api/*` mutations — RA-1540 default IP rate-limit baseline.
  *
  * Both are matched via the exported `config.matcher`; dispatch happens
- * by path prefix + method inside `middleware()`.
+ * by path prefix + method inside `proxy()`.
  */
 
 // RA-1540 — default cap for any /api/* mutation (POST/PATCH/PUT/DELETE).
@@ -147,7 +147,7 @@ function shouldHardPaywall(token: {
   return true;
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // ── Setup wizard gate — FIRST check, flag-guarded (Phase 6, Task 18) ────────

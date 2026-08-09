@@ -30,11 +30,14 @@
 // option to Google in the UI (Apple required when ANY third-party
 // login is offered).
 //
-// Web is unchanged: standard next-auth/react `signIn(provider, options)`.
+// Web clears any existing RestoreAssist session before starting OAuth. Without
+// that account-switch boundary, NextAuth treats a different Google/Apple user
+// as an attempt to attach an already-linked identity to the current user and
+// redirects with OAuthAccountNotLinked.
 
 "use client";
 
-import { signIn, type SignInOptions } from "next-auth/react";
+import { signIn, signOut, type SignInOptions } from "next-auth/react";
 import { isCapacitorAndroid, isCapacitorIOS } from "@/lib/capacitor";
 
 export type OAuthProvider = "google" | "apple";
@@ -122,7 +125,10 @@ export async function signInWithOAuth(
   options?: SignInOptions,
 ): Promise<void> {
   if (!isCapacitorIOS() && !isCapacitorAndroid()) {
-    // Web — delegate to next-auth's normal redirect-based signin.
+    // NextAuth's OAuth callback decodes the existing JWT before resolving the
+    // selected provider account. Clear it first so a user can switch accounts
+    // from /login without triggering OAuthAccountNotLinked.
+    await signOut({ redirect: false });
     await signIn(provider, options);
     return;
   }
