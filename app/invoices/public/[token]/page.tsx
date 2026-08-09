@@ -143,7 +143,6 @@ export default function PublicInvoicePage() {
         <div className="border-b border-slate-100 px-6 py-5 sm:px-8 flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             {c?.businessLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={c.businessLogo}
                 alt={c.businessName || "Business logo"}
@@ -285,6 +284,12 @@ export default function PublicInvoicePage() {
 
         {(invoice.terms || invoice.footer || invoice.notes) && (
           <div className="border-t border-slate-100 px-6 py-5 sm:px-8 space-y-2 text-xs text-slate-500">
+            {invoice.notes && (
+              <p className="whitespace-pre-line">
+                <span className="font-semibold text-slate-600">Notes: </span>
+                {invoice.notes}
+              </p>
+            )}
             {invoice.terms && (
               <p>
                 <span className="font-semibold text-slate-600">Terms: </span>
