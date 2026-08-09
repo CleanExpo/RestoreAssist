@@ -1,7 +1,7 @@
 /**
  * middleware-setup-gate.test.ts
  *
- * Tests for the SETUP_WIZARD_ENABLED feature-flag gate added in middleware.ts.
+ * Tests for the SETUP_WIZARD_ENABLED feature-flag gate in proxy.ts.
  * The gate redirects any authenticated user without setupCompletedAt to /setup.
  * Role-agnostic: no OWNER/TECHNICIAN/ADMIN branching (C1+C3 fix).
  *
@@ -25,7 +25,7 @@ vi.mock("@/lib/trial-handling", () => ({
 }));
 
 import { getToken } from "next-auth/jwt";
-import { middleware } from "../../middleware";
+import { proxy } from "../../proxy";
 
 function mkReq(pathname: string, search: string = "") {
   return {
@@ -52,7 +52,7 @@ describe("middleware setup gate", () => {
       sub: "u1",
       setupCompletedAt: null,
     });
-    const res = await middleware(mkReq("/dashboard"));
+    const res = await proxy(mkReq("/dashboard"));
     // Should NOT redirect when flag is off
     expect((res as any).status).not.toBe(307);
   });
@@ -62,7 +62,7 @@ describe("middleware setup gate", () => {
       sub: "u1",
       setupCompletedAt: null,
     });
-    const res = await middleware(mkReq("/dashboard"));
+    const res = await proxy(mkReq("/dashboard"));
     expect((res as any).status).toBe(307);
     expect((res as any).headers.get("location")).toContain("/setup");
   });
@@ -77,7 +77,7 @@ describe("middleware setup gate", () => {
       role: "ADMIN",
       setupCompletedAt: null,
     });
-    const res = await middleware(mkReq("/reports"));
+    const res = await proxy(mkReq("/reports"));
     expect((res as any).status).toBe(307);
     expect((res as any).headers.get("location")).toContain("/setup");
   });
@@ -87,7 +87,7 @@ describe("middleware setup gate", () => {
       sub: "u1",
       setupCompletedAt: "2026-01-01T00:00:00Z",
     });
-    const res = await middleware(mkReq("/dashboard"));
+    const res = await proxy(mkReq("/dashboard"));
     expect((res as any).status).not.toBe(307);
   });
 
@@ -96,7 +96,7 @@ describe("middleware setup gate", () => {
       sub: "u1",
       setupCompletedAt: null,
     });
-    const res = await middleware(mkReq("/setup"));
+    const res = await proxy(mkReq("/setup"));
     expect((res as any).status).not.toBe(307);
   });
 
@@ -105,7 +105,7 @@ describe("middleware setup gate", () => {
       sub: "u1",
       setupCompletedAt: null,
     });
-    const res = await middleware(mkReq("/api/setup/hydrate"));
+    const res = await proxy(mkReq("/api/setup/hydrate"));
     expect((res as any).status).not.toBe(307);
   });
 
@@ -122,7 +122,7 @@ describe("middleware setup gate", () => {
       sub: "u1",
       setupCompletedAt: "2026-01-01T00:00:00Z",
     });
-    const res = await middleware(mkReq("/dashboard"));
+    const res = await proxy(mkReq("/dashboard"));
     expect((res as any).status).not.toBe(307);
   });
 });
@@ -136,7 +136,7 @@ describe("middleware login redirect (P1 #16)", () => {
 
   it("redirects unauthenticated /dashboard/* requests to /login with callbackUrl", async () => {
     (getToken as any).mockResolvedValue(null);
-    const res = await middleware(mkReq("/dashboard/inspections/123"));
+    const res = await proxy(mkReq("/dashboard/inspections/123"));
     expect((res as any).status).toBe(307);
     const location = (res as any).headers.get("location");
     expect(location).toContain("/login");
@@ -147,7 +147,7 @@ describe("middleware login redirect (P1 #16)", () => {
 
   it("preserves search params in the callbackUrl", async () => {
     (getToken as any).mockResolvedValue(null);
-    const res = await middleware(
+    const res = await proxy(
       mkReq("/dashboard/inspections", "?tab=open&page=2"),
     );
     expect((res as any).status).toBe(307);
@@ -160,7 +160,7 @@ describe("middleware login redirect (P1 #16)", () => {
   it("redirects /reports/* and /compliance/* and /sign/* similarly", async () => {
     (getToken as any).mockResolvedValue(null);
     for (const path of ["/reports/42", "/compliance", "/sign/abc"]) {
-      const res = await middleware(mkReq(path));
+      const res = await proxy(mkReq(path));
       expect((res as any).status).toBe(307);
       const location = (res as any).headers.get("location");
       expect(location).toContain("/login");
@@ -170,7 +170,7 @@ describe("middleware login redirect (P1 #16)", () => {
 
   it("does NOT redirect /invite/[token] — uses its own token-based auth", async () => {
     (getToken as any).mockResolvedValue(null);
-    const res = await middleware(mkReq("/invite/abc123"));
+    const res = await proxy(mkReq("/invite/abc123"));
     // Should fall through (NextResponse.next) — no redirect.
     expect((res as any).status).not.toBe(307);
   });
@@ -180,7 +180,7 @@ describe("middleware login redirect (P1 #16)", () => {
       sub: "u1",
       setupCompletedAt: "2026-01-01T00:00:00Z",
     });
-    const res = await middleware(mkReq("/dashboard/inspections/123"));
+    const res = await proxy(mkReq("/dashboard/inspections/123"));
     // Authenticated → no login redirect. (Setup gate is off in this block.)
     expect((res as any).status).not.toBe(307);
   });

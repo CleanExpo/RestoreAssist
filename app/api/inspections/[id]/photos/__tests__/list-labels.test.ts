@@ -12,11 +12,15 @@ import { GET } from "../route";
 const getServerSession = vi.fn();
 const inspectionFindFirst = vi.fn();
 const photoFindMany = vi.fn();
+const assertInspectionTenancy = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  assertInspectionTenancy: (...a: unknown[]) => assertInspectionTenancy(...a),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findFirst: (...a: unknown[]) => inspectionFindFirst(...a) },
@@ -90,7 +94,12 @@ beforeEach(() => {
   getServerSession.mockReset();
   inspectionFindFirst.mockReset();
   photoFindMany.mockReset();
+  assertInspectionTenancy.mockReset();
   getServerSession.mockResolvedValue({ user: { id: "u_1" } });
+  assertInspectionTenancy.mockResolvedValue({
+    ok: true,
+    data: { id: "i_1", userId: "owner_1", workspaceId: "w_1" },
+  });
   inspectionFindFirst.mockResolvedValue({ id: "i_1" });
   // Honour Prisma select semantics: only selected keys come back
   photoFindMany.mockImplementation(
@@ -115,6 +124,17 @@ describe("GET /api/inspections/[id]/photos (RA-7054 label payload)", () => {
     }
   });
 
+  it("uses sketch-equivalent tenancy so an active workspace member can list photos", async () => {
+    const res = await GET(makeRequest(), ctx());
+
+    expect(res.status).toBe(200);
+    expect(assertInspectionTenancy).toHaveBeenCalledWith(
+      { user: { id: "u_1" } },
+      "i_1",
+    );
+    expect(inspectionFindFirst).not.toHaveBeenCalled();
+  });
+
   it("secondaryDamageIndicators supports the page's unconditional .includes() deref", async () => {
     const res = await GET(makeRequest(), ctx());
     const { photos } = await res.json();
@@ -132,8 +152,12 @@ describe("GET /api/inspections/[id]/photos (RA-7054 label payload)", () => {
     expect(res.status).toBe(401);
   });
 
-  it("404 when inspection is not owned by the user", async () => {
-    inspectionFindFirst.mockResolvedValueOnce(null);
+  it("404 when inspection tenancy rejects the user", async () => {
+    assertInspectionTenancy.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      reason: "Inspection not found",
+    });
     const res = await GET(makeRequest(), ctx());
     expect(res.status).toBe(404);
   });

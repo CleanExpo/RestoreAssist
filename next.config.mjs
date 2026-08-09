@@ -32,8 +32,11 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
+  turbopack: {
+    // Pin resolution to this repository. Without this, a parent-directory
+    // package-lock.json makes Next infer /Users/phill-mac as the workspace
+    // root and trace unrelated files into the build graph.
+    root: process.cwd(),
   },
   async redirects() {
     // Legacy / muscle-memory auth route aliases. Password managers and
@@ -54,10 +57,19 @@ const nextConfig = {
     // extensionless campaign URLs (the .html paths still resolve directly but
     // the campaign links point at the clean URLs below).
     return [
-      { source: "/cost-calculator", destination: "/campaigns/cost-calculator.html" },
+      {
+        source: "/cost-calculator",
+        destination: "/campaigns/cost-calculator.html",
+      },
       { source: "/30-in-30", destination: "/campaigns/launch-30-in-30.html" },
-      { source: "/teardown", destination: "/campaigns/comparison-teardown.html" },
-      { source: "/features-gallery", destination: "/campaigns/features-gallery.html" },
+      {
+        source: "/teardown",
+        destination: "/campaigns/comparison-teardown.html",
+      },
+      {
+        source: "/features-gallery",
+        destination: "/campaigns/features-gallery.html",
+      },
     ];
   },
   async headers() {
@@ -82,9 +94,10 @@ const nextConfig = {
     const cspDirectives = [
       "default-src 'self'",
       // 'unsafe-inline' + 'unsafe-eval' retained until nonce migration. Allow
-      // Stripe (checkout), Vercel Analytics, Cloudinary. Vercel BotID is
-      // proxied same-origin via withBotId() rewrites — no extra CSP entry.
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://widget.cloudinary.com https://upload-widget.cloudinary.com https://va.vercel-scripts.com",
+      // Stripe (checkout), Vercel Analytics, Cloudinary, and the exact pinned
+      // loader used by the build-time-gated ElevenLabs support widget. Vercel
+      // BotID is proxied same-origin via withBotId() rewrites — no extra entry.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://widget.cloudinary.com https://upload-widget.cloudinary.com https://va.vercel-scripts.com https://unpkg.com/@elevenlabs/convai-widget-embed@0.14.10",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       // i.ytimg.com — YouTube video thumbnails on the /features-gallery campaign page.
       "img-src 'self' data: blob: https://res.cloudinary.com https://*.stripe.com https://lh3.googleusercontent.com https://i.ytimg.com",
@@ -152,7 +165,7 @@ const nextConfig = {
   //   Native binaries:   sharp, puppeteer, exifr — platform-specific .node files
   //   AI SDKs:           @anthropic-ai/sdk, openai, @google/generative-ai
   //   Cloud/infra:       firebase-admin, googleapis, cloudinary, stripe, resend, nodemailer
-  //   PDF generation:    pdf-lib, jspdf, pdf-parse, pdfjs-dist
+  //   PDF generation:    pdf-lib, jspdf, pdf-parse
   //   Office formats:    exceljs, mammoth
   //   Media/video:       @remotion/lambda
   //   Utilities:         archiver, jsonwebtoken, bcryptjs, qrcode
@@ -177,7 +190,6 @@ const nextConfig = {
     "pdf-lib",
     "jspdf",
     "pdf-parse",
-    "pdfjs-dist",
     // Office formats — server-only
     "exceljs",
     "mammoth",

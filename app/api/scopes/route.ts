@@ -100,7 +100,36 @@ export async function POST(request: NextRequest) {
       // Check if scope already exists - using findFirst for better compatibility
       const existingScope = await prisma.scope.findFirst({
         where: { reportId },
+        select: {
+          id: true,
+          estimate: { select: { status: true } },
+        },
       });
+
+      if (existingScope) {
+        const scopeApproval = await prisma.reportApproval.findFirst({
+          where: {
+            reportId,
+            approvalType: "SCOPE_OF_WORK",
+            status: "APPROVED",
+            respondedAt: { not: null },
+          },
+          select: { id: true },
+        });
+
+        if (
+          scopeApproval ||
+          existingScope.estimate?.status === "APPROVED" ||
+          existingScope.estimate?.status === "LOCKED"
+        ) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message:
+              "Approved scope content is immutable. Use the scope variation workflow for changes.",
+            status: 409,
+          });
+        }
+      }
 
       const scopeData = {
         reportId,

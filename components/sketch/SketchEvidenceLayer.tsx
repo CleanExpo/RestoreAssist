@@ -8,12 +8,21 @@
 import { useCallback, useRef, useState } from "react";
 import { ChromeX } from "@/components/brand/chrome-icons";
 import { RAIcon } from "@/components/brand/RAIcon";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { pinPixelPosition, toNormalized } from "@/lib/sketch/pin-coords";
 
 export interface EvidencePinView {
   id: string;
+  inspectionPhotoId?: string | null;
   sketchRoomId?: string | null;
   /** Display name from SketchRoom when the pin sits inside a room polygon. */
   roomName?: string | null;
@@ -30,6 +39,15 @@ export interface EvidencePinView {
   syncState?: string;
 }
 
+export interface ExistingEvidencePhoto {
+  id: string;
+  url: string;
+  thumbnailUrl?: string | null;
+  description?: string | null;
+  location?: string | null;
+  mimeType?: string | null;
+}
+
 export interface SketchEvidenceLayerProps {
   pins: EvidencePinView[];
   active: boolean;
@@ -37,12 +55,20 @@ export interface SketchEvidenceLayerProps {
   height: number;
   canvasZoom?: number;
   uploading?: boolean;
+  existingPhotos?: ExistingEvidencePhoto[];
   onPlace: (coords: {
     x: number;
     y: number;
     nx: number;
     ny: number;
     file: File;
+  }) => Promise<void>;
+  onPlaceExisting?: (coords: {
+    x: number;
+    y: number;
+    nx: number;
+    ny: number;
+    photo: ExistingEvidencePhoto;
   }) => Promise<void>;
   onMove: (id: string, x: number, y: number, nx: number, ny: number) => void;
   onRemove: (id: string) => void;
@@ -56,14 +82,18 @@ export function SketchEvidenceLayer({
   height,
   canvasZoom = 1,
   uploading = false,
+  existingPhotos = [],
   onPlace,
+  onPlaceExisting,
   onMove,
   onRemove,
   className,
 }: SketchEvidenceLayerProps) {
+  const layerRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pendingClick = useRef<{ x: number; y: number } | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
   const dragRef = useRef<{
     id: string;
     startX: number;
@@ -74,15 +104,38 @@ export function SketchEvidenceLayer({
 
   const handleLayerClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!active || uploading) return;
+      if (!active || uploading || sourcePickerOpen) return;
       if ((e.target as HTMLElement).closest("[data-evidence-pin]")) return;
       const rect = e.currentTarget.getBoundingClientRect();
       const x = (e.clientX - rect.left) / canvasZoom;
       const y = (e.clientY - rect.top) / canvasZoom;
       pendingClick.current = { x, y };
-      fileRef.current?.click();
+      if (existingPhotos.length > 0 && onPlaceExisting) {
+        setSourcePickerOpen(true);
+      } else {
+        fileRef.current?.click();
+      }
     },
-    [active, uploading, canvasZoom],
+    [
+      active,
+      uploading,
+      canvasZoom,
+      existingPhotos.length,
+      onPlaceExisting,
+      sourcePickerOpen,
+    ],
+  );
+
+  const handleExistingPhoto = useCallback(
+    async (photo: ExistingEvidencePhoto) => {
+      const click = pendingClick.current;
+      if (!click || !onPlaceExisting) return;
+      const { nx, ny } = toNormalized(click.x, click.y, width, height);
+      pendingClick.current = null;
+      setSourcePickerOpen(false);
+      await onPlaceExisting({ x: click.x, y: click.y, nx, ny, photo });
+    },
+    [height, onPlaceExisting, width],
   );
 
   const handleFile = useCallback(
@@ -135,6 +188,7 @@ export function SketchEvidenceLayer({
 
   return (
     <div
+      ref={layerRef}
       className={cn(
         "absolute inset-0 z-20",
         active ? "pointer-events-auto cursor-crosshair" : "pointer-events-none",
@@ -145,6 +199,7 @@ export function SketchEvidenceLayer({
       onPointerUp={onPointerUp}
       role="presentation"
       aria-label="Evidence pin layer"
+      tabIndex={active ? 0 : -1}
     >
       <input
         ref={fileRef}
@@ -161,6 +216,71 @@ export function SketchEvidenceLayer({
           Uploading evidence…
         </div>
       )}
+
+      <Dialog
+        open={sourcePickerOpen}
+        onOpenChange={(open) => {
+          setSourcePickerOpen(open);
+          if (!open) pendingClick.current = null;
+        }}
+      >
+        <DialogContent
+          aria-label="Choose evidence source"
+          className="border-white/10 bg-[#0a0a0a] text-white sm:max-w-md"
+          onClick={(e) => e.stopPropagation()}
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            layerRef.current?.focus();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Add evidence at this point</DialogTitle>
+            <DialogDescription>
+              Capture new evidence or link an existing inspection photo.
+            </DialogDescription>
+          </DialogHeader>
+          <Button
+            type="button"
+            size="touch"
+            className="w-full bg-[#D4A574] text-[#050505] hover:bg-[#D4A574]/90"
+            onClick={() => {
+              setSourcePickerOpen(false);
+              fileRef.current?.click();
+            }}
+          >
+            <RAIcon name="photo" decorative className="h-4 w-4" />
+            Capture or upload new
+          </Button>
+          <p className="text-xs font-medium uppercase tracking-wide text-white/50">
+            Existing inspection photos
+          </p>
+          <div className="grid max-h-64 grid-cols-3 gap-2 overflow-y-auto">
+            {existingPhotos.map((photo) => {
+              const label =
+                photo.description || photo.location || "Inspection photo";
+              return (
+                <Button
+                  key={photo.id}
+                  type="button"
+                  variant="outline"
+                  aria-label={`Use existing photo: ${label}`}
+                  className="h-auto min-w-0 flex-col gap-0 overflow-hidden border-white/10 bg-white/5 p-0 text-left text-white hover:border-[#D4A574] hover:bg-white/10 hover:text-white"
+                  onClick={() => void handleExistingPhoto(photo)}
+                >
+                  <img
+                    src={photo.thumbnailUrl || photo.url}
+                    alt=""
+                    className="aspect-square w-full object-cover"
+                  />
+                  <span className="block w-full truncate px-2 py-1.5 text-xs text-white/80">
+                    {label}
+                  </span>
+                </Button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {pins.map((pin) => {
         const pos = pinPixelPosition(pin, width, height);
@@ -194,7 +314,6 @@ export function SketchEvidenceLayer({
               }
             >
               {thumb ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={thumb}
                   alt=""
@@ -244,7 +363,6 @@ export function SketchEvidenceLayer({
                 onClick={(e) => e.stopPropagation()}
               >
                 {src ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={src}
                     alt={pin.caption || "Evidence"}

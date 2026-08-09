@@ -40,7 +40,7 @@ function adminAuthOk() {
   userFindUnique.mockResolvedValue({
     id: "u_admin",
     role: "ADMIN",
-    organizationId: null,
+    organizationId: "org_1",
   });
 }
 
@@ -68,6 +68,50 @@ describe("POST /api/admin/portal-accounts/[id]/rotate", () => {
       { params: Promise.resolve({ id: "cpa_x" }) },
     );
     expect(res.status).toBe(404);
+  });
+
+  it("fails closed when the current admin has no organisation", async () => {
+    adminAuthOk();
+    userFindUnique.mockResolvedValueOnce({
+      id: "u_admin",
+      role: "ADMIN",
+      organizationId: null,
+    });
+
+    const res = await rotateRoute(
+      new NextRequest(
+        "http://localhost/api/admin/portal-accounts/cpa_1/rotate",
+        { method: "POST" },
+      ),
+      { params: Promise.resolve({ id: "cpa_1" }) },
+    );
+
+    expect(res.status).toBe(404);
+    expect(accountFindUnique).not.toHaveBeenCalled();
+    expect(accountUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 and does not rotate an account outside the admin's organisation", async () => {
+    adminAuthOk();
+    accountFindUnique.mockResolvedValueOnce(null);
+
+    const res = await rotateRoute(
+      new NextRequest(
+        "http://localhost/api/admin/portal-accounts/cpa_foreign/rotate",
+        { method: "POST" },
+      ),
+      { params: Promise.resolve({ id: "cpa_foreign" }) },
+    );
+
+    expect(res.status).toBe(404);
+    expect(accountFindUnique).toHaveBeenCalledWith({
+      where: {
+        id: "cpa_foreign",
+        client: { user: { organizationId: "org_1" } },
+      },
+      select: { id: true, revokedAt: true },
+    });
+    expect(accountUpdate).not.toHaveBeenCalled();
   });
 
   it("returns 409 when the account is already revoked", async () => {
@@ -112,7 +156,10 @@ describe("POST /api/admin/portal-accounts/[id]/rotate", () => {
     // contract here at the controller layer.
     expect(accountUpdate).toHaveBeenCalledTimes(1);
     const writeCall = accountUpdate.mock.calls[0][0];
-    expect(writeCall.where).toEqual({ id: "cpa_1" });
+    expect(writeCall.where).toEqual({
+      id: "cpa_1",
+      client: { user: { organizationId: "org_1" } },
+    });
     expect(writeCall.data.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
 });

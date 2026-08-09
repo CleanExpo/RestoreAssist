@@ -166,6 +166,28 @@ describe("GET /api/reports/[id]/pdf — floor plan embedding", () => {
     ).toBe(true);
   });
 
+  it("queries normalized evidence pins for the floor-plan overlay", async () => {
+    reportFindUnique.mockResolvedValueOnce(reportBase({ claimSketches: [] }));
+    await GET(req(), ctx);
+
+    const pinSelect =
+      reportFindUnique.mock.calls[0][0].include.inspection.select.claimSketches
+        .select.evidencePins;
+    expect(pinSelect).toMatchObject({
+      orderBy: { createdAt: "asc" },
+      select: {
+        inspectionPhotoId: true,
+        nx: true,
+        ny: true,
+        caption: true,
+      },
+    });
+    expect(
+      reportFindUnique.mock.calls[0][0].include.inspection.select.photos.select
+        .id,
+    ).toBe(true);
+  });
+
   it("renders a floor carrying moisture pins without failing the download", async () => {
     reportFindUnique.mockResolvedValueOnce(
       reportBase({
@@ -187,6 +209,35 @@ describe("GET /api/reports/[id]/pdf — floor plan embedding", () => {
     const res = await GET(req(), ctx);
     expect(res.status).toBe(200);
     // Base report page + the one floor page (with the moisture overlay drawn).
+    expect(await pageCountOf(res)).toBe(2);
+  });
+
+  it("renders a floor carrying an earlier linked evidence photo", async () => {
+    reportFindUnique.mockResolvedValueOnce(
+      reportBase({
+        claimSketches: [
+          {
+            floorNumber: 0,
+            floorLabel: "Ground Floor",
+            renderedPngUrl: "https://x/0.png",
+            sketchData: null,
+            evidencePins: [
+              {
+                id: "pin-1",
+                inspectionPhotoId: "photo-1",
+                nx: 0.25,
+                ny: 0.75,
+                caption: "Kitchen leak",
+                sketchRoom: { name: "Kitchen" },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const res = await GET(req(), ctx);
+    expect(res.status).toBe(200);
     expect(await pageCountOf(res)).toBe(2);
   });
 });

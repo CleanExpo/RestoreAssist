@@ -16,6 +16,7 @@ const loadTransitionContext = vi.fn();
 const inspectionUpdateMany = vi.fn();
 const inspectionUpdate = vi.fn();
 const claimProgressUpdateMany = vi.fn();
+const userFindUnique = vi.fn();
 const prismaTransaction = vi.fn();
 
 vi.mock("next-auth", () => ({
@@ -31,8 +32,7 @@ vi.mock("@/lib/queue/exportClosedJobToBYOKStorage", () => ({
     exportClosedJobToBYOKStorage(...a),
 }));
 vi.mock("@/lib/audit/lifecycle-event", () => ({
-  writeLifecycleTransition: (...a: unknown[]) =>
-    writeLifecycleTransition(...a),
+  writeLifecycleTransition: (...a: unknown[]) => writeLifecycleTransition(...a),
 }));
 vi.mock("@/lib/lifecycle/load-context", () => ({
   loadTransitionContext: (...a: unknown[]) => loadTransitionContext(...a),
@@ -50,6 +50,9 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    user: {
+      findUnique: (...a: unknown[]) => userFindUnique(...a),
+    },
     $transaction: (fn: (tx: unknown) => Promise<unknown>) =>
       prismaTransaction(fn),
     inspection: {
@@ -70,6 +73,7 @@ beforeEach(() => {
   inspectionUpdateMany.mockReset();
   inspectionUpdate.mockReset();
   claimProgressUpdateMany.mockReset();
+  userFindUnique.mockReset();
   prismaTransaction.mockReset();
 
   // Default: transaction runs the callback with a tx mock that mirrors
@@ -98,6 +102,14 @@ beforeEach(() => {
     storageKey: "closures/org_1/ins_1/job-package.zip",
     byteSize: 123,
     mirrorJobId: "mj_1",
+  });
+  userFindUnique.mockResolvedValue({ role: "MANAGER" });
+  loadTransitionContext.mockResolvedValue({
+    invoiceStatus: "PAID",
+    invoiceHasUnreconciledPayment: false,
+    reportStatus: "COMPLETED",
+    reportDeliveredAt: new Date("2026-08-09T03:00:00.000Z"),
+    handoverCompletedAt: new Date("2026-08-09T04:00:00.000Z"),
   });
 });
 
@@ -147,7 +159,9 @@ describe("POST /api/inspections/[id]/close — preconditions", () => {
     });
     loadTransitionContext.mockResolvedValueOnce({
       invoiceStatus: "SENT",
+      invoiceHasUnreconciledPayment: false,
       reportStatus: "COMPLETED",
+      reportDeliveredAt: new Date(),
       handoverCompletedAt: new Date(),
     });
     const res = await POST(makeReq(), routeParams);
@@ -166,13 +180,54 @@ describe("POST /api/inspections/[id]/close — preconditions", () => {
     });
     loadTransitionContext.mockResolvedValueOnce({
       invoiceStatus: "PAID",
+      invoiceHasUnreconciledPayment: false,
       reportStatus: "DRAFT",
+      reportDeliveredAt: new Date(),
       handoverCompletedAt: new Date(),
     });
     const res = await POST(makeReq(), routeParams);
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.missing).toContain("report_sent");
+  });
+
+  it("409 with missing report_sent when COMPLETED has no delivery evidence", async () => {
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", name: "A", role: "ADMIN" },
+    });
+    loadTransitionContext.mockResolvedValueOnce({
+      invoiceStatus: "PAID",
+      invoiceHasUnreconciledPayment: false,
+      reportStatus: "COMPLETED",
+      reportDeliveredAt: null,
+      handoverCompletedAt: new Date(),
+    });
+
+    const res = await POST(makeReq(), routeParams);
+
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.missing).toContain("report_sent");
+    expect(inspectionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("409 with missing invoice_paid when a PAID invoice has an unreconciled payment", async () => {
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", name: "A", role: "MANAGER" },
+    });
+    loadTransitionContext.mockResolvedValueOnce({
+      invoiceStatus: "PAID",
+      invoiceHasUnreconciledPayment: true,
+      reportStatus: "COMPLETED",
+      reportDeliveredAt: new Date(),
+      handoverCompletedAt: new Date(),
+    });
+
+    const res = await POST(makeReq(), routeParams);
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).missing).toContain("invoice_paid");
+    expect(inspectionUpdateMany).not.toHaveBeenCalled();
   });
 
   it("409 status_drift when CAS finds row already CLOSED", async () => {
@@ -185,7 +240,9 @@ describe("POST /api/inspections/[id]/close — preconditions", () => {
     });
     loadTransitionContext.mockResolvedValueOnce({
       invoiceStatus: "PAID",
+      invoiceHasUnreconciledPayment: false,
       reportStatus: "COMPLETED",
+      reportDeliveredAt: new Date(),
       handoverCompletedAt: new Date(),
     });
     inspectionUpdateMany.mockResolvedValueOnce({ count: 0 });
@@ -194,6 +251,47 @@ describe("POST /api/inspections/[id]/close — preconditions", () => {
     const body = await res.json();
     expect(body.missing).toContain("status_drift");
   });
+});
+
+describe("POST /api/inspections/[id]/close — fresh Progress authority", () => {
+  it("denies a DB-fresh USER even when the JWT still claims ADMIN", async () => {
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", name: "Stale Admin", role: "ADMIN" },
+    });
+    userFindUnique.mockResolvedValueOnce({ role: "USER" });
+
+    const res = await POST(makeReq(), routeParams);
+
+    expect(res.status).toBe(403);
+    expect(inspectionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it.each(["MANAGER", "ADMIN"])(
+    "allows a DB-fresh %s even when the JWT role is stale",
+    async (role) => {
+      getServerSession.mockResolvedValueOnce({
+        user: { id: "u_1", name: "Closer", role: "USER" },
+      });
+      userFindUnique.mockResolvedValueOnce({ role });
+
+      const res = await POST(makeReq(), routeParams);
+
+      expect(res.status).toBe(200);
+      expect(resolveInspectionWrite).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user: expect.objectContaining({ role }),
+        }),
+        "ins_1",
+      );
+      expect(writeLifecycleTransition).toHaveBeenCalledWith(
+        expect.objectContaining({
+          transitionKey: "close_claim",
+          fromState: "INVOICE_PAID",
+          actorRole: role,
+        }),
+      );
+    },
+  );
 });
 
 describe("POST /api/inspections/[id]/close — happy path", () => {
@@ -207,7 +305,9 @@ describe("POST /api/inspections/[id]/close — happy path", () => {
     });
     loadTransitionContext.mockResolvedValueOnce({
       invoiceStatus: "PAID",
+      invoiceHasUnreconciledPayment: false,
       reportStatus: "COMPLETED",
+      reportDeliveredAt: new Date(),
       handoverCompletedAt: new Date(),
     });
 
@@ -224,6 +324,22 @@ describe("POST /api/inspections/[id]/close — happy path", () => {
     expect(casCall.data.status).toBe("CLOSED");
 
     expect(writeLifecycleTransition).toHaveBeenCalledTimes(1);
+    expect(writeLifecycleTransition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        guardSnapshot: expect.objectContaining({
+          preconditions: {
+            invoice_paid: true,
+            report_sent: true,
+          },
+          evidence: expect.objectContaining({
+            invoiceStatus: "PAID",
+            invoiceHasUnreconciledPayment: false,
+            reportStatus: "COMPLETED",
+            reportDeliveredAt: expect.any(String),
+          }),
+        }),
+      }),
+    );
     expect(claimProgressUpdateMany).toHaveBeenCalledTimes(1);
 
     // Wait a microtask for the fire-and-forget chain to flush.
@@ -241,7 +357,9 @@ describe("POST /api/inspections/[id]/close — happy path", () => {
     });
     loadTransitionContext.mockResolvedValueOnce({
       invoiceStatus: "PAID",
+      invoiceHasUnreconciledPayment: false,
       reportStatus: "COMPLETED",
+      reportDeliveredAt: new Date(),
       handoverCompletedAt: new Date(),
     });
     exportClosedJobToBYOKStorage.mockRejectedValueOnce(

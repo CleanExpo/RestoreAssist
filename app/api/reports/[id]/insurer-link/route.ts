@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateInsurerToken } from "@/lib/portal-token";
 import { apiError, fromException } from "@/lib/api-errors";
+import { REPORT_INSURER_LINK_GENERATED_ACTION } from "@/lib/lifecycle/report-delivery";
 
 /**
  * POST /api/reports/[id]/insurer-link
@@ -29,7 +30,13 @@ export async function POST(
 
     const report = await prisma.report.findFirst({
       where: { id, userId: session.user.id },
-      select: { id: true, reportNumber: true, propertyAddress: true },
+      select: {
+        id: true,
+        reportNumber: true,
+        propertyAddress: true,
+        status: true,
+        inspection: { select: { id: true } },
+      },
     });
 
     if (!report) {
@@ -40,11 +47,48 @@ export async function POST(
       });
     }
 
+    if (report.status !== "COMPLETED") {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "Complete the report before sharing it with an insurer",
+        status: 409,
+      });
+    }
+
+    if (!report.inspection) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "Report is not linked to an inspection",
+        status: 409,
+      });
+    }
+
     const token = generateInsurerToken(report.id);
     const baseUrl =
       process.env.NEXTAUTH_URL?.replace(/\/$/, "") ??
       "https://restoreassist.app";
     const url = `${baseUrl}/portal/insurer/${token}`;
+
+    // Persist link-generation evidence before returning the bearer URL. This
+    // does not prove the link was sent, opened, delivered, or acknowledged.
+    // Never store the bearer token itself in the audit trail.
+    await prisma.auditLog.create({
+      data: {
+        inspectionId: report.inspection.id,
+        userId: session.user.id,
+        action: REPORT_INSURER_LINK_GENERATED_ACTION,
+        entityType: "Report",
+        entityId: report.id,
+        changes: JSON.stringify({
+          channel: "signed_insurer_link",
+          audience: "insurer",
+          deliveryStatus: "not_sent",
+          reportStatus: report.status,
+          expiresInDays: 30,
+        }),
+      },
+      select: { id: true, timestamp: true },
+    });
 
     return NextResponse.json({
       url,
@@ -52,6 +96,7 @@ export async function POST(
       expiresInDays: 30,
       reportNumber: report.reportNumber,
       propertyAddress: report.propertyAddress,
+      deliveryRecorded: false,
     });
   } catch (error) {
     return fromException(request, error, { stage: "insurer-link" });

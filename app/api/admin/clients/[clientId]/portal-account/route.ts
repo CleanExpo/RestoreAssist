@@ -36,11 +36,21 @@ export async function POST(
   if (auth.response) return auth.response;
 
   const { clientId } = await params;
+  const organizationId = auth.user?.organizationId;
 
-  // Verify the Client exists before we mint — avoids burning a token on
-  // a 404. Select-only the id (CLAUDE.md rule #4).
+  if (!organizationId) {
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "Client not found",
+      status: 404,
+    });
+  }
+
   const client = await prisma.client.findUnique({
-    where: { id: clientId },
+    where: {
+      id: clientId,
+      user: { organizationId },
+    },
     select: { id: true },
   });
   if (!client) {
@@ -54,7 +64,12 @@ export async function POST(
   try {
     const account = await prisma.clientPortalAccount.create({
       data: {
-        clientId,
+        client: {
+          connect: {
+            id: clientId,
+            user: { organizationId },
+          },
+        },
         token: mintToken(),
       },
       select: {

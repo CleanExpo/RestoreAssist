@@ -10,6 +10,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
+const tx = vi.hoisted(() => ({
+  invoice: {
+    findUnique: vi.fn(),
+    updateMany: vi.fn(),
+  },
+  invoicePayment: {
+    findUnique: vi.fn(),
+    create: vi.fn(),
+  },
+  invoicePaymentAllocation: { findUnique: vi.fn(), create: vi.fn() },
+  invoiceAuditLog: { create: vi.fn() },
+}));
+
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before importing the module under test
 // ---------------------------------------------------------------------------
@@ -22,8 +35,10 @@ vi.mock("@/lib/prisma", () => ({
     },
     invoice: {
       findUnique: vi.fn(),
-      update: vi.fn().mockResolvedValue({}),
     },
+    $transaction: vi.fn(
+      async (fn: (transaction: typeof tx) => Promise<unknown>) => fn(tx),
+    ),
   },
 }));
 
@@ -42,6 +57,9 @@ vi.mock("next/headers", () => ({
     .fn()
     .mockResolvedValue(new Map([["stripe-signature", "test-sig"]])),
 }));
+vi.mock("@/lib/lifecycle/subscribers/invoice-paid", () => ({
+  onInvoicePaid: vi.fn().mockResolvedValue({ ok: true, notified: true }),
+}));
 
 // ---------------------------------------------------------------------------
 // Set env vars required by the handler (must be before import)
@@ -59,14 +77,23 @@ import { stripe } from "@/lib/stripe";
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makePaymentIntentEvent(metadata: Record<string, string> = {}) {
+function makePaymentIntentEvent(
+  metadata: Record<string, string> = {},
+  overrides: Record<string, unknown> = {},
+) {
   return {
     id: "evt_test_123",
     type: "payment_intent.succeeded",
     data: {
       object: {
         id: "pi_test_abc",
+        status: "succeeded",
+        amount_received: 10_000,
+        currency: "aud",
+        latest_charge: "ch_test_abc",
+        created: 1_786_250_000,
         metadata,
+        ...overrides,
       },
     },
   };
@@ -93,6 +120,19 @@ describe("payment_intent.succeeded webhook", () => {
     vi.mocked(prisma.stripeWebhookEvent.updateMany).mockResolvedValue({
       count: 0,
     } as never);
+    vi.mocked(prisma.$transaction).mockImplementation(
+      async (fn: (transaction: typeof tx) => Promise<unknown>) => fn(tx),
+    );
+    tx.invoice.updateMany.mockResolvedValue({ count: 1 });
+    tx.invoicePayment.findUnique.mockResolvedValue(null);
+    tx.invoicePaymentAllocation.findUnique.mockResolvedValue({
+      allocatedAmount: 10_000,
+    });
+    tx.invoicePayment.create.mockResolvedValue({ id: "payment_1" });
+    tx.invoicePaymentAllocation.create.mockResolvedValue({
+      id: "allocation_1",
+    });
+    tx.invoiceAuditLog.create.mockResolvedValue({ id: "audit_1" });
 
     // Suppress console.error noise in test output (the handler intentionally logs)
     vi.spyOn(console, "error").mockImplementation(() => {});
@@ -122,7 +162,7 @@ describe("payment_intent.succeeded webhook", () => {
     expect(response.status).toBe(200);
     expect(body.received).toBe(true);
     // No invoice reconciliation attempted for a one-time-product PI.
-    expect(prisma.invoice.update).not.toHaveBeenCalled();
+    expect(tx.invoice.updateMany).not.toHaveBeenCalled();
   });
 
   it("returns 2xx for a lifetime payment_intent with no invoiceId", async () => {
@@ -137,29 +177,43 @@ describe("payment_intent.succeeded webhook", () => {
     // Event has an invoiceId but the DB returns null
     const event = makePaymentIntentEvent({ invoiceId: "inv_orphaned_999" });
     vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(event as never);
-    vi.mocked(prisma.invoice.findUnique).mockResolvedValue(null);
+    tx.invoice.findUnique.mockResolvedValue(null);
 
     const response = await POST(makeRequest());
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(body.warning).toBe("orphaned_invoice_id");
+    expect(prisma.stripeWebhookEvent.updateMany).toHaveBeenCalledWith({
+      where: { stripeEventId: "evt_test_123" },
+      data: {
+        status: "SKIPPED",
+        processedAt: expect.any(Date),
+        errorMessage: "Invoice inv_orphaned_999 was not found",
+      },
+    });
   });
 
-  it("returns 200 and sets paidDate when invoiceId matches an unpaid Invoice row", async () => {
+  it("persists reconciled Stripe payment evidence and allocation atomically", async () => {
     const invoiceId = "inv_valid_001";
-    const event = makePaymentIntentEvent({ invoiceId });
+    const event = makePaymentIntentEvent({
+      type: "invoice",
+      invoiceId,
+      invoiceNumber: "RA-2026-0001",
+      userId: "user_1",
+    });
     vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(event as never);
 
-    // Simulate an existing UNPAID invoice
-    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
-      status: "SENT",
-    } as never);
-    vi.mocked(prisma.invoice.update).mockResolvedValue({
+    tx.invoice.findUnique.mockResolvedValue({
       id: invoiceId,
-      status: "PAID",
-      paidDate: new Date(),
-    } as never);
+      invoiceNumber: "RA-2026-0001",
+      userId: "user_1",
+      status: "SENT",
+      currency: "AUD",
+      totalIncGST: 10_000,
+      amountPaid: 0,
+      amountDue: 10_000,
+    });
 
     const response = await POST(makeRequest());
     const body = await response.json();
@@ -167,14 +221,185 @@ describe("payment_intent.succeeded webhook", () => {
     expect(response.status).toBe(200);
     expect(body.received).toBe(true);
 
-    // Verify the update call was made with correct data
-    expect(prisma.invoice.update).toHaveBeenCalledWith({
-      where: { id: invoiceId },
-      data: {
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: "Serializable",
+    });
+    expect(tx.invoice.updateMany).toHaveBeenCalledWith({
+      where: { id: invoiceId, amountPaid: 0, amountDue: 10_000 },
+      data: expect.objectContaining({
+        amountPaid: 10_000,
+        amountDue: 0,
         status: "PAID",
         paidDate: expect.any(Date),
-        amountDue: 0,
+      }),
+    });
+    expect(tx.invoicePayment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        amount: 10_000,
+        currency: "AUD",
+        paymentMethod: "STRIPE",
+        stripePaymentIntentId: "pi_test_abc",
+        stripeChargeId: "ch_test_abc",
+        webhookEventId: "evt_test_123",
+        invoiceId,
+        userId: "user_1",
+        reconciled: true,
+        reconciledAt: expect.any(Date),
+      }),
+      select: { id: true },
+    });
+    expect(tx.invoicePaymentAllocation.create).toHaveBeenCalledWith({
+      data: {
+        paymentId: "payment_1",
+        invoiceId,
+        allocatedAmount: 10_000,
       },
     });
+  });
+
+  it("is idempotent when the PaymentIntent evidence already exists", async () => {
+    const invoiceId = "inv_valid_001";
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(
+      makePaymentIntentEvent({
+        type: "invoice",
+        invoiceId,
+        invoiceNumber: "RA-2026-0001",
+        userId: "user_1",
+      }) as never,
+    );
+    tx.invoice.findUnique.mockResolvedValue({
+      id: invoiceId,
+      invoiceNumber: "RA-2026-0001",
+      userId: "user_1",
+      status: "PAID",
+      currency: "AUD",
+      totalIncGST: 10_000,
+      amountPaid: 10_000,
+      amountDue: 0,
+    });
+    tx.invoicePayment.findUnique.mockResolvedValue({
+      id: "payment_1",
+      invoiceId,
+      amount: 10_000,
+      currency: "AUD",
+      stripeChargeId: "ch_test_abc",
+      reconciled: true,
+    });
+
+    const response = await POST(makeRequest());
+
+    expect(response.status).toBe(200);
+    expect(tx.invoice.updateMany).not.toHaveBeenCalled();
+    expect(tx.invoicePayment.create).not.toHaveBeenCalled();
+    expect(tx.invoicePaymentAllocation.create).not.toHaveBeenCalled();
+  });
+
+  it("repairs a missing allocation when replaying valid payment evidence", async () => {
+    const invoiceId = "inv_valid_001";
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(
+      makePaymentIntentEvent({
+        type: "invoice",
+        invoiceId,
+        invoiceNumber: "RA-2026-0001",
+        userId: "user_1",
+      }) as never,
+    );
+    tx.invoice.findUnique.mockResolvedValue({
+      id: invoiceId,
+      invoiceNumber: "RA-2026-0001",
+      userId: "user_1",
+      status: "PAID",
+      currency: "AUD",
+      totalIncGST: 10_000,
+      amountPaid: 10_000,
+      amountDue: 0,
+    });
+    tx.invoicePayment.findUnique.mockResolvedValue({
+      id: "payment_1",
+      invoiceId,
+      amount: 10_000,
+      currency: "AUD",
+      stripeChargeId: "ch_test_abc",
+      reconciled: true,
+    });
+    tx.invoicePaymentAllocation.findUnique.mockResolvedValue(null);
+
+    const response = await POST(makeRequest());
+
+    expect(response.status).toBe(200);
+    expect(tx.invoicePaymentAllocation.create).toHaveBeenCalledWith({
+      data: {
+        paymentId: "payment_1",
+        invoiceId,
+        allocatedAmount: 10_000,
+      },
+    });
+    expect(tx.invoice.updateMany).not.toHaveBeenCalled();
+    expect(tx.invoicePayment.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["amount", { amount_received: 9_000 }],
+    ["currency", { currency: "usd" }],
+  ])(
+    "fails closed when Stripe %s does not match the invoice",
+    async (_label, overrides) => {
+      const invoiceId = "inv_valid_001";
+      vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(
+        makePaymentIntentEvent(
+          {
+            type: "invoice",
+            invoiceId,
+            invoiceNumber: "RA-2026-0001",
+            userId: "user_1",
+          },
+          overrides,
+        ) as never,
+      );
+      tx.invoice.findUnique.mockResolvedValue({
+        id: invoiceId,
+        invoiceNumber: "RA-2026-0001",
+        userId: "user_1",
+        status: "SENT",
+        currency: "AUD",
+        totalIncGST: 10_000,
+        amountPaid: 0,
+        amountDue: 10_000,
+      });
+
+      const response = await POST(makeRequest());
+
+      expect(response.status).toBe(500);
+      expect(tx.invoicePayment.create).not.toHaveBeenCalled();
+      expect(tx.invoicePaymentAllocation.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it("fails closed when PaymentIntent invoice identity metadata does not match", async () => {
+    const invoiceId = "inv_valid_001";
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(
+      makePaymentIntentEvent({
+        type: "invoice",
+        invoiceId,
+        invoiceNumber: "RA-2026-0001",
+        userId: "different_user",
+      }) as never,
+    );
+    tx.invoice.findUnique.mockResolvedValue({
+      id: invoiceId,
+      invoiceNumber: "RA-2026-0001",
+      userId: "user_1",
+      status: "SENT",
+      currency: "AUD",
+      totalIncGST: 10_000,
+      amountPaid: 0,
+      amountDue: 10_000,
+    });
+
+    const response = await POST(makeRequest());
+
+    expect(response.status).toBe(500);
+    expect(tx.invoice.updateMany).not.toHaveBeenCalled();
+    expect(tx.invoicePayment.create).not.toHaveBeenCalled();
   });
 });

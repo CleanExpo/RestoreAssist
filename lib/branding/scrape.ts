@@ -51,6 +51,19 @@ export async function scrapeWebsite(url: string): Promise<
     return { ok: true, data: { logoUrl, hero } };
   };
 
+  // Most contractor websites expose the brand metadata and headline in the
+  // initial HTML. Prefer that fast path before paying the multi-second cost of
+  // launching Chromium; retain the browser fallback for JavaScript-only pages
+  // whose server response contains neither a logo nor useful hero text.
+  try {
+    const fetched = await scrapeViaFetch();
+    if (!fetched.ok || fetched.data.logoUrl || fetched.data.hero) {
+      return fetched;
+    }
+  } catch {
+    // Network-level fetch failures can still succeed through the browser path.
+  }
+
   // Dynamic import — see header comment for the bundling rationale.
   let chromium: typeof import("@playwright/test")["chromium"];
   try {

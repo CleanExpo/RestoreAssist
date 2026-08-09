@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyStorePublishingOperator,
+} from "@/lib/admin-auth";
 import { apiError, fromException } from "@/lib/api-errors";
 import { google } from "googleapis";
+
+const GOOGLE_PLAY_TRACKS = ["internal", "alpha", "beta", "production"] as const;
+type GooglePlayTrack = (typeof GOOGLE_PLAY_TRACKS)[number];
+
+function isGooglePlayTrack(value: unknown): value is GooglePlayTrack {
+  return (
+    typeof value === "string" &&
+    GOOGLE_PLAY_TRACKS.includes(value as GooglePlayTrack)
+  );
+}
 
 function getAndroidPublisher() {
   const serviceAccountJson = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
@@ -26,19 +39,25 @@ const PACKAGE_NAME = "com.restoreassist.app";
  * GET /api/admin/publish/google-play?track=internal|alpha|beta|production
  * Returns track release data for the given track.
  * Opens a transient edit, reads track state, then deletes the edit.
+ * Auth: explicitly configured store-publishing operator only.
  */
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const auth = await verifyAdminFromDb(session);
-  if (auth.response) return auth.response;
+  const adminAuth = await verifyAdminFromDb(session);
+  if (adminAuth.response) return adminAuth.response;
+  const operatorAuth = verifyStorePublishingOperator(adminAuth);
+  if (operatorAuth.response) return operatorAuth.response;
 
   const { searchParams } = new URL(req.url);
-  const track =
-    (searchParams.get("track") as
-      | "internal"
-      | "alpha"
-      | "beta"
-      | "production") ?? "internal";
+  const requestedTrack = searchParams.get("track") ?? "internal";
+  if (!isGooglePlayTrack(requestedTrack)) {
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Invalid Google Play track",
+      status: 400,
+    });
+  }
+  const track = requestedTrack;
 
   try {
     const androidpublisher = getAndroidPublisher();
@@ -78,17 +97,16 @@ export async function GET(req: NextRequest) {
  * POST /api/admin/publish/google-play
  * Body: { fromTrack?: string; toTrack?: string; versionCodes?: number[] }
  * Promotes a release between tracks.
+ * Auth: explicitly configured store-publishing operator only.
  */
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const auth = await verifyAdminFromDb(session);
-  if (auth.response) return auth.response;
+  const adminAuth = await verifyAdminFromDb(session);
+  if (adminAuth.response) return adminAuth.response;
+  const operatorAuth = verifyStorePublishingOperator(adminAuth);
+  if (operatorAuth.response) return operatorAuth.response;
 
-  let body: {
-    fromTrack?: string;
-    toTrack?: string;
-    versionCodes?: number[];
-  };
+  let body: Record<string, unknown>;
 
   try {
     body = await req.json();
@@ -100,7 +118,38 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const { fromTrack = "internal", toTrack = "alpha", versionCodes } = body;
+  const fromTrack = body.fromTrack ?? "internal";
+  const toTrack = body.toTrack ?? "alpha";
+  const versionCodes = body.versionCodes;
+
+  if (!isGooglePlayTrack(fromTrack) || !isGooglePlayTrack(toTrack)) {
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Invalid Google Play track",
+      status: 400,
+    });
+  }
+  if (fromTrack === toTrack) {
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Source and destination tracks must differ",
+      status: 400,
+    });
+  }
+  if (
+    versionCodes !== undefined &&
+    (!Array.isArray(versionCodes) ||
+      versionCodes.length === 0 ||
+      versionCodes.some(
+        (code) => !Number.isSafeInteger(code) || Number(code) <= 0,
+      ))
+  ) {
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "versionCodes must contain positive integers",
+      status: 400,
+    });
+  }
 
   try {
     const androidpublisher = getAndroidPublisher();

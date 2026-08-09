@@ -35,11 +35,17 @@ export async function POST(
   const adminUserId = auth.user!.id;
 
   const { id } = await params;
+  const organizationId = auth.user?.organizationId;
 
-  const existing = await prisma.clientPortalAccount.findUnique({
-    where: { id },
-    select: { id: true, clientId: true, revokedAt: true },
-  });
+  const ownershipWhere = organizationId
+    ? { id, client: { user: { organizationId } } }
+    : null;
+  const existing = ownershipWhere
+    ? await prisma.clientPortalAccount.findUnique({
+        where: ownershipWhere,
+        select: { id: true, clientId: true, revokedAt: true },
+      })
+    : null;
   if (!existing) {
     return apiError(request, {
       code: "NOT_FOUND",
@@ -60,7 +66,7 @@ export async function POST(
 
   try {
     const updated = await prisma.clientPortalAccount.update({
-      where: { id },
+      where: ownershipWhere!,
       data: { revokedAt: new Date() },
       select: { id: true, clientId: true, revokedAt: true },
     });

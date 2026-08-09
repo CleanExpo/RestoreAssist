@@ -96,6 +96,9 @@ export async function POST(
           // `.length` plus per-stage coverage (RA-7003) are read by
           // validateTieredCompletion.
           photos: { select: { id: true, photoStage: true } },
+          waterDamageClassification: {
+            select: { waterCategory: true, damageClass: true },
+          },
         },
       });
 
@@ -438,6 +441,12 @@ async function processInspectionComplete(
   let primaryCategory = "1";
   let primaryClass = "1";
   const classifications: any[] = [];
+  const manualCategory =
+    inspection.waterDamageClassification?.waterCategory?.replace("CAT_", "") ??
+    null;
+  const manualClass =
+    inspection.waterDamageClassification?.damageClass?.replace("CLASS_", "") ??
+    null;
 
   for (const area of inspection.affectedAreas) {
     // Get relevant moisture readings for this area
@@ -448,13 +457,23 @@ async function processInspectionComplete(
     );
 
     // Determine classification
-    const classification = await classifyIICRC({
-      waterSource: area.waterSource,
-      affectedSquareFootage: area.affectedSquareFootage,
-      moistureReadings: relevantReadings,
-      environmentalData: inspection.environmentalData,
-      timeSinceLoss: area.timeSinceLoss,
-    });
+    const classification =
+      manualCategory && manualClass
+        ? {
+            category: manualCategory,
+            class: manualClass,
+            justification:
+              "Technician manual classification override recorded during inspection review.",
+            standardReference: "IICRC S500:2021 §7.1",
+            confidence: 100,
+          }
+        : await classifyIICRC({
+            waterSource: area.waterSource,
+            affectedSquareFootage: area.affectedSquareFootage,
+            moistureReadings: relevantReadings,
+            environmentalData: inspection.environmentalData,
+            timeSinceLoss: area.timeSinceLoss,
+          });
 
     // Save classification
     const savedClassification = await prisma.classification.create({
@@ -470,8 +489,11 @@ async function processInspectionComplete(
           affectedSquareFootage: area.affectedSquareFootage,
           moistureReadings: relevantReadings,
           timeSinceLoss: area.timeSinceLoss,
+          manualOverride: !!(manualCategory && manualClass),
         }),
         isFinal: true,
+        reviewedBy:
+          manualCategory && manualClass ? inspectionOwnerId : undefined,
       },
     });
 
