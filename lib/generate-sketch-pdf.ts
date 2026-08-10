@@ -1,13 +1,3 @@
-/**
- * generate-sketch-pdf.ts — RA2-050 / RA2-051 (RA-120, RA-121)
- *
- * Generates a standalone A4-landscape floor plan PDF from canvas PNG exports.
- * Each floor occupies one page with a header, sketch image, and room legend.
- *
- * Also exports embedSketchesInPdf() for adding sketches to an existing
- * pdf-lib PDFDocument (RA-120 integration into report PDF).
- */
-
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import {
   buildComplianceAnnex,
