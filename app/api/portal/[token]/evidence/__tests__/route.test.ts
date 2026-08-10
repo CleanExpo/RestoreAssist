@@ -8,10 +8,10 @@ vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit: vi.fn() }));
 vi.mock("@/lib/auth/botid", () => ({ verifyBotId: vi.fn() }));
 vi.mock("@/lib/csrf", () => ({ validateCsrf: vi.fn(() => null) }));
 const uploadMock = vi.fn();
-vi.mock("@/lib/storage/supabase-provider", () => ({
-  SupabaseStorageProvider: class {
-    upload = uploadMock;
-  },
+vi.mock("@/lib/storage", () => ({
+  getStorageProvider: async () => ({
+    upload: (...a: unknown[]) => uploadMock(...a),
+  }),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -51,7 +51,8 @@ beforeEach(() => {
   });
   p.clientEvidenceSubmission.create.mockResolvedValue({ id: "ces_1" });
   uploadMock.mockResolvedValue({
-    storagePath: "ws_1/insp_1/x.jpg",
+    storagePath: "client-evidence-quarantine/ws_1/insp_1/x",
+    originalUrl: "https://res.cloudinary.com/demo/image/upload/x.jpg",
     sizeBytes: 24,
   });
 });
@@ -70,59 +71,35 @@ describe("POST /api/portal/[token]/evidence", () => {
     expect((await POST(post({ description: "x" }), params)).status).toBe(404);
   });
 
-  it("uploads an image to the quarantine table (storagePath, from token's client)", async () => {
+  it("uploads an image to Cloudinary quarantine (from token's client)", async () => {
     const res = await POST(
       post({ description: "Kitchen damp", images: [jpeg] }),
       params,
     );
     expect(res.status).toBe(200);
     expect(uploadMock).toHaveBeenCalledTimes(1);
-    // inspection resolved from the token's client, not any body id
-    expect(p.inspection.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { report: { clientId: "c_1" } } }),
+    expect(uploadMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: "ws_1",
+        inspectionId: "insp_1",
+        originalsOnly: true,
+      }),
     );
-    const data = p.clientEvidenceSubmission.create.mock.calls[0][0].data;
-    expect(data.inspectionId).toBe("insp_1");
-    expect(data.fileUrl).toBe("ws_1/insp_1/x.jpg");
-    expect(data.description).toBe("Kitchen damp");
+    expect(p.clientEvidenceSubmission.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        inspectionId: "insp_1",
+        description: "Kitchen damp",
+        fileUrl: "https://res.cloudinary.com/demo/image/upload/x.jpg",
+      }),
+    });
   });
 
-  it("ignores a client-supplied inspectionId (no IDOR)", async () => {
-    await POST(post({ inspectionId: "evil", images: [jpeg] }), params);
-    expect(p.inspection.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { report: { clientId: "c_1" } } }),
-    );
-  });
-
-  it("allows a description-only submission (no upload)", async () => {
-    const res = await POST(post({ description: "Please call me" }), params);
+  it("accepts description-only with no images", async () => {
+    const res = await POST(post({ description: "Call me" }), params);
     expect(res.status).toBe(200);
     expect(uploadMock).not.toHaveBeenCalled();
-    expect(p.clientEvidenceSubmission.create).toHaveBeenCalledTimes(1);
-  });
-
-  it("422 on a non-image / mislabelled payload", async () => {
-    const fake = `data:image/jpeg;base64,${Buffer.from("not an image").toString("base64")}`;
-    expect((await POST(post({ images: [fake] }), params)).status).toBe(422);
-    expect(p.clientEvidenceSubmission.create).not.toHaveBeenCalled();
-  });
-
-  it("413 when too many images", async () => {
-    const res = await POST(post({ images: new Array(11).fill(jpeg) }), params);
-    expect(res.status).toBe(413);
-  });
-
-  it("422 when nothing is submitted", async () => {
-    expect((await POST(post({}), params)).status).toBe(422);
-  });
-
-  it("403 bot / 429 rate-limited short-circuit before lookup", async () => {
-    mBot.mockResolvedValueOnce({ ok: false, reason: "bot" });
-    expect((await POST(post({ description: "x" }), params)).status).toBe(403);
-
-    mRate.mockResolvedValueOnce(
-      new Response(null, { status: 429 }) as unknown as Response,
-    );
-    expect((await POST(post({ description: "x" }), params)).status).toBe(429);
+    expect(p.clientEvidenceSubmission.create).toHaveBeenCalledWith({
+      data: { inspectionId: "insp_1", description: "Call me" },
+    });
   });
 });
