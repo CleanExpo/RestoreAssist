@@ -18,6 +18,7 @@ overrides:
   defu: '>=6.1.5'
   nodemailer: '>=9.0.1'
   pilot-tester>undici: ^7.28.0
+  '@ai-sdk/provider-utils>undici': ^7.29.0
   postcss: '>=8.5.10'
   uuid: '>=11.1.1'
   ip-address: '>=10.1.1'
@@ -1439,10 +1440,6 @@ packages:
 
   '@fast-csv/parse@4.3.6':
     resolution: {integrity: sha512-uRsLYksqpbDmWaSmzvJcuApSEe38+6NQZBUsuAyMZKqHxH0g1wcJgsKUvN3WC8tewaqFjBMMGrkHmC+T7k8LvA==}
-
-  '@fastify/busboy@2.1.1':
-    resolution: {integrity: sha512-vBZP4NlzfOlerQTnba4aqZoMhE/a9HY7HRqoOPaETQcSQuWEIyZMHGfVu6w9wGtGK5fED5qRs2DteVCjOH60sA==}
-    engines: {node: '>=14'}
 
   '@fastify/busboy@3.2.0':
     resolution: {integrity: sha512-m9FVDXU3GT2ITSe0UaMA5rU3QkfC/UXtCU8y0gSN/GugTqtVldOBWIB5V6V3sbmenVZUIpU6f+mPEO2+m5iTaA==}
@@ -9344,10 +9341,6 @@ packages:
   undici-types@8.3.0:
     resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
-  undici@5.29.0:
-    resolution: {integrity: sha512-raqeBD6NQK4SkWhQzeYKd1KmIG6dllBOTt55Rmkt4HtI9mwdWtJljnrXjAFUBLTSN67HWrOIZ3EPF4kjUw80Bg==}
-    engines: {node: '>=14.0'}
-
   undici@7.25.0:
     resolution: {integrity: sha512-xXnp4kTyor2Zq+J1FfPI6Eq3ew5h6Vl0F/8d9XU5zZQf1tX9s2Su1/3PiMmUANFULpmksxkClamIZcaUqryHsQ==}
     engines: {node: '>=20.18.1'}
@@ -9911,7 +9904,7 @@ snapshots:
       '@ai-sdk/provider': 3.0.14
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.1.0
-      undici: 5.29.0
+      undici: 7.29.0
       zod: 3.25.76
 
   '@ai-sdk/provider-utils@5.0.23(zod@3.25.76)':
@@ -11088,8 +11081,6 @@ snapshots:
       lodash.isnil: 4.0.0
       lodash.isundefined: 3.0.1
       lodash.uniq: 4.5.0
-
-  '@fastify/busboy@2.1.1': {}
 
   '@fastify/busboy@3.2.0': {}
 
@@ -20413,10 +20404,6 @@ snapshots:
   undici-types@7.24.6: {}
 
   undici-types@8.3.0: {}
-
-  undici@5.29.0:
-    dependencies:
-      '@fastify/busboy': 2.1.1
 
   undici@7.25.0: {}
 
