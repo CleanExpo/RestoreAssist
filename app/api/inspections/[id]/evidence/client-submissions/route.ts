@@ -4,7 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
-import { SupabaseStorageProvider } from "@/lib/storage/supabase-provider";
+import { getStorageProvider } from "@/lib/storage";
+import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 
 /**
  * List the client-portal evidence still awaiting staff review (client portal
@@ -49,13 +50,21 @@ export async function GET(
       orderBy: { submittedAt: "asc" },
     });
 
-    const provider = new SupabaseStorageProvider();
+    const workspaceId = tenancy.data.workspaceId ?? null;
     const submissions = await Promise.all(
       pending.map(async (s) => {
         let viewUrl: string | null = null;
         if (s.fileUrl) {
           try {
-            viewUrl = await provider.getSignedUrl(s.fileUrl);
+            if (/^https?:\/\//i.test(s.fileUrl)) {
+              // Cloudinary CDN URLs pass through; legacy Supabase private
+              // URLs are re-signed by signStoredMediaUrl.
+              viewUrl = (await signStoredMediaUrl(s.fileUrl)) ?? null;
+            } else {
+              // Bare public_id / storage path — resolve via primary provider.
+              const provider = await getStorageProvider(workspaceId);
+              viewUrl = await provider.getSignedUrl(s.fileUrl);
+            }
           } catch {
             viewUrl = null; // best-effort — don't fail the whole list
           }
