@@ -65,7 +65,10 @@ import {
   buildEvidenceFormData,
   captureEvidencePhoto,
   evidenceIdempotencyKey,
+  evidencePhotoFromFile,
+  pickEvidencePhotoFile,
 } from "@/lib/evidence/ios-capture";
+import type { IOSCaptureResult } from "@/lib/evidence/ios-capture";
 import {
   createSignedManifest,
   ensureDeviceKeyRegistered,
@@ -238,7 +241,6 @@ export default function CaptureWorkflowPage({
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [selectedEvidenceClass, setSelectedEvidenceClass] =
     useState<EvidenceClass | null>(null);
-  const [evidenceNotes, setEvidenceNotes] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Adaptive guidance — apprentice confirmation gate
@@ -408,141 +410,99 @@ export default function CaptureWorkflowPage({
     getQueuedDraftCount().then(setOfflineCount);
   }, [isNative]);
 
-  const handleCaptureWithCamera = async (
+  /**
+   * Upload a captured/selected file to Cloudinary via the signed multipart
+   * evidence route and persist EvidenceItem in the DB. Used for every field
+   * capture on web and native — never metadata-only for file-backed classes.
+   */
+  const uploadSignedEvidence = async (
+    stepId: string,
+    evidenceClass: EvidenceClass,
+    capture: IOSCaptureResult,
+  ) => {
+    // RA-7090: upload the captured bytes (multipart) so the server can
+    // recompute and verify the evidence hash over the stored file.
+    // RA-7090 slice 2 (P1): capture is SIGNED, fail-closed.
+    const userId = session?.user?.id;
+    if (!userId) {
+      throw new Error("You must be signed in to capture signed evidence");
+    }
+    const keyMode = isNative ? "capacitor" : "web";
+    const deviceType = isNative ? "IOS_CAPACITOR" : "WEB_BROWSER";
+
+    let lastResponse: Response | null = null;
+    const signAndPost = async (attempt: "initial" | "resigned") => {
+      const deviceKey = await ensureDeviceKeyRegistered(keyMode);
+      const payload = await createSignedManifest(
+        capture,
+        {
+          inspectionId,
+          workflowStepId: stepId,
+          evidenceClass,
+          userId,
+        },
+        deviceKey,
+      );
+      const idempotencyKey = await evidenceIdempotencyKey(capture.manifest, {
+        inspectionId,
+        workflowStepId: stepId,
+        evidenceClass,
+        ...(attempt === "resigned" ? { variant: "resigned-retry" } : {}),
+      });
+      const res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: buildEvidenceFormData(
+          capture,
+          { workflowStepId: stepId, evidenceClass, deviceType },
+          { manifestJson: payload.manifestJson, signature: payload.signature },
+        ),
+      });
+      lastResponse = res;
+      return { status: res.status, ok: res.ok };
+    };
+
+    const result = await submitSignedCapture({
+      signAndPost,
+      rotateKey: async () => {
+        console.warn(
+          "[capture] signing key rejected by server — rotating and re-signing",
+        );
+        await recoverFromRejectedKey(keyMode);
+      },
+    });
+
+    if (!result.ok || !lastResponse) {
+      const body = lastResponse
+        ? await (lastResponse as Response).json().catch(() => null)
+        : null;
+      throw new Error(body?.error?.message || "Failed to record evidence");
+    }
+    const data = await (lastResponse as Response).json();
+    setEvidenceItems((prev) => [data.evidenceItem, ...prev]);
+    setSelectedEvidenceClass(null);
+    toast.success(`${EVIDENCE_CLASS_LABELS[evidenceClass]} captured`);
+  };
+
+  const handleCaptureEvidence = async (
     stepId: string,
     evidenceClass: EvidenceClass,
   ) => {
     try {
       setUploadingEvidence(true);
       setSelectedEvidenceClass(evidenceClass);
-      const capture = await captureEvidencePhoto();
-      // RA-7090: upload the captured bytes (multipart) so the server can
-      // recompute and verify the evidence hash over the stored file. The
-      // Idempotency-Key derives from capture identity (hash + capturedAt)
-      // scoped by submission context, so a retried POST of the same capture
-      // replays instead of duplicating — without colliding across
-      // inspections, steps, or classes.
-      // RA-7090 slice 2 (P1): capture is SIGNED, fail-closed. A technician on
-      // this authenticated dashboard page must sign; a signing/registration
-      // failure SURFACES (outer catch → toast.error) rather than silently
-      // downgrading to an unsigned submission on a legal-facing
-      // chain-of-custody record. The orchestration in submitSignedCapture has
-      // no unsigned fallback: on a 403 (rejected key) it rotates to a fresh
-      // key and RE-SIGNS instead of resubmitting unsigned.
-      const userId = session?.user?.id;
-      if (!userId) {
-        throw new Error("You must be signed in to capture signed evidence");
-      }
-      const keyMode = isNative ? "capacitor" : "web";
-
-      // Keep the final Response so we can read its body after orchestration;
-      // the orchestration itself only needs the HTTP status.
-      let lastResponse: Response | null = null;
-      const signAndPost = async (attempt: "initial" | "resigned") => {
-        const deviceKey = await ensureDeviceKeyRegistered(keyMode);
-        const payload = await createSignedManifest(
-          capture,
-          {
-            inspectionId,
-            workflowStepId: stepId,
-            evidenceClass,
-            userId,
-          },
-          deviceKey,
-        );
-        const idempotencyKey = await evidenceIdempotencyKey(capture.manifest, {
-          inspectionId,
-          workflowStepId: stepId,
-          evidenceClass,
-          // The post-rotation re-signature is a distinct submission shape, so
-          // it must not reuse the first signed attempt's idempotency key.
-          ...(attempt === "resigned" ? { variant: "resigned-retry" } : {}),
-        });
-        const res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
-          method: "POST",
-          headers: { "Idempotency-Key": idempotencyKey },
-          body: buildEvidenceFormData(
-            capture,
-            { workflowStepId: stepId, evidenceClass },
-            { manifestJson: payload.manifestJson, signature: payload.signature },
-          ),
-        });
-        lastResponse = res;
-        return { status: res.status, ok: res.ok };
-      };
-
-      const result = await submitSignedCapture({
-        signAndPost,
-        rotateKey: async () => {
-          console.warn(
-            "[capture] signing key rejected by server — rotating and re-signing",
-          );
-          await recoverFromRejectedKey(keyMode);
-        },
-      });
-
-      if (!result.ok || !lastResponse) {
-        const body = lastResponse
-          ? await (lastResponse as Response).json().catch(() => null)
-          : null;
-        throw new Error(body?.error?.message || "Failed to record evidence");
-      }
-      const data = await (lastResponse as Response).json();
-      setEvidenceItems((prev) => [data.evidenceItem, ...prev]);
-      setSelectedEvidenceClass(null);
-      toast.success(`${EVIDENCE_CLASS_LABELS[evidenceClass]} captured`);
+      const capture = isNative
+        ? await captureEvidencePhoto()
+        : await evidencePhotoFromFile(await pickEvidencePhotoFile());
+      await uploadSignedEvidence(stepId, evidenceClass, capture);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Camera capture failed";
-      toast.error(msg);
-    } finally {
-      setUploadingEvidence(false);
-    }
-  };
-
-  const handleAddEvidence = async (
-    stepId: string,
-    evidenceClass: EvidenceClass,
-  ) => {
-    // RA-7090 slice 2 (P0 terminal fix) — INTERIM: this metadata-only text-note
-    // quick-add posts UNSIGNED JSON. Under the fail-closed signing policy (ON in
-    // production) the server now REJECTS unsigned metadata-only submissions
-    // (there is no unsigned-exempt path — that was an encoding-smuggle vector).
-    // Until a signed-metadata contract exists (client signs the canonical JSON,
-    // server verifies), this quick-add is disabled under policy ON and surfaces
-    // the server's rejection to the technician. See the evidence route.
-    // For now, create a text-based evidence item (file upload uses Supabase Storage)
-    try {
-      setUploadingEvidence(true);
-      const res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workflowStepId: stepId,
-          evidenceClass,
-          notes: evidenceNotes || null,
-          deviceType: "WEB_BROWSER",
-        }),
-      });
-      if (!res.ok) {
-        const errBody = (await res.json().catch(() => null)) as {
-          message?: string;
-          error?: { message?: string };
-        } | null;
-        throw new Error(
-          errBody?.message ||
-            errBody?.error?.message ||
-            "Failed to add evidence — photo capture may be required when signing is enforced",
-        );
+      const msg = err instanceof Error ? err.message : "Capture failed";
+      if (msg === "Capture cancelled" || msg === "No file selected") {
+        // User dismissed the picker — not an error toast.
+        setSelectedEvidenceClass(null);
+        return;
       }
-      const data = await res.json();
-      setEvidenceItems((prev) => [data.evidenceItem, ...prev]);
-      setEvidenceNotes("");
-      setSelectedEvidenceClass(null);
-      toast.success(`${EVIDENCE_CLASS_LABELS[evidenceClass]} recorded`);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to record evidence",
-      );
+      toast.error(msg);
     } finally {
       setUploadingEvidence(false);
     }
@@ -1089,26 +1049,22 @@ export default function CaptureWorkflowPage({
                           variant="outline"
                           size="sm"
                           className="h-7 text-xs"
-                          onClick={() => {
-                            if (isNative) {
-                              handleCaptureWithCamera(activeStep.id, cls);
-                            } else {
-                              setSelectedEvidenceClass(cls);
-                              handleAddEvidence(activeStep.id, cls);
-                            }
-                          }}
+                          onClick={() =>
+                            handleCaptureEvidence(activeStep.id, cls)
+                          }
                           disabled={uploadingEvidence}
                         >
                           {uploadingEvidence &&
                           selectedEvidenceClass === cls ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : isNative ? (
-                            <>
-                              <Camera className="h-3 w-3 mr-1" /> Capture
-                            </>
                           ) : (
                             <>
-                              <Upload className="h-3 w-3 mr-1" /> Capture
+                              {isNative ? (
+                                <Camera className="h-3 w-3 mr-1" />
+                              ) : (
+                                <Upload className="h-3 w-3 mr-1" />
+                              )}{" "}
+                              Capture
                             </>
                           )}
                         </Button>
@@ -1123,9 +1079,18 @@ export default function CaptureWorkflowPage({
                             key={ev.id}
                             className="flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 rounded p-1.5"
                           >
-                            <div className="flex items-center gap-1.5">
-                              <MapPin className="h-3 w-3" />
-                              <span>{ev.capturedByName}</span>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {ev.thumbnailUrl || ev.fileUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={ev.thumbnailUrl || ev.fileUrl || ""}
+                                  alt=""
+                                  className="h-7 w-7 rounded object-cover flex-shrink-0 border border-slate-200 dark:border-slate-700"
+                                />
+                              ) : (
+                                <MapPin className="h-3 w-3 flex-shrink-0" />
+                              )}
+                              <span className="truncate">{ev.capturedByName}</span>
                               <span>·</span>
                               <Clock className="h-3 w-3" />
                               <span>
@@ -1169,8 +1134,7 @@ export default function CaptureWorkflowPage({
                         key={cls}
                         onClick={() => {
                           if (!hasCaptured) {
-                            setSelectedEvidenceClass(cls);
-                            handleAddEvidence(activeStep.id, cls);
+                            handleCaptureEvidence(activeStep.id, cls);
                           }
                         }}
                         disabled={hasCaptured || uploadingEvidence}
