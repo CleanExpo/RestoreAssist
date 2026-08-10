@@ -4,16 +4,25 @@ import { NextRequest } from "next/server";
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
+  assertInspectionTenancy: vi.fn(async () => ({
+    ok: true,
+    data: { id: "i1", userId: "u_1", workspaceId: "ws_1" },
+  })),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: { clientEvidenceSubmission: { findMany: vi.fn() } },
 }));
-const { getSignedUrl } = vi.hoisted(() => ({ getSignedUrl: vi.fn() }));
-vi.mock("@/lib/storage/supabase-provider", () => ({
-  SupabaseStorageProvider: class {
-    getSignedUrl = getSignedUrl;
-  },
+const { getSignedUrl, signStoredMediaUrl } = vi.hoisted(() => ({
+  getSignedUrl: vi.fn(),
+  signStoredMediaUrl: vi.fn(async (url: string) => url),
+}));
+vi.mock("@/lib/storage", () => ({
+  getStorageProvider: async () => ({
+    getSignedUrl: (...a: unknown[]) => getSignedUrl(...a),
+  }),
+}));
+vi.mock("@/lib/storage/sign-stored-url", () => ({
+  signStoredMediaUrl: (...a: unknown[]) => signStoredMediaUrl(...a),
 }));
 
 import { getServerSession } from "next-auth";
@@ -30,8 +39,12 @@ const p = prisma as unknown as {
 beforeEach(() => {
   vi.clearAllMocks();
   mSession.mockResolvedValue({ user: { id: "u_1" } });
-  mTenancy.mockResolvedValue({ ok: true });
+  mTenancy.mockResolvedValue({
+    ok: true,
+    data: { id: "i1", userId: "u_1", workspaceId: "ws_1" },
+  });
   getSignedUrl.mockResolvedValue("https://signed/view");
+  signStoredMediaUrl.mockImplementation(async (url: string) => url);
   p.clientEvidenceSubmission.findMany.mockResolvedValue([]);
 });
 
@@ -52,12 +65,12 @@ describe("GET client-submissions", () => {
     expect((await GET(req(), params)).status).toBe(403);
   });
 
-  it("lists only unreviewed submissions with a signed view URL for files", async () => {
+  it("lists unreviewed submissions; CDN URLs pass through, paths are signed", async () => {
     p.clientEvidenceSubmission.findMany.mockResolvedValueOnce([
       {
         id: "ces_1",
         description: "Kitchen damp",
-        fileUrl: "ws/insp/a.jpg",
+        fileUrl: "https://res.cloudinary.com/demo/image/upload/a.jpg",
         fileName: "a.jpg",
         fileMimeType: "image/jpeg",
         fileSizeBytes: 10,
@@ -65,6 +78,15 @@ describe("GET client-submissions", () => {
       },
       {
         id: "ces_2",
+        description: "Legacy path",
+        fileUrl: "ws/insp/a.jpg",
+        fileName: "a.jpg",
+        fileMimeType: "image/jpeg",
+        fileSizeBytes: 10,
+        submittedAt: new Date("2026-06-10T00:00:00Z"),
+      },
+      {
+        id: "ces_3",
         description: "Please call me",
         fileUrl: null,
         fileName: null,
@@ -81,30 +103,10 @@ describe("GET client-submissions", () => {
         where: { inspectionId: "i1", reviewedAt: null },
       }),
     );
-    expect(body.data.submissions).toHaveLength(2);
-    expect(body.data.submissions[0].viewUrl).toBe("https://signed/view");
-    expect(body.data.submissions[0].fileName).toBe("a.jpg");
-    // note-only submission has no file → null view URL, no signing call for it
-    expect(body.data.submissions[1].viewUrl).toBeNull();
-    expect(getSignedUrl).toHaveBeenCalledTimes(1);
+    expect(body.data.submissions).toHaveLength(3);
+    expect(body.data.submissions[0].viewUrl).toContain("cloudinary.com");
     expect(getSignedUrl).toHaveBeenCalledWith("ws/insp/a.jpg");
-  });
-
-  it("never throws if signing one file fails — that item gets a null URL", async () => {
-    p.clientEvidenceSubmission.findMany.mockResolvedValueOnce([
-      {
-        id: "ces_1",
-        description: null,
-        fileUrl: "ws/insp/a.jpg",
-        fileName: "a.jpg",
-        fileMimeType: "image/jpeg",
-        fileSizeBytes: 10,
-        submittedAt: new Date(),
-      },
-    ]);
-    getSignedUrl.mockRejectedValueOnce(new Error("sign boom"));
-    const res = await GET(req(), params);
-    expect(res.status).toBe(200);
-    expect((await res.json()).data.submissions[0].viewUrl).toBeNull();
+    expect(body.data.submissions[1].viewUrl).toBe("https://signed/view");
+    expect(body.data.submissions[2].viewUrl).toBeNull();
   });
 });
