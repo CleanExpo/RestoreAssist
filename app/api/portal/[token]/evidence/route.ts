@@ -6,7 +6,7 @@ import { verifyBotId } from "@/lib/auth/botid";
 import { validateCsrf } from "@/lib/csrf";
 import { sanitizeString } from "@/lib/sanitize";
 import { decodeImageDataUrl } from "@/lib/portal/image-data-url";
-import { SupabaseStorageProvider } from "@/lib/storage/supabase-provider";
+import { getStorageProvider } from "@/lib/storage";
 import { apiError } from "@/lib/api-errors";
 
 /**
@@ -118,7 +118,8 @@ export async function POST(
   }
 
   const orgId = inspection.workspaceId ?? inspection.userId;
-  const provider = new SupabaseStorageProvider();
+  // Product default: Cloudinary (durable CDN public_id stored on the row).
+  const provider = await getStorageProvider(orgId);
   let submitted = 0;
 
   if (decoded.length === 0) {
@@ -137,15 +138,16 @@ export async function POST(
         folder: "evidence",
         orgId,
         inspectionId: inspection.id,
-        // Quarantined client evidence: private original only — no public-CDN
-        // copies until a tech promotes it out of quarantine (#45).
+        // Quarantine folder via Cloudinary provider (client-evidence-quarantine/).
+        // Still stored as ClientEvidenceSubmission until staff promote.
         originalsOnly: true,
       });
       await prisma.clientEvidenceSubmission.create({
         data: {
           inspectionId: inspection.id,
           description: i === 0 ? description || null : null,
-          fileUrl: out.storagePath, // durable path; signed on staff review
+          // Prefer durable CDN URL; fall back to public_id/path for signing.
+          fileUrl: out.originalUrl || out.storagePath,
           fileName,
           fileMimeType: d.mime,
           fileSizeBytes: out.sizeBytes,
