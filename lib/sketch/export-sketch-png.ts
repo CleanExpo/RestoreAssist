@@ -45,6 +45,16 @@ export interface ExportPngOptions {
   skipCrop?: boolean;
   /** Padding around geometry when cropping. */
   paddingPx?: number;
+  /**
+   * Explicit crop rect (e.g. room moisture map). When set, overrides
+   * auto content bounds (still respects skipCrop).
+   */
+  cropBounds?: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null;
 }
 
 const IDENTITY_VPT = [1, 0, 0, 1, 0, 0];
@@ -113,9 +123,16 @@ export function exportSketchPng(
 
     const { w, h } = canvasSize(canvas);
     const bounds =
-      !opts?.skipCrop && w > 0 && h > 0
-        ? computeExportContentBounds(objects, w, h, opts?.paddingPx)
-        : null;
+      opts?.skipCrop || w <= 0 || h <= 0
+        ? null
+        : opts?.cropBounds
+          ? {
+              left: opts.cropBounds.left,
+              top: opts.cropBounds.top,
+              width: Math.max(1, opts.cropBounds.width),
+              height: Math.max(1, opts.cropBounds.height),
+            }
+          : computeExportContentBounds(objects, w, h, opts?.paddingPx);
 
     const toDataOpts = withExportCrop(
       {

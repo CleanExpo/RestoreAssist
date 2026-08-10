@@ -120,6 +120,8 @@ export interface SketchSelectionPanelProps {
   ) => void;
   /** Toggle dimension lock (magicplan assemble-safe measurements). */
   onDimLockChange?: (id: string, locked: boolean) => void;
+  /** Enter room-scoped moisture map (crop guides + pins). */
+  onMapRoomMoisture?: (id: string) => void;
   onDelete?: (id: string) => void;
   onDeselect?: () => void;
   className?: string;
@@ -143,6 +145,7 @@ export function SketchSelectionPanel({
   onExcludeRoomPlan,
   onDimensionsChange,
   onDimLockChange,
+  onMapRoomMoisture,
   onDelete,
   onDeselect,
   className,
@@ -278,6 +281,16 @@ export function SketchSelectionPanel({
             )}
           </div>
         )}
+
+      {isRoom && !guided && onMapRoomMoisture && (
+        <button
+          type="button"
+          onClick={() => onMapRoomMoisture(selected.id)}
+          className="w-full min-h-11 py-1.5 rounded-lg bg-cyan-500/15 text-cyan-50 border border-cyan-400/35 hover:bg-cyan-500/25 transition-colors text-xs font-medium"
+        >
+          Map moisture in this room
+        </button>
+      )}
 
       {/* Label input (rooms + text) */}
       {(isRoom || isText) && (

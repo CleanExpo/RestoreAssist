@@ -3,6 +3,7 @@ import {
   isEmptySketchData,
   pickSketchDataForSave,
   sketchObjectCount,
+  sketchHasUnconfirmedRooms,
 } from "../sketch-data-guards";
 
 describe("sketch-data-guards", () => {
@@ -20,5 +21,26 @@ describe("sketch-data-guards", () => {
     const emptyLive = { objects: [], version: "6" };
     expect(pickSketchDataForSave(emptyLive, snapshot)).toEqual(snapshot);
     expect(pickSketchDataForSave(snapshot, emptyLive)).toEqual(snapshot);
+  });
+
+  it("detects unconfirmed underlay_reference rooms", () => {
+    expect(
+      sketchHasUnconfirmedRooms({
+        objects: [
+          {
+            data: { type: "room", id: "r1", provenance: "underlay_reference" },
+          },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      sketchHasUnconfirmedRooms({
+        objects: [
+          {
+            data: { type: "room", id: "r1", provenance: "operator_measured" },
+          },
+        ],
+      }),
+    ).toBe(false);
   });
 });

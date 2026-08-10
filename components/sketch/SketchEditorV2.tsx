@@ -16,7 +16,7 @@
  * State persistence: auto-saves to /api/inspections/[id]/sketches on change.
  */
 
-import { useState, useRef, useCallback, useEffect, useId } from "react";
+import { useState, useRef, useCallback, useEffect, useId, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import {
@@ -60,6 +60,7 @@ import {
 import {
   isEmptySketchData,
   pickSketchDataForSave,
+  sketchHasUnconfirmedRooms,
 } from "@/lib/sketch/sketch-data-guards";
 import {
   isSketchFieldComplete,
@@ -88,13 +89,34 @@ import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchEvidenceLayer } from "./SketchEvidenceLayer";
 import type { EvidencePinView } from "./SketchEvidenceLayer";
 import type { DamageKind } from "@/lib/sketch/damage-zone";
+import { roomsFromFabricObjects } from "@/lib/sketch/damage-zone";
 import { SketchScaleModal } from "./SketchScaleModal";
 import type { ScaleConfig } from "./SketchScaleModal";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
 import { UnderlayTransformControls } from "./UnderlayTransformControls";
 import { SketchStartOverlay } from "./SketchStartOverlay";
+import { SketchPlanLifecycleBanner } from "./SketchPlanLifecycleBanner";
+import { SketchRoomMoistureCrop } from "./SketchRoomMoistureCrop";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
 import { createRenderFreshnessTracker } from "@/lib/sketch/render-freshness";
+import {
+  coerceToolForMode,
+  readEditorMode,
+  writeEditorMode,
+  type SketchEditorMode,
+} from "@/lib/sketch/editor-mode";
+import {
+  derivePlanLifecyclePhase,
+  shouldDefaultToQuickEdit,
+} from "@/lib/sketch/plan-lifecycle";
+import {
+  contentBoundsForRoomCrop,
+  filterPinsInRoom,
+  roomPolygonToCropRect,
+  type RoomCropRect,
+  type RoomMoistureCropMeta,
+} from "@/lib/sketch/room-moisture-crop";
+import { exportSketchPng } from "@/lib/sketch/export-sketch-png";
 
 const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
   ssr: false,
@@ -144,6 +166,8 @@ interface FloorData {
   sketchSnapshot?: Record<string, unknown> | null;
   /** Technician marked this floor's sketch field-complete (local, not carrier sync). */
   fieldComplete?: boolean;
+  /** Last room moisture crop used for report-scoped export. */
+  roomMoistureCrop?: RoomMoistureCropMeta | null;
 }
 
 // ─── Props ─────────────────────────────────────────────────
@@ -267,6 +291,8 @@ export function SketchEditorV2({
 
   // ── UI state ───────────────────────────────────────────
   const [toolMode, setToolMode] = useState<ToolMode>("select");
+  const [editorMode, setEditorMode] = useState<SketchEditorMode>("advanced");
+  const editorModeUserSetRef = useRef(false);
   const [damageKind, setDamageKind] = useState<DamageKind>("water");
   const [equipmentKind, setEquipmentKind] = useState<
     import("@/lib/sketch/equipment-symbols").EquipmentKind
@@ -274,6 +300,14 @@ export function SketchEditorV2({
   const [evidenceUploading, setEvidenceUploading] = useState(false);
   /** Dismiss empty-canvas start chooser after the tech picks a path. */
   const [startOverlayDismissed, setStartOverlayDismissed] = useState(false);
+  const [planReadyAck, setPlanReadyAck] = useState(false);
+  const [scanInFlight, setScanInFlight] = useState(false);
+  const [roomMoistureSession, setRoomMoistureSession] = useState<{
+    roomId: string;
+    points: Array<{ x: number; y: number }>;
+    crop: RoomCropRect;
+    label?: string;
+  } | null>(null);
   const underlayPanelRef = useRef<HTMLDivElement>(null);
   // RA-6844 [A5]: grid + right-angle snap for the draw tools. On by default so
   // walls square up and land on the grid; toggled off for freeform tracing.
@@ -470,6 +504,152 @@ export function SketchEditorV2({
   // Always-current floors for debounced saves (avoids stale fieldComplete / pins).
   const floorsDataRef = useRef(floorsData);
   floorsDataRef.current = floorsData;
+
+  // Hydrate Quick/Advanced preference after mount (localStorage).
+  useEffect(() => {
+    const stored = readEditorMode();
+    setEditorMode(stored);
+    setToolMode((t) => coerceToolForMode(t, stored));
+  }, []);
+
+  const planSketchData =
+    activeFloor?.sketchSnapshot ?? activeFloor?.pendingSketchData ?? null;
+  const hasPlanGeometry = !isEmptySketchData(planSketchData);
+  const hasUnderlayOnly = Boolean(
+    activeFloor?.backgroundUrl && !hasPlanGeometry,
+  );
+  const hasUnconfirmedRooms = sketchHasUnconfirmedRooms(planSketchData);
+
+  const planPhase = useMemo(
+    () =>
+      derivePlanLifecyclePhase({
+        startDismissed: startOverlayDismissed,
+        scanning: scanInFlight,
+        hasPlanGeometry,
+        hasUnderlayOnly,
+        hasUnconfirmedRooms,
+        planReadyAck,
+      }),
+    [
+      startOverlayDismissed,
+      scanInFlight,
+      hasPlanGeometry,
+      hasUnderlayOnly,
+      hasUnconfirmedRooms,
+      planReadyAck,
+    ],
+  );
+
+  // When a plan arrives for confirm/annotate, land in Quick edit unless the
+  // tech already chose a mode this session (avoids dumping Advanced dock).
+  useEffect(() => {
+    if (editorModeUserSetRef.current) return;
+    if (!shouldDefaultToQuickEdit(planPhase)) return;
+    setEditorMode("quick");
+    writeEditorMode("quick");
+    setToolMode((t) => coerceToolForMode(t, "quick"));
+  }, [planPhase]);
+
+  const handleEditorModeChange = useCallback((mode: SketchEditorMode) => {
+    editorModeUserSetRef.current = true;
+    setEditorMode(mode);
+    writeEditorMode(mode);
+    setToolMode((t) => coerceToolForMode(t, mode));
+  }, []);
+
+  const handleMapRoomMoisture = useCallback(
+    (roomId: string) => {
+      const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+        getObjects?: () => unknown[];
+      } | null;
+      const objects = fc?.getObjects?.() ?? [];
+      const rooms = roomsFromFabricObjects(objects);
+      const room = rooms.find((r) => r.id === roomId);
+      if (!room) {
+        toast.error("Select a room on the plan first");
+        return;
+      }
+      const crop = roomPolygonToCropRect(room);
+      if (!crop) {
+        toast.error("Room geometry is incomplete for a moisture map");
+        return;
+      }
+      const meta = { roomId: room.id, crop };
+      setRoomMoistureSession({
+        roomId: room.id,
+        points: room.points.map((p) => ({ x: p.x, y: p.y })),
+        crop,
+        label: room.label,
+      });
+      setFloorsData((prev) =>
+        prev.map((fd, i) =>
+          i === activeIdx ? { ...fd, roomMoistureCrop: meta } : fd,
+        ),
+      );
+      editorModeUserSetRef.current = true;
+      setEditorMode("advanced");
+      writeEditorMode("advanced");
+      setToolMode("moisture");
+      setDamageKind("water");
+      setStartOverlayDismissed(true);
+      toast("Drop moisture pins inside the room — freehand water stays clipped", {
+        duration: 4000,
+      });
+    },
+    [activeFloor, activeIdx],
+  );
+
+  const handleExitRoomMoisture = useCallback(() => {
+    setRoomMoistureSession(null);
+    setToolMode("select");
+  }, []);
+
+  const handleExportRoomMoisturePng = useCallback(() => {
+    const crop =
+      roomMoistureSession?.crop ?? activeFloor?.roomMoistureCrop?.crop;
+    if (!crop || !activeFloor) {
+      toast.error("Start a room moisture map first");
+      return;
+    }
+    const canvas = activeFloor.canvasRef.current?.getFabricCanvas() as
+      | Parameters<typeof exportSketchPng>[0]
+      | null
+      | undefined;
+    if (!canvas) {
+      toast.error("Canvas not ready");
+      return;
+    }
+    try {
+      const dataUrl = exportSketchPng(canvas, {
+        cropBounds: contentBoundsForRoomCrop(crop),
+      });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `room-moisture-${crop.roomId}.png`;
+      a.click();
+      const roomPoints =
+        roomMoistureSession?.points ??
+        roomsFromFabricObjects(
+          (
+            canvas as { getObjects?: () => unknown[] }
+          ).getObjects?.() ?? [],
+        ).find((r) => r.id === crop.roomId)?.points ??
+        [];
+      const inRoom = filterPinsInRoom(
+        activeFloor.moisturePins,
+        roomPoints,
+        viewport.width,
+        viewport.height,
+      );
+      toast.success(
+        inRoom.length
+          ? `Exported room crop (${inRoom.length} moisture pin${inRoom.length === 1 ? "" : "s"} in room)`
+          : "Exported room crop PNG",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Export failed");
+    }
+  }, [activeFloor, roomMoistureSession, viewport.width, viewport.height]);
 
   // Hidden floors skip layout; re-sync Fabric hit-testing after show/resize.
   useEffect(() => {
@@ -1471,6 +1651,9 @@ export function SketchEditorV2({
     }
     const floorNumber = activeFloor?.floor.floorNumber ?? 0;
 
+    setScanInFlight(true);
+    setStartOverlayDismissed(true);
+    setPlanReadyAck(false);
     try {
       const captured = await startRoomPlanCapture();
 
@@ -1534,6 +1717,8 @@ export function SketchEditorV2({
       const message = err instanceof Error ? err.message : "LiDAR scan failed";
       if (/cancel/i.test(message)) return;
       toast.error(message);
+    } finally {
+      setScanInFlight(false);
     }
   }, [inspectionId, activeFloor, applyCapturedRoomToFloor]);
 
@@ -1605,14 +1790,18 @@ export function SketchEditorV2({
   ]);
 
   // ── Tool mode change ────────────────────────────────────
-  const handleToolChange = useCallback((mode: ToolMode) => {
-    setToolMode(mode);
-    setSelectedObj(null);
-    // Any drawing / annotate tool dismisses the empty-canvas chooser.
-    if (mode !== "select" && mode !== "pan") {
-      setStartOverlayDismissed(true);
-    }
-  }, []);
+  const handleToolChange = useCallback(
+    (mode: ToolMode) => {
+      const next = coerceToolForMode(mode, editorMode);
+      setToolMode(next);
+      setSelectedObj(null);
+      // Any drawing / annotate tool dismisses the empty-canvas chooser.
+      if (next !== "select" && next !== "pan") {
+        setStartOverlayDismissed(true);
+      }
+    },
+    [editorMode],
+  );
 
   // ── Canvas get element (for scale modal) ───────────────
   const getCanvasEl = useCallback((): HTMLCanvasElement | null => {
@@ -1992,6 +2181,12 @@ export function SketchEditorV2({
               active={toolMode === "moisture" && idx === activeIdx}
               width={viewport.width}
               height={viewport.height}
+              clipRoomPoints={
+                idx === activeIdx ? roomMoistureSession?.points ?? null : null
+              }
+              clipRoomId={
+                idx === activeIdx ? roomMoistureSession?.roomId ?? null : null
+              }
             />
 
             {/* Evidence pins on plan (P0) */}
@@ -2007,6 +2202,15 @@ export function SketchEditorV2({
                 onRemove={handleEvidenceRemove}
               />
             )}
+
+            {idx === activeIdx && (
+              <SketchRoomMoistureCrop
+                active={Boolean(roomMoistureSession)}
+                crop={roomMoistureSession?.crop ?? null}
+                roomLabel={roomMoistureSession?.label}
+                onExit={handleExitRoomMoisture}
+              />
+            )}
           </div>
         ))}
 
@@ -2014,6 +2218,7 @@ export function SketchEditorV2({
         {!readonly && !guided && sketchesHydrated && (
           <SketchStartOverlay
             visible={
+              planPhase === "empty" &&
               !startOverlayDismissed &&
               !activeFloor?.backgroundUrl &&
               (activeFloor?.moisturePins.length ?? 0) === 0 &&
@@ -2035,6 +2240,9 @@ export function SketchEditorV2({
             }
             onStartBlank={() => {
               setStartOverlayDismissed(true);
+              editorModeUserSetRef.current = true;
+              setEditorMode("advanced");
+              writeEditorMode("advanced");
               setToolMode("room");
               toast("Tap to place a room, or drag for a custom size", {
                 duration: 3500,
@@ -2052,12 +2260,52 @@ export function SketchEditorV2({
             }}
             onPlaceMoisture={() => {
               setStartOverlayDismissed(true);
+              editorModeUserSetRef.current = true;
+              setEditorMode("advanced");
+              writeEditorMode("advanced");
               setToolMode("moisture");
               toast("Moisture pins work before geometry is final", {
                 duration: 3500,
               });
             }}
           />
+        )}
+
+        {!readonly && !guided && (
+          <SketchPlanLifecycleBanner
+            phase={
+              planPhase === "plan_ready" || planPhase === "empty"
+                ? "empty"
+                : planPhase
+            }
+            onConfirmPlan={() => {
+              setPlanReadyAck(true);
+              toast.success("Plan marked ready — annotate in Quick edit");
+            }}
+            onOpenAdvanced={() => handleEditorModeChange("advanced")}
+          />
+        )}
+
+        {roomMoistureSession && !readonly && !guided && (
+          <div className="absolute bottom-24 left-1/2 z-20 -translate-x-1/2 flex gap-2 pointer-events-auto">
+            <button
+              type="button"
+              onClick={handleExportRoomMoisturePng}
+              className="min-h-10 px-3 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-50 text-xs font-medium hover:bg-cyan-500/30"
+            >
+              Export room moisture PNG
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setToolMode("damage");
+                setDamageKind("water");
+              }}
+              className="min-h-10 px-3 rounded-lg bg-white/10 border border-white/20 text-white/85 text-xs font-medium hover:bg-white/15"
+            >
+              Freehand water
+            </button>
+          </div>
         )}
 
         {/* Selection panel */}
@@ -2070,6 +2318,9 @@ export function SketchEditorV2({
             setCountry(c);
             scheduleSave();
           }}
+          onMapRoomMoisture={
+            !readonly && !guided ? handleMapRoomMoisture : undefined
+          }
           onCauseChange={(id, cause) => {
             const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
               getObjects: () => unknown[];
@@ -2550,6 +2801,8 @@ export function SketchEditorV2({
         <SketchDockToolbar
           toolMode={toolMode}
           guided={guided}
+          editorMode={editorMode}
+          onEditorModeChange={handleEditorModeChange}
           onToolChange={handleToolChange}
           damageKind={damageKind}
           onDamageKindChange={setDamageKind}

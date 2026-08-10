@@ -24,6 +24,7 @@ import {
 } from "@/lib/sketch/iicrc-utils";
 import { pinDryingStatus } from "@/lib/sketch/pin-drying";
 import { toNormalized, pinPixelPosition } from "@/lib/sketch/pin-coords";
+import { isPointInRoomCrop } from "@/lib/sketch/room-moisture-crop";
 
 export interface MoisturePin {
   id: string;
@@ -37,6 +38,8 @@ export interface MoisturePin {
   note?: string;
   /** Derived from wme — stored for filtering/reporting */
   iicrClass: 1 | 2 | 3 | 4;
+  /** Optional room scope when placed during a room moisture crop session. */
+  roomId?: string;
 }
 
 export interface SketchMoistureLayerProps {
@@ -48,6 +51,13 @@ export interface SketchMoistureLayerProps {
   canvasZoom?: number;
   width: number;
   height: number;
+  /**
+   * When set (room moisture crop session), new pins only accept clicks
+   * inside this room polygon.
+   */
+  clipRoomPoints?: ReadonlyArray<{ x: number; y: number }> | null;
+  /** Room id stamped onto new pins when clipping. */
+  clipRoomId?: string | null;
   className?: string;
 }
 
@@ -63,6 +73,8 @@ export function SketchMoistureLayer({
   canvasZoom = 1,
   width,
   height,
+  clipRoomPoints = null,
+  clipRoomId = null,
   className,
 }: SketchMoistureLayerProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -75,6 +87,13 @@ export function SketchMoistureLayer({
       const rect = e.currentTarget.getBoundingClientRect();
       const x = (e.clientX - rect.left) / canvasZoom;
       const y = (e.clientY - rect.top) / canvasZoom;
+      if (
+        clipRoomPoints &&
+        clipRoomPoints.length >= 3 &&
+        !isPointInRoomCrop(x, y, clipRoomPoints)
+      ) {
+        return;
+      }
       // RA-6763: also store the normalized position so the pin stays anchored
       // when the canvas is zoomed/panned/resized.
       const { nx, ny } = toNormalized(x, y, width, height);
@@ -87,11 +106,21 @@ export function SketchMoistureLayer({
         wme: 16,
         material: "plasterboard",
         iicrClass: deriveIicrClass(16),
+        ...(clipRoomId ? { roomId: clipRoomId } : {}),
       };
       onChange([...pins, pin]);
       setEditingId(pin.id);
     },
-    [active, pins, onChange, canvasZoom, width, height],
+    [
+      active,
+      pins,
+      onChange,
+      canvasZoom,
+      width,
+      height,
+      clipRoomPoints,
+      clipRoomId,
+    ],
   );
 
   const updatePin = useCallback(

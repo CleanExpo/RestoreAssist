@@ -21,6 +21,22 @@ export function isEmptySketchData(sketchData: unknown): boolean {
   return !hasObjects && !hasBackground;
 }
 
+/**
+ * True when Fabric JSON contains at least one room still pending operator confirm.
+ */
+export function sketchHasUnconfirmedRooms(sketchData: unknown): boolean {
+  if (!sketchData || typeof sketchData !== "object") return false;
+  const objects = (sketchData as { objects?: unknown }).objects;
+  if (!Array.isArray(objects)) return false;
+  for (const o of objects) {
+    if (!o || typeof o !== "object") continue;
+    const data = (o as { data?: Record<string, unknown> }).data;
+    if (!data || data.type !== "room") continue;
+    if (data.provenance === "underlay_reference") return true;
+  }
+  return false;
+}
+
 /** Prefer a non-empty candidate; never let an empty live read clobber a snapshot. */
 export function pickSketchDataForSave(
   live: unknown,

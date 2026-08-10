@@ -46,6 +46,8 @@ import {
   EQUIPMENT_KINDS,
   EQUIPMENT_KIND_STYLES,
 } from "@/lib/sketch/equipment-symbols";
+import type { SketchEditorMode } from "@/lib/sketch/editor-mode";
+import { isToolAllowedInMode } from "@/lib/sketch/editor-mode";
 
 export type DockPosition = "bottom" | "top" | "left" | "right";
 
@@ -74,6 +76,12 @@ export interface SketchDockToolbarProps {
   readonly?: boolean;
   /** Guided (homeowner) mode — restrict to basic capture tools. */
   guided?: boolean;
+  /**
+   * Quick edit = light correction (select/label/measure/pan).
+   * Advanced draw = full dock. Default advanced for back-compat.
+   */
+  editorMode?: SketchEditorMode;
+  onEditorModeChange?: (mode: SketchEditorMode) => void;
   className?: string;
 }
 
@@ -139,11 +147,15 @@ export function SketchDockToolbar({
   onScanRoom,
   readonly = false,
   guided = false,
+  editorMode = "advanced",
+  onEditorModeChange,
   className,
 }: SketchDockToolbarProps) {
-  const tools = guided
-    ? TOOLS.filter((t) => GUIDED_TOOL_MODES.has(t.mode))
-    : TOOLS;
+  const tools = TOOLS.filter((t) => {
+    if (guided && !GUIDED_TOOL_MODES.has(t.mode)) return false;
+    if (!guided && !isToolAllowedInMode(t.mode, editorMode)) return false;
+    return true;
+  });
   const [dock, setDock] = useState<DockPosition>("bottom");
   const [isDragging, setIsDragging] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -171,7 +183,12 @@ export function SketchDockToolbar({
       const tool = TOOLS.find(
         (t) => t.shortcut.toLowerCase() === e.key.toLowerCase(),
       );
-      if (tool && !readonly) {
+      if (
+        tool &&
+        !readonly &&
+        (!guided || GUIDED_TOOL_MODES.has(tool.mode)) &&
+        isToolAllowedInMode(tool.mode, editorMode)
+      ) {
         onToolChange(tool.mode);
         e.preventDefault();
       }
@@ -182,7 +199,7 @@ export function SketchDockToolbar({
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [onToolChange, onUndo, onRedo, readonly]);
+  }, [onToolChange, onUndo, onRedo, readonly, guided, editorMode]);
 
   // ── Drag to reposition ────────────────────────────────────
   const onDragStart = useCallback((e: React.PointerEvent) => {
@@ -258,6 +275,52 @@ export function SketchDockToolbar({
       </button>
 
       <div className={dividerCls} />
+
+      {/* Quick edit ↔ Advanced draw (Encircle-parity tool depth, not a UI clone) */}
+      {!readonly && !guided && onEditorModeChange && (
+        <>
+          <div
+            className={cn(
+              "flex gap-1",
+              isVertical ? "flex-col" : "flex-row items-center",
+            )}
+            role="group"
+            aria-label="Editor mode"
+          >
+            <button
+              type="button"
+              aria-pressed={editorMode === "quick"}
+              aria-label="Quick edit"
+              title="Quick edit — select, label, measure"
+              onClick={() => onEditorModeChange("quick")}
+              className={cn(
+                "h-10 min-w-10 px-2 rounded-lg text-[10px] font-semibold tracking-wide transition-colors",
+                editorMode === "quick"
+                  ? "bg-brand-gold/25 text-brand-gold ring-1 ring-brand-gold/60"
+                  : "text-white/50 hover:text-white/80 hover:bg-white/10",
+              )}
+            >
+              Quick
+            </button>
+            <button
+              type="button"
+              aria-pressed={editorMode === "advanced"}
+              aria-label="Advanced draw"
+              title="Advanced draw — full tool dock"
+              onClick={() => onEditorModeChange("advanced")}
+              className={cn(
+                "h-10 min-w-10 px-2 rounded-lg text-[10px] font-semibold tracking-wide transition-colors",
+                editorMode === "advanced"
+                  ? "bg-brand-gold/25 text-brand-gold ring-1 ring-brand-gold/60"
+                  : "text-white/50 hover:text-white/80 hover:bg-white/10",
+              )}
+            >
+              Advanced
+            </button>
+          </div>
+          <div className={dividerCls} />
+        </>
+      )}
 
       {/* Tool buttons */}
       {!readonly &&
