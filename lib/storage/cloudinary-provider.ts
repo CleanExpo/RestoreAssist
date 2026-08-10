@@ -6,7 +6,11 @@
  * Stores durable CDN URLs on InspectionPhoto.url / thumbnailUrl.
  */
 
-import { deleteImage, uploadToCloudinary } from "@/lib/cloudinary";
+import {
+  deleteImage,
+  uploadFileToCloudinary,
+  uploadToCloudinary,
+} from "@/lib/cloudinary";
 import { computeSha256 } from "./compression";
 import type {
   StorageProvider,
@@ -18,22 +22,49 @@ import type {
 export class CloudinaryStorageProvider implements StorageProvider {
   async upload(input: UploadInput): Promise<UploadOutput> {
     const sha256 = computeSha256(input.buffer);
+    // Quarantined client evidence stays under a distinct folder so staff
+    // review / promote remains the gate into the report chain of custody.
+    const root = input.originalsOnly
+      ? "client-evidence-quarantine"
+      : "inspection-photos";
     const folder = input.inspectionId
-      ? `inspection-photos/${input.orgId}/${input.inspectionId}`
-      : `inspection-photos/${input.orgId}/${input.folder || "uploads"}`;
+      ? `${root}/${input.orgId}/${input.inspectionId}`
+      : `${root}/${input.orgId}/${input.folder || "uploads"}`;
 
-    const result = await uploadToCloudinary(input.buffer, {
+    const isImage = (input.mimeType || "").startsWith("image/");
+    if (isImage) {
+      const result = await uploadToCloudinary(input.buffer, {
+        folder,
+        resource_type: "image",
+      });
+
+      // Cloudinary delivers optimised delivery URLs; we keep the same
+      // secure_url for original + compressed so the photos API contract
+      // (compressedUrl → InspectionPhoto.url) stays unchanged.
+      return {
+        originalUrl: result.url,
+        compressedUrl: result.url,
+        thumbnailUrl: result.thumbnailUrl ?? result.url,
+        storagePath: result.publicId,
+        compressedPath: result.publicId,
+        thumbnailPath: result.publicId,
+        sizeBytes: input.buffer.byteLength,
+        sha256,
+      };
+    }
+
+    // PDFs / docs / video — auto resource type (no image transforms).
+    const result = await uploadFileToCloudinary(
+      input.buffer,
+      input.filename,
+      input.mimeType || "application/octet-stream",
       folder,
-      resource_type: "image",
-    });
-
-    // Cloudinary delivers optimised delivery URLs; we keep the same
-    // secure_url for original + compressed so the photos API contract
-    // (compressedUrl → InspectionPhoto.url) stays unchanged.
+      { resourceType: "auto" },
+    );
     return {
       originalUrl: result.url,
       compressedUrl: result.url,
-      thumbnailUrl: result.thumbnailUrl ?? result.url,
+      thumbnailUrl: result.url,
       storagePath: result.publicId,
       compressedPath: result.publicId,
       thumbnailPath: result.publicId,
