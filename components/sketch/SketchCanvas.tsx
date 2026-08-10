@@ -67,7 +67,22 @@ import {
   roomLengthWidthM,
   roomEdgeHostSegments,
   parseRoomEdgeHostWallId,
+  parseMetresInput,
+  roomTemplatePoints,
+  flipRoomPoints,
+  rotateRoomPoints90,
+  resizeRectRoomFromDims,
+  type RoomTemplateKind,
 } from "@/lib/sketch/room-defaults";
+import {
+  solidBandsForHost,
+  shouldRematerializeHostStroke,
+} from "@/lib/sketch/wall-band-rematerialize";
+import {
+  ADJACENCY_SNAP_PX,
+  findRoomAdjacencySnap,
+  type RoomEdgeRef,
+} from "@/lib/sketch/room-adjacency-snap";
 import {
   exportSketchPng,
   EXPORT_REPORT_MULTIPLIER,
@@ -111,6 +126,14 @@ export interface SketchCanvasProps {
   damageKind?: import("@/lib/sketch/damage-zone").DamageKind;
   /** When toolMode is "equipment", place this restoration symbol. */
   equipmentKind?: EquipmentKind;
+  /** When toolMode is "room", one-tap template (rect / L / T). */
+  roomTemplateKind?: RoomTemplateKind;
+  /** 90° counterclockwise quarters applied to the room template before place. */
+  roomTemplateRotateQuarters?: number;
+  /** Horizontal flip for the next room template placement. */
+  roomTemplateFlipH?: boolean;
+  /** Vertical flip for the next room template placement. */
+  roomTemplateFlipV?: boolean;
   /**
    * Fabric JSON to restore during init (before onReady).
    * Must be applied here — post-mount loadFromJSON races are unreliable on refresh.
@@ -176,6 +199,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       className,
       damageKind = "water",
       equipmentKind = "dehumidifier",
+      roomTemplateKind = "rect",
+      roomTemplateRotateQuarters = 0,
+      roomTemplateFlipH = false,
+      roomTemplateFlipV = false,
       initialData = null,
     },
     ref,
@@ -193,6 +220,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
     // ── Drawing state for the click/drag tools (read inside Fabric handlers) ──
     const toolModeRef = useRef<ToolMode>(toolMode);
     const equipmentKindRef = useRef<EquipmentKind>(equipmentKind);
+    const roomTemplateKindRef = useRef<RoomTemplateKind>(roomTemplateKind);
+    const roomTemplateRotateRef = useRef(roomTemplateRotateQuarters);
+    const roomTemplateFlipHRef = useRef(roomTemplateFlipH);
+    const roomTemplateFlipVRef = useRef(roomTemplateFlipV);
     const damageKindRef = useRef(damageKind);
     const pxPerMetreRef = useRef<number>(pxPerMetre);
     const snapEnabledRef = useRef<boolean>(snapEnabled);
@@ -464,7 +495,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             t === "dim-label" ||
             t === "room-label" ||
             t === "guide" ||
-            t === "opening-handle"
+            t === "opening-handle" ||
+            t === "wall-band" ||
+            t === "adjacency-join"
           );
         };
 
@@ -474,6 +507,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         let refreshDamageRoomClips: () => void = () => {};
         let applyRoomDamageTap: (x: number, y: number) => boolean = () =>
           false;
+        let refreshWallBands: () => void = () => {};
+        let clearAdjacencyJoin: () => void = () => {};
+        let showAdjacencyJoin: (join: { a: Point; b: Point }) => void = () => {};
 
         canvas.on("object:modified", (opt: unknown) => {
           const target = (opt as { target?: unknown } | undefined)?.target;
@@ -487,6 +523,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           // RA-6980 [A2b]: a moved wall (or room edge host) drags bound openings.
           reanchorOpeningsForWall(target);
           reanchorOpeningsForRoom(target);
+          refreshWallBands();
+          clearAdjacencyJoin();
           // Dimension lock: prevent scale/stretch from changing locked geometry.
           enforceDimLock(target);
           // Keep damage fills clipped to room walls after geometry edits.
@@ -514,6 +552,12 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         });
         canvas.on("object:removed", (opt: unknown) => {
           const target = (opt as { target?: unknown } | undefined)?.target;
+          if (
+            (target as { data?: { type?: string } } | undefined)?.data?.type ===
+            "opening"
+          ) {
+            refreshWallBands();
+          }
           if (!isLoadingRef.current && !isDecoration(target)) {
             saveState();
             onModified?.();
@@ -951,6 +995,128 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           return hit?.seg ?? null;
         };
 
+        /**
+         * P1: rematerialize host strokes as solid wall bands with true gaps at
+         * openings (replaces continuous stroke + white cut mask).
+         */
+        refreshWallBands = () => {
+          const c = canvas as unknown as {
+            getObjects: () => unknown[];
+            remove: (...o: unknown[]) => void;
+            add: (...o: unknown[]) => void;
+            renderAll: () => void;
+          };
+          const objs = c.getObjects();
+          const stale = objs.filter(
+            (o) =>
+              (o as { data?: { type?: string } }).data?.type === "wall-band",
+          );
+          if (stale.length) c.remove(...stale);
+
+          const openings = objs
+            .map((o) => (o as { data?: Record<string, unknown> }).data)
+            .filter(
+              (d): d is Record<string, unknown> =>
+                !!d &&
+                d.type === "opening" &&
+                typeof d.hostWallId === "string" &&
+                typeof d.hostWallT === "number" &&
+                typeof d.widthM === "number",
+            );
+
+          const byHost = new Map<
+            string,
+            { hostWallT: number; widthM: number }[]
+          >();
+          for (const od of openings) {
+            const id = od.hostWallId as string;
+            const list = byHost.get(id) ?? [];
+            list.push({
+              hostWallT: od.hostWallT as number,
+              widthM: od.widthM as number,
+            });
+            byHost.set(id, list);
+          }
+
+          const strokeWidth = pxPerMetreRef.current * 0.11;
+          const hostsWithBands = new Set<string>();
+
+          for (const [hostWallId, cuts] of byHost) {
+            if (!shouldRematerializeHostStroke(cuts.length)) continue;
+            const seg = findHostSegment(hostWallId);
+            if (!seg) continue;
+            const bands = solidBandsForHost(seg, cuts, pxPerMetreRef.current);
+            hostsWithBands.add(hostWallId);
+            for (const band of bands) {
+              const line = new F.Line(
+                [band.a.x, band.a.y, band.b.x, band.b.y],
+                {
+                  stroke: "#1C2E47",
+                  strokeWidth,
+                  strokeLineCap: "butt",
+                  strokeUniform: true,
+                  selectable: false,
+                  evented: false,
+                  objectCaching: false,
+                },
+              );
+              (line as { data?: Record<string, unknown> }).data = {
+                type: "wall-band",
+                hostWallId,
+              };
+              c.add(line);
+            }
+          }
+
+          // Hide continuous host stroke when bands own the edge visuals.
+          for (const o of c.getObjects()) {
+            const d = (o as { data?: Record<string, unknown> }).data;
+            if (!d) continue;
+            if (d.type === "wall" && typeof d.wallId === "string") {
+              const hide = hostsWithBands.has(d.wallId);
+              (o as { set?: (p: object) => void }).set?.({
+                strokeWidth: hide ? 0 : strokeWidth,
+              });
+            }
+            if (d.type === "room" && typeof d.id === "string") {
+              const edges = roomEdgeHostSegments(
+                d.id,
+                polygonAbsolutePoints(o) ?? [],
+              );
+              const hide = edges.some((e) => hostsWithBands.has(e.wallId));
+              (o as { set?: (p: object) => void }).set?.({
+                strokeWidth: hide ? 0 : strokeWidth,
+              });
+            }
+          }
+          c.renderAll();
+        };
+
+        let adjacencyJoinLine: unknown = null;
+        clearAdjacencyJoin = () => {
+          if (!adjacencyJoinLine) return;
+          (
+            canvas as unknown as { remove: (...o: unknown[]) => void }
+          ).remove(adjacencyJoinLine);
+          adjacencyJoinLine = null;
+        };
+        showAdjacencyJoin = (join: { a: Point; b: Point }) => {
+          clearAdjacencyJoin();
+          const line = new F.Line([join.a.x, join.a.y, join.b.x, join.b.y], {
+            stroke: "#22c55e",
+            strokeWidth: 4,
+            strokeLineCap: "round",
+            selectable: false,
+            evented: false,
+            objectCaching: false,
+          });
+          (line as { data?: Record<string, unknown> }).data = {
+            type: "adjacency-join",
+          };
+          adjacencyJoinLine = line;
+          (canvas as unknown as { add: (o: unknown) => void }).add(line);
+        };
+
         const materialize = (
           d: NonNullable<ReturnType<typeof describeToolObject>>,
         ): unknown => {
@@ -1007,8 +1173,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               originY: "center",
             });
           } else if (d.kind === "door-opening") {
-            // RA-6841 [A2]: Door symbol — opening cut (white gap + jambs), leaf
-            // line, and a quarter-circle swing arc rendered as a Fabric Path.
+            // P1: true wall-band rematerialize owns the gap — door symbol is
+            // leaf + swing + jambs only (no white cut mask over continuous stroke).
             const p = d.props as {
               cutStart: { x: number; y: number };
               cutEnd: { x: number; y: number };
@@ -1020,16 +1186,6 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               strokeWidth: number;
               wallThicknessPx: number;
             };
-            const cutLine = new F.Line(
-              [p.cutStart.x, p.cutStart.y, p.cutEnd.x, p.cutEnd.y],
-              {
-                stroke: "#ffffff",
-                strokeWidth: p.wallThicknessPx + 1,
-                strokeLineCap: "butt",
-                selectable: false,
-                evented: false,
-              },
-            );
             const jambs = openingJambLines(
               p.cutStart,
               p.cutEnd,
@@ -1051,10 +1207,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               strokeWidth: p.strokeWidth,
               fill: "transparent",
             });
-            obj = new F.Group([cutLine, ...jambs, leafLine, arc]);
+            obj = new F.Group([...jambs, leafLine, arc]);
           } else if (d.kind === "window-opening") {
-            // RA-6841 [A2]: Window symbol — opening cut + jambs + three glazing
-            // lines perpendicular to the wall band.
+            // P1: wall bands own the opening gap; window is jambs + glazing only.
             const p = d.props as {
               cutStart: { x: number; y: number };
               cutEnd: { x: number; y: number };
@@ -1064,17 +1219,6 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               wallThicknessPx: number;
             };
             const members: unknown[] = [];
-            const cutLine = new F.Line(
-              [p.cutStart.x, p.cutStart.y, p.cutEnd.x, p.cutEnd.y],
-              {
-                stroke: "#ffffff",
-                strokeWidth: p.wallThicknessPx + 1,
-                strokeLineCap: "butt",
-                selectable: false,
-                evented: false,
-              },
-            );
-            members.push(cutLine);
             for (const [s, e] of openingJambLines(
               p.cutStart,
               p.cutEnd,
@@ -1544,7 +1688,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             originX: "center",
             originY: "center",
             selectable: false,
-            evented: false,
+            evented: !readonly,
+            hoverCursor: "text",
             padding: 2,
           });
           (t as { data?: unknown }).data = { type: "dim-label" };
@@ -1574,6 +1719,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             (lbl as { data?: unknown }).data = {
               type: "dim-label",
               dimFor: roomId,
+              edgeIndex: i,
+              metres: px / scale,
             };
             c.add(lbl);
           }
@@ -1712,18 +1859,21 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           }
           // RA-6842 [A3]: per-wall dimension label for standalone line/wall tool.
           if (d.kind === "line" && d.data.type === "wall") {
+            ensureWallId(obj);
             c.add(obj);
+            const wallId = (obj as { data?: { wallId?: string } }).data?.wallId;
             const lp = d.props as { x1: number; y1: number; x2: number; y2: number };
             const a = { x: lp.x1, y: lp.y1 };
             const b = { x: lp.x2, y: lp.y2 };
             const px = Math.hypot(b.x - a.x, b.y - a.y);
-            if (shouldShowEdgeDimension(px, pxPerMetreRef.current)) {
+            if (shouldShowEdgeDimension(px, pxPerMetreRef.current) && wallId) {
               const text = formatDimension(px, pxPerMetreRef.current);
               const { labelPos } = segmentLabelPosition(a, b, 18);
               const dimLbl = makeDimText(text, labelPos.x, labelPos.y);
               (dimLbl as { data?: unknown }).data = {
                 type: "dim-label",
-                dimFor: `wall-${Date.now()}`,
+                dimFor: wallId,
+                metres: px / pxPerMetreRef.current,
               };
               c.add(dimLbl);
             }
@@ -1737,12 +1887,181 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             (obj as { enterEditing?: () => void }).enterEditing?.();
           }
           canvas.renderAll();
+          if (d.data.type === "opening") {
+            refreshWallBands();
+          }
         };
 
         canvas.on("mouse:down", (opt: unknown) => {
           const e = (opt as { e: MouseEvent }).e;
           const tool = toolModeRef.current;
           if (readonly || e.altKey) return;
+
+          // P1: tap an edge dim label → inline numeric edit (not panel-only).
+          const dimTarget = (opt as { target?: { data?: Record<string, unknown>; left?: number; top?: number; text?: string } })
+            ?.target;
+          if (
+            tool === "select" &&
+            dimTarget?.data?.type === "dim-label" &&
+            typeof dimTarget.data.dimFor === "string"
+          ) {
+            const dimFor = dimTarget.data.dimFor as string;
+            const edgeIndex =
+              typeof dimTarget.data.edgeIndex === "number"
+                ? (dimTarget.data.edgeIndex as number)
+                : null;
+            // Honour dimLocked from the selection panel (typed size sticks).
+            const lockedHost = (
+              canvas as unknown as { getObjects: () => unknown[] }
+            )
+              .getObjects()
+              .find((o) => {
+                const d = (o as { data?: Record<string, unknown> }).data;
+                return (
+                  !!d &&
+                  (d.id === dimFor || d.wallId === dimFor) &&
+                  d.dimLocked === true
+                );
+              });
+            if (lockedHost) return;
+            const seed =
+              typeof dimTarget.data.metres === "number"
+                ? String(dimTarget.data.metres)
+                : String(dimTarget.text ?? "").replace(/\s*m$/, "");
+            const editor = new F.IText(seed, {
+              left: dimTarget.left ?? 0,
+              top: dimTarget.top ?? 0,
+              fontSize: 12,
+              fill: "#1C2E47",
+              backgroundColor: "#ffffff",
+              originX: "center",
+              originY: "center",
+            });
+            (editor as { data?: Record<string, unknown> }).data = {
+              type: "dim-label",
+              editing: true,
+            };
+            const c = canvas as unknown as {
+              add: (o: unknown) => void;
+              remove: (o: unknown) => void;
+              setActiveObject: (o: unknown) => void;
+              renderAll: () => void;
+              getObjects: () => unknown[];
+            };
+            c.add(editor);
+            c.setActiveObject(editor);
+            (editor as { enterEditing?: () => void }).enterEditing?.();
+            const commit = () => {
+              const raw =
+                (editor as { text?: string }).text ?? seed;
+              const metres = parseMetresInput(raw);
+              c.remove(editor);
+              if (metres == null || metres <= 0) {
+                c.renderAll();
+                return;
+              }
+              const room = c.getObjects().find((o) => {
+                const d = (o as { data?: Record<string, unknown> }).data;
+                return d?.type === "room" && d.id === dimFor;
+              });
+              if (room) {
+                const pts = polygonAbsolutePoints(room);
+                const dims = pts
+                  ? roomLengthWidthM(pts, pxPerMetreRef.current)
+                  : null;
+                if (pts && dims && edgeIndex != null) {
+                  const horizontal = edgeIndex % 2 === 0;
+                  const next = resizeRectRoomFromDims(
+                    pts,
+                    horizontal ? metres : dims.lengthM,
+                    horizontal ? dims.widthM : metres,
+                    pxPerMetreRef.current,
+                  );
+                  if (next) {
+                    (room as { set?: (p: object) => void; setCoords?: () => void }).set?.(
+                      { points: next },
+                    );
+                    (room as { setCoords?: () => void }).setCoords?.();
+                    (room as { data?: Record<string, unknown> }).data = {
+                      ...(room as { data?: Record<string, unknown> }).data,
+                      lengthM: horizontal ? metres : dims.lengthM,
+                      widthM: horizontal ? dims.widthM : metres,
+                    };
+                    // Refresh room edge dims
+                    const stale = c
+                      .getObjects()
+                      .filter(
+                        (o) =>
+                          (o as { data?: { type?: string; dimFor?: string } })
+                            .data?.type === "dim-label" &&
+                          (o as { data?: { dimFor?: string } }).data?.dimFor ===
+                            dimFor,
+                      );
+                    if (stale.length) c.remove(...stale);
+                    addRoomEdgeDimLabels(next, dimFor);
+                    syncRoomLabel(room);
+                    reanchorOpeningsForRoom(room);
+                    refreshWallBands();
+                    if (!isLoadingRef.current) {
+                      saveState();
+                      onModified?.();
+                    }
+                  }
+                }
+              } else {
+                // Standalone wall dim: scale length from midpoint.
+                const wall = c.getObjects().find((o) => {
+                  const d = (o as { data?: Record<string, unknown> }).data;
+                  return d?.type === "wall" && d.wallId === dimFor;
+                });
+                if (wall) {
+                  const seg = wallAbsoluteSegment(wall);
+                  if (seg) {
+                    const cur = Math.hypot(
+                      seg.b.x - seg.a.x,
+                      seg.b.y - seg.a.y,
+                    );
+                    const targetPx = metres * pxPerMetreRef.current;
+                    if (cur > 1e-6) {
+                      const scale = targetPx / cur;
+                      const mx = (seg.a.x + seg.b.x) / 2;
+                      const my = (seg.a.y + seg.b.y) / 2;
+                      const a = {
+                        x: mx + (seg.a.x - mx) * scale,
+                        y: my + (seg.a.y - my) * scale,
+                      };
+                      const b = {
+                        x: mx + (seg.b.x - mx) * scale,
+                        y: my + (seg.b.y - my) * scale,
+                      };
+                      (wall as { set?: (p: object) => void; setCoords?: () => void }).set?.(
+                        { x1: a.x, y1: a.y, x2: b.x, y2: b.y },
+                      );
+                      (wall as { setCoords?: () => void }).setCoords?.();
+                      (wall as { data?: Record<string, unknown> }).data = {
+                        ...(wall as { data?: Record<string, unknown> }).data,
+                        lengthM: metres,
+                      };
+                      reanchorOpeningsForWall(wall);
+                      refreshWallBands();
+                      if (!isLoadingRef.current) {
+                        saveState();
+                        onModified?.();
+                      }
+                    }
+                  }
+                }
+              }
+              c.renderAll();
+              emitSelection();
+            };
+            (editor as { on?: (ev: string, fn: () => void) => void }).on?.(
+              "editing:exited",
+              commit,
+            );
+            return;
+          }
+
           // Overlay tools own their clicks (evidence + moisture layers).
           if (
             tool === "select" ||
@@ -1845,15 +2164,45 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           const end = snapEnd(start, scenePoint((opt as { e: MouseEvent }).e));
           if (tool === "room") {
             const dragPx = Math.hypot(end.x - start.x, end.y - start.y);
-            const points =
+            let points =
               dragPx < ROOM_TAP_THRESHOLD_PX
-                ? rectRoomPoints(
+                ? roomTemplatePoints(
+                    roomTemplateKindRef.current,
                     start,
                     DEFAULT_ROOM_SIDE_M,
                     DEFAULT_ROOM_SIDE_M,
                     pxPerMetreRef.current,
                   )
-                : rectRoomPointsFromDiagonal(start, end);
+                : roomTemplateKindRef.current === "rect"
+                  ? rectRoomPointsFromDiagonal(start, end)
+                  : roomTemplatePoints(
+                      roomTemplateKindRef.current,
+                      {
+                        x: (start.x + end.x) / 2,
+                        y: (start.y + end.y) / 2,
+                      },
+                      Math.max(
+                        0.5,
+                        Math.abs(end.x - start.x) / pxPerMetreRef.current,
+                      ),
+                      Math.max(
+                        0.5,
+                        Math.abs(end.y - start.y) / pxPerMetreRef.current,
+                      ),
+                      pxPerMetreRef.current,
+                    );
+            if (roomTemplateFlipHRef.current) {
+              points = flipRoomPoints(points, "h");
+            }
+            if (roomTemplateFlipVRef.current) {
+              points = flipRoomPoints(points, "v");
+            }
+            if (roomTemplateRotateRef.current) {
+              points = rotateRoomPoints90(
+                points,
+                roomTemplateRotateRef.current,
+              );
+            }
             addToolObject(
               describeToolObject({
                 tool: "room",
@@ -1872,6 +2221,72 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               }),
             );
           }
+        });
+
+        // P1: room adjacency snap + green join cue while dragging a room.
+        canvas.on("object:moving", (opt: unknown) => {
+          const target = (opt as { target?: unknown })?.target;
+          const td = (target as { data?: Record<string, unknown> } | undefined)
+            ?.data;
+          if (!td || td.type !== "room" || typeof td.id !== "string") {
+            clearAdjacencyJoin();
+            return;
+          }
+          const movingPts = polygonAbsolutePoints(target);
+          if (!movingPts || movingPts.length < 2) return;
+          const movingEdges: RoomEdgeRef[] = roomEdgeHostSegments(
+            td.id,
+            movingPts,
+          ).map((e) => ({
+            roomId: td.id as string,
+            edgeIndex: e.edgeIndex,
+            a: e.seg.a,
+            b: e.seg.b,
+          }));
+          const stationaryEdges: RoomEdgeRef[] = [];
+          for (const o of (
+            canvas as unknown as { getObjects: () => unknown[] }
+          ).getObjects()) {
+            const d = (o as { data?: Record<string, unknown> }).data;
+            if (
+              !d ||
+              d.type !== "room" ||
+              d.id === td.id ||
+              typeof d.id !== "string"
+            )
+              continue;
+            const pts = polygonAbsolutePoints(o);
+            if (!pts) continue;
+            for (const e of roomEdgeHostSegments(d.id, pts)) {
+              stationaryEdges.push({
+                roomId: d.id,
+                edgeIndex: e.edgeIndex,
+                a: e.seg.a,
+                b: e.seg.b,
+              });
+            }
+          }
+          const snap = findRoomAdjacencySnap(
+            movingEdges,
+            stationaryEdges,
+            ADJACENCY_SNAP_PX,
+          );
+          if (!snap.snapped || !snap.join) {
+            clearAdjacencyJoin();
+            return;
+          }
+          const t = target as {
+            left?: number;
+            top?: number;
+            set?: (p: object) => void;
+            setCoords?: () => void;
+          };
+          t.set?.({
+            left: (t.left ?? 0) + snap.dx,
+            top: (t.top ?? 0) + snap.dy,
+          });
+          t.setCoords?.();
+          showAdjacencyJoin(snap.join);
         });
 
         canvas.on("mouse:dblclick", () => {
@@ -2043,6 +2458,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             isLoadingRef.current = true;
             await canvas.loadFromJSON(bootstrap);
             refreshDamageRoomClips();
+            refreshWallBands();
             canvas.renderAll();
           } catch (e) {
             console.error("SketchCanvas: initialData restore failed", e);
@@ -2065,6 +2481,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             try {
               await canvas.loadFromJSON(data);
               refreshDamageRoomClips();
+              refreshWallBands();
               canvas.renderAll();
             } finally {
               isLoadingRef.current = false;
@@ -2148,6 +2565,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       toolModeRef.current = toolMode;
       damageKindRef.current = damageKind;
       equipmentKindRef.current = equipmentKind;
+      roomTemplateKindRef.current = roomTemplateKind;
+      roomTemplateRotateRef.current = roomTemplateRotateQuarters;
+      roomTemplateFlipHRef.current = roomTemplateFlipH;
+      roomTemplateFlipVRef.current = roomTemplateFlipV;
       pxPerMetreRef.current = pxPerMetre;
       snapEnabledRef.current = snapEnabled;
       snapGridMetresRef.current = snapGridMetres;
@@ -2192,6 +2613,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       snapGridMetres,
       damageKind,
       equipmentKind,
+      roomTemplateKind,
+      roomTemplateRotateQuarters,
+      roomTemplateFlipH,
+      roomTemplateFlipV,
     ]);
 
     // ── Update background image when URL/opacity changes (Fabric.js v6) ──

@@ -297,6 +297,13 @@ export function SketchEditorV2({
   const [equipmentKind, setEquipmentKind] = useState<
     import("@/lib/sketch/equipment-symbols").EquipmentKind
   >("dehumidifier");
+  const [roomTemplateKind, setRoomTemplateKind] = useState<
+    import("@/lib/sketch/room-defaults").RoomTemplateKind
+  >("rect");
+  const [roomTemplateRotateQuarters, setRoomTemplateRotateQuarters] =
+    useState(0);
+  const [roomTemplateFlipH, setRoomTemplateFlipH] = useState(false);
+  const [roomTemplateFlipV, setRoomTemplateFlipV] = useState(false);
   const [evidenceUploading, setEvidenceUploading] = useState(false);
   /** Dismiss empty-canvas start chooser after the tech picks a path. */
   const [startOverlayDismissed, setStartOverlayDismissed] = useState(false);
@@ -2102,6 +2109,10 @@ export function SketchEditorV2({
               toolMode={toolMode}
               damageKind={damageKind}
               equipmentKind={equipmentKind}
+              roomTemplateKind={roomTemplateKind}
+              roomTemplateRotateQuarters={roomTemplateRotateQuarters}
+              roomTemplateFlipH={roomTemplateFlipH}
+              roomTemplateFlipV={roomTemplateFlipV}
               pxPerMetre={fd.scaleConfig?.pxPerMetre}
               snapEnabled={snapEnabled}
               backgroundImageUrl={fd.backgroundUrl}
@@ -2808,6 +2819,13 @@ export function SketchEditorV2({
           onDamageKindChange={setDamageKind}
           equipmentKind={equipmentKind}
           onEquipmentKindChange={setEquipmentKind}
+          roomTemplateKind={roomTemplateKind}
+          onRoomTemplateKindChange={setRoomTemplateKind}
+          onRoomTemplateFlipH={() => setRoomTemplateFlipH((v) => !v)}
+          onRoomTemplateFlipV={() => setRoomTemplateFlipV((v) => !v)}
+          onRoomTemplateRotate={() =>
+            setRoomTemplateRotateQuarters((q) => (q + 1) % 4)
+          }
           canUndo={historyState.canUndo}
           canRedo={historyState.canRedo}
           onUndo={handleUndo}

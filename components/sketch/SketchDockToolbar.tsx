@@ -48,6 +48,7 @@ import {
 } from "@/lib/sketch/equipment-symbols";
 import type { SketchEditorMode } from "@/lib/sketch/editor-mode";
 import { isToolAllowedInMode } from "@/lib/sketch/editor-mode";
+import type { RoomTemplateKind } from "@/lib/sketch/room-defaults";
 
 export type DockPosition = "bottom" | "top" | "left" | "right";
 
@@ -58,6 +59,11 @@ export interface SketchDockToolbarProps {
   onDamageKindChange?: (kind: DamageKind) => void;
   equipmentKind?: EquipmentKind;
   onEquipmentKindChange?: (kind: EquipmentKind) => void;
+  roomTemplateKind?: RoomTemplateKind;
+  onRoomTemplateKindChange?: (kind: RoomTemplateKind) => void;
+  onRoomTemplateFlipH?: () => void;
+  onRoomTemplateFlipV?: () => void;
+  onRoomTemplateRotate?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
   onUndo?: () => void;
@@ -135,6 +141,11 @@ export function SketchDockToolbar({
   onDamageKindChange,
   equipmentKind = "dehumidifier",
   onEquipmentKindChange,
+  roomTemplateKind = "rect",
+  onRoomTemplateKindChange,
+  onRoomTemplateFlipH,
+  onRoomTemplateFlipV,
+  onRoomTemplateRotate,
   canUndo = false,
   canRedo = false,
   onUndo,
@@ -405,6 +416,78 @@ export function SketchDockToolbar({
                 {EQUIPMENT_KIND_STYLES[kind].short}
               </button>
             ))}
+          </div>
+        </>
+      )}
+
+      {!readonly && toolMode === "room" && onRoomTemplateKindChange && (
+        <>
+          <div className={dividerCls} />
+          <div
+            className={cn(
+              "flex gap-1",
+              isVertical ? "flex-col" : "flex-row",
+            )}
+            role="group"
+            aria-label="Room template"
+          >
+            {(
+              [
+                { kind: "rect" as const, label: "Rect" },
+                { kind: "L" as const, label: "L" },
+                { kind: "T" as const, label: "T" },
+              ] as const
+            ).map(({ kind, label }) => (
+              <button
+                key={kind}
+                type="button"
+                title={`${label} room template`}
+                aria-label={`${label} room template`}
+                aria-pressed={roomTemplateKind === kind}
+                onClick={() => onRoomTemplateKindChange(kind)}
+                className={cn(
+                  "h-8 min-w-8 px-1.5 rounded-lg border text-[10px] font-semibold tracking-wide",
+                  roomTemplateKind === kind
+                    ? "border-[#D4A574] ring-1 ring-[#D4A574] text-brand-gold bg-brand-gold/15"
+                    : "border-white/10 text-white/70 hover:opacity-100",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+            {onRoomTemplateFlipH && (
+              <button
+                type="button"
+                title="Flip template horizontally"
+                aria-label="Flip template horizontally"
+                onClick={onRoomTemplateFlipH}
+                className="h-8 min-w-8 px-1 rounded-lg border border-white/10 text-[10px] font-semibold text-white/70 hover:text-white"
+              >
+                ↔
+              </button>
+            )}
+            {onRoomTemplateFlipV && (
+              <button
+                type="button"
+                title="Flip template vertically"
+                aria-label="Flip template vertically"
+                onClick={onRoomTemplateFlipV}
+                className="h-8 min-w-8 px-1 rounded-lg border border-white/10 text-[10px] font-semibold text-white/70 hover:text-white"
+              >
+                ↕
+              </button>
+            )}
+            {onRoomTemplateRotate && (
+              <button
+                type="button"
+                title="Rotate template 90°"
+                aria-label="Rotate template 90 degrees"
+                onClick={onRoomTemplateRotate}
+                className="h-8 min-w-8 px-1 rounded-lg border border-white/10 text-[10px] font-semibold text-white/70 hover:text-white"
+              >
+                ⟳
+              </button>
+            )}
           </div>
         </>
       )}

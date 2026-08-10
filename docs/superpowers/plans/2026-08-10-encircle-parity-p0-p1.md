@@ -4,7 +4,7 @@
 
 **Goal:** Ship RestoreAssist floor-plan UX that matches Encircle/Hydro *workflow outcomes* (scan→wait→plan-ready, Quick vs Advanced edit, room-cropped moisture for reports) without cloning Encircle UI, branding, colours, layouts, or proprietary wording.
 
-**Status (2026-08-10):** P0 Tasks 1–7 implemented in-repo (not committed). P1 Tasks 8–11 not started.
+**Status (2026-08-10):** P0 Tasks 1–7 committed. P1 Tasks 8–11 implemented.
 
 **Architecture:** Keep the Fabric.js `SketchEditorV2` stack. Add pure lib modules for editor mode, plan lifecycle phase, and room-crop moisture geometry; thin React wiring in dock/overlay/editor; reuse `damage-zone` clip patterns and existing PDF moisture overlay for report usability.
 
@@ -464,29 +464,30 @@ clipRoomPoints?: ReadonlyArray<{ x: number; y: number }> | null;
 
 ### Task 8: True wall-band openings
 
-**Files:** `lib/sketch/opening-geometry.ts` (`wallSolidSegments` already exists), `components/sketch/SketchCanvas.tsx`
+**Files:** `lib/sketch/opening-geometry.ts` (`wallSolidSegments` already exists), `lib/sketch/wall-band-rematerialize.ts`, `components/sketch/SketchCanvas.tsx`
 
-- Rematerialize wall strokes as solid segments with true gaps at doors/windows (not only white cut + jamb ticks).
-- Tests already in `opening-geometry.test.ts` — extend rematerialize unit tests first.
+- [x] Rematerialize wall strokes as solid segments with true gaps at doors/windows (not only white cut + jamb ticks).
+- [x] Tests in `wall-band-rematerialize.test.ts` — extend rematerialize unit tests first.
 
 ### Task 9: Room adjacency snap
 
-**Files:** snap hook / `SketchCanvas` move handlers
+**Files:** `lib/sketch/room-adjacency-snap.ts`, `SketchCanvas` move handlers
 
-- When dragging a room near another, snap shared edge and show **green** adjacency cue (magicplan-inspired; RestoreAssist styling).
-- Unit-test snap distance math in `lib/sketch/`.
+- [x] When dragging a room near another, snap shared edge and show **green** adjacency cue (magicplan-inspired; RestoreAssist styling).
+- [x] Unit-test snap distance math in `lib/sketch/`.
 
 ### Task 10: L / T room templates
 
-**Files:** `lib/sketch/room-defaults.ts`, dock room flyout, `tool-objects.ts`
+**Files:** `lib/sketch/room-defaults.ts`, dock room flyout, canvas placement
 
-- One-tap L and T polygons with typed defaults; tests for polygon topology.
+- [x] One-tap L and T polygons with typed defaults; tests for polygon topology.
+- [x] Flip / rotate controls for next placement.
 
 ### Task 11: On-canvas dimension edit
 
 **Files:** `SketchCanvas.tsx`, dim label overlay
 
-- Tap edge dim → inline numeric edit + lock (panel path already exists — promote to canvas).
+- [x] Tap edge dim → inline numeric edit + lock (panel path already exists — promote to canvas).
 
 ---
 
@@ -512,17 +513,20 @@ clipRoomPoints?: ReadonlyArray<{ x: number; y: number }> | null;
 - [ ] Export/PDF (or room PNG) usable for report with room-scoped moisture.
 
 ### P1
-- [ ] Wall bands show true gaps at openings after rematerialize.
-- [ ] Adjacent rooms snap with green cue.
-- [ ] L/T templates place correct polygons.
-- [ ] Edge dim editable on canvas with lock.
+- [x] Wall bands show true gaps at openings after rematerialize.
+- [x] Adjacent rooms snap with green cue.
+- [x] L/T templates place correct polygons.
+- [x] Edge dim editable on canvas with lock.
 
 ### Automated
 ```bash
 npx vitest run lib/sketch/__tests__/editor-mode.test.ts \
   lib/sketch/__tests__/plan-lifecycle.test.ts \
   lib/sketch/__tests__/room-moisture-crop.test.ts \
-  components/sketch/__tests__/SketchDockToolbar.editor-mode.test.tsx
+  components/sketch/__tests__/SketchDockToolbar.editor-mode.test.tsx \
+  lib/sketch/__tests__/wall-band-rematerialize.test.ts \
+  lib/sketch/__tests__/room-adjacency-snap.test.ts \
+  lib/sketch/__tests__/room-templates.test.ts
 ```
 
 ---

@@ -5,7 +5,7 @@
  * length × width. Pure / Fabric-free so unit tests and SketchCanvas share one
  * geometry contract.
  */
-import { centroid } from "@/lib/sketch/geometry-utils";
+import { centroid } from "./geometry-utils";
 
 /** Local point type — avoid importing tool-objects (circular with room dims). */
 export interface Point {
@@ -183,4 +183,115 @@ export function roomEdgeHostSegments(
     });
   }
   return out;
+}
+
+/** One-tap room polygon templates (rect / L / T). */
+export type RoomTemplateKind = "rect" | "L" | "T";
+
+/**
+ * L-shaped room: outer AABB `lengthM × widthM`, inner cut is the opposite
+ * quadrant (half length × half width). 6 vertices, clockwise from top-left.
+ */
+export function lRoomPoints(
+  center: Point,
+  lengthM: number,
+  widthM: number,
+  pxPerMetre = DEFAULT_PX_PER_METRE,
+): Point[] {
+  const scale = pxPerMetre || DEFAULT_PX_PER_METRE;
+  const L = Math.max(0.1, lengthM) * scale;
+  const W = Math.max(0.1, widthM) * scale;
+  const halfL = L / 2;
+  const halfW = W / 2;
+  const cutL = L / 2;
+  const cutW = W / 2;
+  // Outer TL → TR → mid-right → inner corner → mid-bottom → BL
+  return [
+    { x: center.x - halfL, y: center.y - halfW },
+    { x: center.x + halfL, y: center.y - halfW },
+    { x: center.x + halfL, y: center.y - halfW + cutW },
+    { x: center.x - halfL + cutL, y: center.y - halfW + cutW },
+    { x: center.x - halfL + cutL, y: center.y + halfW },
+    { x: center.x - halfL, y: center.y + halfW },
+  ];
+}
+
+/**
+ * T-shaped room: full-width top bar + centered stem. 8 vertices.
+ */
+export function tRoomPoints(
+  center: Point,
+  lengthM: number,
+  widthM: number,
+  pxPerMetre = DEFAULT_PX_PER_METRE,
+): Point[] {
+  const scale = pxPerMetre || DEFAULT_PX_PER_METRE;
+  const L = Math.max(0.1, lengthM) * scale;
+  const W = Math.max(0.1, widthM) * scale;
+  const halfL = L / 2;
+  const halfW = W / 2;
+  const barH = W / 3;
+  const stemHalf = L / 4;
+  return [
+    { x: center.x - halfL, y: center.y - halfW },
+    { x: center.x + halfL, y: center.y - halfW },
+    { x: center.x + halfL, y: center.y - halfW + barH },
+    { x: center.x + stemHalf, y: center.y - halfW + barH },
+    { x: center.x + stemHalf, y: center.y + halfW },
+    { x: center.x - stemHalf, y: center.y + halfW },
+    { x: center.x - stemHalf, y: center.y - halfW + barH },
+    { x: center.x - halfL, y: center.y - halfW + barH },
+  ];
+}
+
+/** Flip polygon horizontally or vertically about its centroid. */
+export function flipRoomPoints(
+  points: Point[],
+  axis: "h" | "v",
+): Point[] {
+  if (points.length === 0) return [];
+  const c = centroid(points);
+  return points.map((p) =>
+    axis === "h"
+      ? { x: c.x - (p.x - c.x), y: p.y }
+      : { x: p.x, y: c.y - (p.y - c.y) },
+  );
+}
+
+/**
+ * Rotate polygon 90° * `quarters` counterclockwise about centroid.
+ * `quarters` is taken mod 4 (0 = identity).
+ */
+export function rotateRoomPoints90(
+  points: Point[],
+  quarters: number,
+): Point[] {
+  if (points.length === 0) return [];
+  const q = ((quarters % 4) + 4) % 4;
+  if (q === 0) return points.map((p) => ({ ...p }));
+  const c = centroid(points);
+  return points.map((p) => {
+    let x = p.x - c.x;
+    let y = p.y - c.y;
+    for (let i = 0; i < q; i++) {
+      const nx = -y;
+      const ny = x;
+      x = nx;
+      y = ny;
+    }
+    return { x: c.x + x, y: c.y + y };
+  });
+}
+
+/** Resolve template kind → polygon points centered on `center`. */
+export function roomTemplatePoints(
+  kind: RoomTemplateKind,
+  center: Point,
+  lengthM = DEFAULT_ROOM_SIDE_M,
+  widthM = DEFAULT_ROOM_SIDE_M,
+  pxPerMetre = DEFAULT_PX_PER_METRE,
+): Point[] {
+  if (kind === "L") return lRoomPoints(center, lengthM, widthM, pxPerMetre);
+  if (kind === "T") return tRoomPoints(center, lengthM, widthM, pxPerMetre);
+  return rectRoomPoints(center, lengthM, widthM, pxPerMetre);
 }
