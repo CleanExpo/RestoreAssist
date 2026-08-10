@@ -26,6 +26,7 @@ import {
   doorGeometry,
   doorArcPath,
   windowGeometry,
+  openingCutEndpoints,
   parametricPositionOnSegment,
   type HingeSide,
 } from "@/lib/sketch/opening-geometry";
@@ -70,7 +71,9 @@ export type ToolObjectKind =
   | "photo-marker"
   // RA-6841 [A2]: architectural opening symbols
   | "door-opening"
-  | "window-opening";
+  | "window-opening"
+  /** Pass-through / missing wall — gap only, no door or window symbol. */
+  | "missing-opening";
 
 export interface ToolObjectDescriptor {
   kind: ToolObjectKind;
@@ -413,6 +416,49 @@ export function describeToolObject(
           provenance: "operator_measured",
           widthM,
           // RA-6980 [A2b]: parent–child binding to the host wall.
+          ...(input.hostWallId
+            ? {
+                hostWallId: input.hostWallId,
+                hostWallT: parametricPositionOnSegment(anchor, wall),
+              }
+            : {}),
+        },
+      };
+    }
+
+    // P2: Missing wall / pass-through — punches a wall-band gap with jambs only.
+    case "missing": {
+      if (points.length < 1) return null;
+      const anchor = points[0];
+      const wall = input.wallSegment ??
+        (points.length >= 2
+          ? { a: points[0], b: points[1] }
+          : { a: { x: anchor.x, y: anchor.y }, b: { x: anchor.x + 1, y: anchor.y } });
+      const widthM = input.openingWidthM ?? 0.9;
+      const thick =
+        input.wallThicknessPx ??
+        metresToPx(WALL_THICKNESS_INTERNAL_M, pxPerMetre);
+      const [cutStart, cutEnd] = openingCutEndpoints(
+        anchor,
+        wall,
+        widthM,
+        pxPerMetre,
+      );
+      return {
+        kind: "missing-opening",
+        props: {
+          cutStart,
+          cutEnd,
+          stroke: PRIMARY,
+          strokeWidth: 2,
+          wallThicknessPx: thick,
+        },
+        data: {
+          type: "opening",
+          openingKind: "missing",
+          id: `opening-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+          provenance: "operator_measured",
+          widthM,
           ...(input.hostWallId
             ? {
                 hostWallId: input.hostWallId,

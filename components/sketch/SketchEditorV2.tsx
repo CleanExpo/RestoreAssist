@@ -76,6 +76,10 @@ import {
   roomAreaM2,
   DEFAULT_PX_PER_METRE,
 } from "@/lib/sketch/tool-objects";
+import {
+  clampWallThicknessM,
+  wallThicknessPx,
+} from "@/lib/sketch/wall-thickness";
 import { wallAbsoluteSegment } from "@/lib/sketch/fabric-absolute";
 
 import { SketchDockToolbar } from "./SketchDockToolbar";
@@ -2630,6 +2634,57 @@ export function SketchEditorV2({
                 : "Dimension unlocked",
             );
           }}
+          onWallThicknessChange={(id, metres) => {
+            const canvasApi = activeFloor?.canvasRef.current;
+            const fc = canvasApi?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+              renderAll: () => void;
+            } | null;
+            if (!fc) return;
+            const obj = fc.getObjects().find((o) => {
+              const d = (o as { data?: { id?: string } }).data;
+              return d?.id === id;
+            }) as {
+              data?: Record<string, unknown>;
+              set?: (o: object) => void;
+            } | undefined;
+            if (!obj?.data) return;
+            const clamped = clampWallThicknessM(metres);
+            obj.data.wallThicknessM = clamped;
+            const ppm =
+              activeFloor?.scaleConfig?.pxPerMetre ?? DEFAULT_PX_PER_METRE;
+            obj.set?.({ strokeWidth: wallThicknessPx(clamped, ppm) });
+            canvasApi?.refreshWallBands?.();
+            fc.renderAll();
+            setSelectedObj((prev) =>
+              prev && prev.id === id
+                ? { ...prev, wallThicknessM: clamped }
+                : prev,
+            );
+            scheduleSave();
+            toast.success(`Wall thickness set to ${clamped.toFixed(2)} m`);
+          }}
+          onCeilingHeightChange={(id, metres) => {
+            const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+              renderAll: () => void;
+            } | null;
+            if (!fc) return;
+            const obj = fc.getObjects().find((o) => {
+              const d = (o as { data?: { id?: string } }).data;
+              return d?.id === id;
+            }) as { data?: Record<string, unknown> } | undefined;
+            if (!obj?.data) return;
+            obj.data.ceilingHeightM = metres;
+            fc.renderAll();
+            setSelectedObj((prev) =>
+              prev && prev.id === id
+                ? { ...prev, ceilingHeightM: metres }
+                : prev,
+            );
+            scheduleSave();
+            toast.success(`Ceiling height set to ${metres.toFixed(2)} m`);
+          }}
           onDimensionsChange={(id, dims) => {
             const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
               getObjects: () => unknown[];
@@ -2821,11 +2876,39 @@ export function SketchEditorV2({
           onEquipmentKindChange={setEquipmentKind}
           roomTemplateKind={roomTemplateKind}
           onRoomTemplateKindChange={setRoomTemplateKind}
-          onRoomTemplateFlipH={() => setRoomTemplateFlipH((v) => !v)}
-          onRoomTemplateFlipV={() => setRoomTemplateFlipV((v) => !v)}
-          onRoomTemplateRotate={() =>
-            setRoomTemplateRotateQuarters((q) => (q + 1) % 4)
-          }
+          onRoomTemplateFlipH={() => {
+            setRoomTemplateFlipH((v) => {
+              const next = !v;
+              toast.success(
+                next
+                  ? "Next L/T room: flipped horizontally"
+                  : "Horizontal flip off",
+              );
+              return next;
+            });
+          }}
+          onRoomTemplateFlipV={() => {
+            setRoomTemplateFlipV((v) => {
+              const next = !v;
+              toast.success(
+                next
+                  ? "Next L/T room: flipped vertically"
+                  : "Vertical flip off",
+              );
+              return next;
+            });
+          }}
+          onRoomTemplateRotate={() => {
+            setRoomTemplateRotateQuarters((q) => {
+              const next = (q + 1) % 4;
+              toast.success(
+                next === 0
+                  ? "Next L/T room: rotation reset"
+                  : `Next L/T room: rotated ${next * 90}°`,
+              );
+              return next;
+            });
+          }}
           canUndo={historyState.canUndo}
           canRedo={historyState.canRedo}
           onUndo={handleUndo}

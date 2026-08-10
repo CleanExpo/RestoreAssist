@@ -34,6 +34,8 @@ describe("fabricObjectToSelected", () => {
       widthM: undefined,
       dimLocked: false,
       openingKind: undefined,
+      wallThicknessM: undefined,
+      ceilingHeightM: undefined,
     });
   });
 
@@ -79,5 +81,29 @@ describe("fabricObjectToSelected", () => {
     expect(door?.openingKind).toBe("door");
     expect(door?.widthM).toBe(0.82);
     expect(door?.dimLocked).toBe(true);
+  });
+
+  it("maps missing openings, wall thickness, and ceiling height", () => {
+    const missing = fabricObjectToSelected({
+      type: "group",
+      data: {
+        id: "op2",
+        type: "opening",
+        openingKind: "missing",
+        widthM: 0.9,
+      },
+    });
+    expect(missing?.openingKind).toBe("missing");
+    const room = fabricObjectToSelected({
+      type: "polygon",
+      data: {
+        id: "r1",
+        type: "room",
+        wallThicknessM: 0.23,
+        ceilingHeightM: 2.7,
+      },
+    });
+    expect(room?.wallThicknessM).toBe(0.23);
+    expect(room?.ceilingHeightM).toBe(2.7);
   });
 });

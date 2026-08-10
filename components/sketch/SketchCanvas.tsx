@@ -24,7 +24,8 @@ export type ToolMode =
   | "pan" // Pan/navigate
   // RA-6841 [A2]: architectural opening symbols
   | "door" // Door — opening cut + leaf line + swing arc
-  | "window"; // Window — opening cut + glazing lines
+  | "window" // Window — opening cut + glazing lines
+  | "missing"; // Missing wall / pass-through — gap only
 
 import { fabricObjectToSelected } from "@/lib/sketch/selected-object";
 import { computeUnderlayTransform } from "@/lib/sketch/underlay-transform";
@@ -54,6 +55,7 @@ import {
   describeEquipmentSymbol,
   type EquipmentKind,
 } from "@/lib/sketch/equipment-symbols";
+import { snapEquipmentPlacement } from "@/lib/sketch/equipment-placement";
 import {
   wallAbsoluteSegment,
   polygonAbsolutePoints,
@@ -98,6 +100,19 @@ import {
   roomsFromFabricObjects,
   type RoomClipCandidate,
 } from "@/lib/sketch/damage-zone";
+import {
+  readWallThicknessM,
+  wallThicknessPx,
+} from "@/lib/sketch/wall-thickness";
+import {
+  layoutCanvasPlanChrome,
+  PLAN_CHROME_TYPE,
+} from "@/lib/sketch/canvas-plan-chrome";
+import {
+  SHORT_DIM_CTA_TYPE,
+  shortEdgeMeasureAffordances,
+} from "@/lib/sketch/short-dim-affordance";
+import { findNearestDimLabel, type DimLabelHitCandidate } from "@/lib/sketch/dim-label-hit";
 import type { SelectedObject } from "./SketchSelectionPanel";
 
 export interface SketchCanvasProps {
@@ -166,6 +181,8 @@ export interface FabricCanvasRef {
   canUndo: boolean;
   /** Whether redo is available */
   canRedo: boolean;
+  /** Rematerialize wall bands after thickness / opening changes. */
+  refreshWallBands: () => void;
 }
 
 const MAX_HISTORY = 50;
@@ -230,6 +247,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
     const snapGridMetresRef = useRef<number>(snapGridMetres);
     const drawStartRef = useRef<Point | null>(null);
     const polygonPtsRef = useRef<Point[]>([]);
+    const refreshWallBandsRef = useRef<() => void>(() => {});
     const [historyState, setHistoryState] = useState({
       canUndo: false,
       canRedo: false,
@@ -341,6 +359,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         redo,
         canUndo: historyState.canUndo,
         canRedo: historyState.canRedo,
+        refreshWallBands: () => refreshWallBandsRef.current(),
       }),
       [saveState, undo, redo, historyState],
     );
@@ -497,7 +516,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             t === "guide" ||
             t === "opening-handle" ||
             t === "wall-band" ||
-            t === "adjacency-join"
+            t === "adjacency-join" ||
+            t === SHORT_DIM_CTA_TYPE ||
+            t === PLAN_CHROME_TYPE
           );
         };
 
@@ -1038,13 +1059,38 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             byHost.set(id, list);
           }
 
-          const strokeWidth = pxPerMetreRef.current * 0.11;
           const hostsWithBands = new Set<string>();
+          const hostThickness = (hostWallId: string): number => {
+            for (const o of objs) {
+              const d = (o as { data?: Record<string, unknown> }).data;
+              if (!d) continue;
+              if (d.type === "wall" && d.wallId === hostWallId) {
+                return wallThicknessPx(
+                  readWallThicknessM(d),
+                  pxPerMetreRef.current,
+                );
+              }
+              if (d.type === "room" && typeof d.id === "string") {
+                const edges = roomEdgeHostSegments(
+                  d.id,
+                  polygonAbsolutePoints(o) ?? [],
+                );
+                if (edges.some((e) => e.wallId === hostWallId)) {
+                  return wallThicknessPx(
+                    readWallThicknessM(d),
+                    pxPerMetreRef.current,
+                  );
+                }
+              }
+            }
+            return wallThicknessPx(undefined, pxPerMetreRef.current);
+          };
 
           for (const [hostWallId, cuts] of byHost) {
             if (!shouldRematerializeHostStroke(cuts.length)) continue;
             const seg = findHostSegment(hostWallId);
             if (!seg) continue;
+            const strokeWidth = hostThickness(hostWallId);
             const bands = solidBandsForHost(seg, cuts, pxPerMetreRef.current);
             hostsWithBands.add(hostWallId);
             for (const band of bands) {
@@ -1074,8 +1120,12 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             if (!d) continue;
             if (d.type === "wall" && typeof d.wallId === "string") {
               const hide = hostsWithBands.has(d.wallId);
+              const sw = wallThicknessPx(
+                readWallThicknessM(d),
+                pxPerMetreRef.current,
+              );
               (o as { set?: (p: object) => void }).set?.({
-                strokeWidth: hide ? 0 : strokeWidth,
+                strokeWidth: hide ? 0 : sw,
               });
             }
             if (d.type === "room" && typeof d.id === "string") {
@@ -1084,13 +1134,18 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
                 polygonAbsolutePoints(o) ?? [],
               );
               const hide = edges.some((e) => hostsWithBands.has(e.wallId));
+              const sw = wallThicknessPx(
+                readWallThicknessM(d),
+                pxPerMetreRef.current,
+              );
               (o as { set?: (p: object) => void }).set?.({
-                strokeWidth: hide ? 0 : strokeWidth,
+                strokeWidth: hide ? 0 : sw,
               });
             }
           }
           c.renderAll();
         };
+        refreshWallBandsRef.current = refreshWallBands;
 
         let adjacencyJoinLine: unknown = null;
         clearAdjacencyJoin = () => {
@@ -1102,19 +1157,45 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         };
         showAdjacencyJoin = (join: { a: Point; b: Point }) => {
           clearAdjacencyJoin();
+          const c = canvas as unknown as {
+            add: (o: unknown) => void;
+            bringObjectToFront?: (o: unknown) => void;
+          };
+          // Soft underlay + bright join so the cue stays visible over rooms.
+          const glow = new F.Line([join.a.x, join.a.y, join.b.x, join.b.y], {
+            stroke: "#86efac",
+            strokeWidth: 10,
+            strokeLineCap: "round",
+            opacity: 0.55,
+            selectable: false,
+            evented: false,
+            objectCaching: false,
+          });
           const line = new F.Line([join.a.x, join.a.y, join.b.x, join.b.y], {
-            stroke: "#22c55e",
-            strokeWidth: 4,
+            stroke: "#16a34a",
+            strokeWidth: 5,
             strokeLineCap: "round",
             selectable: false,
             evented: false,
             objectCaching: false,
           });
+          (glow as { data?: Record<string, unknown> }).data = {
+            type: "adjacency-join",
+          };
           (line as { data?: Record<string, unknown> }).data = {
             type: "adjacency-join",
           };
-          adjacencyJoinLine = line;
-          (canvas as unknown as { add: (o: unknown) => void }).add(line);
+          const group = new F.Group([glow, line], {
+            selectable: false,
+            evented: false,
+            objectCaching: false,
+          });
+          (group as { data?: Record<string, unknown> }).data = {
+            type: "adjacency-join",
+          };
+          adjacencyJoinLine = group;
+          c.add(group);
+          c.bringObjectToFront?.(group);
         };
 
         const materialize = (
@@ -1241,6 +1322,40 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               );
             }
             obj = new F.Group(members);
+          } else if (d.kind === "missing-opening") {
+            // P2: pass-through — jamb ticks only; wall bands own the gap.
+            const p = d.props as {
+              cutStart: { x: number; y: number };
+              cutEnd: { x: number; y: number };
+              stroke: string;
+              strokeWidth: number;
+              wallThicknessPx: number;
+            };
+            const members = openingJambLines(
+              p.cutStart,
+              p.cutEnd,
+              p.wallThicknessPx,
+            ).map(
+              ([s, e]) =>
+                new F.Line([s.x, s.y, e.x, e.y], {
+                  stroke: p.stroke,
+                  strokeWidth: Math.max(2, p.strokeWidth),
+                  strokeLineCap: "butt",
+                }),
+            );
+            // Subtle dashed centerline so the opening remains selectable.
+            members.push(
+              new F.Line(
+                [p.cutStart.x, p.cutStart.y, p.cutEnd.x, p.cutEnd.y],
+                {
+                  stroke: p.stroke,
+                  strokeWidth: 1,
+                  strokeDashArray: [4, 4],
+                  opacity: 0.55,
+                },
+              ),
+            );
+            obj = new F.Group(members);
           }
           if (obj) (obj as { data?: unknown }).data = d.data;
           return obj;
@@ -1260,10 +1375,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             originX: "center",
             originY: "center",
           });
-          const label = new F.Text(p.short, {
+          const short = new F.Text(p.short, {
             left: 0,
-            top: 0,
-            fontSize: Math.max(10, Math.round(p.radius * 0.7)),
+            top: -Math.round(p.radius * 0.15),
+            fontSize: Math.max(10, Math.round(p.radius * 0.65)),
             fill: p.stroke,
             fontFamily: "sans-serif",
             fontWeight: "bold",
@@ -1272,7 +1387,18 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             selectable: false,
             evented: false,
           });
-          const group = new F.Group([circle, label], {
+          const caption = new F.Text(p.label, {
+            left: 0,
+            top: Math.round(p.radius * 0.85),
+            fontSize: 9,
+            fill: "#1C2E47",
+            fontFamily: "sans-serif",
+            originX: "center",
+            originY: "top",
+            selectable: false,
+            evented: false,
+          });
+          const group = new F.Group([circle, short, caption], {
             left: p.left,
             top: p.top,
             originX: "center",
@@ -1331,7 +1457,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               points: [anchor],
               pxPerMetre: pxPerMetreRef.current,
               wallSegment: newWall,
-              wallThicknessPx: pxPerMetreRef.current * 0.11,
+              wallThicknessPx: wallThicknessPx(
+                readWallThicknessM(wd),
+                pxPerMetreRef.current,
+              ),
               hingeSide: od.hingeSide as "left" | "right" | undefined,
               openingWidthM: od.widthM as number | undefined,
               hostWallId: wd.wallId as string,
@@ -1380,10 +1509,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               points: [anchor],
               pxPerMetre: pxPerMetreRef.current,
               wallSegment: edge.seg,
-              wallThicknessPx: pxPerMetreRef.current * 0.11,
+              wallThicknessPx: wallThicknessPx(
+                readWallThicknessM(rd),
+                pxPerMetreRef.current,
+              ),
               hingeSide: od.hingeSide as "left" | "right" | undefined,
               openingWidthM: od.widthM as number | undefined,
-              hostWallId: edge.wallId,
+              hostWallId: od.hostWallId as string,
             });
             if (!d) continue;
             d.data = {
@@ -1444,7 +1576,12 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             points: [next.anchor],
             pxPerMetre: pxPerMetreRef.current,
             wallSegment: next.wall,
-            wallThicknessPx: pxPerMetreRef.current * 0.11,
+            wallThicknessPx: wallThicknessPx(
+              typeof od.wallThicknessM === "number"
+                ? (od.wallThicknessM as number)
+                : undefined,
+              pxPerMetreRef.current,
+            ),
             hingeSide: od.hingeSide as "left" | "right" | undefined,
             openingWidthM: next.widthM,
             hostWallId: od.hostWallId as string | undefined,
@@ -1690,9 +1827,37 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             selectable: false,
             evented: !readonly,
             hoverCursor: "text",
-            padding: 2,
+            padding: 6,
+            objectCaching: false,
           });
           (t as { data?: unknown }).data = { type: "dim-label" };
+          return t;
+        };
+
+        const makeShortDimCta = (
+          text: string,
+          x: number,
+          y: number,
+          meta: Record<string, unknown>,
+        ): unknown => {
+          const t = new F.Text(text, {
+            left: x,
+            top: y,
+            fontSize: 9,
+            fill: "#1C2E47",
+            backgroundColor: "rgba(212,165,116,0.92)",
+            originX: "center",
+            originY: "center",
+            selectable: false,
+            evented: !readonly,
+            hoverCursor: "pointer",
+            padding: 3,
+            objectCaching: false,
+          });
+          (t as { data?: unknown }).data = {
+            type: SHORT_DIM_CTA_TYPE,
+            ...meta,
+          };
           return t;
         };
 
@@ -1700,29 +1865,52 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
          * Add per-edge dimension strings for a completed room polygon.
          * Each edge gets one Text label placed perpendicular to the midpoint,
          * outside the room. Labels are non-selectable/non-measured decoration.
+         * Short edges (&lt; 0.45 m) get a Measure CTA instead.
          */
         const addRoomEdgeDimLabels = (
           points: Point[],
           roomId: string,
         ) => {
-          const c = canvas as unknown as { add: (...o: unknown[]) => void };
+          const c = canvas as unknown as {
+            add: (...o: unknown[]) => void;
+            bringObjectToFront?: (o: unknown) => void;
+          };
           const scale = pxPerMetreRef.current;
           for (let i = 0; i < points.length; i++) {
             const a = points[i];
             const b = points[(i + 1) % points.length];
             const px = Math.hypot(b.x - a.x, b.y - a.y);
-            // Encircle readability: skip short stubs / interior reveals.
-            if (!shouldShowEdgeDimension(px, scale)) continue;
-            const text = formatDimension(px, scale);
-            const { labelPos } = segmentLabelPosition(a, b, 18);
-            const lbl = makeDimText(text, labelPos.x, labelPos.y);
-            (lbl as { data?: unknown }).data = {
-              type: "dim-label",
-              dimFor: roomId,
-              edgeIndex: i,
-              metres: px / scale,
-            };
+            if (shouldShowEdgeDimension(px, scale)) {
+              const text = formatDimension(px, scale);
+              const { labelPos } = segmentLabelPosition(a, b, 18);
+              const lbl = makeDimText(text, labelPos.x, labelPos.y);
+              (lbl as { data?: unknown }).data = {
+                type: "dim-label",
+                dimFor: roomId,
+                edgeIndex: i,
+                metres: px / scale,
+              };
+              c.add(lbl);
+              c.bringObjectToFront?.(lbl);
+            }
+          }
+          for (const cta of shortEdgeMeasureAffordances(points, scale)) {
+            const lbl = makeShortDimCta(
+              cta.label,
+              cta.labelPos.x,
+              cta.labelPos.y,
+              {
+                roomId,
+                edgeIndex: cta.edgeIndex,
+                ax: cta.a.x,
+                ay: cta.a.y,
+                bx: cta.b.x,
+                by: cta.b.y,
+                metres: cta.metres,
+              },
+            );
             c.add(lbl);
+            c.bringObjectToFront?.(lbl);
           }
         };
 
@@ -1815,6 +2003,140 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           c.renderAll();
         };
 
+        /** Discreet on-canvas north arrow + scale bar (editor chrome; PDF has its own). */
+        const refreshPlanChrome = () => {
+          if (readonly) return;
+          const c = canvas as unknown as {
+            getObjects: () => unknown[];
+            remove: (...o: unknown[]) => void;
+            add: (...o: unknown[]) => void;
+            getWidth?: () => number;
+            getHeight?: () => number;
+            renderAll: () => void;
+          };
+          const stale = c
+            .getObjects()
+            .filter(
+              (o) =>
+                (o as { data?: { type?: string } }).data?.type ===
+                PLAN_CHROME_TYPE,
+            );
+          if (stale.length) c.remove(...stale);
+
+          const pts = footprintAbsolutePoints(c.getObjects());
+          let sceneLeft = 24;
+          let sceneTop = 24;
+          let sceneWidth = (c.getWidth?.() ?? width) - 48;
+          let sceneHeight = (c.getHeight?.() ?? height) - 48;
+          if (pts.length >= 2) {
+            let minX = Infinity;
+            let minY = Infinity;
+            let maxX = -Infinity;
+            let maxY = -Infinity;
+            for (const p of pts) {
+              minX = Math.min(minX, p.x);
+              minY = Math.min(minY, p.y);
+              maxX = Math.max(maxX, p.x);
+              maxY = Math.max(maxY, p.y);
+            }
+            const pad = 56;
+            sceneLeft = minX - pad;
+            sceneTop = minY - pad;
+            sceneWidth = Math.max(120, maxX - minX + pad * 2);
+            sceneHeight = Math.max(120, maxY - minY + pad * 2);
+          }
+          const layout = layoutCanvasPlanChrome({
+            sceneLeft,
+            sceneTop,
+            sceneWidth,
+            sceneHeight,
+            pxPerMetre: pxPerMetreRef.current,
+          });
+          const n = layout.north;
+          const arrow = new F.Polygon(
+            [
+              { x: n.tip.x, y: n.tip.y },
+              { x: n.baseLeft.x, y: n.baseLeft.y },
+              { x: n.baseRight.x, y: n.baseRight.y },
+            ],
+            {
+              fill: "#1C2E47",
+              stroke: "#1C2E47",
+              strokeWidth: 1,
+              selectable: false,
+              evented: false,
+              opacity: 0.85,
+            },
+          );
+          const stem = new F.Line(
+            [n.tip.x, n.tip.y, n.stemEnd.x, n.stemEnd.y],
+            {
+              stroke: "#1C2E47",
+              strokeWidth: 2,
+              selectable: false,
+              evented: false,
+              opacity: 0.85,
+            },
+          );
+          const nLabel = new F.Text("N", {
+            left: n.label.x,
+            top: n.label.y,
+            fontSize: 11,
+            fontWeight: "bold",
+            fill: "#1C2E47",
+            originX: "center",
+            originY: "bottom",
+            selectable: false,
+            evented: false,
+            opacity: 0.9,
+          });
+          for (const part of [arrow, stem, nLabel]) {
+            (part as { data?: unknown }).data = { type: PLAN_CHROME_TYPE };
+            c.add(part);
+          }
+          if (layout.scale) {
+            const s = layout.scale;
+            const bar = new F.Line(
+              [s.x, s.y, s.x + s.barLengthPx, s.y],
+              {
+                stroke: "#1C2E47",
+                strokeWidth: 2,
+                selectable: false,
+                evented: false,
+                opacity: 0.85,
+              },
+            );
+            (bar as { data?: unknown }).data = { type: PLAN_CHROME_TYPE };
+            c.add(bar);
+            for (const t of s.ticks) {
+              const tx = s.x + t * s.barLengthPx;
+              const tick = new F.Line([tx, s.y - 4, tx, s.y + 4], {
+                stroke: "#1C2E47",
+                strokeWidth: 1.5,
+                selectable: false,
+                evented: false,
+                opacity: 0.85,
+              });
+              (tick as { data?: unknown }).data = { type: PLAN_CHROME_TYPE };
+              c.add(tick);
+            }
+            const sLabel = new F.Text(s.label, {
+              left: s.x + s.barLengthPx / 2,
+              top: s.y + 8,
+              fontSize: 10,
+              fill: "#1C2E47",
+              originX: "center",
+              originY: "top",
+              selectable: false,
+              evented: false,
+              opacity: 0.9,
+            });
+            (sLabel as { data?: unknown }).data = { type: PLAN_CHROME_TYPE };
+            c.add(sLabel);
+          }
+          c.renderAll();
+        };
+
         const addToolObject = (d: ReturnType<typeof describeToolObject>) => {
           if (!d) return;
           const obj = materialize(d);
@@ -1897,9 +2219,69 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           const tool = toolModeRef.current;
           if (readonly || e.altKey) return;
 
-          // P1: tap an edge dim label → inline numeric edit (not panel-only).
-          const dimTarget = (opt as { target?: { data?: Record<string, unknown>; left?: number; top?: number; text?: string } })
+          // P1/P2: tap an edge dim label → inline numeric edit (manual hit-test
+          // so room polygons don't steal the click from non-selectable dims).
+          const p0 = scenePoint(e);
+          const dimCandidates: DimLabelHitCandidate[] = (
+            canvas as unknown as { getObjects: () => unknown[] }
+          )
+            .getObjects()
+            .map((o) => {
+              const obj = o as {
+                left?: number;
+                top?: number;
+                text?: string;
+                data?: DimLabelHitCandidate["data"];
+              };
+              return {
+                left: obj.left ?? 0,
+                top: obj.top ?? 0,
+                text: obj.text,
+                data: obj.data,
+              };
+            });
+          const hitDim = findNearestDimLabel(p0, dimCandidates, 28);
+          const dimTarget = hitDim
+            ? {
+                data: hitDim.data,
+                left: hitDim.left,
+                top: hitDim.top,
+                text: hitDim.text,
+              }
+            : (opt as { target?: { data?: Record<string, unknown>; left?: number; top?: number; text?: string } })
+                ?.target;
+
+          // Short-dim Measure CTA — place a measurement line along the stub edge.
+          const ctaTarget = (opt as { target?: { data?: Record<string, unknown> } })
             ?.target;
+          const ctaData =
+            ctaTarget?.data?.type === SHORT_DIM_CTA_TYPE
+              ? ctaTarget.data
+              : (
+                  canvas as unknown as { getObjects: () => unknown[] }
+                )
+                  .getObjects()
+                  .map((o) => (o as { left?: number; top?: number; data?: Record<string, unknown> }))
+                  .find(
+                    (c) =>
+                      c.data?.type === SHORT_DIM_CTA_TYPE &&
+                      Math.hypot((c.left ?? 0) - p0.x, (c.top ?? 0) - p0.y) <=
+                        18,
+                  )?.data;
+          if (tool === "select" && ctaData && typeof ctaData.ax === "number") {
+            addToolObject(
+              describeToolObject({
+                tool: "measure",
+                points: [
+                  { x: ctaData.ax as number, y: ctaData.ay as number },
+                  { x: ctaData.bx as number, y: ctaData.by as number },
+                ],
+                pxPerMetre: pxPerMetreRef.current,
+              }),
+            );
+            return;
+          }
+
           if (
             tool === "select" &&
             dimTarget?.data?.type === "dim-label" &&
@@ -1990,13 +2372,15 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
                     // Refresh room edge dims
                     const stale = c
                       .getObjects()
-                      .filter(
-                        (o) =>
-                          (o as { data?: { type?: string; dimFor?: string } })
-                            .data?.type === "dim-label" &&
-                          (o as { data?: { dimFor?: string } }).data?.dimFor ===
-                            dimFor,
-                      );
+                      .filter((o) => {
+                        const d = (o as { data?: { type?: string; dimFor?: string; roomId?: string } })
+                          .data;
+                        if (!d) return false;
+                        if (d.type === "dim-label" && d.dimFor === dimFor) return true;
+                        if (d.type === SHORT_DIM_CTA_TYPE && d.roomId === dimFor)
+                          return true;
+                        return false;
+                      });
                     if (stale.length) c.remove(...stale);
                     addRoomEdgeDimLabels(next, dimFor);
                     syncRoomLabel(room);
@@ -2074,9 +2458,23 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             return;
           const p = scenePoint(e);
           if (tool === "equipment") {
+            const rooms: { id: string; points: Point[] }[] = [];
+            for (const o of (
+              canvas as unknown as { getObjects: () => unknown[] }
+            ).getObjects()) {
+              const d = (o as { data?: Record<string, unknown> }).data;
+              if (!d || d.type !== "room" || typeof d.id !== "string") continue;
+              const pts = polygonAbsolutePoints(o);
+              if (pts && pts.length >= 3) rooms.push({ id: d.id, points: pts });
+            }
+            const snapped = snapEquipmentPlacement(
+              p,
+              rooms,
+              pxPerMetreRef.current,
+            );
             const desc = describeEquipmentSymbol({
-              x: p.x,
-              y: p.y,
+              x: snapped.x,
+              y: snapped.y,
               equipmentKind: equipmentKindRef.current,
               pxPerMetre: pxPerMetreRef.current,
             });
@@ -2114,7 +2512,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           // RA-6841 [A2]: Door + window are single-click placement tools.
           // The click is snapped to the nearest wall segment; the wall is
           // passed as `wallSegment` so the pure factory can compute the cut.
-          if (tool === "door" || tool === "window") {
+          if (tool === "door" || tool === "window" || tool === "missing") {
             const walls = collectWalls();
             const snapped = snapToNearestWall(
               p,
@@ -2125,15 +2523,43 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               ? hostWall.seg
               : { a: { x: p.x - 41, y: p.y }, b: { x: p.x + 41, y: p.y } };
             const anchor = snapped ? snapped.anchor : p;
-            // RA-6980 [A2b]: bind the opening to the wall it snapped to so it
-            // re-anchors when that wall later moves.
             const hostWallId = hostWall?.wallId;
             if (!hostWallId) {
-              // Soft guard: openings should bind to a wall/room edge. Still allow
-              // placement for empty canvases, but toast via console for field ops.
               console.warn(
-                "SketchCanvas: door/window placed without a host wall — draw a room first",
+                "SketchCanvas: opening placed without a host wall — draw a room first",
               );
+            }
+            let hostThicknessPx = wallThicknessPx(
+              undefined,
+              pxPerMetreRef.current,
+            );
+            if (hostWallId) {
+              for (const o of (
+                canvas as unknown as { getObjects: () => unknown[] }
+              ).getObjects()) {
+                const d = (o as { data?: Record<string, unknown> }).data;
+                if (!d) continue;
+                if (d.type === "wall" && d.wallId === hostWallId) {
+                  hostThicknessPx = wallThicknessPx(
+                    readWallThicknessM(d),
+                    pxPerMetreRef.current,
+                  );
+                  break;
+                }
+                if (d.type === "room" && typeof d.id === "string") {
+                  const edges = roomEdgeHostSegments(
+                    d.id,
+                    polygonAbsolutePoints(o) ?? [],
+                  );
+                  if (edges.some((edge) => edge.wallId === hostWallId)) {
+                    hostThicknessPx = wallThicknessPx(
+                      readWallThicknessM(d),
+                      pxPerMetreRef.current,
+                    );
+                    break;
+                  }
+                }
+              }
             }
             addToolObject(
               describeToolObject({
@@ -2141,7 +2567,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
                 points: [anchor],
                 pxPerMetre: pxPerMetreRef.current,
                 wallSegment: wallSeg,
-                wallThicknessPx: pxPerMetreRef.current * 0.11,
+                wallThicknessPx: hostThicknessPx,
                 hostWallId,
               }),
             );
@@ -2376,10 +2802,19 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           // Skip if the changed object is a decoration (dim-label / room-label)
           const target = (opt as { target?: { data?: { type?: string } } } | undefined)?.target;
           const ttype = target?.data?.type;
-          if (ttype === "dim-label" || ttype === "room-label" || ttype === "guide")
+          if (
+            ttype === "dim-label" ||
+            ttype === "room-label" ||
+            ttype === "guide" ||
+            ttype === PLAN_CHROME_TYPE ||
+            ttype === SHORT_DIM_CTA_TYPE ||
+            ttype === "adjacency-join" ||
+            ttype === "wall-band"
+          )
             return;
           isRefreshingFootprint = true;
           refreshFootprintDimensions();
+          refreshPlanChrome();
           isRefreshingFootprint = false;
         };
         canvas.on("object:added", refreshFootprintOnChange);
@@ -2459,6 +2894,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             await canvas.loadFromJSON(bootstrap);
             refreshDamageRoomClips();
             refreshWallBands();
+            refreshPlanChrome();
             canvas.renderAll();
           } catch (e) {
             console.error("SketchCanvas: initialData restore failed", e);
@@ -2581,7 +3017,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       canvas.defaultCursor =
         toolMode === "pan"
           ? "grab"
-          : toolMode === "equipment" || toolMode === "door" || toolMode === "window"
+          : toolMode === "equipment" ||
+              toolMode === "door" ||
+              toolMode === "window" ||
+              toolMode === "missing"
             ? "crosshair"
             : brushMode
               ? "crosshair"

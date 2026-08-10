@@ -491,6 +491,29 @@ clipRoomPoints?: ReadonlyArray<{ x: number; y: number }> | null;
 
 ---
 
+## P2 — Next-level polish (2026-08-10)
+
+Focused UX depth after P0/P1. Inspiration only — no Encircle UI/brand clone; no fake ESX/FML; no video-scan SLA.
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Missing-wall / pass-through opening (`openingKind: "missing"`) + rematerialize | [x] |
+| 2 | Wall thickness control (panel → stroke / rematerialize) | [x] |
+| 3 | Adjacency snap polish (threshold + brighter green join) | [x] |
+| 4 | On-canvas dim edit hit-test polish + dimLocked | [x] |
+| 5 | Short-dim → Measure CTA (`+ meas`) | [x] |
+| 6 | On-canvas north arrow + scale bar chrome | [x] |
+| 7 | Equipment room/wall snap + clearer labels | [x] |
+| 8 | Ceiling height on room (panel) | [x] |
+| 9 | Flip/rotate toast for L/T templates | [x] |
+| 10 | This P2 section | [x] |
+
+**Key libs:** `wall-thickness.ts`, `equipment-placement.ts`, `canvas-plan-chrome.ts`, `short-dim-affordance.ts`, `dim-label-hit.ts`
+
+**Deferred:** video-scan cloud SLA, ESX/FML, Bluetooth laser, full CAD depth.
+
+---
+
 ## Verification Checklist
 
 ### P0 — Quick / Advanced

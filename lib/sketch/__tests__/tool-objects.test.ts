@@ -258,3 +258,22 @@ describe("geometry helpers", () => {
     expect(formatMetres(2.5)).toBe("2.50 m");
   });
 });
+
+describe("describeToolObject — missing wall opening", () => {
+  it("punches a pass-through gap with jamb props and openingKind missing", () => {
+    const d = describeToolObject({
+      tool: "missing",
+      points: [{ x: 250, y: 100 }],
+      wallSegment: { a: { x: 0, y: 100 }, b: { x: 500, y: 100 } },
+      openingWidthM: 0.9,
+      hostWallId: "wall-1",
+    });
+    expect(d?.kind).toBe("missing-opening");
+    expect(d?.data.openingKind).toBe("missing");
+    expect(d?.data.type).toBe("opening");
+    expect(d?.data.widthM).toBe(0.9);
+    expect(d?.data.hostWallId).toBe("wall-1");
+    expect(d?.props.cutStart).toBeDefined();
+    expect(d?.props.cutEnd).toBeDefined();
+  });
+});

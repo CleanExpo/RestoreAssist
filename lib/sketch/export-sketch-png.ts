@@ -78,7 +78,13 @@ function hideExportChrome(objects: ExportBoundObject[]): ChromeSnapshot[] {
   const snapped: ChromeSnapshot[] = [];
   for (const obj of objects) {
     const t = obj.data?.type;
-    if (t === "guide" || t === "opening-handle") {
+    if (
+      t === "guide" ||
+      t === "opening-handle" ||
+      t === "plan-chrome" ||
+      t === "adjacency-join" ||
+      t === "short-dim-cta"
+    ) {
       snapped.push({ obj, visible: obj.visible !== false });
       obj.visible = false;
     }

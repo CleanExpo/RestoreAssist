@@ -97,7 +97,9 @@ export function footprintAbsolutePoints(objects: unknown[]): Point[] {
       d.type === "photo" ||
       d.type === "guide" ||
       d.type === "wall-band" ||
-      d.type === "adjacency-join"
+      d.type === "adjacency-join" ||
+      d.type === "plan-chrome" ||
+      d.type === "short-dim-cta"
     )
       continue;
     // Polygon rooms: extract absolute points (account for move/scale/rotate)

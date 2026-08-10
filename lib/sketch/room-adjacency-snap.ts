@@ -26,8 +26,11 @@ export interface AdjacencySnapResult {
   join: { a: Point; b: Point } | null;
 }
 
-/** Default snap distance in canvas pixels (~grid / endpoint snap). */
-export const ADJACENCY_SNAP_PX = 12;
+/** Default snap distance in canvas pixels — generous enough for field drag. */
+export const ADJACENCY_SNAP_PX = 18;
+
+/** Minimum overlapping shared-edge length (px) before the green join cue fires. */
+export const ADJACENCY_MIN_JOIN_PX = 24;
 
 type Axis = "h" | "v";
 
@@ -95,7 +98,7 @@ export function findRoomAdjacencySnap(
         const dx = sx - mx;
         if (Math.abs(dx) > thresholdPx) continue;
         const ov = overlap1d(m.a.y, m.b.y, s.a.y, s.b.y);
-        if (!ov) continue;
+        if (!ov || ov.hi - ov.lo < ADJACENCY_MIN_JOIN_PX) continue;
         const score = Math.abs(dx);
         if (!best || score < best.score) {
           best = {
@@ -112,7 +115,7 @@ export function findRoomAdjacencySnap(
         const dy = sy - my;
         if (Math.abs(dy) > thresholdPx) continue;
         const ov = overlap1d(m.a.x, m.b.x, s.a.x, s.b.x);
-        if (!ov) continue;
+        if (!ov || ov.hi - ov.lo < ADJACENCY_MIN_JOIN_PX) continue;
         const score = Math.abs(dy);
         if (!best || score < best.score) {
           best = {

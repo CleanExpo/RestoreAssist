@@ -75,8 +75,12 @@ export interface SelectedObject {
   widthM?: number;
   /** magicplan-style dimension lock — typed dims survive later nudges. */
   dimLocked?: boolean;
-  /** Door / window when type === "opening". */
-  openingKind?: "door" | "window";
+  /** Door / window / missing when type === "opening". */
+  openingKind?: "door" | "window" | "missing";
+  /** Wall stroke thickness in metres (rooms / walls). */
+  wallThicknessM?: number;
+  /** Room ceiling height in metres. */
+  ceilingHeightM?: number;
 }
 
 export interface MaterialOption {
@@ -120,6 +124,10 @@ export interface SketchSelectionPanelProps {
   ) => void;
   /** Toggle dimension lock (magicplan assemble-safe measurements). */
   onDimLockChange?: (id: string, locked: boolean) => void;
+  /** Wall thickness (metres) for room/wall stroke + rematerialize bands. */
+  onWallThicknessChange?: (id: string, metres: number) => void;
+  /** Room ceiling height (metres). */
+  onCeilingHeightChange?: (id: string, metres: number) => void;
   /** Enter room-scoped moisture map (crop guides + pins). */
   onMapRoomMoisture?: (id: string) => void;
   onDelete?: (id: string) => void;
@@ -145,6 +153,8 @@ export function SketchSelectionPanel({
   onExcludeRoomPlan,
   onDimensionsChange,
   onDimLockChange,
+  onWallThicknessChange,
+  onCeilingHeightChange,
   onMapRoomMoisture,
   onDelete,
   onDeselect,
@@ -204,7 +214,9 @@ export function SketchSelectionPanel({
                 : isOpening
                   ? selected.openingKind === "window"
                     ? "Window"
-                    : "Door"
+                    : selected.openingKind === "missing"
+                      ? "Missing wall"
+                      : "Door"
                   : "Object"}
         </span>
         <button
@@ -434,6 +446,90 @@ export function SketchSelectionPanel({
             Tip: type metres or feet-inches (12&apos;8&quot;). Lock before
             nudging nearby rooms.
           </p>
+        </div>
+      )}
+
+      {/* Wall thickness (rooms + walls) — rematerialize stroke width */}
+      {(isRoom || isLine) && (
+        <div>
+          <label className="block text-xs text-white/50 mb-1">
+            Wall thickness (m)
+          </label>
+          <input
+            key={`thick-${selected.id}-${selected.wallThicknessM ?? ""}`}
+            type="text"
+            inputMode="decimal"
+            defaultValue={
+              selected.wallThicknessM != null
+                ? String(selected.wallThicknessM)
+                : "0.11"
+            }
+            onBlur={(e) => {
+              const parsed = parseMetresInput(e.target.value);
+              if (parsed === null || parsed <= 0) {
+                toast.error("Enter thickness in metres (e.g. 0.11)");
+                return;
+              }
+              onWallThicknessChange?.(selected.id, parsed);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const parsed = parseMetresInput(
+                  (e.target as HTMLInputElement).value,
+                );
+                if (parsed === null || parsed <= 0) {
+                  toast.error("Enter thickness in metres (e.g. 0.11)");
+                  return;
+                }
+                onWallThicknessChange?.(selected.id, parsed);
+              }
+            }}
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            aria-label="Wall thickness in metres"
+          />
+        </div>
+      )}
+
+      {isRoom && (
+        <div>
+          <label className="block text-xs text-white/50 mb-1">
+            Ceiling height (m)
+          </label>
+          <input
+            key={`ceil-${selected.id}-${selected.ceilingHeightM ?? ""}`}
+            type="text"
+            inputMode="decimal"
+            defaultValue={
+              selected.ceilingHeightM != null
+                ? String(selected.ceilingHeightM)
+                : ""
+            }
+            onBlur={(e) => {
+              const raw = e.target.value.trim();
+              if (!raw) return;
+              const parsed = parseMetresInput(raw);
+              if (parsed === null || parsed <= 0) {
+                toast.error("Enter ceiling height in metres (e.g. 2.7)");
+                return;
+              }
+              onCeilingHeightChange?.(selected.id, parsed);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const raw = (e.target as HTMLInputElement).value.trim();
+                if (!raw) return;
+                const parsed = parseMetresInput(raw);
+                if (parsed === null || parsed <= 0) {
+                  toast.error("Enter ceiling height in metres (e.g. 2.7)");
+                  return;
+                }
+                onCeilingHeightChange?.(selected.id, parsed);
+              }
+            }}
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            placeholder="e.g. 2.7"
+            aria-label="Ceiling height in metres"
+          />
         </div>
       )}
 

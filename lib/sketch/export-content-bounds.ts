@@ -11,6 +11,9 @@
 const EXPORT_EXCLUDE_TYPES = new Set([
   "guide",
   "opening-handle",
+  "plan-chrome",
+  "adjacency-join",
+  "short-dim-cta",
 ]);
 
 export interface ExportBoundObject {

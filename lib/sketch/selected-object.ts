@@ -40,8 +40,14 @@ export function fabricObjectToSelected(
     widthM: typeof data.widthM === "number" ? data.widthM : undefined,
     dimLocked: data.dimLocked === true,
     openingKind:
-      data.openingKind === "door" || data.openingKind === "window"
+      data.openingKind === "door" ||
+      data.openingKind === "window" ||
+      data.openingKind === "missing"
         ? data.openingKind
         : undefined,
+    wallThicknessM:
+      typeof data.wallThicknessM === "number" ? data.wallThicknessM : undefined,
+    ceilingHeightM:
+      typeof data.ceilingHeightM === "number" ? data.ceilingHeightM : undefined,
   };
 }

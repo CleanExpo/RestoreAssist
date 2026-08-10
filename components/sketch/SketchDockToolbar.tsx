@@ -37,6 +37,7 @@ import {
   Waves,
   Scan,
   Fan,
+  PanelLeftOpen,
 } from "lucide-react";
 import type { ToolMode } from "./SketchCanvas";
 import type { DamageKind } from "@/lib/sketch/damage-zone";
@@ -111,6 +112,12 @@ const TOOLS: {
   { mode: "line", Icon: Minus, label: "Wall", shortcut: "L" },
   { mode: "door", Icon: DoorOpen, label: "Door", shortcut: "O" },
   { mode: "window", Icon: AppWindow, label: "Window", shortcut: "W" },
+  {
+    mode: "missing",
+    Icon: PanelLeftOpen,
+    label: "Missing wall",
+    shortcut: "K",
+  },
   {
     mode: "damage",
     Icon: Waves,
