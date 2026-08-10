@@ -22,6 +22,7 @@ import {
   buildEvidenceFormData,
   captureEvidencePhoto,
   evidenceIdempotencyKey,
+  evidencePhotoFromFile,
   sha256Bytes,
 } from "../ios-capture";
 
@@ -185,5 +186,26 @@ describe("captureEvidencePhoto", () => {
     expect(result.manifest.lat).toBe(-33.8688);
     expect(result.manifest.lng).toBe(151.2093);
     expect(result.mimeType).toBe("image/jpeg");
+  });
+});
+
+describe("evidencePhotoFromFile (web guided capture)", () => {
+  it("hashes the same bytes the multipart upload will send", async () => {
+    const file = new File([FIXTURE_BYTES], "site.jpg", { type: "image/jpeg" });
+    const result = await evidencePhotoFromFile(file);
+    expect(result.manifest.sha256).toBe(EXPECTED_SHA256);
+    expect(result.filename).toBe("site.jpg");
+    expect(result.mimeType).toBe("image/jpeg");
+
+    const form = buildEvidenceFormData(
+      result,
+      {
+        workflowStepId: "step1",
+        evidenceClass: "PHOTO_DAMAGE",
+        deviceType: "WEB_BROWSER",
+      },
+    );
+    expect(form.get("deviceType")).toBe("WEB_BROWSER");
+    expect(form.get("sha256")).toBe(EXPECTED_SHA256);
   });
 });
