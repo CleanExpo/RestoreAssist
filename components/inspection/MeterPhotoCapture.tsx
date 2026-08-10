@@ -129,16 +129,44 @@ function Field({
   );
 }
 
+/** Persist the meter photo to Cloudinary so OCR evidence is not metadata-only. */
+async function uploadMeterPhoto(
+  inspectionId: string,
+  file: File | null,
+  location: string,
+  caption: string,
+) {
+  if (!file) return;
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("location", location);
+    formData.append("caption", caption);
+    formData.append("photoStage", "DURING_WORK");
+    const res = await fetch(`/api/inspections/${inspectionId}/photos`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) {
+      console.warn("[MeterPhotoCapture] photo upload failed", res.status);
+    }
+  } catch (err) {
+    console.warn("[MeterPhotoCapture] photo upload error", err);
+  }
+}
+
 // ── Moisture confirm form ─────────────────────────────────────────────────────
 
 function MoistureConfirm({
   extraction,
   inspectionId,
+  file,
   onSaved,
   onCancel,
 }: {
   extraction: Extract<OcrExtraction, { type: "moisture" }>;
   inspectionId: string;
+  file: File | null;
   onSaved: () => void;
   onCancel: () => void;
 }) {
@@ -176,6 +204,12 @@ function MoistureConfirm({
       });
 
       if (res.ok) {
+        await uploadMeterPhoto(
+          inspectionId,
+          file,
+          location,
+          `Moisture meter OCR — ${val}% (${surfaceType || "unknown"})`,
+        );
         void fireHaptic("success");
         toast.success("Moisture reading saved");
         onSaved();
@@ -263,11 +297,13 @@ function MoistureConfirm({
 function EnvironmentalConfirm({
   extraction,
   inspectionId,
+  file,
   onSaved,
   onCancel,
 }: {
   extraction: Extract<OcrExtraction, { type: "environmental" }>;
   inspectionId: string;
+  file: File | null;
   onSaved: () => void;
   onCancel: () => void;
 }) {
@@ -314,6 +350,12 @@ function EnvironmentalConfirm({
       );
 
       if (res.ok) {
+        await uploadMeterPhoto(
+          inspectionId,
+          file,
+          "Ambient conditions",
+          `Thermo-hygrometer OCR — ${temp || "?"}°C / ${rh || "?"}% RH`,
+        );
         void fireHaptic("success");
         toast.success("Environmental data applied to inspection");
         onSaved();
@@ -766,6 +808,7 @@ export function MeterPhotoCapture({
             <MoistureConfirm
               extraction={extraction}
               inspectionId={inspectionId}
+              file={file}
               onSaved={handleSaved}
               onCancel={reset}
             />
@@ -774,6 +817,7 @@ export function MeterPhotoCapture({
             <EnvironmentalConfirm
               extraction={extraction}
               inspectionId={inspectionId}
+              file={file}
               onSaved={handleSaved}
               onCancel={reset}
             />
