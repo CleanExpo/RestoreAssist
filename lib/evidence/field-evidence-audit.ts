@@ -231,6 +231,9 @@ export function buildFieldEvidenceChecklist(
     affectedAreas.map((area) => normalizeTag(area.roomZoneId)),
   );
 
+  // Deduplicate by normalised room label — duplicate AffectedArea rows for
+  // the same zone (common after re-imports) must not inflate the gap list.
+  const seenAreaGapKeys = new Set<string>();
   const gapsByAffectedArea: AffectedAreaEvidenceGap[] = [];
   for (const area of affectedAreas) {
     const key = normalizeTag(area.roomZoneId);
@@ -247,6 +250,8 @@ export function buildFieldEvidenceChecklist(
       ).length;
 
     if (evidenceCount === 0) {
+      if (seenAreaGapKeys.has(key)) continue;
+      seenAreaGapKeys.add(key);
       gapsByAffectedArea.push({ roomZoneId: area.roomZoneId, evidenceCount: 0 });
     }
   }

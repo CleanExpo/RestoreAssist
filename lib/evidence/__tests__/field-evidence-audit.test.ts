@@ -379,6 +379,25 @@ describe("buildFieldEvidenceChecklist — affected-area linkage", () => {
     ]);
   });
 
+  it("dedupes duplicate affected-area rows that share a room label", () => {
+    const result = buildFieldEvidenceChecklist(
+      { id: "insp-dup-areas", claimType: "WATER" },
+      [makeGoodItem("PHOTO_DAMAGE", 0, { roomName: "Kitchen" })],
+      [],
+      [],
+      [
+        { roomZoneId: "3rd Floor - Office Area" },
+        { roomZoneId: "3rd Floor - Office Area" },
+        { roomZoneId: " 3rd Floor - Office Area " },
+        { roomZoneId: "Kitchen" },
+      ],
+    );
+
+    expect(result.gapsByAffectedArea).toEqual([
+      { roomZoneId: "3rd Floor - Office Area", evidenceCount: 0 },
+    ]);
+  });
+
   it("throws for a claimType that doesn't map to a known workflow job type", () => {
     expect(() =>
       buildFieldEvidenceChecklist(

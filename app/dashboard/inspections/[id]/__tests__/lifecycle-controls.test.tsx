@@ -12,7 +12,9 @@ describe("inspection lifecycle controls", () => {
     expect(source).toMatch(
       /const canSignOff =\s*\["ESTIMATED", "COMPLETED", "SUBMITTED"\]\.includes\(\s*inspection\.status,?\s*\)/,
     );
-    expect(source).toMatch(/\{canSignOff && \(\s*<InspectionSignOff/);
+    expect(source).toMatch(
+      /\{canSignOff && \(\s*<div[\s\S]*?<InspectionSignOff/,
+    );
   });
 
   it("only exposes invoice generation after sign-off or while already billing", () => {

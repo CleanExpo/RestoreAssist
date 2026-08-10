@@ -75,19 +75,11 @@ const AutoClassifyPanel = dynamic(
   () => import("@/components/inspection/AutoClassifyPanel"),
   { ssr: false },
 );
-const InspectionSignOff = dynamic(
-  () => import("@/components/inspection/InspectionSignOff"),
-  { ssr: false },
-);
-// RA-5039 PR2 — informational field evidence checklist, surfaced before the
-// "Generate NIR Report" action. Never gates generation or sign-off.
-const FieldEvidenceChecklistPanel = dynamic(
-  () =>
-    import("@/components/inspections/field-evidence-checklist-panel").then(
-      (mod) => mod.FieldEvidenceChecklistPanel,
-    ),
-  { ssr: false },
-);
+// Keep sign-off + checklist as static imports — next/dynamic for these
+// chunks has been failing under Turbopack ("chunk path empty"), which
+// silently drops the completion UI when canSignOff is true.
+import InspectionSignOff from "@/components/inspection/InspectionSignOff";
+import { FieldEvidenceChecklistPanel } from "@/components/inspections/field-evidence-checklist-panel";
 // SP-A — close-job Sidekick card. Mounts conditional on IN_BILLING status
 // (or once-closed render of the locked terminal card via `completedAt`).
 const CloseJobPrompt = dynamic(
@@ -364,6 +356,31 @@ export default function InspectionDetailPage({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+
+  // Deep-link from field evidence checklist: ?tab=areas (etc.)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const tabParam = new URLSearchParams(window.location.search).get("tab");
+    if (!tabParam) return;
+    const allowed: Tab[] = [
+      "overview",
+      "environmental",
+      "moisture",
+      "moisture-map",
+      "sketch",
+      "areas",
+      "classification",
+      "scope",
+      "costs",
+      "photos",
+      "activity",
+      "insurer",
+      "live-teacher",
+    ];
+    if (allowed.includes(tabParam as Tab)) {
+      setActiveTab(tabParam as Tab);
+    }
+  }, []);
 
   // Wave 3 — leave moisture tabs if claim type is not water.
   useEffect(() => {
@@ -1214,22 +1231,19 @@ export default function InspectionDetailPage({
         onSelectTab={(tab) => setActiveTab(tab as InspectionEvidenceTab)}
       />
 
-      {/* Sign-off stays visible from review-ready work through the signed
-          SUBMITTED state so the user sees confirmation before invoicing. */}
+      {/* Sign-off is the primary action; the field evidence checklist is
+          secondary guidance and never gates sign-off or report generation. */}
       {canSignOff && (
-        <InspectionSignOff
-          inspectionId={inspection.id}
-          inspectionNumber={inspection.inspectionNumber}
-          signedAt={inspection.signedAt}
-          signedByName={inspection.signedByName}
-          onSigned={() => fetchInspection()}
-        />
-      )}
-
-      {/* RA-5039 PR2 — field evidence checklist, ahead of "Generate NIR
-          Report" above. Informational only. */}
-      {canSignOff && (
-        <FieldEvidenceChecklistPanel inspectionId={inspection.id} />
+        <div className="space-y-3" aria-label="Inspection completion">
+          <InspectionSignOff
+            inspectionId={inspection.id}
+            inspectionNumber={inspection.inspectionNumber}
+            signedAt={inspection.signedAt}
+            signedByName={inspection.signedByName}
+            onSigned={() => fetchInspection()}
+          />
+          <FieldEvidenceChecklistPanel inspectionId={inspection.id} />
+        </div>
       )}
 
       {/* SP-A close-job Sidekick card. Renders while the inspection is in

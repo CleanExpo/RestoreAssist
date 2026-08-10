@@ -279,12 +279,25 @@ export default function CaptureWorkflowPage({
         setWorkflow(wfData.workflow);
         setEvidenceItems(wfData.workflow.evidenceItems || []);
         setSetupMode(false);
-        // Set active step to current step
-        const currentIdx = wfData.workflow.steps.findIndex(
-          (s: WorkflowStep) =>
-            s.status === "IN_PROGRESS" || s.status === "NOT_STARTED",
-        );
-        setActiveStepIndex(currentIdx >= 0 ? currentIdx : 0);
+        // Deep-link from field evidence checklist: ?step=<stepKey>
+        const stepParam =
+          typeof window !== "undefined"
+            ? new URLSearchParams(window.location.search).get("step")
+            : null;
+        const deepLinkIdx = stepParam
+          ? wfData.workflow.steps.findIndex(
+              (s: WorkflowStep) => s.stepKey === stepParam,
+            )
+          : -1;
+        if (deepLinkIdx >= 0) {
+          setActiveStepIndex(deepLinkIdx);
+        } else {
+          const currentIdx = wfData.workflow.steps.findIndex(
+            (s: WorkflowStep) =>
+              s.status === "IN_PROGRESS" || s.status === "NOT_STARTED",
+          );
+          setActiveStepIndex(currentIdx >= 0 ? currentIdx : 0);
+        }
       } else {
         setSetupMode(true);
       }

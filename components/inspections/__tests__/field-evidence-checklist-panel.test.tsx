@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
-// RA-5039 PR2: informational field evidence checklist panel — renders the
-// FieldEvidenceChecklist (RA-5039 PR1 contract) sectioned by severity, and
-// never gates submit/generate actions (read-only AC).
+// RA-5039 PR2: informational field evidence checklist panel — progress-first,
+// collapsible sections, never gates submit/generate (read-only AC).
 import "@testing-library/jest-dom/vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { FieldEvidenceChecklistPanel } from "../field-evidence-checklist-panel";
 import type { FieldEvidenceChecklist } from "@/lib/evidence/field-evidence-checklist";
@@ -59,7 +58,10 @@ const CHECKLIST_WITH_GAPS: FieldEvidenceChecklist = {
     ],
   },
   gapsByEvidenceClass: {},
-  gapsByAffectedArea: [{ roomZoneId: "Bathroom", evidenceCount: 0 }],
+  gapsByAffectedArea: [
+    { roomZoneId: "Bathroom", evidenceCount: 0 },
+    { roomZoneId: "Bathroom", evidenceCount: 0 },
+  ],
   unlinkedEvidence: ["Laundry Nook"],
 };
 
@@ -125,28 +127,52 @@ describe("FieldEvidenceChecklistPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the three severity sections plus area gaps and unlinked evidence", async () => {
+  it("shows progress summary first and opens required gaps by default", async () => {
     mockFetchOk(CHECKLIST_WITH_GAPS);
     render(<FieldEvidenceChecklistPanel inspectionId="insp-1" />);
 
     await waitFor(() =>
-      expect(screen.getByText(/required — missing/i)).toBeInTheDocument(),
+      expect(screen.getByText(/required gaps/i)).toBeInTheDocument(),
     );
-    expect(screen.getByText(/recommended — missing/i)).toBeInTheDocument();
-    expect(screen.getByText(/weak \(qa score < 70\)/i)).toBeInTheDocument();
+
+    expect(screen.getByText(/optional completeness check/i)).toBeInTheDocument();
+    expect(screen.getByText(/0\/2 complete/i)).toBeInTheDocument();
+    expect(screen.getByText(/0\/1 complete/i)).toBeInTheDocument();
     expect(screen.getByText("Moisture Reading")).toBeInTheDocument();
-    expect(screen.getByText("Equipment Photo")).toBeInTheDocument();
-    expect(screen.getByText("Ambient Environmental Reading")).toBeInTheDocument();
-
     expect(
-      screen.getByText(/affected areas with no evidence/i),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Bathroom")).toBeInTheDocument();
+      screen.getByRole("link", { name: /capture moisture reading/i }),
+    ).toHaveAttribute(
+      "href",
+      "/dashboard/inspections/insp-1/capture?step=moisture-survey",
+    );
+  });
 
+  it("dedupes duplicate area gaps and keeps recommended section collapsed when required gaps exist", async () => {
+    mockFetchOk(CHECKLIST_WITH_GAPS);
+    render(<FieldEvidenceChecklistPanel inspectionId="insp-1" />);
+
+    await waitFor(() =>
+      expect(screen.getByText(/areas with no evidence/i)).toBeInTheDocument(),
+    );
+
+    // Recommended gaps exist but start collapsed while required gaps are open.
     expect(
-      screen.getByText(/evidence tagged to unrecognised rooms/i),
+      screen.queryByText("Ambient Environmental Reading"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /recommended gaps/i }));
+    expect(
+      screen.getByText("Ambient Environmental Reading"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Laundry Nook")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /areas with no evidence/i }),
+    );
+    const areaSection = screen
+      .getByRole("button", { name: /areas with no evidence/i })
+      .closest("div");
+    expect(areaSection).not.toBeNull();
+    expect(within(areaSection!).getAllByText("Bathroom")).toHaveLength(1);
   });
 
   it("renders a single all-complete message when there are no gaps", async () => {
@@ -158,8 +184,8 @@ describe("FieldEvidenceChecklistPanel", () => {
         screen.getByText(/all required and recommended field evidence/i),
       ).toBeInTheDocument(),
     );
-    expect(screen.queryByText(/required — missing/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/weak \(qa score < 70\)/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/required gaps/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/weak qa/i)).not.toBeInTheDocument();
   });
 
   it("never renders disabled or gating controls — informational only per the read-only AC", async () => {
@@ -168,11 +194,9 @@ describe("FieldEvidenceChecklistPanel", () => {
       <FieldEvidenceChecklistPanel inspectionId="insp-1" />,
     );
     await waitFor(() =>
-      expect(screen.getByText(/required — missing/i)).toBeInTheDocument(),
+      expect(screen.getByText(/required gaps/i)).toBeInTheDocument(),
     );
 
-    // The panel has no submit/generate button of its own, and renders no
-    // disabled controls — it must never gate the neighbouring hard gates.
     const disabledButtons = container.querySelectorAll("button[disabled]");
     expect(disabledButtons.length).toBe(0);
     expect(

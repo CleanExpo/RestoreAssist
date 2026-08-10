@@ -171,19 +171,30 @@ export default function InspectionSignOff({
 
   return (
     <>
-      <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 space-y-4">
-        <div className="flex items-center gap-2">
-          <PenLine className="h-5 w-5 text-cyan-500" />
-          <h3 className="font-semibold text-neutral-900 dark:text-white">
-            Sign Off Inspection
-          </h3>
-        </div>
-
-        <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
-          <p className="text-sm text-amber-700 dark:text-amber-400">
-            By signing, you certify that inspection{" "}
-            <strong>{inspectionNumber}</strong> is complete and accurate to the
-            best of your knowledge.
+      <section
+        className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 space-y-4 shadow-sm"
+        aria-labelledby={`sign-off-heading-${inspectionId}`}
+      >
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <PenLine className="h-5 w-5 text-cyan-500" aria-hidden />
+            <h3
+              id={`sign-off-heading-${inspectionId}`}
+              className="text-base font-semibold text-neutral-900 dark:text-white"
+            >
+              Sign Off Inspection
+            </h3>
+          </div>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            Certify that inspection{" "}
+            <span className="font-medium text-neutral-800 dark:text-neutral-200">
+              {inspectionNumber}
+            </span>{" "}
+            is complete and accurate to the best of your knowledge.
+          </p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-500">
+            The field evidence checklist below is optional guidance — it does
+            not block this sign-off.
           </p>
         </div>
 
@@ -246,9 +257,9 @@ export default function InspectionSignOff({
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-1">
+        <div className="flex items-center justify-between gap-3 pt-1">
           <div className="flex items-center gap-1.5 text-xs text-neutral-400">
-            <Shield className="h-3.5 w-3.5" />
+            <Shield className="h-3.5 w-3.5" aria-hidden />
             Electronic Transactions Act 1999 (Cth)
           </div>
           {isFormUnlocked ? (
@@ -258,9 +269,9 @@ export default function InspectionSignOff({
               className="gap-2 bg-cyan-600 hover:bg-cyan-700 text-white"
             >
               {submitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               ) : (
-                <PenLine className="h-4 w-4" />
+                <PenLine className="h-4 w-4" aria-hidden />
               )}
               {submitting ? "Signing…" : "Confirm sign-off"}
             </Button>
@@ -271,15 +282,15 @@ export default function InspectionSignOff({
               className="gap-2 bg-cyan-600 hover:bg-cyan-700 text-white"
             >
               {isModal ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               ) : (
-                <PenLine className="h-4 w-4" />
+                <PenLine className="h-4 w-4" aria-hidden />
               )}
               {isModal ? "Verifying…" : "Sign Inspection"}
             </Button>
           )}
         </div>
-      </div>
+      </section>
       <EngagementLicenceModal
         open={isModal}
         onOpenChange={(open) => {
