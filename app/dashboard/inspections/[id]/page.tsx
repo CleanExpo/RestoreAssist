@@ -121,7 +121,6 @@ import {
   Save,
   FileDown,
   Building2,
-  ExternalLink,
   Mic,
   Package,
   RotateCcw,
@@ -143,6 +142,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { IICRC_CHECKLISTS } from "@/lib/iicrc-checklists";
 import { GroupReadingsPanel } from "@/components/inspection/GroupReadingsPanel";
+import { MeterPhotoCapture } from "@/components/inspection/MeterPhotoCapture";
+import { InsurerProfilePanel } from "@/components/inspection/InsurerProfilePanel";
 import Link from "next/link";
 import { isLiveTeacherEnabled } from "@/lib/live-teacher/feature-flag";
 import { VoiceAssistant } from "@/components/live-teacher/VoiceAssistant";
@@ -459,6 +460,23 @@ export default function InspectionDetailPage({
     description: "",
   });
   const [areaSubmitting, setAreaSubmitting] = useState(false);
+  const [editingAreaId, setEditingAreaId] = useState<string | null>(null);
+  const [editAreaForm, setEditAreaForm] = useState({
+    roomZoneId: "",
+    affectedAreaSqm: "",
+    waterSource: "",
+    timeSinceLoss: "",
+    description: "",
+  });
+  const [classForm, setClassForm] = useState({
+    category: "1",
+    class: "1",
+    justification: "",
+  });
+  const [savingClass, setSavingClass] = useState(false);
+  const [generatingCosts, setGeneratingCosts] = useState(false);
+  const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
+  const [photoCaptionDraft, setPhotoCaptionDraft] = useState("");
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [checklistDialogOpen, setChecklistDialogOpen] = useState(false);
   const [selectedChecklistId, setSelectedChecklistId] = useState<string>("");
@@ -520,6 +538,14 @@ export default function InspectionDetailPage({
             notes: ed.notes ?? "",
           });
         }
+        const latestClass = data.inspection.classifications?.[0];
+        if (latestClass) {
+          setClassForm({
+            category: String(latestClass.category).replace(/\D/g, "") || "1",
+            class: String(latestClass.class).replace(/\D/g, "") || "1",
+            justification: latestClass.justification ?? "",
+          });
+        }
       } else {
         toast.error("Inspection not found");
         router.push("/dashboard/inspections");
@@ -553,8 +579,203 @@ export default function InspectionDetailPage({
           prev ? { ...prev, photos: [...prev.photos, data.photo] } : prev,
         );
       }
+      toast.success("Photo(s) uploaded");
     } finally {
       setUploadingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: string) => {
+    const ok = await confirm.ask({
+      title: "Delete photo?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      const res = await fetch(
+        `/api/inspections/${inspection!.id}/photos/${photoId}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) throw new Error("Failed to delete");
+      setInspection((prev) =>
+        prev
+          ? { ...prev, photos: prev.photos.filter((p) => p.id !== photoId) }
+          : prev,
+      );
+      toast.success("Photo deleted");
+    } catch {
+      toast.error("Failed to delete photo");
+    }
+  };
+
+  const handleSavePhotoCaption = async (photoId: string) => {
+    try {
+      const res = await fetch(
+        `/api/inspections/${inspection!.id}/photos/${photoId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: photoCaptionDraft || null,
+            description: photoCaptionDraft || null,
+          }),
+        },
+      );
+      if (!res.ok) throw new Error("Failed to update");
+      const data = await res.json();
+      setInspection((prev) =>
+        prev
+          ? {
+              ...prev,
+              photos: prev.photos.map((p) =>
+                p.id === photoId ? { ...p, ...data.photo } : p,
+              ),
+            }
+          : prev,
+      );
+      setEditingPhotoId(null);
+      toast.success("Caption saved");
+    } catch {
+      toast.error("Failed to save caption");
+    }
+  };
+
+  const persistClassification = async (input: {
+    category: string;
+    class: string;
+    justification?: string;
+    confidence?: number;
+  }) => {
+    const res = await fetch(`/api/inspections/${id}/classification`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        category: String(input.category).replace(/\D/g, "").slice(0, 1) || "1",
+        class: String(input.class).replace(/\D/g, "").slice(0, 1) || "1",
+        justification: input.justification,
+        confidence: input.confidence,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(
+        data.error?.message ?? data.error ?? "Failed to save classification",
+      );
+    }
+    setInspection((prev) =>
+      prev
+        ? {
+            ...prev,
+            classifications: [
+              data.classification,
+              ...prev.classifications.filter(
+                (c) => c.id !== data.classification.id,
+              ),
+            ],
+            claimType: prev.claimType ?? "WATER",
+          }
+        : prev,
+    );
+  };
+
+  const handleSaveClassification = async () => {
+    setSavingClass(true);
+    try {
+      await persistClassification({
+        category: classForm.category,
+        class: classForm.class,
+        justification: classForm.justification || undefined,
+      });
+      toast.success("Classification saved");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to save classification",
+      );
+    } finally {
+      setSavingClass(false);
+    }
+  };
+
+  const handleGenerateCosts = async () => {
+    setGeneratingCosts(true);
+    try {
+      const res = await fetch(`/api/inspections/${id}/cost-estimates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replace: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          data.error?.message ?? data.error ?? "Failed to generate costs",
+        );
+      }
+      setInspection((prev) =>
+        prev
+          ? {
+              ...prev,
+              costEstimates: data.costEstimates,
+              status:
+                prev.status === "SCOPED" || prev.status === "CLASSIFIED"
+                  ? "ESTIMATED"
+                  : prev.status,
+            }
+          : prev,
+      );
+      toast.success(
+        `Generated ${data.costEstimates.length} cost line${data.costEstimates.length === 1 ? "" : "s"}`,
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to generate costs",
+      );
+    } finally {
+      setGeneratingCosts(false);
+    }
+  };
+
+  const handleUpdateArea = async (areaId: string) => {
+    if (!editAreaForm.roomZoneId.trim() || !editAreaForm.waterSource.trim()) {
+      toast.error("Room and water source are required");
+      return;
+    }
+    setAreaSubmitting(true);
+    try {
+      const res = await fetch(
+        `/api/inspections/${id}/affected-areas/${areaId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            roomZoneId: editAreaForm.roomZoneId,
+            affectedAreaSqm: editAreaForm.affectedAreaSqm
+              ? parseFloat(editAreaForm.affectedAreaSqm)
+              : undefined,
+            waterSource: editAreaForm.waterSource,
+            timeSinceLoss: editAreaForm.timeSinceLoss
+              ? parseFloat(editAreaForm.timeSinceLoss)
+              : null,
+            description: editAreaForm.description || null,
+          }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          data.error?.message ?? data.error ?? "Failed to update area",
+        );
+      }
+      setAffectedAreas((prev) =>
+        prev.map((a) => (a.id === areaId ? { ...a, ...data.affectedArea } : a)),
+      );
+      setEditingAreaId(null);
+      toast.success("Area updated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update area");
+    } finally {
+      setAreaSubmitting(false);
     }
   };
 
@@ -1231,10 +1452,27 @@ export default function InspectionDetailPage({
         onSelectTab={(tab) => setActiveTab(tab as InspectionEvidenceTab)}
       />
 
-      {/* Sign-off is the primary action; the field evidence checklist is
-          secondary guidance and never gates sign-off or report generation. */}
-      {canSignOff && (
-        <div className="space-y-3" aria-label="Inspection completion">
+      <div className="flex flex-wrap items-center gap-2">
+        <Link
+          href={`/dashboard/inspections/${inspection.id}/capture`}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+        >
+          <Camera size={16} />
+          Open Guided Capture
+        </Link>
+        <button
+          type="button"
+          onClick={() => setActiveTab("photos")}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm font-medium hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"
+        >
+          <Upload size={16} />
+          Upload photos
+        </button>
+      </div>
+
+      {/* Field evidence checklist is always available; sign-off only when ready. */}
+      <div className="space-y-3" aria-label="Inspection completion">
+        {canSignOff && (
           <InspectionSignOff
             inspectionId={inspection.id}
             inspectionNumber={inspection.inspectionNumber}
@@ -1242,9 +1480,9 @@ export default function InspectionDetailPage({
             signedByName={inspection.signedByName}
             onSigned={() => fetchInspection()}
           />
-          <FieldEvidenceChecklistPanel inspectionId={inspection.id} />
-        </div>
-      )}
+        )}
+        <FieldEvidenceChecklistPanel inspectionId={inspection.id} />
+      </div>
 
       {/* SP-A close-job Sidekick card. Renders while the inspection is in
           its pre-close billing state, and stays mounted in its locked
@@ -1410,10 +1648,19 @@ export default function InspectionDetailPage({
             </div>
 
             {/* Classification Card */}
-            {classification && (
+            {classification ? (
               <div className="md:col-span-2 p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10">
-                <div className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-2">
-                  IICRC S500 Classification
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                    IICRC S500 Classification
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("classification")}
+                    className="text-xs text-cyan-600 hover:underline"
+                  >
+                    Edit
+                  </button>
                 </div>
                 <div className="flex items-center gap-4 mb-2">
                   <div>
@@ -1453,6 +1700,20 @@ export default function InspectionDetailPage({
                 <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">
                   Ref: {classification.standardReference}
                 </p>
+              </div>
+            ) : (
+              <div className="md:col-span-2 p-4 rounded-xl border border-dashed border-amber-300 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-900/5">
+                <p className="text-sm text-neutral-600 dark:text-slate-300 mb-2">
+                  No IICRC classification yet — set Category and Class before
+                  scoping.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("classification")}
+                  className="text-sm font-medium text-cyan-600 hover:underline"
+                >
+                  Classify now →
+                </button>
               </div>
             )}
 
@@ -1719,6 +1980,13 @@ export default function InspectionDetailPage({
                 <Plus size={16} /> Add Environmental Data
               </button>
             )}
+            <MeterPhotoCapture
+              inspectionId={inspection.id}
+              mode="environmental"
+              onReadingAccepted={() => {
+                fetchInspection();
+              }}
+            />
           </div>
         )}
 
@@ -1736,6 +2004,13 @@ export default function InspectionDetailPage({
                 <Plus size={14} /> Add Reading
               </button>
             </div>
+            <MeterPhotoCapture
+              inspectionId={inspection.id}
+              mode="moisture"
+              onReadingAccepted={() => {
+                fetchInspection();
+              }}
+            />
             <GroupReadingsPanel
               inspectionId={inspection!.id}
               readings={moistureReadings.map((r) => ({
@@ -1743,7 +2018,7 @@ export default function InspectionDetailPage({
                 location: r.location,
                 moistureLevel: r.moistureLevel,
               }))}
-              onApplied={() => router.refresh()}
+              onApplied={() => fetchInspection()}
             />
             {showAddMoisture && (
               <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
@@ -2093,64 +2368,177 @@ export default function InspectionDetailPage({
                     key={area.id}
                     className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50"
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold text-neutral-900 dark:text-white">
-                        {area.roomZoneId}
-                      </h4>
-                      <div className="flex items-center gap-2">
-                        {area.category && (
-                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-warning-subtle text-warning-subtle-foreground">
-                            Cat {area.category}
-                          </span>
-                        )}
-                        {area.class && (
-                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-600">
-                            Class {area.class}
-                          </span>
-                        )}
-                        <button
-                          onClick={() => handleDeleteArea(area.id)}
-                          aria-label={`Delete area ${area.roomZoneId}`}
-                          className="p-1 text-destructive hover:text-destructive transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
-                        >
-                          <Trash2 size={14} aria-hidden="true" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <span className="text-neutral-400 text-xs">Area</span>
-                        <p className="font-medium">
-                          {resolveAreaSqm(area).toFixed(1)} m²
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-neutral-400 text-xs">
-                          Water Source
-                        </span>
-                        <p className="font-medium capitalize">
-                          {area.waterSource}
-                        </p>
-                      </div>
-                      {area.timeSinceLoss && (
-                        <div>
-                          <span className="text-neutral-400 text-xs">
-                            Time Since Loss
-                          </span>
-                          <p className="font-medium">{area.timeSinceLoss}h</p>
+                    {editingAreaId === area.id ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <input
+                            value={editAreaForm.roomZoneId}
+                            onChange={(e) =>
+                              setEditAreaForm((f) => ({
+                                ...f,
+                                roomZoneId: e.target.value,
+                              }))
+                            }
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                            placeholder="Room / zone"
+                          />
+                          <input
+                            type="number"
+                            value={editAreaForm.affectedAreaSqm}
+                            onChange={(e) =>
+                              setEditAreaForm((f) => ({
+                                ...f,
+                                affectedAreaSqm: e.target.value,
+                              }))
+                            }
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                            placeholder="Area m²"
+                          />
+                          <input
+                            value={editAreaForm.waterSource}
+                            onChange={(e) =>
+                              setEditAreaForm((f) => ({
+                                ...f,
+                                waterSource: e.target.value,
+                              }))
+                            }
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                            placeholder="Water source"
+                          />
+                          <input
+                            type="number"
+                            value={editAreaForm.timeSinceLoss}
+                            onChange={(e) =>
+                              setEditAreaForm((f) => ({
+                                ...f,
+                                timeSinceLoss: e.target.value,
+                              }))
+                            }
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                            placeholder="Hours since loss"
+                          />
+                          <input
+                            value={editAreaForm.description}
+                            onChange={(e) =>
+                              setEditAreaForm((f) => ({
+                                ...f,
+                                description: e.target.value,
+                              }))
+                            }
+                            className="sm:col-span-2 w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                            placeholder="Description"
+                          />
                         </div>
-                      )}
-                    </div>
-                    {area.description && (
-                      <p className="text-sm text-neutral-500 dark:text-slate-400 mt-3">
-                        {area.description}
-                      </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleUpdateArea(area.id)}
+                            disabled={areaSubmitting}
+                            className="px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-sm"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingAreaId(null)}
+                            className="px-3 py-1.5 border rounded-lg text-sm"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-semibold text-neutral-900 dark:text-white">
+                            {area.roomZoneId}
+                          </h4>
+                          <div className="flex items-center gap-2">
+                            {area.category && (
+                              <span className="px-2 py-0.5 rounded text-xs font-medium bg-warning-subtle text-warning-subtle-foreground">
+                                Cat {area.category}
+                              </span>
+                            )}
+                            {area.class && (
+                              <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-600">
+                                Class {area.class}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => {
+                                setEditingAreaId(area.id);
+                                setEditAreaForm({
+                                  roomZoneId: area.roomZoneId,
+                                  affectedAreaSqm: String(
+                                    resolveAreaSqm(area) || "",
+                                  ),
+                                  waterSource: area.waterSource,
+                                  timeSinceLoss:
+                                    area.timeSinceLoss != null
+                                      ? String(area.timeSinceLoss)
+                                      : "",
+                                  description: area.description ?? "",
+                                });
+                              }}
+                              aria-label={`Edit area ${area.roomZoneId}`}
+                              className="p-1 text-neutral-400 hover:text-cyan-600 transition-colors rounded"
+                            >
+                              <Pencil size={14} aria-hidden="true" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteArea(area.id)}
+                              aria-label={`Delete area ${area.roomZoneId}`}
+                              className="p-1 text-destructive hover:text-destructive transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
+                            >
+                              <Trash2 size={14} aria-hidden="true" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="text-neutral-400 text-xs">
+                              Area
+                            </span>
+                            <p className="font-medium">
+                              {resolveAreaSqm(area).toFixed(1)} m²
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-neutral-400 text-xs">
+                              Water Source
+                            </span>
+                            <p className="font-medium capitalize">
+                              {area.waterSource}
+                            </p>
+                          </div>
+                          {area.timeSinceLoss && (
+                            <div>
+                              <span className="text-neutral-400 text-xs">
+                                Time Since Loss
+                              </span>
+                              <p className="font-medium">
+                                {area.timeSinceLoss}h
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        {area.description && (
+                          <p className="text-sm text-neutral-500 dark:text-slate-400 mt-3">
+                            {area.description}
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 ))
               ) : (
-                <div className="col-span-2 text-center py-12 text-neutral-400">
-                  No affected areas recorded
+                <div className="col-span-2 text-center py-12 space-y-3 text-neutral-400">
+                  <p>No affected areas recorded</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddAreaForm(true)}
+                    className="text-sm font-medium text-cyan-600 hover:underline"
+                  >
+                    Add the first affected room →
+                  </button>
                 </div>
               )}
             </div>
@@ -2160,13 +2548,100 @@ export default function InspectionDetailPage({
         {/* Classification Tab */}
         {activeTab === "classification" && (
           <div className="space-y-4 max-w-3xl">
-            {/* RA-1195: AI auto-classify (IICRC Cat/Class) — suggestion only */}
+            <div className="p-5 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-4">
+              <div>
+                <h3 className="font-semibold text-neutral-900 dark:text-white">
+                  Record IICRC Category &amp; Class
+                </h3>
+                <p className="text-sm text-neutral-500 mt-1">
+                  Saves without a full inspection submit. Also updates water
+                  damage gates used by Guided Capture.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-neutral-500 uppercase tracking-wider">
+                    Category
+                  </label>
+                  <select
+                    value={classForm.category}
+                    onChange={(e) =>
+                      setClassForm((f) => ({ ...f, category: e.target.value }))
+                    }
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+                  >
+                    <option value="1">1 — Clean water</option>
+                    <option value="2">2 — Contaminated</option>
+                    <option value="3">3 — Grossly contaminated</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-neutral-500 uppercase tracking-wider">
+                    Class
+                  </label>
+                  <select
+                    value={classForm.class}
+                    onChange={(e) =>
+                      setClassForm((f) => ({ ...f, class: e.target.value }))
+                    }
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+                  >
+                    <option value="1">1 — Least absorption</option>
+                    <option value="2">2 — Significant absorption</option>
+                    <option value="3">3 — Greatest absorption</option>
+                    <option value="4">4 — Specialty drying</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-neutral-500 uppercase tracking-wider">
+                  Justification
+                </label>
+                <textarea
+                  value={classForm.justification}
+                  onChange={(e) =>
+                    setClassForm((f) => ({
+                      ...f,
+                      justification: e.target.value,
+                    }))
+                  }
+                  rows={3}
+                  placeholder="Cite S500:2021 observations (source, materials, evaporation potential)…"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm resize-none"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveClassification}
+                disabled={savingClass}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
+              >
+                {savingClass ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Save size={14} />
+                )}
+                Save classification
+              </button>
+            </div>
+
+            {/* RA-1195: AI auto-classify — Apply now persists */}
             <AutoClassifyPanel
               inspectionId={inspection.id}
-              onApply={(s) => {
-                toast.success(
-                  `Suggestion captured: ${s.waterCategory.replace("_", " ")} / ${s.waterClass.replace("_", " ")}. Finalise via the inspection submission flow.`,
-                );
+              onApply={async (s) => {
+                const cat = s.waterCategory.replace("CATEGORY_", "");
+                const cls = s.waterClass.replace("CLASS_", "");
+                await persistClassification({
+                  category: cat,
+                  class: cls,
+                  justification: s.reasoning,
+                  confidence: s.confidence,
+                });
+                setClassForm({
+                  category: cat,
+                  class: cls,
+                  justification: s.reasoning,
+                });
               }}
             />
             {inspection.classifications.length > 0 ? (
@@ -2224,8 +2699,8 @@ export default function InspectionDetailPage({
                 </div>
               ))
             ) : (
-              <div className="text-center py-12 text-neutral-400">
-                No classification data — submit the inspection to auto-classify
+              <div className="text-center py-8 text-neutral-400 text-sm">
+                No saved classification yet — use the form above or Auto-classify.
               </div>
             )}
           </div>
@@ -2707,7 +3182,36 @@ export default function InspectionDetailPage({
 
         {/* Cost Estimates Tab */}
         {activeTab === "costs" && (
-          <div>
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="font-semibold text-neutral-900 dark:text-white">
+                  Cost estimates
+                </h3>
+                <p className="text-sm text-neutral-500">
+                  Generated from selected scope items using company NRPG rates
+                  (or midpoints).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleGenerateCosts}
+                disabled={
+                  generatingCosts ||
+                  scopeItems.filter((s) => s.isSelected).length === 0
+                }
+                className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
+              >
+                {generatingCosts ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <DollarSign size={14} />
+                )}
+                {inspection.costEstimates.length > 0
+                  ? "Regenerate from scope"
+                  : "Generate from scope"}
+              </button>
+            </div>
             {inspection.costEstimates.length > 0 ? (
               <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-slate-700/50">
                 <table className="w-full">
@@ -2775,8 +3279,29 @@ export default function InspectionDetailPage({
                 </table>
               </div>
             ) : (
-              <div className="text-center py-12 text-neutral-400">
-                No cost estimates — submit the inspection to auto-estimate costs
+              <div className="text-center py-12 space-y-3 text-neutral-400">
+                <p>
+                  No cost estimates yet. Select scope items, then generate from
+                  the NRPG pricing engine.
+                </p>
+                {scopeItems.filter((s) => s.isSelected).length === 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("scope")}
+                    className="text-sm font-medium text-cyan-600 hover:underline"
+                  >
+                    Add / select scope items →
+                  </button>
+                ) : (
+                  <p className="text-sm">
+                    {scopeItems.filter((s) => s.isSelected).length} selected
+                    scope item
+                    {scopeItems.filter((s) => s.isSelected).length === 1
+                      ? ""
+                      : "s"}{" "}
+                    ready — use Generate above.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -2789,20 +3314,7 @@ export default function InspectionDetailPage({
 
         {/* Insurer Profile Tab */}
         {activeTab === "insurer" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Select an insurer to see evidence requirements and submission
-                preferences for this inspection.
-              </p>
-              <a
-                href={`/dashboard/inspections/${inspection.id}/insurer-profile`}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm border rounded-lg hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"
-              >
-                Open Full Profile <ExternalLink className="h-4 w-4" />
-              </a>
-            </div>
-          </div>
+          <InsurerProfilePanel inspectionId={inspection.id} />
         )}
 
         {/* Live Teacher Tab (RA-7031 / RA-1132i) — flag-gated */}
@@ -2863,31 +3375,100 @@ export default function InspectionDetailPage({
             {inspection.photos.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {inspection.photos.map((photo) => (
-                  <a
+                  <div
                     key={photo.id}
-                    href={photo.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group relative aspect-square rounded-xl overflow-hidden border border-neutral-200 dark:border-slate-700/50 hover:border-cyan-400 transition-all"
+                    className="group relative aspect-square rounded-xl overflow-hidden border border-neutral-200 dark:border-slate-700/50 hover:border-cyan-400 transition-all bg-neutral-100 dark:bg-slate-800"
                   >
-                    <img
-                      src={photo.thumbnailUrl || photo.url}
-                      alt={photo.location || "Inspection photo"}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    {photo.location && (
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                        <p className="text-xs text-white truncate">
-                          {photo.location}
-                        </p>
+                    <a
+                      href={photo.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full h-full"
+                    >
+                      <img
+                        src={photo.thumbnailUrl || photo.url}
+                        alt={photo.location || "Inspection photo"}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </a>
+                    <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingPhotoId(photo.id);
+                          setPhotoCaptionDraft(
+                            photo.location || photo.description || "",
+                          );
+                        }}
+                        className="p-1.5 rounded-md bg-black/60 text-white hover:bg-black/80"
+                        aria-label="Edit caption"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePhoto(photo.id)}
+                        className="p-1.5 rounded-md bg-black/60 text-white hover:bg-red-600"
+                        aria-label="Delete photo"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    {editingPhotoId === photo.id ? (
+                      <div className="absolute inset-x-0 bottom-0 bg-black/80 p-2 space-y-1">
+                        <input
+                          value={photoCaptionDraft}
+                          onChange={(e) => setPhotoCaptionDraft(e.target.value)}
+                          className="w-full px-2 py-1 rounded text-xs bg-white text-neutral-900"
+                          placeholder="Caption / location"
+                        />
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleSavePhotoCaption(photo.id)}
+                            className="flex-1 text-[11px] py-1 rounded bg-cyan-600 text-white"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingPhotoId(null)}
+                            className="flex-1 text-[11px] py-1 rounded bg-neutral-600 text-white"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
+                    ) : (
+                      (photo.location || photo.description) && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                          <p className="text-xs text-white truncate">
+                            {photo.location || photo.description}
+                          </p>
+                        </div>
+                      )
                     )}
-                  </a>
+                  </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 text-neutral-400">
-                No photos uploaded
+              <div className="text-center py-12 space-y-3 text-neutral-400">
+                <p>No photos uploaded</p>
+                <div className="flex flex-wrap justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    className="text-sm font-medium text-cyan-600 hover:underline"
+                  >
+                    Upload from device →
+                  </button>
+                  <Link
+                    href={`/dashboard/inspections/${inspection.id}/capture`}
+                    className="text-sm font-medium text-cyan-600 hover:underline"
+                  >
+                    Open Guided Capture →
+                  </Link>
+                </div>
               </div>
             )}
           </div>
