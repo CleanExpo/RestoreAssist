@@ -132,7 +132,7 @@ interface ScopeRowProps {
     id: string,
     field: "quantity" | "specification",
     value: string | number | null,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
 }
 
 function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
@@ -145,6 +145,14 @@ function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
   // debounce refs
   const qtyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setLocalQty(item.quantity?.toString() ?? "");
+  }, [item.quantity]);
+
+  useEffect(() => {
+    setLocalNotes(item.specification ?? "");
+  }, [item.specification]);
 
   const handleSelectedChange = async (checked: boolean) => {
     setSavingSelected(true);
@@ -162,7 +170,8 @@ function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
       setSavingQty(true);
       const parsed = val === "" ? null : parseFloat(val);
       try {
-        await onPatchField(item.id, "quantity", parsed);
+        const saved = await onPatchField(item.id, "quantity", parsed);
+        if (!saved) setLocalQty(item.quantity?.toString() ?? "");
       } finally {
         setSavingQty(false);
       }
@@ -175,7 +184,12 @@ function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
     notesTimer.current = setTimeout(async () => {
       setSavingNotes(true);
       try {
-        await onPatchField(item.id, "specification", val || null);
+        const saved = await onPatchField(
+          item.id,
+          "specification",
+          val || null,
+        );
+        if (!saved) setLocalNotes(item.specification ?? "");
       } finally {
         setSavingNotes(false);
       }
@@ -391,17 +405,25 @@ export default function ScopeItemsPage({
       >,
       previous: ScopeItem,
     ) => {
-      const res = await fetch(`/api/inspections/${id}/scope-items/${itemId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        setItems((prev) =>
-          prev.map((it) => (it.id === itemId ? previous : it)),
+      try {
+        const res = await fetch(
+          `/api/inspections/${id}/scope-items/${itemId}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          },
         );
-        toast.error("Failed to save scope item. Changes were reverted.");
+        if (res.ok) return true;
+      } catch {
+        // Network failures use the same rollback path as rejected responses.
       }
+
+      setItems((prev) =>
+        prev.map((it) => (it.id === itemId ? previous : it)),
+      );
+      toast.error("Failed to save scope item. Changes were reverted.");
+      return false;
     },
     [id],
   );
@@ -427,7 +449,7 @@ export default function ScopeItemsPage({
       value: string | number | null,
     ) => {
       const previous = items.find((it) => it.id === itemId);
-      if (!previous) return;
+      if (!previous) return false;
       setItems((prev) =>
         prev.map((it) =>
           it.id === itemId
@@ -441,7 +463,7 @@ export default function ScopeItemsPage({
             : it,
         ),
       );
-      await patchItem(itemId, { [field]: value }, previous);
+      return patchItem(itemId, { [field]: value }, previous);
     },
     [items, patchItem],
   );

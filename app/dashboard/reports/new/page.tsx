@@ -418,15 +418,12 @@ export default function NewReportPage() {
     toast.success("Starting new report");
   };
 
-  const handleSkipSetup = async () => {
+  const handleFinishSetupLater = () => {
     setShowSetupGuide(false);
-    await update();
-    toast.success(
-      "Setup skipped! You can complete it anytime from Settings or the sidebar.",
-      {
-        duration: 4000,
-      },
-    );
+    router.push("/dashboard/reports");
+    toast("Setup is still required before AI report generation.", {
+      duration: 4000,
+    });
   };
 
   const handleStartSetup = async (route: string) => {
@@ -823,9 +820,9 @@ export default function NewReportPage() {
                   </div>
                 </div>
                 <button
-                  onClick={handleSkipSetup}
+                  onClick={handleFinishSetupLater}
                   className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-500 dark:text-slate-400"
-                  title="Skip Setup"
+                  title="Finish setup later"
                 >
                   <X size={20} />
                 </button>
@@ -912,10 +909,10 @@ export default function NewReportPage() {
             <div className="sticky bottom-0 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 p-6 rounded-b-xl backdrop-blur-sm">
               <div className="flex gap-3">
                 <button
-                  onClick={handleSkipSetup}
+                  onClick={handleFinishSetupLater}
                   className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors text-slate-700 dark:text-slate-300 font-medium"
                 >
-                  Skip Setup
+                  Finish Later
                 </button>
                 <BillingGate fallback={null}>
                   <button

@@ -15,6 +15,7 @@ import { verifyInsurerToken } from "@/lib/portal-token";
 import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 import { isAiDraftPending } from "@/lib/reports/ai-ownership";
+import { crossReferenceEvidencePhotos } from "@/lib/reports/evidence-map";
 
 /**
  * GET /api/reports/[id]/pdf
@@ -112,12 +113,25 @@ export async function GET(
                 // RA-120 §3: moisture-overlay pins, overlaid on the sketch image
                 // so the moisture map is included alongside the structural sketch.
                 moisturePoints: true,
+                evidencePins: {
+                  orderBy: { createdAt: "asc" },
+                  take: 1000,
+                  select: {
+                    id: true,
+                    inspectionPhotoId: true,
+                    nx: true,
+                    ny: true,
+                    caption: true,
+                    sketchRoom: { select: { name: true } },
+                  },
+                },
               },
             },
             // RA-120 (PR3): inspection evidence photos → captioned grid at the
             // end of the report.
             photos: {
               select: {
+                id: true,
                 url: true,
                 thumbnailUrl: true,
                 description: true,
@@ -177,9 +191,11 @@ export async function GET(
     // RA-120 (PR2): embed each floor's sketch (underlay + annotations) as its
     // own page so the floor plan lives inside the canonical report. A failed
     // image fetch skips that floor — it must never block the download.
-    const floors = await claimSketchesToFloors(
+    const parsedFloors = await claimSketchesToFloors(
       report.inspection?.claimSketches ?? [],
     );
+    const { floors, labelsByPhotoId } =
+      crossReferenceEvidencePhotos(parsedFloors);
     // RA-7006 Gap 6: also append an uploaded floor-plan image (viewer-only until
     // now). Best-effort — a broken image is skipped, never blocks the download.
     const uploadedFloor = await uploadedFloorPlanToFloor(
@@ -198,6 +214,8 @@ export async function GET(
     // grid. A broken image is skipped — it must never block the download.
     const photos = await inspectionPhotosToImages(
       report.inspection?.photos ?? [],
+      fetch,
+      labelsByPhotoId,
     );
     pdfBytes = await appendPhotoPages(pdfBytes, photos, {
       propertyAddress: report.propertyAddress ?? undefined,

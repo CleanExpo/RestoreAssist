@@ -43,7 +43,7 @@ function adminAuthOk() {
   userFindUnique.mockResolvedValue({
     id: "u_admin",
     role: "ADMIN",
-    organizationId: null,
+    organizationId: "org_1",
   });
 }
 
@@ -51,10 +51,9 @@ describe("POST /api/admin/clients/[clientId]/portal-account", () => {
   it("returns 401 when there is no session", async () => {
     getServerSession.mockResolvedValueOnce(null);
     const res = await createRoute(
-      new NextRequest(
-        "http://localhost/api/admin/clients/c_1/portal-account",
-        { method: "POST" },
-      ),
+      new NextRequest("http://localhost/api/admin/clients/c_1/portal-account", {
+        method: "POST",
+      }),
       { params: Promise.resolve({ clientId: "c_1" }) },
     );
     expect(res.status).toBe(401);
@@ -63,10 +62,9 @@ describe("POST /api/admin/clients/[clientId]/portal-account", () => {
   it("returns 403 when the caller is not ADMIN", async () => {
     getServerSession.mockResolvedValueOnce(USER_SESSION);
     const res = await createRoute(
-      new NextRequest(
-        "http://localhost/api/admin/clients/c_1/portal-account",
-        { method: "POST" },
-      ),
+      new NextRequest("http://localhost/api/admin/clients/c_1/portal-account", {
+        method: "POST",
+      }),
       { params: Promise.resolve({ clientId: "c_1" }) },
     );
     expect(res.status).toBe(403);
@@ -85,21 +83,63 @@ describe("POST /api/admin/clients/[clientId]/portal-account", () => {
     expect(res.status).toBe(404);
   });
 
+  it("fails closed when the current admin has no organisation", async () => {
+    adminAuthOk();
+    userFindUnique.mockResolvedValueOnce({
+      id: "u_admin",
+      role: "ADMIN",
+      organizationId: null,
+    });
+
+    const res = await createRoute(
+      new NextRequest("http://localhost/api/admin/clients/c_1/portal-account", {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ clientId: "c_1" }) },
+    );
+
+    expect(res.status).toBe(404);
+    expect(clientFindUnique).not.toHaveBeenCalled();
+    expect(accountCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 and does not mint a token for a client outside the admin's organisation", async () => {
+    adminAuthOk();
+    clientFindUnique.mockResolvedValueOnce(null);
+
+    const res = await createRoute(
+      new NextRequest(
+        "http://localhost/api/admin/clients/c_foreign/portal-account",
+        { method: "POST" },
+      ),
+      { params: Promise.resolve({ clientId: "c_foreign" }) },
+    );
+
+    expect(res.status).toBe(404);
+    expect(clientFindUnique).toHaveBeenCalledWith({
+      where: {
+        id: "c_foreign",
+        user: { organizationId: "org_1" },
+      },
+      select: { id: true },
+    });
+    expect(accountCreate).not.toHaveBeenCalled();
+  });
+
   it("creates a new account, returns the token once, and uses 256-bit base64url", async () => {
     adminAuthOk();
     clientFindUnique.mockResolvedValueOnce({ id: "c_1" });
     accountCreate.mockImplementationOnce(({ data }) => ({
       id: "cpa_1",
-      clientId: data.clientId,
+      clientId: data.client.connect.id,
       token: data.token,
       createdAt: new Date("2026-05-15T00:00:00Z"),
     }));
 
     const res = await createRoute(
-      new NextRequest(
-        "http://localhost/api/admin/clients/c_1/portal-account",
-        { method: "POST" },
-      ),
+      new NextRequest("http://localhost/api/admin/clients/c_1/portal-account", {
+        method: "POST",
+      }),
       { params: Promise.resolve({ clientId: "c_1" }) },
     );
     expect(res.status).toBe(201);
@@ -108,5 +148,9 @@ describe("POST /api/admin/clients/[clientId]/portal-account", () => {
     expect(body.data.clientId).toBe("c_1");
     // base64url alphabet only, length 43 for 32 random bytes (256 bits → ceil(256/6) = 43).
     expect(body.data.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(accountCreate.mock.calls[0][0].data.client.connect).toEqual({
+      id: "c_1",
+      user: { organizationId: "org_1" },
+    });
   });
 });

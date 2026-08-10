@@ -24,6 +24,7 @@ import {
   withIdempotencyFingerprint,
 } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 // GET - List photos for inspection
 export async function GET(
@@ -42,16 +43,12 @@ export async function GET(
 
     const { id } = await params;
 
-    const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
-      select: { id: true },
-    });
-
-    if (!inspection) {
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
       return apiError(request, {
-        code: "NOT_FOUND",
-        message: "Inspection not found",
-        status: 404,
+        code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+        message: tenancy.reason ?? "Forbidden",
+        status: tenancy.status,
       });
     }
 

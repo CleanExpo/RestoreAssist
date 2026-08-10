@@ -926,6 +926,15 @@ export default function InspectionDetailPage({
   const showMoistureTabs = moistureReadingsRequired(
     inspection.claimType as IicrcClaimType | null | undefined,
   );
+  const canSignOff = ["ESTIMATED", "COMPLETED", "SUBMITTED"].includes(
+    inspection.status,
+  );
+  const canGenerateInvoice =
+    (inspection.status === "SUBMITTED" && Boolean(inspection.signedAt)) ||
+    inspection.status === "IN_BILLING";
+  const canGenerateReport = ["ESTIMATED", "SUBMITTED", "COMPLETED"].includes(
+    inspection.status,
+  );
 
   const TABS: {
     key: Tab;
@@ -1014,7 +1023,7 @@ export default function InspectionDetailPage({
                 {classification.class}
               </span>
             )}
-            {inspection.status === "COMPLETED" && (
+            {canGenerateReport && (
               <button
                 onClick={handleGenerateReport}
                 disabled={generatingReport}
@@ -1088,13 +1097,15 @@ export default function InspectionDetailPage({
               <Package size={14} />
               Contents
             </Link>
-            <Link
-              href={`/dashboard/inspections/${inspection.id}/invoice`}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
-            >
-              <Receipt size={14} />
-              Generate Invoice
-            </Link>
+            {canGenerateInvoice && (
+              <Link
+                href={`/dashboard/inspections/${inspection.id}/invoice`}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
+              >
+                <Receipt size={14} />
+                Generate Invoice
+              </Link>
+            )}
           </div>
 
           {/* Share Dialog */}
@@ -1203,10 +1214,9 @@ export default function InspectionDetailPage({
         onSelectTab={(tab) => setActiveTab(tab as InspectionEvidenceTab)}
       />
 
-      {/* Sign-off panel — mirrors the "Generate NIR Report" COMPLETED gate
-          (F1 from PR #989). T13 wired EngagementLicenceModal inside the
-          component, so the modal fires automatically on submit. */}
-      {inspection.status === "COMPLETED" && (
+      {/* Sign-off stays visible from review-ready work through the signed
+          SUBMITTED state so the user sees confirmation before invoicing. */}
+      {canSignOff && (
         <InspectionSignOff
           inspectionId={inspection.id}
           inspectionNumber={inspection.inspectionNumber}
@@ -1218,7 +1228,7 @@ export default function InspectionDetailPage({
 
       {/* RA-5039 PR2 — field evidence checklist, ahead of "Generate NIR
           Report" above. Informational only. */}
-      {inspection.status === "COMPLETED" && (
+      {canSignOff && (
         <FieldEvidenceChecklistPanel inspectionId={inspection.id} />
       )}
 

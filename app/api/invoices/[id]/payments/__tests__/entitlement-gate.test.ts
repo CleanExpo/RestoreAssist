@@ -12,6 +12,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 
+const invoiceFindUnique = vi.hoisted(() => vi.fn());
+
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/idempotency", () => ({
@@ -25,8 +27,10 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    invoice: { findUnique: vi.fn(), update: vi.fn() },
-    $transaction: vi.fn(),
+    invoice: { findUnique: invoiceFindUnique },
+    $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({ invoice: { findUnique: invoiceFindUnique } }),
+    ),
   },
 }));
 vi.mock("@/lib/entitlements", () => ({
@@ -34,15 +38,12 @@ vi.mock("@/lib/entitlements", () => ({
 }));
 
 import { getServerSession } from "next-auth";
-import { prisma } from "@/lib/prisma";
 import { requireAddon } from "@/lib/entitlements";
 import { POST } from "../route";
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const mockRequireAddon = requireAddon as unknown as ReturnType<typeof vi.fn>;
-const mockFindUnique = (
-  prisma as unknown as { invoice: { findUnique: ReturnType<typeof vi.fn> } }
-).invoice.findUnique;
+const mockFindUnique = invoiceFindUnique;
 
 beforeEach(() => {
   vi.clearAllMocks();

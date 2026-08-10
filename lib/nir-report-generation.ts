@@ -116,6 +116,37 @@ export interface NirBusinessInfo {
   businessEmail?: string | null;
 }
 
+export interface NirFloorPlanStatus {
+  label: string;
+  source: "rendered_sketch" | "uploaded_floor_plan";
+  status: "included" | "unavailable";
+  reason?: string;
+}
+
+export interface NirClaimSketch {
+  floorNumber: number;
+  floorLabel: string;
+  renderedPngUrl: string | null;
+  sketchData?: unknown;
+  moisturePoints?: unknown;
+}
+
+export function describeNirFloorPlans(
+  floorPlans: NirFloorPlanStatus[] | null | undefined,
+): string[] {
+  if (!floorPlans?.length) {
+    return ["No floor plan was supplied for this inspection."];
+  }
+
+  return floorPlans.map((floorPlan) => {
+    if (floorPlan.status === "included") {
+      return `${floorPlan.label}: included as a floor-plan page.`;
+    }
+
+    return `${floorPlan.label}: unavailable${floorPlan.reason ? ` — ${floorPlan.reason}` : "."}`;
+  });
+}
+
 /**
  * The full typed shape of an inspection as fetched by the report route.
  * Matches the Prisma query in app/api/inspections/[id]/report/route.ts.
@@ -137,6 +168,9 @@ export interface NirReportInspectionData {
   scopeItems: NirScopeItem[];
   costEstimates: NirCostEstimateItem[];
   photos: NirPhoto[];
+  floorPlanImageUrl?: string | null;
+  claimSketches?: NirClaimSketch[];
+  floorPlans?: NirFloorPlanStatus[];
   report?: { user?: NirBusinessInfo | null } | null;
 }
 
@@ -308,6 +342,13 @@ export async function generateNIRPDF(
       y += 1;
     });
   }
+
+  // ── Floor Plans ───────────────────────────────────────────────────────────
+
+  section("Floor Plans");
+  describeNirFloorPlans(inspection.floorPlans).forEach((line) =>
+    text(line, 10),
+  );
 
   // ── Scope of Works ─────────────────────────────────────────────────────────
 

@@ -121,7 +121,9 @@ export async function POST(
 
   const gate = canTransition(currentStatus, REOPENED_STATUS, {
     invoiceStatus: null,
+    invoiceHasUnreconciledPayment: false,
     reportStatus: null,
+    reportDeliveredAt: null,
     handoverCompletedAt: null,
   });
   if (!gate.ok) {

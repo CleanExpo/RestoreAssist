@@ -157,6 +157,8 @@ export default function EstimationEngine({
     gst: 0 as number,
     totalIncGST: 0 as number,
   });
+  const estimateIsImmutable =
+    estimateData.status === "APPROVED" || estimateData.status === "LOCKED";
 
   // Refs to track previous values and prevent infinite loops
   const prevLineItemsRef = useRef<string>("");
@@ -544,15 +546,24 @@ export default function EstimationEngine({
   };
 
   const handleSave = async () => {
+    if (estimateIsImmutable) {
+      toast.error(
+        "Approved and locked estimates cannot be edited. Use the variation workflow.",
+      );
+      return;
+    }
     setLoading(true);
     try {
+      const payload: Partial<typeof estimateData> = { ...estimateData };
+      delete payload.status;
+      delete payload.version;
       const response = await fetch(`/api/estimates`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reportId,
           scopeId,
-          ...estimateData,
+          ...payload,
         }),
       });
 
@@ -573,6 +584,12 @@ export default function EstimationEngine({
   };
 
   const handleSaveAndNext = async () => {
+    if (estimateIsImmutable) {
+      toast.error(
+        "Approved and locked estimates cannot be edited. Use the variation workflow.",
+      );
+      return;
+    }
     const tabs = [
       "inputs",
       "lineItems",
@@ -587,13 +604,16 @@ export default function EstimationEngine({
 
     setLoading(true);
     try {
+      const payload: Partial<typeof estimateData> = { ...estimateData };
+      delete payload.status;
+      delete payload.version;
       const response = await fetch(`/api/estimates`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reportId,
           scopeId,
-          ...estimateData,
+          ...payload,
         }),
       });
 
@@ -857,7 +877,7 @@ export default function EstimationEngine({
       <div className="flex justify-end pt-6 border-t border-slate-700 mt-6">
         <Button
           onClick={handleSaveAndNext}
-          disabled={loading}
+          disabled={loading || estimateIsImmutable}
           className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
@@ -1216,7 +1236,7 @@ export default function EstimationEngine({
       <div className="flex justify-end pt-6 border-t border-slate-700 mt-6">
         <Button
           onClick={handleSaveAndNext}
-          disabled={loading}
+          disabled={loading || estimateIsImmutable}
           className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
@@ -1320,7 +1340,7 @@ export default function EstimationEngine({
       <div className="flex justify-end pt-6 border-t border-slate-700 mt-6">
         <Button
           onClick={handleSaveAndNext}
-          disabled={loading}
+          disabled={loading || estimateIsImmutable}
           className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
@@ -1423,7 +1443,7 @@ export default function EstimationEngine({
       <div className="flex justify-end pt-6 border-t border-slate-700 mt-6">
         <Button
           onClick={handleSaveAndNext}
-          disabled={loading}
+          disabled={loading || estimateIsImmutable}
           className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
@@ -1440,23 +1460,13 @@ export default function EstimationEngine({
         <h3 className="text-lg font-semibold text-white mb-4">
           Workflow Status
         </h3>
-        <Select
-          value={estimateData.status}
-          onValueChange={(value) =>
-            setEstimateData((prev) => ({ ...prev, status: value }))
-          }
-        >
-          <SelectTrigger className="bg-slate-800 border-slate-700 text-white w-64">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="DRAFT">Draft</SelectItem>
-            <SelectItem value="INTERNAL_REVIEW">Internal Review</SelectItem>
-            <SelectItem value="CLIENT_REVIEW">Client/Insurer Review</SelectItem>
-            <SelectItem value="APPROVED">Approved</SelectItem>
-            <SelectItem value="LOCKED">Locked</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="w-fit rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm font-medium text-white">
+          {estimateData.status.replace(/_/g, " ")}
+        </div>
+        <p className="mt-2 max-w-2xl text-sm text-slate-400">
+          Workflow status is controlled by the review process. Client approval
+          cannot be recorded from the contractor estimator.
+        </p>
       </div>
 
       <div className="bg-slate-800/50 p-4 rounded-lg">
@@ -1473,7 +1483,7 @@ export default function EstimationEngine({
       <div className="flex justify-end pt-6 border-t border-slate-700 mt-6">
         <Button
           onClick={handleSaveAndNext}
-          disabled={loading}
+          disabled={loading || estimateIsImmutable}
           className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
@@ -1499,6 +1509,15 @@ export default function EstimationEngine({
           <p className="text-slate-400">
             Convert scope of works into fully costed estimate
           </p>
+          {estimateIsImmutable && (
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-700/60 bg-amber-950/30 p-3 text-sm text-amber-200">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>
+                This estimate is {estimateData.status.toLowerCase()} and cannot
+                be edited. Record any change through the variation workflow.
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
@@ -1630,7 +1649,7 @@ export default function EstimationEngine({
 
           <Button
             onClick={handleSave}
-            disabled={loading}
+            disabled={loading || estimateIsImmutable}
             className="bg-green-600 hover:bg-green-700"
           >
             <Save className="mr-2" size={16} />

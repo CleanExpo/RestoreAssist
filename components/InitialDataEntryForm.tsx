@@ -1281,8 +1281,15 @@ export default function InitialDataEntryForm({
     if (!reportId) return;
 
     if (isTrial && choice !== "basic") {
+      // This gate is about report TYPE, not quantity — it fires on
+      // `choice !== "basic"` and never inspects a count. The old copy read
+      // "Free plan allows 3 Basic reports only", which was wrong twice over:
+      // the trial grants 50 report credits
+      // (PRICING_CONFIG.free.trialReportCredits), and the number had nothing to
+      // do with what was actually being refused. Naming no quantity here makes
+      // it correct and keeps it correct.
       toast.error(
-        "Free plan allows 3 Basic reports only. Upgrade to unlock Enhanced or Optimised.",
+        "Your free trial covers the Basic report type. Upgrade to unlock Enhanced and Optimised.",
       );
       return;
     }

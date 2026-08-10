@@ -261,7 +261,11 @@ export default function DashboardPage() {
     },
     {
       title: "Start Guided Interview",
-      description: "Let AI carry the Smart — IICRC S500 compliant",
+      // "IICRC S500 compliant" -> structured on the sections. Same correction as
+      // /pricing, /features, the manifest and the SoftwareApplication schema:
+      // lib/iicrc-inclusion-check.ts forbids asserting "complies" / "certifies" /
+      // "meets [the standard]", enforced by a regression test.
+      description: "Let AI carry the Smart — structured on IICRC S500:2021 sections",
       icon: MessageSquare,
       color: "",
       href: "/dashboard/interviews/new",

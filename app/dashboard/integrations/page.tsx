@@ -15,6 +15,7 @@ import {
   Network,
   Copy,
   Check,
+  AlertCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -153,6 +154,11 @@ export default function IntegrationsPage() {
   const [externalIntegrations, setExternalIntegrations] = useState<
     Record<ProviderSlug, ExternalIntegration>
   >({} as Record<ProviderSlug, ExternalIntegration>);
+  const [externalIntegrationsLoading, setExternalIntegrationsLoading] =
+    useState(true);
+  const [externalIntegrationsError, setExternalIntegrationsError] = useState<
+    string | null
+  >(null);
   const [loading, setLoading] = useState(true);
   const [syncingProvider, setSyncingProvider] = useState<ProviderSlug | null>(
     null,
@@ -234,6 +240,8 @@ export default function IntegrationsPage() {
   };
 
   const fetchExternalIntegrations = async () => {
+    setExternalIntegrationsLoading(true);
+    setExternalIntegrationsError(null);
     try {
       const results: Record<ProviderSlug, ExternalIntegration> = {} as Record<
         ProviderSlug,
@@ -242,35 +250,28 @@ export default function IntegrationsPage() {
 
       // Fetch all integrations from the main API
       const response = await fetch("/api/integrations");
-      if (response.ok) {
-        const data = await response.json();
-        const allIntegrations = data.integrations || [];
+      if (!response.ok) {
+        throw new Error("External integration status request failed");
+      }
 
-        // Map integrations to providers
-        for (const integration of EXTERNAL_INTEGRATIONS) {
-          const found = allIntegrations.find(
-            (i: { provider: string }) =>
-              i.provider === integration.slug.toUpperCase(),
-          );
-          if (found) {
-            results[integration.slug] = {
-              provider: integration.name,
-              connected: found.status === "CONNECTED",
-              status: found.status,
-              lastSyncAt: found.lastSyncAt,
-              syncError: found.syncError,
-            };
-          } else {
-            results[integration.slug] = {
-              provider: integration.name,
-              connected: false,
-              status: "DISCONNECTED",
-            };
-          }
-        }
-      } else {
-        // Default all to disconnected
-        for (const integration of EXTERNAL_INTEGRATIONS) {
+      const data = await response.json();
+      const allIntegrations = data.integrations || [];
+
+      // A successful response makes an absent provider confidently disconnected.
+      for (const integration of EXTERNAL_INTEGRATIONS) {
+        const found = allIntegrations.find(
+          (i: { provider: string }) =>
+            i.provider === integration.slug.toUpperCase(),
+        );
+        if (found) {
+          results[integration.slug] = {
+            provider: integration.name,
+            connected: found.status === "CONNECTED",
+            status: found.status,
+            lastSyncAt: found.lastSyncAt,
+            syncError: found.syncError,
+          };
+        } else {
           results[integration.slug] = {
             provider: integration.name,
             connected: false,
@@ -282,6 +283,11 @@ export default function IntegrationsPage() {
       setExternalIntegrations(results);
     } catch (error) {
       console.error("Error fetching external integrations:", error);
+      setExternalIntegrationsError(
+        "Integration status is unavailable. Retry before connecting or disconnecting.",
+      );
+    } finally {
+      setExternalIntegrationsLoading(false);
     }
   };
 
@@ -945,6 +951,26 @@ export default function IntegrationsPage() {
             )}
           </div>
 
+          {externalIntegrationsError && (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+            >
+              <div className="flex items-center gap-2">
+                <AlertCircle className="size-4 shrink-0" aria-hidden />
+                <span>{externalIntegrationsError}</span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void fetchExternalIntegrations()}
+              >
+                Retry status
+              </Button>
+            </div>
+          )}
+
           {/* ── Bookkeeping ──────────────────────────── */}
           <div>
             <div className="flex items-center gap-3">
@@ -969,6 +995,10 @@ export default function IntegrationsPage() {
                 (i) => i.category === "bookkeeping",
               ).map((integration) => {
                 const status = externalIntegrations[integration.slug];
+                const isStatusKnown =
+                  !externalIntegrationsLoading &&
+                  !externalIntegrationsError &&
+                  Boolean(status);
                 const isConnected = status?.connected;
                 const isSyncing =
                   syncingProvider === integration.slug ||
@@ -1061,7 +1091,18 @@ export default function IntegrationsPage() {
                       </CardContent>
                     )}
                     <CardFooter className="pt-0 gap-2">
-                      {isConnected ? (
+                      {!isStatusKnown ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="w-full"
+                          disabled
+                        >
+                          {externalIntegrationsLoading
+                            ? "Checking status…"
+                            : "Status unavailable"}
+                        </Button>
+                      ) : isConnected ? (
                         <>
                           <Button
                             size="sm"
@@ -1146,6 +1187,10 @@ export default function IntegrationsPage() {
                 (i) => i.category === "jobmanagement",
               ).map((integration) => {
                 const status = externalIntegrations[integration.slug];
+                const isStatusKnown =
+                  !externalIntegrationsLoading &&
+                  !externalIntegrationsError &&
+                  Boolean(status);
                 const isConnected = status?.connected;
                 const isSyncing =
                   syncingProvider === integration.slug ||
@@ -1238,7 +1283,18 @@ export default function IntegrationsPage() {
                       </CardContent>
                     )}
                     <CardFooter className="pt-0 gap-2">
-                      {isConnected ? (
+                      {!isStatusKnown ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="w-full"
+                          disabled
+                        >
+                          {externalIntegrationsLoading
+                            ? "Checking status…"
+                            : "Status unavailable"}
+                        </Button>
+                      ) : isConnected ? (
                         <>
                           <Button
                             size="sm"

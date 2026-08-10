@@ -26,6 +26,7 @@ vi.mock("@/lib/idempotency", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     report: { findFirst: vi.fn() },
+    reportApproval: { findFirst: vi.fn() },
     scope: { findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
   },
 }));
@@ -55,7 +56,9 @@ describe("POST /api/scopes — report ownership", () => {
     (prisma.report.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(
       null,
     );
-    (prisma.scope.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.scope.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(
+      null,
+    );
 
     const res = await POST(
       postScope({ reportId: VICTIM_REPORT, scopeType: "water" }),
@@ -71,7 +74,9 @@ describe("POST /api/scopes — report ownership", () => {
     (prisma.report.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: VICTIM_REPORT,
     });
-    (prisma.scope.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.scope.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(
+      null,
+    );
     (prisma.scope.create as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "scope_1",
       reportId: VICTIM_REPORT,
@@ -96,6 +101,58 @@ describe("POST /api/scopes — report ownership", () => {
     expect(res.status).toBe(200);
     expect(prisma.scope.create).toHaveBeenCalledTimes(1);
   });
+
+  it("rejects changing scope content after client scope approval", async () => {
+    (prisma.report.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: VICTIM_REPORT,
+    });
+    (prisma.scope.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "scope_1",
+      estimate: { status: "CLIENT_REVIEW" },
+    });
+    (
+      prisma.reportApproval.findFirst as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({ id: "approval_1" });
+
+    const res = await POST(
+      postScope({ reportId: VICTIM_REPORT, scopeType: "water" }),
+    );
+
+    expect(res.status).toBe(409);
+    expect(prisma.scope.update).not.toHaveBeenCalled();
+    expect(prisma.reportApproval.findFirst).toHaveBeenCalledWith({
+      where: {
+        reportId: VICTIM_REPORT,
+        approvalType: "SCOPE_OF_WORK",
+        status: "APPROVED",
+        respondedAt: { not: null },
+      },
+      select: { id: true },
+    });
+  });
+
+  it.each(["APPROVED", "LOCKED"])(
+    "rejects changing scope content linked to a %s estimate",
+    async (status) => {
+      (prisma.report.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: VICTIM_REPORT,
+      });
+      (prisma.scope.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: "scope_1",
+        estimate: { status },
+      });
+      (
+        prisma.reportApproval.findFirst as ReturnType<typeof vi.fn>
+      ).mockResolvedValue(null);
+
+      const res = await POST(
+        postScope({ reportId: VICTIM_REPORT, scopeType: "water" }),
+      );
+
+      expect(res.status).toBe(409);
+      expect(prisma.scope.update).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("GET /api/scopes?reportId — report ownership", () => {

@@ -50,7 +50,7 @@ function adminAuthOk() {
   userFindUnique.mockResolvedValue({
     id: "u_admin",
     role: "ADMIN",
-    organizationId: null,
+    organizationId: "org_1",
   });
 }
 
@@ -78,6 +78,52 @@ describe("POST /api/admin/portal-accounts/[id]/revoke", () => {
       { params: Promise.resolve({ id: "cpa_x" }) },
     );
     expect(res.status).toBe(404);
+  });
+
+  it("fails closed when the current admin has no organisation", async () => {
+    adminAuthOk();
+    userFindUnique.mockResolvedValueOnce({
+      id: "u_admin",
+      role: "ADMIN",
+      organizationId: null,
+    });
+
+    const res = await revokeRoute(
+      new NextRequest(
+        "http://localhost/api/admin/portal-accounts/cpa_1/revoke",
+        { method: "POST" },
+      ),
+      { params: Promise.resolve({ id: "cpa_1" }) },
+    );
+
+    expect(res.status).toBe(404);
+    expect(accountFindUnique).not.toHaveBeenCalled();
+    expect(accountUpdate).not.toHaveBeenCalled();
+    expect(auditLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 and does not revoke an account outside the admin's organisation", async () => {
+    adminAuthOk();
+    accountFindUnique.mockResolvedValueOnce(null);
+
+    const res = await revokeRoute(
+      new NextRequest(
+        "http://localhost/api/admin/portal-accounts/cpa_foreign/revoke",
+        { method: "POST" },
+      ),
+      { params: Promise.resolve({ id: "cpa_foreign" }) },
+    );
+
+    expect(res.status).toBe(404);
+    expect(accountFindUnique).toHaveBeenCalledWith({
+      where: {
+        id: "cpa_foreign",
+        client: { user: { organizationId: "org_1" } },
+      },
+      select: { id: true, clientId: true, revokedAt: true },
+    });
+    expect(accountUpdate).not.toHaveBeenCalled();
+    expect(auditLogCreate).not.toHaveBeenCalled();
   });
 
   it("is idempotent on already-revoked accounts (returns alreadyRevoked: true, no second write)", async () => {
@@ -127,6 +173,10 @@ describe("POST /api/admin/portal-accounts/[id]/revoke", () => {
     const body = await res.json();
     expect(body.data.revokedAt).toBeDefined();
     expect(body.data.alreadyRevoked).toBeUndefined();
+    expect(accountUpdate.mock.calls[0][0].where).toEqual({
+      id: "cpa_1",
+      client: { user: { organizationId: "org_1" } },
+    });
 
     expect(auditLogCreate).toHaveBeenCalledTimes(1);
     const auditArg = auditLogCreate.mock.calls[0][0];

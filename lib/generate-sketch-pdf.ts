@@ -27,6 +27,10 @@ import {
   moistureLegendClasses,
   type MoistureMapPin,
 } from "@/lib/reports/moisture-map";
+import {
+  placeEvidencePins,
+  type EvidenceMapPin,
+} from "@/lib/reports/evidence-map";
 import { fitSketchImageInBox } from "@/lib/sketch/export-content-bounds";
 import { extractDamageLegend } from "@/lib/sketch/damage-zone";
 import { extractEquipmentLegend } from "@/lib/sketch/equipment-symbols";
@@ -202,6 +206,7 @@ async function addSketchPage(
     pngDataUrl: string;
     fabricJson?: Record<string, unknown> | null;
     moisturePins?: MoistureMapPin[] | null;
+    evidencePins?: EvidenceMapPin[] | null;
   },
   shared: {
     helvetica: Awaited<ReturnType<PDFDocument["embedFont"]>>;
@@ -670,6 +675,52 @@ async function addSketchPage(
     }
   }
 
+  const evidencePins = placeEvidencePins(floor.evidencePins ?? [], {
+    x: imgX,
+    y: imgY,
+    width: drawW,
+    height: drawH,
+  });
+  for (const pin of evidencePins) {
+    const radius = 8;
+    page.drawCircle({
+      x: pin.cx,
+      y: pin.cy,
+      size: radius,
+      color: rgb(0.83, 0.65, 0.45),
+      borderColor: rgb(1, 1, 1),
+      borderWidth: 1,
+    });
+    const labelWidth = bold.widthOfTextAtSize(pin.label, 5.5);
+    page.drawText(pin.label, {
+      x: pin.cx - labelWidth / 2,
+      y: pin.cy - 2,
+      size: 5.5,
+      font: bold,
+      color: BRAND_DARK,
+    });
+    const caption = safe(pin.caption).slice(0, 32);
+    if (caption) {
+      const captionWidth = helvetica.widthOfTextAtSize(caption, 6.5);
+      const captionX = pin.cx + radius + 3;
+      page.drawRectangle({
+        x: captionX - 2,
+        y: pin.cy - 4,
+        width: captionWidth + 4,
+        height: 10,
+        color: rgb(1, 1, 1),
+        opacity: 0.88,
+      });
+      page.drawText(caption, {
+        x: captionX,
+        y: pin.cy - 1.5,
+        size: 6.5,
+        font: helvetica,
+        color: TEXT_MAIN,
+      });
+    }
+  }
+
   // ── Footer ──
   const footerY = MARGIN;
   page.drawLine({
@@ -957,6 +1008,8 @@ export interface SketchFloor {
    * `ClaimSketch.moisturePoints` via `parseMoisturePins`.
    */
   moisturePins?: MoistureMapPin[] | null;
+  /** Evidence photos linked to stable normalized positions on this floor. */
+  evidencePins?: EvidenceMapPin[] | null;
 }
 
 export interface SketchPdfOptions {

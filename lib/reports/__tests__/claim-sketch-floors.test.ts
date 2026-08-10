@@ -146,4 +146,37 @@ describe("claimSketchesToFloors", () => {
 
     expect(floors[0].moisturePins).toEqual([]);
   });
+
+  it("carries normalized evidence-photo pins into the report floor", async () => {
+    const sketches = [
+      {
+        floorNumber: 0,
+        floorLabel: "Ground Floor",
+        renderedPngUrl: "https://x/0.png",
+        sketchData: null,
+        evidencePins: [
+          {
+            id: "pin-1",
+            inspectionPhotoId: "photo-1",
+            nx: 0.25,
+            ny: 0.75,
+            caption: "Kitchen leak",
+          },
+        ],
+      },
+    ];
+    const fetchImpl = fakeFetch({ "https://x/0.png": pngBytes(0) });
+
+    const floors = await claimSketchesToFloors(sketches, fetchImpl as never);
+
+    expect(floors[0].evidencePins).toEqual([
+      {
+        label: "E1",
+        nx: 0.25,
+        ny: 0.75,
+        caption: "Kitchen leak",
+        inspectionPhotoId: "photo-1",
+      },
+    ]);
+  });
 });

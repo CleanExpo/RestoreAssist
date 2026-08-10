@@ -73,4 +73,4 @@ echo "==> Verifying CI parity (no env-gated suite will skip)"
 node scripts/ci/check-test-parity.mjs --strict
 
 echo "==> Running vitest with DATABASE_URL set"
-pnpm exec vitest run "$@"
+pnpm exec vitest run --config config/vitest.config.js "$@"

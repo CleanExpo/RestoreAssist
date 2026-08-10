@@ -83,7 +83,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       status: 404,
     });
   }
-  if (!inspection.handoverCompletedAt || !inspection.handoverPackageStorageKey) {
+  if (
+    !inspection.handoverCompletedAt ||
+    !inspection.handoverPackageStorageKey
+  ) {
     return apiError(request, {
       code: "NOT_FOUND",
       message: "Handover package not available yet",
@@ -182,15 +185,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // State-machine gate — only the `complete_handover` self-loop now.
     // The required `handover_not_yet_done` key enforces idempotency.
-    const gate = canTransition(
-      inspection.status,
-      InspectionStatus.CLOSED,
-      {
-        invoiceStatus: null,
-        reportStatus: null,
-        handoverCompletedAt: inspection.handoverCompletedAt,
-      },
-    );
+    const gate = canTransition(inspection.status, InspectionStatus.CLOSED, {
+      invoiceStatus: null,
+      invoiceHasUnreconciledPayment: false,
+      reportStatus: null,
+      reportDeliveredAt: null,
+      handoverCompletedAt: inspection.handoverCompletedAt,
+    });
     if (!gate.ok) {
       // 409 with `missing[]` — mirrors the close-route shape so a single
       // client-side handler can drive both surfaces. We hand-roll the

@@ -24,14 +24,36 @@ export async function POST(
       status: 401,
     });
   }
-  if (!canResendInvite(session.user.role)) {
+
+  let currentUser: {
+    id: string;
+    name: string | null;
+    role: string;
+    organizationId: string | null;
+  } | null;
+  try {
+    currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, name: true, role: true, organizationId: true },
+    });
+  } catch (error) {
+    return fromException(req, error, { stage: "resend-invite-auth" });
+  }
+
+  if (
+    !currentUser ||
+    !currentUser.organizationId ||
+    !canResendInvite(currentUser.role)
+  ) {
     return apiError(req, {
       code: "FORBIDDEN",
       message: "Forbidden",
       status: 403,
     });
   }
-  const userId = session.user.id;
+  const userId = currentUser.id;
+  const organizationId = currentUser.organizationId;
+  const currentRole = currentUser.role;
   const { id } = await params;
 
   // RA-1266: prevents spamming the invitee with duplicate emails when
@@ -40,11 +62,11 @@ export async function POST(
     try {
       // Find the invite
       const invite = await prisma.userInvite.findUnique({
-        where: { id },
+        where: { id, organizationId },
         include: {
           organization: true,
           createdBy: {
-            select: { id: true, name: true, organizationId: true },
+            select: { id: true, name: true },
           },
         },
       });
@@ -57,17 +79,8 @@ export async function POST(
         });
       }
 
-      // Verify the invite belongs to the user's organization
-      if (invite.createdBy?.organizationId !== session.user.organizationId) {
-        return apiError(req, {
-          code: "FORBIDDEN",
-          message: "Forbidden",
-          status: 403,
-        });
-      }
-
       // Managers can only resend invites they created
-      if (session.user.role === "MANAGER" && invite.createdById !== userId) {
+      if (currentRole === "MANAGER" && invite.createdById !== userId) {
         return apiError(req, {
           code: "FORBIDDEN",
           message: "You can only resend invites you created",
@@ -89,11 +102,11 @@ export async function POST(
       if (invite.expiresAt < now) {
         // Extend expiration by 7 days
         await prisma.userInvite.update({
-          // RA-6800: re-assert that the invite's creator is in the caller's org
-          // atomically (mirrors the createdBy.organizationId guard above).
+          // RA-6800: re-assert the invite's tenant on the write as well as the
+          // lookup so an organisation change cannot cross the mutation boundary.
           where: {
             id,
-            createdBy: { organizationId: session.user.organizationId },
+            organizationId,
           },
           data: {
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -101,13 +114,7 @@ export async function POST(
         });
       }
 
-      // Get inviter's name
-      const inviter = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { name: true },
-      });
-
-      const inviterName = inviter?.name || "Administrator";
+      const inviterName = currentUser.name || "Administrator";
       const loginUrl = `${getAppUrl()}/login`;
 
       // Check if a user account exists for this email
@@ -129,7 +136,7 @@ export async function POST(
               loginUrl,
               inviterName,
               isTransfer: !!existingUser,
-              organizationId: session.user.organizationId,
+              organizationId,
             }),
           { stage: "invite-resend" },
         );

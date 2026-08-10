@@ -91,7 +91,10 @@ import { ANZ_MATERIAL_OPTIONS } from "@/lib/anz/material-options";
 import { SketchMoistureLayer } from "./SketchMoistureLayer";
 import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchEvidenceLayer } from "./SketchEvidenceLayer";
-import type { EvidencePinView } from "./SketchEvidenceLayer";
+import type {
+  EvidencePinView,
+  ExistingEvidencePhoto,
+} from "./SketchEvidenceLayer";
 import type { DamageKind } from "@/lib/sketch/damage-zone";
 import { roomsFromFabricObjects } from "@/lib/sketch/damage-zone";
 import { SketchScaleModal } from "./SketchScaleModal";
@@ -309,6 +312,9 @@ export function SketchEditorV2({
   const [roomTemplateFlipH, setRoomTemplateFlipH] = useState(false);
   const [roomTemplateFlipV, setRoomTemplateFlipV] = useState(false);
   const [evidenceUploading, setEvidenceUploading] = useState(false);
+  const [existingEvidencePhotos, setExistingEvidencePhotos] = useState<
+    ExistingEvidencePhoto[]
+  >([]);
   /** Dismiss empty-canvas start chooser after the tech picks a path. */
   const [startOverlayDismissed, setStartOverlayDismissed] = useState(false);
   const [planReadyAck, setPlanReadyAck] = useState(false);
@@ -488,6 +494,27 @@ export function SketchEditorV2({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inspectionId]);
+
+  useEffect(() => {
+    if (!inspectionId || captureMode) {
+      setExistingEvidencePhotos([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/inspections/${inspectionId}/photos`)
+      .then((response) =>
+        response.ok ? response.json() : Promise.resolve({ photos: [] }),
+      )
+      .then((data: { photos?: ExistingEvidencePhoto[] }) => {
+        if (!cancelled) setExistingEvidencePhotos(data.photos ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setExistingEvidencePhotos([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [captureMode, inspectionId]);
 
   // ── Load ANZ materials library for the picker (spec §5.1) ──
   useEffect(() => {
@@ -781,6 +808,26 @@ export function SketchEditorV2({
           body: JSON.stringify(body),
         });
         if (res.ok) {
+          const savedSketch = (await res.json().catch(() => null)) as {
+            id?: string;
+          } | null;
+          if (savedSketch?.id && fd.floor.id.startsWith(uid)) {
+            // A locally-created floor cannot accept evidence pins until the
+            // server assigns its ClaimSketch id. Keep both the mutable ref
+            // used by this save loop and React state in sync so a pin placed
+            // immediately after the first save targets the persisted floor.
+            fd.floor.id = savedSketch.id;
+            setFloorsData((prev) =>
+              prev.map((candidate) =>
+                candidate.floor.floorNumber === fd.floor.floorNumber
+                  ? {
+                      ...candidate,
+                      floor: { ...candidate.floor, id: savedSketch.id! },
+                    }
+                  : candidate,
+              ),
+            );
+          }
           succeededOnline++;
           return;
         }
@@ -847,7 +894,7 @@ export function SketchEditorV2({
     // so flag it whenever nothing saved online this tick.
     setCaptureSaveFailed(indicator.captureFailed);
     setSaving(false);
-  }, [inspectionId, country, captureMode, captureToken]);
+  }, [inspectionId, country, captureMode, captureToken, uid]);
 
   // PR4b freshness: debounced saves persist sketchData but NOT a fresh render
   // (performSave(false)), so after an edit the stored renderedPngUrl is stale
@@ -1215,6 +1262,74 @@ export function SketchEditorV2({
     [activeIdx, scheduleSave],
   );
 
+  const persistEvidencePin = useCallback(
+    async (
+      coords: {
+        x: number;
+        y: number;
+        nx: number;
+        ny: number;
+      },
+      photo: ExistingEvidencePhoto,
+      details: {
+        captureSource: "camera" | "import";
+        fileName?: string;
+        fileSizeBytes?: number;
+      },
+    ) => {
+      if (!inspectionId || captureMode) return;
+      const sketchId = floorsDataRef.current[activeIdx]?.floor.id;
+      if (!sketchId || sketchId.startsWith(uid)) {
+        await flushSaveNow();
+      }
+      const persistedId = floorsDataRef.current[activeIdx]?.floor.id;
+      if (!persistedId || persistedId.startsWith(uid)) return;
+
+      const pinRes = await fetch(
+        `/api/inspections/${inspectionId}/sketches/${persistedId}/evidence-pins`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: photo.mimeType?.startsWith("video/") ? "video" : "photo",
+            x: coords.x,
+            y: coords.y,
+            nx: coords.nx,
+            ny: coords.ny,
+            canvasWidth: width,
+            canvasHeight: height,
+            inspectionPhotoId: photo.id,
+            fileUrl: photo.url,
+            thumbnailUrl: photo.thumbnailUrl ?? photo.url,
+            fileName: details.fileName,
+            fileMimeType: photo.mimeType,
+            fileSizeBytes: details.fileSizeBytes,
+            caption: photo.description || photo.location || null,
+            captureSource: details.captureSource,
+          }),
+        },
+      );
+      if (!pinRes.ok) return;
+      const pinJson = (await pinRes.json()) as { pin: EvidencePinView };
+      setFloorsData((prev) =>
+        prev.map((fd, i) =>
+          i === activeIdx
+            ? { ...fd, evidencePins: [...fd.evidencePins, pinJson.pin] }
+            : fd,
+        ),
+      );
+    },
+    [
+      activeIdx,
+      captureMode,
+      flushSaveNow,
+      height,
+      inspectionId,
+      uid,
+      width,
+    ],
+  );
+
   const handleEvidencePlace = useCallback(
     async (coords: {
       x: number;
@@ -1224,14 +1339,6 @@ export function SketchEditorV2({
       file: File;
     }) => {
       if (!inspectionId || captureMode) return;
-      const sketchId = floorsData[activeIdx]?.floor.id;
-      if (!sketchId || sketchId.startsWith(uid)) {
-        // Floor not persisted yet — force a save so we have a ClaimSketch id.
-        await flushSaveNow();
-      }
-      const persistedId = floorsData[activeIdx]?.floor.id;
-      if (!persistedId || persistedId.startsWith(uid)) return;
-
       setEvidenceUploading(true);
       try {
         const form = new FormData();
@@ -1253,60 +1360,49 @@ export function SketchEditorV2({
           id?: string;
           url?: string;
           thumbnailUrl?: string | null;
+          mimeType?: string | null;
+          fileSize?: number | null;
         };
         const photo = uploadJson.photo ?? uploadJson;
-        const fileUrl = photo.url;
-        if (!fileUrl) return;
-
-        const pinRes = await fetch(
-          `/api/inspections/${inspectionId}/sketches/${persistedId}/evidence-pins`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              kind: coords.file.type.startsWith("video/") ? "video" : "photo",
-              x: coords.x,
-              y: coords.y,
-              nx: coords.nx,
-              ny: coords.ny,
-              canvasWidth: width,
-              canvasHeight: height,
-              inspectionPhotoId: photo.id,
-              fileUrl,
-              thumbnailUrl: photo.thumbnailUrl ?? fileUrl,
-              fileName: coords.file.name,
-              fileMimeType: coords.file.type,
-              fileSizeBytes: coords.file.size,
-              captureSource: "camera",
-            }),
-          },
-        );
-        if (!pinRes.ok) return;
-        const pinJson = (await pinRes.json()) as { pin: EvidencePinView };
-        setFloorsData((prev) =>
-          prev.map((fd, i) =>
-            i === activeIdx
-              ? {
-                  ...fd,
-                  evidencePins: [...fd.evidencePins, pinJson.pin],
-                }
-              : fd,
-          ),
-        );
+        if (!photo.id || !photo.url) return;
+        const persistedPhoto: ExistingEvidencePhoto = {
+          id: photo.id,
+          url: photo.url,
+          thumbnailUrl: photo.thumbnailUrl,
+          location: "Floor plan pin",
+          mimeType: photo.mimeType ?? coords.file.type,
+        };
+        await persistEvidencePin(coords, persistedPhoto, {
+          captureSource: "camera",
+          fileName: coords.file.name,
+          fileSizeBytes: coords.file.size,
+        });
+        setExistingEvidencePhotos((prev) => [persistedPhoto, ...prev]);
       } finally {
         setEvidenceUploading(false);
       }
     },
-    [
-      activeIdx,
-      captureMode,
-      flushSaveNow,
-      floorsData,
-      height,
-      inspectionId,
-      uid,
-      width,
-    ],
+    [captureMode, inspectionId, persistEvidencePin],
+  );
+
+  const handleExistingEvidencePlace = useCallback(
+    async (coords: {
+      x: number;
+      y: number;
+      nx: number;
+      ny: number;
+      photo: ExistingEvidencePhoto;
+    }) => {
+      setEvidenceUploading(true);
+      try {
+        await persistEvidencePin(coords, coords.photo, {
+          captureSource: "import",
+        });
+      } finally {
+        setEvidenceUploading(false);
+      }
+    },
+    [persistEvidencePin],
   );
 
   const handleEvidenceMove = useCallback(
@@ -2212,7 +2308,9 @@ export function SketchEditorV2({
                 width={viewport.width}
                 height={viewport.height}
                 uploading={evidenceUploading && idx === activeIdx}
+                existingPhotos={existingEvidencePhotos}
                 onPlace={handleEvidencePlace}
+                onPlaceExisting={handleExistingEvidencePlace}
                 onMove={handleEvidenceMove}
                 onRemove={handleEvidenceRemove}
               />

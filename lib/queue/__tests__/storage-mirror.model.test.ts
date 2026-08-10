@@ -29,7 +29,14 @@ describe("StorageMirrorJob model — Prisma client wiring", () => {
     expect(MirrorJobStatus.FAILED).toBe("FAILED");
   });
 
-  it("exposes prisma.storageMirrorJob with the expected delegate methods", () => {
+  // Reading prisma.storageMirrorJob forces the lazy PrismaClient proxy to
+  // construct, which throws without DATABASE_URL (RA-7079). The enum + type
+  // checks above stay hermetic; only this runtime-delegate check needs the
+  // constructed client, so it runs in CI (Postgres provisioned) and skips in
+  // the no-DB release-gate/local run.
+  it.skipIf(!process.env.DATABASE_URL)(
+    "exposes prisma.storageMirrorJob with the expected delegate methods",
+    () => {
     expect(typeof prisma.storageMirrorJob.create).toBe("function");
     expect(typeof prisma.storageMirrorJob.findFirst).toBe("function");
     expect(typeof prisma.storageMirrorJob.findUnique).toBe("function");

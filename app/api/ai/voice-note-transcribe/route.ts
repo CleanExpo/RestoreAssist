@@ -28,15 +28,53 @@ import OpenAI from "openai";
 export const maxDuration = 60;
 
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10 MB
-const ALLOWED_MIME = new Set([
-  "audio/webm",
-  "audio/mp4",
-  "audio/mpeg",
-  "audio/wav",
-  "audio/ogg",
-  "audio/m4a",
-  "audio/x-m4a",
-]);
+
+type DetectedAudio = { mediaType: string; extension: string };
+
+function hasAscii(buffer: Buffer, offset: number, value: string) {
+  return (
+    buffer.length >= offset + value.length &&
+    buffer.toString("ascii", offset, offset + value.length) === value
+  );
+}
+
+function detectAudio(buffer: Buffer): DetectedAudio | null {
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x1a &&
+    buffer[1] === 0x45 &&
+    buffer[2] === 0xdf &&
+    buffer[3] === 0xa3
+  ) {
+    return { mediaType: "audio/webm", extension: "webm" };
+  }
+
+  if (hasAscii(buffer, 0, "RIFF") && hasAscii(buffer, 8, "WAVE")) {
+    return { mediaType: "audio/wav", extension: "wav" };
+  }
+
+  if (buffer.length >= 27 && hasAscii(buffer, 0, "OggS")) {
+    return { mediaType: "audio/ogg", extension: "ogg" };
+  }
+
+  if (
+    (buffer.length >= 10 && hasAscii(buffer, 0, "ID3")) ||
+    (buffer.length >= 4 && buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0)
+  ) {
+    return { mediaType: "audio/mpeg", extension: "mp3" };
+  }
+
+  if (buffer.length >= 12 && hasAscii(buffer, 4, "ftyp")) {
+    const brand = buffer.toString("ascii", 8, 12);
+    const isM4a = brand === "M4A " || brand === "M4B ";
+    return {
+      mediaType: "audio/mp4",
+      extension: isM4a ? "m4a" : "mp4",
+    };
+  }
+
+  return null;
+}
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -61,6 +99,64 @@ export async function POST(request: NextRequest) {
   });
   if (rateLimited) return rateLimited;
 
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch {
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Expected multipart/form-data",
+      status: 400,
+    });
+  }
+
+  const audioEntries = formData.getAll("audio");
+  if (audioEntries.length !== 1 || !(audioEntries[0] instanceof File)) {
+    return apiError(request, {
+      code: "VALIDATION",
+      message:
+        audioEntries.length > 1
+          ? "Exactly one `audio` file is required"
+          : "`audio` file field is required",
+      status: 400,
+    });
+  }
+  const audioRaw = audioEntries[0];
+
+  if (audioRaw.size > MAX_AUDIO_BYTES) {
+    return apiError(request, {
+      code: "PAYLOAD_TOO_LARGE",
+      message: "Audio exceeds 10 MB limit",
+      status: 413,
+    });
+  }
+
+  if (audioRaw.size === 0) {
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Unsupported or invalid audio file",
+      status: 415,
+    });
+  }
+
+  const audioBuffer = Buffer.from(await audioRaw.arrayBuffer());
+  if (audioBuffer.length > MAX_AUDIO_BYTES) {
+    return apiError(request, {
+      code: "PAYLOAD_TOO_LARGE",
+      message: "Audio exceeds 10 MB limit",
+      status: 413,
+    });
+  }
+
+  const detectedAudio = detectAudio(audioBuffer);
+  if (!detectedAudio) {
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Unsupported or invalid audio file",
+      status: 415,
+    });
+  }
+
   let workspaceKey: { apiKey: string };
   try {
     workspaceKey = await resolveWorkspaceAiKey(session.user.id, "OPENAI");
@@ -76,47 +172,13 @@ export async function POST(request: NextRequest) {
     throw err;
   }
 
-  let formData: FormData;
-  try {
-    formData = await request.formData();
-  } catch {
-    return apiError(request, {
-      code: "VALIDATION",
-      message: "Expected multipart/form-data",
-      status: 400,
-    });
-  }
-
-  const audioRaw = formData.get("audio");
-  if (!(audioRaw instanceof File)) {
-    return apiError(request, {
-      code: "VALIDATION",
-      message: "`audio` file field is required",
-      status: 400,
-    });
-  }
-
-  if (audioRaw.size > MAX_AUDIO_BYTES) {
-    return NextResponse.json(
-      {
-        error: `Audio exceeds 10 MB limit (got ${Math.round(audioRaw.size / 1024)} KB)`,
-      },
-      { status: 413 },
-    );
-  }
-
-  if (audioRaw.type && !ALLOWED_MIME.has(audioRaw.type)) {
-    return NextResponse.json(
-      { error: `Unsupported audio type: ${audioRaw.type}` },
-      { status: 415 },
-    );
-  }
-
   const started = Date.now();
   try {
     const openai = new OpenAI({ apiKey: workspaceKey.apiKey });
     const result = await openai.audio.transcriptions.create({
-      file: audioRaw,
+      file: new File([audioBuffer], `voice-note.${detectedAudio.extension}`, {
+        type: detectedAudio.mediaType,
+      }),
       model: "whisper-1",
       language: "en",
       // Hint Whisper toward restoration vernacular — improves accuracy

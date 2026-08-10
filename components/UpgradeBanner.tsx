@@ -67,8 +67,14 @@ function UpgradeBannerContent({
   const upgradeFeatures = [
     {
       icon: Zap,
-      title: "Unlimited Quick Fill",
-      description: "AI-powered form auto-fill for all your reports",
+      // Both halves were wrong. Quick Fill is ALREADY unlimited for in-window
+      // trial users (app/api/user/quick-fill-credits/route.ts returns
+      // hasUnlimited for isTrialWithinPeriod), so the upgrade is that it keeps
+      // working afterwards. And it is not AI-powered: the shipped path copies
+      // hardcoded scenario data, and generateQuickFillData
+      // (lib/deepseek-api.ts:74) has zero callers in the repo.
+      title: "Quick Fill after your trial",
+      description: "Form auto-fill stays unlimited once your trial ends",
     },
     {
       icon: FileText,

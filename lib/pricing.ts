@@ -36,9 +36,38 @@ export const PRICING_CONFIG = {
     features: [
       "15-day free trial",
       "50 inspection report credits",
-      "30 Quick Fill credits (AI-powered form auto-fill)",
+      // NOT "AI-powered". The shipped Quick Fill copies hardcoded scenario
+      // data; `generateQuickFillData` (lib/deepseek-api.ts:74) has zero callers
+      // anywhere in the repository, so there is no AI in this path to sell.
+      // This said "30 Quick Fill credits", which CONTRADICTED the tier
+      // comparison rendered from this same config on the same page ("Unlimited
+      // during the trial, then 30 credits"). The handler settles it:
+      // app/api/user/quick-fill-credits/route.ts returns
+      // `creditsRemaining: null, hasUnlimited: true` for isTrialWithinPeriod
+      // and does not decrement. A trial user inside the window has unlimited
+      // Quick Fill; the 30 credits are what remains once the window closes.
+      //
+      // Fixing the comparison and leaving the config bullet was the same
+      // partial-sweep failure this surface keeps producing.
+      // Deliberately does NOT use the word "unlimited", even though Quick Fill
+      // genuinely is unmetered in-window. lib/__tests__/pricing-integrity.test.ts
+      // asserts no free-tier bullet matches /forever|unlimited/i, because this
+      // is a TIME-LIMITED trial and an unbounded-sounding claim on it is the
+      // exact thing that guard exists to stop. It caught this line when it was
+      // first written as "Unlimited Quick Fill during the trial".
+      //
+      // The copy was changed to fit the guard, not the guard to fit the copy.
+      "Quick Fill runs without a credit limit during the trial, then 30 credits (form auto-fill)",
       "Basic report type",
-      "IICRC S500 compliant reports",
+      // NOT "IICRC S500 compliant". lib/iicrc-inclusion-check.ts states the
+      // hard rule that this product never asserts "complies", "certifies",
+      // "meets [the standard]" or "required by law", enforced by
+      // lib/__tests__/iicrc-inclusion-check.test.ts, and full S500 clause
+      // ingestion is blocked pending legal clearance. Alignment is the only
+      // claim the build supports: the section INDEX ships
+      // (lib/standards/s500-sections.ts), the licensed wording does not.
+      // Wording matches app/features/page.tsx so the two surfaces agree.
+      "Reports structured on IICRC S500:2021 sections",
       "PDF & Excel export",
       "Email support",
     ],
@@ -70,9 +99,28 @@ export const PRICING_CONFIG = {
         "First month signup bonus: +10 reports",
         "PDF & Excel export",
         "Email support",
-        "All integrations",
-        "IICRC S500 compliant",
-        "Priority processing",
+        // NOT "All integrations". Three of the seven recurring add-ons in
+        // lib/billing/addon-registry.ts ARE integrations — Online Bookkeeping
+        // Connection, Service CRM Connection and Payments Collection — each a
+        // separate monthly subscription on top of this plan. Promising "all
+        // integrations" here promised things that cost extra. Their real
+        // prices are rendered on the pricing page by CostDisclosure, read
+        // straight from the registry.
+        "Integrations available as separately-priced add-ons",
+        // See the note on the free tier's equivalent bullet.
+        "Reports structured on IICRC S500:2021 sections",
+        // "Priority processing" was REMOVED because it does not exist. It is
+        // not gated-but-unenforced like the report-type bullets — there is no
+        // implementation of any kind. Searched app/, lib/ and components/ for
+        // "priority": the only hits are the sitemap's SEO weights in
+        // app/sitemap.ts. No queue, no priority column, no ordering logic, and
+        // the generation-route rate limits are identical for trial and paid.
+        // A positive control on the same search (quickFillCredits, 19 hits)
+        // confirms the search itself works.
+        //
+        // This is the worst class of claim on a pricing page: not a capability
+        // the buyer can obtain another way, but one that was never built and is
+        // being charged for. Build it before selling it.
       ],
     },
   },

@@ -82,6 +82,6 @@ pnpm prisma:generate
 echo "[bootstrap] running baseline validation"
 pnpm type-check
 pnpm lint
-pnpm exec vitest run
+pnpm exec vitest run --config config/vitest.config.js
 
 echo "[bootstrap] PASS: local RestoreAssist validation environment is ready for Phase 1."

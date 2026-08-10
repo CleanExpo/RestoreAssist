@@ -8,6 +8,14 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { requireAddon } from "@/lib/entitlements";
 import { PAYMENTS_SKU } from "@/lib/billing/payments-addon";
 
+const MAX_SERIALIZABLE_ATTEMPTS = 3;
+
+function paymentConflict(): Error & { code: "P2034" } {
+  return Object.assign(new Error("Invoice payment state changed"), {
+    code: "P2034" as const,
+  });
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -38,26 +46,6 @@ export async function POST(
   // header behave as before.
   return withIdempotency(request, userId, async (rawBody) => {
     try {
-      const invoice = await prisma.invoice.findUnique({
-        where: { id, userId },
-      });
-
-      if (!invoice) {
-        return apiError(request, {
-          code: "NOT_FOUND",
-          message: "Invoice not found",
-          status: 404,
-        });
-      }
-
-      if (isDraft(invoice.status) || isCancelled(invoice.status)) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: "Cannot record payment for draft or cancelled invoices",
-          status: 400,
-        });
-      }
-
       let body: any;
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
@@ -70,7 +58,7 @@ export async function POST(
       }
       const { amount, paymentMethod, reference, notes, paymentDate } = body;
 
-      if (!amount || amount <= 0) {
+      if (!Number.isInteger(amount) || amount <= 0) {
         return apiError(request, {
           code: "VALIDATION",
           message: "Valid payment amount is required",
@@ -86,119 +74,214 @@ export async function POST(
         });
       }
 
-      if (amount > invoice.amountDue) {
+      let result:
+        | { kind: "recorded"; payment: unknown; invoice: unknown }
+        | { kind: "not-found" }
+        | { kind: "invalid-status" }
+        | { kind: "invalid-balance" }
+        | { kind: "over-allocation" }
+        | undefined;
+
+      for (let attempt = 1; attempt <= MAX_SERIALIZABLE_ATTEMPTS; attempt++) {
+        try {
+          result = await prisma.$transaction(
+            async (tx) => {
+              const invoice = await tx.invoice.findUnique({
+                where: { id, userId },
+                select: {
+                  id: true,
+                  userId: true,
+                  status: true,
+                  currency: true,
+                  totalIncGST: true,
+                  amountPaid: true,
+                  amountDue: true,
+                  paidDate: true,
+                },
+              });
+
+              if (!invoice) return { kind: "not-found" as const };
+              if (isDraft(invoice.status) || isCancelled(invoice.status)) {
+                return { kind: "invalid-status" as const };
+              }
+              if (
+                invoice.amountPaid < 0 ||
+                invoice.amountDue < 0 ||
+                invoice.amountPaid + invoice.amountDue !== invoice.totalIncGST
+              ) {
+                return { kind: "invalid-balance" as const };
+              }
+              if (amount > invoice.amountDue) {
+                return { kind: "over-allocation" as const };
+              }
+
+              const newAmountPaid = invoice.amountPaid + amount;
+              const newAmountDue = invoice.amountDue - amount;
+              const newStatus = newAmountDue === 0 ? "PAID" : "PARTIALLY_PAID";
+              const paidAt = newAmountDue === 0 ? new Date() : invoice.paidDate;
+
+              // Compare-and-set the exact financial snapshot read above. A
+              // concurrent payment changes either amount field, making this
+              // write lose and forcing a serializable retry with fresh values.
+              const updated = await tx.invoice.updateMany({
+                where: {
+                  id,
+                  userId,
+                  amountPaid: invoice.amountPaid,
+                  amountDue: invoice.amountDue,
+                },
+                data: {
+                  amountPaid: newAmountPaid,
+                  amountDue: newAmountDue,
+                  status: newStatus,
+                  paidDate: paidAt,
+                },
+              });
+              if (updated.count === 0) throw paymentConflict();
+
+              const payment = await tx.invoicePayment.create({
+                data: {
+                  amount,
+                  currency: invoice.currency,
+                  paymentMethod,
+                  reference,
+                  notes,
+                  paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+                  invoiceId: id,
+                  userId,
+                  reconciled: false,
+                },
+              });
+
+              await tx.invoicePaymentAllocation.create({
+                data: {
+                  paymentId: payment.id,
+                  invoiceId: id,
+                  allocatedAmount: amount,
+                },
+              });
+
+              await tx.invoiceAuditLog.create({
+                data: {
+                  invoiceId: id,
+                  userId,
+                  action: "payment_received",
+                  description: `Payment of $${(amount / 100).toFixed(2)} received via ${paymentMethod}`,
+                  metadata: {
+                    paymentId: payment.id,
+                    amount,
+                    currency: invoice.currency,
+                    paymentMethod,
+                    reference,
+                  },
+                },
+              });
+
+              const updatedInvoice = await tx.invoice.findUnique({
+                where: { id, userId },
+                include: {
+                  lineItems: {
+                    orderBy: { sortOrder: "asc" },
+                    select: {
+                      id: true,
+                      description: true,
+                      category: true,
+                      quantity: true,
+                      unitPrice: true,
+                      xeroAccountCode: true,
+                      subtotal: true,
+                      gstRate: true,
+                      gstAmount: true,
+                      total: true,
+                      discountAmount: true,
+                      sortOrder: true,
+                      invoiceId: true,
+                      estimateLineItemId: true,
+                      createdAt: true,
+                    },
+                  },
+                  payments: {
+                    orderBy: { paymentDate: "desc" },
+                    select: {
+                      id: true,
+                      amount: true,
+                      currency: true,
+                      paymentMethod: true,
+                      paymentDate: true,
+                      reference: true,
+                      notes: true,
+                      stripePaymentIntentId: true,
+                      stripeChargeId: true,
+                      externalPaymentId: true,
+                      externalProvider: true,
+                      webhookEventId: true,
+                      reconciled: true,
+                      reconciledAt: true,
+                      reconciledBy: true,
+                      invoiceId: true,
+                      userId: true,
+                      createdAt: true,
+                      updatedAt: true,
+                    },
+                  },
+                },
+              });
+
+              return {
+                kind: "recorded" as const,
+                payment,
+                invoice: updatedInvoice,
+              };
+            },
+            { isolationLevel: "Serializable" },
+          );
+          break;
+        } catch (error) {
+          const code = (error as { code?: string })?.code;
+          if (code === "P2034") {
+            if (attempt < MAX_SERIALIZABLE_ATTEMPTS) continue;
+            break;
+          }
+          throw error;
+        }
+      }
+
+      if (!result) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "Invoice payment state changed; retry the payment",
+          status: 409,
+        });
+      }
+      if (result.kind === "not-found") {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+          status: 404,
+        });
+      }
+      if (result.kind === "invalid-status") {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Cannot record payment for draft or cancelled invoices",
+          status: 400,
+        });
+      }
+      if (result.kind === "invalid-balance") {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "Invoice balance is inconsistent; reconcile it before recording payment",
+          status: 409,
+        });
+      }
+      if (result.kind === "over-allocation") {
         return apiError(request, {
           code: "VALIDATION",
           message: "Payment amount exceeds amount due",
           status: 400,
         });
       }
-
-      const result = await prisma.$transaction(async (tx) => {
-        const payment = await tx.invoicePayment.create({
-          data: {
-            amount,
-            paymentMethod,
-            reference,
-            notes,
-            paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
-            invoiceId: id,
-            userId,
-            reconciled: false,
-          },
-        });
-
-        await tx.invoicePaymentAllocation.create({
-          data: {
-            paymentId: payment.id,
-            invoiceId: id,
-            allocatedAmount: amount,
-          },
-        });
-
-        const newAmountPaid = invoice.amountPaid + amount;
-        const newAmountDue = invoice.totalIncGST - newAmountPaid;
-
-        let newStatus = invoice.status;
-        if (newAmountDue === 0) {
-          newStatus = "PAID";
-        } else if (newAmountPaid > 0 && newAmountDue > 0) {
-          newStatus = "PARTIALLY_PAID";
-        }
-
-        const updatedInvoice = await tx.invoice.update({
-          where: { id, userId },
-          data: {
-            amountPaid: newAmountPaid,
-            amountDue: newAmountDue,
-            status: newStatus,
-            paidDate: newAmountDue === 0 ? new Date() : invoice.paidDate,
-          },
-          include: {
-            lineItems: {
-              orderBy: { sortOrder: "asc" },
-              select: {
-                id: true,
-                description: true,
-                category: true,
-                quantity: true,
-                unitPrice: true,
-                xeroAccountCode: true,
-                subtotal: true,
-                gstRate: true,
-                gstAmount: true,
-                total: true,
-                discountAmount: true,
-                sortOrder: true,
-                invoiceId: true,
-                estimateLineItemId: true,
-                createdAt: true,
-              },
-            },
-            payments: {
-              orderBy: { paymentDate: "desc" },
-              select: {
-                id: true,
-                amount: true,
-                currency: true,
-                paymentMethod: true,
-                paymentDate: true,
-                reference: true,
-                notes: true,
-                stripePaymentIntentId: true,
-                stripeChargeId: true,
-                externalPaymentId: true,
-                externalProvider: true,
-                webhookEventId: true,
-                reconciled: true,
-                reconciledAt: true,
-                reconciledBy: true,
-                invoiceId: true,
-                userId: true,
-                createdAt: true,
-                updatedAt: true,
-              },
-            },
-          },
-        });
-
-        await tx.invoiceAuditLog.create({
-          data: {
-            invoiceId: id,
-            userId,
-            action: "payment_received",
-            description: `Payment of $${(amount / 100).toFixed(2)} received via ${paymentMethod}`,
-            metadata: {
-              paymentId: payment.id,
-              amount,
-              paymentMethod,
-              reference,
-            },
-          },
-        });
-
-        return { payment, invoice: updatedInvoice };
-      });
 
       return NextResponse.json(
         {

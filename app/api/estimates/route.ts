@@ -124,10 +124,32 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      if (
+        existingEstimate?.status === "APPROVED" ||
+        existingEstimate?.status === "LOCKED"
+      ) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "Approved and locked estimates are immutable. Use the variation workflow for changes.",
+          status: 409,
+        });
+      }
+
+      const currentStatus = existingEstimate?.status ?? "DRAFT";
+      if (status !== undefined && status !== currentStatus) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "Estimate status cannot be changed through the save endpoint. Use the status workflow.",
+          status: 409,
+        });
+      }
+
       const estimateData = {
         reportId,
         scopeId: scopeId || null,
-        status: status || "DRAFT",
+        status: currentStatus,
         version: existingEstimate ? existingEstimate.version + 1 : version || 1,
         rateTables: rateTables ? JSON.stringify(rateTables) : null,
         commercialParams: commercialParams

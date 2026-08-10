@@ -18,7 +18,9 @@ import {
 
 const baseCtx: TransitionContext = {
   invoiceStatus: "PAID",
+  invoiceHasUnreconciledPayment: false,
   reportStatus: "SENT",
+  reportDeliveredAt: new Date("2026-05-14T00:00:00.000Z"),
   handoverCompletedAt: new Date("2026-05-14T00:00:00.000Z"),
 };
 
@@ -108,6 +110,30 @@ describe("canTransition — precondition gating", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.missing).toContain("report_sent");
+    }
+  });
+
+  it("IN_BILLING → CLOSED fails when report is complete without delivery evidence", () => {
+    const result = canTransition(
+      InspectionStatus.IN_BILLING,
+      InspectionStatus.CLOSED,
+      { ...baseCtx, reportStatus: "COMPLETED", reportDeliveredAt: null },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.missing).toContain("report_sent");
+    }
+  });
+
+  it("IN_BILLING → CLOSED fails when PAID is backed by an unreconciled payment", () => {
+    const result = canTransition(
+      InspectionStatus.IN_BILLING,
+      InspectionStatus.CLOSED,
+      { ...baseCtx, invoiceHasUnreconciledPayment: true },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.missing).toContain("invoice_paid");
     }
   });
 

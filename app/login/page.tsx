@@ -139,7 +139,7 @@ function LoginForm() {
     setIsLoading(true);
     setError("");
     try {
-      const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+      const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
       // RA-1842 Ground 3 — on iOS this opens SFSafariViewController
       // instead of bouncing to Safari proper. Web behaviour unchanged.
       await signInWithOAuth("google", { callbackUrl });
@@ -158,7 +158,7 @@ function LoginForm() {
     setIsLoading(true);
     setError("");
     try {
-      const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+      const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
       await signInWithOAuth("apple", { callbackUrl });
     } catch (error: any) {
       setError("Apple sign-in failed. Please try again.");

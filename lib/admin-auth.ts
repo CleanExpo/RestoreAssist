@@ -74,3 +74,28 @@ export async function verifyAdminFromDb(
     },
   };
 }
+
+/**
+ * Store publishing mutates RestoreAssist's platform-owned App Store and Google
+ * Play listings, so tenant ADMIN is not sufficient authority. Operators must
+ * be explicitly allowlisted by stable User.id in server configuration.
+ * Missing or empty configuration deliberately fails closed.
+ */
+export function verifyStorePublishingOperator(
+  auth: AdminAuthResult,
+): AdminAuthResult {
+  const operatorIds = new Set(
+    (process.env.STORE_PUBLISHING_OPERATOR_USER_IDS ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
+
+  if (!auth.user || !operatorIds.has(auth.user.id)) {
+    return {
+      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+
+  return auth;
+}

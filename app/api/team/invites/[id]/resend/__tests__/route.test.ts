@@ -54,22 +54,114 @@ beforeEach(() => {
     organization: { name: "Org" },
   });
   inviteUpdate.mockResolvedValue({ id: "inv1" });
-  userFindUnique.mockResolvedValue({ name: "Admin" });
+  userFindUnique.mockImplementation(({ where }) => {
+    if (where.id === "admin1") {
+      return {
+        id: "admin1",
+        name: "Admin",
+        role: "ADMIN",
+        organizationId: "org1",
+      };
+    }
+    return null;
+  });
 });
 
 describe("POST /api/team/invites/[id]/resend — org-scoped extend", () => {
-  it("scopes the expiry extension to invites created within the caller's org", async () => {
+  it("scopes the invite lookup and expiry extension to the fresh DB organisation", async () => {
     const res = await POST(
       new NextRequest("http://localhost/api/team/invites/inv1/resend", {
         method: "POST",
       }),
       { params: Promise.resolve({ id: "inv1" }) },
     );
+    expect(userFindUnique).toHaveBeenCalledWith({
+      where: { id: "admin1" },
+      select: { id: true, name: true, role: true, organizationId: true },
+    });
+    expect(inviteFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "inv1", organizationId: "org1" },
+      }),
+    );
     expect(inviteUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "inv1", createdBy: { organizationId: "org1" } },
+        where: { id: "inv1", organizationId: "org1" },
       }),
     );
     expect(res.status).toBeLessThan(400);
+  });
+
+  it("rejects a caller whose ADMIN session is stale after DB demotion", async () => {
+    userFindUnique.mockResolvedValueOnce({
+      id: "admin1",
+      name: "Former Admin",
+      role: "USER",
+      organizationId: "org1",
+    });
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/team/invites/inv1/resend", {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ id: "inv1" }) },
+    );
+
+    expect(res.status).toBe(403);
+    expect(inviteFindUnique).not.toHaveBeenCalled();
+    expect(inviteUpdate).not.toHaveBeenCalled();
+  });
+
+  it("uses the current DB organisation instead of the stale session claim", async () => {
+    userFindUnique.mockResolvedValueOnce({
+      id: "admin1",
+      name: "Admin",
+      role: "ADMIN",
+      organizationId: "org2",
+    });
+    inviteFindUnique.mockResolvedValueOnce(null);
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/team/invites/inv1/resend", {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ id: "inv1" }) },
+    );
+
+    expect(res.status).toBe(404);
+    expect(inviteFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "inv1", organizationId: "org2" },
+      }),
+    );
+    expect(inviteUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a manager attempting to resend another user's invite", async () => {
+    userFindUnique.mockResolvedValueOnce({
+      id: "admin1",
+      name: "Manager",
+      role: "MANAGER",
+      organizationId: "org1",
+    });
+    inviteFindUnique.mockResolvedValueOnce({
+      id: "inv1",
+      email: "e@x.com",
+      usedAt: null,
+      expiresAt: new Date(Date.now() - 1000),
+      createdById: "other-user",
+      createdBy: { id: "other-user", name: "Other" },
+      organization: { name: "Org" },
+    });
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/team/invites/inv1/resend", {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ id: "inv1" }) },
+    );
+
+    expect(res.status).toBe(403);
+    expect(inviteUpdate).not.toHaveBeenCalled();
   });
 });

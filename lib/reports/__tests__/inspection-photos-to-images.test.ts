@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { inspectionPhotosToImages } from "../inspection-photos-to-images";
 
-const PNG_SIG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const PNG_SIG = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
 const JPG_SIG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
 
 function fakeFetch(map: Record<string, Uint8Array | "fail">) {
@@ -21,8 +23,16 @@ function fakeFetch(map: Record<string, Uint8Array | "fail">) {
 describe("inspectionPhotosToImages", () => {
   it("fetches each photo and detects PNG vs JPG from the bytes", async () => {
     const photos = [
-      { url: "https://x/a.png", mimeType: "image/png", description: "Kitchen leak" },
-      { url: "https://x/b.jpg", mimeType: "image/jpeg", description: "Ceiling stain" },
+      {
+        url: "https://x/a.png",
+        mimeType: "image/png",
+        description: "Kitchen leak",
+      },
+      {
+        url: "https://x/b.jpg",
+        mimeType: "image/jpeg",
+        description: "Ceiling stain",
+      },
     ];
     const fetchImpl = fakeFetch({
       "https://x/a.png": PNG_SIG,
@@ -88,6 +98,38 @@ describe("inspectionPhotosToImages", () => {
   });
 
   it("returns [] for empty input", async () => {
-    expect(await inspectionPhotosToImages([], fakeFetch({}) as never)).toEqual([]);
+    expect(await inspectionPhotosToImages([], fakeFetch({}) as never)).toEqual(
+      [],
+    );
+  });
+
+  it("prefixes matching gallery captions with their floor-plan evidence labels", async () => {
+    const photos = [
+      {
+        id: "photo-1",
+        url: "https://x/1",
+        description: "Kitchen leak",
+      },
+      { id: "photo-2", url: "https://x/2" },
+    ];
+    const fetchImpl = fakeFetch({
+      "https://x/1": JPG_SIG,
+      "https://x/2": JPG_SIG,
+    });
+    const labels = new Map([
+      ["photo-1", ["E1", "E3"]],
+      ["photo-2", ["E2"]],
+    ]);
+
+    const imgs = await inspectionPhotosToImages(
+      photos,
+      fetchImpl as never,
+      labels,
+    );
+
+    expect(imgs.map((image) => image.caption)).toEqual([
+      "E1, E3 · Kitchen leak",
+      "E2 · Inspection evidence",
+    ]);
   });
 });

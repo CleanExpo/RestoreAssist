@@ -84,9 +84,11 @@ describe("AvatarOrb graceful fallback", () => {
   it("shows an honest offline message when public-chat fails", async () => {
     vi.stubGlobal(
       "fetch",
+      // A generic upstream failure (not 429). 429 renders the distinct
+      // rate-limit copy; this test asserts the honest offline message.
       vi.fn().mockResolvedValue({
         ok: false,
-        status: 429,
+        status: 500,
       }),
     );
 
