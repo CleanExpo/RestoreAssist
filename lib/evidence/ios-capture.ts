@@ -35,7 +35,12 @@ export async function sha256Bytes(buffer: ArrayBuffer): Promise<string> {
 // carries the byte hash so the server can verify the stored bytes.
 export function buildEvidenceFormData(
   capture: IOSCaptureResult,
-  fields: { workflowStepId: string; evidenceClass: string },
+  fields: {
+    workflowStepId: string;
+    evidenceClass: string;
+    /** Defaults to IOS_CAPACITOR for native camera captures. */
+    deviceType?: string;
+  },
   // RA-7090 slice 2: optional signed manifest — when the device has a
   // registered Ed25519 key, the canonical manifest bytes + signature ride
   // along and the server verifies before granting signed status.
@@ -46,7 +51,7 @@ export function buildEvidenceFormData(
   form.append("sha256", capture.manifest.sha256);
   form.append("evidenceClass", fields.evidenceClass);
   form.append("workflowStepId", fields.workflowStepId);
-  form.append("deviceType", "IOS_CAPACITOR");
+  form.append("deviceType", fields.deviceType ?? "IOS_CAPACITOR");
   if (capture.manifest.lat !== null) {
     form.append("capturedLat", String(capture.manifest.lat));
   }
@@ -62,6 +67,92 @@ export function buildEvidenceFormData(
     form.append("manifestSignature", signed.signature);
   }
   return form;
+}
+
+/**
+ * Build a capture result from a browser File / Blob (web guided capture).
+ * Hashes the same bytes that will be uploaded so the evidence route can
+ * verify against Cloudinary-stored content.
+ */
+export async function evidencePhotoFromFile(
+  file: File | Blob,
+  filenameHint?: string,
+): Promise<IOSCaptureResult> {
+  const mimeType =
+    file.type ||
+    (file instanceof File && file.type) ||
+    "application/octet-stream";
+  const filename =
+    (file instanceof File && file.name) ||
+    filenameHint ||
+    `capture-${Date.now()}.${mimeType.includes("png") ? "png" : mimeType.includes("pdf") ? "pdf" : "jpg"}`;
+
+  const [loc, sha256] = await Promise.all([
+    getCurrentLocation().catch(() => null),
+    file.arrayBuffer().then(sha256Bytes),
+  ]);
+
+  return {
+    blob: file,
+    filename,
+    mimeType,
+    manifest: {
+      capturedAt: new Date().toISOString(),
+      sha256,
+      lat: loc?.latitude ?? null,
+      lng: loc?.longitude ?? null,
+      accuracy: loc?.accuracy ?? null,
+    },
+  };
+}
+
+/**
+ * Open a file picker (camera-preferring on mobile) for web evidence capture.
+ * Rejects if the user cancels without selecting a file.
+ */
+export function pickEvidencePhotoFile(options?: {
+  accept?: string;
+}): Promise<File> {
+  const accept =
+    options?.accept ??
+    "image/jpeg,image/png,image/webp,image/*,application/pdf,video/*,.doc,.docx";
+
+  return new Promise((resolve, reject) => {
+    if (typeof document === "undefined") {
+      reject(new Error("File picker is only available in the browser"));
+      return;
+    }
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
+    input.setAttribute("capture", "environment");
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener("focus", onFocus);
+      fn();
+    };
+    const onFocus = () => {
+      // After the OS picker closes, window regains focus. If onchange did not
+      // fire with a file, treat as cancel (Chrome/Safari without cancel event).
+      window.setTimeout(() => {
+        finish(() => reject(new Error("Capture cancelled")));
+      }, 300);
+    };
+    input.onchange = () => {
+      const f = input.files?.[0];
+      finish(() => {
+        if (!f) reject(new Error("No file selected"));
+        else resolve(f);
+      });
+    };
+    input.addEventListener("cancel", () => {
+      finish(() => reject(new Error("Capture cancelled")));
+    });
+    window.addEventListener("focus", onFocus, { once: true });
+    input.click();
+  });
 }
 
 // RA-7090 review fix: a retried POST of the SAME capture must be genuinely
