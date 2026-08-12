@@ -15,8 +15,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { fetchOpenRouterCatalogue } from "@/lib/workspace/openrouter-catalogue";
+import {
+  fetchOpenRouterCatalogue,
+  type OpenRouterCatalogue,
+} from "@/lib/workspace/openrouter-catalogue";
 import { apiError, fromException } from "@/lib/api-errors";
+import { reportError } from "@/lib/observability";
+
+const UNAVAILABLE: OpenRouterCatalogue = {
+  recommended: [],
+  models: [],
+  unavailable: true,
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,7 +39,21 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const catalogue = await fetchOpenRouterCatalogue();
+    // The catalogue helper is written not to throw, but the route must not
+    // DEPEND on that: a 5xx here would surface as a broken onboarding step for
+    // an optional convenience. Any failure degrades to the same `unavailable`
+    // payload the card already handles, and is reported for observability so
+    // the degradation is never silent.
+    let catalogue: OpenRouterCatalogue;
+    try {
+      catalogue = await fetchOpenRouterCatalogue();
+    } catch (error) {
+      reportError(error, {
+        route: "/api/workspace/openrouter-models",
+        stage: "catalogue",
+      });
+      catalogue = UNAVAILABLE;
+    }
 
     return NextResponse.json(catalogue);
   } catch (error) {

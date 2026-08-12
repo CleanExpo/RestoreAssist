@@ -8,6 +8,7 @@ import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
 const fetchOpenRouterCatalogue = vi.fn();
+const reportError = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -16,6 +17,9 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/workspace/openrouter-catalogue", () => ({
   fetchOpenRouterCatalogue: (...args: unknown[]) =>
     fetchOpenRouterCatalogue(...args),
+}));
+vi.mock("@/lib/observability", () => ({
+  reportError: (...args: unknown[]) => reportError(...args),
 }));
 
 import { GET } from "../route";
@@ -92,9 +96,27 @@ describe("GET /api/workspace/openrouter-models", () => {
 
     const res = await GET(req());
 
-    expect(res.status).toBe(500);
-    // The card treats any non-OK as `unavailable` and falls back to free text,
-    // so a thrown helper must still produce a JSON body, never an empty crash.
-    expect(await res.json()).toBeTruthy();
+    // The route's contract is "never fails hard". A 5xx here would surface as a
+    // broken onboarding step for what is an optional convenience, so a thrown
+    // helper must degrade to the same payload an upstream outage produces.
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      recommended: [],
+      models: [],
+      unavailable: true,
+    });
+  });
+
+  it("reports the degradation rather than swallowing it silently", async () => {
+    getServerSession.mockResolvedValue({ user: { id: "u1" } });
+    const boom = new Error("boom");
+    fetchOpenRouterCatalogue.mockRejectedValue(boom);
+
+    await GET(req());
+
+    expect(reportError).toHaveBeenCalledWith(
+      boom,
+      expect.objectContaining({ route: "/api/workspace/openrouter-models" }),
+    );
   });
 });

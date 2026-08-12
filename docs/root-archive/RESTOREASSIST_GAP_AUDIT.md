@@ -357,17 +357,26 @@ were found in `.planning/` video docs.
   - **Tests:** `lib/workspace/__tests__/openrouter-catalogue.test.ts` (10) — family promotion
     order, per-family cap, malformed/`null` upstream entries, cache TTL, outage degradation, and
     an assertion that no `Authorization` header is sent; `app/api/workspace/openrouter-models/
-    __tests__/route.test.ts` (4) — 401 without a session (and no upstream call), outage passthrough
-    as 200; `components/setup/__tests__/AiKeyCard.test.tsx` extended (+7) — picker population,
+    __tests__/route.test.ts` (5) — 401 without a session (and no upstream call), outage passthrough
+    as 200, a throwing helper degrading to 200 rather than 500, and the degradation being
+    reported; `components/setup/__tests__/AiKeyCard.test.tsx` extended (+7) — picker population,
     slug posted with the key, model omitted on the default, free-text fallback, slug dropped when
     switching back to a first-party provider, and a mid-fetch provider toggle.
-  - Two real defects were found and fixed by those tests, both with a re-run positive control:
-    a `null` entry in the upstream array threw and took the whole catalogue down; and the
-    catalogue effect cancelled its own in-flight fetch, stranding the picker on
-    "Loading models…" forever.
-  - Verified: vitest 26/26 on the new suites and 113/113 across `components/setup`,
+  - Three real defects were found and fixed, each with a re-run positive control. Two by the
+    tests: a `null` entry in the upstream array threw and took the whole catalogue down; and
+    the catalogue effect cancelled its own in-flight fetch, stranding the picker on
+    "Loading models…" forever. The third by the independent reviewer (P0): the route's
+    documented "never fails hard" contract was not actually enforced for a throwing helper —
+    it fell through to `fromException` and returned 500, and the regression test asserting
+    that path had been written to accept the 500, so it could not have failed under the
+    defect. The catch now degrades to the same `unavailable` payload an outage produces (and
+    reports the error, so the degradation is never silent); the test asserts 200 plus the
+    exact body and was demonstrated failing under a mutant that restores the 500.
+  - Verified: vitest 27/27 on the new suites and 114/114 across `components/setup`,
     `lib/workspace`, `app/api/workspace`; eslint 0 errors on the changed files; full
-    `tsc --noEmit`; all 12 CI Quality-Checks guards run locally.
+    `tsc --noEmit` (only the pre-existing `components/sketch/SketchCanvas.tsx` errors, in a
+    file this branch does not touch); all 12 CI Quality-Checks guards run locally
+    (`check:no-lucide` fails on four untouched files — pre-existing main-wide debt).
 -  **Setup-wizard brand-logo upload & business-detail persistence (Missing connections
   low)** — the business-detail half is remediated:
   `components/setup/BusinessDetailsCard.tsx` now persists manual edits via
