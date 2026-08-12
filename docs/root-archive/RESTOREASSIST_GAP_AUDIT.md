@@ -331,6 +331,43 @@ were found in `.planning/` video docs.
   real feature access. The trial length is already surfaced on the pricing page
   (`app/pricing/page.tsx:281,332`). The audit's premise ("no trial-specific tier exists in
   lib/pricing.ts") is stale — `PRICING_CONFIG.free` is now the trial SSOT. No change needed.
+- [PASS] **Phase 3 — multi-provider BYOK: the frictionless in-onboarding key + model picker**
+  (completes the OpenRouter thread above). OpenRouter was wired end-to-end into the provider
+  layer, the `ProviderConnection` store and full settings, but the *onboarding* card
+  (`components/setup/AiKeyCard.tsx`) still offered only Anthropic/OpenAI, so a new operator
+  could not reach the open models (Qwen / DeepSeek / MiniMax) without first finishing setup and
+  then hunting through settings — the exact friction Phase 3 set out to remove.
+  - **Card:** OpenRouter is now a third provider button, and selecting it reveals an optional
+    **Model** picker. A blank selection stores no slug and routes to the server-side default
+    (`callAIProvider` → `OPENROUTER_MODEL` → `deepseek/deepseek-chat`), so the fast path is still
+    "paste key, press save".
+  - **No pinned version numbers.** Hardcoding `qwen/qwen3-…`-style slugs would go stale on
+    OpenRouter's next release, and a stale slug is a dead picker. Instead the catalogue is read
+    live from OpenRouter's **public** model index (`lib/workspace/openrouter-catalogue.ts`, new)
+    and the "Recommended open models" group is derived from it: the newest models OpenRouter
+    itself publishes per family (DeepSeek, Qwen, MiniMax), newest-first by its `created` stamp.
+    No BYOK key is read or sent — the upstream index needs no auth.
+  - **Route:** `GET /api/workspace/openrouter-models` (new) is session-gated (it exists for
+    signed-in setup; leaving it open would make the app a free CORS proxy for OpenRouter) and
+    caches for 10 minutes. It **never fails hard** — an upstream outage returns
+    `unavailable: true` and the card degrades to a free-text slug field, so a third-party
+    outage can never block onboarding.
+  - **No schema change**, no migration, no new dependency. `OPENROUTER` and the optional model
+    slug were already accepted by `POST /api/workspace/provider-connections`.
+  - **Tests:** `lib/workspace/__tests__/openrouter-catalogue.test.ts` (10) — family promotion
+    order, per-family cap, malformed/`null` upstream entries, cache TTL, outage degradation, and
+    an assertion that no `Authorization` header is sent; `app/api/workspace/openrouter-models/
+    __tests__/route.test.ts` (4) — 401 without a session (and no upstream call), outage passthrough
+    as 200; `components/setup/__tests__/AiKeyCard.test.tsx` extended (+7) — picker population,
+    slug posted with the key, model omitted on the default, free-text fallback, slug dropped when
+    switching back to a first-party provider, and a mid-fetch provider toggle.
+  - Two real defects were found and fixed by those tests, both with a re-run positive control:
+    a `null` entry in the upstream array threw and took the whole catalogue down; and the
+    catalogue effect cancelled its own in-flight fetch, stranding the picker on
+    "Loading models…" forever.
+  - Verified: vitest 26/26 on the new suites and 113/113 across `components/setup`,
+    `lib/workspace`, `app/api/workspace`; eslint 0 errors on the changed files; full
+    `tsc --noEmit`; all 12 CI Quality-Checks guards run locally.
 -  **Setup-wizard brand-logo upload & business-detail persistence (Missing connections
   low)** — the business-detail half is remediated:
   `components/setup/BusinessDetailsCard.tsx` now persists manual edits via
