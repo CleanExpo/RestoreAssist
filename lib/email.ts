@@ -1,39 +1,19 @@
-import { Resend } from "resend";
 import { reportError } from "@/lib/observability";
 import { BRAND } from "@/lib/brand";
-import { resolveResendConfig } from "@/lib/email/resolve-resend-config";
+import {
+  isEmailServiceConfigured,
+  resolveFromAddress,
+} from "@/lib/email/resolve-platform-config";
+import {
+  sendTransactionalEmail,
+  EMAIL_SEND_TIMEOUT_MS as TX_EMAIL_TIMEOUT_MS,
+} from "@/lib/email/send-transactional";
 
-let resend: Resend | null = null;
-function getResendClient(): Resend {
-  if (!resend) {
-    if (!process.env.RESEND_API_KEY) {
-      throw new Error("RESEND_API_KEY is not configured");
-    }
-    resend = new Resend(process.env.RESEND_API_KEY);
-  }
-  return resend;
-}
-
-async function getResendClientForOrg(
-  organizationId?: string | null,
-): Promise<{ client: Resend; from: string }> {
-  const config = await resolveResendConfig(organizationId);
-  if (!config) {
-    throw new Error("RESEND_API_KEY is not configured");
-  }
-  if (config.source === "platform") {
-    return { client: getResendClient(), from: config.from };
-  }
-  return { client: new Resend(config.apiKey), from: config.from };
-}
-
-/** Hard ceiling on any single Resend call so a hung upstream cannot pin a serverless function. */
-export const EMAIL_SEND_TIMEOUT_MS = 10_000;
+/** Hard ceiling on any single email send so a hung upstream cannot pin a serverless function. */
+export const EMAIL_SEND_TIMEOUT_MS = TX_EMAIL_TIMEOUT_MS;
 
 /**
- * Race a Resend SDK call against a timeout. The Resend SDK offers no
- * per-request AbortSignal option, so this unblocks the awaiting handler;
- * the runtime reclaims the underlying fetch when the invocation ends.
+ * Race an email send against a timeout so a hung provider cannot pin the handler.
  */
 export async function withEmailTimeout<T>(
   send: Promise<T>,
@@ -59,10 +39,7 @@ interface ResendSendResult {
 }
 
 /**
- * The Resend SDK never throws — API and network failures come back as
- * `{ data: null, error }`. Fail-loud senders funnel through this so a
- * failed send actually throws (and sendWithRetry can retry it) instead
- * of being silently reported as success.
+ * Provider failures come back as `{ data: null, error }`. Fail-loud senders funnel through this so a failed send actually throws (and sendWithRetry can retry it) instead of being silently reported as success.
  */
 function assertResendSuccess<T extends ResendSendResult>(
   result: T,
@@ -70,7 +47,7 @@ function assertResendSuccess<T extends ResendSendResult>(
 ): T {
   if (result.error) {
     throw new Error(
-      `[email] Resend send failed (${stage}): ${result.error.name ?? "unknown_error"} — ${result.error.message ?? "no message"}`,
+      `[email] Email send failed (${stage}): ${result.error.name ?? "unknown_error"} — ${result.error.message ?? "no message"}`,
     );
   }
   return result;
@@ -78,7 +55,7 @@ function assertResendSuccess<T extends ResendSendResult>(
 
 /**
  * Best-effort variant for senders that must not throw (cron/webhook paths):
- * logs the Resend error loudly and returns null so callers can tell the
+ * logs the provider error loudly and returns null so callers can tell the
  * send did not go out.
  */
 function reportResendFailure<T extends ResendSendResult>(
@@ -88,7 +65,7 @@ function reportResendFailure<T extends ResendSendResult>(
   if (result.error) {
     reportError(
       new Error(
-        `[email] Resend send failed (${stage}): ${result.error.name ?? "unknown_error"} — ${result.error.message ?? "no message"}`,
+        `[email] Email send failed (${stage}): ${result.error.name ?? "unknown_error"} — ${result.error.message ?? "no message"}`,
       ),
       { stage },
     );
@@ -99,17 +76,11 @@ function reportResendFailure<T extends ResendSendResult>(
 
 /**
  * Resolve the verified "from" address for outbound email.
- * RESEND_FROM_EMAIL must be configured — we never silently fall back to the
- * resend.dev sandbox domain (it delivers nowhere real and reads as spoofing).
+ * Prefers SENDER_EMAIL (Mailtrap), then RESEND_FROM_EMAIL. Never falls back
+ * to a provider sandbox domain.
  */
 export function getFromEmail(): string {
-  const configured = process.env.RESEND_FROM_EMAIL;
-  if (!configured) {
-    throw new Error(
-      "RESEND_FROM_EMAIL is not configured — refusing to send email from the resend.dev sandbox fallback",
-    );
-  }
-  return configured;
+  return resolveFromAddress();
 }
 
 // ── Restoration Pulse update Email (RA-6949) ──
@@ -123,7 +94,7 @@ export interface PulseUpdateEmailData {
 
 /**
  * Generic curated Pulse notification send. The Pulse dispatcher pre-checks
- * that RESEND_API_KEY + RESEND_FROM_EMAIL are configured and fails closed
+ * that MAILTRAP_API_KEY+SENDER_EMAIL (or RESEND_*) are configured and fails closed
  * (suppressed row + connector-health report) when they are not, so reaching
  * here means the connector is configured. Throws on an actual Resend send
  * failure — the dispatcher catches it and records a SEND_FAILED suppression.
@@ -133,7 +104,7 @@ export async function sendPulseUpdateEmail(
   data: PulseUpdateEmailData,
 ): Promise<string | null> {
   const result = await withEmailTimeout(
-    getResendClient().emails.send({
+    sendTransactionalEmail({
       from: getFromEmail(),
       to: data.to,
       subject: sanitiseEmailField(data.subject),
@@ -175,7 +146,7 @@ export function escapeHtml(value: string): string {
 }
 
 export async function sendSignedFormEmail(data: SignedFormEmailData) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!isEmailServiceConfigured()) {
     throw new Error("Email service is not configured");
   }
 
@@ -221,7 +192,7 @@ export async function sendSignedFormEmail(data: SignedFormEmailData) {
   `;
 
   const result = await withEmailTimeout(
-    getResendClient().emails.send({
+    sendTransactionalEmail({
       from: fromEmail,
       to: data.recipientEmail,
       subject: `Signed: ${sanitiseEmailField(data.formName)} — ${sanitiseEmailField(data.clientName)}`,
@@ -256,7 +227,10 @@ export interface InviteEmailData {
 }
 
 export async function sendInviteEmail(data: InviteEmailData) {
-  const { client, from } = await getResendClientForOrg(data.organizationId);
+  if (!isEmailServiceConfigured() && !data.organizationId) {
+    throw new Error("Email service is not configured");
+  }
+  const from = getFromEmail();
 
   const roleLabel = data.role === "MANAGER" ? "Manager" : "Technician";
   const isTransfer = data.isTransfer || false;
@@ -455,7 +429,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
       text,
     };
 
-    const result = await withEmailTimeout(client.emails.send(emailPayload));
+    const result = await withEmailTimeout(sendTransactionalEmail({ ...emailPayload, organizationId: data.organizationId }));
     assertResendSuccess(result, "invite");
     console.log("[email] Invite email sent", { id: result.data?.id ?? null });
     return result;
@@ -478,7 +452,7 @@ export interface PaymentFailedEmailData {
 }
 
 export async function sendPaymentFailedEmail(data: PaymentFailedEmailData) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!isEmailServiceConfigured()) {
     console.warn(
       "⚠️ [DUNNING] Email service is not configured, skipping dunning email",
     );
@@ -591,7 +565,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
     );
 
     const result = await withEmailTimeout(
-      getResendClient().emails.send({
+      sendTransactionalEmail({
         from: fromEmail,
         to: data.recipientEmail,
         subject:
@@ -626,7 +600,7 @@ export interface SubscriptionCancelledEmailData {
 export async function sendSubscriptionCancelledEmail(
   data: SubscriptionCancelledEmailData,
 ) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!isEmailServiceConfigured()) {
     console.warn(
       "⚠️ [EMAIL] Email service is not configured, skipping cancellation email",
     );
@@ -693,7 +667,7 @@ export async function sendSubscriptionCancelledEmail(
     );
 
     const result = await withEmailTimeout(
-      getResendClient().emails.send({
+      sendTransactionalEmail({
         from: fromEmail,
         to: data.recipientEmail,
         subject: "Your RestoreAssist Subscription Has Been Cancelled",
@@ -722,7 +696,7 @@ export interface TrialExpiringEmailData {
 }
 
 export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!isEmailServiceConfigured()) {
     console.warn(
       "⚠️ [EMAIL] Email service is not configured, skipping trial expiring email",
     );
@@ -788,7 +762,7 @@ export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
     );
 
     const result = await withEmailTimeout(
-      getResendClient().emails.send({
+      sendTransactionalEmail({
         from: fromEmail,
         to: data.recipientEmail,
         subject: `Your RestoreAssist Trial Expires in ${data.daysRemaining} Day${data.daysRemaining !== 1 ? "s" : ""}`,
@@ -816,7 +790,7 @@ export interface PasswordResetEmailData {
 }
 
 export async function sendPasswordResetEmail(data: PasswordResetEmailData) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!isEmailServiceConfigured()) {
     console.warn(
       "⚠️ [EMAIL] Email service is not configured, skipping password reset email",
     );
@@ -901,7 +875,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
     );
 
     const result = await withEmailTimeout(
-      getResendClient().emails.send({
+      sendTransactionalEmail({
         from: fromEmail,
         to: data.recipientEmail,
         subject: "Your RestoreAssist Password Reset Code",
@@ -932,7 +906,7 @@ export interface WelcomeEmailData {
 }
 
 export async function sendWelcomeEmail(data: WelcomeEmailData) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!isEmailServiceConfigured()) {
     console.warn(
       "⚠️ [EMAIL] Email service is not configured, skipping welcome email",
     );
@@ -1022,7 +996,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
     console.log("📧 [EMAIL] Sending welcome email to:", data.recipientEmail);
 
     const result = await withEmailTimeout(
-      getResendClient().emails.send({
+      sendTransactionalEmail({
         from: fromEmail,
         to: data.recipientEmail,
         subject: "Welcome to Restore Assist — Your Account is Ready!",
@@ -1051,7 +1025,7 @@ export interface ReportCompletedEmailData {
 }
 
 export async function sendReportCompletedEmail(data: ReportCompletedEmailData) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!isEmailServiceConfigured()) {
     console.warn(
       "⚠️ [EMAIL] Email service is not configured, skipping report completed email",
     );
@@ -1134,7 +1108,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
     );
 
     const result = await withEmailTimeout(
-      getResendClient().emails.send({
+      sendTransactionalEmail({
         from: fromEmail,
         to: data.recipientEmail,
         subject: `Report Completed: ${data.reportJobNumber} — ${data.reportType}`,
@@ -1174,7 +1148,7 @@ export interface SubscriptionActivatedEmailData {
 export async function sendSubscriptionActivatedEmail(
   data: SubscriptionActivatedEmailData,
 ) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!isEmailServiceConfigured()) {
     console.warn(
       "⚠️ [EMAIL] Email service is not configured, skipping activation email",
     );
@@ -1230,7 +1204,7 @@ export async function sendSubscriptionActivatedEmail(
 
   try {
     const result = await withEmailTimeout(
-      getResendClient().emails.send({
+      sendTransactionalEmail({
         from: fromEmail,
         to: data.recipientEmail,
         subject: `Welcome to ${data.planName} — your receipt`,
@@ -1277,7 +1251,7 @@ export interface PricingSetupReminderEmailData {
 export async function sendPricingSetupReminderEmail(
   data: PricingSetupReminderEmailData,
 ) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!isEmailServiceConfigured()) {
     console.warn(
       "[email] RESEND_API_KEY not set — skipping pricing-setup reminder email",
     );
@@ -1333,7 +1307,7 @@ export async function sendPricingSetupReminderEmail(
 
   try {
     const result = await withEmailTimeout(
-      getResendClient().emails.send({
+      sendTransactionalEmail({
         from: fromEmail,
         to: data.recipientEmail,
         subject: "Set your charge-out rates in RestoreAssist",
@@ -1356,7 +1330,7 @@ export async function sendPricingSetupReminderEmail(
 }
 
 export async function sendWinbackEmail(data: WinbackEmailData) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!isEmailServiceConfigured()) {
     console.warn(
       "[email] RESEND_API_KEY not set — skipping win-back email send",
     );
@@ -1416,7 +1390,7 @@ export async function sendWinbackEmail(data: WinbackEmailData) {
 
   try {
     const result = await withEmailTimeout(
-      getResendClient().emails.send({
+      sendTransactionalEmail({
         from: fromEmail,
         to: data.recipientEmail,
         subject: "We miss you at RestoreAssist",
@@ -1451,9 +1425,9 @@ export interface SupportReplyEmailData {
  * somewhere humans read.
  */
 export async function sendSupportReplyEmail(data: SupportReplyEmailData) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!isEmailServiceConfigured()) {
     console.error(
-      "[email] RESEND_API_KEY is not configured — support reply not sent",
+      "[email] email service is not configured (MAILTRAP_API_KEY or RESEND_API_KEY) — support reply not sent",
     );
     throw new Error("Email service is not configured");
   }
@@ -1502,7 +1476,7 @@ Need more help? Reply to this email and it will reach our support team at ${supp
 Restore Assist — Australia's compliance platform for water damage restoration`;
 
   const result = await withEmailTimeout(
-    getResendClient().emails.send({
+    sendTransactionalEmail({
       from: fromEmail,
       to: data.recipientEmail,
       replyTo: supportMailbox,
