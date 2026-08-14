@@ -21,6 +21,8 @@ beforeEach(() => {
   findUnique.mockReset();
   delete process.env.RESEND_API_KEY;
   delete process.env.RESEND_FROM_EMAIL;
+  delete process.env.MAILTRAP_API_KEY;
+  delete process.env.SENDER_EMAIL;
 });
 
 describe("resolveResendConfig", () => {
@@ -35,7 +37,7 @@ describe("resolveResendConfig", () => {
     const cfg = await resolveResendConfig("org1");
     expect(cfg).toEqual({
       apiKey: "re_test",
-      from: "jobs@acme.test",
+      from: "RestoreAssist <jobs@acme.test>",
       source: "byok",
     });
   });
