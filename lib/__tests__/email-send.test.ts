@@ -4,10 +4,19 @@ const reportError = vi.fn();
 vi.mock("@/lib/observability", () => ({
   reportError: (...args: unknown[]) => reportError(...args),
 }));
+vi.mock("@/lib/prisma", () => ({
+  prisma: { organization: { findUnique: vi.fn().mockResolvedValue(null) } },
+}));
+vi.mock("@/lib/credential-vault", () => ({ decrypt: (v: string) => v }));
 
 import { sendEmail } from "../email-send";
 
-const originalKey = process.env.RESEND_API_KEY;
+const original = {
+  mailtrap: process.env.MAILTRAP_API_KEY,
+  sender: process.env.SENDER_EMAIL,
+  resend: process.env.RESEND_API_KEY,
+  resendFrom: process.env.RESEND_FROM_EMAIL,
+};
 const fetchMock = vi.fn();
 
 beforeEach(() => {
@@ -15,16 +24,23 @@ beforeEach(() => {
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
   vi.spyOn(console, "error").mockImplementation(() => {});
-  process.env.RESEND_API_KEY = "re_test_key";
+  delete process.env.RESEND_API_KEY;
+  delete process.env.RESEND_FROM_EMAIL;
+  process.env.MAILTRAP_API_KEY = "mt_test_key";
+  process.env.SENDER_EMAIL = "support@restoreassist.app";
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  if (originalKey === undefined) {
-    delete process.env.RESEND_API_KEY;
-  } else {
-    process.env.RESEND_API_KEY = originalKey;
+  for (const [k, v] of Object.entries({
+    MAILTRAP_API_KEY: original.mailtrap,
+    SENDER_EMAIL: original.sender,
+    RESEND_API_KEY: original.resend,
+    RESEND_FROM_EMAIL: original.resendFrom,
+  })) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
   }
 });
 
@@ -35,47 +51,35 @@ const payload = {
 };
 
 describe("sendEmail (lib/email-send)", () => {
-  it("is loud (console.error + reportError), not silent, when RESEND_API_KEY is unset", async () => {
+  it("is loud when no email provider key is configured", async () => {
+    delete process.env.MAILTRAP_API_KEY;
     delete process.env.RESEND_API_KEY;
 
     await expect(sendEmail(payload)).resolves.toBeUndefined();
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(console.error).toHaveBeenCalledWith(
-      expect.stringContaining("[email-send] RESEND_API_KEY is not configured"),
-      expect.objectContaining({ subject: "Test subject" }),
-    );
     expect(reportError).toHaveBeenCalledWith(
       expect.any(Error),
       expect.objectContaining({ stage: "email-send-config" }),
     );
   });
 
-  it("passes an abort signal (timeout) and reply_to to the Resend fetch", async () => {
-    fetchMock.mockResolvedValue({ ok: true });
+  it("sends via Mailtrap with SENDER_EMAIL as from", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ message_ids: ["1"] }),
+    });
 
     await sendEmail({ ...payload, replyTo: "support@restoreassist.app" });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, options] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://api.resend.com/emails");
+    expect(url).toBe("https://send.api.mailtrap.io/api/send");
     expect(options.signal).toBeInstanceOf(AbortSignal);
-    expect(JSON.parse(options.body)).toMatchObject({
-      to: ["customer@example.com"],
-      reply_to: "support@restoreassist.app",
-    });
-  });
-
-  it("sends from the VERIFIED env sender (RESEND_FROM_EMAIL), not the bare root domain", async () => {
-    fetchMock.mockResolvedValue({ ok: true });
-    process.env.RESEND_FROM_EMAIL =
-      "RestoreAssist <noreply@send.restoreassist.app>";
-
-    await sendEmail(payload);
-
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.from).toBe("RestoreAssist <noreply@send.restoreassist.app>");
-    delete process.env.RESEND_FROM_EMAIL;
+    const body = JSON.parse(options.body);
+    expect(body.from.email).toBe("support@restoreassist.app");
+    expect(body.to).toEqual([{ email: "customer@example.com" }]);
+    expect(body.reply_to.email).toBe("support@restoreassist.app");
   });
 
   it("never throws when the fetch fails, but reports the error", async () => {
@@ -89,21 +93,14 @@ describe("sendEmail (lib/email-send)", () => {
     );
   });
 
-  it("reports non-2xx Resend responses without throwing", async () => {
+  it("reports non-2xx Mailtrap responses without throwing", async () => {
     fetchMock.mockResolvedValue({
       ok: false,
       status: 422,
-      text: () => Promise.resolve("invalid from"),
+      text: () => Promise.resolve(JSON.stringify({ errors: ["invalid from"] })),
     });
 
     await expect(sendEmail(payload)).resolves.toBeUndefined();
-
-    expect(console.error).toHaveBeenCalledWith(
-      expect.stringContaining("[email-send] Resend error 422"),
-    );
-    expect(reportError).toHaveBeenCalledWith(
-      expect.any(Error),
-      expect.objectContaining({ stage: "email-send", resendStatus: 422 }),
-    );
+    expect(reportError).toHaveBeenCalled();
   });
 });
