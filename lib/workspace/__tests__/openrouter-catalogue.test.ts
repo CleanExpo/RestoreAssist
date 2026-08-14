@@ -210,20 +210,38 @@ describe("fetchOpenRouterCatalogue", () => {
   });
 
   it("refuses an oversized body by its declared content-length, without reading it", async () => {
-    const text = vi.fn();
+    // The body is REAL, readable, small and valid: if the header guard is
+    // removed, this streams fine and the catalogue becomes available, so the
+    // assertions below fail. A bodyless mock would take the independent
+    // `!reader` path and pass with or without the guard — proving nothing.
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            JSON.stringify({ data: [model("qwen/qwen3", 1)] }),
+          ),
+        );
+        controller.close();
+      },
+    });
+    // Spy on getReader, not on `pull`: a ReadableStream calls `pull` eagerly to
+    // fill its own queue, so counting pulls measures the stream's behaviour
+    // rather than ours. getReader answers the only question that matters — did
+    // our code reach for the body at all?
+    const getReader = vi.fn(() => stream.getReader());
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       headers: {
         get: (h: string) =>
           h === "content-length" ? String(MAX_RESPONSE_BYTES + 1) : null,
       },
-      text,
+      body: { getReader },
     });
     vi.stubGlobal("fetch", fetchMock);
 
     expect((await fetchOpenRouterCatalogue()).unavailable).toBe(true);
-    // The point of the header check is to bail before buffering the body.
-    expect(text).not.toHaveBeenCalled();
+    // The point of the header check is to bail before touching the body at all.
+    expect(getReader).not.toHaveBeenCalled();
   });
 
   it("stops pulling a chunked body at the cap instead of buffering it whole", async () => {
@@ -316,6 +334,25 @@ describe("fetchOpenRouterCatalogue", () => {
     );
 
     expect((await fetchOpenRouterCatalogue()).unavailable).toBe(true);
+  });
+
+  it("does not cache an unavailable catalogue built from a malformed payload", async () => {
+    // Distinct path from the byte cap: here the read SUCCEEDS and
+    // `buildCatalogue` is what reports unavailable, so the early return that
+    // skips the cache write is a different line. Without it, one malformed
+    // upstream response blanks the picker for ten minutes for everyone.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(okResponse({ data: { not: "an array" } }))
+      .mockResolvedValue(okResponse({ data: [model("qwen/qwen3", 1)] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const t0 = 3_000_000;
+    expect((await fetchOpenRouterCatalogue(t0)).unavailable).toBe(true);
+    const second = await fetchOpenRouterCatalogue(t0 + 1_000);
+    expect(second.unavailable).toBe(false);
+    expect(second.models.map((m) => m.id)).toEqual(["qwen/qwen3"]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("does not let an over-cap response poison the ten-minute cache", async () => {

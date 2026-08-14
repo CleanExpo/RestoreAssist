@@ -423,7 +423,30 @@ were found in `.planning/` video docs.
     the writing — the new no-readable-body test first used a throwing `text()`, which the outer
     handler swallowed so the test passed with or without the fix; `text()` now returns a good
     payload and the test asserts it was never called.
-  - Verified at the true final head (`324196c9c`): vitest **22/22** on the catalogue suite and
+  - A **fifth** pass answered the round-4 P0 and then swept the class behind it. The P0 was
+    self-inflicted: removing the `!reader` fallback made the *existing* `content-length` test
+    vacuous, because its bodyless mock began returning `unavailable` via the `!reader` path
+    whether or not the header guard existed. The lesson is that changing a shared code path
+    invalidates the mutation evidence for **every** test that traverses it, not just the new
+    ones. That test now uses a real stream and spies on `getReader` — `pull` was tried first and
+    rejected as an instrument, because a `ReadableStream` calls `pull` eagerly to fill its own
+    queue and so measures the stream rather than us.
+  - Rather than fix that one test, every guard in the module was mutated in turn and required to
+    be killed by at least one test. Eleven guards; ten killed, and one **survived**: removing
+    `if (catalogue.unavailable) return catalogue;` left the suite green. That was a real hole —
+    the existing cache test only exercises the byte-cap path, which returns earlier, so a
+    malformed or over-entry payload would have been cached as `unavailable` for ten minutes and
+    blanked the picker for every operator. A test for that distinct path closes it; the sweep now
+    kills all eleven.
+  - **Live measurement against the real endpoint** (public, unauthenticated, no credential sent),
+    which replaces the earlier "NOT OBSERVED" note: the production response carries **no
+    `content-length`** and is gzipped, so the header check protects nothing in practice and the
+    streaming cap is the only real bound — the defect the third review round identified. The body
+    arrives in 87 chunks of 26–16,384 bytes. Payload: 672,715 bytes against the 5,000,000 cap,
+    411 entries against the 2,000 cap, longest slug 56 against 128, longest name 56 against 200,
+    zero entries over any bound, and all three recommended families present (DeepSeek 14, Qwen 50,
+    MiniMax 9). No cap trips on a realistic payload, with 7.4x byte and 4.9x entry headroom.
+  - Verified at head `324196c9c`: vitest **22/22** on the catalogue suite and
     **127/127** across `components/setup`, `lib/workspace` and `app/api/workspace`; eslint exit 0
     on the changed files; full `tsc --noEmit` adds no error beyond the pre-existing
     `components/sketch/SketchCanvas.tsx` pair. Superseded evidence, retained for the record —
