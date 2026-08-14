@@ -51,13 +51,17 @@ const CHANNEL_EMAIL = "EMAIL";
 const EVENT_TYPE = "REVIEW_ASK";
 const TEMPLATE_KEY = "pulse-review-ask";
 
+import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
+
 /**
  * Hard dependency for a review-ask send. No portal/app-url dependency here
  * (the email links to the firm's external Google review page, not the
- * portal) — only the Resend connector itself needs to be configured.
+ * portal) — only the email connector itself needs to be configured.
  */
 function reviewAskEnvConfigured(): boolean {
-  return Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
+  return isEmailServiceConfigured() && Boolean(
+    process.env.SENDER_EMAIL?.trim() || process.env.RESEND_FROM_EMAIL?.trim(),
+  );
 }
 
 /**
