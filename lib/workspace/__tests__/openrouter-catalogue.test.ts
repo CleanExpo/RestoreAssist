@@ -211,6 +211,76 @@ describe("fetchOpenRouterCatalogue", () => {
     expect(text).not.toHaveBeenCalled();
   });
 
+  it("stops pulling a chunked body at the cap instead of buffering it whole", async () => {
+    // OpenRouter's real response is chunked with no content-length, so the
+    // header check protects nothing here. This uses a genuine ReadableStream
+    // and counts the bytes actually pulled: a post-read length check would let
+    // the entire body through before rejecting it, which is the allocation the
+    // cap exists to prevent.
+    const CHUNK = 1_000_000;
+    const chunk = new Uint8Array(CHUNK).fill(0x20);
+    let pulled = 0;
+    let cancelled = false;
+
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        // Far more than the cap; a correct reader never drains it.
+        if (pulled >= CHUNK * 50) {
+          controller.close();
+          return;
+        }
+        pulled += CHUNK;
+        controller.enqueue(chunk);
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: { get: () => null },
+        body,
+        text: async () => {
+          throw new Error("must not buffer the whole body");
+        },
+      }),
+    );
+
+    expect((await fetchOpenRouterCatalogue()).unavailable).toBe(true);
+    expect(cancelled).toBe(true);
+    // Bounded by the cap plus the chunk that crossed it plus the one the
+    // stream queues ahead of the reader — 7MB here. The body offered 50MB, so
+    // this still fails loudly if the read is ever unbounded again.
+    expect(pulled).toBeLessThanOrEqual(MAX_RESPONSE_BYTES + 2 * CHUNK);
+    expect(pulled).toBeLessThan(CHUNK * 50);
+  });
+
+  it("reads a chunked body in full when it stays under the cap", async () => {
+    const payload = new TextEncoder().encode(
+      JSON.stringify({ data: [model("qwen/qwen3", 1)] }),
+    );
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        // Split across chunks so a decoder that ignores `stream: true` breaks.
+        controller.enqueue(payload.slice(0, 10));
+        controller.enqueue(payload.slice(10));
+        controller.close();
+      },
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, headers: { get: () => null }, body }),
+    );
+
+    const catalogue = await fetchOpenRouterCatalogue();
+    expect(catalogue.unavailable).toBe(false);
+    expect(catalogue.models.map((m) => m.id)).toEqual(["qwen/qwen3"]);
+  });
+
   it("refuses an oversized body that declared no content-length", async () => {
     // Deliberately VALID JSON that would parse into a usable catalogue. A
     // garbage string would be rejected by JSON.parse instead, and the test

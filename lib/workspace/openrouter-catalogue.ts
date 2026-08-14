@@ -136,6 +136,46 @@ function stripCreated(m: CatalogueModel & { created: number }): CatalogueModel {
   return rest;
 }
 
+/**
+ * Read a response body as text, giving up as soon as it exceeds
+ * `MAX_RESPONSE_BYTES`. Returns null when the cap is hit or the body cannot be
+ * read.
+ *
+ * The cutoff has to happen WHILE streaming: a hostile chunked body declares no
+ * content-length, so measuring after a `res.text()` means the allocation has
+ * already happened and the cap measures a number it can no longer prevent.
+ * The reader is cancelled on breach so the socket is not drained either.
+ */
+async function readCapped(res: Response): Promise<string | null> {
+  const reader = res.body?.getReader?.();
+  // No streaming body (a mock, or a runtime without one) — fall back to the
+  // buffered read. Still capped, just without the early cutoff.
+  if (!reader) {
+    const text = await res.text();
+    return text.length > MAX_RESPONSE_BYTES ? null : text;
+  }
+
+  const decoder = new TextDecoder();
+  const chunks: string[] = [];
+  let bytes = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > MAX_RESPONSE_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(decoder.decode(value, { stream: true }));
+    }
+  } finally {
+    reader.releaseLock?.();
+  }
+  chunks.push(decoder.decode());
+  return chunks.join("");
+}
+
 let cache: { at: number; value: OpenRouterCatalogue } | null = null;
 
 /** Reset the module cache. Tests only. */
@@ -161,15 +201,18 @@ export async function fetchOpenRouterCatalogue(
     if (!res.ok) {
       return { recommended: [], models: [], unavailable: true };
     }
-    // Read as text under a byte cap before parsing. `res.json()` on a multi-
-    // gigabyte body would buffer and parse the whole thing first, which is the
-    // failure this cap exists to prevent.
+    // Reject on a declared oversize first — the cheapest possible exit.
     const declared = Number(res.headers?.get?.("content-length") ?? "");
     if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) {
       return { recommended: [], models: [], unavailable: true };
     }
-    const text = await res.text();
-    if (text.length > MAX_RESPONSE_BYTES) {
+    // OpenRouter's real response is chunked and declares no content-length, so
+    // the header check alone protects nothing. `res.text()` (like `res.json()`)
+    // materialises the WHOLE body before any length can be measured, which is
+    // exactly the allocation this cap exists to prevent — so read the stream
+    // and cut it off mid-flight instead.
+    const text = await readCapped(res);
+    if (text === null) {
       return { recommended: [], models: [], unavailable: true };
     }
     const body = JSON.parse(text) as { data?: unknown };

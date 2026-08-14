@@ -392,6 +392,20 @@ were found in `.planning/` video docs.
     no content-length" case originally used a garbage string, so `JSON.parse` rejected it and
     the test passed even with the size cap removed. It now uses deliberately *valid* oversized
     JSON, and fails under the mutant as a control must.
+  - A **third** review round found the byte cap was still only half real, and was right. The
+    `content-length` check is a genuine early exit, but OpenRouter's real response is chunked
+    and declares no `content-length` — and `res.text()` materialises the entire body before its
+    length can be measured, so the cap was measuring an allocation it had already permitted.
+    The reviewer demonstrated it by pulling 5,250,000 bytes through a real `ReadableStream`.
+    Our own regression test could not have caught this: its mock returned an
+    already-materialised string, so it proved post-read rejection rather than a capped read.
+    The body is now consumed through a reader that counts encoded bytes as they arrive and
+    cancels the source the moment `MAX_RESPONSE_BYTES` is crossed, decoding and parsing only
+    the bounded chunks; the `content-length` early exit is kept, and a buffered fallback covers
+    runtimes with no streaming body. Two new tests use genuine `ReadableStream`s — one asserts
+    the source is cancelled and the bytes pulled stay bounded (7MB against a body offering
+    50MB), the other that a chunked body under the cap still decodes correctly across a chunk
+    boundary. Both fail under a mutant that restores the buffered read.
   - Verified at the final head: vitest 39/39 on the three changed suites and 122/122 across
     `components/setup`, `lib/workspace`, `app/api/workspace`; eslint 0 errors on the changed
     files; full `tsc --noEmit` (only the pre-existing `components/sketch/SketchCanvas.tsx`
