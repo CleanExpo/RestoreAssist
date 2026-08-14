@@ -238,7 +238,6 @@ jobs:
           STRIPE_SECRET_KEY: sk_test_ci_placeholder
           STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
           GOOGLE_MAPS_API_KEY: ci_placeholder
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
       # RA-1594 — dependency advisory audit. Surface high / critical CVEs
       # on every PR so they're visible before merge.
