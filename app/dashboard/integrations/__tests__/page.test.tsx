@@ -447,6 +447,77 @@ describe("IntegrationsPage — Ascora sync error rendering (RA toast regression)
   });
 });
 
+describe("IntegrationsPage — Ascora sync success receipt", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  /** Every string this render handed to the success toast. */
+  function successToasts(): string[] {
+    return vi.mocked(toast.success).mock.calls.map(([arg]) => String(arg));
+  }
+
+  async function syncAscora(body: unknown) {
+    mountAscora({
+      ascoraStatus: CONNECTED_ASCORA,
+      syncResponse: { ok: true, status: 200, body },
+    });
+    render(<IntegrationsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: /Sync/i }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+  }
+
+  it("renders the canonical /api/ascora/sync receipt, not the generic clients/jobs contract", async () => {
+    // /api/ascora/sync returns message / jobsImported / lineItemsForImport /
+    // rateCardPartsUpserted and never clientsSynced / jobsSynced, so reading
+    // the generic contract reports a real import as "0 clients and 0 jobs".
+    const message =
+      "Imported 37 jobs + 412 line items. 400 ScopePricingDatabase entries seeded with ×1.15 uplift.";
+    await syncAscora({
+      success: true,
+      dryRun: false,
+      jobsTotal: 4003,
+      jobsImported: 37,
+      lineItemsForImport: 412,
+      rateCardPartsUpserted: 483,
+      message,
+    });
+
+    expect(successToasts()).toContain(message);
+    // Swept across every success call, not just the first: a renderer that
+    // emits both strings must not pass this.
+    successToasts().forEach((text) =>
+      expect(text).not.toMatch(/0 clients and 0 jobs/),
+    );
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("reports a healthy zero-import incremental run as success", async () => {
+    // Production shape: jobsTotal 4003, jobsInWindow 0, rateCardPartsUpserted
+    // 483 — HTTP 200 with jobsImported legitimately 0. A zero count is not a
+    // failure, so nothing here may encode "non-zero means success".
+    const message =
+      "Imported 0 jobs (no line items — endpoint not found). ScopePricingDatabase seeding skipped.";
+    await syncAscora({
+      success: true,
+      dryRun: false,
+      jobsTotal: 4003,
+      jobsInWindow: 0,
+      jobsImported: 0,
+      lineItemsForImport: 0,
+      rateCardPartsUpserted: 483,
+      message,
+    });
+
+    expect(successToasts()).toContain(message);
+    successToasts().forEach((text) =>
+      expect(text).not.toMatch(/0 clients and 0 jobs/),
+    );
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+});
+
 describe("IntegrationsPage — AI provider categorisation", () => {
   beforeEach(() => {
     vi.clearAllMocks();

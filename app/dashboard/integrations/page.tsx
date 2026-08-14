@@ -534,9 +534,23 @@ export default function IntegrationsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        const clientsCount = data.clientsSynced || 0;
-        const jobsCount = data.jobsSynced || 0;
-        toast.success(`Synced ${clientsCount} clients and ${jobsCount} jobs`);
+        if (slug === "ascora") {
+          // The canonical route returns its own receipt — `message` on every
+          // success branch, plus jobsImported / lineItemsForImport /
+          // rateCardPartsUpserted. It never returns clientsSynced/jobsSynced,
+          // so the generic renderer reports a real import as "0 clients and
+          // 0 jobs". Zero counts are legitimate on an incremental run, so
+          // nothing here treats them as failure.
+          toast.success(
+            typeof data.message === "string" && data.message
+              ? data.message
+              : `Imported ${data.jobsImported ?? 0} jobs, ${data.lineItemsForImport ?? 0} line items and ${data.rateCardPartsUpserted ?? 0} rate card parts`,
+          );
+        } else {
+          const clientsCount = data.clientsSynced || 0;
+          const jobsCount = data.jobsSynced || 0;
+          toast.success(`Synced ${clientsCount} clients and ${jobsCount} jobs`);
+        }
         fetchExternalIntegrations();
       } else if (response.status === 403) {
         // Subscription required
