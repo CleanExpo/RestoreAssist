@@ -406,14 +406,17 @@ were found in `.planning/` video docs.
     the source is cancelled and the bytes pulled stay bounded (7MB against a body offering
     50MB), the other that a chunked body under the cap still decodes correctly across a chunk
     boundary. Both fail under a mutant that restores the buffered read.
-  - Verified at the final head: vitest 39/39 on the three changed suites and 122/122 across
-    `components/setup`, `lib/workspace`, `app/api/workspace`; eslint 0 errors on the changed
-    files; full `tsc --noEmit` (only the pre-existing `components/sketch/SketchCanvas.tsx`
-    errors, in a file this branch does not touch — the identical two errors were reproduced on
-    a clean `origin/main` worktree); CI Quality-Checks guards run locally, 8/8 of the
-    applicable ones green. `check:no-lucide` fails on four untouched files and the
-    `lifecycle-controls` unit test fails, both reproduced identically on `origin/main` —
-    pre-existing main-wide debt, tracked separately, deliberately not bundled here.
+  - Verified at the final head: vitest **41/41** on the three changed suites (exit 0), with the
+    two source files checksum-stable across the run; eslint exit 0, no errors on the changed
+    files; full `tsc --noEmit` exit 1 on exactly two errors, both in
+    `components/sketch/SketchCanvas.tsx` — a file this branch does not touch, and the identical
+    two errors were reproduced on a clean `origin/main` worktree, so this branch adds no type
+    error. The twelve CI Quality-Checks guards were enumerated from
+    `.github/workflows/pr-checks.yml` and run locally: **11 green**, and the one failure
+    (`check:no-lucide`, four untouched files) reproduces byte-identically on `origin/main`.
+    Both the type errors and the lucide failure are pre-existing main-wide debt that blocks
+    every PR equally; they are deliberately not bundled here — see "Known main-wide debt" in
+    the PR body.
   - Mutation controls (each fix demonstrated failing when reverted, source then restored
     byte-identical and verified by checksum): removing the client timeout fails
     "degrades to free text when the catalogue request never settles"; removing the entry cap
