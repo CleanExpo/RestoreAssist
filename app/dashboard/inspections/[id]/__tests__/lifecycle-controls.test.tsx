@@ -12,8 +12,14 @@ describe("inspection lifecycle controls", () => {
     expect(source).toMatch(
       /const canSignOff =\s*\["ESTIMATED", "COMPLETED", "SUBMITTED"\]\.includes\(\s*inspection\.status,?\s*\)/,
     );
+    // The wrapper div moved OUTSIDE this guard so the evidence checklist could
+    // share it, which left the old `\(\s*<div` shape unmatchable. Assert the
+    // invariant instead of the layout: InspectionSignOff renders under canSignOff.
+    // The inner `(?!\)\})` is load-bearing — a plain `[\s\S]*?` runs past the
+    // guard's closing `)}` and matches the component ANYWHERE later in the file,
+    // so the test would pass even with sign-off rendered unguarded.
     expect(source).toMatch(
-      /\{canSignOff && \(\s*<div[\s\S]*?<InspectionSignOff/,
+      /\{canSignOff && \((?:(?!\)\})[\s\S])*?<InspectionSignOff/,
     );
   });
 
