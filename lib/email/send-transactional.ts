@@ -1,0 +1,197 @@
+/**
+ * Unified transactional email send — Mailtrap Sending API or Resend.
+ * Returns a Resend-shaped result so existing assertResendSuccess helpers work.
+ */
+
+import { Resend } from "resend";
+import {
+  parseFromAddress,
+  resolvePlatformEmailConfig,
+  type PlatformEmailConfig,
+} from "@/lib/email/resolve-platform-config";
+
+export const EMAIL_SEND_TIMEOUT_MS = 10_000;
+
+export interface TransactionalAttachment {
+  filename: string;
+  /** Base64 content (no data: prefix) */
+  content: string;
+  contentType?: string;
+}
+
+export interface TransactionalEmailInput {
+  to: string | string[];
+  subject: string;
+  html: string;
+  text?: string;
+  from?: string;
+  replyTo?: string;
+  /** Resend SDK compatibility alias */
+  reply_to?: string;
+  attachments?: TransactionalAttachment[];
+  organizationId?: string | null;
+}
+
+export interface TransactionalSendResult {
+  data: { id: string } | null;
+  error: { message?: string; name?: string } | null;
+  provider?: PlatformEmailConfig["provider"];
+  source?: PlatformEmailConfig["source"];
+}
+
+const MAILTRAP_SEND_URL = "https://send.api.mailtrap.io/api/send";
+
+export async function sendTransactionalEmail(
+  input: TransactionalEmailInput,
+): Promise<TransactionalSendResult> {
+  const config = await resolvePlatformEmailConfig(input.organizationId);
+  if (!config) {
+    return {
+      data: null,
+      error: {
+        name: "not_configured",
+        message:
+          "Email service is not configured (set MAILTRAP_API_KEY + SENDER_EMAIL, or RESEND_API_KEY + RESEND_FROM_EMAIL)",
+      },
+    };
+  }
+
+  const from = input.from?.trim() || config.from;
+  const toList = Array.isArray(input.to) ? input.to : [input.to];
+  const replyTo = input.replyTo || input.reply_to;
+
+  try {
+    if (config.provider === "mailtrap") {
+      return await sendViaMailtrap(config, {
+        ...input,
+        from,
+        to: toList,
+        replyTo,
+      });
+    }
+    return await sendViaResend(config, {
+      ...input,
+      from,
+      to: toList,
+      replyTo,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      data: null,
+      error: { name: "send_failed", message },
+      provider: config.provider,
+      source: config.source,
+    };
+  }
+}
+
+async function sendViaMailtrap(
+  config: PlatformEmailConfig,
+  input: TransactionalEmailInput & { from: string; to: string[] },
+): Promise<TransactionalSendResult> {
+  const fromParsed = parseFromAddress(input.from);
+  const body: Record<string, unknown> = {
+    from: fromParsed,
+    to: input.to.map((email) => ({ email })),
+    subject: input.subject,
+    html: input.html,
+  };
+  if (input.text) body.text = input.text;
+  if (input.replyTo) {
+    body.reply_to = parseFromAddress(input.replyTo);
+  }
+  if (input.attachments?.length) {
+    body.attachments = input.attachments.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+      type: a.contentType || "application/octet-stream",
+      disposition: "attachment",
+    }));
+  }
+
+  const res = await fetch(MAILTRAP_SEND_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.apiKey}`,
+      // Mailtrap edge protection prefers a normal UA
+      "User-Agent": "RestoreAssist/1.0",
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(EMAIL_SEND_TIMEOUT_MS),
+  });
+
+  const text = await res.text().catch(() => "");
+  let parsed: { message_ids?: string[]; success?: boolean; errors?: string[] } =
+    {};
+  try {
+    parsed = text ? JSON.parse(text) : {};
+  } catch {
+    parsed = {};
+  }
+
+  if (!res.ok) {
+    return {
+      data: null,
+      error: {
+        name: `mailtrap_${res.status}`,
+        message:
+          parsed.errors?.join("; ") ||
+          text ||
+          `Mailtrap send failed with status ${res.status}`,
+      },
+      provider: "mailtrap",
+      source: config.source,
+    };
+  }
+
+  const id = parsed.message_ids?.[0] || `mailtrap-${Date.now()}`;
+  return {
+    data: { id },
+    error: null,
+    provider: "mailtrap",
+    source: config.source,
+  };
+}
+
+async function sendViaResend(
+  config: PlatformEmailConfig,
+  input: TransactionalEmailInput & { from: string; to: string[] },
+): Promise<TransactionalSendResult> {
+  const client = new Resend(config.apiKey);
+  const payload: Record<string, unknown> = {
+    from: input.from,
+    to: input.to,
+    subject: input.subject,
+    html: input.html,
+  };
+  if (input.text) payload.text = input.text;
+  if (input.replyTo) payload.reply_to = input.replyTo;
+  if (input.attachments?.length) {
+    payload.attachments = input.attachments.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+    }));
+  }
+
+  const result = (await Promise.race([
+    client.emails.send(payload as Parameters<typeof client.emails.send>[0]),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(`Email send timed out after ${EMAIL_SEND_TIMEOUT_MS}ms`),
+          ),
+        EMAIL_SEND_TIMEOUT_MS,
+      ),
+    ),
+  ])) as { data: { id: string } | null; error: { message?: string; name?: string } | null };
+
+  return {
+    data: result.data,
+    error: result.error,
+    provider: "resend",
+    source: config.source,
+  };
+}
