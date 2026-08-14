@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { Resend } from "resend";
 import { withEmailTimeout } from "@/lib/email";
+import { sendTransactionalEmail } from "@/lib/email/send-transactional";
 import { logEmailAudit } from "@/lib/email-audit";
 import type { CronJobResult } from "./runner";
 
@@ -18,7 +18,7 @@ const MAX_ATTEMPTS = 3;
 
 /**
  * Processes pending ScheduledEmail records whose scheduledAt time has arrived.
- * Sends emails via Resend and updates status accordingly.
+ * Sends emails via Mailtrap (or Resend fallback) and updates status accordingly.
  *
  * @returns Result with count of emails processed and send/fail breakdown
  */
@@ -58,23 +58,19 @@ export async function processScheduledEmails(): Promise<CronJobResult> {
     });
 
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY!);
       const result = await withEmailTimeout(
-        resend.emails.send({
-          from:
-            process.env.RESEND_FROM_EMAIL ||
-            "RestoreAssist <noreply@restoreassist.com>",
+        sendTransactionalEmail({
           to: email.recipient,
           subject: email.subject || `Report: ${email.report.title}`,
           html: email.htmlBody || generateDefaultEmailHtml(email),
           text: email.textBody || undefined,
         }),
       );
-      // The Resend SDK never throws — surface API failures so this email
-      // is marked failed/retried instead of falsely audited as sent.
+      // Providers return { error } instead of throwing — surface failures so
+      // this email is marked failed/retried instead of falsely audited as sent.
       if (result.error) {
         throw new Error(
-          `Resend send failed: ${result.error.name ?? "unknown_error"} — ${result.error.message ?? "no message"}`,
+          `Email send failed: ${result.error.name ?? "unknown_error"} — ${result.error.message ?? "no message"}`,
         );
       }
 
