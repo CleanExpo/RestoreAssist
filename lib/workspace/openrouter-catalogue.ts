@@ -148,12 +148,13 @@ function stripCreated(m: CatalogueModel & { created: number }): CatalogueModel {
  */
 async function readCapped(res: Response): Promise<string | null> {
   const reader = res.body?.getReader?.();
-  // No streaming body (a mock, or a runtime without one) — fall back to the
-  // buffered read. Still capped, just without the early cutoff.
-  if (!reader) {
-    const text = await res.text();
-    return text.length > MAX_RESPONSE_BYTES ? null : text;
-  }
+  // No buffered fallback. A `res.text()` escape hatch here would restore the
+  // exact unbounded read this function exists to prevent, on any response whose
+  // body we could not stream — and "unbounded only on the odd path" is still
+  // unbounded. This runs server-side on Node, where a body-bearing response
+  // always has a ReadableStream, so refusing is a degradation of an optional
+  // convenience rather than a lost capability.
+  if (!reader) return null;
 
   const decoder = new TextDecoder();
   const chunks: string[] = [];

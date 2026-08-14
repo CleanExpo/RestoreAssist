@@ -12,14 +12,29 @@ function model(id: string, created: number, extra: Record<string, unknown> = {})
   return { id, name: id, created, context_length: 128000, ...extra };
 }
 
-/** Mirror the shape the fetch path consumes: a byte-capped text read. */
-function okResponse(payload: unknown, contentLength?: string) {
-  const text = JSON.stringify(payload);
+/**
+ * A response backed by a REAL ReadableStream, like the one `fetch` returns.
+ * Mocks that only expose `text()` cannot exercise the streaming byte cap — an
+ * earlier version of this suite did exactly that and proved post-read rejection
+ * while the read itself stayed unbounded.
+ */
+function streamResponse(text: string, contentLength?: string) {
   return {
     ok: true,
-    headers: { get: (h: string) => (h === "content-length" ? contentLength ?? null : null) },
-    text: async () => text,
+    headers: {
+      get: (h: string) => (h === "content-length" ? contentLength ?? null : null),
+    },
+    body: new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(text));
+        controller.close();
+      },
+    }),
   };
+}
+
+function okResponse(payload: unknown, contentLength?: string) {
+  return streamResponse(JSON.stringify(payload), contentLength);
 }
 
 describe("buildCatalogue", () => {
@@ -259,14 +274,19 @@ describe("fetchOpenRouterCatalogue", () => {
   });
 
   it("reads a chunked body in full when it stays under the cap", async () => {
+    // The split lands INSIDE a multi-byte UTF-8 sequence. A decoder that drops
+    // `{ stream: true }` emits U+FFFD for the halves and the name comes back
+    // corrupted — splitting on an ASCII boundary would prove nothing.
     const payload = new TextEncoder().encode(
-      JSON.stringify({ data: [model("qwen/qwen3", 1)] }),
+      JSON.stringify({ data: [{ id: "qwen/qwen3", name: "Qwen — 通义", created: 1 }] }),
     );
+    const emDash = payload.indexOf(0xe2); // first byte of a 3-byte sequence
+    expect(emDash).toBeGreaterThan(0);
+
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
-        // Split across chunks so a decoder that ignores `stream: true` breaks.
-        controller.enqueue(payload.slice(0, 10));
-        controller.enqueue(payload.slice(10));
+        controller.enqueue(payload.slice(0, emDash + 1));
+        controller.enqueue(payload.slice(emDash + 1));
         controller.close();
       },
     });
@@ -279,6 +299,42 @@ describe("fetchOpenRouterCatalogue", () => {
     const catalogue = await fetchOpenRouterCatalogue();
     expect(catalogue.unavailable).toBe(false);
     expect(catalogue.models.map((m) => m.id)).toEqual(["qwen/qwen3"]);
+    expect(catalogue.models[0].name).toBe("Qwen — 通义");
+  });
+
+  it("degrades when the body errors mid-stream", async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"data":['));
+        controller.error(new Error("connection reset"));
+      },
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, headers: { get: () => null }, body }),
+    );
+
+    expect((await fetchOpenRouterCatalogue()).unavailable).toBe(true);
+  });
+
+  it("does not let an over-cap response poison the ten-minute cache", async () => {
+    const oversized = JSON.stringify({
+      data: [{ id: "qwen/ok", name: "x".repeat(MAX_RESPONSE_BYTES) }],
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(streamResponse(oversized))
+      .mockResolvedValue(okResponse({ data: [model("qwen/qwen3", 1)] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const t0 = 2_000_000;
+    expect((await fetchOpenRouterCatalogue(t0)).unavailable).toBe(true);
+    // Well inside the TTL: a cached failure would be served instead of retried.
+    const second = await fetchOpenRouterCatalogue(t0 + 1_000);
+    expect(second.unavailable).toBe(false);
+    expect(second.models.map((m) => m.id)).toEqual(["qwen/qwen3"]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("refuses an oversized body that declared no content-length", async () => {
@@ -289,23 +345,39 @@ describe("fetchOpenRouterCatalogue", () => {
       data: [{ id: "qwen/ok", name: "x".repeat(MAX_RESPONSE_BYTES) }],
     });
     expect(padded.length).toBeGreaterThan(MAX_RESPONSE_BYTES);
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      headers: { get: () => null },
-      text: async () => padded,
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse(padded)));
 
     expect((await fetchOpenRouterCatalogue()).unavailable).toBe(true);
   });
 
+  it("refuses a response with no readable body rather than buffering it", async () => {
+    // The removed `res.text()` fallback would have restored the unbounded read
+    // on exactly this shape. `text()` therefore returns a perfectly GOOD payload:
+    // if anything still calls it, this resolves to a populated catalogue and the
+    // assertion below fails. A throwing `text()` would be caught by the outer
+    // handler and yield `unavailable` either way — proving nothing.
+    const text = vi.fn(async () =>
+      JSON.stringify({ data: [model("qwen/qwen3", 1)] }),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: { get: () => null },
+        body: null,
+        text,
+      }),
+    );
+
+    expect((await fetchOpenRouterCatalogue()).unavailable).toBe(true);
+    expect(text).not.toHaveBeenCalled();
+  });
+
   it("degrades to unavailable on a malformed body rather than throwing", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      headers: { get: () => null },
-      text: async () => "{not json",
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(streamResponse("{not json")),
+    );
 
     expect((await fetchOpenRouterCatalogue()).unavailable).toBe(true);
   });
