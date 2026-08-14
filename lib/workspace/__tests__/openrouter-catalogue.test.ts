@@ -419,6 +419,49 @@ describe("fetchOpenRouterCatalogue", () => {
     expect((await fetchOpenRouterCatalogue()).unavailable).toBe(true);
   });
 
+  it("coalesces concurrent misses onto a single upstream read", async () => {
+    // Each response is individually byte-capped, but the cache is written only
+    // after fetch + read + parse + build complete. Without coalescing, N
+    // simultaneous signed-in callers open N upstream reads, each free to buffer
+    // up to the cap — the per-response bound says nothing about the aggregate.
+    let release!: (v: unknown) => void;
+    const gate = new Promise((r) => {
+      release = r;
+    });
+    const fetchMock = vi.fn(async () => {
+      await gate;
+      return okResponse({ data: [model("qwen/qwen3", 1)] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const all = Promise.all(
+      Array.from({ length: 100 }, () => fetchOpenRouterCatalogue(4_000_000)),
+    );
+    release(null);
+    const results = await all;
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(results).toHaveLength(100);
+    for (const r of results) {
+      expect(r.models.map((m) => m.id)).toEqual(["qwen/qwen3"]);
+    }
+  });
+
+  it("clears the in-flight load after a failure so the next caller retries", async () => {
+    // A rejected in-flight promise that is never cleared would pin every later
+    // caller to the same failure for the life of the process.
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockResolvedValue(okResponse({ data: [model("qwen/qwen3", 1)] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect((await fetchOpenRouterCatalogue(5_000_000)).unavailable).toBe(true);
+    const second = await fetchOpenRouterCatalogue(5_000_001);
+    expect(second.unavailable).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("degrades to unavailable when the fetch throws", async () => {
     vi.stubGlobal(
       "fetch",

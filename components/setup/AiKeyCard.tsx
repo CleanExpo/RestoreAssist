@@ -77,6 +77,11 @@ const OPENROUTER_DEFAULT_MODEL = 'deepseek/deepseek-chat';
 // rather than being cut off by the browser.
 const CATALOGUE_TIMEOUT_MS = 12_000;
 
+// Mirrors MAX_MODEL_SLUG_LENGTH in app/api/workspace/provider-connections.
+// The server is the authority; this stops an oversized slug being held in React
+// state and serialised in the first place.
+const MAX_MODEL_SLUG_LENGTH = 128;
+
 type CardState = 'idle' | 'saving' | 'success' | 'error';
 
 const DEFAULT_KEY_ERROR =
@@ -322,8 +327,13 @@ export function AiKeyCard({ onSaved }: { onSaved?: () => void } = {}) {
                     type="text"
                     placeholder={OPENROUTER_DEFAULT_MODEL}
                     value={model}
+                    // Mirrors the server bound in POST provider-connections.
+                    // The slice is the real guard: maxLength alone is bypassed
+                    // by a paste in some engines and by any non-UI caller, and
+                    // this value is serialised into an encrypted credential.
+                    maxLength={MAX_MODEL_SLUG_LENGTH}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setModel(e.target.value)
+                      setModel(e.target.value.slice(0, MAX_MODEL_SLUG_LENGTH))
                     }
                     autoComplete="off"
                     className="font-mono"

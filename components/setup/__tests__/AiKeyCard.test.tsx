@@ -339,6 +339,43 @@ describe('AiKeyCard — OpenRouter', () => {
     }
   });
 
+  it('bounds the free-text slug instead of serialising an unbounded one', async () => {
+    // The free-text field is the catalogue-unavailable fallback, and its value
+    // is serialised into a request that persists an encrypted credential. An
+    // unbounded value here is held in React state, trimmed, and stringified.
+    const fetchMock = mockFetchRoutes({
+      recommended: [],
+      models: [],
+      unavailable: true,
+    });
+    render(<AiKeyCard />);
+    await selectOpenRouter();
+
+    const field = (await waitFor(() => {
+      const f = screen.getByLabelText(/^model/i);
+      expect(f.tagName).toBe('INPUT');
+      return f;
+    })) as HTMLInputElement;
+
+    expect(field).toHaveAttribute('maxlength', '128');
+
+    // Bypass maxLength the way a paste does, and assert the value is still cut.
+    fireEvent.change(field, { target: { value: 'qwen/' + 'x'.repeat(1_000_000) } });
+    expect(field.value.length).toBe(128);
+
+    fireEvent.change(screen.getByLabelText(/^api key$/i), {
+      target: { value: 'sk-or-v1-abc123' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save key/i }));
+    await waitFor(() => expect(screen.getByText(/key saved/i)).toBeInTheDocument());
+
+    const saveCall = fetchMock.mock.calls.find(
+      ([url]) => String(url) === '/api/workspace/provider-connections',
+    );
+    const sent = JSON.parse((saveCall![1] as { body: string }).body);
+    expect(sent.model.length).toBe(128);
+  });
+
   it('drops a chosen slug when switching back to a first-party provider', async () => {
     const fetchMock = mockFetchRoutes(CATALOGUE);
     render(<AiKeyCard />);

@@ -179,9 +179,20 @@ async function readCapped(res: Response): Promise<string | null> {
 
 let cache: { at: number; value: OpenRouterCatalogue } | null = null;
 
+/**
+ * The single in-flight load. The cache is only written after a fetch, a bounded
+ * read, a parse and a build have all completed, so without this every
+ * concurrent miss opens its own upstream request — and the per-response byte
+ * cap bounds each one individually while bounding the aggregate not at all.
+ * This route is a GET, so the repository's default middleware limiter (which
+ * covers POST/PATCH/PUT/DELETE) does not apply.
+ */
+let inFlight: Promise<OpenRouterCatalogue> | null = null;
+
 /** Reset the module cache. Tests only. */
 export function __resetOpenRouterCatalogueCache() {
   cache = null;
+  inFlight = null;
 }
 
 /**
@@ -194,6 +205,18 @@ export async function fetchOpenRouterCatalogue(
 ): Promise<OpenRouterCatalogue> {
   if (cache && now - cache.at < CACHE_TTL_MS) return cache.value;
 
+  // Coalesce concurrent misses onto one upstream read. Assigned before any
+  // await, so a caller arriving in the same tick sees it.
+  if (inFlight) return inFlight;
+  inFlight = loadCatalogue(now).finally(() => {
+    // Cleared on EVERY settlement path, success or failure, or one failed load
+    // would pin every later caller to the same rejected promise.
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+async function loadCatalogue(now: number): Promise<OpenRouterCatalogue> {
   try {
     const res = await fetch(OPENROUTER_MODELS_URL, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),

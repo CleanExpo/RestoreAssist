@@ -446,6 +446,28 @@ were found in `.planning/` video docs.
     411 entries against the 2,000 cap, longest slug 56 against 128, longest name 56 against 200,
     zero entries over any bound, and all three recommended families present (DeepSeek 14, Qwen 50,
     MiniMax 9). No cap trips on a realistic payload, with 7.4x byte and 4.9x entry headroom.
+  - A **sixth** pass drained two P1s from the fifth review round, both in areas that four rounds
+    of catalogue focus had let drift — which is why the brief explicitly asked the reviewer to
+    look there:
+    - *Concurrent misses bypassed the aggregate bound.* The cache is written only after fetch,
+      bounded read, parse and build all complete, so 100 simultaneous signed-in callers opened
+      100 upstream reads — each individually capped at 5MB, the aggregate bounded by nothing. The
+      route is a GET, so the repository's default middleware limiter (POST/PATCH/PUT/DELETE) does
+      not cover it. Concurrent misses now coalesce onto one in-flight promise, assigned before any
+      `await` and cleared on every settlement path so a single failure cannot pin later callers to
+      a rejected promise.
+    - *The free-text slug was unbounded.* When the catalogue is unavailable the model control is a
+      free-text input, and a reviewer probe entered a 1,000,007-character slug, saved, and
+      confirmed the full value reached the provider-connections payload — which is persisted
+      beside an encrypted credential. `POST /api/workspace/provider-connections` is now the
+      authority: it rejects a slug over 128 characters or not matching `namespace/model[:tag]`
+      **before** encryption or persistence, and also bounds the API key at 512. The card mirrors
+      the bound with `maxLength` **and** a slice, because `maxLength` alone is bypassed by a paste
+      in some engines and by any non-UI caller.
+  - The full mutation sweep was re-run over **all eighteen** guards, not just the new ones —
+    precisely because the round-4 P0 was caused by a shared-path change silently making an
+    existing test vacuous. All eighteen killed, no survivors, sources restored byte-identical and
+    confirmed by checksum.
   - Verified at head `324196c9c`: vitest **22/22** on the catalogue suite and
     **127/127** across `components/setup`, `lib/workspace` and `app/api/workspace`; eslint exit 0
     on the changed files; full `tsc --noEmit` adds no error beyond the pre-existing

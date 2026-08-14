@@ -64,6 +64,20 @@ function isValidProvider(value: unknown): value is AiProvider {
   );
 }
 
+/**
+ * Server-authoritative bounds on the credential payload. The onboarding card
+ * offers a free-text model slug whenever the OpenRouter catalogue is
+ * unavailable, so an arbitrarily large string can reach this route through an
+ * ordinary UI path — and `model` is persisted alongside an encrypted
+ * credential. The client mirrors these, but the client is not the authority.
+ *
+ * A routing slug is `namespace/model` with optional `:tag`; real OpenRouter
+ * slugs measure well under 60 characters.
+ */
+const MAX_MODEL_SLUG_LENGTH = 128;
+const MAX_API_KEY_LENGTH = 512;
+const MODEL_SLUG_PATTERN = /^[A-Za-z0-9._~-]+\/[A-Za-z0-9._~-]+(:[A-Za-z0-9._-]+)?$/;
+
 // ─── GET — List provider connections ─────────────────────────────────────────
 
 export async function GET(_req: NextRequest) {
@@ -169,6 +183,39 @@ export async function POST(req: NextRequest) {
           message: "API key appears too short — please check and try again",
           status: 400,
         });
+      }
+      if (trimmedKey.length > MAX_API_KEY_LENGTH) {
+        return apiError(req, {
+          code: "VALIDATION",
+          message: "API key appears too long — please check and try again",
+          status: 400,
+        });
+      }
+
+      // Reject an oversized or malformed routing slug BEFORE it is encrypted
+      // and persisted. Validating after encryption would mean the allocation
+      // and the write have already happened.
+      if (
+        provider === "OPENROUTER" &&
+        typeof model === "string" &&
+        model.trim()
+      ) {
+        const candidate = model.trim();
+        if (candidate.length > MAX_MODEL_SLUG_LENGTH) {
+          return apiError(req, {
+            code: "VALIDATION",
+            message: `Model slug must be ${MAX_MODEL_SLUG_LENGTH} characters or fewer`,
+            status: 400,
+          });
+        }
+        if (!MODEL_SLUG_PATTERN.test(candidate)) {
+          return apiError(req, {
+            code: "VALIDATION",
+            message:
+              "Model must look like namespace/model, for example deepseek/deepseek-chat",
+            status: 400,
+          });
+        }
       }
 
       const member = await prisma.workspaceMember.findFirst({
