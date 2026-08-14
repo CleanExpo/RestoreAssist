@@ -406,7 +406,28 @@ were found in `.planning/` video docs.
     the source is cancelled and the bytes pulled stay bounded (7MB against a body offering
     50MB), the other that a chunked body under the cap still decodes correctly across a chunk
     boundary. Both fail under a mutant that restores the buffered read.
-  - Verified at the final head: vitest **41/41** on the three changed suites (exit 0), with the
+  - A **fourth** pass closed the class rather than the instance. Three consecutive review rounds
+    had each returned one new finding of the same shape — an untrusted body consumed without a
+    bound at the point of allocation — which is a convergence failure owned by the author, not
+    the reviewer. `readCapped`'s `!reader` branch was an escape hatch: on any response whose body
+    could not be streamed it fell back to the buffered `res.text()` read, restoring the exact
+    unbounded allocation the function exists to prevent. It is removed rather than bounded
+    (unbounded on the odd path is still unbounded); this runs server-side on Node, where a
+    body-bearing response always carries a `ReadableStream`. Removing it exposed that four tests
+    had been passing through that hatch rather than the streaming path they claimed to exercise,
+    so the mock helper now builds a real `ReadableStream` and every fetch test drives the
+    production path. Three attack questions that had been written into a reviewer brief and
+    dispatched *unanswered* were answered in code instead: a multi-byte UTF-8 sequence split
+    inside the sequence across a chunk boundary, a body that errors mid-stream, and proof that an
+    over-cap response cannot poison the ten-minute cache. A further vacuous control was caught in
+    the writing — the new no-readable-body test first used a throwing `text()`, which the outer
+    handler swallowed so the test passed with or without the fix; `text()` now returns a good
+    payload and the test asserts it was never called.
+  - Verified at the true final head (`324196c9c`): vitest **22/22** on the catalogue suite and
+    **127/127** across `components/setup`, `lib/workspace` and `app/api/workspace`; eslint exit 0
+    on the changed files; full `tsc --noEmit` adds no error beyond the pre-existing
+    `components/sketch/SketchCanvas.tsx` pair. Superseded evidence, retained for the record —
+    at `fce3843e3` the figures were: vitest **41/41** on the three changed suites (exit 0), with the
     two source files checksum-stable across the run; eslint exit 0, no errors on the changed
     files; full `tsc --noEmit` exit 1 on exactly two errors, both in
     `components/sketch/SketchCanvas.tsx` — a file this branch does not touch, and the identical
