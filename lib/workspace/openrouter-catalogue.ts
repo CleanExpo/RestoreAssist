@@ -17,6 +17,16 @@ const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
 const FETCH_TIMEOUT_MS = 8_000;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
+// Bounds on the untrusted upstream body. OpenRouter publishes a few hundred
+// models; anything wildly beyond that is malformed or hostile, and without a cap
+// it would be sorted, cached for ten minutes, served to every signed-in caller
+// and rendered as <option>s — freezing the very onboarding step this is meant to
+// make frictionless. A violation degrades exactly like an outage.
+export const MAX_UPSTREAM_ENTRIES = 2_000;
+export const MAX_RESPONSE_BYTES = 5_000_000;
+const MAX_ID_LENGTH = 128;
+const MAX_NAME_LENGTH = 200;
+
 /** Recommended open-model families, in the order they are surfaced. */
 export const RECOMMENDED_FAMILIES = [
   { id: "deepseek", label: "DeepSeek" },
@@ -65,11 +75,18 @@ function normalise(
   // Upstream is third-party JSON — a null or non-object entry must not throw
   // and take the whole catalogue down with it.
   if (typeof raw !== "object" || raw === null) return null;
-  if (typeof raw.id !== "string" || raw.id.length === 0) return null;
+  if (typeof raw.id !== "string") return null;
+  // A whitespace-only slug is not a routable model, and an absurdly long one is
+  // upstream junk that would be rendered straight into an <option>. Drop the
+  // entry rather than the catalogue — one bad model must not cost the rest.
+  const id = raw.id.trim();
+  if (id.length === 0 || id.length > MAX_ID_LENGTH) return null;
+  const rawName = typeof raw.name === "string" ? raw.name.trim() : "";
+  const name = rawName && rawName.length <= MAX_NAME_LENGTH ? rawName : id;
   return {
-    id: raw.id,
-    name: typeof raw.name === "string" && raw.name ? raw.name : raw.id,
-    family: familyOf(raw.id),
+    id,
+    name,
+    family: familyOf(id),
     contextLength:
       typeof raw.context_length === "number" && Number.isFinite(raw.context_length)
         ? raw.context_length
@@ -84,6 +101,11 @@ function normalise(
  */
 export function buildCatalogue(rawModels: unknown): OpenRouterCatalogue {
   if (!Array.isArray(rawModels)) {
+    return { recommended: [], models: [], unavailable: true };
+  }
+  // Reject before mapping and sorting, not after — the point of the cap is to
+  // never do the O(n log n) work on a hostile array in the first place.
+  if (rawModels.length > MAX_UPSTREAM_ENTRIES) {
     return { recommended: [], models: [], unavailable: true };
   }
 
@@ -139,7 +161,18 @@ export async function fetchOpenRouterCatalogue(
     if (!res.ok) {
       return { recommended: [], models: [], unavailable: true };
     }
-    const body = (await res.json()) as { data?: unknown };
+    // Read as text under a byte cap before parsing. `res.json()` on a multi-
+    // gigabyte body would buffer and parse the whole thing first, which is the
+    // failure this cap exists to prevent.
+    const declared = Number(res.headers?.get?.("content-length") ?? "");
+    if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) {
+      return { recommended: [], models: [], unavailable: true };
+    }
+    const text = await res.text();
+    if (text.length > MAX_RESPONSE_BYTES) {
+      return { recommended: [], models: [], unavailable: true };
+    }
+    const body = JSON.parse(text) as { data?: unknown };
     const catalogue = buildCatalogue(body?.data);
     if (catalogue.unavailable) return catalogue;
 

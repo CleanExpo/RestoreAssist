@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { AiKeyCard } from '../AiKeyCard';
 
 beforeEach(() => {
@@ -300,6 +300,43 @@ describe('AiKeyCard — OpenRouter', () => {
         String(url).includes('openrouter-models'),
       ),
     ).toHaveLength(1);
+  });
+
+  it('degrades to free text when the catalogue request never settles', async () => {
+    // The route's own upstream timeout cannot rescue a browser request that
+    // never completes; without a client-side bound the picker sits disabled on
+    // "Loading models…" indefinitely, which is precisely the state the
+    // free-text fallback exists to prevent.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const fetchMock = vi.fn(async (url: string, init?: { signal?: AbortSignal }) => {
+        if (String(url).includes('openrouter-models')) {
+          return new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () =>
+              reject(new DOMException('Aborted', 'AbortError')),
+            );
+          });
+        }
+        return { ok: true, status: 200, json: async () => ({ connection: { id: 'c1' } }) };
+      });
+      vi.stubGlobal('fetch', fetchMock as never);
+
+      render(<AiKeyCard />);
+      await selectOpenRouter();
+      expect(screen.getByLabelText(/^model/i)).toBeDisabled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(13_000);
+      });
+
+      await waitFor(() => {
+        const field = screen.getByLabelText(/^model/i);
+        expect(field.tagName).toBe('INPUT');
+        expect(field).not.toBeDisabled();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('drops a chosen slug when switching back to a first-party provider', async () => {

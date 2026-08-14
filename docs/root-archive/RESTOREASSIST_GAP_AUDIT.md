@@ -372,11 +372,40 @@ were found in `.planning/` video docs.
     defect. The catch now degrades to the same `unavailable` payload an outage produces (and
     reports the error, so the degradation is never silent); the test asserts 200 plus the
     exact body and was demonstrated failing under a mutant that restores the 500.
-  - Verified: vitest 27/27 on the new suites and 114/114 across `components/setup`,
-    `lib/workspace`, `app/api/workspace`; eslint 0 errors on the changed files; full
-    `tsc --noEmit` (only the pre-existing `components/sketch/SketchCanvas.tsx` errors, in a
-    file this branch does not touch); all 12 CI Quality-Checks guards run locally
-    (`check:no-lucide` fails on four untouched files — pre-existing main-wide debt).
+  - A **second** independent review round raised two further P1s against the hardened head,
+    both demonstrated with executable probes rather than argued, and both fixed here:
+    - *The client fetch had no timeout.* The route's 8s upstream bound cannot rescue a browser
+      request that never completes, so a stalled request left the picker disabled on
+      "Loading models…" indefinitely — the exact state the free-text fallback exists to
+      prevent. The request is now bound by an `AbortController` at 12s (above the route's own
+      8s, so a slow-but-live upstream still populates) and a timeout degrades like any other
+      failure.
+    - *The untrusted catalogue had no size or field bounds.* A probe of 100,000 syntactically
+      valid entries was mapped, filtered per family, sorted, cached for ten minutes and served
+      to every signed-in caller. There is now an entry cap (`MAX_UPSTREAM_ENTRIES`, checked
+      **before** the sort), a response-byte cap enforced by a `content-length` check plus a
+      capped text read ahead of `JSON.parse`, and per-entry slug/name length limits that trim
+      padded slugs and drop whitespace-only or absurd ones. An entry-count or byte violation
+      degrades to `unavailable`; a single bad entry is dropped rather than costing the
+      catalogue.
+    Writing those tests exposed a third defect in a test of our own: the "oversized body with
+    no content-length" case originally used a garbage string, so `JSON.parse` rejected it and
+    the test passed even with the size cap removed. It now uses deliberately *valid* oversized
+    JSON, and fails under the mutant as a control must.
+  - Verified at the final head: vitest 39/39 on the three changed suites and 122/122 across
+    `components/setup`, `lib/workspace`, `app/api/workspace`; eslint 0 errors on the changed
+    files; full `tsc --noEmit` (only the pre-existing `components/sketch/SketchCanvas.tsx`
+    errors, in a file this branch does not touch — the identical two errors were reproduced on
+    a clean `origin/main` worktree); CI Quality-Checks guards run locally, 8/8 of the
+    applicable ones green. `check:no-lucide` fails on four untouched files and the
+    `lifecycle-controls` unit test fails, both reproduced identically on `origin/main` —
+    pre-existing main-wide debt, tracked separately, deliberately not bundled here.
+  - Mutation controls (each fix demonstrated failing when reverted, source then restored
+    byte-identical and verified by checksum): removing the client timeout fails
+    "degrades to free text when the catalogue request never settles"; removing the entry cap
+    fails "degrades rather than sorting and caching a hostile number of entries"; removing the
+    byte caps fails both oversized-body tests; removing the field bounds fails both slug-bound
+    tests.
 -  **Setup-wizard brand-logo upload & business-detail persistence (Missing connections
   low)** — the business-detail half is remediated:
   `components/setup/BusinessDetailsCard.tsx` now persists manual edits via

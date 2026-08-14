@@ -72,6 +72,11 @@ const PROVIDER_META: Record<Provider, { label: string; placeholder: string }> = 
 // as the placeholder so the "leave it blank" path is not a mystery box.
 const OPENROUTER_DEFAULT_MODEL = 'deepseek/deepseek-chat';
 
+// Client-side bound on the catalogue request. Comfortably above the route's own
+// 8s upstream timeout, so a slow-but-live upstream still populates the picker
+// rather than being cut off by the browser.
+const CATALOGUE_TIMEOUT_MS = 12_000;
+
 type CardState = 'idle' | 'saving' | 'success' | 'error';
 
 const DEFAULT_KEY_ERROR =
@@ -123,7 +128,15 @@ export function AiKeyCard({ onSaved }: { onSaved?: () => void } = {}) {
     catalogueRequested.current = true;
 
     setCatalogueLoading(true);
-    fetch('/api/workspace/openrouter-models')
+
+    // The route's own upstream timeout cannot rescue a browser request that
+    // never reaches it or never completes. Without a client-side bound, a
+    // stalled request leaves the picker disabled on "Loading models…" forever
+    // — the one state the free-text fallback exists to prevent.
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), CATALOGUE_TIMEOUT_MS);
+
+    fetch('/api/workspace/openrouter-models', { signal: abort.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((json: OpenRouterCatalogue | null) => {
         if (!mounted.current) return;
@@ -132,11 +145,13 @@ export function AiKeyCard({ onSaved }: { onSaved?: () => void } = {}) {
         );
       })
       .catch(() => {
+        // Abort, network error, malformed body — all degrade to free text.
         if (mounted.current) {
           setCatalogue({ recommended: [], models: [], unavailable: true });
         }
       })
       .finally(() => {
+        clearTimeout(timer);
         if (mounted.current) setCatalogueLoading(false);
       });
   }, [provider]);
