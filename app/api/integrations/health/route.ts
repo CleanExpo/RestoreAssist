@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
       name: "Sync Success Rate",
       status:
         successRate === null
-          ? "unknown"
+          ? "unverified"
           : successRate >= 95
             ? "pass"
             : successRate >= 80
@@ -179,9 +179,14 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // An unknown never downgrades overall health — absence of evidence is not
-    // evidence of failure — but it must never be counted as a pass either.
-    if (successRate !== null && successRate < 80 && overallStatus !== "unhealthy") {
+    // An unverified check never downgrades overall health — absence of
+    // evidence is not evidence of failure — but it must never be counted as a
+    // pass either. The top-level status is reconciled below.
+    if (
+      successRate !== null &&
+      successRate < 80 &&
+      overallStatus !== "unhealthy"
+    ) {
       overallStatus = successRate < 50 ? "unhealthy" : "degraded";
     }
 
@@ -294,14 +299,27 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // A run that measured nothing must not report the same word as a run that
+    // measured everything and passed. "unverified" replaces "healthy" only
+    // when nothing worse was found: a degraded or unhealthy verdict is a real
+    // measurement and always takes precedence over an absence of one.
+    const unverifiedChecks = checks.filter(
+      (c) => c.status === "unverified",
+    ).length;
+    const reportedStatus: "healthy" | "degraded" | "unhealthy" | "unverified" =
+      overallStatus === "healthy" && unverifiedChecks > 0
+        ? "unverified"
+        : overallStatus;
+
     return NextResponse.json({
-      status: overallStatus,
+      status: reportedStatus,
       checks,
       summary: {
         total: checks.length,
         passed: checks.filter((c) => c.status === "pass").length,
         warned: checks.filter((c) => c.status === "warn").length,
         failed: checks.filter((c) => c.status === "fail").length,
+        unverified: unverifiedChecks,
       },
       timestamp: new Date().toISOString(),
     });

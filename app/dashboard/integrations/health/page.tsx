@@ -22,15 +22,23 @@ type ProviderSlug = "xero" | "quickbooks" | "myob" | "servicem8" | "ascora";
 
 interface HealthCheck {
   name: string;
-  status: "pass" | "warn" | "fail";
+  // "unverified" means the check had nothing to measure (e.g. no sync receipts
+  // in the window). It is neither a pass nor a failure.
+  status: "pass" | "warn" | "fail" | "unverified";
   message: string;
   details?: unknown;
 }
 
 interface HealthData {
-  status: "healthy" | "degraded" | "unhealthy";
+  status: "healthy" | "degraded" | "unhealthy" | "unverified";
   checks: HealthCheck[];
-  summary: { total: number; passed: number; warned: number; failed: number };
+  summary: {
+    total: number;
+    passed: number;
+    warned: number;
+    failed: number;
+    unverified: number;
+  };
   timestamp: string;
 }
 
@@ -571,7 +579,8 @@ export default function IntegrationHealthPage() {
           className={
             healthData.status === "healthy"
               ? "border-emerald-200 bg-emerald-50"
-              : healthData.status === "degraded"
+              : healthData.status === "degraded" ||
+                  healthData.status === "unverified"
                 ? "border-amber-200 bg-amber-50"
                 : "border-red-200 bg-red-50"
           }
@@ -580,7 +589,8 @@ export default function IntegrationHealthPage() {
             <div className="flex items-center gap-3">
               {healthData.status === "healthy" ? (
                 <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
-              ) : healthData.status === "degraded" ? (
+              ) : healthData.status === "degraded" ||
+                healthData.status === "unverified" ? (
                 <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
               ) : (
                 <XCircle className="h-5 w-5 text-destructive shrink-0" />
@@ -590,7 +600,8 @@ export default function IntegrationHealthPage() {
                   className={`font-semibold capitalize ${
                     healthData.status === "healthy"
                       ? "text-success"
-                      : healthData.status === "degraded"
+                      : healthData.status === "degraded" ||
+                          healthData.status === "unverified"
                         ? "text-amber-800"
                         : "text-destructive"
                   }`}

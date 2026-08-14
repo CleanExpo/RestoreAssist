@@ -68,6 +68,31 @@ export async function POST(
         });
       }
 
+      // ── Ascora is NOT served by this generic OAuth route ──────────────────
+      // Ascora uses static API key auth, not OAuth, and has a canonical
+      // implementation at /api/ascora/connect which enforces the SERVICE_CRM
+      // add-on server-side and probes the key with a live request before
+      // marking the integration CONNECTED.
+      //
+      // The shortcut that used to live here marked CONNECTED on the mere
+      // presence of the ASCORA_API_KEY env var — no entitlement check and no
+      // proof the key worked. It then handed the record to a generic sync that
+      // authenticates with OAuth bearer tokens, so every sync died with "No
+      // access token available" against an integration the UI showed as
+      // connected. Refuse here rather than reimplement; one canonical path.
+      //
+      // The refusal must precede every Integration read and write below: a
+      // rejected attempt that still created a DISCONNECTED ASCORA row would
+      // seed the exact legacy record this route no longer knows how to serve.
+      if (provider === "ASCORA") {
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "Ascora does not use OAuth. Use /api/ascora/connect, which enforces the Service CRM add-on and verifies the API key.",
+          status: 400,
+        });
+      }
+
       const config = PROVIDER_CONFIG[provider];
 
       // RA-6920 B3 — connecting Xero/QuickBooks/MYOB requires the BOOKKEEPING
@@ -97,27 +122,6 @@ export async function POST(
             icon: config.icon,
             status: "DISCONNECTED",
           },
-        });
-      }
-
-      // ── Ascora is NOT served by this generic OAuth route ──────────────────
-      // Ascora uses static API key auth, not OAuth, and has a canonical
-      // implementation at /api/ascora/connect which enforces the SERVICE_CRM
-      // add-on server-side and proves the key with a live probe before marking
-      // the integration CONNECTED.
-      //
-      // The shortcut that used to live here marked CONNECTED on the mere
-      // presence of the ASCORA_API_KEY env var — no entitlement check and no
-      // proof the key worked. It then handed the record to a generic sync that
-      // authenticates with OAuth bearer tokens, so every sync died with "No
-      // access token available" against an integration the UI showed as
-      // connected. Refuse here rather than reimplement; one canonical path.
-      if (provider === "ASCORA") {
-        return apiError(request, {
-          code: "VALIDATION",
-          message:
-            "Ascora does not use OAuth. Use /api/ascora/connect, which enforces the Service CRM add-on and verifies the API key.",
-          status: 400,
         });
       }
 

@@ -139,6 +139,19 @@ const EXTERNAL_INTEGRATIONS: {
   },
 ];
 
+/**
+ * The legacy Integration table is shared bookkeeping: AI keys live there, and
+ * so do external job/accounting providers. Its `provider` column cannot
+ * discriminate them — an AI row can carry XERO — so categorise POSITIVELY by
+ * the names this page itself writes in handleAddIntegration. Anything not on
+ * this list is not an AI provider and must never render with AI key controls.
+ */
+const AI_INTEGRATION_NAMES = new Set([
+  "anthropic claude",
+  "openai gpt",
+  "google gemini",
+]);
+
 interface SubscriptionStatus {
   subscriptionStatus?: "TRIAL" | "ACTIVE" | "CANCELED" | "EXPIRED" | "PAST_DUE";
   subscriptionPlan?: string;
@@ -152,16 +165,12 @@ export default function IntegrationsPage() {
   const successMessage = searchParams.get("success");
   const errorMessage = searchParams.get("error");
   const [integrations, setIntegrations] = useState<Integration[]>([]);
-  // The Integration table is legacy AI-key bookkeeping. External job and
-  // accounting providers (Ascora, Xero, ...) own rows there too, and rendering
-  // the table unfiltered put them under "AI Providers" with a Claude icon.
-  // Workspace provider-connections are the AI SSOT; each external provider
-  // renders only in its own section.
-  const externalProviderNames = new Set(
-    EXTERNAL_INTEGRATIONS.map((i) => i.name.trim().toLowerCase()),
-  );
-  const aiIntegrations = integrations.filter(
-    (i) => !externalProviderNames.has(i.name.trim().toLowerCase()),
+  // Only rows this page recognises as AI providers render under "AI Providers"
+  // with AI key controls. Excluding the known external providers is not enough
+  // — any other row (a future provider, a hand-written record) would still
+  // reach the AI card and its "Update Key" button under a Claude icon.
+  const aiIntegrations = integrations.filter((i) =>
+    AI_INTEGRATION_NAMES.has((i.name ?? "").trim().toLowerCase()),
   );
   const [externalIntegrations, setExternalIntegrations] = useState<
     Record<ProviderSlug, ExternalIntegration>
@@ -191,8 +200,12 @@ export default function IntegrationsPage() {
     "openai" | "anthropic" | "gemini"
   >("anthropic");
   const [newApiKey, setNewApiKey] = useState("");
-  // Ascora modal removed — Ascora uses static API key auth via ASCORA_API_KEY env var.
-  // Connect flow now goes through the generic handleConnectExternal path.
+  // Ascora authenticates with a per-user static API key, so connecting it means
+  // collecting that key here and POSTing it to the canonical route. The key is
+  // held only for the duration of one attempt and is never rendered back.
+  const [showAscoraModal, setShowAscoraModal] = useState(false);
+  const [ascoraApiKey, setAscoraApiKey] = useState("");
+  const [ascoraConnecting, setAscoraConnecting] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
   // DR-NRPG state
@@ -269,8 +282,29 @@ export default function IntegrationsPage() {
       const data = await response.json();
       const allIntegrations = data.integrations || [];
 
+      // Ascora's status is NOT in the Integration table. Its canonical record
+      // is AscoraIntegration, read through GET /api/ascora/connect (which never
+      // returns the key). A legacy Integration row for ASCORA is stale
+      // bookkeeping and must not decide whether Ascora is connected.
+      const ascoraResponse = await fetch("/api/ascora/connect");
+      if (!ascoraResponse.ok) {
+        throw new Error("Ascora status request failed");
+      }
+      const ascoraData = await ascoraResponse.json();
+      const ascoraRecord = ascoraData?.integration ?? null;
+
       // A successful response makes an absent provider confidently disconnected.
       for (const integration of EXTERNAL_INTEGRATIONS) {
+        if (integration.slug === "ascora") {
+          results.ascora = {
+            provider: integration.name,
+            connected: Boolean(ascoraRecord?.isActive),
+            status: ascoraRecord?.isActive ? "CONNECTED" : "DISCONNECTED",
+            lastSyncAt: ascoraRecord?.lastSyncAt,
+          };
+          continue;
+        }
+
         const found = allIntegrations.find(
           (i: { provider: string }) =>
             i.provider === integration.slug.toUpperCase(),
@@ -303,24 +337,18 @@ export default function IntegrationsPage() {
     }
   };
 
+  // OAuth providers only. Ascora is static-API-key and connects through
+  // handleConnectAscora, which collects the key and drives /api/ascora/connect.
   const handleConnectExternal = async (slug: ProviderSlug) => {
     try {
-      // Ascora is static-API-key, not OAuth. The canonical route enforces the
-      // Service CRM add-on server-side and probes the key before connecting.
-      const response = await fetch(
-        slug === "ascora"
-          ? "/api/ascora/connect"
-          : `/api/integrations/oauth/${slug}/connect`,
-        { method: "POST" },
-      );
+      const response = await fetch(`/api/integrations/oauth/${slug}/connect`, {
+        method: "POST",
+      });
 
       if (response.ok) {
         const data = await response.json();
         if (data.authUrl) {
           window.location.href = data.authUrl;
-        } else {
-          toast.success("Ascora connected");
-          fetchExternalIntegrations();
         }
       } else if (response.status === 403) {
         // Subscription required - show upgrade modal
@@ -339,6 +367,47 @@ export default function IntegrationsPage() {
     } catch (error) {
       console.error("Error connecting:", error);
       toast.error("Failed to initiate connection");
+    }
+  };
+
+  /**
+   * Connect Ascora with a user-supplied API key.
+   *
+   * POSTs `{ apiKey }` to the canonical /api/ascora/connect, which enforces the
+   * Service CRM add-on, probes the key against Ascora and stores it encrypted.
+   * The key is cleared from component state on every completion path, and is
+   * never written back into the UI or a URL.
+   */
+  const handleConnectAscora = async () => {
+    const key = ascoraApiKey.trim();
+    if (!key) {
+      toast.error("API key is required");
+      return;
+    }
+
+    setAscoraConnecting(true);
+    try {
+      const response = await fetch("/api/ascora/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: key }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok) {
+        setShowAscoraModal(false);
+        toast.success("Ascora connected");
+        fetchExternalIntegrations();
+      } else {
+        toast.error(apiErrorMessage(data) ?? "Failed to connect to Ascora");
+      }
+    } catch (error) {
+      console.error("Error connecting Ascora:", error);
+      toast.error("Failed to connect to Ascora");
+    } finally {
+      // The key never outlives the attempt it was entered for.
+      setAscoraApiKey("");
+      setAscoraConnecting(false);
     }
   };
 
@@ -551,12 +620,13 @@ export default function IntegrationsPage() {
 
       if (!providerRes.ok) {
         const err = await providerRes.json().catch(() => ({}));
+        // apiErrorMessage covers both `error` shapes; this route can also
+        // answer with a bare top-level `message`, so that fallback is kept.
         toast.error(
-          typeof err.error === "string"
-            ? err.error
-            : typeof err.message === "string"
+          apiErrorMessage(err) ??
+            (typeof err.message === "string"
               ? err.message
-              : "Failed to save API key",
+              : "Failed to save API key"),
         );
         return;
       }
@@ -685,12 +755,13 @@ export default function IntegrationsPage() {
 
       if (!providerRes.ok) {
         const err = await providerRes.json().catch(() => ({}));
+        // Same normalisation as handleSaveConnection: structured envelope
+        // first, legacy top-level `message` second, static fallback last.
         toast.error(
-          typeof err.error === "string"
-            ? err.error
-            : typeof err.message === "string"
+          apiErrorMessage(err) ??
+            (typeof err.message === "string"
               ? err.message
-              : "Failed to save API key",
+              : "Failed to save API key"),
         );
         return;
       }
@@ -1371,7 +1442,11 @@ export default function IntegrationsPage() {
                           size="sm"
                           className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
                           onClick={() =>
-                            handleConnectExternal(integration.slug)
+                            // Ascora needs an API key, so it opens a dialog
+                            // rather than starting an OAuth redirect.
+                            integration.slug === "ascora"
+                              ? setShowAscoraModal(true)
+                              : handleConnectExternal(integration.slug)
                           }
                         >
                           <ExternalLink />
@@ -1507,6 +1582,64 @@ export default function IntegrationsPage() {
           </div>
         </>
       )}
+
+      {/* ── Ascora Modal ──────────────────────────── */}
+      <Dialog
+        open={showAscoraModal}
+        onOpenChange={(open) => {
+          setShowAscoraModal(open);
+          // Closing the dialog discards the typed key rather than holding it
+          // in memory until the next open.
+          if (!open) setAscoraApiKey("");
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Connect Ascora</DialogTitle>
+            <DialogDescription>
+              Paste the API key from Ascora (Administration → API Settings).
+              RestoreAssist verifies it against Ascora before saving, and stores
+              it encrypted — it is never shown again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5 py-2">
+            <label
+              className="text-sm font-medium text-foreground"
+              htmlFor="ascora-api-key"
+            >
+              Ascora API Key
+            </label>
+            <input
+              id="ascora-api-key"
+              type="password"
+              autoComplete="off"
+              value={ascoraApiKey}
+              onChange={(e) => setAscoraApiKey(e.target.value)}
+              placeholder="Enter your Ascora API key"
+              className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowAscoraModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+              onClick={handleConnectAscora}
+              disabled={ascoraConnecting || !ascoraApiKey.trim()}
+            >
+              {ascoraConnecting ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                "Connect"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── DR-NRPG Modal ─────────────────────────── */}
       <Dialog open={showDrNrpgModal} onOpenChange={setShowDrNrpgModal}>

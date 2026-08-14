@@ -84,10 +84,28 @@ describe("GET /api/integrations/health — sync receipts", () => {
     expect(body.summary.total).toBe(body.checks.length);
   });
 
-  it("does not degrade overall health merely because nothing has synced yet", async () => {
+  it("reports the run itself as unverified rather than healthy when nothing has synced yet", async () => {
     const body = await getChecks();
 
-    expect(body.status).toBe("healthy");
+    // Not "degraded" — nothing failed. Not "healthy" either: a run that
+    // measured nothing must not return the same word as a run that measured
+    // everything and passed.
+    expect(body.status).toBe("unverified");
+  });
+
+  it("lets a real failure take precedence over an unverified check", async () => {
+    // Zero sync receipts (unverified) plus an integration stuck in ERROR for
+    // >24h. The measured failure wins; "unverified" never masks it.
+    db.integration.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { provider: "XERO", updatedAt: new Date("2020-01-01") },
+      ]);
+
+    const body = await getChecks();
+
+    expect(body.status).toBe("unhealthy");
+    expect(body.summary.unverified).toBe(1);
   });
 
   it("still reports a real pass once successful receipts exist", async () => {
