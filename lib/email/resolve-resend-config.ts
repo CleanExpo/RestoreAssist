@@ -1,9 +1,11 @@
 /**
- * Resolve Resend API credentials: org BYOK first, then platform env.
+ * Resolve Resend API credentials: org BYOK first, then platform Resend.
+ * When MAILTRAP_API_KEY is the platform provider, returns null for
+ * Resend-only callers — use resolvePlatformEmailConfig / sendTransactionalEmail
+ * for new code.
  */
 
-import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/credential-vault";
+import { resolvePlatformEmailConfig } from "@/lib/email/resolve-platform-config";
 
 export interface ResendConfig {
   apiKey: string;
@@ -11,50 +13,15 @@ export interface ResendConfig {
   source: "byok" | "platform";
 }
 
-function platformFrom(): string {
-  return (
-    process.env.RESEND_FROM_EMAIL ||
-    "RestoreAssist <noreply@restoreassist.app>"
-  );
-}
-
 export async function resolveResendConfig(
   organizationId?: string | null,
 ): Promise<ResendConfig | null> {
-  if (organizationId) {
-    const org = await prisma.organization.findUnique({
-      where: { id: organizationId },
-      select: {
-        emailProvider: true,
-        emailProviderEncryptedKey: true,
-        emailFromAddress: true,
-      },
-    });
-    if (
-      org?.emailProvider === "RESEND" &&
-      org.emailProviderEncryptedKey
-    ) {
-      try {
-        const apiKey = decrypt(org.emailProviderEncryptedKey);
-        if (apiKey.trim()) {
-          return {
-            apiKey,
-            from: org.emailFromAddress?.trim() || platformFrom(),
-            source: "byok",
-          };
-        }
-      } catch (err) {
-        console.error("[email] failed to decrypt org Resend key:", err);
-      }
-    }
-  }
-
-  const platformKey = process.env.RESEND_API_KEY;
-  if (!platformKey) return null;
+  const config = await resolvePlatformEmailConfig(organizationId);
+  if (!config || config.provider !== "resend") return null;
   return {
-    apiKey: platformKey,
-    from: platformFrom(),
-    source: "platform",
+    apiKey: config.apiKey,
+    from: config.from,
+    source: config.source,
   };
 }
 
