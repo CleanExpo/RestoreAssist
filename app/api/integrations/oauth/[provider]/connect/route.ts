@@ -100,31 +100,24 @@ export async function POST(
         });
       }
 
-      // ── Ascora shortcut: static API key auth, no OAuth redirect needed ────
-      // Ascora uses a simple API key in the `Auth:` header (not OAuth).
-      // The key is stored in ASCORA_API_KEY env var. "Connecting" just means
-      // marking the Integration record as CONNECTED so the orchestrator finds it.
+      // ── Ascora is NOT served by this generic OAuth route ──────────────────
+      // Ascora uses static API key auth, not OAuth, and has a canonical
+      // implementation at /api/ascora/connect which enforces the SERVICE_CRM
+      // add-on server-side and proves the key with a live probe before marking
+      // the integration CONNECTED.
+      //
+      // The shortcut that used to live here marked CONNECTED on the mere
+      // presence of the ASCORA_API_KEY env var — no entitlement check and no
+      // proof the key worked. It then handed the record to a generic sync that
+      // authenticates with OAuth bearer tokens, so every sync died with "No
+      // access token available" against an integration the UI showed as
+      // connected. Refuse here rather than reimplement; one canonical path.
       if (provider === "ASCORA") {
-        if (!process.env.ASCORA_API_KEY) {
-          return apiError(request, {
-            code: "INTERNAL",
-            message:
-              "ASCORA_API_KEY is not configured. Add it in Vercel environment variables under Administration → API Settings in Ascora.",
-            status: 500,
-          });
-        }
-
-        await prisma.integration.update({
-          where: { id: integration.id, userId },
-          data: { status: "CONNECTED", syncError: null },
-        });
-
-        // Return a redirect URL that the frontend can navigate to directly
-        const baseUrl = process.env.NEXTAUTH_URL || request.nextUrl.origin;
-        return NextResponse.json({
-          authUrl: `${baseUrl}/dashboard/integrations?success=ascora`,
-          integrationId: integration.id,
-          connected: true,
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "Ascora does not use OAuth. Use /api/ascora/connect, which enforces the Service CRM add-on and verifies the API key.",
+          status: 400,
         });
       }
 

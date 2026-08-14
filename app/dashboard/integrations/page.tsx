@@ -25,6 +25,7 @@ import Image from "next/image";
 import ImportModal from "@/components/integrations/ImportModal";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { uiAiKeyTypeToProvider } from "@/lib/workspace/ai-key-type";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -151,6 +152,17 @@ export default function IntegrationsPage() {
   const successMessage = searchParams.get("success");
   const errorMessage = searchParams.get("error");
   const [integrations, setIntegrations] = useState<Integration[]>([]);
+  // The Integration table is legacy AI-key bookkeeping. External job and
+  // accounting providers (Ascora, Xero, ...) own rows there too, and rendering
+  // the table unfiltered put them under "AI Providers" with a Claude icon.
+  // Workspace provider-connections are the AI SSOT; each external provider
+  // renders only in its own section.
+  const externalProviderNames = new Set(
+    EXTERNAL_INTEGRATIONS.map((i) => i.name.trim().toLowerCase()),
+  );
+  const aiIntegrations = integrations.filter(
+    (i) => !externalProviderNames.has(i.name.trim().toLowerCase()),
+  );
   const [externalIntegrations, setExternalIntegrations] = useState<
     Record<ProviderSlug, ExternalIntegration>
   >({} as Record<ProviderSlug, ExternalIntegration>);
@@ -293,14 +305,22 @@ export default function IntegrationsPage() {
 
   const handleConnectExternal = async (slug: ProviderSlug) => {
     try {
-      const response = await fetch(`/api/integrations/oauth/${slug}/connect`, {
-        method: "POST",
-      });
+      // Ascora is static-API-key, not OAuth. The canonical route enforces the
+      // Service CRM add-on server-side and probes the key before connecting.
+      const response = await fetch(
+        slug === "ascora"
+          ? "/api/ascora/connect"
+          : `/api/integrations/oauth/${slug}/connect`,
+        { method: "POST" },
+      );
 
       if (response.ok) {
         const data = await response.json();
         if (data.authUrl) {
           window.location.href = data.authUrl;
+        } else {
+          toast.success("Ascora connected");
+          fetchExternalIntegrations();
         }
       } else if (response.status === 403) {
         // Subscription required - show upgrade modal
@@ -308,11 +328,13 @@ export default function IntegrationsPage() {
         if (errorData.upgradeRequired) {
           setShowUpgradeModal(true);
         } else {
-          toast.error(errorData.error || "Access denied");
+          toast.error(apiErrorMessage(errorData) ?? "Access denied");
         }
       } else {
         const errorData = await response.json();
-        toast.error(errorData.error || "Failed to initiate connection");
+        toast.error(
+          apiErrorMessage(errorData) ?? "Failed to initiate connection",
+        );
       }
     } catch (error) {
       console.error("Error connecting:", error);
@@ -322,14 +344,15 @@ export default function IntegrationsPage() {
 
   const handleDisconnectExternal = async (slug: ProviderSlug) => {
     try {
-      const response = await fetch(
-        `/api/integrations/oauth/${slug}/disconnect`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-        },
-      );
+      // Ascora disconnects via DELETE on its canonical route.
+      const response =
+        slug === "ascora"
+          ? await fetch("/api/ascora/connect", { method: "DELETE" })
+          : await fetch(`/api/integrations/oauth/${slug}/disconnect`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({}),
+            });
 
       if (response.ok) {
         toast.success(
@@ -338,7 +361,7 @@ export default function IntegrationsPage() {
         fetchExternalIntegrations();
       } else {
         const data = await response.json();
-        toast.error(data.error || "Failed to disconnect");
+        toast.error(apiErrorMessage(data) ?? "Failed to disconnect");
       }
     } catch (error) {
       console.error("Error disconnecting:", error);
@@ -349,11 +372,18 @@ export default function IntegrationsPage() {
   const handleSyncExternal = async (slug: ProviderSlug) => {
     setSyncingProvider(slug);
     try {
-      const response = await fetch(`/api/integrations/oauth/${slug}/sync`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ syncClients: true, syncJobs: true }),
-      });
+      // Ascora syncs through its canonical static-key route; the generic
+      // OAuth sync authenticates with bearer tokens Ascora never issues.
+      const response = await fetch(
+        slug === "ascora"
+          ? "/api/ascora/sync"
+          : `/api/integrations/oauth/${slug}/sync`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ syncClients: true, syncJobs: true }),
+        },
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -367,11 +397,11 @@ export default function IntegrationsPage() {
         if (data.upgradeRequired) {
           setShowUpgradeModal(true);
         } else {
-          toast.error(data.error || "Access denied");
+          toast.error(apiErrorMessage(data) ?? "Access denied");
         }
       } else {
         const data = await response.json();
-        toast.error(data.error || "Sync failed");
+        toast.error(apiErrorMessage(data) ?? "Sync failed");
       }
     } catch (error) {
       console.error("Error syncing:", error);
@@ -425,7 +455,7 @@ export default function IntegrationsPage() {
         );
         setDrNrpgApiKey("");
       } else {
-        toast.error(data.error || "Failed to connect");
+        toast.error(apiErrorMessage(data) ?? "Failed to connect");
       }
     } catch {
       toast.error("Failed to connect to DR-NRPG");
@@ -843,7 +873,7 @@ export default function IntegrationsPage() {
             </div>
             <Separator className="mt-4 mb-5" />
 
-            {integrations.length === 0 ? (
+            {aiIntegrations.length === 0 ? (
               <EmptyState
                 icon={<Zap size={32} aria-hidden />}
                 title="No AI integrations yet"
@@ -855,7 +885,7 @@ export default function IntegrationsPage() {
               />
             ) : (
               <div className="grid md:grid-cols-2 gap-4">
-                {integrations.map((integration) => (
+                {aiIntegrations.map((integration) => (
                   <Card
                     key={integration.id}
                     className="group transition-all duration-200 hover:shadow-md dark:hover:shadow-black/30"

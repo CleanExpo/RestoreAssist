@@ -144,25 +144,44 @@ export async function GET(request: NextRequest) {
       take: MAX_SYNC_LOGS_FOR_HEALTH,
     });
 
+    // Zero sync records is UNVERIFIED, not healthy. A rate computed from an
+    // empty set previously defaulted to 100 and rendered as a pass, so an
+    // integration that had never synced once reported "100% success rate
+    // (0 syncs in 24h)". Connected-but-never-synced is an unknown, and the
+    // only honest answer is that there is nothing to measure yet.
+    const successfulSyncs = recentSyncs.filter(
+      (s) => s.status === "SUCCESS",
+    ).length;
     const successRate =
       recentSyncs.length > 0
-        ? (recentSyncs.filter((s) => s.status === "SUCCESS").length /
-            recentSyncs.length) *
-          100
-        : 100;
+        ? (successfulSyncs / recentSyncs.length) * 100
+        : null;
 
     checks.push({
       name: "Sync Success Rate",
-      status: successRate >= 95 ? "pass" : successRate >= 80 ? "warn" : "fail",
-      message: `${Math.round(successRate)}% success rate (${recentSyncs.length} syncs in 24h)`,
+      status:
+        successRate === null
+          ? "unknown"
+          : successRate >= 95
+            ? "pass"
+            : successRate >= 80
+              ? "warn"
+              : "fail",
+      message:
+        successRate === null
+          ? "Unverified — no syncs recorded in the last 24 hours"
+          : `${Math.round(successRate)}% success rate (${recentSyncs.length} syncs in 24h)`,
       details: {
         total: recentSyncs.length,
-        successful: recentSyncs.filter((s) => s.status === "SUCCESS").length,
+        successful: successfulSyncs,
         failed: recentSyncs.filter((s) => s.status === "FAILED").length,
+        verified: successRate !== null,
       },
     });
 
-    if (successRate < 80 && overallStatus !== "unhealthy") {
+    // An unknown never downgrades overall health — absence of evidence is not
+    // evidence of failure — but it must never be counted as a pass either.
+    if (successRate !== null && successRate < 80 && overallStatus !== "unhealthy") {
       overallStatus = successRate < 50 ? "unhealthy" : "degraded";
     }
 
