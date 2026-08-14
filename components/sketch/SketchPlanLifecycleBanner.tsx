@@ -7,7 +7,12 @@
 
 import { cn } from "@/lib/utils";
 import type { PlanLifecyclePhase } from "@/lib/sketch/plan-lifecycle";
-import { CheckCircle2, Loader2, ScanLine, Ruler } from "lucide-react";
+import {
+  ChromeCheckCircle,
+  ChromeRuler,
+  ChromeScanLine,
+  ChromeSpinner,
+} from "@/components/brand/chrome-icons";
 
 export interface SketchPlanLifecycleBannerProps {
   phase: PlanLifecyclePhase;
@@ -48,12 +53,12 @@ export function SketchPlanLifecycleBanner({
   const copy = COPY[phase];
   const Icon =
     phase === "scanning"
-      ? Loader2
+      ? ChromeSpinner
       : phase === "waiting"
-        ? ScanLine
+        ? ChromeScanLine
         : phase === "needs_confirm"
-          ? Ruler
-          : CheckCircle2;
+          ? ChromeRuler
+          : ChromeCheckCircle;
 
   return (
     <div
