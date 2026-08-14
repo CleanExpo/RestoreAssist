@@ -64,6 +64,11 @@ describe("IntegrationsPage", () => {
         if (url === "/api/dr-nrpg/connect") {
           return { ok: true, json: async () => ({ integration: null }) };
         }
+        // Both status sources down, stated explicitly rather than leaning on
+        // the unexpected-request throw: this is the total-outage case.
+        if (url === "/api/ascora/connect") {
+          return { ok: false, status: 503, json: async () => ({}) };
+        }
         throw new Error(`Unexpected request: ${url}`);
       }),
     );
@@ -110,12 +115,18 @@ function mountAscora(options: {
   ascoraStatus?: unknown;
   syncResponse?: StubResponse;
   connectResponse?: StubResponse;
+  /** Fail GET /api/integrations only — the four OAuth providers' source. */
+  genericStatusFails?: boolean;
+  /** Fail GET /api/ascora/connect only — Ascora's source. */
+  ascoraStatusFails?: boolean;
 }): FetchCall[] {
   const {
     legacyIntegrations = [],
     ascoraStatus = { integration: null },
     syncResponse,
     connectResponse,
+    genericStatusFails = false,
+    ascoraStatusFails = false,
   } = options;
   const calls: FetchCall[] = [];
 
@@ -129,6 +140,9 @@ function mountAscora(options: {
           calls.push({ url, init });
 
           if (url === "/api/integrations") {
+            if (genericStatusFails) {
+              return { ok: false, status: 503, json: async () => ({}) };
+            }
             return {
               ok: true,
               status: 200,
@@ -153,6 +167,9 @@ function mountAscora(options: {
                 status: res.status,
                 json: async () => res.body,
               };
+            }
+            if (ascoraStatusFails) {
+              return { ok: false, status: 500, json: async () => ({}) };
             }
             return { ok: true, status: 200, json: async () => ascoraStatus };
           }
@@ -186,6 +203,76 @@ function providerCard(name: string): HTMLElement {
   if (!card) throw new Error(`No card found for ${name}`);
   return card as HTMLElement;
 }
+
+describe("IntegrationsPage — one status outage does not disable the others", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps Ascora actionable when the generic status source fails", async () => {
+    mountAscora({
+      genericStatusFails: true,
+      ascoraStatus: { integration: null },
+    });
+
+    render(<IntegrationsPage />);
+
+    // Only the four providers served by /api/integrations go dark.
+    const unavailable = await screen.findAllByRole("button", {
+      name: "Status unavailable",
+    });
+    expect(unavailable).toHaveLength(4);
+    unavailable.forEach((button) => expect(button).toBeDisabled());
+
+    // Ascora answered, so its card is still usable.
+    const ascora = providerCard("Ascora");
+    expect(
+      within(ascora).queryByRole("button", { name: "Status unavailable" }),
+    ).toBeNull();
+    const connect = within(ascora).getByRole("button", { name: /Connect/i });
+    expect(connect).toBeEnabled();
+
+    // The banner names what is down without gating anything.
+    expect(
+      screen.getByText(
+        "Some integration statuses are unavailable (Xero, MYOB, QuickBooks, ServiceM8). Every other integration is unaffected.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the generic providers actionable when the Ascora status source fails", async () => {
+    mountAscora({ ascoraStatusFails: true, legacyIntegrations: [] });
+
+    render(<IntegrationsPage />);
+
+    const unavailable = await screen.findAllByRole("button", {
+      name: "Status unavailable",
+    });
+    expect(unavailable).toHaveLength(1);
+    expect(unavailable[0]).toBeDisabled();
+    expect(
+      within(providerCard("Ascora")).getByRole("button", {
+        name: "Status unavailable",
+      }),
+    ).toBeDisabled();
+
+    // Xero's source answered, so Xero can still be connected.
+    const xero = providerCard("Xero");
+    expect(
+      within(xero).queryByRole("button", { name: "Status unavailable" }),
+    ).toBeNull();
+    expect(
+      within(xero).getByRole("button", { name: /Connect/i }),
+    ).toBeEnabled();
+
+    expect(
+      screen.getByText(
+        "Some integration statuses are unavailable (Ascora). Every other integration is unaffected.",
+      ),
+    ).toBeInTheDocument();
+  });
+});
 
 describe("IntegrationsPage — Ascora status source of truth", () => {
   beforeEach(() => {

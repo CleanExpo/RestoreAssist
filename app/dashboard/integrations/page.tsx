@@ -44,6 +44,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/EmptyState";
 
@@ -62,7 +63,11 @@ interface Integration {
 interface ExternalIntegration {
   provider: string;
   connected: boolean;
-  status: "CONNECTED" | "DISCONNECTED" | "ERROR" | "SYNCING";
+  // UNAVAILABLE is explicitly "this provider's status source did not answer",
+  // which is not the same as DISCONNECTED. It is per-provider on purpose: the
+  // OAuth providers and Ascora are served by different endpoints, so one
+  // outage must never speak for the other's cards.
+  status: "CONNECTED" | "DISCONNECTED" | "ERROR" | "SYNCING" | "UNAVAILABLE";
   lastSyncAt?: string;
   syncError?: string;
   counts?: {
@@ -151,6 +156,31 @@ const AI_INTEGRATION_NAMES = new Set([
   "openai gpt",
   "google gemini",
 ]);
+
+/**
+ * The OAuth providers' status lives in /api/integrations. Ascora's does not:
+ * its canonical record is AscoraIntegration, read through GET
+ * /api/ascora/connect (which never returns the key). A legacy Integration row
+ * for ASCORA is stale bookkeeping and must not decide whether Ascora is
+ * connected. Two sources, so two loaders that fail independently.
+ */
+async function loadGenericIntegrationStatuses() {
+  const response = await fetch("/api/integrations");
+  if (!response.ok) {
+    throw new Error("External integration status request failed");
+  }
+  const data = await response.json();
+  return Array.isArray(data?.integrations) ? data.integrations : [];
+}
+
+async function loadAscoraIntegrationStatus() {
+  const response = await fetch("/api/ascora/connect");
+  if (!response.ok) {
+    throw new Error("Ascora status request failed");
+  }
+  const data = await response.json();
+  return data?.integration ?? null;
+}
 
 interface SubscriptionStatus {
   subscriptionStatus?: "TRIAL" | "ACTIVE" | "CANCELED" | "EXPIRED" | "PAST_DUE";
@@ -273,29 +303,36 @@ export default function IntegrationsPage() {
         ExternalIntegration
       >;
 
-      // Fetch all integrations from the main API
-      const response = await fetch("/api/integrations");
-      if (!response.ok) {
-        throw new Error("External integration status request failed");
+      // allSettled, not await-in-sequence: an Ascora outage must not abort the
+      // generic request, and neither failure may blank the other's cards.
+      const [genericResult, ascoraResult] = await Promise.allSettled([
+        loadGenericIntegrationStatuses(),
+        loadAscoraIntegrationStatus(),
+      ]);
+
+      if (genericResult.status === "rejected") {
+        console.error(
+          "Error fetching external integrations:",
+          genericResult.reason,
+        );
+      }
+      if (ascoraResult.status === "rejected") {
+        console.error("Error fetching Ascora status:", ascoraResult.reason);
       }
 
-      const data = await response.json();
-      const allIntegrations = data.integrations || [];
-
-      // Ascora's status is NOT in the Integration table. Its canonical record
-      // is AscoraIntegration, read through GET /api/ascora/connect (which never
-      // returns the key). A legacy Integration row for ASCORA is stale
-      // bookkeeping and must not decide whether Ascora is connected.
-      const ascoraResponse = await fetch("/api/ascora/connect");
-      if (!ascoraResponse.ok) {
-        throw new Error("Ascora status request failed");
-      }
-      const ascoraData = await ascoraResponse.json();
-      const ascoraRecord = ascoraData?.integration ?? null;
-
-      // A successful response makes an absent provider confidently disconnected.
+      // A successful response makes an absent provider confidently disconnected;
+      // a failed one makes only that provider's own cards unavailable.
       for (const integration of EXTERNAL_INTEGRATIONS) {
         if (integration.slug === "ascora") {
+          if (ascoraResult.status === "rejected") {
+            results.ascora = {
+              provider: integration.name,
+              connected: false,
+              status: "UNAVAILABLE",
+            };
+            continue;
+          }
+          const ascoraRecord = ascoraResult.value;
           results.ascora = {
             provider: integration.name,
             connected: Boolean(ascoraRecord?.isActive),
@@ -305,7 +342,16 @@ export default function IntegrationsPage() {
           continue;
         }
 
-        const found = allIntegrations.find(
+        if (genericResult.status === "rejected") {
+          results[integration.slug] = {
+            provider: integration.name,
+            connected: false,
+            status: "UNAVAILABLE",
+          };
+          continue;
+        }
+
+        const found = genericResult.value.find(
           (i: { provider: string }) =>
             i.provider === integration.slug.toUpperCase(),
         );
@@ -327,8 +373,40 @@ export default function IntegrationsPage() {
       }
 
       setExternalIntegrations(results);
+
+      // The banner reports which providers went dark; it never gates the cards
+      // that answered. Per-card actionability comes from that card's own status.
+      const unavailable = EXTERNAL_INTEGRATIONS.filter(
+        (integration) => results[integration.slug].status === "UNAVAILABLE",
+      ).map((integration) => integration.name);
+
+      if (unavailable.length === EXTERNAL_INTEGRATIONS.length) {
+        setExternalIntegrationsError(
+          "Integration status is unavailable. Retry before connecting or disconnecting.",
+        );
+      } else if (unavailable.length > 0) {
+        setExternalIntegrationsError(
+          `Some integration statuses are unavailable (${unavailable.join(", ")}). Every other integration is unaffected.`,
+        );
+      }
     } catch (error) {
+      // Backstop for an unexpected shape rather than a failed request. The
+      // cards read their own status, so a total failure has to write
+      // UNAVAILABLE into every one of them — a banner alone would leave stale
+      // state looking actionable.
       console.error("Error fetching external integrations:", error);
+      setExternalIntegrations(
+        Object.fromEntries(
+          EXTERNAL_INTEGRATIONS.map((integration) => [
+            integration.slug,
+            {
+              provider: integration.name,
+              connected: false,
+              status: "UNAVAILABLE" as const,
+            },
+          ]),
+        ) as Record<ProviderSlug, ExternalIntegration>,
+      );
       setExternalIntegrationsError(
         "Integration status is unavailable. Retry before connecting or disconnecting.",
       );
@@ -1096,10 +1174,12 @@ export default function IntegrationsPage() {
                 (i) => i.category === "bookkeeping",
               ).map((integration) => {
                 const status = externalIntegrations[integration.slug];
+                // Deliberately NOT the global banner: this card is actionable
+                // whenever ITS status source answered, even if another did not.
                 const isStatusKnown =
                   !externalIntegrationsLoading &&
-                  !externalIntegrationsError &&
-                  Boolean(status);
+                  Boolean(status) &&
+                  status.status !== "UNAVAILABLE";
                 const isConnected = status?.connected;
                 const isSyncing =
                   syncingProvider === integration.slug ||
@@ -1288,10 +1368,12 @@ export default function IntegrationsPage() {
                 (i) => i.category === "jobmanagement",
               ).map((integration) => {
                 const status = externalIntegrations[integration.slug];
+                // Deliberately NOT the global banner: this card is actionable
+                // whenever ITS status source answered, even if another did not.
                 const isStatusKnown =
                   !externalIntegrationsLoading &&
-                  !externalIntegrationsError &&
-                  Boolean(status);
+                  Boolean(status) &&
+                  status.status !== "UNAVAILABLE";
                 const isConnected = status?.connected;
                 const isSyncing =
                   syncingProvider === integration.slug ||
@@ -1609,14 +1691,13 @@ export default function IntegrationsPage() {
             >
               Ascora API Key
             </label>
-            <input
+            <Input
               id="ascora-api-key"
               type="password"
               autoComplete="off"
               value={ascoraApiKey}
               onChange={(e) => setAscoraApiKey(e.target.value)}
               placeholder="Enter your Ascora API key"
-              className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
           <DialogFooter className="gap-2">

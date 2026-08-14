@@ -617,6 +617,8 @@ export default function IntegrationHealthPage() {
                     ` · ${healthData.summary.warned} warning${healthData.summary.warned > 1 ? "s" : ""}`}
                   {healthData.summary.failed > 0 &&
                     ` · ${healthData.summary.failed} failure${healthData.summary.failed > 1 ? "s" : ""}`}
+                  {healthData.summary.unverified > 0 &&
+                    ` · ${healthData.summary.unverified} unverified`}
                 </p>
               </div>
             </div>
