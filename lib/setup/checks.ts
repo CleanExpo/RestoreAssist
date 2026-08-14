@@ -566,18 +566,33 @@ const welcomeEmailCheck: Check = async () => {
   const capability = "welcome_email";
   const label = "Welcome email";
 
+  const mailtrapKey = process.env.MAILTRAP_API_KEY?.trim();
+  const senderEmail = process.env.SENDER_EMAIL?.trim();
+  if (mailtrapKey && senderEmail) {
+    const domain =
+      extractFromDomain(senderEmail) ?? extractFromDomain(`x@${senderEmail}`);
+    return {
+      capability,
+      label,
+      status: "green",
+      note: `Mailtrap Sending API configured (from ${domain ?? senderEmail})`,
+    };
+  }
+
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     return {
       capability,
       label,
       status: "red",
-      note: "RESEND_API_KEY not configured",
+      note: "MAILTRAP_API_KEY+SENDER_EMAIL (or RESEND_API_KEY) not configured",
     };
   }
 
   const fromDomain =
-    extractFromDomain(process.env.RESEND_FROM_EMAIL) ?? "restoreassist.app";
+    extractFromDomain(process.env.SENDER_EMAIL) ??
+    extractFromDomain(process.env.RESEND_FROM_EMAIL) ??
+    "restoreassist.app";
 
   let body: { data?: ResendDomain[] } | null = null;
   try {
