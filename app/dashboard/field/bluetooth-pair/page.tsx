@@ -1,38 +1,53 @@
 "use client";
 
 /**
- * RA-1121 MVP — Web Bluetooth pair + read proof-of-infrastructure page.
+ * RA-1121 — field device surface.
  *
- * Why this exists as a standalone page rather than baked into the
- * moisture-capture form: the `lib/nir-bluetooth-service.ts` pairing
- * path is real but the UUID table only has the Testo 605-H1 set
- * confirmed (Environmental Sensing Service standard UUIDs). Every
- * other device profile in the skeleton has vendor-SDK-pending UUIDs
- * that will 404 on `getPrimaryService`. Shipping the MVP on a
- * dedicated page lets a technician validate the end-to-end BLE path
- * with the one device that works today, without gating the rest of
- * the moisture-form UX on hardware we don't have UUIDs for.
+ * Every device RestoreAssist can represent is listed from
+ * `lib/field-device-registry.ts`, which carries its transport, the provenance
+ * of its protocol, its calibration basis and its support level. The page
+ * renders those facts rather than restating them, so the catalogue cannot
+ * drift from what the pairing path will actually allow.
+ *
+ * Only a VERIFIED BLE profile offers a pair button. Today that is the Testo
+ * 605-H1, whose UUIDs are the Bluetooth SIG standard Environmental Sensing
+ * assigned numbers. Profiles on placeholder UUIDs are shown as VENDOR_PENDING
+ * with the reason, and `pairDevice()` refuses them regardless of this UI.
+ * The MILESEEY S50R magicplan Edition is a magicplan cloud-bridge pilot with
+ * a manual export step — it has no direct pairing path here and nothing on
+ * this page represents a magicplan connection or an automated sync.
  *
  * Surface:
  *   - Availability probe (HTTPS + Web Bluetooth + non-iOS-Safari).
- *   - Pair button — opens the browser's native device picker.
- *   - Read button — fetches RH / temp / dew point on click.
- *   - Disconnect.
- *
- * Follow-up tickets track: integration into MoistureReadingEntryForm,
- * vendor-SDK UUID acquisition for Delmhorst / Tramex / Protimeter /
- * Trotec / Gann, Capacitor BLE plugin for iOS native, Ubibot cloud
- * poller.
+ *   - Pair / Read / Disconnect for the verified device.
+ *   - Provenance, calibration, transport and support status for every device.
  */
 
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  FIELD_DEVICE_REGISTRY,
+  isPairable,
+  pairingRefusalReason,
+  type FieldDeviceProfile,
+  type FieldDeviceSupportLevel,
+  type FieldDeviceTransport,
+} from "@/lib/field-device-registry";
 import {
   checkBluetoothAvailability,
   pairDevice,
   readEnvironmentalData,
   type BluetoothAvailability,
+  type DeviceKey,
   type EnvironmentalReading,
   type PairedDevice,
 } from "@/lib/nir-bluetooth-service";
@@ -70,6 +85,76 @@ const AVAILABILITY_LABELS: Record<BluetoothAvailability, AvailabilityLabel> = {
   },
 };
 
+const TRANSPORT_LABELS: Record<FieldDeviceTransport, string> = {
+  BLE: "Bluetooth LE (direct)",
+  WIFI: "Wi-Fi (direct)",
+  CLOUD_BRIDGE: "Vendor app + cloud bridge",
+};
+
+const SUPPORT_LABELS: Record<FieldDeviceSupportLevel, string> = {
+  VERIFIED: "Verified",
+  BRIDGED: "Bridged",
+  VENDOR_PENDING: "Vendor pending",
+  UNSUPPORTED: "Unsupported",
+};
+
+const SUPPORT_VARIANTS: Record<
+  FieldDeviceSupportLevel,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  VERIFIED: "default",
+  BRIDGED: "secondary",
+  VENDOR_PENDING: "outline",
+  UNSUPPORTED: "destructive",
+};
+
+const CALIBRATION_LABELS: Record<
+  FieldDeviceProfile["calibration"]["status"],
+  string
+> = {
+  VENDOR_PUBLISHED_ACCURACY: "Vendor-published accuracy",
+  FIELD_CALIBRATION_REQUIRED: "Field calibration required",
+  UNVERIFIED: "Unverified",
+};
+
+function DeviceFacts({ profile }: { profile: FieldDeviceProfile }) {
+  return (
+    <dl className="grid gap-3 text-xs sm:grid-cols-2">
+      <div>
+        <dt className="font-medium text-slate-900 dark:text-slate-100">
+          Transport
+        </dt>
+        <dd className="text-slate-600 dark:text-slate-300">
+          {TRANSPORT_LABELS[profile.transport]}
+        </dd>
+      </div>
+      <div>
+        <dt className="font-medium text-slate-900 dark:text-slate-100">
+          Calibration
+        </dt>
+        <dd className="text-slate-600 dark:text-slate-300">
+          {CALIBRATION_LABELS[profile.calibration.status]}
+          {profile.calibration.statedAccuracy
+            ? ` — ${profile.calibration.statedAccuracy}`
+            : ""}
+          <span className="block mt-0.5">{profile.calibration.note}</span>
+        </dd>
+      </div>
+      <div className="sm:col-span-2">
+        <dt className="font-medium text-slate-900 dark:text-slate-100">
+          Protocol provenance
+        </dt>
+        <dd className="text-slate-600 dark:text-slate-300">
+          {profile.provenance.note}
+          <span className="block mt-0.5 break-words text-slate-500 dark:text-slate-400">
+            Source: {profile.provenance.evidence}
+          </span>
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
 export default function BluetoothPairPage() {
   const [availability, setAvailability] =
     useState<BluetoothAvailability | null>(null);
@@ -91,12 +176,11 @@ export default function BluetoothPairPage() {
   }, []);
 
   const label = availability ? AVAILABILITY_LABELS[availability] : null;
-  const canPair = availability === "available" && !paired && !pairing;
 
-  async function handlePair() {
+  async function handlePair(modelId: string) {
     setPairing(true);
     try {
-      const device = await pairDevice("testo-605");
+      const device = await pairDevice(modelId as DeviceKey);
       setPaired(device);
       toast.success(`Paired: ${device.name}`);
     } catch (err) {
@@ -138,12 +222,12 @@ export default function BluetoothPairPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
-          Bluetooth Meter Pairing
+          Field Devices
         </h1>
         <p className="text-sm text-slate-600 dark:text-slate-300">
-          MVP surface for RA-1121. Currently pairs with Testo 605-H1
-          thermo-hygrometers; additional meters follow as vendor-SDK UUIDs are
-          confirmed.
+          Each device shows the transport it uses, where its protocol came from
+          and how far support has been taken. Direct pairing is offered only
+          where the protocol is verified.
         </p>
       </header>
 
@@ -166,73 +250,124 @@ export default function BluetoothPairPage() {
         </div>
       )}
 
-      <section className="rounded-lg border border-slate-200 dark:border-slate-700 p-4 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="font-medium text-slate-900 dark:text-slate-100">
-              Testo 605-H1 (Thermo-hygrometer)
-            </div>
-            <div className="text-xs text-slate-600 dark:text-slate-300">
-              {paired ? "Connected" : "Not paired"}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {!paired ? (
-              <Button onClick={handlePair} disabled={!canPair}>
-                {pairing ? "Pairing…" : "Pair meter"}
-              </Button>
-            ) : (
-              <>
-                <Button
-                  onClick={handleRead}
-                  disabled={reading}
-                  variant="default"
-                >
-                  {reading ? "Reading…" : "Read now"}
-                </Button>
-                <Button onClick={handleDisconnect} variant="outline">
-                  Disconnect
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
+      <div className="space-y-4">
+        {FIELD_DEVICE_REGISTRY.map((profile) => {
+          const pairableProfile = isPairable(profile);
+          const refusal = pairingRefusalReason(profile.modelId);
+          const isThisPaired = paired?.key === profile.modelId;
+          const canPair =
+            pairableProfile &&
+            availability === "available" &&
+            !paired &&
+            !pairing;
 
-        {lastReading ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="rounded-md border border-slate-200 dark:border-slate-700 p-3 text-sm font-mono tabular-nums"
-          >
-            <div>
-              RH:{" "}
-              <span className="font-semibold">
-                {lastReading.relativeHumidityPercent.toFixed(1)}%
-              </span>
-            </div>
-            <div>
-              Temp:{" "}
-              <span className="font-semibold">
-                {lastReading.temperatureCelsius.toFixed(1)} °C
-              </span>
-            </div>
-            <div>
-              Dew point:{" "}
-              <span className="font-semibold">
-                {lastReading.dewPointCelsius.toFixed(1)} °C
-              </span>
-            </div>
-            <div className="text-xs text-slate-500 mt-1">
-              @ {new Date(lastReading.readingTimestamp).toLocaleString("en-AU")}
-            </div>
-          </div>
-        ) : null}
-      </section>
+          return (
+            <Card key={profile.modelId}>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {profile.displayName}
+                </CardTitle>
+                <CardDescription>
+                  {profile.manufacturer} · {profile.captureKinds.join(", ")}
+                </CardDescription>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <Badge variant={SUPPORT_VARIANTS[profile.supportLevel]}>
+                    {SUPPORT_LABELS[profile.supportLevel]}
+                  </Badge>
+                  <Badge variant="outline">{profile.transport}</Badge>
+                  {profile.cloudBridge ? (
+                    <Badge variant="outline">
+                      {profile.cloudBridge.provider} · manual export
+                    </Badge>
+                  ) : null}
+                  <span className="text-xs text-slate-600 dark:text-slate-300">
+                    {isThisPaired ? "Connected" : "Not paired"}
+                  </span>
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                <DeviceFacts profile={profile} />
+
+                {profile.cloudBridge ? (
+                  <p className="rounded-md border border-slate-200 dark:border-slate-700 p-3 text-xs text-slate-600 dark:text-slate-300">
+                    {profile.cloudBridge.note}
+                  </p>
+                ) : null}
+
+                {refusal ? (
+                  <p className="rounded-md border border-warning-subtle-foreground/30 bg-warning-subtle p-3 text-xs text-warning-subtle-foreground">
+                    {refusal}
+                  </p>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    {!isThisPaired ? (
+                      <Button
+                        onClick={() => handlePair(profile.modelId)}
+                        disabled={!canPair}
+                      >
+                        {pairing ? "Pairing…" : "Pair meter"}
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          onClick={handleRead}
+                          disabled={reading}
+                          variant="default"
+                        >
+                          {reading ? "Reading…" : "Read now"}
+                        </Button>
+                        <Button onClick={handleDisconnect} variant="outline">
+                          Disconnect
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {isThisPaired && lastReading ? (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="rounded-md border border-slate-200 dark:border-slate-700 p-3 text-sm font-mono tabular-nums"
+                  >
+                    <div>
+                      RH:{" "}
+                      <span className="font-semibold">
+                        {lastReading.relativeHumidityPercent.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div>
+                      Temp:{" "}
+                      <span className="font-semibold">
+                        {lastReading.temperatureCelsius.toFixed(1)} °C
+                      </span>
+                    </div>
+                    <div>
+                      Dew point:{" "}
+                      <span className="font-semibold">
+                        {lastReading.dewPointCelsius.toFixed(1)} °C
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      @{" "}
+                      {new Date(lastReading.readingTimestamp).toLocaleString(
+                        "en-AU",
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
 
       <p className="text-xs text-slate-500 dark:text-slate-400">
-        Follow-up work: pair dialog inside MoistureReadingEntryForm, Delmhorst /
-        Tramex / Protimeter / Trotec / Gann UUID tables, Capacitor BLE plugin
-        for iOS, Ubibot cloud poller (RA-1611..).
+        Vendor-pending profiles are promoted only once the manufacturer&apos;s
+        GATT documentation is obtained and validated against firmware. The
+        MILESEEY S50R remains a magicplan manual-export pilot until MILESEEY
+        publishes an authoritative protocol.
       </p>
     </div>
   );

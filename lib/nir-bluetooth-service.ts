@@ -19,8 +19,13 @@
  *   by the Capacitor native bridge in lib/capacitor-bluetooth-bridge.ts.
  *
  * IMPORTANT — UUID STATUS:
- *   The GATT UUIDs below are placeholder values. Final UUIDs must be validated
- *   against current device firmware from each manufacturer:
+ *   The GATT UUIDs below are placeholder values, except the Testo 605-H1 set,
+ *   which uses the Bluetooth SIG standard Environmental Sensing assigned
+ *   numbers. Every profile is classified in lib/field-device-registry.ts, and
+ *   pairDevice() refuses any profile the registry does not mark VERIFIED —
+ *   so an unvalidated UUID can no longer reach a real pairing attempt.
+ *   Final UUIDs must still be validated against current device firmware from
+ *   each manufacturer before a profile is promoted:
  *     Tramex:    Contact sales@tramex.com for BLE SDK documentation
  *     Delmhorst: Contact support@delmhorst.com for BD-2100 BLE spec
  *     Testo:     Testo Smart App SDK (developer.testo.com)
@@ -28,6 +33,7 @@
  */
 
 import { isCapacitorIOS } from "./capacitor";
+import { pairingRefusalReason } from "./field-device-registry";
 
 // ─── Web Bluetooth API type stubs (not in default lib.dom.d.ts) ──────────────
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -196,6 +202,15 @@ export async function checkBluetoothAvailability(): Promise<BluetoothAvailabilit
  * @returns PairedDevice with disconnect function
  */
 export async function pairDevice(deviceKey: DeviceKey): Promise<PairedDevice> {
+  // Refuse before any picker opens, on both the browser and the native path.
+  // Several profiles below carry unvalidated placeholder UUIDs; the registry
+  // is the single place that decides which protocols are trustworthy enough
+  // to attempt a real pairing against.
+  const refusal = pairingRefusalReason(deviceKey);
+  if (refusal) {
+    throw new Error(refusal);
+  }
+
   const profile = DEVICE_PROFILES[deviceKey];
 
   // iOS Capacitor path — Web Bluetooth is blocked; use the native bridge.
