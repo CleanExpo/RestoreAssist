@@ -2325,7 +2325,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             };
             const c = canvas as unknown as {
               add: (o: unknown) => void;
-              remove: (o: unknown) => void;
+              remove: (...o: unknown[]) => void;
               setActiveObject: (o: unknown) => void;
               renderAll: () => void;
               getObjects: () => unknown[];
@@ -2939,6 +2939,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           redo,
           canUndo: false,
           canRedo: false,
+          refreshWallBands: () => refreshWallBandsRef.current(),
         });
 
         // Cleanup
