@@ -14,6 +14,12 @@
  *
  * `supportLevel` is the gate. Only `VERIFIED` + `BLE` is pairable; everything
  * else is refused, and an unknown model is refused too.
+ *
+ * No device in this registry is `VERIFIED` today. No direct hardware profile
+ * has been validated against manufacturer protocol documentation and a
+ * physical unit, so every GATT profile is `VENDOR_PENDING` and direct pairing
+ * is closed. Promotion requires both: an authoritative vendor GATT
+ * specification for the exact model, and validation against the device.
  */
 
 export type FieldDeviceTransport = "BLE" | "WIFI" | "CLOUD_BRIDGE";
@@ -33,6 +39,10 @@ export type FieldDeviceSupportLevel =
 /**
  * Where the protocol values in use actually came from. `PLACEHOLDER_UNVALIDATED`
  * is the honest label for the UUIDs carrying `// TODO: validate` in the service.
+ *
+ * `BLUETOOTH_SIG_STANDARD` is not a verification tier: a SIG assigned number
+ * establishes what a UUID *means*, never that a given device implements it.
+ * Only `VENDOR_DOCUMENTATION` for the exact model can support a promotion.
  */
 export type ProtocolSource =
   | "BLUETOOTH_SIG_STANDARD"
@@ -99,7 +109,7 @@ export const FIELD_DEVICE_REGISTRY: readonly FieldDeviceProfile[] = [
     manufacturer: "Testo",
     displayName: "Testo 605-H1",
     transport: "BLE",
-    supportLevel: "VERIFIED",
+    supportLevel: "VENDOR_PENDING",
     captureKinds: [
       "relative_humidity_percent",
       "temperature_celsius",
@@ -109,12 +119,12 @@ export const FIELD_DEVICE_REGISTRY: readonly FieldDeviceProfile[] = [
     provenance: {
       protocolSource: "BLUETOOTH_SIG_STANDARD",
       evidence:
-        "Bluetooth SIG assigned numbers — Environmental Sensing 0x181A, Humidity 0x2A6F, Temperature 0x2A6E; confirmed in-repo at lib/nir-bluetooth-service.ts and app/dashboard/field/bluetooth-pair/page.tsx",
-      note: "The only profile whose UUIDs are SIG-standard assigned numbers rather than placeholders, and the only one carrying no `// TODO: validate` line. No Testo vendor GATT document has been obtained; the basis is the standard service, not a manufacturer specification.",
+        "Bluetooth SIG assigned numbers — Environmental Sensing 0x181A, Humidity 0x2A6F, Temperature 0x2A6E. No Testo GATT specification obtained; Testo's own product documentation describes the 605-H1 as a display instrument and lists no Bluetooth, while its Bluetooth thermo-hygrometer is the separate 605i Smart Probe.",
+      note: "Its UUIDs are SIG-standard assigned numbers rather than placeholders, which establishes what those UUIDs mean and nothing about this device. Two separate facts block it: no authoritative Testo GATT implementation document exists for the 605-H1, and the Bluetooth product in the Testo range is the 605i, not the 605-H1. Pairing stays refused until MODEL-specific vendor documentation and a physical unit confirm the profile.",
     },
     calibration: {
-      status: "FIELD_CALIBRATION_REQUIRED",
-      note: "Readings are taken as reported by the instrument. RestoreAssist applies no correction and holds no calibration certificate for the unit in use.",
+      status: "UNVERIFIED",
+      note: "No calibration basis established. No reading path is open while the profile is unverified, and RestoreAssist holds no calibration certificate for any unit.",
     },
   },
   {
@@ -190,13 +200,13 @@ export const FIELD_DEVICE_REGISTRY: readonly FieldDeviceProfile[] = [
     displayName: "MILESEEY S50R magicplan Edition",
     transport: "CLOUD_BRIDGE",
     supportLevel: "BRIDGED",
-    captureKinds: ["distance_metres", "area", "volume"],
+    captureKinds: ["distance_metres"],
     supportedPlatforms: ["ios", "android"],
     provenance: {
       protocolSource: "VENDOR_APP_CLOUD_BRIDGE",
       evidence:
         "https://mileseeytools.com/pages/s50r-support and https://help.magicplan.app/laser-distance-meters — magicplan lists the S50R magicplan Edition as a tested PrecisionLink device",
-      note: "MILESEEY publishes Bluetooth connectivity and iOS/Android app support, and lists no Wi-Fi capability. No public SDK, GATT service/characteristic schema or hardware protocol appears in the official sources reviewed, so no direct RestoreAssist pairing is offered and no UUID is assumed for it. The device is reached only through the magicplan app.",
+      note: "MILESEEY publishes Bluetooth connectivity and iOS/Android app support, and lists no Wi-Fi capability. No public SDK, GATT service/characteristic schema or hardware protocol appears in the official sources reviewed, so no direct RestoreAssist pairing is offered and no UUID is assumed for it. The device is reached only through the magicplan app. Only live distance capture is registered: the unit has onboard area and volume modes, but nothing in the official sources establishes that stored area or volume results transfer as structured device payloads, and any area or volume reaching RestoreAssist may be a magicplan plan-derived export statistic rather than a device reading.",
     },
     calibration: {
       status: "VENDOR_PUBLISHED_ACCURACY",
@@ -206,7 +216,7 @@ export const FIELD_DEVICE_REGISTRY: readonly FieldDeviceProfile[] = [
     cloudBridge: {
       provider: "MAGICPLAN",
       ingestMode: "MANUAL_EXPORT",
-      note: "Pilot path only: the technician measures in the magicplan app and exports manually. RestoreAssist holds no magicplan credential and performs no automated sync; nothing here establishes a magicplan connection.",
+      note: "Pilot path only: the technician measures in the magicplan app and exports manually. RestoreAssist holds no magicplan credential and performs no automated sync; nothing here establishes a magicplan connection. The pilot promise is confirmed live distance capture into magicplan — an exported area or volume figure is treated as a plan-derived statistic, not as a device payload.",
     },
   },
 ] as const;
@@ -243,7 +253,7 @@ export function pairingRefusalReason(modelId: string): string | null {
   }
 
   if (profile.supportLevel === "VENDOR_PENDING") {
-    return `${profile.displayName} is VENDOR_PENDING — its GATT profile is an unvalidated placeholder, so pairing is refused until the manufacturer's protocol documentation is obtained.`;
+    return `${profile.displayName} is VENDOR_PENDING — no authoritative manufacturer GATT documentation has been validated for this model, so pairing is refused until the vendor's protocol specification is obtained and confirmed against a physical unit.`;
   }
 
   return `${profile.displayName} is not supported for direct pairing (support level ${profile.supportLevel}).`;

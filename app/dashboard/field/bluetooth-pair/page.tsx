@@ -9,18 +9,18 @@
  * renders those facts rather than restating them, so the catalogue cannot
  * drift from what the pairing path will actually allow.
  *
- * Only a VERIFIED BLE profile offers a pair button. Today that is the Testo
- * 605-H1, whose UUIDs are the Bluetooth SIG standard Environmental Sensing
- * assigned numbers. Profiles on placeholder UUIDs are shown as VENDOR_PENDING
- * with the reason, and `pairDevice()` refuses them regardless of this UI.
- * The MILESEEY S50R magicplan Edition is a magicplan cloud-bridge pilot with
- * a manual export step — it has no direct pairing path here and nothing on
- * this page represents a magicplan connection or an automated sync.
+ * Only a VERIFIED BLE profile offers a pair button, and no device is VERIFIED
+ * today — every GATT profile is VENDOR_PENDING, so this page shows the reason
+ * instead of a pair button and `pairDevice()` refuses them regardless of the
+ * UI. The MILESEEY S50R magicplan Edition is a magicplan cloud-bridge pilot
+ * with a manual export step — it has no direct pairing path here and nothing
+ * on this page represents a magicplan connection or an automated sync.
  *
  * Surface:
  *   - Availability probe (HTTPS + Web Bluetooth + non-iOS-Safari).
- *   - Pair / Read / Disconnect for the verified device.
  *   - Provenance, calibration, transport and support status for every device.
+ *   - Pair / Read / Disconnect, rendered only for a device the registry marks
+ *     pairable. Nothing qualifies until a vendor profile is validated.
  */
 
 import { useEffect, useState } from "react";
@@ -61,9 +61,9 @@ type AvailabilityLabel = {
 const AVAILABILITY_LABELS: Record<BluetoothAvailability, AvailabilityLabel> = {
   available: {
     kind: "available",
-    title: "Web Bluetooth available",
+    title: "Web Bluetooth available — no device to pair with",
     description:
-      "You can pair a Testo 605-H1. Make sure the meter is powered on and within 3m.",
+      "This browser can reach Bluetooth hardware, but no direct hardware profile is currently production-verified, so there is nothing to pair. Each device below shows what is missing.",
   },
   "unavailable-no-api": {
     kind: "unavailable-no-api",
@@ -176,6 +176,9 @@ export default function BluetoothPairPage() {
   }, []);
 
   const label = availability ? AVAILABILITY_LABELS[availability] : null;
+  // A green banner would read as "you can pair something". Nothing in the
+  // registry is pairable, so the banner only turns positive when one is.
+  const anyPairable = FIELD_DEVICE_REGISTRY.some(isPairable);
 
   async function handlePair(modelId: string) {
     setPairing(true);
@@ -227,7 +230,8 @@ export default function BluetoothPairPage() {
         <p className="text-sm text-slate-600 dark:text-slate-300">
           Each device shows the transport it uses, where its protocol came from
           and how far support has been taken. Direct pairing is offered only
-          where the protocol is verified.
+          where the protocol is verified, and no direct hardware profile is
+          currently production-verified.
         </p>
       </header>
 
@@ -236,7 +240,7 @@ export default function BluetoothPairPage() {
           role="status"
           aria-live="polite"
           className={`rounded-lg border p-4 ${
-            label.kind === "available"
+            label.kind === "available" && anyPairable
               ? "border-success-subtle-foreground/30 bg-success-subtle text-success-subtle-foreground"
               : "border-warning-subtle-foreground/30 bg-warning-subtle text-warning-subtle-foreground"
           }`}
@@ -365,9 +369,11 @@ export default function BluetoothPairPage() {
 
       <p className="text-xs text-slate-500 dark:text-slate-400">
         Vendor-pending profiles are promoted only once the manufacturer&apos;s
-        GATT documentation is obtained and validated against firmware. The
-        MILESEEY S50R remains a magicplan manual-export pilot until MILESEEY
-        publishes an authoritative protocol.
+        GATT documentation for that exact model is obtained and validated
+        against a physical unit&apos;s firmware. A Bluetooth SIG standard UUID
+        is not a substitute — it defines what a value means, not what a device
+        implements. The MILESEEY S50R remains a magicplan manual-export pilot
+        until MILESEEY publishes an authoritative protocol.
       </p>
     </div>
   );

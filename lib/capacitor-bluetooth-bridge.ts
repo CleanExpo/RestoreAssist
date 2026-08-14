@@ -1,5 +1,10 @@
 /**
- * Capacitor Bluetooth Bridge — Phase 1 (Testo 605-H1 + Vaisala HM70)
+ * Capacitor Bluetooth Bridge — intended Phase 1 path (Testo 605-H1 + Vaisala HM70)
+ *
+ * NOT REACHED TODAY. Both models are VENDOR_PENDING in
+ * lib/field-device-registry.ts, and pairDevice() refuses them before this
+ * bridge is imported. Using ESS standard UUIDs is what makes no vendor SDK
+ * necessary; it is not evidence that either device implements ESS.
  *
  * Thin wrapper over @capacitor-community/bluetooth-le that provides the
  * same interface as the Web Bluetooth path in nir-bluetooth-service.ts,
