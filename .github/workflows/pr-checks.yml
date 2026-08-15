@@ -238,7 +238,6 @@ jobs:
           STRIPE_SECRET_KEY: sk_test_ci_placeholder
           STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
           GOOGLE_MAPS_API_KEY: ci_placeholder
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
       # RA-1594 — dependency advisory audit. Surface high / critical CVEs
       # on every PR so they're visible before merge.
@@ -266,10 +265,21 @@ jobs:
       # days because main merged migrations that failed against the live
       # DB but passed (silently) here. The backlog-burn window is over —
       # main is clean, this gate now blocks merges.
+      #
+      # RESTORED 2026-08-14: `check-schema-drift.mjs` is the only thing here that
+      # compares the LIVE SCHEMA against `schema.prisma`. `migrate status` reads
+      # `_prisma_migrations` — bookkeeping — and a row can be marked finished while
+      # its DDL silently no-op'd, which is the entire RA-1807 failure mode this gate
+      # is named after. The comparator used to run only as a side effect of the Build
+      # step, nested in `scripts/build.sh:53` after `migrate deploy`; dropping
+      # DATABASE_URL from Build so build.sh stops migrating in CI therefore also
+      # stopped the comparator, deleting a control with nothing red to show for it.
+      # Invoke it explicitly here, where the gate's name already promises it.
       - name: Prisma migration drift check
         run: |
           pnpm exec prisma migrate deploy
           pnpm exec prisma migrate status
+          node scripts/check-schema-drift.mjs
         env:
           # Schema declares both DATABASE_URL (pooled) and DIRECT_URL
           # (direct) per Supabase's standard pattern. CI's ephemeral

@@ -9,10 +9,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 
 const CLI_PATH = join(__dirname, "..", "linear-loop-decide.ts");
+const TSX_CLI = join(__dirname, "..", "..", "node_modules", "tsx", "dist", "cli.mjs");
 
 // The CLI's dispatch path Nexus-wraps every non-owner-gated task, which reads
 // NEXUS_PROMPT.md. That file lives in the `nexus` skill (~/.claude/skills/nexus)
@@ -22,17 +23,30 @@ const CLI_PATH = join(__dirname, "..", "linear-loop-decide.ts");
 const NEXUS_PROMPT_FIXTURE = join(__dirname, "fixtures", "nexus-prompt.fixture.md");
 
 function runCli(issue: unknown): string {
-  // Pass the issue JSON via an env var (not shell-interpolated into the
-  // command string) so payload content — quotes, apostrophes, etc. — can
-  // never break shell argument parsing.
-  return execSync(`npx tsx "${CLI_PATH}" --issue-json "$ISSUE_JSON"`, {
-    encoding: "utf-8",
-    env: {
-      ...process.env,
-      ISSUE_JSON: JSON.stringify(issue),
-      NEXUS_PROMPT_PATH: NEXUS_PROMPT_FIXTURE,
+  // Pass the issue JSON as an argv element with NO shell involved, so payload
+  // content — quotes, apostrophes, etc. — can never break argument parsing.
+  //
+  // This previously used execSync with `--issue-json "$ISSUE_JSON"`. execSync
+  // runs through process.env.ComSpec, which on Windows is cmd.exe, and cmd.exe
+  // does not expand $VAR — it uses %VAR%. The CLI therefore received the eleven
+  // literal characters `$ISSUE_JSON` and died with
+  //   SyntaxError: Unexpected token '$', "$ISSUE_JSON" is not valid JSON
+  // on every developer machine, while passing on the POSIX CI runner. execFileSync
+  // reaches the original goal more completely: with no shell there is no quoting
+  // layer left to defeat.
+  // Invoke tsx's JS entry with the running Node binary rather than the `npx`
+  // wrapper. On Windows `npx` resolves to `npx.cmd`, and since the fix for
+  // CVE-2024-27980 Node refuses to spawn a .cmd without `shell: true` —
+  // `spawnSync npx.cmd EINVAL` — and turning the shell back on would restore
+  // the quoting layer this function exists to avoid.
+  return execFileSync(
+    process.execPath,
+    [TSX_CLI, CLI_PATH, "--issue-json", JSON.stringify(issue)],
+    {
+      encoding: "utf-8",
+      env: { ...process.env, NEXUS_PROMPT_PATH: NEXUS_PROMPT_FIXTURE },
     },
-  });
+  );
 }
 
 describe("linear-loop-decide CLI", () => {
