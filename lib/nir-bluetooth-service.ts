@@ -14,13 +14,25 @@
  *   service/characteristic UUIDs are defined per device profile. Reading
  *   data is parsed into NIR form-ready types.
  *
- *   On iOS (Capacitor WKWebView) Web Bluetooth is blocked. Phase 1 devices
- *   (Testo 605-H1, Vaisala HM70) that use standard ESS UUIDs are served
- *   by the Capacitor native bridge in lib/capacitor-bluetooth-bridge.ts.
+ *   On iOS (Capacitor WKWebView) Web Bluetooth is blocked; the thermo-
+ *   hygrometer path would run through the Capacitor native bridge in
+ *   lib/capacitor-bluetooth-bridge.ts. That path is closed today for the
+ *   same reason the browser path is — see below.
  *
  * IMPORTANT — UUID STATUS:
- *   The GATT UUIDs below are placeholder values. Final UUIDs must be validated
- *   against current device firmware from each manufacturer:
+ *   No profile below is validated for the device it names, so NONE of them
+ *   is pairable. Most carry outright placeholder values. The Testo 605-H1 set
+ *   uses the Bluetooth SIG standard Environmental Sensing assigned numbers,
+ *   which establishes what those UUIDs mean and not that this device
+ *   implements them: no Testo GATT specification has been obtained, and
+ *   Testo's Bluetooth thermo-hygrometer is the separate 605i Smart Probe
+ *   rather than the 605-H1 display instrument.
+ *   Every profile is classified VENDOR_PENDING in lib/field-device-registry.ts,
+ *   and pairDevice() refuses any profile the registry does not mark VERIFIED —
+ *   so no unvalidated UUID can reach a real pairing attempt.
+ *   UUIDs must be validated against current device firmware from each
+ *   manufacturer, and confirmed against a physical unit, before any profile
+ *   is promoted:
  *     Tramex:    Contact sales@tramex.com for BLE SDK documentation
  *     Delmhorst: Contact support@delmhorst.com for BD-2100 BLE spec
  *     Testo:     Testo Smart App SDK (developer.testo.com)
@@ -28,6 +40,7 @@
  */
 
 import { isCapacitorIOS } from "./capacitor";
+import { pairingRefusalReason } from "./field-device-registry";
 
 // ─── Web Bluetooth API type stubs (not in default lib.dom.d.ts) ──────────────
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -72,7 +85,8 @@ const DEVICE_PROFILES = {
     name: "Testo 605-H1",
     category: "thermo-hygrometer" as const,
     filters: [{ namePrefix: "testo 605" }, { namePrefix: "Testo 605" }],
-    // Testo Smart App uses standard Environmental Sensing Service (ESS)
+    // SIG standard Environmental Sensing assigned numbers — not confirmed
+    // against any Testo document for this model. TODO: validate
     serviceUUID: "0000181a-0000-1000-8000-00805f9b34fb", // ESS standard UUID
     characteristicUUID: "00002a6f-0000-1000-8000-00805f9b34fb", // Humidity characteristic
     temperatureCharUUID: "00002a6e-0000-1000-8000-00805f9b34fb", // Temperature characteristic
@@ -196,10 +210,21 @@ export async function checkBluetoothAvailability(): Promise<BluetoothAvailabilit
  * @returns PairedDevice with disconnect function
  */
 export async function pairDevice(deviceKey: DeviceKey): Promise<PairedDevice> {
+  // Refuse before any picker opens, on both the browser and the native path.
+  // No profile above is validated for the device it names, so the registry
+  // currently refuses every one of them; it is the single place that decides
+  // which protocols are trustworthy enough to attempt a real pairing against.
+  const refusal = pairingRefusalReason(deviceKey);
+  if (refusal) {
+    throw new Error(refusal);
+  }
+
   const profile = DEVICE_PROFILES[deviceKey];
 
   // iOS Capacitor path — Web Bluetooth is blocked; use the native bridge.
-  // Phase 1 supports ESS devices (Testo 605-H1 and Vaisala HM70) only.
+  // Unreachable while every profile is VENDOR_PENDING: the registry refusal
+  // above sits ahead of this branch deliberately, so the native scan is
+  // covered by the same gate as the browser picker.
   if (isCapacitorIOS()) {
     if (profile.category !== "thermo-hygrometer") {
       throw new Error(
