@@ -540,17 +540,46 @@ were found in `.planning/` video docs.
     behaviour that actually holds — including an assertion that the attribute really was
     cleared — so if the CTA ever stops being a real `<button disabled>` the test goes red and
     the guard has to come back.
-  - **Mutation controls — six guards, all killed, no survivors**, each source restored
-    byte-identical and confirmed by sha256: removing the activate call, removing the session
-    refresh, dropping the 409 special-case, ignoring the `failedChecks` labels, un-disabling the
-    CTA while finishing, and swallowing the rejection. A seventh (removing
-    `FeatureHealthCard`'s refresh) kills its new ordering test.
-  - Verified at the final **source** head `169732ffa` (the line below is docs-only and changes
+  - **Independent review round 1 (`moonshotai/kimi-k3`, FAIL) — three real defects drained.**
+    Its P1's stated mechanism was **wrong**: `FeatureHealthCard.activate` does have a
+    `try/catch` (`:84`), so the rejection never escapes and the spinner does clear. But
+    checking the branch it pointed at exposed three genuine defects, one worse than the one
+    reported:
+    1. **An envelope object was being rendered as a React child.** The else branch did
+       `setActivateError(j?.error)`, and every RA-1548 branch of `/api/setup/activate`
+       (401/404/409) returns `{ error: { code, message } }` — handing React an object throws
+       "Objects are not valid as a React child" and blanks the card. Only the 400 pre-flight
+       body carries a string. `activationErrorMessage` already handled both shapes, so it is
+       now the single authority, extracted to `lib/setup/activation-error.ts` (it could not be
+       imported from `SetupShell`, which imports `FeatureHealthCard` — that would be a cycle).
+    2. **409 dead-ended the operator** — "Setup already activated" was shown as an error even
+       though it is the desired state, so anyone retrying was told their live workspace had
+       failed. Now treated as success, matching `SetupShell.handleFinish`.
+    3. **A refresh failure was blamed on activation** — the card said "Network error during
+       activation" while `setupCompletedAt` was already committed. It now states the workspace
+       IS activated and that only sign-in needs retrying, and that retry lands on the
+       409-as-success path.
+    The reviewer's **sharpest** finding was a P2 and was correct: both ordering tests recorded
+    mock **call**, not **completion**, so a mutant dropping only the `await` would produce an
+    identical order array and survive — and that fire-and-forget mutant is exactly the
+    navigate-before-the-cookie-is-re-minted race this work exists to fix. Both tests now hold
+    the refresh open on a deferred promise and assert no navigation occurs until it resolves.
+    (Writing that exposed a second-order fault of our own: the deferred implementation leaked
+    into the following test through `mockClear` and hung it — both suites now `mockReset`.)
+  - **Mutation controls — twelve guards, all killed, no survivors**, each source restored
+    byte-identical and confirmed by sha256. The sweep was re-run over **all twelve**, not just
+    the new ones, because a shared-path change voids the mutation evidence for every test
+    crossing it. It includes the two reviewer-derived mutants (**M2b/M8b**, drop only the
+    `await`) and **M10** (raw envelope object to React) — each of which the round-1 tests would
+    have survived — alongside removing the activate call, removing the refresh entirely,
+    dropping either 409 special-case, ignoring the `failedChecks` labels, un-disabling the CTA
+    while finishing, swallowing the rejection, and blaming activation for a refresh failure.
+  - Verified at the final **source** head `4f7396041` (the line below is docs-only and changes
     no source, so this evidence describes the final source state):
     `npx vitest run --config config/vitest.config.js
-    components/setup lib/setup` — exit 0, **142 passed / 25 skipped** (17 files + 1 skipped;
+    components/setup lib/setup` — exit 0, **145 passed / 25 skipped** (17 files + 1 skipped;
     the skips are `DATABASE_URL`-gated, not failures). `npx eslint -c config/eslint.config.mjs`
-    over the six changed files — exit 0, **0 errors** (2 warnings, both pre-existing in
+    over the seven changed source/test files — exit 0, **0 errors** (2 warnings, both pre-existing in
     `FeatureHealthCard.test.tsx` and untouched by this change). Full
     `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit` — **exit 0, zero errors** (the two
     `SketchCanvas.tsx` errors that blocked earlier branches are fixed on main by PR #2007).
