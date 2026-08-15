@@ -98,9 +98,41 @@ export function SetupStepper({
 }: {
   items: SetupStepperItem[];
   initialIndex?: number;
-  onFinish?: () => void;
+  /**
+   * Runs when the terminal CTA is pressed. May be async — finishing setup
+   * involves a server round-trip, so the CTA owns the pending/error state and
+   * a rejection is surfaced in place rather than swallowed.
+   */
+  onFinish?: () => void | Promise<void>;
 }) {
   const [index, setIndex] = useState(initialIndex);
+  const [finishing, setFinishing] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
+
+  // Re-entrancy is prevented by `disabled` on the CTA alone: React reads a
+  // form element's `disabled` from its committed fiber props (getListener /
+  // shouldPreventMouseEvent), not from the DOM attribute, so no synthetic or
+  // assistive click can reach this while a finish is in flight. A second
+  // `finishing` check here would be unreachable by construction — and an
+  // unreachable guard is one no test can hold honest.
+  const handleFinish = async () => {
+    if (!onFinish) return;
+    setFinishing(true);
+    setFinishError(null);
+    try {
+      await onFinish();
+      // `finishing` deliberately stays true on success: onFinish navigates
+      // away, and re-enabling the CTA would let a second activation fire
+      // while the browser is still tearing the page down.
+    } catch (err) {
+      setFinishError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Could not finish setup. Please try again.",
+      );
+      setFinishing(false);
+    }
+  };
 
   const steps: WizardStepDef[] = items.map((i) => ({
     key: i.key,
@@ -319,6 +351,20 @@ export function SetupStepper({
         </main>
 
         <footer className="shrink-0 border-t border-brand-navy/10 bg-white shadow-[0_-4px_16px_-8px_rgba(28,46,71,0.12)]">
+          {finishError && (
+            <div className="mx-auto w-full max-w-5xl px-5 pt-4 sm:px-8 lg:px-12">
+              <p
+                role="alert"
+                className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive"
+              >
+                <span
+                  aria-hidden="true"
+                  className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive"
+                />
+                {finishError}
+              </p>
+            </div>
+          )}
           <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-4 sm:px-8 sm:py-5 lg:px-12">
             <Button
               variant="outline"
@@ -343,16 +389,22 @@ export function SetupStepper({
               {state.isLastStep ? (
                 <Button
                   className="h-12 gap-2 rounded-xl bg-brand-navy px-7 text-[15px] font-semibold text-white shadow-lg shadow-brand-navy/25 transition-all hover:bg-brand-navy-hover hover:shadow-brand-navy/35 disabled:shadow-none"
-                  onClick={onFinish}
-                  disabled={!state.allRequiredComplete}
+                  onClick={() => void handleFinish()}
+                  disabled={!state.allRequiredComplete || finishing}
                   title={
                     state.allRequiredComplete
                       ? undefined
                       : "Finish the required steps first"
                   }
                 >
-                  Generate your first report
-                  <ArrowMark direction="right" />
+                  {finishing ? (
+                    "Setting up your workspace…"
+                  ) : (
+                    <>
+                      Generate your first report
+                      <ArrowMark direction="right" />
+                    </>
+                  )}
                 </Button>
               ) : (
                 <Button

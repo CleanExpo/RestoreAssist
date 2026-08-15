@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -20,6 +21,7 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
   const [activating, setActivating] = useState(false);
   const [activateError, setActivateError] = useState<string | null>(null);
   const [retryTick, setRetryTick] = useState(0);
+  const { update: refreshSession } = useSession();
 
   useEffect(() => {
     let cancelled = false;
@@ -83,6 +85,13 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
       const r = await fetch('/api/setup/activate', { method: 'POST' });
       if (r.ok) {
         const j = await r.json();
+        // Re-mint the NextAuth JWT before leaving /setup. The setup gate in
+        // proxy.ts reads `setupCompletedAt` off the token, and only a NextAuth
+        // route can rewrite that cookie — a server-component redirect cannot.
+        // Navigating on the stale token bounces to /setup, which now redirects
+        // to /dashboard (the DB row is set), which the gate bounces back:
+        // ERR_TOO_MANY_REDIRECTS. Same reason SetupShell refreshes on finish.
+        await refreshSession();
         window.location.href = j?.data?.redirectTo ?? '/dashboard?firstRun=1';
       } else {
         const j = await r.json().catch(() => ({}));

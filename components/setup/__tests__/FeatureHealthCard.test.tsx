@@ -2,6 +2,15 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+
+// Activation re-mints the NextAuth JWT before navigating — the setup gate in
+// proxy.ts reads `setupCompletedAt` off the token, so leaving on a stale one
+// bounces the operator into a /setup ↔ /dashboard redirect loop.
+const updateSession = vi.fn().mockResolvedValue(null);
+vi.mock('next-auth/react', () => ({
+  useSession: () => ({ data: null, status: 'authenticated', update: updateSession }),
+}));
+
 import { FeatureHealthCard } from '../FeatureHealthCard';
 
 const CHECKS_ALL_GREEN = [
@@ -89,6 +98,37 @@ describe('FeatureHealthCard', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /activate my workspace/i })).not.toBeDisabled());
     fireEvent.click(screen.getByRole('button', { name: /activate my workspace/i }));
     await waitFor(() => expect(window.location.href).toBe('/dashboard?firstRun=1'));
+  });
+
+  it('refreshes the session BEFORE navigating, so the setup gate sees a fresh token', async () => {
+    const order: string[] = [];
+    mockChecksFetch(CHECKS_ALL_GREEN);
+    updateSession.mockImplementation(async () => {
+      order.push('refreshSession');
+      return null;
+    });
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      configurable: true,
+      value: {
+        set href(_v: string) {
+          order.push('navigate');
+        },
+        get href() {
+          return '';
+        },
+      },
+    });
+
+    render(<FeatureHealthCard />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /activate my workspace/i })).not.toBeDisabled(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /activate my workspace/i }));
+
+    // Order is load-bearing: navigating first leaves the operator on a stale
+    // JWT and the gate ping-pongs /dashboard ↔ /setup until the browser gives up.
+    await waitFor(() => expect(order).toEqual(['refreshSession', 'navigate']));
   });
 
   it('hides Activate when postActivation=true', async () => {
