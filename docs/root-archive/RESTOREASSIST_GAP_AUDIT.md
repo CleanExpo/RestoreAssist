@@ -331,6 +331,164 @@ were found in `.planning/` video docs.
   real feature access. The trial length is already surfaced on the pricing page
   (`app/pricing/page.tsx:281,332`). The audit's premise ("no trial-specific tier exists in
   lib/pricing.ts") is stale — `PRICING_CONFIG.free` is now the trial SSOT. No change needed.
+- [PASS] **Phase 3 — multi-provider BYOK: the frictionless in-onboarding key + model picker**
+  (completes the OpenRouter thread above). OpenRouter was wired end-to-end into the provider
+  layer, the `ProviderConnection` store and full settings, but the *onboarding* card
+  (`components/setup/AiKeyCard.tsx`) still offered only Anthropic/OpenAI, so a new operator
+  could not reach the open models (Qwen / DeepSeek / MiniMax) without first finishing setup and
+  then hunting through settings — the exact friction Phase 3 set out to remove.
+  - **Card:** OpenRouter is now a third provider button, and selecting it reveals an optional
+    **Model** picker. A blank selection stores no slug and routes to the server-side default
+    (`callAIProvider` → `OPENROUTER_MODEL` → `deepseek/deepseek-chat`), so the fast path is still
+    "paste key, press save".
+  - **No pinned version numbers.** Hardcoding `qwen/qwen3-…`-style slugs would go stale on
+    OpenRouter's next release, and a stale slug is a dead picker. Instead the catalogue is read
+    live from OpenRouter's **public** model index (`lib/workspace/openrouter-catalogue.ts`, new)
+    and the "Recommended open models" group is derived from it: the newest models OpenRouter
+    itself publishes per family (DeepSeek, Qwen, MiniMax), newest-first by its `created` stamp.
+    No BYOK key is read or sent — the upstream index needs no auth.
+  - **Route:** `GET /api/workspace/openrouter-models` (new) is session-gated (it exists for
+    signed-in setup; leaving it open would make the app a free CORS proxy for OpenRouter) and
+    caches for 10 minutes. It **never fails hard** — an upstream outage returns
+    `unavailable: true` and the card degrades to a free-text slug field, so a third-party
+    outage can never block onboarding.
+  - **No schema change**, no migration, no new dependency. `OPENROUTER` and the optional model
+    slug were already accepted by `POST /api/workspace/provider-connections`.
+  - **Tests:** `lib/workspace/__tests__/openrouter-catalogue.test.ts` (10) — family promotion
+    order, per-family cap, malformed/`null` upstream entries, cache TTL, outage degradation, and
+    an assertion that no `Authorization` header is sent; `app/api/workspace/openrouter-models/
+    __tests__/route.test.ts` (5) — 401 without a session (and no upstream call), outage passthrough
+    as 200, a throwing helper degrading to 200 rather than 500, and the degradation being
+    reported; `components/setup/__tests__/AiKeyCard.test.tsx` extended (+7) — picker population,
+    slug posted with the key, model omitted on the default, free-text fallback, slug dropped when
+    switching back to a first-party provider, and a mid-fetch provider toggle.
+  - Three real defects were found and fixed, each with a re-run positive control. Two by the
+    tests: a `null` entry in the upstream array threw and took the whole catalogue down; and
+    the catalogue effect cancelled its own in-flight fetch, stranding the picker on
+    "Loading models…" forever. The third by the independent reviewer (P0): the route's
+    documented "never fails hard" contract was not actually enforced for a throwing helper —
+    it fell through to `fromException` and returned 500, and the regression test asserting
+    that path had been written to accept the 500, so it could not have failed under the
+    defect. The catch now degrades to the same `unavailable` payload an outage produces (and
+    reports the error, so the degradation is never silent); the test asserts 200 plus the
+    exact body and was demonstrated failing under a mutant that restores the 500.
+  - A **second** independent review round raised two further P1s against the hardened head,
+    both demonstrated with executable probes rather than argued, and both fixed here:
+    - *The client fetch had no timeout.* The route's 8s upstream bound cannot rescue a browser
+      request that never completes, so a stalled request left the picker disabled on
+      "Loading models…" indefinitely — the exact state the free-text fallback exists to
+      prevent. The request is now bound by an `AbortController` at 12s (above the route's own
+      8s, so a slow-but-live upstream still populates) and a timeout degrades like any other
+      failure.
+    - *The untrusted catalogue had no size or field bounds.* A probe of 100,000 syntactically
+      valid entries was mapped, filtered per family, sorted, cached for ten minutes and served
+      to every signed-in caller. There is now an entry cap (`MAX_UPSTREAM_ENTRIES`, checked
+      **before** the sort), a response-byte cap enforced by a `content-length` check plus a
+      capped text read ahead of `JSON.parse`, and per-entry slug/name length limits that trim
+      padded slugs and drop whitespace-only or absurd ones. An entry-count or byte violation
+      degrades to `unavailable`; a single bad entry is dropped rather than costing the
+      catalogue.
+    Writing those tests exposed a third defect in a test of our own: the "oversized body with
+    no content-length" case originally used a garbage string, so `JSON.parse` rejected it and
+    the test passed even with the size cap removed. It now uses deliberately *valid* oversized
+    JSON, and fails under the mutant as a control must.
+  - A **third** review round found the byte cap was still only half real, and was right. The
+    `content-length` check is a genuine early exit, but OpenRouter's real response is chunked
+    and declares no `content-length` — and `res.text()` materialises the entire body before its
+    length can be measured, so the cap was measuring an allocation it had already permitted.
+    The reviewer demonstrated it by pulling 5,250,000 bytes through a real `ReadableStream`.
+    Our own regression test could not have caught this: its mock returned an
+    already-materialised string, so it proved post-read rejection rather than a capped read.
+    The body is now consumed through a reader that counts encoded bytes as they arrive and
+    cancels the source the moment `MAX_RESPONSE_BYTES` is crossed, decoding and parsing only
+    the bounded chunks; the `content-length` early exit is kept, and a buffered fallback covers
+    runtimes with no streaming body. Two new tests use genuine `ReadableStream`s — one asserts
+    the source is cancelled and the bytes pulled stay bounded (7MB against a body offering
+    50MB), the other that a chunked body under the cap still decodes correctly across a chunk
+    boundary. Both fail under a mutant that restores the buffered read.
+  - A **fourth** pass closed the class rather than the instance. Three consecutive review rounds
+    had each returned one new finding of the same shape — an untrusted body consumed without a
+    bound at the point of allocation — which is a convergence failure owned by the author, not
+    the reviewer. `readCapped`'s `!reader` branch was an escape hatch: on any response whose body
+    could not be streamed it fell back to the buffered `res.text()` read, restoring the exact
+    unbounded allocation the function exists to prevent. It is removed rather than bounded
+    (unbounded on the odd path is still unbounded); this runs server-side on Node, where a
+    body-bearing response always carries a `ReadableStream`. Removing it exposed that four tests
+    had been passing through that hatch rather than the streaming path they claimed to exercise,
+    so the mock helper now builds a real `ReadableStream` and every fetch test drives the
+    production path. Three attack questions that had been written into a reviewer brief and
+    dispatched *unanswered* were answered in code instead: a multi-byte UTF-8 sequence split
+    inside the sequence across a chunk boundary, a body that errors mid-stream, and proof that an
+    over-cap response cannot poison the ten-minute cache. A further vacuous control was caught in
+    the writing — the new no-readable-body test first used a throwing `text()`, which the outer
+    handler swallowed so the test passed with or without the fix; `text()` now returns a good
+    payload and the test asserts it was never called.
+  - A **fifth** pass answered the round-4 P0 and then swept the class behind it. The P0 was
+    self-inflicted: removing the `!reader` fallback made the *existing* `content-length` test
+    vacuous, because its bodyless mock began returning `unavailable` via the `!reader` path
+    whether or not the header guard existed. The lesson is that changing a shared code path
+    invalidates the mutation evidence for **every** test that traverses it, not just the new
+    ones. That test now uses a real stream and spies on `getReader` — `pull` was tried first and
+    rejected as an instrument, because a `ReadableStream` calls `pull` eagerly to fill its own
+    queue and so measures the stream rather than us.
+  - Rather than fix that one test, every guard in the module was mutated in turn and required to
+    be killed by at least one test. Eleven guards; ten killed, and one **survived**: removing
+    `if (catalogue.unavailable) return catalogue;` left the suite green. That was a real hole —
+    the existing cache test only exercises the byte-cap path, which returns earlier, so a
+    malformed or over-entry payload would have been cached as `unavailable` for ten minutes and
+    blanked the picker for every operator. A test for that distinct path closes it; the sweep now
+    kills all eleven.
+  - **Live measurement against the real endpoint** (public, unauthenticated, no credential sent),
+    which replaces the earlier "NOT OBSERVED" note: the production response carries **no
+    `content-length`** and is gzipped, so the header check protects nothing in practice and the
+    streaming cap is the only real bound — the defect the third review round identified. The body
+    arrives in 87 chunks of 26–16,384 bytes. Payload: 672,715 bytes against the 5,000,000 cap,
+    411 entries against the 2,000 cap, longest slug 56 against 128, longest name 56 against 200,
+    zero entries over any bound, and all three recommended families present (DeepSeek 14, Qwen 50,
+    MiniMax 9). No cap trips on a realistic payload, with 7.4x byte and 4.9x entry headroom.
+  - A **sixth** pass drained two P1s from the fifth review round, both in areas that four rounds
+    of catalogue focus had let drift — which is why the brief explicitly asked the reviewer to
+    look there:
+    - *Concurrent misses bypassed the aggregate bound.* The cache is written only after fetch,
+      bounded read, parse and build all complete, so 100 simultaneous signed-in callers opened
+      100 upstream reads — each individually capped at 5MB, the aggregate bounded by nothing. The
+      route is a GET, so the repository's default middleware limiter (POST/PATCH/PUT/DELETE) does
+      not cover it. Concurrent misses now coalesce onto one in-flight promise, assigned before any
+      `await` and cleared on every settlement path so a single failure cannot pin later callers to
+      a rejected promise.
+    - *The free-text slug was unbounded.* When the catalogue is unavailable the model control is a
+      free-text input, and a reviewer probe entered a 1,000,007-character slug, saved, and
+      confirmed the full value reached the provider-connections payload — which is persisted
+      beside an encrypted credential. `POST /api/workspace/provider-connections` is now the
+      authority: it rejects a slug over 128 characters or not matching `namespace/model[:tag]`
+      **before** encryption or persistence, and also bounds the API key at 512. The card mirrors
+      the bound with `maxLength` **and** a slice, because `maxLength` alone is bypassed by a paste
+      in some engines and by any non-UI caller.
+  - The full mutation sweep was re-run over **all eighteen** guards, not just the new ones —
+    precisely because the round-4 P0 was caused by a shared-path change silently making an
+    existing test vacuous. All eighteen killed, no survivors, sources restored byte-identical and
+    confirmed by checksum.
+  - Verified at head `324196c9c`: vitest **22/22** on the catalogue suite and
+    **127/127** across `components/setup`, `lib/workspace` and `app/api/workspace`; eslint exit 0
+    on the changed files; full `tsc --noEmit` adds no error beyond the pre-existing
+    `components/sketch/SketchCanvas.tsx` pair. Superseded evidence, retained for the record —
+    at `fce3843e3` the figures were: vitest **41/41** on the three changed suites (exit 0), with the
+    two source files checksum-stable across the run; eslint exit 0, no errors on the changed
+    files; full `tsc --noEmit` exit 1 on exactly two errors, both in
+    `components/sketch/SketchCanvas.tsx` — a file this branch does not touch, and the identical
+    two errors were reproduced on a clean `origin/main` worktree, so this branch adds no type
+    error. The twelve CI Quality-Checks guards were enumerated from
+    `.github/workflows/pr-checks.yml` and run locally: **11 green**, and the one failure
+    (`check:no-lucide`, four untouched files) reproduces byte-identically on `origin/main`.
+    Both the type errors and the lucide failure are pre-existing main-wide debt that blocks
+    every PR equally; they are deliberately not bundled here — see "Known main-wide debt" in
+    the PR body.
+  - Mutation controls (each fix demonstrated failing when reverted, source then restored
+    byte-identical and verified by checksum): removing the client timeout fails
+    "degrades to free text when the catalogue request never settles"; removing the entry cap
+    fails "degrades rather than sorting and caching a hostile number of entries"; removing the
+    byte caps fails both oversized-body tests; removing the field bounds fails both slug-bound
+    tests.
 -  **Setup-wizard brand-logo upload & business-detail persistence (Missing connections
   low)** — the business-detail half is remediated:
   `components/setup/BusinessDetailsCard.tsx` now persists manual edits via
