@@ -2325,9 +2325,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             };
             const c = canvas as unknown as {
               add: (o: unknown) => void;
-              // Variadic: `c.remove(...stale)` below spreads an array into
-              // this, and Fabric's own `remove` accepts varargs. Declaring it
-              // unary is what made that spread a TS2556.
+              // Variadic, matching Fabric's real signature and every other
+              // `remove` assertion in this file. This one was single-arg, so
+              // the `c.remove(...stale)` call below could not type-check.
               remove: (...o: unknown[]) => void;
               setActiveObject: (o: unknown) => void;
               renderAll: () => void;
@@ -2942,10 +2942,11 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           redo,
           canUndo: false,
           canRedo: false,
-          // The imperative handle has exposed this since :362; the onReady
-          // payload never did, so every consumer reaching the canvas through
-          // onReady had no way to refresh wall bands. TS2345 was reporting a
-          // real gap, not a typing nuisance.
+          // FabricCanvasRef requires this, and the imperative handle above
+          // already exposes it — omitting it here meant an onReady consumer
+          // holding the same interface would call undefined at runtime.
+          // Routed through the ref, as the handle does, so it always reaches
+          // the current closure rather than the one captured at init.
           refreshWallBands: () => refreshWallBandsRef.current(),
         });
 

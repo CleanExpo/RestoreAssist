@@ -138,3 +138,95 @@ export function ChromeMail(props: GlyphProps) {
     </Glyph>
   );
 }
+
+export function ChromeChevronDown(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="m5.5 9.5 6.5 6.5 6.5-6.5" />
+    </Glyph>
+  );
+}
+
+export function ChromeExternalLink(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M14 4.5h5.5V10" />
+      <path d="m19.5 4.5-8 8" />
+      <path d="M18 14v4.3a1.2 1.2 0 0 1-1.2 1.2H5.7a1.2 1.2 0 0 1-1.2-1.2V7.2A1.2 1.2 0 0 1 5.7 6H10" />
+    </Glyph>
+  );
+}
+
+export function ChromeBuilding(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M3.5 20.5h17" />
+      <path d="M6 20.5V6.2A1.2 1.2 0 0 1 7.2 5h5.6A1.2 1.2 0 0 1 14 6.2v14.3" />
+      <path d="M14 10.5h3.8a1.2 1.2 0 0 1 1.2 1.2v8.8" />
+      <path d="M8.8 8.5h2.4" />
+      <path d="M8.8 12h2.4" />
+      <path d="M8.8 15.5h2.4" />
+    </Glyph>
+  );
+}
+
+export function ChromeCamera(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M4.7 19.5h14.6a1.7 1.7 0 0 0 1.7-1.7V9.2a1.7 1.7 0 0 0-1.7-1.7h-2.4l-1.3-2.2a1.2 1.2 0 0 0-1-.6H9.4a1.2 1.2 0 0 0-1 .6L7.1 7.5H4.7A1.7 1.7 0 0 0 3 9.2v8.6a1.7 1.7 0 0 0 1.7 1.7z" />
+      <circle cx="12" cy="13.2" r="3.4" />
+    </Glyph>
+  );
+}
+
+export function ChromeMapPin(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M19 10.3c0 5-7 11.2-7 11.2s-7-6.2-7-11.2a7 7 0 0 1 14 0z" />
+      <circle cx="12" cy="10.2" r="2.6" />
+    </Glyph>
+  );
+}
+
+export function ChromeDroplet(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M12 3.5s6 6.1 6 10.1a6 6 0 0 1-12 0c0-4 6-10.1 6-10.1z" />
+    </Glyph>
+  );
+}
+
+export function ChromeRuler(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="m15.6 3.6 4.8 4.8a1.2 1.2 0 0 1 0 1.7L9.6 20.9a1.2 1.2 0 0 1-1.7 0l-4.8-4.8a1.2 1.2 0 0 1 0-1.7L13.9 3.6a1.2 1.2 0 0 1 1.7 0z" />
+      <path d="m8.5 9 2 2" />
+      <path d="m11.5 6 2 2" />
+      <path d="m5.5 12 2 2" />
+    </Glyph>
+  );
+}
+
+export function ChromeScanLine(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M4 8V6.2A2.2 2.2 0 0 1 6.2 4H8" />
+      <path d="M16 4h1.8A2.2 2.2 0 0 1 20 6.2V8" />
+      <path d="M20 16v1.8a2.2 2.2 0 0 1-2.2 2.2H16" />
+      <path d="M8 20H6.2A2.2 2.2 0 0 1 4 17.8V16" />
+      <path d="M4.5 12h15" />
+    </Glyph>
+  );
+}
+
+/**
+ * Indeterminate spinner. An open arc, not a full circle — the gap is what makes
+ * rotation legible, so this only reads as "busy" with `animate-spin` applied.
+ */
+export function ChromeSpinner(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5" />
+    </Glyph>
+  );
+}

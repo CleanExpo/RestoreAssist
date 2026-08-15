@@ -12,14 +12,19 @@ describe("inspection lifecycle controls", () => {
     expect(source).toMatch(
       /const canSignOff =\s*\["ESTIMATED", "COMPLETED", "SUBMITTED"\]\.includes\(\s*inspection\.status,?\s*\)/,
     );
-    // The wrapper div moved OUTSIDE this guard so the evidence checklist could
-    // share it, which left the old `\(\s*<div` shape unmatchable. Assert the
-    // invariant instead of the layout: InspectionSignOff renders under canSignOff.
-    // The inner `(?!\)\})` is load-bearing — a plain `[\s\S]*?` runs past the
-    // guard's closing `)}` and matches the component ANYWHERE later in the file,
-    // so the test would pass even with sign-off rendered unguarded.
+    // What matters is that `canSignOff` gates <InspectionSignOff>, not how the
+    // block is wrapped. The wrapper <div> moved OUTSIDE this conditional in
+    // 04951e56d so the field evidence checklist renders unconditionally, which
+    // broke the previous nesting-specific pattern without changing the
+    // behaviour under test.
+    //
+    // The optional group is a single opening tag, NOT `[\s\S]*?`. An unbounded
+    // gap — which the previous pattern also had — lets the match start at any
+    // other `{canSignOff && (` in the file and run forward to an
+    // <InspectionSignOff> that is no longer gated at all, so the assertion
+    // would pass while the behaviour it names was gone.
     expect(source).toMatch(
-      /\{canSignOff && \((?:(?!\)\})[\s\S])*?<InspectionSignOff/,
+      /\{canSignOff && \(\s*(?:<div[^>]*>\s*)?<InspectionSignOff/,
     );
   });
 

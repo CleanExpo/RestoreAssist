@@ -12,7 +12,11 @@
 
 import { useState, useEffect, useCallback, useId } from "react";
 import Link from "next/link";
-import { ChevronDown, Camera, MapPin } from "lucide-react";
+import {
+  ChromeCamera,
+  ChromeChevronDown,
+  ChromeMapPin,
+} from "@/components/brand/chrome-icons";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -331,7 +335,7 @@ function ChecklistSection({
                 ({count})
               </span>
             </span>
-            <ChevronDown
+            <ChromeChevronDown
               className={cn(
                 "h-4 w-4 text-neutral-400 transition-transform",
                 open && "rotate-180",
@@ -418,7 +422,7 @@ function ChecklistItemRow({
       </div>
       <Button variant="outline" size="sm" className="h-7 shrink-0 gap-1.5 px-2" asChild>
         <Link href={href}>
-          <Camera className="h-3.5 w-3.5" aria-hidden />
+          <ChromeCamera className="h-3.5 w-3.5" aria-hidden />
           <span className="sr-only sm:not-sr-only sm:inline">{actionLabel}</span>
           <span className="sm:hidden" aria-hidden>
             Capture
@@ -456,7 +460,7 @@ function AreaGapsSection({
                 ({gaps.length})
               </span>
             </span>
-            <ChevronDown
+            <ChromeChevronDown
               className={cn(
                 "h-4 w-4 text-neutral-400 transition-transform",
                 open && "rotate-180",
@@ -473,7 +477,7 @@ function AreaGapsSection({
             <div className="flex flex-wrap gap-1.5">
               {gaps.map((gap) => (
                 <Badge key={gap.roomZoneId} variant="outline" className="gap-1">
-                  <MapPin className="h-3 w-3" aria-hidden />
+                  <ChromeMapPin className="h-3 w-3" aria-hidden />
                   {gap.roomZoneId}
                 </Badge>
               ))}
@@ -518,7 +522,7 @@ function UnlinkedSection({
                 ({tags.length})
               </span>
             </span>
-            <ChevronDown
+            <ChromeChevronDown
               className={cn(
                 "h-4 w-4 text-neutral-400 transition-transform",
                 open && "rotate-180",
