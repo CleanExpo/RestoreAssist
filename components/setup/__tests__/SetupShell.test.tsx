@@ -31,13 +31,18 @@ vi.mock("../store", () => ({
     selector(storeState),
 }));
 
-import { SetupShell, activationErrorMessage } from "../SetupShell";
+import { SetupShell } from "../SetupShell";
+import { activationErrorMessage } from "@/lib/setup/activation-error";
 
 const initial = { id: "o1", hydrationJobs: [] } as never;
 
 beforeEach(() => {
   storeState.org = null;
-  updateSession.mockClear();
+  // mockReset, not mockClear: the ordering test installs a deferred
+  // implementation that never settles on its own, and leaking that into the
+  // next test hangs it.
+  updateSession.mockReset();
+  updateSession.mockResolvedValue(null);
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue({
@@ -139,19 +144,40 @@ describe("SetupShell — the finish CTA completes setup", () => {
       order.push("activate");
       return { ok: true, status: 200, json: async () => ({ data: {} }) };
     });
-    updateSession.mockImplementation(async () => {
-      order.push("refreshSession");
-      return null;
+
+    // The refresh is held open deliberately. Recording only when the mocks are
+    // CALLED would let a fire-and-forget mutant (dropping the `await`) produce
+    // the same order array and survive — and that mutant is precisely the
+    // navigate-before-the-cookie-is-re-minted race this change exists to fix.
+    // Gating on completion is what makes this control able to fail.
+    let releaseRefresh!: () => void;
+    updateSession.mockImplementation(() => {
+      order.push("refreshSession:start");
+      return new Promise((resolve) => {
+        releaseRefresh = () => {
+          order.push("refreshSession:done");
+          resolve(null);
+        };
+      });
     });
     assign.mockImplementation(() => order.push("navigate"));
 
     fireEvent.click(await reachFinalStep());
 
+    await waitFor(() => expect(order).toContain("refreshSession:start"));
+    // Nothing may navigate while the refresh is still in flight.
+    expect(assign).not.toHaveBeenCalled();
+
+    releaseRefresh();
+
     await waitFor(() => expect(assign).toHaveBeenCalledWith("/dashboard/reports/new"));
     expect(calls.some((u) => u.includes("/api/setup/activate"))).toBe(true);
-    // Order is load-bearing: navigating on a stale JWT sends the operator
-    // straight back into the setup gate.
-    expect(order).toEqual(["activate", "refreshSession", "navigate"]);
+    expect(order).toEqual([
+      "activate",
+      "refreshSession:start",
+      "refreshSession:done",
+      "navigate",
+    ]);
   });
 
   it("treats 409 'already activated' as success rather than a dead end", async () => {

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { activationErrorMessage } from '@/lib/setup/activation-error';
 import { RAIcon } from '@/components/brand/RAIcon';
 import { useSetupStore, type SetupOrganization } from './store';
 import { BusinessDetailsCard } from './BusinessDetailsCard';
@@ -30,35 +31,6 @@ interface InitialPayload extends SetupOrganization {
   hydrationJobs: Array<{ kind: 'ABR' | 'WEBSITE' | 'PRICING'; status: string }>;
 }
 
-/**
- * Turn an activation failure into one sentence the operator can act on.
- *
- * Two envelope shapes reach here. `POST /api/setup/activate` returns the
- * RA-1548 envelope (`{ error: { code, message } }`) for auth/not-found/
- * conflict, but its pre-flight rejection is deliberately raw so it can carry
- * a top-level `failedChecks` array naming the capabilities that blocked
- * activation — that list is the useful part, so it wins when present.
- */
-export function activationErrorMessage(status: number, body: unknown): string {
-  const b = body as { error?: unknown; failedChecks?: unknown } | null;
-
-  const failed = Array.isArray(b?.failedChecks) ? b.failedChecks : [];
-  const labels = failed
-    .map((c) => (c as { label?: unknown } | null)?.label)
-    .filter((l): l is string => typeof l === 'string' && l.trim().length > 0);
-  if (labels.length > 0) {
-    return `Setup can't finish yet — ${labels.join(', ')} need attention.`;
-  }
-
-  const err = b?.error;
-  if (typeof err === 'string' && err.trim()) return err;
-  if (err && typeof err === 'object') {
-    const message = (err as { message?: unknown }).message;
-    if (typeof message === 'string' && message.trim()) return message;
-  }
-
-  return `Could not finish setup (${status}). Please try again.`;
-}
 
 export function SetupShell({ initial }: { initial: InitialPayload }) {
   const setOrg = useSetupStore((s) => s.setOrg);
