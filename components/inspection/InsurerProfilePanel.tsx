@@ -9,12 +9,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle,
-  Building2,
-  CheckCircle2,
-  ExternalLink,
-  Loader2,
-} from "lucide-react";
+  ChromeAlertTriangle,
+  ChromeBuilding,
+  ChromeCheckCircle,
+  ChromeExternalLink,
+  ChromeSpinner,
+} from "@/components/brand/chrome-icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import toast from "react-hot-toast";
@@ -143,7 +143,7 @@ export function InsurerProfilePanel({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16 text-neutral-400">
-        <Loader2 className="animate-spin mr-2" size={20} />
+        <ChromeSpinner className="animate-spin mr-2" size={20} />
         Loading insurer profiles…
       </div>
     );
@@ -158,7 +158,7 @@ export function InsurerProfilePanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
-              <Building2 className="text-cyan-500" size={18} />
+              <ChromeBuilding className="text-cyan-500" size={18} />
               Insurer profile
             </h3>
             <p className="text-sm text-neutral-500 dark:text-slate-400 mt-1">
@@ -170,7 +170,7 @@ export function InsurerProfilePanel({
             href={`/dashboard/inspections/${inspectionId}/insurer-profile`}
             className="flex items-center gap-1.5 text-sm text-cyan-600 hover:underline whitespace-nowrap"
           >
-            Full profile <ExternalLink size={14} />
+            Full profile <ChromeExternalLink size={14} />
           </Link>
         </div>
 
@@ -228,7 +228,7 @@ export function InsurerProfilePanel({
         >
           {saving ? (
             <>
-              <Loader2 size={14} className="animate-spin mr-1.5" />
+              <ChromeSpinner size={14} className="animate-spin mr-1.5" />
               Applying…
             </>
           ) : profile ? (
@@ -250,9 +250,9 @@ export function InsurerProfilePanel({
         >
           <div className="flex items-center gap-2 mb-2">
             {gapAnalysis.isComplete ? (
-              <CheckCircle2 size={18} className="text-success" />
+              <ChromeCheckCircle size={18} className="text-success" />
             ) : (
-              <AlertTriangle size={18} className="text-amber-500" />
+              <ChromeAlertTriangle size={18} className="text-amber-500" />
             )}
             <p className="text-sm font-semibold">
               {gapAnalysis.isComplete
