@@ -2325,6 +2325,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             };
             const c = canvas as unknown as {
               add: (o: unknown) => void;
+              // Variadic, matching Fabric's real signature and every other
+              // `remove` assertion in this file. This one was single-arg, so
+              // the `c.remove(...stale)` call below could not type-check.
               remove: (...o: unknown[]) => void;
               setActiveObject: (o: unknown) => void;
               renderAll: () => void;
@@ -2939,6 +2942,11 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           redo,
           canUndo: false,
           canRedo: false,
+          // FabricCanvasRef requires this, and the imperative handle above
+          // already exposes it — omitting it here meant an onReady consumer
+          // holding the same interface would call undefined at runtime.
+          // Routed through the ref, as the handle does, so it always reaches
+          // the current closure rather than the one captured at init.
           refreshWallBands: () => refreshWallBandsRef.current(),
         });
 

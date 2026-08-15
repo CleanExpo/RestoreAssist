@@ -7,7 +7,7 @@
 
 import { cn } from "@/lib/utils";
 import type { RoomCropRect } from "@/lib/sketch/room-moisture-crop";
-import { Droplets, X } from "lucide-react";
+import { ChromeDroplet, ChromeX } from "@/components/brand/chrome-icons";
 
 export interface SketchRoomMoistureCropProps {
   active: boolean;
@@ -47,7 +47,7 @@ export function SketchRoomMoistureCrop({
       >
         <div className="absolute -top-7 left-0 flex items-center gap-1.5 pointer-events-auto">
           <span className="inline-flex items-center gap-1 rounded-md bg-cyan-500/20 border border-cyan-400/50 px-2 py-0.5 text-[10px] font-medium text-cyan-50">
-            <Droplets size={11} />
+            <ChromeDroplet size={11} />
             Moisture map
             {roomLabel ? ` — ${roomLabel}` : ""}
           </span>
@@ -57,7 +57,7 @@ export function SketchRoomMoistureCrop({
             className="inline-flex items-center justify-center h-6 w-6 rounded-md bg-brand-navy/90 border border-white/20 text-white/80 hover:text-white"
             aria-label="Exit room moisture map"
           >
-            <X size={12} />
+            <ChromeX size={12} />
           </button>
         </div>
         {/* Corner ticks */}
