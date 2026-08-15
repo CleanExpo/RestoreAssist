@@ -489,6 +489,83 @@ were found in `.planning/` video docs.
     fails "degrades rather than sorting and caching a hostile number of entries"; removing the
     byte caps fails both oversized-body tests; removing the field bounds fails both slug-bound
     tests.
+- [PASS] **Phase 4 — the setup wizard's finish CTA now actually completes setup** (the
+  ship-blocker standing between the locked wizard and turning `SETUP_WIZARD_ENABLED` on).
+  The locked one-step-at-a-time stepper was already built and ends on a "Generate your first
+  report" CTA — but that CTA only called `router.push('/dashboard/reports/new')`. The **only**
+  caller of `POST /api/setup/activate` (which sets `Organization.setupCompletedAt`) was the
+  Activate button inside `FeatureHealthCard`, and that card lives in the wizard's **optional**
+  "Integrations" step. An operator who took the wizard at its word and skipped the optional
+  steps therefore never activated at all.
+  - **Why that is a ship-blocker, not a cosmetic gap.** With `SETUP_WIZARD_ENABLED=true` the
+    gate in `proxy.ts:157-168` redirects any authenticated user without `setupCompletedAt` to
+    `/setup`, and `/dashboard/reports/new` is not in `SETUP_GATE_BYPASS`. So the wizard's own
+    terminal CTA bounced the operator straight back into the wizard — a closed loop, for 100%
+    of users, deterministically.
+  - **A second, subtler loop behind it.** The gate reads `setupCompletedAt` off the **NextAuth
+    JWT**, and only a NextAuth route can rewrite that cookie — a server-component redirect
+    cannot. `app/setup/page.tsx:29` redirects to `/dashboard` once the DB row is set, so a
+    freshly-activated operator on a stale token gets `/dashboard` → gate → `/setup` → page →
+    `/dashboard` → …, ending in `ERR_TOO_MANY_REDIRECTS`. This one also affected the
+    **pre-existing** `FeatureHealthCard` activation path, so fixing only the new CTA would have
+    left flipping the flag unsafe. Both paths now `await update()` (which runs the `jwt()`
+    callback with `trigger: "update"`, refreshing the claim per `lib/auth.ts:468-490`) **before**
+    navigating, and `SetupShell` uses a full document load rather than `router.push` so the
+    request that follows is guaranteed to carry the refreshed cookie.
+  - **Failure handling.** `SetupStepper` now owns pending/error state for an async finish: the
+    CTA disables and reads "Setting up your workspace…" while in flight, and a rejection renders
+    in place (`role="alert"`) and re-enables the CTA for a retry instead of stranding the
+    operator. `409 CONFLICT` ("setup already activated" — the operator used the optional
+    Activate button first) is treated as **success**, not a dead end. A `400` pre-flight
+    rejection names the blocking capabilities from the route's top-level `failedChecks` array
+    ("Setup can't finish yet — Cloud storage, Accounting need attention.") rather than a bare
+    status code, and does **not** navigate.
+  - **No schema change, no migration, no new dependency, no env change.** `next-auth/react`'s
+    `useSession` was already available under the root `SessionProvider`.
+  - **Tests:** `SetupShell.test.tsx` +11 (activate→refresh→navigate **ordering**, 409-as-success,
+    pre-flight labels with no navigation, network throw, session-refresh failure, plus five
+    `activationErrorMessage` cases across both envelope shapes); `SetupStepper.test.tsx` +7
+    (async pending state, single-fire, in-place error with retry, generic fallback, CTA left
+    disabled after success); `FeatureHealthCard.test.tsx` +1 (refresh-before-navigate ordering).
+  - **A guard that no test could kill was removed rather than shipped.** The first cut carried a
+    `finishing` re-entrancy check inside `handleFinish` as belt-and-braces beside the CTA's
+    `disabled`. The mutation sweep showed it **surviving**, and the reason turned out to be
+    structural, not a weak test: React decides whether to run `onClick` from a form element's
+    **committed fiber props** (`getListener` / `shouldPreventMouseEvent`), not from the DOM
+    attribute — so no synthetic or assistive click can reach the handler while `disabled` is
+    set, and the second check was unreachable by construction. Three successive attempts to
+    build an instrument for it (batched `act` dispatch, clearing `element.disabled` outside
+    `act`, then inside it) each failed to distinguish the two defences, which is what exposed
+    the equivalence. The check was deleted per CLAUDE.md §2 and the test rewritten to pin the
+    behaviour that actually holds — including an assertion that the attribute really was
+    cleared — so if the CTA ever stops being a real `<button disabled>` the test goes red and
+    the guard has to come back.
+  - **Mutation controls — six guards, all killed, no survivors**, each source restored
+    byte-identical and confirmed by sha256: removing the activate call, removing the session
+    refresh, dropping the 409 special-case, ignoring the `failedChecks` labels, un-disabling the
+    CTA while finishing, and swallowing the rejection. A seventh (removing
+    `FeatureHealthCard`'s refresh) kills its new ordering test.
+  - Verified at the final **source** head `169732ffa` (the line below is docs-only and changes
+    no source, so this evidence describes the final source state):
+    `npx vitest run --config config/vitest.config.js
+    components/setup lib/setup` — exit 0, **142 passed / 25 skipped** (17 files + 1 skipped;
+    the skips are `DATABASE_URL`-gated, not failures). `npx eslint -c config/eslint.config.mjs`
+    over the six changed files — exit 0, **0 errors** (2 warnings, both pre-existing in
+    `FeatureHealthCard.test.tsx` and untouched by this change). Full
+    `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit` — **exit 0, zero errors** (the two
+    `SketchCanvas.tsx` errors that blocked earlier branches are fixed on main by PR #2007).
+    All nine CI content guards enumerated live from `.github/workflows/pr-checks.yml` and run
+    locally: `check:no-emoji`, `check:no-lucide`, `check:spec-docs`, `check:encoding`,
+    `check:ssot`, `check:standards`, `check:no-verbatim`, `check:marketing-verbatim`,
+    `check:au-english` — **all PASS** (`check:no-lucide` included, now that #2007 cleared the
+    main-wide debt). `pnpm audit:ai`, `pnpm audit:api`, full `pnpm lint` (0 errors) — PASS.
+  - **Still founder-gated, and unchanged by this PR:** flipping `SETUP_WIZARD_ENABLED=true` is a
+    Vercel env change on production, outside the autonomous envelope. This PR removes the code
+    blocker; the flip itself, and running `scripts/grandfather-existing-orgs.ts` first so
+    existing orgs are not swept into the wizard, remain Phill's call. **Not observed:** no run
+    against a live deployment with the flag on — the redirect loop is proven from the source
+    (`proxy.ts` bypass list, `app/setup/page.tsx` redirect, `lib/auth.ts` JWT refresh condition)
+    and the fix is proven by unit tests with mutation controls, not by a browser session.
 -  **Setup-wizard brand-logo upload & business-detail persistence (Missing connections
   low)** — the business-detail half is remediated:
   `components/setup/BusinessDetailsCard.tsx` now persists manual edits via
