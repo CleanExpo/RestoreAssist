@@ -27,7 +27,15 @@ jobs:
   score:
     name: Release Gate Score
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Derived from the scorer's own per-criterion budgets, not guessed:
+    # scripts/release-gate-score.ts makes 9 shellOK calls -- 3 at 600s
+    # (A1, B3, B4) and 6 at the 300s default -- so the scorer alone may
+    # legitimately consume 3600s / 60 min without any single criterion being
+    # stuck. The previous 30-minute cap could therefore kill the job midway,
+    # and because the report is written only at the end, the "if: always()"
+    # artifact upload would have nothing to upload -- a silent, evidence-free
+    # failure. 75 leaves headroom for checkout, install and browser download.
+    timeout-minutes: 75
 
     steps:
       - name: Checkout
@@ -55,8 +63,33 @@ jobs:
       - name: Generate Prisma client
         run: pnpm prisma:generate
 
+      # A1-core-journeys and B4-smoke-sandbox are scored by shelling out to
+      # `pnpm test:smoke:sandbox`, which drives a real Chromium. Without this
+      # step Playwright has no browser binary and both criteria fail on
+      # "Executable doesn't exist" -- a harness failure indistinguishable, in
+      # the scorer's recorded detail, from a genuine smoke failure. Mirrors
+      # smoke-prod.yml; chromium only, because the @smoke suite is light.
+      - name: Install Playwright browsers (chromium only — smoke is light)
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Run release gate scorer
         id: gate
+        env:
+          # RA-4987 secret-gated BotID bypass. Playwright injects this as the
+          # x-smoke-test-token header (config/playwright.config.ts) and the app
+          # timing-safe-compares it.
+          #
+          # MEASURED 2026-08-16: this secret is NOT currently set on this repo
+          # (`gh api .../actions/secrets/SMOKE_TEST_BOT_BYPASS_SECRET` -> 404,
+          # and CleanExpo is a user account, so no org-secret fallback exists).
+          # It therefore resolves to an empty string and the header is omitted.
+          # That is not currently a problem: smoke-prod.yml consumes the same
+          # unset secret and has been green every 15 minutes, because the
+          # @smoke suite only performs GETs on public surfaces and never posts
+          # to a BotID-protected endpoint. Wired here so the gate picks the
+          # bypass up automatically if the secret is ever provisioned -- do not
+          # read its presence as evidence that a bypass is active.
+          SMOKE_TEST_BOT_BYPASS_SECRET: ${{ secrets.SMOKE_TEST_BOT_BYPASS_SECRET }}
         # strict mode is the default for tag pushes; workflow_dispatch
         # honours the input. The scorer writes release-gate-report.json
         # in --json mode regardless of strict mode.
