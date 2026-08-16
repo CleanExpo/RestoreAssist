@@ -250,4 +250,4 @@ const ageDays = (Date.now() - stat.mtimeMs) / 86_400_000;
 
 Practical consequence: a fresh `git clone` or `git checkout` sets every file's mtime to the moment of checkout, so in CI - which runs `actions/checkout` - **every evidence file always reads as 0 days old and the staleness rule never fires**. The thing that actually decides the score is the `status:` value in each file's frontmatter.
 
-So "refresh the evidence" cannot mean touching a timestamp. It means re-establishing that the claim is true and setting `status: pass` honestly. That is why `A3-no-sev1-sev2-open.md` was downgraded from `pass` to `deferred` in this batch: re-running its query returned 20 open Urgent/High issues where the file claimed 0.
+So "refresh the evidence" cannot mean touching a timestamp. It means re-establishing that the claim is true and setting `status: pass` honestly. That is why `A3-no-sev1-sev2-open.md` was downgraded from `pass` to `deferred` in this batch: re-running its query returned 19 open Urgent/High issues (12 in product scope) where the file claimed 0.

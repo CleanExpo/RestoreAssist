@@ -63,16 +63,67 @@ Vercel dashboard: **https://vercel.com/dashboard** - select the **`restoreassist
 | # | Failure class | Signal to alert on | Suggested trigger | Route and SLA |
 |---|---|---|---|---|
 | 1 | Auth failures | `LOGIN_FAILED` SecurityEvent log line | spike: more than N in 5 min (tune N to baseline) | email → owner, respond within 30 min |
-| 2 | Billing webhook errors | `StripeWebhookEvent.status = 'FAILED'` | 1 or more in 15 min | email → owner, respond within 1 h |
+| 2 | Billing webhook errors | **HTTP 500 on `POST /api/webhooks/stripe`** - do **not** write this rule against `StripeWebhookEvent.status = 'FAILED'`, see the warning below | 1 or more in 15 min | email → owner, respond within 1 h |
 | 3 | Restore / report workflow failures | `reportError()` via `onRequestError`, plus failed `StorageRestoreJob` | 1 or more in 15 min | email → owner, respond within 1 h |
 
-Wiring note: rule 3 can match the `reportError()` output directly, because `onRequestError` already surfaces it to Vercel logs. Rules 1 and 2 are database-row signals - if they do not already emit a Vercel-visible log line at the failure point, add a `logger.error` at that site. That is a small code follow-up and does not block creating the rules.
+Wiring note: rule 3 can match the `reportError()` output directly, because `onRequestError` already surfaces it to Vercel logs. Rule 1 is a database-row signal - if it does not already emit a Vercel-visible log line at the failure point, add a `logger.error` at that site. That is a small code follow-up and does not block creating the rule.
 
-### Step 3 - prove a rule can fire (3 min)
+### Warning: the obvious rule for billing webhooks would never fire
 
-Creating a rule is not evidence it works. In a non-prod environment, deliberately trigger one class (forcing a Stripe webhook failure is easiest) and confirm the alert arrives at its destination. Record which rule, when, and where it landed.
+An earlier draft of this document told you to alert on `StripeWebhookEvent.status = 'FAILED'`. **That rule would sit silent through the common failure.** From `app/api/webhooks/stripe/route.ts:659-687`:
 
-This step is the whole point. The advisor gate above shows what an untested notifier is worth.
+- On a webhook processing failure, the `catch` block writes the row `status: "FAILED"` and returns HTTP 500. **No `console.error` is emitted on that path.**
+- The two `console.error` calls in that block sit inside the `.catch()` attached to the audit write. They fire **only when the `status: "FAILED"` update itself also fails** - the rare double failure.
+
+So on an ordinary single webhook failure the only Vercel-observable signal is the **HTTP 500** on that route. The database row changes, but Vercel Observability cannot see the database.
+
+Two acceptable options - pick one deliberately:
+
+- **Option A (no code change):** alert on HTTP 500 for path `/api/webhooks/stripe`. Works today.
+- **Option B (small code change first):** add a `logger.error` immediately after the `status: "FAILED"` write, then alert on that log line. Better long-term, because the alert then carries the Stripe event ID and the error message. If you pick B, make the code change **before** creating the rule, or the rule matches nothing.
+
+This is the same failure class as the advisor gate above: a notifier wired to a signal that never arrives. It was only caught because someone tried to actually fire it, which is what Step 3 forces.
+
+### Step 3 - prove the rule actually fires (5 min)
+
+Creating a rule is not evidence it works. Run this against **sandbox only**. Never against prod.
+
+**3a. Install and point the Stripe CLI at the sandbox** (one-time)
+
+```bash
+stripe login
+stripe listen --forward-to https://restoreassist-sandbox.vercel.app/api/webhooks/stripe
+```
+
+Leave that running. It prints a `whsec_...` signing secret.
+
+**3b. Confirm the happy path first (the positive control)**
+
+In a second terminal:
+
+```bash
+stripe trigger customer.subscription.deleted
+```
+
+The `stripe listen` window should show `[200]`. This proves the endpoint is reachable and correctly signed **before** you try to break it - otherwise a later 500 could just mean "wrong secret" and you would be testing nothing.
+
+**3c. Induce a real failure**
+
+The handler only 500s when processing genuinely throws, so induce a fault in the sandbox's database connection:
+
+1. Vercel dashboard → project `restoreassist` → **Settings > Environment Variables**.
+2. For the **Preview/sandbox** environment only, change `DATABASE_URL` to an unreachable host (append `-broken` to the hostname).
+3. Redeploy the sandbox.
+4. Run `stripe trigger customer.subscription.deleted` again.
+5. The `stripe listen` window should now show **`[500]`**.
+
+**3d. Confirm the alert landed, then revert**
+
+Check that rule 2 fired and the email arrived. Then **immediately restore the original `DATABASE_URL`** and redeploy. Record the revert in your evidence.
+
+If the alert does not arrive within the rule's window, the rule is misconfigured - that is the finding, and it is exactly what this step exists to surface.
+
+**Prefer not to touch `DATABASE_URL`?** Alternative with no env change: in **https://dashboard.stripe.com/test/webhooks**, open the sandbox endpoint, select a past event and click **Resend**, then read the response code Stripe records. This confirms the endpoint's current status code but will show `200` on a healthy system, so it demonstrates observability without proving the alert fires. Option 3c is the one that actually tests the alarm.
 
 <!-- PASTE EVIDENCE HERE: 3 screenshots of the configured rules, the alert-test result, and confirmation that the advisor gate went green on its next run -->
 

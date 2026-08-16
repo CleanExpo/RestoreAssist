@@ -11,7 +11,7 @@ tracking_ticket: RA-6999
 
 ## Why this was downgraded (read this first)
 
-The prior version of this file was written 2026-05-18 and declared `status: pass` on the strength of a Linear query returning 0 results. A live re-run of that query on **2026-08-16** returns **20 open Urgent/High issues** on team RestoreAssist. Narrowing to the product projects only (excluding the `Pi-Dev-Ops` and `Margot` projects, which the original file explicitly ruled out of scope per the RA-2232 pattern) still leaves **12**.
+The prior version of this file was written 2026-05-18 and declared `status: pass` on the strength of a Linear query returning 0 results. A live re-run of that query on **2026-08-16** returns **19 open Urgent/High issues** on team RestoreAssist. Narrowing to the product projects only (excluding the `Pi-Dev-Ops` and `Margot` projects, which the original file explicitly ruled out of scope per the RA-2232 pattern) still leaves **12**.
 
 Nothing about this criterion could be fixed by refreshing the file's timestamp. The underlying condition is false, and the honest state is fail-closed.
 
@@ -29,7 +29,7 @@ Urgent (priority 1), state = started, team = RestoreAssist - **7 total**:
 | RA-1664 | Margot | In Review (out of product scope) |
 | RA-1662 | Margot | In Review (out of product scope) |
 
-High (priority 2), state = started, team = RestoreAssist - **13 total**, of which in product scope: RA-6955, RA-7094, RA-6909, RA-6948, RA-7091, RA-5624, RA-2954, RA-2970. Out of product scope: RA-7134, RA-7092, RA-1873, RA-1657 (Pi-Dev-Ops / Margot).
+High (priority 2), state = started, team = RestoreAssist - **12 total**, of which in product scope: RA-6955, RA-7094, RA-6909, RA-6948, RA-7091, RA-5624, RA-2954, RA-2970. Out of product scope: RA-7134, RA-7092, RA-1873, RA-1657 (Pi-Dev-Ops / Margot).
 
 **In-scope open Urgent/High: 12.** Criterion requires 0.
 
