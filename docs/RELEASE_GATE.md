@@ -79,7 +79,7 @@ CI runs `--json --strict` against the release candidate. Output artifact: `relea
 - **Machine-verifiable (60 pts):** all of B (20), C (15), most of A (20), D-paywall-tests (5) — scorer runs these directly.
 - **Owner-evidence (40 pts):** A-Sev1/Sev2 query (5), D-billing-flows (10), all of E (15), all of F (10) — these require an evidence file in `docs/evidence/release-gate/<gate_version>/<criterion-id>.md` confirming the check.
 
-Scorer counts an owner-evidence criterion as PASS only when the evidence file exists, is dated within 14 days of the gate run, and contains the required fields (template enforced).
+Scorer counts an owner-evidence criterion as PASS only when the evidence file exists, declares `status: pass`, and declares a `verified:` date within 14 days of the gate run. Freshness is aged from the `verified:` frontmatter date the file states about itself — never from the file's mtime or its git commit date, both of which a CI checkout rewrites, which would leave the rule unable to fire.
 
 ## Release rule (fail-closed)
 

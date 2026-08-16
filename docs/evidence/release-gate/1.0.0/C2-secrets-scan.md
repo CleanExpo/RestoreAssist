@@ -1,14 +1,17 @@
 ---
 criterion: C2-secrets-scan
-status: pass
-verified: 2026-05-19
+status: fail
+verified: 2026-08-16
 last_scanned: 2026-05-19
 ---
 
 # C2 — Secrets scan + config sanity (5 pts)
 
-**Status:** PASS — worktree gitleaks scan returns 0 findings with `.gitleaks.toml` allowlist active.
-**Last scanned:** 2026-05-19
+**Status:** FAIL — demoted 2026-08-16. The scan this criterion rests on could not
+have detected the one secret that is currently open and publicly leaked. See
+"Why this was never a pass" below. The audit that follows is retained unchanged
+as the record of what was actually examined in May.
+**Last scanned:** 2026-05-19 (unchanged — no scan has been re-run since)
 **Tracking ticket (history rewrite, optional):** **RA-4985** — historical commits in deleted files; key rotation tracked by **RA-4988**.
 
 ## Verification (re-run to refresh)
@@ -162,3 +165,88 @@ The repo's `.env.example` declares **98 keys**. Verifying that every key is set 
 - [[ra-4985]] — this audit's parent ticket
 - [[ra-4988]] — Composio key rotation owner action
 - `feedback_never_leak_secrets.md` — Phill's standing rule (governed this triage)
+
+## Why this was never a pass (2026-08-16)
+
+This criterion claimed PASS on the strength of `gitleaks detect --no-git`
+returning **0 findings**. That zero was manufactured by the scan's own
+configuration, in two independent ways.
+
+**1. The instrument was pointed away from git history.** `--no-git` scans the
+working tree only. The audit above states the consequence in its own words —
+"Historical commits remain, but no current exposure" — and then treats a
+working-tree zero as satisfying a criterion whose risk lives in history. A
+secret is exposed because it is *reachable*, not because it is *checked out*.
+
+**2. The allowlist excludes, by path, the file class the real leak is in.**
+`.gitleaks.toml` contains, under `[allowlist] paths`:
+
+```toml
+'''(?i)\.md$'''
+```
+
+Every markdown file in the repository is excluded from scanning. The rationale
+recorded for that entry was that sampled `.md` findings were placeholders. The
+sample did not include `WEBHOOK_VERIFICATION_CHECKLIST.md`.
+
+**The consequence, confirmed by an independent instrument.** GitHub secret
+scanning — which has no knowledge of this allowlist — reports:
+
+| Field | Value |
+| --- | --- |
+| Alert | [#1](https://github.com/CleanExpo/RestoreAssist/security/secret-scanning/1) |
+| Type | `stripe_webhook_signing_secret` |
+| State | **open**, `resolution: null` |
+| `publicly_leaked` | **true** |
+| First location | `WEBHOOK_VERIFICATION_CHECKLIST.md` L34 |
+| Commit | `2fc2a3b6` ("Add complete subscription management system with Stripe integration") |
+| `has_more_locations` | true (a second file also carries it) |
+
+Verified locally on 2026-08-16 that this is still reachable, not merely
+historical trivia:
+
+```
+$ git log --all --oneline -- WEBHOOK_VERIFICATION_CHECKLIST.md
+2fc2a3b6 Add complete subscription management system with Stripe integration
+
+$ git cat-file -t 1a3f5fcc6b5b7881668587898226a609027ee93b
+blob
+```
+
+The blob is live in the object store. `.md` is allowlisted. So re-running the
+recorded command today — in working-tree mode *or* in full-history mode — would
+still return a clean result for this file. **The recorded verification cannot
+fail in the presence of this defect**, which is the same class of finding as A3
+in this branch and as the `mtime` freshness bug this branch fixes.
+
+**A related mis-classification.** The triage table above classifies
+`lib/firebase.ts` as a false-positive ("Firebase Web API keys are PUBLIC by
+design"). That reasoning is sound for Firebase Web keys in general, but GitHub
+independently raised alert #3 on that same value and it was resolved as
+`revoked` — i.e. treated as a real credential requiring rotation. Two
+instruments disagreed and only the permissive one was recorded here.
+
+### Scope of this 2026-08-16 review, stated honestly
+
+What was done: static analysis of `.gitleaks.toml`, live read of the GitHub
+secret-scanning API, and local confirmation that the offending commit and blob
+are reachable.
+
+What was **NOT** done: gitleaks was not re-run. It is not installed on the
+machine this review ran on, so the empirical demonstration — same repo, scan
+with and without the `\.md$` allowlist entry, showing the finding appear — is
+**NOT RUN**, not "passed". The argument above rests on configuration semantics
+plus the independent-instrument differential, which is sufficient to withdraw a
+PASS but is not sufficient to award one later.
+
+### Path back to PASS
+
+1. Founder rotates the Stripe webhook signing secret and closes alert #1 as
+   revoked. Tracked in `docs/FOUNDER-QUEUE.md`. **Until this happens the
+   criterion cannot pass, regardless of scanner output** — the exposure is real,
+   not a detection artefact.
+2. Narrow the `(?i)\.md$` allowlist entry to the specific documented
+   placeholder files, so markdown is scanned by default rather than exempt.
+3. Install gitleaks in CI and run it over **full history**, not `--no-git`,
+   and paste the live output here.
+4. Only then set `status: pass` with a fresh `verified:` date.
