@@ -1,14 +1,55 @@
 ---
 criterion: F2-runbooks-sla
 status: pass
-verified: 2026-05-18
+verified: 2026-08-16
 ---
 
 # F2 — Runbooks + P1 SLA + customer comms template (5 pts)
 
 **Status:** PASS
-**Verified:** 2026-05-18
-**Verified by:** Claude (Pi-CEO senior PM dispatch)
+**Verified:** 2026-08-16 (re-verified; originally 2026-05-18)
+**Verified by:** Claude (Opus 5) — re-executed against the working tree, not inherited
+
+## Re-verification transcript (2026-08-16)
+
+This criterion previously held its 5 points on a `verified: 2026-05-18` date that the
+scorer could not age, because `ownerEvidence()` measured `fs.statSync().mtimeMs` and
+`actions/checkout` rewrites every mtime at checkout. The CI artifact for run
+`31927318217` recorded this file as `0d old`. The companion commit in this branch moves
+the freshness rule onto the self-declared `verified:` date; this section re-earns the
+claim rather than bumping the date to survive it.
+
+Each of the four required artefacts was checked to exist AND to contain the specific
+commitment the criterion names:
+
+```
+docs/MOBILE_RELEASE_RUNBOOK.md      present
+docs/PILOT_CUTOVER_CHECKLIST.md     present
+docs/SUPPORT_SLA.md                 present   4100 bytes
+docs/CUSTOMER_COMMS_TEMPLATE.md     present   5990 bytes
+```
+
+Existence alone is not the criterion, so the two content claims were read back:
+
+```
+$ grep -n 'P1' docs/SUPPORT_SLA.md
+| **P1** | **<=1 h** (business hours AEST 08:00-18:00); <=2 h outside | Every 2 h until
+  resolved or downgraded | <=24 h |
+
+$ grep -nE '^#{1,3}\s*Template [A-E]' docs/CUSTOMER_COMMS_TEMPLATE.md
+## Template A — Initial P0/P1 acknowledgement (<=30 min for P0, <=1h for P1)
+## Template B — Mid-incident progress update (per cadence)
+## Template C — Resolution notice
+## Template D — Post-mortem (<=5 business days after P0/P1)
+## Template E — Compliance / data-handling incident (special-cased)
+```
+
+The criterion requires "P1 response <=1h" and a customer comms template. Both are
+present in substance, not merely as filenames.
+
+**Scope of this check, stated honestly:** this verifies the artefacts exist and carry the
+committed response times. It does NOT verify that anyone is rostered to honour them —
+that is F1's concern (alert routing), and F1 remains fail-closed.
 
 ## Criterion (from RELEASE_GATE.md F2)
 

@@ -1,7 +1,7 @@
 ---
 criterion: A3-no-sev1-sev2-open
 status: deferred
-verified: 2026-05-18
+verified: 2026-08-16
 tracking_ticket: RA-6999
 ---
 
@@ -78,3 +78,25 @@ Set `status: pass` and `verified: <YYYY-MM-DD>` only when the in-scope count is 
 - [[ra-4956]] - release gate definition
 - RA-6999 - live distance-to-launch tracker
 - RA-2232 - Pi-Dev-Ops WorkOrder out-of-scope verdict
+
+## Additional finding — the recorded query could not be run at all (2026-08-16)
+
+The prior revision defined its population as `project:"RestoreAssist Compliance Platform"`.
+Executed live via the Linear MCP on 2026-08-16 that query returns:
+
+```
+Error: Could not find project "RestoreAssist Compliance Platform"
+```
+
+No project of that name exists. `list_projects(team=RestoreAssist)` returns: Nexus Mesh —
+Fleet Activation, Brand OS Production Board, Margot, RA Billing v2, Pi-Dev-Ops, Synthex
+Video Engine, RestoreAssist V2, RestoreAssist.
+
+So the original `0 issues match` was not a passing measurement — it was the **absence** of
+one, in the way an unplugged smoke detector reports no smoke. It is the same defect class as
+the `mtime` freshness bug this branch fixes, and it earned 5 points in CI run 31927318217.
+
+**This adds one requirement to the close-out above:** whichever tickets are closed or
+downgraded, the query recorded in this file must be rewritten to name a project that exists,
+and its live output pasted here. Otherwise the next PASS is unfalsifiable for the same reason
+this one was.
