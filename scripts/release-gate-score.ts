@@ -102,8 +102,33 @@ export function readEvidenceStatus(
 ): "pass" | "fail" | "deferred" | null {
   const frontmatter = readFrontmatter(filePath);
   if (frontmatter === null) return null;
-  const m = frontmatter.match(/^\s*status\s*:\s*(pass|fail|deferred)\s*$/im);
-  return m ? (m[1].toLowerCase() as "pass" | "fail" | "deferred") : null;
+  const raw = readUniqueKey(frontmatter, "status");
+  if (raw === null) return null;
+  return /^(pass|fail|deferred)$/i.test(raw)
+    ? (raw.toLowerCase() as "pass" | "fail" | "deferred")
+    : null;
+}
+
+// Reads exactly one top-level `key: value` from a frontmatter block, or null.
+//
+// Why "exactly one", and why the anchor is strict: both readers previously used
+// `String.match()` without /g, which returns only the FIRST hit, anchored as
+// `^\s*key`, which accepts an indented key as though it were top-level. A file
+// declaring `status: pass` and then `status: deferred` scored the pass; so did
+// one declaring a fresh `verified:` above a stale one. That is the same
+// fail-open shape as the mtime bug this module was just fixed for — the check
+// could not report the bad state it exists to detect.
+//
+// The key is counted regardless of whether its value is well-formed, so a
+// second `status: nonsense` line is still ambiguity rather than a silent
+// single match. Returning null on ambiguity is deliberate: every caller already
+// treats null as a FAIL, so unreadable evidence fails closed.
+//
+// Found by independent review (qwen3.8-max), 2026-08-16.
+function readUniqueKey(frontmatter: string, key: string): string | null {
+  const re = new RegExp(`^${key}[ \\t]*:[ \\t]*(.*)$`, "gim");
+  const hits = [...frontmatter.matchAll(re)];
+  return hits.length === 1 ? hits[0][1].trim() : null;
 }
 
 // Reads the evidence file's self-declared `verified: YYYY-MM-DD` date. THIS,
@@ -127,9 +152,9 @@ export function readEvidenceStatus(
 export function readEvidenceVerifiedDate(filePath: string): Date | null {
   const frontmatter = readFrontmatter(filePath);
   if (frontmatter === null) return null;
-  const m = frontmatter.match(/^\s*verified\s*:\s*(\d{4}-\d{2}-\d{2})\s*$/im);
-  if (!m) return null;
-  const parsed = new Date(`${m[1]}T00:00:00Z`);
+  const raw = readUniqueKey(frontmatter, "verified");
+  if (raw === null || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const parsed = new Date(`${raw}T00:00:00Z`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 

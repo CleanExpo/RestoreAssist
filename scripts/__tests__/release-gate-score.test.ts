@@ -203,3 +203,54 @@ describe("readEvidenceVerifiedDate", () => {
     expect(readEvidenceVerifiedDate(file)).toBeNull();
   });
 });
+
+// Found by independent review (qwen3.8-max) of this branch, 2026-08-16.
+//
+// Both frontmatter readers used `String.match()` without /g, which returns the
+// FIRST hit only, and anchored with `^\s*`, which accepts an indented key as
+// though it were top-level. A file declaring two conflicting values therefore
+// scored on whichever appeared first. That is the same fail-open shape as the
+// mtime bug this branch exists to remove: the check cannot report the bad state
+// it is there to detect. Ambiguous frontmatter must fail closed.
+describe("frontmatter keys must be unambiguous", () => {
+  it("fails a file declaring status twice, even when pass comes first", () => {
+    writeEvidence(
+      "C2-secrets-scan",
+      `status: pass\nverified: ${isoDaysAgo(1)}\nstatus: deferred`,
+    );
+    const result = ownerEvidence("C2-secrets-scan", GATE_VERSION, evidenceRoot);
+    expect(result.status).toBe("fail");
+  });
+
+  it("fails a file declaring verified twice, even when the fresh date is first", () => {
+    writeEvidence(
+      "C2-secrets-scan",
+      `status: pass\nverified: ${isoDaysAgo(1)}\nverified: 2020-01-01`,
+    );
+    const result = ownerEvidence("C2-secrets-scan", GATE_VERSION, evidenceRoot);
+    expect(result.status).toBe("fail");
+  });
+
+  it("does not read an indented status as the top-level declaration", () => {
+    const file = writeEvidence(
+      "C2-secrets-scan",
+      `notes:\n  status: pass\nverified: ${isoDaysAgo(1)}`,
+    );
+    // No top-level `status:` exists, so this is missing-status, not a pass.
+    const result = ownerEvidence("C2-secrets-scan", GATE_VERSION, evidenceRoot);
+    expect(result.status).toBe("fail");
+    expect(result.detail).toContain("status");
+    expect(readEvidenceVerifiedDate(file)?.toISOString().slice(0, 10)).toBe(
+      isoDaysAgo(1),
+    );
+  });
+
+  it("still accepts a single well-formed pair", () => {
+    writeEvidence(
+      "C2-secrets-scan",
+      `status: pass\nverified: ${isoDaysAgo(1)}`,
+    );
+    const result = ownerEvidence("C2-secrets-scan", GATE_VERSION, evidenceRoot);
+    expect(result.status).toBe("pass");
+  });
+});
