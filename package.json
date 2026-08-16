@@ -95,8 +95,8 @@
     "prebuild": "tsx scripts/build-help-index.ts",
     "test:smoke": "playwright test -c config/playwright.config.ts --grep @smoke",
     "test:smoke:ci": "playwright test -c config/playwright.config.ts --grep @smoke --reporter=line",
-    "test:smoke:prod": "CI=true PLAYWRIGHT_BASE_URL=https://restoreassist.app playwright test -c config/playwright.config.ts --grep @smoke --no-deps --reporter=line",
-    "test:smoke:sandbox": "CI=true PLAYWRIGHT_BASE_URL=https://restoreassist-sandbox.vercel.app playwright test -c config/playwright.config.ts --grep @smoke --reporter=line",
+    "test:smoke:prod": "node scripts/run-smoke.mjs https://restoreassist.app --no-deps",
+    "test:smoke:sandbox": "node scripts/run-smoke.mjs https://restoreassist-sandbox.vercel.app --no-deps",
     "render:tutorials": "tsx tools/remotion/render-all.ts",
     "studio": "npx remotion studio --config tools/remotion/remotion.config.ts",
     "preview:tutorials": "npx remotion preview --config tools/remotion/remotion.config.ts"
