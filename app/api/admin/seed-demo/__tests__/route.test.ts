@@ -291,6 +291,35 @@ describe("the seeded demo claim", () => {
     expect(writes).toEqual([]);
   });
 
+  it("gives each admin their own writable demo claim", async () => {
+    // Inspection.inspectionNumber is @unique table-wide. A single fixed demo
+    // number would let only the FIRST admin ever hold the demo claim; every
+    // later admin would be handed that admin's inspection id by the idempotency
+    // branch and be unable to write to it, because the downstream write routes
+    // scope by session user.
+    await POST(post());
+    const first = writes.find(([m]) => m === "Inspection")?.[1];
+
+    writes.length = 0;
+    verifyAdminFromDb.mockResolvedValue({
+      response: null,
+      user: { id: "admin_2", role: "ADMIN", organizationId: null },
+    });
+    await POST(post());
+    const second = writes.find(([m]) => m === "Inspection")?.[1];
+
+    expect(first?.inspectionNumber).not.toBe(second?.inspectionNumber);
+    expect(first?.userId).toBe("admin_1");
+    expect(second?.userId).toBe("admin_2");
+    // The idempotency lookup must be keyed on the per-owner number, or the
+    // second admin is handed the first admin's row id.
+    expect(prismaMock.inspection.findUnique).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: { inspectionNumber: second?.inspectionNumber },
+      }),
+    );
+  });
+
   it("refuses a non-admin caller before writing anything", async () => {
     verifyAdminFromDb.mockResolvedValue({
       response: new Response("forbidden", { status: 403 }),

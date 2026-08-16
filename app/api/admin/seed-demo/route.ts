@@ -9,12 +9,18 @@
  *
  * Every `data` payload below is written WITHOUT an `as any` cast on purpose.
  * The original version of this route cast all five creates to `any`, which hid
- * the fact that it addressed columns that do not exist on Report, Inspection,
+ * the fact that it addressed 31 columns that do not exist on Report, Inspection,
  * Client, MoistureReading or ScopeItem — so the route threw a Prisma validation
- * error on its first write and had never successfully seeded anything. Keeping
- * these payloads un-cast makes `tsc` the guard against that regression; the
- * suite in `__tests__/route.test.ts` checks the same thing against the live
- * Prisma DMMF at runtime.
+ * error on its first write and had never successfully seeded anything.
+ *
+ * Dropping the casts is necessary but NOT sufficient, and it would be a mistake
+ * to rely on the compiler here. Measured against Prisma 7.9.1: omitting a
+ * REQUIRED column is a compile error, but adding a column that does not exist,
+ * alongside an otherwise complete payload, compiles clean — the create argument
+ * is a generic `SelectSubset<T, …>` whose T is inferred from the literal itself,
+ * so there is nothing for excess-property checking to flag it against. The
+ * suite in `__tests__/route.test.ts` validates every payload against
+ * prisma/schema.prisma at runtime and is the only guard for that class.
  *
  * Returns: { seeded: boolean; message: string }
  */
@@ -26,7 +32,22 @@ import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { fromException } from "@/lib/api-errors";
 
-const DEMO_INSPECTION_NUMBER = "NIR-2026-04-DEMO";
+/**
+ * Demo identity is PER OWNER, not global.
+ *
+ * `Inspection.inspectionNumber` is `@unique` across the whole table, so a single
+ * fixed demo number lets exactly one admin in the estate ever hold the demo
+ * claim. Because the claim is seeded onto its owner (see below) and every
+ * downstream write is scoped by session user, a second admin would then be
+ * handed the FIRST admin's inspection id by the idempotency branch, be unable to
+ * write to it, and have another user's row id disclosed to them. Suffixing the
+ * number with the owner keeps the guarantee the idempotency branch is actually
+ * trying to make: pressing the button twice is safe, and every admin gets their
+ * own writable demo claim.
+ */
+function demoInspectionNumber(userId: string) {
+  return `NIR-2026-04-DEMO-${userId.slice(-8)}`;
+}
 const DEMO_REPORT_NUMBER = "RA-DEMO-2026-0001";
 
 export async function POST(_req: NextRequest) {
@@ -34,20 +55,6 @@ export async function POST(_req: NextRequest) {
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
-
-    // Idempotency check
-    const existing = await prisma.inspection.findUnique({
-      where: { inspectionNumber: DEMO_INSPECTION_NUMBER },
-      select: { id: true },
-    });
-
-    if (existing) {
-      return NextResponse.json({
-        seeded: false,
-        message: "Demo data already present — no changes made",
-        inspectionId: existing.id,
-      });
-    }
 
     // ── 1. Owner ─────────────────────────────────────────────────────────────
     //
@@ -63,6 +70,21 @@ export async function POST(_req: NextRequest) {
     // It also means this route no longer creates a privileged user or mutates
     // the caller's organisation, which it previously did as a side effect.
     const userId = auth.user!.id;
+    const inspectionNumber = demoInspectionNumber(userId);
+
+    // Idempotency check — scoped to this owner's demo claim.
+    const existing = await prisma.inspection.findUnique({
+      where: { inspectionNumber },
+      select: { id: true },
+    });
+
+    if (existing) {
+      return NextResponse.json({
+        seeded: false,
+        message: "Demo data already present — no changes made",
+        inspectionId: existing.id,
+      });
+    }
 
     const now = new Date();
     const day1 = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
@@ -116,7 +138,7 @@ export async function POST(_req: NextRequest) {
     // ── 4. Inspection ────────────────────────────────────────────────────────
     const inspection = await prisma.inspection.create({
       data: {
-        inspectionNumber: DEMO_INSPECTION_NUMBER,
+        inspectionNumber,
         propertyAddress: "42 Harbourside Drive, Manly NSW 2095",
         propertyPostcode: "2095",
         status: "COMPLETED",
@@ -270,7 +292,7 @@ export async function POST(_req: NextRequest) {
 
     return NextResponse.json({
       seeded: true,
-      message: `Demo data created — inspection ${DEMO_INSPECTION_NUMBER}`,
+      message: `Demo data created — inspection ${inspectionNumber}`,
       inspectionId: inspection.id,
       reportId: report.id,
     });

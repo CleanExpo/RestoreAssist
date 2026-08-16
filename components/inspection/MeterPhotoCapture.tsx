@@ -70,7 +70,10 @@ export function meterReadingToExtraction(
   return {
     type: "moisture",
     moisturePercent: reading.readingValue,
-    value: reading.readingValue ?? 0,
+    // Deliberately NOT `?? 0`. An unreadable display stays null the whole way
+    // through — a fabricated 0 is indistinguishable from a genuine bone-dry
+    // reading and could be confirmed and saved as one.
+    value: reading.readingValue,
     unit: reading.readingUnit,
     materialType: null,
     rawText: reading.displayText,

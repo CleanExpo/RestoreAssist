@@ -34,9 +34,11 @@ Idempotent. First call returns `{ seeded: true, inspectionId, reportId }`;
 every later call returns `{ seeded: false }` and changes nothing, so it is safe
 to press twice before walking on stage.
 
-It creates the client Sarah Thompson, report `RA-DEMO-2026-0001`, inspection
-`NIR-2026-04-DEMO` at 42 Harbourside Drive, Manly NSW 2095, a 21-reading drying
-log and 5 scope items — **all owned by the admin who pressed the button**.
+It creates the client Sarah Thompson, report `RA-DEMO-2026-0001`, an inspection
+numbered `NIR-2026-04-DEMO-<last 8 characters of your user id>` at 42
+Harbourside Drive, Manly NSW 2095, a 21-reading drying log and 5 scope items —
+**all owned by the admin who pressed the button**. The response returns the
+`inspectionId` to open.
 
 That ownership matters. Every write the demo performs afterwards (saving a
 meter reading, uploading the photo, minting a portal link) is scoped to the
@@ -45,12 +47,17 @@ the machine and account you will demo from. The report carries that account's
 business profile, so fill in business name, ABN and address beforehand if the
 report is going on screen.
 
-To start over, delete the inspection with number `NIR-2026-04-DEMO` and re-post.
-Only one demo claim can exist at a time — the inspection number is unique.
+The number is suffixed with the owner because `Inspection.inspectionNumber` is
+unique table-wide. Each admin therefore gets their own writable demo claim, and
+two people can rehearse independently without one taking the claim the other
+needs.
+
+To start over, delete your own demo inspection and re-post.
 
 ## 2. Capture a live meter reading (the demo's live moment)
 
-1. Open **Dashboard -> Inspections -> NIR-2026-04-DEMO**.
+1. Open **Dashboard -> Inspections** and pick your seeded demo claim (the
+   `NIR-2026-04-DEMO-...` number returned by step 1).
 2. Select the **Moisture** tab.
 3. In the *Moisture Meter — Photo OCR* card, press **Take Photo** (native camera
    on the iOS/Android shell, the device camera on web) or the upload icon to
@@ -72,12 +79,14 @@ The reading is written by `POST /api/inspections/[id]/moisture` tagged
 `source: "ocr"`, appears immediately in the readings list, and joins the same
 drying log as the seeded readings.
 
-If the display cannot be read the card says so and invites a retake — it does
-not save a zero.
+If the model cannot read the display at all it returns `NO_READING_DETECTED` and
+the card asks for a retake. If it returns a result but no number, the confirm
+card appears with the moisture field left **empty** for you to type — it never
+pre-fills 0, because a fabricated 0% would read as bone dry.
 
 ## 3. Drying log
 
-**Dashboard -> Inspections -> NIR-2026-04-DEMO -> Monitoring**, or
+**Your demo inspection -> Monitoring**, or
 `GET /api/inspections/[id]/monitoring-report`.
 
 The seeded log holds three monitoring points across seven visits over three

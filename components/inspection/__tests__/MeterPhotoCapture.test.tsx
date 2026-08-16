@@ -207,14 +207,22 @@ describe("meterReadingToExtraction", () => {
   });
 
   it("keeps an unreadable display null rather than inventing a zero reading", () => {
-    const extraction = meterReadingToExtraction({
-      ...READING,
-      readingValue: null,
-      confidence: "low",
-    });
-    // moisturePercent drives the pre-filled input — it must stay empty so the
-    // tech types the real number instead of silently saving 0%.
-    expect(extraction.moisturePercent).toBeNull();
+    // The vision route returns a SUCCESSFUL result carrying a null reading
+    // whenever confidence is medium or high — only null-plus-low is mapped to
+    // NO_READING_DETECTED — so this path is reachable in normal operation.
+    for (const confidence of ["high", "medium", "low"] as const) {
+      const extraction = meterReadingToExtraction({
+        ...READING,
+        readingValue: null,
+        confidence,
+      });
+      // BOTH numeric fields must stay null. A fabricated 0 in either is
+      // indistinguishable from a genuine bone-dry reading and could be
+      // confirmed and saved as one.
+      expect(extraction.moisturePercent).toBeNull();
+      expect(extraction.value).toBeNull();
+      expect(Object.values(extraction)).not.toContain(0);
+    }
   });
 });
 
