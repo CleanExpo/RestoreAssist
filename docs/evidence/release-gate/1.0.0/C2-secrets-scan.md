@@ -231,19 +231,35 @@ rather than quietly deleted.
 
 Reading the file as committed at `2fc2a3b6` shows what the string actually is: a
 Stripe **webhook signing secret**, for an endpoint the same document identifies
-as living on `restore-assist-backend.vercel.app` — a legacy project, not
-`restoreassist.app`. A webhook signing secret verifies the signature on
-*inbound* payloads. It is not an API key. It cannot move money, read customer
-data, or authenticate a caller.
+as living on `restore-assist-backend.vercel.app`, not `restoreassist.app`.
 
-The error was treating GitHub's `publicly_leaked: true` and `state: open` as a
-risk verdict. They are pattern-match flags. GitHub did not validate the secret
-or assess what it permits, and neither did the earlier revision — it never asked
-the only question that decides whether rotation matters: *what can this
-credential actually do?*
+Stated precisely, because a second review round caught this section
+overcorrecting into its own sloppiness:
 
-**Rotation is owner domain and the owner has ruled none is required.** No agent
-should re-raise it, and C2 does not depend on it. RA-7224 is cancelled.
+- It is **not** a Stripe API key. It cannot call the Stripe API, move money,
+  issue refunds, or read customer data from Stripe.
+- It **is** the secret that authenticates inbound webhook payloads — that is its
+  entire purpose. Someone holding it could generate a valid `Stripe-Signature`
+  header for a forged event sent to that endpoint. If that endpoint is still
+  live and still configured with this value, forged events could drive whatever
+  application state it trusts webhooks for.
+- `restore-assist-backend.vercel.app` is referred to here as a *legacy* host on
+  the strength of the document naming it alongside a note to migrate away.
+  **That is not evidence the project is offline**, and it has not been verified.
+
+The original error was treating GitHub's `publicly_leaked: true` and
+`state: open` as a risk verdict. They are pattern-match flags; GitHub did not
+validate the secret or assess what it permits. The earlier revision never asked
+what the credential could actually do — it just escalated. Then the first
+correction swung the other way and claimed more safety than had been checked.
+Both were a conclusion substituted for a check.
+
+**Rotation is owner domain, and the owner has assessed this and declined it.**
+That is a risk acceptance by the person entitled to make it, and it is recorded
+here as such. C2 does not depend on it, and no agent should raise it as a gate
+blocker or a required action. If evidence later appears that the endpoint is
+live *and* still configured with this value, surface that to the owner as
+information; the decision remains theirs. RA-7224 is cancelled.
 
 **What survives the correction, entirely intact:** the scan is blind to every
 `.md` file and was additionally run `--no-git`. That is a defect in the control

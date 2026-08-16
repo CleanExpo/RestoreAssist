@@ -61,18 +61,23 @@ pass until it happened**. Both were false, and the owner had already said so bef
 the item was written.
 
 The leaked string is a Stripe **webhook signing secret**, for an endpoint the same
-document identifies as living on `restore-assist-backend.vercel.app` — a legacy
-project, not `restoreassist.app`. A signing secret verifies the signature on *inbound*
-payloads. It is not an API key: it cannot move money, read customer data, or
-authenticate a caller.
+document names as `restore-assist-backend.vercel.app`, not `restoreassist.app`. It is
+**not** a Stripe API key — it cannot call the Stripe API, move money, or read customer
+data. It **is** the secret that authenticates inbound webhook payloads, so someone
+holding it could forge a validly-signed event to that endpoint if the endpoint is
+still live and still configured with this value. That has not been verified either
+way, and "legacy" is not evidence of "offline".
 
 The error was reading GitHub's `publicly_leaked: true` / `state: open` as a risk
 verdict. Those are pattern-match flags; GitHub did not validate the secret or assess
 what it permits. Neither did the item — it never asked what the credential could
 actually do, which is the only question that decides whether rotation matters.
 
-**Rotations are owner domain. The owner has ruled none is required. No agent should
-re-raise this.** Linear RA-7224 is cancelled.
+**Rotations are owner domain, and the owner has assessed this and declined it.** That
+is a risk acceptance by the person entitled to make it. No agent should raise it as a
+gate blocker or a required action. If evidence later appears that the endpoint is live
+*and* still using this value, surface it as information — the decision stays with the
+owner. Linear RA-7224 is cancelled.
 
 **What was real, and is now an agent's job with no owner involvement:** `.gitleaks.toml`
 allowlists `(?i)\.md$`, so every markdown file is excluded from scanning, and the
