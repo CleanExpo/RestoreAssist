@@ -100,203 +100,222 @@ export async function POST(_req: NextRequest) {
     const day2 = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
     const day3 = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
 
-    // ── 2. Client ────────────────────────────────────────────────────────────
-    const client = await prisma.client.create({
-      data: {
-        name: "Sarah Thompson",
-        email: "sarah.thompson@example.com",
-        phone: "0412 345 678",
-        address: "42 Harbourside Drive, Manly NSW 2095",
-        userId,
-      },
-    });
-
-    // ── 3. Report ────────────────────────────────────────────────────────────
-    const report = await prisma.report.create({
-      data: {
-        title: "Water Damage Restoration Report — 42 Harbourside Drive, Manly",
-        description:
-          "Category 2 grey water damage from washing machine supply hose failure. 150 m² affected across living room, kitchen, and hallway. 3-day structural drying program completed.",
-        status: "COMPLETED",
-        clientName: "Sarah Thompson",
-        clientId: client.id,
-        propertyAddress: "42 Harbourside Drive, Manly NSW 2095",
-        propertyPostcode: "2095",
-        hazardType: "water",
-        insuranceType: "home",
-        reportNumber: DEMO_REPORT_NUMBER,
-        userId,
-        inspectionDate: day1,
-        technicianName: "James Whitfield (IICRC WRT #AUS-0042)",
-        technicianAttendanceDate: day1,
-        waterCategory: "2",
-        waterClass: "2",
-        sourceOfWater:
-          "Washing machine supply hose failure — grey water overflow from laundry into living areas",
-        affectedArea: 150,
-        totalCost: 8750.0,
-        dryingPlan:
-          "Structural drying per IICRC S500:2021 §5. 2× LGR dehumidifiers positioned centrally in the living room and kitchen; 3× air movers directed at the affected timber flooring and hallway slab. Daily moisture monitoring until every material meets its S500 dry standard.",
-        airmoversCount: 3,
-        dehumidificationCapacity: 160,
-        estimatedDryingTime: 72,
-        completionDate: day3,
-      },
-    });
-
-    // ── 4. Inspection ────────────────────────────────────────────────────────
-    const inspection = await prisma.inspection.create({
-      data: {
-        inspectionNumber,
-        propertyAddress: "42 Harbourside Drive, Manly NSW 2095",
-        propertyPostcode: "2095",
-        status: "COMPLETED",
-        // Load-bearing for the demo, not decoration: the inspection detail page
-        // gates the Moisture and Moisture Map tabs on
-        // moistureReadingsRequired(claimType), which is `claimType === "WATER"`.
-        // Seeded without it, the drying log and the meter-photo capture card
-        // are unreachable in the UI even though the readings exist in the DB.
-        claimType: "WATER",
-        reportId: report.id,
-        userId,
-        technicianId: userId,
-        technicianName: "James Whitfield",
-        inspectionDate: day1,
-        submittedAt: day1,
-        processedAt: day3,
-        completedAt: day3,
-        lossDescription:
-          "Washing machine hose failure caused a grey water release. Subfloor cavity affected — moisture readings confirm Category 2 classification. IICRC S500:2021 §6.3 applied.",
-      },
-    });
-
-    // ── 5. Moisture readings (21 readings — 3 monitoring points × 7 visits) ──
+    // Everything below is ONE transaction, and that is load-bearing for the
+    // idempotency branch above.
     //
-    // `surfaceType` deliberately uses the exact lowercase keys that
-    // app/api/inspections/[id]/monitoring-report keys its IICRC_TARGETS table
-    // on ("timber" 19%, "plasterboard" 1.5%, "concrete" 3.5%). Anything else
-    // silently falls back to the generic 15% target and the drying log shows
-    // the wrong dry standard. Each curve ends BELOW its target so the S500
-    // monitoring report reads "goal achieved" for all three materials.
-    const monitoringPoints = [
-      {
-        location: "Living Room — timber flooring, centre of room",
-        surfaceType: "timber",
-        depth: "Subsurface",
-        curve: [31.2, 28.6, 25.1, 22.4, 20.8, 19.6, 18.4], // target 19%
-      },
-      {
-        location: "Kitchen — plasterboard, north wall 150mm AFF",
-        surfaceType: "plasterboard",
-        depth: "Subsurface",
-        curve: [4.8, 4.1, 3.4, 2.8, 2.2, 1.7, 1.3], // target 1.5%
-      },
-      {
-        location: "Hallway — concrete slab, mid-span",
-        surfaceType: "concrete",
-        depth: "Surface",
-        curve: [9.2, 8.1, 6.9, 5.8, 4.7, 3.9, 3.2], // target 3.5%
-      },
-    ];
-    const readingDays = [day1, day1, day2, day2, day2, day3, day3];
-
-    await prisma.$transaction(
-      readingDays.flatMap((date, visitIdx) =>
-        monitoringPoints.map((point) =>
-          prisma.moistureReading.create({
-            data: {
-              inspectionId: inspection.id,
-              location: point.location,
-              surfaceType: point.surfaceType,
-              moistureLevel: point.curve[visitIdx],
-              depth: point.depth,
-              unit: "WME",
-              source: "manual",
-              isMonitoringPoint: true,
-              recordedAt: date,
-              notes:
-                visitIdx === 0
-                  ? "Initial reading — pre-drying baseline for this monitoring point."
-                  : visitIdx === readingDays.length - 1
-                    ? "Drying goal achieved — reading is at or below the IICRC S500:2021 dry standard for this material."
-                    : null,
-            },
-          }),
-        ),
-      ),
-    );
-
-    // ── 6. Scope items ────────────────────────────────────────────────────────
+    // The branch treats the existence of the inspection as "the demo is
+    // seeded". Written as a sequence of independent writes, a failure after the
+    // inspection row landed — but before the drying log or the scope — would
+    // leave a demo that can never repair itself: the retry finds the inspection,
+    // returns `seeded: false`, and the operator walks into the meeting with an
+    // empty Monitoring tab. Partial failures earlier would also pile up orphan
+    // demo clients and reports, since none of those writes is idempotent.
     //
-    // The S500 citation belongs in `clauseRef` (RA-1142), not in the
-    // justification prose — that is the field the inspection detail API selects
-    // and the report's clause column reads.
-    const scopeItems = [
-      {
-        itemType: "remove_skirting",
-        description: "Remove and dispose of affected skirting boards",
-        unit: "LM",
-        quantity: 42,
-        clauseRef: "IICRC S500:2021 §7.2",
-        justification:
-          "Category 2 water contact with porous timber skirting — contaminated porous material is removed rather than dried.",
-        autoDetermined: true,
-      },
-      {
-        itemType: "install_dehumidification",
-        description:
-          "Deploy 2× LGR dehumidifiers for the 3-day structural drying program",
-        unit: "DAY",
-        quantity: 3,
-        clauseRef: "IICRC S500:2021 §8.1",
-        justification:
-          "Class 2 evaporation load across 150 m² requires a minimum 120 L/day LGR capacity; 2× 80 L/day units deployed.",
-        autoDetermined: true,
-      },
-      {
-        itemType: "install_air_movers",
-        description: "Deploy 3× axial air movers for evaporative drying",
-        unit: "DAY",
-        quantity: 3,
-        clauseRef: "IICRC S500:2021 §8.2",
-        justification:
-          "Airflow across affected timber flooring and hallway slab to maintain the evaporation rate for the Class 2 load.",
-        autoDetermined: true,
-      },
-      {
-        itemType: "sanitize_materials",
-        description:
-          "Apply antimicrobial treatment to affected areas post-extraction",
-        unit: "M2",
-        quantity: 150,
-        clauseRef: "IICRC S500:2021 §10.3",
-        justification:
-          "Mandatory Category 2 sanitation of affected surfaces prior to reinstatement.",
-        autoDetermined: true,
-      },
-      {
-        itemType: "reinstate_skirting",
-        description: "Supply and install replacement skirting boards",
-        unit: "LM",
-        quantity: 42,
-        clauseRef: null,
-        justification:
-          "Reinstatement of materials removed under the demolition line above.",
-        autoDetermined: false,
-      },
-    ];
-
-    await prisma.$transaction(
-      scopeItems.map((item) =>
-        prisma.scopeItem.create({
+    // All-or-nothing makes the inspection's existence a truthful proxy for the
+    // whole graph, which is exactly what the idempotency check assumes.
+    const { inspection, report } = await prisma.$transaction(
+      async (tx) => {
+        // ── 2. Client ────────────────────────────────────────────────────────
+        const client = await tx.client.create({
           data: {
-            ...item,
-            inspectionId: inspection.id,
-            isRequired: true,
-            isSelected: true,
+            name: "Sarah Thompson",
+            email: "sarah.thompson@example.com",
+            phone: "0412 345 678",
+            address: "42 Harbourside Drive, Manly NSW 2095",
+            userId,
           },
-        }),
-      ),
+        });
+
+        // ── 3. Report ────────────────────────────────────────────────────────────
+        const report = await tx.report.create({
+          data: {
+            title:
+              "Water Damage Restoration Report — 42 Harbourside Drive, Manly",
+            description:
+              "Category 2 grey water damage from washing machine supply hose failure. 150 m² affected across living room, kitchen, and hallway. 3-day structural drying program completed.",
+            status: "COMPLETED",
+            clientName: "Sarah Thompson",
+            clientId: client.id,
+            propertyAddress: "42 Harbourside Drive, Manly NSW 2095",
+            propertyPostcode: "2095",
+            hazardType: "water",
+            insuranceType: "home",
+            reportNumber: DEMO_REPORT_NUMBER,
+            userId,
+            inspectionDate: day1,
+            technicianName: "James Whitfield (IICRC WRT #AUS-0042)",
+            technicianAttendanceDate: day1,
+            waterCategory: "2",
+            waterClass: "2",
+            sourceOfWater:
+              "Washing machine supply hose failure — grey water overflow from laundry into living areas",
+            affectedArea: 150,
+            totalCost: 8750.0,
+            dryingPlan:
+              "Structural drying per IICRC S500:2021 §5. 2× LGR dehumidifiers positioned centrally in the living room and kitchen; 3× air movers directed at the affected timber flooring and hallway slab. Daily moisture monitoring until every material meets its S500 dry standard.",
+            airmoversCount: 3,
+            dehumidificationCapacity: 160,
+            estimatedDryingTime: 72,
+            completionDate: day3,
+          },
+        });
+
+        // ── 4. Inspection ────────────────────────────────────────────────────────
+        const inspection = await tx.inspection.create({
+          data: {
+            inspectionNumber,
+            propertyAddress: "42 Harbourside Drive, Manly NSW 2095",
+            propertyPostcode: "2095",
+            status: "COMPLETED",
+            // Load-bearing for the demo, not decoration: the inspection detail page
+            // gates the Moisture and Moisture Map tabs on
+            // moistureReadingsRequired(claimType), which is `claimType === "WATER"`.
+            // Seeded without it, the drying log and the meter-photo capture card
+            // are unreachable in the UI even though the readings exist in the DB.
+            claimType: "WATER",
+            reportId: report.id,
+            userId,
+            technicianId: userId,
+            technicianName: "James Whitfield",
+            inspectionDate: day1,
+            submittedAt: day1,
+            processedAt: day3,
+            completedAt: day3,
+            lossDescription:
+              "Washing machine hose failure caused a grey water release. Subfloor cavity affected — moisture readings confirm Category 2 classification. IICRC S500:2021 §6.3 applied.",
+          },
+        });
+
+        // ── 5. Moisture readings (21 readings — 3 monitoring points × 7 visits) ──
+        //
+        // `surfaceType` deliberately uses the exact lowercase keys that
+        // app/api/inspections/[id]/monitoring-report keys its IICRC_TARGETS table
+        // on ("timber" 19%, "plasterboard" 1.5%, "concrete" 3.5%). Anything else
+        // silently falls back to the generic 15% target and the drying log shows
+        // the wrong dry standard. Each curve ends BELOW its target so the S500
+        // monitoring report reads "goal achieved" for all three materials.
+        const monitoringPoints = [
+          {
+            location: "Living Room — timber flooring, centre of room",
+            surfaceType: "timber",
+            depth: "Subsurface",
+            curve: [31.2, 28.6, 25.1, 22.4, 20.8, 19.6, 18.4], // target 19%
+          },
+          {
+            location: "Kitchen — plasterboard, north wall 150mm AFF",
+            surfaceType: "plasterboard",
+            depth: "Subsurface",
+            curve: [4.8, 4.1, 3.4, 2.8, 2.2, 1.7, 1.3], // target 1.5%
+          },
+          {
+            location: "Hallway — concrete slab, mid-span",
+            surfaceType: "concrete",
+            depth: "Surface",
+            curve: [9.2, 8.1, 6.9, 5.8, 4.7, 3.9, 3.2], // target 3.5%
+          },
+        ];
+        const readingDays = [day1, day1, day2, day2, day2, day3, day3];
+
+        for (const [visitIdx, date] of readingDays.entries()) {
+          for (const point of monitoringPoints) {
+            await tx.moistureReading.create({
+              data: {
+                inspectionId: inspection.id,
+                location: point.location,
+                surfaceType: point.surfaceType,
+                moistureLevel: point.curve[visitIdx],
+                depth: point.depth,
+                unit: "WME",
+                source: "manual",
+                isMonitoringPoint: true,
+                recordedAt: date,
+                notes:
+                  visitIdx === 0
+                    ? "Initial reading — pre-drying baseline for this monitoring point."
+                    : visitIdx === readingDays.length - 1
+                      ? "Drying goal achieved — reading is at or below the IICRC S500:2021 dry standard for this material."
+                      : null,
+              },
+            });
+          }
+        }
+
+        // ── 6. Scope items ────────────────────────────────────────────────────────
+        //
+        // The S500 citation belongs in `clauseRef` (RA-1142), not in the
+        // justification prose — that is the field the inspection detail API selects
+        // and the report's clause column reads.
+        const scopeItems = [
+          {
+            itemType: "remove_skirting",
+            description: "Remove and dispose of affected skirting boards",
+            unit: "LM",
+            quantity: 42,
+            clauseRef: "IICRC S500:2021 §7.2",
+            justification:
+              "Category 2 water contact with porous timber skirting — contaminated porous material is removed rather than dried.",
+            autoDetermined: true,
+          },
+          {
+            itemType: "install_dehumidification",
+            description:
+              "Deploy 2× LGR dehumidifiers for the 3-day structural drying program",
+            unit: "DAY",
+            quantity: 3,
+            clauseRef: "IICRC S500:2021 §8.1",
+            justification:
+              "Class 2 evaporation load across 150 m² requires a minimum 120 L/day LGR capacity; 2× 80 L/day units deployed.",
+            autoDetermined: true,
+          },
+          {
+            itemType: "install_air_movers",
+            description: "Deploy 3× axial air movers for evaporative drying",
+            unit: "DAY",
+            quantity: 3,
+            clauseRef: "IICRC S500:2021 §8.2",
+            justification:
+              "Airflow across affected timber flooring and hallway slab to maintain the evaporation rate for the Class 2 load.",
+            autoDetermined: true,
+          },
+          {
+            itemType: "sanitize_materials",
+            description:
+              "Apply antimicrobial treatment to affected areas post-extraction",
+            unit: "M2",
+            quantity: 150,
+            clauseRef: "IICRC S500:2021 §10.3",
+            justification:
+              "Mandatory Category 2 sanitation of affected surfaces prior to reinstatement.",
+            autoDetermined: true,
+          },
+          {
+            itemType: "reinstate_skirting",
+            description: "Supply and install replacement skirting boards",
+            unit: "LM",
+            quantity: 42,
+            clauseRef: null,
+            justification:
+              "Reinstatement of materials removed under the demolition line above.",
+            autoDetermined: false,
+          },
+        ];
+
+        for (const item of scopeItems) {
+          await tx.scopeItem.create({
+            data: {
+              ...item,
+              inspectionId: inspection.id,
+              isRequired: true,
+              isSelected: true,
+            },
+          });
+        }
+
+        return { inspection, report };
+      },
+      // 29 statements; the 5s interactive-transaction default is tight on a cold
+      // connection, and a timeout here would roll the whole demo back.
+      { timeout: 20_000 },
     );
 
     return NextResponse.json({

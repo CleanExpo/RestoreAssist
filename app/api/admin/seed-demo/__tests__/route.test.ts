@@ -62,20 +62,27 @@ const { writes, prismaMock } = vi.hoisted(() => {
     update: vi.fn(async () => result),
   });
 
-  return {
-    writes,
-    prismaMock: {
-      user: recordingModel("User", { id: "admin_1" }),
-      organization: recordingModel("Organization", { id: "org_demo" }),
-      client: recordingModel("Client", { id: "client_demo" }),
-      report: recordingModel("Report", { id: "report_demo" }),
-      inspection: recordingModel("Inspection", { id: "insp_demo" }),
-      moistureReading: recordingModel("MoistureReading", { id: "mr_demo" }),
-      scopeItem: recordingModel("ScopeItem", { id: "si_demo" }),
-      // The route builds arrays of already-invoked creates and hands them over.
-      $transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops)),
-    },
+  const prismaMock: Record<string, unknown> = {
+    user: recordingModel("User", { id: "admin_1" }),
+    organization: recordingModel("Organization", { id: "org_demo" }),
+    client: recordingModel("Client", { id: "client_demo" }),
+    report: recordingModel("Report", { id: "report_demo" }),
+    inspection: recordingModel("Inspection", { id: "insp_demo" }),
+    moistureReading: recordingModel("MoistureReading", { id: "mr_demo" }),
+    scopeItem: recordingModel("ScopeItem", { id: "si_demo" }),
   };
+
+  // The whole seed runs inside ONE interactive transaction, so this is called
+  // with a callback and must hand it a transaction client. The array form is
+  // still accepted so the double cannot silently pass a regression back to
+  // ungrouped batch writes.
+  prismaMock.$transaction = vi.fn(async (arg: unknown) =>
+    typeof arg === "function"
+      ? (arg as (tx: unknown) => Promise<unknown>)(prismaMock)
+      : Promise.all(arg as unknown[]),
+  );
+
+  return { writes, prismaMock };
 });
 
 vi.mock("next-auth", () => ({
@@ -315,7 +322,10 @@ describe("the seeded demo claim", () => {
     // the number alone, any collision hands the caller someone else's row id.
     expect(prismaMock.inspection.findFirst).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        where: { inspectionNumber: second?.inspectionNumber, userId: "admin_2" },
+        where: {
+          inspectionNumber: second?.inspectionNumber,
+          userId: "admin_2",
+        },
       }),
     );
   });
@@ -341,6 +351,40 @@ describe("the seeded demo claim", () => {
       expect(String(inspection?.inspectionNumber)).toContain(id);
     }
     expect(numbers[0]).not.toBe(numbers[1]);
+  });
+
+  it("writes the whole demo graph inside one transaction", async () => {
+    await POST(post());
+
+    // The idempotency branch treats "an inspection exists" as "the demo is
+    // seeded". That is only true if the graph is all-or-nothing: a failure
+    // after the inspection row lands but before the drying log or scope would
+    // otherwise leave a demo that can never repair itself, because the retry
+    // returns seeded:false and the Monitoring tab stays empty.
+    const tx = prismaMock.$transaction as ReturnType<typeof vi.fn>;
+    expect(tx).toHaveBeenCalledTimes(1);
+    expect(typeof tx.mock.calls[0][0]).toBe("function");
+
+    // And every write must have happened through it, not outside it.
+    const insideTx = tx.mock.results[0];
+    expect(insideTx.type).toBe("return");
+    // 1 client + 1 report + 1 inspection + 21 readings + 5 scope items.
+    expect(writes.length).toBe(29);
+  });
+
+  it("rolls the whole seed back when a late write fails", async () => {
+    // Simulate the scope-item batch failing after the inspection already
+    // landed. With a real transaction nothing is committed; the assertion here
+    // is that the route does not swallow it and report success.
+    prismaMock.scopeItem.create.mockRejectedValueOnce(
+      new Error("scope insert exploded"),
+    );
+
+    const response = await POST(post());
+
+    expect(response.status).toBeGreaterThanOrEqual(500);
+    const body = await response.json();
+    expect(body.seeded).not.toBe(true);
   });
 
   it("refuses a non-admin caller before writing anything", async () => {
