@@ -281,12 +281,41 @@ What was done: static analysis of `.gitleaks.toml`, live read of the GitHub
 secret-scanning API, and local confirmation that the offending commit and blob
 are reachable.
 
-What was **NOT** done: gitleaks was not re-run. It is not installed on the
-machine this review ran on, so the empirical demonstration — same repo, scan
-with and without the `\.md$` allowlist entry, showing the finding appear — is
-**NOT RUN**, not "passed". The argument above rests on configuration semantics
-plus the independent-instrument differential, which is sufficient to withdraw a
-PASS but is not sufficient to award one later.
+What was **NOT** done at the time: gitleaks was not installed on the machine
+that review ran on, so the empirical demonstration was recorded as **NOT RUN**,
+not "passed".
+
+### That gap is now closed — measured 2026-08-17 02:20 AEST (2026-08-16 16:20 UTC), gitleaks 8.30.1
+
+A synthetic canary was planted in a markdown file at the repo root:
+
+```
+__canary_probe.md
+stripe_key = "sk_test_51SYNTHETIC…probe00"
+```
+
+The same scan was then run twice, changing exactly one thing — whether
+`.gitleaks.toml` still contains its `'''(?i)\.md$'''` allowlist entry:
+
+| Arm | Config | Result |
+| --- | --- | --- |
+| **A** | repo config, as committed | `scanned ~158.41 MB` → **`no leaks found`**, exit 0, **0** findings on the canary |
+| **B** | identical, `(?i)\.md$` line removed | `scanned ~163.36 MB` → **`leaks found: 2`**, exit 1, canary caught by rule `stripe-access-token` |
+
+Same scanner, same repository, same planted secret. The only variable is that
+one allowlist line. **The blindness is measured, not argued** — the scan reports
+a clean repository while a Stripe-shaped key sits in a markdown file it refuses
+to open. Canary deleted afterwards; worktree confirmed clean.
+
+### One thing Arm B surfaced that the fix has to handle
+
+Arm B's second finding was **this file**, at the line where the triage table
+quotes a redacted Composio key while documenting it. That is documentation of a
+finding, not a live credential — but it means narrowing the allowlist will
+surface evidence and runbook files that legitimately quote secret-shaped
+strings. The narrowed allowlist must exempt those specific documented files by
+path, rather than exempting the whole `.md` class. Exempting a class is what
+produced this defect.
 
 ### Path back to PASS
 
