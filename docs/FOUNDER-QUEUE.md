@@ -13,6 +13,44 @@ Last updated: 2026-08-16 — session "continuous compete loop".
 
 ---
 
+## 0. Unblock the release gate on Windows — this blocks EVERY push
+
+**Linear:** RA-7229. **Blocks:** all agent pushes, therefore every PR, therefore
+every merge. Nothing else in this queue can progress past "committed locally"
+until this clears.
+
+`pr_release_gate.py issue` runs `provision()` before binding tests to a HEAD, and
+`provision()` runs `pnpm install --frozen-lockfile`. The repo `.npmrc` sets
+`force=true`, so pnpm re-resolves all 2059 packages on every invocation — the log
+reads `Lockfile is up to date, resolution step is skipped` immediately followed by
+`Packages: +2059`. On this machine it stalled at `reused 46`.
+
+The gate is behaving correctly. It must not be bypassed. The fix is to make
+provisioning cheap:
+
+1. Drop `force=true` from `.npmrc` (needs a moment's archaeology on why it is
+   there — probably an old stale-store workaround). With a valid lockfile,
+   `--frozen-lockfile` already gives the determinism `provision()` wants.
+2. Or let `provision()` skip the install when `node_modules` is present and the
+   lockfile hash is unchanged, recording which branch it took in the receipt.
+
+**Do not** "repair" the pnpm store with `robocopy /MIR` over `node_modules` —
+that has destroyed real sources in this estate before.
+
+---
+
+## 0b. Demo credentials for the RIA path
+
+**Linear:** RA-7228. **Blocks:** demo proof and all D1/D3 owner evidence.
+
+Prod is healthy and every demo surface correctly auth-walls — verified in a headed
+browser today. But an agent must not enter credentials, so the authenticated path
+cannot be verified unattended. Cheapest durable fix is a seeded demo tenant reached
+by a token URL; `/capture/[token]` already exists as a public token route, so the
+pattern is there. That also becomes the booth demo at Gold Coast.
+
+---
+
 ## 1. Rotate the Stripe webhook signing secret, then close alert #1
 
 **Blocks:** release-gate criterion **C2** (5 pts). C2 is now `status: fail` and cannot
