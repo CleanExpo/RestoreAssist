@@ -44,9 +44,17 @@ import { fromException } from "@/lib/api-errors";
  * number with the owner keeps the guarantee the idempotency branch is actually
  * trying to make: pressing the button twice is safe, and every admin gets their
  * own writable demo claim.
+ *
+ * The FULL user id goes in, not a truncation of it. An earlier version used
+ * `userId.slice(-8)`, which did not remove the failure mode — it only reduced it
+ * to a suffix-collision class, where two admins sharing the last 8 characters of
+ * their id land on the same number and the second is handed the first's row all
+ * over again. The lookup below is independently scoped by `userId` as well, so
+ * even a hypothetical collision cannot return another owner's inspection; it
+ * would fail loudly on the unique constraint instead of silently misbehaving.
  */
 function demoInspectionNumber(userId: string) {
-  return `NIR-2026-04-DEMO-${userId.slice(-8)}`;
+  return `NIR-2026-04-DEMO-${userId}`;
 }
 const DEMO_REPORT_NUMBER = "RA-DEMO-2026-0001";
 
@@ -72,9 +80,10 @@ export async function POST(_req: NextRequest) {
     const userId = auth.user!.id;
     const inspectionNumber = demoInspectionNumber(userId);
 
-    // Idempotency check — scoped to this owner's demo claim.
-    const existing = await prisma.inspection.findUnique({
-      where: { inspectionNumber },
+    // Idempotency check — matched on BOTH the number and the owner, so this can
+    // never hand the caller an inspection belonging to someone else.
+    const existing = await prisma.inspection.findFirst({
+      where: { inspectionNumber, userId },
       select: { id: true },
     });
 

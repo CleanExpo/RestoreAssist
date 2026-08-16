@@ -115,7 +115,7 @@ beforeEach(() => {
     response: null,
     user: { id: "admin_1", role: "ADMIN", organizationId: null },
   });
-  prismaMock.inspection.findUnique.mockResolvedValue(null); // not yet seeded
+  prismaMock.inspection.findFirst.mockResolvedValue(null); // not yet seeded
   prismaMock.user.findUnique.mockResolvedValue(null);
   prismaMock.organization.findFirst.mockResolvedValue(null);
 });
@@ -281,7 +281,7 @@ describe("the seeded demo claim", () => {
   });
 
   it("is idempotent once the demo inspection exists", async () => {
-    prismaMock.inspection.findUnique.mockResolvedValue({ id: "insp_existing" });
+    prismaMock.inspection.findFirst.mockResolvedValue({ id: "insp_existing" });
 
     const response = await POST(post());
     const body = await response.json();
@@ -311,13 +311,36 @@ describe("the seeded demo claim", () => {
     expect(first?.inspectionNumber).not.toBe(second?.inspectionNumber);
     expect(first?.userId).toBe("admin_1");
     expect(second?.userId).toBe("admin_2");
-    // The idempotency lookup must be keyed on the per-owner number, or the
-    // second admin is handed the first admin's row id.
-    expect(prismaMock.inspection.findUnique).toHaveBeenLastCalledWith(
+    // The idempotency lookup must be scoped by OWNER as well as number. Keyed on
+    // the number alone, any collision hands the caller someone else's row id.
+    expect(prismaMock.inspection.findFirst).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        where: { inspectionNumber: second?.inspectionNumber },
+        where: { inspectionNumber: second?.inspectionNumber, userId: "admin_2" },
       }),
     );
+  });
+
+  it("does not truncate the owner id into a collision class", async () => {
+    // An earlier fix used `userId.slice(-8)`, which did not remove the
+    // cross-admin failure mode — it shrank it to "two ids sharing a suffix".
+    // These two ids differ ONLY before the last 8 characters.
+    const idA = "cuid_aaaaaaaa_ZZZZZZZZ";
+    const idB = "cuid_bbbbbbbb_ZZZZZZZZ";
+    expect(idA.slice(-8)).toBe(idB.slice(-8)); // the collision the old key had
+
+    const numbers: string[] = [];
+    for (const id of [idA, idB]) {
+      writes.length = 0;
+      verifyAdminFromDb.mockResolvedValue({
+        response: null,
+        user: { id, role: "ADMIN", organizationId: null },
+      });
+      await POST(post());
+      const inspection = writes.find(([m]) => m === "Inspection")?.[1];
+      numbers.push(String(inspection?.inspectionNumber));
+      expect(String(inspection?.inspectionNumber)).toContain(id);
+    }
+    expect(numbers[0]).not.toBe(numbers[1]);
   });
 
   it("refuses a non-admin caller before writing anything", async () => {
