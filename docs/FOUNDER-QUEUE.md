@@ -51,29 +51,39 @@ pattern is there. That also becomes the booth demo at Gold Coast.
 
 ---
 
-## 1. Rotate the Stripe webhook signing secret, then close alert #1
+## 1. WITHDRAWN — "Rotate the Stripe webhook signing secret"
 
-**Blocks:** release-gate criterion **C2** (5 pts). C2 is now `status: fail` and cannot
-return to `pass` until this is done — the exposure is real, not a detection artefact.
+**This item was wrong and required nothing of you. It is left here, struck through,
+rather than deleted, so the mistake is visible to the next reader.**
 
-**Why an agent cannot do it:** requires Stripe dashboard authentication and a
-credential-rotation decision. Class-2 credential action.
+It claimed a credential rotation was required and that release-gate **C2 could not
+pass until it happened**. Both were false, and the owner had already said so before
+the item was written.
 
-**Evidence:** GitHub secret-scanning
-[alert #1](https://github.com/CleanExpo/RestoreAssist/security/secret-scanning/1) —
-`stripe_webhook_signing_secret`, `state: open`, `publicly_leaked: true`, first located
-in `WEBHOOK_VERIFICATION_CHECKLIST.md` L34 @ commit `2fc2a3b6`, `has_more_locations: true`.
-Blob `1a3f5fcc` confirmed still reachable in the object store on 2026-08-16.
+The leaked string is a Stripe **webhook signing secret**, for an endpoint the same
+document names as `restore-assist-backend.vercel.app`, not `restoreassist.app`. It is
+**not** a Stripe API key — it cannot call the Stripe API, move money, or read customer
+data. It **is** the secret that authenticates inbound webhook payloads, so someone
+holding it could forge a validly-signed event to that endpoint if the endpoint is
+still live and still configured with this value. That has not been verified either
+way, and "legacy" is not evidence of "offline".
 
-**Correction to a carried assumption:** this was previously described as "a local file,
-not live". The *value* may well be a local `stripe listen` secret rather than a live
-endpoint secret — but the *file was committed and is public*. Treat it as exposed.
+The error was reading GitHub's `publicly_leaked: true` / `state: open` as a risk
+verdict. Those are pattern-match flags; GitHub did not validate the secret or assess
+what it permits. Neither did the item — it never asked what the credential could
+actually do, which is the only question that decides whether rotation matters.
 
-**Action:**
-1. Stripe Dashboard → Developers → Webhooks → roll the signing secret for the affected
-   endpoint. Update `STRIPE_WEBHOOK_SECRET` in Vercel (all environments).
-2. Close alert #1 as **revoked**, with a resolution comment naming the rotation date.
-3. Reply here so an agent can re-run the C2 scan and propose the flip to `pass`.
+**Rotations are owner domain, and the owner has assessed this and declined it.** That
+is a risk acceptance by the person entitled to make it. No agent should raise it as a
+gate blocker or a required action. If evidence later appears that the endpoint is live
+*and* still using this value, surface it as information — the decision stays with the
+owner. Linear RA-7224 is cancelled.
+
+**What was real, and is now an agent's job with no owner involvement:** `.gitleaks.toml`
+allowlists `(?i)\.md$`, so every markdown file is excluded from scanning, and the
+recorded C2 command additionally ran `--no-git`. The scan cannot see a whole file
+class. That is why C2 is `fail`, and fixing it is code work — see the "Path back to
+PASS" in `docs/evidence/release-gate/1.0.0/C2-secrets-scan.md`.
 
 ---
 

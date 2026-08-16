@@ -190,7 +190,10 @@ recorded for that entry was that sampled `.md` findings were placeholders. The
 sample did not include `WEBHOOK_VERIFICATION_CHECKLIST.md`.
 
 **The consequence, confirmed by an independent instrument.** GitHub secret
-scanning — which has no knowledge of this allowlist — reports:
+scanning — which has no knowledge of this allowlist — found something the
+configured scan structurally could not. Note carefully what that does and does
+not establish: it proves the **scan is blind to a file class**. It is not by
+itself a risk verdict. See "What this is not" below.
 
 | Field | Value |
 | --- | --- |
@@ -219,12 +222,58 @@ still return a clean result for this file. **The recorded verification cannot
 fail in the presence of this defect**, which is the same class of finding as A3
 in this branch and as the `mtime` freshness bug this branch fixes.
 
+### What this is NOT — a correction, recorded deliberately
+
+An earlier revision of this section (2026-08-16) asserted that the leaked value
+constituted a live exposure and that **rotation was required before C2 could
+pass**. That was wrong, it was withdrawn by the owner, and it is corrected here
+rather than quietly deleted.
+
+Reading the file as committed at `2fc2a3b6` shows what the string actually is: a
+Stripe **webhook signing secret**, for an endpoint the same document identifies
+as living on `restore-assist-backend.vercel.app`, not `restoreassist.app`.
+
+Stated precisely, because a second review round caught this section
+overcorrecting into its own sloppiness:
+
+- It is **not** a Stripe API key. It cannot call the Stripe API, move money,
+  issue refunds, or read customer data from Stripe.
+- It **is** the secret that authenticates inbound webhook payloads — that is its
+  entire purpose. Someone holding it could generate a valid `Stripe-Signature`
+  header for a forged event sent to that endpoint. If that endpoint is still
+  live and still configured with this value, forged events could drive whatever
+  application state it trusts webhooks for.
+- `restore-assist-backend.vercel.app` is referred to here as a *legacy* host on
+  the strength of the document naming it alongside a note to migrate away.
+  **That is not evidence the project is offline**, and it has not been verified.
+
+The original error was treating GitHub's `publicly_leaked: true` and
+`state: open` as a risk verdict. They are pattern-match flags; GitHub did not
+validate the secret or assess what it permits. The earlier revision never asked
+what the credential could actually do — it just escalated. Then the first
+correction swung the other way and claimed more safety than had been checked.
+Both were a conclusion substituted for a check.
+
+**Rotation is owner domain, and the owner has assessed this and declined it.**
+That is a risk acceptance by the person entitled to make it, and it is recorded
+here as such. C2 does not depend on it, and no agent should raise it as a gate
+blocker or a required action. If evidence later appears that the endpoint is
+live *and* still configured with this value, surface that to the owner as
+information; the decision remains theirs. RA-7224 is cancelled.
+
+**What survives the correction, entirely intact:** the scan is blind to every
+`.md` file and was additionally run `--no-git`. That is a defect in the control
+itself, independent of whether any particular finding matters. A secrets scan
+that cannot see a whole file class is not a secrets scan, and that is why this
+criterion is `fail`.
+
 **A related mis-classification.** The triage table above classifies
 `lib/firebase.ts` as a false-positive ("Firebase Web API keys are PUBLIC by
 design"). That reasoning is sound for Firebase Web keys in general, but GitHub
 independently raised alert #3 on that same value and it was resolved as
-`revoked` — i.e. treated as a real credential requiring rotation. Two
-instruments disagreed and only the permissive one was recorded here.
+`revoked`. Recorded as an instrument disagreement worth noting, not as a claim
+that the earlier triage was wrong — the same care this section just had to learn
+applies here too.
 
 ### Scope of this 2026-08-16 review, stated honestly
 
@@ -241,12 +290,17 @@ PASS but is not sufficient to award one later.
 
 ### Path back to PASS
 
-1. Founder rotates the Stripe webhook signing secret and closes alert #1 as
-   revoked. Tracked in `docs/FOUNDER-QUEUE.md`. **Until this happens the
-   criterion cannot pass, regardless of scanner output** — the exposure is real,
-   not a detection artefact.
-2. Narrow the `(?i)\.md$` allowlist entry to the specific documented
-   placeholder files, so markdown is scanned by default rather than exempt.
-3. Install gitleaks in CI and run it over **full history**, not `--no-git`,
-   and paste the live output here.
-4. Only then set `status: pass` with a fresh `verified:` date.
+**No owner action is required.** This is entirely code work, and every step is
+an agent's to do:
+
+1. Narrow the `(?i)\.md$` allowlist entry to the specific documented placeholder
+   files, so markdown is scanned by default rather than exempt.
+2. Install gitleaks in CI and run it over **full history**, not `--no-git`, and
+   paste the live output here.
+3. Positive-control the result before trusting it: plant a synthetic
+   secret-shaped value in a `.md` file, confirm the scan **finds** it, then
+   remove it. A scan that has never been shown to fail proves nothing — that is
+   the defect this criterion was demoted for in the first place.
+4. Triage whatever the full-history scan surfaces on its merits, per finding —
+   what the credential permits, not what pattern it matches.
+5. Only then set `status: pass` with a fresh `verified:` date.
