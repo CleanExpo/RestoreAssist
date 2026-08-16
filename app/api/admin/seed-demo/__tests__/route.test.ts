@@ -48,41 +48,70 @@ const verifyAdminFromDb = vi.fn();
 // `vi.mock` factories are hoisted above module-level consts, so the recorder
 // and the prisma double must be built inside `vi.hoisted` to exist by the time
 // the factory below runs.
-const { writes, prismaMock } = vi.hoisted(() => {
+const { writes, prismaMock, resetPrismaMock } = vi.hoisted(() => {
   /** Every payload the route wrote, in order: [modelName, data]. */
   const writes: Array<[string, Record<string, unknown>]> = [];
 
-  const recordingModel = (name: string, result: Record<string, unknown>) => ({
-    create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
-      writes.push([name, data]);
-      return { ...result, ...data };
-    }),
-    findUnique: vi.fn(async () => null as Record<string, unknown> | null),
-    findFirst: vi.fn(async () => null as Record<string, unknown> | null),
-    update: vi.fn(async () => result),
-  });
+  const MODELS: Array<[string, string, Record<string, unknown>]> = [
+    ["user", "User", { id: "admin_1" }],
+    ["organization", "Organization", { id: "org_demo" }],
+    ["client", "Client", { id: "client_demo" }],
+    ["report", "Report", { id: "report_demo" }],
+    ["inspection", "Inspection", { id: "insp_demo" }],
+    ["moistureReading", "MoistureReading", { id: "mr_demo" }],
+    ["scopeItem", "ScopeItem", { id: "si_demo" }],
+  ];
 
-  const prismaMock: Record<string, unknown> = {
-    user: recordingModel("User", { id: "admin_1" }),
-    organization: recordingModel("Organization", { id: "org_demo" }),
-    client: recordingModel("Client", { id: "client_demo" }),
-    report: recordingModel("Report", { id: "report_demo" }),
-    inspection: recordingModel("Inspection", { id: "insp_demo" }),
-    moistureReading: recordingModel("MoistureReading", { id: "mr_demo" }),
-    scopeItem: recordingModel("ScopeItem", { id: "si_demo" }),
+  const prismaMock: Record<string, any> = {};
+  for (const [key] of MODELS) {
+    prismaMock[key] = {
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
+    };
+  }
+  prismaMock.$transaction = vi.fn();
+
+  /**
+   * Reinstall every implementation from scratch.
+   *
+   * `vi.clearAllMocks()` clears call history but NOT the `...Once` queues, so a
+   * value queued by one test and left unconsumed leaks into the next one. That
+   * is not hypothetical: a mutation run proved these very tests were passing on
+   * queue ordering rather than on the behaviour they claim to check. Full
+   * `mockReset` per test removes the order dependence.
+   */
+  const resetPrismaMock = () => {
+    for (const [key, name, result] of MODELS) {
+      const model = prismaMock[key];
+      model.create.mockReset();
+      model.findUnique.mockReset();
+      model.findFirst.mockReset();
+      model.update.mockReset();
+      model.create.mockImplementation(
+        async ({ data }: { data: Record<string, unknown> }) => {
+          writes.push([name, data]);
+          return { ...result, ...data };
+        },
+      );
+      model.findUnique.mockResolvedValue(null);
+      model.findFirst.mockResolvedValue(null);
+      model.update.mockResolvedValue(result);
+    }
+    // The whole seed runs inside ONE interactive transaction, so this is called
+    // with a callback and must hand it a transaction client. The array form is
+    // still accepted so the double cannot silently pass a regression back to
+    // ungrouped batch writes.
+    prismaMock.$transaction.mockReset();
+    prismaMock.$transaction.mockImplementation(async (arg: unknown) =>
+      typeof arg === "function"
+        ? (arg as (tx: unknown) => Promise<unknown>)(prismaMock)
+        : Promise.all(arg as unknown[]),
+    );
   };
 
-  // The whole seed runs inside ONE interactive transaction, so this is called
-  // with a callback and must hand it a transaction client. The array form is
-  // still accepted so the double cannot silently pass a regression back to
-  // ungrouped batch writes.
-  prismaMock.$transaction = vi.fn(async (arg: unknown) =>
-    typeof arg === "function"
-      ? (arg as (tx: unknown) => Promise<unknown>)(prismaMock)
-      : Promise.all(arg as unknown[]),
-  );
-
-  return { writes, prismaMock };
+  return { writes, prismaMock, resetPrismaMock };
 });
 
 vi.mock("next-auth", () => ({
@@ -117,14 +146,14 @@ function post() {
 beforeEach(() => {
   writes.length = 0;
   vi.clearAllMocks();
+  // Full reset, not just clear — see resetPrismaMock's comment on `...Once`
+  // queue leakage between tests.
+  resetPrismaMock();
   getServerSession.mockResolvedValue({ user: { id: "admin_1" } });
   verifyAdminFromDb.mockResolvedValue({
     response: null,
     user: { id: "admin_1", role: "ADMIN", organizationId: null },
   });
-  prismaMock.inspection.findFirst.mockResolvedValue(null); // not yet seeded
-  prismaMock.user.findUnique.mockResolvedValue(null);
-  prismaMock.organization.findFirst.mockResolvedValue(null);
 });
 
 describe("POST /api/admin/seed-demo", () => {
@@ -385,6 +414,47 @@ describe("the seeded demo claim", () => {
     expect(response.status).toBeGreaterThanOrEqual(500);
     const body = await response.json();
     expect(body.seeded).not.toBe(true);
+  });
+
+  it("returns the idempotent answer when it loses a concurrent double-press", async () => {
+    // The idempotency read necessarily precedes the transaction, so two
+    // simultaneous presses by the same admin can both observe "not seeded". The
+    // @unique constraint on inspectionNumber makes the loser fail with P2002,
+    // with nothing committed. The loser must get the same answer it would have
+    // got a moment later — not a 500 that looks, on a demo stage, like the seed
+    // broke when it actually succeeded.
+    prismaMock.inspection.create.mockRejectedValueOnce(
+      Object.assign(new Error("Unique constraint failed"), { code: "P2002" }),
+    );
+    prismaMock.inspection.findFirst
+      .mockResolvedValueOnce(null) // pre-check: nothing seeded yet
+      .mockResolvedValueOnce({ id: "insp_winner" }); // post-race re-read
+
+    const response = await POST(post());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.seeded).toBe(false);
+    expect(body.inspectionId).toBe("insp_winner");
+  });
+
+  it("still surfaces a unique violation that is not the demo race", async () => {
+    // Negative control for the branch above: when the row genuinely is not
+    // there, P2002 must NOT be swallowed into a false "already seeded".
+    prismaMock.inspection.create.mockRejectedValueOnce(
+      Object.assign(new Error("Unique constraint failed"), { code: "P2002" }),
+    );
+    prismaMock.inspection.findFirst.mockResolvedValue(null);
+
+    const response = await POST(post());
+    const body = await response.json();
+
+    // fromException maps P2002 to 409 Conflict, which is the honest answer here.
+    // What matters is that it is an error and NOT a fabricated idempotent
+    // success pointing at an inspection that does not exist.
+    expect(response.status).toBe(409);
+    expect(body.seeded).toBeUndefined();
+    expect(body.inspectionId).toBeUndefined();
   });
 
   it("refuses a non-admin caller before writing anything", async () => {

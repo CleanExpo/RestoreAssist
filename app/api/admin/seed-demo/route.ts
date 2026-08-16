@@ -56,9 +56,33 @@ import { fromException } from "@/lib/api-errors";
 function demoInspectionNumber(userId: string) {
   return `NIR-2026-04-DEMO-${userId}`;
 }
+
+function alreadySeeded(inspectionId: string) {
+  return NextResponse.json({
+    seeded: false,
+    message: "Demo data already present — no changes made",
+    inspectionId,
+  });
+}
+
+/**
+ * Prisma's unique-constraint violation. Duck-typed rather than instance-checked
+ * so this does not depend on which Prisma client instance threw.
+ */
+function isUniqueViolation(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: unknown }).code === "P2002"
+  );
+}
 const DEMO_REPORT_NUMBER = "RA-DEMO-2026-0001";
 
 export async function POST(_req: NextRequest) {
+  // Hoisted so the catch block can recover the losing side of a concurrent
+  // double-press; see the P2002 branch at the bottom.
+  let owner: { userId: string; inspectionNumber: string } | undefined;
+
   try {
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
@@ -79,6 +103,7 @@ export async function POST(_req: NextRequest) {
     // the caller's organisation, which it previously did as a side effect.
     const userId = auth.user!.id;
     const inspectionNumber = demoInspectionNumber(userId);
+    owner = { userId, inspectionNumber };
 
     // Idempotency check — matched on BOTH the number and the owner, so this can
     // never hand the caller an inspection belonging to someone else.
@@ -87,13 +112,7 @@ export async function POST(_req: NextRequest) {
       select: { id: true },
     });
 
-    if (existing) {
-      return NextResponse.json({
-        seeded: false,
-        message: "Demo data already present — no changes made",
-        inspectionId: existing.id,
-      });
-    }
+    if (existing) return alreadySeeded(existing.id);
 
     const now = new Date();
     const day1 = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
@@ -325,6 +344,24 @@ export async function POST(_req: NextRequest) {
       reportId: report.id,
     });
   } catch (error) {
+    // The idempotency read above necessarily happens BEFORE the transaction, so
+    // two simultaneous presses by the same admin can both observe "not seeded"
+    // and both enter it. The `@unique` constraint on Inspection.inspectionNumber
+    // makes the loser fail with P2002 — correctly, and with nothing committed,
+    // because the transaction rolls back. Without this branch the loser would
+    // surface a 500, which on a demo stage looks like the seed broke when it in
+    // fact succeeded. Re-read and return the same idempotent answer the caller
+    // would have got a moment later.
+    if (owner && isUniqueViolation(error)) {
+      const winner = await prisma.inspection.findFirst({
+        where: {
+          inspectionNumber: owner.inspectionNumber,
+          userId: owner.userId,
+        },
+        select: { id: true },
+      });
+      if (winner) return alreadySeeded(winner.id);
+    }
     return fromException(_req, error, { stage: "seed-demo" });
   }
 }
