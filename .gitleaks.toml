@@ -37,12 +37,19 @@ paths = [
   '''(?i)^\.speckit/features/current/contracts/auth-api\.yaml$''',
   '''(?i)^\.claude/local-test-results\.json$''',
 
-  # Markdown documentation (99 findings) — placeholder strings, example curl
-  # commands, env-var-shape examples. Inspected sample (DEBUG_REPORT.md,
-  # AUTHENTICATION_DOCUMENTATION.md, PRODUCTION-DEPLOYMENT.md, SUPABASE-SETUP.md,
-  # PRISMA_SENDGRID_SETUP.md, HANDOVER.md): all values are obvious placeholders
-  # (`sk_test_...`, `your_api_key_here`, `<your-secret>`) or have been redacted.
-  '''(?i)\.md$''',
+  # NOTE (2026-08-16, release-gate criterion C2): a blanket '''(?i)\.md$''' USED to sit here,
+  # exempting every markdown file in the repository from every rule. It was
+  # added in 2026-05 to silence 99 findings whose files no longer exist. The
+  # cost was that a real credential committed to any .md was invisible, and a
+  # measured differential proved it: with the line present a planted
+  # Stripe-shaped key in a root .md scanned as "no leaks found"; with the line
+  # removed the same scan caught it via `stripe-access-token`.
+  #
+  # It is removed. Markdown is scanned like everything else. Re-running the
+  # scan against the whole working tree with it gone produced exactly ONE
+  # finding, handled by the narrow `regexes` entry below rather than by
+  # exempting a file class again. Exempting a whole class is what created this
+  # hole; a smaller version of the same mistake is still the same mistake.
 
   # `.env.example` + `apps/*/.env.example` — template files with placeholder
   # values by design ("sk_test_...", "AKIA...", etc.).
@@ -100,6 +107,21 @@ commits = [
 # Actions secret), not committed as plaintext.
 regexes = [
   '''(?i)IOS_DIST_P12_BASE64''',
+
+  # Release-gate criterion C2. The only finding left once the blanket `.md`
+  # exemption above was removed. It is a deliberately-invalid webhook secret in
+  # C2's own evidence file, used to demonstrate that signature verification
+  # REJECTS a wrong secret — the string says so in its own name. Allowlisted by
+  # value rather than by file path, so the rest of that evidence file, and every
+  # other markdown file, stays scanned.
+  #
+  # ANCHORED deliberately. gitleaks matches allowlist `regexes` against the
+  # detected SECRET (verified: this finding reports Secret =
+  # `whsec_definitely_wrong_secret_ra1103`), and an unanchored pattern would
+  # suppress any future secret merely CONTAINING this string as a substring —
+  # a small blind spot, and one that would contradict the "by value" claim
+  # above. `^...$` makes the entry mean exactly what the comment says.
+  '''^whsec_definitely_wrong_secret_ra1103$''',
 ]
 
 # Lib files using NEXT_PUBLIC_* env-var references for Firebase Web API

@@ -2,16 +2,19 @@
 criterion: C2-secrets-scan
 status: fail
 verified: 2026-08-16
-last_scanned: 2026-05-19
+last_scanned: 2026-08-16
 ---
 
 # C2 — Secrets scan + config sanity (5 pts)
 
-**Status:** FAIL — demoted 2026-08-16. The scan this criterion rests on could not
-have detected the one secret that is currently open and publicly leaked. See
-"Why this was never a pass" below. The audit that follows is retained unchanged
-as the record of what was actually examined in May.
-**Last scanned:** 2026-05-19 (unchanged — no scan has been re-run since)
+**Status:** FAIL — demoted 2026-08-16. The scan this criterion rested on
+allowlisted every markdown file in the repository, so it could not have detected
+a secret committed to one. That is measured, not argued — see the control below.
+The allowlist is now narrowed, the scan is control-proven and running in CI, and
+one owner question remains. The May audit is retained unchanged as the record of
+what was examined then.
+**Last scanned:** 2026-08-16 — working tree (clean, control-proven) and full
+history (3489 commits, 55 findings, all in deleted files, triaged below)
 **Tracking ticket (history rewrite, optional):** **RA-4985** — historical commits in deleted files; key rotation tracked by **RA-4988**.
 
 ## Verification (re-run to refresh)
@@ -317,10 +320,129 @@ strings. The narrowed allowlist must exempt those specific documented files by
 path, rather than exempting the whole `.md` class. Exempting a class is what
 produced this defect.
 
+### Steps 1 and 3 are done - the allowlist is narrowed and the scan is control-proven (2026-08-16 17:40 UTC / 2026-08-17 03:40 AEST)
+
+**The blanket `(?i)\.md$` allowlist entry is removed.** Markdown is scanned like
+every other file. Re-running the working-tree scan with it gone produced exactly
+**one** finding across 163.80 MB:
+
+```
+generic-api-key  docs/evidence/release-gate/1.0.0/C2-secrets-scan.md:42
+                 wrongSecret = "whsec_definitely_wrong_secret_ra1103"
+```
+
+That is a deliberately-invalid webhook secret in this very file, used to show
+that signature verification **rejects** a wrong secret - the string says so in
+its own name. It is allowlisted by its exact literal in `regexes`, **not** by its
+path, so the rest of this file and every other markdown file stays scanned.
+
+**The prediction in the section above was overtaken by events.** It said the fix
+would have to exempt documented files *by path*, because an earlier run had also
+flagged this file's redacted Composio key. That line no longer exists - the file
+was reworded in #2020/#2021 - so one narrow literal was enough. Recorded rather
+than silently dropped, because the reasoning was sound when written.
+
+#### The control, including the two rounds where it failed
+
+A scan that has never been shown to fail proves nothing. Three arms, same config,
+same repository:
+
+| Arm | Working tree | Result |
+| --- | --- | --- |
+| 1 | clean | `no leaks found`, exit 0 |
+| 2 | canary in a root `.md` | **`leaks found: 1`** - `slack-bot-token`, `__c2_canary_probe.md:3`, exit 1 |
+| 3 | canary removed | `no leaks found`, exit 0 |
+
+**The first two canaries were not caught, and that near-miss is the most useful
+thing in this document.** The obvious reading was "markdown is still exempt, the
+fix did not work". It was wrong. Putting the identical string in both a `.md` and
+a `.txt` produced no finding either way, which pointed at the probe rather than
+the scanner; scanning an isolated directory against gitleaks' **default** rules
+confirmed it. The synthetic `sk_test_51SYNTHETIC...` string matches no rule, and
+`AKIAIOSFODNN7EXAMPLE` is AWS's own documentation example. Only a `xoxb-` Slack
+token fired.
+
+Had arm 1's `no leaks found` been trusted without arms 2 and 3, this criterion
+would have been marked green while still blind - **the exact defect it was
+demoted for**. A canary that cannot fire is not a canary, and "0 findings" from a
+broken probe is indistinguishable from "0 findings" from a clean repository.
+
+#### Step 2, partially: the scan now runs in CI
+
+Added to `.github/workflows/pr-checks.yml` (job `Quality Checks`, which is proven
+to run - it executed 843 test files on the most recent merge). It installs
+gitleaks **8.30.1**, the version the control was run with, and issues the
+identical `--no-git` invocation, so CI and the measurement above are the same
+instrument.
+
+It is deliberately **not** `gitleaks/gitleaks-action@v2`: that action scans the
+PR's commits, which is a different command than the one control-proved here.
+
+It was also deliberately **not** added to `deepsec-weekly.yml`, the repository's
+existing scheduled security workflow. That workflow has failed **all six** of its
+most recent scheduled runs (2026-07-06 through 2026-08-10). Wiring a new control
+into a host that has not succeeded in six weeks would produce the appearance of
+coverage and none of the substance.
+
+#### Step 2, the remaining half: full history is NOT gated, and here is why
+
+A full-history scan was run: **3489 commits, ~79.16 MB, 6m42s, 55 findings.**
+
+It is not wired into CI, because a gate that is red on arrival gets disabled
+rather than fixed. The 55 break down as:
+
+| Rule | Count |
+| --- | --- |
+| `generic-api-key` | 33 |
+| `curl-auth-header` | 18 |
+| `private-key` | 2 |
+| `jwt` | 1 |
+| `gcp-api-key` | 1 |
+
+**Every one is in a file that no longer exists in the working tree** - the
+working-tree scan is clean. 33 of 55 carry an explicit placeholder marker
+(`your_`, `example`, `<...>`, `_here`, `sk_test`, `REDACTED`). Of the remaining
+22, these are benign by design and need no action:
+
+- `lib/stripe-client.ts` x2 - `pk_test_` **publishable** keys. Publishable is
+  their purpose.
+- `lib/firebase.ts` - a Firebase Web API key, **public by design** per Firebase's
+  own documentation; it identifies the project, it does not authenticate. The
+  config already carries a stopword for this pattern.
+- `.github/workflows/ios-release.yml` x2 - base64 decoded at runtime from the
+  `IOS_DIST_P12_BASE64` GitHub Actions secret, not committed plaintext.
+- `JWT_SECRET` (9 chars) and `restoreassist...` matches - variable **names**, not
+  values.
+
+#### The one thing an agent cannot settle - and it is a question, not a demand
+
+Eight findings are `whsec_`-shaped, 38 characters, which is the shape of a Stripe
+webhook signing secret. Hashing them shows only **two distinct values**: one
+copy-pasted across seven now-deleted documents, one in an eighth. All eight files
+are deleted from the working tree; the repository's history is public.
+
+**No claim is made here that these are live credentials, and no rotation is being
+requested.** Stating precisely what is and is not known:
+
+- A `whsec_` verifies that an **inbound** payload genuinely came from Stripe. It
+  authorises no API call, reads no data, and moves no money. Its worst case is
+  that someone could forge webhook events at an endpoint.
+- Whether these two values are live, already-cycled, or documentation examples
+  **cannot be determined from the repository**. It is a Stripe dashboard lookup,
+  and the dashboard is owner-only.
+- Pattern-shape is not a risk verdict. Reading a regex match as a finding, rather
+  than asking what the credential actually permits, is a mistake this document
+  has already made once and will not repeat.
+
+**This is the single item between C2 and PASS.** If the owner confirms the two
+values are examples or already superseded, steps 4 and 5 close immediately and
+this criterion goes green with no further engineering.
+
 ### Path back to PASS
 
-**No owner action is required.** This is entirely code work, and every step is
-an agent's to do:
+Steps 1 and 3 are **done** (above). Step 2 is done for the working tree and
+deliberately deferred for history. Steps 4 and 5 wait on the single owner
+question above. Original plan retained for the record:
 
 1. Narrow the `(?i)\.md$` allowlist entry to the specific documented placeholder
    files, so markdown is scanned by default rather than exempt.
