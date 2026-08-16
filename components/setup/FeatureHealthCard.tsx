@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { activationErrorMessage } from '@/lib/setup/activation-error';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -20,6 +22,7 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
   const [activating, setActivating] = useState(false);
   const [activateError, setActivateError] = useState<string | null>(null);
   const [retryTick, setRetryTick] = useState(0);
+  const { update: refreshSession } = useSession();
 
   useEffect(() => {
     let cancelled = false;
@@ -81,14 +84,46 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
     setActivateError(null);
     try {
       const r = await fetch('/api/setup/activate', { method: 'POST' });
-      if (r.ok) {
-        const j = await r.json();
-        window.location.href = j?.data?.redirectTo ?? '/dashboard?firstRun=1';
-      } else {
-        const j = await r.json().catch(() => ({}));
-        setActivateError(j?.error ?? `Activation failed (${r.status})`);
+
+      // 409 CONFLICT is "setup already activated" — the state we wanted, e.g.
+      // the operator finished via the wizard's CTA, or retried after the
+      // session refresh below failed. Rendering it as an error dead-ends them
+      // on a workspace that is in fact live, so treat it as success exactly as
+      // SetupShell.handleFinish does.
+      if (!r.ok && r.status !== 409) {
+        const j = await r.json().catch(() => null);
+        // Must go through activationErrorMessage: the RA-1548 branches return
+        // `{ error: { code, message } }`, and handing that object to React as
+        // a child throws "Objects are not valid as a React child".
+        setActivateError(activationErrorMessage(r.status, j));
         setActivating(false);
+        return;
       }
+
+      const j = await r.json().catch(() => null);
+
+      // Re-mint the NextAuth JWT before leaving /setup. The setup gate in
+      // proxy.ts reads `setupCompletedAt` off the token, and only a NextAuth
+      // route can rewrite that cookie — a server-component redirect cannot.
+      // Navigating on the stale token bounces to /setup, which now redirects
+      // to /dashboard (the DB row is set), which the gate bounces back:
+      // ERR_TOO_MANY_REDIRECTS. Same reason SetupShell refreshes on finish.
+      try {
+        await refreshSession();
+      } catch {
+        // Activation itself COMMITTED — setupCompletedAt is set server-side.
+        // Only the token refresh failed, so say that rather than "activation
+        // failed", which would be untrue and would send the operator looking
+        // for a problem with their workspace. Retrying is the fix, and the
+        // retry now lands on the 409-as-success path above.
+        setActivateError(
+          'Your workspace is activated, but signing you in again failed. Press Activate to retry.',
+        );
+        setActivating(false);
+        return;
+      }
+
+      window.location.href = j?.data?.redirectTo ?? '/dashboard?firstRun=1';
     } catch {
       setActivateError('Network error during activation');
       setActivating(false);

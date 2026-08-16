@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { SetupStepper, type SetupStepperItem } from "../SetupStepper";
 
 function items(overrides: Partial<Record<string, boolean>> = {}): SetupStepperItem[] {
@@ -73,5 +73,169 @@ describe("SetupStepper — locked one-step-at-a-time", () => {
     expect(cta()).toBeEnabled();
     fireEvent.click(cta());
     expect(onFinish).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Finishing setup is a server round-trip (activate + session refresh), so the
+// CTA owns the pending/error state. Without this the operator gets no feedback
+// and can fire activation repeatedly.
+describe("SetupStepper — async finish", () => {
+  const finished = () =>
+    render(
+      <SetupStepper
+        items={items({ ai_key: true, business: true })}
+        initialIndex={3}
+        onFinish={vi.fn()}
+      />,
+    );
+
+  function renderWith(onFinish: () => Promise<void>) {
+    return render(
+      <SetupStepper
+        items={items({ ai_key: true, business: true })}
+        initialIndex={3}
+        onFinish={onFinish}
+      />,
+    );
+  }
+
+  it("disables the CTA while an async finish is in flight", async () => {
+    let release!: () => void;
+    const onFinish = vi.fn(
+      () => new Promise<void>((resolve) => (release = resolve)),
+    );
+    renderWith(onFinish);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /generate your first report/i }),
+    );
+
+    const pending = await screen.findByRole("button", {
+      name: /setting up your workspace/i,
+    });
+    expect(pending).toBeDisabled();
+
+    release();
+    await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(1));
+  });
+
+  it("fires activation once even when the CTA is clicked repeatedly", async () => {
+    let release!: () => void;
+    const onFinish = vi.fn(
+      () => new Promise<void>((resolve) => (release = resolve)),
+    );
+    renderWith(onFinish);
+
+    const cta = screen.getByRole("button", {
+      name: /generate your first report/i,
+    });
+    fireEvent.click(cta);
+    fireEvent.click(cta);
+    fireEvent.click(cta);
+
+    await screen.findByRole("button", { name: /setting up your workspace/i });
+    expect(onFinish).toHaveBeenCalledTimes(1);
+
+    release();
+    await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(1));
+  });
+
+  it("blocks a re-entrant click even when the DOM attribute is forced off", async () => {
+    // `disabled` is the whole re-entrancy defence, and it is stronger than the
+    // attribute: React decides whether to run onClick from the element's
+    // committed fiber props, so clearing `element.disabled` by hand does not
+    // reopen the handler. This pins that behaviour — if the CTA ever stops
+    // being a real `<button disabled>` (a div with role="button", say), this
+    // test goes red and the guard has to be reinstated in handleFinish.
+    let release!: () => void;
+    const onFinish = vi.fn(
+      () => new Promise<void>((resolve) => (release = resolve)),
+    );
+    renderWith(onFinish);
+
+    const cta = screen.getByRole("button", {
+      name: /generate your first report/i,
+    });
+    fireEvent.click(cta);
+    await screen.findByRole("button", { name: /setting up your workspace/i });
+    expect(onFinish).toHaveBeenCalledTimes(1);
+
+    for (let i = 0; i < 3; i++) {
+      await act(async () => {
+        (cta as HTMLButtonElement).disabled = false;
+        cta.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true }),
+        );
+      });
+    }
+
+    expect((cta as HTMLButtonElement).disabled).toBe(false); // attribute really was cleared
+    expect(onFinish).toHaveBeenCalledTimes(1);
+
+    release();
+    await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(1));
+  });
+
+  it("surfaces a rejection in place and re-enables the CTA for a retry", async () => {
+    const onFinish = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Setup can't finish yet — Storage needs attention."))
+      .mockResolvedValueOnce(undefined);
+    renderWith(onFinish);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /generate your first report/i }),
+    );
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Setup can't finish yet — Storage needs attention.",
+    );
+
+    // Retryable: the CTA comes back rather than stranding the operator.
+    const cta = screen.getByRole("button", {
+      name: /generate your first report/i,
+    });
+    expect(cta).toBeEnabled();
+
+    fireEvent.click(cta);
+    await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("falls back to a generic message when the rejection carries none", async () => {
+    renderWith(vi.fn().mockRejectedValue(new Error("")));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /generate your first report/i }),
+    );
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/could not finish setup/i);
+  });
+
+  it("leaves the CTA disabled after a successful finish so activation cannot re-fire", async () => {
+    const onFinish = vi.fn().mockResolvedValue(undefined);
+    renderWith(onFinish);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /generate your first report/i }),
+    );
+
+    await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(1));
+    // Success navigates away; the button must not invite a second activation
+    // while the browser is still tearing the page down.
+    expect(
+      screen.getByRole("button", { name: /setting up your workspace/i }),
+    ).toBeDisabled();
+  });
+
+  it("still renders the CTA when no onFinish is supplied", () => {
+    finished();
+    expect(
+      screen.getByRole("button", { name: /generate your first report/i }),
+    ).toBeEnabled();
   });
 });
