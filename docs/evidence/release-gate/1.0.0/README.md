@@ -10,20 +10,23 @@ Files in this directory are read by `scripts/release-gate-score.ts` to verify th
   ---
   criterion: <criterion-id>
   status: pass | fail | deferred
-  verified: YYYY-MM-DD     # required when status: pass
+  verified: YYYY-MM-DD     # required when status: pass — the date the claim was actually checked
   tracking_ticket: RA-XXXX # required when status: deferred (Linear ticket that will resolve it)
   ---
   ```
 - The scorer counts a file as PASS only when **all three** hold:
   - File exists.
-  - Mtime within the last 14 days (`EVIDENCE_MAX_AGE_DAYS` in the scorer).
   - `status: pass` declared in frontmatter.
+  - `verified:` is present, parseable, not in the future, and within the last 14 days (`EVIDENCE_MAX_AGE_DAYS` in the scorer).
+- Status is judged before freshness, so a `deferred` file reports as deferred rather than as stale, and nobody is ever asked to refresh a date on work that is deliberately paused.
 - `status: deferred` is treated as FAIL by design — use it when the criterion's underlying work is tracked but not yet complete (e.g. C2 awaits RA-4985). The body documents the deferral; the frontmatter keeps the gate honest.
 - The body should contain the actual verification artifact (query result, screenshot reference, dashboard link, etc.) — not a stub.
 
 ## Refreshing evidence
 
-Each evidence file documents how to regenerate it. To refresh, re-run the documented procedure, then `touch` or `git commit -m "refresh evidence"` on the file so its mtime updates.
+Each evidence file documents how to regenerate it. To refresh: re-run the documented procedure, then update the `verified:` date in the frontmatter to the date you re-ran it, and commit.
+
+Touching the file or committing it is **not** enough, and neither is a rebase, a rename or a lint pass. Freshness is aged from the `verified:` date the file declares about itself, never from the file's mtime or its commit date. That is deliberate: the gate runs after `actions/checkout`, which rewrites every file's mtime, so an mtime-based rule could never fire in CI — it awarded points to claims that were months old. Only editing `verified:` refreshes evidence, because only a human re-running the check should be able to.
 
 ## Versioning
 

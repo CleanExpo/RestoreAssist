@@ -83,23 +83,64 @@ function shellOK(cmd: string, options: { timeout?: number } = {}): CriterionResu
   }
 }
 
+// Extracts the leading `---` frontmatter block, or null when the file has none.
+function readFrontmatter(filePath: string): string | null {
+  const text = fs.readFileSync(filePath, "utf8");
+  if (!text.startsWith("---")) return null;
+  const end = text.indexOf("\n---", 3);
+  if (end < 0) return null;
+  return text.slice(3, end);
+}
+
 // Parses YAML-ish frontmatter `status:` value (pass | fail | deferred).
 // Returns null when no frontmatter or no status key — caller treats null as
 // a missing-status FAIL so legacy un-tagged evidence files do NOT silently
 // pass. The frontmatter requirement was added in 1.0.0 after the end-to-end
 // scorer test surfaced a DEFERRED file silently passing.
-function readEvidenceStatus(filePath: string): "pass" | "fail" | "deferred" | null {
-  const text = fs.readFileSync(filePath, "utf8");
-  if (!text.startsWith("---")) return null;
-  const end = text.indexOf("\n---", 3);
-  if (end < 0) return null;
-  const frontmatter = text.slice(3, end);
+export function readEvidenceStatus(
+  filePath: string,
+): "pass" | "fail" | "deferred" | null {
+  const frontmatter = readFrontmatter(filePath);
+  if (frontmatter === null) return null;
   const m = frontmatter.match(/^\s*status\s*:\s*(pass|fail|deferred)\s*$/im);
   return m ? (m[1].toLowerCase() as "pass" | "fail" | "deferred") : null;
 }
 
-function ownerEvidence(criterionId: string, gateVersion: string): CriterionResult {
-  const dir = path.join(ROOT, "docs", "evidence", "release-gate", gateVersion);
+// Reads the evidence file's self-declared `verified: YYYY-MM-DD` date. THIS,
+// not the file's mtime, is what the freshness rule ages.
+//
+// Why mtime had to go: release-gate.yml checks the repo out with
+// actions/checkout@v7 immediately before running the scorer, and checkout
+// writes every file at checkout time. Every evidence file therefore reported
+// ~0 days old wherever the gate actually runs, so EVIDENCE_MAX_AGE_DAYS could
+// never fire — it only ever bit on a long-lived local checkout. Measured
+// 2026-08-16 in a fresh worktree: A3-no-sev1-sev2-open.md was last genuinely
+// updated 2026-05-18 (90 days) but its mtime was that morning's checkout, and
+// the criterion scored 5 points for a claim a live Linear query contradicts.
+//
+// Why not the git commit date: release-gate.yml uses fetch-depth: 1, so
+// `git log -1 -- <file>` has only the tip commit to report and would call
+// every file fresh — the same silent non-firing in a new costume. It is also
+// refreshed by any unrelated touch (a lint pass, a squash-merge, a rename),
+// which would renew evidence nobody re-verified. A self-declared date can only
+// move when someone edits it, which is precisely the act it records.
+export function readEvidenceVerifiedDate(filePath: string): Date | null {
+  const frontmatter = readFrontmatter(filePath);
+  if (frontmatter === null) return null;
+  const m = frontmatter.match(/^\s*verified\s*:\s*(\d{4}-\d{2}-\d{2})\s*$/im);
+  if (!m) return null;
+  const parsed = new Date(`${m[1]}T00:00:00Z`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export function ownerEvidence(
+  criterionId: string,
+  gateVersion: string,
+  // Overridable so the freshness rule can be exercised against fixtures.
+  // Defaults to the real evidence tree, preserving production behaviour.
+  evidenceRoot: string = path.join(ROOT, "docs", "evidence", "release-gate"),
+): CriterionResult {
+  const dir = path.join(evidenceRoot, gateVersion);
   const file = path.join(dir, `${criterionId}.md`);
   if (!fs.existsSync(file)) {
     return {
@@ -107,14 +148,11 @@ function ownerEvidence(criterionId: string, gateVersion: string): CriterionResul
       detail: `evidence file missing: docs/evidence/release-gate/${gateVersion}/${criterionId}.md`,
     };
   }
-  const stat = fs.statSync(file);
-  const ageDays = (Date.now() - stat.mtimeMs) / 86_400_000;
-  if (ageDays > EVIDENCE_MAX_AGE_DAYS) {
-    return {
-      status: "fail",
-      detail: `evidence file stale (${Math.round(ageDays)}d old, max ${EVIDENCE_MAX_AGE_DAYS}d): ${criterionId}.md`,
-    };
-  }
+  // Status is judged before freshness, deliberately. A file declaring `fail` or
+  // `deferred` is failing on its own merits whatever its age, and reporting it
+  // as "stale" would both bury the actionable reason and invite someone to bump
+  // the date on deliberately-deferred work. That habit is exactly what would
+  // hollow out a self-declared timestamp, so the rule never asks for it.
   const declaredStatus = readEvidenceStatus(file);
   if (declaredStatus === null) {
     return {
@@ -128,9 +166,33 @@ function ownerEvidence(criterionId: string, gateVersion: string): CriterionResul
       detail: `evidence file declares status=${declaredStatus} (only \`pass\` counts toward the gate)`,
     };
   }
+  // Only a `pass` claim has to be fresh — it is the only kind that earns points.
+  const verifiedAt = readEvidenceVerifiedDate(file);
+  if (verifiedAt === null) {
+    return {
+      status: "fail",
+      detail: `evidence file ${criterionId}.md declares status=pass but is missing required frontmatter \`verified: YYYY-MM-DD\``,
+    };
+  }
+  const ageDays = (Date.now() - verifiedAt.getTime()) / 86_400_000;
+  // A future date would make the claim permanently "fresh" and silently disable
+  // the rule for that criterion — the same class of defect this fix exists to
+  // remove. One day of slack absorbs timezone skew against the UTC-midnight parse.
+  if (ageDays < -1) {
+    return {
+      status: "fail",
+      detail: `evidence file ${criterionId}.md declares a future verified date (${verifiedAt.toISOString().slice(0, 10)})`,
+    };
+  }
+  if (ageDays > EVIDENCE_MAX_AGE_DAYS) {
+    return {
+      status: "fail",
+      detail: `evidence stale: verified ${Math.round(ageDays)}d ago, max ${EVIDENCE_MAX_AGE_DAYS}d: ${criterionId}.md`,
+    };
+  }
   return {
     status: "pass",
-    detail: `evidence file declares status=pass, ${Math.round(ageDays)}d old: ${criterionId}.md`,
+    detail: `evidence file declares status=pass, verified ${Math.round(ageDays)}d ago: ${criterionId}.md`,
   };
 }
 
@@ -390,4 +452,10 @@ function main(): void {
   }
 }
 
-main();
+// Only run when invoked directly (`pnpm tsx scripts/release-gate-score.ts`),
+// not when imported by a test — the same guard scripts/audit-prod-cves.ts uses.
+// Without it, importing this module to test ownerEvidence() would execute every
+// criterion, including the smoke suites.
+if (/release-gate-score\.ts$/.test(process.argv[1] ?? "")) {
+  main();
+}
