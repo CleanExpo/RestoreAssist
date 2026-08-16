@@ -285,7 +285,7 @@ What was **NOT** done at the time: gitleaks was not installed on the machine
 that review ran on, so the empirical demonstration was recorded as **NOT RUN**,
 not "passed".
 
-### That gap is now closed — measured 2026-08-17, gitleaks 8.30.1
+### That gap is now closed — measured 2026-08-17 02:20 AEST (2026-08-16 16:20 UTC), gitleaks 8.30.1
 
 A synthetic canary was planted in a markdown file at the repo root:
 
