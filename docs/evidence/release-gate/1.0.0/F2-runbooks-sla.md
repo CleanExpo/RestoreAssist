@@ -68,9 +68,33 @@ Includes anti-pattern guidance ("don't say 'experiencing degradation', say what'
 | P1 SLA (≤1h response) | `docs/SUPPORT_SLA.md` | YES — P1 = ≤1h business-hours, ≤2h after-hours |
 | Customer comms template | `docs/CUSTOMER_COMMS_TEMPLATE.md` | YES — 5 templates incl. compliance variant |
 
-## Refresh
+## Re-verification, 2026-08-16
 
-These docs review quarterly per their frontmatter `review_cadence`. If response-time commitments change, bump `version` in `SUPPORT_SLA.md` and `touch` this evidence file. Compliance escalation rule is locked — needs founder approval to relax.
+**This file's PASS is substantively true and was left as PASS.** F2 is a document-existence criterion, and all four referenced documents are present in the tree today:
+
+```
+PRESENT  27590 bytes  docs/MOBILE_RELEASE_RUNBOOK.md
+PRESENT   9201 bytes  docs/PILOT_CUTOVER_CHECKLIST.md
+PRESENT   4100 bytes  docs/SUPPORT_SLA.md
+PRESENT   5990 bytes  docs/CUSTOMER_COMMS_TEMPLATE.md
+```
+
+No founder action is required to keep these 5 points. This is the only one of the seven owner-evidence criteria in that position.
+
+## Founder re-confirmation (about 3 minutes, optional)
+
+Run this from the repo root. It is the same existence check the evidence rests on:
+
+```bash
+ls -l docs/MOBILE_RELEASE_RUNBOOK.md docs/PILOT_CUTOVER_CHECKLIST.md \
+      docs/SUPPORT_SLA.md docs/CUSTOMER_COMMS_TEMPLATE.md
+```
+
+All four must list. If one is missing, this criterion is false and must be flipped to `deferred`.
+
+One judgement call is worth 60 seconds of your time: open `docs/SUPPORT_SLA.md` and confirm the **P1 first-response commitment is still 1 hour or less**, because that specific number is what the gate criterion names. If the commitment has been relaxed, this file must be re-authored, not merely re-timestamped.
+
+These docs review quarterly per their frontmatter `review_cadence`. If response-time commitments change, bump `version` in `SUPPORT_SLA.md`. The compliance escalation rule is locked and needs founder approval to relax.
 
 ## Related
 
