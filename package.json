@@ -66,7 +66,7 @@
     "check:marketing-verbatim": "tsx scripts/check-marketing-verbatim.ts",
     "check:au-english": "node scripts/check-au-english.mjs",
     "pretype-check": "prisma generate",
-    "type-check": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsc --noEmit",
+    "type-check": "node scripts/type-check.mjs",
     "check:no-emoji": "node scripts/check-no-emoji.mjs",
     "check:no-lucide": "node scripts/check-no-lucide.mjs",
     "check:encoding": "node scripts/check-encoding.mjs",
