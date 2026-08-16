@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const getServerSession = vi.fn();
 const applyRateLimit = vi.fn();
@@ -73,6 +75,89 @@ function postRequest() {
     }),
   });
 }
+
+// ── Fixture: a real photo-substitute of a moisture meter display ─────────────
+// lib/vision/__tests__/fixtures/moisture-meter-18-5.png is a 320x200 PNG of a
+// meter LCD reading "18.5%" on the WME scale. It is a genuine image file, not
+// an inline string, so this exercises the same base64 length / charset / size
+// guards a phone photo hits on the way into the route.
+const FIXTURE_PATH = join(
+  process.cwd(),
+  "lib/vision/__tests__/fixtures/moisture-meter-18-5.png",
+);
+const FIXTURE_BYTES = readFileSync(FIXTURE_PATH);
+const FIXTURE_BASE64 = FIXTURE_BYTES.toString("base64");
+
+function fixturePostRequest() {
+  return new NextRequest("http://localhost/api/vision/extract-reading", {
+    method: "POST",
+    body: JSON.stringify({
+      image: FIXTURE_BASE64,
+      mediaType: "image/png",
+    }),
+  });
+}
+
+describe("POST /api/vision/extract-reading — meter photo fixture", () => {
+  it("the fixture on disk is a real PNG", () => {
+    // Guards the guard: if the fixture were ever replaced by a text placeholder
+    // the happy-path test below would still pass while proving nothing.
+    expect(FIXTURE_BYTES.subarray(0, 8)).toEqual(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    );
+    expect(FIXTURE_BYTES.length).toBeGreaterThan(200);
+  });
+
+  it("passes the photo through the BYOK key to the extractor and returns the reading", async () => {
+    extractMeterReading.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        brand: "protimeter",
+        readingValue: 18.5,
+        readingUnit: "WME",
+        displayText: "18.5% WME",
+        confidence: "high",
+      },
+    });
+
+    const response = await POST(fixturePostRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.reading).toEqual({
+      brand: "protimeter",
+      readingValue: 18.5,
+      readingUnit: "WME",
+      displayText: "18.5% WME",
+      confidence: "high",
+    });
+
+    // The bytes that reached the extractor must be the fixture's own bytes,
+    // and they must be spent on the WORKSPACE key, never a platform env key.
+    expect(extractMeterReading).toHaveBeenCalledWith({
+      apiKey: "anthropic-key",
+      image: FIXTURE_BASE64,
+      mediaType: "image/png",
+    });
+    expect(resolveWorkspaceAiKey).toHaveBeenCalledWith("user_1", "ANTHROPIC");
+    expect(
+      Buffer.from(extractMeterReading.mock.calls[0][0].image, "base64"),
+    ).toEqual(FIXTURE_BYTES);
+  });
+
+  it("returns 422 when the model cannot read the display", async () => {
+    extractMeterReading.mockResolvedValueOnce({
+      ok: false,
+      reason: "NO_READING_DETECTED",
+      detail: "display glare",
+    });
+
+    const response = await POST(fixturePostRequest());
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({ error: "NO_READING_DETECTED" });
+  });
+});
 
 describe("POST /api/vision/extract-reading", () => {
   it("does not expose configured key details when no workspace key is configured", async () => {

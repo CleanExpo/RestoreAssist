@@ -2,9 +2,19 @@
  * RA-427: Admin Demo Seed Trigger
  *
  * POST /api/admin/seed-demo
- *   Runs the seed-demo.ts logic to create a complete S500:2021 demo job.
+ *   Creates a complete S500:2021 demo job — client, report, inspection, a
+ *   3-day drying log and an S500-cited scope.
  *   Admin-only — requires session with role === "ADMIN".
  *   Idempotent: re-running is safe (skips if demo data already present).
+ *
+ * Every `data` payload below is written WITHOUT an `as any` cast on purpose.
+ * The original version of this route cast all five creates to `any`, which hid
+ * the fact that it addressed columns that do not exist on Report, Inspection,
+ * Client, MoistureReading or ScopeItem — so the route threw a Prisma validation
+ * error on its first write and had never successfully seeded anything. Keeping
+ * these payloads un-cast makes `tsc` the guard against that regression; the
+ * suite in `__tests__/route.test.ts` checks the same thing against the live
+ * Prisma DMMF at runtime.
  *
  * Returns: { seeded: boolean; message: string }
  */
@@ -16,7 +26,6 @@ import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { fromException } from "@/lib/api-errors";
 
-const DEMO_EMAIL = "demo@restoreassist.app";
 const DEMO_INSPECTION_NUMBER = "NIR-2026-04-DEMO";
 const DEMO_REPORT_NUMBER = "RA-DEMO-2026-0001";
 
@@ -40,48 +49,36 @@ export async function POST(_req: NextRequest) {
       });
     }
 
-    // ── 1. Demo user ─────────────────────────────────────────────────────────
+    // ── 1. Owner ─────────────────────────────────────────────────────────────
+    //
+    // The demo claim is seeded onto the ADMIN WHO PRESSED THE BUTTON, not onto
+    // a separate demo persona. This is load-bearing, not a simplification for
+    // its own sake: the write routes the demo walks through — moisture
+    // readings, photo upload, portal link — all scope by
+    // `findFirst({ where: { id, userId: session.user.id } })`. A claim owned by
+    // some other user reads fine for an admin (assertInspectionTenancy has an
+    // admin path) but every write against it 404s, so the live meter-photo step
+    // could not be completed by the operator running the demo.
+    //
+    // It also means this route no longer creates a privileged user or mutates
+    // the caller's organisation, which it previously did as a side effect.
+    const userId = auth.user!.id;
+
     const now = new Date();
     const day1 = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
     const day2 = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
     const day3 = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
 
-    let user = await prisma.user.findUnique({ where: { email: DEMO_EMAIL } });
-
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          email: DEMO_EMAIL,
-          name: "James Whitfield",
-          role: "ADMIN",
-          subscriptionStatus: "ACTIVE",
-          subscriptionPlan: "professional",
-          lifetimeAccess: true,
-          businessName: "Whitfield Restoration Services Pty Ltd",
-          businessAddress: "Unit 4, 18 Industrial Ave, Brookvale NSW 2100",
-          businessABN: "12 345 678 901",
-          businessPhone: "02 9876 5432",
-          businessEmail: DEMO_EMAIL,
-          hasPremiumInspectionReports: true,
-          firstRunChecklistDismissedAt: day1,
-        } as any,
-      });
-    }
-
-    // ── 2. Demo organization ─────────────────────────────────────────────────
-    let org = await prisma.organization.findFirst({
-      where: { ownerId: user.id },
+    // ── 2. Client ────────────────────────────────────────────────────────────
+    const client = await prisma.client.create({
+      data: {
+        name: "Sarah Thompson",
+        email: "sarah.thompson@example.com",
+        phone: "0412 345 678",
+        address: "42 Harbourside Drive, Manly NSW 2095",
+        userId,
+      },
     });
-
-    if (!org) {
-      org = await prisma.organization.create({
-        data: { name: "RestoreAssist Demo Tenant", ownerId: user.id },
-      });
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { organizationId: org.id },
-      });
-    }
 
     // ── 3. Report ────────────────────────────────────────────────────────────
     const report = await prisma.report.create({
@@ -91,155 +88,182 @@ export async function POST(_req: NextRequest) {
           "Category 2 grey water damage from washing machine supply hose failure. 150 m² affected across living room, kitchen, and hallway. 3-day structural drying program completed.",
         status: "COMPLETED",
         clientName: "Sarah Thompson",
-        clientEmail: "sarah.thompson@example.com",
-        clientPhone: "0412 345 678",
+        clientId: client.id,
         propertyAddress: "42 Harbourside Drive, Manly NSW 2095",
+        propertyPostcode: "2095",
+        hazardType: "water",
+        insuranceType: "home",
         reportNumber: DEMO_REPORT_NUMBER,
-        userId: user.id,
-        organizationId: org.id,
-        waterDamageCategory: "CATEGORY_2",
-        waterDamageClass: "CLASS_2",
-        iicrcClassification: "CLASS_2_CATEGORY_2",
-        totalAffectedArea: 150,
-        totalEstimatedCost: 8750.0,
-        currency: "AUD",
-        isS500Compliant: true,
-        completedAt: day3,
-        createdAt: day1,
-        updatedAt: day3,
-      } as any,
+        userId,
+        inspectionDate: day1,
+        technicianName: "James Whitfield (IICRC WRT #AUS-0042)",
+        technicianAttendanceDate: day1,
+        waterCategory: "2",
+        waterClass: "2",
+        sourceOfWater:
+          "Washing machine supply hose failure — grey water overflow from laundry into living areas",
+        affectedArea: 150,
+        totalCost: 8750.0,
+        dryingPlan:
+          "Structural drying per IICRC S500:2021 §5. 2× LGR dehumidifiers positioned centrally in the living room and kitchen; 3× air movers directed at the affected timber flooring and hallway slab. Daily moisture monitoring until every material meets its S500 dry standard.",
+        airmoversCount: 3,
+        dehumidificationCapacity: 160,
+        estimatedDryingTime: 72,
+        completionDate: day3,
+      },
     });
 
-    // ── 4. Client ────────────────────────────────────────────────────────────
-    await prisma.client.create({
-      data: {
-        name: "Sarah Thompson",
-        email: "sarah.thompson@example.com",
-        phone: "0412 345 678",
-        address: "42 Harbourside Drive, Manly NSW 2095",
-        userId: user.id,
-        organizationId: org.id,
-      } as any,
-    });
-
-    // ── 5. Inspection ────────────────────────────────────────────────────────
+    // ── 4. Inspection ────────────────────────────────────────────────────────
     const inspection = await prisma.inspection.create({
       data: {
         inspectionNumber: DEMO_INSPECTION_NUMBER,
         propertyAddress: "42 Harbourside Drive, Manly NSW 2095",
-        propertyType: "RESIDENTIAL",
-        damageType: "WATER",
+        propertyPostcode: "2095",
         status: "COMPLETED",
-        category: "CATEGORY_2",
-        class: "CLASS_2",
-        iicrcCompliant: true,
-        affectedAreaM2: 150,
+        // Load-bearing for the demo, not decoration: the inspection detail page
+        // gates the Moisture and Moisture Map tabs on
+        // moistureReadingsRequired(claimType), which is `claimType === "WATER"`.
+        // Seeded without it, the drying log and the meter-photo capture card
+        // are unreachable in the UI even though the readings exist in the DB.
+        claimType: "WATER",
         reportId: report.id,
-        userId: user.id,
-        organizationId: org.id,
-        inspectedAt: day1,
+        userId,
+        technicianId: userId,
+        technicianName: "James Whitfield",
+        inspectionDate: day1,
+        submittedAt: day1,
+        processedAt: day3,
         completedAt: day3,
-        createdAt: day1,
-        updatedAt: day3,
-        notes:
-          "Washing machine hose failure caused grey water release. Subfloor cavity affected — moisture readings confirm Category 2 classification. IICRC S500:2021 §6.3 applied.",
-      } as any,
+        lossDescription:
+          "Washing machine hose failure caused a grey water release. Subfloor cavity affected — moisture readings confirm Category 2 classification. IICRC S500:2021 §6.3 applied.",
+      },
     });
 
-    // ── 6. Moisture readings (14 readings over 3 days) ───────────────────────
-    const rooms = ["Living Room", "Kitchen", "Hallway"];
-    const materials = ["Plasterboard", "Timber Flooring", "Concrete Slab"];
-    const readingDays = [day1, day1, day2, day2, day2, day3, day3];
-    const values = [
-      [28, 31, 26],
-      [25, 29, 24],
-      [19, 22, 18],
-      [17, 20, 16],
-      [15, 18, 14],
-      [12, 14, 11],
-      [11, 13, 10],
+    // ── 5. Moisture readings (21 readings — 3 monitoring points × 7 visits) ──
+    //
+    // `surfaceType` deliberately uses the exact lowercase keys that
+    // app/api/inspections/[id]/monitoring-report keys its IICRC_TARGETS table
+    // on ("timber" 19%, "plasterboard" 1.5%, "concrete" 3.5%). Anything else
+    // silently falls back to the generic 15% target and the drying log shows
+    // the wrong dry standard. Each curve ends BELOW its target so the S500
+    // monitoring report reads "goal achieved" for all three materials.
+    const monitoringPoints = [
+      {
+        location: "Living Room — timber flooring, centre of room",
+        surfaceType: "timber",
+        depth: "Subsurface",
+        curve: [31.2, 28.6, 25.1, 22.4, 20.8, 19.6, 18.4], // target 19%
+      },
+      {
+        location: "Kitchen — plasterboard, north wall 150mm AFF",
+        surfaceType: "plasterboard",
+        depth: "Subsurface",
+        curve: [4.8, 4.1, 3.4, 2.8, 2.2, 1.7, 1.3], // target 1.5%
+      },
+      {
+        location: "Hallway — concrete slab, mid-span",
+        surfaceType: "concrete",
+        depth: "Surface",
+        curve: [9.2, 8.1, 6.9, 5.8, 4.7, 3.9, 3.2], // target 3.5%
+      },
     ];
+    const readingDays = [day1, day1, day2, day2, day2, day3, day3];
 
     await prisma.$transaction(
-      readingDays.flatMap((date, dayIdx) =>
-        rooms.map((location, roomIdx) =>
+      readingDays.flatMap((date, visitIdx) =>
+        monitoringPoints.map((point) =>
           prisma.moistureReading.create({
             data: {
               inspectionId: inspection.id,
-              location,
-              material: materials[roomIdx],
-              moistureContent: values[dayIdx][roomIdx],
-              unit: "PERCENT_WME",
-              readingType: "STRUCTURAL",
-              readingDate: date,
+              location: point.location,
+              surfaceType: point.surfaceType,
+              moistureLevel: point.curve[visitIdx],
+              depth: point.depth,
+              unit: "WME",
+              source: "manual",
+              isMonitoringPoint: true,
+              recordedAt: date,
               notes:
-                dayIdx === 0
-                  ? "Initial reading"
-                  : dayIdx >= 5
-                    ? "Drying goal achieved per S500:2021 §8.4"
+                visitIdx === 0
+                  ? "Initial reading — pre-drying baseline for this monitoring point."
+                  : visitIdx === readingDays.length - 1
+                    ? "Drying goal achieved — reading is at or below the IICRC S500:2021 dry standard for this material."
                     : null,
-            } as any,
+            },
           }),
         ),
       ),
     );
 
-    // ── 7. Scope items ────────────────────────────────────────────────────────
+    // ── 6. Scope items ────────────────────────────────────────────────────────
+    //
+    // The S500 citation belongs in `clauseRef` (RA-1142), not in the
+    // justification prose — that is the field the inspection detail API selects
+    // and the report's clause column reads.
     const scopeItems = [
       {
-        category: "DEMOLITION",
+        itemType: "remove_skirting",
         description: "Remove and dispose of affected skirting boards",
         unit: "LM",
         quantity: 42,
-        unitRate: 18.5,
-        iicrcReference: "IICRC S500:2021 §7.2",
+        clauseRef: "IICRC S500:2021 §7.2",
+        justification:
+          "Category 2 water contact with porous timber skirting — contaminated porous material is removed rather than dried.",
+        autoDetermined: true,
       },
       {
-        category: "STRUCTURAL_DRYING",
+        itemType: "install_dehumidification",
         description:
-          "Deploy 2× LGR dehumidifiers for 3-day structural drying program",
+          "Deploy 2× LGR dehumidifiers for the 3-day structural drying program",
         unit: "DAY",
         quantity: 3,
-        unitRate: 285.0,
-        iicrcReference: "IICRC S500:2021 §8.1",
+        clauseRef: "IICRC S500:2021 §8.1",
+        justification:
+          "Class 2 evaporation load across 150 m² requires a minimum 120 L/day LGR capacity; 2× 80 L/day units deployed.",
+        autoDetermined: true,
       },
       {
-        category: "STRUCTURAL_DRYING",
-        description: "Deploy 3× air movers for evaporative drying",
+        itemType: "install_air_movers",
+        description: "Deploy 3× axial air movers for evaporative drying",
         unit: "DAY",
         quantity: 3,
-        unitRate: 65.0,
-        iicrcReference: "IICRC S500:2021 §8.2",
+        clauseRef: "IICRC S500:2021 §8.2",
+        justification:
+          "Airflow across affected timber flooring and hallway slab to maintain the evaporation rate for the Class 2 load.",
+        autoDetermined: true,
       },
       {
-        category: "ANTIMICROBIAL",
+        itemType: "sanitize_materials",
         description:
-          "Apply EPA-registered antimicrobial treatment to affected areas",
+          "Apply antimicrobial treatment to affected areas post-extraction",
         unit: "M2",
         quantity: 150,
-        unitRate: 8.75,
-        iicrcReference: "IICRC S500:2021 §10.3",
+        clauseRef: "IICRC S500:2021 §10.3",
+        justification:
+          "Mandatory Category 2 sanitation of affected surfaces prior to reinstatement.",
+        autoDetermined: true,
       },
       {
-        category: "REINSTATEMENT",
+        itemType: "reinstate_skirting",
         description: "Supply and install replacement skirting boards",
         unit: "LM",
         quantity: 42,
-        unitRate: 32.0,
-        iicrcReference: null,
+        clauseRef: null,
+        justification:
+          "Reinstatement of materials removed under the demolition line above.",
+        autoDetermined: false,
       },
     ];
 
     await prisma.$transaction(
-      scopeItems.map((item, idx) =>
+      scopeItems.map((item) =>
         prisma.scopeItem.create({
           data: {
             ...item,
-            reportId: report.id,
             inspectionId: inspection.id,
-            sortOrder: idx + 1,
-            totalCost: item.quantity * item.unitRate,
-          } as any,
+            isRequired: true,
+            isSelected: true,
+          },
         }),
       ),
     );
@@ -249,7 +273,6 @@ export async function POST(_req: NextRequest) {
       message: `Demo data created — inspection ${DEMO_INSPECTION_NUMBER}`,
       inspectionId: inspection.id,
       reportId: report.id,
-      demoEmail: DEMO_EMAIL,
     });
   } catch (error) {
     return fromException(_req, error, { stage: "seed-demo" });
