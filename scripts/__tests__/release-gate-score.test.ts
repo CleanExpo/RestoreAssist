@@ -123,6 +123,18 @@ describe("ownerEvidence — freshness rule", () => {
     expect(result.detail).toContain("future");
   });
 
+  // The one day of future slack is deliberate, not incidental: dates parse at
+  // UTC midnight, so someone in UTC+10 writing today's date is briefly "ahead"
+  // of now. Pinned here so nobody tightens it and starts failing honest entries.
+  it("accepts today's date from a UTC+10 author (one day of slack)", () => {
+    writeEvidence(
+      "C2-secrets-scan",
+      `criterion: C2-secrets-scan\nstatus: pass\nverified: ${isoDaysAgo(-1)}`,
+    );
+    const result = ownerEvidence("C2-secrets-scan", GATE_VERSION, evidenceRoot);
+    expect(result.status).toBe("pass");
+  });
+
   it("fails when the evidence file is absent", () => {
     const result = ownerEvidence("F2-runbooks-sla", GATE_VERSION, evidenceRoot);
     expect(result.status).toBe("fail");

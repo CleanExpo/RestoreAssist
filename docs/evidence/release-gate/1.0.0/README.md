@@ -17,7 +17,7 @@ Files in this directory are read by `scripts/release-gate-score.ts` to verify th
 - The scorer counts a file as PASS only when **all three** hold:
   - File exists.
   - `status: pass` declared in frontmatter.
-  - `verified:` is present, parseable, not in the future, and within the last 14 days (`EVIDENCE_MAX_AGE_DAYS` in the scorer).
+  - `verified:` is present, parseable, and within the last 14 days (`EVIDENCE_MAX_AGE_DAYS` in the scorer). Dates are read at UTC midnight, so a date more than one day ahead of now is rejected as a future date; the one day of slack is what lets someone in UTC+10 write today's date without it reading as the future.
 - Status is judged before freshness, so a `deferred` file reports as deferred rather than as stale, and nobody is ever asked to refresh a date on work that is deliberately paused.
 - `status: deferred` is treated as FAIL by design — use it when the criterion's underlying work is tracked but not yet complete (e.g. C2 awaits RA-4985). The body documents the deferral; the frontmatter keeps the gate honest.
 - The body should contain the actual verification artifact (query result, screenshot reference, dashboard link, etc.) — not a stub.
