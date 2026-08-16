@@ -9,7 +9,15 @@ export type OcrExtraction =
   | {
       type: "moisture";
       moisturePercent: number | null;
-      value: number;
+      /**
+       * Null when the meter display could not be read. It must NOT fall back to
+       * 0 — a fabricated 0% reads as "bone dry", the opposite of an unknown
+       * reading. The vision route legitimately returns a SUCCESSFUL result with
+       * a null reading whenever confidence is medium or high (only
+       * null-plus-low is mapped to NO_READING_DETECTED), so this case is
+       * reachable in normal operation.
+       */
+      value: number | null;
       unit: string;
       materialType?: string | null;
       surfaceType?: string;
