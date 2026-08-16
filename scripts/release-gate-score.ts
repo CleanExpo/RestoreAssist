@@ -84,12 +84,17 @@ function shellOK(cmd: string, options: { timeout?: number } = {}): CriterionResu
 }
 
 // Extracts the leading `---` frontmatter block, or null when the file has none.
+//
+// Both fences must be a standalone `---` line. The previous version tested
+// `text.startsWith("---")`, so `---not-frontmatter` opened a block, and located
+// the close with `indexOf("\n---")`, so a `----not-a-closing-fence` line closed
+// one. Either way a malformed file still parsed and scored points, which is the
+// fail-open this branch exists to remove. Found by independent review
+// (gpt-5.5), 2026-08-16.
 function readFrontmatter(filePath: string): string | null {
   const text = fs.readFileSync(filePath, "utf8");
-  if (!text.startsWith("---")) return null;
-  const end = text.indexOf("\n---", 3);
-  if (end < 0) return null;
-  return text.slice(3, end);
+  const m = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(text);
+  return m ? m[1] : null;
 }
 
 // Parses YAML-ish frontmatter `status:` value (pass | fail | deferred).
@@ -155,7 +160,14 @@ export function readEvidenceVerifiedDate(filePath: string): Date | null {
   const raw = readUniqueKey(frontmatter, "verified");
   if (raw === null || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
   const parsed = new Date(`${raw}T00:00:00Z`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  if (Number.isNaN(parsed.getTime())) return null;
+  // JS rolls impossible calendar dates FORWARD rather than rejecting them:
+  // 2026-02-31 parses as 2026-03-03, 2026-04-31 as 2026-05-01, and a non-leap
+  // 2026-02-29 as 2026-03-01. A typo would therefore not merely parse, it would
+  // parse as a date up to three days LATER than written — making the evidence
+  // look fresher than its own claim. Round-tripping rejects any date the
+  // calendar does not actually contain. Found by independent review (gpt-5.5).
+  return parsed.toISOString().slice(0, 10) === raw ? parsed : null;
 }
 
 export function ownerEvidence(
