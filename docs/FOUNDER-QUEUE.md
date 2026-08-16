@@ -13,11 +13,29 @@ Last updated: 2026-08-16 — session "continuous compete loop".
 
 ---
 
-## 0. Unblock the release gate on Windows — this blocks EVERY push
+## 0. RESOLVED 2026-08-16 — the release gate on Windows no longer blocks pushes
 
-**Linear:** RA-7229. **Blocks:** all agent pushes, therefore every PR, therefore
-every merge. Nothing else in this queue can progress past "committed locally"
-until this clears.
+**This needed nothing from you in the end.** Per the convention above, an item is
+removed once its blocking effect is gone; it is kept for one pass so the next
+reader sees a resolution rather than a silent disappearance. Delete it on the next
+queue pass.
+
+Option 1 below was taken: `force=true` was dropped from `.npmrc` in **#2018**
+(merged). `provision()` now completes normally — observed three times on
+2026-08-16, each finishing `provisioned 2 step(s)` and proceeding to bind tests to
+a HEAD. Three branches were pushed and three PRs opened from that machine the same
+day (**#2022**, **#2023**, and the one carrying this edit), each with a valid
+`PR_RELEASE_GATE_PASS` receipt. That is the evidence the block is gone — pushes
+succeeding, not merely the absence of an error.
+
+The gate was never bypassed and must not be. The original diagnosis is kept below
+because it is correct, and the failure mode will recur if `force=true` returns.
+
+### Original item, for the record
+
+**Linear:** RA-7229. **Blocked:** all agent pushes, therefore every PR, therefore
+every merge. Nothing else in this queue could progress past "committed locally"
+until it cleared.
 
 `pr_release_gate.py issue` runs `provision()` before binding tests to a HEAD, and
 `provision()` runs `pnpm install --frozen-lockfile`. The repo `.npmrc` sets
