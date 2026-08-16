@@ -105,7 +105,9 @@ In a second terminal:
 stripe trigger customer.subscription.deleted
 ```
 
-The `stripe listen` window should show `[200]`. This proves the endpoint is reachable and correctly signed **before** you try to break it - otherwise a later 500 could just mean "wrong secret" and you would be testing nothing.
+The `stripe listen` window should show `[200]`. This proves the endpoint is reachable and correctly signed **before** you deliberately break anything.
+
+To be precise about what this rules out, because it is not what you might assume: a **wrong or malformed signature returns 400, never 500** (`route.ts:108-116`), as does a missing `stripe-signature` header (`route.ts:88-93`). So a bad secret cannot masquerade as a processing failure. What the control *does* rule out is the one non-processing 500 on this route: if `STRIPE_WEBHOOK_SECRET` is **unset** on the sandbox, the route returns **500** "Webhook secret not configured" (`route.ts:96-104`) before any handler runs. A green 200 here proves the secret is configured, so the 500 you provoke in 3c is genuinely a processing failure and not a config gap.
 
 **3c. Induce a real failure**
 
@@ -116,6 +118,8 @@ The handler only 500s when processing genuinely throws, so induce a fault in the
 3. Redeploy the sandbox.
 4. Run `stripe trigger customer.subscription.deleted` again.
 5. The `stripe listen` window should now show **`[500]`**.
+
+**Honest caveat about what this reproduces.** Breaking `DATABASE_URL` takes out the database entirely, so the `status: "FAILED"` audit write in the `catch` block fails too. That means **both** `console.error` lines *do* fire here - you are reproducing the rare double-failure, not the ordinary single-failure case described in the Warning above. That is fine for this purpose: it still emits the HTTP 500 that rule 2 matches, so it proves the rule fires. But do not conclude from a successful test that the log-line signal is generally available - on an ordinary single webhook failure it is not, which is the entire reason rule 2 targets the 500.
 
 **3d. Confirm the alert landed, then revert**
 
