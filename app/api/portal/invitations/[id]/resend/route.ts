@@ -2,18 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Resend } from "resend";
+import { sendTransactionalEmail } from "@/lib/email/send-transactional";
 import { apiError, fromException } from "@/lib/api-errors";
 
-// Lazy initialize Resend to avoid build errors if API key is missing
-function getResend() {
-  if (!process.env.RESEND_API_KEY) {
-    console.warn(
-      "RESEND_API_KEY not configured - email sending will be skipped",
-    );
-    return null;
-  }
-  return new Resend(process.env.RESEND_API_KEY);
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
 }
 
 // POST /api/portal/invitations/[id]/resend - Resend invitation email
@@ -51,6 +49,7 @@ export async function POST(
           select: {
             name: true,
             businessName: true,
+            organizationId: true,
           },
         },
       },
@@ -85,32 +84,20 @@ export async function POST(
       },
     });
 
-    // Resend invitation email
     const baseUrl = process.env.NEXTAUTH_URL || "https://restoreassist.app";
     const inviteUrl = `${baseUrl}/portal/signup?token=${invitation.token}`;
     const contractorName =
       invitation.user.businessName || invitation.user.name || "RestoreAssist";
 
-    const resend = getResend();
-    if (!resend) {
-      return apiError(request, {
-        code: "UPSTREAM_FAILED",
-        message: "Email service not configured",
-        status: 503,
-        stage: "portal/invitations/resend:email-config",
-      });
-    }
-
-    try {
-      await resend.emails.send({
-        from: "RestoreAssist <noreply@restoreassist.app>",
-        to: invitation.email,
-        subject: `Reminder: ${contractorName} has invited you to view your restoration project`,
-        html: `
+    const result = await sendTransactionalEmail({
+      organizationId: invitation.user.organizationId,
+      to: invitation.email,
+      subject: `Reminder: ${contractorName} has invited you to view your restoration project`,
+      html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>Reminder: You've been invited to the Client Portal</h2>
-            <p>Hi ${invitation.client.name},</p>
-            <p>This is a reminder that ${contractorName} has invited you to access the Client Portal where you can:</p>
+            <p>Hi ${escapeHtml(invitation.client.name)},</p>
+            <p>This is a reminder that ${escapeHtml(contractorName)} has invited you to access the Client Portal where you can:</p>
             <ul>
               <li>View your restoration project reports</li>
               <li>Review and approve scope of work</li>
@@ -131,10 +118,21 @@ export async function POST(
             </p>
           </div>
         `,
-      });
-    } catch (emailError) {
-      console.error("Failed to resend invitation email:", emailError);
-      return fromException(request, emailError, {
+    });
+
+    if (result.error) {
+      if (result.error.name === "not_configured") {
+        return apiError(request, {
+          code: "UPSTREAM_FAILED",
+          message: "Email service not configured",
+          status: 503,
+          stage: "portal/invitations/resend:email-config",
+        });
+      }
+      return apiError(request, {
+        code: "UPSTREAM_FAILED",
+        message: result.error.message ?? "Failed to resend invitation email",
+        status: 502,
         stage: "portal/invitations/resend:email-send",
       });
     }

@@ -93,8 +93,6 @@ export function AiKeyCard({ onSaved }: { onSaved?: () => void } = {}) {
     setErrorMessage(DEFAULT_KEY_ERROR);
 
     try {
-      // Save only for now — skip live provider validation so setup can continue
-      // even when network/provider checks are flaky.
       const saveRes = await fetch('/api/workspace/provider-connections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -106,6 +104,29 @@ export function AiKeyCard({ onSaved }: { onSaved?: () => void } = {}) {
           code?: string;
         } | null;
         setErrorMessage(friendlySaveError(saveRes.status, saveJson?.code));
+        setCardState('error');
+        return;
+      }
+
+      const validateRes = await fetch(
+        '/api/workspace/provider-connections/validate',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider }),
+        },
+      );
+
+      if (!validateRes.ok) {
+        const validateJson = (await validateRes.json().catch(() => null)) as {
+          error?: string;
+          message?: string;
+        } | null;
+        setErrorMessage(
+          validateJson?.message ??
+            validateJson?.error ??
+            'Key saved but validation failed — check the key and try again.',
+        );
         setCardState('error');
         return;
       }
@@ -198,10 +219,10 @@ export function AiKeyCard({ onSaved }: { onSaved?: () => void } = {}) {
               {cardState === 'saving' ? (
                 <>
                   <SpinnerMark size={14} className="animate-spin mr-2" />
-                  Saving…
+                  Saving & validating…
                 </>
               ) : (
-                'Save key'
+                'Save & validate key'
               )}
             </Button>
 

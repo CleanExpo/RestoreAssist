@@ -63,7 +63,9 @@ export async function GET(request: NextRequest) {
       connected: org.emailProvider === "RESEND" && !!org.emailProviderEncryptedKey,
       provider: org.emailProvider,
       fromAddress: org.emailFromAddress,
-      hasPlatformFallback: !!process.env.RESEND_API_KEY,
+      hasPlatformFallback: !!(
+        process.env.RESEND_API_KEY || process.env.MAILTRAP_API_KEY
+      ),
     });
   } catch (error) {
     return fromException(request, error, { stage: "email-settings-get" });

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Resend } from "resend";
+import { sendTransactionalEmail } from "@/lib/email/send-transactional";
 import { apiError, fromException } from "@/lib/api-errors";
 
 /** Escape special HTML characters to prevent XSS in email bodies */
@@ -13,17 +13,6 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#x27;");
-}
-
-// Lazy initialize Resend to avoid build errors if API key is missing
-function getResend() {
-  if (!process.env.RESEND_API_KEY) {
-    console.warn(
-      "RESEND_API_KEY not configured - email sending will be skipped",
-    );
-    return null;
-  }
-  return new Resend(process.env.RESEND_API_KEY);
 }
 
 // GET /api/portal/invitations - List invitations for current contractor
@@ -195,20 +184,23 @@ export async function POST(request: NextRequest) {
       throw err;
     }
 
-    // Send invitation email
+    // Send invitation email via platform / org BYOK (Mailtrap or Resend).
     const baseUrl = process.env.NEXTAUTH_URL || "https://restoreassist.app";
     const inviteUrl = `${baseUrl}/portal/signup?token=${invitation.token}`;
     const contractorName =
       invitation.user.businessName || invitation.user.name || "RestoreAssist";
 
-    const resend = getResend();
-    if (resend) {
-      try {
-        await resend.emails.send({
-          from: "RestoreAssist <noreply@restoreassist.app>",
-          to: invitation.email,
-          subject: `${contractorName} has invited you to view your restoration project`,
-          html: `
+    const sender = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { organizationId: true },
+    });
+
+    try {
+      const result = await sendTransactionalEmail({
+        organizationId: sender?.organizationId,
+        to: invitation.email,
+        subject: `${contractorName} has invited you to view your restoration project`,
+        html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>You've been invited to the Client Portal</h2>
             <p>Hi ${escapeHtml(client.name)},</p>
@@ -234,11 +226,13 @@ export async function POST(request: NextRequest) {
             </p>
           </div>
         `,
-        });
-      } catch (emailError) {
-        console.error("Failed to send invitation email:", emailError);
-        // Don't fail the request if email fails - invitation is still created
+      });
+      if (result.error) {
+        console.error("Failed to send invitation email:", result.error);
       }
+    } catch (emailError) {
+      console.error("Failed to send invitation email:", emailError);
+      // Don't fail the request if email fails - invitation is still created
     }
 
     return NextResponse.json(

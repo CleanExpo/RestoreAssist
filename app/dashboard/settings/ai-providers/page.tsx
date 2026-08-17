@@ -24,7 +24,7 @@ type AiProvider =
   | "GOOGLE"
   | "GEMMA"
   | "OPENROUTER";
-type ConnectionStatus = "ACTIVE" | "DISABLED" | "ERROR";
+type ConnectionStatus = "ACTIVE" | "DISABLED" | "FAILED";
 
 interface ProviderConnectionSummary {
   id: string;
@@ -100,7 +100,7 @@ const OPENROUTER_DEFAULT_MODEL = "deepseek/deepseek-chat";
 const STATUS_LABEL: Record<ConnectionStatus, string> = {
   ACTIVE: "Active",
   DISABLED: "Disabled",
-  ERROR: "Error",
+  FAILED: "Error",
 };
 
 const STATUS_COLOUR: Record<ConnectionStatus, string> = {
@@ -108,7 +108,7 @@ const STATUS_COLOUR: Record<ConnectionStatus, string> = {
     "bg-success-subtle text-success-subtle-foreground",
   DISABLED:
     "bg-neutral-100 text-neutral-500 dark:bg-slate-800 dark:text-slate-400",
-  ERROR: "bg-destructive-subtle text-destructive-subtle-foreground",
+  FAILED: "bg-destructive-subtle text-destructive-subtle-foreground",
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
