@@ -34,8 +34,18 @@ async function getDatabaseCheck(): Promise<CheckResult> {
     const dbStart = Date.now();
     await prisma.$queryRaw(Prisma.sql`SELECT 1`);
     result = { status: "ok", latencyMs: Date.now() - dbStart };
-  } catch {
-    result = { status: "error" };
+  } catch (err) {
+    const code =
+      err && typeof err === "object" && "code" in err
+        ? String((err as { code?: string }).code)
+        : "unknown";
+    result = {
+      status: "error",
+      // Surface connectivity class so operators don't chase app bugs.
+      ...(code === "ECONNREFUSED" || code === "P1001"
+        ? { missing: ["DATABASE_REACHABLE"] as const }
+        : {}),
+    };
   }
 
   cachedDbCheck = { result, expiresAt: now + DB_CHECK_CACHE_TTL_MS };
@@ -43,11 +53,13 @@ async function getDatabaseCheck(): Promise<CheckResult> {
 }
 
 export async function GET(request: NextRequest) {
-  // Rate limit: 60 requests per minute per IP
+  // Health must not depend on durable (DB) rate limiting — otherwise a
+  // downed Postgres makes /api/health itself unusable for diagnosis.
   const rateLimited = await applyRateLimit(request, {
     maxRequests: 60,
     windowMs: 60_000,
     prefix: "health",
+    memoryOnly: true,
   });
   if (rateLimited) return rateLimited;
 
