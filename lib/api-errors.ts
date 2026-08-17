@@ -157,6 +157,29 @@ export function fromException(
     });
   }
 
+  // Postgres down / refused — do not report as a vague 500.
+  if (
+    prismaCode === "ECONNREFUSED" ||
+    prismaCode === "P1001" ||
+    prismaCode === "P1017" ||
+    (typeof err === "object" &&
+      err !== null &&
+      "message" in err &&
+      /ECONNREFUSED|Can't reach database server/i.test(
+        String((err as { message: unknown }).message),
+      ))
+  ) {
+    return apiError(request, {
+      code: "UPSTREAM_FAILED",
+      message:
+        "Database is unreachable. Check DATABASE_URL and that Postgres is running.",
+      status: 503,
+      err,
+      stage: opts.stage,
+      context: { ...opts.context, reason: "database_unavailable" },
+    });
+  }
+
   return apiError(request, {
     code: "INTERNAL",
     message: "Internal server error",
