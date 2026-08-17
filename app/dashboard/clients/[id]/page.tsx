@@ -509,7 +509,7 @@ export default function ClientDetailPage() {
               No inspections for this client yet.
             </p>
             <Link
-              href="/dashboard/inspections/new"
+              href={`/dashboard/inspections/new?clientId=${encodeURIComponent(client.id)}`}
               className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
             >
               Create First Inspection

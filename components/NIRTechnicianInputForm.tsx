@@ -1266,6 +1266,10 @@ export default function NIRTechnicianInputForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reportId,
+          clientId:
+            typeof initialData?.clientId === "string"
+              ? initialData.clientId
+              : undefined,
           propertyAddress,
           propertyPostcode,
           technicianName: technicianName || undefined,

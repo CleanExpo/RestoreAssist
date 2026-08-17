@@ -12,6 +12,11 @@ export default function NewInspectionPage() {
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const sessionId = searchParams.get("sessionId");
   const interviewDataParam = searchParams.get("interviewData");
+  const clientIdParam = searchParams.get("clientId");
+  const [clientPrefill, setClientPrefill] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   const [initialDataFromApi, setInitialDataFromApi] = useState<
     Record<string, unknown> | null | undefined
@@ -29,6 +34,38 @@ export default function NewInspectionPage() {
       return undefined;
     }
   }, [interviewDataParam]);
+
+  useEffect(() => {
+    if (!clientIdParam) return;
+    let cancelled = false;
+    fetch(`/api/clients/${clientIdParam}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        const c = data.client ?? data;
+        setClientPrefill({
+          propertyAddress:
+            typeof c.address === "string"
+              ? c.address
+              : typeof c.propertyAddress === "string"
+                ? c.propertyAddress
+                : undefined,
+          propertyPostcode:
+            typeof c.postcode === "string"
+              ? c.postcode
+              : typeof c.postalCode === "string"
+                ? c.postalCode
+                : undefined,
+          clientId: clientIdParam,
+        });
+      })
+      .catch(() => {
+        /* non-blocking — form still works without prefill */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [clientIdParam]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -62,10 +99,18 @@ export default function NewInspectionPage() {
     };
   }, [sessionId]);
 
-  const initialData =
-    initialDataFromApi !== undefined
-      ? (initialDataFromApi ?? undefined)
-      : initialDataFromUrl;
+  const initialData = useMemo(() => {
+    const base =
+      initialDataFromApi !== undefined
+        ? (initialDataFromApi ?? undefined)
+        : initialDataFromUrl;
+    if (!clientPrefill && !clientIdParam) return base;
+    return {
+      ...(base ?? {}),
+      ...(clientPrefill ?? {}),
+      ...(clientIdParam ? { clientId: clientIdParam } : {}),
+    };
+  }, [initialDataFromApi, initialDataFromUrl, clientPrefill, clientIdParam]);
 
   return (
     <div

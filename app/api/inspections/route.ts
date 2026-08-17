@@ -367,6 +367,42 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Optional client linkage — create a shell Report so inspections appear
+      // under the client's CRM history (Report.clientId is the join path).
+      let reportId: string | null =
+        typeof body.reportId === "string" ? body.reportId : null;
+      if (
+        !reportId &&
+        typeof body.clientId === "string" &&
+        body.clientId.trim()
+      ) {
+        const client = await prisma.client.findFirst({
+          where: { id: body.clientId.trim(), userId },
+          select: { id: true, name: true },
+        });
+        if (!client) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "Client not found",
+            status: 404,
+          });
+        }
+        const shell = await prisma.report.create({
+          data: {
+            userId,
+            clientId: client.id,
+            clientName: client.name,
+            title: `Inspection — ${sanitizeString(body.propertyAddress, 200)}`,
+            propertyAddress: sanitizeString(body.propertyAddress, 500),
+            hazardType: pickedClaimType ?? "WATER",
+            insuranceType: "UNKNOWN",
+            status: "DRAFT",
+          },
+          select: { id: true },
+        });
+        reportId = shell.id;
+      }
+
       // Generate inspection number (NIR-YYYY-MM-XXXXXX format).
       // Previous implementation used Date.now() + Math.random() which collides under
       // concurrent requests in the same millisecond. randomBytes(3) gives 2^24 (16M)
@@ -391,7 +427,7 @@ export async function POST(request: NextRequest) {
               lossDescription: sanitizeString(body.lossDescription, 2000),
             } as any)),
           ...(pickedClaimType ? { claimType: pickedClaimType } : {}),
-          reportId: body.reportId || null, // Link to report if provided
+          reportId, // Link to report if provided or created via clientId
           userId,
           status: "DRAFT",
         },

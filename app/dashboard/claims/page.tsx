@@ -92,25 +92,25 @@ export default async function ClaimsIndexPage() {
             <p className="text-base font-medium">No claims yet</p>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
               Claims appear here once a report enters the compliance lifecycle.
-              Open a report from inspections and tap{" "}
+              Open a report and tap{" "}
               <span className="font-medium text-foreground">
-                Start stabilisation
+                Start claim progress
               </span>{" "}
-              (or initialise progress) to begin.
+              to initialise tracking.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-2 pt-1">
             <Link
-              href="/dashboard/inspections"
+              href="/dashboard/reports"
               className="px-3 py-1.5 text-sm rounded bg-foreground text-background"
             >
-              Go to inspections →
+              Open reports →
             </Link>
             <Link
-              href="/dashboard/reports"
+              href="/dashboard/inspections"
               className="px-3 py-1.5 text-sm rounded border"
             >
-              View reports
+              Go to inspections
             </Link>
             <Link
               href="/dashboard/help"
@@ -121,6 +121,72 @@ export default async function ClaimsIndexPage() {
           </div>
         </div>
       ) : (
+        <div className="space-y-6">
+          {/* Minimal job status board */}
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {(
+              [
+                ["INTAKE", "Intake"],
+                ["STABILISATION_ACTIVE", "Stabilisation"],
+                ["DRYING_ACTIVE", "Drying"],
+                ["CLOSEOUT", "Closeout"],
+              ] as const
+            ).map(([state, label]) => {
+              const cards = claims.filter(
+                (c) =>
+                  c.currentState === state ||
+                  (state === "STABILISATION_ACTIVE" &&
+                    c.currentState.startsWith("STABILISATION")) ||
+                  (state === "DRYING_ACTIVE" &&
+                    (c.currentState.startsWith("DRYING") ||
+                      c.currentState.startsWith("SCOPE") ||
+                      c.currentState === "VARIATION_REVIEW")) ||
+                  (state === "CLOSEOUT" &&
+                    (c.currentState === "CLOSEOUT" ||
+                      c.currentState.startsWith("INVOICE") ||
+                      c.currentState === "CLOSED")),
+              );
+              return (
+                <div
+                  key={state}
+                  className="rounded-lg border bg-muted/20 p-3 space-y-2 min-h-[8rem]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {label}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground">
+                      {cards.length}
+                    </span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {cards.slice(0, 6).map((c) => (
+                      <Link
+                        key={c.id}
+                        href={`/dashboard/claims/${c.reportId}`}
+                        className="block rounded-md border bg-background px-2 py-1.5 text-xs hover:border-foreground/30"
+                      >
+                        <span className="font-medium line-clamp-1">
+                          {c.report?.propertyAddress ??
+                            c.report?.title ??
+                            "Claim"}
+                        </span>
+                        <span className="block text-[10px] text-muted-foreground font-mono mt-0.5">
+                          {c.currentState}
+                        </span>
+                      </Link>
+                    ))}
+                    {cards.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground py-2">
+                        No jobs here
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
         <div className="overflow-x-auto rounded-md border">
           <table className="min-w-full text-sm">
             <thead className="bg-muted/50">
@@ -164,6 +230,7 @@ export default async function ClaimsIndexPage() {
               ))}
             </tbody>
           </table>
+        </div>
         </div>
       )}
     </div>

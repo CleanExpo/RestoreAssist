@@ -39,6 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import toast from "react-hot-toast";
+import { StartClaimProgressButton } from "@/components/claims/StartClaimProgressButton";
 
 export default function ReportDetailPage({
   params,
@@ -243,6 +244,11 @@ export default function ReportDetailPage({
           {insurerLinkCopied ? "Link Copied" : "Generate Insurer Link"}
         </button>
 
+        <StartClaimProgressButton
+          reportId={reportId!}
+          inspectionId={report?.inspectionId ?? report?.inspection?.id ?? null}
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors text-sm disabled:opacity-60"
+        />
         <button
           onClick={() =>
             router.push(
