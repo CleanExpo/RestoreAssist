@@ -1,7 +1,9 @@
 /**
- * NIR Vision OCR — type stubs for meter photo extraction
- * Full implementation pending Phase 2 pilot.
+ * Meter photo OCR types + adapters to the real vision extract-reading service.
+ * Callers should POST /api/vision/extract-reading — not a stub analyze-photo route.
  */
+
+import type { MeterReadingResult } from "@/lib/vision/meter-prompts";
 
 export type ExtractionType = "moisture" | "environmental" | "measurement";
 
@@ -37,3 +39,66 @@ export type OcrExtraction =
       rawText?: string | null;
       confidence?: "high" | "medium" | "low";
     };
+
+/**
+ * Map Claude Vision meter extraction into the UI confirm-form shape.
+ * The live API is moisture-meter oriented; environmental / measurement modes
+ * adapt the same reading when the display unit matches (e.g. RH).
+ */
+export function meterReadingToOcrExtraction(
+  reading: MeterReadingResult,
+  mode: ExtractionType,
+): OcrExtraction {
+  const rawText = reading.displayText || reading.notes || null;
+  const confidence = reading.confidence;
+  const value = reading.readingValue;
+
+  if (mode === "environmental") {
+    const isRh =
+      reading.readingUnit === "RH" ||
+      /rh|humidity/i.test(reading.scale ?? "") ||
+      /rh|humidity/i.test(reading.displayText ?? "");
+    return {
+      type: "environmental",
+      temperatureCelsius: isRh ? null : value,
+      relativeHumidityPercent: isRh ? value : null,
+      dewPointCelsius: null,
+      temperature: isRh ? undefined : (value ?? undefined),
+      humidity: isRh ? (value ?? undefined) : undefined,
+      rawText,
+      confidence,
+    };
+  }
+
+  if (mode === "measurement") {
+    const unit =
+      reading.readingUnit === "%" || reading.readingUnit === "WME"
+        ? "m"
+        : reading.readingUnit === "unknown"
+          ? "m"
+          : reading.readingUnit;
+    return {
+      type: "measurement",
+      primaryValue: value,
+      value: value ?? 0,
+      unit,
+      rawText,
+      confidence,
+    };
+  }
+
+  return {
+    type: "moisture",
+    moisturePercent: value,
+    value: value ?? 0,
+    unit:
+      reading.readingUnit === "unknown"
+        ? "%"
+        : reading.readingUnit === "RH"
+          ? "%"
+          : reading.readingUnit,
+    materialType: reading.scale ?? null,
+    rawText,
+    confidence,
+  };
+}

@@ -31,6 +31,7 @@ import {
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import type { OcrExtraction, ExtractionType } from "@/lib/nir-vision-ocr";
+import { meterReadingToOcrExtraction } from "@/lib/nir-vision-ocr";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { fireHaptic } from "@/lib/capacitor";
 
@@ -632,33 +633,54 @@ export function MeterPhotoCapture({
     input.click();
   };
 
-  // Send photo to OCR route
+  // Send photo to real vision extract-reading (BYOK Anthropic).
   const analyse = async () => {
     if (!file) return;
     setAnalysing(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("extractionType", mode);
-
     try {
-      const res = await fetch(
-        `/api/inspections/${inspectionId}/analyze-photo`,
-        {
-          method: "POST",
-          body: formData,
-        },
-      );
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result ?? ""));
+        reader.onerror = () => reject(new Error("Failed to read image"));
+        reader.readAsDataURL(file);
+      });
+      const comma = dataUrl.indexOf(",");
+      const image = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+      const mediaType = (
+        file.type === "image/png" || file.type === "image/webp"
+          ? file.type
+          : "image/jpeg"
+      ) as "image/jpeg" | "image/png" | "image/webp";
 
-      const data = await res.json();
+      const res = await fetch(`/api/vision/extract-reading`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image, mediaType }),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as {
+        reading?: Parameters<typeof meterReadingToOcrExtraction>[0];
+        error?: string;
+        message?: string;
+      };
 
       if (!res.ok) {
-        setError(apiErrorMessage(data) ?? "Analysis failed — please try again");
+        setError(
+          apiErrorMessage(data) ??
+            data.error ??
+            "Analysis failed — please try again",
+        );
         return;
       }
 
-      setExtraction(data.extraction as OcrExtraction);
+      if (!data.reading) {
+        setError("No reading returned — retake the photo and try again");
+        return;
+      }
+
+      setExtraction(meterReadingToOcrExtraction(data.reading, mode));
     } catch {
       setError("Network error — check your connection and try again");
     } finally {
