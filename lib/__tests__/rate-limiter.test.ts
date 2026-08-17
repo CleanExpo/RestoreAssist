@@ -12,6 +12,19 @@ const rateLimitDb = vi.hoisted(() => {
   const hits = new Map<string, Hit>();
   let nextId = 1;
   let failStore = false;
+  let failCode: string | null = null;
+
+  const maybeFail = () => {
+    if (!failStore) return;
+    if (failCode) {
+      const err = new Error(`connect ECONNREFUSED 127.0.0.1:5432`) as Error & {
+        code?: string;
+      };
+      err.code = failCode;
+      throw err;
+    }
+    throw new Error("store unavailable");
+  };
 
   const matchesWhere = (
     hit: Hit,
@@ -39,7 +52,7 @@ const rateLimitDb = vi.hoisted(() => {
       data: { key: string; expiresAt: Date };
       select?: { id: boolean };
     }) {
-      if (failStore) throw new Error("store unavailable");
+      maybeFail();
       const id = `hit_${nextId++}`;
       const hit = {
         id,
@@ -55,7 +68,7 @@ const rateLimitDb = vi.hoisted(() => {
     }: {
       where?: { key?: string; createdAt?: { gte?: Date } };
     }) {
-      if (failStore) throw new Error("store unavailable");
+      maybeFail();
       return Array.from(hits.values()).filter((hit) =>
         matchesWhere(hit, where),
       ).length;
@@ -67,19 +80,19 @@ const rateLimitDb = vi.hoisted(() => {
       orderBy?: { createdAt: "asc" };
       select?: { createdAt: boolean };
     }) {
-      if (failStore) throw new Error("store unavailable");
+      maybeFail();
       const [oldest] = Array.from(hits.values())
         .filter((hit) => matchesWhere(hit, where))
         .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
       return oldest ? { createdAt: oldest.createdAt } : null;
     },
     async delete({ where }: { where: { id: string } }) {
-      if (failStore) throw new Error("store unavailable");
+      maybeFail();
       hits.delete(where.id);
       return {};
     },
     async deleteMany(args?: { where?: { expiresAt?: { lt: Date } } }) {
-      if (failStore) throw new Error("store unavailable");
+      maybeFail();
       if (!args?.where) {
         const count = hits.size;
         hits.clear();
@@ -99,8 +112,9 @@ const rateLimitDb = vi.hoisted(() => {
 
   return {
     hits,
-    setFailStore(value: boolean) {
+    setFailStore(value: boolean, code: string | null = null) {
       failStore = value;
+      failCode = code;
     },
     rateLimitHit,
   };
@@ -161,6 +175,21 @@ describe("applyRateLimit", () => {
 
     expect(limited?.status).toBe(429);
     expect(limited?.headers.get("Retry-After")).toBe("900");
+  });
+
+  it("returns 503 (not 429) when Postgres connection is refused", async () => {
+    rateLimitDb.setFailStore(true, "ECONNREFUSED");
+
+    const limited = await applyRateLimit(makeReq(), {
+      prefix: "register",
+      key: "user_1",
+      maxRequests: 10,
+      failClosedOnUpstashError: true,
+    });
+
+    expect(limited?.status).toBe(503);
+    const body = await limited?.json();
+    expect(body.code).toBe("DATABASE_UNAVAILABLE");
   });
 
   it("memoryOnly skips the durable store even when it is down", async () => {
