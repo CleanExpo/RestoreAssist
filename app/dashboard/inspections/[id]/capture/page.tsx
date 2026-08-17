@@ -491,6 +491,83 @@ export default function CaptureWorkflowPage({
     try {
       setUploadingEvidence(true);
       setSelectedEvidenceClass(evidenceClass);
+
+      // Metadata-first classes (notes / readings) — JSON path, no forced camera.
+      const metadataOnly =
+        evidenceClass === "TECHNICIAN_NOTE" ||
+        evidenceClass === "MOISTURE_READING" ||
+        evidenceClass === "AMBIENT_ENVIRONMENTAL" ||
+        evidenceClass === "EQUIPMENT_LOG";
+
+      if (metadataOnly) {
+        const title =
+          window.prompt(
+            evidenceClass === "TECHNICIAN_NOTE"
+              ? "Technician note title"
+              : `${EVIDENCE_CLASS_LABELS[evidenceClass]} label`,
+            EVIDENCE_CLASS_LABELS[evidenceClass],
+          ) ?? "";
+        if (!title.trim()) {
+          setSelectedEvidenceClass(null);
+          return;
+        }
+        let notes: string | undefined;
+        let structuredData: Record<string, unknown> | undefined;
+        if (evidenceClass === "TECHNICIAN_NOTE") {
+          notes = window.prompt("Note text") ?? undefined;
+          if (!notes?.trim()) {
+            setSelectedEvidenceClass(null);
+            return;
+          }
+        } else if (
+          evidenceClass === "MOISTURE_READING" ||
+          evidenceClass === "AMBIENT_ENVIRONMENTAL"
+        ) {
+          const raw = window.prompt("Reading value (number)");
+          if (raw == null || raw.trim() === "") {
+            setSelectedEvidenceClass(null);
+            return;
+          }
+          const value = Number(raw);
+          if (!Number.isFinite(value)) {
+            toast.error("Enter a numeric reading");
+            setSelectedEvidenceClass(null);
+            return;
+          }
+          structuredData = {
+            measurementValue: value,
+            measurementUnit: evidenceClass === "MOISTURE_READING" ? "%" : "RH",
+          };
+          notes = `Reading: ${value}`;
+        }
+
+        const res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": `meta-${stepId}-${evidenceClass}-${Date.now()}`,
+          },
+          body: JSON.stringify({
+            workflowStepId: stepId,
+            evidenceClass,
+            title: title.trim(),
+            notes,
+            structuredData,
+            deviceType: isNative ? "NATIVE_CAPACITOR" : "WEB_BROWSER",
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(
+            data?.error?.message || data?.message || data?.error || "Failed to record evidence",
+          );
+        }
+        setEvidenceItems((prev) => [data.evidenceItem, ...prev]);
+        setSelectedEvidenceClass(null);
+        toast.success(`${EVIDENCE_CLASS_LABELS[evidenceClass]} captured`);
+        return;
+      }
+
       const capture = isNative
         ? await captureEvidencePhoto()
         : await evidencePhotoFromFile(await pickEvidencePhotoFile());

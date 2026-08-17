@@ -340,11 +340,14 @@ export default function FieldDashboardPage() {
         ) : (
           <div className="space-y-3">
             {activeJobs.map((insp) => (
-              <Link
+              <div
                 key={insp.id}
-                href={`/dashboard/inspections/${insp.id}/field`}
-                className="block bg-white/5 rounded-2xl p-4 hover:bg-white/8 active:scale-[0.98] transition-all"
+                className="bg-white/5 rounded-2xl p-4 hover:bg-white/8 transition-all"
               >
+                <Link
+                  href={`/dashboard/inspections/${insp.id}/field`}
+                  className="block active:scale-[0.98] transition-all"
+                >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
@@ -388,20 +391,26 @@ export default function FieldDashboardPage() {
                     <ChevronRight className="h-4 w-4 text-white/20" />
                   </div>
                 </div>
+                </Link>
 
-                {/* Field shortcuts */}
-                <div className="flex gap-2 mt-3 pt-3 border-t border-white/10">
+                {/* Field shortcuts — siblings of the card link (no nested <a>) */}
+                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/10">
                   <Link
                     href={`/dashboard/inspections/${insp.id}/field`}
-                    onClick={(e) => e.stopPropagation()}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-navy/60 text-xs text-white/70 hover:bg-brand-navy active:scale-95 transition-all"
                   >
                     <Droplets className="h-3 w-3" />
                     Readings
                   </Link>
                   <Link
+                    href={`/dashboard/inspections/${insp.id}/capture`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/20 text-xs text-cyan-100 hover:bg-cyan-500/30 active:scale-95 transition-all"
+                  >
+                    <Camera className="h-3 w-3" />
+                    Capture
+                  </Link>
+                  <Link
                     href={`/dashboard/inspections/${insp.id}/voice`}
-                    onClick={(e) => e.stopPropagation()}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 text-xs text-white/60 hover:bg-white/10 active:scale-95 transition-all"
                   >
                     <Mic className="h-3 w-3" />
@@ -409,14 +418,13 @@ export default function FieldDashboardPage() {
                   </Link>
                   <Link
                     href={`/dashboard/inspections/${insp.id}/photos`}
-                    onClick={(e) => e.stopPropagation()}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 text-xs text-white/60 hover:bg-white/10 active:scale-95 transition-all"
                   >
                     <Camera className="h-3 w-3" />
                     Photos
                   </Link>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}
