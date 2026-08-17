@@ -200,6 +200,39 @@ jobs:
       - name: API route audit
         run: pnpm audit:api
 
+      # Release-gate criterion C2 — secrets scan over the working tree.
+      #
+      # C2 previously rested on a scan run by hand in May, with a .gitleaks.toml
+      # that allowlisted `(?i)\.md$` — every markdown file in the repository was
+      # exempt from every rule. A measured differential proved the consequence:
+      # a secret-shaped value planted in a .md scanned as "no leaks found", and
+      # the identical scan with that one allowlist line removed caught it. The
+      # allowlist is now narrowed and the scan runs here on every PR, so the
+      # criterion stops depending on someone remembering to run it.
+      #
+      # Scope, stated so it is not over-read: this is `--no-git`, the WORKING
+      # TREE only. It does NOT scan git history. A full-history scan currently
+      # reports 55 findings across files that have since been deleted; those are
+      # triaged in the C2 evidence document and are NOT gated here, because a
+      # gate that is red on arrival gets disabled rather than fixed.
+      #
+      # This step is control-proven, not merely present: planting a canary in a
+      # .md makes it exit 1, and removing the canary makes it exit 0. See
+      # docs/evidence/release-gate/1.0.0/C2-secrets-scan.md.
+      # The gitleaks binary is installed and invoked directly rather than via
+      # gitleaks/gitleaks-action@v2, deliberately: that action scans the PR's
+      # COMMITS, which is not the command that was control-proved above. Running
+      # the identical `--no-git` invocation keeps CI and the local measurement
+      # the same instrument. Version pinned to the one the control was run with.
+      - name: Secrets scan (working tree)
+        run: |
+          set -euo pipefail
+          VERSION=8.30.1
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /tmp gitleaks
+          /tmp/gitleaks version
+          /tmp/gitleaks detect --no-git --config .gitleaks.toml --redact --no-banner
+
       # RA-6685 — apply migrations BEFORE the unit tests so the DB-gated suites
       # (described with `describe.skipIf(!process.env.DATABASE_URL)`:
       # trial-handling, setup checks, subscription-event, google-drive oauth,
