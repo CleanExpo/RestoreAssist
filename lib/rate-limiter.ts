@@ -79,12 +79,33 @@ function build429(maxRequests: number, retryAfterSec: number): NextResponse {
     {
       status: 429,
       headers: {
-        "Retry-After": String(retryAfterSec),
+        "Retry-After": String(Math.max(1, retryAfterSec)),
         "X-RateLimit-Limit": String(maxRequests),
         "X-RateLimit-Remaining": "0",
       },
     },
   );
+}
+
+function build503DatabaseUnavailable(): NextResponse {
+  return NextResponse.json(
+    {
+      error:
+        "Database is unreachable (connection refused). Start Postgres on DATABASE_URL and retry.",
+      code: "DATABASE_UNAVAILABLE",
+    },
+    { status: 503 },
+  );
+}
+
+function isDatabaseConnectivityError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const e = error as { code?: string; message?: string; name?: string };
+  if (e.code === "ECONNREFUSED" || e.code === "P1001" || e.code === "P1017") {
+    return true;
+  }
+  const msg = `${e.message ?? ""} ${e.name ?? ""}`;
+  return /ECONNREFUSED|Can't reach database|P1001|P1017/i.test(msg);
 }
 
 export interface RateLimitResult {
@@ -192,6 +213,11 @@ export async function applyRateLimit(
       result = await rateLimitDurable(rateLimitKey, { windowMs, maxRequests });
     } catch (error) {
       console.error("[rate-limit] durable limiter unavailable", error);
+      // DB down is not "too many requests" — surface a 503 so local/dev
+      // operators fix Postgres instead of chasing a fake rate limit.
+      if (isDatabaseConnectivityError(error)) {
+        return build503DatabaseUnavailable();
+      }
       if (failClosedOnUpstashError) {
         return build429(maxRequests, Math.ceil(windowMs / 1000));
       }
