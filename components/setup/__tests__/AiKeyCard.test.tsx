@@ -55,15 +55,22 @@ describe('AiKeyCard', () => {
     const input = screen.getByLabelText(/^api key$/i);
     fireEvent.change(input, { target: { value: 'sk-ant-test-key-123' } });
 
-    const btn = screen.getByRole('button', { name: /save key/i });
+    const btn = screen.getByRole('button', { name: /save.*key/i });
     fireEvent.click(btn);
 
     await waitFor(() => {
       expect(screen.getByText(/key saved/i)).toBeInTheDocument();
     });
-    expect(fetch).toHaveBeenCalledTimes(1);
-    expect(fetch).toHaveBeenCalledWith(
+    // Save, then live validate — both must succeed before "Key saved".
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch).toHaveBeenNthCalledWith(
+      1,
       '/api/workspace/provider-connections',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetch).toHaveBeenNthCalledWith(
+      2,
+      '/api/workspace/provider-connections/validate',
       expect.objectContaining({ method: 'POST' }),
     );
   });
@@ -82,7 +89,7 @@ describe('AiKeyCard', () => {
     const input = screen.getByLabelText(/^api key$/i);
     fireEvent.change(input, { target: { value: 'bad-key' } });
 
-    fireEvent.click(screen.getByRole('button', { name: /save key/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save.*key/i }));
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument();
@@ -108,7 +115,7 @@ describe('AiKeyCard', () => {
     const input = screen.getByLabelText(/^api key$/i);
     fireEvent.change(input, { target: { value: 'sk-ant-test-key-1234567890' } });
 
-    fireEvent.click(screen.getByRole('button', { name: /save key/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save.*key/i }));
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument();
@@ -127,7 +134,7 @@ describe('AiKeyCard', () => {
     fireEvent.change(screen.getByLabelText(/^api key$/i), {
       target: { value: 'sk-ant-test-key-123' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /save key/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save.*key/i }));
 
     await waitFor(() => {
       expect(onSaved).toHaveBeenCalledTimes(1);
@@ -170,6 +177,11 @@ function mockFetchRoutes(
   const fetchMock = vi.fn(async (url: string) => {
     if (String(url).includes('openrouter-models')) {
       return { ok: catalogue !== null, json: async () => catalogue };
+    }
+    // Live validate runs after a successful save; default it to green so
+    // save assertions are not blocked by a missing validate stub.
+    if (String(url).includes('/provider-connections/validate')) {
+      return { ok: true, status: 200, json: async () => ({ valid: true }) };
     }
     return { status: 200, json: async () => ({}), ...saveResponse };
   });
@@ -223,7 +235,7 @@ describe('AiKeyCard — OpenRouter', () => {
     fireEvent.change(screen.getByLabelText(/^model/i), {
       target: { value: 'qwen/qwen3-235b' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /save key/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save.*key/i }));
 
     await waitFor(() => expect(screen.getByText(/key saved/i)).toBeInTheDocument());
 
@@ -247,7 +259,7 @@ describe('AiKeyCard — OpenRouter', () => {
     fireEvent.change(screen.getByLabelText(/^api key$/i), {
       target: { value: 'sk-or-v1-abc123' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /save key/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save.*key/i }));
 
     await waitFor(() => expect(screen.getByText(/key saved/i)).toBeInTheDocument());
 
@@ -278,7 +290,7 @@ describe('AiKeyCard — OpenRouter', () => {
     fireEvent.change(screen.getByLabelText(/^api key$/i), {
       target: { value: 'sk-or-v1-abc123' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /save key/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save.*key/i }));
     await waitFor(() => expect(screen.getByText(/key saved/i)).toBeInTheDocument());
   });
 
@@ -366,7 +378,7 @@ describe('AiKeyCard — OpenRouter', () => {
     fireEvent.change(screen.getByLabelText(/^api key$/i), {
       target: { value: 'sk-or-v1-abc123' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /save key/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save.*key/i }));
     await waitFor(() => expect(screen.getByText(/key saved/i)).toBeInTheDocument());
 
     const saveCall = fetchMock.mock.calls.find(
@@ -389,7 +401,7 @@ describe('AiKeyCard — OpenRouter', () => {
     fireEvent.change(screen.getByLabelText(/^api key$/i), {
       target: { value: 'sk-ant-abc' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /save key/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save.*key/i }));
 
     await waitFor(() => expect(screen.getByText(/key saved/i)).toBeInTheDocument());
 

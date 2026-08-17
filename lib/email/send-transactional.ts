@@ -160,23 +160,25 @@ async function sendViaResend(
   input: TransactionalEmailInput & { from: string; to: string[] },
 ): Promise<TransactionalSendResult> {
   const client = new Resend(config.apiKey);
-  const payload: Record<string, unknown> = {
+  const payload = {
     from: input.from,
     to: input.to,
     subject: input.subject,
     html: input.html,
+    ...(input.text ? { text: input.text } : {}),
+    ...(input.replyTo ? { replyTo: input.replyTo } : {}),
+    ...(input.attachments?.length
+      ? {
+          attachments: input.attachments.map((a) => ({
+            filename: a.filename,
+            content: a.content,
+          })),
+        }
+      : {}),
   };
-  if (input.text) payload.text = input.text;
-  if (input.replyTo) payload.reply_to = input.replyTo;
-  if (input.attachments?.length) {
-    payload.attachments = input.attachments.map((a) => ({
-      filename: a.filename,
-      content: a.content,
-    }));
-  }
 
   const result = (await Promise.race([
-    client.emails.send(payload as Parameters<typeof client.emails.send>[0]),
+    client.emails.send(payload),
     new Promise<never>((_, reject) =>
       setTimeout(
         () =>

@@ -102,7 +102,7 @@ function MargotChatWorkspace() {
 
   // Deep-link drills from /dashboard/margot/social? → ?q=
   useEffect(() => {
-    const q = searchParams.get("q")?.trim();
+    const q = searchParams?.get("q")?.trim();
     if (!q || autoSent.current === q) return;
     autoSent.current = q;
     sendMessage({ text: q });
