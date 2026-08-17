@@ -42,3 +42,16 @@ export function solidBandsForHost(
 export function shouldRematerializeHostStroke(openingCount: number): boolean {
   return openingCount > 0;
 }
+
+/**
+ * When any room edge has an opening, rematerialize *all* edges of that room
+ * (full-length bands on unopened edges). Hiding the continuous room stroke
+ * without bands for sibling edges blanks those walls.
+ */
+export function roomEdgeIdsNeedingFullRematerialize(
+  roomEdgeWallIds: ReadonlyArray<string>,
+  openedHostIds: ReadonlySet<string>,
+): string[] {
+  if (!roomEdgeWallIds.some((id) => openedHostIds.has(id))) return [];
+  return [...roomEdgeWallIds];
+}

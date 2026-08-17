@@ -79,6 +79,7 @@ import {
 import {
   solidBandsForHost,
   shouldRematerializeHostStroke,
+  roomEdgeIdsNeedingFullRematerialize,
 } from "@/lib/sketch/wall-band-rematerialize";
 import {
   ADJACENCY_SNAP_PX,
@@ -1086,10 +1087,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             return wallThicknessPx(undefined, pxPerMetreRef.current);
           };
 
-          for (const [hostWallId, cuts] of byHost) {
-            if (!shouldRematerializeHostStroke(cuts.length)) continue;
+          const addBandsForHost = (
+            hostWallId: string,
+            cuts: { hostWallT: number; widthM: number }[],
+          ) => {
+            if (hostsWithBands.has(hostWallId)) return;
             const seg = findHostSegment(hostWallId);
-            if (!seg) continue;
+            if (!seg) return;
             const strokeWidth = hostThickness(hostWallId);
             const bands = solidBandsForHost(seg, cuts, pxPerMetreRef.current);
             hostsWithBands.add(hostWallId);
@@ -1112,6 +1116,30 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               };
               c.add(line);
             }
+          };
+
+          for (const [hostWallId, cuts] of byHost) {
+            if (!shouldRematerializeHostStroke(cuts.length)) continue;
+            addBandsForHost(hostWallId, cuts);
+          }
+
+          // Room polygons: if any edge has an opening, rematerialize ALL edges
+          // so hiding the continuous stroke does not blank unopened walls.
+          const openedHosts = new Set(byHost.keys());
+          for (const o of objs) {
+            const d = (o as { data?: Record<string, unknown> }).data;
+            if (!d || d.type !== "room" || typeof d.id !== "string") continue;
+            const edges = roomEdgeHostSegments(
+              d.id,
+              polygonAbsolutePoints(o) ?? [],
+            );
+            const edgeIds = edges.map((e) => e.wallId);
+            for (const edgeId of roomEdgeIdsNeedingFullRematerialize(
+              edgeIds,
+              openedHosts,
+            )) {
+              addBandsForHost(edgeId, byHost.get(edgeId) ?? []);
+            }
           }
 
           // Hide continuous host stroke when bands own the edge visuals.
@@ -1133,7 +1161,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
                 d.id,
                 polygonAbsolutePoints(o) ?? [],
               );
-              const hide = edges.some((e) => hostsWithBands.has(e.wallId));
+              // Only hide when every edge has bands (sibling edges rematerialized).
+              const hide =
+                edges.length > 0 &&
+                edges.every((e) => hostsWithBands.has(e.wallId));
               const sw = wallThicknessPx(
                 readWallThicknessM(d),
                 pxPerMetreRef.current,

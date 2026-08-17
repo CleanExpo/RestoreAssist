@@ -13,6 +13,8 @@ export interface SketchPlanLifecycleBannerProps {
   phase: PlanLifecyclePhase;
   onConfirmPlan?: () => void;
   onOpenAdvanced?: () => void;
+  /** Dismiss the plan-ready banner without changing editor mode. */
+  onDismissPlanReady?: () => void;
   className?: string;
 }
 
@@ -42,6 +44,7 @@ export function SketchPlanLifecycleBanner({
   phase,
   onConfirmPlan,
   onOpenAdvanced,
+  onDismissPlanReady,
   className,
 }: SketchPlanLifecycleBannerProps) {
   if (phase === "empty") return null;
@@ -95,6 +98,15 @@ export function SketchPlanLifecycleBanner({
             className="min-h-9 px-3 rounded-lg bg-emerald-500/25 border border-emerald-400/40 text-emerald-50 text-xs font-medium hover:bg-emerald-500/35"
           >
             Mark confirmed
+          </button>
+        )}
+        {phase === "plan_ready" && onDismissPlanReady && (
+          <button
+            type="button"
+            onClick={onDismissPlanReady}
+            className="min-h-9 px-3 rounded-lg bg-emerald-500/25 border border-emerald-400/40 text-emerald-50 text-xs font-medium hover:bg-emerald-500/35"
+          >
+            Got it
           </button>
         )}
         {(phase === "plan_ready" || phase === "needs_confirm") &&

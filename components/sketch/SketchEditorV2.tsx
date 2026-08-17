@@ -56,6 +56,7 @@ import { polygonAbsolutePoints } from "@/lib/sketch/fabric-absolute";
 import {
   fabricJsonFromStoredSketchData,
   scaleConfigFromStoredSketchData,
+  roomMoistureCropFromStoredSketchData,
 } from "@/lib/sketch/pending-sketch-load";
 import {
   isEmptySketchData,
@@ -318,6 +319,9 @@ export function SketchEditorV2({
   /** Dismiss empty-canvas start chooser after the tech picks a path. */
   const [startOverlayDismissed, setStartOverlayDismissed] = useState(false);
   const [planReadyAck, setPlanReadyAck] = useState(false);
+  /** Separate from confirm ack — keeps “Plan ready” visible until Got it / Advanced. */
+  const [planReadyBannerDismissed, setPlanReadyBannerDismissed] =
+    useState(false);
   const [scanInFlight, setScanInFlight] = useState(false);
   const [roomMoistureSession, setRoomMoistureSession] = useState<{
     roomId: string;
@@ -326,6 +330,7 @@ export function SketchEditorV2({
     label?: string;
   } | null>(null);
   const underlayPanelRef = useRef<HTMLDivElement>(null);
+  const underlayOpenUploadRef = useRef<(() => void) | null>(null);
   // RA-6844 [A5]: grid + right-angle snap for the draw tools. On by default so
   // walls square up and land on the grid; toggled off for freeform tracing.
   const [snapEnabled, setSnapEnabled] = useState(true);
@@ -443,6 +448,9 @@ export function SketchEditorV2({
               pendingSketchData,
               sketchSnapshot: pendingSketchData,
               fieldComplete: isSketchFieldComplete(s.sketchData),
+              roomMoistureCrop: roomMoistureCropFromStoredSketchData(
+                s.sketchData,
+              ),
             };
           });
 
@@ -457,6 +465,8 @@ export function SketchEditorV2({
             )
           ) {
             setStartOverlayDismissed(true);
+            setPlanReadyBannerDismissed(true);
+            setPlanReadyAck(true);
           }
 
           // RoomGraph evidence pins (P0) — load per floor after sketch ids known
@@ -612,7 +622,13 @@ export function SketchEditorV2({
         toast.error("Room geometry is incomplete for a moisture map");
         return;
       }
-      const meta = { roomId: room.id, crop };
+      const meta = {
+        roomId: room.id,
+        crop,
+        roomPoints: room.points.map((p) => ({ x: p.x, y: p.y })),
+        canvasWidth: viewport.width,
+        canvasHeight: viewport.height,
+      };
       setRoomMoistureSession({
         roomId: room.id,
         points: room.points.map((p) => ({ x: p.x, y: p.y })),
@@ -634,7 +650,7 @@ export function SketchEditorV2({
         duration: 4000,
       });
     },
-    [activeFloor, activeIdx],
+    [activeFloor, activeIdx, viewport.width, viewport.height],
   );
 
   const handleExitRoomMoisture = useCallback(() => {
@@ -737,6 +753,9 @@ export function SketchEditorV2({
       const sketchData = {
         ...withSketchFieldComplete(base, fd.fieldComplete === true),
         scaleConfig: fd.scaleConfig,
+        ...(fd.roomMoistureCrop
+          ? { roomMoistureCrop: fd.roomMoistureCrop }
+          : {}),
       };
       const clientUpdatedAt = Date.now();
       const { resolveSketchCaptureAdapter } = await import(
@@ -1526,17 +1545,31 @@ export function SketchEditorV2({
             label: fd.floor.floorLabel,
             pngDataUrl: canvas.toDataURL({ format: "png" }),
             fabricJson: canvas.toJSON(),
+            roomMoistureCrop: fd.roomMoistureCrop ?? null,
+            moisturePins: fd.moisturePins,
           };
         })
         .filter(Boolean);
 
-      if (!floorPayload.length) return;
+      if (!floorPayload.length) {
+        toast.error("Nothing to export — add a room or underlay first");
+        return;
+      }
       const res = await fetch(`/api/inspections/${inspectionId}/sketches/pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ floors: floorPayload }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const errBody = (await res.json().catch(() => null)) as {
+          error?: string;
+          message?: string;
+        } | null;
+        toast.error(
+          errBody?.message ?? errBody?.error ?? `PDF export failed (${res.status})`,
+        );
+        return;
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -1544,10 +1577,38 @@ export function SketchEditorV2({
       a.download = `sketch-${inspectionId?.slice(-8) ?? "export"}.pdf`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      toast.success("Floor plan PDF downloaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "PDF export failed");
     } finally {
       setExportingPdf(false);
     }
   }, [floorsData, inspectionId, exportingPdf, flushSaveNow]);
+
+  const handleExportFloorPng = useCallback(() => {
+    if (!activeFloor) {
+      toast.error("No active floor");
+      return;
+    }
+    const canvas = activeFloor.canvasRef.current?.getFabricCanvas() as
+      | Parameters<typeof exportSketchPng>[0]
+      | null
+      | undefined;
+    if (!canvas) {
+      toast.error("Canvas not ready");
+      return;
+    }
+    try {
+      const dataUrl = exportSketchPng(canvas);
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `floor-plan-${activeFloor.floor.floorLabel || "export"}.png`;
+      a.click();
+      toast.success("Floor plan PNG downloaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "PNG export failed");
+    }
+  }, [activeFloor]);
 
   // ── RA-1607: Import hand-drawn sketch via Claude Vision ─
   const handleImportSketch = useCallback(
@@ -2151,21 +2212,31 @@ export function SketchEditorV2({
             </button>
           )}
 
-          {/* PDF export */}
+          {/* PDF / PNG export */}
           {!guided && inspectionId && (
-            <button
-              type="button"
-              onClick={handleExportPdf}
-              disabled={exportingPdf}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-brand-navy text-white/70 hover:text-white border border-white/10 hover:border-white/20 transition-colors disabled:opacity-40"
-            >
-              {exportingPdf ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : (
-                <FileDown size={12} />
-              )}
-              PDF
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleExportFloorPng}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-brand-navy text-white/70 hover:text-white border border-white/10 hover:border-white/20 transition-colors"
+              >
+                <Download size={12} />
+                PNG
+              </button>
+              <button
+                type="button"
+                onClick={handleExportPdf}
+                disabled={exportingPdf}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-brand-navy text-white/70 hover:text-white border border-white/10 hover:border-white/20 transition-colors disabled:opacity-40"
+              >
+                {exportingPdf ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <FileDown size={12} />
+                )}
+                PDF
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -2367,7 +2438,8 @@ export function SketchEditorV2({
                 behavior: "smooth",
                 block: "nearest",
               });
-              toast("Import or fetch an underlay below, then confirm rooms", {
+              underlayOpenUploadRef.current?.();
+              toast("Choose an underlay image, then confirm rooms", {
                 duration: 4000,
               });
             }}
@@ -2387,15 +2459,21 @@ export function SketchEditorV2({
         {!readonly && !guided && (
           <SketchPlanLifecycleBanner
             phase={
-              planPhase === "plan_ready" || planPhase === "empty"
+              planPhase === "empty" ||
+              (planPhase === "plan_ready" && planReadyBannerDismissed)
                 ? "empty"
                 : planPhase
             }
             onConfirmPlan={() => {
               setPlanReadyAck(true);
+              setPlanReadyBannerDismissed(false);
               toast.success("Plan marked ready — annotate in Quick edit");
             }}
-            onOpenAdvanced={() => handleEditorModeChange("advanced")}
+            onDismissPlanReady={() => setPlanReadyBannerDismissed(true)}
+            onOpenAdvanced={() => {
+              setPlanReadyBannerDismissed(true);
+              handleEditorModeChange("advanced");
+            }}
           />
         )}
 
@@ -3046,6 +3124,7 @@ export function SketchEditorV2({
             onClear={handleClearBackground}
             hasBackground={!!activeFloor?.backgroundUrl}
             autoFetch={autoFetchFloorPlan && !!propertyAddress}
+            openUploadRef={underlayOpenUploadRef}
             className="border-white/10"
           />
           {activeFloor?.backgroundUrl && (

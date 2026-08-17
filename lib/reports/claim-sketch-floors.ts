@@ -1,7 +1,12 @@
 import type { SketchFloor } from "@/lib/generate-sketch-pdf";
-import { parseMoisturePins } from "@/lib/reports/moisture-map";
-import { parseEvidencePins } from "@/lib/reports/evidence-map";
+import { parseMoisturePins } from "./moisture-map";
+import { parseEvidencePins } from "./evidence-map";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
+import {
+  filterNormalizedPinsInRoom,
+  type RoomMoistureCropMeta,
+} from "@/lib/sketch/room-moisture-crop";
+import { roomMoistureCropFromStoredSketchData } from "@/lib/sketch/pending-sketch-load";
 
 /**
  * The subset of a `ClaimSketch` row needed to build a report floor page.
@@ -20,6 +25,42 @@ export interface ClaimSketchRow {
    */
   moisturePoints?: unknown;
   evidencePins?: unknown;
+}
+
+/**
+ * When a floor has room moisture crop meta, append a room-scoped moisture page
+ * (Hydro-style workflow outcome — room map for reports).
+ */
+export function expandFloorsWithRoomMoisture(
+  floors: SketchFloor[],
+): SketchFloor[] {
+  const out: SketchFloor[] = [];
+  for (const floor of floors) {
+    out.push(floor);
+    const cropMeta = floor.roomMoistureCrop;
+    if (!cropMeta?.roomPoints?.length) continue;
+    const w = cropMeta.canvasWidth ?? 0;
+    const h = cropMeta.canvasHeight ?? 0;
+    const roomPins = filterNormalizedPinsInRoom(
+      floor.moisturePins ?? [],
+      cropMeta.roomPoints,
+      w,
+      h,
+    );
+    const label =
+      cropMeta.crop.label ??
+      cropMeta.roomId ??
+      "Room";
+    out.push({
+      ...floor,
+      label: `Room moisture — ${label}`,
+      moisturePins: roomPins,
+      evidencePins: null,
+      roomMoistureCrop: cropMeta,
+      isRoomMoisturePage: true,
+    });
+  }
+  return out;
 }
 
 /**
@@ -53,6 +94,8 @@ export async function claimSketchesToFloors(
         const res = await fetchImpl(signedUrl ?? s.renderedPngUrl);
         if (!res.ok) return null;
         const base64 = Buffer.from(await res.arrayBuffer()).toString("base64");
+        const roomMoistureCrop: RoomMoistureCropMeta | null =
+          roomMoistureCropFromStoredSketchData(s.sketchData);
         return {
           label: s.floorLabel,
           pngDataUrl: `data:image/png;base64,${base64}`,
@@ -62,6 +105,7 @@ export async function claimSketchesToFloors(
               : null,
           moisturePins: parseMoisturePins(s.moisturePoints),
           evidencePins: parseEvidencePins(s.evidencePins),
+          roomMoistureCrop,
         };
       } catch {
         return null;
@@ -69,7 +113,9 @@ export async function claimSketchesToFloors(
     }),
   );
 
-  return floors.filter((f): f is SketchFloor => f !== null);
+  return expandFloorsWithRoomMoisture(
+    floors.filter((f): f is SketchFloor => f !== null),
+  );
 }
 
 /**

@@ -3,6 +3,7 @@ import {
   openingsToCutIntervals,
   solidBandsForHost,
   shouldRematerializeHostStroke,
+  roomEdgeIdsNeedingFullRematerialize,
 } from "../wall-band-rematerialize";
 
 const WALL = { a: { x: 0, y: 100 }, b: { x: 500, y: 100 } };
@@ -45,5 +46,25 @@ describe("shouldRematerializeHostStroke", () => {
   it("is true when the host has at least one opening", () => {
     expect(shouldRematerializeHostStroke(1)).toBe(true);
     expect(shouldRematerializeHostStroke(0)).toBe(false);
+  });
+});
+
+describe("roomEdgeIdsNeedingFullRematerialize", () => {
+  it("returns empty when no room edge is opened", () => {
+    expect(
+      roomEdgeIdsNeedingFullRematerialize(
+        ["r1:e0", "r1:e1", "r1:e2", "r1:e3"],
+        new Set(["other"]),
+      ),
+    ).toEqual([]);
+  });
+
+  it("returns every room edge when any edge has an opening", () => {
+    expect(
+      roomEdgeIdsNeedingFullRematerialize(
+        ["r1:e0", "r1:e1", "r1:e2", "r1:e3"],
+        new Set(["r1:e1"]),
+      ),
+    ).toEqual(["r1:e0", "r1:e1", "r1:e2", "r1:e3"]);
   });
 });

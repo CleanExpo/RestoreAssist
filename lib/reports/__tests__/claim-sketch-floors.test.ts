@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { claimSketchesToFloors } from "../claim-sketch-floors";
+import {
+  claimSketchesToFloors,
+  expandFloorsWithRoomMoisture,
+} from "../claim-sketch-floors";
+import type { SketchFloor } from "@/lib/generate-sketch-pdf";
 
 /** Minimal stand-in PNG bytes — content is irrelevant to the mapper. */
 function pngBytes(marker: number): Uint8Array {
@@ -20,6 +24,56 @@ function fakeFetch(map: Record<string, Uint8Array | "fail">) {
     };
   });
 }
+
+describe("expandFloorsWithRoomMoisture", () => {
+  it("appends a room moisture companion page when crop meta is present", () => {
+    const floor: SketchFloor = {
+      label: "Ground",
+      pngDataUrl: "data:image/png;base64,xx",
+      moisturePins: [
+        {
+          nx: 0.25,
+          ny: 0.25,
+          wme: 18,
+          iicrClass: 2,
+          color: "#f59e0b",
+        },
+        {
+          nx: 0.9,
+          ny: 0.9,
+          wme: 40,
+          iicrClass: 4,
+          color: "#ef4444",
+        },
+      ],
+      roomMoistureCrop: {
+        roomId: "r1",
+        crop: {
+          left: 100,
+          top: 100,
+          width: 200,
+          height: 150,
+          roomId: "r1",
+          label: "Living",
+        },
+        roomPoints: [
+          { x: 100, y: 100 },
+          { x: 300, y: 100 },
+          { x: 300, y: 250 },
+          { x: 100, y: 250 },
+        ],
+        canvasWidth: 800,
+        canvasHeight: 600,
+      },
+    };
+    const expanded = expandFloorsWithRoomMoisture([floor]);
+    expect(expanded).toHaveLength(2);
+    expect(expanded[1].label).toBe("Room moisture — Living");
+    expect(expanded[1].isRoomMoisturePage).toBe(true);
+    expect(expanded[1].moisturePins).toHaveLength(1);
+    expect(expanded[1].moisturePins![0].wme).toBe(18);
+  });
+});
 
 describe("claimSketchesToFloors", () => {
   it("maps rendered sketches to floors as data URLs, sorted by floorNumber", async () => {

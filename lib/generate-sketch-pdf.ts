@@ -1000,6 +1000,10 @@ export interface SketchFloor {
   moisturePins?: MoistureMapPin[] | null;
   /** Evidence photos linked to stable normalized positions on this floor. */
   evidencePins?: EvidenceMapPin[] | null;
+  /** Room moisture crop meta — expands to an extra report page when set. */
+  roomMoistureCrop?: import("@/lib/sketch/room-moisture-crop").RoomMoistureCropMeta | null;
+  /** True when this page is the room-scoped moisture companion page. */
+  isRoomMoisturePage?: boolean;
 }
 
 export interface SketchPdfOptions {

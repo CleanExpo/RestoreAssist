@@ -18,6 +18,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateSketchPdf, type SketchFloor } from "@/lib/generate-sketch-pdf";
 import { serverAuthoritativeFloors } from "@/lib/sketch/measured-sketch-data";
+import { expandFloorsWithRoomMoisture } from "@/lib/reports/claim-sketch-floors";
 import type { DamageCause } from "@/lib/nz/nhcover";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -147,7 +148,10 @@ export async function POST(
     const pdfBytes = await generateSketchPdf({
       // RA-6761: server-authoritative geometry — room areas + compliance annex
       // come from the saved ClaimSketch (measured-only), not client fabricJson.
-      floors: serverAuthoritativeFloors(body.floors, sketchRows),
+      // Room moisture crop meta expands to a companion report page when present.
+      floors: expandFloorsWithRoomMoisture(
+        serverAuthoritativeFloors(body.floors, sketchRows),
+      ),
       propertyAddress: body.propertyAddress ?? inspection.propertyAddress ?? "",
       reportNumber: body.reportNumber ?? id.slice(-8).toUpperCase(),
       materials,

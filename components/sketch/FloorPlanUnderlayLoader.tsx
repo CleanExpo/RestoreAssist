@@ -8,7 +8,7 @@
  * semi-transparent underlay on the Fabric.js canvas for tracing.
  */
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, type MutableRefObject } from "react";
 import { cn } from "@/lib/utils";
 import {
   MapPin,
@@ -57,6 +57,8 @@ export interface FloorPlanUnderlayLoaderProps {
    * The panel expands to show loading state.
    */
   autoFetch?: boolean;
+  /** Imperative handle — Sketch Studio start overlay opens the file picker. */
+  openUploadRef?: MutableRefObject<(() => void) | null>;
   className?: string;
 }
 
@@ -68,6 +70,7 @@ export function FloorPlanUnderlayLoader({
   onClear,
   hasBackground = false,
   autoFetch = false,
+  openUploadRef,
   className,
 }: FloorPlanUnderlayLoaderProps) {
   const [expanded, setExpanded] = useState(autoFetch && !!defaultAddress);
@@ -93,6 +96,18 @@ export function FloorPlanUnderlayLoader({
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Track whether we've already auto-applied so we don't re-trigger on re-renders
   const autoAppliedRef = useRef(false);
+
+  useEffect(() => {
+    if (!openUploadRef) return;
+    openUploadRef.current = () => {
+      setExpanded(true);
+      // Defer so the expanded panel mounts the hidden file input.
+      requestAnimationFrame(() => fileInputRef.current?.click());
+    };
+    return () => {
+      openUploadRef.current = null;
+    };
+  }, [openUploadRef]);
 
   // RA-6848 [C2]: legal kill-switch for the URL scrape path (RA-6850 sign-off).
   // OFF unless explicitly enabled — the upload path is unaffected.

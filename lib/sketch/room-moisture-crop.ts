@@ -31,6 +31,11 @@ export interface RoomCropRect {
 export interface RoomMoistureCropMeta {
   roomId: string;
   crop: RoomCropRect;
+  /** Absolute room polygon — used to filter pins for report PDF pages. */
+  roomPoints?: RoomCropPoint[];
+  /** Canvas size when crop was taken (for normalized pin filtering). */
+  canvasWidth?: number;
+  canvasHeight?: number;
 }
 
 /** Axis-aligned crop around a room polygon with padding. */
@@ -101,6 +106,33 @@ export function roomCropMeta(
   crop: RoomCropRect,
 ): RoomMoistureCropMeta {
   return { roomId, crop: { ...crop, roomId } };
+}
+
+/**
+ * Filter normalized (0..1) moisture map pins that fall inside a room polygon.
+ * Requires roomPoints in scene pixels plus the canvas size used when nx/ny
+ * were computed.
+ */
+export function filterNormalizedPinsInRoom<
+  T extends { nx: number; ny: number },
+>(
+  pins: readonly T[],
+  roomPoints: ReadonlyArray<RoomCropPoint>,
+  canvasWidth: number,
+  canvasHeight: number,
+): T[] {
+  if (
+    roomPoints.length < 3 ||
+    !(canvasWidth > 0) ||
+    !(canvasHeight > 0)
+  ) {
+    return [];
+  }
+  return pins.filter((pin) => {
+    const x = pin.nx * canvasWidth;
+    const y = pin.ny * canvasHeight;
+    return isPointInRoomCrop(x, y, roomPoints);
+  });
 }
 
 /**
