@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { activationErrorMessage } from '@/lib/setup/activation-error';
 import { RAIcon } from '@/components/brand/RAIcon';
 import { useSetupStore, type SetupOrganization } from './store';
 import { BusinessDetailsCard } from './BusinessDetailsCard';
@@ -30,11 +31,12 @@ interface InitialPayload extends SetupOrganization {
   hydrationJobs: Array<{ kind: 'ABR' | 'WEBSITE' | 'PRICING'; status: string }>;
 }
 
+
 export function SetupShell({ initial }: { initial: InitialPayload }) {
   const setOrg = useSetupStore((s) => s.setOrg);
   const setSectionStatus = useSetupStore((s) => s.setSectionStatus);
   const org = useSetupStore((s) => s.org);
-  const router = useRouter();
+  const { update: refreshSession } = useSession();
 
   // AI-key completion is the one gate the store doesn't already carry, so read
   // it from the canonical onboarding status (same signal the setup gate uses).
@@ -225,10 +227,42 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     },
   ];
 
-  return (
-    <SetupStepper
-      items={steps}
-      onFinish={() => router.push('/dashboard/reports/new')}
-    />
-  );
+  // Phase 4 — the terminal CTA is the finish path essentially every operator
+  // takes, so it has to be the one that actually completes setup. Two things
+  // must happen before we navigate, or turning `SETUP_WIZARD_ENABLED` on traps
+  // the user in a redirect loop:
+  //
+  //  1. `POST /api/setup/activate` sets `Organization.setupCompletedAt`.
+  //     Previously the ONLY caller was the Activate button inside
+  //     FeatureHealthCard, which lives in the *optional* Integrations step —
+  //     so an operator who took the wizard at its word and skipped the
+  //     optional steps never activated at all, and the setup gate in
+  //     `proxy.ts` bounced every dashboard path straight back to /setup.
+  //
+  //  2. The NextAuth JWT has to be re-minted. The gate reads
+  //     `setupCompletedAt` off the token, and only a NextAuth route can
+  //     rewrite that cookie — a server-component redirect cannot. Since
+  //     `/setup` itself redirects to /dashboard once the DB row is set, a
+  //     stale token turns the bounce into a /setup ↔ /dashboard ping-pong
+  //     that ends in ERR_TOO_MANY_REDIRECTS. `update()` triggers the jwt()
+  //     callback with `trigger: "update"`, which refreshes the claim.
+  //
+  // The navigation is a full document load, not a router.push, so the request
+  // that follows is guaranteed to carry the refreshed cookie.
+  const handleFinish = async () => {
+    const res = await fetch('/api/setup/activate', { method: 'POST' });
+
+    // 409 CONFLICT is "setup already activated" — the state we wanted, reached
+    // by the operator having pressed Activate in the optional Integrations
+    // step first. Treat it as success, not as a dead end.
+    if (!res.ok && res.status !== 409) {
+      const body = await res.json().catch(() => null);
+      throw new Error(activationErrorMessage(res.status, body));
+    }
+
+    await refreshSession();
+    window.location.assign('/dashboard/reports/new');
+  };
+
+  return <SetupStepper items={steps} onFinish={handleFinish} />;
 }

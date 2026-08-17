@@ -31,9 +31,78 @@ import {
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import type { OcrExtraction, ExtractionType } from "@/lib/nir-vision-ocr";
-import { meterReadingToOcrExtraction } from "@/lib/nir-vision-ocr";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { fireHaptic } from "@/lib/capacitor";
+import type { MeterReadingResult } from "@/lib/vision/meter-prompts";
+
+// ── Vision extraction plumbing ────────────────────────────────────────────────
+
+/** Media types POST /api/vision/extract-reading accepts. */
+const VISION_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+type VisionMediaType = (typeof VISION_MEDIA_TYPES)[number];
+
+function toVisionMediaType(fileType: string): VisionMediaType {
+  return (VISION_MEDIA_TYPES as readonly string[]).includes(fileType)
+    ? (fileType as VisionMediaType)
+    : "image/jpeg";
+}
+
+/** Strip the `data:<type>;base64,` prefix — the route wants raw base64 only. */
+export async function fileToBase64(file: File): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("Could not read the photo file"));
+    reader.readAsDataURL(file);
+  });
+  const comma = dataUrl.indexOf(",");
+  return comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+}
+
+/**
+ * Map the vision route's MeterReadingResult onto the OcrExtraction shape the
+ * confirm forms already consume. The vision prompt does not identify the
+ * material the probe is on, so `materialType` stays null and the tech types it.
+ */
+export function meterReadingToExtraction(
+  reading: MeterReadingResult,
+): Extract<OcrExtraction, { type: "moisture" }> {
+  return {
+    type: "moisture",
+    moisturePercent: reading.readingValue,
+    // Deliberately NOT `?? 0`. An unreadable display stays null the whole way
+    // through — a fabricated 0 is indistinguishable from a genuine bone-dry
+    // reading and could be confirmed and saved as one.
+    value: reading.readingValue,
+    unit: reading.readingUnit,
+    materialType: null,
+    rawText: reading.displayText,
+    confidence: reading.confidence,
+  };
+}
+
+/** Turn the route's bare error codes into something a tech on site can act on. */
+export function visionErrorMessage(status: number, code: string | null) {
+  switch (code) {
+    case "KEY_MISSING":
+      return "No Anthropic API key is configured for this workspace. Add your own key under Settings -> Integrations, then try again.";
+    case "RATE_LIMITED":
+      return "Too many meter reads in the last minute — wait a moment and try again.";
+    case "MODEL_OVERLOADED":
+      return "The vision model is busy right now. Try again in a moment, or enter the reading manually.";
+    case "NO_READING_DETECTED":
+      return "Could not read the meter display. Retake the photo square-on with the display well lit, or enter the reading manually.";
+    case "PARSE_FAILED":
+      return "The meter display could not be interpreted. Retake the photo, or enter the reading manually.";
+    default:
+      if (status === 401) return "Your session has expired — sign in again.";
+      if (status === 402)
+        return "An active subscription is required to read meters with AI.";
+      if (status === 413)
+        return "That photo is too large — retake it at a lower resolution.";
+      return code ?? "Analysis failed — please try again";
+  }
+}
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -200,6 +269,10 @@ function MoistureConfirm({
           location,
           surfaceType: surfaceType || "unknown",
           moistureLevel: val,
+          // RA-1611: tag the provenance so a vision-extracted reading is
+          // distinguishable from a hand-typed one in the drying log and the
+          // audit trail. Without this the route defaults it to "manual".
+          source: "ocr",
           notes: `Captured via meter photo OCR. Meter display read: "${extraction.rawText}"`,
         }),
       });
@@ -633,45 +706,45 @@ export function MeterPhotoCapture({
     input.click();
   };
 
-  // Send photo to real vision extract-reading (BYOK Anthropic).
+  /**
+   * Send the photo to the BYOK vision route and turn the result into the
+   * extraction the confirm form renders.
+   *
+   * Only `moisture` is wired: POST /api/vision/extract-reading is a
+   * moisture-meter extractor. The thermo-hygrometer and laser-measure modes
+   * have no extraction endpoint, so they say so plainly instead of firing at a
+   * route that does not exist — which is what this component did previously
+   * (it posted to /api/inspections/[id]/analyze-photo, which has never
+   * existed, so every "Read Meter Display" press 404'd).
+   */
   const analyse = async () => {
     if (!file) return;
+
+    if (mode !== "moisture") {
+      setError(
+        `Photo OCR is currently available for moisture meters only. Enter the ${MODE_LABELS[mode].toLowerCase()} values manually below.`,
+      );
+      return;
+    }
+
     setAnalysing(true);
     setError(null);
 
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result ?? ""));
-        reader.onerror = () => reject(new Error("Failed to read image"));
-        reader.readAsDataURL(file);
-      });
-      const comma = dataUrl.indexOf(",");
-      const image = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
-      const mediaType = (
-        file.type === "image/png" || file.type === "image/webp"
-          ? file.type
-          : "image/jpeg"
-      ) as "image/jpeg" | "image/png" | "image/webp";
-
-      const res = await fetch(`/api/vision/extract-reading`, {
+      const image = await fileToBase64(file);
+      const res = await fetch("/api/vision/extract-reading", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image, mediaType }),
+        body: JSON.stringify({
+          image,
+          mediaType: toVisionMediaType(file.type),
+        }),
       });
 
-      const data = (await res.json().catch(() => ({}))) as {
-        reading?: Parameters<typeof meterReadingToOcrExtraction>[0];
-        error?: string;
-        message?: string;
-      };
+      const data = await res.json();
 
       if (!res.ok) {
-        setError(
-          apiErrorMessage(data) ??
-            data.error ??
-            "Analysis failed — please try again",
-        );
+        setError(visionErrorMessage(res.status, apiErrorMessage(data)));
         return;
       }
 
@@ -680,7 +753,7 @@ export function MeterPhotoCapture({
         return;
       }
 
-      setExtraction(meterReadingToOcrExtraction(data.reading, mode));
+      setExtraction(meterReadingToExtraction(data.reading as MeterReadingResult));
     } catch {
       setError("Network error — check your connection and try again");
     } finally {

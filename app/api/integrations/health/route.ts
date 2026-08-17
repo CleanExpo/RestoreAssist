@@ -144,25 +144,49 @@ export async function GET(request: NextRequest) {
       take: MAX_SYNC_LOGS_FOR_HEALTH,
     });
 
+    // Zero sync records is UNVERIFIED, not healthy. A rate computed from an
+    // empty set previously defaulted to 100 and rendered as a pass, so an
+    // integration that had never synced once reported "100% success rate
+    // (0 syncs in 24h)". Connected-but-never-synced is an unknown, and the
+    // only honest answer is that there is nothing to measure yet.
+    const successfulSyncs = recentSyncs.filter(
+      (s) => s.status === "SUCCESS",
+    ).length;
     const successRate =
       recentSyncs.length > 0
-        ? (recentSyncs.filter((s) => s.status === "SUCCESS").length /
-            recentSyncs.length) *
-          100
-        : 100;
+        ? (successfulSyncs / recentSyncs.length) * 100
+        : null;
 
     checks.push({
       name: "Sync Success Rate",
-      status: successRate >= 95 ? "pass" : successRate >= 80 ? "warn" : "fail",
-      message: `${Math.round(successRate)}% success rate (${recentSyncs.length} syncs in 24h)`,
+      status:
+        successRate === null
+          ? "unverified"
+          : successRate >= 95
+            ? "pass"
+            : successRate >= 80
+              ? "warn"
+              : "fail",
+      message:
+        successRate === null
+          ? "Unverified — no syncs recorded in the last 24 hours"
+          : `${Math.round(successRate)}% success rate (${recentSyncs.length} syncs in 24h)`,
       details: {
         total: recentSyncs.length,
-        successful: recentSyncs.filter((s) => s.status === "SUCCESS").length,
+        successful: successfulSyncs,
         failed: recentSyncs.filter((s) => s.status === "FAILED").length,
+        verified: successRate !== null,
       },
     });
 
-    if (successRate < 80 && overallStatus !== "unhealthy") {
+    // An unverified check never downgrades overall health — absence of
+    // evidence is not evidence of failure — but it must never be counted as a
+    // pass either. The top-level status is reconciled below.
+    if (
+      successRate !== null &&
+      successRate < 80 &&
+      overallStatus !== "unhealthy"
+    ) {
       overallStatus = successRate < 50 ? "unhealthy" : "degraded";
     }
 
@@ -275,14 +299,27 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // A run that measured nothing must not report the same word as a run that
+    // measured everything and passed. "unverified" replaces "healthy" only
+    // when nothing worse was found: a degraded or unhealthy verdict is a real
+    // measurement and always takes precedence over an absence of one.
+    const unverifiedChecks = checks.filter(
+      (c) => c.status === "unverified",
+    ).length;
+    const reportedStatus: "healthy" | "degraded" | "unhealthy" | "unverified" =
+      overallStatus === "healthy" && unverifiedChecks > 0
+        ? "unverified"
+        : overallStatus;
+
     return NextResponse.json({
-      status: overallStatus,
+      status: reportedStatus,
       checks,
       summary: {
         total: checks.length,
         passed: checks.filter((c) => c.status === "pass").length,
         warned: checks.filter((c) => c.status === "warn").length,
         failed: checks.filter((c) => c.status === "fail").length,
+        unverified: unverifiedChecks,
       },
       timestamp: new Date().toISOString(),
     });

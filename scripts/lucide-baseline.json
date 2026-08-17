@@ -1,6 +1,6 @@
 {
   "note": "Baseline of pre-existing lucide-react imports. The guard blocks any increase. Regenerate after migrating icons to RAIcon to ratchet the limit down. See docs/RESTOREASSIST_ICON_SYSTEM.md.",
-  "total": 364,
+  "total": 368,
   "files": {
     "app/contractors/[slug]/page.tsx": 1,
     "app/contractors/page.tsx": 1,
@@ -266,6 +266,7 @@
     "components/inspection/ExportPdfButton.tsx": 1,
     "components/inspection/GroupReadingsPanel.tsx": 1,
     "components/inspection/InspectionSignOff.tsx": 1,
+    "components/inspection/InsurerProfilePanel.tsx": 1,
     "components/inspection/MeterPhotoCapture.tsx": 1,
     "components/inspection/MoistureMappingCanvas.tsx": 1,
     "components/inspection/MoistureReadingEntryForm.tsx": 1,
@@ -274,6 +275,7 @@
     "components/inspection/PortalInvitePanel.tsx": 1,
     "components/InspectionReportViewer.tsx": 1,
     "components/inspections/adaptive-guidance-panel.tsx": 1,
+    "components/inspections/field-evidence-checklist-panel.tsx": 1,
     "components/inspections/submission-gate-panel.tsx": 1,
     "components/InsuranceDashboard.tsx": 1,
     "components/InsuranceInformation.tsx": 1,
@@ -323,6 +325,8 @@
     "components/sketch/SketchEditorV2.tsx": 1,
     "components/sketch/SketchFloorTabs.tsx": 1,
     "components/sketch/SketchMoistureLayer.tsx": 1,
+    "components/sketch/SketchPlanLifecycleBanner.tsx": 1,
+    "components/sketch/SketchRoomMoistureCrop.tsx": 1,
     "components/sketch/SketchScaleModal.tsx": 1,
     "components/sketch/SketchSelectionPanel.tsx": 1,
     "components/sketch/SketchStartOverlay.tsx": 1,

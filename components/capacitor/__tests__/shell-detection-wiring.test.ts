@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -98,15 +98,26 @@ describe("iOS shell detection — cross-file wiring", () => {
   // branch exists to close — with every test still green. Regenerate from the
   // source tree and compare.
   it("the BillingGate manifest is complete — regenerated from the tree", () => {
-    const { execSync } = require("node:child_process") as typeof import("node:child_process");
+    // Regenerate in Node rather than shelling out to grep. The previous version
+    // ran `grep -rl '<BillingGate' ... || true` through execSync, and that
+    // `|| true` is a fail-open: on any machine without grep on PATH — every
+    // Windows box, since execSync uses cmd.exe — stdout is empty, the missing
+    // binary becomes "no matches", and a genuinely stale manifest would still
+    // be compared against an empty list. A directory walk cannot fail that way.
+    const walk = (dir: string, acc: string[] = []): string[] => {
+      for (const entry of readdirSync(join(repoRoot, dir), {
+        withFileTypes: true,
+      })) {
+        const rel = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) walk(rel, acc);
+        else if (entry.name.endsWith(".tsx")) acc.push(rel);
+      }
+      return acc;
+    };
 
-    const found = execSync(
-      "grep -rl '<BillingGate' --include='*.tsx' app components || true",
-      { cwd: repoRoot, encoding: "utf8" },
-    )
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean)
+    const found = ["app", "components"]
+      .flatMap((d) => walk(d))
+      .filter((f) => read(f).includes("<BillingGate"))
       .filter((f) => !f.includes("__tests__"))
       .sort();
 
