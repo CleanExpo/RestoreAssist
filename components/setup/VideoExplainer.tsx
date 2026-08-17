@@ -104,6 +104,28 @@ export function VideoExplainer({
   // durationSec must be available to the hooks below; entry may be undefined
   // here and is handled by the early-return AFTER all hooks.
   const durationSec = entry?.durationSec ?? 0;
+  const cloudinaryUrl = entry?.cloudinaryUrl;
+  const localPath = entry?.localPath;
+  const youtubeId = entry?.youtubeId;
+  const title = entry?.title ?? "";
+
+  const [videoSrc, setVideoSrc] = useState(
+    () => cloudinaryUrl || localPath || "",
+  );
+
+  useEffect(() => {
+    setVideoSrc(cloudinaryUrl || localPath || "");
+    setHasError(false);
+  }, [cloudinaryUrl, localPath, slug]);
+
+  const handleVideoError = useCallback(() => {
+    if (cloudinaryUrl && videoSrc === cloudinaryUrl && localPath) {
+      setVideoSrc(localPath);
+      setHasError(false);
+      return;
+    }
+    setHasError(true);
+  }, [cloudinaryUrl, localPath, videoSrc]);
 
   // ─── Video event handlers (must precede any early-return — rules-of-hooks) ───
   const handlePlay = useCallback(() => {
@@ -156,7 +178,6 @@ export function VideoExplainer({
 
   // Early-return AFTER all hooks above — rules-of-hooks compliant.
   if (!entry) return null;
-  const { youtubeId, localPath, cloudinaryUrl, title } = entry;
 
   const wrapperClass =
     className ??
@@ -200,7 +221,7 @@ export function VideoExplainer({
             onPause={handlePause}
             onTimeUpdate={handleTimeUpdate}
             onEnded={handleEnded}
-            onError={() => setHasError(true)}
+            onError={handleVideoError}
             poster={isMobile ? posterUrl : undefined}
             disablePictureInPicture={isMobile}
           >
@@ -234,17 +255,23 @@ export function VideoExplainer({
     );
   };
 
-  // Cloudinary-hosted MP4 — CDN delivery (preferred)
-  if (cloudinaryUrl) {
-    return renderVideo(cloudinaryUrl);
-  }
-
-  // Repo-hosted MP4 — fallback
-  if (localPath) {
-    return renderVideo(localPath);
+  // Cloudinary or local MP4 (with CDN → local fallback via handleVideoError)
+  if (videoSrc) {
+    return renderVideo(videoSrc);
   }
 
   // YouTube fallback (still tracks engagement via iframe API)
+  if (!youtubeId) {
+    return (
+      <div className={wrapperClass} role="status" aria-label={`${title} — video unavailable`}>
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-brand-navy text-center text-white">
+          <span className="text-sm font-medium">Video unavailable</span>
+          <span className="text-xs text-white/70">{title}</span>
+        </div>
+      </div>
+    );
+  }
+
   if (isPlaying) {
     return (
       <div className={wrapperClass} ref={containerRef}>

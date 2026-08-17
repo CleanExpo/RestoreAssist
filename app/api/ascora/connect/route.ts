@@ -63,7 +63,7 @@ function validateAscoraBaseUrl(
 async function verifyAscoraKey(
   apiKey: string,
   baseUrl: string,
-): Promise<boolean> {
+): Promise<{ ok: true } | { ok: false; tlsBlocked?: boolean; detail?: string }> {
   try {
     const res = await fetch(`${baseUrl}/jobs?page=1&pageSize=1`, {
       headers: { Auth: apiKey, "Content-Type": "application/json" },
@@ -74,11 +74,24 @@ async function verifyAscoraKey(
       redirect: "manual",
     });
     if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) {
-      return false;
+      return { ok: false, detail: "Unexpected redirect from Ascora" };
     }
-    return res.ok;
-  } catch {
-    return false;
+    if (!res.ok) {
+      return { ok: false, detail: `Ascora responded ${res.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const tlsBlocked = /certificate|CERT_|SSL|TLS|unable to verify/i.test(
+      message,
+    );
+    return {
+      ok: false,
+      tlsBlocked,
+      detail: tlsBlocked
+        ? "TLS certificate validation failed talking to Ascora"
+        : message,
+    };
   }
 }
 
@@ -129,10 +142,19 @@ export async function POST(request: NextRequest) {
 
     // Verify key before saving
     const valid = await verifyAscoraKey(apiKey.trim(), resolvedBase);
-    if (!valid) {
+    if (!valid.ok) {
+      if (valid.tlsBlocked) {
+        return apiError(request, {
+          code: "UPSTREAM_FAILED",
+          message:
+            "Ascora TLS certificate validation failed. This is a vendor/network trust issue — RestoreAssist will not disable TLS verification. Contact Ascora support or your network admin for a trusted certificate chain.",
+          status: 502,
+        });
+      }
       return apiError(request, {
         code: "VALIDATION",
         message:
+          valid.detail ??
           "Could not connect to Ascora with the provided API key. Check Administration → API Settings in Ascora.",
         status: 422,
       });
