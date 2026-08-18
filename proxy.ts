@@ -75,6 +75,15 @@ const SETUP_GATE_BYPASS = [
   // exits its loading skeleton. Bypass the whole /api/oauth/ prefix so OAuth
   // discovery calls work during setup.
   "/api/oauth/",
+  // The wizard's Integrations step POSTs to
+  // /api/integrations/oauth/<provider>/connect and the provider returns to
+  // .../callback. Neither starts with "/api/oauth/", so without this the gate
+  // 307s the POST to /setup: fetch follows the redirect, gets /setup's HTML,
+  // `res.ok` is true and `json()` throws — the whole step is inert with the
+  // flag on. The routes behind this prefix enforce their own session,
+  // subscription and add-on checks; the gate is an onboarding funnel, not the
+  // authorisation boundary.
+  "/api/integrations/oauth/",
   "/api/auth/",
   "/api/cron/",
   "/login",
@@ -82,6 +91,15 @@ const SETUP_GATE_BYPASS = [
   "/portal/login",
   "/portal/signup",
   "/onboarding/",
+  // Destinations the setup wizard itself links out to. Each traces to a
+  // control on /setup, and every one of them 307s straight back to /setup
+  // without an entry here — turning the wizard's own remedies into dead ends:
+  //   - /dashboard/subscription      IntegrationsCard's "View add-ons" / "View plans"
+  //   - /dashboard/integrations      IntegrationsCard's "Set up Ascora" (API-key provider)
+  //   - /dashboard/settings/ai-providers  IntegrationsCard's "Manage AI keys"
+  "/dashboard/subscription",
+  "/dashboard/integrations",
+  "/dashboard/settings/ai-providers",
   "/_next/",
   "/favicon",
   "/icon",
