@@ -243,4 +243,39 @@ describe('IntegrationsCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /manage ai keys/i }));
     expect(window.location.href).toContain('/dashboard/settings/ai-providers');
   });
+  // ── Drained from independent review 2026-08-18 ──────────────────────────
+
+  it('un-wedges every tile when the page is restored from bfcache', async () => {
+    // Back from the provider's consent screen is the most natural move in an
+    // OAuth flow. bfcache restores this component with `pending` still set —
+    // without a reset every tile stays disabled reading "Connecting…" with no
+    // failure surface to explain it, and no way out but a manual reload.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, { authUrl: '/go' })));
+
+    render(<IntegrationsCard />);
+    fireEvent.click(screen.getByLabelText(/connect xero/i));
+    await waitFor(() => expect(window.location.href).toBe('/go'));
+    // The success path deliberately leaves the lock on while navigating away.
+    expect(screen.getByLabelText(/connect xero/i)).toBeDisabled();
+
+    fireEvent(window, new PageTransitionEvent('pageshow', { persisted: true }));
+
+    await waitFor(() => expect(screen.getByLabelText(/connect xero/i)).toBeEnabled());
+    expect(screen.getByLabelText(/connect myob/i)).toBeEnabled();
+    expect(screen.queryByText(/connecting…/i)).not.toBeInTheDocument();
+  });
+
+  it('holds the other tiles while the Ascora hand-off navigates', () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
+
+    render(<IntegrationsCard />);
+    fireEvent.click(screen.getByLabelText(/set up ascora/i));
+
+    expect(window.location.href).toContain('/dashboard/integrations');
+    // A fast second click must not fire an OAuth POST on the way out.
+    expect(screen.getByLabelText(/connect xero/i)).toBeDisabled();
+    fireEvent.click(screen.getByLabelText(/connect xero/i));
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
 });

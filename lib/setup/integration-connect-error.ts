@@ -54,6 +54,16 @@ const ADDON_LABEL: Record<string, string> = {
   SERVICE_CRM: SERVICE_CRM_ADDON.name,
 };
 
+/**
+ * `ADDON_LABEL[sku]` on a plain object literal resolves `"__proto__"`,
+ * `"constructor"` and `"toString"` to prototype members — an object or a
+ * function, not `undefined` — which would interpolate into the sentence. Own
+ * keys only.
+ */
+function addonLabel(sku: string): string {
+  return Object.hasOwn(ADDON_LABEL, sku) ? ADDON_LABEL[sku] : "required";
+}
+
 function nestedMessage(body: unknown): string | null {
   const err = (body as { error?: unknown } | null)?.error;
   if (typeof err === "string" && err.trim()) return err.trim();
@@ -77,16 +87,16 @@ export function integrationConnectFailure(
   const code = typeof b?.code === "string" ? b.code : null;
 
   // 402 — an add-on or a subscription stands between the operator and OAuth.
-  if (code === "ADDON_REQUIRED") {
+  if (status === 402 && code === "ADDON_REQUIRED") {
     const sku = typeof b?.sku === "string" ? b.sku : "";
-    const addon = ADDON_LABEL[sku] ?? "required";
+    const addon = addonLabel(sku);
     return {
       message: `${providerName} needs the ${addon} add-on before it can connect.`,
       action: { label: "View add-ons", href: SUBSCRIPTION_URL },
     };
   }
 
-  if (code === "NO_WORKSPACE") {
+  if (status === 402 && code === "NO_WORKSPACE") {
     return {
       message: `${providerName} needs an active subscription before it can connect.`,
       action: { label: "Choose a plan", href: SUBSCRIPTION_URL },
@@ -95,7 +105,7 @@ export function integrationConnectFailure(
 
   // 403 — the paid-subscriber gate on all external integrations. Its `message`
   // is the sentence written for operators; `error` is the terse half.
-  if (b?.upgradeRequired === true) {
+  if (status === 403 && b?.upgradeRequired === true) {
     const message =
       typeof b.message === "string" && b.message.trim()
         ? b.message.trim()

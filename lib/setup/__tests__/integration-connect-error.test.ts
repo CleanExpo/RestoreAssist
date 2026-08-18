@@ -167,9 +167,11 @@ describe("integrationConnectFailure", () => {
     }
   });
 
-  it("only ever links to a path the setup gate lets through", () => {
-    // proxy.ts SETUP_GATE_BYPASS must contain this prefix, or the link 307s
-    // back to /setup the moment SETUP_WIZARD_ENABLED is turned on.
+  it("pins the billing destination constant", () => {
+    // Only the constant's value — that this path is actually let through by
+    // the setup gate is pinned in middleware-setup-gate.test.ts, which is the
+    // suite that can see proxy.ts. Naming this test after the gate property
+    // would be naming something it cannot detect.
     expect(SUBSCRIPTION_URL).toBe("/dashboard/subscription");
   });
 
@@ -178,4 +180,55 @@ describe("integrationConnectFailure", () => {
     expect(result.message).toContain("ServiceM8");
     expect(result.message).toContain("409");
   });
+  // ── Drained from independent review 2026-08-18 ──────────────────────────
+
+  it("does not read an unknown SKU off Object.prototype", () => {
+    // `ADDON_LABEL[sku]` on a plain object literal resolves these to a
+    // prototype member — an object or a function — which would interpolate
+    // into the sentence handed to the operator.
+    for (const sku of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
+      const result = integrationConnectFailure(
+        402,
+        { code: "ADDON_REQUIRED", sku },
+        "Xero",
+      );
+      expect(result.message).toBe(
+        "Xero needs the required add-on before it can connect.",
+      );
+      expect(result.message).not.toContain("[object");
+      expect(result.message).not.toContain("function");
+    }
+  });
+
+  it("does not offer to sell an add-on during a server fault", () => {
+    // Dispatch must consult `status`, not just the body keys: a wrapped 5xx
+    // carrying `code: "ADDON_REQUIRED"` is a fault, not a paywall.
+    const result = integrationConnectFailure(
+      500,
+      { code: "ADDON_REQUIRED", sku: "BOOKKEEPING" },
+      "Xero",
+    );
+    expect(result.message).toMatch(/isn't available right now/i);
+    expect(result.action).toBeUndefined();
+  });
+
+  // Each row asserts the branch the status DEMANDS, not merely "not the
+  // add-on sentence" — a body-key-driven mutant for NO_WORKSPACE or the 403
+  // gate survives that weaker assertion, because neither of their sentences
+  // contains the add-on wording.
+  it.each([
+    [500, { code: "NO_WORKSPACE" }, /isn't available right now/i],
+    [500, { upgradeRequired: true, message: "Upgrade your plan." }, /isn't available right now/i],
+    [500, { code: "ADDON_REQUIRED", sku: "BOOKKEEPING" }, /isn't available right now/i],
+    [400, { code: "NO_WORKSPACE" }, /Couldn't connect Xero \(400\)/],
+    [400, { upgradeRequired: true, message: "Upgrade your plan." }, /Couldn't connect Xero \(400\)/],
+  ])(
+    "takes the branch the status demands, not the one the body keys suggest (%i)",
+    (status, body, expected) => {
+      const result = integrationConnectFailure(status, body, "Xero");
+      expect(result.message).toMatch(expected);
+      // A fault or an unrecognised rejection offers no upgrade action.
+      expect(result.action).toBeUndefined();
+    },
+  );
 });

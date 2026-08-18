@@ -140,6 +140,31 @@ describe("middleware setup gate", () => {
     expect((res as any).status).not.toBe(307);
   });
 
+  it("matches wizard destinations on a segment boundary, not a bare prefix", async () => {
+    // A plain startsWith would also admit /dashboard/subscription-audit and
+    // friends. Sub-paths of a destination stay allowed; siblings do not.
+    (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
+
+    for (const allowed of [
+      "/dashboard/subscription",
+      "/dashboard/subscription/invoices",
+      "/dashboard/settings/ai-providers/openrouter",
+    ]) {
+      const res = await proxy(mkReq(allowed));
+      expect((res as any).status).not.toBe(307);
+    }
+
+    for (const gated of [
+      "/dashboard/subscription-audit",
+      "/dashboard/integrations-admin",
+      "/dashboard/settings/ai-providers-internal",
+    ]) {
+      const res = await proxy(mkReq(gated));
+      expect((res as any).status).toBe(307);
+      expect((res as any).headers.get("location")).toContain("/setup");
+    }
+  });
+
   it("still gates the rest of /dashboard — the bypass is not a blanket one", async () => {
     (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
     for (const pathname of [

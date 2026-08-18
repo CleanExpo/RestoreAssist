@@ -91,15 +91,6 @@ const SETUP_GATE_BYPASS = [
   "/portal/login",
   "/portal/signup",
   "/onboarding/",
-  // Destinations the setup wizard itself links out to. Each traces to a
-  // control on /setup, and every one of them 307s straight back to /setup
-  // without an entry here — turning the wizard's own remedies into dead ends:
-  //   - /dashboard/subscription      IntegrationsCard's "View add-ons" / "View plans"
-  //   - /dashboard/integrations      IntegrationsCard's "Set up Ascora" (API-key provider)
-  //   - /dashboard/settings/ai-providers  IntegrationsCard's "Manage AI keys"
-  "/dashboard/subscription",
-  "/dashboard/integrations",
-  "/dashboard/settings/ai-providers",
   "/_next/",
   "/favicon",
   "/icon",
@@ -109,10 +100,37 @@ const SETUP_GATE_BYPASS = [
   "/robots",
 ];
 
+// Pages the setup wizard itself links out to. Each traces to one control on
+// /setup, and every one of them 307s straight back to /setup without an entry
+// here — turning the wizard's own remedies into dead ends:
+//   - /dashboard/subscription           IntegrationsCard "View add-ons" / "View plans"
+//   - /dashboard/integrations           IntegrationsCard "Set up Ascora" (API-key provider)
+//   - /dashboard/settings/ai-providers  IntegrationsCard "Manage AI keys"
+//
+// These are matched on a segment boundary rather than added to
+// SETUP_GATE_BYPASS, whose plain `startsWith` would also admit a future
+// sibling such as /dashboard/subscription-audit. The prefix list cannot be
+// tightened wholesale: entries like "/favicon" and "/icon" exist precisely to
+// match "/favicon.ico" and "/icon-192.png".
+const SETUP_WIZARD_DESTINATIONS = [
+  "/dashboard/subscription",
+  "/dashboard/integrations",
+  "/dashboard/settings/ai-providers",
+];
+
+function isWizardDestination(pathname: string): boolean {
+  return SETUP_WIZARD_DESTINATIONS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}
+
 function shouldBypassSetupGate(pathname: string): boolean {
   // Exact match for /setup (without trailing slash)
   if (pathname === "/setup") return true;
-  return SETUP_GATE_BYPASS.some((prefix) => pathname.startsWith(prefix));
+  return (
+    SETUP_GATE_BYPASS.some((prefix) => pathname.startsWith(prefix)) ||
+    isWizardDestination(pathname)
+  );
 }
 
 // SP-3 T15 — paths that bypass the hard-paywall redirect even when the

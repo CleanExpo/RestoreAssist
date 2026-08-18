@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, KeyRound } from 'lucide-react';
@@ -43,6 +43,21 @@ export function IntegrationsCard() {
   const [byokOpen, setByokOpen] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [failure, setFailure] = useState<IntegrationConnectFailure | null>(null);
+
+  // P1 (independent review, 2026-08-18): the success path deliberately leaves
+  // `pending` set because the document is navigating away — but Back from the
+  // provider's consent screen is the single most natural move in an OAuth
+  // flow, and a bfcache restore brings this component back with its React
+  // state intact. Without this, every tile stays disabled reading
+  // "Connecting…" forever, with no failure surface to explain it: the exact
+  // dead-click this card exists to remove, reintroduced on the success path.
+  // `pageshow` also fires on a normal load, where `pending` is already null,
+  // so the reset needs no `persisted` branch.
+  useEffect(() => {
+    const reset = () => setPending(null);
+    window.addEventListener('pageshow', reset);
+    return () => window.removeEventListener('pageshow', reset);
+  }, []);
 
   async function handleConnect(provider: Provider) {
     // No re-entrancy check here on purpose. The only caller is the tile's
@@ -106,11 +121,13 @@ export function IntegrationsCard() {
                 key={p.key}
                 type="button"
                 disabled={pending !== null}
-                onClick={() =>
-                  p.mode === 'manual'
-                    ? (window.location.href = INTEGRATIONS_SETTINGS_URL)
-                    : handleConnect(p)
-                }
+                onClick={() => {
+                  if (p.mode !== 'manual') return void handleConnect(p);
+                  // Same-tab navigation: hold the other tiles so a fast second
+                  // click cannot fire an OAuth POST on the way out.
+                  setPending(p.key);
+                  window.location.href = INTEGRATIONS_SETTINGS_URL;
+                }}
                 aria-label={label}
                 className="rounded-md border border-border p-3 text-left transition hover:border-foreground/40 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-between gap-2"
               >
