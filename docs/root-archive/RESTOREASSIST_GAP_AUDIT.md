@@ -602,3 +602,107 @@ were found in `.planning/` video docs.
   2026-07-09). The brand-logo upload half is still unwired
   (`components/setup/BrandCard.tsx:34`, `TODO(setup-wizard Phase 8+)`) and is in progress
   in a parallel PR.
+- [PASS] **Phase 3 / Phase 4 — the setup wizard's Integrations step now tells the truth when a
+  connect fails** (founder-prioritised: "ensure Xero + QuickBooks + other bookkeeping
+  integrations work from day 1").
+  `IntegrationsCard.handleConnect` did `if (res.ok)` and dropped every other outcome on the
+  floor — no spinner, no message, no state change. A click that failed was indistinguishable
+  from a click that never registered.
+  - **Why that is a day-1 blocker, not a cosmetic gap.**
+    `POST /api/integrations/oauth/[provider]/connect` gates Xero, QuickBooks and MYOB behind the
+    `BOOKKEEPING` add-on (`requireAddon` → 402 `ADDON_REQUIRED`). A workspace that has not bought
+    it — **every** workspace during onboarding — gets a 402 on every attempt, forever, in
+    silence. Compounding it, `getWorkspaceForUser` returns null for workspaces that were never
+    provisioned, which is the 402 `NO_WORKSPACE` branch. The 403 paid-subscriber gate
+    (`checkIntegrationAccess`) and the 500 from a missing `<PROVIDER>_CLIENT_ID` were equally
+    invisible.
+  - **Ascora was 100% dead, deterministically.** The OAuth route now answers
+    400 "Ascora does not use OAuth. Use /api/ascora/connect…" unconditionally (its old shortcut
+    was removed because it marked CONNECTED on the mere presence of an env var). Ascora
+    authenticates with an operator-supplied API key, so a one-click Connect could never work.
+    Its tile now says it needs an API key and hands the operator to the Integrations page where
+    the key form lives, instead of posting to a route that can only reject it.
+  - **A second, flag-time loop behind it.** None of the wizard's outbound destinations were in
+    `proxy.ts`'s `SETUP_GATE_BYPASS`, so with `SETUP_WIZARD_ENABLED=true` every remedy the card
+    offers 307s straight back to `/setup` — including the **connect POST itself**
+    (`/api/integrations/oauth/…` does not start with the already-bypassed `/api/oauth/`), which
+    the card's `fetch` follows, receives `/setup`'s HTML with `res.ok === true`, and throws on
+    `json()`. Bypass entries were added for `/api/integrations/oauth/`,
+    `/dashboard/subscription`, `/dashboard/integrations` and `/dashboard/settings/ai-providers`
+    — each traceable to one control on `/setup`. The additions are path-exact rather than a
+    blanket `/dashboard`, and a test asserts `/dashboard`, `/dashboard/reports/new`,
+    `/dashboard/settings` and `/api/integrations/health` are still gated.
+  - **The server's `redirectUrl` is deliberately not used as a link target.** `requireAddon`'s
+    deny body points at `/subscribe`, and `app/subscribe` **does not exist** — following it
+    would 404 the operator. The wizard owns its own destination, which also keeps the links and
+    the bypass list in agreement about which paths must stay reachable mid-setup. This removes
+    the attacker-controllable-href question entirely rather than sanitising it.
+  - **Failure handling.** `lib/setup/integration-connect-error.ts` maps the route's four
+    envelope shapes — `requireAddon` 402 (raw `{ error, code, sku, action, redirectUrl }`), the
+    403 subscription gate (raw, with the operator-facing sentence in `message` and the terse
+    half in `error`), `apiError`'s RA-1548 `{ error: { code, message } }`, and anything else
+    including a non-JSON body — to one sentence plus an optional action. It is a pure function
+    with its own suite, for the same reason `activation-error.ts` is: passing `body.error`
+    straight to React throws "Objects are not valid as a React child", and that must not be
+    re-derived per call site. 5xx deliberately does **not** surface the internal reason
+    (a missing `<PROVIDER>_CLIENT_ID` is not the operator's to fix or to see).
+  - **No schema change, no migration, no new dependency, no env change.** Inert until
+    `SETUP_WIZARD_ENABLED=true`.
+  - **Tests:** `IntegrationsCard.test.tsx` 4 → 14 (402 add-on with its link, 403 paid gate,
+    5xx without the leak, network throw, 200-without-authUrl, non-JSON body, pending/disable/
+    single-fire, stale-failure clearing, and both Ascora behaviours);
+    `lib/setup/__tests__/integration-connect-error.test.ts` +12;
+    `middleware-setup-gate.test.ts` 12 → 18 (connect POST, provider callback, the three
+    destination paths, and the not-a-blanket-bypass negative).
+  - **A guard that no test could kill was removed rather than shipped.** The first cut carried
+    an `if (pending) return` re-entrancy check inside `handleConnect` beside the tiles'
+    `disabled={pending !== null}`. It survived the sweep, and the reason is structural: React
+    decides whether to run `onClick` from the committed fiber props, so no click reaches the
+    handler while `disabled` is set — and before the commit, the closure's `pending` is still
+    the stale `null`, so the check could not fire then either. Deleted per CLAUDE.md §2, with a
+    comment naming the pending test as the thing that must go red if the tiles ever stop being
+    real disabled `<button>`s.
+  - **Mutation controls — 17 mutants, all killed, no survivors**, source restored byte-identical
+    and confirmed by sha256 (`IntegrationsCard.tsx` e2c77ded…, `integration-connect-error.ts`
+    f12b7089…, `proxy.ts` a959d95d…). They cover: swallowing non-ok (the original defect),
+    never disabling in flight, dropping the pending label, dropping the missing-authUrl guard,
+    putting Ascora back on the OAuth route, not clearing a stale failure, swallowing the network
+    throw, never rendering the alert or its action link, each of the four helper branches,
+    printing the raw SKU instead of the add-on name, ignoring the 403 operator message, linking
+    at the `/subscribe` 404, dropping each of the four bypass entries, and a negative control
+    that widens the bypass to all of `/dashboard`.
+    **One false survivor was found and corrected in the instrument, not the code:** the first
+    "never disable in flight" mutant replaced the first textual occurrence of
+    `disabled={pending !== null}`, which is inside the comment that quotes it — so it passed 26
+    tests while changing no behaviour at all. Re-aimed at the JSX occurrence, it kills the
+    pending test. A mutant that does not change behaviour is not evidence of a weak test.
+  - Verified at source head `17d4cecdc` (the line below is docs-only and changes no source, so
+    this evidence describes the final source state):
+    `npx vitest run --config config/vitest.config.js components/setup lib/setup
+    lib/__tests__/middleware-setup-gate.test.ts lib/__tests__/middleware-hard-paywall.test.ts`
+    — **193 passed / 25 skipped / 1 failed**; the one failure is
+    `VideoExplainer.test.tsx > shows an 'unavailable' panel when the video source errors`, which
+    is **pre-existing on `main` and not caused by this change**: `VideoExplainer.tsx` and its
+    test are byte-identical to `origin/main`, their import closure never reaches any file in
+    this diff, and the test fails deterministically (2/2 runs) when run alone in a process that
+    loads none of this branch's code. `npx eslint` over all six changed files — exit 0, **0
+    errors, 0 warnings**. Full `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit` —
+    **exit 0, zero errors, zero output**. Ten of the eleven CI content guards run locally —
+    `check:no-emoji`, `check:spec-docs`, `check:encoding`, `check:ssot`, `check:standards`,
+    `check:no-verbatim`, `check:marketing-verbatim`, `check:au-english`, `audit:ai`, `audit:api`
+    — **all PASS**.
+  - **One CI gate is red for a reason outside this diff.** `check:no-lucide` fails on
+    `components/claims/StartClaimProgressButton.tsx: 1 (baseline 0)` — a file this branch does
+    not touch (byte-identical to `origin/main`), added by `7580e718a` on 2026-08-17 without a
+    baseline bump. Because `pr-checks.yml` runs on PRs and not on `main`, this main-wide debt is
+    invisible until someone opens a PR, and it will mark **every** PR cut from current `main`
+    UNSTABLE. It is deliberately **not** reconciled here: bumping the baseline inside an
+    unrelated PR would rubber-stamp a Phill-Rule-1 violation. The repo's own precedent for this
+    is a separate labelled reconcile PR (#2000, "chore(guards): reconcile lucide + audit:api
+    debt"). Human step: either convert that file to `RAIcon`, or run
+    `node scripts/check-no-lucide.mjs --update-baseline` in its own PR.
+  - **Still founder-gated, and unchanged by this PR:** flipping `SETUP_WIZARD_ENABLED=true` is a
+    Vercel env change on production. **Not observed:** no run against a live deployment with the
+    flag on, and no live OAuth round-trip against Xero/QuickBooks/MYOB — that needs real provider
+    credentials and human consent. The redirect behaviour is proven from `proxy.ts` under unit
+    test, and the failure surface by unit tests with mutation controls, not by a browser session.
