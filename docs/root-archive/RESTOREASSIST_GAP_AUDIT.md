@@ -648,12 +648,13 @@ were found in `.planning/` video docs.
     (a missing `<PROVIDER>_CLIENT_ID` is not the operator's to fix or to see).
   - **No schema change, no migration, no new dependency, no env change.** Inert until
     `SETUP_WIZARD_ENABLED=true`.
-  - **Tests:** `IntegrationsCard.test.tsx` 4 → 14 (402 add-on with its link, 403 paid gate,
+  - **Tests:** `IntegrationsCard.test.tsx` 4 → 16 (402 add-on with its link, 403 paid gate,
     5xx without the leak, network throw, 200-without-authUrl, non-JSON body, pending/disable/
-    single-fire, stale-failure clearing, and both Ascora behaviours);
-    `lib/setup/__tests__/integration-connect-error.test.ts` +12;
-    `middleware-setup-gate.test.ts` 12 → 18 (connect POST, provider callback, the three
-    destination paths, and the not-a-blanket-bypass negative).
+    single-fire, stale-failure clearing, both Ascora behaviours, the bfcache un-wedge, and the
+    Ascora hand-off holding the other tiles); new
+    `lib/setup/__tests__/integration-connect-error.test.ts` 19;
+    `middleware-setup-gate.test.ts` 12 → 19 (connect POST, provider callback, the three
+    destination paths, the segment-boundary cases, and the not-a-blanket-bypass negative).
   - **A guard that no test could kill was removed rather than shipped.** The first cut carried
     an `if (pending) return` re-entrancy check inside `handleConnect` beside the tiles'
     `disabled={pending !== null}`. It survived the sweep, and the reason is structural: React
@@ -662,9 +663,9 @@ were found in `.planning/` video docs.
     the stale `null`, so the check could not fire then either. Deleted per CLAUDE.md §2, with a
     comment naming the pending test as the thing that must go red if the tiles ever stop being
     real disabled `<button>`s.
-  - **Mutation controls — 17 mutants, all killed, no survivors**, source restored byte-identical
-    and confirmed by sha256 (`IntegrationsCard.tsx` e2c77ded…, `integration-connect-error.ts`
-    f12b7089…, `proxy.ts` a959d95d…). They cover: swallowing non-ok (the original defect),
+  - **Mutation controls — 26 mutants, all killed, no survivors**, sources restored
+    byte-identical and confirmed by sha256 (`IntegrationsCard.tsx` 11e2427f…,
+    `integration-connect-error.ts` fe025ae4…, `proxy.ts` 21dd5252…). They cover: swallowing non-ok (the original defect),
     never disabling in flight, dropping the pending label, dropping the missing-authUrl guard,
     putting Ascora back on the OAuth route, not clearing a stale failure, swallowing the network
     throw, never rendering the alert or its action link, each of the four helper branches,
@@ -676,11 +677,11 @@ were found in `.planning/` video docs.
     `disabled={pending !== null}`, which is inside the comment that quotes it — so it passed 26
     tests while changing no behaviour at all. Re-aimed at the JSX occurrence, it kills the
     pending test. A mutant that does not change behaviour is not evidence of a weak test.
-  - Verified at source head `17d4cecdc` (the line below is docs-only and changes no source, so
+  - Verified at source head `c74af1c70` (the line below is docs-only and changes no source, so
     this evidence describes the final source state):
     `npx vitest run --config config/vitest.config.js components/setup lib/setup
     lib/__tests__/middleware-setup-gate.test.ts lib/__tests__/middleware-hard-paywall.test.ts`
-    — **193 passed / 25 skipped / 1 failed**; the one failure is
+    — **203 passed / 25 skipped / 1 failed**; the one failure is
     `VideoExplainer.test.tsx > shows an 'unavailable' panel when the video source errors`, which
     is **pre-existing on `main` and not caused by this change**: `VideoExplainer.tsx` and its
     test are byte-identical to `origin/main`, their import closure never reaches any file in
@@ -706,3 +707,50 @@ were found in `.planning/` video docs.
     flag on, and no live OAuth round-trip against Xero/QuickBooks/MYOB — that needs real provider
     credentials and human consent. The redirect behaviour is proven from `proxy.ts` under unit
     test, and the failure surface by unit tests with mutation controls, not by a browser session.
+  - **Independent review, round 1 (FAIL) → round 2 (PASS).** Both rounds were dispatched over
+    HTTP through OpenRouter, which reports the serving model as `moonshotai/kimi-k3` for both.
+    **The reports' own `reviewer_agent` field is wrong in both** — round 1 self-declared
+    `openrouter/moonshotai/kimi-k2`, round 2 `openrouter/openai/gpt-5.2`. The reports are not
+    edited (reviewer authorship is the evidence), so the authoritative record of who reviewed
+    is the OpenRouter response captured alongside them. Codex was the preferred reviewer and
+    was unavailable: its usage limit resets 2026-08-20. Gemini has no auth configured on this
+    machine.
+  - **Round 1 raised one P1 and five P2s; all six were drained rather than ticketed.** The P1
+    was real and its mechanism was right: the success path deliberately left `pending` set
+    before `window.location.href = authUrl`, on the reasoning that the document was navigating
+    away — but Back from the provider's consent screen is the single most natural move in an
+    OAuth flow, and a bfcache restore brings the component back with React state intact. Every
+    tile disabled, the clicked one reading "Connecting…" forever, and no failure surface to
+    explain it, because `setFailure` was never called. That is the exact dead-click this card
+    exists to remove, reintroduced on the success path. A `pageshow` listener now clears the
+    lock; no `persisted` branch is needed because on a fresh load `pending` is already null.
+    The five P2s: status-blind branch dispatch (a wrapped 5xx carrying `code:
+    "ADDON_REQUIRED"` would have offered to sell an add-on during a server fault);
+    `ADDON_LABEL[sku]` reading `"__proto__"` / `"constructor"` / `"toString"` off
+    `Object.prototype` and interpolating an object or a function into the operator's sentence;
+    the three page destinations sitting in the bare-prefix `SETUP_GATE_BYPASS`, which would
+    also have admitted a future `/dashboard/subscription-audit`; the Ascora hand-off not
+    holding the other tiles while it navigates; and a test named for a gate property its
+    assertion could not detect.
+  - **The re-sweep caught a defect in this branch's own test, not its code.** The new
+    "ignores a paywall-shaped body" rows asserted only that the add-on sentence was absent —
+    which the NO_WORKSPACE and 403 mutants both satisfy, because neither of their sentences
+    contains that wording. Both survived. The rows now assert the branch the status demands,
+    and all three status mutants die. Round 2 confirmed the fix.
+  - **Round 2 documented three P2s, none blocking** (founder stopping rule, 03/08/2026):
+    a hung POST holds the in-flight lock with no timeout or abort until the browser's own
+    timeout rejects the fetch (previously the buttons stayed usable — self-clearing, and a
+    reload resolves it); the `/api/integrations/oauth/` prefix admits any sibling under that
+    namespace, bounded by those routes' own session/subscription/add-on checks; and the
+    round-1 audit text's per-file test counts had gone stale, corrected above.
+  - **One round-2 observation was checked and is not a regression.** The reviewer flagged that
+    the BYOK link dropped `?return=/setup`. No page under `app/dashboard` reads a `return`
+    query param — the parameter was decorative, so removing it changes no behaviour.
+  - **Final verification at source head `c74af1c70`** (the docs line below changes no source):
+    `npx vitest run --config config/vitest.config.js components/setup lib/setup
+    lib/__tests__/middleware-setup-gate.test.ts lib/__tests__/middleware-hard-paywall.test.ts`
+    — **203 passed / 25 skipped / 1 failed** (the pre-existing `VideoExplainer` failure proven
+    independent above). `npx eslint` over all six changed files — exit 0, **0 errors, 0
+    warnings**. `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit` — **exit 0, zero
+    output**. Ten of eleven CI content guards PASS; `check:no-lucide` red for the main-wide
+    reason recorded above, on a file not in this diff.
