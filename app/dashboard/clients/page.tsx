@@ -189,6 +189,15 @@ export default function ClientsPage() {
     currentPage * DASHBOARD_LIST_PAGE_SIZE,
   );
 
+  // Keep page in range when filters shrink the list.
+  useEffect(() => {
+    const maxPage = Math.max(
+      1,
+      Math.ceil(filteredClients.length / DASHBOARD_LIST_PAGE_SIZE),
+    );
+    if (currentPage > maxPage) setCurrentPage(maxPage);
+  }, [filteredClients.length, currentPage]);
+
   // RA-1215 — field-level (400) errors render inline via form.setError.
   // Network / 5xx / 402-upgrade retain toast (non-field signals).
   const handleAddClient = form.handleSubmit(async (values) => {
@@ -958,6 +967,14 @@ export default function ClientsPage() {
               </table>
             </div>
           </div>
+
+          <ListPagination
+            page={currentPage}
+            pageSize={DASHBOARD_LIST_PAGE_SIZE}
+            total={filteredClients.length}
+            onPageChange={setCurrentPage}
+            noun="clients"
+          />
         </>
       )}
 
