@@ -103,6 +103,24 @@ describe("POST /api/create-checkout-session — Stripe failure handling", () => 
     expect(JSON.stringify(body)).not.toContain("Stripe is down");
   });
 
+  it("returns VALIDATION 400 when Stripe rejects a live/test price mode mismatch", async () => {
+    stripeMock.checkout.sessions.create.mockRejectedValue(
+      new Error(
+        "No such price: 'price_live'; a similar object exists in live mode, but a test mode key was used to make this request.",
+      ),
+    );
+
+    const res = await POST(makeRequest({ plan: "monthly" }));
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe("VALIDATION");
+    expect(body.error.message).toMatch(/STRIPE_PRICE_MONTHLY/);
+    expect(body.error.message).toMatch(/test vs live/);
+    // Raw Stripe wording must not leak to the client.
+    expect(JSON.stringify(body)).not.toContain("similar object exists");
+  });
+
   it("returns the INTERNAL envelope when the customer lookup rejects mid-flight", async () => {
     vi.mocked(prisma.user.findUnique).mockRejectedValue(new Error("db gone"));
 
