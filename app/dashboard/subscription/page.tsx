@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import toast from "react-hot-toast";
 import { CancelSubscriptionDialog } from "@/components/billing/CancelSubscriptionDialog";
 import BillingGate from "@/components/capacitor/BillingGate";
+import Link from "next/link";
 
 interface Subscription {
   id: string;
@@ -35,6 +36,14 @@ interface Subscription {
     currency: string;
     interval: string;
   };
+}
+
+interface ActiveAddon {
+  sku: string;
+  name: string;
+  amount: number;
+  currency: string;
+  interval: "month" | "year";
 }
 
 function SubscriptionPageContent() {
@@ -55,6 +64,7 @@ function SubscriptionPageContent() {
   const [checking, setChecking] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadSucceeded, setLoadSucceeded] = useState(false);
+  const [activeAddons, setActiveAddons] = useState<ActiveAddon[]>([]);
 
   useEffect(() => {
     fetchSubscription();
@@ -69,6 +79,34 @@ function SubscriptionPageContent() {
             trialEndsAt: data.profile.trialEndsAt,
           });
         }
+      })
+      .catch(() => {});
+
+    // Same FeatureEntitlement source as requireAddon / Addons "Active" badge
+    fetch("/api/addons/catalog")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.addons || !Array.isArray(data.owned)) return;
+        const owned = new Set<string>(data.owned);
+        setActiveAddons(
+          data.addons
+            .filter((a: { sku: string }) => owned.has(a.sku))
+            .map(
+              (a: {
+                sku: string;
+                name: string;
+                amount: number;
+                currency: string;
+                interval: "month" | "year";
+              }) => ({
+                sku: a.sku,
+                name: a.name,
+                amount: a.amount,
+                currency: a.currency,
+                interval: a.interval,
+              }),
+            ),
+        );
       })
       .catch(() => {});
   }, []);
@@ -89,7 +127,44 @@ function SubscriptionPageContent() {
         setSubscription(data.subscription ?? null);
         setLoadSucceeded(true);
         if (forceRefresh) {
-          toast.success("Subscription data refreshed!");
+          // Refresh also syncs recurring add-on entitlements from Stripe —
+          // reload Active packs from the same FeatureEntitlement SSOT.
+          try {
+            const catalogRes = await fetch("/api/addons/catalog");
+            if (catalogRes.ok) {
+              const catalog = await catalogRes.json();
+              if (catalog?.addons && Array.isArray(catalog.owned)) {
+                const owned = new Set<string>(catalog.owned);
+                setActiveAddons(
+                  catalog.addons
+                    .filter((a: { sku: string }) => owned.has(a.sku))
+                    .map(
+                      (a: {
+                        sku: string;
+                        name: string;
+                        amount: number;
+                        currency: string;
+                        interval: "month" | "year";
+                      }) => ({
+                        sku: a.sku,
+                        name: a.name,
+                        amount: a.amount,
+                        currency: a.currency,
+                        interval: a.interval,
+                      }),
+                    ),
+                );
+              }
+            }
+          } catch {
+            // non-fatal — base subscription refresh still succeeded
+          }
+          const granted = data.addonSync?.granted;
+          toast.success(
+            typeof granted === "number" && granted > 0
+              ? `Subscription refreshed — ${granted} add-on pack(s) synced`
+              : "Subscription data refreshed!",
+          );
         }
       } else {
         const body = await response.json().catch(() => ({}));
@@ -206,7 +281,9 @@ function SubscriptionPageContent() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ priceId: PRICING_CONFIG.prices[plan] }),
+        // Server resolves Stripe price from plan key — never send price ids
+        // from the client (STRIPE_PRICE_* is not available in browser bundles).
+        body: JSON.stringify({ plan }),
       });
 
       if (!response.ok) {
@@ -495,6 +572,53 @@ function SubscriptionPageContent() {
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Active add-on packs — FeatureEntitlement SSOT (same as requireAddon) */}
+            <div className="lg:col-span-2 p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-xl font-semibold">Active add-on packs</h2>
+                <Link
+                  href="/dashboard/addons"
+                  className="text-sm text-cyan-400 hover:text-cyan-300 underline-offset-2 hover:underline"
+                >
+                  Manage packs
+                </Link>
+              </div>
+              {activeAddons.length === 0 ? (
+                <p className="text-sm text-slate-400">
+                  No add-on packs active yet.{" "}
+                  <Link
+                    href="/dashboard/addons"
+                    className="text-cyan-400 hover:text-cyan-300 underline-offset-2 hover:underline"
+                  >
+                    Browse add-ons
+                  </Link>
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {activeAddons.map((addon) => (
+                    <li
+                      key={addon.sku}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-600/50 bg-slate-900/40 px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <CheckCircle className="w-5 h-5 shrink-0 text-success" />
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-100 truncate">
+                            {addon.name}
+                          </p>
+                          <p className="text-xs text-slate-400">{addon.sku}</p>
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-sm text-slate-300 tabular-nums">
+                        {formatPrice(addon.amount * 100, addon.currency)}/
+                        {addon.interval === "year" ? "yr" : "mo"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         ) : loadSucceeded ? (
