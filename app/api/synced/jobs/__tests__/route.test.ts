@@ -99,6 +99,36 @@ describe("GET /api/synced/jobs", () => {
       canImport: true,
       source: "xero",
     });
+    expect(body.pagination).toMatchObject({
+      page: 1,
+      pageSize: 20,
+      total: 1,
+      totalPages: 1,
+    });
+  });
+
+  it("honors page + pageSize for Xero jobs", async () => {
+    integrationFindFirst.mockResolvedValue({ id: "int_1" });
+    externalJobFindMany.mockResolvedValue([]);
+    externalJobCount.mockResolvedValue(42);
+    externalClientFindMany.mockResolvedValue([]);
+
+    const res = await GET(getRequest("source=xero&page=3&pageSize=5"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(externalJobFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 10,
+        take: 5,
+      }),
+    );
+    expect(body.pagination).toEqual({
+      page: 3,
+      pageSize: 5,
+      total: 42,
+      totalPages: 9,
+    });
   });
 
   it("lists Ascora HistoricalJob rows", async () => {

@@ -1,8 +1,9 @@
 /**
- * GET /api/synced/jobs?source=xero|ascora
+ * GET /api/synced/jobs?source=xero|ascora&page=1&pageSize=20
  *
  * Browse synced external jobs/invoices without importing into native Report.
  * Xero → ExternalJob; Ascora → HistoricalJob (fallback AscoraJob).
+ * Accepts `page` + `pageSize` (or legacy `limit`). Returns pagination totals.
  */
 
 import { NextRequest, NextResponse } from "next/server";

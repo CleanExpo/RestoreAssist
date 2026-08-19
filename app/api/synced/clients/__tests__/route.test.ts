@@ -87,6 +87,62 @@ describe("GET /api/synced/clients", () => {
       canImport: true,
       source: "xero",
     });
+    expect(body.pagination).toMatchObject({
+      page: 1,
+      pageSize: 20,
+      total: 1,
+      totalPages: 1,
+    });
+  });
+
+  it("honors page + pageSize and returns pagination totals", async () => {
+    integrationFindFirst.mockResolvedValue({ id: "int_1" });
+    externalClientFindMany.mockResolvedValue([
+      {
+        id: "ec_2",
+        externalId: "xero-c-2",
+        name: "Page Two",
+        email: null,
+        phone: null,
+        address: null,
+        contactId: null,
+        lastSyncedAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    ]);
+    externalClientCount.mockResolvedValue(25);
+
+    const res = await GET(getRequest("source=xero&page=2&pageSize=10"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(externalClientFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 10,
+        take: 10,
+      }),
+    );
+    expect(body.pagination).toEqual({
+      page: 2,
+      pageSize: 10,
+      total: 25,
+      totalPages: 3,
+    });
+    expect(body.items).toHaveLength(1);
+  });
+
+  it("accepts legacy limit query param as pageSize alias", async () => {
+    integrationFindFirst.mockResolvedValue({ id: "int_1" });
+    externalClientFindMany.mockResolvedValue([]);
+    externalClientCount.mockResolvedValue(0);
+
+    const res = await GET(getRequest("source=xero&page=1&limit=15"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(externalClientFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 15, skip: 0 }),
+    );
+    expect(body.pagination.pageSize).toBe(15);
   });
 
   it("returns connected=false when Xero integration missing", async () => {

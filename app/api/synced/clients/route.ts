@@ -1,8 +1,9 @@
 /**
- * GET /api/synced/clients?source=xero|ascora
+ * GET /api/synced/clients?source=xero|ascora&page=1&pageSize=20
  *
  * Browse synced external clients without importing into native Client.
  * Xero → ExternalClient; Ascora → distinct HistoricalJob.customerName.
+ * Accepts `page` + `pageSize` (or legacy `limit`). Returns pagination totals.
  */
 
 import { NextRequest, NextResponse } from "next/server";
