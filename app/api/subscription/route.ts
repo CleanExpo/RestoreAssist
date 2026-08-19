@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { syncRecurringAddonsFromStripe } from "@/lib/billing/fulfill-recurring-addon";
 
 export async function GET(request: NextRequest) {
   try {
@@ -44,6 +45,20 @@ export async function GET(request: NextRequest) {
         message: "User not found",
         status: 404,
       });
+    }
+
+    // On explicit refresh, reconcile recurring add-on FeatureEntitlements from
+    // Stripe (heals missed webhooks / local checkout without stripe listen).
+    let addonSync: { examined: number; granted: number } | null = null;
+    if (forceRefresh && user.stripeCustomerId) {
+      try {
+        addonSync = await syncRecurringAddonsFromStripe(user.stripeCustomerId);
+      } catch (syncErr) {
+        console.error(
+          "[subscription] recurring add-on sync failed (non-fatal):",
+          syncErr instanceof Error ? syncErr.message : syncErr,
+        );
+      }
     }
 
     // If user has a Stripe subscription, get details from Stripe
@@ -105,6 +120,7 @@ export async function GET(request: NextRequest) {
               interval: price.recurring?.interval || "month",
             },
           },
+          ...(addonSync ? { addonSync } : {}),
         });
       } catch (stripeError) {
         console.error("Error fetching Stripe subscription:", stripeError);
@@ -134,6 +150,7 @@ export async function GET(request: NextRequest) {
               },
             }
           : null,
+      ...(addonSync ? { addonSync } : {}),
     });
   } catch (error) {
     return fromException(request, error, { stage: "subscription" });
