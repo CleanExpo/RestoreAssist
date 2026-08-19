@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Loader2, Play } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * Bootstraps ClaimProgress for a report so it appears on the Claims CRM board.
@@ -66,11 +66,7 @@ export function StartClaimProgressButton({
         "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-foreground text-background disabled:opacity-50"
       }
     >
-      {busy ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <Play className="h-4 w-4" />
-      )}
+      {busy ? <Spinner className="h-4 w-4" /> : null}
       Start claim progress
     </button>
   );

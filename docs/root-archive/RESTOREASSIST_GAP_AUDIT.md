@@ -602,3 +602,74 @@ were found in `.planning/` video docs.
   2026-07-09). The brand-logo upload half is still unwired
   (`components/setup/BrandCard.tsx:34`, `TODO(setup-wizard Phase 8+)`) and is in progress
   in a parallel PR.
+- [PASS] **Main-wide guard debt — `check:no-lucide` + `audit:prod` (pathway unblocker, not a
+  gap-audit row)** — both `quality-checks` guards were red on `origin/main` itself, so **every**
+  PR cut from main opened UNSTABLE regardless of its diff. PR #2027 documented them and correctly
+  declined to reconcile them inside an unrelated change; this is the separate labelled reconcile
+  PR that precedent (#2000) calls for.
+  - **Positive control first.** Both guards were run at `origin/main`'s content and observed
+    **red**, with an empty three-dot diff against `origin/main` for every input each guard reads
+    (`StartClaimProgressButton.tsx`, `lucide-baseline.json`, `check-no-lucide.mjs`, `package.json`,
+    `pnpm-lock.yaml`, `audit-prod-cves.ts`) — so the failures are main's, not a branch artefact.
+  - **`check:no-lucide`** — `components/claims/StartClaimProgressButton.tsx: 1 (baseline 0)`,
+    introduced by `7580e718a` (2026-08-17) without a baseline bump. Because `pr-checks.yml` runs
+    on PRs and not on `main`, the debt was invisible until someone opened a PR. Fixed by
+    **removing the violation, not by bumping the baseline** — a baseline bump would rubber-stamp a
+    Phill Rule 1 breach and ratchet the limit the wrong way. `Loader2` → the shared shadcn
+    `<Spinner />` (`components/ui/spinner.tsx`), which is *already* in the baseline at 1, so the
+    lucide dependency is centralised in one shim rather than spread to a new file; the guard now
+    reports **364 known, ratcheting down** (was 368).
+  - **`Play` was dropped rather than swapped for an `RAIcon`.** The registry has no play/start
+    glyph, and the nearest branded token (`claim`) is a hardcoded navy `#1C2E47`/bronze asset
+    while this button's only call site (`app/dashboard/reports/[id]/page.tsx:250`) paints it
+    `bg-emerald-700 text-white` — a navy glyph on dark green is a contrast regression. A
+    decorative icon beside the explicit label "Start claim progress" carries no information, so
+    the minimum correct change (CLAUDE.md §2) is to remove it.
+  - **`audit:prod`** — `deepmerge-ts` GHSA-ggr8-5vv4-36mx (high; stack exhaustion on recursive
+    object graphs; vulnerable `<8.0.0`). It is **transitive**, via `prisma` →
+    `@prisma/config@7.9.1`, which pins `deepmerge-ts: 7.1.5` *exactly* — so upgrading Prisma does
+    **not** clear it (`@prisma/config@latest` carries the same pin). Fixed with a
+    `pnpm.overrides` entry `"deepmerge-ts": ">=8.0.0"`, placed beside the existing
+    `"effect": ">=3.20.0"` override, which already forces a different `@prisma/config` dependency
+    — so this is the repo's established pattern (39 overrides vs 2 `ignoreGhsas`), not a new one.
+    Suppression via `ignoreGhsas` was rejected: a real fix exists and is low-risk.
+  - **Why the major bump is safe, checked rather than assumed.** `@prisma/config` imports exactly
+    one symbol — `const { deepmerge } = await import("deepmerge-ts")` — and passes it as c12's
+    `merger` inside `loadConfigTsOrJs`, a build/CLI-time config-file loader, never a request path.
+    Diffing the two packages' runtime exports shows v8 **removes nothing** (v7: 7 exports; v8: the
+    same 7 plus 5 additive `*FastUnsafe`/`getKeysOfObjects` entries); the major bump *is* the fix,
+    making the default `deepmerge` iterative and relegating the old recursive behaviour to the
+    explicit `FastUnsafe` variants. Positive control that the code path actually executes under
+    v8: `pnpm install` ran `prisma generate` and `npx prisma validate` — both printed
+    **"Loaded Prisma config from prisma.config.ts."** and succeeded, and
+    `node_modules/.pnpm/deepmerge-ts@8.0.1` is the only version installed. The lockfile diff is
+    **5 insertions / 4 deletions, deepmerge-ts only**.
+  - **Tests.** New `components/claims/__tests__/StartClaimProgressButton.test.tsx` (4/4) — the
+    component had none. **Mutation controls: 5 mutants, all killed**, source restored
+    byte-identical (sha256 `7695422e…` before and after). The load-bearing one is M3, which
+    regresses the spinner to an unlabelled `<svg className="animate-spin">` — the pre-change
+    lucide behaviour — and dies, proving the suite locks the *accessible* indicator
+    (`role="status"`, `aria-label="Loading"`) that the shadcn `Spinner` adds, rather than merely
+    tolerating the swap. M1 (spinner never renders), M2 (never disabled), M4 (no navigate on
+    success) and M5 (busy never cleared) all die too.
+  - **Verified at HEAD.** All **12** `quality-checks` guards enumerated live from
+    `.github/workflows/pr-checks.yml` run locally: `check:no-emoji`, `check:no-lucide`,
+    `check:spec-docs`, `check:encoding`, `check:ssot`, `check:standards`, `check:no-verbatim`,
+    `check:marketing-verbatim`, `check:au-english`, `audit:ai`, `audit:api`, `audit:prod` —
+    **12/12 PASS** (the first branch in this series to be clean on all of them).
+    `npx eslint -c config/eslint.config.mjs` over both changed files — **exit 0, zero output**.
+    Full `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit` — **exit 0, zero output**.
+    Full `npx vitest run --config config/vitest.config.js` — **6018 passed / 105 skipped /
+    1 failed**.
+  - **The one failure is pre-existing on `main`.**
+    `components/setup/__tests__/VideoExplainer.test.tsx > shows an 'unavailable' panel when the
+    video source errors`. Both `VideoExplainer.tsx` and its test are byte-identical to
+    `origin/main` (empty three-dot diff), it fails deterministically when run **alone** in a
+    process loading none of this branch's code, and PR #2027 recorded the same failure from a
+    different branch on the *unmodified* lockfile — so it predates the dependency change as well
+    as this diff.
+  - **Not observed / blockers.** `pnpm build` and the Prisma migration-drift step were **not**
+    run: both invoke `prisma migrate deploy`, which needs a live database, and touching the
+    production DB is outside the autonomous envelope. The config-loader path they depend on is
+    proven by `prisma generate` + `prisma validate` above. The 19 skipped test files are
+    `DATABASE_URL`-gated and run in CI with Postgres; no DB-touching code changed here.
