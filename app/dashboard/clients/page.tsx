@@ -32,6 +32,13 @@ import { DeleteClientModal } from "@/components/clients/delete-client-modal";
 import { BulkDeleteModal } from "@/components/clients/bulk-delete-modal";
 import { UpgradeModal } from "@/components/clients/upgrade-modal";
 import { EmptyState } from "@/components/EmptyState";
+import { DataSourceSwitcher } from "@/components/dashboard/DataSourceSwitcher";
+import { SyncedClientsPanel } from "@/components/dashboard/SyncedClientsPanel";
+import {
+  DASHBOARD_LIST_PAGE_SIZE,
+  ListPagination,
+} from "@/components/dashboard/ListPagination";
+import type { DataSource } from "@/lib/synced-data/types";
 
 // RA-1204 — Relative-time formatter for the "Last report: 3 days ago"
 // preview under each client name. Uses Intl.RelativeTimeFormat (native,
@@ -113,6 +120,8 @@ export default function ClientsPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [dataSource, setDataSource] = useState<DataSource>("native");
+  const [currentPage, setCurrentPage] = useState(1);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -131,10 +140,12 @@ export default function ClientsPage() {
     mode: "onBlur",
   });
 
-  // Fetch clients from API
+  // Fetch native clients when RestoreAssist source is selected
   useEffect(() => {
-    fetchClients();
-  }, []);
+    if (dataSource === "native") {
+      void fetchClients();
+    }
+  }, [dataSource]);
 
   const fetchClients = async () => {
     try {
@@ -398,8 +409,18 @@ export default function ClientsPage() {
             Manage your restoration clients
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {selectedClients.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap justify-end">
+          <DataSourceSwitcher
+            id="clients-data-source"
+            value={dataSource}
+            onChange={(next) => {
+              setDataSource(next);
+              setSelectedClients([]);
+              setSearchTerm("");
+              setStatusFilter("");
+            }}
+          />
+          {dataSource === "native" && selectedClients.length > 0 && (
             <div className="flex items-center gap-2">
               <span
                 className={cn(
@@ -432,23 +453,25 @@ export default function ClientsPage() {
               </button>
             </div>
           )}
-          <button
-            onClick={() => {
-              form.reset(CLIENT_FORM_DEFAULTS);
-              setShowAddModal(true);
-            }}
-            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group"
-          >
-            <Plus
-              size={20}
-              className="transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110"
-            />
-            <span>Add Client</span>
-          </button>
+          {dataSource === "native" && (
+            <button
+              onClick={() => {
+                form.reset(CLIENT_FORM_DEFAULTS);
+                setShowAddModal(true);
+              }}
+              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group"
+            >
+              <Plus
+                size={20}
+                className="transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110"
+              />
+              <span>Add Client</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {loadError && (
+      {dataSource === "native" && loadError && (
         <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
           {loadError}
           <button
@@ -474,7 +497,11 @@ export default function ClientsPage() {
           <input
             type="text"
             aria-label="Search clients"
-            placeholder="Search clients by name, email, phone, company..."
+            placeholder={
+              dataSource === "native"
+                ? "Search clients by name, email, phone, company..."
+                : "Search synced clients..."
+            }
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={cn(
@@ -486,32 +513,35 @@ export default function ClientsPage() {
             )}
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Filter
-            className={cn("text-neutral-500 dark:text-slate-400")}
-            size={18}
-          />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className={cn(
-              "px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500",
-              "bg-neutral-100 dark:bg-slate-800",
-              "border-neutral-300 dark:border-slate-700",
-              "text-neutral-900 dark:text-white",
-            )}
-          >
-            <option value="">All Status</option>
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
-            <option value="PROSPECT">Prospect</option>
-            <option value="ARCHIVED">Archived</option>
-          </select>
-        </div>
+        {dataSource === "native" && (
+          <div className="flex items-center gap-2">
+            <Filter
+              className={cn("text-neutral-500 dark:text-slate-400")}
+              size={18}
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className={cn(
+                "px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500",
+                "bg-neutral-100 dark:bg-slate-800",
+                "border-neutral-300 dark:border-slate-700",
+                "text-neutral-900 dark:text-white",
+              )}
+            >
+              <option value="">All Status</option>
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+              <option value="PROSPECT">Prospect</option>
+              <option value="ARCHIVED">Archived</option>
+            </select>
+          </div>
+        )}
       </div>
 
-      {/* Loading State */}
-      {loading ? (
+      {dataSource !== "native" ? (
+        <SyncedClientsPanel source={dataSource} searchTerm={searchTerm} />
+      ) : loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
         </div>
