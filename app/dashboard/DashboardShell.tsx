@@ -127,7 +127,11 @@ export default function DashboardShell({
   useEffect(() => {
     const fetchSubscriptionStatus = async () => {
       try {
-        const response = await fetch("/api/user/profile");
+        const response = await fetch("/api/user/profile", {
+          credentials: "include",
+        });
+        // Soft-handle 401 — session race; leave status unset rather than spam.
+        if (response.status === 401) return;
         if (response.ok) {
           const data = await response.json();
           setSubscriptionStatus(data.profile?.subscriptionStatus);
