@@ -4,7 +4,8 @@
  * Full historical import of Ascora jobs + line items for the authenticated user.
  * Seeds ScopePricingDatabase with real AU pricing data.
  *
- * Runs paginated (pageSize=1000 per Ascora).
+ * Runs paginated (pageSize=100 per Ascora page — large enough to finish
+ * quickly; 1000≈2.5MB/~26s races the attempt timeout).
  * Idempotent: existing ascoraJobId records are upserted on conflict.
  *
  * TLS NOTE: if Ascora connectivity fails on certificate validation, fix the
@@ -34,6 +35,11 @@ import { requireAddon } from "@/lib/entitlements";
 import { sanitizeForPostgresText } from "@/lib/sanitize";
 import { SERVICE_CRM_SKU } from "@/lib/billing/service-crm-addon";
 import { fetchAscoraWithRetry } from "@/lib/integrations/ascora/fetch-with-retry";
+import { mapAscoraUpstreamError } from "@/lib/integrations/ascora/upstream-errors";
+
+/** Page size for Ascora list endpoints. 1000 ≈ 2.5MB / ~26s and races the
+ * 30s attempt budget; 100 stays well under both. */
+const ASCORA_PAGE_SIZE = 100;
 
 // ============================================================
 // Ascora API types — actual camelCase structure from API
@@ -158,7 +164,7 @@ async function fetchAllPages<T>(
   baseUrl: string,
   apiKey: string,
   path: string,
-  pageSize = 1000,
+  pageSize = ASCORA_PAGE_SIZE,
 ): Promise<T[]> {
   const allResults: T[] = [];
   let page = 1;
@@ -168,10 +174,12 @@ async function fetchAllPages<T>(
     // RA-273 — retry transient failures (network/5xx/429) with exponential
     // backoff, honouring Retry-After, instead of aborting the whole import
     // on the first blip.
+    // pageSize=1000 historically sat at ~26s (near the old 30s budget) and
+    // surfaced as an opaque TimeoutError 500 under load.
     const res = await fetchAscoraWithRetry(
       url,
       { headers: { Auth: apiKey, "Content-Type": "application/json" } },
-      { timeoutMs: 30000, context: `${path} (page ${page})` },
+      { timeoutMs: 45000, context: `${path} (page ${page})` },
     );
 
     const data = (await res.json()) as AscoraPage<T>;
@@ -1071,8 +1079,20 @@ export async function POST(request: NextRequest) {
       message,
     });
   } catch (error) {
-    // RA-786: do not leak error.message to clients (fromException emits a
-    // generic message; detail goes to reportError only).
+    // Ascora TLS / timeout / network / vendor HTTP → actionable 502/503/504
+    // instead of an opaque INTERNAL 500. Unknown errors still go through
+    // fromException (RA-786: generic client message).
+    const upstream = mapAscoraUpstreamError(error);
+    if (upstream) {
+      return apiError(request, {
+        code: "UPSTREAM_FAILED",
+        message: upstream.message,
+        status: upstream.status,
+        err: error,
+        stage: "sync",
+        context: { ascoraKind: upstream.kind },
+      });
+    }
     return fromException(request, error, { stage: "sync" });
   }
 }
