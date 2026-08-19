@@ -44,10 +44,14 @@ describe("AddonsClient", () => {
     await waitFor(() =>
       expect(screen.getByText("Voice Notes")).toBeInTheDocument(),
     );
-    // Owned pack shows Active, not an Add button.
+    // Owned pack shows Active + Manage link, not an Add button.
     expect(screen.getByText("Active")).toBeInTheDocument();
-    // Per-seat pricing formatted with the seat suffix.
-    expect(screen.getByText(/\$9\.00\/mo per seat/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /manage/i }),
+    ).toHaveAttribute("href", "/dashboard/subscription");
+    // Per-seat pricing: amount + period/seat (split for hierarchy).
+    expect(screen.getByText("$9.00")).toBeInTheDocument();
+    expect(screen.getByText(/\/mo per seat/)).toBeInTheDocument();
     // Unowned pack shows an Add button.
     expect(
       screen.getByRole("button", { name: /add pack/i }),
