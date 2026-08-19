@@ -47,6 +47,13 @@ vi.mock("@/lib/capacitor", () => ({
   isCapacitorIOS: () => false,
 }));
 
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({
+    data: { user: { id: "u_test", name: "Test" } },
+    status: "authenticated",
+  }),
+}));
+
 import IntegrationsPage from "../page";
 
 describe("IntegrationsPage", () => {
