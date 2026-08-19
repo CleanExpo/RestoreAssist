@@ -388,7 +388,7 @@ export default function FeaturesPage() {
                 className={`${FONT_DISPLAY} mt-4 text-2xl font-semibold tracking-[-0.02em] text-[#0B1F3A] sm:text-[1.75rem]`}
               >
                 $0 for {freeCfg.trialDays} days
-              </h2>
+                </h2>
               <ul className="mt-7 space-y-3.5">
                 {TRIAL_INCLUDES.map((line) => (
                   <li
@@ -405,7 +405,7 @@ export default function FeaturesPage() {
               </ul>
               <Link href="/signup" className={`${CTA_SECONDARY} mt-9 w-full`}>
                 Start the trial
-              </Link>
+                    </Link>
             </motion.article>
 
             <motion.article
@@ -434,9 +434,9 @@ export default function FeaturesPage() {
               </ul>
               <Link href="/pricing" className={`${CTA_PRIMARY} mt-9 w-full`}>
                 See the full pricing
-              </Link>
+                    </Link>
             </motion.article>
-          </motion.div>
+            </motion.div>
 
           <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-[1.7] text-slate-500">
             {monthlyCfg.currency}, incl. GST. Bookkeeping connections to Xero,
@@ -453,7 +453,7 @@ export default function FeaturesPage() {
         aria-labelledby="capabilities-heading"
       >
         <div className={CONTAINER}>
-          <motion.div
+              <motion.div
             variants={staggerContainer}
             initial={reduce ? false : "hidden"}
             whileInView="visible"
@@ -499,7 +499,7 @@ export default function FeaturesPage() {
                       className={`${FONT_DISPLAY} mt-3 text-xl font-semibold tracking-[-0.02em] text-[#0B1F3A] sm:text-[1.45rem] sm:leading-[1.25]`}
                     >
                       {group.title}
-                    </h3>
+                </h3>
                     <p className="mt-4 text-[15px] leading-[1.72] text-slate-600">
                       {group.summary}
                     </p>
@@ -564,7 +564,7 @@ export default function FeaturesPage() {
               </Link>
             </motion.div>
           </motion.div>
-        </div>
+    </div>
       </section>
     </MarketingShell>
   );
