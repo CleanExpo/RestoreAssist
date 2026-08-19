@@ -73,10 +73,14 @@ export const PRICING_CONFIG = {
     ],
   },
 
-  // Stripe Price IDs — the single source-of-truth catalog is the one $99
-  // Monthly Plan (RA-6929/6930/6931 billing-correctness collapse; C1/C3).
-  // The Yearly $1188 SKU was retired: a fixed server allowlist rejects any
-  // priceId not listed here, so there is no client-set or dynamic price path.
+  // Stripe Price IDs — SERVER ONLY. The single $99 Monthly Plan
+  // (RA-6929/6930/6931; C1/C3). Yearly was retired.
+  //
+  // NEVER send these ids from client components. `STRIPE_PRICE_*` is not
+  // NEXT_PUBLIC, so browser bundles see the "MONTHLY_PLAN" placeholder and
+  // checkout would 400 "Unknown or unsupported plan". Clients POST
+  // `{ plan: "monthly" }`; `/api/create-checkout-session` resolves the real
+  // price from env on the server.
   prices: {
     monthly: process.env.STRIPE_PRICE_MONTHLY || "MONTHLY_PLAN",
   },
