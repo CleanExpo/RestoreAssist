@@ -20,6 +20,35 @@ import {
   PROVIDER_CONFIG,
 } from "../oauth-handler";
 import { prisma } from "@/lib/prisma";
+import { isXeroTimeoutError } from "./upstream-errors";
+
+/** Modest page size so each Xero call finishes inside the 15s AbortSignal budget. */
+const XERO_PAGE_SIZE = 100;
+const XERO_REQUEST_TIMEOUT_MS = 15_000;
+
+/**
+ * High-volume Xero orgs reject `where` on Contacts/Invoices (Error 9191919).
+ * Prefer unfiltered pagination + client-side filters for reliability.
+ */
+export function isCustomerContact(contact: {
+  IsCustomer?: boolean;
+  Name?: string;
+}): boolean {
+  if (!contact.IsCustomer) return false;
+  // Skip nameless stubs that sometimes appear in summary listings.
+  return Boolean(contact.Name?.trim());
+}
+
+export function isSalesInvoice(invoice: { Type?: string }): boolean {
+  return invoice.Type === "ACCREC";
+}
+
+interface XeroPagination {
+  page?: number;
+  pageSize?: number;
+  pageCount?: number;
+  itemCount?: number;
+}
 
 interface XeroContact {
   ContactID: string;
@@ -64,10 +93,12 @@ interface XeroInvoice {
 
 interface XeroContactsResponse {
   Contacts: XeroContact[];
+  pagination?: XeroPagination;
 }
 
 interface XeroInvoicesResponse {
   Invoices: XeroInvoice[];
+  pagination?: XeroPagination;
 }
 
 interface XeroTenantConnection {
@@ -191,19 +222,35 @@ export class XeroClient extends BaseIntegrationClient {
     }
 
     const clientId = getClientId("XERO");
+    // getClientSecret throws "XERO_CLIENT_SECRET is not configured" — mapped
+    // to a clear 400 by mapXeroUpstreamError (refresh cannot succeed without it).
     const clientSecret = getClientSecret("XERO");
 
-    const response = await fetch(this.config.tokenUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
-      },
-      body: new URLSearchParams({
-        grant_type: "refresh_token",
-        refresh_token: tokens.refreshToken,
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(this.config.tokenUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+        },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: tokens.refreshToken,
+        }),
+        signal: AbortSignal.timeout(XERO_REQUEST_TIMEOUT_MS),
+      });
+    } catch (err) {
+      if (isXeroTimeoutError(err)) {
+        const timeoutErr = new Error(
+          `Xero token refresh timed out after ${XERO_REQUEST_TIMEOUT_MS}ms`,
+        );
+        timeoutErr.name = "TimeoutError";
+        (timeoutErr as { status?: number }).status = 504;
+        throw timeoutErr;
+      }
+      throw err;
+    }
 
     if (!response.ok) {
       const error = await response.text();
@@ -260,7 +307,14 @@ export class XeroClient extends BaseIntegrationClient {
       throw new Error("No access token available");
     }
 
-    if (tokens.isExpired && tokens.refreshToken) {
+    // Proactive refresh (same 5-minute window as BaseIntegrationClient / RA-1220)
+    // so sync does not race an almost-expired token into a 401.
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    const needsRefresh =
+      tokens.isExpired ||
+      (tokens.tokenExpiresAt != null &&
+        tokens.tokenExpiresAt.getTime() - Date.now() < FIVE_MINUTES_MS);
+    if (needsRefresh && tokens.refreshToken) {
       await this.refreshAccessToken();
       // Re-fetch tokens after refresh so the request uses the NEW access token
       tokens = await getTokens(this.integrationId);
@@ -277,11 +331,24 @@ export class XeroClient extends BaseIntegrationClient {
 
     // RA-6942 — bound the outbound provider call so a hung connection cannot
     // stall the request indefinitely (mirrors the ABR lookup timeout pattern).
-    const response = await fetch(url, {
-      ...options,
-      headers,
-      signal: AbortSignal.timeout(15000),
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        ...options,
+        headers,
+        signal: AbortSignal.timeout(XERO_REQUEST_TIMEOUT_MS),
+      });
+    } catch (err) {
+      if (isXeroTimeoutError(err)) {
+        const timeoutErr = new Error(
+          `Xero request timed out on ${endpoint} after ${XERO_REQUEST_TIMEOUT_MS}ms`,
+        );
+        timeoutErr.name = "TimeoutError";
+        (timeoutErr as { status?: number }).status = 504;
+        throw timeoutErr;
+      }
+      throw err;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -289,34 +356,56 @@ export class XeroClient extends BaseIntegrationClient {
         this.integrationId,
         `API Error ${response.status}: ${errorText}`,
       );
-      throw new Error(`API request failed: ${response.status} ${errorText}`);
+      const apiErr = new Error(
+        `API request failed: ${response.status} ${errorText}`,
+      );
+      (apiErr as { status?: number }).status = response.status;
+      throw apiErr;
     }
 
     return response.json();
   }
 
   /**
-   * Fetch contacts from Xero
+   * Fetch contacts from Xero (paginated, summaryOnly — Ascora-style page budget).
+   *
+   * Do NOT send `where=IsCustomer==true`: high-volume orgs reject Contact
+   * where-filters with HighVolumeFilterUnavailableApiException (9191919).
+   * Paginate unfiltered and keep customers client-side.
    */
   async fetchClients(): Promise<ExternalClientData[]> {
     try {
-      const response = await this.makeRequest<XeroContactsResponse>(
-        "/Contacts?where=IsCustomer=true",
-      );
+      const allClients: ExternalClientData[] = [];
+      let page = 1;
+      let hasMore = true;
 
-      const mappedClients: ExternalClientData[] = response.Contacts.map(
-        (contact) => ({
-          externalId: contact.ContactID,
-          name: contact.Name,
-          email: contact.EmailAddress || undefined,
-          phone: this.getPhoneNumber(contact),
-          address: this.formatAddress(contact),
-          rawData: contact as unknown as Record<string, unknown>,
-        }),
-      );
+      while (hasMore) {
+        // No `where` — see HighVolumeFilterUnavailableApiException (9191919).
+        // summaryOnly keeps each page inside the 15s AbortSignal budget;
+        // pageSize=100 mirrors the Ascora sync page-size fix.
+        const response = await this.makeRequest<XeroContactsResponse>(
+          `/Contacts?summaryOnly=true&page=${page}&pageSize=${XERO_PAGE_SIZE}`,
+        );
 
-      await this.logSyncResult("CLIENTS", mappedClients.length);
-      return mappedClients;
+        const contacts = response.Contacts ?? [];
+        for (const contact of contacts) {
+          if (!isCustomerContact(contact)) continue;
+          allClients.push({
+            externalId: contact.ContactID,
+            name: contact.Name,
+            email: contact.EmailAddress || undefined,
+            phone: this.getPhoneNumber(contact),
+            address: this.formatAddress(contact),
+            rawData: contact as unknown as Record<string, unknown>,
+          });
+        }
+
+        hasMore = this.hasMoreXeroPages(response.pagination, contacts.length, page);
+        page++;
+      }
+
+      await this.logSyncResult("CLIENTS", allClients.length);
+      return allClients;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -326,35 +415,67 @@ export class XeroClient extends BaseIntegrationClient {
   }
 
   /**
-   * Fetch invoices as jobs from Xero
-   * Note: Xero doesn't have native jobs, so we use invoices
+   * Fetch invoices as jobs from Xero (paginated, summaryOnly).
+   * Note: Xero doesn't have native jobs, so we use ACCREC invoices.
+   *
+   * Do NOT send `where=Type=="ACCREC"`: the same high-volume filter rejection
+   * (9191919) that hits Contacts can apply to Invoices. Filter ACCREC locally.
+   *
+   * Do NOT send `order=DateString` with `summaryOnly=true`: Xero returns 400
+   * ("Ordering by DateString is unavailable on this endpoint when using the
+   * summaryOnly flag"). Paginate unfiltered without order.
    */
   async fetchJobs(): Promise<ExternalJobData[]> {
     try {
-      const response = await this.makeRequest<XeroInvoicesResponse>(
-        '/Invoices?where=Type="ACCREC"&order=DateString DESC',
-      );
+      const allJobs: ExternalJobData[] = [];
+      let page = 1;
+      let hasMore = true;
 
-      const mappedJobs: ExternalJobData[] = response.Invoices.map(
-        (invoice) => ({
-          externalId: invoice.InvoiceID,
-          title:
-            invoice.InvoiceNumber || `Invoice ${invoice.InvoiceID.slice(0, 8)}`,
-          status: this.mapInvoiceStatus(invoice.Status),
-          clientExternalId: invoice.Contact?.ContactID,
-          description: invoice.Reference || invoice.LineItems?.[0]?.Description,
-          rawData: invoice as unknown as Record<string, unknown>,
-        }),
-      );
+      while (hasMore) {
+        const response = await this.makeRequest<XeroInvoicesResponse>(
+          `/Invoices?summaryOnly=true&page=${page}&pageSize=${XERO_PAGE_SIZE}`,
+        );
 
-      await this.logSyncResult("JOBS", mappedJobs.length);
-      return mappedJobs;
+        const invoices = response.Invoices ?? [];
+        for (const invoice of invoices) {
+          if (!isSalesInvoice(invoice)) continue;
+          allJobs.push({
+            externalId: invoice.InvoiceID,
+            title:
+              invoice.InvoiceNumber ||
+              `Invoice ${invoice.InvoiceID.slice(0, 8)}`,
+            status: this.mapInvoiceStatus(invoice.Status),
+            clientExternalId: invoice.Contact?.ContactID,
+            description:
+              invoice.Reference || invoice.LineItems?.[0]?.Description,
+            rawData: invoice as unknown as Record<string, unknown>,
+          });
+        }
+
+        hasMore = this.hasMoreXeroPages(response.pagination, invoices.length, page);
+        page++;
+      }
+
+      await this.logSyncResult("JOBS", allJobs.length);
+      return allJobs;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       await this.logSyncResult("JOBS", 0, 0, errorMessage);
       throw error;
     }
+  }
+
+  /** Prefer pagination.pageCount when present; else stop on a short page. */
+  private hasMoreXeroPages(
+    pagination: XeroPagination | undefined,
+    itemCount: number,
+    page: number,
+  ): boolean {
+    if (pagination?.pageCount != null) {
+      return page < pagination.pageCount;
+    }
+    return itemCount >= XERO_PAGE_SIZE;
   }
 
   /**
