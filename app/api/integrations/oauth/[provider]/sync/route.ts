@@ -25,11 +25,13 @@ import {
   BOOKKEEPING_SKU,
   isBookkeepingProvider,
 } from "@/lib/billing/bookkeeping-addon";
+import { mapXeroUpstreamError } from "@/lib/integrations/xero/upstream-errors";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ provider: string }> },
 ) {
+  let provider: IntegrationProvider | undefined;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -50,7 +52,7 @@ export async function POST(
     }
 
     const { provider: providerParam } = await params;
-    const provider = providerParam.toUpperCase() as IntegrationProvider;
+    provider = providerParam.toUpperCase() as IntegrationProvider;
 
     // Validate provider
     if (!PROVIDER_CONFIG[provider]) {
@@ -69,12 +71,13 @@ export async function POST(
       if (!addonGate.allowed) return addonGate.response;
     }
 
-    // Find integration
+    // Find integration — allow ERROR/SYNCING so a failed sync can be retried
+    // without forcing a full OAuth reconnect (tokens are still present).
     const integration = await prisma.integration.findFirst({
       where: {
         userId: session.user.id,
         provider,
-        status: "CONNECTED",
+        status: { in: ["CONNECTED", "ERROR", "SYNCING"] },
       },
     });
 
@@ -140,9 +143,37 @@ export async function POST(
         },
       });
 
+      // Xero timeout / auth / config → actionable 4xx/5xx (not opaque 500).
+      if (provider === "XERO") {
+        const upstream = mapXeroUpstreamError(syncError);
+        if (upstream) {
+          return apiError(request, {
+            code: "UPSTREAM_FAILED",
+            message: upstream.message,
+            status: upstream.status,
+            err: syncError,
+            stage: "sync",
+            context: { xeroKind: upstream.kind },
+          });
+        }
+      }
+
       throw syncError;
     }
   } catch (error) {
+    if (provider === "XERO") {
+      const upstream = mapXeroUpstreamError(error);
+      if (upstream) {
+        return apiError(request, {
+          code: "UPSTREAM_FAILED",
+          message: upstream.message,
+          status: upstream.status,
+          err: error,
+          stage: "sync",
+          context: { xeroKind: upstream.kind },
+        });
+      }
+    }
     return fromException(request, error, { stage: "sync" });
   }
 }
