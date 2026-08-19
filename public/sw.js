@@ -42,10 +42,14 @@
  * next time they open the app. They re-download the shell, which on
  * a flaky connection means a blank screen until the network catches up.
  */
-const NIR_VERSION = "nir-v2.0";
+// Bumped: localhost self-destruct + no Turbopack chunk caching (HMR fix).
+const NIR_VERSION = "nir-v2.1";
 const CACHE_APP = `${NIR_VERSION}-app`;
 const CACHE_STATIC = `${NIR_VERSION}-static`;
 const ALL_CACHES = [CACHE_APP, CACHE_STATIC];
+const IS_LOCAL_DEV =
+  self.location.hostname === "localhost" ||
+  self.location.hostname === "127.0.0.1";
 
 /**
  * Pages to precache on install so the app shell is immediately available offline.
@@ -53,92 +57,120 @@ const ALL_CACHES = [CACHE_APP, CACHE_STATIC];
  */
 const PRECACHE_URLS = ["/", "/portal/inspections", "/offline"];
 
-// ─── INSTALL ──────────────────────────────────────────────────────────────────
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_APP)
-      .then((cache) =>
-        // addAll is atomic — if any URL fails, no URLs are cached
-        // Use individual add() calls so a 404 on one page doesn't break the whole install
-        Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url))),
-      )
-      .then(() => {
-        // Take control immediately — don't wait for existing tabs to close
-        self.skipWaiting();
-      }),
-  );
-});
-
-// ─── ACTIVATE ─────────────────────────────────────────────────────────────────
-
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
+// ─── LOCAL DEV: self-destruct ─────────────────────────────────────────────────
+// A leftover SW from a prior session cache-firsts /_next/static and serves
+// stale Turbopack chunks ("module factory is not available"). When this
+// updated sw.js activates on localhost, wipe nir-* caches, unregister, and
+// reload open clients so development never runs under a controlling SW.
+if (IS_LOCAL_DEV) {
+  self.addEventListener("install", (event) => {
+    event.waitUntil(self.skipWaiting());
+  });
+  self.addEventListener("activate", (event) => {
+    event.waitUntil(
+      (async () => {
+        const keys = await caches.keys();
+        await Promise.all(
           keys
-            .filter((key) => !ALL_CACHES.includes(key))
+            .filter((key) => key.startsWith("nir-"))
             .map((key) => caches.delete(key)),
-        ),
-      )
-      .then(() => {
-        // Claim all existing clients immediately
-        self.clients.claim();
-      }),
-  );
-});
+        );
+        await self.registration.unregister();
+        const clients = await self.clients.matchAll({ type: "window" });
+        for (const client of clients) {
+          client.navigate(client.url);
+        }
+      })(),
+    );
+  });
+} else {
+  // ─── INSTALL ──────────────────────────────────────────────────────────────────
 
-// ─── FETCH ────────────────────────────────────────────────────────────────────
+  self.addEventListener("install", (event) => {
+    event.waitUntil(
+      caches
+        .open(CACHE_APP)
+        .then((cache) =>
+          // addAll is atomic — if any URL fails, no URLs are cached
+          // Use individual add() calls so a 404 on one page doesn't break the whole install
+          Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url))),
+        )
+        .then(() => {
+          // Take control immediately — don't wait for existing tabs to close
+          self.skipWaiting();
+        }),
+    );
+  });
 
-self.addEventListener("fetch", (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
+  // ─── ACTIVATE ─────────────────────────────────────────────────────────────────
 
-  // Only handle same-origin GET requests
-  if (request.method !== "GET") return;
-  if (url.origin !== self.location.origin) return;
+  self.addEventListener("activate", (event) => {
+    event.waitUntil(
+      caches
+        .keys()
+        .then((keys) =>
+          Promise.all(
+            keys
+              .filter((key) => !ALL_CACHES.includes(key))
+              .map((key) => caches.delete(key)),
+          ),
+        )
+        .then(() => {
+          // Claim all existing clients immediately
+          self.clients.claim();
+        }),
+    );
+  });
 
-  // ── Next.js static assets — cache-first (content-hashed, safe to cache forever)
-  if (url.pathname.startsWith("/_next/static/")) {
-    event.respondWith(cacheFirst(request, CACHE_STATIC));
-    return;
-  }
+  // ─── FETCH ────────────────────────────────────────────────────────────────────
 
-  // ── Static public assets (images, fonts, manifest)
-  if (
-    url.pathname.startsWith("/fonts/") ||
-    url.pathname.match(/\.(png|jpg|jpeg|svg|ico|webp|woff|woff2)$/)
-  ) {
-    event.respondWith(cacheFirst(request, CACHE_STATIC));
-    return;
-  }
+  self.addEventListener("fetch", (event) => {
+    const { request } = event;
+    const url = new URL(request.url);
 
-  // ── API routes — network-only, offline stub response
-  if (url.pathname.startsWith("/api/")) {
-    event.respondWith(networkOnlyWithOfflineStub(request));
-    return;
-  }
+    // Only handle same-origin GET requests
+    if (request.method !== "GET") return;
+    if (url.origin !== self.location.origin) return;
 
-  // ── App pages — network-first, offline fallback
-  event.respondWith(networkFirstWithOfflineFallback(request));
-});
+    // ── Next.js static assets — cache-first (content-hashed, safe to cache forever)
+    if (url.pathname.startsWith("/_next/static/")) {
+      event.respondWith(cacheFirst(request, CACHE_STATIC));
+      return;
+    }
 
-// ─── BACKGROUND SYNC ──────────────────────────────────────────────────────────
+    // ── Static public assets (images, fonts, manifest)
+    if (
+      url.pathname.startsWith("/fonts/") ||
+      url.pathname.match(/\.(png|jpg|jpeg|svg|ico|webp|woff|woff2)$/)
+    ) {
+      event.respondWith(cacheFirst(request, CACHE_STATIC));
+      return;
+    }
 
-self.addEventListener("sync", (event) => {
-  if (
-    event.tag === "nir-inspection-sync" ||
-    event.tag === "evidence-upload-sync"
-  ) {
-    // Both tags drain via the same client-side handler — the client reads
-    // the SW message and each queue module (nir-sync-queue, evidence-upload-queue)
-    // decides what to drain. RA-1462.
-    event.waitUntil(triggerClientSync(event.tag));
-  }
-});
+    // ── API routes — network-only, offline stub response
+    if (url.pathname.startsWith("/api/")) {
+      event.respondWith(networkOnlyWithOfflineStub(request));
+      return;
+    }
+
+    // ── App pages — network-first, offline fallback
+    event.respondWith(networkFirstWithOfflineFallback(request));
+  });
+
+  // ─── BACKGROUND SYNC ──────────────────────────────────────────────────────────
+
+  self.addEventListener("sync", (event) => {
+    if (
+      event.tag === "nir-inspection-sync" ||
+      event.tag === "evidence-upload-sync"
+    ) {
+      // Both tags drain via the same client-side handler — the client reads
+      // the SW message and each queue module (nir-sync-queue, evidence-upload-queue)
+      // decides what to drain. RA-1462.
+      event.waitUntil(triggerClientSync(event.tag));
+    }
+  });
+}
 
 // ─── STRATEGY IMPLEMENTATIONS ─────────────────────────────────────────────────
 
