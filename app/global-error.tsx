@@ -1,7 +1,13 @@
 "use client";
 
+/**
+ * Root layout error boundary. Must stay minimal: own <html>/<body>, inline
+ * styles only, no shared design-system or lib imports. External imports pull
+ * this file into a wider Turbopack graph and break when a service worker or
+ * stale HMR cache serves outdated chunks (module factory unavailable).
+ */
+
 import { useEffect } from "react";
-import { reportClientError } from "@/lib/observability";
 
 export default function GlobalError({
   error,
@@ -12,8 +18,26 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error("[GlobalError]", error);
-    // RA-1349 — ship to server-side sink for Vercel Observability.
-    reportClientError(error, { boundary: "GlobalError", digest: error.digest });
+    // Inline report — avoid importing @/lib/observability here.
+    try {
+      void fetch("/api/observability/client-error", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+          url: typeof window !== "undefined" ? window.location.href : undefined,
+          userAgent:
+            typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+          boundary: "GlobalError",
+          digest: error.digest,
+        }),
+        keepalive: true,
+      });
+    } catch {
+      // Reporting must never throw from an error boundary.
+    }
   }, [error]);
 
   return (
