@@ -89,10 +89,10 @@ function PollScript() {
             var max = 15;
             var t = setInterval(function() {
               attempts++;
-              fetch("/api/billing/trial-status")
-                .then(function(r) { return r.json(); })
+              fetch("/api/billing/trial-status", { credentials: "include" })
+                .then(function(r) { return r.ok ? r.json() : null; })
                 .then(function(body) {
-                  if (body.data && body.data.subscriptionStatus === "ACTIVE") {
+                  if (body && body.data && body.data.subscriptionStatus === "ACTIVE") {
                     clearInterval(t);
                     window.location.reload();
                   } else if (attempts >= max) {
