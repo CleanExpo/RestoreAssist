@@ -6,11 +6,21 @@ import { prisma } from "@/lib/prisma";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { withIdempotency } from "@/lib/idempotency";
 import { fulfillAddonFromSession } from "@/lib/billing/fulfill-one-time";
+import { fulfillRecurringAddonFromSession } from "@/lib/billing/fulfill-recurring-addon";
+import { getRecurringAddon } from "@/lib/billing/addon-registry";
 import { apiError, fromException } from "@/lib/api-errors";
 
 /**
- * Manual verification endpoint for add-on purchases
- * This can be called from the success page or subscription page to verify and process add-on purchases
+ * Manual verification endpoint for add-on purchases.
+ *
+ * Called from the success page (and optionally subscription) to verify and
+ * process add-on purchases when the Stripe webhook has not yet (or cannot —
+ * e.g. localhost without `stripe listen`) grant the entitlement.
+ *
+ * Handles BOTH:
+ *   - one-time report packs (`mode: payment`, `metadata.type: addon`)
+ *   - recurring packs (`mode: subscription`, `metadata.type: addon_subscription`)
+ *     → FeatureEntitlement via the same helper the webhook uses
  */
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -53,7 +63,7 @@ export async function POST(request: NextRequest) {
         const checkoutSession = await stripe.checkout.sessions.retrieve(
           sessionId,
           {
-            expand: ["payment_intent"],
+            expand: ["payment_intent", "subscription"],
           },
         );
 
@@ -71,7 +81,48 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Check if this is an add-on purchase
+        // ── Recurring add-on (BOOKKEEPING / VOICE / …) ─────────────────────
+        if (
+          checkoutSession.mode === "subscription" &&
+          checkoutSession.metadata?.type === "addon_subscription"
+        ) {
+          if (
+            checkoutSession.payment_status !== "paid" &&
+            checkoutSession.status !== "complete"
+          ) {
+            return NextResponse.json(
+              {
+                error: "Payment not completed",
+                payment_status: checkoutSession.payment_status,
+              },
+              { status: 400 },
+            );
+          }
+
+          const result = await fulfillRecurringAddonFromSession(checkoutSession);
+          if (!result.applied && result.reason) {
+            return apiError(request, {
+              code: "VALIDATION",
+              message: result.reason,
+              status: 400,
+            });
+          }
+
+          const sku = result.sku ?? checkoutSession.metadata?.sku ?? "";
+          const descriptor = sku ? getRecurringAddon(sku) : undefined;
+
+          return NextResponse.json({
+            success: true,
+            kind: "recurring",
+            sku,
+            name: descriptor?.name ?? sku,
+            message: result.deduped
+              ? "Add-on already active"
+              : "Add-on activated successfully",
+          });
+        }
+
+        // ── One-time report pack ───────────────────────────────────────────
         if (
           checkoutSession.mode !== "payment" ||
           checkoutSession.metadata?.type !== "addon"
@@ -123,6 +174,7 @@ export async function POST(request: NextRequest) {
         if (result.deduped) {
           return NextResponse.json({
             success: true,
+            kind: "one_time",
             message: "Add-on purchase already processed",
             addonReports: user?.addonReports || 0,
           });
@@ -130,6 +182,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
           success: true,
+          kind: "one_time",
           message: "Add-on purchase processed successfully",
           addonReports: user?.addonReports || 0,
           increment: addonReports,
