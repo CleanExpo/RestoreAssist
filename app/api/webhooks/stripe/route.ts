@@ -12,9 +12,12 @@ import {
   fulfillLifetimeFromSession,
   fulfillAddonFromSession,
 } from "@/lib/billing/fulfill-one-time";
+import {
+  applyRecurringAddonSubscription,
+  fulfillRecurringAddonFromSession,
+} from "@/lib/billing/fulfill-recurring-addon";
 import { apiError } from "@/lib/api-errors";
 import { PRICING_CONFIG } from "@/lib/pricing";
-import { getRecurringAddonBySubscriptionType } from "@/lib/billing/addon-registry";
 
 /**
  * Best-effort human-readable plan name from a Stripe Subscription.
@@ -202,7 +205,7 @@ export async function POST(request: NextRequest) {
         // RA-6920 B0 — a recurring add-on subscription must NOT flip the user's
         // base-plan fields (that would overwrite subscriptionId). Route it to
         // the entitlement toggle and stop.
-        if (await handleRecurringAddonSubscription(subscription)) break;
+        if (await applyRecurringAddonSubscription(subscription)) break;
 
         if (subscription.customer) {
           const subscriptionEndsAt = new Date(
@@ -234,7 +237,7 @@ export async function POST(request: NextRequest) {
         const updatedSub = event.data.object as Stripe.Subscription;
         // RA-6920 B0 — toggle the add-on entitlement (active on active/trialing,
         // inactive otherwise) and stop before the base-plan handler.
-        if (await handleRecurringAddonSubscription(updatedSub)) break;
+        if (await applyRecurringAddonSubscription(updatedSub)) break;
         await handleSubscriptionUpdated(event, reprocessing);
         break;
       }
@@ -244,7 +247,7 @@ export async function POST(request: NextRequest) {
         // RA-6920 B0 — clearing the add-on entitlement must not fall through to
         // handleSubscriptionDeleted, whose email fallback would cancel the
         // user's unrelated BASE subscription.
-        if (await handleRecurringAddonSubscription(deletedSub)) break;
+        if (await applyRecurringAddonSubscription(deletedSub)) break;
         await handleSubscriptionDeleted(event, reprocessing);
         break;
       }
@@ -723,6 +726,17 @@ export async function handleCheckoutCompleted(
     return;
   }
 
+  // Recurring add-on checkout (BOOKKEEPING / VOICE / …) — grant FeatureEntitlement
+  // and STOP before base-plan activation (which would overwrite User.subscriptionId
+  // with the add-on subscription). Same upsert as customer.subscription.* handlers.
+  if (
+    session.mode === "subscription" &&
+    session.metadata?.type === "addon_subscription"
+  ) {
+    await fulfillRecurringAddonFromSession(session);
+    return;
+  }
+
   if (session.mode !== "subscription") return;
 
   const metadataUserId = session.metadata?.userId ?? null;
@@ -863,80 +877,11 @@ export async function handleCheckoutCompleted(
 /**
  * RA-6920 B0 — Recurring add-on subscription lifecycle → FeatureEntitlement.
  *
- * Each recurring add-on (floor-plan underlay today; SERVICE_CRM / VOICE /
- * BOOKKEEPING / PAYMENTS in later phases) is a SEPARATE Stripe subscription from
- * the base $99/month plan, stamped at checkout with `subscription.metadata.type`
- * set to the add-on's registry marker plus the buyer's `workspaceId`. This
- * handler resolves the add-on from the registry by that marker and upserts the
- * per-workspace FeatureEntitlement for the descriptor's SKU:
- *   - active/trialing → active = true (feature unlocked)
- *   - canceled/unpaid/past_due/incomplete/paused/deleted → active = false
- * storing the Stripe subscription + price ids for auditability.
- *
- * Adding a new add-on requires ZERO edits here — it is recognised purely from
- * its registry descriptor's `subscriptionType`.
- *
- * Idempotent: the upsert is keyed on the (workspaceId, sku) unique, so any
- * replay of the same event converges to the same row state.
- *
- * @returns `true` when the event was one of our recurring add-on subscriptions
- *   (handled — the caller must NOT run the base-plan handlers), `false` otherwise.
- *
- * Exported so unit tests can drive it with synthetic subscription objects.
+ * Implementation lives in `lib/billing/fulfill-recurring-addon.ts` so the
+ * webhook, checkout.session.completed, and browser verify paths share one
+ * upsert. Re-exported here so existing unit tests keep importing from route.
  */
-export async function handleRecurringAddonSubscription(
-  subscription: Stripe.Subscription,
-): Promise<boolean> {
-  const subscriptionType = subscription.metadata?.type;
-  if (!subscriptionType) return false;
-
-  const descriptor = getRecurringAddonBySubscriptionType(subscriptionType);
-  if (!descriptor) return false;
-
-  const workspaceId = subscription.metadata?.workspaceId;
-  if (!workspaceId) {
-    // It IS one of our add-on events, but without a workspace we cannot grant
-    // the entitlement. Log and claim it (return true) so the caller does not
-    // fall through to the base-plan handlers with an add-on subscription id.
-    console.error(
-      "[stripe-webhook] recurring add-on subscription missing workspaceId metadata",
-      subscription.id,
-    );
-    return true;
-  }
-
-  const active =
-    subscription.status === "active" || subscription.status === "trialing";
-  const stripePriceId = subscription.items?.data?.[0]?.price?.id ?? null;
-
-  // RA-6920 B6 — persist the purchased seat count for the quantity-based
-  // TECHNICIAN_SEATS add-on only. Flat add-ons leave `seats` untouched (null).
-  const seats = descriptor.perSeat
-    ? (subscription.items?.data?.[0]?.quantity ?? 1)
-    : undefined;
-
-  await prisma.featureEntitlement.upsert({
-    where: {
-      workspaceId_sku: { workspaceId, sku: descriptor.sku },
-    },
-    create: {
-      workspaceId,
-      sku: descriptor.sku,
-      active,
-      seats,
-      stripeSubscriptionId: subscription.id,
-      stripePriceId,
-    },
-    update: {
-      active,
-      seats,
-      stripeSubscriptionId: subscription.id,
-      stripePriceId,
-    },
-  });
-
-  return true;
-}
+export const handleRecurringAddonSubscription = applyRecurringAddonSubscription;
 
 /**
  * Maps Stripe's subscription status spectrum to our internal enum.
