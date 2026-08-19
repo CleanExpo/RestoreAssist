@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import Link from "next/link";
@@ -13,8 +13,6 @@ import {
   Eye,
   Edit,
   MoreVertical,
-  ChevronLeft,
-  ChevronRight,
   Copy,
   Trash2,
   CheckSquare,
@@ -38,6 +36,10 @@ import { formatDate } from "@/lib/formatters";
 import type { ReportWithSessionData } from "@/lib/session-types";
 import { DataSourceSwitcher } from "@/components/dashboard/DataSourceSwitcher";
 import { SyncedJobsPanel } from "@/components/dashboard/SyncedJobsPanel";
+import {
+  DASHBOARD_LIST_PAGE_SIZE,
+  ListPagination,
+} from "@/components/dashboard/ListPagination";
 import type { DataSource } from "@/lib/synced-data/types";
 
 const REPORT_STATUS_TONES: Record<string, StatusTone> = {
@@ -83,7 +85,7 @@ export default function ReportsPage() {
     dateTo: "",
   });
 
-  const itemsPerPage = 10;
+  const itemsPerPage = DASHBOARD_LIST_PAGE_SIZE;
 
   // Duplicate report function
   const duplicateReport = async (reportId: string) => {
@@ -362,11 +364,19 @@ export default function ReportsPage() {
     });
   }, [reports, searchTerm, filters]);
 
-  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
   const paginatedReports = filteredReports.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
+
+  // Keep page in range when filters shrink the list.
+  useEffect(() => {
+    const maxPage = Math.max(
+      1,
+      Math.ceil(filteredReports.length / itemsPerPage),
+    );
+    if (currentPage > maxPage) setCurrentPage(maxPage);
+  }, [filteredReports.length, currentPage, itemsPerPage]);
 
   const formatCost = (cost: number | string | null | undefined) => {
     if (cost == null || cost === "") return "N/A";
@@ -439,7 +449,10 @@ export default function ReportsPage() {
                 aria-label="Search synced jobs"
                 placeholder="Search synced jobs by title, client, address..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white placeholder-slate-500"
               />
             </div>
@@ -1047,50 +1060,13 @@ export default function ReportsPage() {
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <p className="text-slate-300 text-sm">
-          Showing {(currentPage - 1) * itemsPerPage + 1}-
-          {Math.min(currentPage * itemsPerPage, filteredReports.length)} of{" "}
-          {filteredReports.length} reports
-        </p>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-            className="px-3 py-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center gap-1"
-          >
-            <ChevronLeft size={16} />
-            Previous
-          </button>
-          {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-            const pageNum = i + 1;
-            return (
-              <button
-                key={pageNum}
-                onClick={() => setCurrentPage(pageNum)}
-                className={`px-4 py-0 rounded-lg transition-colors text-sm ${
-                  pageNum === currentPage
-                    ? "bg-gradient-to-r from-blue-600 to-cyan-600"
-                    : "border border-slate-700 hover:bg-slate-800"
-                }`}
-              >
-                {pageNum}
-              </button>
-            );
-          })}
-          {totalPages > 5 && <span className="px-3 py-2">...</span>}
-          <button
-            onClick={() =>
-              setCurrentPage(Math.min(totalPages, currentPage + 1))
-            }
-            disabled={currentPage === totalPages}
-            className="px-3 py-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center gap-1"
-          >
-            Next
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </div>
+      <ListPagination
+        page={currentPage}
+        pageSize={itemsPerPage}
+        total={filteredReports.length}
+        onPageChange={setCurrentPage}
+        noun="reports"
+      />
 
       </>
       )}
