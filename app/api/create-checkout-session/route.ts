@@ -10,14 +10,92 @@ import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { apiError, fromException } from "@/lib/api-errors";
 import { PRICING_CONFIG } from "@/lib/pricing";
 
-// R3 — server-authoritative price allowlist. The client may only ask for a
-// priceId that is in this fixed set (the single $99 Monthly Plan). Any other
-// id is rejected 400 and NO Stripe price/session is created. There is no
-// dynamic price creation: an unset STRIPE_PRICE_MONTHLY fails closed at Stripe
-// rather than fabricating a price.
-const ALLOWED_PRICE_IDS = new Set<string>(
-  [PRICING_CONFIG.prices.monthly].filter(Boolean),
-);
+// Client bundles cannot read STRIPE_PRICE_* (non-NEXT_PUBLIC). pricing.ts
+// therefore falls back to this placeholder in the browser; never treat it as a
+// real Stripe price id on the server.
+const CLIENT_PRICE_PLACEHOLDER = "MONTHLY_PLAN";
+
+function configuredMonthlyPriceId(): string | null {
+  const id = PRICING_CONFIG.prices.monthly;
+  // Empty / missing only — tests intentionally use the "MONTHLY_PLAN"
+  // placeholder when STRIPE_PRICE_MONTHLY is unset. Production must set a
+  // real price_… id; Stripe rejects the placeholder at session create.
+  if (!id) return null;
+  return id;
+}
+
+/**
+ * R3 — server-authoritative price resolution.
+ *
+ * Clients should send `{ plan: "monthly" }` (safe in browser bundles). A
+ * legacy `priceId` is accepted only when it matches the configured Stripe
+ * price, or when it is the known client placeholder (mapped to the server
+ * env price). Arbitrary Stripe price ids are rejected.
+ */
+function resolveCheckoutPriceId(body: {
+  priceId?: string;
+  plan?: string;
+}): { priceId: string } | { error: string } {
+  const monthly = configuredMonthlyPriceId();
+  if (!monthly) {
+    return {
+      error:
+        "Billing is not configured (STRIPE_PRICE_MONTHLY). Set a real Stripe price id.",
+    };
+  }
+
+  if (body.plan) {
+    if (body.plan === "monthly") return { priceId: monthly };
+    return { error: "Unknown or unsupported plan" };
+  }
+
+  if (body.priceId) {
+    if (body.priceId === monthly) return { priceId: monthly };
+    // Historical client bug: browser sent pricing.ts fallback string.
+    if (body.priceId === CLIENT_PRICE_PLACEHOLDER) {
+      return { priceId: monthly };
+    }
+    return { error: "Unknown or unsupported plan" };
+  }
+
+  // Single-catalog default — server picks the only sellable SKU.
+  return { priceId: monthly };
+}
+
+/**
+ * Stripe returns a cryptic 500-shaped failure when STRIPE_PRICE_MONTHLY is a
+ * live-mode price used with a test secret (or vice versa / wrong account).
+ * Map that to a clear 400 so operators fix env instead of chasing app bugs.
+ */
+function stripePriceConfigError(
+  request: NextRequest,
+  error: unknown,
+): NextResponse | null {
+  const message =
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message: unknown }).message === "string"
+      ? (error as { message: string }).message
+      : "";
+
+  if (
+    !/No such price/i.test(message) &&
+    !/similar object exists in (live|test) mode/i.test(message)
+  ) {
+    return null;
+  }
+
+  return apiError(request, {
+    code: "VALIDATION",
+    message:
+      "Billing is misconfigured: STRIPE_PRICE_MONTHLY does not match this Stripe account/mode (test vs live). Use a price_… id created in the same mode as STRIPE_SECRET_KEY.",
+    status: 400,
+    err: error,
+    stage: "create-checkout-session",
+    context: { reason: "stripe_price_mode_mismatch" },
+  });
+}
 
 export async function POST(request: NextRequest) {
   // RA-1842 Path B — Apple guideline 3.1.1 compliance. iOS Capacitor
@@ -63,7 +141,7 @@ export async function POST(request: NextRequest) {
           ? "https://restoreassist.app"
           : "http://localhost:3000");
 
-      let parsed: { priceId?: string } = {};
+      let parsed: { priceId?: string; plan?: string } = {};
       try {
         const raw: unknown = rawBody ? JSON.parse(rawBody) : {};
         if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -73,7 +151,7 @@ export async function POST(request: NextRequest) {
             status: 400,
           });
         }
-        parsed = raw as { priceId?: string };
+        parsed = raw as { priceId?: string; plan?: string };
       } catch {
         return apiError(request, {
           code: "VALIDATION",
@@ -81,26 +159,16 @@ export async function POST(request: NextRequest) {
           status: 400,
         });
       }
-      const { priceId } = parsed;
 
-      if (!priceId) {
+      const resolved = resolveCheckoutPriceId(parsed);
+      if ("error" in resolved) {
         return apiError(request, {
           code: "VALIDATION",
-          message: "Price ID is required",
+          message: resolved.error,
           status: 400,
         });
       }
-
-      // R3 — reject any priceId outside the fixed server allowlist BEFORE any
-      // Stripe call. A client cannot supply an arbitrary price and the server
-      // never creates a dynamic price.
-      if (!ALLOWED_PRICE_IDS.has(priceId)) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: "Unknown or unsupported plan",
-          status: 400,
-        });
-      }
+      const { priceId } = resolved;
 
       // Get user's Stripe customer ID
       const user = await prisma.user.findUnique({
@@ -206,6 +274,8 @@ export async function POST(request: NextRequest) {
         customerId: customerId,
       });
     } catch (error) {
+      const priceConfig = stripePriceConfigError(request, error);
+      if (priceConfig) return priceConfig;
       return fromException(request, error, {
         stage: "create-checkout-session",
       });
