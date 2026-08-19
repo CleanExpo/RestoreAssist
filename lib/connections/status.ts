@@ -104,7 +104,10 @@ export function buildRestoreAssistConnectionStatus(
     envSet("NEXT_PUBLIC_SUPABASE_URL", env) && envSet("NEXT_PUBLIC_SUPABASE_ANON_KEY", env);
   const authReady = envSet("NEXTAUTH_SECRET", env) && envSet("NEXTAUTH_URL", env);
   const anthropicReady = envSet("ANTHROPIC_API_KEY", env);
-  const ascoraReady = envSet("ASCORA_API_KEY", env) && envSet("ASCORA_API_SECRET", env);
+  // Ascora's canonical path is static API-key auth (`Auth: <key>` via
+  // /api/ascora/connect). ASCORA_API_SECRET / CLIENT_* are legacy OAuth-only
+  // and are not required for job sync.
+  const ascoraReady = envSet("ASCORA_API_KEY", env);
   const stripeReady = envSet("STRIPE_SECRET_KEY", env);
   const stripeWebhookReady = envSet("STRIPE_WEBHOOK_SECRET", env);
   const emailReady = envSet("RESEND_API_KEY", env);
@@ -184,9 +187,9 @@ export function buildRestoreAssistConnectionStatus(
       method: "env-presence",
       safeForMissionControl: true,
       detail: ascoraReady
-        ? "Ascora API credential pair present; live sync remains verification-gated."
-        : "ASCORA_API_KEY and ASCORA_API_SECRET are required for job sync.",
-      nextAction: ascoraReady ? undefined : "Provision Ascora API credentials.",
+        ? "ASCORA_API_KEY present; live sync remains verification-gated."
+        : "ASCORA_API_KEY is required for job sync.",
+      nextAction: ascoraReady ? undefined : "Set ASCORA_API_KEY.",
     },
     {
       id: "stripe",
