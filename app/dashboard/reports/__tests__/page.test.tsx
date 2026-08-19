@@ -69,6 +69,15 @@ afterEach(() => {
 });
 
 describe("ReportsPage — a11y (#18) and live download error feedback", () => {
+  it("exposes a data source switcher for RestoreAssist / Xero / Ascora", async () => {
+    render(<ReportsPage />);
+    const source = await screen.findByLabelText(/data source/i);
+    expect(source).toBeInTheDocument();
+    expect(source).toHaveValue("native");
+    fireEvent.change(source, { target: { value: "xero" } });
+    expect(source).toHaveValue("xero");
+  });
+
   it("gives the table's icon-only action and selection controls accessible names", async () => {
     render(<ReportsPage />);
     const table = await screen.findByRole("table");
