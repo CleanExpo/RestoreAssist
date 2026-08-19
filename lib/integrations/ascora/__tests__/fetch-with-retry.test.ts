@@ -116,4 +116,38 @@ describe("fetchAscoraWithRetry", () => {
     expect(calls).toBe(2);
     expect(delays[0]).toBe(1000);
   }, 10000);
+
+  it("rewrites AbortSignal timeout into a 504 AscoraApiError with context", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new DOMException(
+          "The operation was aborted due to timeout",
+          "TimeoutError",
+        );
+      }),
+    );
+
+    let thrown: unknown;
+    try {
+      await fetchAscoraWithRetry(
+        "https://api.ascora.com.au/jobs",
+        {},
+        {
+          retryOptions: { maxRetries: 0, initialDelay: 1, maxDelay: 1, factor: 2 },
+          timeoutMs: 30000,
+          context: "/jobs (page 1)",
+        },
+      );
+    } catch (err) {
+      thrown = err;
+    }
+
+    expect(thrown).toMatchObject({ name: "RetryError" });
+    expect((thrown as { lastError: Error }).lastError).toMatchObject({
+      status: 504,
+      name: "TimeoutError",
+      message: expect.stringMatching(/timed out on \/jobs \(page 1\)/i),
+    });
+  });
 });
