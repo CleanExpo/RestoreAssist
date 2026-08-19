@@ -26,7 +26,9 @@ function PricingPageContent() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ priceId: PRICING_CONFIG.prices[plan] }),
+        // Server resolves Stripe price from plan key — never send price ids
+        // from the client (STRIPE_PRICE_* is not available in browser bundles).
+        body: JSON.stringify({ plan }),
       });
 
       if (!response.ok) {
