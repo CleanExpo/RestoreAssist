@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import BillingGate from "@/components/capacitor/BillingGate";
 import Image from "next/image";
@@ -190,6 +191,7 @@ interface SubscriptionStatus {
 export default function IntegrationsPage() {
   const confirm = useConfirmDialog();
   const router = useRouter();
+  const { status: sessionStatus } = useSession();
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const isOnboarding = searchParams.get("onboarding") === "true";
   const successMessage = searchParams.get("success");
@@ -267,17 +269,22 @@ export default function IntegrationsPage() {
     }
   }, [successMessage, errorMessage, router]);
 
-  // Fetch integrations and subscription status from API
+  // Fetch integrations and subscription status once authenticated — avoids
+  // noisy 401s during the NextAuth loading → authenticated race on mount.
   useEffect(() => {
+    if (sessionStatus !== "authenticated") return;
     fetchIntegrations();
     fetchExternalIntegrations();
     fetchSubscriptionStatus();
     fetchDrNrpg();
-  }, []);
+  }, [sessionStatus]);
 
   const fetchSubscriptionStatus = async () => {
     try {
-      const response = await fetch("/api/user/profile");
+      const response = await fetch("/api/user/profile", {
+        credentials: "include",
+      });
+      if (response.status === 401) return;
       if (response.ok) {
         const data = await response.json();
         setSubscription({
@@ -356,9 +363,15 @@ export default function IntegrationsPage() {
             i.provider === integration.slug.toUpperCase(),
         );
         if (found) {
+          // ERROR/SYNCING still have OAuth tokens — treat as connected so Sync
+          // and Disconnect remain available (retry clears ERROR → CONNECTED).
+          const hasLink =
+            found.status === "CONNECTED" ||
+            found.status === "ERROR" ||
+            found.status === "SYNCING";
           results[integration.slug] = {
             provider: integration.name,
-            connected: found.status === "CONNECTED",
+            connected: hasLink,
             status: found.status,
             lastSyncAt: found.lastSyncAt,
             syncError: found.syncError,
