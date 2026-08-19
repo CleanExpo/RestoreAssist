@@ -86,6 +86,28 @@ describe("POST /api/create-checkout-session", () => {
     expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
   });
 
+  it("resolves plan:monthly to the server Stripe price (client-safe body)", async () => {
+    const res = await POST(makeRequest({ plan: "monthly" }));
+    expect(res.status).toBe(200);
+    expect(stripeMock.checkout.sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        line_items: [{ price: MONTHLY, quantity: 1 }],
+      }),
+    );
+  });
+
+  it("maps the client MONTHLY_PLAN placeholder to the configured Stripe price", async () => {
+    // Browser bundles cannot read STRIPE_PRICE_MONTHLY; pricing.ts falls back
+    // to this string. Server must not reject it as an unknown plan.
+    const res = await POST(makeRequest({ priceId: "MONTHLY_PLAN" }));
+    expect(res.status).toBe(200);
+    expect(stripeMock.checkout.sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        line_items: [{ price: MONTHLY, quantity: 1 }],
+      }),
+    );
+  });
+
   it("A1(a): the allowlisted monthly price creates a subscription session", async () => {
     const res = await POST(makeRequest({ priceId: MONTHLY }));
     expect(res.status).toBe(200);
