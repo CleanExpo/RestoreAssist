@@ -122,7 +122,7 @@ function buildWelcomeMessage(userName: string): string {
 }
 
 export default function Chatbot() {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -171,12 +171,24 @@ export default function Chatbot() {
     };
   }, []);
 
-  // Load chat history from database
+  // Load chat history from database once NextAuth reports authenticated —
+  // avoids noisy 401s during the loading → authenticated race on mount.
   useEffect(() => {
+    if (sessionStatus !== "authenticated") {
+      if (sessionStatus === "unauthenticated") {
+        setIsLoadingHistory(false);
+      }
+      return;
+    }
+
     const loadChatHistory = async () => {
       try {
         setIsLoadingHistory(true);
-        const response = await fetch("/api/chatbot");
+        const response = await fetch("/api/chatbot", {
+          credentials: "include",
+        });
+        // Soft-handle 401 (session race / expired cookie) — keep welcome UI.
+        if (response.status === 401) return;
         if (response.ok) {
           const data = await response.json();
           if (data.messages && data.messages.length > 0) {
@@ -212,10 +224,8 @@ export default function Chatbot() {
       }
     };
 
-    if (session) {
-      loadChatHistory();
-    }
-  }, [session]);
+    loadChatHistory();
+  }, [sessionStatus, session?.user?.name]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -350,6 +360,7 @@ export default function Chatbot() {
     try {
       const response = await fetch("/api/chatbot", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [...messages, userMessage].map((msg) => ({
@@ -358,6 +369,10 @@ export default function Chatbot() {
           })),
         }),
       });
+      if (response.status === 401) {
+        toast.error("Session expired. Please sign in again.");
+        return;
+      }
 
       if (!response.ok) {
         const error = await response.json();
