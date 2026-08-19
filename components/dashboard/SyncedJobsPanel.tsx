@@ -58,10 +58,18 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
   const [importingId, setImportingId] = useState<string | null>(null);
   const [detail, setDetail] = useState<SyncedJobRow | null>(null);
 
-  // Reset to page 1 when source or search changes.
+  // When source/search change, always fetch page 1 (avoid racing page=N
+  // from the previous list with the new filters).
+  const listKey = `${source}|${searchTerm}`;
+  const [activeListKey, setActiveListKey] = useState(listKey);
+  const requestPage = listKey === activeListKey ? page : 1;
+
   useEffect(() => {
-    setPage(1);
-  }, [source, searchTerm]);
+    if (listKey !== activeListKey) {
+      setActiveListKey(listKey);
+      setPage(1);
+    }
+  }, [listKey, activeListKey]);
 
   const fetchItems = useCallback(async () => {
     try {
@@ -69,7 +77,7 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
       setError(null);
       const params = new URLSearchParams({
         source,
-        page: String(page),
+        page: String(requestPage),
         pageSize: String(DASHBOARD_LIST_PAGE_SIZE),
       });
       if (searchTerm.trim()) params.set("search", searchTerm.trim());
@@ -96,7 +104,7 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
       setPagination(data.pagination);
       if (
         data.pagination.totalPages > 0 &&
-        page > data.pagination.totalPages
+        requestPage > data.pagination.totalPages
       ) {
         setPage(data.pagination.totalPages);
       }
@@ -106,7 +114,7 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
     } finally {
       setLoading(false);
     }
-  }, [source, searchTerm, page]);
+  }, [source, searchTerm, requestPage]);
 
   useEffect(() => {
     void fetchItems();
