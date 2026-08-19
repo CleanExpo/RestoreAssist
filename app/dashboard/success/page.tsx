@@ -97,22 +97,25 @@ export default function SuccessPage() {
     };
 
     const verifyAndUpdateSubscription = async () => {
-      // FIRST: Check if subscription is already active before doing anything
-      // This prevents re-running verification if component remounts after completion
-      try {
-        const preCheckResponse = await fetch("/api/user/profile");
-        if (preCheckResponse.ok) {
-          const preCheckData = await preCheckResponse.json();
-          if (preCheckData.profile?.subscriptionStatus === "ACTIVE") {
-            // Already active, just mark as completed and return
-            markCompleted();
-            showToastOnce("Subscription activated successfully!");
-            cleanup();
-            return;
+      // FIRST: Check if subscription is already active before doing anything.
+      // Skip this short-circuit for add-on purchases — those need verify to
+      // grant FeatureEntitlement even when the base plan is already ACTIVE.
+      if (!isAddonPurchase) {
+        try {
+          const preCheckResponse = await fetch("/api/user/profile");
+          if (preCheckResponse.ok) {
+            const preCheckData = await preCheckResponse.json();
+            if (preCheckData.profile?.subscriptionStatus === "ACTIVE") {
+              // Already active, just mark as completed and return
+              markCompleted();
+              showToastOnce("Subscription activated successfully!");
+              cleanup();
+              return;
+            }
           }
+        } catch {
+          // Continue with verification if pre-check fails
         }
-      } catch (error) {
-        // Continue with verification if pre-check fails
       }
 
       // Check if already completed (race condition guard)
@@ -124,7 +127,10 @@ export default function SuccessPage() {
         // Get session_id from ref
         const sessionId = sessionIdRef.current;
 
-        // If this is an add-on purchase, handle it first
+        // If this is an add-on purchase, fulfill then redirect.
+        // Recurring packs (BOOKKEEPING etc.) grant FeatureEntitlement via verify;
+        // one-time report packs credit addonReports. Do NOT redirect before verify
+        // completes — that race aborted fulfillment on localhost without webhooks.
         if (isAddonPurchase) {
           if (sessionId) {
             try {
@@ -143,28 +149,53 @@ export default function SuccessPage() {
                 }
 
                 markCompleted();
-                showToastOnce(
-                  `Add-on purchase successful! You now have ${addonData.addonReports} additional reports.`,
-                );
+                if (addonData.kind === "recurring") {
+                  showToastOnce(
+                    addonData.name
+                      ? `${addonData.name} is now active.`
+                      : "Add-on pack activated successfully!",
+                  );
+                } else {
+                  showToastOnce(
+                    `Add-on purchase successful! You now have ${addonData.addonReports} additional reports.`,
+                  );
+                }
                 cleanup();
+                if (!isCapacitorIOS()) {
+                  router.push("/dashboard/subscription?addon=success");
+                }
                 return;
-              } else {
-                const errorData = await addonVerifyResponse
-                  .json()
-                  .catch(() => ({}));
-                // Continue to try finding session
               }
             } catch (addonError) {
               console.error("Error verifying add-on:", addonError);
             }
           }
 
-          // If no session_id, try to find recent add-on purchases
+          // If no session_id / verify failed, wait briefly for webhook then finish
           try {
-            // Wait a bit for webhook to process
             await new Promise((resolve) => setTimeout(resolve, 2000));
 
-            // Check user profile to see if add-ons were updated
+            const catalogCheck = await fetch("/api/addons/catalog");
+            if (catalogCheck.ok && addonKey) {
+              const catalog = await catalogCheck.json();
+              if (
+                Array.isArray(catalog.owned) &&
+                catalog.owned.includes(addonKey)
+              ) {
+                if (isCompletedRef.current) {
+                  cleanup();
+                  return;
+                }
+                markCompleted();
+                showToastOnce("Add-on pack activated successfully!");
+                cleanup();
+                if (!isCapacitorIOS()) {
+                  router.push("/dashboard/subscription?addon=success");
+                }
+                return;
+              }
+            }
+
             const profileCheck = await fetch("/api/user/profile?refresh=true");
             if (profileCheck.ok) {
               const profileData = await profileCheck.json();
@@ -180,6 +211,9 @@ export default function SuccessPage() {
                   `Add-on purchase successful! You now have ${currentAddons} additional reports.`,
                 );
                 cleanup();
+                if (!isCapacitorIOS()) {
+                  router.push("/dashboard/subscription?addon=success");
+                }
                 return;
               }
             }
@@ -187,12 +221,14 @@ export default function SuccessPage() {
             console.error("Error checking add-on status:", error);
           }
 
-          // If still not found, mark as completed anyway (webhook might process later)
           markCompleted();
           showToastOnce(
             "Add-on purchase received! Processing may take a moment. Please refresh the page.",
           );
           cleanup();
+          if (!isCapacitorIOS()) {
+            router.push("/dashboard/subscription?addon=success");
+          }
           return;
         }
 
@@ -436,16 +472,6 @@ export default function SuccessPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - effect should run only once on mount, guards prevent re-runs
 
-  // Auto-redirect to subscription page for add-ons IMMEDIATELY (no modal shown)
-  useEffect(() => {
-    if (isAddonPurchase) {
-      // RA-1842: iOS billing happens on web — skip auto-redirect on iOS.
-      if (!isCapacitorIOS()) {
-        router.push("/dashboard/subscription?addon=success");
-      }
-    }
-  }, [isAddonPurchase, router]);
-
   // Auto-show setup guide after verification completes
   useEffect(() => {
     if (!loading && !checking && !isAddonPurchase && !isCompletedRef.current) {
@@ -481,11 +507,20 @@ export default function SuccessPage() {
     }
   }, [loading, checking, isAddonPurchase, router, update]);
 
-  // For add-ons, don't show any UI - redirect immediately.
+  // For add-ons, show a brief processing state while verify runs (then redirect).
   // NOTE: must come AFTER all hooks above — an early return before a hook
   // violates rules-of-hooks and crashes when isAddonPurchase toggles.
   if (isAddonPurchase) {
-    return null;
+    return (
+      <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-12 h-12 text-cyan-500 animate-spin mx-auto" />
+          <p className="text-slate-600 dark:text-slate-300">
+            Activating your add-on pack…
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const handleStartSetup = async () => {
