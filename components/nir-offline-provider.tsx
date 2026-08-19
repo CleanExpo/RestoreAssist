@@ -4,7 +4,8 @@
  * NIR Offline Provider
  *
  * Client component that:
- *   1. Registers the service worker (public/sw.js) on mount
+ *   1. Registers the service worker (public/sw.js) on mount in production only
+ *      (dev: unregister any existing SW — cache-first /_next/static breaks Turbopack)
  *   2. Initialises the IndexedDB sync queue reconnect listener
  *   3. Exposes sync status via context for the persistent status bar
  *
@@ -179,17 +180,37 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
   }, [refreshStatus]);
 
   useEffect(() => {
-    // 1. Register service worker
+    // 1. Service worker — production only. In development, actively unregister
+    // any leftover SW and drop nir-* caches so Turbopack chunks are never
+    // served stale (symptoms: "module factory is not available" on global-error).
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("/sw.js", { scope: "/" })
-        .then((registration) => {
-          setIsServiceWorkerReady(true);
-          console.info("[NIR SW] Registered, scope:", registration.scope);
-        })
-        .catch((err) => {
-          console.warn("[NIR SW] Registration failed:", err);
+      if (process.env.NODE_ENV !== "production") {
+        void navigator.serviceWorker.getRegistrations().then((regs) => {
+          for (const reg of regs) {
+            void reg.unregister();
+          }
         });
+        if ("caches" in window) {
+          void caches.keys().then((keys) =>
+            Promise.all(
+              keys
+                .filter((key) => key.startsWith("nir-"))
+                .map((key) => caches.delete(key)),
+            ),
+          );
+        }
+        console.info("[NIR SW] Skipped registration in development");
+      } else {
+        navigator.serviceWorker
+          .register("/sw.js", { scope: "/" })
+          .then((registration) => {
+            setIsServiceWorkerReady(true);
+            console.info("[NIR SW] Registered, scope:", registration.scope);
+          })
+          .catch((err) => {
+            console.warn("[NIR SW] Registration failed:", err);
+          });
+      }
     }
 
     // 2. Initialise reconnect listeners (returns cleanup fns)
