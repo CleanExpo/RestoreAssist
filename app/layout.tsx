@@ -147,6 +147,15 @@ export default function RootLayout({
     >
       <head>
         <BotIdClient protect={BOTID_PROTECTED_ROUTES} />
+        {/* Dev-only: unregister leftover NIR SWs early. Do not force-reload —
+            that races the Next router. SW v2.1 also self-destructs on localhost. */}
+        {process.env.NODE_ENV !== "production" ? (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `(function(){try{if(!("serviceWorker"in navigator))return;navigator.serviceWorker.getRegistrations().then(function(regs){regs.forEach(function(r){r.unregister()});if("caches"in window){caches.keys().then(function(keys){keys.filter(function(k){return k.indexOf("nir-")===0}).forEach(function(k){caches.delete(k)})})}}).catch(function(){})}catch(e){}})();`,
+            }}
+          />
+        ) : null}
       </head>
       <body className={geistSans.className}>
         <OrganizationSchema />
