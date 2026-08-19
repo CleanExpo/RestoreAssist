@@ -21,6 +21,10 @@ vi.mock("react-hot-toast", () => ({
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  // `vi.stubGlobal` has its own lifecycle and survives `restoreAllMocks`, and
+  // this config sets no `unstubGlobals`, so the stubbed `fetch` below would
+  // otherwise outlive the test that installed it.
+  vi.unstubAllGlobals();
   push.mockReset();
 });
 

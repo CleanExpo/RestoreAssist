@@ -673,3 +673,24 @@ were found in `.planning/` video docs.
     production DB is outside the autonomous envelope. The config-loader path they depend on is
     proven by `prisma generate` + `prisma validate` above. The 19 skipped test files are
     `DATABASE_URL`-gated and run in CI with Postgres; no DB-touching code changed here.
+  - **Independent review: PASS, and its one P2 was drained rather than ticketed.** Codex was
+    the preferred reviewer and was unavailable (usage limit resets 2026-08-20 13:33), so the
+    review went over HTTP through OpenRouter to `openai/gpt-5.6-terra-pro` — a different
+    vendor's model in a fresh context, not a subagent of the implementing agent. It returned
+    `PASS`, zero blocking findings, and an honest five-item coverage boundary whose first line
+    is the important one: being an HTTP-only reviewer it **could not execute** the mutation
+    sweep, the Prisma checks or the suites, so it reviewed the diff and took the re-runnable
+    evidence on trust. Its single P2 was real and is fixed here, not filed: the new test's
+    `afterEach` called `vi.restoreAllMocks()` but not `vi.unstubAllGlobals()`, and
+    `vi.stubGlobal` has a separate lifecycle that `restoreAllMocks` does not touch —
+    `config/vitest.config.js` sets no `unstubGlobals`, so the stubbed `fetch` outlived the test
+    that installed it. **Positive control before accepting the finding:** a temporary probe
+    asserting `vi.isMockFunction(globalThis.fetch) === false` after the stubbing tests **passes
+    with** `vi.unstubAllGlobals()` and **fails without** it, so the leak is real and the
+    one-line fix is load-bearing. The probe was an instrument and is not shipped; the reason
+    is recorded as a comment beside the call.
+  - **The mutation evidence was re-swept after the drain, not carried over.** The fix changed
+    the file's shared `afterEach`, which every test in it crosses, so the earlier sweep no
+    longer described the shipped state. All five mutants were re-run against the drained tests:
+    **5/5 still killed**, source restored byte-identical (sha256 `7695422e…` before and after).
+    `eslint` and full `tsc --noEmit` re-run at the drained state — both exit 0, zero output.
