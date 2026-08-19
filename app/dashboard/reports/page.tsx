@@ -36,6 +36,9 @@ import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/formatters";
 import type { ReportWithSessionData } from "@/lib/session-types";
+import { DataSourceSwitcher } from "@/components/dashboard/DataSourceSwitcher";
+import { SyncedJobsPanel } from "@/components/dashboard/SyncedJobsPanel";
+import type { DataSource } from "@/lib/synced-data/types";
 
 const REPORT_STATUS_TONES: Record<string, StatusTone> = {
   COMPLETED: "success",
@@ -51,12 +54,15 @@ export default function ReportsPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [dataSource, setDataSource] = useState<DataSource>("native");
   const {
     data: reportsData,
     loading,
     error: fetchError,
     refetch: refetchReports,
-  } = useFetch<{ reports: ReportWithSessionData[] }>("/api/reports");
+  } = useFetch<{ reports: ReportWithSessionData[] }>(
+    dataSource === "native" ? "/api/reports" : null,
+  );
   const reports = reportsData?.reports ?? [];
   const [duplicating, setDuplicating] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -377,8 +383,19 @@ export default function ReportsPage() {
             Manage and view all restoration reports
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {selectedReports.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap justify-end">
+          <DataSourceSwitcher
+            id="reports-data-source"
+            value={dataSource}
+            onChange={(next) => {
+              setDataSource(next);
+              setSelectedReports([]);
+              setSearchTerm("");
+              setCurrentPage(1);
+              setFilterOpen(false);
+            }}
+          />
+          {dataSource === "native" && selectedReports.length > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-sm text-slate-300">
                 {selectedReports.length} selected
@@ -398,15 +415,39 @@ export default function ReportsPage() {
               </button>
             </div>
           )}
-          <Link
-            href="/dashboard/reports/new"
-            className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
-          >
-            New Report
-          </Link>
+          {dataSource === "native" && (
+            <Link
+              href="/dashboard/reports/new"
+              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+            >
+              New Report
+            </Link>
+          )}
         </div>
       </div>
 
+      {dataSource !== "native" ? (
+        <>
+          <div className="flex gap-4 items-center mb-4">
+            <div className="flex-1 relative">
+              <Search
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 dark:text-slate-400"
+                size={18}
+              />
+              <input
+                type="text"
+                aria-label="Search synced jobs"
+                placeholder="Search synced jobs by title, client, address..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white placeholder-slate-500"
+              />
+            </div>
+          </div>
+          <SyncedJobsPanel source={dataSource} searchTerm={searchTerm} />
+        </>
+      ) : (
+        <>
       {/* Filters & Search */}
       <div className="flex gap-4 items-center mb-4">
         <div className="flex-1 relative">
@@ -1050,6 +1091,9 @@ export default function ReportsPage() {
           </button>
         </div>
       </div>
+
+      </>
+      )}
 
       {/* RA-1191 — replaced custom bulk-delete modal with shared shadcn
           AlertDialog-based DeleteConfirmationDialog (focus trap, Esc,
