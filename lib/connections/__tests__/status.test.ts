@@ -15,7 +15,6 @@ const FULL_ENV = {
   NEXTAUTH_URL: "https://restoreassist.example",
   ANTHROPIC_API_KEY: "sk-ant-value",
   ASCORA_API_KEY: "ascora-key",
-  ASCORA_API_SECRET: "ascora-secret-value",
   STRIPE_SECRET_KEY: "sk_test_value",
   STRIPE_WEBHOOK_SECRET: "whsec_value",
   RESEND_API_KEY: "re_value",
@@ -109,6 +108,16 @@ describe("buildRestoreAssistConnectionStatus", () => {
     expect(drive?.state).toBe("ready");
   });
 
+  it("marks Ascora ready with ASCORA_API_KEY alone", () => {
+    const env = { ASCORA_API_KEY: "ascora-key-only" } as NodeJS.ProcessEnv;
+    const status = buildRestoreAssistConnectionStatus(env, "2026-07-02T00:00:00.000Z");
+    const ascora = status.connections.find((c) => c.id === "ascora");
+
+    expect(ascora?.state).toBe("ready");
+    expect(ascora?.detail).toContain("ASCORA_API_KEY");
+    expect(ascora?.nextAction).toBeUndefined();
+  });
+
   it("flags a missing Stripe webhook secret without blocking", () => {
     const env = { ...FULL_ENV, STRIPE_WEBHOOK_SECRET: "" } as NodeJS.ProcessEnv;
     const status = buildRestoreAssistConnectionStatus(env, "2026-07-02T00:00:00.000Z");
@@ -150,7 +159,7 @@ describe("buildRestoreAssistConnectionStatus", () => {
       "re_value",
       "anon-key-value",
       "nextauth-secret-value",
-      "ascora-secret-value",
+      "ascora-key",
       "lin_api_value",
       "redacted",
       "google-client-secret-value",
