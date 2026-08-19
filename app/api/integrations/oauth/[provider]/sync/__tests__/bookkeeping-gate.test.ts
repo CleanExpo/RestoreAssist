@@ -149,3 +149,97 @@ describe("RA-6920 B3 — BOOKKEEPING add-on gate on sync", () => {
     expect(mockRequireAddon).not.toHaveBeenCalled();
   });
 });
+
+describe("Xero sync upstream error mapping", () => {
+  it("returns 504 with an actionable message on TimeoutError", async () => {
+    mockRequireAddon.mockResolvedValue({
+      allowed: true,
+      sku: "BOOKKEEPING",
+      workspaceId: "ws_1",
+    });
+
+    const { createClientForIntegration } = await import("@/lib/integrations");
+    (
+      createClientForIntegration as unknown as ReturnType<typeof vi.fn>
+    ).mockResolvedValueOnce({
+      syncClients: vi.fn(async () => {
+        const err = new DOMException(
+          "The operation was aborted due to timeout",
+          "TimeoutError",
+        );
+        throw err;
+      }),
+      syncJobs: vi.fn(async () => 0),
+    });
+
+    const res = await POST(makeRequest(), ctx("xero"));
+
+    expect(res.status).toBe(504);
+    const body = await res.json();
+    expect(body.error?.code).toBe("UPSTREAM_FAILED");
+    expect(body.error?.message).toMatch(/timed out/i);
+  });
+
+  it("returns 400 when XERO_CLIENT_SECRET is missing during sync", async () => {
+    mockRequireAddon.mockResolvedValue({
+      allowed: true,
+      sku: "BOOKKEEPING",
+      workspaceId: "ws_1",
+    });
+
+    const { createClientForIntegration } = await import("@/lib/integrations");
+    (
+      createClientForIntegration as unknown as ReturnType<typeof vi.fn>
+    ).mockResolvedValueOnce({
+      syncClients: vi.fn(async () => {
+        throw new Error("XERO_CLIENT_SECRET is not configured");
+      }),
+      syncJobs: vi.fn(async () => 0),
+    });
+
+    const res = await POST(makeRequest(), ctx("xero"));
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error?.message).toMatch(/XERO_CLIENT_SECRET/);
+  });
+
+  it("allows retry when integration is already in ERROR and restores CONNECTED", async () => {
+    mockRequireAddon.mockResolvedValue({
+      allowed: true,
+      sku: "BOOKKEEPING",
+      workspaceId: "ws_1",
+    });
+    mockFindFirst.mockResolvedValue({
+      id: "integration_1",
+      userId: "u_test",
+      provider: "XERO",
+      status: "ERROR",
+    });
+
+    const mockUpdate = (
+      prisma as unknown as {
+        integration: { update: ReturnType<typeof vi.fn> };
+      }
+    ).integration.update;
+
+    const res = await POST(makeRequest(), ctx("xero"));
+
+    expect(res.status).toBe(200);
+    expect(mockFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { in: ["CONNECTED", "ERROR", "SYNCING"] },
+        }),
+      }),
+    );
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "CONNECTED",
+          syncError: null,
+        }),
+      }),
+    );
+  });
+});
