@@ -184,6 +184,11 @@ export default function ClientsPage() {
     });
   }, [searchTerm, statusFilter, clients]);
 
+  const paginatedClients = filteredClients.slice(
+    (currentPage - 1) * DASHBOARD_LIST_PAGE_SIZE,
+    currentPage * DASHBOARD_LIST_PAGE_SIZE,
+  );
+
   // RA-1215 — field-level (400) errors render inline via form.setError.
   // Network / 5xx / 402-upgrade retain toast (non-field signals).
   const handleAddClient = form.handleSubmit(async (values) => {
@@ -418,6 +423,7 @@ export default function ClientsPage() {
               setSelectedClients([]);
               setSearchTerm("");
               setStatusFilter("");
+              setCurrentPage(1);
             }}
           />
           {dataSource === "native" && selectedClients.length > 0 && (
@@ -503,7 +509,10 @@ export default function ClientsPage() {
                 : "Search synced clients..."
             }
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
             className={cn(
               "w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
               "bg-neutral-100 dark:bg-slate-800",
@@ -521,7 +530,10 @@ export default function ClientsPage() {
             />
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className={cn(
                 "px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500",
                 "bg-neutral-100 dark:bg-slate-800",
@@ -586,7 +598,7 @@ export default function ClientsPage() {
                   }
                 />
               ) : (
-                filteredClients.map((client) => {
+                paginatedClients.map((client) => {
                   const fromReport = (client as ClientWithReportFlag)
                     ._isFromReport;
                   const statusClass =
@@ -786,7 +798,7 @@ export default function ClientsPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredClients.map((client) => (
+                    paginatedClients.map((client) => (
                       <tr
                         key={client.id}
                         className={cn(
