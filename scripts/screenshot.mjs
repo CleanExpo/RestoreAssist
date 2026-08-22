@@ -16,7 +16,7 @@
 //  - WORKS for localhost / data URLs (noProxy bypass). REMOTE https URLs are
 //    blocked: the egress proxy closes Chromium's tunnel (ERR_CONNECTION_CLOSED)
 //    for every external host. To verify a deployed page, run the app locally
-//    (`pnpm build && pnpm start`, or `pnpm dev`) and screenshot http://localhost:3000.
+//    (`npm run build && npm start`, or `npm run dev`) and screenshot http://localhost:3000.
 //  - PW_PROXY=1 opts into routing through HTTPS_PROXY (only if a future env
 //    supports it); default is a direct connection (correct for localhost).
 import { chromium } from "@playwright/test";
