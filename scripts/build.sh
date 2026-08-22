@@ -54,20 +54,88 @@ case "$VERCEL_ENV" in
       # does not rewrite Config Vars / runtime app env permanently.
       eval "$(node scripts/lib/pg-ssl-for-migrate.mjs --export-shell)"
 
-      # Capture migrate output so we can print a recovery hint on P3009 without
-      # auto-dropping anything in production builds.
+      # Capture migrate output for P3009 / 42710 recovery without wiping the DB.
+      # Partial mid-apply failures (e.g. EvidenceClass created, then auth.uid() RLS
+      # failed on non-Supabase Postgres) leave a failed row + duplicate objects on retry.
       migrate_log="$(mktemp "${TMPDIR:-/tmp}/prisma-migrate-XXXXXX.log")"
-      if ! npx prisma migrate deploy >"$migrate_log" 2>&1; then
-        cat "$migrate_log" >&2
-        if grep -q 'P3009' "$migrate_log"; then
-          echo "[build] ERROR: Prisma P3009 — target DB still has a failed migration recorded in _prisma_migrations (often left behind after a squash to 20260822000000_init)." >&2
-          echo "[build]        This build will NOT wipe the database. For a fresh/non-critical app DB, reset then redeploy:" >&2
-          echo "[build]          CONFIRM_DATA_LOSS=yes DATABASE_URL='postgresql://…' ./scripts/prisma-reset-for-baseline.sh" >&2
-          echo "[build]        Or manually: DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public;" >&2
-          echo "[build]        then re-run this deploy so only 20260822000000_init applies." >&2
+
+      # Extract failed migration folder name from Prisma deploy / resolve logs.
+      extract_failed_migration() {
+        _log="$1"
+        _mig="$(
+          sed -n 's/.*Migration name: \([0-9]\{8,\}_[A-Za-z0-9_]*\).*/\1/p' "$_log" | head -1
+        )"
+        if [ -z "$_mig" ]; then
+          _mig="$(
+            sed -n 's/.*The `\([0-9]\{8,\}_[A-Za-z0-9_]*\)` migration.*/\1/p' "$_log" | head -1
+          )"
         fi
-        rm -f "$migrate_log"
-        exit 1
+        if [ -z "$_mig" ]; then
+          _mig="$(
+            grep -oE '[0-9]{14}_[A-Za-z0-9_]+' "$_log" | head -1
+          )"
+        fi
+        printf '%s' "$_mig"
+      }
+
+      run_migrate_deploy() {
+        npx prisma migrate deploy >"$migrate_log" 2>&1
+      }
+
+      if ! run_migrate_deploy; then
+        cat "$migrate_log" >&2
+        if grep -qE 'P3009|42710|P3018' "$migrate_log"; then
+          failed_mig="$(extract_failed_migration "$migrate_log")"
+          if [ -z "$failed_mig" ]; then
+            echo "[build] ERROR: migrate failed with P3009/42710/P3018 but could not parse migration name — refusing to guess." >&2
+            rm -f "$migrate_log"
+            exit 1
+          fi
+
+          echo "[build] migrate recover: detected failure on '$failed_mig' (P3009/42710/P3018)" >&2
+
+          # Prefer finishing partial applies: rolled-back + re-apply lets idempotent
+          # SQL create missing tables/indexes after enums already exist.
+          echo "[build] migrate recover: prisma migrate resolve --rolled-back $failed_mig" >&2
+          if ! npx prisma migrate resolve --rolled-back "$failed_mig"; then
+            echo "[build] ERROR: migrate resolve --rolled-back failed for $failed_mig" >&2
+            rm -f "$migrate_log"
+            exit 1
+          fi
+
+          if ! run_migrate_deploy; then
+            cat "$migrate_log" >&2
+            # Objects already fully present — mark applied and continue the chain.
+            if grep -qE '42710|already exists|duplicate_object' "$migrate_log"; then
+              failed_mig2="$(extract_failed_migration "$migrate_log")"
+              [ -n "$failed_mig2" ] && failed_mig="$failed_mig2"
+              echo "[build] migrate recover: duplicate objects remain — prisma migrate resolve --applied $failed_mig" >&2
+              if ! npx prisma migrate resolve --applied "$failed_mig"; then
+                echo "[build] ERROR: migrate resolve --applied failed for $failed_mig" >&2
+                rm -f "$migrate_log"
+                exit 1
+              fi
+              if ! run_migrate_deploy; then
+                cat "$migrate_log" >&2
+                echo "[build] ERROR: migrate deploy still failing after --applied recovery for $failed_mig" >&2
+                rm -f "$migrate_log"
+                exit 1
+              fi
+            else
+              if grep -q 'P3009' "$migrate_log"; then
+                echo "[build] ERROR: Prisma P3009 persists after resolve — this build will NOT wipe the database." >&2
+                echo "[build]        For a fresh/non-critical app DB, reset then redeploy:" >&2
+                echo "[build]          CONFIRM_DATA_LOSS=yes DATABASE_URL='postgresql://…' ./scripts/prisma-reset-for-baseline.sh" >&2
+              fi
+              rm -f "$migrate_log"
+              exit 1
+            fi
+          fi
+          echo "[build] migrate recover: succeeded after resolve for $failed_mig"
+        else
+          rm -f "$migrate_log"
+          exit 1
+        fi
       fi
       cat "$migrate_log"
       rm -f "$migrate_log"
