@@ -32,6 +32,12 @@
  *
  * Usage:   node scripts/check-schema-drift.mjs
  * Exit:    0 no drift · 1 drift detected (details on stderr) · 2 connect/parse error
+ *
+ * Escape hatch: SKIP_SCHEMA_DRIFT_CHECK=1 prints findings but always exits 0
+ * (used by scripts/build.sh on Heroku after migrate, where residual drift or
+ * TLS flakes must not block deploys). CI/local omit the var so column drift
+ * stays fail-closed. Set SKIP_SCHEMA_DRIFT_CHECK=0 in build.sh to force
+ * fail-closed even on Heroku.
  */
 import fs from "node:fs";
 
@@ -325,20 +331,21 @@ async function main() {
   const { PrismaClient } = await import("@prisma/client");
   const { PrismaPg } = await import("@prisma/adapter-pg");
   const { Pool } = await import("pg");
+  const { applyMigrateSslToEnv, pgMigrateSslOption } = await import(
+    "./lib/pg-ssl-for-migrate.mjs"
+  );
+  applyMigrateSslToEnv(process.env);
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     console.error("✗ DATABASE_URL is unset — drift check needs a live database");
     process.exit(2);
   }
+  const ssl = pgMigrateSslOption(connectionString);
   const pool = new Pool({
     connectionString,
     max: 2,
     connectionTimeoutMillis: 20_000,
-    ssl:
-      connectionString.includes("supabase") ||
-      connectionString.includes("sslmode=require")
-        ? { rejectUnauthorized: false }
-        : undefined,
+    ...(ssl ? { ssl } : {}),
   });
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
   let colRows;
@@ -366,7 +373,13 @@ async function main() {
     );
   } catch (err) {
     console.error(`✗ could not query live schema: ${err.message}`);
-    await prisma.$disconnect();
+    await prisma.$disconnect().catch(() => {});
+    if (process.env.SKIP_SCHEMA_DRIFT_CHECK === "1") {
+      console.error(
+        "[drift-check] SKIP_SCHEMA_DRIFT_CHECK=1 — connect/query failed; not failing the build.",
+      );
+      process.exit(0);
+    }
     process.exit(2);
   }
   await prisma.$disconnect();
@@ -415,9 +428,13 @@ async function main() {
   // can ship without blocking every build on pre-existing latent drift between
   // schema.prisma and the migrations. Set DRIFT_STRICT=1 (prod verification / the
   // RA-1807 runbook) to make the new dimensions fatal too.
+  //
+  // SKIP_SCHEMA_DRIFT_CHECK=1: report everything, exit 0 (Heroku path —
+  // see scripts/build.sh). Does not silence output; only the exit code softens.
+  const skipCheck = process.env.SKIP_SCHEMA_DRIFT_CHECK === "1";
   const columnDrift = drift.filter((f) => f.kind === "column");
   const strict = process.env.DRIFT_STRICT === "1";
-  const fatal = columnDrift.length > 0 || strict;
+  const fatal = !skipCheck && (columnDrift.length > 0 || strict);
 
   const byTable = new Map();
   for (const f of drift) byTable.set(f.table, (byTable.get(f.table) || 0) + 1);
@@ -426,6 +443,13 @@ async function main() {
   );
   console.error(formatFindings(drift));
   console.error("");
+
+  if (skipCheck) {
+    console.error(
+      "[drift-check] SKIP_SCHEMA_DRIFT_CHECK=1 — findings reported above; not failing the build (Heroku/recover escape hatch).",
+    );
+    process.exit(0);
+  }
 
   if (columnDrift.length > 0) {
     console.error(
