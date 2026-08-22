@@ -14,7 +14,7 @@ set -e
 
 export DIRECT_URL="${DIRECT_URL:-$DATABASE_URL}"
 
-pnpm exec prisma generate
+npx prisma generate
 
 case "$VERCEL_ENV" in
   preview|development)
@@ -45,7 +45,7 @@ case "$VERCEL_ENV" in
         echo "[build]        Set DIRECT_URL to the direct :5432 session connection on the deploy host, then redeploy." >&2
         exit 1
       fi
-      pnpm exec prisma migrate deploy
+      npx prisma migrate deploy
       # Schema drift smoke test — guards against the failure mode where
       # `prisma migrate deploy` reports success but the DDL silently no-ops.
       # We hit this on 2026-05-12 with 24 columns missing across 7 tables.
