@@ -109,6 +109,76 @@ describe("middleware setup gate", () => {
     expect((res as any).status).not.toBe(307);
   });
 
+  // ── The wizard's Integrations step ──────────────────────────────────────
+  // Every path below is reached FROM /setup by a control the operator can
+  // see. Without a bypass entry each one 307s straight back to /setup, so
+  // the control it belongs to becomes a dead end the moment the flag is on.
+
+  it("allows the Integrations step's OAuth connect POST through", async () => {
+    // The card fetches this and parses JSON. A 307 to /setup resolves as a
+    // 200 of HTML — `res.ok` is true and `json()` throws.
+    (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
+    const res = await proxy(mkReq("/api/integrations/oauth/xero/connect"));
+    expect((res as any).status).not.toBe(307);
+  });
+
+  it("allows the provider's OAuth callback back through", async () => {
+    (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
+    const res = await proxy(
+      mkReq("/api/integrations/oauth/quickbooks/callback", "?code=abc&state=s"),
+    );
+    expect((res as any).status).not.toBe(307);
+  });
+
+  it.each([
+    ["/dashboard/subscription", 'IntegrationsCard "View add-ons" / "View plans"'],
+    ["/dashboard/integrations", 'IntegrationsCard "Set up Ascora"'],
+    ["/dashboard/settings/ai-providers", 'IntegrationsCard "Manage AI keys"'],
+  ])("allows %s — the destination of %s", async (pathname) => {
+    (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
+    const res = await proxy(mkReq(pathname));
+    expect((res as any).status).not.toBe(307);
+  });
+
+  it("matches wizard destinations on a segment boundary, not a bare prefix", async () => {
+    // A plain startsWith would also admit /dashboard/subscription-audit and
+    // friends. Sub-paths of a destination stay allowed; siblings do not.
+    (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
+
+    for (const allowed of [
+      "/dashboard/subscription",
+      "/dashboard/subscription/invoices",
+      "/dashboard/settings/ai-providers/openrouter",
+    ]) {
+      const res = await proxy(mkReq(allowed));
+      expect((res as any).status).not.toBe(307);
+    }
+
+    for (const gated of [
+      "/dashboard/subscription-audit",
+      "/dashboard/integrations-admin",
+      "/dashboard/settings/ai-providers-internal",
+    ]) {
+      const res = await proxy(mkReq(gated));
+      expect((res as any).status).toBe(307);
+      expect((res as any).headers.get("location")).toContain("/setup");
+    }
+  });
+
+  it("still gates the rest of /dashboard — the bypass is not a blanket one", async () => {
+    (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
+    for (const pathname of [
+      "/dashboard",
+      "/dashboard/reports/new",
+      "/dashboard/settings",
+      "/api/integrations/health",
+    ]) {
+      const res = await proxy(mkReq(pathname));
+      expect((res as any).status).toBe(307);
+      expect((res as any).headers.get("location")).toContain("/setup");
+    }
+  });
+
   // P1 #16 added an unauth → /login redirect that runs BEFORE the setup
   // gate. For an unauthenticated request to /dashboard, middleware now
   // (correctly) returns a 307 to /login — but that 307 is from the login
