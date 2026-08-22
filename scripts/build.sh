@@ -12,6 +12,9 @@
 #   4. `next build` runs last.
 set -e
 
+echo "[build] starting RestoreAssist build pipeline (prisma generate → migrate deploy when applicable → next build)"
+echo "[build] NODE_ENV=${NODE_ENV:-unset} VERCEL_ENV=${VERCEL_ENV:-unset} HEROKU=${HEROKU:-unset}"
+
 export DIRECT_URL="${DIRECT_URL:-$DATABASE_URL}"
 
 npx prisma generate
