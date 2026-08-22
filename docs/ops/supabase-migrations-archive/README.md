@@ -3,6 +3,9 @@
 Moved out of the repo root (`supabase/`) on 2026-07-12.
 
 **Deploy SSOT remains Prisma** (`prisma/migrations` via `prisma migrate deploy`).
+As of 2026-08-22 the Prisma history is a single baseline
+(`20260822000000_init`) generated from `schema.prisma` for plain Postgres
+(no Supabase `auth` schema / `auth.uid()` RLS deps).
 
 These files are kept only because static RLS audit gates (`pnpm audit:rls`,
 `scripts/audit-rls-coverage.ts`) and `scripts/rls-harness` still parse a few
