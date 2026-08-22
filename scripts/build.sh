@@ -45,7 +45,23 @@ case "$VERCEL_ENV" in
         echo "[build]        Set DIRECT_URL to the direct :5432 session connection on the deploy host, then redeploy." >&2
         exit 1
       fi
-      npx prisma migrate deploy
+      # Capture migrate output so we can print a recovery hint on P3009 without
+      # auto-dropping anything in production builds.
+      migrate_log="$(mktemp "${TMPDIR:-/tmp}/prisma-migrate-XXXXXX.log")"
+      if ! npx prisma migrate deploy >"$migrate_log" 2>&1; then
+        cat "$migrate_log" >&2
+        if grep -q 'P3009' "$migrate_log"; then
+          echo "[build] ERROR: Prisma P3009 — target DB still has a failed migration recorded in _prisma_migrations (often left behind after a squash to 20260822000000_init)." >&2
+          echo "[build]        This build will NOT wipe the database. For a fresh/non-critical app DB, reset then redeploy:" >&2
+          echo "[build]          CONFIRM_DATA_LOSS=yes DATABASE_URL='postgresql://…' ./scripts/prisma-reset-for-baseline.sh" >&2
+          echo "[build]        Or manually: DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public;" >&2
+          echo "[build]        then re-run this deploy so only 20260822000000_init applies." >&2
+        fi
+        rm -f "$migrate_log"
+        exit 1
+      fi
+      cat "$migrate_log"
+      rm -f "$migrate_log"
       # Schema drift smoke test — guards against the failure mode where
       # `prisma migrate deploy` reports success but the DDL silently no-ops.
       # We hit this on 2026-05-12 with 24 columns missing across 7 tables.
