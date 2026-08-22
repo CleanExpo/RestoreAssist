@@ -7,9 +7,12 @@
  * and verified server-side via checkBotId().
  *
  * Behaviour parity with the old Turnstile gate (RA-1286):
- *   - Production (restoreassist.app): bot signal → { ok: false, reason: "Bot detected" }
+ *   - Production on Vercel (restoreassist.app): bot signal → { ok: false, reason: "Bot detected" }
  *   - Sandbox (restoreassist-sandbox.vercel.app): bypassed — feeds the @smoke suite
  *   - Dev / preview (NODE_ENV !== "production"): bypassed via BotID's built-in gate
+ *   - Non-Vercel hosts (DigitalOcean, Heroku, etc.): soft-allow — BotID needs the
+ *     `x-vercel-oidc-token` header which only exists on Vercel. Calling checkBotId()
+ *     there fails closed with "OIDC token missing" and blocks real signups.
  *
  * Docs: https://vercel.com/docs/vercel-botid
  */
@@ -94,11 +97,26 @@ async function isSandboxHost(): Promise<boolean> {
 }
 
 /**
+ * True only on Vercel runtimes. BotID's server verifier depends on the
+ * platform-injected `x-vercel-oidc-token` header — unavailable on DO/Heroku.
+ * `VERCEL=1` is set automatically by the Vercel runtime (not by DO).
+ */
+function isVercelRuntime(): boolean {
+  return process.env.VERCEL === "1";
+}
+
+/**
  * Verify the incoming request isn't a bot. Returns { ok: true } on success.
  * No token is passed in — BotID reads its own client-injected signal from
  * the request headers automatically.
  */
 export async function verifyBotId(): Promise<BotIdResult> {
+  // Non-Vercel deploys cannot produce the OIDC token BotID requires.
+  // Soft-allow rather than fail-closed on signup/login for DigitalOcean etc.
+  // Escape hatch: BOTID_DISABLED=true also skips even on Vercel.
+  if (!isVercelRuntime() || process.env.BOTID_DISABLED === "true") {
+    return { ok: true, disabled: true };
+  }
   // RA-4986 — sandbox/preview bypass cascade.
   if (process.env.VERCEL_ENV === "preview") {
     return { ok: true, disabled: true };

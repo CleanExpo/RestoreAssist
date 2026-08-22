@@ -17,21 +17,30 @@ vi.mock("next/headers", () => ({
 import { verifyBotId } from "../botid";
 
 describe("verifyBotId", () => {
+  const originalVercel = process.env.VERCEL;
   const originalVercelEnv = process.env.VERCEL_ENV;
   const originalSmokeSecret = process.env.SMOKE_TEST_BOT_BYPASS_SECRET;
+  const originalBotidDisabled = process.env.BOTID_DISABLED;
 
   beforeEach(() => {
     checkBotIdMock.mockReset();
     headersGetMock.mockReset();
     // Default: no host header — every test sets the host it cares about.
     headersGetMock.mockReturnValue(null);
+    delete process.env.VERCEL;
     delete process.env.VERCEL_ENV;
+    delete process.env.BOTID_DISABLED;
     // Default: no smoke bypass secret configured, so the RA-4987 bypass is
     // inert and cannot affect the existing BotID assertions below.
     delete process.env.SMOKE_TEST_BOT_BYPASS_SECRET;
   });
 
   afterEach(() => {
+    if (originalVercel === undefined) {
+      delete process.env.VERCEL;
+    } else {
+      process.env.VERCEL = originalVercel;
+    }
     if (originalVercelEnv === undefined) {
       delete process.env.VERCEL_ENV;
     } else {
@@ -42,9 +51,33 @@ describe("verifyBotId", () => {
     } else {
       process.env.SMOKE_TEST_BOT_BYPASS_SECRET = originalSmokeSecret;
     }
+    if (originalBotidDisabled === undefined) {
+      delete process.env.BOTID_DISABLED;
+    } else {
+      process.env.BOTID_DISABLED = originalBotidDisabled;
+    }
+  });
+
+  it("soft-allows on non-Vercel runtimes (DigitalOcean / Heroku) without calling checkBotId", async () => {
+    // VERCEL unset — DO/Heroku production. BotID would throw OIDC-missing.
+    delete process.env.VERCEL;
+    process.env.VERCEL_ENV = "production";
+    const result = await verifyBotId();
+    expect(result).toEqual({ ok: true, disabled: true });
+    expect(checkBotIdMock).not.toHaveBeenCalled();
+  });
+
+  it("soft-allows when BOTID_DISABLED=true even on Vercel", async () => {
+    process.env.VERCEL = "1";
+    process.env.VERCEL_ENV = "production";
+    process.env.BOTID_DISABLED = "true";
+    const result = await verifyBotId();
+    expect(result).toEqual({ ok: true, disabled: true });
+    expect(checkBotIdMock).not.toHaveBeenCalled();
   });
 
   it("RA-4986 — soft-allows on VERCEL_ENV=preview without calling checkBotId (sandbox)", async () => {
+    process.env.VERCEL = "1";
     process.env.VERCEL_ENV = "preview";
     const result = await verifyBotId();
     expect(result).toEqual({ ok: true, disabled: true });
@@ -52,6 +85,7 @@ describe("verifyBotId", () => {
   });
 
   it("RA-4986 — does NOT soft-allow on VERCEL_ENV=production (real bot signal still checked)", async () => {
+    process.env.VERCEL = "1";
     process.env.VERCEL_ENV = "production";
     headersGetMock.mockReturnValue("restoreassist.app");
     checkBotIdMock.mockResolvedValue({
@@ -66,6 +100,7 @@ describe("verifyBotId", () => {
   });
 
   it("RA-4986 — soft-allows when host is restoreassist-sandbox.vercel.app (sandbox project)", async () => {
+    process.env.VERCEL = "1";
     process.env.VERCEL_ENV = "production";
     headersGetMock.mockReturnValue("restoreassist-sandbox.vercel.app");
     const result = await verifyBotId();
@@ -74,6 +109,7 @@ describe("verifyBotId", () => {
   });
 
   it("RA-4986 — host bypass is case-insensitive", async () => {
+    process.env.VERCEL = "1";
     process.env.VERCEL_ENV = "production";
     headersGetMock.mockReturnValue("RESTOREASSIST-SANDBOX.VERCEL.APP");
     const result = await verifyBotId();
@@ -81,6 +117,7 @@ describe("verifyBotId", () => {
   });
 
   it("RA-4986 — falls through to BotID when host is restoreassist.app (production)", async () => {
+    process.env.VERCEL = "1";
     process.env.VERCEL_ENV = "production";
     headersGetMock.mockReturnValue("restoreassist.app");
     checkBotIdMock.mockResolvedValue({
@@ -95,6 +132,7 @@ describe("verifyBotId", () => {
   });
 
   it("soft-allows when BotID reports bypassed=true (dev / preview)", async () => {
+    process.env.VERCEL = "1";
     checkBotIdMock.mockResolvedValue({
       isHuman: true,
       isBot: false,
@@ -106,6 +144,7 @@ describe("verifyBotId", () => {
   });
 
   it("rejects when BotID reports isBot=true", async () => {
+    process.env.VERCEL = "1";
     checkBotIdMock.mockResolvedValue({
       isHuman: false,
       isBot: true,
@@ -118,6 +157,7 @@ describe("verifyBotId", () => {
   });
 
   it("accepts when BotID reports isBot=false", async () => {
+    process.env.VERCEL = "1";
     checkBotIdMock.mockResolvedValue({
       isHuman: true,
       isBot: false,
@@ -129,6 +169,7 @@ describe("verifyBotId", () => {
   });
 
   it("fails-closed when checkBotId throws", async () => {
+    process.env.VERCEL = "1";
     checkBotIdMock.mockRejectedValue(new Error("ECONNREFUSED"));
     const result = await verifyBotId();
     expect(result.ok).toBe(false);
@@ -147,6 +188,7 @@ describe("verifyBotId", () => {
     };
 
     it("bypasses on prod when x-smoke-test-token matches the secret", async () => {
+      process.env.VERCEL = "1";
       process.env.VERCEL_ENV = "production";
       process.env.SMOKE_TEST_BOT_BYPASS_SECRET = SECRET;
       withHeaders(SECRET);
@@ -156,6 +198,7 @@ describe("verifyBotId", () => {
     });
 
     it("falls through to BotID when the token is wrong", async () => {
+      process.env.VERCEL = "1";
       process.env.VERCEL_ENV = "production";
       process.env.SMOKE_TEST_BOT_BYPASS_SECRET = SECRET;
       withHeaders("wrong-token");
@@ -171,6 +214,7 @@ describe("verifyBotId", () => {
     });
 
     it("falls through to BotID when no token header is present", async () => {
+      process.env.VERCEL = "1";
       process.env.VERCEL_ENV = "production";
       process.env.SMOKE_TEST_BOT_BYPASS_SECRET = SECRET;
       withHeaders(null);
@@ -186,6 +230,7 @@ describe("verifyBotId", () => {
     });
 
     it("fail-closed: no bypass is possible when the secret env var is unset", async () => {
+      process.env.VERCEL = "1";
       process.env.VERCEL_ENV = "production";
       delete process.env.SMOKE_TEST_BOT_BYPASS_SECRET;
       // Even a caller sending a header cannot bypass — there is no secret to
