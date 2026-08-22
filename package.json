@@ -58,7 +58,7 @@
     "build": "NODE_OPTIONS=\"--max-old-space-size=8192\" sh scripts/build.sh",
     "validate:next-build-no-db": "sh scripts/validate-next-build-no-db.sh",
     "dev": "next dev",
-    "start": "next start",
+    "start": "prisma migrate deploy && next start",
     "lint": "eslint -c config/eslint.config.mjs . --max-warnings 851",
     "check:standards": "tsx scripts/check-standards-citations.ts",
     "check:no-verbatim": "tsx scripts/check-no-verbatim-standards.ts",
