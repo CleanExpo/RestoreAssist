@@ -35,105 +35,51 @@ BEGIN
 END
 $$;
 
+-- Detect Supabase auth; skip auth.uid() helpers/policies on Heroku/DO Postgres (3F000).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'auth')
+     OR NOT EXISTS (
+       SELECT 1 FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'auth' AND p.proname = 'uid'
+     ) THEN
+    PERFORM set_config('restoreassist.skip_auth_rls', '1', true);
+    RAISE NOTICE 'auth.uid() missing — skipping sketch/capture RLS helpers/policies (non-Supabase Postgres)';
+  ELSE
+    PERFORM set_config('restoreassist.skip_auth_rls', '0', true);
+  END IF;
+END
+$$;
+
 -- Workspace helpers — CREATE OR REPLACE; identical definitions to RA-413 / RA-4956
--- (redefining is a no-op there).
-CREATE OR REPLACE FUNCTION is_workspace_member(p_workspace_id TEXT)
-RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM "WorkspaceMember"
-    WHERE "workspaceId" = p_workspace_id
-      AND "userId" = auth.uid()::text
-      AND "status" = 'ACTIVE'
-  )
-$$;
-
-CREATE OR REPLACE FUNCTION is_workspace_owner(p_workspace_id TEXT)
-RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM "Workspace"
-    WHERE "id" = p_workspace_id
-      AND "ownerId" = auth.uid()::text
-  )
-$$;
-
--- ───────────────────────────────────────────────────────────────────────────
--- Policy emitters (pg_temp). Each skips silently if a table is missing and drops
--- any same-named policy first. Policy names use the `rask_` prefix.
--- ───────────────────────────────────────────────────────────────────────────
-
--- 1-HOP: child.fk -> parent.id, parent is workspace-backed (userId + workspaceId).
--- Verbatim shape of RA-4956's policy_child_via_parent.
-CREATE OR REPLACE FUNCTION pg_temp.rask_via_parent(tbl text, fk_col text, parent_tbl text)
-RETURNS void AS $$
-DECLARE cond text;
+-- (redefining is a no-op there). Skip when auth schema is absent.
+DO $rask_helpers$
 BEGIN
-  IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
-    RAISE NOTICE 'RA-sketch-rls: skipped (missing) child %', tbl; RETURN;
+  IF current_setting('restoreassist.skip_auth_rls', true) = '1' THEN
+    RETURN;
   END IF;
-  IF to_regclass('public.' || quote_ident(parent_tbl)) IS NULL THEN
-    RAISE NOTICE 'RA-sketch-rls: skipped % — parent % missing', tbl, parent_tbl; RETURN;
-  END IF;
-  cond := format(
-    'EXISTS (SELECT 1 FROM public.%I p WHERE p."id" = public.%I.%I AND '
-    || '(p."userId" = auth.uid()::text OR (p."workspaceId" IS NOT NULL '
-    || 'AND (is_workspace_owner(p."workspaceId") OR is_workspace_member(p."workspaceId")))))',
-    parent_tbl, tbl, fk_col);
-  EXECUTE format('DROP POLICY IF EXISTS "rask_select" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "rask_insert" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "rask_update" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "rask_delete" ON public.%I', tbl);
-  EXECUTE format('CREATE POLICY "rask_select" ON public.%I FOR SELECT TO authenticated USING (%s)', tbl, cond);
-  EXECUTE format('CREATE POLICY "rask_insert" ON public.%I FOR INSERT TO authenticated WITH CHECK (%s)', tbl, cond);
-  EXECUTE format('CREATE POLICY "rask_update" ON public.%I FOR UPDATE TO authenticated USING (%s) WITH CHECK (%s)', tbl, cond, cond);
-  EXECUTE format('CREATE POLICY "rask_delete" ON public.%I FOR DELETE TO authenticated USING (%s)', tbl, cond);
-END;
-$$ LANGUAGE plpgsql;
 
--- 2-HOP: child.fk -> mid.id, mid.mid_fk -> grandparent.id (Inspection, workspace-backed).
--- Needed because ClaimSketch has no ownership column of its own — RLS does not
--- recurse into the subquery, so the grandparent predicate is inlined here.
-CREATE OR REPLACE FUNCTION pg_temp.rask_via_grandparent(
-  tbl text, fk_col text, mid_tbl text, mid_fk text, gp_tbl text)
-RETURNS void AS $$
-DECLARE cond text;
-BEGIN
-  IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
-    RAISE NOTICE 'RA-sketch-rls: skipped (missing) child %', tbl; RETURN;
-  END IF;
-  IF to_regclass('public.' || quote_ident(mid_tbl)) IS NULL
-     OR to_regclass('public.' || quote_ident(gp_tbl)) IS NULL THEN
-    RAISE NOTICE 'RA-sketch-rls: skipped % — mid/grandparent missing', tbl; RETURN;
-  END IF;
-  cond := format(
-    'EXISTS (SELECT 1 FROM public.%I m JOIN public.%I g ON g."id" = m.%I '
-    || 'WHERE m."id" = public.%I.%I AND (g."userId" = auth.uid()::text '
-    || 'OR (g."workspaceId" IS NOT NULL AND (is_workspace_owner(g."workspaceId") OR is_workspace_member(g."workspaceId")))))',
-    mid_tbl, gp_tbl, mid_fk, tbl, fk_col);
-  EXECUTE format('DROP POLICY IF EXISTS "rask_select" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "rask_insert" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "rask_update" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "rask_delete" ON public.%I', tbl);
-  EXECUTE format('CREATE POLICY "rask_select" ON public.%I FOR SELECT TO authenticated USING (%s)', tbl, cond);
-  EXECUTE format('CREATE POLICY "rask_insert" ON public.%I FOR INSERT TO authenticated WITH CHECK (%s)', tbl, cond);
-  EXECUTE format('CREATE POLICY "rask_update" ON public.%I FOR UPDATE TO authenticated USING (%s) WITH CHECK (%s)', tbl, cond, cond);
-  EXECUTE format('CREATE POLICY "rask_delete" ON public.%I FOR DELETE TO authenticated USING (%s)', tbl, cond);
-END;
-$$ LANGUAGE plpgsql;
+  CREATE OR REPLACE FUNCTION is_workspace_member(p_workspace_id TEXT)
+  RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE AS $$
+    SELECT EXISTS (
+      SELECT 1 FROM "WorkspaceMember"
+      WHERE "workspaceId" = p_workspace_id
+        AND "userId" = auth.uid()::text
+        AND "status" = 'ACTIVE'
+    )
+  $$;
 
--- REFERENCE DATA: global ANZ reference, readable by any authenticated user; writes
--- are service-role only (default-deny — no write policy emitted). These tables have
--- NO ownership column by design, so a read-all SELECT policy is correct reference
--- behaviour, NOT a USING(true) tenant leak (mirrors RA-4970's public-ref tables).
-CREATE OR REPLACE FUNCTION pg_temp.rask_reference_readall(tbl text)
-RETURNS void AS $$
-BEGIN
-  IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
-    RAISE NOTICE 'RA-sketch-rls: skipped (missing) reference %', tbl; RETURN;
-  END IF;
-  EXECUTE format('DROP POLICY IF EXISTS "rask_ref_select" ON public.%I', tbl);
-  EXECUTE format('CREATE POLICY "rask_ref_select" ON public.%I FOR SELECT TO authenticated USING (true)', tbl);
-END;
-$$ LANGUAGE plpgsql;
+  CREATE OR REPLACE FUNCTION is_workspace_owner(p_workspace_id TEXT)
+  RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE AS $$
+    SELECT EXISTS (
+      SELECT 1 FROM "Workspace"
+      WHERE "id" = p_workspace_id
+        AND "ownerId" = auth.uid()::text
+    )
+  $$;
+END
+$rask_helpers$;
 
 -- ── ENABLE RLS (these 8 shipped after RA-4970, so RLS is currently OFF) ──
 DO $$
@@ -150,19 +96,95 @@ BEGIN
 END
 $$;
 
--- ── Policies ──
--- 1-hop via Inspection
-SELECT pg_temp.rask_via_parent('CaptureToken', 'inspectionId', 'Inspection');
-SELECT pg_temp.rask_via_parent('ClientEvidenceSubmission', 'inspectionId', 'Inspection');
+-- ── Policy emitters + policies (Supabase auth.uid() only) ──
+DO $rask_policies$
+BEGIN
+  IF current_setting('restoreassist.skip_auth_rls', true) = '1' THEN
+    RETURN;
+  END IF;
 
--- 2-hop via ClaimSketch -> Inspection
-SELECT pg_temp.rask_via_grandparent('SketchElement', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
-SELECT pg_temp.rask_via_grandparent('Hazard', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
-SELECT pg_temp.rask_via_grandparent('InsuranceContext', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
-SELECT pg_temp.rask_via_grandparent('SketchMoistureReading', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
+  -- 1-HOP: child.fk -> parent.id, parent is workspace-backed (userId + workspaceId).
+  CREATE OR REPLACE FUNCTION pg_temp.rask_via_parent(tbl text, fk_col text, parent_tbl text)
+  RETURNS void AS $$
+  DECLARE cond text;
+  BEGIN
+    IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
+      RAISE NOTICE 'RA-sketch-rls: skipped (missing) child %', tbl; RETURN;
+    END IF;
+    IF to_regclass('public.' || quote_ident(parent_tbl)) IS NULL THEN
+      RAISE NOTICE 'RA-sketch-rls: skipped % — parent % missing', tbl, parent_tbl; RETURN;
+    END IF;
+    cond := format(
+      'EXISTS (SELECT 1 FROM public.%I p WHERE p."id" = public.%I.%I AND '
+      || '(p."userId" = auth.uid()::text OR (p."workspaceId" IS NOT NULL '
+      || 'AND (is_workspace_owner(p."workspaceId") OR is_workspace_member(p."workspaceId")))))',
+      parent_tbl, tbl, fk_col);
+    EXECUTE format('DROP POLICY IF EXISTS "rask_select" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "rask_insert" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "rask_update" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "rask_delete" ON public.%I', tbl);
+    EXECUTE format('CREATE POLICY "rask_select" ON public.%I FOR SELECT TO authenticated USING (%s)', tbl, cond);
+    EXECUTE format('CREATE POLICY "rask_insert" ON public.%I FOR INSERT TO authenticated WITH CHECK (%s)', tbl, cond);
+    EXECUTE format('CREATE POLICY "rask_update" ON public.%I FOR UPDATE TO authenticated USING (%s) WITH CHECK (%s)', tbl, cond, cond);
+    EXECUTE format('CREATE POLICY "rask_delete" ON public.%I FOR DELETE TO authenticated USING (%s)', tbl, cond);
+  END;
+  $$ LANGUAGE plpgsql;
 
--- Reference data (read-all for authenticated; service-role writes)
-SELECT pg_temp.rask_reference_readall('Material');
-SELECT pg_temp.rask_reference_readall('InsurerProfile');
+  -- 2-HOP via ClaimSketch -> Inspection
+  CREATE OR REPLACE FUNCTION pg_temp.rask_via_grandparent(
+    tbl text, fk_col text, mid_tbl text, mid_fk text, gp_tbl text)
+  RETURNS void AS $$
+  DECLARE cond text;
+  BEGIN
+    IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
+      RAISE NOTICE 'RA-sketch-rls: skipped (missing) child %', tbl; RETURN;
+    END IF;
+    IF to_regclass('public.' || quote_ident(mid_tbl)) IS NULL
+       OR to_regclass('public.' || quote_ident(gp_tbl)) IS NULL THEN
+      RAISE NOTICE 'RA-sketch-rls: skipped % — mid/grandparent missing', tbl; RETURN;
+    END IF;
+    cond := format(
+      'EXISTS (SELECT 1 FROM public.%I m JOIN public.%I g ON g."id" = m.%I '
+      || 'WHERE m."id" = public.%I.%I AND (g."userId" = auth.uid()::text '
+      || 'OR (g."workspaceId" IS NOT NULL AND (is_workspace_owner(g."workspaceId") OR is_workspace_member(g."workspaceId")))))',
+      mid_tbl, gp_tbl, mid_fk, tbl, fk_col);
+    EXECUTE format('DROP POLICY IF EXISTS "rask_select" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "rask_insert" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "rask_update" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "rask_delete" ON public.%I', tbl);
+    EXECUTE format('CREATE POLICY "rask_select" ON public.%I FOR SELECT TO authenticated USING (%s)', tbl, cond);
+    EXECUTE format('CREATE POLICY "rask_insert" ON public.%I FOR INSERT TO authenticated WITH CHECK (%s)', tbl, cond);
+    EXECUTE format('CREATE POLICY "rask_update" ON public.%I FOR UPDATE TO authenticated USING (%s) WITH CHECK (%s)', tbl, cond, cond);
+    EXECUTE format('CREATE POLICY "rask_delete" ON public.%I FOR DELETE TO authenticated USING (%s)', tbl, cond);
+  END;
+  $$ LANGUAGE plpgsql;
+
+  -- REFERENCE DATA: read-all for authenticated
+  CREATE OR REPLACE FUNCTION pg_temp.rask_reference_readall(tbl text)
+  RETURNS void AS $$
+  BEGIN
+    IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
+      RAISE NOTICE 'RA-sketch-rls: skipped (missing) reference %', tbl; RETURN;
+    END IF;
+    EXECUTE format('DROP POLICY IF EXISTS "rask_ref_select" ON public.%I', tbl);
+    EXECUTE format('CREATE POLICY "rask_ref_select" ON public.%I FOR SELECT TO authenticated USING (true)', tbl);
+  END;
+  $$ LANGUAGE plpgsql;
+
+  -- 1-hop via Inspection
+  PERFORM pg_temp.rask_via_parent('CaptureToken', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.rask_via_parent('ClientEvidenceSubmission', 'inspectionId', 'Inspection');
+
+  -- 2-hop via ClaimSketch -> Inspection
+  PERFORM pg_temp.rask_via_grandparent('SketchElement', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.rask_via_grandparent('Hazard', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.rask_via_grandparent('InsuranceContext', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.rask_via_grandparent('SketchMoistureReading', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
+
+  -- Reference data (read-all for authenticated; service-role writes)
+  PERFORM pg_temp.rask_reference_readall('Material');
+  PERFORM pg_temp.rask_reference_readall('InsurerProfile');
+END
+$rask_policies$;
 
 COMMIT;

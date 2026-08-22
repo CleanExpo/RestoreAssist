@@ -54,9 +54,9 @@ case "$VERCEL_ENV" in
       # does not rewrite Config Vars / runtime app env permanently.
       eval "$(node scripts/lib/pg-ssl-for-migrate.mjs --export-shell)"
 
-      # Capture migrate output for P3009 / 42710 recovery without wiping the DB.
-      # Partial mid-apply failures (e.g. EvidenceClass created, then auth.uid() RLS
-      # failed on non-Supabase Postgres) leave a failed row + duplicate objects on retry.
+      # Capture migrate output for P3009 / P3018 / 42710 / 3F000 recovery without wiping the DB.
+      # Partial mid-apply failures (e.g. enum created, then auth.uid() RLS / schema "auth"
+      # does not exist on non-Supabase Postgres) leave a failed row + duplicate objects on retry.
       migrate_log="$(mktemp "${TMPDIR:-/tmp}/prisma-migrate-XXXXXX.log")"
 
       # Extract failed migration folder name from Prisma deploy / resolve logs.
@@ -78,21 +78,27 @@ case "$VERCEL_ENV" in
         printf '%s' "$_mig"
       }
 
+      # Recoverable: failed migration row (P3009/P3018), duplicate objects (42710),
+      # or missing schema (3F000 — e.g. schema "auth" does not exist).
+      migrate_failure_recoverable() {
+        grep -qE 'P3009|P3018|42710|3F000|schema "auth" does not exist|already exists|duplicate_object' "$1"
+      }
+
       run_migrate_deploy() {
         npx prisma migrate deploy >"$migrate_log" 2>&1
       }
 
       if ! run_migrate_deploy; then
         cat "$migrate_log" >&2
-        if grep -qE 'P3009|42710|P3018' "$migrate_log"; then
+        if migrate_failure_recoverable "$migrate_log"; then
           failed_mig="$(extract_failed_migration "$migrate_log")"
           if [ -z "$failed_mig" ]; then
-            echo "[build] ERROR: migrate failed with P3009/42710/P3018 but could not parse migration name — refusing to guess." >&2
+            echo "[build] ERROR: migrate failed with P3009/P3018/42710/3F000 but could not parse migration name — refusing to guess." >&2
             rm -f "$migrate_log"
             exit 1
           fi
 
-          echo "[build] migrate recover: detected failure on '$failed_mig' (P3009/42710/P3018)" >&2
+          echo "[build] migrate recover: detected failure on '$failed_mig' (P3009/P3018/42710/3F000)" >&2
 
           # Prefer finishing partial applies: rolled-back + re-apply lets idempotent
           # SQL create missing tables/indexes after enums already exist.

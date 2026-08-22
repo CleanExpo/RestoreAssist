@@ -52,250 +52,244 @@ BEGIN
 END
 $$;
 
+-- Detect Supabase auth; skip auth.uid() helpers/policies on Heroku/DO Postgres (3F000).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'auth')
+     OR NOT EXISTS (
+       SELECT 1 FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'auth' AND p.proname = 'uid'
+     ) THEN
+    PERFORM set_config('restoreassist.skip_auth_rls', '1', true);
+    RAISE NOTICE 'auth.uid() missing — skipping RA-4956 tenant RLS helpers/policies (non-Supabase Postgres)';
+  ELSE
+    PERFORM set_config('restoreassist.skip_auth_rls', '0', true);
+  END IF;
+END
+$$;
+
 -- ───────────────────────────────────────────────────────────────────────────
 -- Helpers. CREATE OR REPLACE so this is safe whether or not RA-413 ran first.
 -- (RA-413 created identical definitions; redefining is a no-op there.)
+-- Skip when auth schema is absent (CREATE FUNCTION validates auth.uid() at create).
 -- ───────────────────────────────────────────────────────────────────────────
 
-CREATE OR REPLACE FUNCTION is_workspace_member(p_workspace_id TEXT)
-RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM "WorkspaceMember"
-    WHERE "workspaceId" = p_workspace_id
-      AND "userId" = auth.uid()::text
-      AND "status" = 'ACTIVE'
-  )
-$$;
+DO $ra4956_helpers$
+BEGIN
+  IF current_setting('restoreassist.skip_auth_rls', true) = '1' THEN
+    RETURN;
+  END IF;
 
-CREATE OR REPLACE FUNCTION is_workspace_owner(p_workspace_id TEXT)
-RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM "Workspace"
-    WHERE "id" = p_workspace_id
-      AND "ownerId" = auth.uid()::text
-  )
-$$;
+  CREATE OR REPLACE FUNCTION is_workspace_member(p_workspace_id TEXT)
+  RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE AS $$
+    SELECT EXISTS (
+      SELECT 1 FROM "WorkspaceMember"
+      WHERE "workspaceId" = p_workspace_id
+        AND "userId" = auth.uid()::text
+        AND "status" = 'ACTIVE'
+    )
+  $$;
+
+  CREATE OR REPLACE FUNCTION is_workspace_owner(p_workspace_id TEXT)
+  RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE AS $$
+    SELECT EXISTS (
+      SELECT 1 FROM "Workspace"
+      WHERE "id" = p_workspace_id
+        AND "ownerId" = auth.uid()::text
+    )
+  $$;
+END
+$ra4956_helpers$;
 
 -- ───────────────────────────────────────────────────────────────────────────
--- Generic policy emitters (pg_temp). Each skips silently if the table is
--- missing in the target env, and drops any same-named policy first.
+-- Generic policy emitters (pg_temp) + bucket applies — only when auth.uid exists.
 -- ───────────────────────────────────────────────────────────────────────────
-
--- USER-OWNED: row.<col> = auth.uid(). DELETE also owner-only (same predicate).
-CREATE OR REPLACE FUNCTION pg_temp.policy_user_owned(tbl text, col text DEFAULT 'userId')
-RETURNS void AS $$
-DECLARE pred text;
+DO $ra4956_buckets$
 BEGIN
-  IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
-    RAISE NOTICE 'RA-4956: skipped (missing) user-owned table %', tbl; RETURN;
+  IF current_setting('restoreassist.skip_auth_rls', true) = '1' THEN
+    RETURN;
   END IF;
-  pred := format('%I = auth.uid()::text', col);
-  EXECUTE format('DROP POLICY IF EXISTS "ra4956_select" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "ra4956_insert" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "ra4956_update" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "ra4956_delete" ON public.%I', tbl);
-  EXECUTE format('CREATE POLICY "ra4956_select" ON public.%I FOR SELECT TO authenticated USING (%s)', tbl, pred);
-  EXECUTE format('CREATE POLICY "ra4956_insert" ON public.%I FOR INSERT TO authenticated WITH CHECK (%s)', tbl, pred);
-  EXECUTE format('CREATE POLICY "ra4956_update" ON public.%I FOR UPDATE TO authenticated USING (%s) WITH CHECK (%s)', tbl, pred, pred);
-  EXECUTE format('CREATE POLICY "ra4956_delete" ON public.%I FOR DELETE TO authenticated USING (%s)', tbl, pred);
-END;
-$$ LANGUAGE plpgsql;
 
--- WORKSPACE-OWNED: row.workspaceId nullable; owner path on row.userId if present.
--- has_user_col=true => also allow the legacy "userId = auth.uid()" path (RA-413 shape).
-CREATE OR REPLACE FUNCTION pg_temp.policy_workspace_owned(tbl text, has_user_col boolean DEFAULT false)
-RETURNS void AS $$
-DECLARE ws text; rw text; del text;
-BEGIN
-  IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
-    RAISE NOTICE 'RA-4956: skipped (missing) workspace-owned table %', tbl; RETURN;
-  END IF;
-  ws := '("workspaceId" IS NOT NULL AND (is_workspace_owner("workspaceId") OR is_workspace_member("workspaceId")))';
-  IF has_user_col THEN
-    rw  := '("userId" = auth.uid()::text OR ' || ws || ')';
-    del := '("userId" = auth.uid()::text OR ("workspaceId" IS NOT NULL AND is_workspace_owner("workspaceId")))';
-  ELSE
-    rw  := ws;
-    del := '("workspaceId" IS NOT NULL AND is_workspace_owner("workspaceId"))';
-  END IF;
-  EXECUTE format('DROP POLICY IF EXISTS "ra4956_select" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "ra4956_insert" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "ra4956_update" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "ra4956_delete" ON public.%I', tbl);
-  EXECUTE format('CREATE POLICY "ra4956_select" ON public.%I FOR SELECT TO authenticated USING (%s)', tbl, rw);
-  EXECUTE format('CREATE POLICY "ra4956_insert" ON public.%I FOR INSERT TO authenticated WITH CHECK (%s)', tbl, rw);
-  EXECUTE format('CREATE POLICY "ra4956_update" ON public.%I FOR UPDATE TO authenticated USING (%s) WITH CHECK (%s)', tbl, rw, rw);
-  EXECUTE format('CREATE POLICY "ra4956_delete" ON public.%I FOR DELETE TO authenticated USING (%s)', tbl, del);
-END;
-$$ LANGUAGE plpgsql;
+  -- USER-OWNED: row.<col> = auth.uid(). DELETE also owner-only (same predicate).
+  CREATE OR REPLACE FUNCTION pg_temp.policy_user_owned(tbl text, col text DEFAULT 'userId')
+  RETURNS void AS $$
+  DECLARE pred text;
+  BEGIN
+    IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
+      RAISE NOTICE 'RA-4956: skipped (missing) user-owned table %', tbl; RETURN;
+    END IF;
+    pred := format('%I = auth.uid()::text', col);
+    EXECUTE format('DROP POLICY IF EXISTS "ra4956_select" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "ra4956_insert" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "ra4956_update" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "ra4956_delete" ON public.%I', tbl);
+    EXECUTE format('CREATE POLICY "ra4956_select" ON public.%I FOR SELECT TO authenticated USING (%s)', tbl, pred);
+    EXECUTE format('CREATE POLICY "ra4956_insert" ON public.%I FOR INSERT TO authenticated WITH CHECK (%s)', tbl, pred);
+    EXECUTE format('CREATE POLICY "ra4956_update" ON public.%I FOR UPDATE TO authenticated USING (%s) WITH CHECK (%s)', tbl, pred, pred);
+    EXECUTE format('CREATE POLICY "ra4956_delete" ON public.%I FOR DELETE TO authenticated USING (%s)', tbl, pred);
+  END;
+  $$ LANGUAGE plpgsql;
 
--- CHILD via EXISTS join to a parent table that is itself RLS-protected.
--- We re-express the parent predicate inline (we cannot rely on the parent's RLS
--- cascading through a subquery — PostgREST evaluates the child policy directly).
---   parent_tbl: e.g. 'Inspection'    fk_col: child FK e.g. 'inspectionId'
---   parent_pred_template: SQL using %1$I = parent table alias-free name.
--- For workspace-backed parents (Inspection/Report/Invoice/Estimate/Client/
--- Integration) the parent owner check is userId OR workspace membership.
-CREATE OR REPLACE FUNCTION pg_temp.policy_child_via_parent(
-  tbl text, fk_col text, parent_tbl text, parent_has_workspace boolean DEFAULT true)
-RETURNS void AS $$
-DECLARE owner_pred text; cond text;
-BEGIN
-  IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
-    RAISE NOTICE 'RA-4956: skipped (missing) child table %', tbl; RETURN;
-  END IF;
-  IF to_regclass('public.' || quote_ident(parent_tbl)) IS NULL THEN
-    RAISE NOTICE 'RA-4956: skipped child % — parent % missing', tbl, parent_tbl; RETURN;
-  END IF;
-  IF parent_has_workspace THEN
-    owner_pred := 'p."userId" = auth.uid()::text OR (p."workspaceId" IS NOT NULL AND (is_workspace_owner(p."workspaceId") OR is_workspace_member(p."workspaceId")))';
-  ELSE
-    owner_pred := 'p."userId" = auth.uid()::text';
-  END IF;
-  cond := format(
-    'EXISTS (SELECT 1 FROM public.%I p WHERE p."id" = public.%I.%I AND (%s))',
-    parent_tbl, tbl, fk_col, owner_pred);
-  EXECUTE format('DROP POLICY IF EXISTS "ra4956_select" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "ra4956_insert" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "ra4956_update" ON public.%I', tbl);
-  EXECUTE format('DROP POLICY IF EXISTS "ra4956_delete" ON public.%I', tbl);
-  EXECUTE format('CREATE POLICY "ra4956_select" ON public.%I FOR SELECT TO authenticated USING (%s)', tbl, cond);
-  EXECUTE format('CREATE POLICY "ra4956_insert" ON public.%I FOR INSERT TO authenticated WITH CHECK (%s)', tbl, cond);
-  EXECUTE format('CREATE POLICY "ra4956_update" ON public.%I FOR UPDATE TO authenticated USING (%s) WITH CHECK (%s)', tbl, cond, cond);
-  EXECUTE format('CREATE POLICY "ra4956_delete" ON public.%I FOR DELETE TO authenticated USING (%s)', tbl, cond);
-END;
-$$ LANGUAGE plpgsql;
+  -- WORKSPACE-OWNED
+  CREATE OR REPLACE FUNCTION pg_temp.policy_workspace_owned(tbl text, has_user_col boolean DEFAULT false)
+  RETURNS void AS $$
+  DECLARE ws text; rw text; del text;
+  BEGIN
+    IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
+      RAISE NOTICE 'RA-4956: skipped (missing) workspace-owned table %', tbl; RETURN;
+    END IF;
+    ws := '("workspaceId" IS NOT NULL AND (is_workspace_owner("workspaceId") OR is_workspace_member("workspaceId")))';
+    IF has_user_col THEN
+      rw  := '("userId" = auth.uid()::text OR ' || ws || ')';
+      del := '("userId" = auth.uid()::text OR ("workspaceId" IS NOT NULL AND is_workspace_owner("workspaceId")))';
+    ELSE
+      rw  := ws;
+      del := '("workspaceId" IS NOT NULL AND is_workspace_owner("workspaceId"))';
+    END IF;
+    EXECUTE format('DROP POLICY IF EXISTS "ra4956_select" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "ra4956_insert" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "ra4956_update" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "ra4956_delete" ON public.%I', tbl);
+    EXECUTE format('CREATE POLICY "ra4956_select" ON public.%I FOR SELECT TO authenticated USING (%s)', tbl, rw);
+    EXECUTE format('CREATE POLICY "ra4956_insert" ON public.%I FOR INSERT TO authenticated WITH CHECK (%s)', tbl, rw);
+    EXECUTE format('CREATE POLICY "ra4956_update" ON public.%I FOR UPDATE TO authenticated USING (%s) WITH CHECK (%s)', tbl, rw, rw);
+    EXECUTE format('CREATE POLICY "ra4956_delete" ON public.%I FOR DELETE TO authenticated USING (%s)', tbl, del);
+  END;
+  $$ LANGUAGE plpgsql;
 
--- ORG-SCOPED: row.organizationId = (the caller's org). The caller's org is read
--- from the User row whose id = auth.uid(). SELECT-only for authenticated; writes
--- stay server-side (no insert/update/delete policy => default-deny for those).
-CREATE OR REPLACE FUNCTION pg_temp.policy_org_scoped_readonly(tbl text)
-RETURNS void AS $$
-DECLARE cond text;
-BEGIN
-  IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
-    RAISE NOTICE 'RA-4956: skipped (missing) org table %', tbl; RETURN;
-  END IF;
-  cond := '"organizationId" = (SELECT u."organizationId" FROM public."User" u WHERE u."id" = auth.uid()::text)';
-  EXECUTE format('DROP POLICY IF EXISTS "ra4956_select" ON public.%I', tbl);
-  EXECUTE format('CREATE POLICY "ra4956_select" ON public.%I FOR SELECT TO authenticated USING (%s)', tbl, cond);
-END;
-$$ LANGUAGE plpgsql;
+  -- CHILD via parent
+  CREATE OR REPLACE FUNCTION pg_temp.policy_child_via_parent(
+    tbl text, fk_col text, parent_tbl text, parent_has_workspace boolean DEFAULT true)
+  RETURNS void AS $$
+  DECLARE owner_pred text; cond text;
+  BEGIN
+    IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
+      RAISE NOTICE 'RA-4956: skipped (missing) child table %', tbl; RETURN;
+    END IF;
+    IF to_regclass('public.' || quote_ident(parent_tbl)) IS NULL THEN
+      RAISE NOTICE 'RA-4956: skipped child % — parent % missing', tbl, parent_tbl; RETURN;
+    END IF;
+    IF parent_has_workspace THEN
+      owner_pred := 'p."userId" = auth.uid()::text OR (p."workspaceId" IS NOT NULL AND (is_workspace_owner(p."workspaceId") OR is_workspace_member(p."workspaceId")))';
+    ELSE
+      owner_pred := 'p."userId" = auth.uid()::text';
+    END IF;
+    cond := format(
+      'EXISTS (SELECT 1 FROM public.%I p WHERE p."id" = public.%I.%I AND (%s))',
+      parent_tbl, tbl, fk_col, owner_pred);
+    EXECUTE format('DROP POLICY IF EXISTS "ra4956_select" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "ra4956_insert" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "ra4956_update" ON public.%I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "ra4956_delete" ON public.%I', tbl);
+    EXECUTE format('CREATE POLICY "ra4956_select" ON public.%I FOR SELECT TO authenticated USING (%s)', tbl, cond);
+    EXECUTE format('CREATE POLICY "ra4956_insert" ON public.%I FOR INSERT TO authenticated WITH CHECK (%s)', tbl, cond);
+    EXECUTE format('CREATE POLICY "ra4956_update" ON public.%I FOR UPDATE TO authenticated USING (%s) WITH CHECK (%s)', tbl, cond, cond);
+    EXECUTE format('CREATE POLICY "ra4956_delete" ON public.%I FOR DELETE TO authenticated USING (%s)', tbl, cond);
+  END;
+  $$ LANGUAGE plpgsql;
 
--- ===========================================================================
--- BUCKET: user-owned (userId = auth.uid())  — 22 tables
--- (categorisation: user bucket 20 + CreditNoteLineItem-parent CreditNote etc.)
--- ===========================================================================
-SELECT pg_temp.policy_user_owned('Account');
-SELECT pg_temp.policy_user_owned('AddonPurchase');
-SELECT pg_temp.policy_user_owned('ChatMessage');
-SELECT pg_temp.policy_user_owned('ClaimAnalysisBatch');
-SELECT pg_temp.policy_user_owned('CompanyPricingConfig');
-SELECT pg_temp.policy_user_owned('ContractorProfile');
-SELECT pg_temp.policy_user_owned('CreditNote');
-SELECT pg_temp.policy_user_owned('DeviceToken');
-SELECT pg_temp.policy_user_owned('Estimate');                 -- userId only (no workspaceId)
-SELECT pg_temp.policy_user_owned('Feedback');
-SELECT pg_temp.policy_user_owned('InvoicePayment');
-SELECT pg_temp.policy_user_owned('Notification');
-SELECT pg_temp.policy_user_owned('PortalInvitation');
-SELECT pg_temp.policy_user_owned('RecurringInvoice');
-SELECT pg_temp.policy_user_owned('RestorationDocument');
-SELECT pg_temp.policy_user_owned('Scope');
-SELECT pg_temp.policy_user_owned('Session');                  -- NextAuth-managed; see caveat
-SELECT pg_temp.policy_user_owned('StandardTemplate');
-SELECT pg_temp.policy_user_owned('SubscriptionEvent');
-SELECT pg_temp.policy_user_owned('UserReleaseSeen');
+  -- ORG-SCOPED readonly
+  CREATE OR REPLACE FUNCTION pg_temp.policy_org_scoped_readonly(tbl text)
+  RETURNS void AS $$
+  DECLARE cond text;
+  BEGIN
+    IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
+      RAISE NOTICE 'RA-4956: skipped (missing) org table %', tbl; RETURN;
+    END IF;
+    cond := '"organizationId" = (SELECT u."organizationId" FROM public."User" u WHERE u."id" = auth.uid()::text)';
+    EXECUTE format('DROP POLICY IF EXISTS "ra4956_select" ON public.%I', tbl);
+    EXECUTE format('CREATE POLICY "ra4956_select" ON public.%I FOR SELECT TO authenticated USING (%s)', tbl, cond);
+  END;
+  $$ LANGUAGE plpgsql;
 
--- ===========================================================================
--- BUCKET: workspace-owned (has workspaceId; userId fallback present)  — 4 tables
--- ===========================================================================
-SELECT pg_temp.policy_workspace_owned('AssessmentGeneration', false);       -- workspaceId, no userId
-SELECT pg_temp.policy_workspace_owned('ScrapingProviderConnection', false); -- workspaceId, no userId
--- CostItem has NO direct workspaceId — it chains via libraryId -> CostLibrary
--- (which is userId + workspaceId scoped by RA-413). Treat as child of CostLibrary.
-SELECT pg_temp.policy_child_via_parent('CostItem', 'libraryId', 'CostLibrary', true);
+  -- ===========================================================================
+  -- BUCKET applies
+  -- ===========================================================================
+  PERFORM pg_temp.policy_user_owned('Account');
+  PERFORM pg_temp.policy_user_owned('AddonPurchase');
+  PERFORM pg_temp.policy_user_owned('ChatMessage');
+  PERFORM pg_temp.policy_user_owned('ClaimAnalysisBatch');
+  PERFORM pg_temp.policy_user_owned('CompanyPricingConfig');
+  PERFORM pg_temp.policy_user_owned('ContractorProfile');
+  PERFORM pg_temp.policy_user_owned('CreditNote');
+  PERFORM pg_temp.policy_user_owned('DeviceToken');
+  PERFORM pg_temp.policy_user_owned('Estimate');
+  PERFORM pg_temp.policy_user_owned('Feedback');
+  PERFORM pg_temp.policy_user_owned('InvoicePayment');
+  PERFORM pg_temp.policy_user_owned('Notification');
+  PERFORM pg_temp.policy_user_owned('PortalInvitation');
+  PERFORM pg_temp.policy_user_owned('RecurringInvoice');
+  PERFORM pg_temp.policy_user_owned('RestorationDocument');
+  PERFORM pg_temp.policy_user_owned('Scope');
+  PERFORM pg_temp.policy_user_owned('Session');
+  PERFORM pg_temp.policy_user_owned('StandardTemplate');
+  PERFORM pg_temp.policy_user_owned('SubscriptionEvent');
+  PERFORM pg_temp.policy_user_owned('UserReleaseSeen');
 
--- ===========================================================================
--- BUCKET: organization (organizationId = caller's org)  — read-only  — 3 tables
--- ===========================================================================
-SELECT pg_temp.policy_org_scoped_readonly('OrganizationPricingConfig');
-SELECT pg_temp.policy_org_scoped_readonly('UserInvite');
--- User: special — a user sees their own row AND co-members of their org (read).
-SELECT pg_temp.policy_user_owned('User', 'id');  -- own row: id = auth.uid()
+  PERFORM pg_temp.policy_workspace_owned('AssessmentGeneration', false);
+  PERFORM pg_temp.policy_workspace_owned('ScrapingProviderConnection', false);
+  PERFORM pg_temp.policy_child_via_parent('CostItem', 'libraryId', 'CostLibrary', true);
 
--- ===========================================================================
--- BUCKET: via-inspection (join Inspection; workspace-backed)  — 19 tables
--- ===========================================================================
-SELECT pg_temp.policy_child_via_parent('AffectedArea', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('AustralianComplianceRecord', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('BiohazardAssessment', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('CarpetRestorationAssessment', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('CircuitAssessment', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('Classification', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('ContentsPackOutItem', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('CostEstimate', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('DryingGoalRecord', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('EnvironmentalData', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('FireSmokeDamageAssessment', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('HVACAssessment', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('InspectionPhoto', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('MoistureReading', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('MouldRemediationAssessment', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('PilotObservation', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('PsychrometricReading', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('ScopeItem', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('StormDamageAssessment', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_org_scoped_readonly('OrganizationPricingConfig');
+  PERFORM pg_temp.policy_org_scoped_readonly('UserInvite');
+  PERFORM pg_temp.policy_user_owned('User', 'id');
 
--- ===========================================================================
--- BUCKET: via-report (join Report; workspace-backed)  — 3 tables
--- ===========================================================================
-SELECT pg_temp.policy_child_via_parent('AuthorityFormInstance', 'reportId', 'Report');
-SELECT pg_temp.policy_child_via_parent('ContractorReview', 'reportId', 'Report');
-SELECT pg_temp.policy_child_via_parent('ReportApproval', 'reportId', 'Report');
+  PERFORM pg_temp.policy_child_via_parent('AffectedArea', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('AustralianComplianceRecord', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('BiohazardAssessment', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('CarpetRestorationAssessment', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('CircuitAssessment', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('Classification', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('ContentsPackOutItem', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('CostEstimate', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('DryingGoalRecord', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('EnvironmentalData', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('FireSmokeDamageAssessment', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('HVACAssessment', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('InspectionPhoto', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('MoistureReading', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('MouldRemediationAssessment', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('PilotObservation', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('PsychrometricReading', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('ScopeItem', 'inspectionId', 'Inspection');
+  PERFORM pg_temp.policy_child_via_parent('StormDamageAssessment', 'inspectionId', 'Inspection');
 
--- ===========================================================================
--- BUCKET: via-invoice (join Invoice; workspace-backed)  — 4 tables
--- ===========================================================================
-SELECT pg_temp.policy_child_via_parent('InvoiceEmail', 'invoiceId', 'Invoice');
-SELECT pg_temp.policy_child_via_parent('InvoiceLineItem', 'invoiceId', 'Invoice');
-SELECT pg_temp.policy_child_via_parent('InvoicePaymentAllocation', 'invoiceId', 'Invoice');
-SELECT pg_temp.policy_child_via_parent('PaymentReminder', 'invoiceId', 'Invoice');
+  PERFORM pg_temp.policy_child_via_parent('AuthorityFormInstance', 'reportId', 'Report');
+  PERFORM pg_temp.policy_child_via_parent('ContractorReview', 'reportId', 'Report');
+  PERFORM pg_temp.policy_child_via_parent('ReportApproval', 'reportId', 'Report');
 
--- ===========================================================================
--- BUCKET: via-estimate (join Estimate; userId only — no workspace col)  — 3 tables
--- ===========================================================================
-SELECT pg_temp.policy_child_via_parent('EstimateLineItem', 'estimateId', 'Estimate', false);
-SELECT pg_temp.policy_child_via_parent('EstimateVariation', 'estimateId', 'Estimate', false);
-SELECT pg_temp.policy_child_via_parent('EstimateVersion', 'estimateId', 'Estimate', false);
+  PERFORM pg_temp.policy_child_via_parent('InvoiceEmail', 'invoiceId', 'Invoice');
+  PERFORM pg_temp.policy_child_via_parent('InvoiceLineItem', 'invoiceId', 'Invoice');
+  PERFORM pg_temp.policy_child_via_parent('InvoicePaymentAllocation', 'invoiceId', 'Invoice');
+  PERFORM pg_temp.policy_child_via_parent('PaymentReminder', 'invoiceId', 'Invoice');
 
--- ===========================================================================
--- BUCKET: via-client (join Client; workspace-backed)  — 2 tables
--- ===========================================================================
-SELECT pg_temp.policy_child_via_parent('ClientPortalAccount', 'clientId', 'Client');
-SELECT pg_temp.policy_child_via_parent('ClientUser', 'clientId', 'Client');
+  PERFORM pg_temp.policy_child_via_parent('EstimateLineItem', 'estimateId', 'Estimate', false);
+  PERFORM pg_temp.policy_child_via_parent('EstimateVariation', 'estimateId', 'Estimate', false);
+  PERFORM pg_temp.policy_child_via_parent('EstimateVersion', 'estimateId', 'Estimate', false);
 
--- ===========================================================================
--- BUCKET: via-integration (join Integration; workspace-backed)  — 4 tables
--- ===========================================================================
-SELECT pg_temp.policy_child_via_parent('ExternalClient', 'integrationId', 'Integration');
-SELECT pg_temp.policy_child_via_parent('ExternalJob', 'integrationId', 'Integration');
-SELECT pg_temp.policy_child_via_parent('IntegrationSyncLog', 'integrationId', 'Integration');
-SELECT pg_temp.policy_child_via_parent('XeroAccountCodeMapping', 'integrationId', 'Integration');
+  PERFORM pg_temp.policy_child_via_parent('ClientPortalAccount', 'clientId', 'Client');
+  PERFORM pg_temp.policy_child_via_parent('ClientUser', 'clientId', 'Client');
 
--- ===========================================================================
--- BUCKET: via-credit-note (join CreditNote; userId only)  — 1 table
--- ===========================================================================
-SELECT pg_temp.policy_child_via_parent('CreditNoteLineItem', 'creditNoteId', 'CreditNote', false);
+  PERFORM pg_temp.policy_child_via_parent('ExternalClient', 'integrationId', 'Integration');
+  PERFORM pg_temp.policy_child_via_parent('ExternalJob', 'integrationId', 'Integration');
+  PERFORM pg_temp.policy_child_via_parent('IntegrationSyncLog', 'integrationId', 'Integration');
+  PERFORM pg_temp.policy_child_via_parent('XeroAccountCodeMapping', 'integrationId', 'Integration');
+
+  PERFORM pg_temp.policy_child_via_parent('CreditNoteLineItem', 'creditNoteId', 'CreditNote', false);
+  PERFORM pg_temp.policy_child_via_parent('ClaimAnalysis', 'batchId', 'ClaimAnalysisBatch', false);
+END
+$ra4956_buckets$;
 
 -- ===========================================================================
 -- BUCKET: via-claim-analysis (MissingElement -> ClaimAnalysis -> Batch.userId)
 -- ClaimAnalysis itself joins ClaimAnalysisBatch (userId). 2-hop for MissingElement.
 -- ===========================================================================
-SELECT pg_temp.policy_child_via_parent('ClaimAnalysis', 'batchId', 'ClaimAnalysisBatch', false);
--- MissingElement.analysisId -> ClaimAnalysis.id -> batchId -> Batch.userId (2-hop).
 DO $$
 BEGIN
+  IF current_setting('restoreassist.skip_auth_rls', true) = '1' THEN
+    RETURN;
+  END IF;
   IF to_regclass('public."MissingElement"') IS NOT NULL
      AND to_regclass('public."ClaimAnalysis"') IS NOT NULL
      AND to_regclass('public."ClaimAnalysisBatch"') IS NOT NULL THEN
@@ -348,6 +342,9 @@ END $$;
 DO $$
 DECLARE t text;
 BEGIN
+  IF current_setting('restoreassist.skip_auth_rls', true) = '1' THEN
+    RETURN;
+  END IF;
   FOREACH t IN ARRAY ARRAY['ContractorCertification','ContractorServiceArea'] LOOP
     IF to_regclass('public.' || quote_ident(t)) IS NOT NULL
        AND to_regclass('public."ContractorProfile"') IS NOT NULL THEN
@@ -375,6 +372,9 @@ END $$;
 -- ===========================================================================
 DO $$
 BEGIN
+  IF current_setting('restoreassist.skip_auth_rls', true) = '1' THEN
+    RETURN;
+  END IF;
   IF to_regclass('public."AuthorityFormSignature"') IS NOT NULL
      AND to_regclass('public."AuthorityFormInstance"') IS NOT NULL
      AND to_regclass('public."Report"') IS NOT NULL THEN
@@ -406,6 +406,9 @@ END $$;
 -- ===========================================================================
 DO $$
 BEGIN
+  IF current_setting('restoreassist.skip_auth_rls', true) = '1' THEN
+    RETURN;
+  END IF;
   IF to_regclass('public."Organization"') IS NOT NULL THEN
     EXECUTE 'DROP POLICY IF EXISTS "ra4956_select" ON public."Organization"';
     EXECUTE $q$

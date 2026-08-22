@@ -1,15 +1,26 @@
 -- RA-414: ProviderConnection table + AiUsageLog async logging
 -- Replaces ad-hoc BYOK config with a proper workspace-scoped credential store.
 -- AiUsageLog tracks every AI call (tokens, cost, latency) from day one.
+--
+-- Idempotent: safe to re-run after a partial apply (e.g. enums/tables created, then
+-- failed on Supabase-only auth.uid() RLS against DigitalOcean/Heroku Postgres).
 
 -- CreateEnum: AiProvider
-CREATE TYPE "AiProvider" AS ENUM ('ANTHROPIC', 'OPENAI', 'GOOGLE', 'GEMMA');
+DO $$ BEGIN
+  CREATE TYPE "AiProvider" AS ENUM ('ANTHROPIC', 'OPENAI', 'GOOGLE', 'GEMMA');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum: ProviderConnectionStatus
-CREATE TYPE "ProviderConnectionStatus" AS ENUM ('ACTIVE', 'FAILED', 'DISABLED');
+DO $$ BEGIN
+  CREATE TYPE "ProviderConnectionStatus" AS ENUM ('ACTIVE', 'FAILED', 'DISABLED');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateTable: ProviderConnection
-CREATE TABLE "ProviderConnection" (
+CREATE TABLE IF NOT EXISTS "ProviderConnection" (
   "id" TEXT NOT NULL,
   "workspaceId" TEXT NOT NULL,
   "provider" "AiProvider" NOT NULL,
@@ -24,7 +35,7 @@ CREATE TABLE "ProviderConnection" (
 );
 
 -- CreateTable: AiUsageLog
-CREATE TABLE "AiUsageLog" (
+CREATE TABLE IF NOT EXISTS "AiUsageLog" (
   "id" TEXT NOT NULL,
   "workspaceId" TEXT NOT NULL,
   "memberId" TEXT,
@@ -43,69 +54,98 @@ CREATE TABLE "AiUsageLog" (
 );
 
 -- Indexes: ProviderConnection
-CREATE UNIQUE INDEX "ProviderConnection_workspaceId_provider_key" ON "ProviderConnection"("workspaceId", "provider");
-CREATE INDEX "ProviderConnection_workspaceId_idx" ON "ProviderConnection"("workspaceId");
-CREATE INDEX "ProviderConnection_provider_idx" ON "ProviderConnection"("provider");
-CREATE INDEX "ProviderConnection_status_idx" ON "ProviderConnection"("status");
+CREATE UNIQUE INDEX IF NOT EXISTS "ProviderConnection_workspaceId_provider_key" ON "ProviderConnection"("workspaceId", "provider");
+CREATE INDEX IF NOT EXISTS "ProviderConnection_workspaceId_idx" ON "ProviderConnection"("workspaceId");
+CREATE INDEX IF NOT EXISTS "ProviderConnection_provider_idx" ON "ProviderConnection"("provider");
+CREATE INDEX IF NOT EXISTS "ProviderConnection_status_idx" ON "ProviderConnection"("status");
 
 -- Indexes: AiUsageLog
-CREATE INDEX "AiUsageLog_workspaceId_createdAt_idx" ON "AiUsageLog"("workspaceId", "createdAt");
-CREATE INDEX "AiUsageLog_memberId_idx" ON "AiUsageLog"("memberId");
-CREATE INDEX "AiUsageLog_provider_idx" ON "AiUsageLog"("provider");
-CREATE INDEX "AiUsageLog_taskType_idx" ON "AiUsageLog"("taskType");
-CREATE INDEX "AiUsageLog_success_idx" ON "AiUsageLog"("success");
-CREATE INDEX "AiUsageLog_createdAt_idx" ON "AiUsageLog"("createdAt");
+CREATE INDEX IF NOT EXISTS "AiUsageLog_workspaceId_createdAt_idx" ON "AiUsageLog"("workspaceId", "createdAt");
+CREATE INDEX IF NOT EXISTS "AiUsageLog_memberId_idx" ON "AiUsageLog"("memberId");
+CREATE INDEX IF NOT EXISTS "AiUsageLog_provider_idx" ON "AiUsageLog"("provider");
+CREATE INDEX IF NOT EXISTS "AiUsageLog_taskType_idx" ON "AiUsageLog"("taskType");
+CREATE INDEX IF NOT EXISTS "AiUsageLog_success_idx" ON "AiUsageLog"("success");
+CREATE INDEX IF NOT EXISTS "AiUsageLog_createdAt_idx" ON "AiUsageLog"("createdAt");
 
 -- ForeignKeys
-ALTER TABLE "ProviderConnection" ADD CONSTRAINT "ProviderConnection_workspaceId_fkey"
-  FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "AiUsageLog" ADD CONSTRAINT "AiUsageLog_workspaceId_fkey"
-  FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "ProviderConnection" ADD CONSTRAINT "ProviderConnection_workspaceId_fkey"
+    FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "AiUsageLog" ADD CONSTRAINT "AiUsageLog_workspaceId_fkey"
+    FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Enable RLS
 ALTER TABLE "ProviderConnection" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "AiUsageLog" ENABLE ROW LEVEL SECURITY;
 
--- RLS: ProviderConnection — workspace members can view; only owner can manage
-CREATE POLICY "ProviderConnection_select_member" ON "ProviderConnection"
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM "WorkspaceMember" wm
-      WHERE wm."workspaceId" = "workspaceId"
-        AND wm."userId" = auth.uid()::text
-        AND wm."status" = 'ACTIVE'
-    )
-  );
-CREATE POLICY "ProviderConnection_insert_owner" ON "ProviderConnection"
-  FOR INSERT WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM "Workspace" w
-      WHERE w."id" = "workspaceId" AND w."ownerId" = auth.uid()::text
-    )
-  );
-CREATE POLICY "ProviderConnection_update_owner" ON "ProviderConnection"
-  FOR UPDATE USING (
-    EXISTS (
-      SELECT 1 FROM "Workspace" w
-      WHERE w."id" = "workspaceId" AND w."ownerId" = auth.uid()::text
-    )
-  );
-CREATE POLICY "ProviderConnection_delete_owner" ON "ProviderConnection"
-  FOR DELETE USING (
-    EXISTS (
-      SELECT 1 FROM "Workspace" w
-      WHERE w."id" = "workspaceId" AND w."ownerId" = auth.uid()::text
-    )
-  );
+-- RLS: Supabase-only (requires auth.uid()). Skip on non-Supabase Postgres.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'auth') THEN
+    RAISE NOTICE 'auth schema missing — skipping ProviderConnection/AiUsageLog RLS policies (non-Supabase Postgres)';
+    RETURN;
+  END IF;
 
--- RLS: AiUsageLog — workspace members can view their workspace logs
-CREATE POLICY "AiUsageLog_select_member" ON "AiUsageLog"
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM "WorkspaceMember" wm
-      WHERE wm."workspaceId" = "workspaceId"
-        AND wm."userId" = auth.uid()::text
-        AND wm."status" = 'ACTIVE'
-    )
-  );
--- Inserts are server-side only (service role) — no client INSERT policy
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'auth' AND p.proname = 'uid'
+  ) THEN
+    RAISE NOTICE 'auth.uid() missing — skipping ProviderConnection/AiUsageLog RLS policies';
+    RETURN;
+  END IF;
+
+  -- RLS: ProviderConnection — workspace members can view; only owner can manage
+  DROP POLICY IF EXISTS "ProviderConnection_select_member" ON "ProviderConnection";
+  CREATE POLICY "ProviderConnection_select_member" ON "ProviderConnection"
+    FOR SELECT USING (
+      EXISTS (
+        SELECT 1 FROM "WorkspaceMember" wm
+        WHERE wm."workspaceId" = "workspaceId"
+          AND wm."userId" = auth.uid()::text
+          AND wm."status" = 'ACTIVE'
+      )
+    );
+  DROP POLICY IF EXISTS "ProviderConnection_insert_owner" ON "ProviderConnection";
+  CREATE POLICY "ProviderConnection_insert_owner" ON "ProviderConnection"
+    FOR INSERT WITH CHECK (
+      EXISTS (
+        SELECT 1 FROM "Workspace" w
+        WHERE w."id" = "workspaceId" AND w."ownerId" = auth.uid()::text
+      )
+    );
+  DROP POLICY IF EXISTS "ProviderConnection_update_owner" ON "ProviderConnection";
+  CREATE POLICY "ProviderConnection_update_owner" ON "ProviderConnection"
+    FOR UPDATE USING (
+      EXISTS (
+        SELECT 1 FROM "Workspace" w
+        WHERE w."id" = "workspaceId" AND w."ownerId" = auth.uid()::text
+      )
+    );
+  DROP POLICY IF EXISTS "ProviderConnection_delete_owner" ON "ProviderConnection";
+  CREATE POLICY "ProviderConnection_delete_owner" ON "ProviderConnection"
+    FOR DELETE USING (
+      EXISTS (
+        SELECT 1 FROM "Workspace" w
+        WHERE w."id" = "workspaceId" AND w."ownerId" = auth.uid()::text
+      )
+    );
+
+  -- RLS: AiUsageLog — workspace members can view their workspace logs
+  DROP POLICY IF EXISTS "AiUsageLog_select_member" ON "AiUsageLog";
+  CREATE POLICY "AiUsageLog_select_member" ON "AiUsageLog"
+    FOR SELECT USING (
+      EXISTS (
+        SELECT 1 FROM "WorkspaceMember" wm
+        WHERE wm."workspaceId" = "workspaceId"
+          AND wm."userId" = auth.uid()::text
+          AND wm."status" = 'ACTIVE'
+      )
+    );
+  -- Inserts are server-side only (service role) — no client INSERT policy
+END $$;
