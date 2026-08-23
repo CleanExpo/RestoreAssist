@@ -5,9 +5,13 @@ import { describe, expect, it, vi } from "vitest";
 // (buildNirReportOutput) without a live session or database.
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-vi.mock("@/lib/prisma", () => ({ prisma: { inspection: { findUnique: vi.fn() } } }));
+vi.mock("@/lib/prisma", () => ({
+  prisma: { inspection: { findUnique: vi.fn() } },
+}));
 vi.mock("@/lib/idempotency", () => ({ withIdempotency: vi.fn() }));
-vi.mock("@/lib/auth/assert-tenancy", () => ({ assertInspectionTenancy: vi.fn() }));
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  assertInspectionTenancy: vi.fn(),
+}));
 
 import { buildNirReportOutput } from "../guidewire/route";
 
@@ -66,7 +70,7 @@ describe("Guidewire photo manifest", () => {
     expect(photo.standardRef).toBe("IICRC S500:2021 §12.2");
   });
 
-  it("falls back to 0 only when GPS columns are genuinely null", () => {
+  it("reports null, not 0, when the photo carries no GPS fix", () => {
     const inspection = makeInspection({
       photos: [
         {
@@ -82,8 +86,79 @@ describe("Guidewire photo manifest", () => {
     const photo = buildNirReportOutput(inspection, "Tech", "user_1")
       .photoManifest.photos[0];
 
+    // `gpsLatitude/gpsLongitude` are nullable and are only written when a
+    // capture supplies them, so this is the COMMON path, not an edge case.
+    // Substituting 0 published 0N 0E - a real point off West Africa - to the
+    // insurer as the location of Australian claim evidence.
+    expect(photo.latitude).toBeNull();
+    expect(photo.longitude).toBeNull();
+    expect(photo.latitude).not.toBe(0);
+    expect(photo.longitude).not.toBe(0);
+    expect(photo.category).toBe("damage");
+  });
+
+  // Both directions, deliberately. A single-direction test leaves the other
+  // axis's guard un-killable: an independent reviewer found exactly that hole
+  // when only the longitude-missing case was covered.
+  it.each([
+    {
+      axis: "longitude",
+      gpsLatitude: -33.815,
+      gpsLongitude: null,
+      expectLatitude: -33.815,
+      expectLongitude: null,
+    },
+    {
+      axis: "latitude",
+      gpsLatitude: null,
+      gpsLongitude: 151.001,
+      expectLatitude: null,
+      expectLongitude: 151.001,
+    },
+  ])(
+    "does not substitute a coordinate when only $axis is missing",
+    ({ gpsLatitude, gpsLongitude, expectLatitude, expectLongitude }) => {
+      const inspection = makeInspection({
+        photos: [
+          {
+            id: "photo_3",
+            timestamp: new Date("2026-01-01T12:00:00.000Z"),
+            gpsLatitude,
+            gpsLongitude,
+            damageCategory: null,
+          },
+        ],
+      });
+
+      const photo = buildNirReportOutput(inspection, "Tech", "user_1")
+        .photoManifest.photos[0];
+
+      // A half-known fix must not become a whole coordinate: -33.815, 0 is a
+      // point in the South Atlantic, and reads as a measurement.
+      expect(photo.latitude).toBe(expectLatitude);
+      expect(photo.longitude).toBe(expectLongitude);
+    },
+  );
+
+  it("preserves a genuine zero coordinate rather than treating it as absent", () => {
+    const inspection = makeInspection({
+      photos: [
+        {
+          id: "photo_4",
+          timestamp: new Date("2026-01-01T13:00:00.000Z"),
+          gpsLatitude: 0,
+          gpsLongitude: 0,
+          damageCategory: null,
+        },
+      ],
+    });
+
+    const photo = buildNirReportOutput(inspection, "Tech", "user_1")
+      .photoManifest.photos[0];
+
+    // The distinction the fix exists to make runs both ways: a recorded 0 is
+    // data. `??` (not `||`) is what keeps this true.
     expect(photo.latitude).toBe(0);
     expect(photo.longitude).toBe(0);
-    expect(photo.category).toBe("damage");
   });
 });
