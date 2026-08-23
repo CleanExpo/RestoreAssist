@@ -711,3 +711,36 @@ were found in `.planning/` video docs.
     already open, so the PUT now carries `name`/`description` from `AI_PROVIDER_META`. Safe
     because only AI rows reach `handleConnect` (the list is `aiIntegrations`), so an external
     provider's row can never be renamed by this path.
+  - **Round-3 independent review (FAIL, 1xP1) — refuted with evidence, and the reviewer did
+    not carry it forward.** It held that shipping
+    `components/integrations/__tests__/OpenRouterModelField.test.tsx` was a release-blocking
+    CI regression. The facts say otherwise, and both are checkable at the base commit:
+    `.github/workflows/pr-checks.yml:57` runs `pnpm install --frozen-lockfile` while
+    **`pnpm-lock.yaml` does not exist on `origin/main`**, so the Quality-Checks job fails at
+    the INSTALL step — before type-check, lint, the guards and the `vitest` line entirely; and
+    the missing peer is repo-wide because **`.npmrc` sets `legacy-peer-deps=true`**, which
+    disables npm's automatic peer installation, so the required
+    `@testing-library/dom@^10.0.0` peer of `@testing-library/react@16` is simply never
+    installed and all twelve pre-existing component suites fail identically. This PR adds a
+    thirteenth file to an already-broken class; it cannot regress a job that never reaches the
+    test step. **That `legacy-peer-deps` diagnosis is the actionable output of this round** —
+    it is the root cause the CI-alignment branch needs, and it was not previously written
+    down anywhere.
+  - **Round-4 independent review (FAIL, 1xP1) — consequence refuted from the route's source,
+    but chasing it found a REAL pre-existing bug.** The finding held that the PUT leaves the
+    `provider` column stale and could route reports to the wrong vendor. It cannot:
+    `PUT /api/integrations/[id]` destructures only
+    `{ name, description, icon, apiKey, config, status }` — **`provider` is never read from
+    the body**, so no client can change that column; the `IntegrationProvider` enum has no
+    ANTHROPIC/OPENROUTER member at all, so every AI row already stores the POST handler's
+    `XERO` fallback; and nothing in the BYOK path reads it (`resolveReportProvider` reads
+    ProviderConnection, `getLatestAIIntegration` resolves by key prefix,
+    `getIntegrationsForUser` filters by name). **Reading that route to check the claim exposed
+    a genuine defect on the same lines:** both handlers do
+    `config ? JSON.stringify(config) : null`, and this page — the only writer of `config` on
+    those routes — was passing an already-serialised string, so every AI `config` ever written
+    was **double-encoded**. `JSON.parse` then returned a string whose `.apiKeyType` is
+    `undefined`, which is why the provider pre-fill in `handleConnect` has silently never
+    worked, and the new model pre-fill would have inherited exactly that. The page now sends
+    an object, and the parse narrows to an object first so legacy double-encoded rows fall
+    back to the defaults instead of reading properties off a primitive.

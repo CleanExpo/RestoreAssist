@@ -764,7 +764,13 @@ export default function IntegrationsPage() {
     setApiKeyModel("");
     if (integration.config) {
       try {
-        const config = JSON.parse(integration.config);
+        // Rows written before the double-encoding fix parse back to a STRING,
+        // not an object. Narrow before reading, so a legacy row falls back to
+        // the defaults instead of reading properties off a primitive.
+        const parsed: unknown = JSON.parse(integration.config);
+        const config = (
+          parsed && typeof parsed === "object" ? parsed : {}
+        ) as Record<string, unknown>;
         if (isUiAiKeyType(config.apiKeyType)) {
           setApiKeyType(config.apiKeyType);
         }
@@ -844,7 +850,14 @@ export default function IntegrationsPage() {
             name: AI_PROVIDER_META[apiKeyType].name,
             description: AI_PROVIDER_META[apiKeyType].description,
             apiKey,
-            config: JSON.stringify(config),
+            // Sent as an OBJECT, not a string. Both `/api/integrations`
+            // handlers do `config ? JSON.stringify(config) : null`, so passing
+            // an already-serialised string double-encodes it — and the parse in
+            // handleConnect then yields a string whose `.apiKeyType` is
+            // undefined. That is why the provider pre-fill has silently never
+            // worked; the model pre-fill would have inherited it. This page is
+            // the only writer of `config` on those routes.
+            config,
             status: "CONNECTED",
           }),
         },
@@ -982,10 +995,12 @@ export default function IntegrationsPage() {
         description: AI_PROVIDER_META[newApiKeyType].description,
         icon: "[ra:ai]",
         apiKey: newApiKey,
-        config: JSON.stringify({
+        // An object, for the same reason as the PUT above — the route
+        // serialises it.
+        config: {
           apiKeyType: newApiKeyType,
           ...(newModelSlug ? { model: newModelSlug } : {}),
-        }),
+        },
         status: "CONNECTED",
       };
 
