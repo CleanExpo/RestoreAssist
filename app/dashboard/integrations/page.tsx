@@ -25,7 +25,14 @@ import BillingGate from "@/components/capacitor/BillingGate";
 import Image from "next/image";
 import ImportModal from "@/components/integrations/ImportModal";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
-import { uiAiKeyTypeToProvider } from "@/lib/workspace/ai-key-type";
+import {
+  isUiAiKeyType,
+  mismatchedKeyType,
+  uiAiKeyTypeToProvider,
+  UI_AI_KEY_TYPES,
+  type UiAiKeyType,
+} from "@/lib/workspace/ai-key-type";
+import OpenRouterModelField from "@/components/integrations/OpenRouterModelField";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -146,17 +153,82 @@ const EXTERNAL_INTEGRATIONS: {
 ];
 
 /**
+ * The AI providers this page can hold a BYOK key for, and the copy each one
+ * renders. One table, so the picker options, the legacy Integration row this
+ * page writes, and the AI-row recogniser below can never disagree — before
+ * this, adding a provider meant editing five ternaries and a name set.
+ *
+ * `name` is what handleAddIntegration writes to the legacy Integration row; it
+ * must stay within the `nameContains` filter in getIntegrationsForUser
+ * (lib/ai-provider.ts) or the saved key becomes invisible to report generation.
+ */
+const AI_PROVIDER_META: Record<
+  UiAiKeyType,
+  {
+    option: string;
+    vendor: string;
+    /** Indefinite article for `vendor`, so the refusal copy reads as English. */
+    article: string;
+    name: string;
+    description: string;
+  }
+> = {
+  anthropic: {
+    option: "Anthropic Claude",
+    vendor: "Anthropic",
+    article: "an",
+    name: "Anthropic Claude",
+    description: "AI-powered report generation with Claude",
+  },
+  openai: {
+    option: "OpenAI GPT",
+    vendor: "OpenAI",
+    article: "an",
+    name: "OpenAI GPT",
+    description: "AI-powered report generation with GPT",
+  },
+  gemini: {
+    option: "Google Gemini",
+    vendor: "Gemini",
+    article: "a",
+    name: "Google Gemini",
+    description: "AI-powered report generation with Gemini",
+  },
+  openrouter: {
+    option: "OpenRouter (open models)",
+    vendor: "OpenRouter",
+    article: "an",
+    name: "OpenRouter",
+    description: "AI-powered report generation with open models via OpenRouter",
+  },
+};
+
+/**
+ * Refusal copy for a key whose own prefix contradicts the selected provider,
+ * or null when there is no confident disagreement. Naming both vendors is the
+ * point — the operator has to be told WHICH one to switch to.
+ */
+function keyProviderMismatchMessage(
+  selected: UiAiKeyType,
+  apiKey: string,
+): string | null {
+  const implied = mismatchedKeyType(selected, apiKey);
+  if (!implied) return null;
+  const found = AI_PROVIDER_META[implied];
+  const picked = AI_PROVIDER_META[selected];
+  return `That looks like ${found.article} ${found.vendor} key, but ${picked.option} is selected. Pick ${found.option}, or paste ${picked.article} ${picked.vendor} key.`;
+}
+
+/**
  * The legacy Integration table is shared bookkeeping: AI keys live there, and
  * so do external job/accounting providers. Its `provider` column cannot
  * discriminate them — an AI row can carry XERO — so categorise POSITIVELY by
  * the names this page itself writes in handleAddIntegration. Anything not on
  * this list is not an AI provider and must never render with AI key controls.
  */
-const AI_INTEGRATION_NAMES = new Set([
-  "anthropic claude",
-  "openai gpt",
-  "google gemini",
-]);
+const AI_INTEGRATION_NAMES = new Set(
+  UI_AI_KEY_TYPES.map((t) => AI_PROVIDER_META[t].name.toLowerCase()),
+);
 
 /**
  * The OAuth providers' status lives in /api/integrations. Ascora's does not:
@@ -222,16 +294,16 @@ export default function IntegrationsPage() {
   const [selectedIntegration, setSelectedIntegration] =
     useState<Integration | null>(null);
   const [apiKey, setApiKey] = useState("");
-  const [apiKeyType, setApiKeyType] = useState<
-    "openai" | "anthropic" | "gemini"
-  >("anthropic");
+  const [apiKeyType, setApiKeyType] = useState<UiAiKeyType>("anthropic");
+  // OpenRouter routing slug. Blank is valid — the server falls back to
+  // OPENROUTER_MODEL. Ignored by the fixed-vendor providers.
+  const [apiKeyModel, setApiKeyModel] = useState("");
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(
     null,
   );
-  const [newApiKeyType, setNewApiKeyType] = useState<
-    "openai" | "anthropic" | "gemini"
-  >("anthropic");
+  const [newApiKeyType, setNewApiKeyType] = useState<UiAiKeyType>("anthropic");
   const [newApiKey, setNewApiKey] = useState("");
+  const [newApiKeyModel, setNewApiKeyModel] = useState("");
   // Ascora authenticates with a per-user static API key, so connecting it means
   // collecting that key here and POSTing it to the canonical route. The key is
   // held only for the duration of one attempt and is never rendered back.
@@ -689,14 +761,17 @@ export default function IntegrationsPage() {
 
     setSelectedIntegration(integration);
     setApiKey("");
+    setApiKeyModel("");
     if (integration.config) {
       try {
         const config = JSON.parse(integration.config);
-        if (
-          config.apiKeyType &&
-          ["openai", "anthropic", "gemini"].includes(config.apiKeyType)
-        ) {
+        if (isUiAiKeyType(config.apiKeyType)) {
           setApiKeyType(config.apiKeyType);
+        }
+        // The stored slug is a routing hint, not a credential, so it is safe to
+        // pre-fill. Only OpenRouter has one.
+        if (typeof config.model === "string") {
+          setApiKeyModel(config.model);
         }
       } catch {
         // Use default
@@ -713,6 +788,12 @@ export default function IntegrationsPage() {
       return;
     }
 
+    const mismatch = keyProviderMismatchMessage(apiKeyType, apiKey);
+    if (mismatch) {
+      toast.error(mismatch);
+      return;
+    }
+
     try {
       const providerRes = await fetch("/api/workspace/provider-connections", {
         method: "POST",
@@ -720,6 +801,9 @@ export default function IntegrationsPage() {
         body: JSON.stringify({
           provider: uiAiKeyTypeToProvider(apiKeyType),
           apiKey,
+          ...(apiKeyType === "openrouter" && apiKeyModel.trim()
+            ? { model: apiKeyModel.trim() }
+            : {}),
         }),
       });
 
@@ -738,6 +822,9 @@ export default function IntegrationsPage() {
 
       const config = {
         apiKeyType: apiKeyType,
+        ...(apiKeyType === "openrouter" && apiKeyModel.trim()
+          ? { model: apiKeyModel.trim() }
+          : {}),
       };
 
       const response = await fetch(
@@ -848,6 +935,15 @@ export default function IntegrationsPage() {
       return;
     }
 
+    const mismatch = keyProviderMismatchMessage(newApiKeyType, newApiKey);
+    if (mismatch) {
+      toast.error(mismatch);
+      return;
+    }
+
+    const newModelSlug =
+      newApiKeyType === "openrouter" ? newApiKeyModel.trim() : "";
+
     try {
       const providerRes = await fetch("/api/workspace/provider-connections", {
         method: "POST",
@@ -855,6 +951,7 @@ export default function IntegrationsPage() {
         body: JSON.stringify({
           provider: uiAiKeyTypeToProvider(newApiKeyType),
           apiKey: newApiKey,
+          ...(newModelSlug ? { model: newModelSlug } : {}),
         }),
       });
 
@@ -872,26 +969,14 @@ export default function IntegrationsPage() {
       }
 
       const integrationData = {
-        name:
-          newApiKeyType === "anthropic"
-            ? "Anthropic Claude"
-            : newApiKeyType === "openai"
-              ? "OpenAI GPT"
-              : "Google Gemini",
-        description:
-          newApiKeyType === "anthropic"
-            ? "AI-powered report generation with Claude"
-            : newApiKeyType === "openai"
-              ? "AI-powered report generation with GPT"
-              : "AI-powered report generation with Gemini",
-        icon:
-          newApiKeyType === "anthropic"
-            ? "[ra:ai]"
-            : newApiKeyType === "openai"
-              ? "[ra:ai]"
-              : "[ra:ai]",
+        name: AI_PROVIDER_META[newApiKeyType].name,
+        description: AI_PROVIDER_META[newApiKeyType].description,
+        icon: "[ra:ai]",
         apiKey: newApiKey,
-        config: JSON.stringify({ apiKeyType: newApiKeyType }),
+        config: JSON.stringify({
+          apiKeyType: newApiKeyType,
+          ...(newModelSlug ? { model: newModelSlug } : {}),
+        }),
         status: "CONNECTED",
       };
 
@@ -905,6 +990,7 @@ export default function IntegrationsPage() {
         const newIntegration = await response.json();
         setIntegrations([newIntegration, ...integrations]);
         setNewApiKey("");
+        setNewApiKeyModel("");
         setNewApiKeyType("anthropic");
         setShowAddModal(false);
         toast.success("Integration added successfully");
@@ -954,6 +1040,7 @@ export default function IntegrationsPage() {
           "AI key saved. Open Settings → AI Providers to manage keys.",
         );
         setNewApiKey("");
+        setNewApiKeyModel("");
         setNewApiKeyType("anthropic");
         setShowAddModal(false);
       }
@@ -1902,17 +1989,24 @@ export default function IntegrationsPage() {
               <select
                 value={apiKeyType}
                 onChange={(e) => {
-                  setApiKeyType(
-                    e.target.value as "openai" | "anthropic" | "gemini",
-                  );
+                  setApiKeyType(e.target.value as UiAiKeyType);
                 }}
                 className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring text-foreground"
               >
-                <option value="anthropic">Anthropic Claude</option>
-                <option value="openai">OpenAI GPT</option>
-                <option value="gemini">Google Gemini</option>
+                {UI_AI_KEY_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {AI_PROVIDER_META[t].option}
+                  </option>
+                ))}
               </select>
             </div>
+            {apiKeyType === "openrouter" && (
+              <OpenRouterModelField
+                fieldId="integration-openrouter-model"
+                value={apiKeyModel}
+                onChange={setApiKeyModel}
+              />
+            )}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
                 API Key
@@ -1921,7 +2015,7 @@ export default function IntegrationsPage() {
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder={`Enter your ${apiKeyType === "anthropic" ? "Anthropic" : apiKeyType === "openai" ? "OpenAI" : "Gemini"} API key`}
+                placeholder={`Enter your ${AI_PROVIDER_META[apiKeyType].vendor} API key`}
                 className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring placeholder:text-muted-foreground text-foreground"
               />
               <p className="text-xs text-muted-foreground">
@@ -1990,6 +2084,7 @@ export default function IntegrationsPage() {
         onOpenChange={(open) => {
           if (!open) {
             setNewApiKey("");
+            setNewApiKeyModel("");
             setNewApiKeyType("anthropic");
           }
           setShowAddModal(open);
@@ -2010,17 +2105,24 @@ export default function IntegrationsPage() {
               <select
                 value={newApiKeyType}
                 onChange={(e) => {
-                  setNewApiKeyType(
-                    e.target.value as "openai" | "anthropic" | "gemini",
-                  );
+                  setNewApiKeyType(e.target.value as UiAiKeyType);
                 }}
                 className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring text-foreground"
               >
-                <option value="anthropic">Anthropic Claude</option>
-                <option value="openai">OpenAI GPT</option>
-                <option value="gemini">Google Gemini</option>
+                {UI_AI_KEY_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {AI_PROVIDER_META[t].option}
+                  </option>
+                ))}
               </select>
             </div>
+            {newApiKeyType === "openrouter" && (
+              <OpenRouterModelField
+                fieldId="new-integration-openrouter-model"
+                value={newApiKeyModel}
+                onChange={setNewApiKeyModel}
+              />
+            )}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
                 API Key
@@ -2029,7 +2131,7 @@ export default function IntegrationsPage() {
                 type="password"
                 value={newApiKey}
                 onChange={(e) => setNewApiKey(e.target.value)}
-                placeholder={`Enter your ${newApiKeyType === "anthropic" ? "Anthropic" : newApiKeyType === "openai" ? "OpenAI" : "Gemini"} API key`}
+                placeholder={`Enter your ${AI_PROVIDER_META[newApiKeyType].vendor} API key`}
                 className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring placeholder:text-muted-foreground text-foreground"
               />
               <p className="text-xs text-muted-foreground">
@@ -2044,6 +2146,7 @@ export default function IntegrationsPage() {
               onClick={() => {
                 setShowAddModal(false);
                 setNewApiKey("");
+                setNewApiKeyModel("");
                 setNewApiKeyType("anthropic");
               }}
             >

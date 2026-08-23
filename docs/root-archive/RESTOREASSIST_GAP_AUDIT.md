@@ -602,3 +602,75 @@ were found in `.planning/` video docs.
   2026-07-09). The brand-logo upload half is still unwired
   (`components/setup/BrandCard.tsx:34`, `TODO(setup-wizard Phase 8+)`) and is in progress
   in a parallel PR.
+- [PASS] **Dashboard AI-provider parity — OpenRouter BYOK (Phase 3, Missing connections
+  medium: "OpenAI & Gemini integrations are 'coming soon' dead options")** — the original
+  finding is **stale and is corrected here**: `app/dashboard/integrations/page.tsx` no longer
+  toasts "coming soon" for AI providers, and Anthropic/OpenAI/Gemini all route for real
+  (`resolveReportProvider` → `callAIProvider`). The gap that *survived* is different and
+  narrower: **OpenRouter was reachable from onboarding but not from the dashboard.** PR #2008
+  added an OpenRouter key + live model picker to the setup wizard's `AiKeyCard`, the
+  `AiProvider` enum, `POST /api/workspace/provider-connections` (incl. the `model` routing
+  slug) and `resolveReportProvider` — but the ongoing-management surface still offered only
+  three providers, so an operator past onboarding could neither add an OpenRouter key nor
+  change their model. This closes that:
+  - **`lib/workspace/ai-key-type.ts`** — `UiAiKeyType` gains `"openrouter"`;
+    `uiAiKeyTypeToProvider` maps it to `OPENROUTER`. Adds `UI_AI_KEY_TYPES` (the list that now
+    drives both pickers), `isUiAiKeyType`, and `uiAiKeyTypeForKey` — the key-prefix table.
+  - **One prefix table, not two.** `providerForKey` (`lib/ai-provider.ts`) now delegates to
+    `uiAiKeyTypeForKey` instead of holding its own copy. The Integrations page is a client
+    component and cannot import `lib/ai-provider.ts` (Prisma + vendor SDKs), so a second copy
+    was the only alternative — and the server copy is the one that decides which vendor a
+    stored key is actually sent to. A drift test asserts the two agree.
+  - **A silent misroute is now refused.** An OpenRouter key and an OpenAI key both begin
+    `sk-`, and BYOK dispatch routes on the *stored enum*, not the key — so saving a key under
+    the wrong provider was silent at save time and surfaced later as an opaque upstream auth
+    failure mid-report. `mismatchedKeyType` blocks only a *confident* disagreement; an
+    unrecognised prefix (proxy key, future format) is never blocked on a guess.
+  - **`components/integrations/OpenRouterModelField.tsx`** — the model field, backed by the
+    live catalogue at `GET /api/workspace/openrouter-models` (no pinned slugs — a hardcoded
+    `qwen/qwen3-…` is a 404 at report time the moment OpenRouter revises it). Every failure
+    path — non-OK, malformed body, network error, 12s client timeout — degrades to the same
+    free-text input, so an OpenRouter outage cannot block adding a key.
+  - **Nine ternaries collapsed into one `AI_PROVIDER_META` table**, which now also derives
+    `AI_INTEGRATION_NAMES`; the picker options, the legacy Integration row name, and the
+    AI-row recogniser can no longer disagree.
+  - **Two defects found in self-review of this diff, before commit:** the narrowing guard used
+    `value in AI_PROVIDER_META`, which walks the prototype chain (`"toString"` would have
+    passed and rendered "Enter your undefined API key") — now a list-membership test; and the
+    refusal copy read "an Gemini key" — the article is now per-vendor.
+  - **Mutation controls — eleven mutants, all killed, sources restored byte-identical
+    (sha256-confirmed).** Five on the lib (prefix order flipped so OpenRouter reads as OpenAI;
+    mismatch always null; `openrouter` mapped to `OPENAI`; mismatch firing on unrecognised
+    prefixes; `providerForKey` given back its own drifted table), four on the component
+    (client abort removed; slug cap removed; non-OK response treated as a catalogue;
+    `unavailable` ignored), two on the offered-provider list. **One initially SURVIVED and is
+    why this list is trustworthy:** dropping `"openrouter"` from `UI_AI_KEY_TYPES` passed
+    everything, because the loops derived their own input from the list under test — a
+    tautology. The list is now pinned literally and that mutant fails three tests.
+  - Verified: `vitest run --config config/vitest.config.js lib/workspace
+    lib/__tests__/ai-provider-routing.test.ts` — **61 passed / 7 files**;
+    `app/api/reports/[id]/synopsis` **4/4**; `eslint -c config/eslint.config.mjs` over all six
+    changed files — **exit 0, zero errors, zero warnings**; full
+    `NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit` — **11 errors, byte-identical to a
+    pristine `origin/main` control worktree sharing the same `node_modules`** (pre-existing;
+    npm nests a second `google-auth-library`). The null result was proven able to fail: an
+    injected type error in the new component took tsc 11 to 12 and named the file.
+    `check:standards`, `check:no-verbatim`, `check:marketing-verbatim`, `check:au-english`,
+    `check:encoding`, `check:spec-docs`, `check:ssot` — **PASS**. `check:no-emoji` and
+    `check:no-lucide` **FAIL identically on the pristine control** — main-wide guard debt in
+    files this PR does not touch.
+  - **Known limitation, stated rather than hidden:** the React component suite cannot execute
+    on `origin/main` at all — the pnpm-to-npm switch dropped `@testing-library/dom`
+    (`npm ls @testing-library/dom` returns empty), so all twelve existing component suites
+    fail to import `render`.
+    `components/integrations/__tests__/OpenRouterModelField.test.tsx` is committed and its 8
+    tests were run **green locally** against a `--no-save` install of that peer, with the
+    mutation controls above; `package.json` and `package-lock.json` were verified
+    byte-identical afterwards. Restoring the peer belongs to the in-flight CI-alignment
+    branch and is deliberately NOT duplicated here — both changes would touch
+    `package-lock.json`.
+  - **Not observed:** no run against a live deployment. The dashboard path is proven by unit
+    tests and by reading the route it POSTs to
+    (`app/api/workspace/provider-connections/route.ts` accepts `OPENROUTER` + `model`) and the
+    consumer that reads it back (`resolveReportProvider` attaches `creds.model` for
+    `OPENROUTER`), not by a browser session with a real OpenRouter key.

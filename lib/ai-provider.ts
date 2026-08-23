@@ -5,6 +5,7 @@ import { prisma } from "./prisma";
 import { tryClaudeModels } from "./anthropic-models";
 import { getOrganizationOwner } from "./organization-credits";
 import { createCachedSystemPrompt } from "./anthropic/features/prompt-cache";
+import { uiAiKeyTypeForKey } from "./workspace/ai-key-type";
 
 export type AIProvider = "anthropic" | "openai" | "gemini" | "openrouter";
 
@@ -26,22 +27,18 @@ export interface AIIntegration {
  * The key itself decides which vendor will accept it, so this can never
  * misroute the way a free-text integration name can. Returns null for an
  * unrecognised format (callers fall back to a name hint as a last resort).
- *   Anthropic:  sk-ant-…
- *   OpenRouter: sk-or-… (checked before OpenAI — an OpenRouter key also starts
- *               with the generic `sk-` prefix, so order is load-bearing here)
- *   OpenAI:     sk-… / sk-proj-…
- *   Google (Gemini): AIza…
+ *
+ * The prefix table itself lives in lib/workspace/ai-key-type.ts — a pure,
+ * client-importable module — because the Integrations page needs the SAME
+ * answer to stop an operator saving a key under the wrong provider, and it
+ * cannot import this file (Prisma + vendor SDKs). One table, no drift. The
+ * direct return is type-checked, not coincidental: adding a UiAiKeyType that
+ * is not an AIProvider fails this assignment at compile time.
  */
 export function providerForKey(
   apiKey: string | null | undefined,
 ): AIProvider | null {
-  if (!apiKey) return null;
-  const k = apiKey.trim();
-  if (k.startsWith("sk-ant-")) return "anthropic";
-  if (k.startsWith("sk-or-")) return "openrouter";
-  if (k.startsWith("AIza")) return "gemini";
-  if (k.startsWith("sk-")) return "openai";
-  return null;
+  return uiAiKeyTypeForKey(apiKey);
 }
 
 /**
