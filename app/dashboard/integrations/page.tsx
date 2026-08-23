@@ -204,6 +204,19 @@ const AI_PROVIDER_META: Record<
 };
 
 /**
+ * The key type a stored AI row's name denotes — the inverse of
+ * `AI_PROVIDER_META[t].name`, which is what this page wrote when the row was
+ * created. Returns null for anything it does not recognise.
+ */
+function keyTypeForIntegrationName(name: string | null | undefined): UiAiKeyType | null {
+  const n = (name ?? "").trim().toLowerCase();
+  return (
+    UI_AI_KEY_TYPES.find((t) => AI_PROVIDER_META[t].name.toLowerCase() === n) ??
+    null
+  );
+}
+
+/**
  * Refusal copy for a key whose own prefix contradicts the selected provider,
  * or null when there is no confident disagreement. Naming both vendors is the
  * point — the operator has to be told WHICH one to switch to.
@@ -762,6 +775,15 @@ export default function IntegrationsPage() {
     setSelectedIntegration(integration);
     setApiKey("");
     setApiKeyModel("");
+    // Seed the picker from THIS row on every open, before the config is even
+    // consulted. Without it the modal keeps whatever provider the previously
+    // opened integration selected, because a row with absent, malformed or
+    // legacy double-encoded config supplies no apiKeyType to overwrite it. The
+    // save would then POST the credential under the stale provider and — since
+    // the PUT now writes the label too — rename this row to match it. The
+    // mismatch guard does not save us: it only fires on a RECOGNISED prefix, so
+    // an enterprise or proxy key would sail through.
+    setApiKeyType(keyTypeForIntegrationName(integration.name) ?? "anthropic");
     if (integration.config) {
       try {
         // Rows written before the double-encoding fix parse back to a STRING,

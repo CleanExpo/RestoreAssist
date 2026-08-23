@@ -744,3 +744,16 @@ were found in `.planning/` video docs.
     worked, and the new model pre-fill would have inherited exactly that. The page now sends
     an object, and the parse narrows to an object first so legacy double-encoded rows fall
     back to the defaults instead of reading properties off a primitive.
+  - **Round-5 independent review (openrouter/openai/gpt-5.6-sol, FAIL, 1xP1) — real, sharp,
+    and made worse by this PR's own round-3 fix; drained.** `handleConnect` reset the key and
+    the model on every open but never the provider, so a row with absent, malformed or legacy
+    double-encoded config left the picker showing whichever provider the PREVIOUSLY opened
+    integration had selected. The save would then POST the credential under that stale
+    provider — and because round 3 made the PUT write the label too, it would also rename the
+    row to match. The mismatch guard is no defence here: it fires only on a RECOGNISED prefix,
+    so an enterprise or proxy key passes straight through. The picker is now seeded from the
+    row itself on every open (`keyTypeForIntegrationName`, the inverse of the
+    `AI_PROVIDER_META` name each row was written with), falling back to `anthropic`, with a
+    valid config still able to override. This is the clearest example in this PR of a review
+    round paying for itself: the amplifying interaction between two of its own changes was
+    invisible from either change alone.
