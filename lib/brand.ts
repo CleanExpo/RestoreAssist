@@ -9,18 +9,17 @@ export const BRAND = {
   description:
     "RestoreAssist is Australia's first Australian-designed full CRM — an Office and Field Management System for the Australian Restoration Industry. Inbuilt IICRC frameworks, WHS policies, and Australian Building Code references remove double-handling between field capture and office processing. Designed in Australia, deployed across Australia and New Zealand.",
   shortDescription:
-    "Australia's first Australian-designed restoration CRM — office and field management with inbuilt IICRC, WHS, and building-code workflows for AU and NZ.",
+    "Helps restoration contractors run jobs with less paperwork and more confidence — from first visit to final report.",
   cta: {
     primary: { label: "Get Started", href: "/signup" },
     secondary: { label: "See How It Works", href: "/how-it-works" },
   },
   meta: {
-    title:
-      "RestoreAssist — Australian Restoration CRM | Field, Reports & Compliance",
+    title: "RestoreAssist — From site to signed report. One system.",
     description:
-      "Australian-designed restoration CRM for office and field. Capture on site, produce IICRC S500 reports, invoice with GST confidence, and get client approvals — one system across Australia and New Zealand.",
+      "Australian restoration software that helps contractors stay organised, cut admin, and deliver professional reports clients and insurers can trust.",
     ogDescription:
-      "One system for Australian restoration: field capture, IICRC-aligned reports, GST invoicing, and client approvals. Built for AU & NZ — fewer gaps, more confidence.",
+      "Restoration software for contractors who want less paperwork and more confidence — from the first site visit to the final report.",
   },
   company: {
     legal: "Restore Assist by Unite-Group Nexus Pty Ltd",

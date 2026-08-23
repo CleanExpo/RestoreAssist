@@ -103,7 +103,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
   twitter: {
     card: "summary_large_image",
-    title: BRAND.name,
+    title: BRAND.meta.title,
     description: BRAND.meta.ogDescription,
   },
   robots: {
