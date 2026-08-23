@@ -30,6 +30,51 @@ const UNAVAILABLE: OpenRouterCatalogue = {
   unavailable: true,
 };
 
+/**
+ * Accept an upstream body only once its shape has actually been checked.
+ *
+ * `res.ok` says nothing about the payload. A proxy, an error page served as
+ * JSON, or a future route change can all return 200 with a body like `{}` —
+ * whose `unavailable` is merely ABSENT, not true. Trusting that would mark the
+ * catalogue available and then dereference `.recommended.length` and
+ * `.models.map`, crashing the modal: the exact opposite of the free-text
+ * degradation this component exists to guarantee. Anything that is not two
+ * arrays of well-formed entries degrades like an outage.
+ */
+function toCatalogue(json: unknown): OpenRouterCatalogue {
+  if (!json || typeof json !== "object") return UNAVAILABLE;
+  const raw = json as Partial<OpenRouterCatalogue>;
+  // The route's own outage payload. Honoured explicitly rather than inferred
+  // from the empty arrays it happens to carry.
+  if (raw.unavailable === true) return UNAVAILABLE;
+
+  // Total by construction — a non-array degrades to no entries rather than
+  // throwing. Entries are rendered as <option> key/value/label, so one missing
+  // a string id would produce a duplicate-key option with an undefined value.
+  const clean = (entries: unknown): CatalogueModel[] =>
+    Array.isArray(entries)
+      ? entries.filter(
+          (m): m is CatalogueModel =>
+            !!m &&
+            typeof m === "object" &&
+            typeof (m as CatalogueModel).id === "string" &&
+            (m as CatalogueModel).id.length > 0 &&
+            typeof (m as CatalogueModel).name === "string",
+        )
+      : [];
+
+  const models = clean(raw.models);
+  // No usable models is not a catalogue — fall back rather than render a picker
+  // whose only choice is the default.
+  if (models.length === 0) return UNAVAILABLE;
+
+  return {
+    recommended: clean(raw.recommended),
+    models,
+    unavailable: false,
+  };
+}
+
 const CONTROL_CLASS =
   "w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring placeholder:text-muted-foreground text-foreground font-mono";
 
@@ -72,8 +117,8 @@ export default function OpenRouterModelField({
 
     fetch("/api/workspace/openrouter-models", { signal: abort.signal })
       .then((res) => (res.ok ? res.json() : null))
-      .then((json: OpenRouterCatalogue | null) => {
-        if (mounted.current) setCatalogue(json ?? UNAVAILABLE);
+      .then((json: unknown) => {
+        if (mounted.current) setCatalogue(toCatalogue(json));
       })
       .catch(() => {
         // Abort, network error, malformed body — all degrade to free text.

@@ -674,3 +674,24 @@ were found in `.planning/` video docs.
     (`app/api/workspace/provider-connections/route.ts` accepts `OPENROUTER` + `model`) and the
     consumer that reads it back (`resolveReportProvider` attaches `creds.model` for
     `OPENROUTER`), not by a browser session with a real OpenRouter key.
+  - **Round-1 independent review (openrouter/openai/gpt-5.6-sol, FAIL, 1xP1) — the finding was
+    real and is drained.** A 200 response was accepted without any shape check: a body such as
+    `{}` has an *absent* `unavailable`, not a true one, so it was stored as an available
+    catalogue and rendering then dereferenced `catalogue.recommended.length` and
+    `catalogue.models.map` — crashing the modal, the exact opposite of the free-text
+    degradation the component exists to guarantee. `toCatalogue` now validates the payload:
+    the server's `unavailable` flag wins outright, entries must carry a non-empty **string**
+    `id` and a string `name`, a non-array degrades to no entries rather than throwing, and a
+    payload yielding zero usable models falls back. Seven new tests cover it.
+  - **Three lessons from the mutation re-sweep after that fix, recorded because each was a
+    control that could not fail:** (a) three mutants initially survived because every
+    malformed input funnelled to the same fallback, so the sub-checks were unobservable —
+    the tests now distinguish a non-OK response *carrying a valid body*, an explicit
+    `unavailable: true` *alongside real models*, and an entry (`{id: ["x"]}`) whose `.length`
+    is truthy but whose id is not a string; (b) `waitFor(() => expect(field.tagName).toBe(
+    "INPUT"))` was **vacuous** — the loading placeholder is itself an `<input>` bound to the
+    same label, so it passed on the first tick, and a `settle()` helper now waits for the
+    loading copy to disappear before any degradation assertion; (c) the mutation harness
+    itself was silently no-op-ing on a non-matching string, so it now asserts the mutant
+    applied before trusting the run. All nine component mutants and all seven lib mutants are
+    killed at the final head, sources restored byte-identical by sha256.
