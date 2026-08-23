@@ -834,6 +834,15 @@ export default function IntegrationsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...selectedIntegration,
+            // The provider picker can CHANGE the row's provider, so the label
+            // has to follow it. Spreading selectedIntegration alone would keep
+            // the old name, leaving a card titled "Anthropic Claude" holding an
+            // OpenRouter key — and the modal's own copy, which is derived from
+            // apiKeyType, disagreeing with the card behind it. Only AI rows
+            // reach here (the list is `aiIntegrations`), so overwriting the
+            // name cannot touch an external provider's row.
+            name: AI_PROVIDER_META[apiKeyType].name,
+            description: AI_PROVIDER_META[apiKeyType].description,
             apiKey,
             config: JSON.stringify(config),
             status: "CONNECTED",

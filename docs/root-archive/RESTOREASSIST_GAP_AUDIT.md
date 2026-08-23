@@ -695,3 +695,19 @@ were found in `.planning/` video docs.
     itself was silently no-op-ing on a non-matching string, so it now asserts the mutant
     applied before trusting the run. All nine component mutants and all seven lib mutants are
     killed at the final head, sources restored byte-identical by sha256.
+  - **Round-2 independent review (ollama/gpt-oss:120b-cloud, FAIL, 1xP1) — defect real,
+    stated consequence wrong; fixed anyway.** The finding quoted a line that does not exist in
+    the diff (a `PATCH` with a hand-written body; the code does a `PUT` spreading
+    `...selectedIntegration`) and claimed a stale `name` would exclude the row from
+    `getIntegrationsForUser`'s `nameContains` filter and make it invisible to report
+    generation. **That consequence does not hold** — "Anthropic Claude" still matches that
+    filter; `getLatestAIIntegration` resolves the vendor from the KEY PREFIX, not the name;
+    and the authoritative BYOK path (`resolveReportProvider`) reads ProviderConnection, which
+    was already being updated correctly. The **underlying defect is real** and is an honesty
+    problem of exactly the kind this audit tracks: switching an existing row's provider left
+    the old label, so a card could read "Anthropic Claude" while holding an OpenRouter key,
+    with the modal's own copy (derived from `apiKeyType`) disagreeing with the card behind it.
+    It is pre-existing — anthropic to openai had the same behaviour — but the surface was
+    already open, so the PUT now carries `name`/`description` from `AI_PROVIDER_META`. Safe
+    because only AI rows reach `handleConnect` (the list is `aiIntegrations`), so an external
+    provider's row can never be renamed by this path.
