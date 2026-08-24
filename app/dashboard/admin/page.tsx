@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import toast from "react-hot-toast";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import {
   Users,
   Building2,
@@ -21,6 +21,7 @@ import {
   Loader2,
   HelpCircle,
   Bot,
+  Lock,
 } from "lucide-react";
 import {
   Card,
@@ -62,13 +63,13 @@ export default function AdminDashboardPage() {
       const res = await fetch("/api/admin/seed-demo", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        toast.success(data.message || "Demo data seeded");
+        notifySuccess(data.message || "Demo data seeded");
         if (data.seeded) fetchStats();
       } else {
-        toast.error(data.error || "Failed to seed demo data");
+        notifyError(data.error || "Failed to seed demo data");
       }
     } catch {
-      toast.error("Network error — seed not run");
+      notifyError("Network error — seed not run");
     } finally {
       setSeeding(false);
     }
@@ -196,16 +197,34 @@ export default function AdminDashboardPage() {
 
       <div className="flex flex-wrap gap-3 text-sm">
         <a
+          href="/dashboard/admin/pilot"
+          className="underline text-cyan-600 dark:text-cyan-400"
+        >
+          NIR Pilot
+        </a>
+        <a
+          href="/dashboard/admin/content-gate"
+          className="underline text-cyan-600 dark:text-cyan-400"
+        >
+          Content Gate
+        </a>
+        <a
+          href="/dashboard/governance"
+          className="underline text-cyan-600 dark:text-cyan-400"
+        >
+          Governance
+        </a>
+        <a
+          href="/dashboard/admin/restoration-insights"
+          className="underline text-cyan-600 dark:text-cyan-400"
+        >
+          Restoration Insights
+        </a>
+        <a
           href="/dashboard/margot/home"
           className="underline text-cyan-600 dark:text-cyan-400"
         >
           Margot
-        </a>
-        <a
-          href="/dashboard/margot/social"
-          className="underline text-cyan-600 dark:text-cyan-400"
-        >
-          Social training
         </a>
         <a
           href="/dashboard/mission-control"
@@ -397,6 +416,24 @@ export default function AdminDashboardPage() {
             >
               <Shield className="h-5 w-5" />
               <span className="text-sm">Governance</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2"
+              onClick={() => router.push("/dashboard/admin/content-gate")}
+            >
+              <Lock className="h-5 w-5" />
+              <span className="text-sm">Content Gate</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2"
+              onClick={() =>
+                router.push("/dashboard/admin/restoration-insights")
+              }
+            >
+              <BarChart2 className="h-5 w-5" />
+              <span className="text-sm">Insights</span>
             </Button>
             <Button
               variant="outline"
