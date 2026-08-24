@@ -168,4 +168,14 @@ describe("free-trial honesty — grant matches advertised copy", () => {
     expect(src).not.toMatch(/creditsRemaining:\s*30\b/);
     expect(src).not.toMatch(/quickFillCreditsRemaining:\s*30\b/);
   });
+
+  it("upgrade-user script stamps Monthly Plan from PRICING_CONFIG (not a free trial)", () => {
+    const src = readSrc("scripts/upgrade-user-package.ts");
+    expect(src).toContain("MONTHLY_PLAN_NAME");
+    expect(src).toContain('subscriptionStatus: "ACTIVE"');
+    expect(src).toContain("subscriptionPlan: MONTHLY_PLAN_NAME");
+    expect(src).toContain("grantAllAddons");
+    expect(src).toContain("ADDON_SKUS");
+    expect(src).not.toMatch(/subscriptionStatus:\s*"TRIAL"/);
+  });
 });
