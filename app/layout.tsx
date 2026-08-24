@@ -10,7 +10,7 @@ import { OG_SHARE_PATH, ogAlt, ogSize } from "@/lib/og/constants";
 import SessionProvider from "@/components/providers/SessionProvider";
 import { CapacitorProvider } from "@/components/providers/CapacitorProvider";
 import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "react-hot-toast";
+import { SafeToaster } from "@/components/providers/SafeToaster";
 import {
   OrganizationSchema,
   SoftwareApplicationSchema,
@@ -192,33 +192,9 @@ export default function RootLayout({
           <ConvaiWidget />
           {/* Daylight floating guide on public pages (hidden on dashboard/portal). */}
           <PublicAssistantOrb />
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: "#1e293b",
-                color: "#f1f5f9",
-                border: "1px solid #334155",
-                borderRadius: "12px",
-                padding: "16px",
-                fontSize: "14px",
-                fontWeight: "500",
-              },
-              success: {
-                iconTheme: {
-                  primary: "#10b981",
-                  secondary: "#f1f5f9",
-                },
-              },
-              error: {
-                iconTheme: {
-                  primary: "#ef4444",
-                  secondary: "#f1f5f9",
-                },
-              },
-            }}
-          />
+          {/* Coerces API error objects so toast.error({code,message,eventId})
+              cannot crash the React tree. */}
+          <SafeToaster />
         </ThemeProvider>
       </body>
     </html>
