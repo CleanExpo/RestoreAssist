@@ -41,6 +41,13 @@ const CRON_JOBS = [
     description: "Syncs invoices with accounting integrations",
     path: "/api/cron/sync-invoices",
   },
+  {
+    id: "override-governance",
+    name: "Override Governance",
+    description:
+      "Monthly M-15 roll-up of SOFT-gap override rates (5% safeguard)",
+    path: "/api/cron/override-governance",
+  },
 ];
 
 const CRON_TRIGGER_FAILURE_ERROR = "Cron job trigger failed";
