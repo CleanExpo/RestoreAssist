@@ -13,7 +13,7 @@ vi.mock("@/lib/admin-auth", () => ({
   verifyAdminFromDb: (...args: unknown[]) => verifyAdminFromDb(...args),
 }));
 
-import { POST } from "../route";
+import { POST, GET } from "../route";
 
 beforeEach(() => {
   getServerSession.mockReset();
@@ -33,6 +33,18 @@ function postRequest(jobId = "cleanup") {
     body: JSON.stringify({ jobId }),
   });
 }
+
+describe("GET /api/admin/cron-jobs", () => {
+  it("lists override-governance for manual M-15 runs", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost/api/admin/cron-jobs"),
+    );
+    const body = await response.json();
+    expect(body.jobs.map((j: { id: string }) => j.id)).toContain(
+      "override-governance",
+    );
+  });
+});
 
 describe("POST /api/admin/cron-jobs", () => {
   it("does not expose cron fetch exception details", async () => {
