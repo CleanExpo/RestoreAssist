@@ -28,6 +28,7 @@ vi.mock("@/lib/prisma", () => ({
 import { GET } from "../route";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { PRICING_CONFIG } from "@/lib/pricing";
 
 function makeRequest() {
   return new NextRequest("http://localhost/api/subscription", {
@@ -120,5 +121,48 @@ describe("GET /api/subscription — dahlia dates (RA-6968/6967)", () => {
     expect(data.subscriptionEndsAt).toBeUndefined();
     expect(data.nextBillingDate).toBeUndefined();
     expect(data.lastBillingDate).toBeUndefined();
+  });
+});
+
+describe("GET /api/subscription — local Monthly Plan grant (no Stripe sub)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "u1", email: "owner@example.com" },
+    } as never);
+  });
+
+  it("returns $99 AUD Monthly Plan for ACTIVE ops upgrades without subscriptionId", async () => {
+    const periodStart = new Date("2026-08-01T00:00:00.000Z");
+    const periodEnd = new Date("2026-09-01T00:00:00.000Z");
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionStatus: "ACTIVE",
+      subscriptionPlan: "Monthly Plan",
+      subscriptionId: null,
+      stripeCustomerId: null,
+      trialEndsAt: null,
+      subscriptionEndsAt: periodEnd,
+      creditsRemaining: 60,
+      totalCreditsUsed: 0,
+      lastBillingDate: periodStart,
+      nextBillingDate: periodEnd,
+    } as never);
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.subscription).toMatchObject({
+      status: "active",
+      cancelAtPeriodEnd: false,
+      plan: {
+        name: PRICING_CONFIG.pricing.monthly.name,
+        amount: Math.round(PRICING_CONFIG.pricing.monthly.amount * 100),
+        currency: "aud",
+        interval: "month",
+      },
+    });
+    expect(body.subscription.plan.amount).toBe(9900);
+    expect(stripeMock.subscriptions.retrieve).not.toHaveBeenCalled();
   });
 });
