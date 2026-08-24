@@ -5,7 +5,8 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Lock, CheckCircle, AlertCircle } from "lucide-react";
-import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 export default function ChangePasswordPage() {
@@ -96,17 +97,25 @@ export default function ChangePasswordPage() {
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        toast.error(data.error || "Failed to change password");
-        if (data.error?.includes("Current password")) {
-          setErrors({ currentPassword: data.error });
+        // One toast only. Never call string methods on data.error — after
+        // RA-1548 it is often { code, message, eventId }, and .includes()
+        // throws into catch which used to fire a second generic toast.
+        const message =
+          apiErrorMessage(data) ?? "Failed to change password";
+        notifyError(message);
+        const lower = message.toLowerCase();
+        if (lower.includes("current password")) {
+          setErrors({ currentPassword: message });
+        } else {
+          setErrors({ newPassword: message });
         }
         return;
       }
 
-      toast.success("Password changed successfully! Redirecting...");
+      notifySuccess("Password changed successfully! Redirecting...");
 
       // Refresh session to update mustChangePassword flag
       setTimeout(() => {
@@ -114,7 +123,7 @@ export default function ChangePasswordPage() {
       }, 1500);
     } catch (error) {
       console.error("Change password error:", error);
-      toast.error("An error occurred. Please try again.");
+      notifyError("An error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
