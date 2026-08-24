@@ -1,6 +1,9 @@
 import { BRAND } from "@/lib/brand";
 import { PRICING_CONFIG } from "@/lib/pricing";
 
+const trialDays = PRICING_CONFIG.free.trialDays;
+const trialReports = PRICING_CONFIG.free.trialReportCredits;
+
 /** Shared marketing home copy — same words on Home 1 / 2 / 3; only layout changes. */
 export const HOME = {
   trust: [
@@ -19,7 +22,7 @@ export const HOME = {
     valueLine: "From site to signed report. One system.",
     support:
       "The Australian restoration CRM that keeps field evidence, IICRC-aligned paperwork, and client approvals on the same record — so the office builds on the job, not beside it.",
-    primaryCta: "Start free — 3 trial reports",
+    primaryCta: `Start free — ${trialDays}-day trial`,
     secondaryCta: "See how it works",
   },
 
@@ -204,11 +207,11 @@ export const HOME = {
     eyebrow: "Start with real work",
     title: "Prove it on your next claim",
     slogan: BRAND.slogan,
-    body: "Start with three trial reports. Produce your first IICRC-aligned restoration report without rewriting the same job twice — then see how office and field stay aligned from capture to client approval.",
-    primaryCta: "Start free — 3 trial reports",
+    body: `Start with a ${trialDays}-day trial and ${trialReports} inspection report credits. Produce your first IICRC-aligned restoration report without rewriting the same job twice — then see how office and field stay aligned from capture to client approval.`,
+    primaryCta: `Start free — ${trialDays}-day trial`,
     secondaryCta: "View pricing",
     reassurances: [
-      "3 complimentary trial reports",
+      `${trialDays}-day trial · ${trialReports} report credits`,
       "Instant setup",
       "24/7 support",
     ] as const,
