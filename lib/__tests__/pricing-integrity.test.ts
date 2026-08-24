@@ -151,4 +151,21 @@ describe("free-trial honesty — grant matches advertised copy", () => {
     expect(src).toContain("freeCfg.trialReportCredits");
     expect(src).not.toMatch(/Free Forever/i);
   });
+
+  it("marketing home CTA copy is sourced from PRICING_CONFIG (no stale '3 trial reports')", () => {
+    const src = readSrc("components/landing/home/homeContent.ts");
+    expect(src).toContain("PRICING_CONFIG.free.trialDays");
+    expect(src).toContain("PRICING_CONFIG.free.trialReportCredits");
+    expect(src).not.toMatch(/3 trial reports/i);
+    expect(src).not.toMatch(/three trial reports/i);
+    expect(src).not.toMatch(/3 complimentary/i);
+  });
+
+  it("OAuth createUser grant matches PRICING_CONFIG (not a hardcoded 30)", () => {
+    const src = readSrc("lib/auth.ts");
+    expect(src).toContain("PRICING_CONFIG.free.trialReportCredits");
+    expect(src).toContain("PRICING_CONFIG.free.trialQuickFillCredits");
+    expect(src).not.toMatch(/creditsRemaining:\s*30\b/);
+    expect(src).not.toMatch(/quickFillCreditsRemaining:\s*30\b/);
+  });
 });
