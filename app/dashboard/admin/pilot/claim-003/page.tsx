@@ -20,7 +20,7 @@
  *   0 = no re-inspection required (single visit was sufficient)
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -80,14 +80,23 @@ export default function Claim003ReInspectionPage() {
   const [batchErrors, setBatchErrors] = useState<string[]>([]);
   const [successCount, setSuccessCount] = useState<number | null>(null);
 
-  // ── Auth guard ──────────────────────────────────────────────────────────────
-  if (status === "loading") return null;
-  if (status === "unauthenticated") {
-    router.push("/login");
-    return null;
-  }
-  if ((session?.user as { role?: string })?.role !== "ADMIN") {
-    router.push("/dashboard");
+  // Segment layout DB-gates ADMIN; client redirect covers stale JWT / logout.
+  useEffect(() => {
+    if (status === "loading") return;
+    if (status === "unauthenticated") {
+      router.replace("/login");
+      return;
+    }
+    if ((session?.user as { role?: string })?.role !== "ADMIN") {
+      router.replace("/dashboard");
+    }
+  }, [status, session, router]);
+
+  if (
+    status === "loading" ||
+    status === "unauthenticated" ||
+    (session?.user as { role?: string })?.role !== "ADMIN"
+  ) {
     return null;
   }
 
