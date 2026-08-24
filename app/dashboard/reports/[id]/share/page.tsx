@@ -15,7 +15,8 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
+import { notifyError, notifySuccess } from "@/lib/notify";
 
 interface Report {
   id: string;
@@ -111,7 +112,7 @@ export default function ReportSharePage() {
     try {
       await navigator.clipboard.writeText(portalUrl);
       setCopied(true);
-      toast.success("Link copied to clipboard!");
+      notifySuccess("Link copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Fallback for browsers without clipboard API
@@ -122,14 +123,14 @@ export default function ReportSharePage() {
       document.execCommand("copy");
       document.body.removeChild(el);
       setCopied(true);
-      toast.success("Link copied to clipboard!");
+      notifySuccess("Link copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
   const handleGenerateLink = async () => {
     if (!report?.clientId) {
-      toast.error(
+      notifyError(
         "This report is not linked to a client. Link a client first to generate a share link.",
       );
       return;
@@ -142,9 +143,10 @@ export default function ReportSharePage() {
         body: JSON.stringify({ clientId: report.clientId }),
       });
       if (res.status === 400) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        const message = apiErrorMessage(data) ?? "Failed to generate link";
         // If invitation already exists, reload
-        if (data.error?.includes("already")) {
+        if (message.toLowerCase().includes("already")) {
           const invRes = await fetch(
             `/api/portal/invitations?clientId=${report.clientId}`,
           );
@@ -157,20 +159,20 @@ export default function ReportSharePage() {
             );
             if (active) {
               setInvitation(active);
-              toast.success("Existing share link loaded!");
+              notifySuccess("Existing share link loaded!");
               return;
             }
           }
         }
-        toast.error(data.error || "Failed to generate link");
+        notifyError(message);
         return;
       }
       if (!res.ok) throw new Error("Failed to generate");
       const data = await res.json();
       setInvitation(data.invitation);
-      toast.success("Share link generated!");
+      notifySuccess("Share link generated!");
     } catch {
-      toast.error("Failed to generate share link. Please try again.");
+      notifyError("Failed to generate share link. Please try again.");
     } finally {
       setGenerating(false);
     }
