@@ -7,7 +7,8 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Lock, Download, BarChart3, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Download, BarChart3, ShieldCheck } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -50,6 +51,7 @@ const BREAKDOWN_LABELS: Record<string, string> = {
 
 export default function RestorationInsightsPage() {
   const { data: session, status } = useSession();
+  const router = useRouter();
   const currentYear = new Date().getUTCFullYear();
   const [year, setYear] = useState(currentYear);
   const [report, setReport] = useState<AnnualReport | null>(null);
@@ -77,13 +79,21 @@ export default function RestorationInsightsPage() {
   }, []);
 
   useEffect(() => {
-    if (status !== "loading" && session?.user?.role === "ADMIN") {
-      void load(year);
+    if (status === "loading") return;
+    if (status === "unauthenticated") {
+      router.replace("/login");
+      return;
     }
-  }, [status, session, year, load]);
+    // Segment layout already DB-gates ADMIN; this is a fast client redirect
+    // for stale JWT roles before the annual-report request fires.
+    if (session?.user?.role !== "ADMIN") {
+      router.replace("/dashboard");
+      return;
+    }
+    void load(year);
+  }, [status, session, year, load, router]);
 
-  // Admin guard — after hooks (rules-of-hooks).
-  if (status === "loading") {
+  if (status === "loading" || session?.user?.role !== "ADMIN") {
     return (
       <div className="p-6 space-y-6">
         <div>
@@ -91,33 +101,11 @@ export default function RestorationInsightsPage() {
             <BarChart3 className="h-6 w-6" aria-hidden="true" />
             Restoration Insights
           </h1>
-          <p className="text-sm text-neutral-500 mt-1">
-            Checking access…
-          </p>
+          <p className="text-sm text-neutral-500 mt-1">Checking access…</p>
         </div>
         <Card>
           <CardContent className="py-10 text-center text-sm text-neutral-500">
             Loading…
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (session?.user?.role !== "ADMIN") {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Card className="w-full max-w-sm">
-          <CardContent className="flex flex-col items-center gap-4 pt-8 pb-8">
-            <div className="p-4 rounded-full bg-red-500/10">
-              <Lock className="h-8 w-8 text-destructive" />
-            </div>
-            <div className="text-center">
-              <h2 className="text-lg font-semibold">Access Denied</h2>
-              <p className="text-sm text-neutral-500 mt-1">
-                This page is restricted to administrators.
-              </p>
-            </div>
           </CardContent>
         </Card>
       </div>
