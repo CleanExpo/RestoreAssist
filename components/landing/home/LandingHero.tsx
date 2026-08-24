@@ -5,8 +5,6 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { BRAND } from "@/lib/brand";
 import {
-  CTA_ON_DARK_PRIMARY,
-  CTA_ON_DARK_SECONDARY,
   FONT_DISPLAY,
   fadeUp,
   fadeUpSoft,
@@ -36,7 +34,7 @@ export function LandingHero() {
           className="absolute inset-0"
         >
           <Image
-            src="/landing/hero-water-inspection.jpg"
+            src="/landing/hero-flooded-home.jpg"
             alt="RestoreAssist technician extracting floodwater from a water-filled home during active restoration"
             fill
             priority
@@ -109,13 +107,13 @@ export function LandingHero() {
             >
               <Link
                 href={BRAND.cta.primary.href}
-                className={CTA_ON_DARK_PRIMARY}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-7 py-3.5 text-[15px] font-semibold tracking-tight text-[#0B1F3A] shadow-[0_1px_2px_rgba(11,31,58,0.12),0_8px_24px_rgba(11,31,58,0.18)] transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-[#F0F3F6] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]"
               >
                 {HOME.hero.primaryCta}
               </Link>
               <Link
                 href={BRAND.cta.secondary.href}
-                className={CTA_ON_DARK_SECONDARY}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/55 bg-[#0B1F3A]/55 px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white backdrop-blur-sm transition-[background-color,border-color,transform] duration-200 ease-out hover:border-white/80 hover:bg-[#0B1F3A]/75 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]"
               >
                 {HOME.hero.secondaryCta}
               </Link>
