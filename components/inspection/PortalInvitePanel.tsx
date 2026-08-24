@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Link2, Send, CheckCircle, Info, Loader2 } from "lucide-react";
-import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 interface Client {
@@ -42,7 +43,7 @@ export default function PortalInvitePanel({
 
   const handleSendInvite = async () => {
     if (!selectedClientId) {
-      toast.error("Please select a client");
+      notifyError("Please select a client");
       return;
     }
     setSending(true);
@@ -55,19 +56,23 @@ export default function PortalInvitePanel({
           message: message || undefined,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setInviteStatus("sent");
-        toast.success(`Portal invite sent to ${selectedClient?.name}`);
-      } else if (data.error?.includes("already has portal access")) {
-        setInviteStatus("existing_access");
-      } else if (data.error?.includes("Active invitation already exists")) {
-        setInviteStatus("pending");
+        notifySuccess(`Portal invite sent to ${selectedClient?.name}`);
       } else {
-        toast.error(data.error || "Failed to send invite");
+        const message = apiErrorMessage(data) ?? "Failed to send invite";
+        const lower = message.toLowerCase();
+        if (lower.includes("already has portal access")) {
+          setInviteStatus("existing_access");
+        } else if (lower.includes("active invitation already exists")) {
+          setInviteStatus("pending");
+        } else {
+          notifyError(message);
+        }
       }
     } catch {
-      toast.error("Failed to send invite");
+      notifyError("Failed to send invite");
     } finally {
       setSending(false);
     }
