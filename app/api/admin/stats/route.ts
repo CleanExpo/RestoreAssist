@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
       totalReports,
       reportsThisMonth,
       dbHealth,
+      connectedIntegrations,
+      erroredIntegrations,
     ] = await Promise.all([
       // Total users
       prisma.user.count(),
@@ -68,7 +70,17 @@ export async function GET(request: NextRequest) {
         .$queryRaw(Prisma.sql`SELECT 1 as health`)
         .then(() => "healthy" as const)
         .catch(() => "down" as const),
+
+      prisma.integration.count({ where: { status: "CONNECTED" } }),
+      prisma.integration.count({ where: { status: "ERROR" } }),
     ]);
+
+    const integrationsHealth =
+      erroredIntegrations > 0
+        ? ("degraded" as const)
+        : connectedIntegrations > 0
+          ? ("healthy" as const)
+          : ("healthy" as const);
 
     return NextResponse.json({
       totalUsers,
@@ -79,8 +91,13 @@ export async function GET(request: NextRequest) {
       reportsThisMonth,
       systemHealth: {
         database: dbHealth,
+        // Process is serving this request — API is up for the admin path.
         api: "healthy" as const,
-        integrations: "healthy" as const,
+        integrations: integrationsHealth,
+      },
+      integrationCounts: {
+        connected: connectedIntegrations,
+        errored: erroredIntegrations,
       },
     });
   } catch (error) {
