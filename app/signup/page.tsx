@@ -19,8 +19,8 @@ import {
   ExternalLink,
   Key,
 } from "lucide-react";
-import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { MarketingShell } from "@/components/landing/home";
 import { CONTAINER, FONT_DISPLAY } from "@/components/landing/home/motion";
@@ -121,8 +121,7 @@ export default function SignupPage() {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success("Account created successfully!");
-        // Auto sign in after successful registration
+        // Auto sign in after successful registration — one success toast only.
         const result = await signIn("credentials", {
           email,
           password,
@@ -131,11 +130,11 @@ export default function SignupPage() {
         });
 
         if (result?.ok) {
-          toast.success("Welcome to RestoreAssist!");
+          notifySuccess("Welcome to RestoreAssist!");
           // Redirect to dashboard with welcome param so we show personalization popup
           window.location.href = "/dashboard?welcome=1";
         } else {
-          toast.error("Please sign in manually");
+          notifyError("Account created — please sign in to continue");
           // Send to login with callbackUrl=dashboard so after login they land on dashboard
           setTimeout(() => {
             window.location.href =
@@ -143,10 +142,14 @@ export default function SignupPage() {
           }, 1000);
         }
       } else {
-        setError(apiErrorMessage(data) ?? "Registration failed");
+        const message = apiErrorMessage(data) ?? "Registration failed";
+        setError(message);
+        notifyError(message);
       }
     } catch (error) {
-      setError("An error occurred. Please try again.");
+      const message = "An error occurred. Please try again.";
+      setError(message);
+      notifyError(message);
     } finally {
       setIsLoading(false);
     }
@@ -160,8 +163,9 @@ export default function SignupPage() {
       // instead of bouncing to Safari proper. Web behaviour unchanged.
       await signInWithOAuth("google", { callbackUrl: "/dashboard?welcome=1" });
     } catch (error: any) {
-      setError("Google sign-in failed. Please try again.");
-      toast.error("Google sign-in failed. Please try again.");
+      const message = "Google sign-in failed. Please try again.";
+      setError(message);
+      notifyError(message);
       setIsLoading(false);
     }
   };
@@ -173,8 +177,9 @@ export default function SignupPage() {
     try {
       await signInWithOAuth("apple", { callbackUrl: "/dashboard?welcome=1" });
     } catch (error: any) {
-      setError("Apple sign-in failed. Please try again.");
-      toast.error("Apple sign-in failed. Please try again.");
+      const message = "Apple sign-in failed. Please try again.";
+      setError(message);
+      notifyError(message);
       setIsLoading(false);
     }
   };
