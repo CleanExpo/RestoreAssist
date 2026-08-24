@@ -179,7 +179,7 @@ function PricingPageContent() {
             initial={armed && !reduce ? "hidden" : false}
             whileInView="visible"
             viewport={VIEWPORT}
-            className="grid gap-6 md:grid-cols-3 md:gap-8"
+            className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2 md:gap-8"
           >
             {allPlans.map((plan) => (
               <motion.article
