@@ -12,11 +12,9 @@
  * to VALIDATED. See lib/nir-content-gate.ts and docs/CONTENT-GATE.md.
  */
 
-import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { NirContentGateDashboard } from "@/components/nir-content-gate-status";
 import { Lock, ArrowLeft, ExternalLink } from "lucide-react";
+import Link from "next/link";
 
 export const metadata = {
   title: "NIR Content Gate — Admin | RestoreAssist",
@@ -24,28 +22,21 @@ export const metadata = {
     "Evidence-based publication gate status for NIR customer-facing content domains.",
 };
 
-export default async function ContentGatePage() {
-  const session = await getServerSession(authOptions);
-
-  // Server-side auth guard — redirect unauthenticated or non-admin users
-  if (!session?.user) {
-    redirect("/login");
-  }
-  if ((session.user as { role?: string }).role !== "ADMIN") {
-    redirect("/dashboard");
-  }
-
+/**
+ * Auth: segment layout (`app/dashboard/admin/layout.tsx`) runs requireAdminPage().
+ */
+export default function ContentGatePage() {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       {/* Header */}
       <div>
-        <a
-          href="/dashboard/admin/pilot"
+        <Link
+          href="/dashboard/admin"
           className="inline-flex items-center gap-1.5 text-xs text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 mb-4 transition-colors"
         >
           <ArrowLeft size={12} />
-          Back to pilot dashboard
-        </a>
+          Back to Admin
+        </Link>
 
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
