@@ -6,6 +6,7 @@ import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { syncRecurringAddonsFromStripe } from "@/lib/billing/fulfill-recurring-addon";
+import { resolveLocalSubscriptionPlanDisplay } from "@/lib/pricing";
 
 export async function GET(request: NextRequest) {
   try {
@@ -128,7 +129,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Return database subscription data
+    // Return database subscription data (manual upgrades / offline grants).
+    // Amount comes from PRICING_CONFIG so the Subscription page shows $99 AUD
+    // for "Monthly Plan" — never a silent $0 that looks like free.
+    const localPlan = resolveLocalSubscriptionPlanDisplay(user.subscriptionPlan);
     return NextResponse.json({
       subscription:
         user.subscriptionStatus != null && user.subscriptionStatus !== "TRIAL"
@@ -143,10 +147,10 @@ export async function GET(request: NextRequest) {
                 : null,
               cancelAtPeriodEnd: user.subscriptionStatus === "CANCELED",
               plan: {
-                name: user.subscriptionPlan || "Subscription",
-                amount: 0,
-                currency: "AUD",
-                interval: "month",
+                name: localPlan.name,
+                amount: localPlan.amountCents,
+                currency: localPlan.currency,
+                interval: localPlan.interval,
               },
             }
           : null,
