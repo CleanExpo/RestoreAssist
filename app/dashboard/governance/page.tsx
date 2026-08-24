@@ -8,9 +8,6 @@
  * override-rate roll-up. Breaches (>5%) flag for re-classification.
  */
 
-import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getGate } from "@/lib/progress/gate-policy";
 
@@ -25,13 +22,11 @@ interface Props {
   searchParams: Promise<{ month?: string }>;
 }
 
+/**
+ * Auth: `app/dashboard/governance/layout.tsx` runs requireAdminPage()
+ * (DB-revalidated ADMIN) before this page's Prisma reads.
+ */
 export default async function GovernancePage({ searchParams }: Props) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) redirect("/login");
-  if ((session.user as { role?: string }).role !== "ADMIN") {
-    redirect("/dashboard");
-  }
-
   const params = await searchParams;
   const requestedMonth = parseYearMonth(params.month);
 
@@ -95,11 +90,26 @@ export default async function GovernancePage({ searchParams }: Props) {
       ) : null}
 
       {reports.length === 0 ? (
-        <div className="rounded border p-6 text-sm text-muted-foreground">
-          No override-governance reports yet for this month. The cron populates
-          this on the 1st of each month from ProgressTransition.softGaps (M-14).
-          Until M-14 SOFT-gap reporting flows through real transitions, this
-          surface stays empty.
+        <div className="rounded border p-6 text-sm text-muted-foreground space-y-2">
+          <p>
+            No override-governance reports yet for this month. The monthly cron
+            (`/api/cron/override-governance`, 01:00 UTC on the 1st) aggregates
+            ProgressTransition.softGaps into this board.
+          </p>
+          <p>
+            Until M-14 SOFT-gap reporting flows through real transitions, this
+            surface stays empty even after the cron runs.
+          </p>
+          <p>
+            Admins can also trigger a manual run from{" "}
+            <a
+              href="/dashboard/admin/cron-jobs"
+              className="underline text-foreground hover:no-underline"
+            >
+              Cron Jobs
+            </a>
+            .
+          </p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-md border">
