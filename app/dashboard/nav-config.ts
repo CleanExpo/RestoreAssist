@@ -96,6 +96,20 @@ export const simpleNavItems: NavItem[] = [
 ];
 
 /**
+ * Admin destinations shown whenever role === ADMIN — including Simple mode.
+ * Without this, admins stuck in APPRENTICE never see Admin / Margot / etc.
+ * Icons are filled in by DashboardShell (this module only owns href/label).
+ */
+export const ADMIN_NAV_HREFS = [
+  { label: "Admin", href: "/dashboard/admin" },
+  { label: "NIR Pilot", href: "/dashboard/admin/pilot" },
+  { label: "Content Gate", href: "/dashboard/admin/content-gate" },
+  { label: "Governance", href: "/dashboard/governance" },
+  { label: "Restoration Insights", href: "/dashboard/admin/restoration-insights" },
+  { label: "Margot", href: "/dashboard/margot/home" },
+] as const;
+
+/**
  * Build the ADVANCED-mode grouped nav from the flat list the layout already
  * computes (which carries role/billing/admin gating). Every item from the flat
  * list is placed into exactly one labelled group; any item that doesn't match a
