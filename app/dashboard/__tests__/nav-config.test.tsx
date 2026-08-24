@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildAdvancedNavGroups,
   simpleNavItems,
+  ADMIN_NAV_HREFS,
   type NavItem,
 } from "../nav-config";
 import {
@@ -24,6 +25,17 @@ describe("dashboard nav — create-report gate href", () => {
     const makeReport = simpleNavItems.find((i) => i.highlight);
     expect(makeReport?.href).toBe("/dashboard/reports/new");
     expect(makeReport?.label).toBe("Make a Report");
+  });
+
+  it("lists the six Admin destinations for Simple-mode admin append", () => {
+    expect(ADMIN_NAV_HREFS.map((i) => i.href)).toEqual([
+      "/dashboard/admin",
+      "/dashboard/admin/pilot",
+      "/dashboard/admin/content-gate",
+      "/dashboard/governance",
+      "/dashboard/admin/restoration-insights",
+      "/dashboard/margot/home",
+    ]);
   });
 
   it("groups WHS, Claims, and Cost Libraries when present in the flat list", () => {
