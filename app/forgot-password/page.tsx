@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import {
   Mail,
   Lock,
@@ -15,7 +16,6 @@ import {
   EyeOff,
   ShieldCheck,
 } from "lucide-react";
-import toast from "react-hot-toast";
 
 function ForgotPasswordForm() {
   const [step, setStep] = useState<"email" | "code" | "password">("email");
@@ -53,23 +53,25 @@ function ForgotPasswordForm() {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success(
+        notifySuccess(
           "If an account exists, a verification code has been generated.",
         );
         setStep("code");
       } else if (response.status === 429) {
-        setError("Too many attempts. Please try again later.");
-        toast.error("Too many attempts. Please try again later.");
+        const message = "Too many attempts. Please try again later.";
+        setError(message);
+        notifyError(message);
       } else {
         // Show generic message to prevent email enumeration
-        toast.success(
+        notifySuccess(
           "If an account exists, a verification code has been generated.",
         );
         setStep("code");
       }
     } catch (error) {
-      setError("An error occurred. Please try again.");
-      toast.error("An error occurred. Please try again.");
+      const message = "An error occurred. Please try again.";
+      setError(message);
+      notifyError(message);
     } finally {
       setIsLoading(false);
     }
@@ -103,22 +105,26 @@ function ForgotPasswordForm() {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success("Password reset successfully! Redirecting to login...");
+        notifySuccess("Password reset successfully! Redirecting to login...");
         setTimeout(() => {
           router.push("/login");
         }, 1500);
       } else {
-        setError(apiErrorMessage(data) ?? "Failed to reset password");
-        toast.error(data.error || "Failed to reset password");
+        const message =
+          apiErrorMessage(data) ?? "Failed to reset password";
+        setError(message);
+        notifyError(message);
         // If code was invalid/expired, go back to code step
-        if (data.error?.includes("code") || data.error?.includes("expired")) {
+        const lower = message.toLowerCase();
+        if (lower.includes("code") || lower.includes("expired")) {
           setCode("");
         }
         setIsLoading(false);
       }
     } catch (error) {
-      setError("An error occurred. Please try again.");
-      toast.error("An error occurred. Please try again.");
+      const message = "An error occurred. Please try again.";
+      setError(message);
+      notifyError(message);
       setIsLoading(false);
     }
   };
