@@ -102,6 +102,28 @@ export const CTA_SECONDARY = [
   FOCUS,
 ].join(" ");
 
+/** Hero CTAs on dark photo wash — no conflicting text-white / text-navy pairs. */
+export const CTA_ON_DARK_PRIMARY = [
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl",
+  "bg-white px-7 py-3.5 text-[15px] font-semibold tracking-tight text-[#0B1F3A]",
+  "shadow-[0_1px_2px_rgba(11,31,58,0.12),0_8px_24px_rgba(11,31,58,0.18)]",
+  "transition-[background-color,box-shadow,transform] duration-200 ease-out",
+  "hover:bg-[#F0F3F6] hover:shadow-[0_2px_4px_rgba(11,31,58,0.12),0_12px_28px_rgba(11,31,58,0.2)]",
+  "active:scale-[0.985]",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]",
+].join(" ");
+
+export const CTA_ON_DARK_SECONDARY = [
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl",
+  "border border-white/55 bg-[#0B1F3A]/45 px-7 py-3.5 backdrop-blur-sm",
+  "text-[15px] font-semibold tracking-tight text-white",
+  "shadow-[0_1px_2px_rgba(0,0,0,0.2)]",
+  "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out",
+  "hover:border-white/80 hover:bg-[#0B1F3A]/65",
+  "active:scale-[0.985]",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]",
+].join(" ");
+
 export const SURFACE =
   "rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
 

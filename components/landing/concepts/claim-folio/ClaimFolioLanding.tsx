@@ -7,6 +7,8 @@ import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
 import { BRAND } from "@/lib/brand";
 import { HOME, getHomeFaqs } from "@/components/landing/home/homeContent";
 import {
+  CTA_ON_DARK_PRIMARY,
+  CTA_ON_DARK_SECONDARY,
   CTA_PRIMARY,
   CTA_SECONDARY,
   FONT_DISPLAY,
@@ -28,7 +30,7 @@ const SECTIONS = [
 
 /**
  * Home 2 — Claim Spine
- * Diagonal paper cut over field photography. Persistent folio index.
+ * Full-bleed water-inspection photography with claim folio index.
  * Ruled typography, oversized numerals, continuous left spine.
  */
 export function ClaimFolioLanding() {
@@ -92,46 +94,31 @@ export function ClaimFolioLanding() {
         ))}
       </nav>
 
-      {/* ── HERO: diagonal paper cut ── */}
+      {/* ── HERO: full-bleed water inspection photography ── */}
       <section className="relative min-h-[100dvh] overflow-hidden pt-[4.25rem]">
         <motion.div
-          initial={reduce ? false : { scale: 1.12, opacity: 0.6 }}
+          initial={reduce ? false : { scale: 1.08, opacity: 0.55 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 1.6, ease: EASE_OUT }}
+          transition={{ duration: 1.5, ease: EASE_OUT }}
           className="absolute inset-0"
         >
           <Image
-            src="/landing/field-capture.jpg"
-            alt="Restoration technician documenting a water damage claim on site"
+            src="/landing/hero-water-inspection.jpg"
+            alt="RestoreAssist technician extracting floodwater from a water-filled home during active restoration"
             fill
             priority
             sizes="100vw"
-            className="object-cover object-[center_28%]"
+            className="object-cover object-[42%_55%]"
           />
         </motion.div>
 
-        {/* Diagonal paper plane — unique geometry */}
+        {/* Full-frame readability wash — photo stays edge-to-edge */}
         <div
-          className="absolute inset-0 bg-[#F0F3F6]"
-          style={{
-            clipPath: "polygon(0 0, 62% 0, 38% 100%, 0 100%)",
-          }}
+          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0B1F3A]/90 via-[#0B1F3A]/50 to-[#0B1F3A]/20 sm:via-[#0B1F3A]/42 sm:to-transparent"
           aria-hidden
         />
         <div
-          className="absolute inset-0 hidden bg-[#F0F3F6] lg:block"
-          style={{
-            clipPath: "polygon(0 0, 58% 0, 42% 100%, 0 100%)",
-          }}
-          aria-hidden
-        />
-        {/* Soft edge glow along the cut */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-80"
-          style={{
-            background:
-              "linear-gradient(115deg, transparent 36%, rgba(59,109,140,0.12) 48%, transparent 58%)",
-          }}
+          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0B1F3A]/70 via-transparent to-[#0B1F3A]/35"
           aria-hidden
         />
 
@@ -143,7 +130,7 @@ export function ClaimFolioLanding() {
               initial={reduce ? false : { opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.08 }}
-              className={`${FONT_DISPLAY} text-[15px] font-semibold tracking-[-0.01em] text-[#0B1F3A] sm:text-base`}
+              className={`${FONT_DISPLAY} text-[15px] font-semibold tracking-[-0.01em] text-white sm:text-base`}
             >
               {HOME.hero.brand}
             </motion.p>
@@ -154,8 +141,8 @@ export function ClaimFolioLanding() {
               transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.16 }}
               className="mt-5 flex items-center gap-3"
             >
-              <span className="h-px w-12 bg-[#3B6D8C]" aria-hidden />
-              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]">
+              <span className="h-px w-12 bg-[#7BA3BD]" aria-hidden />
+              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#A8C5D8]">
                 {HOME.hero.eyebrow}
               </p>
             </motion.div>
@@ -164,7 +151,7 @@ export function ClaimFolioLanding() {
               initial={reduce ? false : { opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, ease: EASE_OUT, delay: 0.26 }}
-              className={`${FONT_DISPLAY} mt-6 text-[clamp(2rem,5.2vw,3.4rem)] font-bold leading-[1.06] tracking-[-0.035em] text-[#0B1F3A]`}
+              className={`${FONT_DISPLAY} mt-6 text-[clamp(2rem,5.2vw,3.4rem)] font-bold leading-[1.06] tracking-[-0.035em] text-white`}
             >
               {HOME.hero.headline}
             </motion.h1>
@@ -173,7 +160,7 @@ export function ClaimFolioLanding() {
               initial={reduce ? false : { opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.38 }}
-              className={`${FONT_DISPLAY} mt-5 text-[1.1rem] font-medium text-[#16345A] sm:text-[1.25rem]`}
+              className={`${FONT_DISPLAY} mt-5 text-[1.1rem] font-medium text-white/90 sm:text-[1.25rem]`}
             >
               {HOME.hero.valueLine}
             </motion.p>
@@ -182,7 +169,7 @@ export function ClaimFolioLanding() {
               initial={reduce ? false : { opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.46 }}
-              className="mt-5 max-w-[28rem] text-[14.5px] leading-[1.75] text-slate-600 sm:text-[15.5px]"
+              className="mt-5 max-w-[28rem] text-[14.5px] leading-[1.75] text-white/75 sm:text-[15.5px]"
             >
               {HOME.hero.support}
             </motion.p>
@@ -193,26 +180,32 @@ export function ClaimFolioLanding() {
               transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.54 }}
               className="mt-9 flex flex-col gap-3 sm:flex-row"
             >
-              <Link href={BRAND.cta.primary.href} className={CTA_PRIMARY}>
+              <Link
+                href={BRAND.cta.primary.href}
+                className={CTA_ON_DARK_PRIMARY}
+              >
                 {HOME.hero.primaryCta}
               </Link>
-              <Link href={BRAND.cta.secondary.href} className={CTA_SECONDARY}>
+              <Link
+                href={BRAND.cta.secondary.href}
+                className={CTA_ON_DARK_SECONDARY}
+              >
                 {HOME.hero.secondaryCta}
               </Link>
             </motion.div>
           </div>
         </div>
 
-        {/* Trust etched into the photo edge */}
-        <div className="absolute right-0 bottom-0 left-0 lg:left-[42%]">
+        {/* Trust over the full photo */}
+        <div className="absolute right-0 bottom-0 left-0">
           <ul
-            className="flex flex-wrap gap-x-6 gap-y-2 bg-gradient-to-t from-[#0B1F3A]/75 to-transparent px-5 py-5 sm:px-8 lg:justify-end lg:pr-[max(1.25rem,calc((100vw-80%)/2))]"
+            className={`${CONTAINER} flex flex-wrap gap-x-6 gap-y-2 py-5 sm:justify-start lg:justify-end`}
             aria-label="Compliance standards and coverage"
           >
             {HOME.trust.map((item) => (
               <li
                 key={item}
-                className={`${FONT_DISPLAY} text-[10px] font-semibold uppercase tracking-[0.16em] text-white/85`}
+                className={`${FONT_DISPLAY} text-[10px] font-semibold uppercase tracking-[0.16em] text-white/80`}
               >
                 {item}
               </li>

@@ -61,12 +61,12 @@ export function OperatorAtlasLanding() {
           className="absolute inset-0 bottom-[22%] sm:bottom-[26%]"
         >
           <Image
-            src="/landing/hero-workshop.jpg"
-            alt="Daylight restoration workshop ready for the next claim"
+            src="/landing/hero-water-inspection.jpg"
+            alt="Restoration inspector measuring moisture in a water-damaged residential kitchen"
             fill
             priority
             sizes="100vw"
-            className="object-cover object-[center_40%]"
+            className="object-cover object-[68%_40%]"
           />
         </motion.div>
 
@@ -567,11 +567,11 @@ export function OperatorAtlasLanding() {
       {/* ── CLOSE: quiet title card ── */}
       <section className="relative min-h-[80dvh] overflow-hidden">
         <Image
-          src="/landing/hero-workshop.jpg"
+          src="/landing/hero-water-inspection.jpg"
           alt=""
           fill
           sizes="100vw"
-          className="object-cover object-[center_50%] opacity-40"
+          className="object-cover object-[68%_50%] opacity-40"
         />
         <div
           className="absolute inset-0 bg-gradient-to-t from-[#FAFBFC] via-[#FAFBFC]/90 to-[#FAFBFC]/70"

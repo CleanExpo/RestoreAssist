@@ -5,8 +5,8 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { BRAND } from "@/lib/brand";
 import {
-  CTA_PRIMARY,
-  CTA_SECONDARY,
+  CTA_ON_DARK_PRIMARY,
+  CTA_ON_DARK_SECONDARY,
   FONT_DISPLAY,
   fadeUp,
   fadeUpSoft,
@@ -20,61 +20,51 @@ import { useLandingReduceMotion } from "./useLandingReduceMotion";
 import { HOME } from "./homeContent";
 
 /**
- * Home 1 hero — "Dawn Split"
- * Left: mist paper typography plane. Right: full-height photographic plane.
- * Not a card, not a centered stack — an asymmetric first composition.
+ * Home 1 hero — full-bleed water damage inspection photography.
+ * Soft left wash keeps headline/CTA readable over the kitchen scene.
  */
 export function LandingHero() {
   const reduce = useLandingReduceMotion();
 
   return (
     <section className="relative pt-[4.25rem]">
-      <div className="relative min-h-[min(92dvh,56rem)] overflow-hidden bg-[#F3F5F7]">
-        {/* Photographic plane — right half on desktop, full bleed under wash on mobile */}
+      <div className="relative min-h-[min(92dvh,56rem)] overflow-hidden bg-[#0B1F3A]">
         <motion.div
           initial={reduce ? false : { opacity: 0, scale: 1.06 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1.2, ease: EASE_OUT }}
-          className="absolute inset-0 lg:left-[46%]"
+          className="absolute inset-0"
         >
           <Image
-            src="/landing/hero-workshop.jpg"
-            alt="Daylight restoration workshop with tools and equipment ready for the next job"
+            src="/landing/hero-water-inspection.jpg"
+            alt="RestoreAssist technician extracting floodwater from a water-filled home during active restoration"
             fill
             priority
-            sizes="(min-width: 1024px) 54vw, 100vw"
-            className="object-cover object-[center_38%]"
+            sizes="100vw"
+            className="object-cover object-[42%_55%]"
           />
-          {/* Soft edge into mist on desktop */}
           <div
-            className="pointer-events-none absolute inset-y-0 left-0 hidden w-32 bg-gradient-to-r from-[#F3F5F7] to-transparent lg:block"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0B1F3A]/90 via-[#0B1F3A]/50 to-[#0B1F3A]/20 sm:via-[#0B1F3A]/42 sm:to-transparent"
             aria-hidden
           />
-          {/* Mobile readability wash */}
           <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#F3F5F7] via-[#F3F5F7]/88 to-[#F3F5F7]/35 lg:hidden"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0B1F3A]/65 via-transparent to-[#0B1F3A]/30"
             aria-hidden
           />
         </motion.div>
 
-        {/* Quiet atmospheric grain on mist side */}
         <div
-          className="pointer-events-none absolute inset-0 hidden bg-[radial-gradient(ellipse_80%_60%_at_10%_40%,rgba(59,109,140,0.07),transparent_55%)] lg:block"
-          aria-hidden
-        />
-
-        <div
-          className={`${CONTAINER} relative grid min-h-[min(92dvh,56rem)] items-center py-20 sm:py-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:py-28`}
+          className={`${CONTAINER} relative grid min-h-[min(92dvh,56rem)] items-center py-20 sm:py-24 lg:py-28`}
         >
           <motion.div
             variants={staggerContainer}
             initial={reduce ? false : "hidden"}
             animate="visible"
-            className="relative z-10 max-w-[38rem] lg:pr-8"
+            className="relative z-10 max-w-[38rem]"
           >
             <motion.p
               variants={fadeUp}
-              className={`${FONT_DISPLAY} text-[15px] font-semibold tracking-[-0.01em] text-[#0B1F3A] sm:text-base`}
+              className={`${FONT_DISPLAY} text-[15px] font-semibold tracking-[-0.01em] text-white sm:text-base`}
             >
               {HOME.hero.brand}
             </motion.p>
@@ -84,31 +74,31 @@ export function LandingHero() {
               className="mt-5 flex items-center gap-3"
             >
               <span
-                className="h-px w-10 shrink-0 bg-[#3B6D8C]/80"
+                className="h-px w-10 shrink-0 bg-[#7BA3BD]/90"
                 aria-hidden
               />
-              <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#3B6D8C]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#A8C5D8]">
                 {HOME.hero.eyebrow}
               </p>
             </motion.div>
 
             <motion.h1
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mt-6 text-[clamp(2rem,5vw,3.35rem)] font-bold leading-[1.06] tracking-[-0.035em] text-[#0B1F3A]`}
+              className={`${FONT_DISPLAY} mt-6 text-[clamp(2rem,5vw,3.35rem)] font-bold leading-[1.06] tracking-[-0.035em] text-white`}
             >
               {HOME.hero.headline}
             </motion.h1>
 
             <motion.p
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mt-6 text-[1.15rem] font-medium leading-snug tracking-[-0.02em] text-[#16345A] sm:text-[1.3rem]`}
+              className={`${FONT_DISPLAY} mt-6 text-[1.15rem] font-medium leading-snug tracking-[-0.02em] text-white/90 sm:text-[1.3rem]`}
             >
               {HOME.hero.valueLine}
             </motion.p>
 
             <motion.p
               variants={fadeUp}
-              className="mt-5 max-w-[30rem] text-[15px] leading-[1.75] text-slate-600 sm:text-[16px]"
+              className="mt-5 max-w-[30rem] text-[15px] leading-[1.75] text-white/75 sm:text-[16px]"
             >
               {HOME.hero.support}
             </motion.p>
@@ -117,21 +107,23 @@ export function LandingHero() {
               variants={fadeUp}
               className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center"
             >
-              <Link href={BRAND.cta.primary.href} className={CTA_PRIMARY}>
+              <Link
+                href={BRAND.cta.primary.href}
+                className={CTA_ON_DARK_PRIMARY}
+              >
                 {HOME.hero.primaryCta}
               </Link>
-              <Link href={BRAND.cta.secondary.href} className={CTA_SECONDARY}>
+              <Link
+                href={BRAND.cta.secondary.href}
+                className={CTA_ON_DARK_SECONDARY}
+              >
                 {HOME.hero.secondaryCta}
               </Link>
             </motion.div>
           </motion.div>
-
-          {/* Desktop spacer keeps photo plane readable */}
-          <div className="hidden lg:block" aria-hidden />
         </div>
       </div>
 
-      {/* Trust — hairline paper rail */}
       <div className="border-y border-slate-200/90 bg-white">
         <motion.ul
           variants={staggerFast}
