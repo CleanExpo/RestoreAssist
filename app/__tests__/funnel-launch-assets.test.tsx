@@ -230,7 +230,7 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
   describe("premium hero copy / CTA is present", () => {
     it("home page renders the primary trial CTA", () => {
       const { container, unmount } = render(<Home />);
-      expect(container.textContent).toContain("Start free — 3 trial reports");
+      expect(container.textContent).toContain("Start free — 15-day trial");
       unmount();
     });
 
@@ -307,7 +307,7 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
         const { container, unmount } = render(<Component />);
         const text = container.textContent ?? "";
         expect(text).toContain("RestoreAssist");
-        expect(text).toContain("Start free — 3 trial reports");
+        expect(text).toContain("Start free — 15-day trial");
         expect(text).toContain("What you captured on site");
         expect(container.innerHTML).toContain(heroSrc);
         for (const pattern of AI_THEATRE_FORBIDDEN) {
