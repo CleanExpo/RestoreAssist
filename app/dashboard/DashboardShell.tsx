@@ -66,9 +66,20 @@ import {
   simpleNavItems,
   buildAdvancedNavGroups,
   isAdvancedMode,
+  ADMIN_NAV_HREFS,
   type ExperienceMode,
   type NavItem,
 } from "./nav-config";
+
+/** Icons for the six Admin destinations — shared by Advanced + Simple mode. */
+const ADMIN_NAV_ICONS: Record<(typeof ADMIN_NAV_HREFS)[number]["label"], typeof Shield> = {
+  Admin: Shield,
+  "NIR Pilot": FlaskConical,
+  "Content Gate": Lock,
+  Governance: Activity,
+  "Restoration Insights": BarChart3,
+  Margot: Bot,
+};
 
 export default function DashboardShell({
   children,
@@ -223,6 +234,15 @@ export default function DashboardShell({
   const isTechnician = session?.user?.role === "USER";
   const isAdmin = (session?.user as { role?: string })?.role === "ADMIN";
 
+  const adminNavItems: NavItem[] = isAdmin
+    ? ADMIN_NAV_HREFS.map((item) => ({
+        icon: ADMIN_NAV_ICONS[item.label],
+        label: item.label,
+        href: item.href,
+        adminOnly: true,
+      }))
+    : [];
+
   // Free trial users get full sidebar access; they must add their own API key in Integrations
   const fullNavItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
@@ -293,48 +313,7 @@ export default function DashboardShell({
     { icon: PlayCircle, label: "Tutorials", href: "/dashboard/learn" },
     { icon: HelpCircle, label: "Help & Support", href: "/dashboard/help" },
     // Admin-only section — hidden from Managers and Technicians
-    ...(isAdmin
-      ? [
-          {
-            icon: Shield,
-            label: "Admin",
-            href: "/dashboard/admin",
-            adminOnly: true,
-          },
-          {
-            icon: FlaskConical,
-            label: "NIR Pilot",
-            href: "/dashboard/admin/pilot",
-            adminOnly: true,
-          },
-          {
-            icon: Lock,
-            label: "Content Gate",
-            href: "/dashboard/admin/content-gate",
-            adminOnly: true,
-          },
-          // Governance board (RA-1390) — was grouped in nav-config but never
-          // listed in fullNavItems, so Advanced mode never showed it.
-          {
-            icon: Activity,
-            label: "Governance",
-            href: "/dashboard/governance",
-            adminOnly: true,
-          },
-          {
-            icon: BarChart3,
-            label: "Restoration Insights",
-            href: "/dashboard/admin/restoration-insights",
-            adminOnly: true,
-          },
-          {
-            icon: Bot,
-            label: "Margot",
-            href: "/dashboard/margot/home",
-            adminOnly: true,
-          },
-        ]
-      : []),
+    ...adminNavItems,
   ];
 
   const fieldTechNavItems = [
@@ -357,7 +336,8 @@ export default function DashboardShell({
 
   // Simple mode is the default for every non-technician user; Advanced mode is
   // opt-in via the persisted experienceMode. Technicians keep their dedicated
-  // 6-item field nav regardless of mode.
+  // 6-item field nav regardless of mode. Admins always keep Admin destinations
+  // even in Simple mode — otherwise the six Admin tools are unreachable.
   const advanced = isAdvancedMode(experienceMode);
 
   // The flat list used by the renderer. In Simple mode this is the short
@@ -369,10 +349,11 @@ export default function DashboardShell({
     ? fieldTechNavItems
     : advanced
       ? fullNavItems
-      : simpleNavItems;
+      : [...simpleNavItems, ...adminNavItems];
 
   // Advanced mode renders the full nav grouped under section headers instead of
-  // one flat 24-item list. Only computed when relevant.
+  // one flat 24-item list. Only computed when relevant. Simple mode with admin
+  // items stays flat (short list + Admin section items).
   const advancedGroups =
     advanced && !isTechnician ? buildAdvancedNavGroups(fullNavItems) : null;
 
