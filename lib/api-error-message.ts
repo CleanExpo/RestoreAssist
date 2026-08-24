@@ -1,24 +1,61 @@
 /**
- * Extract a user-displayable error message from any API response body.
+ * Extract a user-displayable string from anything callers might pass to toast
+ * or stash in React state after an API failure.
  *
- * Handles both shapes during the RA-1548 apiError envelope rollout:
- *   - Legacy:  { error: "User-friendly message" }
- *   - New:     { error: { code, message, eventId } }
+ * Handles:
+ *   - Legacy envelope:  { error: "User-friendly message" }
+ *   - New envelope:     { error: { code, message, eventId } }
+ *   - Bare API error:   { code, message, eventId }  (already unwrapped)
+ *   - Plain string / Error
  *
- * Returns null when no usable error message is present, so callers can
- * supply a fallback via `?? "Something went wrong"`.
+ * Returns null when nothing usable is present so callers can `??` a fallback.
  *
- * IMPORTANT: passing the raw `data.error` object straight into React state
- * (then rendering `{error}` in JSX) crashes with "Objects are not valid as
- * a React child". Always normalise through this helper.
+ * IMPORTANT: passing the raw `data.error` object into toast/JSX crashes with
+ * "Objects are not valid as a React child". Always normalise through this.
  */
 export function apiErrorMessage(data: unknown): string | null {
-  if (!data || typeof data !== "object") return null;
-  const err = (data as Record<string, unknown>).error;
-  if (typeof err === "string") return err;
+  if (data == null) return null;
+  if (typeof data === "string") {
+    const trimmed = data.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (data instanceof Error) {
+    const trimmed = data.message.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof data !== "object") return null;
+
+  const record = data as Record<string, unknown>;
+
+  // Bare envelope body: { code, message, eventId } — what toast.error(data.error)
+  // receives after the apiError rollout.
+  if (typeof record.message === "string") {
+    const trimmed = record.message.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+
+  const err = record.error;
+  if (typeof err === "string") {
+    const trimmed = err.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
   if (err && typeof err === "object") {
     const msg = (err as Record<string, unknown>).message;
-    if (typeof msg === "string") return msg;
+    if (typeof msg === "string") {
+      const trimmed = msg.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    }
   }
   return null;
+}
+
+/**
+ * Coerce any toast payload into a safe React string child.
+ * Never returns an object — the root Toaster relies on that.
+ */
+export function toastDisplayMessage(
+  message: unknown,
+  fallback = "Something went wrong",
+): string {
+  return apiErrorMessage(message) ?? fallback;
 }
