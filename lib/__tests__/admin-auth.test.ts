@@ -12,14 +12,34 @@ vi.mock("@/lib/prisma", () => ({
 import {
   verifyAdminFromDb,
   verifyStorePublishingOperator,
+  requireAdminPage,
 } from "@/lib/admin-auth";
 
 const ADMIN_SESSION = {
   user: { id: "operator_1", role: "ADMIN" },
 } as Session;
 
+const redirectMock = vi.hoisted(() => vi.fn((url: string) => {
+  throw new Error(`NEXT_REDIRECT:${url}`);
+}));
+
+vi.mock("next/navigation", () => ({
+  redirect: (url: string) => redirectMock(url),
+}));
+
+vi.mock("next-auth", () => ({
+  getServerSession: vi.fn(),
+}));
+
+vi.mock("@/lib/auth", () => ({
+  authOptions: {},
+}));
+
+import { getServerSession } from "next-auth";
+
 beforeEach(() => {
   userFindUnique.mockReset();
+  redirectMock.mockClear();
   userFindUnique.mockResolvedValue({
     id: "operator_1",
     role: "ADMIN",
@@ -29,6 +49,34 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+});
+
+describe("requireAdminPage", () => {
+  it("redirects to login when there is no session", async () => {
+    vi.mocked(getServerSession).mockResolvedValue(null);
+    await expect(requireAdminPage()).rejects.toThrow("NEXT_REDIRECT:/login");
+  });
+
+  it("redirects to dashboard when JWT says ADMIN but DB does not", async () => {
+    vi.mocked(getServerSession).mockResolvedValue(ADMIN_SESSION);
+    userFindUnique.mockResolvedValue({
+      id: "operator_1",
+      role: "USER",
+      organizationId: "org_1",
+    });
+    await expect(requireAdminPage()).rejects.toThrow(
+      "NEXT_REDIRECT:/dashboard",
+    );
+  });
+
+  it("returns the DB-verified admin user when role is current", async () => {
+    vi.mocked(getServerSession).mockResolvedValue(ADMIN_SESSION);
+    await expect(requireAdminPage()).resolves.toEqual({
+      id: "operator_1",
+      role: "ADMIN",
+      organizationId: "org_1",
+    });
+  });
 });
 
 describe("verifyStorePublishingOperator", () => {
