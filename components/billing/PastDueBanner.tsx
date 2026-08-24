@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
-import toast from "react-hot-toast";
+import { notifyError } from "@/lib/notify";
 
 interface Props {
   status: string | null;
@@ -28,20 +28,23 @@ export function PastDueBanner({ status }: Props) {
       const res = await fetch("/api/subscription/portal", { method: "POST" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `Portal returned ${res.status}`);
+        notifyError(
+          body.error,
+          `Unable to open billing portal (${res.status}). Please try again or contact support.`,
+        );
+        return;
       }
       const { url } = await res.json();
       if (url) {
         window.location.href = url;
       } else {
-        throw new Error("Portal did not return a URL");
+        notifyError("Portal did not return a URL");
       }
     } catch (err) {
       console.error("Failed to open billing portal:", err);
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Unable to open billing portal — please try again or contact support.",
+      notifyError(
+        err instanceof Error ? err.message : err,
+        "Unable to open billing portal — please try again or contact support.",
       );
     } finally {
       setLoading(false);

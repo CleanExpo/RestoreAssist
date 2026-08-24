@@ -20,6 +20,7 @@ import {
 import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing";
 import { Skeleton } from "@/components/ui/skeleton";
 import toast from "react-hot-toast";
+import { notifyError } from "@/lib/notify";
 import { CancelSubscriptionDialog } from "@/components/billing/CancelSubscriptionDialog";
 import BillingGate from "@/components/capacitor/BillingGate";
 import Link from "next/link";
@@ -218,19 +219,22 @@ function SubscriptionPageContent() {
       const res = await fetch("/api/subscription/portal", { method: "POST" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `Portal returned ${res.status}`);
+        notifyError(
+          body.error,
+          `Unable to open billing portal (${res.status}). Please try again.`,
+        );
+        return;
       }
       const { url } = await res.json();
       if (url) {
         window.location.href = url;
       } else {
-        throw new Error("Portal did not return a URL");
+        notifyError("Portal did not return a URL");
       }
     } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Unable to open billing portal. Please try again.",
+      notifyError(
+        err instanceof Error ? err.message : err,
+        "Unable to open billing portal. Please try again.",
       );
     } finally {
       setOpeningPortal(false);
@@ -512,24 +516,6 @@ function SubscriptionPageContent() {
                   <Download className="w-4 h-4" />
                   {openingPortal ? "Opening…" : "Download Invoices"}
                 </button>
-
-                {/* RA-1584 — in-app billing dispute / refund affordance.
-                  Opens the user's mail client with a pre-filled subject
-                  so support can route to the billing desk immediately.
-                  Deliberately a mailto, not a form — the signal of
-                  friction is intentional: refund requests should land
-                  in support@, not silently persist to a ticket table
-                  with no human read. */}
-                <a
-                  href={`mailto:support@restoreassist.app?subject=${encodeURIComponent(
-                    "Billing dispute / refund request",
-                  )}&body=${encodeURIComponent(
-                    "Hi RestoreAssist support,\n\nI'd like to raise the following billing concern:\n\n[Describe the charge or issue]\n\nAccount email: [your account email]\nInvoice number (if known): [e.g. INV-0001]\n\nThanks.",
-                  )}`}
-                  className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2"
-                >
-                  Request refund / dispute charge
-                </a>
               </div>
             </div>
 
