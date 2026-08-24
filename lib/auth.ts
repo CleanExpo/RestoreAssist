@@ -18,6 +18,7 @@ import {
 } from "./auth/two-factor";
 import { logSecurityEvent, getAccountLockoutStatus } from "./security-audit";
 import { TRIAL_DAYS } from "@/lib/billing/constants";
+import { PRICING_CONFIG } from "@/lib/pricing";
 
 const SESSION_REVOCATION_RECHECK_SECONDS = 24 * 60 * 60;
 const SESSION_REVOCATION_RETRY_SECONDS = 5 * 60;
@@ -356,12 +357,14 @@ export const authOptions: NextAuthOptions = {
             needsOnboarding: true,
             role: "ADMIN",
             subscriptionStatus: "TRIAL",
-            creditsRemaining: 30,
+            // Same grant as /api/auth/register — never hardcode beside PRICING_CONFIG.
+            creditsRemaining: PRICING_CONFIG.free.trialReportCredits,
             totalCreditsUsed: 0,
             trialEndsAt: new Date(
               Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000,
             ),
-            quickFillCreditsRemaining: 30,
+            quickFillCreditsRemaining:
+              PRICING_CONFIG.free.trialQuickFillCredits,
             totalQuickFillUsed: 0,
           } as any,
         });
