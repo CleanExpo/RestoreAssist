@@ -9,7 +9,7 @@ import { safeCallbackUrl } from "@/lib/auth/safe-callback-url";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
-import toast from "react-hot-toast";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { MarketingShell } from "@/components/landing/home";
 import { CONTAINER, FONT_DISPLAY } from "@/components/landing/home/motion";
 
@@ -96,11 +96,12 @@ function LoginForm() {
         // Account has 2FA enabled. Reveal the TOTP field and ask for a code.
         setNeedsTotp(true);
         setError("Enter your 6-digit authenticator code to continue.");
-        toast("2FA code required");
+        notifyError("Authenticator code required");
       } else if (result?.error === "2FA_INVALID") {
         setNeedsTotp(true);
-        setError("Invalid authenticator code. Try again.");
-        toast.error("Invalid 2FA code");
+        const message = "Invalid authenticator code. Try again.";
+        setError(message);
+        notifyError(message);
       } else if (result?.error?.startsWith("ACCOUNT_LOCKED:")) {
         // RA-1590 — too many failures in the rolling window. Show the
         // retry window so the user knows when to come back.
@@ -108,28 +109,30 @@ function LoginForm() {
         const mins = Math.max(1, Math.ceil(secs / 60));
         const msg = `Too many failed attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}, or reset your password.`;
         setError(msg);
-        toast.error(msg);
+        notifyError(msg);
       } else if (result?.error) {
-        setError("Invalid email or password");
-        toast.error("Invalid email or password");
+        const message = "Invalid email or password";
+        setError(message);
+        notifyError(message);
       } else {
         // Check if user needs to change password
         const session = await getSession();
         if (session?.user?.mustChangePassword) {
-          toast.success("Login successful! Please change your password.");
+          notifySuccess("Login successful! Please change your password.");
           router.push("/dashboard/change-password");
         } else {
           // P1 #16 — honour `?callbackUrl=` from middleware-driven login
           // redirects, validated against the same-origin allowlist so an
           // attacker cannot weaponise the login flow into an open redirect.
           const target = safeCallbackUrl(searchParams.get("callbackUrl"));
-          toast.success("Login successful! Welcome back!");
+          notifySuccess("Login successful! Welcome back!");
           router.push(target);
         }
       }
     } catch (error) {
-      setError("An error occurred. Please try again.");
-      toast.error("An error occurred. Please try again.");
+      const message = "An error occurred. Please try again.";
+      setError(message);
+      notifyError(message);
     } finally {
       setIsLoading(false);
     }
@@ -144,8 +147,9 @@ function LoginForm() {
       // instead of bouncing to Safari proper. Web behaviour unchanged.
       await signInWithOAuth("google", { callbackUrl });
     } catch (error: any) {
-      setError("Google sign-in failed. Please try again.");
-      toast.error("Google sign-in failed. Please try again.");
+      const message = "Google sign-in failed. Please try again.";
+      setError(message);
+      notifyError(message);
       setIsLoading(false);
     }
   };
@@ -161,8 +165,9 @@ function LoginForm() {
       const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
       await signInWithOAuth("apple", { callbackUrl });
     } catch (error: any) {
-      setError("Apple sign-in failed. Please try again.");
-      toast.error("Apple sign-in failed. Please try again.");
+      const message = "Apple sign-in failed. Please try again.";
+      setError(message);
+      notifyError(message);
       setIsLoading(false);
     }
   };
