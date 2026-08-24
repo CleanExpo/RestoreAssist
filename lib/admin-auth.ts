@@ -11,6 +11,9 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/lib/auth";
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import type { Session } from "next-auth";
 
@@ -73,6 +76,32 @@ export async function verifyAdminFromDb(
       organizationId: dbUser.organizationId,
     },
   };
+}
+
+/**
+ * Server-page gate for admin UI segments.
+ *
+ * Prefer this over JWT-only checks in `page.tsx` / client layouts: demoted
+ * admins with a stale session are redirected before any admin UI or Prisma
+ * reads run. Shared by `/dashboard/admin/**`, governance, margot, and
+ * mission-control layouts.
+ */
+export async function requireAdminPage(): Promise<{
+  id: string;
+  role: string;
+  organizationId: string | null;
+}> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
+  const auth = await verifyAdminFromDb(session);
+  if (!auth.user) {
+    redirect("/dashboard");
+  }
+
+  return auth.user;
 }
 
 /**
