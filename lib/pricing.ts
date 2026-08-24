@@ -164,3 +164,58 @@ export type PricingPlan = keyof typeof PRICING_CONFIG.pricing;
 export type PricingDetails = (typeof PRICING_CONFIG.pricing)[PricingPlan];
 export type AddonPack = keyof typeof PRICING_CONFIG.addons;
 export type AddonDetails = (typeof PRICING_CONFIG.addons)[AddonPack];
+
+/** Stored `User.subscriptionPlan` value for the single $99 Monthly Plan. */
+export const MONTHLY_PLAN_NAME = PRICING_CONFIG.pricing.monthly.name;
+
+/**
+ * Resolve what the Subscription page should show for a DB-only (no Stripe
+ * subscriptionId) ACTIVE grant — e.g. `npm run script:upgrade-user`.
+ *
+ * Amount is returned in **cents** to match Stripe `unit_amount` and the
+ * page's `formatPrice(amount, currency)` helper.
+ */
+export function resolveLocalSubscriptionPlanDisplay(
+  subscriptionPlan: string | null | undefined,
+): {
+  name: string;
+  amountCents: number;
+  currency: string;
+  interval: string;
+} {
+  const monthly = PRICING_CONFIG.pricing.monthly;
+  const plan = (subscriptionPlan ?? "").trim();
+
+  // Ops / Stripe fulfillment both stamp "Monthly Plan".
+  if (
+    !plan ||
+    plan === monthly.name ||
+    plan === monthly.displayName ||
+    /^monthly/i.test(plan)
+  ) {
+    return {
+      name: monthly.name,
+      amountCents: Math.round(monthly.amount * 100),
+      currency: monthly.currency.toLowerCase(),
+      interval: monthly.interval,
+    };
+  }
+
+  if (/^lifetime$/i.test(plan)) {
+    return {
+      name: "Lifetime",
+      amountCents: 0,
+      currency: monthly.currency.toLowerCase(),
+      interval: "month",
+    };
+  }
+
+  // Unknown / grandfathered labels — keep the stored name, never invent $0
+  // for the current catalog Monthly Plan (handled above).
+  return {
+    name: plan,
+    amountCents: 0,
+    currency: monthly.currency.toLowerCase(),
+    interval: "month",
+  };
+}
