@@ -155,7 +155,7 @@ const Reveal = () => {
   return (<Center gap={22}>
     <div style={logo}><Logo scale={1.9} /></div>
     <div style={{...l1, fontSize: 34, fontWeight: 600, color: RA.warmLight, maxWidth: 1200, lineHeight: 1.3}}>
-      Australia's first Australian-designed CRM built specifically for the restoration industry.
+      An Australian-designed CRM built specifically for the restoration industry.
     </div>
     <div style={{...l2, fontSize: 58, fontWeight: 800, color: RA.textPrimary}}>Office and Field. One System.</div>
     <div style={{...l3, fontSize: 26, color: RA.textMuted}}>No double-handling.</div>

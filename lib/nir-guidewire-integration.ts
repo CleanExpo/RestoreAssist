@@ -113,8 +113,18 @@ export interface NirPhotoManifest {
   photos: Array<{
     photoId: string;
     capturedAt: string;
-    latitude: number;
-    longitude: number;
+    /**
+     * Capture coordinates, or `null` when the photo carries none.
+     *
+     * `InspectionPhoto.gpsLatitude/gpsLongitude` are nullable and are only
+     * written when a capture supplies them, so most photos have no fix. This
+     * MUST stay nullable: substituting `0` would publish 0N 0E — a real
+     * point in the Gulf of Guinea — to an insurer as the location of
+     * Australian claim evidence, with nothing to distinguish it from a
+     * measurement. Absence is the honest value.
+     */
+    latitude: number | null;
+    longitude: number | null;
     sequenceNumber: number;
     category:
       | "overview"

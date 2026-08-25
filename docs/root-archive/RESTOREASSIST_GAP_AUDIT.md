@@ -602,3 +602,128 @@ were found in `.planning/` video docs.
   2026-07-09). The brand-logo upload half is still unwired
   (`components/setup/BrandCard.tsx:34`, `TODO(setup-wizard Phase 8+)`) and is in progress
   in a parallel PR.
+- [PASS] **Guidewire insurer payload published a fabricated GPS fix for every photo without one
+  (Missing connections medium — "Guidewire claim payload ships empty certs & zeroed GPS")** — the
+  certifications half was closed earlier (`fetchTechnicianCertifications` now reads the real
+  contractor profile); this closes the GPS half, which was still live.
+  - **The defect.** `app/api/inspections/[id]/guidewire/route.ts:320-321` built the photo manifest
+    with `latitude: p.gpsLatitude ?? 0, longitude: p.gpsLongitude ?? 0`. `InspectionPhoto`'s
+    `gpsLatitude`/`gpsLongitude` are `Float?` (`prisma/schema.prisma:3314-3315`) and are written
+    **only** when a capture supplies them — `app/api/inspections/[id]/photos/route.ts:299-302,
+    381-386` reads optional `gpsLat`/`gpsLng` form fields from the FAB capture and spreads them in
+    conditionally. Every other upload path leaves both columns NULL. So the fallback was the
+    **common** path, not an edge case, and it published `0, 0` — a real point in the Gulf of
+    Guinea — to a carrier as the location of Australian claim evidence, indistinguishable in the
+    payload from a measurement. Photo geolocation is exactly what an adjuster uses to corroborate
+    evidence, so this is fabricated provenance in an evidentiary document, not a cosmetic default.
+  - **The prior fix had pinned it.** `guidewire-photo-manifest.test.ts` carried a test literally
+    named *"falls back to 0 only when GPS columns are genuinely null"* asserting
+    `expect(photo.latitude).toBe(0)`. An earlier pass removed a hardcoded `0,0` for photos that
+    *do* have a fix and, in doing so, canonised `0` as the sentinel for photos that do not. The
+    test is replaced, not deleted — a control that locks the defect is worse than no control.
+  - **The fix.** `latitude`/`longitude` on `NirPhotoManifest` are now `number | null`, the route
+    emits `?? null`, and the contract's zod schema widens to `z.number().nullable()`. `??` (not
+    `||`) is load-bearing and is pinned by its own test: a genuinely recorded `0` is data and must
+    survive.
+  - **Declared, not merely nullable.** `lib/export/claims-contract.ts`'s stated premise is that
+    gaps are declared rather than filled in, so `buildClaimsIntegrationExport` now declares
+    `report.photoManifest.photos[].latitude` and `…longitude` on `explicitOmissions` — **once per
+    axis** for the whole manifest. Once, so a 500-photo job cannot flood the list; per axis, so a
+    half-known fix is not reported as though both coordinates were absent.
+  - **Contract version: a MAJOR, 1.0 → 2.0, with its own artifact.** The first cut of this change
+    called it `1.1` and kept the v1 artifact, on the reasoning that `schemaVersion` is a
+    `z.literal` so a v1 consumer would fail loudly at the version check. The independent reviewer
+    rejected that and was right: failing loudly is a clean break, not compatibility — a v1
+    consumer either rejects every 1.1 payload *including ones whose coordinates are all present*,
+    or lets a `null` reach numeric handling. Worse, republishing a changed contract under
+    `claims-integration-v1.schema.json` means a carrier re-fetching that document by name gets a
+    different contract than it had. So: `docs/contracts/claims-integration-v2.schema.json` is the
+    live artifact (`$id`/title v2), and **`claims-integration-v1.schema.json` is frozen
+    byte-identical to `origin/main`** as the historical record of what v1 was.
+  - **The artifact path is now a single exported constant.** `CLAIMS_INTEGRATION_ARTIFACT_PATH`
+    lives beside the version in `claims-contract.ts`; the generator and the drift test both import
+    it instead of spelling the path. This came out of the mutation sweep — see below.
+  - **No schema change, no migration, no new dependency, no env change.** Prisma is untouched.
+  - **Tests.** `guidewire-photo-manifest.test.ts` — the `toBe(0)` test replaced with a
+    null-not-zero assertion, a table-driven half-known-fix case covering **both** directions, and
+    one photo with a genuinely recorded `0,0`. `claims-contract.test.ts` +5 — a null-GPS payload
+    passing the strict contract and carrying both declared omissions, a table-driven per-axis
+    case asserting only the missing axis is declared, a **negative control** asserting neither is
+    declared when every photo has a fix, the major-version pin, and a guard that the retired v1
+    artifact still describes v1 (`const: "1.0"`, plain-`number` coordinates).
+  - **Independent review round 1 — FAIL, one P1, drained rather than argued.** Codex was probed
+    live and is usage-capped, so the review went over HTTP through OpenRouter to
+    `openai/gpt-5.6-sol` — a different vendor's model in a fresh context, not a subagent of the
+    implementing agent. Its P1 was the version call above. Two of its P2s were also real and are
+    fixed here rather than filed: (a) only the longitude-missing direction was tested, so
+    deleting the `photo.latitude === null` side of the omission predicate would have survived —
+    both directions are now table-driven; (b) a single combined omission string implied both axes
+    were absent when only one was, hence the per-axis split. Its remaining P2 (`capturedAt`) is
+    recorded as a follow-up below. The reviewer stated plainly that it could not execute vitest,
+    tsc, eslint, the mutation sweep, or repository-wide searches — those are re-runnable here.
+  - **Independent review round 2 at the drained head — PASS, zero blocking findings**
+    (`openai/gpt-5` over OpenRouter; a different vendor's model in a fresh context, bound to the
+    exact head, with declared coverage and eleven constructed attacks). Its three P2s were drained
+    rather than filed, because all three were real: (a) the suite's `describe` label still read
+    `contract v1` and a comment still said `1.1`, both stale after the 2.0 decision — exactly the
+    kind of misleading leftover this PR is about; (b) the frozen-v1 guard asserted `schemaVersion`,
+    `$id` and only the *latitude* schema, so a future edit to v1's longitude or any unnamed field
+    would pass — it now asserts both axes **and pins the whole document by sha256**, since
+    field-by-field assertions only cover the fields someone thought to name. Positive control for
+    the new pin (**M11**): a one-field edit to v1's `title` — precisely the kind the old
+    assertions could not see — fails the suite, and the artifact was restored byte-identical.
+    (c) `capturedAt` is the recorded follow-up above; the reviewer agreed this diff does not
+    worsen it.
+  - **Mutation controls: 15 mutants, 15 killed, no survivors**, all sources restored
+    byte-identical and confirmed by sha256 (route `b3e7a4e0…`, contract `da2fefe2…`, generator
+    `70ffa60f…`). The sweep was re-run **in full** after the drain rather than carried over,
+    because the drain changed shared paths and that voids the mutation evidence for every test
+    crossing them. M1/M2 restore `?? 0` per axis; M3/M3b swap `??` for `||` so a recorded `0`
+    becomes absent; M4a/M4b drop each declared omission; M5a/M5b declare each unconditionally
+    (killed only by the negative control); M5c makes the latitude guard read the longitude axis;
+    M6/M7 un-widen the contract per axis; M8 downgrades the major bump to `1.1`; M9 republishes
+    v2 under the v1 `$id`; M10 repoints the generator at the frozen v1 artifact.
+  - **One mutant survived the first sweep and was closed by deleting the duplication, not by
+    adding a test.** M10 originally edited the generator's own hardcoded target path, and no test
+    could see it: the test reads checked-in files and never runs the generator, so a generator
+    aimed at v1 looks identical until someone runs it. Rather than assert on the script's source
+    text, the path became one exported constant that the generator and the test both import — the
+    mutant is now unconstructible in the generator and dies in the contract.
+  - **Verified at HEAD.** `npx vitest run --config config/vitest.config.js lib/export
+    app/api/inspections` — **65 files, 351 tests, all passed**.
+    `npx eslint -c config/eslint.config.mjs` over all changed source/test files —
+    **exit 0, zero output**. Full `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit` —
+    exit 1 on exactly two errors, both in `lib/integrations/{ascora,xero}/upstream-errors.ts`,
+    files this branch does not touch; the output is **byte-identical** (`diff` reports no
+    difference) to the same command run in a pristine detached `origin/main` worktree, so this
+    branch adds **zero** type errors.
+  - **Known main-wide debt, deliberately not bundled.** Of the twelve `quality-checks` guards
+    enumerated live from `.github/workflows/pr-checks.yml`, **10 PASS** and two fail:
+    `check:no-emoji` (`app/dashboard/addons/AddonsClient.tsx` U+2B21) and `check:no-lucide`
+    (six files incl. `app/billing/upgrade/CheckoutCTA.tsx`, `components/dashboard/ListPagination.tsx`).
+    Both reproduce **byte-identically** on the pristine `origin/main` control worktree, so they are
+    main's debt and block every PR equally. Reconciling them belongs in its own labelled PR
+    (#2000 / #2007 precedent) and is already in flight on `fix/ci-npm-alignment`. `tsc` is red on
+    `main` for the same reason.
+  - **Follow-up deliberately NOT bundled (same defect class, different field).** The route still
+    derives `capturedAt` from `InspectionPhoto.timestamp`, whose Prisma default is
+    `@default(now())` — i.e. **row-insert (upload) time, not capture time** — while
+    `cocoaCapturedAtUtc` holds a true capture instant for mobile captures. The `?? now()` fallback
+    beside it is dead (the column is non-nullable), but the provenance question is real and is the
+    same honesty class as the GPS fix. It is left out because this diff changes no timestamp
+    behaviour and folding it in would widen an evidentiary change past one reviewable claim. The
+    independent reviewer agreed the split is defensible on exactly that ground.
+  - **Tooling hazard observed, worth a founder decision.** The release-gate's `codex` lane runs
+    with **write access in the worktree under review** and, during round 1, reformatted 1,502
+    files in it (a repo-wide Prettier sweep). It was caught because a control `tsc` run showed a
+    line-number shift in `lib/integrations/xero/upstream-errors.ts` — a file this branch does not
+    touch. The sweep was verified format-only and discarded, the seven real files restored from
+    backup, and every gate re-run at the restored state. A reviewer that can mutate the tree it is
+    judging is a live hazard to any session that trusts a post-review verification; the
+    HTTP-only lanes (OpenRouter/Gemini) do not have this property.
+  - **Not observed.** No run against a live deployment or a real Guidewire endpoint — the route
+    returns JSON and makes no outbound call (credentials are insurer-side), and the payload
+    builder is a pure function, so the behaviour is proven by unit tests with mutation controls
+    rather than by a carrier round-trip. No production database was read; the reachability of the
+    NULL path is proven from the schema (`Float?`) and the conditional write in the upload route,
+    not from a row count.

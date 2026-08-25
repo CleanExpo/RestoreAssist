@@ -34,38 +34,45 @@ export default function SolutionsPage() {
     }
   }, []);
 
+  /**
+   * One rule governs this page: insurers may appear as an audience for the
+   * OUTPUT, never as a user of the software. The previous third card was
+   * "For Insurance Adjusters — ensure fair settlements", which cast the product
+   * as a neutral arbiter between contractor and carrier and contradicted the
+   * launch positioning already sent to customers.
+   */
   const solutions = [
     {
-      title: "For Restoration Companies",
+      title: "For the restoration contractor",
       description:
-        "Streamline your operations with our comprehensive platform designed for restoration professionals.",
+        "Capture the site while you're standing in it — photos, moisture readings, scope notes. Reports build on IICRC S500:2021 section structure from what you actually recorded, not what you reconstructed at 9pm. You review and own every decision before it leaves your business.",
       benefits: [
-        "Faster report generation",
-        "Compliance assurance",
-        "Cost tracking",
-        "Team collaboration",
+        "Capture on site, offline when there's no signal",
+        "S500:2021 section structure",
+        "Nothing auto-submitted anywhere",
+        "Your evidence stays on your job",
       ],
     },
     {
-      title: "For Insurance Adjusters",
+      title: "For your client",
       description:
-        "Accurate and transparent damage assessments that build trust and ensure fair settlements.",
+        "The homeowner or business owner sees what's happening to their property in language they understand. Fewer phone calls asking what's going on. Fewer disputes at the end, because nothing arrives as a surprise.",
       benefits: [
-        "Real-time updates",
-        "Detailed documentation",
-        "Evidence-based reports",
-        "Quick turnaround",
+        "Plain-language progress",
+        "Scope approvals in one place",
+        "Documents they can download",
+        "Fewer chase-up calls",
       ],
     },
     {
-      title: "For Property Managers",
+      title: "For the claim",
       description:
-        "Maintain detailed records and manage restoration projects efficiently across multiple properties.",
+        "Documentation that holds up. Evidence carries its real capture data — if a photo didn't record a GPS location, the report says so rather than filling the field with a number that looks like data. Documentation that invents provenance is worthless the first time it's challenged.",
       benefits: [
-        "Multi-property management",
-        "Historical records",
-        "Vendor coordination",
-        "Documentation storage",
+        "Real capture data on every photo",
+        "Gaps stated, never invented",
+        "Built to survive scrutiny",
+        "Insurers receive it; they don't drive it",
       ],
     },
   ];
@@ -224,7 +231,7 @@ export default function SolutionsPage() {
                 '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
           >
-            Solutions
+            Built for the contractor. Trusted by everyone downstream.
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 30 }}
@@ -236,7 +243,10 @@ export default function SolutionsPage() {
                 '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
           >
-            Tailored solutions for every stakeholder in the restoration process.
+            Restoration software is usually sold to the party paying the claim.
+            That shapes everything about it — what it asks you to record, whose
+            workflow you follow, who your evidence belongs to. RestoreAssist is
+            built the other way round. One customer: the restorer.
           </motion.p>
         </div>
       </section>
@@ -295,6 +305,55 @@ export default function SolutionsPage() {
                 </ul>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Closing — whose software is it */}
+      <section className="py-20 px-6 relative bg-brand-mist/30 overflow-hidden">
+        <div className="w-full max-w-[80%] mx-auto relative z-10">
+          <div
+            className={`max-w-3xl rounded-lg border p-10 ${darkMode ? "border-brand-slate/30 bg-brand-navy/50" : "border-brand-slate/20 bg-brand-cloud/50"} backdrop-blur-sm`}
+          >
+            <h2
+              className={`text-3xl font-bold mb-6 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
+              style={{
+                fontFamily:
+                  '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              }}
+            >
+              Whose software is it?
+            </h2>
+            <div
+              className={`space-y-4 text-base leading-relaxed ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
+              style={{
+                fontFamily:
+                  '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              }}
+            >
+              <p>
+                Your documentation still has to satisfy an insurer, an adjuster,
+                sometimes a tribunal. It will. But it satisfies them because it
+                is complete and honest, not because the software was designed
+                around their process.
+              </p>
+              <p>
+                Ask any vendor the same simple question: who is your customer? If
+                the answer is the carrier, you know whose workflow you will be
+                feeding.
+              </p>
+              <p>
+                Ours is you. That is why the pricing page lists every cost
+                including the ones we do not charge, and why the reports admit
+                what they do not know.
+              </p>
+            </div>
+            <Link
+              href="/signup"
+              className="mt-8 inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-bronze px-7 py-3 text-base font-semibold text-brand-navy transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-bronze focus-visible:ring-offset-2"
+            >
+              Start free — 15-day trial, 50 reports, no credit card
+            </Link>
           </div>
         </div>
       </section>

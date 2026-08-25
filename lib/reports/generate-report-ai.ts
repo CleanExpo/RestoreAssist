@@ -196,7 +196,7 @@ Create visual summary cards in a grid layout:
 ${
   stateInfo
     ? `
-- Work Health and Safety Act ${stateInfo.whsAct ? stateInfo.whsAct.split(" ").pop() : "2011"}
+- ${stateInfo.whsAct || "Work Health and Safety Act 2011"}
 - ${stateInfo.epaAct || "Environmental Protection Act 1994"}
 - ${stateInfo.buildingCode || "Queensland Development Code"}
 - Standards Applied
@@ -433,7 +433,7 @@ ${report.technicianName ? `**Technician:** ${report.technicianName}` : ""}
 1. **EXACT STRUCTURE:** Follow the structure above EXACTLY - Header, Overview Cards, State Compliance, Room Details, Status Panel, Cost & Forecast, Incident Details, Footer
 2. **Visual Cards Layout:** Present overview metrics as visual cards with icons (🏠, 💧, 📊, 💰, etc.)
 3. **Room Panels:** Each room should have its own section with Materials, Moisture (current and target), Status, Scope of work, and Equipment listed
-4. **State Compliance Section:** List compliance standards as bullet points (Work Health and Safety Act, EPA Act, Building Code, IICRC Standards)
+4. **State Compliance Section:** List compliance standards as bullet points, citing the WHS/OHS Act, EPA Act and Building Code exactly as named above (they differ by jurisdiction), plus IICRC Standards
 5. **Status Gauge:** Show drying status as a gauge value (e.g., "33.6 - FAIR") with clear status label
 6. **Cost Table:** Use a simple 3-column table (QTY | RATE/DAY | TOTAL) grouping equipment by type (LGR Dehumidifiers, Air Movers)
 7. **Warning Boxes:** Use amber warning boxes for occupied properties with children/vulnerable persons
@@ -988,7 +988,7 @@ Detailed room-by-room breakdown with:
 ## SECTION 5: STANDARDS COMPLIANCE FRAMEWORK
 ### Subsection A: IICRC Water Damage Standards
 ### Subsection B: Building Code Compliance (use state-specific building code)
-### Subsection C: Work Health and Safety (use state-specific WHS Act)
+### Subsection C: Work Health and Safety (cite the Act named in the State Regulatory Framework above verbatim — do NOT assume it is a "Work Health and Safety Act"; Victoria's is the Occupational Health and Safety Act 2004)
 ### Subsection D: Environmental Protection (use state-specific EPA Act)
 ### Subsection E: Local Council Requirements (if postcode available)
 
