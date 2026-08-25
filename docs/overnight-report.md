@@ -153,9 +153,26 @@ sed -n '/RECOMMENDED_VARS/,/as const/p' lib/env-check.ts                        
 its `timestamp`/`uptime` change on every request. So this is the running build, and a
 **cache purge alone will not fix it — it needs a redeploy.**
 
-Third, independent corroboration: `/api/health` reports `uptime: ~59,400s` (~16.5 hours),
-so the production process started around **2026-08-24 23:50 UTC** — *before* `9352cbe`
-landed at 2026-08-25 13:09 UTC. A process that started before a commit cannot be running it.
+Third, independent corroboration, and it covers the whole fleet rather than one process.
+Sampling `/api/health` repeatedly returns two stable uptimes, so DigitalOcean is load-
+balancing across **two instances**:
+
+| Instance | Implied process start |
+| --- | --- |
+| A | 2026-08-24 **23:15:54**Z |
+| B | 2026-08-24 **23:49:48**Z |
+
+Both values hold steady across samples, so this is two long-lived containers, not a
+restart. `9352cbe` landed **2026-08-25 13:09 UTC** — roughly fourteen hours *after* both
+started. A process that started before a commit cannot be running it, and here that is
+true of every instance serving traffic.
+
+Reproduce it:
+
+```bash
+for i in 1 2 3; do curl -s https://restoreassist.app/api/health \
+  | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['uptime'])"; done
+```
 
 Likely cause: `.do/app.yaml` pins `branch: main` but sets no `deploy_on_push`, and
 DigitalOcean defaults that to **false**. This independently corroborates the 09:46Z handoff.
