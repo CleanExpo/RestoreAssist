@@ -148,6 +148,38 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
     expect((res as any).status).not.toBe(307);
   });
 
+  it("keeps the subscription remedy reachable for an expired trial", async () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
+    mockGetToken.mockResolvedValue(
+      baseToken({ subscriptionStatus: "TRIAL", trialEndsAt: yesterday }) as any,
+    );
+
+    const res = await proxy(mkReq("/dashboard/subscription"));
+    expect((res as any).status).not.toBe(307);
+    expect((res as any).headers.get("location")).toBeNull();
+  });
+
+  it("keeps the checkout fulfillment return reachable for an expired trial", async () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
+    mockGetToken.mockResolvedValue(
+      baseToken({ subscriptionStatus: "TRIAL", trialEndsAt: yesterday }) as any,
+    );
+
+    const res = await proxy(mkReq("/dashboard/success"));
+    expect((res as any).status).not.toBe(307);
+    expect((res as any).headers.get("location")).toBeNull();
+  });
+
+  it("does not whitelist a subscription-prefixed sibling", async () => {
+    mockGetToken.mockResolvedValue(
+      baseToken({ subscriptionStatus: "CANCELED" }) as any,
+    );
+
+    const res = await proxy(mkReq("/dashboard/subscription-audit"));
+    expect((res as any).status).toBe(307);
+    expect((res as any).headers.get("location")).toContain("/billing/upgrade");
+  });
+
   it("does NOT redirect when subscriptionStatus is missing (legacy JWT — fail-open)", async () => {
     mockGetToken.mockResolvedValue(
       baseToken({ subscriptionStatus: undefined }) as any,

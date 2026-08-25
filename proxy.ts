@@ -66,15 +66,6 @@ function requiresLogin(pathname: string): boolean {
 const SETUP_GATE_BYPASS = [
   "/setup",
   "/api/setup/",
-  // RA-4989 — the setup wizard's StorageCard polls /api/oauth/google-drive/status
-  // on mount (and may bounce through /api/oauth/google-drive/start during the
-  // Connect Google Drive flow). When the user hasn't completed setup yet, the
-  // setup gate intercepts these OAuth calls and 307-redirects them to /setup —
-  // but the card is literally part of /setup. The card's fetch follows the
-  // redirect, receives /setup's HTML, JSON-parse fails, and the card never
-  // exits its loading skeleton. Bypass the whole /api/oauth/ prefix so OAuth
-  // discovery calls work during setup.
-  "/api/oauth/",
   "/api/auth/",
   "/api/cron/",
   "/login",
@@ -91,10 +82,87 @@ const SETUP_GATE_BYPASS = [
   "/robots",
 ];
 
-function shouldBypassSetupGate(pathname: string): boolean {
+// Pages the setup wizard itself links out to. Each traces to one control on
+// /setup, and every one of them 307s straight back to /setup without an entry
+// here — turning the wizard's own remedies into dead ends:
+//   - /dashboard/subscription           IntegrationsCard "View add-ons" / "View plans"
+//   - /dashboard/integrations           IntegrationsCard "Set up Ascora" (API-key provider)
+//   - /dashboard/settings/ai-providers  IntegrationsCard "Manage AI keys"
+//
+// These are matched on a segment boundary rather than added to
+// SETUP_GATE_BYPASS, whose plain `startsWith` would also admit a future
+// sibling such as /dashboard/subscription-audit. The prefix list cannot be
+// tightened wholesale: entries like "/favicon" and "/icon" exist precisely to
+// match "/favicon.ico" and "/icon-192.png".
+const SETUP_WIZARD_DESTINATIONS = [
+  "/dashboard/subscription",
+  "/dashboard/addons",
+  "/dashboard/success",
+  "/dashboard/integrations",
+  "/dashboard/settings/ai-providers",
+];
+
+// Exact API dependencies of the three destinations above. Keeping these as
+// exact paths (rather than broad prefixes) prevents an incomplete workspace
+// from using the setup funnel to bypass unrelated operational APIs. Every
+// route still performs its own session, workspace and entitlement checks.
+const SETUP_WIZARD_API_DESTINATIONS: Readonly<Record<string, ReadonlySet<string>>> = {
+  "/api/subscription": new Set(["GET"]),
+  "/api/subscription/portal": new Set(["POST"]),
+  "/api/create-checkout-session": new Set(["POST"]),
+  "/api/reactivate-subscription": new Set(["POST"]),
+  "/api/addons/catalog": new Set(["GET"]),
+  "/api/addons/checkout": new Set(["POST"]),
+  "/api/addons/verify": new Set(["POST"]),
+  "/api/verify-subscription": new Set(["POST"]),
+  "/api/check-active-subscription": new Set(["POST"]),
+  "/api/user/profile": new Set(["GET"]),
+  "/api/user/cloud-mirror": new Set(["GET"]),
+  "/api/integrations": new Set(["GET", "POST"]),
+  "/api/ascora/connect": new Set(["GET", "POST"]),
+  "/api/dr-nrpg/connect": new Set(["GET", "POST"]),
+  "/api/onboarding/status": new Set(["GET"]),
+  "/api/pricing-config": new Set(["GET"]),
+  "/api/workspace/status": new Set(["GET"]),
+  "/api/workspace/provider-connections": new Set(["GET", "POST", "DELETE"]),
+  "/api/workspace/provider-connections/validate": new Set(["POST"]),
+};
+
+function isWizardDestination(pathname: string): boolean {
+  return SETUP_WIZARD_DESTINATIONS.includes(pathname);
+}
+
+function isSetupOAuthRoute(pathname: string, method: string): boolean {
+  if (
+    method === "GET" &&
+    [
+      "/api/oauth/google-drive/status",
+      "/api/oauth/google-drive/start",
+      "/api/oauth/google-drive/callback",
+      "/api/oauth/microsoft-onedrive/status",
+      "/api/oauth/microsoft-onedrive/start",
+      "/api/oauth/microsoft-onedrive/callback",
+    ].includes(pathname)
+  ) {
+    return true;
+  }
+
+  const match = pathname.match(
+    /^\/api\/integrations\/oauth\/(xero|myob|quickbooks|servicem8)\/(connect|callback)$/,
+  );
+  if (!match) return false;
+  return match[2] === "connect" ? method === "POST" : method === "GET";
+}
+
+function shouldBypassSetupGate(pathname: string, method: string): boolean {
   // Exact match for /setup (without trailing slash)
   if (pathname === "/setup") return true;
-  return SETUP_GATE_BYPASS.some((prefix) => pathname.startsWith(prefix));
+  return (
+    SETUP_GATE_BYPASS.some((prefix) => pathname.startsWith(prefix)) ||
+    isWizardDestination(pathname) ||
+    SETUP_WIZARD_API_DESTINATIONS[pathname]?.has(method) === true ||
+    isSetupOAuthRoute(pathname, method)
+  );
 }
 
 // SP-3 T15 — paths that bypass the hard-paywall redirect even when the
@@ -111,7 +179,11 @@ const HARD_PAYWALL_WHITELIST = [
 ] as const;
 
 function isHardPaywallWhitelisted(pathname: string): boolean {
-  return HARD_PAYWALL_WHITELIST.some((p) => pathname.startsWith(p));
+  return (
+    HARD_PAYWALL_WHITELIST.some((p) => pathname.startsWith(p)) ||
+    pathname === "/dashboard/subscription" ||
+    pathname === "/dashboard/success"
+  );
 }
 
 // RA-4984 — JWT-claim-driven hard-paywall. The middleware runs in edge
@@ -187,7 +259,10 @@ export async function proxy(req: NextRequest) {
   // Safety lever: read env at request time so the flag can be toggled without
   // redeploying. If the flag is off, this entire block is completely inert.
   const SETUP_WIZARD_ENABLED = process.env.SETUP_WIZARD_ENABLED === "true";
-  if (SETUP_WIZARD_ENABLED && !shouldBypassSetupGate(pathname)) {
+  if (
+    SETUP_WIZARD_ENABLED &&
+    !shouldBypassSetupGate(pathname, req.method.toUpperCase())
+  ) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     // C1+C3 fix: gate on setupCompletedAt only — role-agnostic.
     // The old OWNER/ADMIN/TECHNICIAN branches used role strings that don't
@@ -235,7 +310,11 @@ export async function proxy(req: NextRequest) {
     // ── /dashboard/* — onboarding gate (RA-1259, unchanged) ──────────────────
     if (pathname.startsWith("/dashboard/")) {
       const needsOnboarding = Boolean((token as any).needsOnboarding);
-      if (needsOnboarding) {
+      const isActiveSetupWizardDestination =
+        SETUP_WIZARD_ENABLED &&
+        !(token as any).setupCompletedAt &&
+        isWizardDestination(pathname);
+      if (needsOnboarding && !isActiveSetupWizardDestination) {
         const url = req.nextUrl.clone();
         url.pathname = "/onboarding/account-type";
         url.search = "";

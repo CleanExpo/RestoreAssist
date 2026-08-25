@@ -125,9 +125,6 @@ export async function POST(
         });
       }
 
-      // Generate OAuth state (RA-1285: now async — DB-backed nonce)
-      const state = await generateOAuthState(userId, provider);
-
       // Generate PKCE if required
       let codeVerifier: string | undefined;
       let codeChallenge: string | undefined;
@@ -142,6 +139,15 @@ export async function POST(
       const baseUrl = process.env.NEXTAUTH_URL || request.nextUrl.origin;
       const redirectUri = `${baseUrl}/api/integrations/oauth/${providerParam.toLowerCase()}/callback`;
 
+      // Bind the PKCE verifier and redirect URI to this one-time state row.
+      // Integration.config is shared across attempts, so storing them there
+      // lets concurrent connects overwrite each other's callback context.
+      const state = await generateOAuthState(userId, provider, {
+        integrationId: integration.id,
+        redirectUri,
+        codeVerifier,
+      });
+
       // Get auth URL
       const authUrl = getProviderAuthUrl(
         provider,
@@ -150,18 +156,6 @@ export async function POST(
         state,
         codeChallenge,
       );
-
-      // Store state and code verifier in integration for callback validation
-      await prisma.integration.update({
-        where: { id: integration.id, userId },
-        data: {
-          config: JSON.stringify({
-            oauthState: state,
-            codeVerifier,
-            redirectUri,
-          }),
-        },
-      });
 
       // In dev mode, return a mock callback URL that will immediately complete
       if (isIntegrationDevMode()) {
