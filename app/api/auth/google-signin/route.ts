@@ -253,8 +253,13 @@ export async function POST(request: NextRequest) {
         userId: newUser.id,
         name: name || userEmail.split("@")[0] || "there",
         email: userEmail,
-        trialEndsAt: newUser.trialEndsAt ?? null,
-        creditsRemaining: newUser.creditsRemaining ?? 0,
+        // `accountResult.user` is a narrow select without the trial columns,
+        // and widening that shared helper's select on launch night is not
+        // worth the ripple. These are the same constants the welcome email
+        // above reports, and they are what the grant just applied — the
+        // stored trialEndsAt differs only by the seconds since the insert.
+        trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+        creditsRemaining: TRIAL_REPORT_CREDITS,
       }),
       // RA-1239: demo data seed so Google signups don't land on empty dashboard.
       seedDemoDataForNewUser(newUser.id),
