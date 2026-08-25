@@ -20,12 +20,12 @@ jobs:
         with:
           node-version-file: ".nvmrc"
           cache: "npm"
-      - name: Release bootstrap guard
-        run: node scripts/ci/check-release-bootstrap.mjs
       - name: Install locked dependencies
         run: npm ci --ignore-scripts
         env:
           HUSKY: "0"
+      - name: Release bootstrap guard
+        run: node scripts/ci/check-release-bootstrap.mjs
       - name: Audit production dependency closure
         run: npm run audit:prod
       - name: Scan complete git history for secrets

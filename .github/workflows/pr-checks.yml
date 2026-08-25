@@ -52,14 +52,14 @@ jobs:
           node-version-file: ".nvmrc"
           cache: "npm"
 
-      - name: Release bootstrap guard
-        run: node scripts/ci/check-release-bootstrap.mjs
-
       - name: Install dependencies
         run: npm ci
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
+
+      - name: Release bootstrap guard
+        run: node scripts/ci/check-release-bootstrap.mjs
 
       - name: Generate Prisma client
         run: npm run prisma:generate

@@ -89,14 +89,14 @@ jobs:
           node-version-file: ".nvmrc"
           cache: "npm"
 
-      - name: Release bootstrap guard
-        run: node scripts/ci/check-release-bootstrap.mjs
-
       - name: Install dependencies
         run: npm ci
         env:
           # Skip Prisma generate-on-install since we run it explicitly below
           PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
+
+      - name: Release bootstrap guard
+        run: node scripts/ci/check-release-bootstrap.mjs
 
       - name: Generate Prisma client
         run: npm run prisma:generate
