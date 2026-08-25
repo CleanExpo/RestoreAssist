@@ -76,8 +76,18 @@ android/app/keystore.properties
 store-assets/
 
 
-# Local Claude skills (may contain API keys)
-.claude/skills/
+# Local Claude skills may carry API keys in their payload files, so skill
+# directories stay ignored by default. SKILL.md is documentation and MUST be
+# tracked: all 14 skills this repo relies on already are. The blanket rule was
+# added 2026-04-13 and, because git ignores never apply to already-tracked
+# files, it silently affected only NEW skills - one written after that date
+# appeared to be created and then never committed. A secret in a SKILL.md is
+# caught by the gitleaks step in pr-checks.yml, not by hiding it from review.
+.claude/skills/*
+!.claude/skills/*.md
+!.claude/skills/*/
+.claude/skills/*/*
+!.claude/skills/*/SKILL.md
 
 # Session artifacts
 commit_msg_*.txt
