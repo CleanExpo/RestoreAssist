@@ -856,6 +856,18 @@ test("rejects package-lock root dependency drift", () => {
   assert.match(violations.join("\n"), /must match package\.json/);
 });
 
+test("rejects duplicate package manifest keys", () => {
+  const root = fixture();
+  writeFileSync(
+    join(root, "package.json"),
+    '{"name":"fixture","dependencies":{},"overrides":{"safe":"1"},"overrides":{"safe":"2"},"scripts":{"postinstall":"prisma generate"}}',
+  );
+  assert.match(
+    findReleaseBootstrapViolations(root).join("\n"),
+    /duplicate or ambiguous keys/,
+  );
+});
+
 test("rejects an npm direct-dependency override conflict", () => {
   const violations = findReleaseBootstrapViolations(
     fixture({ manifestDependencies: { example: "^2.0.0" }, overrides: { example: ">=2.1.0" } }),
