@@ -13,6 +13,7 @@ import type {
   SwmsActivityTemplate,
   SwmsRiskRow,
 } from "./activity-swms-types";
+import { isValidAbn, normaliseAbn } from "@/lib/abn/checksum";
 import { getSwmsActivityTemplate } from "./activity-templates";
 import {
   getSwmsJurisdiction,
@@ -142,31 +143,13 @@ function cloneRow(row: SwmsRiskRow): SwmsRiskRow {
   };
 }
 
-/** ABN: eleven digits, optionally spaced. Shape only; the checksum is separate. */
-const ABN_RE = /^\d{2}\s?\d{3}\s?\d{3}\s?\d{3}$/;
-
-/** ATO weighting for the ABN modulus-89 check. */
-const ABN_WEIGHTS = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19] as const;
-
 /**
- * Validate an ABN against the ATO's modulus-89 checksum.
- *
- * Eleven digits alone is a weak check: a transposed or invented number passes
- * it and then gets printed on an issued SWMS under "Company name / ABN". The
- * checksum catches single-digit errors and most transpositions.
- *
- * Algorithm: subtract 1 from the first digit, multiply each digit by its
- * weight, and require the sum to be divisible by 89.
+ * ABN validation is NOT reimplemented here. `lib/abn/checksum.ts` is the
+ * canonical ATO modulus-89 implementation, already used by onboarding, setup,
+ * the ABR client and `lib/sanitize.ts` — whose own comment says the logic must
+ * not be allowed to drift between copies. A second copy in this module was
+ * exactly that drift risk; Cursor Bugbot caught it on #2041.
  */
-export function isValidAbn(abn: string): boolean {
-  const digits = abn.replace(/\s/g, "");
-  if (!/^\d{11}$/.test(digits)) return false;
-  const sum = ABN_WEIGHTS.reduce(
-    (acc, weight, i) => acc + (Number(digits[i]) - (i === 0 ? 1 : 0)) * weight,
-    0,
-  );
-  return sum % 89 === 0;
-}
 
 /**
  * Compose a job-specific SWMS.
@@ -203,13 +186,14 @@ export function buildActivitySwms(input: BuildActivitySwmsInput): ActivitySwms {
       throw new SwmsCompositionError(`PCBU ${field} is required on a SWMS.`);
     }
   }
-  const abn = pcbu.abn.trim();
-  if (!ABN_RE.test(abn)) {
+  // Two messages, because the two failures need different fixes: a wrong-shaped
+  // ABN is usually a paste error, a checksum failure is usually a typo.
+  if (!normaliseAbn(pcbu.abn)) {
     throw new SwmsCompositionError(
       `"${pcbu.abn}" is not a valid ABN. An ABN is eleven digits.`,
     );
   }
-  if (!isValidAbn(abn)) {
+  if (!isValidAbn(pcbu.abn)) {
     throw new SwmsCompositionError(
       `"${pcbu.abn}" is eleven digits but fails the ABN checksum. ` +
         "Check for a transposed or mistyped digit.",

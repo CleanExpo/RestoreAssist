@@ -129,7 +129,10 @@ refusals — a SWMS that names no law is still a document a worker will sign.
 
 The ABN is checked against the ATO modulus-89 checksum, not merely for eleven
 digits: a transposed or invented number passes a shape check and then gets
-printed on an issued SWMS under the PCBU's name.
+printed on an issued SWMS under the PCBU's name. That check is **not
+implemented here** — `lib/abn/checksum.ts` is the canonical one, shared with
+onboarding, setup and the ABR client. A first cut reimplemented it locally,
+which `lib/sanitize.ts` already warns against by name; Cursor Bugbot caught it.
 
 Composed documents own their data. Risk rows are shared objects — `common-rows`
 defines each once and every template that uses it holds the same reference — so
