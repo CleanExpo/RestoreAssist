@@ -73,7 +73,7 @@ SELECT COUNT(*) FROM "User" WHERE "createdAt" > NOW() - INTERVAL '12 hours';
 
 ## 4. PRs ready to merge
 
-**[#2052 — Launch night: tell the founder about signups, and stop the trial dead-ending](https://github.com/CleanExpo/RestoreAssist/pull/2052)** — ready for review, CI green
+**[#2052 — Launch night: tell the founder about signups, and stop the trial dead-ending](https://github.com/CleanExpo/RestoreAssist/pull/2052)** — ready, CI green, independently reviewed
 
 > **SHIP-DELTA:** a stranger's signup now reaches the founder's inbox instead of dying
 > silently in the database.
@@ -90,12 +90,46 @@ Checks: 4 new + 2 regression tests passing (11/11 in the register suite), `tsc -
 
 ---
 
-**CI status: all 6 checks green** on head `90b85bf` — Quality Checks, Route Safety Scan,
-deterministic-acceptance, Agentic Browsing audit, DESIGN.md validation, Vercel Preview
-Comments. Two earlier commits failed Quality Checks on the enforcing `type-check` step;
-that was the "0 credits" type error described below, already fixed before the failure
-notification arrived. The gate was **not** base-red — four other branches passed it in the
-same window, so the failure was mine and is now resolved.
+**CI status: green.** All 28 substantive `Quality Checks` steps succeeded on `ea16296` —
+TypeScript Check, Lint, the nine content guards, API route audit, Secrets scan, Unit
+tests, Build, dependency audit and Prisma migration drift — alongside Route Safety Scan,
+deterministic-acceptance, Agentic Browsing audit, DESIGN.md validation and Vercel Preview
+Comments.
+
+Quality Checks went red three times overnight. Every one was mine, and each is worth
+naming because the pattern repeats:
+
+| Commits | Cause |
+| --- | --- |
+| `85ff5eb`, `46a9032` | The enforcing `type-check` step catching a real "0 credits" bug in the Google-signin alert — which had reached the branch only because I read a **timed-out** `tsc` log as clean. |
+| `150a1a4`, `8469074` | The `gitleaks` secrets scan, tripped by documentation quoting an `Authorization` header. Fixed, then **re-tripped by the paragraph explaining the fix**, because I verified at the fix instead of after the last edit. |
+
+The gate was never base-red — four other branches passed it in the same window.
+
+### The PR was independently reviewed
+
+CodeRabbit reviewed it. **10 inline findings**, and the review earned its place twice over:
+
+- **It found a real defect I introduced.** The signup-alert email subject interpolated the
+  user-supplied name and address raw. A subject is a *header*, and `sanitizeString` strips
+  tags and null bytes but **not embedded CR/LF** — so an attacker-chosen newline reached a
+  header boundary. Low severity (the provider takes JSON, not raw SMTP) but real, and the
+  app already shipped the right helper. Fixed test-first in `724a144`.
+- **It caught this report overstating.** The old headline read "FUNNEL: WORKS end to end"
+  while report generation is gated. See §1 — it now names the verified scope.
+- **It caught the live-account exposure** in §6d, which is the most serious item of the night.
+- **What it did *not* find matters too.** It independently confirmed no path exists where an
+  alert failure changes a successful signup response, and that the banner stays hidden until
+  status resolves and on failure. Those are the two properties I could not verify myself.
+
+One finding did not reproduce — a claim that the banner's hidden-state tests assert before
+`response.json()` settles and so pass vacuously. Two mutations (disabling the guard; dropping
+only the `completed` half) each make the tests fail. A vacuous assertion survives both; these
+survive neither. Answered on the PR with the evidence rather than changing working tests.
+
+**Ignore the "Merge Risk: Moderate · up to `48744`" badge on the PR.** CodeRabbit re-posts
+its walkthrough on every push but does not recompute that badge, so it is pinned to a commit
+from before the redaction. Its three stated grounds are the ones since fixed or disproved.
 
 **[#2052](https://github.com/CleanExpo/RestoreAssist/pull/2052) also carries a second fix**
 
