@@ -4,6 +4,23 @@
 # instead of drifting silently. Grouped updates keep the PR firehose
 # tolerable: one weekly rollup per ecosystem for non-major bumps,
 # with majors surfaced individually so breaking changes aren't hidden.
+#
+# ⚠️ TWO LOCKFILES, ONE UPDATER — read before the next bump breaks CI.
+#
+# This repo carries BOTH package-lock.json and pnpm-lock.yaml, while every
+# workflow runs `pnpm install --frozen-lockfile`. Dependabot's npm ecosystem
+# updates package.json + package-lock.json and does NOT touch pnpm-lock.yaml,
+# so each grouped bump leaves the pnpm lockfile stale and CI dies at install
+# with ERR_PNPM_OUTDATED_LOCKFILE — before a single test runs.
+#
+# That is what PR #2030 did on 2026-08-25. The stop-gap after any bump is:
+#
+#     corepack pnpm import && corepack pnpm install --frozen-lockfile
+#
+# The real fix is one lockfile, not two. CI runs pnpm, so deleting
+# package-lock.json would let Dependabot maintain pnpm-lock.yaml directly and
+# this stops recurring. That is a repo-wide call for the owner, not a cleanup —
+# hence this warning rather than a unilateral deletion.
 version: 2
 updates:
   - package-ecosystem: "npm"
