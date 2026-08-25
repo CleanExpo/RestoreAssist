@@ -45,7 +45,9 @@ export async function GET(request: NextRequest) {
           (max, row) => Math.max(max, row.riskAfter),
           0,
         ),
-        isHighRiskConstructionWork: tpl.highRiskConstructionWork.length > 0,
+        // NOT "this job is HRCW" — the template cannot know that. This is
+        // the size of the checklist the crew must work through first.
+        hrcwCategoriesToAssess: tpl.hrcwCategoriesToAssess.length,
       };
     });
 

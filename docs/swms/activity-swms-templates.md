@@ -92,6 +92,16 @@ asserts the original pair cannot reappear.
 The paper SWMS still carry the wrong citation. Correcting them is a founder
 decision, not a code change.
 
+### 3. One prohibition is reworded
+
+The fire-and-smoke document reads *"Do no work around any fire-damaged
+structure until it is examined and certified safe"*. That is valid English, but
+it sits in a run of `Do not ...` bullets where it reads as a typo and a reader
+can skim past it. On a stop-work instruction for a fire-damaged building that is
+not a risk worth carrying for the sake of fidelity, so it is rendered `Do not
+work` — same meaning, no ambiguity. Caught in review by Cursor Bugbot; a test
+now rejects any `Do no <verb>` construction across all seven templates.
+
 ## Risk scores
 
 The source documents record a risk band of 1 to 5 before and after controls, but
@@ -110,12 +120,38 @@ lib/swms/jurisdiction-reference.ts the reference table, read from state-detectio
 lib/swms/build-activity-swms.ts    template + job details -> a SWMS document
 
 app/api/swms/activities/           GET catalogue
-app/api/swms/activities/[id]/      GET template, POST compose for a job
+app/api/swms/activities/[activityId]/  GET template, POST compose for a job
 ```
 
 `buildActivitySwms` throws rather than returning a partial document. An unknown
-activity, an unrecognised jurisdiction, a missing PCBU or a malformed ABN are
-all refusals — a SWMS that names no law is still a document a worker will sign.
+activity, an unrecognised jurisdiction, a missing PCBU or an invalid ABN are all
+refusals — a SWMS that names no law is still a document a worker will sign.
+
+The ABN is checked against the ATO modulus-89 checksum, not merely for eleven
+digits: a transposed or invented number passes a shape check and then gets
+printed on an issued SWMS under the PCBU's name.
+
+Composed documents own their data. Risk rows are shared objects — `common-rows`
+defines each once and every template that uses it holds the same reference — so
+the composer deep-copies them. Handing out the live array meant one consumer
+mutating `swms.rows[0].hazards` changed that row for every SWMS composed
+afterwards in the same process. Caught in review by CodeRabbit.
+
+### High-risk construction work
+
+A template can say *assess these categories*; it can never say *these apply* —
+which boxes are ticked on the source document is not recoverable from the PDF
+text layer, and HRCW is a per-job determination made on site.
+
+Those are two different claims, so they are two different fields:
+`hrcwCategoriesToAssess` (from the template) and `hrcwCategoriesApplying`
+(always empty from the composer, filled in on site). Only the demolition
+template carries a checklist, and a test pins that.
+
+The first cut used a single `highRiskConstructionWork` array for both meanings,
+and the catalogue route read it as `isHighRiskConstructionWork: true` — telling
+a reader the job *was* high-risk construction work on the strength of a list
+that only ever meant "consider these". Caught in review by CodeRabbit.
 
 Rows that genuinely differ between source documents (Planning, Assessment of
 site, Isolate the work area, pack-down) are **not** flattened into the shared

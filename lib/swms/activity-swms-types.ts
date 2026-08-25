@@ -91,11 +91,21 @@ export interface SwmsActivityTemplate {
   /** SWMS Scope paragraph. */
   scope: string;
   /**
-   * High-risk construction work categories the activity may trigger, per WHS
-   * Regulation s291. Empty where the source document does not classify the
-   * activity as HRCW.
+   * High-risk construction work categories that must be ASSESSED for this
+   * activity before it starts, per WHS Regulation s291.
+   *
+   * This is deliberately not a list of categories that apply. The source
+   * documents reproduce the statutory list as a per-job checklist, and which
+   * boxes are ticked is not recoverable from the PDF text layer, so the
+   * template can only say "consider these", never "these are in force". A
+   * non-empty list therefore means the crew has a checklist to work through,
+   * not that the job is HRCW.
+   *
+   * Whether HRCW actually applies is a per-job determination the composer
+   * records in `ActivitySwms.hrcwCategoriesApplying`, which starts empty and
+   * is filled in on site.
    */
-  highRiskConstructionWork: string[];
+  hrcwCategoriesToAssess: string[];
   /** Tools named in the source document's "Required Tools" block. */
   requiredTools: string[];
   /** PPE inspection-and-maintenance table. */

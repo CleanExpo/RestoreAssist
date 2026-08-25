@@ -10,9 +10,11 @@ import { describe, expect, it } from "vitest";
 import {
   buildActivitySwms,
   highestResidualRisk,
+  isValidAbn,
   SwmsCompositionError,
   type BuildActivitySwmsInput,
 } from "../build-activity-swms";
+import { SWMS_ACTIVITY_TEMPLATES } from "../activity-templates";
 import { SWMS_ACTIVITY_IDS } from "../activity-templates";
 
 function input(
@@ -121,7 +123,7 @@ describe("buildActivitySwms", () => {
   });
 
   it.each(["1234", "42 633 062 30", "abcdefghijk", ""])(
-    "rejects %s as an ABN",
+    "rejects %s as an ABN on shape",
     (abn) => {
       expect(() =>
         buildActivitySwms(input({ pcbu: { ...input().pcbu, abn } })),
@@ -129,12 +131,107 @@ describe("buildActivitySwms", () => {
     },
   );
 
-  it("accepts an ABN with or without spaces", () => {
+  it("accepts a real ABN with or without spaces", () => {
     for (const abn of ["42 633 062 307", "42633062307"]) {
       expect(() =>
         buildActivitySwms(input({ pcbu: { ...input().pcbu, abn } })),
       ).not.toThrow();
     }
+  });
+
+  it("rejects eleven digits that fail the ABN checksum", () => {
+    // Eleven digits and correctly shaped, so the regex passes it. Only the
+    // modulus-89 check catches a transposition like this.
+    const transposed = "42 633 062 370";
+    expect(transposed.replace(/\s/g, "")).toHaveLength(11);
+    expect(() =>
+      buildActivitySwms(input({ pcbu: { ...input().pcbu, abn: transposed } })),
+    ).toThrow(/fails the ABN checksum/);
+  });
+});
+
+describe("isValidAbn", () => {
+  it("accepts known-good ABNs", () => {
+    // Disaster Recovery QLD, from the source SWMS documents.
+    expect(isValidAbn("42 633 062 307")).toBe(true);
+    expect(isValidAbn("42633062307")).toBe(true);
+  });
+
+  it("rejects a single transposed pair", () => {
+    expect(isValidAbn("42 633 062 370")).toBe(false);
+  });
+
+  it("rejects wrong-length and non-numeric input", () => {
+    for (const bad of ["", "4263306230", "426330623070", "4263306230x"]) {
+      expect(isValidAbn(bad), bad).toBe(false);
+    }
+  });
+
+  it("rejects every single-digit corruption of a valid ABN", () => {
+    // Exhaustive: the checksum's whole job is catching one wrong digit.
+    const valid = "42633062307";
+    let checked = 0;
+    for (let i = 0; i < valid.length; i++) {
+      for (let d = 0; d <= 9; d++) {
+        if (String(d) === valid[i]) continue;
+        const corrupted = valid.slice(0, i) + d + valid.slice(i + 1);
+        expect(isValidAbn(corrupted), corrupted).toBe(false);
+        checked++;
+      }
+    }
+    // Positive control on the loop itself: 11 positions x 9 alternatives.
+    expect(checked).toBe(99);
+  });
+});
+
+describe("returned documents own their data", () => {
+  it("mutating a returned row does not affect later compositions", () => {
+    const first = buildActivitySwms(input());
+    const before = first.rows[0].hazards.length;
+
+    // A consumer doing something ordinary — filtering a row in place.
+    first.rows[0].hazards.push("INJECTED");
+    first.rows[0].controls[0].items.push("INJECTED");
+    first.rows.push(first.rows[0]);
+    first.ppe[0].item = "INJECTED";
+
+    const second = buildActivitySwms(input());
+    expect(second.rows[0].hazards).not.toContain("INJECTED");
+    expect(second.rows[0].controls[0].items).not.toContain("INJECTED");
+    expect(second.rows[0].hazards).toHaveLength(before);
+    expect(second.ppe[0].item).not.toBe("INJECTED");
+  });
+
+  it("the shared template constants are left untouched", () => {
+    // The rows live in common-rows.ts and are reused by every template, so a
+    // leak here would corrupt all seven, not just this one.
+    const tpl = SWMS_ACTIVITY_TEMPLATES["carpet-removal"];
+    const swms = buildActivitySwms(input());
+    expect(swms.rows).not.toBe(tpl.rows);
+    expect(swms.rows[0]).not.toBe(tpl.rows[0]);
+    expect(swms.rows[0].hazards).not.toBe(tpl.rows[0].hazards);
+    expect(swms.rows[0].controls[0].items).not.toBe(
+      tpl.rows[0].controls[0].items,
+    );
+    // Same content, different identity.
+    expect(swms.rows[0].hazards).toEqual(tpl.rows[0].hazards);
+  });
+});
+
+describe("HRCW categories", () => {
+  it("separates categories to assess from categories that apply", () => {
+    const demo = buildActivitySwms(
+      input({ activityId: "demolition-non-structural" }),
+    );
+    expect(demo.hrcwCategoriesToAssess.length).toBeGreaterThan(0);
+    // The template cannot know which apply — that is a site determination.
+    expect(demo.hrcwCategoriesApplying).toEqual([]);
+  });
+
+  it("an activity with no checklist reports none to assess", () => {
+    // Negative control for the assertion above: prove the field can be empty,
+    // so "greater than 0" for demolition is distinguishing something.
+    expect(buildActivitySwms(input()).hrcwCategoriesToAssess).toEqual([]);
   });
 
   it("refuses a SWMS with no project name or address", () => {

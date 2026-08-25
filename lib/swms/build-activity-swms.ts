@@ -89,7 +89,18 @@ export interface ActivitySwms {
   project: SwmsProject;
   consulted: SwmsConsultedPerson[];
   reviewTriggers: readonly string[];
-  highRiskConstructionWork: string[];
+  /**
+   * HRCW categories to work through before starting. Copied from the
+   * template; means "assess these", not "these apply".
+   */
+  hrcwCategoriesToAssess: string[];
+  /**
+   * HRCW categories determined to APPLY to this job. Always empty from
+   * `buildActivitySwms` — this is a site determination, not something a
+   * template can know. Present so a consumer has somewhere to record it
+   * rather than overloading the assessment list.
+   */
+  hrcwCategoriesApplying: string[];
   requiredTools: string[];
   ppe: SwmsActivityTemplate["ppe"];
   trainingRequired: string[];
@@ -110,8 +121,52 @@ export class SwmsCompositionError extends Error {
   }
 }
 
-/** ABN: eleven digits, optionally spaced. Formatting is not validated further. */
+/**
+ * Deep-copy one risk row.
+ *
+ * Rows are shared objects: `common-rows.ts` defines each once and every
+ * template that uses it holds the same reference. Handing the live object to a
+ * caller means one consumer mutating `swms.rows[0].hazards` changes that row
+ * for every SWMS composed afterwards in the same process. A shallow spread is
+ * not enough — `equipment`, `hazards` and `controls` are all arrays.
+ */
+function cloneRow(row: SwmsRiskRow): SwmsRiskRow {
+  return {
+    ...row,
+    equipment: [...row.equipment],
+    hazards: [...row.hazards],
+    controls: row.controls.map((group) => ({
+      ...group,
+      items: [...group.items],
+    })),
+  };
+}
+
+/** ABN: eleven digits, optionally spaced. Shape only; the checksum is separate. */
 const ABN_RE = /^\d{2}\s?\d{3}\s?\d{3}\s?\d{3}$/;
+
+/** ATO weighting for the ABN modulus-89 check. */
+const ABN_WEIGHTS = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19] as const;
+
+/**
+ * Validate an ABN against the ATO's modulus-89 checksum.
+ *
+ * Eleven digits alone is a weak check: a transposed or invented number passes
+ * it and then gets printed on an issued SWMS under "Company name / ABN". The
+ * checksum catches single-digit errors and most transpositions.
+ *
+ * Algorithm: subtract 1 from the first digit, multiply each digit by its
+ * weight, and require the sum to be divisible by 89.
+ */
+export function isValidAbn(abn: string): boolean {
+  const digits = abn.replace(/\s/g, "");
+  if (!/^\d{11}$/.test(digits)) return false;
+  const sum = ABN_WEIGHTS.reduce(
+    (acc, weight, i) => acc + (Number(digits[i]) - (i === 0 ? 1 : 0)) * weight,
+    0,
+  );
+  return sum % 89 === 0;
+}
 
 /**
  * Compose a job-specific SWMS.
@@ -148,9 +203,16 @@ export function buildActivitySwms(input: BuildActivitySwmsInput): ActivitySwms {
       throw new SwmsCompositionError(`PCBU ${field} is required on a SWMS.`);
     }
   }
-  if (!ABN_RE.test(pcbu.abn.trim())) {
+  const abn = pcbu.abn.trim();
+  if (!ABN_RE.test(abn)) {
     throw new SwmsCompositionError(
       `"${pcbu.abn}" is not a valid ABN. An ABN is eleven digits.`,
+    );
+  }
+  if (!isValidAbn(abn)) {
+    throw new SwmsCompositionError(
+      `"${pcbu.abn}" is eleven digits but fails the ABN checksum. ` +
+        "Check for a transposed or mistyped digit.",
     );
   }
   if (!input.project.name?.trim() || !input.project.address?.trim()) {
@@ -168,11 +230,17 @@ export function buildActivitySwms(input: BuildActivitySwmsInput): ActivitySwms {
     project: input.project,
     consulted: input.consulted ?? [],
     reviewTriggers: SWMS_REVIEW_TRIGGERS,
-    highRiskConstructionWork: [...template.highRiskConstructionWork],
+    hrcwCategoriesToAssess: [...template.hrcwCategoriesToAssess],
+    // Empty by construction: whether HRCW applies is decided on site.
+    hrcwCategoriesApplying: [],
     requiredTools: [...template.requiredTools],
-    ppe: template.ppe,
+    // `ppe` and `rows` are copied like every other array here. `rows` in
+    // particular holds the shared row objects from common-rows.ts that every
+    // template reuses, so handing out the live array let a consumer mutate
+    // one document and change every later composition in the same process.
+    ppe: template.ppe.map((entry) => ({ ...entry })),
     trainingRequired: [...template.trainingRequired],
-    rows: template.rows,
+    rows: template.rows.map(cloneRow),
     applicableJurisdiction: jurisdiction,
     referenceJurisdictions: getSwmsJurisdictions(),
     ausNzStandards: SWMS_AUS_NZ_STANDARDS,

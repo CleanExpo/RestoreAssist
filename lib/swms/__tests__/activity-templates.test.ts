@@ -140,6 +140,36 @@ describe("SWMS activity templates", () => {
     }
   });
 
+  it("no control weakens a prohibition with an ambiguous negation", () => {
+    // Cursor Bugbot caught "Do no work around any fire-damaged structure" —
+    // valid English, but it reads as a typo next to the "Do not ..." bullets
+    // around it, and this is a stop-work instruction on a fire-damaged
+    // building. Every negated imperative uses the same unambiguous form.
+    const allText = JSON.stringify(SWMS_ACTIVITY_TEMPLATES);
+    expect(allText).not.toMatch(/\bDo no\s+(?!t\b)[a-z]/);
+
+    // Positive control: prove there ARE negated imperatives to find, so the
+    // assertion above is not passing over an empty set.
+    expect(allText).toMatch(/\bDO NOT\b|\bDo not\b/);
+  });
+
+  it.each(TEMPLATES)(
+    "%s: HRCW categories are a checklist to assess, never a claim they apply",
+    (_id, tpl) => {
+      // The field name is the contract. A template can only say "consider
+      // these"; whether HRCW applies is decided per job on site.
+      expect(Array.isArray(tpl.hrcwCategoriesToAssess)).toBe(true);
+      expect(tpl).not.toHaveProperty("highRiskConstructionWork");
+    },
+  );
+
+  it("only demolition carries an HRCW checklist", () => {
+    const withChecklist = TEMPLATES.filter(
+      ([, tpl]) => tpl.hrcwCategoriesToAssess.length > 0,
+    ).map(([id]) => id);
+    expect(withChecklist).toEqual(["demolition-non-structural"]);
+  });
+
   it("templates are exhaustive over the SwmsActivityId union", () => {
     // A compile-time exhaustiveness proof would pass even if a key were
     // deleted at runtime, so assert on the object itself.
