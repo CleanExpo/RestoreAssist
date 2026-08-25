@@ -33,7 +33,12 @@ function wiringFailures(pilot: string, release: string, appYaml = ""): string[] 
   if (!/uses: \.\/\.github\/workflows\/pilot-canary\.yml/.test(release)) {
     failures.push("release does not call local pilot workflow");
   }
-  if (appYaml && !/key:\s*PILOT_TESTER_JUDGE_API_KEY\s+[\s\S]*?type:\s*SECRET/.test(appYaml)) {
+  if (
+    appYaml &&
+    !/(?:"key"|key)\s*:\s*(?:"PILOT_TESTER_JUDGE_API_KEY"|PILOT_TESTER_JUDGE_API_KEY)[\s\S]*?(?:"type"|type)\s*:\s*(?:"SECRET"|SECRET)/.test(
+      appYaml,
+    )
+  ) {
     failures.push("deployment judge secret absent");
   }
   return failures;
