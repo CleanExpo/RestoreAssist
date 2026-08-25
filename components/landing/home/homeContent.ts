@@ -20,7 +20,7 @@ export const HOME = {
     brand: BRAND.name,
     valueLine: "From site to signed report. One system.",
     support:
-      "Every other platform in this industry was built to serve the carrier. RestoreAssist was built for the contractor doing the work — and the homeowner living through it. Australian-built. Australian-priced.",
+      "The platforms that dominate this industry were built to serve the carrier. RestoreAssist was built for the contractor doing the work — and the homeowner living through it. Australian-built. Australian-priced.",
     primaryCta: `Start free — ${trialDays}-day trial`,
     secondaryCta: "See how it works",
   },

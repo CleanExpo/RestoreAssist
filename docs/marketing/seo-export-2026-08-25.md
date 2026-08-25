@@ -47,7 +47,9 @@ Not "few links" — worse, and more actionable.
 - **`hotonlinegaming.com`**, `sapphirevpn.net`, `trendyhealthtimes.com`, `portailorange.net`, `thunder-data.cn` — unrelated PBN filler
 - **`example3.com`** (AS 17) — placeholder domain
 
-**There are zero legitimate third-party backlinks.** Every external link is either our own site or a link farm.
+**Of the domains enumerated above, zero are legitimate third-party backlinks** — every one is either our own property or a link farm.
+
+> **Inventory gap — reconcile before the subscription lapses.** The list above enumerates **28** domains; the metrics table reports **30** referring domains, so **2 are unaccounted for**. Separately, the "registered in Moldova (.md)" heading describes registrant country, not TLD: **none of the listed domains use the `.md` ccTLD**. Neither point is invented here — both are as-received from the export summary. Re-pull the full referring-domain CSV while Semrush access remains and reconcile, because the "zero legitimate third-party backlinks" conclusion and the disavow recommendation both rest on the inventory being complete. Two unexamined domains cannot change the shape of the finding, but they can change what belongs in a disavow file.
 
 ### Why this matters more than the low count
 

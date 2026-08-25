@@ -245,6 +245,20 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
       }
       unmount();
     });
+
+    it("marks exactly one page-section link as the current one", () => {
+      const { container, unmount } = render(<Home />);
+      const nav = container.querySelector('nav[aria-label="Page sections"]');
+      const current = Array.from(
+        nav!.querySelectorAll('a[aria-current="true"]'),
+      );
+      // Scroll-spy starts on #stance; without aria-current a later refactor
+      // could drop active-section semantics and the label test alone would
+      // still pass.
+      expect(current).toHaveLength(1);
+      expect(current[0].getAttribute("href")).toBe("#stance");
+      unmount();
+    });
   });
 
   describe("premium hero copy / CTA is present", () => {
