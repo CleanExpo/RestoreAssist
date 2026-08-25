@@ -11,6 +11,7 @@ const IMMUTABLE_IMAGE_REF = /^[^\s@]+@sha256:[0-9a-f]{64}$/;
 const IMMUTABLE_DOCKER_ACTION_REF = /^docker:\/\/[^\s@]+@sha256:[0-9a-f]{64}$/;
 const APPROVED_EXTERNAL_ACTIONS = new Set([
   "actions/checkout",
+  "actions/attest",
   "actions/setup-java",
   "actions/setup-node",
   "actions/setup-python",
@@ -285,10 +286,7 @@ const PROVIDER_COMPONENT_GROUPS = ["services", "workers", "jobs", "functions", "
 // provider command, lifecycle hook, or executable body requires an explicit
 // review of this trust policy.  A broad "harmless-looking" command is not
 // sufficient because shell and runtime wrappers have an unbounded grammar.
-const APPROVED_PROVIDER_COMMANDS = new Map([
-  ["services/web.build_command", "npm run build"],
-  ["services/web.run_command", "npm start"],
-]);
+const APPROVED_PROVIDER_COMMANDS = new Map();
 const APPROVED_PROVIDER_COMPONENTS = new Set(["services/web"]);
 const APPROVED_PROVIDER_TOP_LEVEL_FIELDS = new Set([
   "name",
@@ -298,10 +296,7 @@ const APPROVED_PROVIDER_TOP_LEVEL_FIELDS = new Set([
 ]);
 const APPROVED_WEB_COMPONENT_FIELDS = new Set([
   "name",
-  "github",
-  "build_command",
-  "run_command",
-  "environment_slug",
+  "image",
   "instance_count",
   "instance_size_slug",
   "http_port",
@@ -336,7 +331,7 @@ const PROVIDER_COMMAND_LIFECYCLES = [
 const APPROVED_PROVIDER_ENV = new Map([
   ["NODE_ENV", { value: "production" }],
   ["ALLOWED_APP_HOSTS", { value: "restoreassist.app,www.restoreassist.app", scope: "RUN_TIME", type: "GENERAL" }],
-  ["GIT_SHA", { value: "${_self.COMMIT_HASH}", scope: "RUN_AND_BUILD_TIME", type: "GENERAL" }],
+  ["GIT_SHA", { value: "0000000000000000000000000000000000000000", scope: "RUN_AND_BUILD_TIME", type: "GENERAL" }],
   ["CREDENTIAL_ENCRYPTION_KEY", { scope: "RUN_TIME", type: "SECRET" }],
   ["NEXTAUTH_SECRET", { scope: "RUN_TIME", type: "SECRET" }],
   ["NEXTAUTH_URL", { value: "https://restoreassist.app", scope: "RUN_TIME", type: "GENERAL" }],
@@ -350,6 +345,11 @@ const APPROVED_PROVIDER_ENV = new Map([
   ["PILOT_TESTER_JUDGE_API_KEY", { scope: "RUN_TIME", type: "SECRET" }],
   ["STRIPE_SECRET_KEY", { scope: "RUN_TIME", type: "SECRET" }],
   ["STRIPE_WEBHOOK_SECRET", { scope: "RUN_TIME", type: "SECRET" }],
+  ["CLOUDINARY_URL", { scope: "RUN_TIME", type: "SECRET" }],
+  ["XERO_WEBHOOK_KEY", { scope: "RUN_TIME", type: "SECRET" }],
+  ["GITHUB_WEBHOOK_SECRET", { scope: "RUN_TIME", type: "SECRET" }],
+  ["RESEND_API_KEY", { scope: "RUN_TIME", type: "SECRET" }],
+  ["RESEND_FROM_EMAIL", { scope: "RUN_TIME", type: "GENERAL" }],
   ["CRON_SECRET", { scope: "RUN_TIME", type: "SECRET" }],
   ["GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", { scope: "RUN_TIME", type: "SECRET" }],
   ["ASC_API_KEY_ID", { scope: "RUN_TIME", type: "GENERAL" }],
@@ -357,6 +357,8 @@ const APPROVED_PROVIDER_ENV = new Map([
 ]);
 const APPROVED_NPMRC_SHA256 = "564668503437e39b5868b479ec257455a0c4083adf15767fc75ce6b1391d32a2";
 const APPROVED_PROVIDER_EXECUTABLES = new Map([
+  ["Dockerfile", "8bf0b10b025be6f5d193fac04def4942dc589207b16d958aec09b17c10a20ea6"],
+  ["scripts/container-entrypoint.sh", "94bc2d52ad28f6cad586f461ccb13803ed14792e5e7dcdee3d009c9e5b11b14d"],
   ["scripts/build-help-index.ts", "ec8849f2c4f0d26e1467886040f3e01b16eefec0d14ce2d2daba0a1a382c2553"],
   ["scripts/build.sh", "25583db2753872420f27e050050ee8e0bc8df7059f08c91cbbcf6865ed7adc4a"],
   ["scripts/start-production.sh", "64d68c68850c19bb6ef00b856c221aba985945de9b71533ee7b53941f32a45ad"],
@@ -373,6 +375,15 @@ function providerAllowlistViolations(root, spec, packageJson) {
     violations.push(
       `.do/app.yaml contains unapproved top-level fields: ${unexpectedTopLevelFields.sort().join(", ")}`,
     );
+  }
+  if (spec.name !== "restore-assist" || spec.region !== "syd") {
+    violations.push('.do/app.yaml must identify exactly "restore-assist" in region "syd"');
+  }
+  if (
+    JSON.stringify(spec.domains) !==
+    JSON.stringify([{ domain: "restoreassist.app", type: "PRIMARY" }])
+  ) {
+    violations.push(".do/app.yaml must bind exactly the canonical production domain");
   }
   for (const group of PROVIDER_COMPONENT_GROUPS) {
     const components = spec[group] ?? [];
@@ -398,23 +409,42 @@ function providerAllowlistViolations(root, spec, packageJson) {
           );
         }
       }
-      if (
-        componentId === "services/web" &&
-        JSON.stringify(component.github) !== JSON.stringify({
-          repo: "CleanExpo/RestoreAssist",
-          branch: "main",
-          deploy_on_push: false,
-        })
-      ) {
-        violations.push(`.do/app.yaml#${componentId}.github is not the exact approved source`);
-      }
-      for (const field of ["source_dir", "dockerfile_path", "image", "gitlab", "bitbucket"]) {
+      for (const field of [
+        "github",
+        "git",
+        "gitlab",
+        "bitbucket",
+        "source_dir",
+        "dockerfile_path",
+        "build_command",
+        "run_command",
+        "environment_slug",
+      ]) {
         if (Object.hasOwn(component, field)) {
           violations.push(`.do/app.yaml#${componentId}.${field} is an unapproved source or execution selector`);
         }
       }
-      if (componentId === "services/web" && component.environment_slug !== "node-js") {
-        violations.push(`.do/app.yaml#${componentId}.environment_slug must exactly equal "node-js"`);
+      if (componentId === "services/web") {
+        const approvedImage = {
+          registry_type: "GHCR",
+          registry: "cleanexpo",
+          repository: "restoreassist",
+          registry_credentials: "${GHCR_PULL_CREDENTIALS}",
+          digest: `sha256:${"0".repeat(64)}`,
+        };
+        if (JSON.stringify(component.image) !== JSON.stringify(approvedImage)) {
+          violations.push(`.do/app.yaml#${componentId}.image is not the exact reviewed digest template`);
+        }
+        if (component.instance_count !== 1 || component.instance_size_slug !== "basic-xxs") {
+          violations.push(`.do/app.yaml#${componentId} capacity contract drifted`);
+        }
+        if (
+          component.http_port !== 3000 ||
+          JSON.stringify(component.health_check) !==
+            JSON.stringify({ http_path: "/api/health/migrations" })
+        ) {
+          violations.push(`.do/app.yaml#${componentId} runtime health contract drifted`);
+        }
       }
       for (const field of ["build_command", "run_command"]) {
         if (typeof component[field] === "string" && component[field].trim()) {

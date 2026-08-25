@@ -29,6 +29,9 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Production is published as a digest-pinned container. Standalone output
+  // copies only the server trace required by that immutable runtime image.
+  output: "standalone",
   typescript: {
     ignoreBuildErrors: true,
   },

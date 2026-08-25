@@ -1,0 +1,14 @@
+.git
+.github
+.next
+node_modules
+packages/pilot-tester/node_modules
+packages/pilot-tester/reports
+playwright-report
+test-results
+coverage
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example

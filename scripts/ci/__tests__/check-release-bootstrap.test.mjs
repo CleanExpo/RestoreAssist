@@ -11,11 +11,12 @@ const APPROVED_ENV = [
   { key: "NODE_ENV", value: "production" },
   { key: "ALLOWED_APP_HOSTS", value: "restoreassist.app,www.restoreassist.app", scope: "RUN_TIME", type: "GENERAL" },
   { key: "GIT_SHA", value: "${_self.COMMIT_HASH}", scope: "RUN_AND_BUILD_TIME", type: "GENERAL" },
-  ...["CREDENTIAL_ENCRYPTION_KEY", "NEXTAUTH_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "DATABASE_URL", "TENANT_DATABASE_HOST_ALLOWLIST", "ANTHROPIC_API_KEY", "PILOT_TESTER_JUDGE_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "CRON_SECRET", "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON"]
+  ...["CREDENTIAL_ENCRYPTION_KEY", "NEXTAUTH_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "DATABASE_URL", "TENANT_DATABASE_HOST_ALLOWLIST", "ANTHROPIC_API_KEY", "PILOT_TESTER_JUDGE_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "CLOUDINARY_URL", "XERO_WEBHOOK_KEY", "GITHUB_WEBHOOK_SECRET", "RESEND_API_KEY", "CRON_SECRET", "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON"]
     .map((key) => ({ key, scope: "RUN_TIME", type: "SECRET" })),
   { key: "NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID", scope: "RUN_AND_BUILD_TIME", type: "SECRET" },
   { key: "TENANT_DATABASE_PROVISIONING_ENABLED", value: "false", scope: "RUN_TIME", type: "GENERAL" },
   { key: "NEXTAUTH_URL", value: "https://restoreassist.app", scope: "RUN_TIME", type: "GENERAL" },
+  { key: "RESEND_FROM_EMAIL", scope: "RUN_TIME", type: "GENERAL" },
   { key: "ASC_API_KEY_ID", scope: "RUN_TIME", type: "GENERAL" },
   { key: "ASC_ISSUER_ID", scope: "RUN_TIME", type: "GENERAL" },
 ];
@@ -388,10 +389,17 @@ test("provider allow-list detects a changed approved executable body", () => {
       start: "sh scripts/start-production.sh",
     },
     shellFiles: Object.fromEntries(
-      ["scripts/build-help-index.ts", "scripts/build.sh", "scripts/start-production.sh"]
+      [
+        "Dockerfile",
+        "scripts/container-entrypoint.sh",
+        "scripts/build-help-index.ts",
+        "scripts/build.sh",
+        "scripts/start-production.sh",
+      ]
         .map((name) => [name, readFileSync(name, "utf8")]),
     ),
   });
+  writeFileSync(join(root, ".do", "app.yaml"), readFileSync(".do/app.yaml", "utf8"));
   assert.deepEqual(findReleaseBootstrapViolations(root), []);
   writeFileSync(
     join(root, "scripts", "build.sh"),
@@ -491,7 +499,7 @@ test("provider allow-list rejects a second git source beside the approved GitHub
   );
   assert.match(
     findReleaseBootstrapViolations(root).join("\n"),
-    /services\/web contains unapproved fields: git/,
+    /services\/web\.git is an unapproved source or execution selector/,
   );
 });
 
