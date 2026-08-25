@@ -99,16 +99,56 @@ jobs:
           SHA: ${{ steps.meta.outputs.sha }}
         run: |
           set -euo pipefail
-          # The entrypoint refuses to start without its required env. Running
-          # it with none set proves the layer is executable and the contract
-          # is enforced, without needing any real secret.
-          OUT="$(docker run --rm --entrypoint sh "${IMAGE}:${SHA}" -c './entrypoint.sh' 2>&1 || true)"
+          # Negative case. No --entrypoint override: this exercises the declared
+          # ENTRYPOINT ["./entrypoint.sh"], so the exec bit and the shebang are
+          # under test too, exactly as they are in production. With no env set
+          # the required-env contract must refuse the boot AND exit non-zero.
+          set +e
+          OUT="$(docker run --rm "${IMAGE}:${SHA}" 2>&1)"
+          CODE=$?
+          set -e
           printf '%s\n' "${OUT}"
+          if [ "${CODE}" -eq 0 ]; then
+            echo "::error::entrypoint exited 0 with no environment. It must refuse to boot." >&2
+            exit 1
+          fi
           if ! printf '%s' "${OUT}" | grep -q 'DATABASE_URL is required'; then
             echo "::error::entrypoint did not enforce its required-env contract." >&2
             exit 1
           fi
-          echo "entrypoint refuses to boot without DATABASE_URL, as designed."
+
+          # Positive control. The check above is only meaningful if it can also
+          # PASS. Supply every required variable with a throwaway value and the
+          # gate must fall through to the startup banner. If this half fails,
+          # the negative case above was passing for the wrong reason.
+          # `timeout` is mandatory here, not defensive: the banner is printed
+          # immediately before `exec node server.js`, so a successful run then
+          # blocks on a listening server until the job timeout. Exit 124 is the
+          # expected outcome — only the captured output is under test.
+          set +e
+          timeout 60 docker run --rm --name ra-entrypoint-check \
+            -e DATABASE_URL=postgresql://u:p@127.0.0.1:5432/db \
+            -e CREDENTIAL_ENCRYPTION_KEY=ci-not-a-real-key \
+            -e NEXTAUTH_SECRET=ci-not-a-real-secret \
+            -e NEXTAUTH_URL=http://127.0.0.1:3000 \
+            -e GOOGLE_CLIENT_ID=ci-not-real \
+            -e GOOGLE_CLIENT_SECRET=ci-not-real \
+            -e NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID=ci-not-real \
+            -e STRIPE_WEBHOOK_SECRET=ci-not-real \
+            "${IMAGE}:${SHA}" > /tmp/entrypoint-full-env.log 2>&1
+          docker rm -f ra-entrypoint-check >/dev/null 2>&1 || true
+          set -e
+          OK="$(cat /tmp/entrypoint-full-env.log)"
+          printf '%s\n' "${OK}"
+          if printf '%s' "${OK}" | grep -q 'is required'; then
+            echo "::error::entrypoint still reported a missing variable after all were supplied." >&2
+            exit 1
+          fi
+          if ! printf '%s' "${OK}" | grep -q 'RestoreAssist standalone'; then
+            echo "::error::entrypoint did not reach its startup banner with a full environment." >&2
+            exit 1
+          fi
+          echo "entrypoint refuses an empty environment and proceeds with a full one."
 
       - name: Push and capture the digest
         id: push
