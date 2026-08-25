@@ -112,8 +112,11 @@ export default function SupportPage() {
             </summary>
             <div className="px-5 pb-4 text-sm text-neutral-600 dark:text-neutral-400">
               Search for <strong>RestoreAssist</strong> on the Apple App Store
-              (iOS) or Google Play Store (Android) and install it. Log in with
-              your existing RestoreAssist account credentials.
+              (iOS) and install it, then log in with your existing RestoreAssist
+              account credentials. Android via Google Play is coming soon — in
+              the meantime, field capture runs in the mobile browser at
+              restoreassist.app, which captures photos, video and readings the
+              same way. The desktop app cannot do on-site capture.
             </div>
           </details>
 

@@ -29,8 +29,10 @@ export const HOME = {
    * Sub-hero stance strip — the three commitments the product is built on.
    * Every line here is checked against shipped behaviour before it goes out:
    * capture (lib/capture), evidence honesty (lib/evidence/qa-scorer.ts flags
-   * "GPS location not recorded" rather than inventing one), and flat
-   * per-workspace pricing (lib/pricing.ts — one $99 AUD/month plan, no seats).
+   * "GPS location not recorded" rather than inventing one), and pricing
+   * (lib/pricing.ts — one $99 AUD/month workspace plan; lib/billing/*-addon.ts
+   * — six $11 flat unlocks plus TECHNICIAN_SEATS, which is perSeat: true and
+   * bills $11 x seat count, so the copy must not claim "no per-seat" outright).
    */
   stance: {
     eyebrow: "What we build for",
@@ -45,7 +47,7 @@ export const HOME = {
       },
       {
         title: "Priced for Australian businesses",
-        body: "No US-scale licensing. No per-seat gouging. One flat plan, built around how restoration actually runs here.",
+        body: "$99 a month runs the office CRM for your whole team — no US-scale licensing, no per-user charge on the core system. Extra services are $11/month add-ons you switch on only when you need them; field technician seats are counted per technician.",
       },
     ] as const,
   },

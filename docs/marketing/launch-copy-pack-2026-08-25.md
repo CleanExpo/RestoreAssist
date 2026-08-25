@@ -1,32 +1,67 @@
 ---
 type: concept
 name: launch-copy-pack-2026-08-25
-description: RestoreAssist launch copy pack — landing page, LinkedIn, CARSI email, RIA DM, objection handling
+description: RestoreAssist launch copy — landing page, LinkedIn, email, RIA DM, objection handling, reply template
 okf_version: "0.1"
 updated: 2026-08-25
 ---
 
 # RestoreAssist — Launch Copy Pack
 
-**Date:** 2026-08-25
+**Version 2. Supersedes the first draft.**
 **Author:** Phill McGurk (Unite-Group)
 **Status:** Landing-page copy is live in code. Off-site channel copy below is ready to paste.
 
-Edit names and links in `[brackets]` before sending. The one thing still to decide is the domain used in each `[link]`; the CTA approach is settled and recorded under **Decision record** below.
+Edit names in `[brackets]` before sending.
 
 ---
 
-## Where this copy lives
+## What changed from v1, and why
 
-| Section                     | Home                                                                                            |
-| --------------------------- | ----------------------------------------------------------------------------------------------- |
-| Hero headline / support     | `components/landing/home/homeContent.ts` → `HOME.hero`                                          |
-| Sub-hero three-column strip | `components/landing/home/homeContent.ts` → `HOME.stance`                                        |
-| Positioning block           | `components/landing/home/homeContent.ts` → `HOME.positioning`                                   |
-| Rendering                   | `components/landing/concepts/claim-folio/ClaimFolioLanding.tsx` (sections `stance`, `positioning`) |
-| LinkedIn / email / DM / FAQ | This document only — no code surface                                                            |
+**v1 said "early access opens this week."** Wrong — the product is live and sells a 15-day trial today. The waitlist CTAs were never carried into the site.
 
-`HOME` is shared by all three landing concepts, so hero copy changes land on `/`, `/landing/claim-folio`, `/landing/dawn-split`, and `/landing/operator-atlas` at once.
+**v1 had no price in it.** The pricing model is the strongest line available against insurer-owned platforms that bill per user, and it was missing from everything.
+
+**v2's first pricing draft said "Not per seat. Not per user."** That is not accurate either, and it is corrected below. See **Pricing — say it exactly this way**.
+
+**Do not mention Google Play as available.** The Android listing is not live (UNI-2617). It is "coming soon"; lead with iOS and the mobile browser, both of which work today.
+
+---
+
+## Pricing — say it exactly this way
+
+RestoreAssist is the CRM — the connector the products plug into. The $99 buys
+that hub for the whole workspace; each $11 add-on opens one of the products
+that connects to it.
+
+The model, from the code that actually bills:
+
+| What | Price | Source |
+| --- | --- | --- |
+| Office / CRM — the base product, whole team | **$99/month AUD**, per workspace, not per user | `lib/pricing.ts` |
+| Floor Plan Underlay, Service CRM, Bookkeeping, Payments, Client Comms, Voice | **$11/month each**, flat unlock | `lib/billing/*-addon.ts` |
+| **Field Technician Seat** | **$11/month PER SEAT** — buyer picks the count, billed × quantity | `lib/billing/technician-seats-addon.ts` |
+
+**Safe wording:**
+
+> $99 a month for the office CRM — your whole team, not per user. The extra services are $11/month add-ons you turn on only if you want them; field technician seats are counted per technician.
+
+**Do not say:** "flat", "not per seat", "not per user" without qualification, or "$99 and that's it". A five-technician business pays $99 + $55, not $99 + $11. `components/pricing/CostDisclosure.tsx` records that this exact claim was made once before and found to be false — the page "denied there was any per-seat fee. Both statements were false."
+
+**Open question for the product, not the copy:** the intent described is that $11/month *opens* field service. The shipped code bills $11 *per technician*. Six of the seven add-ons match the intent; the field one does not. Either the code or the intent needs to move — until it does, the copy follows the code.
+
+---
+
+## Where the landing copy lives
+
+| Section | Home |
+| --- | --- |
+| Hero headline / support | `components/landing/home/homeContent.ts` → `HOME.hero` |
+| Three-column stance strip | `HOME.stance` |
+| Positioning block | `HOME.positioning` |
+| Rendering | `components/landing/concepts/claim-folio/ClaimFolioLanding.tsx` |
+
+`HOME` is shared by all three landing concepts, so hero changes land on `/` and every `/landing/*` variant at once.
 
 ---
 
@@ -40,62 +75,87 @@ Edit names and links in `[brackets]` before sending. The one thing still to deci
 >
 > Australian-built. Australian-priced.
 
-### Sub-hero strip (three columns)
+### Sub-hero strip
 
-**Built for the job, not the claim file**
-Capture the site on your phone — photos, moisture readings, scope notes — while you're standing in it. The report builds from what you recorded, not from what you remembered later.
+**Built for the job, not the claim file** — Capture the site on your phone while you're standing in it. The report builds from what you recorded, not from what you remembered later.
 
-**Evidence you can stand behind**
-Every photo carries its real capture data. If a location wasn't recorded, we say so — we don't invent one to fill a field. Your documentation holds up because it's honest.
+**Evidence you can stand behind** — Every photo carries its real capture data. If a location wasn't recorded, we say so. Your documentation holds up because it's honest.
 
-**Priced for Australian businesses**
-No US-scale licensing. No per-seat gouging. One flat plan, built around how restoration actually runs here.
+**Priced for Australian businesses** — $99 a month runs the office CRM for your whole team. Extra services are $11/month add-ons you switch on only when you need them; field technician seats are counted per technician.
 
-### The positioning block
+### Positioning block
 
 > **Who your software works for tells you everything.**
 >
 > The established platforms are owned by, funded by, or sold to insurance interests. Their job is to make the claim cheaper. That's a legitimate business — it just isn't yours.
 >
-> When the software is designed around the carrier's workflow, you spend your day feeding their system instead of running your job. Your scope gets questioned by a tool you paid for. Your evidence sits in someone else's database.
->
-> RestoreAssist has one customer: the restorer. We make your documentation faster, your scope defensible, and your client informed. If that makes your claims run smoother, good. But you're who we answer to.
-
-### Close
-
-The site's closing CTA stays on the shipped funnel — the 15-day trial with report credits, per `HOME.cta`. The original draft closed on a waitlist ("We're opening early access this week"). That framing was not carried into the page because the product is live and sells a $99 AUD/month plan today; a waitlist CTA in front of a working trial would understate what a visitor can actually do. See **Decision record** below.
+> RestoreAssist has one customer: the restorer.
 
 ---
 
-## 2. LinkedIn post — post this now
+## 2. LinkedIn
 
 ```text
 Every restoration platform in this market was built to serve the insurer.
 
-I've spent years watching contractors pay for software that works against them. Scope questioned by a tool you licensed. Documentation living in someone else's database. Pricing set for a US market that doesn't look anything like ours.
+I've watched contractors pay for software that works against them. Scope
+questioned by a tool you licensed. Documentation living in someone else's
+database. Per-user pricing set for a US market that looks nothing like ours.
 
 So we built the other thing.
 
 RestoreAssist has one customer: the restorer.
 
-Capture the site from your phone while you're standing in it. Photos, readings, scope. The report builds from what you actually recorded — not what you reconstructed at 9pm.
+$99 a month runs the office CRM — your whole team, not per user. The extra
+services are $11/month add-ons you turn on only if you want them.
 
-Evidence that's honest. If a photo didn't capture a location, we say so. We don't fill the field with a number that looks like data. Your documentation holds up because nothing in it is invented.
+What it does:
 
-Australian-built. Australian-priced.
+Capture the site from your phone while you're standing in it — photos, moisture
+readings, scope, voice notes. Works offline, syncs when you're back in signal.
 
-RIA kicks off tomorrow and I'm not there — but a lot of you are, and a lot of you have been asking me about this for months.
+IICRC S500:2021-aligned reports build from what you actually recorded, not what
+you reconstructed at 9pm. You review and own every decision before it leaves
+your company.
 
-Comment or DM and I'll walk you through it.
+Evidence that's honest. If a photo didn't capture a GPS location, we say so. We
+don't fill the field with a number that looks like data. Your documentation
+holds up because nothing in it is invented.
 
-[link]
+Built in Australia. GST, NCC 2022, WHS, state regulators — in the workflow, not
+in a separate folder. Australia and New Zealand.
 
-#restoration #waterdamage #IICRC #RIA2026
+RIA starts tomorrow. I'm not there — but a lot of you are, and a lot of you have
+been asking me about this for months.
+
+It's live now. 15-day trial, 50 report credits.
+
+restoreassist.app
+
+#restoration #waterdamage #IICRC #RIA2026 #AustralianBusiness
 ```
 
 ---
 
-## 3. Email — existing CARSI customers
+## 3. Short version — X, Facebook groups, WhatsApp
+
+```text
+Restoration software built for the contractor, not the insurer.
+
+$99/month for the office CRM — your whole team, not per user. Extra services
+are $11/month add-ons.
+
+Capture on site from your phone, offline. IICRC S500 reports build from what you
+actually recorded. Evidence that's honest about what it does and doesn't know.
+
+Australian-built. AU + NZ.
+
+Live now, 15-day trial: restoreassist.app
+```
+
+---
+
+## 4. Email — existing CARSI customers
 
 **Subject:** `The thing you've been asking me about`
 
@@ -109,14 +169,15 @@ not the insurer.
 
 Site capture from your phone — photos, readings, scope, on site, in the moment.
 Reports built from what you recorded. Evidence that's honest about what it does
-and doesn't know. Priced for an Australian business, not a US one.
+and doesn't know.
 
-You're on a short list of people I'm putting it in front of first, because you've
-backed what we do and you'll tell me straight if it's wrong.
+$99 a month for the office CRM, your whole team — not per user. The extra
+services are $11/month add-ons you turn on only if you want them.
+
+You're on a short list of people I'm putting it in front of first, because
+you've backed what we do and you'll tell me straight if it's wrong.
 
 Want a look? Just reply "yes" and I'll set you up.
-
-[Link]
 
 Phill McGurk
 Unite-Group
@@ -124,55 +185,81 @@ Unite-Group
 
 ---
 
-## 4. DM — for people at RIA
+## 5. DM — for people at RIA
 
 ```text
-Hey [name] — saw you're at RIA. I'm not there this year, but RestoreAssist
-is up and running.
+Hey [name] — saw you're at RIA. I'm not there this year, but RestoreAssist is
+live as of this week.
 
-Short version: restoration software built for the contractor instead of the
-carrier. Australian-built and Australian-priced.
+Short version: built for the contractor instead of the carrier. $99/month for
+the office CRM, whole team, not per user. Australian-built.
 
-Have a look while you're comparing what's on the floor — I'd genuinely value
+Worth a look while you're comparing what's on the floor — I'd genuinely value
 your read on it against what you're being shown.
 
-[link]
+restoreassist.app
 ```
 
 ---
 
-## 5. If someone asks "how is it different?"
+## 6. Reply template — for the "yes" responses
 
-Three sentences. Don't over-explain.
+```text
+Hi [name],
 
-1. Everyone else answers to the insurer. We answer to you.
-2. It's built for how restoration runs in Australia — pricing, standards, scale.
-3. It's honest about evidence. If data wasn't captured, we don't invent it to fill a field.
+Great — here's your link: restoreassist.app/signup
 
-That third one sounds small. It isn't. Documentation that fabricates provenance is worthless the first time it's challenged — and everyone in that room has been challenged.
+15-day trial, 50 inspection report credits. Setup is instant; you can run your
+next job through it today.
+
+After the trial it's $99/month for the office CRM — your whole workspace, not
+per user — so bring your team in from the start. Field capture and the other
+services are $11/month add-ons if you want them.
+
+One thing worth knowing: on-site capture runs on your phone, in the browser or
+the iOS app. The desktop app can't capture photos and video on site, so put it
+on the phone of whoever is standing in the job.
+
+One ask: if anything about it annoys you, tell me directly rather than quietly
+stopping. You're one of the first in and I'd rather fix it than lose you.
+
+Phill
+```
 
 ---
 
-## Claim verification
+## 7. If someone asks "how is it different?"
 
-Every claim in the landing copy was checked against shipped behaviour before it went into the page:
+1. **Everyone else answers to the insurer. We answer to you.**
+2. **$99 for the office CRM, your whole team** — not per user on the core system.
+3. **Built for how restoration runs in Australia** — GST, NCC, state WHS, IICRC, AU + NZ.
+4. **It's honest about evidence.** If data wasn't captured, we don't invent it to fill a field.
 
-| Claim                                                    | Evidence in the build                                                                                                          |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| "Capture the site on your phone"                         | `lib/capture/cocoa-client.ts`, `lib/evidence-upload-queue.ts` — browser capture with SHA-256 and offline queue                  |
-| "If a location wasn't recorded, we say so"               | `lib/capture/cocoa-client.ts` returns `null` on denial/timeout; `lib/evidence/qa-scorer.ts` raises "GPS location not recorded"; `components/inspection/CapturePhotoTagModal.tsx` renders "GPS unavailable" |
-| "Every photo carries its real capture data"              | `lib/media/exif-extract.ts` (EXIF/GPS extraction), `lib/evidence/manifest-verify.ts` (rejects form coordinates when the manifest signed no location) |
-| "No per-seat gouging"                                    | `lib/pricing.ts` — one $99 AUD/month workspace plan, no seat multiplier                                                        |
-| "Australian-priced"                                      | `lib/pricing.ts` — AUD, GST 10% (NZ 15%)                                                                                       |
+That fourth one sounds small. It isn't. Documentation that fabricates provenance is worthless the first time it's challenged — and everyone in that room has been challenged.
 
-If a feature claim is added later, verify it ships before the sentence goes out.
+---
+
+## Claims check
+
+| Claim | Verified against |
+| --- | --- |
+| $99/month office CRM, per workspace not per user | `lib/pricing.ts` — one workspace plan |
+| $11/month add-ons; field seats per technician | `lib/billing/*-addon.ts`; `technician-seats-addon.ts` is `perSeat: true` |
+| Offline capture | `lib/capture/`, `lib/evidence-upload-queue.ts` |
+| GPS honesty | `cocoa-client.ts` returns null on denial; `qa-scorer.ts` raises "GPS location not recorded"; `CapturePhotoTagModal` renders "GPS unavailable" |
+| IICRC S500:2021 | Homepage + `/compliance-library` |
+| GST AU 10% / NZ 15%, NCC 2022, state WHS | Homepage coverage section |
+| 15-day trial, 50 report credits | `lib/pricing.ts` |
+| Live now | `restoreassist.app` serves 200; smoke suite targets it |
+
+**Not claimed anywhere:** Google Play availability, insurer partnerships, customer counts, "Australia's first" (removed from all live surfaces — an absolute market-primacy claim with nothing to substantiate it and ACCC exposure).
 
 ---
 
 ## Decision record
 
-**Waitlist vs live trial — decided: live trial.** The source draft used early-access CTAs ("Get early access", "Request access") on the grounds that a waitlist form can't break in front of a competitor's booth. The site ships the live funnel instead, because the product is live: `/signup`, a 15-day trial with report credits, and a $99 AUD/month plan behind Stripe.
+**Waitlist vs live trial — decided: live trial.** The product sells a 15-day trial and a $99/month plan today; a waitlist in front of a working signup would understate what a visitor can do.
 
-If the launch should run as a waitlist anyway, that is a separate change: an email-capture endpoint, CTA label and destination swaps in `HOME.hero` and `HOME.cta`, and an update to `app/__tests__/funnel-launch-assets.test.tsx`, which currently asserts the trial CTA renders on the home page.
+**"Australia's first" — decided: removed.** "Australian-designed" carries the same weight with none of the exposure.
 
-**Still open:** the `[link]` in each off-site asset — production domain vs a campaign-tagged URL.
+**Still open:** whether field service should be a flat $11 unlock (the stated intent) or stay $11 per technician (the shipped code). The copy follows the code until that is settled.
