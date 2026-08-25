@@ -7,6 +7,14 @@ const workflow = readFileSync(
   new URL("../../../.github/workflows/deploy-production.yml", import.meta.url),
   "utf8",
 );
+const imageWorkflow = readFileSync(
+  new URL("../../../.github/workflows/build-production-image.yml", import.meta.url),
+  "utf8",
+);
+const oauthNative = readFileSync(
+  new URL("../../../lib/oauth-native.ts", import.meta.url),
+  "utf8",
+);
 const releaseGateWorkflow = readFileSync(
   new URL("../../../.github/workflows/release-gate.yml", import.meta.url),
   "utf8",
@@ -60,6 +68,15 @@ test("production workflow binds build, approval, activation and rollback to exac
   assert.match(workflow.slice(durableBlock, firstProviderCredential), /exit 1/);
   const buildJob = workflow.slice(workflow.indexOf("  build:"), workflow.indexOf("  reject-non-main:"));
   assert.doesNotMatch(buildJob, /DIGITALOCEAN_ACCESS_TOKEN|DIGITALOCEAN_APP_ID|PRODUCTION_DIRECT_URL/);
+});
+
+test("production image builds bind the versioned public OAuth client fallback", () => {
+  const publicClientId = oauthNative.match(
+    /[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com/,
+  )?.[0];
+  assert.ok(publicClientId, "lib/oauth-native.ts must expose the reviewed public client ID");
+  assert.ok(workflow.includes(publicClientId));
+  assert.ok(imageWorkflow.includes(publicClientId));
 });
 
 test("reviewed app template is immutable, non-deployable and secret-free", () => {

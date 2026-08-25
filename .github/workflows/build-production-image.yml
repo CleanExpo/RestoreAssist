@@ -156,7 +156,7 @@ jobs:
       - name: Build
         env:
           IMAGE: ${{ steps.meta.outputs.image }}
-          PUBLIC_GOOGLE_CLIENT_ID: ${{ github.event_name == 'pull_request' && 'ci-not-real' || vars.NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID }}
+          PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID || '292141944467-8hhd4eub33tplq6ep5lc9iltu8jcatvp.apps.googleusercontent.com' }}
           SHA: ${{ steps.meta.outputs.sha }}
         run: |
           set -euo pipefail
