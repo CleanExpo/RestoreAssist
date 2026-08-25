@@ -29,6 +29,13 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Standalone output is opt-in via DOCKER_BUILD=1, and ONLY the container
+  // build sets it. Turning it on unconditionally would change what `npm start`
+  // expects locally and on the sandbox: standalone emits `.next/standalone/
+  // server.js` and is started with `node server.js`, not `next start`. Gating
+  // it keeps every existing build path byte-identical to today.
+  ...(process.env.DOCKER_BUILD === "1" ? { output: "standalone" } : {}),
+
   typescript: {
     ignoreBuildErrors: true,
   },

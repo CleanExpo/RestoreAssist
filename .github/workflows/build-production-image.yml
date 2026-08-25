@@ -1,0 +1,126 @@
+name: Build production image
+
+# Produces the sha256-digest-pinned artefact that .do/app.yaml consumes.
+#
+# BUILDS AND PUBLISHES ONLY. It never touches DigitalOcean and holds no
+# production token. Deployment is a separate, approved step
+# (deploy-production.yml) that takes a digest as input. Keeping them apart is
+# the point: an image can be built and scanned without anyone being able to
+# ship it by accident.
+#
+# No third-party actions. scripts/ci/check-release-bootstrap.mjs allows only
+# actions/{checkout,setup-node,setup-java,setup-python,upload-artifact} plus
+# two named publishers, each pinned to a full commit SHA. docker/* and
+# digitalocean/action-doctl are not on that list, so buildx and the registry
+# login are driven through the docker CLI that ubuntu-latest already ships.
+# That is the stricter option anyway: fewer third parties in the path that
+# produces the artefact production runs.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit SHA or ref to build (defaults to the triggering ref)
+        required: false
+        type: string
+
+concurrency:
+  group: build-production-image-${{ github.event.inputs.ref || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build and publish digest-pinned image
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
+
+      - name: Resolve exact commit
+        id: meta
+        run: |
+          set -euo pipefail
+          SHA="$(git rev-parse HEAD)"
+          IMAGE="ghcr.io/$(printf '%s' "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "Building ${SHA} as ${IMAGE}"
+
+      - name: Log in to GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "${TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+
+      - name: Build
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          set -euo pipefail
+          docker build \
+            --build-arg "GIT_SHA=${SHA}" \
+            --tag "${IMAGE}:${SHA}" \
+            --tag "${IMAGE}:main" \
+            --file Dockerfile \
+            .
+
+      - name: Push and capture the digest
+        id: push
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          set -euo pipefail
+          docker push "${IMAGE}:${SHA}"
+          docker push "${IMAGE}:main"
+          # Read the digest back from the registry rather than trusting the
+          # local build record — this is the value production will pin, so it
+          # is taken from the thing that will actually serve it.
+          DIGEST="$(docker inspect --format='{{index .RepoDigests 0}}' "${IMAGE}:${SHA}" | cut -d@ -f2)"
+          if ! printf '%s' "${DIGEST}" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
+            echo "::error::could not resolve a sha256 digest for ${IMAGE}:${SHA}; got '${DIGEST}'" >&2
+            exit 1
+          fi
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Record the digest as an artefact
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/image
+          {
+            echo "commit=${{ steps.meta.outputs.sha }}"
+            echo "image=${{ steps.meta.outputs.image }}"
+            echo "digest=${{ steps.push.outputs.digest }}"
+          } > /tmp/image/production-image.txt
+          cat /tmp/image/production-image.txt
+
+      - name: Upload digest record
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: production-image-${{ steps.meta.outputs.sha }}
+          path: /tmp/image/production-image.txt
+          retention-days: 90
+
+      - name: Report the digest to pin
+        run: |
+          {
+            echo "## Production image built"
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| commit | \`${{ steps.meta.outputs.sha }}\` |"
+            echo "| image | \`${{ steps.meta.outputs.image }}\` |"
+            echo "| **digest** | \`${{ steps.push.outputs.digest }}\` |"
+            echo
+            echo "This digest is the only thing that should ever be deployed."
+            echo "Pass it to the **Deploy — DigitalOcean Production** workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
