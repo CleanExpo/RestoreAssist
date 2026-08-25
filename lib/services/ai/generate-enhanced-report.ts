@@ -57,7 +57,9 @@ export interface GenerateEnhancedResult {
   enhancedReport: string;
 }
 
-function buildPrompt(input: GenerateEnhancedInput): string {
+/** Exported for lib/services/ai/__tests__/enhanced-prompt-jurisdiction.test.ts —
+ *  pure, no side effects. */
+export function buildPrompt(input: GenerateEnhancedInput): string {
   const {
     technicianNotes,
     technicianName,
@@ -130,7 +132,7 @@ CRITICAL REQUIREMENTS - You MUST explicitly reference and comply with:
 
 **Work Health and Safety:**
 - The work health and safety regime of the State, Territory or country where the property is located.
-- Do NOT name a specific Act, year or jurisdiction unless it appears verbatim in the context supplied above. This regime is NOT uniform: Victoria operates under the Occupational Health and Safety Act 2004 and has no Work Health and Safety Act, Western Australia's is 2020, South Australia's and Tasmania's are 2012, and New Zealand operates under the Health and Safety at Work Act 2015. Naming the wrong instrument in an evidentiary document is worse than naming none.
+- Do NOT name any Act, year or jurisdiction unless it appears verbatim in the context supplied above. The principal safety statute differs by State, Territory and country in BOTH name and year, and at least one jurisdiction has no "Work Health and Safety Act" at all. Naming the wrong instrument in an evidentiary document is worse than naming none.
 - Safe Work Australia model codes of practice, as adopted by the relevant regulator
 - Personal Protective Equipment (PPE) requirements
 - Hazard identification and risk assessment protocols
@@ -140,7 +142,7 @@ CRITICAL REQUIREMENTS - You MUST explicitly reference and comply with:
 
 **Building Codes:**
 - National Construction Code (NCC) - Building Code of Australia
-- The building code and any State appendix applying in the property's jurisdiction. Do NOT name a State-specific code or clause (for example a Queensland Development Code clause) unless it appears verbatim in the context supplied above.
+- The building code and any State appendix applying in the property's jurisdiction. Do NOT name a State-specific code or clause unless it appears verbatim in the context supplied above.
 - Local council building requirements
 
 **Insurance Policy Standards:**
@@ -187,7 +189,7 @@ Generate a comprehensive Professional Inspection Report (Enhanced Version) that 
 6. **Standards & Compliance**:
    - EXPLICITLY reference ANSI/IICRC S500:2021
    - EXPLICITLY reference relevant IICRC standards
-   - EXPLICITLY reference National Construction Code (NCC) and state building codes (e.g., QDC 4.5)
+   - EXPLICITLY reference the National Construction Code (NCC), and any State building code ONLY as named in the context supplied
    - EXPLICITLY reference Australian OH&S requirements
    - EXPLICITLY reference relevant Australian Standards (AS/NZS)
    - EXPLICITLY reference insurance policy standards and requirements
@@ -208,7 +210,7 @@ Generate a comprehensive Professional Inspection Report (Enhanced Version) that 
    - Reference AS/NZS 3000:2018 for electrical safety
    - Include circuit protection and load distribution per Australian electrical standards
 11. **OH&S Compliance**:
-    - EXPLICITLY reference Work Health and Safety Act requirements
+    - EXPLICITLY reference the work health and safety obligations that apply, naming the statute ONLY as supplied in context
     - Safety procedures per Safe Work Australia guidelines
     - PPE requirements per Australian OH&S standards
     - Site signage and containment per WHS requirements
@@ -241,14 +243,14 @@ Generate a comprehensive Professional Inspection Report (Enhanced Version) that 
 CRITICAL INSTRUCTIONS:
 - You MUST explicitly mention and reference specific standards, codes, and regulations throughout the report
 - Use proper Australian technical terminology and standards nomenclature
-- Include specific standard numbers (e.g., "ANSI/IICRC S500:2021", "AS/NZS 3000:2018", "NCC", "QDC 4.5")
-- Reference Australian OH&S requirements by name (e.g., "Work Health and Safety Act 2011", "Safe Work Australia Guidelines")
+- Include specific standard numbers for NATIONAL and INTERNATIONAL standards (e.g., "ANSI/IICRC S500:2021", "AS/NZS 3000:2018", "NCC"). Do NOT invent a State-specific code clause.
+- Reference work health and safety requirements, naming the principal statute ONLY if it was supplied in context; "Safe Work Australia model codes of practice" is always safe to name
 - Reference IICRC standards explicitly (e.g., "IICRC S500 Standard", "IICRC S520 Standard")
 - Include material-specific standards where applicable
 - Reference electrical standards for power requirements (AS/NZS 3000:2018)
 - Reference HVAC standards for air systems (AS 1668, AS/NZS 3666)
 - Reference insurance standards and codes of practice
-- Reference state building codes (NCC, QDC, etc.)
+- Reference the NCC, and a State building code only as named in the context supplied
 - Expand on the technician's notes intelligently - add professional context and details
 - Include specific equipment counts and power calculations per Australian electrical standards
 - Add material-specific drying recommendations per Australian building material standards
