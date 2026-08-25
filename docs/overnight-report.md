@@ -86,6 +86,22 @@ Checks: 4 new + 2 regression tests passing (11/11 in the register suite), `tsc -
 
 ---
 
+**[#2052](https://github.com/CleanExpo/RestoreAssist/pull/2052) also carries a second fix**
+
+> **SHIP-DELTA:** a returning trial user is now told why report generation fails, instead
+> of hitting a bare 402.
+
+`/api/onboarding/status` marks `ai_provider` **required**, but the dashboard only acted on
+it when the URL carried `?welcome=1`. A user who signed up, got distracted and came back
+the next day saw nothing — `OnboardingModal` is mounted **nowhere** and `OnboardingGuide`
+only on pricing-config. Adds a persistent banner (existing `TechLicenceBanner` pattern)
+that names the *consequence*, not the task.
+
+**Caveat:** its rendered appearance was never seen — no browser. Render logic is tested;
+eyeball it before merging.
+
+---
+
 ## 5. Your first hour, in order
 
 Full detail in **`docs/launch-kit/05-day-1-checklist.md`**.
@@ -178,7 +194,7 @@ Zero `restoreassist.com.au` references on any live public page.
 | Floor-plan work (Builds 1–3) | Explicitly out of scope tonight per the final brief. Untouched. |
 | Running `night-run.sh` | It loops `claude -p --dangerously-skip-permissions` and calls `caffeinate`/`powercfg`. It's built for **your** machine. Running it in this container would spawn nested unsupervised agents. Files created (`NIGHT-MISSION.md`, `CHALLENGE-MISSION.md`, `NIGHT-QUEUE.md`, `NIGHT-LOG.md`); the loop was **not** started. `codex` is not installed here either, so the challenger lane could not run — **PR #2052 has not been independently reviewed.** |
 
-### One correction, for the record
+### Corrections, for the record
 
 Mid-session I inferred production was stale from the *absence* of the string
 `"No active ANTHROPIC API key configured"` in the repo. That inference was **wrong** — the
@@ -186,3 +202,12 @@ message is built with an interpolated `${provider}`, so my grep couldn't match i
 exist, at `lib/ai/resolve-workspace-ai-key.ts:36`. The staleness conclusion in §6 is a
 **different and independent** proof (the `RECOMMENDED_VARS` array contents) and stands on
 its own.
+
+I also reported `tsc --noEmit` as **0 errors** when that run had hit its `timeout` and
+written a partial log. The completed run surfaced 2 real errors, both mine — the
+google-signin alert read `trialEndsAt`/`creditsRemaining` off an object whose `select`
+omits them, so **every Google signup would have alerted "0 credits"**. Fixed in `f5ebdd6`.
+Every figure quoted above now comes from a run that exited 0.
+
+And I briefly read "no `cf-cache-status`" from a header dump truncated by `head -15`.
+Cloudflare **is** proxying. Corrected in §6.
