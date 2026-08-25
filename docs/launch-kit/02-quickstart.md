@@ -5,7 +5,8 @@ Attach this to the welcome email, or paste it inline.
 ## Before anything else: add your AI key (2 min)
 
 RestoreAssist runs on **your** AI key. You pay Anthropic or OpenAI directly, at cost —
-typically a few dollars a month for normal use. Nothing else works until this is done.
+typically a few dollars a month for normal use. **Report generation** needs it — you can
+create a job and capture readings before it is in place, but you cannot produce the report.
 
 1. Get a key from **console.anthropic.com** (or **platform.openai.com**)
 2. In RestoreAssist: **Settings → AI Providers**

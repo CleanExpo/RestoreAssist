@@ -17,27 +17,21 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
-interface OnboardingStep {
-  completed?: boolean;
-  required?: boolean;
-  route?: string;
-}
-
-interface OnboardingStatusResponse {
-  steps?: Record<string, OnboardingStep | undefined>;
-}
+import type {
+  OnboardingApiStep,
+  OnboardingStatusResponse,
+} from "@/lib/onboarding/steps";
 
 const FALLBACK_ROUTE = "/dashboard/settings/ai-providers";
 
 export function AiKeySetupBanner() {
-  const [step, setStep] = useState<OnboardingStep | null>(null);
+  const [step, setStep] = useState<OnboardingApiStep | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/onboarding/status")
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: OnboardingStatusResponse | null) => {
+      .then((data: Partial<OnboardingStatusResponse> | null) => {
         if (cancelled) return;
         setStep(data?.steps?.ai_provider ?? null);
       })

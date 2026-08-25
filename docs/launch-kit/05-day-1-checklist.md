@@ -30,7 +30,8 @@ git-ignored file in the build container, which no longer exists.
 **PR #2052** (ready for review, all 6 checks green) — https://github.com/CleanExpo/RestoreAssist/pull/2052
 
 Right now nobody tells you when someone signs up. This fixes that for both email
-registration and Google sign-in. It's a draft PR — mark ready, then merge.
+registration and Google sign-in. It is already marked ready for review, so it is
+one click to merge.
 
 Tests: 4 new + 2 regression, all passing. `tsc --noEmit` clean repo-wide. Lint clean.
 
@@ -114,7 +115,7 @@ Three options, cheapest first:
 
 1. **Say it on the pricing page and the signup screen** — one line: "You bring your own
    AI key and pay the provider directly, at cost." Sets the expectation before the wall.
-2. **Put it in the welcome email** — already drafted in step 6.
+2. **Put it in the welcome email** — already drafted in step 7.
 3. **Change the model** — platform-funded AI for trial users only. This contradicts the
    explicit "zero platform cost" design in `lib/ai/resolve-workspace-ai-key.ts` and has
    real cost exposure. Not a decision to make at 2am, and not one I'd make for you.

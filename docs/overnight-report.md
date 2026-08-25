@@ -4,7 +4,11 @@ Session ran ~15:45–16:25 UTC (01:45–02:25 AEST). Founder asleep. Site public
 
 ---
 
-## 1. FUNNEL: **WORKS** end to end — with one expectation gap you must close today
+## 1. FUNNEL: **WORKS up to report generation** — which needs the customer's own AI key
+
+Nothing in the funnel is broken. Signup, trial activation, login and job creation are all
+verified on production. Report generation is *gated*, by design, on the customer supplying
+an Anthropic or OpenAI key — so this is deliberately not called "works end to end".
 
 A stranger can land, read the offer, sign up, get a live 15-day trial with 50 credits, log
 in, and create a job. **Proven on production**, not localhost, not a preview:
@@ -216,8 +220,8 @@ commits are safe.
 
 `docs/customer-portal-launch.md` quoted the exact command used to prove portal auth:
 
-```
-curl -s -H "Authorization: <scheme> <token>" ...      # spelled out literally
+```bash
+curl -s -H "Authorization: <scheme> <token>" ...     # spelled out literally
 ```
 
 The repo's `Secrets scan (working tree)` step runs gitleaks with `extend.useDefault`, whose
