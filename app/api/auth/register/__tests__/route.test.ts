@@ -31,6 +31,7 @@ const verifyBotId = vi.fn();
 const rejectIfBreached = vi.fn();
 const sendWithRetry = vi.fn();
 const notifyWelcome = vi.fn();
+const sendFounderSignupAlert = vi.fn().mockResolvedValue({ sent: true });
 const logSecurityEvent = vi.fn();
 const track = vi.fn();
 
@@ -55,6 +56,9 @@ vi.mock("@/lib/email-retry", () => ({
 }));
 vi.mock("@/lib/notifications", () => ({
   notifyWelcome: (...args: unknown[]) => notifyWelcome(...args),
+}));
+vi.mock("@/lib/email/founder-signup-alert", () => ({
+  sendFounderSignupAlert: (...args: unknown[]) => sendFounderSignupAlert(...args),
 }));
 vi.mock("@/lib/security-audit", () => ({
   logSecurityEvent: (...args: unknown[]) => logSecurityEvent(...args),
@@ -103,6 +107,7 @@ beforeEach(() => {
   rejectIfBreached.mockResolvedValue(null); // not a known-breached password
   sendWithRetry.mockResolvedValue(undefined);
   notifyWelcome.mockResolvedValue(undefined);
+  sendFounderSignupAlert.mockResolvedValue({ sent: true });
   logSecurityEvent.mockResolvedValue(undefined);
   track.mockResolvedValue(undefined);
   userInviteFindFirst.mockResolvedValue(null);
@@ -291,5 +296,54 @@ describe("POST /api/auth/register — trial credit grant", () => {
         data: expect.objectContaining({ organizationId: "org-1" }),
       }),
     );
+  });
+});
+
+describe("POST /api/auth/register — founder signup alert (launch-night Unit 4)", () => {
+  function seedHappyPath(email: string) {
+    userFindUnique.mockResolvedValue(null);
+    txUserCreate.mockResolvedValue({ id: "user-1" });
+    txOrgCreate.mockResolvedValue({ id: "org-1" });
+    txUserUpdate.mockResolvedValue({
+      id: "user-1",
+      email,
+      name: VALID_BODY.name,
+      organizationId: "org-1",
+      subscriptionStatus: "TRIAL",
+      creditsRemaining: 50,
+      trialEndsAt: new Date("2026-09-09T00:00:00.000Z"),
+    });
+  }
+
+  it("announces the new account to the founder with its identifying details", async () => {
+    seedHappyPath("alerted@example.com");
+
+    const res = await POST(
+      makeRequest({ ...VALID_BODY, email: "alerted@example.com" }),
+    );
+
+    expect(res.status).toBe(201);
+    expect(sendFounderSignupAlert).toHaveBeenCalledTimes(1);
+    expect(sendFounderSignupAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        email: "alerted@example.com",
+        creditsRemaining: 50,
+      }),
+    );
+  });
+
+  it("still returns 201 when the alert REJECTS — signup must never depend on it", async () => {
+    seedHappyPath("resilient@example.com");
+    // A control that cannot fail is not a control: prove the swallow works by
+    // making the alert throw, not by trusting that it never will.
+    sendFounderSignupAlert.mockRejectedValueOnce(new Error("smtp exploded"));
+
+    const res = await POST(
+      makeRequest({ ...VALID_BODY, email: "resilient@example.com" }),
+    );
+
+    expect(res.status).toBe(201);
+    expect((await res.json()).user.email).toBe("resilient@example.com");
   });
 });

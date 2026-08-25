@@ -8,6 +8,7 @@ import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { sendWelcomeEmail } from "@/lib/email";
 import { notifyWelcome } from "@/lib/notifications";
+import { sendFounderSignupAlert } from "@/lib/email/founder-signup-alert";
 import { seedDemoDataForNewUser } from "@/lib/demo-data";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -245,6 +246,16 @@ export async function POST(request: NextRequest) {
           }),
       }),
       notifyWelcome(newUser.id),
+      // Launch-night Unit 4 — Google signups must announce themselves to the
+      // founder too, or ad traffic that picks "Continue with Google" is
+      // invisible. Self-swallowing; allSettled logs anything it returns.
+      sendFounderSignupAlert({
+        userId: newUser.id,
+        name: name || userEmail.split("@")[0] || "there",
+        email: userEmail,
+        trialEndsAt: newUser.trialEndsAt ?? null,
+        creditsRemaining: newUser.creditsRemaining ?? 0,
+      }),
       // RA-1239: demo data seed so Google signups don't land on empty dashboard.
       seedDemoDataForNewUser(newUser.id),
     ]);

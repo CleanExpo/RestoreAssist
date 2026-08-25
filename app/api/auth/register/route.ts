@@ -6,6 +6,7 @@ import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { sendWelcomeEmail } from "@/lib/email";
 import { notifyWelcome } from "@/lib/notifications";
+import { sendFounderSignupAlert } from "@/lib/email/founder-signup-alert";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { rejectIfBreached } from "@/lib/auth/password-breach";
 import { verifyBotId } from "@/lib/auth/botid";
@@ -255,6 +256,19 @@ export async function POST(request: NextRequest) {
         ),
         notifyWelcome(updatedUser.id).catch((err) =>
           console.error("[Register] notifyWelcome failed:", err),
+        ),
+        // Launch-night Unit 4 — tell the founder a stranger just signed up.
+        // Self-swallowing (see lib/email/founder-signup-alert.ts); the extra
+        // .catch is belt-and-braces so the signup response can never depend
+        // on an alert.
+        sendFounderSignupAlert({
+          userId: updatedUser.id,
+          name,
+          email,
+          trialEndsAt: updatedUser.trialEndsAt ?? null,
+          creditsRemaining: updatedUser.creditsRemaining ?? 0,
+        }).catch((err) =>
+          console.error("[Register] founder signup alert failed:", err),
         ),
         // Sample data is now seeded by /api/setup/activate (Phase 5+),
         // branded with the user's hydrated business profile instead of
