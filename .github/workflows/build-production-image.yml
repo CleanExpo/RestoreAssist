@@ -103,17 +103,44 @@ jobs:
           #
           # Two independent checks, because they catch different things.
 
+          # origin/main comes from the fetch-depth: 0 checkout. Resolve it
+          # HERE, once, and fail loudly if it is missing rather than letting a
+          # later comparison silently compare against an empty string.
+          if ! MAIN="$(git rev-parse origin/main 2>/dev/null)"; then
+            echo "::error::origin/main is not a local ref; cannot verify provenance." >&2
+            exit 1
+          fi
+
           # 1. The repo's existing release gate: GITHUB_REF must be
           #    refs/heads/main or an exact semver tag, and GITHUB_SHA must be
-          #    the origin/main tip. Same verifier the other release workflows
-          #    use, so this pipeline cannot drift away from that rule.
-          node scripts/ci/verify-release-provenance.mjs
+          #    the origin/main tip. Same rule the other release workflows
+          #    apply, so this pipeline cannot drift away from it.
+          #
+          #    The module's `main()` is deliberately NOT used. It runs an
+          #    unconditional `git fetch origin`, which needs a credential —
+          #    exactly the credential removed by persist-credentials: false. An
+          #    earlier revision of this step called it anyway and claimed
+          #    fetch-depth: 0 made the fetch unnecessary. It does not; the
+          #    script does not consult the local ref. On a public repo the
+          #    anonymous fetch happens to work, so the gate would have passed
+          #    for a reason unrelated to its own logic, and broken the day the
+          #    repo turned private. Import the pure check and feed it the ref
+          #    resolved above instead: same assertions, no network, no token.
+          export MAIN_SHA="${MAIN}"
+          node --input-type=module -e '
+            import { verifyReleaseProvenance } from "./scripts/ci/verify-release-provenance.mjs";
+            verifyReleaseProvenance({
+              ref: process.env.GITHUB_REF ?? "",
+              sha: process.env.GITHUB_SHA ?? "",
+              mainSha: process.env.MAIN_SHA ?? "",
+            });
+            console.log(`[release-provenance] PASS ${process.env.GITHUB_REF} @ ${process.env.MAIN_SHA}`);
+          '
 
           # 2. The SHA actually built. The check above reads GITHUB_SHA, which
           #    for workflow_dispatch is the branch tip, NOT inputs.ref — so a
           #    dispatch on main pointing at an OLD commit passes it while
           #    building something else entirely. Compare what we resolved.
-          MAIN="$(git rev-parse origin/main)"
           if [ "${SHA}" != "${MAIN}" ]; then
             echo "::error::refusing to publish ${SHA}: origin/main is ${MAIN}." >&2
             exit 1
