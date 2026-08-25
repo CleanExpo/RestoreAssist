@@ -1,0 +1,299 @@
+name: Build production image
+
+# Produces the sha256-digest-pinned artefact that .do/app.yaml consumes.
+#
+# BUILDS AND PUBLISHES ONLY. It never touches DigitalOcean and holds no
+# production token. Deployment is a separate, approved step
+# (deploy-production.yml) that takes a digest as input. Keeping them apart is
+# the point: an image can be built and scanned without anyone being able to
+# ship it by accident.
+#
+# No third-party actions. scripts/ci/check-release-bootstrap.mjs allows only
+# actions/{checkout,setup-node,setup-java,setup-python,upload-artifact} plus
+# two named publishers, each pinned to a full commit SHA. docker/* and
+# digitalocean/action-doctl are not on that list, so buildx and the registry
+# login are driven through the docker CLI that ubuntu-latest already ships.
+# That is the stricter option anyway: fewer third parties in the path that
+# produces the artefact production runs.
+
+on:
+  push:
+    branches: [main]
+  # Build (but never publish) on any PR that touches the image inputs, so the
+  # Dockerfile is exercised BEFORE merge rather than discovered broken after.
+  # Without this the container path is unverified until it is already on main,
+  # which is the position this repo has been in all day with production.
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker/**
+      - next.config.mjs
+      - package.json
+      - package-lock.json
+      - prisma/schema.prisma
+      - scripts/build.sh
+      - .github/workflows/build-production-image.yml
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit SHA or ref to build (defaults to the triggering ref)
+        required: false
+        type: string
+
+concurrency:
+  group: build-production-image-${{ github.event.pull_request.number || github.event.inputs.ref || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build and publish digest-pinned image
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
+          # persist-credentials: false — checkout otherwise writes GITHUB_TOKEN
+          # into .git as an http.extraheader credential, and this job holds
+          # packages: write. `docker build` then runs over that same tree on
+          # pull_request. .dockerignore excludes .git today, but .dockerignore
+          # is itself in this workflow's path filter: a PR that edits it and
+          # the Dockerfile together could pull .git into the build context and
+          # read the token out of a RUN step, gaining GHCR write without ever
+          # merging to main. With no credential on disk there is nothing to
+          # take.
+          persist-credentials: false
+          # fetch-depth: 0 so origin/main is a local ref for the provenance
+          # check below. Without it that check would need its own
+          # authenticated fetch, which is what we just removed the token for.
+          fetch-depth: 0
+
+      - name: Resolve exact commit
+        id: meta
+        run: |
+          set -euo pipefail
+          SHA="$(git rev-parse HEAD)"
+          IMAGE="ghcr.io/$(printf '%s' "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "Building ${SHA} as ${IMAGE}"
+
+      # Everything below this line is publish-only and is skipped on a PR. A
+      # pull request proves the image BUILDS; it must not put anything in the
+      # registry, and it never needs a token to do so.
+      - name: Refuse to publish anything that is not the current main tip
+        if: github.event_name != 'pull_request'
+        env:
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # `event_name != pull_request` is NOT sufficient on its own.
+          # workflow_dispatch takes an arbitrary `ref` input, so anyone with
+          # repo write — no merge to protected main required — could otherwise
+          # publish an arbitrary commit under the production image name and
+          # emit the digest artefact that a later deploy is meant to pin. The
+          # registry would become writable off the protected branch, which
+          # defeats the entire point of pinning a digest.
+          #
+          # Two independent checks, because they catch different things.
+
+          # 1. The repo's existing release gate: GITHUB_REF must be
+          #    refs/heads/main or an exact semver tag, and GITHUB_SHA must be
+          #    the origin/main tip. Same verifier the other release workflows
+          #    use, so this pipeline cannot drift away from that rule.
+          node scripts/ci/verify-release-provenance.mjs
+
+          # 2. The SHA actually built. The check above reads GITHUB_SHA, which
+          #    for workflow_dispatch is the branch tip, NOT inputs.ref — so a
+          #    dispatch on main pointing at an OLD commit passes it while
+          #    building something else entirely. Compare what we resolved.
+          MAIN="$(git rev-parse origin/main)"
+          if [ "${SHA}" != "${MAIN}" ]; then
+            echo "::error::refusing to publish ${SHA}: origin/main is ${MAIN}." >&2
+            exit 1
+          fi
+          echo "publishing ${SHA}, which is the current origin/main tip."
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "${TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+
+      - name: Build
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # The commit-SHA tag is always applied. The floating :main tag is
+          # applied ONLY for a real push to main. workflow_dispatch accepts an
+          # arbitrary ref, so rebuilding an old commit would otherwise drag
+          # :main backwards onto it — a mutable tag silently disagreeing with
+          # the branch, in the one pipeline whose entire purpose is that the
+          # thing production runs is immutable and identifiable.
+          TAGS="--tag ${IMAGE}:${SHA}"
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            TAGS="${TAGS} --tag ${IMAGE}:main"
+          else
+            echo "event is ${GITHUB_EVENT_NAME}, not push: leaving the :main tag where it is"
+          fi
+          # shellcheck disable=SC2086
+          docker build \
+            --build-arg "GIT_SHA=${SHA}" \
+            ${TAGS} \
+            --file Dockerfile \
+            .
+
+      - name: Confirm the image runs its entrypoint (PR only)
+        if: github.event_name == 'pull_request'
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # Negative case. No --entrypoint override: this exercises the declared
+          # ENTRYPOINT ["./entrypoint.sh"], so the exec bit and the shebang are
+          # under test too, exactly as they are in production. With no env set
+          # the required-env contract must refuse the boot AND exit non-zero.
+          set +e
+          OUT="$(docker run --rm "${IMAGE}:${SHA}" 2>&1)"
+          CODE=$?
+          set -e
+          printf '%s\n' "${OUT}"
+          if [ "${CODE}" -eq 0 ]; then
+            echo "::error::entrypoint exited 0 with no environment. It must refuse to boot." >&2
+            exit 1
+          fi
+          if ! printf '%s' "${OUT}" | grep -q 'DATABASE_URL is required'; then
+            echo "::error::entrypoint did not enforce its required-env contract." >&2
+            exit 1
+          fi
+
+          # Positive control. The check above is only meaningful if it can also
+          # PASS. Supply every required variable with a throwaway value and the
+          # gate must fall through to the startup banner. If this half fails,
+          # the negative case above was passing for the wrong reason.
+          # `timeout` is mandatory here, not defensive: the banner is printed
+          # immediately before `exec node server.js`, so a successful run then
+          # blocks on a listening server until the job timeout. Exit 124 is the
+          # expected outcome — only the captured output is under test.
+          set +e
+          timeout 60 docker run --rm --name ra-entrypoint-check \
+            -e DATABASE_URL=postgresql://u:p@127.0.0.1:5432/db \
+            -e CREDENTIAL_ENCRYPTION_KEY=ci-not-a-real-key \
+            -e NEXTAUTH_SECRET=ci-not-a-real-secret \
+            -e NEXTAUTH_URL=http://127.0.0.1:3000 \
+            -e GOOGLE_CLIENT_ID=ci-not-real \
+            -e GOOGLE_CLIENT_SECRET=ci-not-real \
+            -e NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID=ci-not-real \
+            -e STRIPE_WEBHOOK_SECRET=ci-not-real \
+            "${IMAGE}:${SHA}" > /tmp/entrypoint-full-env.log 2>&1
+          RUN_CODE=$?
+          docker rm -f ra-entrypoint-check >/dev/null 2>&1 || true
+          set -e
+          OK="$(cat /tmp/entrypoint-full-env.log)"
+          printf '%s\n' "${OK}"
+          # Exit 124 means `timeout` had to kill it: the process was STILL
+          # RUNNING after 60s. That is the assertion that the server actually
+          # came up. Grepping the banner alone is not — entrypoint.sh prints it
+          # immediately BEFORE `exec node server.js`, so a missing or broken
+          # server.js would still emit the banner and then exit, and the check
+          # would pass on a container that cannot serve a request. Anything
+          # other than 124 here means node terminated on its own.
+          if [ "${RUN_CODE}" -ne 124 ]; then
+            echo "::error::server exited on its own with ${RUN_CODE}; it should still have been running at the timeout." >&2
+            exit 1
+          fi
+          if printf '%s' "${OK}" | grep -q 'is required'; then
+            echo "::error::entrypoint still reported a missing variable after all were supplied." >&2
+            exit 1
+          fi
+          if ! printf '%s' "${OK}" | grep -q 'RestoreAssist standalone'; then
+            echo "::error::entrypoint did not reach its startup banner with a full environment." >&2
+            exit 1
+          fi
+          echo "entrypoint refuses an empty environment and proceeds with a full one."
+
+          # Runtime content that is read from disk per request, not bundled by
+          # the compiler. Bugbot found both of these missing on 7b13bc27: the
+          # runner stage did not COPY data/, and `sh scripts/build.sh` skipped
+          # npm's prebuild lifecycle so public/help-index.json was never
+          # generated. Nothing in a Next.js build fails when these are absent —
+          # the pages just 404 in production. Assert them here so the image
+          # cannot regress quietly.
+          docker run --rm --entrypoint sh "${IMAGE}:${SHA}" -c '
+            set -e
+            test -d data/content/help          || { echo "MISSING data/content/help"; exit 1; }
+            test -d data/content/nexus-hub     || { echo "MISSING data/content/nexus-hub"; exit 1; }
+            test -f public/help-index.json     || { echo "MISSING public/help-index.json"; exit 1; }
+            test -f server.js                  || { echo "MISSING server.js (standalone output)"; exit 1; }
+            n=$(find data/content/help -name "*.mdx" | wc -l)
+            [ "$n" -gt 0 ]                     || { echo "data/content/help has no .mdx"; exit 1; }
+            echo "runtime content present: ${n} help articles, help-index.json $(wc -c < public/help-index.json) bytes"
+          '
+          echo "image carries the content its dynamic routes read at request time."
+
+      - name: Push and capture the digest
+        id: push
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          set -euo pipefail
+          docker push "${IMAGE}:${SHA}"
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            docker push "${IMAGE}:main"
+          fi
+          # Read the digest back from the registry rather than trusting the
+          # local build record — this is the value production will pin, so it
+          # is taken from the thing that will actually serve it.
+          DIGEST="$(docker inspect --format='{{index .RepoDigests 0}}' "${IMAGE}:${SHA}" | cut -d@ -f2)"
+          if ! printf '%s' "${DIGEST}" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
+            echo "::error::could not resolve a sha256 digest for ${IMAGE}:${SHA}; got '${DIGEST}'" >&2
+            exit 1
+          fi
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Record the digest as an artefact
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/image
+          {
+            echo "commit=${{ steps.meta.outputs.sha }}"
+            echo "image=${{ steps.meta.outputs.image }}"
+            echo "digest=${{ steps.push.outputs.digest }}"
+          } > /tmp/image/production-image.txt
+          cat /tmp/image/production-image.txt
+
+      - name: Upload digest record
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: production-image-${{ steps.meta.outputs.sha }}
+          path: /tmp/image/production-image.txt
+          retention-days: 90
+
+      - name: Report the digest to pin
+        if: github.event_name != 'pull_request'
+        run: |
+          {
+            echo "## Production image built"
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| commit | \`${{ steps.meta.outputs.sha }}\` |"
+            echo "| image | \`${{ steps.meta.outputs.image }}\` |"
+            echo "| **digest** | \`${{ steps.push.outputs.digest }}\` |"
+            echo
+            echo "This digest is the only thing that should ever be deployed."
+            echo "Pass it to the **Deploy — DigitalOcean Production** workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
