@@ -133,7 +133,13 @@ export async function PATCH(req: NextRequest) {
           status: 400,
         });
       }
-      updates[key] = value;
+      // `isSettingKey` narrows `key` to SettingKey, which is `never` while
+      // SETTING_KEYS is empty — the guard above always returns 400 first, so
+      // this assignment is unreachable today and TypeScript rightly refuses
+      // `boolean` against an index type of `never`. The cast keeps the loop
+      // compiling in both states. Delete it once SETTING_KEYS has a member
+      // again: the assignment will then type on its own.
+      (updates as Record<string, boolean>)[key] = value;
     }
 
     if (Object.keys(updates).length === 0) {
