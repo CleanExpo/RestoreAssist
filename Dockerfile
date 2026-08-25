@@ -66,8 +66,13 @@ ENV NODE_OPTIONS=--max-old-space-size=8192
 ARG GIT_SHA=unknown
 ENV GIT_SHA=${GIT_SHA}
 
-# scripts/build.sh: prisma generate, then next build. No database is touched.
-RUN sh scripts/build.sh
+# `npm run build`, NOT `sh scripts/build.sh` directly. package.json defines a
+# `prebuild` lifecycle script (tsx scripts/build-help-index.ts) that writes
+# public/help-index.json, which HelpSearchModal fetches at runtime. npm fires
+# prebuild only for `npm run build`; invoking the shell script bypasses it, and
+# the output is gitignored so it is not in the build context either. The image
+# would have shipped with an empty help search index.
+RUN npm run build
 
 # ── runner ─────────────────────────────────────────────────────────────────
 FROM base AS runner
@@ -98,6 +103,14 @@ COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=node:node /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=node:node /app/prisma ./prisma
+
+# data/ is read from disk at REQUEST time, not bundled at build time:
+#   lib/help/load-article.ts     process.cwd()/data/content/help/<cat>/<slug>.mdx
+#   lib/nexus-hub-context.ts     process.cwd()/data/content/nexus-hub
+# The help routes are dynamic, so without this the reads hit ENOENT and every
+# help article 404s in production. 604K — the cost of omitting it is far higher
+# than the cost of copying it.
+COPY --from=builder --chown=node:node /app/data ./data
 
 # Same required-env contract as scripts/start-production.sh. Failing here is
 # far cheaper than a container that boots and then 500s on first request.

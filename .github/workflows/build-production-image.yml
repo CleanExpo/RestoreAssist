@@ -85,10 +85,22 @@ jobs:
           SHA: ${{ steps.meta.outputs.sha }}
         run: |
           set -euo pipefail
+          # The commit-SHA tag is always applied. The floating :main tag is
+          # applied ONLY for a real push to main. workflow_dispatch accepts an
+          # arbitrary ref, so rebuilding an old commit would otherwise drag
+          # :main backwards onto it — a mutable tag silently disagreeing with
+          # the branch, in the one pipeline whose entire purpose is that the
+          # thing production runs is immutable and identifiable.
+          TAGS="--tag ${IMAGE}:${SHA}"
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            TAGS="${TAGS} --tag ${IMAGE}:main"
+          else
+            echo "event is ${GITHUB_EVENT_NAME}, not push: leaving the :main tag where it is"
+          fi
+          # shellcheck disable=SC2086
           docker build \
             --build-arg "GIT_SHA=${SHA}" \
-            --tag "${IMAGE}:${SHA}" \
-            --tag "${IMAGE}:main" \
+            ${TAGS} \
             --file Dockerfile \
             .
 
@@ -150,6 +162,24 @@ jobs:
           fi
           echo "entrypoint refuses an empty environment and proceeds with a full one."
 
+          # Runtime content that is read from disk per request, not bundled by
+          # the compiler. Bugbot found both of these missing on 7b13bc27: the
+          # runner stage did not COPY data/, and `sh scripts/build.sh` skipped
+          # npm's prebuild lifecycle so public/help-index.json was never
+          # generated. Nothing in a Next.js build fails when these are absent —
+          # the pages just 404 in production. Assert them here so the image
+          # cannot regress quietly.
+          docker run --rm --entrypoint sh "${IMAGE}:${SHA}" -c '
+            set -e
+            test -d data/content/help          || { echo "MISSING data/content/help"; exit 1; }
+            test -d data/content/nexus-hub     || { echo "MISSING data/content/nexus-hub"; exit 1; }
+            test -f public/help-index.json     || { echo "MISSING public/help-index.json"; exit 1; }
+            n=$(find data/content/help -name "*.mdx" | wc -l)
+            [ "$n" -gt 0 ]                     || { echo "data/content/help has no .mdx"; exit 1; }
+            echo "runtime content present: ${n} help articles, help-index.json $(wc -c < public/help-index.json) bytes"
+          '
+          echo "image carries the content its dynamic routes read at request time."
+
       - name: Push and capture the digest
         id: push
         if: github.event_name != 'pull_request'
@@ -159,7 +189,9 @@ jobs:
         run: |
           set -euo pipefail
           docker push "${IMAGE}:${SHA}"
-          docker push "${IMAGE}:main"
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            docker push "${IMAGE}:main"
+          fi
           # Read the digest back from the registry rather than trusting the
           # local build record — this is the value production will pin, so it
           # is taken from the thing that will actually serve it.
