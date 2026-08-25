@@ -69,7 +69,7 @@ SELECT COUNT(*) FROM "User" WHERE "createdAt" > NOW() - INTERVAL '12 hours';
 
 ## 4. PRs ready to merge
 
-**[#2052 — Tell the founder when someone signs up](https://github.com/CleanExpo/RestoreAssist/pull/2052)** (draft)
+**[#2052 — Launch night: tell the founder about signups, and stop the trial dead-ending](https://github.com/CleanExpo/RestoreAssist/pull/2052)** — ready for review, CI green
 
 > **SHIP-DELTA:** a stranger's signup now reaches the founder's inbox instead of dying
 > silently in the database.
@@ -85,6 +85,13 @@ Checks: 4 new + 2 regression tests passing (11/11 in the register suite), `tsc -
 **0 errors repo-wide**, lint clean.
 
 ---
+
+**CI status: all 6 checks green** on head `90b85bf` — Quality Checks, Route Safety Scan,
+deterministic-acceptance, Agentic Browsing audit, DESIGN.md validation, Vercel Preview
+Comments. Two earlier commits failed Quality Checks on the enforcing `type-check` step;
+that was the "0 credits" type error described below, already fixed before the failure
+notification arrived. The gate was **not** base-red — four other branches passed it in the
+same window, so the failure was mine and is now resolved.
 
 **[#2052](https://github.com/CleanExpo/RestoreAssist/pull/2052) also carries a second fix**
 
@@ -106,7 +113,7 @@ eyeball it before merging.
 
 Full detail in **`docs/launch-kit/05-day-1-checklist.md`**.
 
-1. **Merge [#2052](https://github.com/CleanExpo/RestoreAssist/pull/2052)** (mark ready → merge). 2 min.
+1. **Merge [#2052](https://github.com/CleanExpo/RestoreAssist/pull/2052)** — already marked ready, all 6 checks green. One click. 2 min.
 2. **Set env vars on DigitalOcean** (*not* Vercel — app `3654f979-16cb-4b7c-afae-9e89746ea5c6`):
    - `SIGNUP_ALERT_EMAIL` — step 1 does nothing without it
    - `RESEND_API_KEY` + `RESEND_FROM_EMAIL` — **no transactional email works at all right now**

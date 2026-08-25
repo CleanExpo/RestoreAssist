@@ -5,7 +5,7 @@ marked otherwise. Do these in order; each later step assumes the earlier ones.
 
 ## 1. Merge the signup alert (2 min) — do this first
 
-**PR #2052** — https://github.com/CleanExpo/RestoreAssist/pull/2052
+**PR #2052** (ready for review, all 6 checks green) — https://github.com/CleanExpo/RestoreAssist/pull/2052
 
 Right now nobody tells you when someone signs up. This fixes that for both email
 registration and Google sign-in. It's a draft PR — mark ready, then merge.
