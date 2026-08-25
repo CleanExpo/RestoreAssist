@@ -36,9 +36,11 @@ and no administrator bypass. Store these values as environment-scoped secrets:
 - `EXPECTED_DIRECT_DATABASE_NAME`
 - `EXPECTED_DIRECT_DATABASE_SCHEMA`
 
-Configure the repository variable
-`NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID` for the public client value embedded
-at image build time. It is deliberately not treated as a production secret.
+The public Android web client ID embedded at image build time defaults to the
+same public identifier versioned in `lib/oauth-native.ts`. The optional
+repository variable `NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID` overrides that
+default when the client registration changes; update both in the same reviewed
+change. It is deliberately not treated as a production secret.
 
 The versioned production reviewer allow-list is currently empty, so the
 protected job is guaranteed to stop before provider mutation. An owner must
