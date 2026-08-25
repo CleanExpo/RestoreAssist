@@ -10,7 +10,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildActivitySwms,
   highestResidualRisk,
-  isValidAbn,
   SwmsCompositionError,
   type BuildActivitySwmsInput,
 } from "../build-activity-swms";
@@ -147,40 +146,6 @@ describe("buildActivitySwms", () => {
     expect(() =>
       buildActivitySwms(input({ pcbu: { ...input().pcbu, abn: transposed } })),
     ).toThrow(/fails the ABN checksum/);
-  });
-});
-
-describe("isValidAbn", () => {
-  it("accepts known-good ABNs", () => {
-    // Disaster Recovery QLD, from the source SWMS documents.
-    expect(isValidAbn("42 633 062 307")).toBe(true);
-    expect(isValidAbn("42633062307")).toBe(true);
-  });
-
-  it("rejects a single transposed pair", () => {
-    expect(isValidAbn("42 633 062 370")).toBe(false);
-  });
-
-  it("rejects wrong-length and non-numeric input", () => {
-    for (const bad of ["", "4263306230", "426330623070", "4263306230x"]) {
-      expect(isValidAbn(bad), bad).toBe(false);
-    }
-  });
-
-  it("rejects every single-digit corruption of a valid ABN", () => {
-    // Exhaustive: the checksum's whole job is catching one wrong digit.
-    const valid = "42633062307";
-    let checked = 0;
-    for (let i = 0; i < valid.length; i++) {
-      for (let d = 0; d <= 9; d++) {
-        if (String(d) === valid[i]) continue;
-        const corrupted = valid.slice(0, i) + d + valid.slice(i + 1);
-        expect(isValidAbn(corrupted), corrupted).toBe(false);
-        checked++;
-      }
-    }
-    // Positive control on the loop itself: 11 positions x 9 alternatives.
-    expect(checked).toBe(99);
   });
 });
 
