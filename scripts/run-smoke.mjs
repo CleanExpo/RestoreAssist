@@ -123,7 +123,12 @@ if (isProduction) {
       throw new Error(`HTTP ${response.status} or non-JSON response`);
     }
     payload = await response.json();
-    assertMigrationHealthPayload(payload, expectedFingerprint);
+    assertMigrationHealthPayload(
+      payload,
+      expectedFingerprint,
+      process.env.EXPECTED_MIGRATION_COUNT,
+      process.env.EXPECTED_MIGRATION_LEDGER_FINGERPRINT,
+    );
   } catch (error) {
     console.error(`Migration-health preflight failed: ${error}`);
     process.exit(1);

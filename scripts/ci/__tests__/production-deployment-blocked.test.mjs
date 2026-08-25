@@ -35,35 +35,51 @@ const playwrightConfig = readFileSync(
   "utf8",
 );
 
-test("production workflow fails before receiving credentials or mutating a provider", () => {
-  assert.match(workflow, /Production \(BLOCKED\)/);
-  assert.match(workflow, /permissions:\s*\{\}/);
-  assert.match(workflow, /exit 1/);
-  for (const actingMarker of [
-    "DIGITALOCEAN_ACCESS_TOKEN",
-    "DIGITALOCEAN_APP_ID",
-    "secrets.",
-    "create-deployment",
-    "trigger_digitalocean",
-    "/v2/apps/",
-    "curl ",
-  ]) {
-    assert.equal(
-      workflow.includes(actingMarker),
-      false,
-      `blocked workflow must not contain acting marker ${actingMarker}`,
-    );
+test("production workflow binds build, approval, activation and rollback to exact evidence", () => {
+  const parsed = parse(workflow);
+  assert.equal(parsed.concurrency.group, "digitalocean-production");
+  assert.equal(parsed.concurrency["cancel-in-progress"], false);
+  assert.equal(parsed.jobs.build.environment, undefined);
+  assert.equal(parsed.jobs.deploy.environment.name, "production");
+  assert.equal(parsed.jobs.deploy.needs, "build");
+  assert.equal(parsed.on.workflow_dispatch.inputs.confirm_sha.required, true);
+  assert.equal(parsed.on.workflow_dispatch.inputs.release_gate_run_id.required, true);
+  assert.match(workflow, /verify-release-gate-run\.mjs/);
+  assert.match(workflow, /docker buildx build[\s\S]*--push/);
+  assert.match(workflow, /actions\/attest@[0-9a-f]{40}/);
+  assert.match(workflow, /gh attestation verify/);
+  assert.match(workflow, /render-production-app-spec\.mjs/);
+  assert.match(workflow, /digitalocean-production-release\.py preflight/);
+  assert.match(workflow, /verify-production-migrations\.sh/);
+  assert.match(workflow, /digitalocean-production-release\.py deploy/);
+  assert.match(workflow, /Post-activation smoke failed; rolling back/);
+  assert.match(workflow, /digitalocean-production-release\.py rollback/);
+  const durableBlock = workflow.indexOf("Refuse activation until durable reconciliation is proven");
+  const firstProviderCredential = workflow.indexOf("DIGITALOCEAN_ACCESS_TOKEN");
+  assert.ok(durableBlock > 0 && durableBlock < firstProviderCredential);
+  assert.match(workflow.slice(durableBlock, firstProviderCredential), /exit 1/);
+  const buildJob = workflow.slice(workflow.indexOf("  build:"), workflow.indexOf("  reject-non-main:"));
+  assert.doesNotMatch(buildJob, /DIGITALOCEAN_ACCESS_TOKEN|DIGITALOCEAN_APP_ID|PRODUCTION_DIRECT_URL/);
+});
+
+test("reviewed app template is immutable, non-deployable and secret-free", () => {
+  const spec = parse(appSpec);
+  const service = spec.services[0];
+  assert.equal(service.image.registry_type, "GHCR");
+  assert.equal(service.image.registry, "cleanexpo");
+  assert.equal(service.image.repository, "restoreassist");
+  assert.equal(service.image.digest, `sha256:${"0".repeat(64)}`);
+  assert.equal(service.image.registry_credentials, "${GHCR_PULL_CREDENTIALS}");
+  assert.equal(service.image.tag, undefined);
+  assert.equal(service.image.deploy_on_push, undefined);
+  assert.equal(service.github, undefined);
+  assert.equal(service.health_check.http_path, "/api/health/migrations");
+  for (const entry of service.envs.filter((item) => item.type === "SECRET")) {
+    assert.equal(Object.hasOwn(entry, "value"), false, `${entry.key} must be hydrated only in memory`);
   }
 });
 
-test("legacy mutable app source is visibly blocked and cannot auto-deploy", () => {
-  assert.match(appSpec, /RELEASE BLOCKER/);
-  assert.match(appSpec, /branch: main/);
-  assert.match(appSpec, /deploy_on_push: false/);
-  assert.match(appSpec, /http_path: \/api\/health/);
-});
-
-test("discovers every DigitalOcean component and rejects every mutable runnable source", () => {
+test("discovers every DigitalOcean component and permits only the reviewed digest template", () => {
   const spec = parse(appSpec);
   const componentKinds = [
     "services",
@@ -83,18 +99,18 @@ test("discovers every DigitalOcean component and rejects every mutable runnable 
   );
   const runnable = discovered.filter(({ kind }) => kind !== "databases");
   for (const { kind, component } of runnable) {
-    assert.equal(
-      typeof component.image?.digest === "string" && /^sha256:[0-9a-f]{64}$/i.test(component.image.digest),
-      false,
-      `${kind}:${component.name} unexpectedly looks immutable; this fixture must remain blocked until the path is real`,
-    );
+    assert.match(component.image?.digest ?? "", /^sha256:[0-9a-f]{64}$/);
+    assert.equal(component.image.digest, `sha256:${"0".repeat(64)}`);
+    for (const field of ["github", "git", "gitlab", "bitbucket", "tag"]){
+      assert.equal(component[field] ?? component.image?.[field], undefined, `${kind}:${component.name} has ${field}`);
+    }
   }
 });
 
-test("read-only readiness access is main-only, content-bound and always blocked", () => {
+test("read-only readiness access is main-only, content-bound and non-acting", () => {
   const parsed = parse(parityWorkflow);
   assert.match(parsed.jobs["reject-non-main"].steps[0].run, /exit 1/);
-  assert.match(parsed.jobs["evidence-and-block"].steps.at(-1).run, /exit 1/);
+  assert.doesNotMatch(parsed.jobs.evidence.steps.at(-1).run, /exit 1/);
   assert.match(parityWorkflow, /if: github\.ref == 'refs\/heads\/main'/);
   assert.match(parityWorkflow, /verify-release-provenance\.mjs/);
   assert.match(parityWorkflow, /verify-production-environment\.mjs/);
@@ -106,8 +122,11 @@ test("read-only readiness access is main-only, content-bound and always blocked"
   assert.doesNotMatch(parityWorkflow, /PRODUCTION_RELEASE_REVIEWERS|vars\./);
   assert.match(parityWorkflow, /versioned trust policy/);
   assert.match(parityWorkflow, /Reject non-main readiness request[\s\S]*exit 1/);
-  assert.match(parityWorkflow, /Refuse deployment until immutable image path exists[\s\S]*exit 1/);
-  assert.doesNotMatch(parityWorkflow, /create-deployment|trigger_digitalocean/);
+  assert.match(parityWorkflow, /Report read-only readiness/);
+  assert.doesNotMatch(
+    parityWorkflow,
+    /create-deployment|trigger_digitalocean|DIGITALOCEAN_ACCESS_TOKEN|DIGITALOCEAN_APP_ID|secrets\./,
+  );
 });
 
 test("release-gate success cannot omit its report artifact", () => {

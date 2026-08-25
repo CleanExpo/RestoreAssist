@@ -156,9 +156,14 @@ jobs:
       - name: Build
         env:
           IMAGE: ${{ steps.meta.outputs.image }}
+          PUBLIC_GOOGLE_CLIENT_ID: ${{ github.event_name == 'pull_request' && 'ci-not-real' || vars.NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID }}
           SHA: ${{ steps.meta.outputs.sha }}
         run: |
           set -euo pipefail
+          test -n "${PUBLIC_GOOGLE_CLIENT_ID}" || {
+            echo "::error::NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID repository variable is required." >&2
+            exit 1
+          }
           # The commit-SHA tag is always applied. The floating :main tag is
           # applied ONLY for a real push to main. workflow_dispatch accepts an
           # arbitrary ref, so rebuilding an old commit would otherwise drag
@@ -174,6 +179,7 @@ jobs:
           # shellcheck disable=SC2086
           docker build \
             --build-arg "GIT_SHA=${SHA}" \
+            --build-arg "NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID=${PUBLIC_GOOGLE_CLIENT_ID}" \
             ${TAGS} \
             --file Dockerfile \
             .

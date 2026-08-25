@@ -14,6 +14,20 @@ test("accepts a clean migration receipt for the proven database", () => {
   assert.equal(assertMigrationHealthPayload(healthy, fingerprint), true);
 });
 
+test("binds optional migration count and ledger fingerprint", () => {
+  const ledger = "c".repeat(64);
+  const payload = { ...healthy, migrationLedgerFingerprint: ledger };
+  assert.equal(assertMigrationHealthPayload(payload, fingerprint, 214, ledger), true);
+  assert.throws(
+    () => assertMigrationHealthPayload(payload, fingerprint, 215, ledger),
+    /count does not match/,
+  );
+  assert.throws(
+    () => assertMigrationHealthPayload(payload, fingerprint, 214, "d".repeat(64)),
+    /ledger fingerprint/,
+  );
+});
+
 test("rejects drift, the wrong database, an empty ledger and missing trust anchor", () => {
   assert.throws(
     () => assertMigrationHealthPayload({ ...healthy, status: "drift" }, fingerprint),

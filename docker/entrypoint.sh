@@ -17,7 +17,19 @@ set -eu
 : "${GOOGLE_CLIENT_SECRET:?[start] ERROR: GOOGLE_CLIENT_SECRET is required.}"
 : "${NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID:?[start] ERROR: NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID is required.}"
 : "${STRIPE_WEBHOOK_SECRET:?[start] ERROR: STRIPE_WEBHOOK_SECRET is required.}"
+: "${GIT_SHA:?[start] ERROR: GIT_SHA is required.}"
 
-echo "[start] RestoreAssist standalone — commit ${GIT_SHA:-unknown}"
+if [ "${#GIT_SHA}" -ne 40 ]; then
+  echo "[start] ERROR: GIT_SHA must be exactly 40 lowercase hexadecimal characters." >&2
+  exit 1
+fi
+case "$GIT_SHA" in
+  *[!0-9a-f]*)
+    echo "[start] ERROR: GIT_SHA must be exactly 40 lowercase hexadecimal characters." >&2
+    exit 1
+    ;;
+esac
+
+echo "[start] RestoreAssist standalone — commit ${GIT_SHA}"
 echo "[start] starting Next.js without applying or resolving migrations"
 exec node server.js
