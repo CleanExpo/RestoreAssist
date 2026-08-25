@@ -17,8 +17,11 @@
 # base by sha256 is the stricter follow-up; it needs a registry lookup that the
 # authoring environment could not perform, so it is left as a deliberate,
 # stated gap rather than a fabricated digest.
-# Matches package.json engines (20.x || 22.x) and .nvmrc (22.22.3).
-FROM node:22.22.0-bookworm-slim AS base
+# Matches package.json engines (20.x || 22.x) and .nvmrc (22.22.3). It said so
+# while pinning 22.22.0, which is the drift this line now removes: the image
+# production runs should be the runtime the repo declares, not a neighbouring
+# patch. Tag existence confirmed against registry-1.docker.io (HTTP 200).
+FROM node:22.22.3-bookworm-slim AS base
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # ── deps ───────────────────────────────────────────────────────────────────

@@ -195,10 +195,22 @@ jobs:
             -e NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID=ci-not-real \
             -e STRIPE_WEBHOOK_SECRET=ci-not-real \
             "${IMAGE}:${SHA}" > /tmp/entrypoint-full-env.log 2>&1
+          RUN_CODE=$?
           docker rm -f ra-entrypoint-check >/dev/null 2>&1 || true
           set -e
           OK="$(cat /tmp/entrypoint-full-env.log)"
           printf '%s\n' "${OK}"
+          # Exit 124 means `timeout` had to kill it: the process was STILL
+          # RUNNING after 60s. That is the assertion that the server actually
+          # came up. Grepping the banner alone is not — entrypoint.sh prints it
+          # immediately BEFORE `exec node server.js`, so a missing or broken
+          # server.js would still emit the banner and then exit, and the check
+          # would pass on a container that cannot serve a request. Anything
+          # other than 124 here means node terminated on its own.
+          if [ "${RUN_CODE}" -ne 124 ]; then
+            echo "::error::server exited on its own with ${RUN_CODE}; it should still have been running at the timeout." >&2
+            exit 1
+          fi
           if printf '%s' "${OK}" | grep -q 'is required'; then
             echo "::error::entrypoint still reported a missing variable after all were supplied." >&2
             exit 1
@@ -221,6 +233,7 @@ jobs:
             test -d data/content/help          || { echo "MISSING data/content/help"; exit 1; }
             test -d data/content/nexus-hub     || { echo "MISSING data/content/nexus-hub"; exit 1; }
             test -f public/help-index.json     || { echo "MISSING public/help-index.json"; exit 1; }
+            test -f server.js                  || { echo "MISSING server.js (standalone output)"; exit 1; }
             n=$(find data/content/help -name "*.mdx" | wc -l)
             [ "$n" -gt 0 ]                     || { echo "data/content/help has no .mdx"; exit 1; }
             echo "runtime content present: ${n} help articles, help-index.json $(wc -c < public/help-index.json) bytes"
