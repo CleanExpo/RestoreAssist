@@ -75,6 +75,8 @@ export function FloorPlanUnderlayLoader({
 }: FloorPlanUnderlayLoaderProps) {
   const [expanded, setExpanded] = useState(autoFetch && !!defaultAddress);
   const [address, setAddress] = useState(defaultAddress);
+  const [listingUrl, setListingUrl] = useState("");
+  const [candidates, setCandidates] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<ScrapedPropertyData | null>(null);
@@ -157,7 +159,80 @@ export function FloorPlanUnderlayLoader({
     ? [...results.floorPlanImages, ...results.propertyImages]
     : [];
 
+  const fetchByUrl = useCallback(
+    async (url: string) => {
+      const { normalizeScrapeUrl } = await import("@/lib/scraping/safe-fetch");
+      const q = normalizeScrapeUrl(url);
+      if (!q) {
+        setError(
+          "Enter a valid https listing URL from realestate.com.au, domain.com.au, or onthehouse.com.au",
+        );
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      setUpgradeRequired(false);
+      setResults(null);
+      setSelectedImage(null);
+      setCandidates([]);
+
+      try {
+        const res = await fetch("/api/properties/scrape", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: q,
+            address: address.trim() || undefined,
+            postcode: defaultPostcode || undefined,
+            inspectionId: inspectionId || undefined,
+          }),
+        });
+        if (res.status === 402) {
+          setUpgradeRequired(true);
+          return;
+        }
+        if (res.status === 403) {
+          setError("Listing floor-plan import is not enabled on this deployment.");
+          return;
+        }
+
+        const json = await res.json();
+        if (!res.ok || !json.data) {
+          setError(
+            typeof json.error === "string"
+              ? json.error
+              : "Could not load that listing",
+          );
+          return;
+        }
+
+        const data = json.data as ScrapedPropertyData;
+        setResults(data);
+        setListingUrl(q);
+        const autoSelect =
+          data.floorPlanImages[0] ?? data.propertyImages[0] ?? null;
+        setSelectedImage(autoSelect);
+        if (!autoSelect) {
+          setError(
+            "Listing loaded, but no floor plan image was found. Upload one manually or try another listing.",
+          );
+        }
+      } catch {
+        setError("Request failed — check your connection");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [address, defaultPostcode, inspectionId],
+  );
+
   const fetchListing = useCallback(async () => {
+    const url = listingUrl.trim();
+    if (url) {
+      await fetchByUrl(url);
+      return;
+    }
+
     const q = address.trim();
     if (!q) return;
     setLoading(true);
@@ -165,6 +240,7 @@ export function FloorPlanUnderlayLoader({
     setUpgradeRequired(false);
     setResults(null);
     setSelectedImage(null);
+    setCandidates([]);
 
     try {
       const res = await fetch("/api/properties/scrape", {
@@ -174,12 +250,9 @@ export function FloorPlanUnderlayLoader({
           address: q,
           postcode: defaultPostcode || undefined,
           inspectionId: inspectionId || undefined,
-          // Always allow domain.com.au fallback so the UI works even when
-          // the OTH search endpoint changes (RA-108)
-          fallbackSources: ["domain"],
+          fallbackSources: ["domain", "realestate"],
         }),
       });
-      // PR5: 402 means the floor-plan underlay isn't on the caller's plan.
       if (res.status === 402) {
         setUpgradeRequired(true);
         return;
@@ -187,30 +260,48 @@ export function FloorPlanUnderlayLoader({
 
       const json = await res.json();
 
-      if (!res.ok || !json.data) {
+      // Cached full payload (rare) — treat like a URL fetch result.
+      if (res.ok && json.data) {
+        const data = json.data as ScrapedPropertyData;
+        setResults(data);
+        const autoSelect =
+          data.floorPlanImages[0] ?? data.propertyImages[0] ?? null;
+        setSelectedImage(autoSelect);
+        return;
+      }
+
+      const found = (json.candidates as string[] | undefined) ?? [];
+      if (!res.ok && found.length === 0) {
         setError(json.error ?? "No property found for this address");
         return;
       }
 
-      const data = json.data as ScrapedPropertyData;
-      setResults(data);
+      if (found.length === 0) {
+        setError(json.error ?? "No property found for this address");
+        return;
+      }
 
-      // Auto-select first floor plan image (preferred), then first property image
-      const autoSelect =
-        data.floorPlanImages[0] ?? data.propertyImages[0] ?? null;
-      setSelectedImage(autoSelect);
+      // Operator must confirm which listing — never auto-import the first hit.
+      setCandidates(found);
+      setExpanded(true);
     } catch {
       setError("Request failed — check your connection");
     } finally {
       setLoading(false);
     }
-  }, [address, defaultPostcode, inspectionId]);
+  }, [
+    address,
+    listingUrl,
+    defaultPostcode,
+    inspectionId,
+    fetchByUrl,
+  ]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") fetchListing();
   };
 
-  // RA-6922: start the recurring $11/mo Floor Plan Underlay add-on checkout and
+  // RA-6922: start the recurring $9.95/mo Floor Plan Underlay add-on checkout and
   // redirect to Stripe. Mirrors app/dashboard/pricing/page.tsx's redirect flow.
   const handleUpgrade = useCallback(async () => {
     setUpgrading(true);
@@ -385,21 +476,21 @@ export function FloorPlanUnderlayLoader({
           {urlImportEnabled && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wide">
-                Fetch from OnTheHouse
+                Listing URL (REA / Domain / OnTheHouse)
               </label>
               <div className="flex gap-1.5">
                 <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
+                  type="url"
+                  value={listingUrl}
+                  onChange={(e) => setListingUrl(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Enter property address…"
+                  placeholder="https://www.realestate.com.au/…"
                   className="flex-1 min-w-0 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400"
                 />
                 <button
                   type="button"
                   onClick={fetchListing}
-                  disabled={loading || !address.trim()}
+                  disabled={loading || (!listingUrl.trim() && !address.trim())}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
                 >
                   {loading ? (
@@ -410,6 +501,40 @@ export function FloorPlanUnderlayLoader({
                   Fetch
                 </button>
               </div>
+              <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wide block pt-1">
+                Or search by address
+              </label>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Enter property address…"
+                className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400"
+              />
+            </div>
+          )}
+
+          {urlImportEnabled && candidates.length > 0 && !results && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-neutral-600 dark:text-slate-300">
+                Confirm the correct listing
+              </p>
+              <ul className="max-h-36 overflow-y-auto space-y-1">
+                {candidates.map((c) => (
+                  <li key={c}>
+                    <button
+                      type="button"
+                      onClick={() => fetchByUrl(c)}
+                      disabled={loading}
+                      className="w-full text-left text-[11px] px-2 py-1.5 rounded-md border border-neutral-200 dark:border-slate-600 hover:border-cyan-400 hover:bg-cyan-500/5 text-neutral-700 dark:text-slate-200 truncate disabled:opacity-40"
+                      title={c}
+                    >
+                      {c.replace(/^https?:\/\/(www\.)?/, "")}
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
@@ -449,7 +574,7 @@ export function FloorPlanUnderlayLoader({
           )}
 
           {/* RA-6922 — the scrape returned 402 (no active Floor Plan Underlay
-              add-on). Offer the recurring $11/mo upgrade; manual upload below
+              add-on). Offer the recurring $9.95/mo upgrade; manual upload below
               still works without it. */}
           {upgradeRequired && (
             <div className="flex flex-col gap-2 p-3 rounded-lg bg-cyan-500/10 border border-cyan-400/30 text-xs">
@@ -457,7 +582,7 @@ export function FloorPlanUnderlayLoader({
                 Automatic floor plan fetch needs the Floor Plan Underlay add-on
               </p>
               <p className="text-neutral-500 dark:text-slate-400">
-                Add it for $11/month (GST inclusive), or upload a floor plan
+                Add it for $9.95/month (GST inclusive), or upload a floor plan
                 image manually below.
               </p>
               <button

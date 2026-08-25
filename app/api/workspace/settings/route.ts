@@ -1,11 +1,13 @@
 /**
- * RA-2967: Workspace settings API
+ * Workspace settings API
  *
  * GET    /api/workspace/settings — read workspace-level feature flags
  * PATCH  /api/workspace/settings — update whitelisted feature flags
  *
- * Generic shape so future workspace-level toggles slot in without new endpoints.
- * Only fields in WHITELIST are readable/writable; unknown keys are rejected.
+ * Floor-plan auto-fetch is NO LONGER a workspace setting — it follows the
+ * active FLOORPLAN_UNDERLAY entitlement. The DB column
+ * `autoFetchFloorPlanOnInspection` remains for schema compatibility but is
+ * not exposed here.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -16,18 +18,16 @@ import { checkPaymentGate } from "@/lib/workspace/payment-gate";
 import { hasPermission } from "@/lib/workspace/permissions";
 import { apiError, fromException } from "@/lib/api-errors";
 
-// Whitelisted fields. Add new boolean flags here as they ship.
-const SETTING_KEYS = ["autoFetchFloorPlanOnInspection"] as const;
+/** Whitelisted boolean settings. Add new keys here as they ship. */
+const SETTING_KEYS = [] as const;
 type SettingKey = (typeof SETTING_KEYS)[number];
 
-interface WorkspaceSettings {
-  autoFetchFloorPlanOnInspection: boolean;
-}
+type WorkspaceSettings = Record<string, never>;
 
 function isSettingKey(value: unknown): value is SettingKey {
   return (
     typeof value === "string" &&
-    (SETTING_KEYS as readonly string[]).includes(value)
+    (SETTING_KEYS as readonly string[]).includes(value as SettingKey)
   );
 }
 
@@ -46,15 +46,13 @@ export async function GET(_req: NextRequest) {
     if (!gate.allowed) return gate.response;
     const { workspace } = gate;
 
-    const row = await prisma.workspace.findUnique({
+    // Touch workspace so a missing row still 404s via payment gate / lookup.
+    await prisma.workspace.findUnique({
       where: { id: workspace.id },
-      select: { autoFetchFloorPlanOnInspection: true },
+      select: { id: true },
     });
 
-    const settings: WorkspaceSettings = {
-      autoFetchFloorPlanOnInspection:
-        row?.autoFetchFloorPlanOnInspection ?? false,
-    };
+    const settings: WorkspaceSettings = {};
 
     return NextResponse.json({
       workspaceId: workspace.id,
@@ -108,6 +106,18 @@ export async function PATCH(req: NextRequest) {
       });
     }
 
+    // Reject legacy floor-plan toggle explicitly so old clients get a clear message.
+    if ("autoFetchFloorPlanOnInspection" in body) {
+      return NextResponse.json(
+        {
+          error:
+            "autoFetchFloorPlanOnInspection was removed. Floor plan listing fetch runs automatically when the Floor Plan Underlay add-on is active.",
+          code: "SETTING_REMOVED",
+        },
+        { status: 410 },
+      );
+    }
+
     const updates: Partial<Record<SettingKey, boolean>> = {};
     for (const [key, value] of Object.entries(body)) {
       if (!isSettingKey(key)) {
@@ -134,17 +144,17 @@ export async function PATCH(req: NextRequest) {
       });
     }
 
-    const row = await prisma.workspace.update({
+    // Unreachable until SETTING_KEYS is non-empty again — kept for structure.
+    await prisma.workspace.update({
       where: { id: workspace.id },
       data: updates,
-      select: { autoFetchFloorPlanOnInspection: true },
+      select: { id: true },
     });
 
-    const settings: WorkspaceSettings = {
-      autoFetchFloorPlanOnInspection: row.autoFetchFloorPlanOnInspection,
-    };
-
-    return NextResponse.json({ workspaceId: workspace.id, settings });
+    return NextResponse.json({
+      workspaceId: workspace.id,
+      settings: {} satisfies WorkspaceSettings,
+    });
   } catch (error) {
     return fromException(req, error, { stage: "settings-patch" });
   }

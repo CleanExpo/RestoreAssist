@@ -488,28 +488,37 @@ export default function InspectionDetailPage({
   const [shareCopied, setShareCopied] = useState(false);
   // RA-6949 — per-job Restoration Pulse notification toggle.
   const [pulseSaving, setPulseSaving] = useState(false);
-  // RA-2967 — workspace-level auto-fetch toggle for floor plan underlay.
+  // Floor Plan Underlay: auto-fetch when the workspace owns the add-on
+  // (no Settings toggle). Legal flag still gates the scrape UI/API.
   const [autoFetchFloorPlan, setAutoFetchFloorPlan] = useState(false);
 
   useEffect(() => {
     fetchInspection();
   }, [id]);
 
-  // RA-2967 — fetch workspace settings once per mount; non-blocking.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/workspace/settings");
+        const { isUnderlayUrlImportEnabled } = await import(
+          "@/lib/sketch/underlay-import-flag"
+        );
+        if (!isUnderlayUrlImportEnabled()) return;
+        const { FLOORPLAN_UNDERLAY_SKU } = await import(
+          "@/lib/billing/floorplan-underlay-addon"
+        );
+        const res = await fetch("/api/addons/catalog");
         if (!res.ok) return;
-        const json = (await res.json()) as {
-          settings?: { autoFetchFloorPlanOnInspection?: boolean };
-        };
-        if (!cancelled && json.settings?.autoFetchFloorPlanOnInspection) {
+        const json = (await res.json()) as { owned?: string[] };
+        if (
+          !cancelled &&
+          Array.isArray(json.owned) &&
+          json.owned.includes(FLOORPLAN_UNDERLAY_SKU)
+        ) {
           setAutoFetchFloorPlan(true);
         }
       } catch {
-        // Silent — auto-fetch is a nice-to-have; tech can still load manually.
+        // Silent — tech can still fetch/upload manually on the Floor Plan tab.
       }
     })();
     return () => {

@@ -208,8 +208,8 @@ export interface SketchEditorV2Props {
   height?: number;
   /**
    * RA-2967 — When true and a propertyAddress is present, the floor plan
-   * underlay panel attempts to fetch on mount. Driven by the workspace
-   * setting `autoFetchFloorPlanOnInspection`.
+   * underlay panel attempts to fetch on mount. Driven by active
+   * FLOORPLAN_UNDERLAY entitlement (not a Settings toggle).
    */
   autoFetchFloorPlan?: boolean;
 }
