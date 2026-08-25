@@ -155,11 +155,11 @@ This does not need new work if `.com.au` gets verified and 301'd to `.app` as re
 4. AlternativeTo, FitGap, SiteLike, WebCatalog — 20 minutes each
 5. Verify `restoreassist.com.au`, point it at `.app`
 
-**Next week:**
+**Next week, once the listings above are in:**
 
-6. Trace and stop whoever bought the Fiverr links
-7. Assess a disavow file (second opinion first)
-8. AU industry press outreach
+1. Trace and stop whoever bought the Fiverr links
+2. Assess a disavow file (second opinion first)
+3. AU industry press outreach
 
 **Do not bother with:** content volume, comparison-page generation, or anything keyword-led until the link profile is clean and the association listings are live.
 

@@ -16,16 +16,21 @@ import {
 } from "@/components/landing/home/motion";
 import { useLandingReduceMotion } from "@/components/landing/home/useLandingReduceMotion";
 
+/**
+ * Folio index. `label` is the visual numeral; `title` is the accessible name —
+ * the link text is the numeral alone, so without it a screen reader announces
+ * "01" and nothing else.
+ */
 const SECTIONS = [
-  { id: "stance", label: "01" },
-  { id: "workflow", label: "02" },
-  { id: "gaps", label: "03" },
-  { id: "platform", label: "04" },
-  { id: "damage", label: "05" },
-  { id: "coverage", label: "06" },
-  { id: "positioning", label: "07" },
-  { id: "faq", label: "08" },
-  { id: "start", label: "09" },
+  { id: "stance", label: "01", title: "What we build for" },
+  { id: "workflow", label: "02", title: "How the workflow runs" },
+  { id: "gaps", label: "03", title: "The double-handling problem" },
+  { id: "platform", label: "04", title: "Platform capabilities" },
+  { id: "damage", label: "05", title: "Damage types covered" },
+  { id: "coverage", label: "06", title: "Australia and New Zealand coverage" },
+  { id: "positioning", label: "07", title: "Who we answer to" },
+  { id: "faq", label: "08", title: "Frequently asked questions" },
+  { id: "start", label: "09", title: "Start with real work" },
 ] as const;
 
 /**
@@ -83,6 +88,8 @@ export function ClaimFolioLanding() {
           <a
             key={s.id}
             href={`#${s.id}`}
+            aria-label={s.title}
+            aria-current={active === s.id ? "true" : undefined}
             className={`font-[family-name:var(--font-landing-display)] rounded px-2 py-1.5 text-[10px] font-bold tracking-[0.14em] transition-colors ${
               active === s.id
                 ? "text-[#3B6D8C]"

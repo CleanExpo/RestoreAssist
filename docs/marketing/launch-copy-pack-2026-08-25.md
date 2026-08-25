@@ -12,7 +12,7 @@ updated: 2026-08-25
 **Author:** Phill McGurk (Unite-Group)
 **Status:** Landing-page copy is live in code. Off-site channel copy below is ready to paste.
 
-Edit names and links in `[brackets]` before sending. The only open decision is the domain used in each `[link]`.
+Edit names and links in `[brackets]` before sending. The one thing still to decide is the domain used in each `[link]`; the CTA approach is settled and recorded under **Decision record** below.
 
 ---
 
@@ -63,13 +63,13 @@ No US-scale licensing. No per-seat gouging. One flat plan, built around how rest
 
 ### Close
 
-The site's closing CTA stays on the shipped funnel — the 15-day trial with report credits, per `HOME.cta`. The original draft closed on a waitlist ("We're opening early access this week"). That framing was not carried into the page because the product is live and sells a $99 AUD/month plan today; a waitlist CTA in front of a working trial would understate what a visitor can actually do. See **Open decision** below.
+The site's closing CTA stays on the shipped funnel — the 15-day trial with report credits, per `HOME.cta`. The original draft closed on a waitlist ("We're opening early access this week"). That framing was not carried into the page because the product is live and sells a $99 AUD/month plan today; a waitlist CTA in front of a working trial would understate what a visitor can actually do. See **Decision record** below.
 
 ---
 
 ## 2. LinkedIn post — post this now
 
-```
+```text
 Every restoration platform in this market was built to serve the insurer.
 
 I've spent years watching contractors pay for software that works against them. Scope questioned by a tool you licensed. Documentation living in someone else's database. Pricing set for a US market that doesn't look anything like ours.
@@ -99,7 +99,7 @@ Comment or DM and I'll walk you through it.
 
 **Subject:** `The thing you've been asking me about`
 
-```
+```text
 Hi [First name],
 
 You've heard me complain about restoration software. Here's what I did about it.
@@ -126,7 +126,7 @@ Unite-Group
 
 ## 4. DM — for people at RIA
 
-```
+```text
 Hey [name] — saw you're at RIA. I'm not there this year, but RestoreAssist
 is up and running.
 
@@ -169,10 +169,10 @@ If a feature claim is added later, verify it ships before the sentence goes out.
 
 ---
 
-## Open decision
+## Decision record
 
-**Waitlist vs live trial.** The source draft used early-access CTAs ("Get early access", "Request access") on the grounds that a waitlist form can't break in front of a competitor's booth. The site ships the live funnel instead, because the product is live: `/signup`, a 15-day trial with report credits, and a $99 AUD/month plan behind Stripe.
+**Waitlist vs live trial — decided: live trial.** The source draft used early-access CTAs ("Get early access", "Request access") on the grounds that a waitlist form can't break in front of a competitor's booth. The site ships the live funnel instead, because the product is live: `/signup`, a 15-day trial with report credits, and a $99 AUD/month plan behind Stripe.
 
 If the launch should run as a waitlist anyway, that is a separate change: an email-capture endpoint, CTA label and destination swaps in `HOME.hero` and `HOME.cta`, and an update to `app/__tests__/funnel-launch-assets.test.tsx`, which currently asserts the trial CTA renders on the home page.
 
-The `[link]` in each off-site asset is the remaining decision — production domain vs a campaign-tagged URL.
+**Still open:** the `[link]` in each off-site asset — production domain vs a campaign-tagged URL.

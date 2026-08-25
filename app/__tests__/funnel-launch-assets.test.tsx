@@ -229,6 +229,24 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
     });
   });
 
+  describe("folio index is reachable by screen reader", () => {
+    it("every page-section link has an accessible name, not just a numeral", () => {
+      const { container, unmount } = render(<Home />);
+      const nav = container.querySelector('nav[aria-label="Page sections"]');
+      expect(nav).not.toBeNull();
+      const links = Array.from(nav!.querySelectorAll("a"));
+      expect(links.length).toBeGreaterThan(0);
+      for (const link of links) {
+        const name = link.getAttribute("aria-label");
+        // The visible text is the numeral ("01"); without aria-label a screen
+        // reader announces nothing else. Guards the CodeRabbit finding on #2031.
+        expect(name).toBeTruthy();
+        expect(name).not.toMatch(/^\d+$/);
+      }
+      unmount();
+    });
+  });
+
   describe("premium hero copy / CTA is present", () => {
     it("home page renders the primary trial CTA", () => {
       const { container, unmount } = render(<Home />);
