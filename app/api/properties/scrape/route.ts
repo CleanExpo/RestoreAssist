@@ -286,7 +286,13 @@ export async function POST(req: NextRequest) {
         });
         if (cached?.propertyData) {
           const safe = sanitizeScrapedPropertyMedia(
-            cached.propertyData as ScrapedPropertyData,
+            // Prisma types a Json column as JsonValue, whose JsonArray member
+            // does not overlap ScrapedPropertyData, so a direct assertion is
+            // rejected. The row was written by this route (see the two
+            // `propertyData:` writes below), so the shape is ours; the cast
+            // goes through `unknown` to say "trust the writer" explicitly
+            // rather than to claim the two types are compatible.
+            cached.propertyData as unknown as ScrapedPropertyData,
           );
           return NextResponse.json({
             data: safe,
