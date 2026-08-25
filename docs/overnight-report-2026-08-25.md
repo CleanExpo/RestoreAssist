@@ -217,7 +217,7 @@ commits are safe.
 `docs/customer-portal-launch.md` quoted the exact command used to prove portal auth:
 
 ```
-curl -s -H "Authorization: Bearer not.a.real.token" ...
+curl -s -H "Authorization: <scheme> <token>" ...      # spelled out literally
 ```
 
 The repo's `Secrets scan (working tree)` step runs gitleaks with `extend.useDefault`, whose
@@ -236,6 +236,17 @@ Reproduced with the identical instrument rather than inferred:
 
 Fixed by assembling the header in a shell variable, so the command still copy-pastes but
 the literal pair never appears. The before/after differential is the control.
+
+**It failed a second time, for the same reason, one level up.** The first fix cleaned
+`docs/customer-portal-launch.md` and I verified it clean. Then I wrote the paragraph you
+are reading — quoting the offending pattern verbatim to explain it — and pushed *without
+re-running the scan on the edited tree*. gitleaks went from 1 finding to 2 (this report is
+committed twice, under a dated name as well). The rule does not care that the string sits
+inside an explanation of the rule.
+
+The habit that actually prevents this is narrow: **re-run the gate after the last edit, not
+after the fix.** Verifying at the fix and then continuing to type is the same false green
+as reading a timed-out `tsc` log.
 
 The local scan found **2**, CI found **1**: the second was `.watchdog/testcreds.txt`, a
 container-local file holding the real password for the production test account.
