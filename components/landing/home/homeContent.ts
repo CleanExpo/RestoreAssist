@@ -30,9 +30,10 @@ export const HOME = {
    * Every line here is checked against shipped behaviour before it goes out:
    * capture (lib/capture), evidence honesty (lib/evidence/qa-scorer.ts flags
    * "GPS location not recorded" rather than inventing one), and pricing
-   * (lib/pricing.ts — one $99 AUD/month workspace plan; lib/billing/*-addon.ts
-   * — six $11 flat unlocks plus TECHNICIAN_SEATS, which is perSeat: true and
-   * bills $11 x seat count, so the copy must not claim "no per-seat" outright).
+   * (lib/pricing.ts — $99 AUD/month, reportLimit 50, signupBonus 10, so
+   * $1.98/report; lib/billing/*-addon.ts — six $11 flat unlocks plus
+   * TECHNICIAN_SEATS, which is perSeat: true and bills $11 x seat count).
+   * NEVER claim "flat", "no per-seat", or "whole team" pricing here.
    */
   stance: {
     eyebrow: "What we build for",
@@ -47,7 +48,7 @@ export const HOME = {
       },
       {
         title: "Priced for Australian businesses",
-        body: "$99 a month runs the office CRM for your whole team — no US-scale licensing, no per-user charge on the core system. Extra services are $11/month add-ons you switch on only when you need them; field technician seats are counted per technician.",
+        body: "$99 a month, 50 inspection reports — $1.98 a report, in Australian dollars. Report generation runs on your own AI key: your provider bills you directly and we take no margin. Add-ons are $11/month each, field technician seats per seat, all itemised on the pricing page.",
       },
     ] as const,
   },
