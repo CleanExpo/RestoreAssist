@@ -49,10 +49,12 @@ export function isAscoraTimeoutError(err: unknown): boolean {
 export function isAscoraNetworkError(err: unknown): boolean {
   const e = unwrapError(err);
   if (!e) return false;
-  const code =
-    typeof (e as { code?: unknown }).code === "string"
-      ? (e as { code: string }).code
-      : undefined;
+  // Narrow through the optional-property cast rather than asserting a required
+  // one: `Error` and `{ code: string }` do not sufficiently overlap, which is
+  // TS2352 and what failed the production build at "Running TypeScript".
+  // Mirrors httpStatus() above, which reads `{ status?: unknown }` the same way.
+  const rawCode = (e as { code?: unknown }).code;
+  const code = typeof rawCode === "string" ? rawCode : undefined;
   if (
     code === "ECONNREFUSED" ||
     code === "ENOTFOUND" ||
