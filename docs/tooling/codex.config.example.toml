@@ -12,4 +12,4 @@ url = "https://connect.composio.dev/mcp"
 
 [mcp_servers.composio.http_headers]
 # Generate at https://app.composio.dev → Settings → API Keys
-x-consumer-api-key = "ck_REPLACE_WITH_YOUR_KEY"
+x-consumer-api-key = "REPLACE_WITH_YOUR_COMPOSIO_API_KEY"
