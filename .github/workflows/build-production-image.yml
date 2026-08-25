@@ -19,6 +19,21 @@ name: Build production image
 on:
   push:
     branches: [main]
+  # Build (but never publish) on any PR that touches the image inputs, so the
+  # Dockerfile is exercised BEFORE merge rather than discovered broken after.
+  # Without this the container path is unverified until it is already on main,
+  # which is the position this repo has been in all day with production.
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker/**
+      - next.config.mjs
+      - package.json
+      - package-lock.json
+      - prisma/schema.prisma
+      - scripts/build.sh
+      - .github/workflows/build-production-image.yml
   workflow_dispatch:
     inputs:
       ref:
@@ -27,7 +42,7 @@ on:
         type: string
 
 concurrency:
-  group: build-production-image-${{ github.event.inputs.ref || github.sha }}
+  group: build-production-image-${{ github.event.pull_request.number || github.event.inputs.ref || github.sha }}
   cancel-in-progress: true
 
 permissions:
@@ -55,7 +70,11 @@ jobs:
           echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
           echo "Building ${SHA} as ${IMAGE}"
 
+      # Everything below this line is publish-only and is skipped on a PR. A
+      # pull request proves the image BUILDS; it must not put anything in the
+      # registry, and it never needs a token to do so.
       - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "${TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
@@ -73,8 +92,27 @@ jobs:
             --file Dockerfile \
             .
 
+      - name: Confirm the image runs its entrypoint (PR only)
+        if: github.event_name == 'pull_request'
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # The entrypoint refuses to start without its required env. Running
+          # it with none set proves the layer is executable and the contract
+          # is enforced, without needing any real secret.
+          OUT="$(docker run --rm --entrypoint sh "${IMAGE}:${SHA}" -c './entrypoint.sh' 2>&1 || true)"
+          printf '%s\n' "${OUT}"
+          if ! printf '%s' "${OUT}" | grep -q 'DATABASE_URL is required'; then
+            echo "::error::entrypoint did not enforce its required-env contract." >&2
+            exit 1
+          fi
+          echo "entrypoint refuses to boot without DATABASE_URL, as designed."
+
       - name: Push and capture the digest
         id: push
+        if: github.event_name != 'pull_request'
         env:
           IMAGE: ${{ steps.meta.outputs.image }}
           SHA: ${{ steps.meta.outputs.sha }}
@@ -93,6 +131,7 @@ jobs:
           echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
 
       - name: Record the digest as an artefact
+        if: github.event_name != 'pull_request'
         run: |
           set -euo pipefail
           mkdir -p /tmp/image
@@ -104,6 +143,7 @@ jobs:
           cat /tmp/image/production-image.txt
 
       - name: Upload digest record
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: production-image-${{ steps.meta.outputs.sha }}
@@ -111,6 +151,7 @@ jobs:
           retention-days: 90
 
       - name: Report the digest to pin
+        if: github.event_name != 'pull_request'
         run: |
           {
             echo "## Production image built"
