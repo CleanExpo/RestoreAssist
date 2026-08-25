@@ -9,11 +9,10 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
 const CLI_PATH = join(__dirname, "..", "linear-loop-decide.ts");
-const TSX_CLI = join(__dirname, "..", "..", "node_modules", "tsx", "dist", "cli.mjs");
 
 // The CLI's dispatch path Nexus-wraps every non-owner-gated task, which reads
 // NEXUS_PROMPT.md. That file lives in the `nexus` skill (~/.claude/skills/nexus)
@@ -34,19 +33,32 @@ function runCli(issue: unknown): string {
   // on every developer machine, while passing on the POSIX CI runner. execFileSync
   // reaches the original goal more completely: with no shell there is no quoting
   // layer left to defeat.
-  // Invoke tsx's JS entry with the running Node binary rather than the `npx`
-  // wrapper. On Windows `npx` resolves to `npx.cmd`, and since the fix for
-  // CVE-2024-27980 Node refuses to spawn a .cmd without `shell: true` —
-  // `spawnSync npx.cmd EINVAL` — and turning the shell back on would restore
-  // the quoting layer this function exists to avoid.
-  return execFileSync(
+  const result = runCliProcess(["--issue-json", JSON.stringify(issue)]);
+  if (result.status !== 0) {
+    throw new Error(`linear-loop-decide exited ${result.status}: ${result.stderr}`);
+  }
+  return result.stdout;
+}
+
+function runCliProcess(args: string[]) {
+  // `tsx`'s CLI opens an IPC socket for watch/restart support. That socket is
+  // forbidden in hardened Node 22 runners, while Node's --import loader is
+  // portable and needs no IPC. spawnSync keeps the no-shell argv guarantee and
+  // exposes the child exit status for negative controls below.
+  const result = spawnSync(
     process.execPath,
-    [TSX_CLI, CLI_PATH, "--issue-json", JSON.stringify(issue)],
+    ["--import", "tsx/esm", CLI_PATH, ...args],
     {
       encoding: "utf-8",
       env: { ...process.env, NEXUS_PROMPT_PATH: NEXUS_PROMPT_FIXTURE },
     },
   );
+  if (result.error) throw result.error;
+  return {
+    status: result.status,
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+  };
 }
 
 describe("linear-loop-decide CLI", () => {
@@ -102,5 +114,11 @@ describe("linear-loop-decide CLI", () => {
     const out = runCli(issue);
     const decision = JSON.parse(out.trim());
     expect(decision.ownerGated).toBe(true);
+  });
+
+  it("preserves the CLI's non-zero exit code for malformed JSON", () => {
+    const result = runCliProcess(["--issue-json", "{not-json"]);
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toBe("");
   });
 });

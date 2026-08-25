@@ -29,6 +29,13 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Standalone output is opt-in via DOCKER_BUILD=1, and ONLY the container
+  // build sets it. Turning it on unconditionally would change what `npm start`
+  // expects locally and on the sandbox: standalone emits `.next/standalone/
+  // server.js` and is started with `node server.js`, not `next start`. Gating
+  // it keeps every existing build path byte-identical to today.
+  ...(process.env.DOCKER_BUILD === "1" ? { output: "standalone" } : {}),
+
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -201,6 +208,23 @@ const nextConfig = {
     "bcryptjs",
     "qrcode",
   ],
+
+  // Tenant provisioning runs the repository-pinned Prisma CLI as a child
+  // process. These runtime assets are not discoverable from a normal static
+  // import, so include only the provisioning route's CLI, engines, config,
+  // schema, and tenant migration history in its server trace.
+  outputFileTracingIncludes: {
+    "/api/cron/provision-tenant-db": [
+      "prisma/tenant/**/*",
+      "node_modules/prisma/build/**/*",
+      "node_modules/prisma/config.*",
+      "node_modules/prisma/package.json",
+      "node_modules/@prisma/config/**/*",
+      "node_modules/@prisma/debug/**/*",
+      "node_modules/@prisma/engines/**/*",
+      "node_modules/@prisma/get-platform/**/*",
+    ],
+  },
 
   // Exclude non-Linux-x64 sharp platform binaries from serverless function bundles.
   // Vercel runs on Linux x64 — the 10 other platform-specific libvips packages

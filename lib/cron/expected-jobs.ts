@@ -55,6 +55,7 @@ export const MONITORED_CRONS: readonly CronExpectation[] = [
   { path: "cleanup", jobName: "cleanup", label: "Daily cleanup", maxStalenessMinutes: 28 * HOUR },
   { path: "trial-reminders", jobName: "trial-reminders", label: "Trial reminders", maxStalenessMinutes: 28 * HOUR },
   { path: "pricing-setup-reminders", jobName: "pricing-setup-reminders", label: "Pricing setup reminders", maxStalenessMinutes: 28 * HOUR },
+  { path: "media-cleanup", jobName: "media-cleanup", label: "PII media cleanup", maxStalenessMinutes: 140 * MIN },
   { path: "backfill-progress", jobName: "backfill-progress", label: "Progress backfill", maxStalenessMinutes: 28 * HOUR },
   { path: "winback", jobName: "winback", label: "Win-back campaign", maxStalenessMinutes: 28 * HOUR },
   { path: "dr-nrpg-liveness", jobName: "dr-nrpg-liveness", label: "DR-NRPG liveness", maxStalenessMinutes: 28 * HOUR },
@@ -62,6 +63,9 @@ export const MONITORED_CRONS: readonly CronExpectation[] = [
   { path: "reconcile-stripe", jobName: "reconcile-stripe", label: "Stripe reconciliation", maxStalenessMinutes: 28 * HOUR },
   { path: "pulse-digest", jobName: "pulse-digest", label: "Pulse digest", maxStalenessMinutes: 28 * HOUR },
   { path: "sync-ascora-historical", jobName: "sync-ascora-historical", label: "Ascora historical sync", maxStalenessMinutes: 28 * HOUR },
+  // Monthly on the first. Two full calendar months plus buffer catches a
+  // missed execution without paging simply because month lengths vary.
+  { path: "override-governance", jobName: "override-governance", label: "Override governance snapshot", maxStalenessMinutes: 64 * DAY },
   // ── weekly (Sun 05:00) ────────────────────────────────────────────────
   { path: "google-token-refresh", jobName: "google-token-refresh", label: "Google token refresh", maxStalenessMinutes: 8 * DAY },
 ];

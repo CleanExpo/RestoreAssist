@@ -3,10 +3,15 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { sendInviteEmail } from "@/lib/email";
-import { sendWithRetry } from "@/lib/email-retry";
 import { getAppUrl } from "@/lib/app-url";
-import { withIdempotency } from "@/lib/idempotency";
+import { getIdempotencyKey, withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { validateCsrf } from "@/lib/csrf";
+import {
+  deliverEmailOnce,
+  EmailDeliveryPending,
+} from "@/lib/email-delivery-ledger";
+import { randomBytes } from "node:crypto";
 
 function canResendInvite(role?: string) {
   return role === "ADMIN" || role === "MANAGER";
@@ -16,6 +21,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const csrfError = validateCsrf(req, { requireOrigin: true });
+  if (csrfError) return csrfError;
+
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return apiError(req, {
@@ -55,6 +63,17 @@ export async function POST(
   const organizationId = currentUser.organizationId;
   const currentRole = currentUser.role;
   const { id } = await params;
+
+  const idempotency = getIdempotencyKey(req);
+  if (!idempotency.ok || !idempotency.key) {
+    return apiError(req, {
+      code: "VALIDATION",
+      message: idempotency.ok
+        ? "Idempotency-Key is required"
+        : idempotency.reason,
+      status: 400,
+    });
+  }
 
   // RA-1266: prevents spamming the invitee with duplicate emails when
   // the admin double-clicks "Resend".
@@ -97,49 +116,69 @@ export async function POST(
         });
       }
 
-      // Check if invite is expired and update if needed
-      const now = new Date();
-      if (invite.expiresAt < now) {
-        // Extend expiration by 7 days
-        await prisma.userInvite.update({
-          // RA-6800: re-assert the invite's tenant on the write as well as the
-          // lookup so an organisation change cannot cross the mutation boundary.
-          where: {
-            id,
-            organizationId,
-          },
-          data: {
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          },
+      if (invite.role !== "MANAGER" && invite.role !== "USER") {
+        return apiError(req, {
+          code: "CONFLICT",
+          message: "This invitation carries an unsupported role",
+          status: 409,
         });
       }
+      const inviteRole: "MANAGER" | "USER" = invite.role;
 
       const inviterName = currentUser.name || "Administrator";
       const loginUrl = `${getAppUrl()}/login`;
 
       // Check if a user account exists for this email
-      const existingUser = await prisma.user.findUnique({
-        where: { email: invite.email.toLowerCase() },
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          email: { equals: invite.email, mode: "insensitive" },
+        },
       });
+      if (existingUser) {
+        return apiError(req, {
+          code: "CONFLICT",
+          message:
+            "An account now exists for this email. Contact support if its organization membership needs review.",
+          status: 409,
+        });
+      }
 
-      // Resend the email. A send failure must NOT 500 the request — the
-      // invite expiry may already have been extended above, so report the
-      // partial outcome instead (matches the 207 idiom in ../route.ts).
+      // A resend is a security rotation, not an expiry revival. Rotate the
+      // bearer token before provider I/O so every previously copied link stays
+      // invalid even if the replacement email has an ambiguous outcome.
+      const effectiveExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const rotatedToken = randomBytes(24).toString("hex");
+      await prisma.userInvite.update({
+        where: {
+          id,
+          organizationId,
+          usedAt: null,
+          role: inviteRole,
+          token: invite.token,
+        },
+        data: { token: rotatedToken, expiresAt: effectiveExpiresAt },
+      });
+      const deliveryKey = `team-invite-resend:${invite.id}:${rotatedToken}`;
+      const inviteLink = `${getAppUrl()}/invite/${rotatedToken}`;
+
       try {
-        await sendWithRetry(
-          () =>
+        await deliverEmailOnce({
+          idempotencyKey: deliveryKey,
+          kind: "TEAM_INVITE_RESEND",
+          recipient: invite.email,
+          payloadIdentity: `${invite.id}|${rotatedToken}|${organizationId}`,
+          send: () =>
             sendInviteEmail({
               email: invite.email,
-              name: existingUser?.name || invite.email.split("@")[0],
-              role: invite.role as any,
-              tempPassword: undefined, // Password not included on resend — user already has credentials
+              name: invite.email.split("@")[0],
+              role: inviteRole,
+              inviteLink,
               loginUrl,
               inviterName,
-              isTransfer: !!existingUser,
               organizationId,
+              idempotencyKey: deliveryKey,
             }),
-          { stage: "invite-resend" },
-        );
+        });
       } catch (emailError: any) {
         console.error(
           "[invite] Resend email failed for invite:",
@@ -149,16 +188,17 @@ export async function POST(
         return NextResponse.json(
           {
             message:
-              "Invite updated, but the email could not be sent. Please try again shortly.",
+              "The old invite link was revoked, but delivery of the replacement link could not be confirmed. Reconcile the delivery before retrying.",
             error: "Email sending failed",
             invite: {
               id: invite.id,
               email: invite.email,
-              role: invite.role,
-              expiresAt: invite.expiresAt,
+              role: inviteRole,
+              expiresAt: effectiveExpiresAt,
             },
+            partial: true,
           },
-          { status: 207 }, // 207 Multi-Status — matches ../route.ts idiom
+          { status: emailError instanceof EmailDeliveryPending ? 409 : 502 },
         );
       }
 
@@ -167,8 +207,8 @@ export async function POST(
         invite: {
           id: invite.id,
           email: invite.email,
-          role: invite.role,
-          expiresAt: invite.expiresAt,
+          role: inviteRole,
+          expiresAt: effectiveExpiresAt,
         },
       });
     } catch (error: any) {

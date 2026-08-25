@@ -50,10 +50,12 @@ const mockAssertInspectionTenancy = assertInspectionTenancy as ReturnType<
   typeof vi.fn
 >;
 
-function makeRequest(body: object) {
+function makeRequest(body: object, origin: string | null = "http://localhost") {
+  const headers: Record<string, string> = { "Content-Type": "application/json", host: "localhost" };
+  if (origin) headers.origin = origin;
   return new NextRequest("http://localhost/api/pilot/adjuster-session", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   });
 }
@@ -84,6 +86,22 @@ beforeEach(() => {
 });
 
 describe("POST /api/pilot/adjuster-session", () => {
+  it("rejects missing Origin before auth or credit work", async () => {
+    const res = await POST(makeRequest({ inspectionId: "insp-001" }, null));
+    expect(res.status).toBe(403);
+    expect(mockSession).not.toHaveBeenCalled();
+    expect(mockDeductCredits).not.toHaveBeenCalled();
+    expect(mockRunAgent).not.toHaveBeenCalled();
+  });
+
+  it("rejects hostile Origin before auth or credit work", async () => {
+    const res = await POST(makeRequest({ inspectionId: "insp-001" }, "http://evil.test"));
+    expect(res.status).toBe(403);
+    expect(mockSession).not.toHaveBeenCalled();
+    expect(mockDeductCredits).not.toHaveBeenCalled();
+    expect(mockRunAgent).not.toHaveBeenCalled();
+  });
+
   it("happy path — returns recommendation", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-1" } });
     mockFindUnique.mockResolvedValueOnce({

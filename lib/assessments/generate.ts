@@ -42,6 +42,10 @@ export interface GenerateAssessmentArgs {
    * verbatim. Failures degrade silently to the rule-based output.
    */
   enhanceWithAi?: boolean;
+  /** Present only for an authenticated pilot reservation. */
+  pilotBudgetReservationId?: string | null;
+  /** Server receipt already holds the immutable maximum for every provider call. */
+  pilotAccounting?: boolean;
 }
 
 export type GenerateAssessmentResult =
@@ -102,6 +106,7 @@ export async function generateAssessment(
       sections: reportSections,
       workspaceId: args.workspaceId,
       userId: args.userId,
+      pilotAccounting: args.pilotAccounting === true,
     });
     reportSections = proseResult.sections;
     if (proseResult.modelUsed) {
@@ -122,7 +127,9 @@ export async function generateAssessment(
     generatedAt: new Date(),
     modelUsed: proseModel,
     latencyMs: proseLatencyMs,
-    costEstimateUsd: proseCostUsd,
+    // A generation receipt is accounting evidence. Rule-only generations cost
+    // exactly $0 rather than an ambiguous null that cannot be reconciled.
+    costEstimateUsd: proseCostUsd ?? 0,
     workspaceId: generated.data.meta.workspaceId,
   };
 
@@ -151,8 +158,20 @@ export async function generateAssessment(
         costEstimateUsd: meta.costEstimateUsd,
         workspaceId: meta.workspaceId,
         generatedById: args.userId,
+        pilotBudgetReservationId: args.pilotBudgetReservationId ?? null,
       },
       select: { id: true },
+    });
+    // Store the exact externally-visible JSON (including its generated ID).
+    // The pilot judge/adjuster hash this payload; rebuilding it from partial
+    // columns would be lossy (notably estimate totals).
+    await prisma.assessmentGeneration.update({
+      where: { id: row.id },
+      data: {
+        pilotArtefactPayload: JSON.parse(
+          JSON.stringify({ assessmentGenerationId: row.id, ...result }),
+        ),
+      },
     });
     return { ok: true, result, persistedId: row.id };
   } catch (err) {

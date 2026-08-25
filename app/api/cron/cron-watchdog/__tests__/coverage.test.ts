@@ -52,6 +52,17 @@ describe("cron watchdog coverage", () => {
     expect(KNOWN_UNMONITORED).toContain("cron-watchdog");
   });
 
+  it("monitors the monthly override-governance job instead of silently allow-listing it", () => {
+    expect(MONITORED_CRONS).toContainEqual(
+      expect.objectContaining({
+        path: "override-governance",
+        jobName: "override-governance",
+        maxStalenessMinutes: 64 * 24 * 60,
+      }),
+    );
+    expect(KNOWN_UNMONITORED).not.toContain("override-governance");
+  });
+
   it("registry entries are unique by jobName and by path", () => {
     const jobNames = MONITORED_CRONS.map((c) => c.jobName);
     const paths = MONITORED_CRONS.map((c) => c.path);

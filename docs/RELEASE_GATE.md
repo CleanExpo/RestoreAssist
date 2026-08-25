@@ -1,13 +1,13 @@
 ---
 gate_version: 1.0.0
-last_updated: 2026-05-18
+last_updated: 2026-08-25
 linear_ticket: RA-4956
-authority: Required for production go-live (App Store + paying customers)
+authority: Required for profile-scoped production go-live (web and mobile tracked separately)
 ---
 
-# RestoreAssist 100/100 Production Go-Live Gate
+# RestoreAssist Production Go-Live Gate
 
-> **Rule:** RestoreAssist may only be declared "production live" when the gate score = **100/100** AND no open P0/P1 release-blocker issues remain. Anything less is **fail-closed**.
+> **Rule:** RestoreAssist may only be declared live for a given release profile when that profile's gate score equals its profile max, no open P0/P1 release-blocker issues remain, and every applicable mandatory check is green. Anything less is **fail-closed**.
 
 ## Why this exists
 
@@ -16,22 +16,31 @@ Subjective release calls have caused premature "ready" claims in the past. This 
 ## How to run it
 
 ```bash
-nvm use                                           # uses .nvmrc, currently Node 22.22.3
-scripts/bootstrap-restoreassist-env.sh             # local env bootstrap and baseline checks
-pnpm tsx scripts/release-gate-score.ts            # local dry-run
-pnpm tsx scripts/release-gate-score.ts --json     # CI artifact mode (writes release-gate-report.json)
-pnpm tsx scripts/release-gate-score.ts --strict   # exit 1 if score < 100 OR any required item red
+nvm use
+scripts/bootstrap-restoreassist-env.sh
+npx --no-install tsx scripts/release-gate-score.ts --profile=web
+npx --no-install tsx scripts/release-gate-score.ts --profile=web --json --strict
+npx --no-install tsx scripts/release-gate-score.ts --profile=mobile --json --strict
 ```
 
-CI runs `--json --strict` against the release candidate. Output artifact: `release-gate-report.json`.
+If `--profile` is omitted, the scorer defaults to `mobile` for backward-compatible fail-closed behaviour.
 
-## The 100 points (sections A-F)
+CI currently runs `--profile=web --json --strict` against the release candidate. Output artifact: `release-gate-report.json`.
+
+## Release profiles
+
+- `web` — current production workflow. Applicable max: **85** points. Excludes the mobile-only App Store/TestFlight/App Review section E.
+- `mobile` — retains the full **100** points and still requires E1-E3.
+
+Profile omission does not award points: excluded criteria are removed from that profile's max score.
+
+## The points (sections A-F)
 
 ### A) Product Correctness & Feature Integrity — 25 pts
 
 | Pts | Criterion | Verification |
 |---|---|---|
-| 10 | All core user journeys pass E2E (signup/login, onboarding, storage setup, restore flow) | `pnpm test:smoke:sandbox` returns 0 failures across the tagged @smoke suite |
+| 10 | All core user journeys pass E2E (signup/login, onboarding, storage setup, restore, inspection, claim, attestation, PDF) | Signed machine receipt from a criterion-specific verifier bound to the exact release SHA |
 | 10 | Middleware/auth/paywall rules match spec under test | `npx vitest run lib/__tests__/middleware-*.test.ts` 0 failures |
 | 5 | No Sev1/Sev2 defects open | Linear query: `team=RestoreAssist AND priority in (Urgent,High) AND state != Done` returns 0 |
 
@@ -39,54 +48,68 @@ CI runs `--json --strict` against the release candidate. Output artifact: `relea
 
 | Pts | Criterion | Verification |
 |---|---|---|
-| 5 | `pnpm lint` passes | Exit 0, ignoring known continue-on-error baseline ([[lint-debt-followup]]) |
-| 5 | `pnpm type-check` passes | Exit 0, 0 errors |
-| 5 | Unit tests pass with 0 failures | `pnpm exec vitest run` — failing count == 0 |
-| 5 | `pnpm test:smoke:sandbox` passes with 0 failures | Playwright smoke against sandbox URL |
+| 5 | `npm run lint` passes | Exit 0, ignoring known continue-on-error baseline ([[lint-debt-followup]]) |
+| 5 | `npm run type-check` passes | Exit 0, 0 errors |
+| 5 | Unit tests pass with 0 failures | `npx --no-install vitest run` — failing count == 0 |
+| 5 | `npm run test:smoke:sandbox` passes with 0 failures | Playwright smoke against sandbox URL bound to the release SHA |
 
 ### C) Security & Compliance — 15 pts
 
 | Pts | Criterion | Verification |
 |---|---|---|
-| 10 | `pnpm audit --prod --audit-level=moderate` returns 0 moderate+ vulnerabilities | Exit 0 |
+| 10 | `npm audit --omit=dev --audit-level=moderate` returns 0 moderate+ vulnerabilities | Exit 0 |
 | 5 | Secrets scan + config sanity pass (no plaintext secrets, env-var completeness) | `gitleaks detect --no-banner --redact` exit 0 AND `.env.example` keys present in Vercel prod env |
 
 ### D) Billing & Paying-Customer Readiness — 15 pts
 
 | Pts | Criterion | Verification |
 |---|---|---|
-| 5 | Stripe/Apple IAP sandbox purchase, renewal, cancellation verified | Owner: Phill — evidence file `docs/evidence/billing-flows-YYYY-MM-DD.md` |
-| 5 | Paywall gating correctly enforces access by entitlement state | `pnpm exec vitest run lib/billing/__tests__/ app/api/webhooks/stripe/__tests__/` 0 failures |
+| 5 | Website Stripe sandbox purchase, renewal, cancellation verified | Owner evidence, bound to the release SHA. iOS checkout is intentionally blocked and does not earn points by omission |
+| 5 | Paywall gating correctly enforces access by entitlement state | `npx --no-install vitest run lib/billing/__tests__/ app/api/webhooks/stripe/__tests__/` 0 failures |
 | 5 | Revenue events tracked + reconciled (purchase, renewal, churn) | Owner evidence: Stripe events dashboard count == DB `subscription_events` count for last 7 days |
 
-### E) App Store Launch Operations — 15 pts
+### E) App Store Launch Operations — 15 pts (`mobile` profile only)
 
 | Pts | Criterion | Verification |
 |---|---|---|
 | 5 | App Store metadata/screenshots/privacy nutrition + age rating approved | Owner: Phill — App Store Connect screenshot of "Ready for Submission" state |
-| 5 | TestFlight external build stable, crash-free sessions >= 99.5% | Owner evidence: Sentry/ASC crash dashboard for the TestFlight build |
-| 5 | App Review blockers = 0; release + rollback plan documented | Files exist: `docs/MOBILE_RELEASE_RUNBOOK.md` + Linear ticket "Rollback plan" closed |
+| 5 | TestFlight external build stable, crash-free sessions >= 99.5% | Owner evidence: App Store Connect / TestFlight crash dashboard for the build |
+| 5 | App Review blockers = 0; release + rollback plan documented | Independently reviewed E3 evidence bound to the release SHA |
 
 ### F) Production Observability & Support — 10 pts
 
 | Pts | Criterion | Verification |
 |---|---|---|
-| 5 | Monitoring/alerting for auth, billing webhook errors, restore failures | Vercel Observability alert rules configured (owner evidence: screenshot of rules) |
-| 5 | Runbooks + support SLAs (P1 response ≤1h, customer comms template ready) | Files exist: `docs/MOBILE_RELEASE_RUNBOOK.md` + `docs/PILOT_CUTOVER_CHECKLIST.md` + support template |
+| 5 | Monitoring/alerting for auth, billing webhook errors, restore failures | Vercel Observability alert rules configured (owner evidence remains blocked pending a trusted verifier) |
+| 5 | Runbooks + support SLAs (P1 response ≤1h, customer comms template ready) | Deterministic repository verifier: `docs/MOBILE_RELEASE_RUNBOOK.md`, `docs/PILOT_CUTOVER_CHECKLIST.md`, `docs/SUPPORT_SLA.md`, and `docs/CUSTOMER_COMMS_TEMPLATE.md` with rollback tree + templates A-E + P1 ≤1h |
 
-## Machine-verifiable vs owner-evidence breakdown
+## Machine-verifiable vs blocked owner-evidence breakdown
 
-- **Machine-verifiable (60 pts):** all of B (20), C (15), most of A (20), D-paywall-tests (5) — scorer runs these directly.
-- **Owner-evidence (40 pts):** A-Sev1/Sev2 query (5), D-billing-flows (10), all of E (15), all of F (10) — these require an evidence file in `docs/evidence/release-gate/<gate_version>/<criterion-id>.md` confirming the check.
+- **Web profile machine-verifiable (50 / 85 pts):** A2 (10), all of B (20), C1 (10), D2 (5), and F2 (5).
+- **Web profile owner-evidence still blocked (35 / 85 pts):** A1/A3 (15), C2 (5), D1/D3 (10), and F1 (5).
+- **Mobile-only blocked additions (15 / 100 pts):** E1-E3 remain required in the `mobile` profile and are excluded from the `web` profile.
 
-Scorer counts an owner-evidence criterion as PASS only when the evidence file exists, declares `status: pass`, and declares a `verified:` date within 14 days of the gate run. Freshness is aged from the `verified:` frontmatter date the file states about itself — never from the file's mtime or its git commit date, both of which a CI checkout rewrites, which would leave the rule unable to fire.
+Committed prose, screenshots, URLs and hashes of narrative evidence do not earn release points: they are self-attestable. The scorer validates their structure and freshness for diagnostics, then fails closed until each owner criterion has a signed, criterion-specific machine receipt producer and verifier. A1 requires signup, login, onboarding, storage setup, restore, inspection, claim, attestation and PDF observations. E3 requires App Review, release, rollback and reviewer observations. Freshness is aged from the stated date, never filesystem metadata.
+
+### Unresolved signed-receipt producers
+
+No trusted producer or verifier currently exists for A1, A3, C2, D1, D3,
+E1-E3 or F1. F2 is now verified directly from repository content rather than
+from committed owner prose. This is a release blocker, not an operator checkbox. Each
+producer must bind its criterion ID, exact release SHA, observed environment,
+timestamp and raw evidence digest into a signed receipt; a separately trusted
+verifier must validate the signature and criterion-specific measurements.
+Until those implementations and their planted-defect controls exist, the
+scorer deliberately awards these criteria zero points.
 
 ## Release rule (fail-closed)
 
-```
-score == 100  AND
+For the selected profile:
+
+```text
+score == profile_max  AND
 no open P0/P1 release-blocker issues  AND
-all mandatory checks green in latest CI/TestFlight window
+all applicable mandatory checks green in the latest required window
 ```
 
 Any failed criterion = release blocked. No partial-credit overrides. To override, file a Linear ticket with Pi-CEO Board approval and link it in the gate run.
@@ -105,6 +128,7 @@ Any failed criterion = release blocked. No partial-credit overrides. To override
 
 ## Related
 
+- [[runbooks/digitalocean-production-release]] — protected manual production deployment procedure
 - [[ra-4956]] — this ticket
 - [[lint-debt-followup]] — known lint baseline (non-blocker)
 - [[ra-4983]] — local test-DB bootstrap doc (improves criterion B5 reproducibility)

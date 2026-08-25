@@ -128,7 +128,7 @@ git checkout -b feat/ra-XXX-short-description
 (If the branch already exists, append `-v2`, `-v3`, etc. — same rule as
 `linear-task-processor.md`.)
 
-**Validate step is unchanged**: `pnpm type-check` then `pnpm lint`, zero tolerance, same
+**Validate step is unchanged**: `npm run type-check` then `npm run lint`, zero tolerance, same
 3-attempt/2-attempt fix-and-retry rule as `linear-task-processor.md` Step 6 — this
 expectation is already embedded in `prompt`.
 
@@ -155,7 +155,7 @@ required of dispatched work:
   `linear-task-processor.md` Step 7's commit message format.
 
 Report back: the branch name, the list of files changed, and confirmation that
-`pnpm type-check` and `pnpm lint` both passed.
+`npm run type-check` and `npm run lint` both passed.
 
 If the dispatched agent (or boardroom's synthesized result) reports an owner-gated
 blocker or unresolvable ambiguity instead of completing implementation: treat this the
@@ -167,13 +167,13 @@ detail: "<issue identifier>: <reported blocker>" }`.
 ### Cycle Step 5 — Confirm verification
 
 The dispatched work (Cycle Step 4 — either the single-agent dispatch or boardroom's
-synthesized result) already ran `pnpm type-check && pnpm lint` to zero tolerance as part
+synthesized result) already ran `npm run type-check && npm run lint` to zero tolerance as part
 of its own Validate step. Before opening a PR, independently confirm by re-running both
 commands yourself against the resulting branch:
 
 ```bash
-pnpm type-check
-pnpm lint
+npm run type-check
+npm run lint
 ```
 
 If either fails here despite the dispatched agent's report: do not open a PR. Treat this
@@ -204,8 +204,8 @@ Closes RA-XXX
 [List any non-obvious choices made and why, from the dispatched agent's report]
 
 ## Test Plan
-- [ ] pnpm type-check passes
-- [ ] pnpm lint passes
+- [ ] npm run type-check passes
+- [ ] npm run lint passes
 - [ ] [specific user-facing verification steps]
 
 Opened by the continuous-linear-loop agent (AGENTS.md rule 19)
@@ -296,6 +296,6 @@ addendum). This is the property that distinguishes this design from the paused S
 continuous-execution cron (commit `8f739e53`).
 
 This procedure never merges a PR, never re-runs itself for a second issue, and never
-treats a green `pnpm type-check && pnpm lint` as authorization to merge — Rule 18
+treats a green `npm run type-check && npm run lint` as authorization to merge — Rule 18
 (AGENTS.md) requires a human to open and merge PRs into `main` deliberately; this
 procedure only gets as far as **opening** the PR and marking the issue In Review.

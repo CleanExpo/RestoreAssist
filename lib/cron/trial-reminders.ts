@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendTrialExpiringEmail } from "@/lib/email";
+import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
 import type { CronJobResult } from "./runner";
 
 /**
@@ -100,11 +101,18 @@ export async function sendTrialReminders(): Promise<CronJobResult> {
       );
 
       try {
-        await sendTrialExpiringEmail({
-          recipientEmail: user.email,
-          recipientName: user.name ?? "there",
-          daysRemaining,
-          subscribeUrl,
+        await deliverEmailOnce({
+          idempotencyKey: `trial:${user.id}:${user.trialEndsAt.toISOString()}:${win.label}`,
+          kind: `TRIAL_${win.label}`,
+          recipient: user.email,
+          payloadIdentity: `${user.id}|${user.trialEndsAt.toISOString()}|${win.label}|${subscribeUrl}`,
+          send: () =>
+            sendTrialExpiringEmail({
+              recipientEmail: user.email,
+              recipientName: user.name ?? "there",
+              daysRemaining,
+              subscribeUrl,
+            }),
         });
         sentInWindow++;
 

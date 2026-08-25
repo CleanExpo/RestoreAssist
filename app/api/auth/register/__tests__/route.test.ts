@@ -21,6 +21,7 @@ import { NextRequest } from "next/server";
 
 const bcryptHash = vi.fn().mockResolvedValue("hashed-password");
 const userFindUnique = vi.fn();
+const userInviteFindFirst = vi.fn();
 const txUserCreate = vi.fn();
 const txOrgCreate = vi.fn();
 const txUserUpdate = vi.fn();
@@ -46,6 +47,9 @@ vi.mock("@/lib/auth/password-breach", () => ({
   rejectIfBreached: (...args: unknown[]) => rejectIfBreached(...args),
 }));
 vi.mock("@/lib/email", () => ({ sendWelcomeEmail: vi.fn() }));
+vi.mock("@/lib/email-delivery-ledger", () => ({
+  deliverEmailOnce: vi.fn().mockResolvedValue({ messageId: "welcome-1", replayed: false }),
+}));
 vi.mock("@/lib/email-retry", () => ({
   sendWithRetry: (...args: unknown[]) => sendWithRetry(...args),
 }));
@@ -63,6 +67,9 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: {
       findUnique: (...args: unknown[]) => userFindUnique(...args),
+    },
+    userInvite: {
+      findFirst: (...args: unknown[]) => userInviteFindFirst(...args),
     },
     // Truthy so register/route.ts's `canCreateOrganization` gate takes the
     // $transaction branch, matching how the app actually runs.
@@ -98,6 +105,7 @@ beforeEach(() => {
   notifyWelcome.mockResolvedValue(undefined);
   logSecurityEvent.mockResolvedValue(undefined);
   track.mockResolvedValue(undefined);
+  userInviteFindFirst.mockResolvedValue(null);
 
   // $transaction runs the callback against a tx object backed by the same
   // spies, mirroring the real `prisma.$transaction(async (tx) => {...})`.
@@ -105,6 +113,8 @@ beforeEach(() => {
     fn({
       user: { create: txUserCreate, update: txUserUpdate },
       organization: { create: txOrgCreate },
+      userInvite: { findFirst: userInviteFindFirst },
+      $executeRaw: vi.fn(),
     }),
   );
 });
@@ -137,6 +147,96 @@ describe("POST /api/auth/register — duplicate email", () => {
     expect(json.error.code).toBe("CONFLICT");
     expect(prismaTransaction).not.toHaveBeenCalled();
     expect(txUserCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/auth/register — retired invitation flow", () => {
+  it.each([
+    ["an invitation token", { inviteToken: "a".repeat(48) }],
+    ["technician signup type", { signupType: "technician" }],
+  ])("refuses %s before creating an ADMIN or organisation", async (_case, legacy) => {
+    userFindUnique.mockResolvedValue(null);
+    txUserCreate.mockResolvedValue({ id: "legacy-user" });
+    txOrgCreate.mockResolvedValue({ id: "legacy-org" });
+    txUserUpdate.mockResolvedValue({
+      id: "legacy-user",
+      email: VALID_BODY.email,
+      role: "ADMIN",
+      organizationId: "legacy-org",
+    });
+    const res = await POST(makeRequest({ ...VALID_BODY, ...legacy }));
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error.message).toBe(
+      "Use the secure invitation link to join an organisation",
+    );
+    expect(bcryptHash).not.toHaveBeenCalled();
+    expect(prismaTransaction).not.toHaveBeenCalled();
+    expect(txUserCreate).not.toHaveBeenCalled();
+    expect(txOrgCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/auth/register — active invitation identity", () => {
+  it("refuses ADMIN/organisation creation when the normalized email has a live invite", async () => {
+    userInviteFindFirst.mockResolvedValueOnce({ id: "invite_1" });
+
+    const res = await POST(
+      makeRequest({ ...VALID_BODY, email: "  Jane@Example.com  " }),
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json.error.message).toContain("team invitation");
+    expect(userInviteFindFirst).toHaveBeenCalledWith({
+      where: {
+        email: { equals: "jane@example.com", mode: "insensitive" },
+        usedAt: null,
+        expiresAt: { gt: expect.any(Date) },
+      },
+      select: { id: true },
+    });
+    expect(bcryptHash).not.toHaveBeenCalled();
+    expect(prismaTransaction).not.toHaveBeenCalled();
+    expect(txUserCreate).not.toHaveBeenCalled();
+    expect(txOrgCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not block registration for an expired or consumed invite", async () => {
+    userInviteFindFirst.mockResolvedValueOnce(null);
+    userFindUnique.mockResolvedValueOnce(null);
+    txUserCreate.mockResolvedValue({ id: "user-1" });
+    txOrgCreate.mockResolvedValue({ id: "org-1" });
+    txUserUpdate.mockResolvedValue({
+      id: "user-1",
+      email: VALID_BODY.email,
+      organizationId: "org-1",
+    });
+
+    expect((await POST(makeRequest(VALID_BODY))).status).toBe(201);
+  });
+
+  it("re-checks the invite under the shared email lock before creating an ADMIN", async () => {
+    userFindUnique.mockResolvedValue(null);
+    userInviteFindFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "invite-created-during-race" });
+    const res = await POST(makeRequest(VALID_BODY));
+    expect(res.status).toBe(409);
+    expect(txUserCreate).not.toHaveBeenCalled();
+  });
+
+  it("stores the canonical lower-case email", async () => {
+    userFindUnique.mockResolvedValue(null);
+    txUserCreate.mockResolvedValue({ id: "u1", email: "mixed@example.com" });
+    txOrgCreate.mockResolvedValue({ id: "org1" });
+    txUserUpdate.mockResolvedValue({ id: "u1", email: "mixed@example.com" });
+    const res = await POST(makeRequest({ ...VALID_BODY, email: " Mixed@Example.COM " }));
+    expect(res.status).toBe(201);
+    expect(txUserCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ email: "mixed@example.com" }),
+    }));
   });
 });
 

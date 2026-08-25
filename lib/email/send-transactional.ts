@@ -30,6 +30,8 @@ export interface TransactionalEmailInput {
   reply_to?: string;
   attachments?: TransactionalAttachment[];
   organizationId?: string | null;
+  /** Stable logical message identity. Resend supports this natively. */
+  idempotencyKey?: string;
 }
 
 export interface TransactionalSendResult {
@@ -132,10 +134,18 @@ async function sendViaMailtrap(
   }
 
   if (!res.ok) {
+    // Mailtrap does not provide a request idempotency key. A timeout-like HTTP
+    // response can arrive after the provider accepted the message, so those
+    // outcomes must remain ambiguous and must never be automatically resent.
+    const ambiguousStatus =
+      res.status === 408 ||
+      res.status === 425 ||
+      res.status === 429 ||
+      res.status >= 500;
     return {
       data: null,
       error: {
-        name: `mailtrap_${res.status}`,
+        name: ambiguousStatus ? "send_failed" : `mailtrap_${res.status}`,
         message:
           parsed.errors?.join("; ") ||
           text ||
@@ -146,7 +156,22 @@ async function sendViaMailtrap(
     };
   }
 
-  const id = parsed.message_ids?.[0] || `mailtrap-${Date.now()}`;
+  const id = parsed.message_ids?.find(
+    (candidate): candidate is string =>
+      typeof candidate === "string" && candidate.trim().length > 0,
+  )?.trim();
+  if (parsed.success !== true || !id) {
+    return {
+      data: null,
+      error: {
+        name: "mailtrap_missing_receipt",
+        message:
+          "Mailtrap returned HTTP success without a confirmed provider message ID",
+      },
+      provider: "mailtrap",
+      source: config.source,
+    };
+  }
   return {
     data: { id },
     error: null,
@@ -178,7 +203,10 @@ async function sendViaResend(
   };
 
   const result = (await Promise.race([
-    client.emails.send(payload),
+    client.emails.send(
+      payload,
+      input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : undefined,
+    ),
     new Promise<never>((_, reject) =>
       setTimeout(
         () =>
@@ -190,9 +218,25 @@ async function sendViaResend(
     ),
   ])) as { data: { id: string } | null; error: { message?: string; name?: string } | null };
 
+  const id = result.data?.id?.trim();
+  if (result.error || !id) {
+    return {
+      data: null,
+      error:
+        result.error ??
+        {
+          name: "resend_missing_receipt",
+          message:
+            "Resend returned success without a confirmed provider message ID",
+        },
+      provider: "resend",
+      source: config.source,
+    };
+  }
+
   return {
-    data: result.data,
-    error: result.error,
+    data: { id },
+    error: null,
     provider: "resend",
     source: config.source,
   };

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { Check } from "lucide-react";
+import { ChromeCheck } from "@/components/brand/chrome-icons";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import CheckoutCTA from "./CheckoutCTA";
 
@@ -76,7 +76,7 @@ export default function TierGrid({
               {plan.features.map((f) => (
                 <li key={f} className="flex gap-3 text-sm leading-snug text-foreground">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
-                    <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+                    <ChromeCheck className="h-3.5 w-3.5" />
                   </span>
                   <span>{f}</span>
                 </li>

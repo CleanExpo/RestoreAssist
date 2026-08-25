@@ -2,8 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, Eye, Loader2, Plug } from "lucide-react";
 import toast from "react-hot-toast";
+import {
+  ChromeDownload,
+  ChromeEye,
+  ChromePlug,
+  ChromeSpinner,
+} from "@/components/brand/chrome-icons";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import {
@@ -163,7 +168,7 @@ export function SyncedClientsPanel({
         )}
       >
         <EmptyState
-          icon={<Plug className="h-10 w-10" aria-hidden />}
+          icon={<ChromePlug className="h-10 w-10" />}
           title={
             !connected
               ? `No ${source === "xero" ? "Xero" : "Ascora"} connection`
@@ -235,7 +240,7 @@ export function SyncedClientsPanel({
                   variant="outline"
                   onClick={() => setDetail(row)}
                 >
-                  <Eye className="h-4 w-4 mr-1" />
+                  <ChromeEye className="h-4 w-4 mr-1" />
                   Details
                 </Button>
                 {row.canImport && (
@@ -246,9 +251,9 @@ export function SyncedClientsPanel({
                     onClick={() => void importClient(row)}
                   >
                     {importingId === row.id ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      <ChromeSpinner className="h-4 w-4 mr-1 animate-spin" />
                     ) : (
-                      <Download className="h-4 w-4 mr-1" />
+                      <ChromeDownload className="h-4 w-4 mr-1" />
                     )}
                     Import
                   </Button>
@@ -329,7 +334,7 @@ export function SyncedClientsPanel({
                         className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-neutral-300 dark:border-slate-700 hover:bg-neutral-100 dark:hover:bg-slate-700/50 transition-colors text-xs"
                         onClick={() => setDetail(row)}
                       >
-                        <Eye size={16} />
+                        <ChromeEye size={16} />
                       </button>
                       {row.canImport && (
                         <button
@@ -340,9 +345,9 @@ export function SyncedClientsPanel({
                           onClick={() => void importClient(row)}
                         >
                           {importingId === row.id ? (
-                            <Loader2 size={16} className="animate-spin" />
+                            <ChromeSpinner size={16} className="animate-spin" />
                           ) : (
-                            <Download size={16} />
+                            <ChromeDownload size={16} />
                           )}
                         </button>
                       )}

@@ -17,7 +17,6 @@ generator tenantClient {
 
 datasource db {
   provider = "postgresql"
-  url      = env("TENANT_DATABASE_URL")
 }
 
 /// One-way mirror of control-plane user identity (id, name, email, role).

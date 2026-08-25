@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
 import { AlertCircle, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -34,6 +34,7 @@ import {
   validateHeadshotFile,
   squareCropToDataUrl,
 } from "@/components/invite/headshot-utils";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface InvitePreview {
   email: string;
@@ -48,6 +49,7 @@ export default function InviteAcceptPage() {
   const params = useParams<{ token: string }>();
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const router = useRouter();
+  const { update: updateSession } = useSession();
   const token = params?.token as string | undefined;
 
   const [preview, setPreview] = useState<InvitePreview | null>(null);
@@ -97,7 +99,7 @@ export default function InviteAcceptPage() {
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
         if (!res.ok) {
-          setPreviewError(data.error ?? "Failed to load invite");
+          setPreviewError(apiErrorMessage(data) ?? "Failed to load invite");
         } else {
           setPreview(data as InvitePreview);
         }
@@ -196,7 +198,7 @@ export default function InviteAcceptPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Failed to accept invite");
+        toast.error(apiErrorMessage(data) ?? "Failed to accept invite");
         return;
       }
 
@@ -211,6 +213,23 @@ export default function InviteAcceptPage() {
           router.push("/login");
           return;
         }
+      }
+      // Invite acceptance changes role, organisation, onboarding and billing
+      // claims in the database. Refresh the JWT before navigating so the
+      // dashboard and middleware do not act on the pre-invite session.
+      try {
+        await updateSession();
+      } catch {
+        // The server has already committed the invitation at this point. Do
+        // not misreport that durable success as a generic network failure or
+        // leave the invitee retrying a now-consumed bearer token.
+        toast.error(
+          "Invitation accepted, but your session could not be refreshed. Please sign in again.",
+        );
+        router.push(
+          `/login?email=${encodeURIComponent(preview.email)}&inviteAccepted=1`,
+        );
+        return;
       }
       router.push("/dashboard?firstRun=tech");
     } catch {

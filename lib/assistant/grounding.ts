@@ -105,8 +105,15 @@ export async function buildWorkContext(
 
     if (inspections.length === 0 && reports.length === 0) return "";
 
-    const fmt = (d: Date) =>
-      `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+    // Records are displayed in the contractor's AU business timezone rather
+    // than the server/container timezone. Without an explicit zone, a UTC
+    // midnight timestamp can render as the previous date on hosted workers.
+    const fmt = new Intl.DateTimeFormat("en-AU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      timeZone: "Australia/Sydney",
+    });
 
     const lines: string[] = [
       "\n\n--- YOUR RECENT WORK (this account's own records — read-only context) ---",
@@ -115,14 +122,14 @@ export async function buildWorkContext(
       lines.push("Recent inspections:");
       for (const i of inspections) {
         lines.push(
-          `- ${i.inspectionNumber} · ${i.propertyAddress} · ${i.status} · ${fmt(i.createdAt)}`,
+          `- ${i.inspectionNumber} · ${i.propertyAddress} · ${i.status} · ${fmt.format(i.createdAt)}`,
         );
       }
     }
     if (reports.length) {
       lines.push("Recent reports:");
       for (const r of reports) {
-        lines.push(`- ${r.title} · ${r.status} · ${fmt(r.createdAt)}`);
+        lines.push(`- ${r.title} · ${r.status} · ${fmt.format(r.createdAt)}`);
       }
     }
     return lines.join("\n");

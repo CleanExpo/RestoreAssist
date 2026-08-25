@@ -1,15 +1,15 @@
 /**
  * Production dependency CVE gate.
  *
- * Replaces `pnpm audit --audit-level=high --prod`, whose npm "quick audit"
+ * Replaces the classic quick-audit command, whose npm "quick audit"
  * endpoint (/-/npm/v1/security/audits) npm permanently retired — it now
  * returns HTTP 410 and fails every CI run regardless of the actual CVE state.
  *
  * This queries the still-supported **bulk advisory endpoint** instead, keeping
  * the original gate's exact semantics:
- *   - PROD dependency closure only (`pnpm list --prod --depth Infinity`)
+ *   - PROD dependency closure only (the npm lockfile's non-dev packages)
  *   - HIGH + CRITICAL severity only (matching `--audit-level=high`)
- *   - honours the `package.json` `pnpm.auditConfig.ignoreGhsas` suppressions
+ *   - honours the `package.json` `auditConfig.ignoreGhsas` suppressions
  *
  * The endpoint returns advisories only for the exact versions submitted, so no
  * client-side version-range check is needed. Exit 1 (fail the PR) when any
@@ -18,7 +18,6 @@
  * silently pass.
  */
 
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 const BULK_ENDPOINT =
@@ -39,20 +38,17 @@ export interface Finding {
 }
 
 type DepTree = Record<string, { version?: string; dependencies?: DepTree }>;
+type LockPackage = { version?: string; dev?: boolean };
 
 function readIgnoredGhsas(): Set<string> {
   const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-  return new Set<string>(pkg?.pnpm?.auditConfig?.ignoreGhsas ?? []);
+  return new Set<string>(pkg?.auditConfig?.ignoreGhsas ?? []);
 }
 
 /** Installed PROD dependency closure as { packageName: [versions] }. */
-function collectProdDependencies(): Record<string, string[]> {
-  const raw = execFileSync(
-    "pnpm",
-    ["list", "--prod", "--depth", "Infinity", "--json"],
-    { encoding: "utf8", maxBuffer: 128 * 1024 * 1024 },
-  );
-  const projects = JSON.parse(raw) as Array<{ dependencies?: DepTree }>;
+export function collectProdDependenciesFromTree(
+  project: { dependencies?: DepTree },
+): Record<string, string[]> {
   const collected = new Map<string, Set<string>>();
 
   const walk = (deps?: DepTree) => {
@@ -65,11 +61,44 @@ function collectProdDependencies(): Record<string, string[]> {
       walk(node.dependencies);
     }
   };
-  for (const project of projects) walk(project.dependencies);
+  walk(project.dependencies);
 
   return Object.fromEntries(
     [...collected].map(([name, versions]) => [name, [...versions]]),
   );
+}
+
+function packageNameFromLockPath(path: string): string | null {
+  const marker = "node_modules/";
+  const markerIndex = path.lastIndexOf(marker);
+  if (markerIndex < 0) return null;
+  const name = path.slice(markerIndex + marker.length);
+  return name && (!name.startsWith("@") || name.includes("/")) ? name : null;
+}
+
+/** Exact production versions npm ci resolves from a lockfile v2/v3. */
+export function collectProdDependenciesFromLockfile(lockfile: {
+  packages?: Record<string, LockPackage>;
+}): Record<string, string[]> {
+  if (!lockfile.packages || typeof lockfile.packages !== "object") {
+    throw new Error("package-lock.json has no packages map");
+  }
+  const collected = new Map<string, Set<string>>();
+  for (const [path, metadata] of Object.entries(lockfile.packages)) {
+    if (metadata.dev === true || !metadata.version) continue;
+    const name = packageNameFromLockPath(path);
+    if (!name) continue;
+    if (!collected.has(name)) collected.set(name, new Set());
+    collected.get(name)!.add(metadata.version);
+  }
+  return Object.fromEntries(
+    [...collected].map(([name, versions]) => [name, [...versions]]),
+  );
+}
+
+function collectProdDependencies(): Record<string, string[]> {
+  const lockfile = JSON.parse(readFileSync("package-lock.json", "utf8"));
+  return collectProdDependenciesFromLockfile(lockfile);
 }
 
 export function ghsaFromUrl(url: string): string | null {
@@ -136,7 +165,7 @@ async function main() {
   }
   console.error(
     "\nFix: upgrade the dependency, or add a justified GHSA to package.json " +
-      "pnpm.auditConfig.ignoreGhsas.",
+      "auditConfig.ignoreGhsas.",
   );
   process.exit(1);
 }

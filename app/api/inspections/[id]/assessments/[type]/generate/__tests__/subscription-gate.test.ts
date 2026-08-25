@@ -17,6 +17,12 @@ const requireActiveSubscription = vi.hoisted(() => vi.fn());
 const assertInspectionTenancy = vi.hoisted(() => vi.fn());
 const generateAssessment = vi.hoisted(() => vi.fn());
 const getWorkspaceForUser = vi.hoisted(() => vi.fn());
+const currentPilotReservation = vi.hoisted(() => vi.fn());
+const requirePilotWorkspace = vi.hoisted(() => vi.fn());
+const claimPilotGeneration = vi.hoisted(() => vi.fn());
+const finalizePilotGeneration = vi.hoisted(() => vi.fn());
+const markPilotGenerationUnresolved = vi.hoisted(() => vi.fn());
+const withPilotWorkspaceProviderAuthority = vi.hoisted(() => vi.fn((_u: string, _w: string, operation: () => unknown) => operation()));
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
@@ -45,6 +51,24 @@ vi.mock("@/lib/assessments/registry", () => ({
 vi.mock("@/lib/workspace/provider-connections", () => ({
   getWorkspaceForUser: (...a: unknown[]) => getWorkspaceForUser(...a),
 }));
+vi.mock("@/lib/pilot-tester/budget-contract", () => ({
+  currentPilotReservation: (...a: unknown[]) => currentPilotReservation(...a),
+  requirePilotWorkspace: (...a: unknown[]) => requirePilotWorkspace(...a),
+  claimPilotGeneration: (...a: unknown[]) => claimPilotGeneration(...a),
+  finalizePilotGeneration: (...a: unknown[]) => finalizePilotGeneration(...a),
+  markPilotGenerationUnresolved: (...a: unknown[]) => markPilotGenerationUnresolved(...a),
+  withPilotWorkspaceProviderAuthority: (...a: [string, string, () => unknown]) => withPilotWorkspaceProviderAuthority(...a),
+  PilotContractError: class PilotContractError extends Error {
+    constructor(
+      public readonly status: number,
+      public readonly code: string,
+      message: string,
+    ) {
+      super(message);
+    }
+  },
+}));
+vi.mock("@/lib/ai/task-policy", () => ({ requireAiTaskPolicy: () => ({ maxEstimatedCostUsd: 0.05 }) }));
 
 import { POST } from "../route";
 
@@ -70,12 +94,15 @@ beforeEach(() => {
   validateCsrf.mockReturnValue(null);
   applyRateLimit.mockResolvedValue(null);
   requireActiveSubscription.mockResolvedValue(null);
-  assertInspectionTenancy.mockResolvedValue({ ok: true });
+  assertInspectionTenancy.mockResolvedValue({ ok: true, data: { id: "i1", userId: "user-1", workspaceId: "ws1" } });
   getWorkspaceForUser.mockResolvedValue({ id: "ws1" });
+  requirePilotWorkspace.mockResolvedValue({ id: "ws1", aiDailyBudgetUsd: 5, pilotSandboxEnabled: true });
+  currentPilotReservation.mockResolvedValue({ id: "reservation-1" });
+  claimPilotGeneration.mockResolvedValue({ kind: "claim", receiptId: "generation-receipt-1", authorisedMaxCostUsd: 0.05 });
   generateAssessment.mockResolvedValue({
     ok: true,
     persistedId: "gen1",
-    result: { report: {} },
+    result: { report: {}, meta: { costEstimateUsd: 0.01 } },
   });
 });
 
@@ -105,5 +132,55 @@ describe("RA rule 5 — subscription gate on assessment generation", () => {
     const res = await POST(makeReq({ enhanceWithAi: true }), { params });
     expect(res.status).toBe(200);
     expect(generateAssessment).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the inspection workspace, not the user's default workspace, for pilot reservation binding", async () => {
+    getWorkspaceForUser.mockResolvedValue({ id: "ws-default" });
+    assertInspectionTenancy.mockResolvedValue({
+      ok: true,
+      data: { id: "i1", userId: "user-1", workspaceId: "ws-inspection" },
+    });
+    requirePilotWorkspace.mockResolvedValue({ id: "ws-inspection", aiDailyBudgetUsd: 5, pilotSandboxEnabled: true });
+    currentPilotReservation.mockResolvedValue({ id: "reservation-inspection" });
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/inspections/i1/assessments/MOULD/generate", {
+        method: "POST",
+        body: JSON.stringify({ enhanceWithAi: true }),
+        headers: { "content-type": "application/json", "x-pilot-tester-run-id": "run-abcdef", "idempotency-key": "generation-key-123" },
+      }),
+      { params },
+    );
+
+    expect(res.status).toBe(200);
+    expect(requirePilotWorkspace).toHaveBeenCalledWith("user-1", "ws-inspection");
+    expect(currentPilotReservation).toHaveBeenCalledWith("ws-inspection", "run-abcdef");
+    expect(getWorkspaceForUser).not.toHaveBeenCalled();
+    expect(generateAssessment).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "ws-inspection",
+      pilotBudgetReservationId: "reservation-inspection",
+    }));
+  });
+
+  it("rejects pilot binding when the inspection workspace is not a pilot sandbox", async () => {
+    const PilotContractError = (await import("@/lib/pilot-tester/budget-contract")).PilotContractError;
+    assertInspectionTenancy.mockResolvedValue({
+      ok: true,
+      data: { id: "i1", userId: "user-1", workspaceId: "ws-production" },
+    });
+    requirePilotWorkspace.mockRejectedValue(new PilotContractError(404, "PILOT_SANDBOX_NOT_FOUND", "not pilot"));
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/inspections/i1/assessments/MOULD/generate", {
+        method: "POST",
+        body: "{}",
+        headers: { "content-type": "application/json", "x-pilot-tester-run-id": "run-abcdef", "idempotency-key": "generation-key-123" },
+      }),
+      { params },
+    );
+
+    expect(res.status).toBe(412);
+    expect(currentPilotReservation).not.toHaveBeenCalled();
+    expect(generateAssessment).not.toHaveBeenCalled();
   });
 });

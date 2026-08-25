@@ -1,51 +1,55 @@
-name: restore-assist
-region: syd
-services:
-  - name: web
-    github:
-      repo: CleanExpo/RestoreAssist
-      branch: main
-    build_command: npm run build
-    run_command: npm start
-    environment_slug: node-js
-    instance_count: 1
-    instance_size_slug: basic-xxs
-    http_port: 3000
-    health_check:
-      http_path: /
-    envs:
-      - key: NODE_ENV
-        value: production
-      - key: CREDENTIAL_ENCRYPTION_KEY
-        scope: RUN_TIME
-        type: SECRET
-      - key: NEXTAUTH_SECRET
-        scope: RUN_TIME
-        type: SECRET
-      - key: NEXTAUTH_URL
-        scope: RUN_TIME
-        type: GENERAL
-      - key: DATABASE_URL
-        scope: RUN_TIME
-        type: SECRET
-      - key: ANTHROPIC_API_KEY
-        scope: RUN_TIME
-        type: SECRET
-      - key: STRIPE_SECRET_KEY
-        scope: RUN_TIME
-        type: SECRET
-      - key: STRIPE_WEBHOOK_SECRET
-        scope: RUN_TIME
-        type: SECRET
-      - key: CRON_SECRET
-        scope: RUN_TIME
-        type: SECRET
-      - key: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
-        scope: RUN_TIME
-        type: SECRET
-      - key: ASC_API_KEY_ID
-        scope: RUN_TIME
-        type: GENERAL
-      - key: ASC_ISSUER_ID
-        scope: RUN_TIME
-        type: GENERAL
+{
+  "name": "restore-assist",
+  "region": "syd",
+  "domains": [
+    {
+      "domain": "restoreassist.app",
+      "type": "PRIMARY"
+    }
+  ],
+  "services": [
+    {
+      "name": "web",
+      "image": {
+        "registry_type": "GHCR",
+        "registry": "cleanexpo",
+        "repository": "restoreassist",
+        "registry_credentials": "${GHCR_PULL_CREDENTIALS}",
+        "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "instance_count": 1,
+      "instance_size_slug": "basic-xxs",
+      "http_port": 3000,
+      "health_check": {
+        "http_path": "/api/health/migrations"
+      },
+      "envs": [
+        { "key": "NODE_ENV", "value": "production" },
+        { "key": "ALLOWED_APP_HOSTS", "value": "restoreassist.app,www.restoreassist.app", "scope": "RUN_TIME", "type": "GENERAL" },
+        { "key": "GIT_SHA", "value": "0000000000000000000000000000000000000000", "scope": "RUN_AND_BUILD_TIME", "type": "GENERAL" },
+        { "key": "CREDENTIAL_ENCRYPTION_KEY", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "NEXTAUTH_SECRET", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "NEXTAUTH_URL", "value": "https://restoreassist.app", "scope": "RUN_TIME", "type": "GENERAL" },
+        { "key": "GOOGLE_CLIENT_ID", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "GOOGLE_CLIENT_SECRET", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID", "scope": "RUN_AND_BUILD_TIME", "type": "SECRET" },
+        { "key": "DATABASE_URL", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "TENANT_DATABASE_HOST_ALLOWLIST", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "TENANT_DATABASE_PROVISIONING_ENABLED", "value": "false", "scope": "RUN_TIME", "type": "GENERAL" },
+        { "key": "ANTHROPIC_API_KEY", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "PILOT_TESTER_JUDGE_API_KEY", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "STRIPE_SECRET_KEY", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "STRIPE_WEBHOOK_SECRET", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "CLOUDINARY_URL", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "XERO_WEBHOOK_KEY", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "GITHUB_WEBHOOK_SECRET", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "RESEND_API_KEY", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "RESEND_FROM_EMAIL", "scope": "RUN_TIME", "type": "GENERAL" },
+        { "key": "CRON_SECRET", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", "scope": "RUN_TIME", "type": "SECRET" },
+        { "key": "ASC_API_KEY_ID", "scope": "RUN_TIME", "type": "GENERAL" },
+        { "key": "ASC_ISSUER_ID", "scope": "RUN_TIME", "type": "GENERAL" }
+      ]
+    }
+  ]
+}

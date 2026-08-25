@@ -2,31 +2,36 @@
   {
     "email": "pilot-beyond-clean@restoreassist.sandbox",
     "password": "<sandbox-only password>",
-    "workspaceName": "Beyond Clean (sandbox)",
+    "workspaceName": "Beyond Clean — Sunshine Coast (sandbox pilot)",
+    "workspaceId": "<replace-with-workspace-id>",
     "companyKey": "beyond-clean"
   },
   {
-    "email": "pilot-elite@restoreassist.sandbox",
+    "email": "pilot-elite-restoration@restoreassist.sandbox",
     "password": "<sandbox-only password>",
-    "workspaceName": "Elite Restoration (sandbox)",
+    "workspaceName": "Elite Restoration — Sydney Northern Beaches (sandbox pilot)",
+    "workspaceId": "<replace-with-workspace-id>",
     "companyKey": "elite-restoration"
   },
   {
     "email": "pilot-crsa@restoreassist.sandbox",
     "password": "<sandbox-only password>",
-    "workspaceName": "CRSA (sandbox)",
+    "workspaceName": "CRSA — Greater Melbourne (sandbox pilot)",
+    "workspaceId": "<replace-with-workspace-id>",
     "companyKey": "crsa"
   },
   {
-    "email": "pilot-tropical@restoreassist.sandbox",
+    "email": "pilot-tropical-recovery@restoreassist.sandbox",
     "password": "<sandbox-only password>",
-    "workspaceName": "Tropical Recovery (sandbox)",
+    "workspaceName": "Tropical Recovery — Far North QLD (sandbox pilot)",
+    "workspaceId": "<replace-with-workspace-id>",
     "companyKey": "tropical-recovery"
   },
   {
-    "email": "pilot-outback@restoreassist.sandbox",
+    "email": "pilot-outback-clean@restoreassist.sandbox",
     "password": "<sandbox-only password>",
-    "workspaceName": "Outback Clean (sandbox)",
+    "workspaceName": "Outback Clean — Alice Springs (sandbox pilot)",
+    "workspaceId": "<replace-with-workspace-id>",
     "companyKey": "outback-clean"
   }
 ]

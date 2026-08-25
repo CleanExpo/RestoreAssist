@@ -9,7 +9,7 @@ npm install -g opensrc
 opensrc --version   # confirm 0.6+
 ```
 
-Yes, `npm` — opensrc is a global CLI tool. The pnpm-only rule applies to RA's `package.json` deps, not global development tools.
+Yes, `npm` — opensrc is a global CLI tool. RestoreAssist's committed package manager and lockfile source of truth are npm.
 
 ## Pre-warm cache for RA's core deps
 
@@ -62,7 +62,7 @@ cat $(opensrc path zod@3.22.0)/src/types.ts
 
 - For RA's own code → read directly with `Read` or `rg`.
 - For framework documentation → use `claude.ai Context7` MCP (gives current docs, not source).
-- For typing/interface questions → TypeScript inference + `pnpm type-check` is faster than reading source.
+- For typing/interface questions → TypeScript inference + `npm run type-check` is faster than reading source.
 
 Use opensrc when you need to know *how* a package does something internally — its actual implementation, not its docs.
 

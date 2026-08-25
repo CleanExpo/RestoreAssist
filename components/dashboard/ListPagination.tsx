@@ -1,6 +1,9 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ChromeArrowLeft,
+  ChromeChevronRight,
+} from "@/components/brand/chrome-icons";
 import { cn } from "@/lib/utils";
 
 /** Shared page size for Clients / Reports (native + synced). */
@@ -77,7 +80,7 @@ export function ListPagination({
             "text-neutral-700 dark:text-slate-200",
           )}
         >
-          <ChevronLeft size={16} />
+          <ChromeArrowLeft size={16} />
           Previous
         </button>
         {pages[0] > 1 && (
@@ -130,7 +133,7 @@ export function ListPagination({
           )}
         >
           Next
-          <ChevronRight size={16} />
+          <ChromeChevronRight size={16} />
         </button>
       </div>
     </div>

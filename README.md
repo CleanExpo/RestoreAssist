@@ -28,13 +28,13 @@ Env template: `.env.example`.
 ## Commands
 
 ```bash
-pnpm install
-pnpm dev
-pnpm type-check   # authoritative
-pnpm lint
-pnpm test:unit
-pnpm test:smoke
-pnpm build
+npm ci
+npm run dev
+npm run type-check   # authoritative
+npm run lint
+npm run test:unit
+npm run test:smoke
+npm run build
 ```
 
 ## Docs

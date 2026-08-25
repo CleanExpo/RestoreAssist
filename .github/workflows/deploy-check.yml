@@ -1,31 +1,81 @@
-name: Deployment Parity Check
+name: Deployment Readiness
 
+# Read-only evidence check. It cannot deploy or receive production provider
+# credentials. The protected deploy workflow repeats these checks before acting.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      release_gate_run_id:
+        description: Exact successful release-gate workflow run ID for this SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
-  deploy-check:
-    name: Verify Deployment Parity
+  reject-non-main:
+    name: Reject non-main readiness request
+    if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 7
-
+    timeout-minutes: 1
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - run: |
+          echo "Deployment readiness may only inspect refs/heads/main." >&2
+          exit 1
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
+  evidence:
+    name: Verify release and protection evidence
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact main revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          python-version: "3.12"
+          fetch-depth: 0
 
-      - name: Run deployment parity check
+      - name: Refuse a branch or stale main revision
+        run: node scripts/ci/verify-release-provenance.mjs
+
+      - name: Fetch exact release-gate run, artifact metadata and report
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
-          GIT_HEAD_SHA: ${{ github.sha }}
-        run: python3 scripts/verify_deploy.py
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_GATE_RUN_ID: ${{ inputs.release_gate_run_id }}
+        run: |
+          case "$RELEASE_GATE_RUN_ID" in
+            ''|*[!0-9]*) echo "release_gate_run_id must be numeric" >&2; exit 1 ;;
+          esac
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RELEASE_GATE_RUN_ID}" \
+            > "$RUNNER_TEMP/release-gate-run.json"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RELEASE_GATE_RUN_ID}/artifacts?per_page=100" \
+            > "$RUNNER_TEMP/release-gate-artifacts.json"
+          ARTIFACT_ID=$(jq -r \
+            --arg name "release-gate-report-${GITHUB_SHA}" \
+            '[.artifacts[] | select(.name == $name)] | if length == 1 then .[0].id else empty end' \
+            "$RUNNER_TEMP/release-gate-artifacts.json")
+          case "$ARTIFACT_ID" in
+            ''|*[!0-9]*) echo "exact release report artifact id was not discovered" >&2; exit 1 ;;
+          esac
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            > "$RUNNER_TEMP/release-gate-report.zip"
+          node scripts/ci/verify-release-gate-run.mjs \
+            "$RUNNER_TEMP/release-gate-run.json" \
+            "$RUNNER_TEMP/release-gate-artifacts.json" \
+            "$RUNNER_TEMP/release-gate-report.zip" \
+            "$GITHUB_SHA" \
+            "$GITHUB_REPOSITORY"
+
+      - name: Verify production reviewer identities from versioned trust policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/environments/production" \
+            > "$RUNNER_TEMP/production-environment.json"
+          node scripts/ci/verify-production-environment.mjs \
+            "$RUNNER_TEMP/production-environment.json"
+
+      - name: Report read-only readiness
+        run: |
+          echo "PASS: release evidence and production protection policy are ready for the separate protected deploy workflow."

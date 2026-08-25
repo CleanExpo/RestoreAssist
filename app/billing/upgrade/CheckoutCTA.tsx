@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, RotateCcw, Receipt } from "lucide-react";
+import { RAIcon } from "@/components/brand/RAIcon";
+import { ChromeRefresh } from "@/components/brand/chrome-icons";
 
 /**
  * RA-6929/6930/6931 — the expired-trial hard-paywall CTA sells the single
@@ -58,21 +59,17 @@ export default function CheckoutCTA() {
 
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-2">
         <li className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground sm:flex-col sm:gap-1.5">
-          <Lock className="h-3.5 w-3.5 shrink-0 text-foreground/70" aria-hidden />
+          <RAIcon name="shield" size={14} decorative />
           <span>Secured by Stripe</span>
         </li>
         <li className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground sm:flex-col sm:gap-1.5">
-          <RotateCcw
+          <ChromeRefresh
             className="h-3.5 w-3.5 shrink-0 text-foreground/70"
-            aria-hidden
           />
           <span>Cancel anytime</span>
         </li>
         <li className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground sm:flex-col sm:gap-1.5">
-          <Receipt
-            className="h-3.5 w-3.5 shrink-0 text-foreground/70"
-            aria-hidden
-          />
+          <RAIcon name="invoice" size={14} decorative />
           <span>AUD incl. GST</span>
         </li>
       </ul>

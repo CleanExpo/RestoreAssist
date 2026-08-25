@@ -71,6 +71,7 @@ async function main() {
     password: string;
     workspaceName: string;
     companyKey: string;
+    workspaceId: string;
   }> = [];
 
   for (const { companyKey, workspaceName } of PILOT_COMPANIES) {
@@ -126,8 +127,29 @@ async function main() {
       data: { organizationId: org.id },
     });
 
-    pool.push({ email, password, workspaceName, companyKey });
-    console.error(`✓ Seeded pilot ${companyKey} (user ${user.id}, org ${org.id})`);
+    // Explicit DB-owned containment marker. This is the only path that makes
+    // the synthetic workspace identify itself as a canary sandbox.
+    const workspace = await prisma.workspace.upsert({
+      where: { slug: `pilot-${companyKey}` },
+      update: {
+        name: workspaceName,
+        ownerId: user.id,
+        status: "READY",
+        aiDailyBudgetUsd: 5,
+        pilotSandboxEnabled: true,
+      },
+      create: {
+        name: workspaceName,
+        slug: `pilot-${companyKey}`,
+        ownerId: user.id,
+        status: "READY",
+        aiDailyBudgetUsd: 5,
+        pilotSandboxEnabled: true,
+      },
+    });
+
+    pool.push({ email, password, workspaceName, companyKey, workspaceId: workspace.id });
+    console.error(`✓ Seeded pilot ${companyKey} (user ${user.id}, org ${org.id}, workspace ${workspace.id})`);
   }
 
   // The ONLY stdout line — pipeable straight into `gh secret set`. Passwords

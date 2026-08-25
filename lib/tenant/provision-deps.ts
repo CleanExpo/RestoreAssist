@@ -13,11 +13,66 @@
  * (app/api/onboarding/database), which is how it reaches this worker, so the
  * state machine's `store` phase has nothing left to do.
  */
-import { PrismaClient } from "@prisma/client";
 import { execFileSync } from "node:child_process";
+import { lookup } from "node:dns/promises";
+import { BlockList, isIP } from "node:net";
+import path from "node:path";
 import { prisma } from "@/lib/prisma";
-import { validateConnectionString } from "@/lib/tenant/onboarding-helpers";
+import {
+  isAllowlistedTenantDatabaseHost,
+  validateConnectionString,
+} from "@/lib/tenant/onboarding-helpers";
 import type { ProvisionDeps } from "@/lib/tenant/provision";
+
+// Keep the executable path literal instead of resolving/importing the Prisma
+// package from application code. Turbopack otherwise follows Prisma's CLI
+// dependency graph and tries to compile its development .tar.gz/.wasm assets.
+const PRISMA_CLI_ENTRYPOINT = path.resolve(
+  process.cwd(),
+  "node_modules/prisma/build/index.js",
+);
+const TENANT_PRISMA_CONFIG = path.resolve(
+  process.cwd(),
+  "prisma/tenant/prisma.config.ts",
+);
+const CONTROL_PLANE_SENTINEL = "DatabaseInstanceSentinel";
+const TENANT_SCHEMA_TABLES = new Set(["Inspection", "UserRef"]);
+
+// Keep v4/v6 lists separate. Node's BlockList maps IPv4 checks into IPv6, so
+// mixing an IPv4-mapped IPv6 subnet into one list would deny every IPv4 host.
+const DENIED_IPV4_NETWORKS = new BlockList();
+DENIED_IPV4_NETWORKS.addSubnet("0.0.0.0", 8, "ipv4");
+DENIED_IPV4_NETWORKS.addSubnet("10.0.0.0", 8, "ipv4");
+DENIED_IPV4_NETWORKS.addSubnet("100.64.0.0", 10, "ipv4");
+DENIED_IPV4_NETWORKS.addSubnet("127.0.0.0", 8, "ipv4");
+DENIED_IPV4_NETWORKS.addSubnet("169.254.0.0", 16, "ipv4");
+DENIED_IPV4_NETWORKS.addSubnet("172.16.0.0", 12, "ipv4");
+DENIED_IPV4_NETWORKS.addSubnet("192.0.0.0", 24, "ipv4");
+DENIED_IPV4_NETWORKS.addSubnet("192.168.0.0", 16, "ipv4");
+DENIED_IPV4_NETWORKS.addSubnet("198.18.0.0", 15, "ipv4");
+DENIED_IPV4_NETWORKS.addSubnet("224.0.0.0", 4, "ipv4");
+DENIED_IPV4_NETWORKS.addSubnet("240.0.0.0", 4, "ipv4");
+const DENIED_IPV6_NETWORKS = new BlockList();
+DENIED_IPV6_NETWORKS.addSubnet("::", 128, "ipv6");
+DENIED_IPV6_NETWORKS.addSubnet("::1", 128, "ipv6");
+DENIED_IPV6_NETWORKS.addSubnet("::ffff:0:0", 96, "ipv6");
+DENIED_IPV6_NETWORKS.addSubnet("fc00::", 7, "ipv6");
+DENIED_IPV6_NETWORKS.addSubnet("fe80::", 10, "ipv6");
+DENIED_IPV6_NETWORKS.addSubnet("ff00::", 8, "ipv6");
+
+class TenantProvisioningSafetyError extends Error {}
+
+function parsedConnectionString(connectionString: string): URL | null {
+  try {
+    return new URL(connectionString.trim());
+  } catch {
+    return null;
+  }
+}
+
+function normalisedHost(url: URL): string {
+  return url.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+}
 
 /**
  * The physical-database identity of a connection string: host + port + database
@@ -25,12 +80,52 @@ import type { ProvisionDeps } from "@/lib/tenant/provision";
  * tenant string against the platform DB regardless of differing credentials.
  */
 function targetIdentity(connectionString: string): string | null {
+  const u = parsedConnectionString(connectionString);
+  if (!u) return null;
+  const database = u.pathname.replace(/^\//, "");
+  const port = u.port || "5432";
+  return `${normalisedHost(u)}:${port}/${database}`;
+}
+
+function isDeniedAddress(address: string, family: number): boolean {
+  const normalised = address.toLowerCase().replace(/^\[|\]$/g, "");
+  if (family !== 4 && family !== 6) return true;
+  if (isIP(normalised) !== family) return true;
+  return family === 4
+    ? DENIED_IPV4_NETWORKS.check(normalised, "ipv4")
+    : DENIED_IPV6_NETWORKS.check(normalised, "ipv6");
+}
+
+/** Resolve the managed hostname and reject every non-public result. */
+async function assertPublicTenantHost(url: URL): Promise<void> {
+  const host = normalisedHost(url);
+  const literalFamily = isIP(host);
+  if (literalFamily !== 0) {
+    if (isDeniedAddress(host, literalFamily)) {
+      throw new TenantProvisioningSafetyError(
+        "Refusing to provision a tenant database on a private, loopback, or link-local address.",
+      );
+    }
+    return;
+  }
+
+  let addresses: Array<{ address: string; family: number }>;
   try {
-    const u = new URL(connectionString.trim());
-    const database = u.pathname.replace(/^\//, "");
-    return `${u.hostname.toLowerCase()}:${u.port}/${database}`;
+    addresses = await lookup(host, { all: true, verbatim: true });
   } catch {
-    return null;
+    throw new TenantProvisioningSafetyError(
+      "Refusing to provision: the tenant database host could not be resolved safely.",
+    );
+  }
+  if (!Array.isArray(addresses) || addresses.length === 0) {
+    throw new TenantProvisioningSafetyError(
+      "Refusing to provision: the tenant database host has no usable addresses.",
+    );
+  }
+  if (addresses.some(({ address, family }) => isDeniedAddress(address, family))) {
+    throw new TenantProvisioningSafetyError(
+      "Refusing to provision a tenant database whose host resolves to a private, loopback, or link-local address.",
+    );
   }
 }
 
@@ -42,11 +137,23 @@ function targetIdentity(connectionString: string): string | null {
  * construction, not merely by convention — the migrate dependency calls it
  * before it touches anything.
  */
-export function assertTenantConnectionString(connectionString: string): void {
+export async function assertTenantConnectionString(connectionString: string): Promise<void> {
+  const validation = validateConnectionString(connectionString);
+  if (!validation.ok) {
+    throw new TenantProvisioningSafetyError(
+      validation.error ?? "Refusing to provision an invalid tenant database target.",
+    );
+  }
   const target = targetIdentity(connectionString);
-  if (!target) {
+  const targetUrl = parsedConnectionString(connectionString);
+  if (!target || !targetUrl) {
     throw new Error(
       "Refusing to migrate: the tenant connection string is not a parseable URL.",
+    );
+  }
+  if (!isAllowlistedTenantDatabaseHost(targetUrl.hostname)) {
+    throw new TenantProvisioningSafetyError(
+      "That database host is not approved for tenant provisioning.",
     );
   }
   const platformStrings = [
@@ -66,44 +173,128 @@ export function assertTenantConnectionString(connectionString: string): void {
       );
     }
   }
+  await assertPublicTenantHost(targetUrl);
+}
+
+interface SchemaTableRow {
+  table_schema: string;
+  table_name: string;
+}
+
+/**
+ * Check the exact schema Prisma will target. Before DDL it must be empty or an
+ * already-complete tenant schema; afterwards all baseline tables must exist.
+ * Any control-plane sentinel or unrelated user table fails closed.
+ */
+export async function verifyTenantSchemaTables(
+  connectionString: string,
+  stage: "pre" | "post",
+): Promise<void> {
+  const parsed = parsedConnectionString(connectionString);
+  if (!parsed) {
+    throw new TenantProvisioningSafetyError("Tenant schema verification was refused.");
+  }
+  const schema = parsed.searchParams.get("schema")?.trim() || "public";
+  const { Pool } = await import("pg");
+  const pool = new Pool({ connectionString, max: 1, connectionTimeoutMillis: 5_000 });
+  try {
+    const result = await pool.query<SchemaTableRow>(
+      `SELECT table_schema, table_name
+         FROM information_schema.tables
+        WHERE table_name = $2
+           OR (table_schema = $1 AND table_type = 'BASE TABLE')`,
+      [schema, CONTROL_PLANE_SENTINEL],
+    );
+    if (result.rows.some((row) => row.table_name === CONTROL_PLANE_SENTINEL)) {
+      throw new TenantProvisioningSafetyError(
+        "Refusing to provision: the target contains the control-plane database sentinel.",
+      );
+    }
+
+    const userTables = new Set(
+      result.rows
+        .filter((row) => row.table_schema === schema && row.table_name !== "_prisma_migrations")
+        .map((row) => row.table_name),
+    );
+    const unknown = [...userTables].filter((table) => !TENANT_SCHEMA_TABLES.has(table));
+    if (unknown.length > 0) {
+      throw new TenantProvisioningSafetyError(
+        "Refusing to provision: the target schema contains non-tenant tables.",
+      );
+    }
+
+    const missing = [...TENANT_SCHEMA_TABLES].filter((table) => !userTables.has(table));
+    if (stage === "pre" && userTables.size > 0 && missing.length > 0) {
+      throw new TenantProvisioningSafetyError(
+        "Refusing to provision: the target contains a partial tenant schema.",
+      );
+    }
+    if (stage === "post" && missing.length > 0) {
+      throw new TenantProvisioningSafetyError(
+        "Tenant baseline migration did not create the required schema tables.",
+      );
+    }
+  } finally {
+    await pool.end().catch(() => {});
+  }
 }
 
 /** Prove the tenant DB is reachable. Any failure is reported as unreachable. */
 export async function testConnectivity(connectionString: string): Promise<boolean> {
-  // Prisma 7 requires a driver adapter — use a short-lived pg Pool per probe.
-  const { Pool } = await import("pg");
-  const { PrismaPg } = await import("@prisma/adapter-pg");
-  const pool = new Pool({ connectionString, max: 1, connectionTimeoutMillis: 5_000 });
-  const client = new PrismaClient({ adapter: new PrismaPg(pool) });
   try {
-    await client.$queryRaw`SELECT 1`;
+    await assertTenantConnectionString(connectionString);
+  } catch {
+    return false;
+  }
+  const { Pool } = await import("pg");
+  const pool = new Pool({ connectionString, max: 1, connectionTimeoutMillis: 5_000 });
+  try {
+    await pool.query("SELECT 1");
     return true;
   } catch {
     return false;
   } finally {
-    await client.$disconnect().catch(() => {});
     await pool.end().catch(() => {});
   }
 }
 
 /**
- * Apply the baseline schema migration to the workspace's own database via
- * `prisma migrate deploy`, with DATABASE_URL/DIRECT_URL overridden to the tenant
- * connection for this child process only. The target is asserted to be a tenant
- * DB first (never the platform DB). On failure a generic error is thrown so the
- * connection string can never leak into an error message or log.
+ * Apply the baseline schema migration to the workspace's own database via the
+ * repository-pinned Prisma CLI and its tenant-only config/migration directory.
+ * The child receives TENANT_DATABASE_URL; control-plane URL variables are
+ * removed. On failure a generic error is thrown so the connection string can
+ * never leak into an error message or log.
  */
 export async function migrateTenantBaseline(connectionString: string): Promise<void> {
-  assertTenantConnectionString(connectionString);
+  await assertTenantConnectionString(connectionString);
   try {
-    execFileSync("npx", ["prisma", "migrate", "deploy"], {
-      env: {
-        ...process.env,
-        DATABASE_URL: connectionString,
-        DIRECT_URL: connectionString,
+    await verifyTenantSchemaTables(connectionString, "pre");
+  } catch (error) {
+    if (error instanceof TenantProvisioningSafetyError) throw error;
+    throw new Error("Tenant baseline migration preflight failed.");
+  }
+  try {
+    const { DATABASE_URL: _databaseUrl, DIRECT_URL: _directUrl, ...safeEnv } = process.env;
+    execFileSync(
+      process.execPath,
+      [
+        PRISMA_CLI_ENTRYPOINT,
+        "migrate",
+        "deploy",
+        "--config",
+        TENANT_PRISMA_CONFIG,
+      ],
+      {
+        env: {
+          ...safeEnv,
+          TENANT_DATABASE_URL: connectionString,
+        },
+        stdio: "pipe",
+        timeout: 30_000,
+        killSignal: "SIGTERM",
       },
-      stdio: "pipe",
-    });
+    );
+    await verifyTenantSchemaTables(connectionString, "post");
   } catch {
     // Deliberately opaque: a raw prisma error can echo the target host. The
     // phase marker records that the failure was in `migrate`; that is enough to
@@ -116,7 +307,7 @@ export async function migrateTenantBaseline(connectionString: string): Promise<v
  * Production dependency set for `provisionTenantDb`. `markReady` is the single
  * authoritative "flip to ready" write and clears the resumable phase marker.
  */
-export function buildProvisionDeps(): ProvisionDeps {
+export function buildProvisionDeps(expectedConnectionEnc: string): ProvisionDeps {
   return {
     validate: validateConnectionString,
     test: testConnectivity,
@@ -125,13 +316,22 @@ export function buildProvisionDeps(): ProvisionDeps {
     // how it reached the worker), so there is nothing to store here.
     store: async () => {},
     markReady: async (workspaceId: string) => {
-      await prisma.workspace.update({
-        where: { id: workspaceId },
+      const result = await prisma.workspace.updateMany({
+        where: {
+          id: workspaceId,
+          tenantDbConnectionEnc: expectedConnectionEnc,
+          tenantDbStatus: { in: ["provisioning", "error"] },
+        },
         data: {
           tenantDbStatus: "ready",
           tenantDbProvisionPhase: null,
         } as never,
       });
+      if (result.count !== 1) {
+        throw new TenantProvisioningSafetyError(
+          "Discarded a stale tenant database provisioning result.",
+        );
+      }
     },
   };
 }

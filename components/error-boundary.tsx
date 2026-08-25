@@ -1,7 +1,10 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, RotateCcw } from "lucide-react";
+import {
+  ChromeAlertTriangle,
+  ChromeRefresh,
+} from "@/components/brand/chrome-icons";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -45,7 +48,7 @@ function DefaultFallback({
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <ChromeAlertTriangle className="h-5 w-5 text-destructive" />
             </div>
             <CardTitle className="text-white text-lg leading-tight">
               Something went wrong
@@ -68,7 +71,7 @@ function DefaultFallback({
             size="sm"
             className="border-slate-500 text-white hover:bg-slate-700 hover:text-white hover:border-slate-400"
           >
-            <RotateCcw className="h-4 w-4" />
+            <ChromeRefresh className="h-4 w-4" />
             Try again
           </Button>
         </CardFooter>

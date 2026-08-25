@@ -72,6 +72,29 @@ export async function uploadDataUrl(
   return result.secure_url;
 }
 
+export interface DataUrlUploadReceipt {
+  url: string;
+  publicId: string;
+}
+
+/** Upload a data URL while retaining the provider identifier needed for rollback. */
+export async function uploadDataUrlWithReceipt(
+  dataUrl: string,
+  opts: { folder: string; tags?: string[] },
+): Promise<DataUrlUploadReceipt> {
+  ensureCloudinaryConfigured();
+  const result = await cloudinary.uploader.upload(dataUrl, {
+    folder: opts.folder,
+    resource_type: "image",
+    overwrite: false,
+    ...(opts.tags && opts.tags.length > 0 ? { tags: opts.tags } : {}),
+  });
+  if (!result.secure_url || !result.public_id) {
+    throw new Error("Cloudinary upload returned no durable receipt");
+  }
+  return { url: result.secure_url, publicId: result.public_id };
+}
+
 export interface UploadResult {
   secure_url: string;
   public_id: string;

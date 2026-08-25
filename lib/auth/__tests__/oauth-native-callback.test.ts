@@ -26,7 +26,14 @@ beforeEach(() => {
   socialLogin.mockReset();
   socialLogin.mockResolvedValue({ result: { idToken: "identity-token" } });
   fetchMock.mockReset();
-  fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+  fetchMock.mockImplementation(async (url: string) =>
+    url === "/api/auth/native-nonce"
+      ? new Response(JSON.stringify({ nonce: "server-issued-nonce" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      : new Response(null, { status: 200 }),
+  );
   vi.stubGlobal("fetch", fetchMock);
   vi.stubGlobal("window", {
     crypto: globalThis.crypto,
@@ -51,6 +58,11 @@ describe("native OAuth callback completion", () => {
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/auth/native-token-exchange",
         expect.objectContaining({ method: "POST", credentials: "include" }),
+      );
+      expect(socialLogin).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({ nonce: "server-issued-nonce" }),
+        }),
       );
     },
   );

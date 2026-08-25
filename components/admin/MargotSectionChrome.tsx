@@ -8,13 +8,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Bot,
-  LayoutDashboard,
-  MessageSquare,
-  ShieldCheck,
-  Radio,
-} from "lucide-react";
+import { RAIcon } from "@/components/brand/RAIcon";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -26,26 +20,26 @@ const TABS = [
   {
     href: "/dashboard/margot/home",
     label: "Overview",
-    icon: LayoutDashboard,
+    icon: "report",
     match: (path: string) => path.startsWith("/dashboard/margot/home"),
   },
   {
     href: "/dashboard/margot",
     label: "Chat",
-    icon: MessageSquare,
+    icon: "ai",
     match: (path: string) =>
       path === "/dashboard/margot" || path === "/dashboard/margot/",
   },
   {
     href: "/dashboard/margot/social",
     label: "Social training",
-    icon: ShieldCheck,
+    icon: "shield",
     match: (path: string) => path.startsWith("/dashboard/margot/social"),
   },
   {
     href: "/dashboard/mission-control",
     label: "Mission Control",
-    icon: Radio,
+    icon: "task",
     match: (path: string) => path.startsWith("/dashboard/mission-control"),
   },
 ] as const;
@@ -83,7 +77,7 @@ export function MargotSectionChrome({
                 variant="outline"
                 className="gap-1 font-normal text-muted-foreground"
               >
-                <Bot className="h-3 w-3" aria-hidden />
+                <RAIcon name="ai" size={12} decorative />
                 Ops + social
               </Badge>
             </div>
@@ -108,7 +102,6 @@ export function MargotSectionChrome({
       >
         {TABS.map((tab) => {
           const active = tab.match(pathname);
-          const Icon = tab.icon;
           return (
             <Link
               key={tab.href}
@@ -121,7 +114,7 @@ export function MargotSectionChrome({
               )}
               aria-current={active ? "page" : undefined}
             >
-              <Icon className="h-4 w-4" aria-hidden />
+              <RAIcon name={tab.icon} size={16} decorative />
               {tab.label}
             </Link>
           );

@@ -18,6 +18,7 @@ import {
   RA4956_MIGRATION,
   RA4970_MIGRATION,
   RA4956_FOLLOWUP_MIGRATION,
+  SERVICE_ONLY_SECURITY_BOUNDARIES_MIGRATION,
   RA_SKETCH_MIGRATION,
   readMigration,
   parseEmittedPolicies,
@@ -45,8 +46,13 @@ const rlsEnabled = parseRlsEnabledTables(ra4970);
 const downgraded = parseServiceOnlyDowngrade(
   readMigration(RA4956_FOLLOWUP_MIGRATION),
 );
+const securityBoundaryMigration = readMigration(
+  SERVICE_ONLY_SECURITY_BOUNDARIES_MIGRATION,
+);
+const p0Downgraded = parseServiceOnlyDowngrade(securityBoundaryMigration);
+const effectiveDowngrades = new Set([...downgraded, ...p0Downgraded]);
 const emitted = new Map(
-  [...parseEmittedPolicies(ra4956)].filter(([t]) => !downgraded.has(t)),
+  [...parseEmittedPolicies(ra4956)].filter(([t]) => !effectiveDowngrades.has(t)),
 );
 
 describe("RA-4956 static RLS coverage", () => {
@@ -100,14 +106,14 @@ describe("RA-4956 static RLS coverage", () => {
       );
     });
 
-    it("covers 68 tenant-scoped tables (locks the expected count)", () => {
+    it("covers the effective tenant-scoped policy set (locks the expected count)", () => {
       // Guards against a future edit that drops a table from BOTH the policy
       // emission and the exempt sets at once (which the per-table checks above
       // would otherwise silently pass).
-      // 66 = 68 RA-4956 tables minus the two (Session, Account) the follow-up
-      // migration downgrades to service-only.
-      expect(tenantScopedTables().length).toBe(66);
-      expect(emitted.size).toBe(66);
+      // 65 = 68 historical RA-4956 tables minus Session, Account, and
+      // UserInvite, which later migrations harden to service-only.
+      expect(tenantScopedTables().length).toBe(65);
+      expect(emitted.size).toBe(65);
     });
   });
 
@@ -131,6 +137,50 @@ describe("RA-4956 static RLS coverage", () => {
   describe("service-only tables stay default-deny", () => {
     it("the RA-4956 follow-up downgrades exactly Session + Account", () => {
       expect(downgraded).toEqual(new Set(["Account", "Session"]));
+    });
+
+    it("the P0 migration downgrades exactly the four secret/replay tables", () => {
+      expect(p0Downgraded).toEqual(new Set([
+        "UserInvite",
+        "EmailConnection",
+        "EmailAudit",
+        "OAuthStateNonce",
+      ]));
+    });
+
+    it("parses historical policies before applying later service-only downgrades", () => {
+      const historical = parseEmittedPolicies(ra4956);
+      expect(historical.has("UserInvite")).toBe(true);
+      expect(emitted.has("UserInvite")).toBe(false);
+    });
+
+    it("classifies every security-sensitive server table as service-only", () => {
+      const expected = [
+        "UserInvite",
+        "EmailConnection",
+        "EmailAudit",
+        "OAuthStateNonce",
+        "OutboundEmailDelivery",
+        "MediaCleanupTask",
+        "NativeAuthNonce",
+        "PilotGenerationReceipt",
+        "PilotNoChargeApproval",
+      ];
+      expect(expected.filter((table) => !SERVICE_ONLY.has(table))).toEqual([]);
+      expect(expected.filter((table) => PENDING_RLS.has(table))).toEqual([]);
+    });
+
+    it("keeps the P0 migration idempotent, policy-complete, and data-preserving", () => {
+      for (const table of p0Downgraded) {
+        expect(securityBoundaryMigration).toContain(
+          `ALTER TABLE IF EXISTS public."${table}" ENABLE ROW LEVEL SECURITY`,
+        );
+      }
+      expect(securityBoundaryMigration).toMatch(/FROM\s+pg_catalog\.pg_policy/i);
+      expect(securityBoundaryMigration).toMatch(/DROP\s+POLICY\s+IF\s+EXISTS/i);
+      expect(securityBoundaryMigration).not.toMatch(
+        /\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM|TRUNCATE)\b/i,
+      );
     });
 
     it("emits no ra4956 policy for any service-only table", () => {
@@ -206,11 +256,68 @@ describe("RA-6677 — schema-derived RLS disposition (catches new un-RLS'd model
     ).toEqual([]);
   });
 
+  it("keeps the server-only pilot budget ledger RLS-enabled and default-deny", () => {
+    expect(rlsEnabled.has("PilotBudgetReservation")).toBe(true);
+    expect(SERVICE_ONLY.has("PilotBudgetReservation")).toBe(true);
+    expect(tenantScopedTables()).not.toContain("PilotBudgetReservation");
+    expect(
+      rlsDisposition("PilotBudgetReservation", "PilotBudgetReservation", rlsEnabled),
+    ).toBe("rls");
+  });
+
+  it("keeps the server-only pilot judge receipt ledger RLS-enabled and default-deny", () => {
+    expect(rlsEnabled.has("PilotJudgeReceipt")).toBe(true);
+    expect(SERVICE_ONLY.has("PilotJudgeReceipt")).toBe(true);
+    expect(tenantScopedTables()).not.toContain("PilotJudgeReceipt");
+    expect(
+      rlsDisposition("PilotJudgeReceipt", "PilotJudgeReceipt", rlsEnabled),
+    ).toBe("rls");
+  });
+
+  it("keeps the server-only pilot adjuster receipt ledger RLS-enabled and default-deny", () => {
+    expect(rlsEnabled.has("PilotAdjusterReceipt")).toBe(true);
+    expect(SERVICE_ONLY.has("PilotAdjusterReceipt")).toBe(true);
+    expect(tenantScopedTables()).not.toContain("PilotAdjusterReceipt");
+    expect(rlsDisposition("PilotAdjusterReceipt", "PilotAdjusterReceipt", rlsEnabled)).toBe("rls");
+
+    const policyLeakMutant = new Map(emitted);
+    policyLeakMutant.set("PilotAdjusterReceipt", { table: "PilotAdjusterReceipt", anchor: "workspace-helper", source: "mutant" });
+    expect([...SERVICE_ONLY].filter((table) => policyLeakMutant.has(table))).toContain("PilotAdjusterReceipt");
+  });
+
+  it("keeps the migration-owned database identity sentinel RLS-enabled and default-deny", () => {
+    expect(rlsEnabled.has("DatabaseInstanceSentinel")).toBe(true);
+    expect(SERVICE_ONLY.has("DatabaseInstanceSentinel")).toBe(true);
+    expect(tenantScopedTables()).not.toContain("DatabaseInstanceSentinel");
+    expect(
+      rlsDisposition("DatabaseInstanceSentinel", "DatabaseInstanceSentinel", rlsEnabled),
+    ).toBe("rls");
+  });
+
+  it("keeps every newly classified server table RLS-enabled and default-deny", () => {
+    const expected = [
+      "UserInvite",
+      "EmailConnection",
+      "EmailAudit",
+      "OAuthStateNonce",
+      "OutboundEmailDelivery",
+      "MediaCleanupTask",
+      "NativeAuthNonce",
+      "PilotGenerationReceipt",
+      "PilotNoChargeApproval",
+    ];
+    for (const table of expected) {
+      expect(rlsEnabled.has(table), `${table} must have RLS enabled`).toBe(true);
+      expect(SERVICE_ONLY.has(table), `${table} must remain service-only`).toBe(true);
+    }
+  });
+
   it("PENDING_RLS only shrinks — no stale (already-RLS'd or non-existent) entries", () => {
     const stale = [...PENDING_RLS].filter((m) => {
       const t = models.get(m);
       return !t || rlsEnabled.has(t) || rlsEnabled.has(m);
     });
+
     expect(
       stale,
       "PENDING_RLS entries that are now RLS-enabled (remove them) or no longer a model",

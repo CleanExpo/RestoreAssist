@@ -35,11 +35,12 @@ export function InviteIdentityStep({
   const [error, setError] = useState<string | null>(null);
 
   function handleGoogleStart() {
-    // Set a signed cookie via the server side so the invite_token survives
-    // the OAuth round-trip. The server route at /api/invites/oauth-complete
-    // reads this cookie + the active session and finalises the linkage.
-    document.cookie = `invite_token=${token}; Path=/; SameSite=Lax; Max-Age=600`;
-    void signIn("google", { callbackUrl: "/api/invites/oauth-complete" });
+    // Carry the bearer token only in NextAuth's same-origin callback URL. The
+    // callback verifies the authenticated Google email before returning to
+    // Step 2; no script-readable cookie is created.
+    void signIn("google", {
+      callbackUrl: `/api/invites/oauth-complete?token=${encodeURIComponent(token)}`,
+    });
   }
 
   async function handleHeadshot(e: React.ChangeEvent<HTMLInputElement>) {
@@ -144,7 +145,6 @@ export function InviteIdentityStep({
           onChange={handleHeadshot}
         />
         {headshotDataUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={headshotDataUrl}
             alt="Headshot preview"

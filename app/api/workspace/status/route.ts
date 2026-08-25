@@ -47,8 +47,14 @@ export async function GET(_req: NextRequest) {
       hasWorkspace: true,
       status: statusResult.status,
       workspaceId: statusResult.workspaceId,
+      workspaceName: statusResult.workspaceName,
       ready: statusResult.status === "READY",
       retryAfterMs: statusResult.status === "PROVISIONING" ? 3000 : null,
+      // This is deliberately DB-owned. Production workspaces have the field
+      // false by default and never self-label based on host/name/env values.
+      ...(statusResult.pilotSandboxEnabled
+        ? { sandboxMarker: "RESTOREASSIST_PILOT_SANDBOX_V1" }
+        : {}),
     });
   } catch (error) {
     return fromException(_req, error, { stage: "status" });

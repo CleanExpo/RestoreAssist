@@ -73,6 +73,10 @@ export interface JudgeOptions {
 export async function judgeAssessment(
   opts: JudgeOptions,
 ): Promise<JudgeScore | null> {
+  // Release certification deliberately does not make a direct Anthropic call.
+  // The orchestrator supplies a receipt from /api/pilot-tester/judge instead.
+  // Keep this legacy helper inert for local non-certification consumers.
+  if (!opts.apiKey) return null;
   const apiKey = opts.apiKey ?? process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 

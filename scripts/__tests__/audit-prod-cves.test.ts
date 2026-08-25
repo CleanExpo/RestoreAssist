@@ -7,10 +7,62 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  collectProdDependenciesFromTree,
+  collectProdDependenciesFromLockfile,
   selectBlockingFindings,
   ghsaFromUrl,
   type BulkAdvisory,
 } from "../audit-prod-cves";
+
+describe("collectProdDependenciesFromTree", () => {
+  it("collects the npm ls production dependency tree without dropping nested versions", () => {
+    expect(
+      collectProdDependenciesFromTree({
+        dependencies: {
+          alpha: {
+            version: "1.0.0",
+            dependencies: { shared: { version: "2.0.0" } },
+          },
+          beta: {
+            version: "3.0.0",
+            dependencies: { shared: { version: "4.0.0" } },
+          },
+        },
+      }),
+    ).toEqual({
+      alpha: ["1.0.0"],
+      shared: ["2.0.0", "4.0.0"],
+      beta: ["3.0.0"],
+    });
+  });
+});
+
+describe("collectProdDependenciesFromLockfile", () => {
+  it("collects every locked production version and excludes dev-only packages", () => {
+    expect(
+      collectProdDependenciesFromLockfile({
+        packages: {
+          "": { version: "1.0.0" },
+          "node_modules/alpha": { version: "1.0.0" },
+          "node_modules/tooling": { version: "2.0.0", dev: true },
+          "node_modules/alpha/node_modules/shared": { version: "3.0.0" },
+          "node_modules/beta/node_modules/shared": { version: "4.0.0" },
+          "node_modules/@scope/package": { version: "5.0.0" },
+        },
+      }),
+    ).toEqual({
+      alpha: ["1.0.0"],
+      shared: ["3.0.0", "4.0.0"],
+      "@scope/package": ["5.0.0"],
+    });
+  });
+
+  it("fails closed when the lockfile has no packages map", () => {
+    expect(() => collectProdDependenciesFromLockfile({})).toThrow(
+      "package-lock.json has no packages map",
+    );
+  });
+});
 
 const LODASH_HIGH: BulkAdvisory = {
   severity: "high",

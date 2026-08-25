@@ -38,18 +38,19 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
 model User {
-  id                           String    @id @default(cuid())
+  id                           String         @id @default(cuid())
   name                         String?
-  email                        String    @unique
+  email                        String         @unique
   emailVerified                DateTime?
   image                        String?
   phone                        String?
   password                     String?
-  role                         Role      @default(USER)
+  role                         Role           @default(USER)
   /// RA-1255: timestamp of ToS + Privacy Policy acceptance.
   /// Required for AU consumer law compliance. Null for legacy users
   /// (back-filled lazily via a "re-accept" prompt if ever needed).
@@ -79,13 +80,13 @@ model User {
   /// `canPerformTransition` hard-blocks from any Progress transition
   /// beyond evidence capture. Defaults false so existing users are not
   /// regressed. Admin UI to flip this is tracked as a follow-up.
-  isJuniorTechnician           Boolean   @default(false)
+  isJuniorTechnician           Boolean        @default(false)
   /// RA-400: experience-level adaptive UI. APPRENTICE => Simple nav,
   /// EXPERIENCED => Advanced nav. Defaults APPRENTICE so new accounts
   /// land in Simple mode (existing rows keep their stored value).
   experienceMode               ExperienceMode @default(APPRENTICE)
-  createdAt                    DateTime  @default(now())
-  updatedAt                    DateTime  @updatedAt
+  createdAt                    DateTime       @default(now())
+  updatedAt                    DateTime       @updatedAt
 
   // Organisation & team hierarchy
   organizationId String?
@@ -163,6 +164,9 @@ model User {
   // so middleware redirects them to /onboarding/account-type until the
   // required business fields are captured.
   needsOnboarding Boolean @default(false)
+  // Persisted OAuth-invite boundary. Only successful invite acceptance clears
+  // this state; event hooks must not infer it from mutable invite rows.
+  pendingInviteIdentity Boolean @default(false)
 
   accounts             Account[]
   sessions             Session[]
@@ -283,7 +287,7 @@ model User {
   // activeBusinessProfileId is a soft reference to BusinessProfile.id (no FK
   // constraint on prod), so it stays a plain scalar with no @relation.
   activeBusinessProfileId String?
-  inspectionLayout        InspectionLayout @default(ROOM_FIRST)
+  inspectionLayout        InspectionLayout      @default(ROOM_FIRST)
   equipmentDeployments    EquipmentDeployment[]
   mobileInspections       MobileInspection[]
   moistureMeters          MoistureMeter[]
@@ -379,10 +383,10 @@ model Client {
   // Pulse kill switch (Inspection.pulseEnabled). Additive + defaulted.
   pulseOptOut Boolean @default(false)
 
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  userId        String
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // RA-413: workspace scoping
   workspaceId String?
@@ -972,14 +976,14 @@ model Organization {
   setupCompletedAt DateTime?
 
   // SP-6 v1: Resend-only email BYOK (platform RESEND_API_KEY is fallback)
-  emailProvider               String? // "RESEND" when connected
-  emailProviderEncryptedKey   String?
-  emailFromAddress            String?
+  emailProvider             String? // "RESEND" when connected
+  emailProviderEncryptedKey String?
+  emailFromAddress          String?
 
   // RA-6952 (Pulse P0): the firm's Google review link. Null = review-ask
   // notification suppressed (NO_URL) rather than sent with a broken/missing link.
   googleReviewUrl String?
-  setupMode        SetupMode     @default(AI)
+  setupMode       SetupMode @default(AI)
 
   // Relations to new models
   hydrationJobs HydrationJob[]
@@ -993,6 +997,7 @@ model Organization {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
   @@index([ownerId])
 }
 
@@ -1011,14 +1016,73 @@ model UserInvite {
   createdById String
   createdBy   User   @relation("InvitesCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
 
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
+  expiresAt             DateTime
+  usedAt                DateTime?
+  // Durable acceptance receipt. Allows a retry after a committed response was
+  // lost to distinguish success from an unrelated consumed token.
+  acceptedUserId        String?
+  acceptanceProvider    String?
+  acceptancePayloadHash String?
+  createdAt             DateTime  @default(now())
 
   @@index([email])
   @@index([organizationId])
   @@index([createdById])
   @@index([managedById])
+  @@index([acceptedUserId])
+}
+
+/// Durable ownership of an outbound message identity. PENDING/AMBIGUOUS rows
+/// deliberately block automatic resend until reconciled by an operator/job.
+model OutboundEmailDelivery {
+  id                 String    @id @default(cuid())
+  idempotencyKey     String    @unique
+  kind               String
+  recipient          String
+  status             String
+  provider           String?
+  providerMessageId  String?
+  payloadHash        String
+  attemptCount       Int       @default(0)
+  leaseOwner         String?
+  leaseExpiresAt     DateTime?
+  lastError          String?
+  resolvedAt         DateTime?
+  resolutionEvidence String?
+  resolvedBy         String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([kind, status])
+  @@index([recipient])
+}
+
+/// Durable compensation queue for uploaded PII that could not be attached.
+model MediaCleanupTask {
+  id           String   @id @default(cuid())
+  publicId     String   @unique
+  reason       String
+  status       String   @default("PENDING")
+  attemptCount Int      @default(0)
+  lastError    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
+
+/// One-time server-issued challenge for native Apple/Google ID-token exchange.
+/// The plaintext nonce is returned once; only its SHA-256 digest is persisted.
+/// Service-only: browser database roles receive no policy.
+model NativeAuthNonce {
+  id        String    @id @default(cuid())
+  nonceHash String    @unique
+  provider  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([provider, expiresAt])
 }
 
 enum ClientStatus {
@@ -1187,6 +1251,7 @@ model CostItem {
 
   // Back-reference: line items that were sourced from or promoted to this catalog entry
   estimateLineItems EstimateLineItem[]
+
   @@index([libraryId])
 }
 
@@ -1348,9 +1413,9 @@ model XeroSyncStatus {
   entityType   String
   entityId     String
   userId       String
-  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   state        String
-  attemptCount Int     @default(0)
+  attemptCount Int    @default(0)
 
   lastAttemptAt DateTime?
   lastError     String?   @db.Text
@@ -1414,6 +1479,7 @@ model Scope {
   userId    String
 
   estimate Estimate?
+
   @@index([userId])
 }
 
@@ -1950,10 +2016,21 @@ model AssessmentGeneration {
   generatedById String?
   generatedBy   User?    @relation("UserAssessmentGenerations", fields: [generatedById], references: [id], onDelete: SetNull)
 
+  // The exact JSON response delivered by the generation route.  Pilot review
+  // receipts hash this value so an adjuster/judge cannot be attached to a
+  // different generation after the fact.
+  pilotArtefactPayload     Json?
+  pilotBudgetReservationId String?
+  pilotBudgetReservation   PilotBudgetReservation? @relation(fields: [pilotBudgetReservationId], references: [id], onDelete: SetNull)
+  pilotJudgeReceipts       PilotJudgeReceipt[]
+  pilotAdjusterReceipts    PilotAdjusterReceipt[]
+  pilotGenerationReceipt   PilotGenerationReceipt?
+
   @@index([inspectionId, generatedAt])
   @@index([assessmentType, generatedAt])
   @@index([workspaceId])
   @@index([generatedById])
+  @@index([pilotBudgetReservationId])
 }
 
 model Inspection {
@@ -1962,7 +2039,7 @@ model Inspection {
   report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
   // Homeowner self-capture tokens scoped to this inspection's sketch (spec §2).
-  captureTokens CaptureToken[]
+  captureTokens             CaptureToken[]
   // Client-portal evidence submissions (quarantined until staff promote).
   clientEvidenceSubmissions ClientEvidenceSubmission[]
 
@@ -1992,9 +2069,9 @@ model Inspection {
   // edited then committed). `closePackageStorageKey` is populated by the
   // SP-E `exportClosedJobToBYOKStorage` fire-and-forget hook with the
   // Supabase key of the close-package ZIP (`closures/<orgId>/<id>/...`).
-  closeSummary           String?   @db.Text
-  completedAt            DateTime?
-  closePackageStorageKey String?
+  closeSummary              String?   @db.Text
+  completedAt               DateTime?
+  closePackageStorageKey    String?
   // SP-J handover columns. `handoverCompletedAt` is the UTC timestamp the
   // tradie pressed "Hand over to client" on a CLOSED inspection.
   // `handoverPackageStorageKey` is the Supabase key of the handover ZIP
@@ -2011,8 +2088,8 @@ model Inspection {
   // "MANUAL" (the DB default). `acceptedAt` is set when the tradie taps
   // "Accept & Start" on the dashboard inbound-job alert. Until then,
   // a DR/NRPG-sourced inspection sits in the alert banner waiting for triage.
-  source      String?   @default("MANUAL")
-  acceptedAt  DateTime?
+  source     String?   @default("MANUAL")
+  acceptedAt DateTime?
 
   // RA-6949 (epic RA-6948, Restoration Pulse) — per-job kill switch for the
   // client notification dispatcher. Default OFF for safe pilot rollout: no
@@ -2045,16 +2122,16 @@ model Inspection {
 
   // RA-1383 (Board M-7 item 4): EnvironmentalData is now a time-series — one
   // reading per 24h per chamber. Back-relation flipped to one-to-many.
-  environmentalData EnvironmentalData[]
-  moistureReadings  MoistureReading[]
-  affectedAreas     AffectedArea[]
-  scopeItems        ScopeItem[]
-  classifications   Classification[]
-  costEstimates     CostEstimate[]
-  auditLogs         AuditLog[]
-  photos            InspectionPhoto[]
-  usageEvents       UsageEvent[]        @relation("usageEvents")
-  clientMutations   ClientMutation[]
+  environmentalData  EnvironmentalData[]
+  moistureReadings   MoistureReading[]
+  affectedAreas      AffectedArea[]
+  scopeItems         ScopeItem[]
+  classifications    Classification[]
+  costEstimates      CostEstimate[]
+  auditLogs          AuditLog[]
+  photos             InspectionPhoto[]
+  usageEvents        UsageEvent[]        @relation("usageEvents")
+  clientMutations    ClientMutation[]
   fieldCaptureEvents FieldCaptureEvent[]
 
   // RA-1717 — Unified assessment-generation artefacts.
@@ -2064,11 +2141,11 @@ model Inspection {
   totalUsageCost Float @default(0) // Cached total cost for this inspection
 
   // AI Assistant Tier (Phase 3 - LiDAR)
-  lidarScans LidarScan[]
+  lidarScans              LidarScan[]
   roomPlanCaptureReceipts RoomPlanCaptureReceipt[]
 
   // AI Assistant Tier (Phase 4 - Voice AI)
-  voiceNotes VoiceNote[]
+  voiceNotes           VoiceNote[]
   voiceCopilotSessions VoiceCopilotSession[] @relation("InspectionVoiceCopilotSessions")
 
   // AI Assistant Tier (Phase 5 - Property Data Integration)
@@ -2229,12 +2306,12 @@ model WHSIncident {
   // Taxonomy: WHS Act 2011 incident classifications.
   incidentTypeEnum  WHSIncidentType?
   severity          String // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
-  status            String   @default("OPEN") // "OPEN" | "UNDER_REVIEW" | "CLOSED" | "REQUIRES_ESCALATION"
+  status            String           @default("OPEN") // "OPEN" | "UNDER_REVIEW" | "CLOSED" | "REQUIRES_ESCALATION"
   incidentDate      DateTime
   location          String?
   injuredParty      String?
-  injuryDescription String?  @db.Text
-  description       String?  @db.Text
+  injuryDescription String?          @db.Text
+  description       String?          @db.Text
 
   correctiveActions WHSCorrectiveAction[]
 
@@ -2762,9 +2839,9 @@ model StormDamageAssessment {
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
 
   bomEventReference String?
-  windSpeedKmh     Float?
-  eventType        StormEventType?
-  eventTimestamp   DateTime?       @db.Timestamptz
+  windSpeedKmh      Float?
+  eventType         StormEventType?
+  eventTimestamp    DateTime?       @db.Timestamptz
 
   roofMaterialType   RoofMaterialType?
   roofDamageAreaM2   Float?
@@ -2878,9 +2955,9 @@ model AustralianComplianceRecord {
   state             AustralianState?
   propertyYearBuilt Int?
 
-  asbestosRiskAcknowledged Boolean @default(false)
+  asbestosRiskAcknowledged Boolean  @default(false)
   friableAssessment        String?
-  workHalted               Boolean @default(false)
+  workHalted               Boolean  @default(false)
   licensedAssessorName     String?
   licensedAssessorLicense  String?
   removalQuoteAud          Decimal? @db.Decimal(10, 2)
@@ -2901,12 +2978,12 @@ model AffectedArea {
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
 
   // Area Identification
-  roomZoneId String // Room/Zone identifier
+  roomZoneId            String // Room/Zone identifier
   /// @deprecated use affectedAreaSqm (m²) — RA-7001; drop in a follow-up once verified.
   /// Stored in sq ft. Retained for the internal IICRC scoring engine + un-backfilled legacy rows.
   affectedSquareFootage Float // Square footage affected (sq ft) — DEPRECATED, superseded by affectedAreaSqm
   /// Canonical affected area in m² (RA-7001). 1 sq ft = 0.09290304 m². Nullable until fully backfilled.
-  affectedAreaSqm Float?
+  affectedAreaSqm       Float?
 
   // Water Source & Timing
   waterSource   String // clean water, grey water, black water
@@ -3360,18 +3437,17 @@ model InspectionPhoto {
   mobileLocalId String?
   metadata      Json?   @default("{}")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  // --- Chain-of-custody (rule 21, sub-project #7 T4) ---
+  cocoaSha256        String? // SHA-256 of file bytes
+  cocoaCapturedAtUtc DateTime? // UTC timestamp at capture moment
+  cocoaUserHash      String? // server-computed SHA-256(user.id + ":" + user.image)
+  cocoaDeviceHint    String? // first 200 chars of user-agent string
 
   @@index([inspectionId])
   @@index([timestamp])
   @@index([inspectionId, timestamp]) // photo gallery: WHERE inspectionId=? ORDER BY timestamp DESC
-  // --- Chain-of-custody (rule 21, sub-project #7 T4) ---
-  cocoaSha256        String?   // SHA-256 of file bytes
-  cocoaCapturedAtUtc DateTime? // UTC timestamp at capture moment
-  cocoaUserHash      String?   // server-computed SHA-256(user.id + ":" + user.image)
-  cocoaDeviceHint    String?   // first 200 chars of user-agent string
-
   @@index([roomType]) // RA-448 evidence screen filter
   @@index([damageCategory]) // RA-448 evidence screen filter
   @@index([photoStage]) // RA-448 evidence screen filter
@@ -3449,8 +3525,8 @@ model EmailConnection {
   userId       String   @unique
   provider     String // "google" or "microsoft"
   email        String
-  accessToken  String   @db.Text
-  refreshToken String   @db.Text
+  accessToken  String   @db.Text // AES-256-GCM ciphertext; use lib/email/email-connection-tokens.ts
+  refreshToken String   @db.Text // AES-256-GCM ciphertext; plaintext reads fail closed
   expiresAt    DateTime
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -4219,13 +4295,13 @@ model VoiceCopilotSession {
   user         User       @relation("UserVoiceCopilotSessions", fields: [userId], references: [id], onDelete: Cascade)
 
   mode         String
-  state        String     @default("idle")
+  state        String    @default("idle")
   missingItems Json?
-  startedAt    DateTime   @default(now())
+  startedAt    DateTime  @default(now())
   endedAt      DateTime?
   expiresAt    DateTime
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   observations VoiceCopilotObservation[]
 
@@ -5380,9 +5456,11 @@ model SupportTicket {
 // RA-6936: a reply emailed to the ticket requester — closes the
 // write-only-inbox gap. Additive only.
 model SupportTicketReply {
-  id       String        @id @default(cuid())
-  ticketId String
-  ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  id           String        @id @default(cuid())
+  deliveryKey  String        @unique
+  ticketStatus String
+  ticketId     String
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   // The reply text as emailed (plain text; typically the accepted AI draft).
   body String @db.Text
@@ -5745,9 +5823,9 @@ enum RestoreMode {
 /// Re-hydrate primary storage (Supabase) from the org's Google Drive.
 /// One row per file being restored, sourced from a COMPLETED StorageMirrorJob.
 model StorageRestoreJob {
-  id           String           @id @default(cuid())
+  id           String       @id @default(cuid())
   orgId        String
-  organization Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // The COMPLETED mirror job we are reversing. driveFileId/sourceStoragePath are
   // copied onto this row at enqueue time so a restore is self-contained even if
@@ -5757,12 +5835,12 @@ model StorageRestoreJob {
   mode              RestoreMode      @default(MISSING)
   status            RestoreJobStatus @default(PENDING)
 
-  sourceStoragePath String        // exact path in BUCKET_ORIGINALS to write back to
+  sourceStoragePath String // exact path in BUCKET_ORIGINALS to write back to
   filename          String
   mimeType          String
-  driveFileId       String        // copied from the mirror job
-  inspectionId      String?       // for audit-log linkage when resolvable
-  initiatedByUserId String?       // who started the restore (for the audit row)
+  driveFileId       String // copied from the mirror job
+  inspectionId      String? // for audit-log linkage when resolvable
+  initiatedByUserId String? // who started the restore (for the audit row)
 
   // Integrity / result
   expectedSha256 String?
@@ -5808,29 +5886,34 @@ model Workspace {
   slug String @unique // URL-safe identifier e.g. "acme-restoration"
 
   // Ownership & billing
-  ownerId              String
-  owner                User            @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  status               WorkspaceStatus @default(PROVISIONING)
+  ownerId                String
+  owner                  User            @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  status                 WorkspaceStatus @default(PROVISIONING)
   // Cutover onboarding (G1): tenant-DB lifecycle. "none" = uses the shared DB
   // exactly as today; "ready" gates first-claim onto the workspace's own DB.
-  // Values: none | provisioning | ready | error (lib/tenant/onboarding-helpers).
-  tenantDbStatus       String          @default("none")
+  // Values: none | provisioning | ready | error | credential_error. The final
+  // value quarantines ciphertext that cannot authenticate under the vault key.
+  tenantDbStatus         String          @default("none")
   // The tenant DB connection string, AES-256-GCM encrypted (credential-vault).
   // Server-side only; never sent to the client. Null until connected.
-  tenantDbConnectionEnc String?        @db.Text
+  tenantDbConnectionEnc  String?         @db.Text
   // Resumable phase marker for the provisioning worker (RA-6873). Null on a clean
   // workspace or once `ready`. When a provisioning attempt lands in `error`, the
   // worker records the phase it failed at (validate|test|migrate|store|ready) so
   // the next run resumes from there instead of restarting. Persisted because
   // tenantDbStatus alone cannot carry the failed phase. Cleared on success.
   tenantDbProvisionPhase String?
-  stripeCustomerId     String?         @unique
-  stripeSubscriptionId String?         @unique
+  stripeCustomerId       String?         @unique
+  stripeSubscriptionId   String?         @unique
 
   // RA-1707 / P0-2 — Anthropic + AI org-spend cap. Daily ceiling in USD.
   // Null falls back to AI_DEFAULT_DAILY_BUDGET_USD env (defaults to 50).
   // checkWorkspaceBudget() in lib/ai/budget-guard.ts reads this.
   aiDailyBudgetUsd Float?
+
+  // Deliberately opt-in. A production workspace can never become a canary
+  // sandbox merely because of its name, host, or an environment variable.
+  pilotSandboxEnabled Boolean @default(false)
 
   // RA-2967 — When true, the inspection detail page auto-fetches the floor plan
   // underlay the first time a tech opens an inspection that has a propertyAddress.
@@ -5851,8 +5934,12 @@ model Workspace {
   formTemplates FormTemplate[] @relation("FormTemplateWorkspace")
 
   // RA-414: AI provider connections and usage logs
-  providerConnections ProviderConnection[] @relation("WorkspaceProviderConnections")
-  aiUsageLogs         AiUsageLog[]         @relation("WorkspaceAiUsageLogs")
+  providerConnections     ProviderConnection[]     @relation("WorkspaceProviderConnections")
+  aiUsageLogs             AiUsageLog[]             @relation("WorkspaceAiUsageLogs")
+  pilotBudgetReservations PilotBudgetReservation[]
+  pilotJudgeReceipts      PilotJudgeReceipt[]
+  pilotAdjusterReceipts   PilotAdjusterReceipt[]
+  pilotGenerationReceipts PilotGenerationReceipt[]
 
   // RA-6922: BYOK monetisation add-on entitlements
   featureEntitlements FeatureEntitlement[] @relation("WorkspaceFeatureEntitlements")
@@ -5875,6 +5962,171 @@ model Workspace {
   @@index([ownerId])
   @@index([slug])
   @@index([status])
+}
+
+/// Server-owned ledger for the pilot harness. Rows reserve the full remaining
+/// run budget under a workspace lock, then release unused capacity when costs
+/// are reconciled. The unique keys make retrying either request idempotent.
+model PilotBudgetReservation {
+  id                    String    @id @default(cuid())
+  workspaceId           String
+  workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  runId                 String
+  companyKey            String
+  jobKey                String
+  idempotencyKey        String
+  ceilingUsd            Float
+  spentAtReservationUsd Float
+  reservedUsd           Float
+  expiresAt             DateTime
+  reconciledAt          DateTime?
+  generationCostUsd     Float?
+  judgeCostUsd          Float?
+  adjusterCostUsd       Float?
+  failedAttemptCostUsd  Float     @default(0)
+  totalActualCostUsd    Float?
+  reconciledSpentUsd    Float?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  assessmentGenerations AssessmentGeneration[]
+  judgeReceipts         PilotJudgeReceipt[]
+  adjusterReceipts      PilotAdjusterReceipt[]
+  generationReceipts    PilotGenerationReceipt[]
+
+  @@unique([workspaceId, idempotencyKey])
+  @@unique([workspaceId, runId, companyKey, jobKey])
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, reconciledAt])
+}
+
+/// Exactly-once spend authority for a pilot assessment generation. The hold is
+/// created before any plug-in/provider work and replaced by its observed cost
+/// only when the persisted response is atomically bound to this receipt.
+model PilotGenerationReceipt {
+  id                     String                 @id @default(cuid())
+  workspaceId            String
+  workspace              Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  reservationId          String
+  reservation            PilotBudgetReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  inspectionId           String
+  assessmentType         String
+  inputSha256            String
+  idempotencyKey         String
+  status                 String                 @default("PENDING")
+  leaseExpiresAt         DateTime?
+  recoveryRequiredAt     DateTime?
+  authorisedMaxCostUsd   Float
+  costUsd                Float                  @default(0)
+  assessmentGenerationId String?                @unique
+  assessmentGeneration   AssessmentGeneration?  @relation(fields: [assessmentGenerationId], references: [id], onDelete: SetNull)
+  response               Json?
+  errorMessage           String?
+  resolutionOutcome      String?
+  resolutionEvidence     String?
+  resolvedById           String?
+  resolvedAt             DateTime?
+  terminalAt             DateTime?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+
+  @@unique([workspaceId, idempotencyKey])
+  @@unique([workspaceId, reservationId, inspectionId, assessmentType, inputSha256])
+  @@index([reservationId, status])
+  @@index([workspaceId, createdAt])
+}
+
+/// Immutable two-person approval ledger for resolving an ambiguous provider
+/// attempt as confirmed not charged. Each approver must independently retain
+/// the same provider evidence; the unique key prevents self/double approval.
+model PilotNoChargeApproval {
+  id                String   @id @default(cuid())
+  workspaceId       String
+  receiptKind       String
+  receiptId         String
+  evidenceReference String
+  approvedById      String
+  createdAt         DateTime @default(now())
+
+  @@unique([receiptKind, receiptId, approvedById])
+  @@index([workspaceId, receiptKind, receiptId])
+}
+
+/// Server-owned idempotency ledger for the pilot judge endpoint. A receipt is
+/// keyed by workspace + Idempotency-Key and bound to the reservation,
+/// generation, inspection, and exact persisted assessment hash so lost-response
+/// retries replay the original provider result without a second provider call.
+model PilotJudgeReceipt {
+  id                     String                 @id @default(cuid())
+  workspaceId            String
+  workspace              Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  reservationId          String
+  reservation            PilotBudgetReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  inspectionId           String
+  assessmentGenerationId String
+  assessmentGeneration   AssessmentGeneration   @relation(fields: [assessmentGenerationId], references: [id], onDelete: Cascade)
+  assessmentSha256       String
+  idempotencyKey         String
+  status                 String                 @default("PENDING")
+  leaseExpiresAt         DateTime?
+  recoveryRequiredAt     DateTime?
+  terminalAt             DateTime?
+  receipt                Json?
+  authorisedMaxCostUsd   Float
+  costUsd                Float                  @default(0)
+  errorStatus            Int?
+  errorMessage           String?
+  resolutionOutcome      String?
+  resolutionEvidence     String?
+  resolvedById           String?
+  resolvedAt             DateTime?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+
+  @@unique([workspaceId, idempotencyKey])
+  @@unique([assessmentGenerationId])
+  @@index([reservationId, status])
+  @@index([workspaceId, createdAt])
+}
+
+/// Durable exactly-once ledger for pilot adjuster calls. A lost response
+/// replays the terminal result instead of starting a second provider request.
+model PilotAdjusterReceipt {
+  id                     String                 @id @default(cuid())
+  workspaceId            String
+  workspace              Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  reservationId          String
+  reservation            PilotBudgetReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  inspectionId           String
+  assessmentGenerationId String                 @unique
+  assessmentGeneration   AssessmentGeneration   @relation(fields: [assessmentGenerationId], references: [id], onDelete: Cascade)
+  assessmentSha256       String
+  status                 String                 @default("PENDING")
+  leaseExpiresAt         DateTime?
+  terminalAt             DateTime?
+  result                 Json?
+  authorisedMaxCostUsd   Float
+  costUsd                Float                  @default(0)
+  errorMessage           String?
+  resolutionOutcome      String?
+  resolutionEvidence     String?
+  resolvedById           String?
+  resolvedAt             DateTime?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+
+  @@index([reservationId, status])
+  @@index([workspaceId, createdAt])
+}
+
+/// A migration-owned, singleton database-instance marker. Deployment checks
+/// hash this value with database/schema so a direct connection and a runtime
+/// pooler prove they terminate at the same physical database instance.
+/// Server/service-role only: RLS is enabled with no client policy.
+model DatabaseInstanceSentinel {
+  singleton  Boolean  @id @default(true)
+  instanceId String   @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt  DateTime @default(now())
 }
 
 // WorkspaceMember — user membership in a workspace
@@ -6254,7 +6506,7 @@ model IicrcChunk {
 
   // RA-7000: provenance tier gates the retrieval split (see ChunkProvenance).
   // Defaults to AUTHORITATIVE_STANDARD so every pre-existing chunk stays citable.
-  provenance ChunkProvenance @default(AUTHORITATIVE_STANDARD)
+  provenance   ChunkProvenance @default(AUTHORITATIVE_STANDARD)
   // RA-7000: source jurisdiction e.g. "AU" | "NZ" | "INTL" | "US". Nullable —
   // legacy rows predate the tag; consumers treat null as unknown jurisdiction.
   jurisdiction String?
@@ -6270,47 +6522,47 @@ model IicrcChunk {
 // ─── V2: Sketch Tool (RA-89) ──────────────────────────────────────────────────
 
 model ClaimSketch {
-  id                 String             @id @default(cuid())
-  inspectionId       String
-  inspection         Inspection         @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  floorNumber        Int                @default(0)
-  floorLabel         String             @default("Ground Floor")
-  sketchType         String             @default("structural")
-  sketchData         Json?
-  backgroundImageUrl String?
+  id                      String                  @id @default(cuid())
+  inspectionId            String
+  inspection              Inspection              @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  floorNumber             Int                     @default(0)
+  floorLabel              String                  @default("Ground Floor")
+  sketchType              String                  @default("structural")
+  sketchData              Json?
+  backgroundImageUrl      String?
   // RA-120 (PR2): rasterised PNG of the floor (underlay + annotations) captured
   // client-side via Fabric canvas.toDataURL and uploaded to sketch-media/exports.
   // The canonical IICRC report embeds this per floor (server can't render Fabric).
-  renderedPngUrl     String?
+  renderedPngUrl          String?
   // RA-120 (PR4): per-floor underlay opacity (0..1). Without this the slider
   // value lived in React state only and reset to the default on every reload.
-  backgroundImageOpacity Float?
+  backgroundImageOpacity  Float?
   // RA-120 (PR4b): per-floor underlay reposition/scale. NULL = the legacy
   // fit-to-width baseline (scale 1, no offset, aspect locked). Applied via
   // lib/sketch/underlay-transform so canvas + report share one transform.
-  backgroundImageScale   Float?
-  backgroundImageOffsetX Float?
-  backgroundImageOffsetY Float?
-  moisturePoints     Json?
-  equipmentPoints    Json?
+  backgroundImageScale    Float?
+  backgroundImageOffsetX  Float?
+  backgroundImageOffsetY  Float?
+  moisturePoints          Json?
+  equipmentPoints         Json?
   // Homeowner self-capture quarantine (D4): unauthenticated submissions land
   // HERE, never in `sketchData`, so they can't feed compliance/scope/PDF until a
   // technician promotes them (Phase 5). Shape: { sketchData, moisturePoints,
   // country, submittedAt, captureTokenId }.
   pendingHomeownerCapture Json?
   // RestoreAssist Mapping V2 (spec §12): canonical model + ANZ context
-  totalFloorAreaM2   Float?
-  country            String             @default("AU") // AU | NZ
-  captureAdapter     String             @default("manual") // manual | roomplan | cloud_ai | underlay_import
-  annotations        SketchAnnotation[]
-  elements           SketchElement[]
-  rooms              SketchRoom[]
-  evidencePins       EvidencePin[]
-  hazards            Hazard[]
-  insuranceContext   InsuranceContext?
-  sketchMoistureReadings SketchMoistureReading[]
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  totalFloorAreaM2        Float?
+  country                 String                  @default("AU") // AU | NZ
+  captureAdapter          String                  @default("manual") // manual | roomplan | cloud_ai | underlay_import
+  annotations             SketchAnnotation[]
+  elements                SketchElement[]
+  rooms                   SketchRoom[]
+  evidencePins            EvidencePin[]
+  hazards                 Hazard[]
+  insuranceContext        InsuranceContext?
+  sketchMoistureReadings  SketchMoistureReading[]
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
 
   @@index([inspectionId])
   @@index([inspectionId, floorNumber])
@@ -6319,27 +6571,27 @@ model ClaimSketch {
 // RoomGraph V1 — derived room nodes. Fabric sketchData remains render SSOT;
 // these rows are the stable Room IDs that photos/moisture/damage/scope join to.
 model SketchRoom {
-  id             String        @id @default(cuid())
-  sketchId       String
-  sketch         ClaimSketch   @relation(fields: [sketchId], references: [id], onDelete: Cascade)
-  fabricObjectId String
-  name           String        @default("Room")
-  areaM2         Float?
-  perimeterM     Float?
-  heightM        Float?
-  floorNumber    Int           @default(0)
-  materialSlug   String?
-  waterCategory  String? // CAT_1 | CAT_2 | CAT_3
-  dryingStatus   String        @default("unknown") // unknown | wet | drying | dry
-  locked         Boolean       @default(false)
-  hidden         Boolean       @default(false)
-  geometryJson   Json?
-  provenance     String        @default("operator_measured")
-  evidencePins   EvidencePin[]
+  id               String                  @id @default(cuid())
+  sketchId         String
+  sketch           ClaimSketch             @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  fabricObjectId   String
+  name             String                  @default("Room")
+  areaM2           Float?
+  perimeterM       Float?
+  heightM          Float?
+  floorNumber      Int                     @default(0)
+  materialSlug     String?
+  waterCategory    String? // CAT_1 | CAT_2 | CAT_3
+  dryingStatus     String                  @default("unknown") // unknown | wet | drying | dry
+  locked           Boolean                 @default(false)
+  hidden           Boolean                 @default(false)
+  geometryJson     Json?
+  provenance       String                  @default("operator_measured")
+  evidencePins     EvidencePin[]
   moistureReadings SketchMoistureReading[]
-  hazards        Hazard[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  hazards          Hazard[]
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
 
   @@unique([sketchId, fabricObjectId])
   @@index([sketchId])
@@ -6373,32 +6625,32 @@ model RoomPlanCaptureReceipt {
 
 // Evidence pins on the floor plan — photos/videos/docs/voice at canvas coords.
 model EvidencePin {
-  id                 String           @id @default(cuid())
-  sketchId           String
-  sketch             ClaimSketch      @relation(fields: [sketchId], references: [id], onDelete: Cascade)
-  sketchRoomId       String?
-  sketchRoom         SketchRoom?      @relation(fields: [sketchRoomId], references: [id], onDelete: SetNull)
-  inspectionPhotoId  String?
-  kind               String           @default("photo") // photo | video | document | voice
+  id                String      @id @default(cuid())
+  sketchId          String
+  sketch            ClaimSketch @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  sketchRoomId      String?
+  sketchRoom        SketchRoom? @relation(fields: [sketchRoomId], references: [id], onDelete: SetNull)
+  inspectionPhotoId String?
+  kind              String      @default("photo") // photo | video | document | voice
   // Absolute canvas px (legacy render) + normalized 0..1 (stable under zoom/pan).
-  x                  Float
-  y                  Float
-  nx                 Float?
-  ny                 Float?
-  rotationDeg        Float            @default(0)
-  scale              Float            @default(1)
-  fileUrl            String?
-  thumbnailUrl       String?
-  fileName           String?
-  fileMimeType       String?
-  fileSizeBytes      Int?
-  caption            String?
-  capturedByUserId   String?
-  captureSource      String           @default("web") // web | camera | upload | import
-  offlineQueued      Boolean          @default(false)
-  syncState          String           @default("synced") // pending | synced | failed
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  x                 Float
+  y                 Float
+  nx                Float?
+  ny                Float?
+  rotationDeg       Float       @default(0)
+  scale             Float       @default(1)
+  fileUrl           String?
+  thumbnailUrl      String?
+  fileName          String?
+  fileMimeType      String?
+  fileSizeBytes     Int?
+  caption           String?
+  capturedByUserId  String?
+  captureSource     String      @default("web") // web | camera | upload | import
+  offlineQueued     Boolean     @default(false)
+  syncState         String      @default("synced") // pending | synced | failed
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 
   @@index([sketchId])
   @@index([sketchRoomId])
@@ -6425,19 +6677,19 @@ model SketchAnnotation {
 // compliance, and export. Only `provenance = operator_measured` rows may feed
 // S500 drying/scope calcs and exports (spec §6.4).
 model SketchElement {
-  id           String      @id @default(cuid())
-  sketchId     String
-  sketch       ClaimSketch @relation(fields: [sketchId], references: [id], onDelete: Cascade)
-  type         String // wall | opening | room | fixture | damage
-  geometryJson Json
-  dimensionsM  Json? // { widthM, heightM, lengthM, areaM2 } in metres
-  materialId   String?
-  material     Material?   @relation(fields: [materialId], references: [id])
-  provenance   String      @default("operator_measured") // operator_measured | underlay_reference
-  hazards      Hazard[]
+  id               String                  @id @default(cuid())
+  sketchId         String
+  sketch           ClaimSketch             @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  type             String // wall | opening | room | fixture | damage
+  geometryJson     Json
+  dimensionsM      Json? // { widthM, heightM, lengthM, areaM2 } in metres
+  materialId       String?
+  material         Material?               @relation(fields: [materialId], references: [id])
+  provenance       String                  @default("operator_measured") // operator_measured | underlay_reference
+  hazards          Hazard[]
   moistureReadings SketchMoistureReading[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
 
   @@index([sketchId])
   @@index([sketchId, provenance])
@@ -6486,17 +6738,17 @@ model ClientEvidenceSubmission {
 // ANZ materials library (spec §5.1). Seeded from lib/anz/materials.ts; `slug`
 // matches the AnzMaterial id.
 model Material {
-  id             String   @id @default(cuid())
-  slug           String   @unique
-  name           String
-  region         String[] // AU | NZ
-  dryStandardMc  Float
-  isPotentialAcm Boolean  @default(false)
-  category       String
-  elements       SketchElement[]
+  id               String                  @id @default(cuid())
+  slug             String                  @unique
+  name             String
+  region           String[] // AU | NZ
+  dryStandardMc    Float
+  isPotentialAcm   Boolean                 @default(false)
+  category         String
+  elements         SketchElement[]
   moistureReadings SketchMoistureReading[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
 }
 
 // WHS hazard flags (spec §5.3). Suspected ACM blocks strip-out scope until a
@@ -6671,18 +6923,18 @@ model ScopePricingDatabase {
 // ─── V2: DR-NRPG Integration (RA-27) ─────────────────────────────────────────
 
 model DrNrpgIntegration {
-  id            String          @id @default(cuid())
-  userId        String          @unique
-  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String               @id @default(cuid())
+  userId        String               @unique
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   drNrpgApiKey  String
-  drNrpgBaseUrl String          @default("https://api.dr-nrpg.com.au")
+  drNrpgBaseUrl String               @default("https://api.dr-nrpg.com.au")
   webhookSecret String
-  isActive      Boolean         @default(true)
+  isActive      Boolean              @default(true)
   lastSyncAt    DateTime?
   jobSyncs      DrNrpgJobSync[]
   webhookEvents DrNrpgWebhookEvent[]
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 }
 
 model DrNrpgJobSync {
@@ -6860,7 +7112,7 @@ model HistoricalJob {
   // (m=16, ef_construction=64) also already exists on prod
   embeddingVector Unsupported("vector(1536)")?
   embeddingModel  String?
-  embeddedAt      DateTime?                     @db.Timestamptz
+  embeddedAt      DateTime?                    @db.Timestamptz
 
   @@unique([source, externalId], name: "source_externalId")
   @@index([tenantId])
@@ -6917,24 +7169,24 @@ model InvoiceSyncJob {
 // AS/NZS 4849.1, AS/NZS 4360, NZBS E2/E3), tool calls, and user overrides.
 
 model LiveTeacherSession {
-  id                String             @id @default(cuid())
-  inspectionId      String
-  inspection        Inspection         @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  userId            String
-  startedAt         DateTime           @default(now())
-  endedAt           DateTime?
-  modelUsedLocal    String? // "gemma-3n-4b"
-  modelUsedCloud    String? // "claude-opus-4-7"
-  totalInputTokens  Int                @default(0)
-  totalOutputTokens Int                @default(0)
-  totalCostAudCents Int                @default(0)
-  jurisdiction      String // "AU" | "NZ"
-  deviceOs          String // "ios" | "android" | "web"
-  hadLidar          Boolean            @default(false)
-  startCompletionPct Int?              // RA-7052
-  finalCompletionPct Int?              // RA-7052
-  utterances        TeacherUtterance[]
-  toolCalls         TeacherToolCall[]
+  id                 String             @id @default(cuid())
+  inspectionId       String
+  inspection         Inspection         @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  userId             String
+  startedAt          DateTime           @default(now())
+  endedAt            DateTime?
+  modelUsedLocal     String? // "gemma-3n-4b"
+  modelUsedCloud     String? // "claude-opus-4-7"
+  totalInputTokens   Int                @default(0)
+  totalOutputTokens  Int                @default(0)
+  totalCostAudCents  Int                @default(0)
+  jurisdiction       String // "AU" | "NZ"
+  deviceOs           String // "ios" | "android" | "web"
+  hadLidar           Boolean            @default(false)
+  startCompletionPct Int? // RA-7052
+  finalCompletionPct Int? // RA-7052
+  utterances         TeacherUtterance[]
+  toolCalls          TeacherToolCall[]
 
   @@index([inspectionId])
   @@index([userId, startedAt])
@@ -6975,7 +7227,7 @@ model TeacherToolCall {
 }
 
 model StandardsChunk {
-  id           String @id @default(cuid())
+  id           String          @id @default(cuid())
   standard     String // "IICRC_S500" | "AS_NZS_4849_1" | "AS_NZS_4360" | "NZBS_E2" | "NZBS_E3"
   edition      String
   clause       String
@@ -7353,13 +7605,13 @@ model Authorisation {
   userId       String // verifying party (admin/manager who ran the check)
 
   // Subject of verification
-  subjectUserId        String? // internal user being engaged
-  subjectContractorId  String? // external contractor
-  subjectCompanyName   String
-  subjectAbn           String?
-  subjectLicenceNumber String?
-  subjectLicenceState  String? // QLD | NSW | VIC | WA | SA | NT | TAS | ACT
-  subjectLicenceClass  String? // e.g. "QBCC Completed Builder" or "Restoration"
+  subjectUserId           String? // internal user being engaged
+  subjectContractorId     String? // external contractor
+  subjectCompanyName      String
+  subjectAbn              String?
+  subjectLicenceNumber    String?
+  subjectLicenceState     String? // QLD | NSW | VIC | WA | SA | NT | TAS | ACT
+  subjectLicenceClass     String? // e.g. "QBCC Completed Builder" or "Restoration"
   // P1 #19 step 1 of 2 (CLAUDE.md rule #16): additive enum column.
   // Nullable for legacy rows; future PR backfills + drops the free-text column.
   // Taxonomy: standard AU state-licence classes.
@@ -7661,10 +7913,10 @@ model OrganizationPricingConfig {
 // the client side, the rows exist only at the DB layer.
 
 model PromptVariant {
-  id               String  @id @default(dbgenerated("gen_random_uuid()"))
+  id               String   @id @default(dbgenerated("gen_random_uuid()"))
   claimType        String
   promptText       String
-  version          Int     @default(1)
+  version          Int      @default(1)
   parentVariantId  String?
   compositeScore   Float?
   structuralScore  Float?
@@ -7672,13 +7924,13 @@ model PromptVariant {
   equipmentScore   Float?
   specificityScore Float?
   categoryScore    Float?
-  isProduction     Boolean @default(false)
+  isProduction     Boolean  @default(false)
   description      String?
   createdAt        DateTime @default(now())
 
-  parent          PromptVariant?  @relation("PromptVariantParent", fields: [parentVariantId], references: [id])
-  children        PromptVariant[] @relation("PromptVariantParent")
-  evaluationRuns  EvaluationRun[]
+  parent         PromptVariant?  @relation("PromptVariantParent", fields: [parentVariantId], references: [id])
+  children       PromptVariant[] @relation("PromptVariantParent")
+  evaluationRuns EvaluationRun[]
 
   @@index([claimType, isProduction])
   @@index([claimType, compositeScore])
@@ -7686,7 +7938,7 @@ model PromptVariant {
 }
 
 model EvaluationRun {
-  id               String  @id @default(dbgenerated("gen_random_uuid()"))
+  id               String   @id @default(dbgenerated("gen_random_uuid()"))
   promptVariantId  String?
   testCaseId       String
   generatedScope   String

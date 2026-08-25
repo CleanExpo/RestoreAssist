@@ -20,16 +20,8 @@ import { apiError, fromException } from "@/lib/api-errors";
 
 /** Whitelisted boolean settings. Add new keys here as they ship. */
 const SETTING_KEYS = [] as const;
-type SettingKey = (typeof SETTING_KEYS)[number];
 
 type WorkspaceSettings = Record<string, never>;
-
-function isSettingKey(value: unknown): value is SettingKey {
-  return (
-    typeof value === "string" &&
-    (SETTING_KEYS as readonly string[]).includes(value as SettingKey)
-  );
-}
 
 export async function GET(_req: NextRequest) {
   try {
@@ -118,25 +110,8 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const updates: Partial<Record<SettingKey, boolean>> = {};
-    for (const [key, value] of Object.entries(body)) {
-      if (!isSettingKey(key)) {
-        return NextResponse.json(
-          { error: `Unknown setting key: ${key}`, allowed: SETTING_KEYS },
-          { status: 400 },
-        );
-      }
-      if (typeof value !== "boolean") {
-        return apiError(req, {
-          code: "VALIDATION",
-          message: `Setting ${key} must be a boolean`,
-          status: 400,
-        });
-      }
-      updates[key] = value;
-    }
-
-    if (Object.keys(updates).length === 0) {
+    const [unknownKey] = Object.keys(body);
+    if (!unknownKey) {
       return apiError(req, {
         code: "VALIDATION",
         message: "No settings to update",
@@ -144,17 +119,10 @@ export async function PATCH(req: NextRequest) {
       });
     }
 
-    // Unreachable until SETTING_KEYS is non-empty again — kept for structure.
-    await prisma.workspace.update({
-      where: { id: workspace.id },
-      data: updates,
-      select: { id: true },
-    });
-
-    return NextResponse.json({
-      workspaceId: workspace.id,
-      settings: {} satisfies WorkspaceSettings,
-    });
+    return NextResponse.json(
+      { error: `Unknown setting key: ${unknownKey}`, allowed: SETTING_KEYS },
+      { status: 400 },
+    );
   } catch (error) {
     return fromException(req, error, { stage: "settings-patch" });
   }

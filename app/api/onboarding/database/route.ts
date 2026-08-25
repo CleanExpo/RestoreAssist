@@ -4,7 +4,11 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { validateCsrf } from "@/lib/csrf";
 import { encrypt } from "@/lib/credential-vault";
-import { validateConnectionString } from "@/lib/tenant/onboarding-helpers";
+import {
+  hostFromConnectionString,
+  isAllowlistedTenantDatabaseHost,
+  validateConnectionString,
+} from "@/lib/tenant/onboarding-helpers";
 import { apiError, fromException } from "@/lib/api-errors";
 
 /**
@@ -29,6 +33,14 @@ export async function POST(request: NextRequest) {
       code: "UNAUTHORIZED",
       message: "Unauthorized",
       status: 401,
+    });
+  }
+
+  if (process.env.TENANT_DATABASE_PROVISIONING_ENABLED !== "true") {
+    return apiError(request, {
+      code: "FEATURE_UNAVAILABLE",
+      message: "Tenant database provisioning is not enabled in this environment.",
+      status: 503,
     });
   }
 
@@ -70,6 +82,17 @@ export async function POST(request: NextRequest) {
       status: 400,
     });
   }
+  if (
+    !isAllowlistedTenantDatabaseHost(
+      hostFromConnectionString(connectionString) ?? "",
+    )
+  ) {
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "That database host is not approved for tenant provisioning.",
+      status: 400,
+    });
+  }
 
   try {
     await prisma.workspace.update({
@@ -77,6 +100,10 @@ export async function POST(request: NextRequest) {
       data: {
         tenantDbConnectionEnc: encrypt(connectionString),
         tenantDbStatus: "provisioning",
+        // A newly submitted target must never inherit the resumable phase from
+        // an older connection. In particular, a stale `ready` marker would
+        // skip validation, connectivity and migration for the replacement DB.
+        tenantDbProvisionPhase: null,
       } as never,
     });
     return NextResponse.json(

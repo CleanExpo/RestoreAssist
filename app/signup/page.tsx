@@ -30,10 +30,6 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [accountType, setAccountType] = useState<"admin" | "technician">(
-    "admin",
-  );
-  const [inviteToken, setInviteToken] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -60,17 +56,6 @@ export default function SignupPage() {
       return () => clearTimeout(timer);
     }
   }, [shouldRedirect]);
-
-  // Support invite links: /signup?invite=TOKEN
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("invite");
-    if (token) {
-      setAccountType("technician");
-      setInviteToken(token);
-    }
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,9 +96,6 @@ export default function SignupPage() {
           name,
           email,
           password,
-          signupType: accountType,
-          inviteToken:
-            accountType === "technician" ? inviteToken.trim() : undefined,
           acceptedTerms: true, // server re-validates and stamps timestamp
         }),
       });
@@ -364,38 +346,6 @@ export default function SignupPage() {
           className="bg-white border border-slate-200/90 rounded-2xl p-8 shadow-[0_1px_3px_rgba(15,23,42,0.04)]"
         >
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Account Type */}
-            {/* <div>
-              <label className="block text-sm font-medium text-[#0B1F3A] mb-2">
-                Account Type
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAccountType("admin")}
-                  className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
-                    accountType === "admin"
-                      ? "border-cyan-500/50 bg-cyan-500/10 text-[#0B1F3A]"
-                      : "border-slate-600/50 bg-slate-700/30 text-slate-300 hover:bg-slate-700/50"
-                  }`}
-                >
-                  Admin / Owner
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAccountType("technician")}
-                  className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
-                    accountType === "technician"
-                      ? "border-cyan-500/50 bg-cyan-500/10 text-[#0B1F3A]"
-                      : "border-slate-600/50 bg-slate-700/30 text-slate-300 hover:bg-slate-700/50"
-                  }`}
-                >
-                  Technician
-                </button>
-              </div>
-
-            </div> */}
-
             {/* Name Field */}
             <div>
               <label

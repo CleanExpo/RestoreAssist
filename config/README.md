@@ -3,8 +3,7 @@
 Run from repo root:
 
 ```bash
-pnpm lint
-pnpm test:unit
-pnpm test:smoke
+npm run lint
+npm run test:unit
+npm run test:smoke
 ```
-

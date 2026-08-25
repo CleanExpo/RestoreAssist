@@ -35,6 +35,7 @@ export type ApiErrorCode =
   | "PAYLOAD_TOO_LARGE"
   | "CONFLICT"
   | "PAYMENT_REQUIRED"
+  | "FEATURE_UNAVAILABLE"
   | "RATE_LIMITED"
   | "UPSTREAM_FAILED"
   | "INTERNAL";

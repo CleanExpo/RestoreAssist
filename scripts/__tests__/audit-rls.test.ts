@@ -18,9 +18,9 @@ describe("audit-rls standalone gate", () => {
   it("checks coverage (RLS-enable + tenant-scoped policy presence)", () => {
     const coverage = result.report.find((l) => l.startsWith("Coverage:"));
     expect(coverage).toBeTruthy();
-    // 119 audited tables, 66 tenant-scoped policies (Session/Account downgraded).
+    // 119 audited tables, 65 tenant-scoped policies after service-only downgrades.
     expect(coverage).toMatch(/119 audited/);
-    expect(coverage).toMatch(/66 policies emitted/);
+    expect(coverage).toMatch(/65 policies emitted/);
   });
 
   it("regression-guards all three 2026-06-16 hardening migrations", () => {

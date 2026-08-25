@@ -24,12 +24,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as OTPAuth from "otpauth";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const mockPrisma = vi.hoisted(() => ({
   user: {
     findUnique: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
   },
+}));
+const mockSecurityAudit = vi.hoisted(() => ({
+  logSecurityEvent: vi.fn().mockResolvedValue(undefined),
+  getAccountLockoutStatus: vi.fn().mockResolvedValue({ locked: false }),
 }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
@@ -45,10 +51,7 @@ vi.mock("next-auth/providers/credentials", () => ({
 vi.mock("@/lib/auth/account-tokens", () => ({
   encryptAccountTokens: (a: unknown) => a,
 }));
-vi.mock("@/lib/security-audit", () => ({
-  logSecurityEvent: vi.fn().mockResolvedValue(undefined),
-  getAccountLockoutStatus: vi.fn().mockResolvedValue({ locked: false }),
-}));
+vi.mock("@/lib/security-audit", () => mockSecurityAudit);
 vi.mock("@/lib/billing/constants", () => ({ TRIAL_DAYS: 14 }));
 
 import { authOptions } from "@/lib/auth";
@@ -101,6 +104,10 @@ describe("RA-6966 — lib/auth.ts authorize() 2FA gate (real two-factor logic)",
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma.user.update.mockResolvedValue({});
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
+    mockSecurityAudit.getAccountLockoutStatus.mockResolvedValue({
+      locked: false,
+    });
   });
 
   it("logs in with a valid TOTP code generated from the real secret", async () => {
@@ -174,8 +181,8 @@ describe("RA-6966 — lib/auth.ts authorize() 2FA gate (real two-factor logic)",
 
     // authorize() must persist the shrunk recovery-code array so the used
     // code can never be replayed.
-    expect(mockPrisma.user.update).toHaveBeenCalledTimes(1);
-    const updateArg = mockPrisma.user.update.mock.calls[0][0] as {
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledTimes(1);
+    const updateArg = mockPrisma.user.updateMany.mock.calls[0][0] as {
       data: { twoFactorRecoveryCodes: string };
     };
     const persisted = JSON.parse(updateArg.data.twoFactorRecoveryCodes);
@@ -196,6 +203,35 @@ describe("RA-6966 — lib/auth.ts authorize() 2FA gate (real two-factor logic)",
     ).rejects.toThrow("2FA_INVALID");
   });
 
+  it("allows only one concurrent claimant for a recovery-code snapshot", async () => {
+    const { plain, hashed } = await generateRecoveryCodes();
+    const snapshot = JSON.stringify(hashed);
+    mockPrisma.user.findUnique.mockResolvedValue(
+      baseUser({ twoFactorRecoveryCodes: snapshot }),
+    );
+    mockPrisma.user.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+
+    const authorize = getAuthorize();
+    const attempts = await Promise.allSettled([
+      authorize({ email: "tech@example.com", password: PASSWORD, totp: plain[0] }),
+      authorize({ email: "tech@example.com", password: PASSWORD, totp: plain[0] }),
+    ]);
+
+    expect(attempts.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const rejected = attempts.find((result) => result.status === "rejected");
+    expect(rejected).toMatchObject({
+      status: "rejected",
+      reason: expect.objectContaining({ message: "2FA_INVALID" }),
+    });
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.user.updateMany.mock.calls[0][0].where).toEqual({
+      id: "u1",
+      twoFactorRecoveryCodes: snapshot,
+    });
+  });
+
   it("does not enforce 2FA at all when twoFactorEnabled is false", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
       baseUser({ twoFactorEnabled: false, twoFactorSecret: null }),
@@ -208,5 +244,53 @@ describe("RA-6966 — lib/auth.ts authorize() 2FA gate (real two-factor logic)",
     });
 
     expect(result).toMatchObject({ id: "u1" });
+  });
+
+  it("uses one canonical identity for mixed-case credential lookup and lockout", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      baseUser({ twoFactorEnabled: false, twoFactorSecret: null }),
+    );
+
+    const result = await getAuthorize()({
+      email: "  TeCh@Example.COM  ",
+      password: PASSWORD,
+    });
+
+    expect(result).toMatchObject({ id: "u1", email: "tech@example.com" });
+    expect(mockSecurityAudit.getAccountLockoutStatus).toHaveBeenCalledWith({
+      email: "tech@example.com",
+    });
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+      where: { email: "tech@example.com" },
+    });
+  });
+
+  it("verifies a Google HMAC against the raw signed email before canonical lookup", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      baseUser({ twoFactorEnabled: false, twoFactorSecret: null }),
+    );
+    const originalSecret = process.env.NEXTAUTH_SECRET;
+    process.env.NEXTAUTH_SECRET = "mixed-case-hmac-test-secret";
+    const submittedEmail = "TeCh@Example.COM";
+    const timestamp = Date.now().toString();
+    const hmac = crypto
+      .createHmac("sha256", process.env.NEXTAUTH_SECRET)
+      .update(`gauth:${submittedEmail}:${timestamp}`)
+      .digest("hex");
+
+    try {
+      const result = await getAuthorize()({
+        email: submittedEmail,
+        password: `gauth:${timestamp}:${hmac}`,
+      });
+
+      expect(result).toMatchObject({ id: "u1" });
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+        where: { email: "tech@example.com" },
+      });
+    } finally {
+      if (originalSecret === undefined) delete process.env.NEXTAUTH_SECRET;
+      else process.env.NEXTAUTH_SECRET = originalSecret;
+    }
   });
 });

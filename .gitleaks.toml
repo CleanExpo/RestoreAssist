@@ -21,6 +21,12 @@ regex = '''(?i)historical-removed-marker-not-a-real-rule'''
 # This rule never fires; serves as documentation. Allowlist below excludes
 # the historical paths.
 
+[[rules]]
+id = "composio-api-key"
+description = "Composio API key"
+regex = '''\bck_[A-Za-z0-9_-]{8,}\b'''
+keywords = ["ck_"]
+
 [allowlist]
 description = "RA-4985 audit allowlist — 2026-05-18"
 
@@ -75,10 +81,6 @@ paths = [
   # Vercel CLI cache — local-only.
   '''(?i)^\.vercel/''',
 
-  # Codex local config — gitignored after RA-4985; allowlisting prevents
-  # the no-git scan from re-flagging the local file Phill keeps.
-  '''(?i)^\.codex/''',
-
   # Playwright test results / report artifacts — local-only.
   '''(?i)^test-results/''',
   '''(?i)^playwright-report/''',
@@ -90,16 +92,10 @@ paths = [
 
 ]
 
-# Specific commits known to contain false-positives or rotated keys.
-# `.codex/config.toml` shipped a real Composio key in #1117 (2026-05-18);
-# RA-4985 P0 sub-action will rotate that key. Once rotated, the historical
-# commits are harmless.
-commits = [
-  # #1117 service-layer-refactor commit that introduced .codex/config.toml.
-  # The key is being rotated per RA-4985 P0; allowlisting prevents the scan
-  # from re-flagging the historical commit content.
-  "1577f7cec36870638a08a3ae2cc8653321c3b15b",
-]
+# Do not allowlist the historical `.codex/config.toml` finding until an
+# independently retained receipt proves the exposed Composio credential was
+# rotated. Deleting the current file cannot revoke a credential already present
+# in public history.
 
 # Specific regex matches — for the ios-release.yml Apple cert pattern that
 # triggers private-key detection. The "private key" content there is

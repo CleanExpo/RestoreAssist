@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { dirname, join } from "path";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
   auditAiCallSite,
   auditAiCallSites,
@@ -363,6 +363,15 @@ describe("classifyAiTask", () => {
       ),
     ).toBe("unknown");
   });
+
+  it("classifies the reservation-accounted pilot judge as compliance report work", () => {
+    expect(
+      classifyAiTask(
+        "lib/pilot-tester/judge.ts",
+        'new Anthropic({ apiKey }).messages.create({ model: "claude-haiku-4-5" })',
+      ),
+    ).toBe("report_drafting");
+  });
 });
 
 describe("AI guardrail gate summary", () => {
@@ -396,6 +405,12 @@ describe("AI guardrail gate summary", () => {
 });
 
 describe("AI task policies", () => {
+  let liveReport: ReturnType<typeof auditAiCallSites>;
+
+  beforeAll(() => {
+    liveReport = auditAiCallSites();
+  }, 30_000);
+
   it("requires cost observability for paid task classes", () => {
     expect(getAiTaskPolicy("report_drafting")).toEqual(
       expect.objectContaining({
@@ -407,8 +422,9 @@ describe("AI task policies", () => {
   });
 
   it("has policies for every non-unknown task class used by the audit", () => {
-    const report = auditAiCallSites();
-    const taskClasses = new Set(report.findings.map((finding) => finding.taskClass));
+    const taskClasses = new Set(
+      liveReport.findings.map((finding) => finding.taskClass),
+    );
     taskClasses.delete("unknown");
 
     for (const taskClass of taskClasses) {
@@ -417,24 +433,19 @@ describe("AI task policies", () => {
   });
 
   it("keeps the live audit gate passing with known task classes", () => {
-    const report = auditAiCallSites();
-
-    expect(report.guardrailSummary.pass).toBe(true);
-    expect(report.guardrailSummary.unknownTaskClassCount).toBe(0);
+    expect(liveReport.guardrailSummary.pass).toBe(true);
+    expect(liveReport.guardrailSummary.unknownTaskClassCount).toBe(0);
   });
 
   it("reports policy-wrapped and sensitive external-provider counts", () => {
-    const report = auditAiCallSites();
-
-    expect(report.guardrailSummary.policyWrappedCount).toBeGreaterThanOrEqual(5);
-    expect(report.guardrailSummary.sensitiveExternalProviderCount).toBeGreaterThan(0);
+    expect(liveReport.guardrailSummary.policyWrappedCount).toBeGreaterThanOrEqual(5);
+    expect(liveReport.guardrailSummary.sensitiveExternalProviderCount).toBeGreaterThan(0);
   });
 
   it("keeps JSON output parseable through the report shape", () => {
-    const report = auditAiCallSites();
-    const parsed = JSON.parse(JSON.stringify(report));
+    const parsed = JSON.parse(JSON.stringify(liveReport));
 
-    expect(parsed.callSiteCount).toBe(report.callSiteCount);
+    expect(parsed.callSiteCount).toBe(liveReport.callSiteCount);
     expect(parsed.guardrailSummary).toEqual(
       expect.objectContaining({
         unknownTaskClassCount: 0,

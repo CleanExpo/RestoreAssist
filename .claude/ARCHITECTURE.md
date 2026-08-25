@@ -118,5 +118,5 @@ restoreassist/
 | Fire-and-forget integration sync         | User-facing operations must never be blocked by third-party failures                |
 | 120+ Prisma models in single schema      | Monolith-first approach; domain boundaries enforced by file structure, not services |
 | `ignoreBuildErrors: true` in next.config | Large codebase with some TS strictness gaps; CI uses separate type-check step       |
-| pnpm over npm                            | Faster installs, strict dependency resolution, workspace support                    |
-| Vercel for prod + previews               | Simplest Next.js host; native App Router + edge runtime support; per-PR preview URLs |
+| npm with package-lock.json               | One deterministic dependency graph shared by CI and production                      |
+| DigitalOcean prod + Vercel previews      | Production runtime is DigitalOcean; Vercel remains preview/sandbox only              |

@@ -26,5 +26,9 @@ export function formatMoney(cents: number, country: Country): string {
 export function formatDate(date: Date, country: Country): string {
   return new Intl.DateTimeFormat(getLocale(country), {
     dateStyle: "medium",
+    // Date-only values represent the tenant's local calendar date. Keep the
+    // result stable across server/container timezones (and avoid UTC midnight
+    // rolling back to the previous day in North American runtimes).
+    timeZone: country === "NZ" ? "Pacific/Auckland" : "Australia/Sydney",
   }).format(date);
 }

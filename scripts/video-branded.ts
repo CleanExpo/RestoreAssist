@@ -574,7 +574,7 @@ async function loadCanvasModule() {
     return canvasModule;
   } catch (e) {
     console.error("[error] 'canvas' package not found:", (e as Error).message);
-    console.error("  Run: pnpm add -D canvas");
+    console.error("  Run: npm install --save-dev canvas");
     process.exit(1);
   }
 }

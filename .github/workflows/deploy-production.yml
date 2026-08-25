@@ -1,0 +1,286 @@
+name: Deploy — DigitalOcean Production (BLOCKED)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_gate_run_id:
+        description: Exact successful release-gate workflow run ID for this SHA
+        required: true
+        type: string
+      confirm_sha:
+        description: Type the full 40-character main SHA to authorize this release
+        required: true
+        type: string
+
+concurrency:
+  group: digitalocean-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and attest immutable image
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - name: Checkout exact main revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Bind authorization and provenance to exact main SHA
+        env:
+          CONFIRM_SHA: ${{ inputs.confirm_sha }}
+        run: |
+          printf '%s' "$CONFIRM_SHA" | grep -Eq '^[0-9a-f]{40}$' || {
+            echo "confirm_sha must be a full lowercase Git SHA" >&2
+            exit 1
+          }
+          test "$CONFIRM_SHA" = "$GITHUB_SHA" || {
+            echo "confirm_sha does not equal the dispatched main SHA" >&2
+            exit 1
+          }
+          node scripts/ci/verify-release-provenance.mjs
+
+      - name: Verify exact release-gate receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_GATE_RUN_ID: ${{ inputs.release_gate_run_id }}
+        run: |
+          case "$RELEASE_GATE_RUN_ID" in
+            ''|*[!0-9]*) echo "release_gate_run_id must be numeric" >&2; exit 1 ;;
+          esac
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RELEASE_GATE_RUN_ID}" \
+            > "$RUNNER_TEMP/release-gate-run.json"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RELEASE_GATE_RUN_ID}/artifacts?per_page=100" \
+            > "$RUNNER_TEMP/release-gate-artifacts.json"
+          ARTIFACT_ID=$(jq -r \
+            --arg name "release-gate-report-${GITHUB_SHA}" \
+            '[.artifacts[] | select(.name == $name)] | if length == 1 then .[0].id else empty end' \
+            "$RUNNER_TEMP/release-gate-artifacts.json")
+          case "$ARTIFACT_ID" in
+            ''|*[!0-9]*) echo "exact release report artifact id was not discovered" >&2; exit 1 ;;
+          esac
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            > "$RUNNER_TEMP/release-gate-report.zip"
+          node scripts/ci/verify-release-gate-run.mjs \
+            "$RUNNER_TEMP/release-gate-run.json" \
+            "$RUNNER_TEMP/release-gate-artifacts.json" \
+            "$RUNNER_TEMP/release-gate-report.zip" \
+            "$GITHUB_SHA" \
+            "$GITHUB_REPOSITORY"
+
+      - name: Build and push exact-SHA image
+        id: image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE: ghcr.io/cleanexpo/restoreassist
+          PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID || '292141944467-8hhd4eub33tplq6ep5lc9iltu8jcatvp.apps.googleusercontent.com' }}
+        run: |
+          test -n "$PUBLIC_GOOGLE_CLIENT_ID" || {
+            echo "NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID repository variable is required" >&2
+            exit 1
+          }
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker buildx build \
+            --platform linux/amd64 \
+            --build-arg "GIT_SHA=$GITHUB_SHA" \
+            --build-arg "NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID=$PUBLIC_GOOGLE_CLIENT_ID" \
+            --metadata-file "$RUNNER_TEMP/image-metadata.json" \
+            --provenance=false \
+            --push \
+            --tag "$IMAGE:sha-$GITHUB_SHA" \
+            .
+          DIGEST=$(jq -r '."containerimage.digest" // empty' "$RUNNER_TEMP/image-metadata.json")
+          case "$DIGEST" in
+            sha256:????????????????????????????????????????????????????????????????) ;;
+            *) echo "build did not return a canonical sha256 digest" >&2; exit 1 ;;
+          esac
+          printf '%s' "${DIGEST#sha256:}" | grep -Eq '^[0-9a-f]{64}$' || {
+            echo "build returned a non-lowercase digest" >&2
+            exit 1
+          }
+          docker buildx imagetools inspect "$IMAGE@$DIGEST" >/dev/null
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Attest image provenance
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          subject-name: ghcr.io/cleanexpo/restoreassist
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: true
+
+  reject-non-main:
+    name: Reject non-main deployment request
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    permissions: {}
+    steps:
+      - run: |
+          echo "Production deployment may only run from refs/heads/main." >&2
+          exit 1
+
+  deploy:
+    name: Protected preflight, activation and smoke
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: production
+      url: https://restoreassist.app
+    permissions:
+      actions: read
+      attestations: read
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout proven revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Verify protected production policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/ci/verify-release-provenance.mjs
+          gh api "repos/${GITHUB_REPOSITORY}/environments/production" \
+            > "$RUNNER_TEMP/production-environment.json"
+          node scripts/ci/verify-production-environment.mjs \
+            "$RUNNER_TEMP/production-environment.json"
+
+      - name: Refuse activation until durable reconciliation is proven
+        run: |
+          echo "BLOCKED: durable runner-loss cancellation and rollback reconciliation is not yet proven." >&2
+          exit 1
+
+      - name: Verify exact image attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_DIGEST: ${{ needs.build.outputs.digest }}
+        run: |
+          case "$IMAGE_DIGEST" in
+            sha256:????????????????????????????????????????????????????????????????) ;;
+            *) echo "build output is not a canonical sha256 digest" >&2; exit 1 ;;
+          esac
+          printf '%s' "${IMAGE_DIGEST#sha256:}" | grep -Eq '^[0-9a-f]{64}$' || exit 1
+          gh attestation verify \
+            "oci://ghcr.io/cleanexpo/restoreassist@$IMAGE_DIGEST" \
+            --repo "$GITHUB_REPOSITORY"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Install reviewed dependencies and browser
+        env:
+          HUSKY: "0"
+        run: |
+          npm ci --ignore-scripts
+          npx --no-install prisma generate
+          npx --no-install playwright install --with-deps chromium
+
+      - name: Render secret-safe immutable app spec
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          GHCR_PULL_CREDENTIALS: ${{ secrets.GHCR_PULL_CREDENTIALS }}
+          IMAGE_DIGEST: ${{ needs.build.outputs.digest }}
+        run: |
+          node scripts/ci/render-production-app-spec.mjs \
+            "$IMAGE_DIGEST" \
+            "$RUNNER_TEMP/production-app-spec.json" \
+            "$RUNNER_TEMP/image-release-receipt.json"
+
+      - name: Prove production migration parity and database identity
+        env:
+          PRODUCTION_DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
+          EXPECTED_DIRECT_DATABASE_HOST: ${{ secrets.EXPECTED_DIRECT_DATABASE_HOST }}
+          EXPECTED_DIRECT_DATABASE_NAME: ${{ secrets.EXPECTED_DIRECT_DATABASE_NAME }}
+          EXPECTED_DIRECT_DATABASE_SCHEMA: ${{ secrets.EXPECTED_DIRECT_DATABASE_SCHEMA }}
+        run: |
+          node scripts/ci/expected-migration-ledger.mjs
+          sh scripts/verify-production-migrations.sh
+          node scripts/verify-database-identity.mjs --emit-github-env
+
+      - name: Capture and prove exact rollback target before mutation
+        env:
+          DIGITALOCEAN_ACCESS_TOKEN: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          DIGITALOCEAN_APP_ID: ${{ secrets.DIGITALOCEAN_APP_ID }}
+        run: |
+          python3 scripts/ci/digitalocean-production-release.py preflight \
+            --receipt "$RUNNER_TEMP/provider-release-receipt.json" \
+            --database-fingerprint "$EXPECTED_DATABASE_FINGERPRINT" \
+            --migration-count "$EXPECTED_MIGRATION_COUNT" \
+            --migration-ledger-fingerprint "$EXPECTED_MIGRATION_LEDGER_FINGERPRINT"
+
+      - name: Activate exact deployment with automatic cancel or rollback
+        id: activate
+        env:
+          DIGITALOCEAN_ACCESS_TOKEN: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          DIGITALOCEAN_APP_ID: ${{ secrets.DIGITALOCEAN_APP_ID }}
+          IMAGE_DIGEST: ${{ needs.build.outputs.digest }}
+        run: |
+          python3 scripts/ci/digitalocean-production-release.py deploy \
+            --spec "$RUNNER_TEMP/production-app-spec.json" \
+            --receipt "$RUNNER_TEMP/provider-release-receipt.json" \
+            --digest "$IMAGE_DIGEST" \
+            --sha "$GITHUB_SHA" \
+            --database-fingerprint "$EXPECTED_DATABASE_FINGERPRINT"
+
+      - name: Run exact-SHA production user-flow smoke
+        id: smoke
+        continue-on-error: true
+        env:
+          EXPECTED_DEPLOYMENT_SHA: ${{ github.sha }}
+        run: |
+          node scripts/run-smoke.mjs https://restoreassist.app --no-deps --project=chromium
+
+      - name: Roll back after user-flow smoke failure
+        if: steps.smoke.outcome == 'failure'
+        env:
+          DIGITALOCEAN_ACCESS_TOKEN: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          DIGITALOCEAN_APP_ID: ${{ secrets.DIGITALOCEAN_APP_ID }}
+        run: |
+          echo "Post-activation smoke failed; rolling back the exact captured deployment." >&2
+          python3 scripts/ci/digitalocean-production-release.py rollback \
+            --receipt "$RUNNER_TEMP/provider-release-receipt.json"
+
+      - name: Verify rollback user flows without provider credentials
+        if: steps.smoke.outcome == 'failure'
+        run: |
+          env -u EXPECTED_DEPLOYMENT_SHA -u GITHUB_SHA \
+            node scripts/run-smoke.mjs https://restoreassist.app --no-deps --project=chromium
+
+      - name: Preserve failed release conclusion after successful rollback
+        if: always() && steps.smoke.outcome == 'failure'
+        run: |
+          echo "Release failed post-activation smoke and was rolled back." >&2
+          exit 1
+
+      - name: Verify controller-triggered rollback
+        if: failure() && steps.activate.outcome == 'failure'
+        run: |
+          env -u EXPECTED_DEPLOYMENT_SHA -u GITHUB_SHA \
+            node scripts/run-smoke.mjs https://restoreassist.app --no-deps --project=chromium
+
+      - name: Upload redacted release receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: production-release-receipts-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/image-release-receipt.json
+            ${{ runner.temp }}/provider-release-receipt.json
+          if-no-files-found: warn
+          retention-days: 30

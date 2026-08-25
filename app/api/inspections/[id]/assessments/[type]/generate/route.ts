@@ -15,6 +15,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
@@ -27,6 +28,17 @@ import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import type { AssessmentDomain } from "@/lib/assessments/types";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  claimPilotGeneration,
+  currentPilotReservation,
+  finalizePilotGeneration,
+  markPilotGenerationUnresolved,
+  PilotContractError,
+  requirePilotWorkspace,
+  withPilotWorkspaceProviderAuthority,
+} from "@/lib/pilot-tester/budget-contract";
+import { getIdempotencyKey } from "@/lib/idempotency";
+import { requireAiTaskPolicy } from "@/lib/ai/task-policy";
 
 export async function POST(
   request: NextRequest,
@@ -111,20 +123,90 @@ export async function POST(
       });
     }
 
-    // Resolve workspace (best-effort) for budget tracking. Null is OK for
-    // legacy single-user accounts.
-    const workspace = await getWorkspaceForUser(userId);
+    // The inspection's workspace, not the user's first/default workspace, owns
+    // accounting. Falling back to the user's workspace is only for legacy
+    // inspection rows that pre-date workspace scoping and cannot pilot-bind.
+    const inspectionWorkspaceId = tenancy.data.workspaceId;
+    const workspace = inspectionWorkspaceId
+      ? { id: inspectionWorkspaceId }
+      : await getWorkspaceForUser(userId);
+    const pilotRunId = request.headers.get("x-pilot-tester-run-id");
+    let pilotReservation: { id: string } | null = null;
+    if (pilotRunId) {
+      if (!inspectionWorkspaceId) {
+        return apiError(request, {
+          code: "PRECONDITION_FAILED",
+          message: "Pilot assessment generation requires a workspace-scoped inspection",
+          status: 412,
+        });
+      }
+      try {
+        await requirePilotWorkspace(userId, inspectionWorkspaceId);
+      } catch (error) {
+        if (error instanceof PilotContractError) {
+          return apiError(request, {
+            code: "PRECONDITION_FAILED",
+            message: "Pilot assessment generation requires the inspection workspace to be a pilot sandbox",
+            status: 412,
+          });
+        }
+        throw error;
+      }
+      pilotReservation = await currentPilotReservation(inspectionWorkspaceId, pilotRunId);
+      if (!pilotReservation) {
+        return apiError(request, {
+          code: "PRECONDITION_FAILED",
+          message: "Active pilot budget reservation not found for this inspection workspace",
+          status: 412,
+        });
+      }
+    }
 
-    const result = await generateAssessment({
-      inspectionId,
-      domain: type as AssessmentDomain,
-      workspaceId: workspace?.id ?? null,
-      userId,
-      options,
-      enhanceWithAi,
-    });
+    let pilotClaim: { receiptId: string; authorisedMaxCostUsd: number } | null = null;
+    if (pilotReservation) {
+      const idempotency = getIdempotencyKey(request);
+      if (!idempotency.ok || !idempotency.key) return apiError(request, {
+        code: "VALIDATION", message: idempotency.ok ? "Idempotency-Key is required for pilot generation" : idempotency.reason, status: 400,
+      });
+      const inputSha256 = createHash("sha256").update(JSON.stringify({ inspectionId, type, options, enhanceWithAi })).digest("hex");
+      const policy = requireAiTaskPolicy("report_drafting");
+      const claimed = await claimPilotGeneration({
+        actorUserId: userId, workspaceId: inspectionWorkspaceId!, reservationId: pilotReservation.id,
+        inspectionId, assessmentType: type, inputSha256, idempotencyKey: idempotency.key,
+        authorisedMaxCostUsd: policy.maxEstimatedCostUsd,
+      });
+      if (claimed.kind === "replay") return NextResponse.json(claimed.response);
+      pilotClaim = claimed;
+    }
+
+    let result: Awaited<ReturnType<typeof generateAssessment>>;
+    try {
+      const operation = () => generateAssessment({
+        inspectionId,
+        domain: type as AssessmentDomain,
+        workspaceId: workspace?.id ?? null,
+        userId,
+        options,
+        enhanceWithAi,
+        pilotBudgetReservationId: pilotReservation?.id ?? null,
+        pilotAccounting: pilotClaim ? true : false,
+      });
+      result = pilotClaim
+        ? await withPilotWorkspaceProviderAuthority(userId, inspectionWorkspaceId!, operation)
+        : await operation();
+    } catch (error) {
+      if (pilotClaim) await markPilotGenerationUnresolved({
+        receiptId: pilotClaim.receiptId, workspaceId: inspectionWorkspaceId!,
+        errorMessage: "Pilot assessment generation provider outcome is unresolved",
+      });
+      throw error;
+    }
 
     if (!result.ok) {
+      if (pilotClaim) await markPilotGenerationUnresolved({
+        receiptId: pilotClaim.receiptId, workspaceId: inspectionWorkspaceId!,
+        errorMessage: `Pilot assessment generation failed before terminal cost evidence: ${result.code}`,
+      });
       return NextResponse.json(
         {
           error:
@@ -135,10 +217,25 @@ export async function POST(
       );
     }
 
-    return NextResponse.json({
+    const response = {
       assessmentGenerationId: result.persistedId,
       ...result.result,
-    });
+    };
+    if (pilotClaim && pilotReservation) {
+      try {
+        await finalizePilotGeneration({
+          receiptId: pilotClaim.receiptId, workspaceId: inspectionWorkspaceId!, reservationId: pilotReservation.id,
+          assessmentGenerationId: result.persistedId, costUsd: Number(result.result.meta.costEstimateUsd ?? 0), response,
+        });
+      } catch (error) {
+        await markPilotGenerationUnresolved({
+          receiptId: pilotClaim.receiptId, workspaceId: inspectionWorkspaceId!,
+          errorMessage: "Pilot assessment generation terminal cost evidence is unresolved",
+        });
+        throw error;
+      }
+    }
+    return NextResponse.json(response);
   } catch (err) {
     return fromException(request, err, { stage: "assessments:generate" });
   }

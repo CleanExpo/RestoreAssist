@@ -28,17 +28,47 @@ import { getToken } from "next-auth/jwt";
 import { proxy } from "../../proxy";
 
 function mkReq(pathname: string, search: string = "") {
+  const parsed = new URL(`http://test${pathname}${search}`);
   return {
     nextUrl: {
       pathname,
       clone: () => new URL(`http://test${pathname}${search}`),
       search,
+      searchParams: parsed.searchParams,
     },
     url: `http://test${pathname}${search}`,
     method: "GET",
     headers: new Headers(),
   } as any;
 }
+
+describe("legacy invitation signup compatibility", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    process.env.SETUP_WIZARD_ENABLED = "false";
+  });
+
+  it("redirects one valid legacy invitation token to the canonical invite route", async () => {
+    const token = "a".repeat(48);
+    const res = await proxy(mkReq("/signup", `?invite=${token}&utm_source=legacy`));
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe(`http://test/invite/${token}`);
+    expect(getToken).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["short token", "?invite=abc"],
+    ["empty token", "?invite="],
+    ["duplicate tokens", `?invite=${"a".repeat(48)}&invite=${"b".repeat(48)}`],
+  ])("fails closed on %s without returning to account creation", async (_case, search) => {
+    const res = await proxy(mkReq("/signup", search));
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("http://test/invite/invalid");
+    expect(getToken).not.toHaveBeenCalled();
+  });
+});
 
 describe("middleware setup gate", () => {
   beforeEach(() => {

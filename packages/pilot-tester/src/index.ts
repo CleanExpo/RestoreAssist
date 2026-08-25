@@ -1,9 +1,10 @@
 /**
  * CLI entrypoint.
  *
- *   pnpm --filter pilot-tester run    -- --base-url <url> [--company <key>] [--job <key>]
- *   pnpm --filter pilot-tester swarm  -- --base-url <url> [--concurrency 3]
- *   pnpm --filter pilot-tester dryrun                   (self-test, no network)
+ * From packages/pilot-tester:
+ *   npm run run -- --base-url <url>
+ *   npm run swarm -- --base-url <url>
+ *   npm run dryrun
  *
  * Reads .env, asserts sandbox, calls the orchestrator, writes the
  * report, and runs baseline regression analysis. Exits non-zero on
@@ -18,6 +19,8 @@ import { runHarness } from "./runner/orchestrator.js";
 import { writeReport } from "./runner/reporter.js";
 import { analyseRegression } from "./runner/baseline.js";
 import { dryRun } from "./runner/dry-run.js";
+import { evaluateReleaseGate } from "./runner/release-gate.js";
+import { main as preflight } from "./runner/preflight.js";
 
 interface CliArgs {
   command: "run" | "swarm" | "dryrun";
@@ -29,9 +32,14 @@ interface CliArgs {
   baselinePath: string;
 }
 
-function parseArgs(argv: string[]): CliArgs {
-  const command =
-    argv[2] === "swarm" ? "swarm" : argv[2] === "dryrun" ? "dryrun" : "run";
+export function parseArgs(argv: string[]): CliArgs {
+  const rawCommand = argv[2];
+  if (!["run", "swarm", "dryrun"].includes(rawCommand ?? "")) {
+    throw new Error(
+      `[pilot-tester] unknown command ${JSON.stringify(rawCommand)}; expected run, swarm or dryrun`,
+    );
+  }
+  const command = rawCommand as CliArgs["command"];
   const args: Record<string, string> = {};
   for (let i = 3; i < argv.length; i++) {
     const arg = argv[i];
@@ -80,6 +88,10 @@ async function main(): Promise<void> {
     process.exit(ok ? 0 : 1);
   }
 
+  if ((await preflight()) !== 0) {
+    process.exit(1);
+  }
+
   // Best-effort user-pool load. If missing in CI, surface clearly
   // rather than crashing in fetch.
   let userPool;
@@ -106,9 +118,8 @@ async function main(): Promise<void> {
     concurrency: args.concurrency,
   });
 
-  // Best-effort regression analysis — if the baseline file is
-  // missing, the analysis returns baselineFound=false and the
-  // reporter calls it out without failing the run.
+  // Regression analysis is fail-closed: a missing or invalid baseline
+  // cannot support a release claim.
   const regression = await analyseRegression({
     report,
     baselinePath: args.baselinePath,
@@ -120,8 +131,11 @@ async function main(): Promise<void> {
     `\n[pilot-tester] wrote ${written.markdownPath}\n[pilot-tester] success=${report.success} regression=${regression.pass ? "pass" : "fail"}`,
   );
 
-  // Exit non-zero on either orchestrator failure or hard regression.
-  process.exit(report.success && regression.pass ? 0 : 1);
+  const gate = evaluateReleaseGate(report, regression);
+  for (const reason of gate.reasons) {
+    console.error(`[pilot-tester] release evidence invalid: ${reason}`);
+  }
+  process.exit(gate.pass ? 0 : 1);
 }
 
 // Avoid unused-import lint warning on `fs` — used by dryRun module
@@ -129,7 +143,9 @@ async function main(): Promise<void> {
 // files from the workspace root).
 void fs;
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

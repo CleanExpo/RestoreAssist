@@ -41,7 +41,7 @@ describe("DatabaseCard — guided flow", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     render(<DatabaseCard />);
-    type("postgres://u:p@db.abcdef.supabase.co:5432/postgres");
+    type("postgres://u:p@db.abcdef.supabase.co:5432/postgres?sslmode=verify-full");
     fireEvent.click(screen.getByRole("button", { name: /^connect$/i }));
     // Confirmation shows the host and fetch has NOT fired yet.
     expect(await screen.findByText(/db\.abcdef\.supabase\.co/)).toBeInTheDocument();
@@ -54,7 +54,7 @@ describe("DatabaseCard — guided flow", () => {
       vi.fn().mockResolvedValue({ status: 202, json: async () => ({ data: { status: "provisioning" } }) }),
     );
     render(<DatabaseCard />);
-    type("postgres://u:p@db.abcdef.supabase.co:5432/postgres");
+    type("postgres://u:p@db.abcdef.supabase.co:5432/postgres?sslmode=verify-full");
     fireEvent.click(screen.getByRole("button", { name: /^connect$/i }));
     fireEvent.click(await screen.findByRole("button", { name: /confirm/i }));
     const status = await screen.findByRole("status");
@@ -68,7 +68,7 @@ describe("DatabaseCard — guided flow", () => {
       vi.fn().mockResolvedValue({ status: 400, json: async () => ({ error: "Only PostgreSQL connection strings are supported." }) }),
     );
     render(<DatabaseCard />);
-    type("postgres://u:p@db.abcdef.supabase.co:5432/postgres");
+    type("postgres://u:p@db.abcdef.supabase.co:5432/postgres?sslmode=verify-full");
     fireEvent.click(screen.getByRole("button", { name: /^connect$/i }));
     fireEvent.click(await screen.findByRole("button", { name: /confirm/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/only postgresql/i);

@@ -56,9 +56,9 @@ function rateLimitInMemory(
 /**
  * Extract client IP from request headers.
  *
- * On Vercel, the platform appends the true client IP as the LAST entry in
- * x-forwarded-for, making it the only value that cannot be spoofed by the
- * client sending a crafted X-Forwarded-For header.
+ * Use only the platform-appended final XFF entry. cf-connecting-ip is
+ * deliberately ignored here: DigitalOcean's direct origin remains reachable,
+ * where a client can forge that header and rotate rate-limit keys.
  */
 export function getClientIp(req: NextRequest): string {
   const xff = req.headers.get("x-forwarded-for");

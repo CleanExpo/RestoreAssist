@@ -3,8 +3,8 @@ set -eu
 
 # RestoreAssist database-free Next validation guard.
 # This command is intentionally NOT production build readiness.
-# It must not replace or weaken the existing production `pnpm build` path.
-# It must not call pnpm build, scripts/build.sh, Prisma migrate/deploy, schema drift checks,
+# It must not replace or weaken the existing production `npm run build` path.
+# It must not call npm run build, scripts/build.sh, Prisma migrate/deploy, schema drift checks,
 # database commands, deployment commands, secret files, or external services.
 
 echo "validate:next-build-no-db: database-free validation mode"
@@ -25,7 +25,7 @@ if [ -n "${VERCEL_ENV:-}" ] || [ -n "${DO_APP_PLATFORM:-}" ]; then
 fi
 
 # Guardrail: never read .env files or secret stores in this command.
-# Guardrail: never call scripts/build.sh, pnpm build, next build, Prisma migrate/deploy,
+# Guardrail: never call scripts/build.sh, npm run build, next build, Prisma migrate/deploy,
 # prisma db push/pull, prisma migrate resolve, or scripts/check-schema-drift.mjs.
 
 if [ ! -f package.json ]; then
@@ -45,7 +45,7 @@ fi
 
 # Static self-checks: ensure this wrapper does not contain executable calls to forbidden paths.
 # Comments may document forbidden commands, so only obvious command invocations are checked.
-if grep -Eq '^[[:space:]]*(pnpm[[:space:]]+build|next[[:space:]]+build|sh[[:space:]]+scripts/build\.sh|pnpm[[:space:]]+exec[[:space:]]+prisma|prisma[[:space:]]+(migrate|db)|node[[:space:]]+scripts/check-schema-drift\.mjs)' scripts/validate-next-build-no-db.sh; then
+if grep -Eq '^[[:space:]]*(npm[[:space:]]+run[[:space:]]+build|npx([[:space:]]+--no-install)?[[:space:]]+next[[:space:]]+build|next[[:space:]]+build|sh[[:space:]]+scripts/build\.sh|npx([[:space:]]+--no-install)?[[:space:]]+prisma[[:space:]]+(migrate|db)|prisma[[:space:]]+(migrate|db)|node[[:space:]]+scripts/check-schema-drift\.mjs)' scripts/validate-next-build-no-db.sh; then
   echo "Refusing: forbidden executable validation path detected in wrapper." >&2
   exit 2
 fi

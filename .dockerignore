@@ -1,0 +1,25 @@
+# Build context hygiene. Everything the image does not need stays out, both to
+# keep the image small and to keep secrets and local state off the build host.
+.git
+.github
+node_modules
+.next
+.env
+.env.*
+!.env.example
+*.log
+coverage
+playwright-report
+test-results
+android
+ios
+mobile
+docs
+scripts/data
+.claude
+.codex
+.planning
+*.md
+!README.md
+Dockerfile
+.dockerignore

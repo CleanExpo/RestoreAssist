@@ -18,7 +18,8 @@ import {
   reviewByAdjuster,
   type AdjusterReview,
 } from "../personas/senior-pm.js";
-import { judgeAssessment, type JudgeScore } from "./judge.js";
+import type { JudgeScore } from "./judge.js";
+import { sha256Json } from "./evidence.js";
 
 export interface DeterministicScore {
   composite: number;
@@ -33,6 +34,8 @@ export interface GradedAssessment {
   inspectionId: string;
   domain: string;
   generationId: string;
+  /** SHA-256 of the exact generated assessment that all graders received. */
+  assessmentSha256: string;
   modelUsed: string | null;
   latencyMs: number;
   costEstimateUsd: number | null;
@@ -45,25 +48,38 @@ export interface GradedAssessment {
 
 export interface GradingOptions {
   inspectionId: string;
+  workspaceId: string;
+  actorUserId: string;
   generated: GenerateAssessmentOutput;
+  /** Server-owned judge receipt. Direct harness judging is intentionally
+   * forbidden because it cannot be reconciled against a reservation. */
+  judge: Promise<JudgeScore | null>;
 }
 
 export async function gradeAssessment(
   opts: GradingOptions,
 ): Promise<GradedAssessment> {
+  const assessmentSha256 = sha256Json(opts.generated);
   // All three layers run in parallel — they don't share state and the
   // network-bound ones (adjuster + judge) hide their own latency
   // behind the deterministic call, which is offline.
   const [det, adj, jud] = await Promise.all([
     runDeterministic(opts.generated),
-    reviewByAdjuster({ inspectionId: opts.inspectionId }),
-    judgeAssessment({ generated: opts.generated }),
+    reviewByAdjuster({
+      inspectionId: opts.inspectionId,
+      workspaceId: opts.workspaceId,
+      actorUserId: opts.actorUserId,
+      generationId: opts.generated.assessmentGenerationId,
+      assessmentSha256,
+    }),
+    opts.judge,
   ]);
 
   return {
     inspectionId: opts.inspectionId,
     domain: opts.generated.meta.domain,
     generationId: opts.generated.assessmentGenerationId,
+    assessmentSha256,
     modelUsed: opts.generated.meta.modelUsed,
     latencyMs: opts.generated.meta.latencyMs,
     costEstimateUsd: opts.generated.meta.costEstimateUsd,

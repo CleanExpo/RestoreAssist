@@ -5,7 +5,6 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { sendWelcomeEmail } from "@/lib/email";
-import { sendWithRetry } from "@/lib/email-retry";
 import { notifyWelcome } from "@/lib/notifications";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { rejectIfBreached } from "@/lib/auth/password-breach";
@@ -13,6 +12,8 @@ import { verifyBotId } from "@/lib/auth/botid";
 import { track } from "@/lib/analytics/track";
 import { apiError } from "@/lib/api-errors";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
+import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
@@ -52,8 +53,20 @@ export async function POST(request: NextRequest) {
       });
     }
     const name = sanitizeString(body.name, 200);
-    const email = sanitizeString(body.email, 320);
+    const email = canonicalEmail(sanitizeString(body.email, 320));
     const { password, acceptedTerms } = body;
+
+    // The retired /signup?invite= flow used to submit invitation data to this
+    // endpoint, but this endpoint creates a new ADMIN and organisation. Refuse
+    // all legacy invitation-shaped requests so a bypass of the browser redirect
+    // cannot turn an invited technician into an unrelated owner account.
+    if (body.inviteToken !== undefined || body.signupType === "technician") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Use the secure invitation link to join an organisation",
+        status: 400,
+      });
+    }
 
     if (!name || !email || !password) {
       return apiError(request, {
@@ -91,6 +104,28 @@ export async function POST(request: NextRequest) {
         code: "VALIDATION",
         message: "Please provide a valid email address",
         status: 400,
+      });
+    }
+
+    // An invitee may reach this endpoint without legacy invite fields (for
+    // example by manually opening /signup). Email identity is the authoritative
+    // join key, so refuse self-registration whenever a live invitation exists.
+    // Otherwise the same address becomes an unrelated ADMIN + organisation and
+    // the original team invitation is stranded.
+    const activeInvite = await prisma.userInvite.findFirst({
+      where: {
+        email: { equals: email.toLowerCase(), mode: "insensitive" },
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      select: { id: true },
+    });
+    if (activeInvite) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message:
+          "A team invitation is waiting for this email. Use the secure invitation link instead.",
+        status: 409,
       });
     }
 
@@ -136,66 +171,28 @@ export async function POST(request: NextRequest) {
     const canCreateOrganization = Boolean(prisma.organization?.create);
 
     if (!canCreateOrganization) {
-      const user = await prisma.user.create({
-        data: {
-          name,
-          email,
-          password: hashedPassword,
-          role: "ADMIN",
-          subscriptionStatus: "TRIAL",
-          creditsRemaining: TRIAL_REPORT_CREDITS,
-          totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS),
-          quickFillCreditsRemaining: TRIAL_QUICK_FILL_CREDITS,
-          totalQuickFillUsed: 0,
-          // RA-1255: cast needed until Prisma client regenerates in Vercel build
-          acceptedTermsAt: new Date() as any,
-        } as any,
+      return apiError(request, {
+        code: "INTERNAL",
+        message: "Registration is temporarily unavailable",
+        status: 503,
       });
-      sendWithRetry(
-        () =>
-          sendWelcomeEmail({
-            recipientEmail: email,
-            recipientName: name,
-            loginUrl: `${APP_URL}/login`,
-            trialDays: TRIAL_DAYS,
-            trialCredits: TRIAL_REPORT_CREDITS,
-          }),
-        { stage: "signup-welcome" },
-      ).catch((err) => console.error("[Register] Welcome email failed:", err));
-      notifyWelcome(user.id).catch((err) =>
-        console.error("[Register] notifyWelcome failed:", err),
-      );
-      // Sample data is now seeded by /api/setup/activate (Phase 5+),
-      // branded with the user's hydrated business profile instead of
-      // generic placeholders. See docs/superpowers/specs/2026-05-12-onboarding-redesign-design.md.
-      const reqCtx = extractRequestContext(request);
-      logSecurityEvent({
-        eventType: "ACCOUNT_REGISTERED",
-        userId: user.id,
-        email: user.email,
-        ...reqCtx,
-        details: { role: "ADMIN", hasOrganization: false },
-      }).catch(() => {});
-      // RA-1246 — signup_completed (unconditional)
-      track(user.id, "signup_completed", { hasOrganization: false }).catch(
-        () => {},
-      );
-      const { password: _, ...userWithoutPassword } = user;
-      return NextResponse.json(
-        {
-          message: "User created successfully",
-          user: userWithoutPassword,
-          warning:
-            "Organisation setup is pending. Please run `npx prisma generate` and restart the dev server to enable team features.",
-        },
-        { status: 201 },
-      );
     }
 
     try {
       const updatedUser = await prisma.$transaction(
         async (tx) => {
+          await lockEmailIdentity(tx, email);
+          const inviteInsideClaim = await tx.userInvite.findFirst({
+            where: {
+              email: { equals: email, mode: "insensitive" },
+              usedAt: null,
+              expiresAt: { gt: new Date() },
+            },
+            select: { id: true },
+          });
+          if (inviteInsideClaim) {
+            throw new Error("ACTIVE_INVITE_FOR_EMAIL");
+          }
           const user = await tx.user.create({
             data: {
               name,
@@ -239,17 +236,21 @@ export async function POST(request: NextRequest) {
       // callback `.catch()`s swallows each rejection so nothing bubbles.
       const reqCtx = extractRequestContext(request);
       await Promise.allSettled([
-        sendWithRetry(
-          () =>
+        deliverEmailOnce({
+          idempotencyKey: `signup-welcome:${updatedUser.id}`,
+          kind: "SIGNUP_WELCOME",
+          recipient: email,
+          payloadIdentity: `${updatedUser.id}|${email}|${APP_URL}`,
+          send: () =>
             sendWelcomeEmail({
               recipientEmail: email,
               recipientName: name,
               loginUrl: `${APP_URL}/login`,
               trialDays: TRIAL_DAYS,
               trialCredits: TRIAL_REPORT_CREDITS,
+              idempotencyKey: `signup-welcome:${updatedUser.id}`,
             }),
-          { stage: "signup-welcome" },
-        ).catch((err) =>
+        }).catch((err) =>
           console.error("[Register] Welcome email failed:", err),
         ),
         notifyWelcome(updatedUser.id).catch((err) =>
@@ -287,6 +288,14 @@ export async function POST(request: NextRequest) {
           code: "CONFLICT",
           message: "User with this email already exists",
           status: 400,
+        });
+      }
+      if (e instanceof Error && e.message === "ACTIVE_INVITE_FOR_EMAIL") {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "A team invitation is waiting for this email. Use the secure invitation link instead.",
+          status: 409,
         });
       }
       // RA-1305 — the previous fallback created a User-only row (no

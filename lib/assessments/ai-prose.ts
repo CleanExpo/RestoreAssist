@@ -37,6 +37,8 @@ export interface EnhanceProseArgs {
   workspaceId: string | null;
   /** User who triggered the generation — used to fetch their BYOK key. */
   userId: string;
+  /** A server-owned pilot receipt already holds this operation's maximum. */
+  pilotAccounting?: boolean;
 }
 
 export interface EnhanceProseResult {
@@ -120,7 +122,7 @@ export async function enhanceReportProse(
   const original = args.sections;
 
   // 1. Budget check (skipped for legacy null workspace).
-  if (args.workspaceId) {
+  if (args.workspaceId && !args.pilotAccounting) {
     const budget = await checkWorkspaceBudget({
       workspaceId: args.workspaceId,
       estimatedCostUsd: PROSE_COST_ESTIMATE_USD,
