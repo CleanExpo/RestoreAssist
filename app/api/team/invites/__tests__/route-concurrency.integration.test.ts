@@ -24,9 +24,6 @@ vi.mock("@/lib/csrf", () => ({ validateCsrf: () => null }));
 vi.mock("@/lib/email", () => ({
   sendInviteEmail: (...args: unknown[]) => sendInviteEmail(...args),
 }));
-vi.mock("@/lib/email-retry", () => ({
-  sendWithRetry: async (fn: () => unknown) => fn(),
-}));
 vi.mock("@/lib/app-url", () => ({
   getAppUrl: () => "https://restoreassist.app",
 }));
