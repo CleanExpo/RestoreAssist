@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import { AlertTriangle, RotateCcw, Home } from "lucide-react";
 import Link from "next/link";
+import {
+  ChromeAlertTriangle,
+  ChromeHome,
+  ChromeRefresh,
+} from "@/components/brand/chrome-icons";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -39,7 +43,7 @@ export default function DashboardError({
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <ChromeAlertTriangle className="h-5 w-5 text-destructive" />
             </div>
             <CardTitle className="text-white text-lg leading-tight">
               Dashboard Error
@@ -63,7 +67,7 @@ export default function DashboardError({
             style={{ backgroundColor: "#8A6B4E", borderColor: "#8A6B4E" }}
             className="text-white hover:opacity-90"
           >
-            <RotateCcw className="h-4 w-4" />
+            <ChromeRefresh className="h-4 w-4" />
             Try again
           </Button>
           <Button
@@ -73,7 +77,7 @@ export default function DashboardError({
             className="border-slate-500 text-slate-300 hover:bg-slate-700 hover:text-white hover:border-slate-400"
           >
             <Link href="/dashboard">
-              <Home className="h-4 w-4" />
+              <ChromeHome className="h-4 w-4" />
               Go to Dashboard
             </Link>
           </Button>

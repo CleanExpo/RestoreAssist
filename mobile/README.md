@@ -2,7 +2,7 @@
 
 > **Status: dormant.** The RestoreAssist iOS app on the App Store is **NOT** built from this
 > directory. This is a parallel, self-contained Expo project that is **not in the root
-> `pnpm-workspace.yaml` and not in CI**.
+> npm release workspace and not in CI**.
 
 ## What actually ships
 

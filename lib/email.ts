@@ -8,6 +8,10 @@ import {
   sendTransactionalEmail,
   EMAIL_SEND_TIMEOUT_MS as TX_EMAIL_TIMEOUT_MS,
 } from "@/lib/email/send-transactional";
+import {
+  EmailDeliveryNotAttempted,
+  EmailDeliveryRejected,
+} from "@/lib/email-delivery-errors";
 
 /** Hard ceiling on any single email send so a hung upstream cannot pin a serverless function. */
 export const EMAIL_SEND_TIMEOUT_MS = TX_EMAIL_TIMEOUT_MS;
@@ -45,10 +49,20 @@ function assertResendSuccess<T extends ResendSendResult>(
   result: T,
   stage: string,
 ): T {
-  if (result.error) {
-    throw new Error(
-      `[email] Email send failed (${stage}): ${result.error.name ?? "unknown_error"} — ${result.error.message ?? "no message"}`,
-    );
+  if (result.error || !result.data?.id) {
+    const name = result.error?.name ?? "missing_receipt";
+    const message = `[email] Email send failed (${stage}): ${name} — ${result.error?.message ?? "provider returned no message id"}`;
+    // A provider/API rejection is an observed negative acknowledgement. A
+    // timeout, transport exception, or success-without-receipt is ambiguous.
+    if (name === "not_configured") {
+      throw new EmailDeliveryNotAttempted(message);
+    }
+    const receiptMissing =
+      name === "missing_receipt" || name.endsWith("_missing_receipt");
+    if (result.error && name !== "send_failed" && !receiptMissing) {
+      throw new EmailDeliveryRejected(message);
+    }
+    throw new Error(message);
   }
   return result;
 }
@@ -62,10 +76,10 @@ function reportResendFailure<T extends ResendSendResult>(
   result: T,
   stage: string,
 ): T | null {
-  if (result.error) {
+  if (result.error || !result.data?.id?.trim()) {
     reportError(
       new Error(
-        `[email] Email send failed (${stage}): ${result.error.name ?? "unknown_error"} — ${result.error.message ?? "no message"}`,
+        `[email] Email send failed (${stage}): ${result.error?.name ?? "missing_receipt"} — ${result.error?.message ?? "provider returned no message id"}`,
       ),
       { stage },
     );
@@ -128,6 +142,7 @@ export interface SignedFormEmailData {
   signatories: { name: string; role: string; signedAt: string }[];
   pdfBase64: string; // Base64 encoded PDF
   pdfFilename: string;
+  idempotencyKey?: string;
 }
 
 /** Strip CR/LF characters that could be used for email header injection. */
@@ -203,6 +218,7 @@ export async function sendSignedFormEmail(data: SignedFormEmailData) {
           content: data.pdfBase64,
         },
       ],
+      idempotencyKey: data.idempotencyKey,
     }),
   );
   return assertResendSuccess(result, "signed-form");
@@ -214,28 +230,55 @@ export interface InviteEmailData {
   email: string;
   name: string;
   role: "MANAGER" | "USER";
-  tempPassword?: string;
-  // RA-1249 — preferred path for NEW users: a link to /invite/[token] where
-  // the invitee sets their own password. `tempPassword` kept for backward
-  // compat with any callers still using the old emailed-credentials flow.
+  // New users receive a link to /invite/[token] and set their own password.
+  // Plaintext temporary passwords are deliberately unsupported.
   inviteLink?: string;
   loginUrl: string;
   inviterName: string;
   isTransfer?: boolean; // True if user already exists and is being transferred
   /** Prefer org Resend BYOK when set. */
   organizationId?: string | null;
+  idempotencyKey?: string;
 }
 
 export async function sendInviteEmail(data: InviteEmailData) {
   if (!isEmailServiceConfigured() && !data.organizationId) {
-    throw new Error("Email service is not configured");
+    throw new EmailDeliveryNotAttempted("Email service is not configured");
   }
-  const from = getFromEmail();
-
   const roleLabel = data.role === "MANAGER" ? "Manager" : "Technician";
   const isTransfer = data.isTransfer || false;
-  const hasTempPassword = !!data.tempPassword;
   const hasInviteLink = !!data.inviteLink;
+  if (!isTransfer && !hasInviteLink) {
+    throw new EmailDeliveryNotAttempted(
+      "New-user invite email requires a secure invitation link",
+    );
+  }
+  if (hasInviteLink) {
+    let inviteUrl: URL;
+    let loginUrl: URL;
+    try {
+      inviteUrl = new URL(data.inviteLink as string);
+      loginUrl = new URL(data.loginUrl);
+    } catch {
+      throw new EmailDeliveryNotAttempted(
+        "New-user invite email requires a valid invitation URL",
+      );
+    }
+    const localHttp =
+      inviteUrl.protocol === "http:" &&
+      ["localhost", "127.0.0.1"].includes(inviteUrl.hostname);
+    if (
+      (inviteUrl.protocol !== "https:" && !localHttp) ||
+      inviteUrl.origin !== loginUrl.origin ||
+      !/^\/invite\/[a-f0-9]{48}$/i.test(inviteUrl.pathname) ||
+      inviteUrl.search !== "" ||
+      inviteUrl.hash !== ""
+    ) {
+      throw new EmailDeliveryNotAttempted(
+        "New-user invite email requires a valid invitation URL",
+      );
+    }
+  }
 
   const html = `
     <!DOCTYPE html>
@@ -287,43 +330,12 @@ export async function sendInviteEmail(data: InviteEmailData) {
                 Click the button below to review your invite and set your own password. The link is valid for 7 days.
               </p>
               <div style="text-align: center;">
-                <a href="${data.inviteLink}" style="display: inline-block; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px;">Accept invite</a>
+                <a href="${escapeHtml(data.inviteLink ?? "")}" style="display: inline-block; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px;">Accept invite</a>
               </div>
             </div>
           </div>
           `
-              : hasTempPassword
-                ? `
-          <!-- Credentials box -->
-          <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #06b6d4; border-radius: 12px; padding: 25px; margin: 30px 0; box-shadow: 0 4px 12px rgba(6, 182, 212, 0.1);">
-            <div style="display: flex; align-items: center; margin-bottom: 15px;">
-              <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
-                <span style="color: #ffffff; font-size: 20px;">🔐</span>
-              </div>
-              <p style="margin: 0; color: #0c4a6e; font-weight: 700; font-size: 16px; letter-spacing: 0.5px;">YOUR LOGIN CREDENTIALS</p>
-            </div>
-            <div style="background: #ffffff; border-radius: 8px; padding: 20px; margin-top: 15px;">
-              <div style="margin-bottom: 15px;">
-                <p style="margin: 0 0 5px 0; color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Email Address</p>
-                <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600; word-break: break-all;">${escapeHtml(data.email)}</p>
-              </div>
-              <div style="border-top: 1px solid #e2e8f0; padding-top: 15px;">
-                <p style="margin: 0 0 5px 0; color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Temporary Password</p>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <code style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 10px 16px; border-radius: 8px; font-family: 'Monaco', 'Menlo', monospace; font-size: 18px; font-weight: 600; color: #0c4a6e; letter-spacing: 2px; flex: 1;">${data.tempPassword}</code>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Security notice -->
-          <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px 20px; border-radius: 8px; margin: 25px 0;">
-            <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
-              <strong>🔒 Security Notice:</strong> For your security, you'll be required to change this temporary password when you first log in to the platform.
-            </p>
-          </div>
-          `
-                : `
+              : `
           <!-- Info box for transfers -->
           <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #06b6d4; border-radius: 12px; padding: 25px; margin: 30px 0; box-shadow: 0 4px 12px rgba(6, 182, 212, 0.1);">
             <div style="display: flex; align-items: center; margin-bottom: 15px;">
@@ -343,7 +355,7 @@ export async function sendInviteEmail(data: InviteEmailData) {
           
           <!-- CTA Button -->
           <div style="text-align: center; margin: 35px 0;">
-            <a href="${data.loginUrl}" style="display: inline-block; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 8px 16px rgba(6, 182, 212, 0.4); transition: all 0.3s ease;">
+            <a href="${escapeHtml(data.loginUrl)}" style="display: inline-block; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 8px 16px rgba(6, 182, 212, 0.4); transition: all 0.3s ease;">
               ${isTransfer ? "🚀 Access Your Account" : "🚀 Log In to Platform"}
             </a>
           </div>
@@ -395,41 +407,31 @@ If you have any questions, contact your administrator or our support team.
 ---
 This is an automated email from Restore Assist. Please do not reply to this email.
   `
-      : `
-Welcome to Restore Assist!
-
-You've been invited by ${data.inviterName} to join Restore Assist as a ${roleLabel}.
-
-YOUR LOGIN CREDENTIALS:
-Email: ${data.email}
-Temporary Password: ${data.tempPassword}
-
-Important: For security reasons, you'll be required to change this temporary password when you first log in.
-
-Log in here: ${data.loginUrl}
-
-If you have any questions or need assistance, please contact your administrator or our support team.
-
----
-This is an automated email from Restore Assist. Please do not reply to this email.
-  `;
+      : `Restore Assist invitation requires a secure acceptance link.`;
 
   try {
-    // Secret hygiene: never log the payload — the invite html/text can
-    // carry a temporary password and the recipient's address is PII.
+    // Secret hygiene: never log the payload because the invite link is a
+    // bearer secret and the recipient's address is PII.
     const emailPayload = {
-      from,
       to: data.email,
-      subject: isTransfer
-        ? `You've been added to ${data.inviterName}'s organization - Restore Assist`
-        : hasInviteLink
-          ? `You're invited to join Restore Assist as a ${roleLabel}`
-          : `Welcome to Restore Assist - Your ${roleLabel} Account`,
+      subject: sanitiseEmailField(
+        isTransfer
+          ? `You've been added to ${data.inviterName}'s organization - Restore Assist`
+          : hasInviteLink
+            ? `You're invited to join Restore Assist as a ${roleLabel}`
+            : `Restore Assist invitation requires attention`,
+      ),
       html,
       text,
     };
 
-    const result = await withEmailTimeout(sendTransactionalEmail({ ...emailPayload, organizationId: data.organizationId }));
+    const result = await withEmailTimeout(
+      sendTransactionalEmail({
+        ...emailPayload,
+        organizationId: data.organizationId,
+        idempotencyKey: data.idempotencyKey,
+      }),
+    );
     assertResendSuccess(result, "invite");
     console.log("[email] Invite email sent", { id: result.data?.id ?? null });
     return result;
@@ -787,14 +789,12 @@ export interface PasswordResetEmailData {
   recipientEmail: string;
   recipientName: string;
   resetCode: string;
+  idempotencyKey?: string;
 }
 
 export async function sendPasswordResetEmail(data: PasswordResetEmailData) {
   if (!isEmailServiceConfigured()) {
-    console.warn(
-      "⚠️ [EMAIL] Email service is not configured, skipping password reset email",
-    );
-    return null;
+    throw new EmailDeliveryNotAttempted("Email service is not configured");
   }
 
   const fromEmail = getFromEmail();
@@ -868,31 +868,17 @@ If you didn't request this reset, you can safely ignore this email.
 ---
 This is an automated email from Restore Assist. Please do not reply to this email.`;
 
-  try {
-    console.log(
-      "📧 [EMAIL] Sending password reset email to:",
-      data.recipientEmail,
-    );
-
-    const result = await withEmailTimeout(
-      sendTransactionalEmail({
-        from: fromEmail,
-        to: data.recipientEmail,
-        subject: "Your RestoreAssist Password Reset Code",
-        html,
-        text,
-      }),
-    );
-    if (!reportResendFailure(result, "email-password-reset")) return null;
-    console.log("[email] Password reset email sent:", result.data?.id);
-    return result;
-  } catch (error: any) {
-    console.error(
-      "❌ [EMAIL] Failed to send password reset email:",
-      error?.message,
-    );
-    return null;
-  }
+  const result = await withEmailTimeout(
+    sendTransactionalEmail({
+      from: fromEmail,
+      to: data.recipientEmail,
+      subject: "Your RestoreAssist Password Reset Code",
+      html,
+      text,
+      idempotencyKey: data.idempotencyKey,
+    }),
+  );
+  return assertResendSuccess(result, "email-password-reset");
 }
 
 // ── Welcome Email (Admin Signup) ──
@@ -903,6 +889,7 @@ export interface WelcomeEmailData {
   loginUrl: string;
   trialDays: number;
   trialCredits: number;
+  idempotencyKey?: string;
 }
 
 export async function sendWelcomeEmail(data: WelcomeEmailData) {
@@ -910,7 +897,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData) {
     console.warn(
       "⚠️ [EMAIL] Email service is not configured, skipping welcome email",
     );
-    return null;
+    throw new EmailDeliveryNotAttempted("Email service is not configured");
   }
 
   const fromEmail = getFromEmail();
@@ -1002,6 +989,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
         subject: "Welcome to Restore Assist — Your Account is Ready!",
         html,
         text,
+        idempotencyKey: data.idempotencyKey,
       }),
     );
     if (!reportResendFailure(result, "email-welcome")) return null;
@@ -1315,10 +1303,7 @@ export async function sendPricingSetupReminderEmail(
       }),
     );
     assertResendSuccess(result, "pricing-setup-reminder");
-    console.log(
-      "[email] Pricing-setup reminder sent:",
-      result.data?.id,
-    );
+    console.log("[email] Pricing-setup reminder sent:", result.data?.id);
     return result;
   } catch (error: any) {
     console.error(
@@ -1414,6 +1399,7 @@ export interface SupportReplyEmailData {
   ticketSubject: string;
   /** Plain-text reply body (typically the accepted AI draft). */
   replyBody: string;
+  idempotencyKey?: string;
 }
 
 /**
@@ -1483,6 +1469,7 @@ Restore Assist — Australia's compliance platform for water damage restoration`
       subject: `Re: ${sanitiseEmailField(data.ticketSubject)}`,
       html,
       text,
+      idempotencyKey: data.idempotencyKey,
     }),
   );
   return assertResendSuccess(result, "support-reply");

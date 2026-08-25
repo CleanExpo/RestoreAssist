@@ -1,4 +1,4 @@
-name: Deepsec weekly security scan
+name: Weekly production dependency security scan
 on:
   schedule:
     - cron: '0 13 * * 1'   # 23:00 UTC Monday = 09:00 AEST Tuesday
@@ -10,18 +10,41 @@ permissions:
   issues: write
 
 jobs:
-  deepsec:
+  dependency-security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - name: Run Deepsec
-        run: npx -y deepsec scan
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+      - name: Release bootstrap guard
+        run: node scripts/ci/check-release-bootstrap.mjs
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+        env:
+          HUSKY: "0"
+      - name: Audit production dependency closure
+        run: npm run audit:prod
+      - name: Scan complete git history for secrets
+        run: |
+          set -euo pipefail
+          VERSION=8.30.1
+          ARCHIVE="gitleaks_${VERSION}_linux_x64.tar.gz"
+          ARCHIVE_SHA256="88f91962aa2f93ac6ab281d553b9e125f5197bbbce38f9f2437f7299c32e5509"
+          curl -sSfL --retry 3 --retry-delay 5 \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/${ARCHIVE}" \
+            -o "/tmp/${ARCHIVE}"
+          echo "${ARCHIVE_SHA256}  /tmp/${ARCHIVE}" | sha256sum --check --strict
+          tar -xzf "/tmp/${ARCHIVE}" -C /tmp gitleaks
+          /tmp/gitleaks git --config .gitleaks.toml --redact --no-banner
       - name: Open issue on findings
         if: failure()
         run: |
           gh issue create \
-            --title "[deepsec] Weekly scan findings $(date +%Y-%m-%d)" \
-            --label "security,deepsec,weekly-scan" \
-            --body "Deepsec found new issues. See run logs for details."
+            --title "[security] Weekly production dependency findings $(date +%Y-%m-%d)" \
+            --body "The locked production dependency audit failed. See this workflow run for the exact advisory or bootstrap failure."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

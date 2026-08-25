@@ -150,6 +150,39 @@ function shouldHardPaywall(token: {
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Compatibility for invitation links issued by the retired signup flow.
+  // The public registration endpoint always creates a new ADMIN + organisation,
+  // so an invitation token must never be allowed to continue through /signup.
+  // Canonical invite acceptance is token-scoped at /invite/[token]. Invalid or
+  // duplicated query tokens are sent to the same fail-closed invite surface.
+  if (pathname === "/signup" && req.nextUrl.searchParams.has("invite")) {
+    const inviteTokens = req.nextUrl.searchParams.getAll("invite");
+    const token = inviteTokens.length === 1 ? inviteTokens[0].trim() : "";
+    const url = req.nextUrl.clone();
+    url.pathname = /^[a-f0-9]{48}$/i.test(token)
+      ? `/invite/${token}`
+      : "/invite/invalid";
+    url.search = "";
+    return NextResponse.redirect(url, 307);
+  }
+
+  // DigitalOcean also assigns a public origin hostname. When this deployment
+  // explicitly configures ALLOWED_APP_HOSTS, refuse every other Host before
+  // auth or rate-limit code runs; otherwise callers could bypass Cloudflare
+  // and forge proxy-specific client-IP headers at the origin.
+  const allowedHosts = (process.env.ALLOWED_APP_HOSTS ?? "")
+    .split(",")
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
+  if (allowedHosts.length > 0) {
+    const requestHost = (req.headers.get("host") ?? "")
+      .split(":", 1)[0]
+      .toLowerCase();
+    if (!allowedHosts.includes(requestHost)) {
+      return new NextResponse("Misdirected Request", { status: 421 });
+    }
+  }
+
   // ── Setup wizard gate — FIRST check, flag-guarded (Phase 6, Task 18) ────────
   // Safety lever: read env at request time so the flag can be toggled without
   // redeploying. If the flag is off, this entire block is completely inert.
@@ -202,14 +235,14 @@ export async function proxy(req: NextRequest) {
     // ── /dashboard/* — onboarding gate (RA-1259, unchanged) ──────────────────
     if (pathname.startsWith("/dashboard/")) {
       const needsOnboarding = Boolean((token as any).needsOnboarding);
-      if (!needsOnboarding) return NextResponse.next();
-      if (pathname.startsWith("/onboarding/account-type")) {
-        return NextResponse.next();
+      if (needsOnboarding) {
+        const url = req.nextUrl.clone();
+        url.pathname = "/onboarding/account-type";
+        url.search = "";
+        return NextResponse.redirect(url);
       }
-      const url = req.nextUrl.clone();
-      url.pathname = "/onboarding/account-type";
-      url.search = "";
-      return NextResponse.redirect(url);
+      // Onboarded users must continue to the revenue gate below. Returning
+      // here would bypass the hard paywall for every nested dashboard route.
     }
   }
 
@@ -250,6 +283,7 @@ export const config = {
     "/compliance/:path*",
     "/sign",
     "/sign/:path*",
+    "/signup",
     "/invite/:path*",
     "/setup",
     "/setup/:path*",

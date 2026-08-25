@@ -1,73 +1,85 @@
 name: Smoke — Production
 
-# Hits the @smoke-tagged Playwright suite against https://restoreassist.app
-# every 15 minutes and on demand. Catches availability regressions that
-# Sentry only surfaces *after* a real customer triggers them.
-#
-# Wave-U follow-up of the 2026-05-06 production-readiness push.
-
 on:
   schedule:
-    # Every 15 minutes, UTC. Keep this aligned with the synthetic-monitor
-    # SLO once one is set; for now 15min is a reasonable noise/coverage
-    # tradeoff (~96 runs/day, ~3000/month — well inside free GH Actions tier).
     - cron: "*/15 * * * *"
   workflow_dispatch:
-    inputs:
-      base_url:
-        description: "Base URL to smoke (default: production)"
-        required: false
-        default: "https://restoreassist.app"
-        type: string
+
+permissions:
+  contents: read
 
 concurrency:
-  # Skip overlapping runs. If a run is in flight when the next 15-min tick
-  # fires, the new run will be cancelled rather than queued — there's no
-  # value in stacking smoke runs.
-  group: smoke-prod-${{ github.event.inputs.base_url || 'default' }}
+  group: smoke-prod-production
   cancel-in-progress: false
 
 jobs:
+  reject-non-main:
+    name: Reject non-main smoke request
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - run: |
+          echo "Production smoke may only run from refs/heads/main." >&2
+          exit 1
+
+  provenance:
+    name: Prove exact main provenance before production access
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - run: node scripts/ci/verify-release-provenance.mjs
+
   smoke:
     name: Smoke against prod
+    needs: provenance
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 12
-
+    environment:
+      name: production
+      url: https://restoreassist.app
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - name: Checkout proven revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        # version is read from package.json#packageManager (pnpm@9.15.9) — single SSOT
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 20
+          node-version-file: ".nvmrc"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
+        run: npm ci --ignore-scripts
         env:
           HUSKY: "0"
 
-      - name: Install Playwright browsers (chromium only — smoke is light)
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx --no-install playwright install --with-deps chromium
 
-      - name: Run @smoke against prod
+      - name: Bind smoke target to canonical production
         env:
-          PLAYWRIGHT_BASE_URL: ${{ github.event.inputs.base_url || 'https://restoreassist.app' }}
+          PLAYWRIGHT_BASE_URL: https://restoreassist.app
+        run: node scripts/ci/assert-production-smoke-origin.mjs "$PLAYWRIGHT_BASE_URL"
+
+      - name: Run origin-bound production smoke
+        env:
+          PLAYWRIGHT_BASE_URL: https://restoreassist.app
+          EXPECTED_DEPLOYMENT_SHA: ${{ github.sha }}
+          EXPECTED_DATABASE_FINGERPRINT: ${{ secrets.EXPECTED_DATABASE_FINGERPRINT }}
           CI: true
-          # RA-4987: secret-gated BotID bypass. Playwright injects this as the
-          # x-smoke-test-token header (see config/playwright.config.ts); prod verifyBotId()
-          # timing-safe-compares it against SMOKE_TEST_BOT_BYPASS_SECRET set in the
-          # Vercel prod env. Both values MUST match. Unset here = header omitted =
-          # GH egress IPs get flagged as bots (the pre-RA-4987 failure).
-          SMOKE_TEST_BOT_BYPASS_SECRET: ${{ secrets.SMOKE_TEST_BOT_BYPASS_SECRET }}
-        run: pnpm exec playwright test -c config/playwright.config.ts --grep @smoke --no-deps --reporter=line
+        run: >-
+          node scripts/run-smoke.mjs
+          https://restoreassist.app
+          --no-deps
+          --project=chromium
 
       - name: Upload report on failure
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: smoke-report-${{ github.run_id }}
           path: playwright-report/

@@ -64,8 +64,19 @@ const GOOGLE_IOS_CLIENT_ID =
 // client ID is what authenticates the *token audience*.
 // See docs/google-cloud-console-android-oauth.md.
 const GOOGLE_ANDROID_WEB_CLIENT_ID =
-  process.env.NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID ??
-  "TODO-from-google-cloud-console-web-client-id";
+  process.env.NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID;
+
+function requireGoogleClientId(value: string | undefined, platform: "iOS" | "Android"): string {
+  const candidate = value?.trim();
+  if (
+    !candidate ||
+    /todo|placeholder|replace[-_ ]?me/i.test(candidate) ||
+    !/^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/i.test(candidate)
+  ) {
+    throw new Error(`${platform} Google OAuth client ID is not configured.`);
+  }
+  return candidate;
+}
 
 // SocialLogin.initialize() is idempotent according to the plugin docs,
 // but we still guard with a module-level flag so that repeated sign-in
@@ -75,6 +86,10 @@ let socialLoginInitialised = false;
 async function ensureSocialLoginInitialised() {
   if (socialLoginInitialised) return;
   try {
+    const ios = isCapacitorIOS();
+    const googleClientId = ios
+      ? requireGoogleClientId(GOOGLE_IOS_CLIENT_ID, "iOS")
+      : requireGoogleClientId(GOOGLE_ANDROID_WEB_CLIENT_ID, "Android");
     const { SocialLogin } = await import("@capgo/capacitor-social-login");
     console.log("[oauth-native] SocialLogin.initialize starting", {
       hasApple: Boolean(APPLE_BUNDLE_ID),
@@ -83,8 +98,8 @@ async function ensureSocialLoginInitialised() {
     });
     await SocialLogin.initialize({
       apple: { clientId: APPLE_BUNDLE_ID },
-      google: isCapacitorIOS()
-        ? { iOSClientId: GOOGLE_IOS_CLIENT_ID }
+      google: ios
+        ? { iOSClientId: googleClientId }
         : {
             // Android — capgo wants the Web-type OAuth client ID here.
             // On Android, `webClientId` plays the same role as the
@@ -92,7 +107,7 @@ async function ensureSocialLoginInitialised() {
             // NextAuth backend verifies on the resulting Google ID token.
             // (The plugin's TypeScript surface does not expose a separate
             // `serverClientId` for Android — `webClientId` covers it.)
-            webClientId: GOOGLE_ANDROID_WEB_CLIENT_ID,
+            webClientId: googleClientId,
           },
     });
     socialLoginInitialised = true;
@@ -141,10 +156,17 @@ export async function signInWithOAuth(
   await ensureSocialLoginInitialised();
   const { SocialLogin } = await import("@capgo/capacitor-social-login");
 
-  // Replay protection: random plaintext nonce. The plugin SHA-256s it
-  // before forwarding to the IdP; the resulting JWT carries the SHA-256
-  // hex in its `nonce` claim. The server verifies via the same hash.
-  const noncePlaintext = generateNonce(32);
+  // Server-issued, single-use challenge. The provider signs its binding and
+  // the exchange consumes it atomically before minting a session.
+  const nonceResponse = await fetch("/api/auth/native-nonce", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider }),
+  });
+  if (!nonceResponse.ok) throw new Error("Could not start native sign-in securely");
+  const nonceBody = (await nonceResponse.json()) as { nonce?: string };
+  const noncePlaintext = nonceBody.nonce;
+  if (!noncePlaintext) throw new Error("Native sign-in challenge was missing");
 
   let idToken: string | undefined;
   try {
@@ -230,28 +252,4 @@ export async function signInWithOAuth(
   if (typeof window !== "undefined") {
     window.location.href = callbackUrl;
   }
-}
-
-/**
- * Generate a URL-safe random nonce. Crypto-grade so an attacker can't
- * predict the value and replay a captured token to a different session.
- */
-function generateNonce(byteLength: number): string {
-  const bytes = new Uint8Array(byteLength);
-  if (typeof window !== "undefined" && window.crypto?.getRandomValues) {
-    window.crypto.getRandomValues(bytes);
-  } else {
-    // Server-side (shouldn't reach here in practice — this module is
-    // "use client") — fall back to Math.random which is NOT crypto-safe.
-    // Acceptable as a last resort because this branch never runs in
-    // production paths.
-    for (let i = 0; i < byteLength; i++) {
-      bytes[i] = Math.floor(Math.random() * 256);
-    }
-  }
-  // base64url, stripped of padding
-  return btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
 }

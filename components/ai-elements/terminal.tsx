@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import Ansi from "ansi-to-react";
 import { CheckIcon, CopyIcon, TerminalIcon, Trash2Icon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes } from "react";
 import {
@@ -14,6 +13,12 @@ import {
   useRef,
   useState,
 } from "react";
+
+const ANSI_ESCAPE_PATTERN = /\u001B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+
+function stripAnsi(value: string): string {
+  return value.replace(ANSI_ESCAPE_PATTERN, "");
+}
 
 interface TerminalContextType {
   output: string;
@@ -214,7 +219,7 @@ export const TerminalContent = ({
     >
       {children ?? (
         <pre className="whitespace-pre-wrap break-words">
-          <Ansi>{output}</Ansi>
+          {stripAnsi(output)}
           {isStreaming && (
             <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-zinc-100" />
           )}

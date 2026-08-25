@@ -15,6 +15,17 @@ vi.mock("@/lib/email", () => ({
 // Pass the thunk straight through so the retry wrapper doesn't obscure calls.
 vi.mock("@/lib/email-retry", () => ({
   sendWithRetry: vi.fn((fn: () => Promise<unknown>) => fn()),
+  hasProviderReceipt: (value: unknown) => {
+    if (typeof value === "string") return value.trim().length > 0;
+    const id = (value as { data?: { id?: unknown } } | null)?.data?.id;
+    return typeof id === "string" && id.trim().length > 0;
+  },
+}));
+vi.mock("@/lib/email-delivery-ledger", () => ({
+  deliverEmailOnce: vi.fn(async ({ send }: { send: () => Promise<unknown> }) => {
+    const result = await send();
+    return { messageId: (result as any).data.id, replayed: false, result };
+  }),
 }));
 
 vi.mock("@/lib/pricing/effective-pricing", () => ({
@@ -165,6 +176,17 @@ describe("sendPricingSetupReminders", () => {
     expect(org.user.update).not.toHaveBeenCalled();
     expect(res.itemsProcessed).toBe(0);
     expect(res.metadata).toMatchObject({ failed: 1 });
+  });
+
+  it("does not stamp or count a null best-effort send result", async () => {
+    sendEmail.mockResolvedValueOnce(null);
+    org.organization.findMany.mockResolvedValueOnce([ownerOrg()]);
+
+    const res = await sendPricingSetupReminders();
+
+    expect(org.user.update).not.toHaveBeenCalled();
+    expect(res.itemsProcessed).toBe(0);
+    expect(res.metadata).toMatchObject({ sent: 0, failed: 1 });
   });
 
   it("bounds the query with an explicit take (CLAUDE.md rule 4)", async () => {

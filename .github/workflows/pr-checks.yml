@@ -5,6 +5,9 @@ on:
     branches: [main, sandbox]
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: read
+
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -21,12 +24,12 @@ jobs:
     # that relying on "check it in prod" is not a gate.
     services:
       postgres:
-        # pgvector/pgvector:pg16 ships postgres:16 with the pgvector
+        # pgvector/pgvector:0.8.6-pg16 ships postgres:16 with the pgvector
         # extension preinstalled. The 20260406_iicrc_chunk_pgvector
         # migration creates a vector(...) column and would otherwise
         # fail with `extension "vector" is not available` against
         # plain postgres:16-alpine.
-        image: pgvector/pgvector:pg16
+        image: pgvector/pgvector@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b # 0.8.6-pg16
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
@@ -41,30 +44,29 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup pnpm
-        # version is read from package.json#packageManager (pnpm@9.15.9) — must not duplicate here
-        uses: pnpm/action-setup@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: ".nvmrc"
-          cache: "pnpm"
+          cache: "npm"
+
+      - name: Release bootstrap guard
+        run: node scripts/ci/check-release-bootstrap.mjs
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
 
       - name: Generate Prisma client
-        run: pnpm prisma:generate
+        run: npm run prisma:generate
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
-      # Must run BEFORE Build — `pnpm build` invokes `prisma migrate deploy`
+      # Must run BEFORE Build — `npm run build` invokes `prisma migrate deploy`
       # via scripts/build.sh whenever DATABASE_URL is set (and VERCEL_ENV
       # isn't preview/development). On vanilla postgres:16-alpine the
       # 20260403010000_add_evidence_schema migration fails with
@@ -88,7 +90,7 @@ jobs:
       # `CREATE INDEX CONCURRENTLY`. Prisma wraps each migration in a
       # transaction; CONCURRENTLY can't run inside one. These migrations
       # apply cleanly on Supabase (which uses a different mechanism)
-      # but fail on the plain pgvector/pgvector:pg16 used in CI, leaving
+      # but fail on the pinned pgvector/pgvector 0.8.6-pg16 used in CI, leaving
       # a failed row in `_prisma_migrations` that poisons every later
       # `migrate deploy` (P3009) and turns this gate red on every PR.
       #
@@ -102,9 +104,9 @@ jobs:
       # below.
       - name: Pre-resolve CONCURRENTLY migrations (Supabase-only syntax)
         run: |
-          pnpm exec prisma migrate resolve --applied 20260407_n1_performance_indexes
-          pnpm exec prisma migrate resolve --applied 20260407_perf_composite_indexes
-          pnpm exec prisma migrate resolve --applied 20260516010000_inspection_close_terminal_index
+          npx --no-install prisma migrate resolve --applied 20260407_n1_performance_indexes
+          npx --no-install prisma migrate resolve --applied 20260407_perf_composite_indexes
+          npx --no-install prisma migrate resolve --applied 20260516010000_inspection_close_terminal_index
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
@@ -118,10 +120,10 @@ jobs:
       # refactor where the next PR clears the rest), explicitly add a baseline
       # ratchet rather than re-enabling continue-on-error globally.
       - name: TypeScript Check
-        run: pnpm type-check
+        run: npm run type-check
 
       - name: Lint
-        run: pnpm lint
+        run: npm run lint
 
       # Branded-icon guard (RA-icon-system). Ratchet mode: fails if a PR adds
       # generic Unicode emojis beyond the recorded baseline
@@ -129,13 +131,13 @@ jobs:
       # docs/RESTOREASSIST_ICON_SYSTEM.md. The historical backlog burns down as
       # files are migrated; regenerate the baseline to ratchet the limit lower.
       - name: Emoji guard
-        run: pnpm check:no-emoji
+        run: npm run check:no-emoji
 
       # Branded-icon guard (Phill Rule 1, .claude/DESIGN.md). Ratchet mode: fails
       # if a PR adds net-new lucide-react imports beyond scripts/lucide-baseline.json.
       # Use the RAIcon / [ra:*] system instead. Regenerate the baseline to ratchet down.
       - name: Lucide guard
-        run: pnpm check:no-lucide
+        run: npm run check:no-lucide
 
       # Spec-docs layout guard (PR #1968 lesson). A clean merge of main silently
       # relocated the canonical master spec into docs/root-archive/ via git
@@ -144,14 +146,14 @@ jobs:
       # not root spec.md, or if spec.md references a missing docs/*.md file.
       # Vacuously passes until a canonical spec exists.
       - name: Spec-docs layout guard
-        run: pnpm check:spec-docs
+        run: npm run check:spec-docs
 
       # UTF-8 encoding guard (RA-6938). Fails if CLAUDE.md, AGENTS.md, or any
       # .claude/rules/*.md is committed as invalid-UTF-8 "data" (mojibake). The
       # primary agent brief was silently corrupted from the Commands section
       # onward on main; this cheap check stops that trust-damage class before merge.
       - name: Encoding guard
-        run: pnpm check:encoding
+        run: npm run check:encoding
 
       # Data-source SSOT gate (RA-7026). Fails if a NEW pair of Prisma models
       # shares most fields but carries different @unique keys (the tenancy-key
@@ -160,7 +162,7 @@ jobs:
       # scripts/ci/data-source-ssot-allowlist.json once a single resolver reads
       # them. See .claude/skills/data-source-ssot/SKILL.md.
       - name: Data-source SSOT gate
-        run: pnpm check:ssot
+        run: npm run check:ssot
 
       # Standards-citation integrity gate (STORM #7 / RA-6934). Fails on stale
       # IICRC editions (source literals + scripts/data/*.json corpus) and on
@@ -168,37 +170,37 @@ jobs:
       # the verified section index. Previously only defined in package.json and
       # never enforced in CI — wired here to close the blind spot.
       - name: Standards citation gate
-        run: pnpm check:standards
+        run: npm run check:standards
 
       # Copyright tripwire (Standards KB gate G6). Fails if a known verbatim
       # canary sentence from the licensed standards appears in tracked
       # source/data files. Was defined in package.json but never enforced in
       # CI — wired here (RA-7000 Phase 2) to close the blind spot.
       - name: Verbatim standards tripwire
-        run: pnpm check:no-verbatim
+        run: npm run check:no-verbatim
 
       # RA-7000 Phase 2 — marketing zero-verbatim gate. guardStandardOutput
       # "marketing" mode (6+ contiguous-word floor) over docs/marketing,
       # remotion marketing compositions, and content/ — catches partial reuse
       # the exact-substring tripwire above misses.
       - name: Marketing zero-verbatim gate
-        run: pnpm check:marketing-verbatim
+        run: npm run check:marketing-verbatim
 
       - name: Australian-English content guard
-        run: pnpm check:au-english
+        run: npm run check:au-english
 
       # Phase 2 AI guardrail gate. Static only: no provider calls, no DB
       # writes, and no runtime routing changes. Fails if a new AI/provider/RAG
       # surface cannot be classified into a known task class.
       - name: AI guardrail audit
-        run: pnpm audit:ai
+        run: npm run audit:ai
 
       # RA-6937 — API route auth/safety audit. Static scan of app/api routes
       # (scripts/audit-api-routes.ts). Errors are fatal; warnings are not.
       # Previously the script always exited 0, so [error] findings never
       # failed CI.
       - name: API route audit
-        run: pnpm audit:api
+        run: npm run audit:api
 
       # Release-gate criterion C2 — secrets scan over the working tree.
       #
@@ -228,8 +230,13 @@ jobs:
         run: |
           set -euo pipefail
           VERSION=8.30.1
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
-            | tar -xz -C /tmp gitleaks
+          ARCHIVE="gitleaks_${VERSION}_linux_x64.tar.gz"
+          ARCHIVE_SHA256="88f91962aa2f93ac6ab281d553b9e125f5197bbbce38f9f2437f7299c32e5509"
+          curl -sSfL --retry 3 --retry-delay 5 \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/${ARCHIVE}" \
+            -o "/tmp/${ARCHIVE}"
+          echo "${ARCHIVE_SHA256}  /tmp/${ARCHIVE}" | sha256sum --check --strict
+          tar -xzf "/tmp/${ARCHIVE}" -C /tmp gitleaks
           /tmp/gitleaks version
           /tmp/gitleaks detect --no-git --config .gitleaks.toml --redact --no-banner
 
@@ -241,13 +248,13 @@ jobs:
       # re-runs `migrate deploy` (a no-op once applied) plus `migrate status`,
       # so the drift gate is unchanged.
       - name: Apply migrations for DB-gated tests
-        run: pnpm exec prisma migrate deploy
+        run: npx --no-install prisma migrate deploy
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
 
       - name: Unit tests
-        run: pnpm exec vitest run --config config/vitest.config.js
+        run: npx --no-install vitest run --config config/vitest.config.js
         # RA-6685 — without DATABASE_URL the `skipIf(!process.env.DATABASE_URL)`
         # suites evaluate `skipIf(true)` and report green WITHOUT running.
         env:
@@ -255,14 +262,14 @@ jobs:
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
 
       # Build flipped to enforcing 2026-05-06 (Wave 1 PR-B production-readiness push).
-      # Vercel previews already pass `pnpm build` against both `restoreassist` and
+      # Vercel previews already pass `npm run build` against both `restoreassist` and
       # `restoreassist-sandbox` projects on every PR, so flipping this from
       # `continue-on-error: true` to enforcing closes the gap where a CI build
       # break could merge silently while Vercel happened to succeed for an
       # unrelated reason. Phase 0 now also enforces type-check, lint, and unit
       # tests before this build step.
       - name: Build
-        run: pnpm build
+        run: npm run build
         env:
           NODE_OPTIONS: --max-old-space-size=4096
           SKIP_ENV_VALIDATION: true
@@ -276,14 +283,14 @@ jobs:
       # on every PR so they're visible before merge.
       # RA-6719 (2026-06-17): promoted to ENFORCING — a new high prod CVE now
       # fails the PR. Justified suppressions live in package.json
-      # pnpm.auditConfig.ignoreGhsas.
-      # 2026-07-15: npm retired the classic `pnpm audit` quick-audit endpoint
+      # package.json#auditConfig.ignoreGhsas.
+      # 2026-07-15: npm retired the classic quick-audit endpoint
       # (/-/npm/v1/security/audits → HTTP 410), which failed this step on every
       # PR regardless of CVE state. `audit:prod` queries the bulk advisory
       # endpoint with identical semantics (prod deps, high/critical, same
       # ignoreGhsas suppressions).
       - name: Audit dependencies
-        run: pnpm audit:prod
+        run: npm run audit:prod
 
       # RA-1546 — Prisma migration-drift gate. Applies every migration
       # in `prisma/migrations/` against the ephemeral Postgres service
@@ -310,8 +317,8 @@ jobs:
       # Invoke it explicitly here, where the gate's name already promises it.
       - name: Prisma migration drift check
         run: |
-          pnpm exec prisma migrate deploy
-          pnpm exec prisma migrate status
+          npx --no-install prisma migrate deploy
+          npx --no-install prisma migrate status
           node scripts/check-schema-drift.mjs
         env:
           # Schema declares both DATABASE_URL (pooled) and DIRECT_URL

@@ -26,6 +26,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { apiError, fromException } from "@/lib/api-errors";
+import { validateCsrf } from "@/lib/csrf";
 import {
   validateObservation,
   type NewPilotObservation,
@@ -39,6 +40,9 @@ const MAX_PILOT_OBSERVATIONS = 1_000;
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = validateCsrf(request, { requireOrigin: true });
+    if (csrfError) return csrfError;
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return apiError(request, {

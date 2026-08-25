@@ -46,6 +46,10 @@ export interface ImageManifestEntry {
   cachedAt: string;
   /** MIME type of the cached file. */
   mimeType: string;
+  /** Unsplash API photo identifier returned with the search result. */
+  unsplashPhotoId: string;
+  /** SHA-256 of the exact cached JPEG bytes. */
+  contentSha256: string;
 }
 
 export interface ImageManifest {
@@ -67,6 +71,10 @@ export async function readCachedImage(
 ): Promise<{ buffer: Buffer; mimeType: string; filename: string }> {
   const filePath = path.join(CACHE_DIR, `${entry.cacheKey}.jpg`);
   const buffer = await fs.readFile(filePath);
+  const observedSha256 = createHash("sha256").update(buffer).digest("hex");
+  if (observedSha256 !== entry.contentSha256.toLowerCase()) {
+    throw new Error(`[pilot-tester images] cached bytes changed after preflight: ${entry.cacheKey}`);
+  }
   return {
     buffer,
     mimeType: entry.mimeType,
@@ -76,8 +84,8 @@ export async function readCachedImage(
 
 /**
  * Pick N images for a given topic. Throws if fewer than N exist in
- * the manifest — refresh the cache first via `pnpm --filter
- * pilot-tester images:refresh`.
+ * the manifest — from packages/pilot-tester, refresh the cache with
+ * `UNSPLASH_ACCESS_KEY=... npx --no-install tsx src/images/source.ts refresh 4`.
  */
 export async function pickImagesForTopic(
   topic: ImageManifestEntry["topic"],
@@ -151,8 +159,7 @@ export async function refreshCache(perTopic: number): Promise<ImageManifest> {
     for (const photo of body.results) {
       const cacheKey = createHash("sha1")
         .update(photo.urls.regular)
-        .digest("hex")
-        .slice(0, 16);
+        .digest("hex");
       const filePath = path.join(CACHE_DIR, `${cacheKey}.jpg`);
       const dl = await fetch(photo.urls.regular);
       if (!dl.ok) continue;
@@ -167,6 +174,8 @@ export async function refreshCache(perTopic: number): Promise<ImageManifest> {
         unsplashUrl: photo.links.html,
         cachedAt: new Date().toISOString(),
         mimeType: "image/jpeg",
+        unsplashPhotoId: photo.id,
+        contentSha256: createHash("sha256").update(buf).digest("hex"),
       });
     }
   }

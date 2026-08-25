@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 vi.mock("@/lib/email-send", () => ({
-  sendEmail: vi.fn().mockResolvedValue(undefined),
+  sendEmail: vi.fn().mockResolvedValue("msg_reengagement_1"),
 }));
 
 import { sendEmail } from "@/lib/email-send";
@@ -32,6 +32,8 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   delete process.env.REENGAGEMENT_SEND_TOKEN;
+  delete process.env.MAILTRAP_API_KEY;
+  delete process.env.SENDER_EMAIL;
 });
 
 describe("POST /api/internal/send-reengagement", () => {
@@ -96,10 +98,36 @@ describe("POST /api/internal/send-reengagement", () => {
 
   it("returns sent:false (not a send) when RESEND_API_KEY is unset", async () => {
     delete process.env.RESEND_API_KEY;
+    delete process.env.MAILTRAP_API_KEY;
+    delete process.env.SENDER_EMAIL;
     const res = await POST(
       req({ recipientEmail: "a@b.com" }, `Bearer ${TOKEN}`),
     );
     expect((await res.json()).sent).toBe(false);
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("uses configured Mailtrap when Resend is absent", async () => {
+    delete process.env.RESEND_API_KEY;
+    process.env.MAILTRAP_API_KEY = "mt_test";
+    process.env.SENDER_EMAIL = "support@restoreassist.app";
+
+    const res = await POST(
+      req({ recipientEmail: "a@b.com" }, `Bearer ${TOKEN}`),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ sent: true });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a non-2xx sent:false result without a provider receipt", async () => {
+    send.mockResolvedValueOnce(null);
+    const res = await POST(
+      req({ recipientEmail: "a@b.com" }, `Bearer ${TOKEN}`),
+    );
+
+    expect(res.status).toBe(502);
+    expect(await res.json()).toMatchObject({ sent: false });
   });
 });

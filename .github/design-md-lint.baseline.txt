@@ -50,4 +50,8 @@
 # the rest of the app/dashboard/admin/* surface (usage, users, etc.). The bump
 # was missed on that merge and surfaced on the follow-up PR #1633; recorded
 # here. Migration to src/components/ui/marks.tsx remains a separate cleanup.
-icon_imports=365
+#
+# 2026-08-25: ratcheted 365 -> 357 while repairing the release gates. Thirteen
+# unbaselined/recent imports were migrated to the RestoreAssist RAIcon and
+# chrome-icon systems; the current tracked tree now contains 357 occurrences.
+icon_imports=357

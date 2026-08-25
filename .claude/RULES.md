@@ -10,12 +10,12 @@
 3. Admin routes use `verifyAdminFromDb()` from `lib/admin-auth.ts` — JWT role claim can be stale; always re-validate from DB.
 
 ### Dependencies & toolchain
-pnpm-only. `pnpm-lock.yaml` is the source of truth; CI uses `pnpm install --frozen-lockfile`; Vercel builds the same. Mixing managers has bricked sessions — `npm uninstall` wrote a partial `package.json`, left the pnpm lockfile untouched, Vercel rejected the frozen lockfile, PR gate went red until the lockfile was regenerated.
+npm-only. `package-lock.json` is the source of truth; CI and production builds use `npm ci`. Mixing managers has bricked sessions, so the release-bootstrap guard rejects non-npm lockfiles and pnpm runtime commands.
 
 Any dependency change:
-1. Edit `package.json` by hand OR run `pnpm add <pkg>` / `pnpm remove <pkg>`.
-2. `pnpm install --lockfile-only` (or `pnpm install` for a full refresh).
-3. Commit `package.json` and `pnpm-lock.yaml` in the **same** commit.
+1. Edit `package.json` by hand OR run `npm install <pkg>` / `npm uninstall <pkg>`.
+2. Run `npm install --package-lock-only` (or `npm install` for a full refresh).
+3. Commit `package.json` and `package-lock.json` in the **same** commit.
 4. Never commit one without the other.
 
 ### Data & Queries

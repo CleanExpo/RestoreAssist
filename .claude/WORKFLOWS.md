@@ -17,7 +17,7 @@ Format: `type(scope): description`
 ```
 feat(RA-384): scaffold mobile app source structure
 fix(ci): upgrade Java 17 → 21 for Capacitor 8 compatibility
-chore: update pnpm lockfile
+chore: update npm lockfile
 ```
 
 Types: `feat`, `fix`, `chore`, `refactor`, `docs`, `test`, `perf`
@@ -30,7 +30,7 @@ Scope: Linear issue ID (`RA-XXX`) or area (`ci`, `auth`, `prisma`)
 3. Push branch: `git push origin feat/ra-xxx-description`
 4. Create PR: `gh pr create --base main`
 5. CI runs automatically:
-   - **Quality Checks** (PR Quality Gates workflow): pnpm install + type-check
+   - **Quality Checks** (PR Quality Gates workflow): npm ci + type-check
    - **Vercel Preview**: builds and deploys preview URL
    - **CodeRabbit**: automated code review
 6. Squash merge to main: `gh pr merge --squash --delete-branch`
@@ -38,7 +38,7 @@ Scope: Linear issue ID (`RA-XXX`) or area (`ci`, `auth`, `prisma`)
 
 ### PR Checklist
 
-- [ ] `pnpm type-check` passes
+- [ ] `npm run type-check` passes
 - [ ] No new `any` types without justification
 - [ ] API routes have auth checks
 - [ ] Prisma queries have `take` limits
@@ -47,12 +47,13 @@ Scope: Linear issue ID (`RA-XXX`) or area (`ci`, `auth`, `prisma`)
 
 ## Deployment
 
-### Production (Vercel)
+### Production (DigitalOcean App Platform)
 
 - Auto-deploys from `main` branch
-- Project: `unite-group/restoreassist` at `restoreassist.app`
-- Build: `pnpm build` (runs prisma generate + migrate deploy + next build)
-- Env vars set in Vercel project dashboard
+- App: `restoreassist.app`
+- Build: `npm run build` (runs prisma generate + migrate deploy + next build)
+- Env vars set in the DigitalOcean App Platform component
+- Deployment parity is verified against the active DigitalOcean component SHA
 
 ### Preview (Vercel)
 
@@ -79,7 +80,7 @@ git log --oneline -10
 # Revert on main
 git revert HEAD
 git push origin main
-# Vercel auto-deploys the revert
+# DigitalOcean App Platform auto-deploys the revert
 ```
 
 ### Database

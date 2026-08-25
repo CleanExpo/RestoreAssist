@@ -4,14 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
-  ArrowLeft,
-  RefreshCw,
-  Loader2,
-  AlertTriangle,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
+  ChromeAlertTriangle,
+  ChromeArrowLeft,
+  ChromeCheckCircle,
+  ChromeChevronDown,
+  ChromeRefresh,
+  ChromeSpinner,
+} from "@/components/brand/chrome-icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -158,11 +157,11 @@ function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
           >
             {expanded ? (
               <>
-                <ChevronUp className="h-3 w-3" /> Show less
+                <ChromeChevronDown className="h-3 w-3 rotate-180" /> Show less
               </>
             ) : (
               <>
-                <ChevronDown className="h-3 w-3" /> Show more
+                <ChromeChevronDown className="h-3 w-3" /> Show more
               </>
             )}
           </button>
@@ -215,11 +214,11 @@ function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
         >
           {isRetrying ? (
             <>
-              <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Retrying…
+              <ChromeSpinner className="h-3 w-3 mr-1 animate-spin" /> Retrying…
             </>
           ) : (
             <>
-              <RefreshCw className="h-3 w-3 mr-1" /> Retry
+              <ChromeRefresh className="h-3 w-3 mr-1" /> Retry
             </>
           )}
         </Button>
@@ -267,11 +266,11 @@ function WebhookErrorRow({ error }: WebhookErrorRowProps) {
           >
             {expanded ? (
               <>
-                <ChevronUp className="h-3 w-3" /> Show less
+                <ChromeChevronDown className="h-3 w-3 rotate-180" /> Show less
               </>
             ) : (
               <>
-                <ChevronDown className="h-3 w-3" /> Show more
+                <ChromeChevronDown className="h-3 w-3" /> Show more
               </>
             )}
           </button>
@@ -476,7 +475,7 @@ export default function SyncErrorsPage() {
           onClick={() => router.push("/dashboard/integrations")}
           className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6 transition-colors"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ChromeArrowLeft className="h-4 w-4" />
           Back to Integrations
         </button>
 
@@ -511,7 +510,7 @@ export default function SyncErrorsPage() {
               className="h-8 text-xs"
             >
               {clearing ? (
-                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                <ChromeSpinner className="h-3 w-3 mr-1 animate-spin" />
               ) : null}
               Clear Resolved
             </Button>
@@ -522,7 +521,7 @@ export default function SyncErrorsPage() {
               disabled={loading}
               className="h-8 text-xs"
             >
-              <RefreshCw
+              <ChromeRefresh
                 className={`h-3 w-3 mr-1 ${loading ? "animate-spin" : ""}`}
               />
               Refresh
@@ -552,7 +551,7 @@ export default function SyncErrorsPage() {
         {/* Fetch error banner */}
         {fetchError && (
           <div className="flex items-center gap-2 rounded-lg bg-destructive-subtle border border-destructive-subtle-foreground/30 px-4 py-3 text-sm text-destructive-subtle-foreground mb-6">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <ChromeAlertTriangle className="h-4 w-4 shrink-0" />
             {fetchError}
             <button
               onClick={fetchErrors}
@@ -585,7 +584,7 @@ export default function SyncErrorsPage() {
                 <TableRow>
                   <TableCell colSpan={7} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-3 text-slate-500">
-                      <CheckCircle2 className="h-10 w-10 text-success" />
+                      <ChromeCheckCircle className="h-10 w-10 text-success" />
                       <p className="text-base font-medium text-slate-700">
                         No sync errors — all integrations healthy
                       </p>

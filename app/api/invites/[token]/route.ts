@@ -15,22 +15,158 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/lib/auth";
 import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { isUserInviteToken } from "@/lib/public-token-shape";
 import { apiError } from "@/lib/api-errors";
+import { rejectIfBreached } from "@/lib/auth/password-breach";
+import { canonicalEmail } from "@/lib/email-identity";
+import crypto from "node:crypto";
 
 interface RouteContext {
   params: Promise<{ token: string }>;
 }
 
+class InviteClaimConflict extends Error {}
+
 function roleLabel(role: string) {
   if (role === "MANAGER") return "Manager";
   if (role === "USER") return "Technician";
   return role;
+}
+
+function isAssignableInviteRole(role: string): role is "MANAGER" | "USER" {
+  return role === "MANAGER" || role === "USER";
+}
+
+type AcceptanceProvider = "credentials" | "google";
+
+function acceptanceResponse(
+  provider: AcceptanceProvider,
+  email: string,
+  replayed = false,
+) {
+  if (provider === "google") {
+    return NextResponse.json({ ok: true, replayed });
+  }
+  return NextResponse.json({
+    success: true,
+    message: "Account created. You can now sign in.",
+    email: canonicalEmail(email),
+    replayed,
+  });
+}
+
+async function replayAcceptance(
+  req: NextRequest,
+  invite: {
+    email: string;
+    organizationId: string;
+    usedAt: Date | null;
+    acceptedUserId: string | null;
+    acceptanceProvider: string | null;
+    acceptancePayloadHash: string | null;
+  },
+  provider: AcceptanceProvider,
+  expectedPayloadHash: string,
+): Promise<NextResponse | null> {
+  if (
+    !invite.usedAt ||
+    !invite.acceptedUserId ||
+    invite.acceptanceProvider !== provider ||
+    invite.acceptancePayloadHash !== expectedPayloadHash
+  ) {
+    return null;
+  }
+
+  if (provider === "google") {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id !== invite.acceptedUserId) return null;
+  }
+
+  const acceptedUser = await prisma.user.findFirst({
+    where: {
+      id: invite.acceptedUserId,
+      organizationId: invite.organizationId,
+      email: { equals: invite.email, mode: "insensitive" },
+    },
+    select: { id: true },
+  });
+  if (!acceptedUser) {
+    return apiError(req, {
+      code: "CONFLICT",
+      message: "Invitation receipt no longer matches the accepted account",
+      status: 409,
+    });
+  }
+
+  return acceptanceResponse(provider, invite.email, true);
+}
+
+function acceptancePayloadHash(input: {
+  provider: AcceptanceProvider;
+  name: string;
+  phone: string;
+  headshotDataUrl: string;
+  password: string;
+}): string | null {
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) return null;
+  const headshotHash = crypto
+    .createHash("sha256")
+    .update(input.headshotDataUrl)
+    .digest("hex");
+  // HMAC binds a credentials retry to the original password without storing a
+  // reusable password or an offline-comparable unkeyed password digest.
+  return crypto
+    .createHmac("sha256", secret)
+    .update(
+      JSON.stringify([
+        input.provider,
+        input.name,
+        input.phone,
+        headshotHash,
+        input.password,
+        true,
+        true,
+      ]),
+    )
+    .digest("hex");
+}
+
+async function deleteLosingHeadshot(publicId: string) {
+  try {
+    const { deleteImage } = await import("@/lib/cloudinary");
+    await deleteImage(publicId);
+  } catch (error) {
+    console.error(
+      "[POST /api/invites/[token]] Failed to delete unclaimed headshot",
+      error,
+    );
+    await (prisma as any).mediaCleanupTask.upsert({
+      where: { publicId },
+      create: {
+        publicId,
+        reason: "invite_acceptance_not_committed",
+        status: "PENDING",
+        attemptCount: 1,
+        lastError:
+          error instanceof Error ? error.message.slice(0, 500) : "unknown",
+      },
+      update: {
+        status: "PENDING",
+        attemptCount: { increment: 1 },
+        lastError:
+          error instanceof Error ? error.message.slice(0, 500) : "unknown",
+      },
+    });
+    throw new Error("Headshot cleanup queued; invitation result is unresolved");
+  }
 }
 
 // ─── GET — preview the invite ──────────────────────────────────────────────
@@ -81,6 +217,14 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     });
   }
 
+  if (!isAssignableInviteRole(invite.role)) {
+    return apiError(req, {
+      code: "CONFLICT",
+      message: "This invitation carries an unsupported role",
+      status: 409,
+    });
+  }
+
   if (invite.usedAt) {
     return apiError(req, {
       code: "GONE",
@@ -117,7 +261,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   });
   if (rateLimited) return rateLimited;
 
-  const csrfError = validateCsrf(req);
+  const csrfError = validateCsrf(req, { requireOrigin: true });
   if (csrfError) return csrfError;
 
   const { token } = await params;
@@ -234,6 +378,9 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       managedById: true,
       expiresAt: true,
       usedAt: true,
+      acceptedUserId: true,
+      acceptanceProvider: true,
+      acceptancePayloadHash: true,
     },
   });
 
@@ -245,7 +392,37 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     });
   }
 
+  if (!isAssignableInviteRole(invite.role)) {
+    return apiError(req, {
+      code: "CONFLICT",
+      message: "This invitation carries an unsupported role",
+      status: 409,
+    });
+  }
+
+  const payloadHash = acceptancePayloadHash({
+    provider: isGoogle ? "google" : "credentials",
+    name,
+    phone,
+    headshotDataUrl,
+    password: isGoogle ? "" : password,
+  });
+  if (!payloadHash) {
+    return apiError(req, {
+      code: "INTERNAL",
+      message: "Invitation acceptance is temporarily unavailable",
+      status: 503,
+    });
+  }
+
   if (invite.usedAt) {
+    const replay = await replayAcceptance(
+      req,
+      invite,
+      isGoogle ? "google" : "credentials",
+      payloadHash,
+    );
+    if (replay) return replay;
     return apiError(req, {
       code: "GONE",
       message: "This invite has already been used",
@@ -261,25 +438,89 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     });
   }
 
+  if (invite.managedById) {
+    const manager = await prisma.user.findFirst({
+      where: {
+        id: invite.managedById,
+        organizationId: invite.organizationId,
+        role: { in: ["ADMIN", "MANAGER"] },
+      },
+      select: { id: true },
+    });
+    if (!manager) {
+      return apiError(req, {
+        code: "CONFLICT",
+        message: "The manager assigned by this invitation is no longer valid",
+        status: 409,
+      });
+    }
+  }
+
+  if (!isGoogle) {
+    const breachMessage = await rejectIfBreached(password);
+    if (breachMessage) {
+      return apiError(req, {
+        code: "VALIDATION",
+        message: breachMessage,
+        status: 400,
+      });
+    }
+  }
+
   // Google-OAuth completion path — the user record already exists (created
   // by NextAuth when the invitee signed in with Google). We attach the org +
   // phone + headshot and mark the invite used.
   if (isGoogle) {
-    const existingByEmail = await prisma.user.findUnique({
-      where: { email: invite.email.toLowerCase() },
-      select: { id: true },
-    });
-    if (!existingByEmail) {
+    const session = await getServerSession(authOptions);
+    if (
+      !session?.user?.id ||
+      !session.user.email ||
+      canonicalEmail(session.user.email) !== canonicalEmail(invite.email)
+    ) {
       return apiError(req, {
-        code: "VALIDATION",
-        message: "Google user not found for this invite",
-        status: 400,
+        code: "UNAUTHORIZED",
+        message: "Sign in with the Google account named in this invitation",
+        status: 401,
       });
     }
-    const { uploadDataUrl } = await import("@/lib/cloudinary");
-    let headshotUrl: string;
+    const googleAccount = await prisma.account.findFirst({
+      where: { userId: session.user.id, provider: "google" },
+      select: { id: true },
+    });
+    if (!googleAccount) {
+      return apiError(req, {
+        code: "FORBIDDEN",
+        message: "A verified Google sign-in is required for this path",
+        status: 403,
+      });
+    }
+    const googleUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        email: true,
+        name: true,
+        organizationId: true,
+        pendingInviteIdentity: true,
+        ownedOrganizations: { select: { id: true }, take: 1 },
+      },
+    });
+    if (
+      !googleUser ||
+      canonicalEmail(googleUser.email) !== canonicalEmail(invite.email) ||
+      googleUser.organizationId !== null ||
+      googleUser.ownedOrganizations.length > 0
+    ) {
+      return apiError(req, {
+        code: "CONFLICT",
+        message:
+          "This Google account already belongs to a RestoreAssist organization and cannot be moved by an invitation.",
+        status: 409,
+      });
+    }
+    const { uploadDataUrlWithReceipt } = await import("@/lib/cloudinary");
+    let headshotUpload: { url: string; publicId: string };
     try {
-      headshotUrl = await uploadDataUrl(headshotDataUrl, {
+      headshotUpload = await uploadDataUrlWithReceipt(headshotDataUrl, {
         folder: "headshots",
         tags: ["headshot", "invite"],
       });
@@ -296,25 +537,144 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         stage: "invite-accept:headshot-upload",
       });
     }
-    await prisma.user.update({
-      where: { id: existingByEmail.id },
-      data: { phone, image: headshotUrl, name } as any,
-    });
-    await prisma.userInvite.update({
-      where: { id: invite.id },
-      data: { usedAt: new Date() },
-    });
-    return NextResponse.json({ ok: true });
+    try {
+      await prisma.$transaction(async (tx) => {
+        const now = new Date();
+        if (invite.managedById) {
+          const manager = await tx.user.findFirst({
+            where: {
+              id: invite.managedById,
+              organizationId: invite.organizationId,
+              role: { in: ["ADMIN", "MANAGER"] },
+            },
+            select: { id: true },
+          });
+          if (!manager) throw new InviteClaimConflict();
+        }
+        const claimed = await tx.userInvite.updateMany({
+          where: {
+            id: invite.id,
+            token,
+            organizationId: invite.organizationId,
+            usedAt: null,
+            expiresAt: { gt: now },
+          },
+          data: { usedAt: now },
+        });
+        if (claimed.count !== 1) throw new InviteClaimConflict();
+
+        // Re-assert that OAuth created an unassigned user. An existing owner or
+        // member with the same email must never be silently moved across tenants.
+        const attached = await tx.user.updateMany({
+          where: {
+            id: session.user.id,
+            organizationId: null,
+            pendingInviteIdentity: true,
+          },
+          data: {
+            phone,
+            image: headshotUpload.url,
+            name: sanitizeString(googleUser.name, 200) || name,
+            role: invite.role,
+            organizationId: invite.organizationId,
+            managedById: invite.managedById,
+            needsOnboarding: false,
+            acceptedTermsAt: now,
+            subscriptionStatus: null,
+            subscriptionPlan: null,
+            subscriptionId: null,
+            stripeCustomerId: null,
+            trialEndsAt: null,
+            subscriptionEndsAt: null,
+            creditsRemaining: null,
+            totalCreditsUsed: 0,
+            quickFillCreditsRemaining: null,
+            totalQuickFillUsed: 0,
+            signupBonusApplied: false,
+            pendingInviteIdentity: false,
+          } as any,
+        });
+        if (attached.count !== 1) throw new InviteClaimConflict();
+        await tx.userInvite.update({
+          where: { id: invite.id },
+          data: {
+            acceptedUserId: session.user.id,
+            acceptanceProvider: "google",
+            acceptancePayloadHash: payloadHash,
+          },
+        });
+      });
+    } catch (error) {
+      await deleteLosingHeadshot(headshotUpload.publicId);
+      if (error instanceof InviteClaimConflict) {
+        const committed = await prisma.userInvite.findUnique({
+          where: { token },
+          select: {
+            email: true,
+            organizationId: true,
+            usedAt: true,
+            acceptedUserId: true,
+            acceptanceProvider: true,
+            acceptancePayloadHash: true,
+          },
+        });
+        if (committed) {
+          const replay = await replayAcceptance(req, committed, "google", payloadHash);
+          if (replay) return replay;
+        }
+        return apiError(req, {
+          code: "CONFLICT",
+          message:
+            "This invitation was already accepted or the account changed",
+          status: 409,
+        });
+      }
+      throw error;
+    }
+    return acceptanceResponse("google", invite.email);
   }
 
   // Guard against a race with a separate registration on the same email —
   // the UI for this page is gated behind a valid unused token, but someone
   // could have registered via /signup in parallel.
-  const existing = await prisma.user.findUnique({
-    where: { email: invite.email.toLowerCase() },
-    select: { id: true },
+  const existing = await prisma.user.findFirst({
+    where: {
+      email: { equals: invite.email, mode: "insensitive" },
+    },
+    select: {
+      id: true,
+      role: true,
+      organizationId: true,
+      subscriptionStatus: true,
+      subscriptionPlan: true,
+      subscriptionId: true,
+      stripeCustomerId: true,
+      trialEndsAt: true,
+      subscriptionEndsAt: true,
+      creditsRemaining: true,
+      quickFillCreditsRemaining: true,
+      signupBonusApplied: true,
+      pendingInviteIdentity: true,
+      ownedOrganizations: { select: { id: true }, take: 1 },
+    },
   });
-  if (existing) {
+  const isAdoptablePendingIdentity = Boolean(
+    existing &&
+      existing.role === "USER" &&
+      existing.organizationId === null &&
+      existing.subscriptionStatus === null &&
+      existing.subscriptionPlan === null &&
+      existing.subscriptionId === null &&
+      existing.stripeCustomerId === null &&
+      existing.trialEndsAt === null &&
+      existing.subscriptionEndsAt === null &&
+      existing.creditsRemaining === null &&
+      existing.quickFillCreditsRemaining === null &&
+      existing.signupBonusApplied === false &&
+      existing.pendingInviteIdentity === true &&
+      existing.ownedOrganizations.length === 0,
+  );
+  if (existing && !isAdoptablePendingIdentity) {
     return apiError(req, {
       code: "CONFLICT",
       message:
@@ -327,10 +687,10 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
   // Upload the headshot before the DB transaction — network I/O does not
   // belong inside a Prisma transaction.
-  const { uploadDataUrl } = await import("@/lib/cloudinary");
-  let headshotUrl: string;
+  const { uploadDataUrlWithReceipt } = await import("@/lib/cloudinary");
+  let headshotUpload: { url: string; publicId: string };
   try {
-    headshotUrl = await uploadDataUrl(headshotDataUrl, {
+    headshotUpload = await uploadDataUrlWithReceipt(headshotDataUrl, {
       folder: "headshots",
       tags: ["headshot", "invite"],
     });
@@ -343,36 +703,119 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
 
   // Create the user and mark the invite used atomically.
-  await prisma.$transaction(async (tx) => {
-    await tx.user.create({
-      data: {
-        email: invite.email.toLowerCase(),
-        name,
-        password: hashedPassword,
-        role: invite.role,
-        organizationId: invite.organizationId,
-        managedById: invite.managedById,
-        phone,
-        image: headshotUrl,
-        // Invited members don't have their own trial credits —
-        // they share the Admin org's credits.
-        subscriptionStatus: null,
-        creditsRemaining: null,
-        totalCreditsUsed: 0,
-        mustChangePassword: false,
-        acceptedTermsAt: new Date() as any,
-      } as any,
-    });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const now = new Date();
+      if (invite.managedById) {
+        const manager = await tx.user.findFirst({
+          where: {
+            id: invite.managedById,
+            organizationId: invite.organizationId,
+            role: { in: ["ADMIN", "MANAGER"] },
+          },
+          select: { id: true },
+        });
+        if (!manager) throw new InviteClaimConflict();
+      }
+      const claimed = await tx.userInvite.updateMany({
+        where: {
+          id: invite.id,
+          token,
+          organizationId: invite.organizationId,
+          usedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: { usedAt: now },
+      });
+      if (claimed.count !== 1) throw new InviteClaimConflict();
 
-    await tx.userInvite.update({
-      where: { id: invite.id },
-      data: { usedAt: new Date() },
+      const memberData = {
+          email: canonicalEmail(invite.email),
+          name,
+          password: hashedPassword,
+          role: invite.role,
+          organizationId: invite.organizationId,
+          managedById: invite.managedById,
+          phone,
+          image: headshotUpload.url,
+          // Invited members don't have their own trial credits —
+          // they share the Admin org's credits.
+          subscriptionStatus: null,
+          creditsRemaining: null,
+          totalCreditsUsed: 0,
+          mustChangePassword: false,
+          acceptedTermsAt: now as any,
+          pendingInviteIdentity: false,
+        } as any;
+      const createdUser = isAdoptablePendingIdentity && existing
+        ? await tx.user.update({
+            where: { id: existing.id, organizationId: null },
+            data: memberData,
+          })
+        : await tx.user.create({ data: memberData });
+      await tx.userInvite.update({
+        where: { id: invite.id },
+        data: {
+          acceptedUserId: createdUser.id,
+          acceptanceProvider: "credentials",
+          acceptancePayloadHash: payloadHash,
+        },
+      });
     });
-  });
+  } catch (error) {
+    await deleteLosingHeadshot(headshotUpload.publicId);
+    if (error instanceof InviteClaimConflict) {
+      const committed = await prisma.userInvite.findUnique({
+        where: { token },
+        select: {
+          email: true,
+          organizationId: true,
+          usedAt: true,
+          acceptedUserId: true,
+          acceptanceProvider: true,
+          acceptancePayloadHash: true,
+        },
+      });
+      if (committed) {
+        const replay = await replayAcceptance(req, committed, "credentials", payloadHash);
+        if (replay) return replay;
+      }
+      return apiError(req, {
+        code: "CONFLICT",
+        message: "This invitation was already accepted",
+        status: 409,
+      });
+    }
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "P2002"
+    ) {
+      const committed = await prisma.userInvite.findUnique({
+        where: { token },
+        select: {
+          email: true,
+          organizationId: true,
+          usedAt: true,
+          acceptedUserId: true,
+          acceptanceProvider: true,
+          acceptancePayloadHash: true,
+        },
+      });
+      if (committed) {
+        const replay = await replayAcceptance(req, committed, "credentials", payloadHash);
+        if (replay) return replay;
+      }
+      return apiError(req, {
+        code: "CONFLICT",
+        message:
+          "An account with this email was created while accepting the invitation",
+        status: 409,
+      });
+    }
+    throw error;
+  }
 
-  return NextResponse.json({
-    success: true,
-    message: "Account created. You can now sign in.",
-    email: invite.email.toLowerCase(),
-  });
+  return acceptanceResponse("credentials", invite.email);
 }

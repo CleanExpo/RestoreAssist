@@ -21,7 +21,7 @@ export interface EmailPayload {
 /** Hard ceiling so a hung provider cannot pin the serverless function. */
 export { EMAIL_SEND_TIMEOUT_MS } from "@/lib/email/send-transactional";
 
-export async function sendEmail(payload: EmailPayload): Promise<void> {
+export async function sendEmail(payload: EmailPayload): Promise<string | null> {
   if (!isEmailServiceConfigured() && !payload.organizationId) {
     console.error(
       "[email-send] MAILTRAP_API_KEY / RESEND_API_KEY is not configured — email NOT sent",
@@ -33,7 +33,7 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
       ),
       { stage: "email-send-config", subject: payload.subject },
     );
-    return;
+    return null;
   }
 
   const result = await sendTransactionalEmail({
@@ -44,15 +44,20 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
     organizationId: payload.organizationId,
   });
 
-  if (result.error) {
+  const messageId = result.data?.id?.trim();
+  if (result.error || !messageId) {
+    const providerMessage =
+      result.error?.message ?? "provider returned no message id";
     console.error(
-      `[email-send] ${result.provider ?? "email"} error: ${result.error.message}`,
+      `[email-send] ${result.provider ?? "email"} error: ${providerMessage}`,
     );
-    reportError(new Error(`[email-send] ${result.error.message}`), {
+    reportError(new Error(`[email-send] ${providerMessage}`), {
       stage: "email-send",
       subject: payload.subject,
       provider: result.provider,
       source: result.source,
     });
+    return null;
   }
+  return messageId;
 }

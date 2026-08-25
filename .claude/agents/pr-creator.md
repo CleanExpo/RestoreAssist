@@ -37,8 +37,8 @@ gh pr create --base sandbox --title "feat(scope): concise description" --body "$
 - Deleted items (if any)
 
 ## Test Plan
-- [ ] `pnpm type-check` passes
-- [ ] `pnpm lint` passes
+- [ ] `npm run type-check` passes
+- [ ] `npm run lint` passes
 - [ ] Manual verification of [specific feature]
 - [ ] No regressions in [related area]
 

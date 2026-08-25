@@ -69,12 +69,12 @@ export async function GET(request: NextRequest) {
     if (!report.healthy) {
       const to = process.env.CRON_ALERT_EMAIL?.trim();
       if (to) {
-        await sendEmail({
+        const messageId = await sendEmail({
           to,
           subject: `RestoreAssist cron alert: ${report.problems.length} job(s) unhealthy`,
           html: renderCronAlertHtml(report),
         });
-        alerted = true;
+        alerted = Boolean(messageId);
       } else {
         console.error(
           "[cron-watchdog] CRON_ALERT_EMAIL unset — cron health problems detected but NOT emailed:",

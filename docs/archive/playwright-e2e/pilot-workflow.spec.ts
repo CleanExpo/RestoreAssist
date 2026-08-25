@@ -32,6 +32,7 @@ test.describe("@smoke pilot workflow — public surfaces", () => {
     page,
   }) => {
     await page.goto("/login");
+    assertExactSmokeLocation(page.url(), "/login");
     // The H1 on /login is "RestoreAssist" — "Sign in to your account" is
     // a sub-paragraph and "Sign in" is the submit button label.
     await expect(
@@ -48,11 +49,12 @@ test.describe("@smoke pilot workflow — public surfaces", () => {
   test("/signup renders without crashing", async ({ page }) => {
     const response = await page.goto("/signup");
     expect(response?.status() ?? 0).toBeLessThan(500);
-    await expect(page).toHaveURL(/\/signup/);
+    assertExactSmokeLocation(page.url(), "/signup");
   });
 
   test("/forgot-password renders the email-step copy", async ({ page }) => {
     await page.goto("/forgot-password");
+    assertExactSmokeLocation(page.url(), "/forgot-password");
     // The "Reset your password" subtitle should appear on the email step.
     await expect(
       page.getByText(/reset your password|forgot/i).first(),
@@ -63,6 +65,7 @@ test.describe("@smoke pilot workflow — public surfaces", () => {
     page,
   }) => {
     await page.goto("/forgot-password");
+    assertExactSmokeLocation(page.url(), "/forgot-password");
     const html = await page.content();
     expect(html.toLowerCase()).not.toContain("check the server console");
   });
@@ -77,17 +80,22 @@ test.describe("@smoke pilot workflow — auth gates", () => {
   ]) {
     test(`${route} redirects unauthenticated users to /login`, async ({
       page,
-    }) => {
+      }) => {
       await page.goto(route);
-      await expect(page).toHaveURL(/\/login/);
+      assertExactSmokeLocation(page.url(), "/login");
     });
   }
 });
 
 test.describe("@smoke pilot workflow — API surfaces", () => {
   test("GET /api/health returns 200", async ({ request }) => {
-    const r = await request.get("/api/health");
+    const r = await originBoundRequest(request, "/api/health");
     expect(r.status()).toBe(200);
+    expect(r.headers()["content-type"]).toContain("application/json");
+    const health = await r.json();
+    expect(health.status).toBe("ok");
+    expect(health.checks?.database?.status).toBe("ok");
+    expect(health.checks?.env?.status).toBe("ok");
   });
 
   test("POST /api/progress/[reportId]/transition rejects unauthenticated callers", async ({
@@ -100,7 +108,7 @@ test.describe("@smoke pilot workflow — API surfaces", () => {
         key: "start_stabilisation",
       },
     );
-    expect([401, 403, 405]).toContain(r.status());
+    expect([401, 403]).toContain(r.status());
   });
 
   test("POST /api/progress/[reportId]/pre-attest rejects unauthenticated callers", async ({
@@ -115,7 +123,7 @@ test.describe("@smoke pilot workflow — API surfaces", () => {
         consentAcknowledged: true,
       },
     );
-    expect([401, 403, 405]).toContain(r.status());
+    expect([401, 403]).toContain(r.status());
   });
 
   test("POST /api/progress/[reportId]/attest rejects unauthenticated callers", async ({
@@ -130,16 +138,17 @@ test.describe("@smoke pilot workflow — API surfaces", () => {
         consentToken: "ct_smoke",
       },
     );
-    expect([401, 403, 405]).toContain(r.status());
+    expect([401, 403]).toContain(r.status());
   });
 
   test("GET /api/progress/[reportId]/documents/stabilisation-certificate rejects unauthenticated callers", async ({
     request,
   }) => {
-    const r = await request.get(
+    const r = await originBoundRequest(
+      request,
       "/api/progress/r_unauth_smoke/documents/stabilisation-certificate",
     );
-    expect([401, 403, 404]).toContain(r.status());
+    expect([401, 403]).toContain(r.status());
   });
 });
 
@@ -150,9 +159,43 @@ async function unauthedJsonPost(
   url: string,
   body: Record<string, unknown>,
 ) {
-  return request.post(url, {
+  return originBoundRequest(request, url, {
+    method: "POST",
     headers: { "Content-Type": "application/json" },
     data: JSON.stringify(body),
-    failOnStatusCode: false,
   });
+}
+
+function configuredSmokeOrigin(): URL {
+  const configured = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+  const parsed = new URL(configured);
+  if (parsed.pathname !== "/" || parsed.search || parsed.hash) {
+    throw new Error(`smoke base URL must be an origin, observed ${configured}`);
+  }
+  return parsed;
+}
+
+function assertExactSmokeLocation(observed: string, expectedPath: string): void {
+  const expectedOrigin = configuredSmokeOrigin().origin;
+  const parsed = new URL(observed);
+  expect(parsed.origin).toBe(expectedOrigin);
+  expect(parsed.pathname).toBe(expectedPath);
+  expect(parsed.search).toBe("");
+  expect(parsed.hash).toBe("");
+}
+
+async function originBoundRequest(
+  request: APIRequestContext,
+  path: string,
+  options: Parameters<APIRequestContext["fetch"]>[1] = {},
+) {
+  const target = new URL(path, configuredSmokeOrigin());
+  const response = await request.fetch(target.toString(), {
+    ...options,
+    failOnStatusCode: false,
+    maxRedirects: 0,
+  });
+  expect(response.url()).toBe(target.toString());
+  expect(response.status() >= 300 && response.status() < 400).toBe(false);
+  return response;
 }

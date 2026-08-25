@@ -95,8 +95,13 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
       uptime: Math.round((Date.now() - startTime) / 1000),
       version: process.env.NEXT_PUBLIC_APP_VERSION || "1.0.0",
+      deploymentSha:
+        process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_SHA || null,
       checks,
     },
-    { status: httpStatus },
+    {
+      status: httpStatus,
+      headers: { "Cache-Control": "no-store" },
+    },
   );
 }

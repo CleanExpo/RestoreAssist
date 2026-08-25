@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email-send";
+import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
 import {
   inspectionSubmittedEmail,
   scopeReadyEmail,
@@ -92,11 +93,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Guard: RESEND_API_KEY check (no throw — return informative response)
-    if (!process.env.RESEND_API_KEY) {
+    // Mailtrap is the preferred platform provider; Resend is the fallback.
+    if (!isEmailServiceConfigured()) {
       return NextResponse.json({
         sent: false,
-        reason: "RESEND_API_KEY not set",
+        reason: "Email service is not configured",
         event,
         to: recipientEmail,
       });
@@ -116,7 +117,7 @@ export async function POST(req: NextRequest) {
         const baseUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
         const replyTo =
           process.env.RESEND_REPLY_TO || BRAND.company.supportEmail;
-        await sendEmail({
+        const messageId = await sendEmail({
           to: recipientEmail,
           subject: "Pick up where you left off — RestoreAssist",
           html: reengagementEmail({
@@ -126,7 +127,13 @@ export async function POST(req: NextRequest) {
           }),
           replyTo,
         });
-        return NextResponse.json({ sent: true, event, to: recipientEmail });
+        if (!messageId) {
+          return NextResponse.json(
+            { sent: false, event, to: recipientEmail },
+            { status: 502 },
+          );
+        }
+        return NextResponse.json({ sent: true, event, to: recipientEmail, messageId });
       }
 
       let subject: string;
@@ -242,9 +249,16 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      await sendEmail({ to: recipientEmail, subject, html });
+      const messageId = await sendEmail({ to: recipientEmail, subject, html });
 
-      return NextResponse.json({ sent: true, event, to: recipientEmail });
+      if (!messageId) {
+        return NextResponse.json(
+          { sent: false, event, to: recipientEmail },
+          { status: 502 },
+        );
+      }
+
+      return NextResponse.json({ sent: true, event, to: recipientEmail, messageId });
     } catch (err) {
       return fromException(req, err, { stage: "send-email" });
     }

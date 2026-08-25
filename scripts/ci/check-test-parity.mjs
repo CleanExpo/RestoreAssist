@@ -20,14 +20,14 @@
  *               current environment. Exit 0 (informational).
  *   --strict    Verification mode. Exit 1 if ANY gating env var is missing,
  *               so it can guard a "claim green" step. Run it with the CI env
- *               (e.g. via `pnpm test:db`) to make it pass.
+ *               (e.g. via `npm run test:db`) to make it pass.
  *   --changed   Only consider test files touched vs origin/main (git diff).
  *               Use in pre-push / PR verification to flag when YOUR change
  *               lands in a CI-only suite.
  *   --json      Emit machine-readable JSON instead of text.
  *
  * Usage:  node scripts/ci/check-test-parity.mjs [--strict] [--changed] [--json]
- *         pnpm test:parity
+ *         npm run test:parity
  */
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -179,7 +179,7 @@ if (AS_JSON) {
       }
       console.log(
         "\n  A local 'green' here does NOT prove these suites pass.\n" +
-          "  Run them the CI way before claiming green:  pnpm test:db\n",
+          "  Run them the CI way before claiming green:  npm run test:db\n",
       );
     } else {
       console.log("\n  All gating env vars are present. Local run is CI-representative.\n");
@@ -190,7 +190,7 @@ if (AS_JSON) {
 if (STRICT && missing.length) {
   console.error(
     `test-parity: ${missing.length} gating env var(s) missing (${missing.join(", ")}). ` +
-      `Refusing to treat this run as authoritative. Use 'pnpm test:db'.`,
+      `Refusing to treat this run as authoritative. Use 'npm run test:db'.`,
   );
   process.exit(1);
 }

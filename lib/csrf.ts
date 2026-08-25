@@ -8,7 +8,10 @@ import { NextRequest, NextResponse } from "next/server";
  * authenticated routes. This utility adds defense-in-depth for
  * public-facing state-changing endpoints.
  */
-export function validateCsrf(req: NextRequest): NextResponse | null {
+export function validateCsrf(
+  req: NextRequest,
+  options: { requireOrigin?: boolean } = {},
+): NextResponse | null {
   const method = req.method.toUpperCase();
   if (["GET", "HEAD", "OPTIONS"].includes(method)) return null;
 
@@ -17,16 +20,27 @@ export function validateCsrf(req: NextRequest): NextResponse | null {
 
   // Allow requests without Origin (same-origin form submissions, curl, etc.)
   // Primary defense is SameSite cookies; this is supplementary
-  if (!origin) return null;
+  if (!origin) {
+    return options.requireOrigin
+      ? NextResponse.json({ error: "CSRF validation failed" }, { status: 403 })
+      : null;
+  }
 
   if (!host) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
-    const originHost = new URL(origin).host;
-    if (originHost !== host) {
-      console.warn(`[CSRF] Origin mismatch: ${originHost} !== ${host}`);
+    const originUrl = new URL(origin);
+    const originHost = originUrl.host;
+    if (
+      originHost !== host ||
+      originUrl.protocol !== req.nextUrl.protocol ||
+      !["http:", "https:"].includes(originUrl.protocol)
+    ) {
+      console.warn(
+        `[CSRF] Origin mismatch: ${originUrl.origin} !== ${req.nextUrl.origin}`,
+      );
       return NextResponse.json(
         { error: "CSRF validation failed" },
         { status: 403 },

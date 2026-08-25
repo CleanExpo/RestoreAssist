@@ -26,11 +26,15 @@ import {
 } from "@/lib/report-limits";
 import { apiError } from "@/lib/api-errors";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { validateCsrf } from "@/lib/csrf";
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"] as const;
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = validateCsrf(request, { requireOrigin: true });
+    if (csrfError) return csrfError;
+
     // ── 1. Auth ───────────────────────────────────────────────────────────────
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {

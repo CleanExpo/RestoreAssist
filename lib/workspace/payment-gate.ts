@@ -33,6 +33,7 @@ export interface WorkspaceContext {
   ownerId: string;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
+  pilotSandboxEnabled: boolean;
 }
 
 export interface PaymentGateAllowed {
@@ -72,6 +73,7 @@ const workspaceSelect = {
   ownerId: true,
   stripeCustomerId: true,
   stripeSubscriptionId: true,
+  pilotSandboxEnabled: true,
 } as const;
 
 /**
@@ -237,8 +239,18 @@ export async function requireReadyWorkspace(
  */
 export async function getWorkspaceStatus(
   userId: string,
-): Promise<{ status: WorkspaceStatus; workspaceId: string } | null> {
+): Promise<{
+  status: WorkspaceStatus;
+  workspaceId: string;
+  workspaceName: string;
+  pilotSandboxEnabled: boolean;
+} | null> {
   const workspace = await lookupUserWorkspace(userId);
   if (!workspace) return null;
-  return { status: workspace.status, workspaceId: workspace.id };
+  return {
+    status: workspace.status,
+    workspaceId: workspace.id,
+    workspaceName: workspace.name,
+    pilotSandboxEnabled: workspace.pilotSandboxEnabled,
+  };
 }

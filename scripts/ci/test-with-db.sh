@@ -5,27 +5,28 @@
 # WHY: 16+ test files are gated with `describe.skipIf(!process.env.DATABASE_URL)`.
 # Without a DB they SILENTLY SKIP, so a plain `vitest run` is not CI-representative
 # (see scripts/ci/check-test-parity.mjs). This script stands up the SAME Postgres
-# image CI uses (pgvector/pgvector:pg16), applies migrations, exports DATABASE_URL,
+# image CI uses (pgvector 0.8.6-pg16, pinned by digest), applies migrations, exports DATABASE_URL,
 # and runs vitest - so "green here" means "green in CI".
 #
 # Mirrors .github/workflows/pr-checks.yml (Quality Checks > Unit tests).
 #
 # Usage:
-#   pnpm test:db                 # full suite against an ephemeral DB
-#   pnpm test:db <vitest args>   # e.g. pnpm test:db lib/setup
+#   npm run test:db --                 # full suite against an ephemeral DB
+#   npm run test:db -- <vitest args>   # e.g. npm run test:db -- lib/setup
 #
 # Requires Docker. The container is named ra-ci-pg and is removed on exit.
 set -euo pipefail
 
 CONTAINER=ra-ci-pg
-IMAGE=pgvector/pgvector:pg16
+IMAGE=pgvector/pgvector@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
 PORT=${RA_CI_PG_PORT:-5433}   # 5433 to avoid clashing with a local 5432
 export DATABASE_URL="postgresql://ci:ci@localhost:${PORT}/ci"
 export DIRECT_URL="$DATABASE_URL"
+export RELEASE_DB_PROFILE=1
 
 if ! command -v docker >/dev/null 2>&1; then
-  echo "test:db needs Docker (CI uses a pgvector/pgvector:pg16 service)." >&2
-  echo "Install Docker, or run only the non-DB suites with: pnpm exec vitest run" >&2
+  echo "test:db needs Docker (CI uses a digest-pinned pgvector 0.8.6-pg16 service)." >&2
+  echo "Install Docker, or run only the non-DB suites with: npm run test:unit" >&2
   exit 127
 fi
 
@@ -54,7 +55,7 @@ docker exec -e PGPASSWORD=ci "$CONTAINER" psql -h localhost -U ci -d ci -c "
 " >/dev/null
 
 echo "==> Generating Prisma client"
-pnpm exec prisma generate >/dev/null
+npx --no-install prisma generate >/dev/null
 
 # Mirror CI: mark CONCURRENTLY-index migrations as applied (Supabase-only syntax
 # that fails on plain pgvector). Keep this list in sync with pr-checks.yml.
@@ -63,14 +64,14 @@ for mig in \
   20260407_n1_performance_indexes \
   20260407_perf_composite_indexes \
   20260516010000_inspection_close_terminal_index; do
-  pnpm exec prisma migrate resolve --applied "$mig" >/dev/null 2>&1 || true
+  npx --no-install prisma migrate resolve --applied "$mig" >/dev/null 2>&1 || true
 done
 
 echo "==> Applying migrations"
-pnpm exec prisma migrate deploy >/dev/null
+npx --no-install prisma migrate deploy >/dev/null
 
 echo "==> Verifying CI parity (no env-gated suite will skip)"
 node scripts/ci/check-test-parity.mjs --strict
 
 echo "==> Running vitest with DATABASE_URL set"
-pnpm exec vitest run --config config/vitest.config.js "$@"
+npx --no-install vitest run --config config/vitest.config.js "$@"

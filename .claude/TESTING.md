@@ -4,30 +4,30 @@
 
 ```bash
 # Type check (fastest verification — run after every change)
-pnpm type-check
+npm run type-check
 
 # Lint
-pnpm lint
+npm run lint
 
 # E2E tests (all)
-npx playwright test
+npx --no-install playwright test
 
 # E2E tests (single file)
-npx playwright test e2e/auth.spec.ts
+npx --no-install playwright test e2e/auth.spec.ts
 
 # E2E tests (headed — see browser)
-npx playwright test --headed
+npx --no-install playwright test --headed
 
 # Unit tests (interview engine)
-npx vitest run lib/interview/__tests__/
+npx --no-install vitest run lib/interview/__tests__/
 
 # Build check (full production build)
-pnpm build
+npm run build
 ```
 
 ## Before You Say You're Done
 
-1. Run `pnpm type-check` — must pass with zero errors
+1. Run `npm run type-check` — must pass with zero errors
 2. If you changed API routes: verify with `curl` or browser
 3. If you changed Prisma schema: run `npx prisma migrate dev --name descriptive_name`
 4. If you changed UI components: check responsive at mobile (375px) and desktop (1280px)

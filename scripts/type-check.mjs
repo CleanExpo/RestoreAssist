@@ -6,7 +6,7 @@
  *
  *   "type-check": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsc --noEmit"
  *
- * That POSIX env-var prefix is parsed by sh, but npm/pnpm run scripts through
+ * That POSIX env-var prefix is parsed by sh, but npm runs scripts through
  * cmd.exe on Windows, which reports:
  *
  *   'NODE_OPTIONS' is not recognized as an internal or external command
@@ -25,7 +25,7 @@
  * --pretty false` works.
  *
  * Usage:  node scripts/type-check.mjs [...tsc args]
- *         pnpm type-check
+ *         npm run type-check
  */
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
@@ -39,7 +39,7 @@ try {
   tscEntry = require.resolve("typescript/bin/tsc");
 } catch {
   console.error(
-    "type-check: cannot resolve 'typescript/bin/tsc'. Run `pnpm install` first.",
+    "type-check: cannot resolve 'typescript/bin/tsc'. Run `npm ci` first.",
   );
   process.exit(1);
 }

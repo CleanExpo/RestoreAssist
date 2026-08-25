@@ -20,6 +20,9 @@ on:
       - "**/migrations/**"
       - "scripts/rls-harness/**"
 
+permissions:
+  contents: read
+
 concurrency:
   group: rls-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -37,7 +40,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -53,7 +56,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Run RLS isolation harness
         run: make -f scripts/rls-harness/Makefile rls-test

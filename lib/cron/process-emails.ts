@@ -68,9 +68,9 @@ export async function processScheduledEmails(): Promise<CronJobResult> {
       );
       // Providers return { error } instead of throwing — surface failures so
       // this email is marked failed/retried instead of falsely audited as sent.
-      if (result.error) {
+      if (result.error || !result.data?.id?.trim()) {
         throw new Error(
-          `Email send failed: ${result.error.name ?? "unknown_error"} — ${result.error.message ?? "no message"}`,
+          `Email send failed: ${result.error?.name ?? "missing_receipt"} — ${result.error?.message ?? "provider returned no message id"}`,
         );
       }
 

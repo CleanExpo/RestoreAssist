@@ -1204,8 +1204,10 @@ export default function WHSPage() {
           </div>
           {incidents.length === 0 ? (
             <p className="text-slate-400 max-w-sm text-sm leading-relaxed">
-              No WHS incidents recorded. This is a good sign! Use the button
-              above to log any incidents.
+              No WHS incidents are visible in this register. If you expected
+              records, refresh and verify the active workspace before treating
+              this as a zero-incident result. Use the button above to log an
+              incident.
             </p>
           ) : (
             <p className="text-slate-400 text-sm">

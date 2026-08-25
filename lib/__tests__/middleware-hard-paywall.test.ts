@@ -70,6 +70,20 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
     );
   });
 
+  it("does not let an onboarded expired user bypass the paywall on nested dashboard routes", async () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
+    mockGetToken.mockResolvedValue(
+      baseToken({ subscriptionStatus: "TRIAL", trialEndsAt: yesterday }) as any,
+    );
+
+    const res = await proxy(mkReq("/dashboard/inspections"));
+
+    expect((res as any).status).toBe(307);
+    expect((res as any).headers.get("location")).toContain(
+      "/billing/upgrade?reason=trial-expired",
+    );
+  });
+
   it("does NOT redirect ACTIVE user even with expired trialEndsAt", async () => {
     const yesterday = new Date(Date.now() - 86_400_000).toISOString();
     mockGetToken.mockResolvedValue(

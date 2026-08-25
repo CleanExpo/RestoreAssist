@@ -2,7 +2,7 @@
 # Catches: missing committed files, Turbopack errors, Prisma schema drift, stale generated client.
 # Usage: pwsh scripts/smoke-pre-push.ps1
 #
-# Runs on Windows PowerShell natively (no WSL) so pnpm/node_modules resolve correctly.
+# Runs on Windows PowerShell natively (no WSL) so npm/node_modules resolve correctly.
 # Bumps Node heap to 8GB because tsc on this monorepo OOMs at the default 2GB.
 
 $ErrorActionPreference = "Stop"
@@ -19,13 +19,13 @@ if ($untracked) {
 }
 
 # 2. Fresh Prisma generate (matches Vercel cache miss)
-Write-Host "▶ pnpm prisma:generate..." -ForegroundColor Yellow
-pnpm prisma:generate | Out-Null
+Write-Host "▶ npm run prisma:generate..." -ForegroundColor Yellow
+npm run prisma:generate | Out-Null
 if ($LASTEXITCODE -ne 0) { Write-Host "✘ prisma generate failed" -ForegroundColor Red; exit 1 }
 
 # 3. TypeScript check
-Write-Host "▶ pnpm type-check (8GB heap)..." -ForegroundColor Yellow
-pnpm type-check
+Write-Host "▶ npm run type-check (8GB heap)..." -ForegroundColor Yellow
+npm run type-check
 if ($LASTEXITCODE -ne 0) { Write-Host "✘ type-check failed" -ForegroundColor Red; exit 1 }
 
 # 4. Turbopack build (same engine Vercel uses for Next 16)

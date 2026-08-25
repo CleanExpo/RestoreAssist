@@ -10,7 +10,6 @@
  */
 
 import { google, type drive_v3 } from "googleapis";
-import { OAuth2Client } from "google-auth-library";
 import { Readable } from "node:stream";
 import { prisma } from "@/lib/prisma";
 import { decryptAccountTokens } from "@/lib/auth/account-tokens";
@@ -27,7 +26,7 @@ const MAX_RETRY = 3;
 function getOAuthClient(
   accessToken: string,
   refreshToken: string | null,
-): OAuth2Client {
+) {
   const client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,

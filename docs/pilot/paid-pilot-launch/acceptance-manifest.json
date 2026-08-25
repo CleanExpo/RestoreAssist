@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "pilotSize": { "minimum": 3, "maximum": 5 },
+  "productionOrigin": "https://restoreassist.app",
+  "groups": [
+    {
+      "id": "A1",
+      "name": "signup",
+      "tests": [
+        "app/api/auth/register/__tests__/route.test.ts",
+        "lib/__tests__/email-identity.test.ts"
+      ],
+      "liveRequired": true
+    },
+    {
+      "id": "A2",
+      "name": "payment",
+      "tests": [
+        "app/api/create-checkout-session/__tests__/route.test.ts",
+        "app/api/webhooks/stripe/__tests__/checkout-signup-bonus.test.ts",
+        "app/api/webhooks/stripe/__tests__/webhook-dedup.test.ts",
+        "lib/billing/__tests__/subscription-gate.test.ts"
+      ],
+      "liveRequired": true
+    },
+    {
+      "id": "A3",
+      "name": "invites",
+      "tests": [
+        "app/api/team/invites/__tests__/route.test.ts",
+        "app/api/team/invites/[id]/resend/__tests__/route.test.ts",
+        "app/api/invites/[token]/__tests__/route-extended.test.ts"
+      ],
+      "releaseOnlyTests": [
+        "app/api/team/invites/__tests__/route-concurrency.integration.test.ts"
+      ],
+      "liveRequired": true
+    },
+    {
+      "id": "A4",
+      "name": "reports",
+      "tests": [
+        "app/api/inspections/__tests__/route.list-create.test.ts",
+        "app/api/reports/generate-inspection-report/__tests__/provider.test.ts",
+        "lib/exports/__tests__/report-package-zip.test.ts"
+      ],
+      "liveRequired": true
+    },
+    {
+      "id": "A5",
+      "name": "email",
+      "tests": [
+        "lib/email/__tests__/send-transactional.test.ts",
+        "lib/__tests__/email-delivery-ledger.test.ts",
+        "lib/__tests__/email-invite.test.ts",
+        "lib/__tests__/email-retry.test.ts"
+      ],
+      "liveRequired": true
+    },
+    {
+      "id": "A6",
+      "name": "tenant-provisioning",
+      "tests": [
+        "lib/tenant/__tests__/provision-deps.test.ts",
+        "lib/tenant/__tests__/onboarding-helpers.test.ts",
+        "app/api/onboarding/database/__tests__/route.test.ts",
+        "lib/cron/__tests__/provision-tenant-db.test.ts"
+      ],
+      "liveRequired": true
+    }
+  ]
+}

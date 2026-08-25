@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import crypto from "crypto";
-import bcrypt from "bcryptjs";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
 import { sendInviteEmail } from "@/lib/email";
-import { sendWithRetry } from "@/lib/email-retry";
 import { getAppUrl } from "@/lib/app-url";
-import { notifyTeamMemberJoined } from "@/lib/notifications";
-import { sanitizeString } from "@/lib/sanitize";
 import { apiError, fromException } from "@/lib/api-errors";
+import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
+import { getIdempotencyKey, withIdempotency } from "@/lib/idempotency";
+import { deliverEmailOnce, EmailDeliveryPending } from "@/lib/email-delivery-ledger";
 
 function canInvite(role?: string) {
   // Only ADMIN and MANAGER can create invites
@@ -18,9 +18,16 @@ function canInvite(role?: string) {
 }
 
 function canViewInvites(role?: string) {
-  // All authenticated users can view invites in their organization
-  return role === "ADMIN" || role === "MANAGER" || role === "USER";
+  // Invite tokens are bearer credentials; technicians must never receive them.
+  return role === "ADMIN" || role === "MANAGER";
 }
+
+class ActiveInviteConflict extends Error {}
+
+const inviteRequestSchema = z.object({
+  email: z.string().trim().email().max(320),
+  role: z.enum(["MANAGER", "USER"]),
+});
 
 async function ensureOrganizationForUser(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -29,19 +36,28 @@ async function ensureOrganizationForUser(userId: string) {
   if (user.organizationId) return user.organizationId;
 
   // Backward compatible: if an existing user has no org, create one lazily and attach.
-  const org = await prisma.organization.create({
-    data: {
-      name: `${user.name || "Account"} Organisation`,
-      ownerId: userId,
-    },
-  });
+  // Re-read and claim the missing organisation atomically. Concurrent first
+  // requests must not create multiple owner organisations and leave orphans.
+  return prisma.$transaction(async (tx) => {
+    const freshUser = await tx.user.findUnique({ where: { id: userId } });
+    if (!freshUser) throw new Error("User not found");
+    if (freshUser.organizationId) return freshUser.organizationId;
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { organizationId: org.id },
+    const org = await tx.organization.create({
+      data: {
+        name: `${freshUser.name || "Account"} Organisation`,
+        ownerId: userId,
+      },
+    });
+    const claimed = await tx.user.updateMany({
+      where: { id: userId, organizationId: null },
+      data: { organizationId: org.id },
+    });
+    if (claimed.count !== 1) {
+      throw new Error("Organization assignment changed concurrently");
+    }
+    return org.id;
   });
-
-  return org.id;
 }
 
 export async function GET(request: NextRequest) {
@@ -55,16 +71,25 @@ export async function GET(request: NextRequest) {
   // CLAUDE.md rule 1: re-validate role from DB, not the stale JWT claim.
   const dbUser = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { role: true },
+    select: { role: true, organizationId: true },
   });
-  if (!canViewInvites(dbUser?.role))
+  if (!dbUser || !canViewInvites(dbUser.role))
     return apiError(request, {
       code: "FORBIDDEN",
       message: "Forbidden",
       status: 403,
     });
 
-  const orgId = await ensureOrganizationForUser(session.user.id);
+  if (!dbUser.organizationId && dbUser.role !== "ADMIN") {
+    return apiError(request, {
+      code: "FORBIDDEN",
+      message: "Your manager membership is no longer active",
+      status: 403,
+    });
+  }
+  const orgId =
+    dbUser.organizationId ??
+    (await ensureOrganizationForUser(session.user.id));
 
   // Build where clause based on user role
   let whereClause: any = { organizationId: orgId };
@@ -77,7 +102,6 @@ export async function GET(request: NextRequest) {
     };
   }
   // Admins see all invites in the organization
-  // Technicians see all invites (for hierarchy view)
 
   const invites = await prisma.userInvite.findMany({
     where: whereClause,
@@ -100,7 +124,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const csrfError = validateCsrf(req);
+  const csrfError = validateCsrf(req, { requireOrigin: true });
   if (csrfError) return csrfError;
 
   const session = await getServerSession(authOptions);
@@ -113,32 +137,49 @@ export async function POST(req: NextRequest) {
   // CLAUDE.md rule 1: re-validate role from DB, not the stale JWT claim.
   const dbUser = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { role: true },
+    select: { role: true, organizationId: true },
   });
-  if (!canInvite(dbUser?.role))
+  if (!dbUser || !canInvite(dbUser.role))
     return apiError(req, {
       code: "FORBIDDEN",
       message: "Forbidden",
       status: 403,
     });
 
-  const body = await req.json();
-  const email = sanitizeString(body.email, 320);
-  const role = body.role;
-  if (!email || !role)
+  const idempotency = getIdempotencyKey(req);
+  if (!idempotency.ok || !idempotency.key) {
     return apiError(req, {
       code: "VALIDATION",
-      message: "Email and role are required",
-      status: 400,
-    });
-
-  if (role !== "MANAGER" && role !== "USER") {
-    return apiError(req, {
-      code: "VALIDATION",
-      message: "Invalid role. Use MANAGER or USER.",
+      message: idempotency.ok
+        ? "Idempotency-Key is required"
+        : idempotency.reason,
       status: 400,
     });
   }
+
+  return withIdempotency(req, session.user.id, async (rawBodyText) => {
+
+  let rawBody: unknown;
+  try {
+    rawBody = JSON.parse(rawBodyText);
+  } catch {
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Invalid request body",
+      status: 400,
+    });
+  }
+  const parsedBody = inviteRequestSchema.safeParse(rawBody);
+  if (!parsedBody.success) {
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Enter a valid email address and role",
+      status: 400,
+    });
+  }
+  const email = parsedBody.data.email.trim();
+  const role = parsedBody.data.role;
+  const normalizedEmail = canonicalEmail(email);
 
   // Managers can only invite technicians (USER)
   if (dbUser?.role === "MANAGER" && role !== "USER") {
@@ -149,11 +190,22 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const orgId = await ensureOrganizationForUser(session.user.id);
+  if (!dbUser.organizationId && dbUser.role !== "ADMIN") {
+    return apiError(req, {
+      code: "FORBIDDEN",
+      message: "Your manager membership is no longer active",
+      status: 403,
+    });
+  }
+  const orgId =
+    dbUser.organizationId ??
+    (await ensureOrganizationForUser(session.user.id));
 
   // Check if user already exists
-  const existingUser = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      email: { equals: normalizedEmail, mode: "insensitive" },
+    },
     include: {
       organization: {
         select: {
@@ -174,49 +226,70 @@ export async function POST(req: NextRequest) {
   if (existingUser) {
     // Prevent transferring ADMIN users - they should manage their own organizations
     if (existingUser.role === "ADMIN") {
-      return NextResponse.json(
-        {
-          error:
-            "Administrator accounts cannot be transferred to another organization. Administrators manage their own organizations.",
-          existingUser: {
-            id: existingUser.id,
-            email: existingUser.email,
-            name: existingUser.name,
-            role: existingUser.role,
-          },
-        },
-        { status: 403 }, // 403 Forbidden
-      );
+      return apiError(req, {
+        code: "CONFLICT",
+        message: "An account already exists for this email and cannot be invited",
+        status: 409,
+      });
     }
 
     // Case 1: User is already in the same organization - update their role if needed
     if (existingUser.organizationId === orgId) {
+      if (dbUser?.role === "MANAGER" && existingUser.role !== "USER") {
+        return apiError(req, {
+          code: "FORBIDDEN",
+          message: "Managers cannot change another manager's membership",
+          status: 403,
+        });
+      }
       // Update role if it's different
-      const updatedUser =
-        existingUser.role === role
-          ? existingUser
-          : await prisma.user.update({
-              // RA-6800: re-assert same-org boundary atomically in the write.
-              where: { id: existingUser.id, organizationId: orgId },
-              data: { role },
-            });
-
-      // Create invite record for tracking
       const token = crypto.randomBytes(24).toString("hex");
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-      const invite = await prisma.userInvite.create({
-        data: {
-          token,
-          email: email.toLowerCase(),
-          role,
-          organizationId: orgId,
-          createdById: session.user.id,
-          managedById: dbUser?.role === "MANAGER" ? session.user.id : null,
-          expiresAt,
-          usedAt: new Date(),
-        },
-      });
+      // Keep the role mutation and its audit invite in one transaction. A
+      // failed audit write must not leave a silently changed membership.
+      const membershipResult = await prisma
+        .$transaction(async (tx) => {
+          const updatedUser = await tx.user.update({
+            where: {
+              id: existingUser.id,
+              organizationId: orgId,
+              role: existingUser.role,
+            },
+            data: { role },
+          });
+          const invite = await tx.userInvite.create({
+            data: {
+              token,
+              email: normalizedEmail,
+              role,
+              organizationId: orgId,
+              createdById: session.user.id,
+              managedById: dbUser?.role === "MANAGER" ? session.user.id : null,
+              expiresAt,
+              usedAt: new Date(),
+            },
+          });
+          return { updatedUser, invite };
+        })
+        .then((result) => ({ ok: true as const, result }))
+        .catch((error: unknown) => ({ ok: false as const, error }));
+      if (!membershipResult.ok) {
+        const error = membershipResult.error;
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          "code" in error &&
+          error.code === "P2025"
+        ) {
+          return apiError(req, {
+            code: "CONFLICT",
+            message: "Membership changed; reload the team and retry",
+            status: 409,
+          });
+        }
+        return fromException(req, error, { stage: "update-existing-member" });
+      }
+      const { updatedUser, invite } = membershipResult.result;
 
       // Get inviter's name
       const inviter = await prisma.user.findUnique({
@@ -230,26 +303,43 @@ export async function POST(req: NextRequest) {
       const loginUrl = `${getAppUrl()}/login`;
 
       try {
-        await sendWithRetry(
-          () =>
+        await deliverEmailOnce({
+          idempotencyKey: `team-invite-transfer:${session.user.id}:${idempotency.key}`,
+          kind: "TEAM_INVITE_TRANSFER",
+          recipient: normalizedEmail,
+          payloadIdentity: `${existingUser.id}|${role}|${orgId}|${loginUrl}`,
+          send: () =>
             sendInviteEmail({
-              email: email.toLowerCase(),
+              email: normalizedEmail,
               name: updatedUser.name || email.split("@")[0],
               role,
-              tempPassword: undefined,
               loginUrl,
               inviterName,
               isTransfer: true,
               organizationId: orgId,
+              idempotencyKey: `team-invite-transfer:${session.user.id}:${idempotency.key}`,
             }),
-          { stage: "invite-transfer" },
-        );
+        });
       } catch (emailError: any) {
         console.error(
           "[invite] Email sending failed:",
           emailError?.message || "Unknown error",
         );
-        // Don't fail the request - the user is already updated
+        return NextResponse.json(
+          {
+            message: "Membership updated, but the notification email failed.",
+            error: "Email sending failed",
+            user: {
+              id: updatedUser.id,
+              email: updatedUser.email,
+              name: updatedUser.name,
+              role: updatedUser.role,
+            },
+            updated: true,
+            partial: true,
+          },
+          { status: emailError instanceof EmailDeliveryPending ? 409 : 502 },
+        );
       }
 
       return NextResponse.json({
@@ -270,120 +360,17 @@ export async function POST(req: NextRequest) {
           role: updatedUser.role,
         },
         updated: true,
-        credentials: {
-          email: updatedUser.email,
-          password: null, // No password for existing users - they already have one
-        },
       });
     }
 
-    // Case 2 & 3: User exists but is in a different organization OR has no organization
-    // Update the existing user to join this organization.
-    // RA-6800 note: this is an intentional CROSS-org transfer, so the write
-    // cannot be scoped to the target's current org (that's the whole point).
-    // The residual TOCTOU here is the *caller's* org membership (orgId resolved
-    // upstream); hardening that requires re-asserting membership in-transaction
-    // and is deliberately out of scope for this pass.
-    const updatedUser = await prisma.user.update({
-      where: { id: existingUser.id },
-      data: {
-        organizationId: orgId,
-        role: role, // Update role as requested
-        managedById: dbUser?.role === "MANAGER" ? session.user.id : null,
-        // Don't update password - keep their existing password
-        // Don't update mustChangePassword - keep their existing setting
-      },
-    });
-
-    // Create invite record for tracking
-    const token = crypto.randomBytes(24).toString("hex");
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-    const invite = await prisma.userInvite.create({
-      data: {
-        token,
-        email: email.toLowerCase(),
-        role,
-        organizationId: orgId,
-        createdById: session.user.id,
-        managedById: dbUser?.role === "MANAGER" ? session.user.id : null,
-        expiresAt,
-        usedAt: new Date(), // Mark as used since user already exists
-      },
-    });
-
-    // Get inviter's name
-    const inviter = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { name: true },
-    });
-
-    const inviterName = inviter?.name || "Administrator";
-
-    // Send notification email (without password since they already have one)
-    const loginUrl = `${getAppUrl()}/login`;
-
-    try {
-      // Send a different email for transferred users (they already have an account)
-      await sendWithRetry(
-        () =>
-          sendInviteEmail({
-            email: email.toLowerCase(),
-            name: updatedUser.name || email.split("@")[0],
-            role,
-            tempPassword: undefined,
-            loginUrl,
-            inviterName,
-            isTransfer: true,
-              organizationId: orgId,
-            }),
-        { stage: "invite-existing-user" },
-      );
-    } catch (emailError: any) {
-      console.error(
-        "[invite] Email sending failed for transferred user:",
-        updatedUser.id,
-      );
-      console.error(
-        "[invite] Email error:",
-        emailError?.message || "Unknown error",
-      );
-      // Don't fail the request - the user is already transferred
-    }
-
-    // In-app notification for org admin (non-blocking)
-    const transferRoleName = role === "USER" ? "Technician" : "Manager";
-    prisma.organization
-      .findUnique({ where: { id: orgId }, select: { ownerId: true } })
-      .then((org) => {
-        if (org?.ownerId)
-          notifyTeamMemberJoined(
-            org.ownerId,
-            updatedUser.name || email.split("@")[0],
-            transferRoleName,
-          );
-      })
-      .catch(() => {});
-
-    return NextResponse.json({
-      message: "User has been successfully added to your organization",
-      invite: {
-        id: invite.id,
-        email: invite.email,
-        role: invite.role,
-        usedAt: invite.usedAt,
-      },
-      user: {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        name: updatedUser.name,
-        role: updatedUser.role,
-      },
-      transferred: true, // Flag to indicate this was a transfer
-      credentials: {
-        email: updatedUser.email,
-        password: null, // No password for transferred users - they already have one
-      },
+    // Knowing an email address is not authority to move an account between
+    // tenants. Cross-organization membership changes require the target user's
+    // consent or a separately verified support transfer.
+    return apiError(req, {
+      code: "CONFLICT",
+      message:
+        "An account already exists for this email outside your organization. Contact support for a verified transfer.",
+      status: 409,
     });
   }
 
@@ -404,37 +391,66 @@ export async function POST(req: NextRequest) {
     // No User row is created yet — only the UserInvite. The invitee
     // completes signup via /invite/[token] which creates the User and
     // marks this invite used atomically.
-    const invite = await prisma.userInvite.create({
-      data: {
-        token,
-        email: email.toLowerCase(),
-        role,
-        organizationId: orgId,
-        createdById: session.user.id,
-        managedById: dbUser?.role === "MANAGER" ? session.user.id : null,
-        expiresAt,
-        usedAt: null,
+    // Serializable isolation makes the "no active invite" predicate part of
+    // the write contract. Without it, two concurrent requests can both see no
+    // row and create duplicate live bearer tokens.
+    const invite = await prisma.$transaction(
+      async (tx) => {
+        await lockEmailIdentity(tx, normalizedEmail);
+        const userInsideClaim = await tx.user.findFirst({
+          where: {
+            email: { equals: normalizedEmail, mode: "insensitive" },
+          },
+          select: { id: true },
+        });
+        if (userInsideClaim) throw new ActiveInviteConflict();
+        const activeInvite = await tx.userInvite.findFirst({
+          where: {
+            email: normalizedEmail,
+            usedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          select: { id: true },
+        });
+        if (activeInvite) throw new ActiveInviteConflict();
+        return tx.userInvite.create({
+          data: {
+            token,
+            email: normalizedEmail,
+            role,
+            organizationId: orgId,
+            createdById: session.user.id,
+            managedById: dbUser?.role === "MANAGER" ? session.user.id : null,
+            expiresAt,
+            usedAt: null,
+          },
+        });
       },
-    });
+      { isolationLevel: "Serializable" },
+    );
 
     const appUrl = getAppUrl();
     const inviteLink = `${appUrl}/invite/${token}`;
     const loginUrl = `${appUrl}/login`;
 
     try {
-      await sendWithRetry(
-        () =>
+      await deliverEmailOnce({
+        idempotencyKey: `team-invite-new:${session.user.id}:${idempotency.key}`,
+        kind: "TEAM_INVITE_NEW",
+        recipient: normalizedEmail,
+        payloadIdentity: `${invite.id}|${normalizedEmail}|${role}|${inviteLink}`,
+        send: () =>
           sendInviteEmail({
-            email: email.toLowerCase(),
+            email: normalizedEmail,
             name: email.split("@")[0],
             role,
             inviteLink,
             loginUrl,
             inviterName,
-              organizationId: orgId,
-            }),
-        { stage: "invite-new-user" },
-      );
+            organizationId: orgId,
+            idempotencyKey: `team-invite-new:${session.user.id}:${idempotency.key}`,
+          }),
+      });
     } catch (emailError: any) {
       console.error("[invite] Email sending failed for invite:", invite.id);
       console.error(
@@ -455,8 +471,9 @@ export async function POST(req: NextRequest) {
             usedAt: invite.usedAt,
           },
           inviteLink, // surface for manual share
+          partial: true,
         },
-        { status: 207 }, // 207 Multi-Status
+        { status: emailError instanceof EmailDeliveryPending ? 409 : 502 },
       );
     }
 
@@ -470,7 +487,22 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: any) {
+    if (error instanceof ActiveInviteConflict) {
+      return apiError(req, {
+        code: "CONFLICT",
+        message: "An active invitation already exists for this email",
+        status: 409,
+      });
+    }
+    if (error?.code === "P2034") {
+      return apiError(req, {
+        code: "CONFLICT",
+        message: "Invitation state changed; retry the request",
+        status: 409,
+      });
+    }
     console.error("Error creating invite:", error);
     return fromException(req, error, { stage: "create-invite" });
   }
+  });
 }

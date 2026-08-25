@@ -1,41 +1,46 @@
 /**
  * Release Gate Scorer — RA-4956
  *
- * Computes the 100-point production go-live score defined in docs/RELEASE_GATE.md.
- * Machine-verifiable criteria run as shell checks; owner-evidence criteria are
- * counted as PASS only when a dated evidence file exists under
+ * Computes the profile-scoped production go-live score defined in
+ * docs/RELEASE_GATE.md. Machine-verifiable criteria run directly; blocked
+ * owner-evidence criteria remain fail-closed until a criterion-specific trusted
+ * verifier exists, even when a dated evidence file is present under
  * docs/evidence/release-gate/<gate_version>/.
  *
  * Usage:
- *   pnpm tsx scripts/release-gate-score.ts               # human-readable dry-run
- *   pnpm tsx scripts/release-gate-score.ts --json        # writes release-gate-report.json
- *   pnpm tsx scripts/release-gate-score.ts --strict      # exit 1 if score < 100 OR any required item red
+ *   npx tsx scripts/release-gate-score.ts --profile=web
+ *   npx tsx scripts/release-gate-score.ts --profile=web --json
+ *   npx tsx scripts/release-gate-score.ts --profile=mobile --strict
  *
  * Fail-closed: --strict + score < 100 -> exit 1. CI uses both flags.
  */
 
 import { execSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
 type CriterionStatus = "pass" | "fail" | "skip";
+export type ReleaseProfile = "web" | "mobile";
 
-interface Criterion {
+export interface Criterion {
   id: string;
   section: "A" | "B" | "C" | "D" | "E" | "F";
   points: number;
   description: string;
   kind: "machine" | "owner-evidence";
+  profiles: ReleaseProfile[];
   run: () => CriterionResult;
 }
 
-interface CriterionResult {
+export interface CriterionResult {
   status: CriterionStatus;
   detail: string;
 }
 
-interface ScoreReport {
+export interface ScoreReport {
   gate_version: string;
+  profile: ReleaseProfile;
   generated_at: string;
   git_sha: string;
   total_score: number;
@@ -56,6 +61,48 @@ interface ScoreReport {
 const ROOT = process.cwd();
 const GATE_DOC = path.join(ROOT, "docs", "RELEASE_GATE.md");
 const EVIDENCE_MAX_AGE_DAYS = 14;
+const ALL_PROFILES: ReleaseProfile[] = ["web", "mobile"];
+
+function markdownSection(body: string, heading: string): string | null {
+  const lines = body.replace(/\r\n/g, "\n").split("\n");
+  const start = lines.findIndex(
+    (line) => line.trim().toLowerCase() === `## ${heading.toLowerCase()}`,
+  );
+  if (start < 0) return null;
+  const endOffset = lines
+    .slice(start + 1)
+    .findIndex((line) => /^#{1,2}\s+\S/.test(line.trim()));
+  const end = endOffset < 0 ? lines.length : start + 1 + endOffset;
+  return lines
+    .slice(start + 1, end)
+    .join("\n")
+    .trim();
+}
+
+function markdownSectionMatching(body: string, heading: RegExp): string | null {
+  const lines = body.replace(/\r\n/g, "\n").split("\n");
+  const start = lines.findIndex((line) => heading.test(line.trim()));
+  if (start < 0) return null;
+  const endOffset = lines
+    .slice(start + 1)
+    .findIndex((line) => /^#{1,2}\s+\S/.test(line.trim()));
+  const end = endOffset < 0 ? lines.length : start + 1 + endOffset;
+  return lines
+    .slice(start + 1, end)
+    .join("\n")
+    .trim();
+}
+
+function renderedMarkdown(body: string): string {
+  return body.replace(/<!--[\s\S]*?-->/g, "");
+}
+
+function headingCount(body: string, heading: RegExp): number {
+  return body
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .filter((line) => heading.test(line.trim())).length;
+}
 
 function readGateVersion(): string {
   const text = fs.readFileSync(GATE_DOC, "utf8");
@@ -64,23 +111,81 @@ function readGateVersion(): string {
   return m[1];
 }
 
-function shellOK(cmd: string, options: { timeout?: number } = {}): CriterionResult {
+export function shellOK(
+  cmd: string,
+  options: { timeout?: number } = {},
+): CriterionResult {
   try {
     execSync(cmd, {
       cwd: ROOT,
-      stdio: ["ignore", "pipe", "pipe"],
+      // Child output belongs in the Actions log, where configured secrets are
+      // masked. Never copy arbitrary stdout/stderr into the retained JSON
+      // artifact: a failing test can print any inherited environment value.
+      stdio: ["ignore", "inherit", "inherit"],
       timeout: options.timeout ?? 300_000,
     });
     return { status: "pass", detail: `\`${cmd}\` exit 0` };
   } catch (err) {
-    const e = err as { status?: number; stderr?: Buffer; stdout?: Buffer };
+    const e = err as { status?: number };
     const exit = e.status ?? "unknown";
-    const errOut = (e.stderr?.toString() || e.stdout?.toString() || "").slice(-400).trim();
     return {
       status: "fail",
-      detail: `\`${cmd}\` exit ${exit}\n${errOut}`,
+      detail: `\`${cmd}\` exit ${exit}; child output retained only in the masked workflow log`,
     };
   }
+}
+
+/**
+ * Proves that B3 is running in the DB-backed release profile rather than the
+ * deceptively-green, database-less unit-test profile. A URL alone is not
+ * enough: both Prisma connection variables and the explicit profile marker
+ * must be present, and both URLs must identify Postgres.
+ */
+export function verifyReleaseDbProfile(
+  env: NodeJS.ProcessEnv = process.env,
+): CriterionResult {
+  const required = [
+    "DATABASE_URL",
+    "DIRECT_URL",
+    "RELEASE_DB_PROFILE",
+  ] as const;
+  const missing = required.filter((name) => !env[name]?.trim());
+  if (missing.length > 0) {
+    return {
+      status: "fail",
+      detail: `DB-backed release test profile is incomplete; missing ${missing.join(", ")}`,
+    };
+  }
+
+  if (env.RELEASE_DB_PROFILE !== "1") {
+    return {
+      status: "fail",
+      detail:
+        "RELEASE_DB_PROFILE must be exactly 1 for DB-backed release tests",
+    };
+  }
+
+  for (const name of ["DATABASE_URL", "DIRECT_URL"] as const) {
+    try {
+      const protocol = new URL(env[name]!).protocol;
+      if (protocol !== "postgres:" && protocol !== "postgresql:") {
+        return { status: "fail", detail: `${name} must be a Postgres URL` };
+      }
+    } catch {
+      return { status: "fail", detail: `${name} must be a valid Postgres URL` };
+    }
+  }
+
+  return { status: "pass", detail: "DB-backed release test profile is active" };
+}
+
+export function runDbBackedReleaseTests(): CriterionResult {
+  const profile = verifyReleaseDbProfile();
+  if (profile.status !== "pass") return profile;
+  return shellOK(
+    "node scripts/ci/check-test-parity.mjs --strict && npx vitest run --config config/vitest.config.js",
+    { timeout: 600_000 },
+  );
 }
 
 // Extracts the leading `---` frontmatter block, or null when the file has none.
@@ -203,6 +308,122 @@ export function ownerEvidence(
       detail: `evidence file declares status=${declaredStatus} (only \`pass\` counts toward the gate)`,
     };
   }
+  const frontmatter = readFrontmatter(file);
+  if (frontmatter === null) {
+    return {
+      status: "fail",
+      detail: `evidence file ${criterionId}.md has no frontmatter`,
+    };
+  }
+  const declaredCriterion = readUniqueKey(frontmatter, "criterion");
+  const releaseSha = readUniqueKey(frontmatter, "release_sha");
+  const owner = readUniqueKey(frontmatter, "owner");
+  const reviewer = readUniqueKey(frontmatter, "reviewer");
+  const artifact = readUniqueKey(frontmatter, "artifact");
+  const expectedSha = gitSha();
+  if (declaredCriterion !== criterionId) {
+    return {
+      status: "fail",
+      detail: `evidence criterion mismatch: expected ${criterionId}`,
+    };
+  }
+  if (releaseSha !== expectedSha || !/^[0-9a-f]{40}$/i.test(releaseSha ?? "")) {
+    return {
+      status: "fail",
+      detail: `evidence release_sha is not bound to HEAD ${expectedSha}`,
+    };
+  }
+  if (!owner || !reviewer || owner === reviewer) {
+    return {
+      status: "fail",
+      detail: "evidence requires distinct owner and reviewer identities",
+    };
+  }
+  const shaReceipt = /^sha256:[0-9a-f]{64}$/i.test(artifact ?? "");
+  if (!shaReceipt) {
+    return {
+      status: "fail",
+      detail:
+        "owner evidence requires a content-bound SHA-256; URLs and narrative links are not machine-verifiable receipts",
+    };
+  }
+  const body = fs
+    .readFileSync(file, "utf8")
+    .replace(/^---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/, "")
+    .trim();
+  if (!body) {
+    return { status: "fail", detail: "evidence body is empty" };
+  }
+  const evidenceSection = markdownSection(body, "Evidence");
+  const notCheckedSection = markdownSection(body, "Not checked");
+  if (evidenceSection === null || notCheckedSection === null) {
+    return {
+      status: "fail",
+      detail: "evidence body requires ## Evidence and ## Not checked sections",
+    };
+  }
+  if (!evidenceSection || !notCheckedSection) {
+    return {
+      status: "fail",
+      detail: "evidence and not-checked sections must both carry content",
+    };
+  }
+  if (shaReceipt) {
+    const observedReceipt = createHash("sha256")
+      .update(evidenceSection)
+      .digest("hex");
+    if (artifact?.toLowerCase() !== `sha256:${observedReceipt}`) {
+      return {
+        status: "fail",
+        detail: "SHA-256 receipt is not bound to the ## Evidence section",
+      };
+    }
+  }
+  const meaningfulBody = body
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/[`#*_>\[\]()-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (meaningfulBody.length < 160) {
+    return {
+      status: "fail",
+      detail:
+        "evidence body is too short to carry a reviewable observation and limits",
+    };
+  }
+  const criterionTerms: Record<string, string[]> = {
+    "A1-core-journeys": [
+      "signup",
+      "login",
+      "onboarding",
+      "storage setup",
+      "restore",
+      "inspection",
+      "claim",
+      "attest",
+      "pdf",
+    ],
+    "E3-release-rollback-plan": [
+      "app review",
+      "release",
+      "rollback",
+      "reviewer",
+    ],
+  };
+  const meaningfulEvidence = evidenceSection
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/[`#*_>\[\]()-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const missingTerms = (criterionTerms[criterionId] ?? []).filter(
+    (term) => !meaningfulEvidence.toLowerCase().includes(term),
+  );
+  if (missingTerms.length > 0) {
+    return {
+      status: "fail",
+      detail: `evidence body omits criterion-specific observations: ${missingTerms.join(", ")}`,
+    };
+  }
   // Only a `pass` claim has to be fresh — it is the only kind that earns points.
   const verifiedAt = readEvidenceVerifiedDate(file);
   if (verifiedAt === null) {
@@ -227,29 +448,270 @@ export function ownerEvidence(
       detail: `evidence stale: verified ${Math.round(ageDays)}d ago, max ${EVIDENCE_MAX_AGE_DAYS}d: ${criterionId}.md`,
     };
   }
+  // A hash of prose proves only that the prose did not change; it does not
+  // prove the external observation. Until each owner criterion has a signed,
+  // machine-verifiable producer and verifier, it must earn zero release points.
+  return {
+    status: "fail",
+    detail:
+      `owner evidence is structurally complete but not machine-verifiable: ${criterionId}.md; ` +
+      "a signed criterion-specific receipt verifier is required",
+  };
+}
+
+export function verifyRunbooksSla(root: string = ROOT): CriterionResult {
+  const requiredFiles = {
+    mobileRunbook: path.join(root, "docs", "MOBILE_RELEASE_RUNBOOK.md"),
+    pilotChecklist: path.join(root, "docs", "PILOT_CUTOVER_CHECKLIST.md"),
+    supportSla: path.join(root, "docs", "SUPPORT_SLA.md"),
+    customerComms: path.join(root, "docs", "CUSTOMER_COMMS_TEMPLATE.md"),
+  };
+
+  const missing = Object.entries(requiredFiles)
+    .filter(([, filePath]) => !fs.existsSync(filePath))
+    .map(([label, filePath]) => `${label}=${path.relative(root, filePath)}`);
+  if (missing.length > 0) {
+    return {
+      status: "fail",
+      detail: `required release-support docs missing: ${missing.join(", ")}`,
+    };
+  }
+
+  const supportSla = renderedMarkdown(
+    fs.readFileSync(requiredFiles.supportSla, "utf8"),
+  );
+  if (headingCount(supportSla, /^##\s+Response-time commitments\s*$/i) !== 1) {
+    return {
+      status: "fail",
+      detail:
+        "docs/SUPPORT_SLA.md must contain exactly one Response-time commitments section",
+    };
+  }
+  const responseCommitments = markdownSection(
+    supportSla,
+    "Response-time commitments",
+  );
+  const p1Rows = (responseCommitments ?? "")
+    .split("\n")
+    .filter((line) => line.trim().startsWith("|"))
+    .map((line) =>
+      line
+        .split("|")
+        .slice(1, -1)
+        .map((cell) => cell.replace(/[*_`]/g, "").trim()),
+    )
+    .filter((cells) => cells[0]?.toUpperCase() === "P1");
+  if (
+    p1Rows.length !== 1 ||
+    p1Rows[0].length < 2 ||
+    !/^(?:≤|<=)\s*1\s*h(?:our)?(?:\s*\((?:24\/7|all hours)\))?\s*$/i.test(
+      p1Rows[0][1],
+    )
+  ) {
+    return {
+      status: "fail",
+      detail:
+        "docs/SUPPORT_SLA.md must contain exactly one unconditional P1 row whose First human response is <=1 h",
+    };
+  }
+
+  const customerComms = renderedMarkdown(
+    fs.readFileSync(requiredFiles.customerComms, "utf8"),
+  );
+  const templateRequirements: Record<string, RegExp[]> = {
+    A: [/Subject:/i, /started at/i, /Next update by/i, /workaround/i],
+    B: [/Subject:/i, /What we know/i, /ruled out/i, /Next update by/i],
+    C: [
+      /Subject:\s*RESOLVED/i,
+      /Root cause:/i,
+      /What we've changed/i,
+      /need to do/i,
+    ],
+    D: [
+      /Subject:\s*Post-mortem/i,
+      /Timeline/i,
+      /Root cause:/i,
+      /Action items/i,
+      /Customer impact/i,
+    ],
+    E: [
+      /Subject:\s*COMPLIANCE NOTICE/i,
+      /Immediate steps/i,
+      /Customer-side action/i,
+      /remediation plan/i,
+    ],
+  };
+  const invalidTemplates = Object.entries(templateRequirements).filter(
+    ([label, requirements]) => {
+      const heading = new RegExp(
+        `^##\\s+Template\\s+${label}(?:\\s*(?:—|-).*)?$`,
+        "i",
+      );
+      if (headingCount(customerComms, heading) !== 1) return true;
+      const body = markdownSectionMatching(customerComms, heading) ?? "";
+      const fencedTemplate = /```[^\n]*\n([\s\S]*?)\n```/.exec(body)?.[1] ?? "";
+      return (
+        fencedTemplate.trim().length < 40 ||
+        requirements.some((requirement) => !requirement.test(fencedTemplate))
+      );
+    },
+  );
+  if (invalidTemplates.length > 0) {
+    return {
+      status: "fail",
+      detail: `docs/CUSTOMER_COMMS_TEMPLATE.md has missing or incomplete templates: ${invalidTemplates.map(([label]) => label).join(", ")}`,
+    };
+  }
+
+  const pilotChecklist = renderedMarkdown(
+    fs.readFileSync(requiredFiles.pilotChecklist, "utf8"),
+  );
+  if (headingCount(pilotChecklist, /^##\s+Rollback decision tree\s*$/i) !== 1) {
+    return {
+      status: "fail",
+      detail:
+        "docs/PILOT_CUTOVER_CHECKLIST.md must contain exactly one rollback decision tree section",
+    };
+  }
+  const rollback =
+    markdownSection(pilotChecklist, "Rollback decision tree") ?? "";
+  const rollbackRows = rollback
+    .split("\n")
+    .filter((line) => line.trim().startsWith("|"))
+    .map((line) =>
+      line
+        .split("|")
+        .slice(1, -1)
+        .map((cell) => cell.trim()),
+    );
+  const hasAction = (severity: "P0" | "P1", verbs: RegExp) =>
+    rollbackRows.some(
+      (cells) =>
+        cells[1]?.toUpperCase() === severity &&
+        !/\b(?:do not|don't|never)\b/i.test(cells[2] ?? "") &&
+        verbs.test(cells[2] ?? ""),
+    );
+  if (
+    !/^\|\s*Signal\s*\|\s*Severity\s*\|\s*Action\s*\|/im.test(rollback) ||
+    !hasAction("P0", /^(?:roll back|restore)\b/i) ||
+    !hasAction("P1", /^(?:revoke|disable|roll back|restore)\b/i)
+  ) {
+    return {
+      status: "fail",
+      detail:
+        "docs/PILOT_CUTOVER_CHECKLIST.md must contain an actionable rollback table with P0 and P1 signals",
+    };
+  }
+
+  const mobileRunbook = renderedMarkdown(
+    fs.readFileSync(requiredFiles.mobileRunbook, "utf8"),
+  );
+  const requiredMobileSections: Array<[string, RegExp]> = [
+    ["Pre-flight", /\b(?:secret|certificate|account|signing)\b/i],
+    ["Build + upload", /\bbuild\b[\s\S]*\bupload\b/i],
+    [
+      "Soft launch",
+      /\b(?:install|tester)\b[\s\S]*\b(?:smoke|test|tests|testing)\b/i,
+    ],
+    [
+      "Public production submission",
+      /\b(?:submit|submission)\b[\s\S]*\b(?:review|approval)\b/i,
+    ],
+    ["Post-launch", /\bmonitor\b[\s\S]*\b(?:crash|sentry|rollback|health)\b/i],
+  ];
+  const incompleteMobileSections = requiredMobileSections.filter(
+    ([fragment, actionPattern]) => {
+      const matchingHeadings = mobileRunbook
+        .replace(/\r\n/g, "\n")
+        .split("\n")
+        .filter(
+          (line) =>
+            /^##\s+/.test(line) &&
+            line.toLowerCase().includes(fragment.toLowerCase()),
+        );
+      if (matchingHeadings.length !== 1) return true;
+      const heading = matchingHeadings[0];
+      const body =
+        markdownSection(mobileRunbook, heading.replace(/^##\s+/, "")) ?? "";
+      const dataRows = body
+        .split("\n")
+        .filter((line) => /^\|\s*(?!-{3,}\s*\|)[^|]+\|/.test(line)).length;
+      return body.length < 120 || dataRows < 2 || !actionPattern.test(body);
+    },
+  );
+  if (incompleteMobileSections.length > 0) {
+    return {
+      status: "fail",
+      detail: `docs/MOBILE_RELEASE_RUNBOOK.md has missing or non-operational sections: ${incompleteMobileSections.map(([fragment]) => fragment).join(", ")}`,
+    };
+  }
+
   return {
     status: "pass",
-    detail: `evidence file declares status=pass, verified ${Math.round(ageDays)}d ago: ${criterionId}.md`,
+    detail:
+      "release-support docs present with P1 <=1 h, templates A-E, and rollback decision tree",
   };
+}
+
+export function parseReleaseProfile(args: string[]): ReleaseProfile {
+  const values: string[] = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg.startsWith("--profile=")) {
+      const value = arg.slice("--profile=".length);
+      if (!value)
+        throw new Error(
+          "Missing release profile value. Use --profile=web or --profile=mobile.",
+        );
+      values.push(value);
+    } else if (arg === "--profile") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error(
+          "Missing release profile value. Use --profile=web or --profile=mobile.",
+        );
+      }
+      values.push(value);
+      index += 1;
+    }
+  }
+  if (values.length > 1) {
+    throw new Error("Release profile must be specified exactly once.");
+  }
+  const raw = values[0] ?? "mobile";
+  if (raw === "web" || raw === "mobile") return raw;
+  throw new Error(
+    `Invalid release profile ${JSON.stringify(raw)}. Use --profile=web or --profile=mobile.`,
+  );
+}
+
+export function criteriaForProfile(
+  profile: ReleaseProfile,
+  criteria: Criterion[] = CRITERIA,
+): Criterion[] {
+  return criteria.filter((criterion) => criterion.profiles.includes(profile));
 }
 
 const GATE_VERSION = readGateVersion();
 
-const CRITERIA: Criterion[] = [
+export const CRITERIA: Criterion[] = [
   // A) Product Correctness & Feature Integrity (25)
   {
     id: "A1-core-journeys",
     section: "A",
     points: 10,
-    kind: "machine",
-    description: "Core user journeys pass E2E via sandbox smoke",
-    run: () => shellOK("pnpm test:smoke:sandbox", { timeout: 600_000 }),
+    kind: "owner-evidence",
+    profiles: ALL_PROFILES,
+    description:
+      "Signup/login → onboarding → storage setup → restore → inspection → claim → attest → PDF independently verified on this SHA",
+    run: () => ownerEvidence("A1-core-journeys", GATE_VERSION),
   },
   {
     id: "A2-middleware-auth-paywall",
     section: "A",
     points: 10,
     kind: "machine",
+    profiles: ALL_PROFILES,
     description: "Middleware/auth/paywall tests pass",
     run: () =>
       shellOK(
@@ -261,6 +723,7 @@ const CRITERIA: Criterion[] = [
     section: "A",
     points: 5,
     kind: "owner-evidence",
+    profiles: ALL_PROFILES,
     description: "Linear query: 0 open Urgent/High RestoreAssist issues",
     run: () => ownerEvidence("A3-no-sev1-sev2-open", GATE_VERSION),
   },
@@ -271,51 +734,55 @@ const CRITERIA: Criterion[] = [
     section: "B",
     points: 5,
     kind: "machine",
-    description: "`pnpm lint` exit 0",
-    run: () => shellOK("pnpm lint"),
+    profiles: ALL_PROFILES,
+    description: "`npm run lint` exit 0",
+    run: () => shellOK("npm run lint"),
   },
   {
     id: "B2-type-check",
     section: "B",
     points: 5,
     kind: "machine",
-    description: "`pnpm type-check` exit 0",
-    run: () => shellOK("pnpm type-check"),
+    profiles: ALL_PROFILES,
+    description: "`npm run type-check` exit 0",
+    run: () => shellOK("npm run type-check"),
   },
   {
     id: "B3-tests",
     section: "B",
     points: 5,
     kind: "machine",
-    description: "`pnpm test:unit` 0 failures",
-    run: () =>
-      shellOK("npx vitest run --config config/vitest.config.js", {
-        timeout: 600_000,
-      }),
+    profiles: ALL_PROFILES,
+    description:
+      "DB-backed unit suite runs against Postgres with no env-gated skips or failures",
+    run: runDbBackedReleaseTests,
   },
   {
     id: "B4-smoke-sandbox",
     section: "B",
     points: 5,
     kind: "machine",
+    profiles: ALL_PROFILES,
     description: "Playwright sandbox smoke passes",
-    run: () => shellOK("pnpm test:smoke:sandbox", { timeout: 600_000 }),
+    run: () => shellOK("npm run test:smoke:sandbox", { timeout: 600_000 }),
   },
 
   // C) Security & Compliance (15)
   {
-    id: "C1-pnpm-audit",
+    id: "C1-npm-audit",
     section: "C",
     points: 10,
     kind: "machine",
-    description: "`pnpm audit --prod --audit-level=moderate` 0 vulns",
-    run: () => shellOK("pnpm audit --prod --audit-level=moderate"),
+    profiles: ALL_PROFILES,
+    description: "`npm audit --omit=dev --audit-level=moderate` 0 vulns",
+    run: () => shellOK("npm audit --omit=dev --audit-level=moderate"),
   },
   {
     id: "C2-secrets-scan",
     section: "C",
     points: 5,
     kind: "owner-evidence",
+    profiles: ALL_PROFILES,
     description: "Secrets scan + env-var completeness verified",
     run: () => ownerEvidence("C2-secrets-scan", GATE_VERSION),
   },
@@ -326,7 +793,9 @@ const CRITERIA: Criterion[] = [
     section: "D",
     points: 5,
     kind: "owner-evidence",
-    description: "Stripe/Apple IAP purchase, renewal, cancellation verified",
+    profiles: ALL_PROFILES,
+    description:
+      "Website Stripe purchase, renewal, cancellation verified; iOS checkout remains intentionally blocked",
     run: () => ownerEvidence("D1-billing-flows", GATE_VERSION),
   },
   {
@@ -334,6 +803,7 @@ const CRITERIA: Criterion[] = [
     section: "D",
     points: 5,
     kind: "machine",
+    profiles: ALL_PROFILES,
     description: "Billing + webhook test suites pass",
     run: () =>
       shellOK(
@@ -345,7 +815,9 @@ const CRITERIA: Criterion[] = [
     section: "D",
     points: 5,
     kind: "owner-evidence",
-    description: "Stripe events count matches DB subscription_events count (7d window)",
+    profiles: ALL_PROFILES,
+    description:
+      "Stripe events count matches DB subscription_events count (7d window)",
     run: () => ownerEvidence("D3-revenue-reconciliation", GATE_VERSION),
   },
 
@@ -355,6 +827,7 @@ const CRITERIA: Criterion[] = [
     section: "E",
     points: 5,
     kind: "owner-evidence",
+    profiles: ["mobile"],
     description: "App Store metadata/screenshots/privacy/age rating approved",
     run: () => ownerEvidence("E1-app-store-metadata", GATE_VERSION),
   },
@@ -363,6 +836,7 @@ const CRITERIA: Criterion[] = [
     section: "E",
     points: 5,
     kind: "owner-evidence",
+    profiles: ["mobile"],
     description: "TestFlight crash-free sessions >= 99.5%",
     run: () => ownerEvidence("E2-testflight-stability", GATE_VERSION),
   },
@@ -370,18 +844,11 @@ const CRITERIA: Criterion[] = [
     id: "E3-release-rollback-plan",
     section: "E",
     points: 5,
-    kind: "machine",
-    description: "Release runbook + rollback plan files present",
-    run: () => {
-      const required = [
-        "docs/MOBILE_RELEASE_RUNBOOK.md",
-        "docs/PILOT_CUTOVER_CHECKLIST.md",
-      ];
-      const missing = required.filter((p) => !fs.existsSync(path.join(ROOT, p)));
-      return missing.length === 0
-        ? { status: "pass", detail: `runbooks present: ${required.join(", ")}` }
-        : { status: "fail", detail: `missing: ${missing.join(", ")}` };
-    },
+    kind: "owner-evidence",
+    profiles: ["mobile"],
+    description:
+      "App Review blockers zero; release and rollback plan independently reviewed",
+    run: () => ownerEvidence("E3-release-rollback-plan", GATE_VERSION),
   },
 
   // F) Production Observability & Support (10)
@@ -390,16 +857,19 @@ const CRITERIA: Criterion[] = [
     section: "F",
     points: 5,
     kind: "owner-evidence",
-    description: "Vercel Observability alert rules configured for auth/billing/restore",
+    profiles: ALL_PROFILES,
+    description:
+      "Vercel Observability alert rules configured for auth/billing/restore",
     run: () => ownerEvidence("F1-monitoring-alerting", GATE_VERSION),
   },
   {
     id: "F2-runbooks-sla",
     section: "F",
     points: 5,
-    kind: "owner-evidence",
+    kind: "machine",
+    profiles: ALL_PROFILES,
     description: "Runbooks + P1 SLA + customer comms template in place",
-    run: () => ownerEvidence("F2-runbooks-sla", GATE_VERSION),
+    run: () => verifyRunbooksSla(),
   },
 ];
 
@@ -411,13 +881,17 @@ function gitSha(): string {
   }
 }
 
-function run(): { report: ScoreReport; strictFail: boolean } {
+export function runReleaseGate(
+  profile: ReleaseProfile,
+  criteria: Criterion[] = CRITERIA,
+): { report: ScoreReport; strictFail: boolean } {
+  const applicableCriteria = criteriaForProfile(profile, criteria);
   const sections: Record<string, { earned: number; max: number }> = {};
   const criteriaResults: ScoreReport["criteria"] = [];
   let total = 0;
-  const max = CRITERIA.reduce((sum, c) => sum + c.points, 0);
+  const max = applicableCriteria.reduce((sum, c) => sum + c.points, 0);
 
-  for (const c of CRITERIA) {
+  for (const c of applicableCriteria) {
     process.stderr.write(`[${c.section}] ${c.id} (${c.points}pt) ... `);
     const result = c.run();
     const earned = result.status === "pass" ? c.points : 0;
@@ -437,11 +911,14 @@ function run(): { report: ScoreReport; strictFail: boolean } {
       detail: result.detail,
     });
 
-    process.stderr.write(`${result.status.toUpperCase()} (${earned}/${c.points})\n`);
+    process.stderr.write(
+      `${result.status.toUpperCase()} (${earned}/${c.points})\n`,
+    );
   }
 
   const report: ScoreReport = {
     gate_version: GATE_VERSION,
+    profile,
     generated_at: new Date().toISOString(),
     git_sha: gitSha(),
     total_score: total,
@@ -458,8 +935,9 @@ function main(): void {
   const args = process.argv.slice(2);
   const wantJson = args.includes("--json");
   const strict = args.includes("--strict");
+  const profile = parseReleaseProfile(args);
 
-  const { report, strictFail } = run();
+  const { report, strictFail } = runReleaseGate(profile);
 
   if (wantJson) {
     const outPath = path.join(ROOT, "release-gate-report.json");
@@ -468,7 +946,7 @@ function main(): void {
   }
 
   process.stderr.write(
-    `\n=== Release Gate ${report.gate_version} ===\n` +
+    `\n=== Release Gate ${report.gate_version} (${report.profile}) ===\n` +
       `Score: ${report.total_score}/${report.max_score}` +
       ` (${report.passed ? "PASS" : "FAIL"})\n` +
       Object.entries(report.sections)
@@ -489,7 +967,7 @@ function main(): void {
   }
 }
 
-// Only run when invoked directly (`pnpm tsx scripts/release-gate-score.ts`),
+// Only run when invoked directly (`npx tsx scripts/release-gate-score.ts`),
 // not when imported by a test — the same guard scripts/audit-prod-cves.ts uses.
 // Without it, importing this module to test ownerEvidence() would execute every
 // criterion, including the smoke suites.

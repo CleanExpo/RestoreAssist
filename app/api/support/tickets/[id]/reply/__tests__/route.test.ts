@@ -6,6 +6,7 @@ const verifyAdminFromDb = vi.fn();
 const supportTicketFindUnique = vi.fn();
 const supportTicketUpdate = vi.fn();
 const supportTicketReplyCreate = vi.fn();
+const supportTicketReplyFindUnique = vi.fn();
 const transaction = vi.fn();
 const sendSupportReplyEmail = vi.fn();
 
@@ -24,6 +25,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     supportTicketReply: {
       create: (...args: unknown[]) => supportTicketReplyCreate(...args),
+      findUnique: (...args: unknown[]) => supportTicketReplyFindUnique(...args),
     },
     $transaction: (...args: unknown[]) => transaction(...args),
   },
@@ -31,18 +33,21 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/email", () => ({
   sendSupportReplyEmail: (...args: unknown[]) => sendSupportReplyEmail(...args),
 }));
-// Pass-through — retry/backoff semantics are covered by email-retry itself.
-vi.mock("@/lib/email-retry", () => ({
-  sendWithRetry: (send: () => Promise<unknown>) => send(),
+vi.mock("@/lib/email-delivery-ledger", () => ({
+  EmailDeliveryPending: class EmailDeliveryPending extends Error {},
+  deliverEmailOnce: ({ send }: { send: () => Promise<unknown> }) => send(),
 }));
 
 import { POST } from "../route";
 
-function postRequest(body: unknown) {
+function postRequest(body: unknown, idempotencyKey = "request-1") {
   return new NextRequest("http://localhost/api/support/tickets/ticket_1/reply", {
     method: "POST",
     body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
+    },
   });
 }
 
@@ -54,6 +59,7 @@ beforeEach(() => {
   supportTicketFindUnique.mockReset();
   supportTicketUpdate.mockReset();
   supportTicketReplyCreate.mockReset();
+  supportTicketReplyFindUnique.mockReset();
   transaction.mockReset();
   sendSupportReplyEmail.mockReset();
 
@@ -69,6 +75,7 @@ beforeEach(() => {
   });
   sendSupportReplyEmail.mockResolvedValue({ data: { id: "email_1" }, error: null });
   supportTicketReplyCreate.mockReturnValue("create-op");
+  supportTicketReplyFindUnique.mockResolvedValue(null);
   supportTicketUpdate.mockReturnValue("update-op");
   transaction.mockResolvedValue([
     { id: "reply_1", ticketId: "ticket_1", body: "All sorted." },
@@ -115,15 +122,18 @@ describe("POST /api/support/tickets/[id]/reply", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(sendSupportReplyEmail).toHaveBeenCalledWith({
+    expect(sendSupportReplyEmail).toHaveBeenCalledWith(expect.objectContaining({
       recipientEmail: "customer@example.com",
       recipientName: "Casey Customer",
       ticketSubject: "Cannot export my report",
       replyBody: "All sorted.",
-    });
+      idempotencyKey: expect.stringMatching(/^support-reply:ticket_1:/),
+    }));
     expect(supportTicketReplyCreate).toHaveBeenCalledWith({
       data: {
         ticketId: "ticket_1",
+        deliveryKey: "support-reply:ticket_1:request-1",
+        ticketStatus: "resolved",
         body: "All sorted.",
         sentToEmail: "customer@example.com",
         sentById: "admin_user",
@@ -138,6 +148,36 @@ describe("POST /api/support/tickets/[id]/reply", () => {
     });
     expect(body.reply.id).toBe("reply_1");
     expect(body.ticket.status).toBe("resolved");
+  });
+
+  it("replays the durable reply result without another email or row", async () => {
+    supportTicketReplyFindUnique.mockResolvedValueOnce({
+      id: "reply_1",
+      ticketId: "ticket_1",
+      deliveryKey: "support-reply:ticket_1:request-1",
+      ticketStatus: "resolved",
+      body: "All sorted.",
+      ticket: { id: "ticket_1", status: "resolved" },
+    });
+    const response = await POST(postRequest({ message: "All sorted." }), routeContext);
+    expect(response.status).toBe(200);
+    expect((await response.json()).replayed).toBe(true);
+    expect(sendSupportReplyEmail).not.toHaveBeenCalled();
+    expect(supportTicketReplyCreate).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects reuse of an idempotency key for changed content", async () => {
+    supportTicketReplyFindUnique.mockResolvedValueOnce({
+      id: "reply_1",
+      deliveryKey: "support-reply:ticket_1:request-1",
+      ticketStatus: "resolved",
+      body: "Original",
+      ticket: { id: "ticket_1", status: "resolved" },
+    });
+    const response = await POST(postRequest({ message: "Changed" }), routeContext);
+    expect(response.status).toBe(409);
+    expect(sendSupportReplyEmail).not.toHaveBeenCalled();
   });
 
   it("honours a status override and clears resolvedAt for in_progress", async () => {
