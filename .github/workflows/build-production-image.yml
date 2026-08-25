@@ -59,6 +59,20 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.inputs.ref || github.sha }}
+          # persist-credentials: false — checkout otherwise writes GITHUB_TOKEN
+          # into .git as an http.extraheader credential, and this job holds
+          # packages: write. `docker build` then runs over that same tree on
+          # pull_request. .dockerignore excludes .git today, but .dockerignore
+          # is itself in this workflow's path filter: a PR that edits it and
+          # the Dockerfile together could pull .git into the build context and
+          # read the token out of a RUN step, gaining GHCR write without ever
+          # merging to main. With no credential on disk there is nothing to
+          # take.
+          persist-credentials: false
+          # fetch-depth: 0 so origin/main is a local ref for the provenance
+          # check below. Without it that check would need its own
+          # authenticated fetch, which is what we just removed the token for.
+          fetch-depth: 0
 
       - name: Resolve exact commit
         id: meta
@@ -73,6 +87,39 @@ jobs:
       # Everything below this line is publish-only and is skipped on a PR. A
       # pull request proves the image BUILDS; it must not put anything in the
       # registry, and it never needs a token to do so.
+      - name: Refuse to publish anything that is not the current main tip
+        if: github.event_name != 'pull_request'
+        env:
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # `event_name != pull_request` is NOT sufficient on its own.
+          # workflow_dispatch takes an arbitrary `ref` input, so anyone with
+          # repo write — no merge to protected main required — could otherwise
+          # publish an arbitrary commit under the production image name and
+          # emit the digest artefact that a later deploy is meant to pin. The
+          # registry would become writable off the protected branch, which
+          # defeats the entire point of pinning a digest.
+          #
+          # Two independent checks, because they catch different things.
+
+          # 1. The repo's existing release gate: GITHUB_REF must be
+          #    refs/heads/main or an exact semver tag, and GITHUB_SHA must be
+          #    the origin/main tip. Same verifier the other release workflows
+          #    use, so this pipeline cannot drift away from that rule.
+          node scripts/ci/verify-release-provenance.mjs
+
+          # 2. The SHA actually built. The check above reads GITHUB_SHA, which
+          #    for workflow_dispatch is the branch tip, NOT inputs.ref — so a
+          #    dispatch on main pointing at an OLD commit passes it while
+          #    building something else entirely. Compare what we resolved.
+          MAIN="$(git rev-parse origin/main)"
+          if [ "${SHA}" != "${MAIN}" ]; then
+            echo "::error::refusing to publish ${SHA}: origin/main is ${MAIN}." >&2
+            exit 1
+          fi
+          echo "publishing ${SHA}, which is the current origin/main tip."
+
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
         env:
