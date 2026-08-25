@@ -29,7 +29,14 @@ WORKDIR /app
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
-COPY package.json package-lock.json ./
+# .npmrc is REQUIRED here, not optional. It sets legacy-peer-deps=true, and
+# without it `npm ci` dies on an ERESOLVE peer conflict inside the image while
+# succeeding on the CI runner — which is exactly the kind of "works there, not
+# here" split this repo has been bitten by all week. It also sets
+# puppeteer_skip_download=true, which keeps a Chromium download out of the
+# image. Proven by CI: the first PR build failed at `RUN npm ci` with
+# "Fix the upstream dependency conflict, or retry ... --legacy-peer-deps".
+COPY package.json package-lock.json .npmrc ./
 COPY prisma ./prisma
 # `npm ci` is deliberate: it fails on a lockfile that disagrees with
 # package.json rather than silently resolving something new. That desync broke
