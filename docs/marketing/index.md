@@ -1,7 +1,7 @@
 ---
 type: index
 name: marketing
-description: OKF index — 5 concepts, 1 subfolders
+description: OKF index — 5 concepts, 1 subfolder
 okf_version: "0.1"
 updated: 2026-08-25
 ---

@@ -37,7 +37,7 @@ The corrected framing is better than either, because it is the one that survives
 | Add-ons | 7 optional at $11/month each. **Field Technician Seat is $11 PER SEAT** | `lib/billing/*-addon.ts`; `technician-seats-addon.ts` is `perSeat: true` |
 | AI generation | Your own Anthropic/OpenAI key. They bill you. **No margin taken** | `CostDisclosure.tsx` section 3 |
 
-**One figure not confirmable from `pricing.ts`:** GST-inclusivity of the $99. The add-on modules are explicitly marked GST-inclusive; the monthly plan block carries no such marker. Confirm on the live page before printing "incl GST".
+**GST-inclusivity of the $99 is confirmed.** `pricing.ts` alone does not settle it — the monthly plan block carries no GST marker — but `app/pricing/page.tsx:239` renders "AUD, incl. GST" and `components/pricing/CostDisclosure.tsx:282` states plan pricing includes GST. "incl GST" is safe to print.
 
 ---
 

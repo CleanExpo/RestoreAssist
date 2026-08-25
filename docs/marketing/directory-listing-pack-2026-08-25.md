@@ -24,7 +24,7 @@ Every block below is fill-in-the-form ready. Each listing is a referring domain.
 
 **ABN verified.** `62 580 077 456` passes the ATO weighted-modulus check (weighted sum 534, mod 89 = 0) and the repo's own `isValidABN` in `lib/sanitize.ts`. Safe to put on forms.
 
-**Verified against `lib/pricing.ts`:** 15-day trial, 50 report credits, no card; $99 AUD/month; 50 reports/month; add-ons $11. **Not verifiable from the repo:** GST-inclusivity of the $99 (the add-on modules are explicitly marked GST-inclusive, the monthly plan block is not), the CARSI IICRC CEC registration, and the 2026 founding date. All three are owner-supplied — fine to state, just not repo-checkable.
+**Verified against `lib/pricing.ts`:** 15-day trial, 50 report credits, no card; $99 AUD/month; 50 reports/month; add-ons $11. **GST-inclusivity of the $99 is confirmed** — `app/pricing/page.tsx:239` renders "AUD, incl. GST" and `components/pricing/CostDisclosure.tsx:282` states plan pricing includes GST. An earlier draft called this unverifiable; that was wrong, and it was wrong because I checked `lib/pricing.ts` alone and stopped. **Still owner-supplied:** the CARSI IICRC CEC registration and the 2026 founding date — fine to state, just not repo-checkable.
 
 ---
 
@@ -35,7 +35,7 @@ Most forms want one of these four lengths. Same text everywhere: consistency acr
 ### One-liner (under 100 chars)
 
 ```text
-Australian restoration software — site capture to IICRC S500-structured report, built for contractors.
+Restoration software for Australian contractors — site capture to IICRC S500:2021 reports.
 ```
 
 ### Short (under 300 chars)
