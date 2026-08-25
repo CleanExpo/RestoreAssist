@@ -1,17 +1,20 @@
 /**
  * POST /api/properties/scrape — RA2-021 / RA2-022 / RA2-026 (RA-103, RA-104, RA-108)
  *
- * Scrapes OnTheHouse.com.au for property data. Optionally falls back to
- * domain.com.au if OTH returns no results (RA-108, off by default).
+ * Scrapes AU listing sites for property / floor-plan data.
  *
  * Body: {
  *   address: string,
  *   postcode?: string,
  *   inspectionId?: string,
- *   url?: string,
- *   fallbackSources?: string[]  // e.g. ["domain"] to enable domain.com.au fallback
+ *   url?: string,              // direct listing URL (preferred)
+ *   fallbackSources?: string[] // e.g. ["domain","realestate"]
  * }
- * Returns: { data: ScrapedPropertyData, cached: boolean, source: string }
+ *
+ * Returns:
+ *   - { data, cached, source } when `url` is provided (or a single cache hit)
+ *   - { candidates: string[], sourceHints? } when address search finds listings
+ *     (operator must confirm a candidate by re-POSTing with `url`)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -23,19 +26,35 @@ import { withIdempotency } from "@/lib/idempotency";
 import { apiError } from "@/lib/api-errors";
 import { requireAddon } from "@/lib/entitlements";
 import { FLOORPLAN_UNDERLAY_SKU } from "@/lib/billing/floorplan-underlay-addon";
+import { isUnderlayUrlImportEnabled } from "@/lib/sketch/underlay-import-flag";
 import {
   parseOnTheHouseHTML,
   parseOnTheHouseSearchResults,
   parseDomainComAuHTML,
   parseDomainComAuSearchResults,
+  parseRealestateComAuHTML,
+  parseRealestateComAuSearchResults,
   type ScrapedPropertyData,
 } from "@/lib/property-data-parser";
 import { fetchHtmlViaWorkspaceProvider } from "@/lib/scraping/dispatch";
-import { fetchWithValidatedRedirect } from "@/lib/scraping/safe-fetch";
+import {
+  fetchWithValidatedRedirect,
+  scrapeHostLabel,
+  normalizeScrapeUrl,
+  sanitizeScrapedPropertyMedia,
+  clampAddress,
+  clampPostcode,
+  sanitizeFallbackSources,
+  isRequestBodyTooLarge,
+  clampHtmlPayload,
+  SCRAPE_LIMITS,
+} from "@/lib/scraping/safe-fetch";
 
 const OTH_BASE = "https://www.onthehouse.com.au";
 const DOMAIN_BASE = "https://www.domain.com.au";
+const REA_BASE = "https://www.realestate.com.au";
 const TIMEOUT_MS = 15_000;
+const MAX_CANDIDATES = SCRAPE_LIMITS.MAX_CANDIDATES;
 
 const SCRAPE_HEADERS: Record<string, string> = {
   "User-Agent":
@@ -142,7 +161,7 @@ async function fetchHtml(
       headers: SCRAPE_HEADERS,
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    const html = await res.text();
+    const html = clampHtmlPayload(await res.text());
     const challenged = res.status === 200 && isChallengePage(html);
     const failed =
       res.status === 403 ||
@@ -174,14 +193,23 @@ export async function POST(req: NextRequest) {
   }
   const userId = session.user.id;
 
-  // RA-6922: the floor-plan underlay is gated by the recurring $11/mo add-on.
+  // RA-6848 [C2]: legal kill-switch — must be enabled independently of billing.
+  if (!isUnderlayUrlImportEnabled()) {
+    return apiError(req, {
+      code: "FORBIDDEN",
+      message: "Listing floor-plan import is not enabled on this deployment.",
+      status: 403,
+    });
+  }
+
+  // RA-6922: the floor-plan underlay is gated by the recurring $9.95/mo add-on.
   // requireAddon returns a fail-closed 402 (code ADDON_REQUIRED) when the
   // workspace has no ACTIVE FeatureEntitlement, which the client turns into the
   // "Upgrade to unlock" CTA — rather than silently consuming an outbound scrape.
   const addonGate = await requireAddon(userId, FLOORPLAN_UNDERLAY_SKU);
   if (!addonGate.allowed) return addonGate.response;
 
-  // RA-1281: throttle outbound scraping to OnTheHouse + domain.com.au.
+  // RA-1281: throttle outbound scraping (REA / Domain / OnTheHouse).
   const rateLimited = await applyRateLimit(req, {
     windowMs: 60_000,
     maxRequests: 6,
@@ -190,9 +218,15 @@ export async function POST(req: NextRequest) {
   });
   if (rateLimited) return rateLimited;
 
-  // RA-1266: idempotency saves repeated outbound scrape hits to
-  // onthehouse / domain.com.au for retried client requests.
   return withIdempotency(req, userId, async (rawBody) => {
+    if (isRequestBodyTooLarge(rawBody)) {
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "Request body too large",
+        status: 413,
+      });
+    }
+
     let body: Record<string, unknown>;
     try {
       body = rawBody ? JSON.parse(rawBody) : {};
@@ -204,15 +238,30 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const {
-      address,
-      postcode,
-      inspectionId,
-      url: directUrl,
-    } = body as Record<string, string>;
-    const fallbackSources =
-      (body.fallbackSources as string[] | undefined) ?? [];
-    const useDomainFallback = fallbackSources.includes("domain");
+    const address = clampAddress(body.address);
+    const postcode = clampPostcode(body.postcode);
+    const inspectionId =
+      typeof body.inspectionId === "string" &&
+      body.inspectionId.length > 0 &&
+      body.inspectionId.length <= 64 &&
+      /^[a-zA-Z0-9_-]+$/.test(body.inspectionId)
+        ? body.inspectionId
+        : undefined;
+    const fallbackSources = sanitizeFallbackSources(body.fallbackSources);
+    const useDomainFallback =
+      fallbackSources.includes("domain") || fallbackSources.length === 0;
+    const useReaFallback =
+      fallbackSources.includes("realestate") || fallbackSources.length === 0;
+
+    const directUrl = body.url ? normalizeScrapeUrl(body.url) : null;
+    if (body.url && !directUrl) {
+      return apiError(req, {
+        code: "VALIDATION",
+        message:
+          "url must be a valid https listing on realestate.com.au, domain.com.au, or onthehouse.com.au",
+        status: 400,
+      });
+    }
 
     if (!address && !directUrl) {
       return apiError(req, {
@@ -222,111 +271,66 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // RA-1347: if the caller supplied `url` directly, only accept it when
-    // it's an OnTheHouse or domain.com.au URL. Otherwise we'd SSRF a
-    // server-side HTTPS GET at an attacker-chosen host (internal Supabase,
-    // localhost, cloud metadata IMDS on non-Vercel infra).
-    if (directUrl) {
-      try {
-        const parsed = new URL(directUrl);
-        const isOth =
-          parsed.protocol === "https:" &&
-          (parsed.hostname === "www.onthehouse.com.au" ||
-            parsed.hostname === "onthehouse.com.au");
-        const isDomain =
-          parsed.protocol === "https:" &&
-          (parsed.hostname === "www.domain.com.au" ||
-            parsed.hostname === "domain.com.au");
-        if (!isOth && !isDomain) {
-          return apiError(req, {
-            code: "VALIDATION",
-            message: "url must be on onthehouse.com.au or domain.com.au",
-            status: 400,
-          });
-        }
-      } catch {
-        return apiError(req, {
-          code: "VALIDATION",
-          message: "Invalid url",
-          status: 400,
-        });
-      }
-    }
-
     const normAddress = address?.toUpperCase().trim();
     const normPostcode = postcode?.trim();
 
-    // ── Check cache ─────────────────────────────────────────
-    if (normAddress && normPostcode) {
+    if (normAddress && normPostcode && !directUrl) {
       try {
-        // RA-1761 — cache writes accept both onthehouse and domain rows
-        // (see upsert below at the bottom of this handler), so reads must
-        // match. Filtering to just "onthehouse" stranded all domain.com.au
-        // entries: they got persisted with a 90-day TTL but were never
-        // served from cache, forcing every repeat domain lookup back through
-        // the upstream scraper.
         const cached = await prisma.propertyLookup.findFirst({
           where: {
             propertyAddress: { equals: normAddress, mode: "insensitive" },
             propertyPostcode: normPostcode,
-            dataSource: { in: ["onthehouse", "domain"] },
+            dataSource: { in: ["onthehouse", "domain", "realestate"] },
             expiresAt: { gt: new Date() },
           },
         });
         if (cached?.propertyData) {
-          return NextResponse.json({ data: cached.propertyData, cached: true });
+          const safe = sanitizeScrapedPropertyMedia(
+            cached.propertyData as ScrapedPropertyData,
+          );
+          return NextResponse.json({
+            data: safe,
+            cached: true,
+            source: cached.dataSource,
+          });
         }
       } catch {
         // Cache miss — continue to scrape
       }
     }
 
-    // ── Resolve property URL ────────────────────────────────
-    let propertyUrl = directUrl as string | undefined;
-    let sourceLabel = "onthehouse";
-
-    if (!propertyUrl) {
+    if (!directUrl) {
       const searchQuery = [address, postcode].filter(Boolean).join(" ");
+      if (searchQuery.length < 5) {
+        return apiError(req, {
+          code: "VALIDATION",
+          message: "address is too short to search",
+          status: 400,
+        });
+      }
+
+      const candidates: string[] = [];
+      const seen = new Set<string>();
+
+      const pushUnique = (urls: string[]) => {
+        for (const u of urls) {
+          const clean = normalizeScrapeUrl(u);
+          if (!clean || seen.has(clean)) continue;
+          seen.add(clean);
+          candidates.push(clean);
+          if (candidates.length >= MAX_CANDIDATES) break;
+        }
+      };
+
       const searchUrl = `${OTH_BASE}/search?q=${encodeURIComponent(searchQuery)}`;
       const { html: searchHtml, status: searchStatus } =
         await fetchHtmlViaWorkspaceProvider(searchUrl, userId, fetchHtml);
 
-      // Parse OTH results only when the search page returned successfully
-      const othUrls =
-        searchStatus === 200
-          ? parseOnTheHouseSearchResults(searchHtml, OTH_BASE)
-          : [];
+      if (searchStatus === 200 && searchHtml) {
+        pushUnique(parseOnTheHouseSearchResults(searchHtml, OTH_BASE));
+      }
 
-      if (othUrls.length > 0) {
-        propertyUrl = othUrls[0];
-      } else {
-        // ── domain.com.au fallback (RA-108) ─────────────────
-        // Triggered when: OTH search fails (404/503/network), returns no listings,
-        // OR caller explicitly opts in. Allows the scraper to survive OTH URL changes.
-        if (!useDomainFallback && searchStatus === 0) {
-          return apiError(req, {
-            code: "UPSTREAM_FAILED",
-            message: "Could not connect to OnTheHouse. Please try again.",
-            status: 503,
-          });
-        }
-
-        if (
-          !useDomainFallback &&
-          othUrls.length === 0 &&
-          searchStatus === 200
-        ) {
-          // OTH returned a page but found no listings — give up without domain fallback
-          return NextResponse.json(
-            {
-              error: "No property found on OnTheHouse for this address.",
-              data: null,
-            },
-            { status: 404 },
-          );
-        }
-
-        // Try domain.com.au when: OTH returned non-200 (broken search) OR no results
+      if (candidates.length < MAX_CANDIDATES && useDomainFallback) {
         const domainSearchUrl = `${DOMAIN_BASE}/sale/?q=${encodeURIComponent(searchQuery)}`;
         const { html: domainHtml, status: domainStatus } =
           await fetchHtmlViaWorkspaceProvider(
@@ -334,39 +338,57 @@ export async function POST(req: NextRequest) {
             userId,
             fetchHtml,
           );
-
-        if (domainStatus !== 200 || !domainHtml) {
-          return NextResponse.json(
-            {
-              error:
-                "No property found. OnTheHouse search unavailable and domain.com.au did not respond.",
-              data: null,
-            },
-            { status: 404 },
-          );
+        if (domainStatus === 200 && domainHtml) {
+          pushUnique(parseDomainComAuSearchResults(domainHtml, DOMAIN_BASE));
         }
-
-        const domainUrls = parseDomainComAuSearchResults(
-          domainHtml,
-          DOMAIN_BASE,
-        );
-        if (!domainUrls.length) {
-          return NextResponse.json(
-            {
-              error: "No property found on OnTheHouse or domain.com.au.",
-              data: null,
-            },
-            { status: 404 },
-          );
-        }
-        propertyUrl = domainUrls[0];
-        sourceLabel = "domain";
       }
+
+      if (candidates.length < MAX_CANDIDATES && useReaFallback) {
+        const reaSearchUrl = `${REA_BASE}/buy/list-1?keywords=${encodeURIComponent(searchQuery)}`;
+        const { html: reaHtml, status: reaStatus } =
+          await fetchHtmlViaWorkspaceProvider(reaSearchUrl, userId, fetchHtml);
+        if (reaStatus === 200 && reaHtml) {
+          pushUnique(parseRealestateComAuSearchResults(reaHtml, REA_BASE));
+        }
+      }
+
+      if (candidates.length === 0) {
+        if (searchStatus === 0 && !useDomainFallback && !useReaFallback) {
+          return apiError(req, {
+            code: "UPSTREAM_FAILED",
+            message: "Could not connect to listing sites. Please try again.",
+            status: 503,
+          });
+        }
+        return NextResponse.json(
+          {
+            error:
+              "No property found on OnTheHouse, domain.com.au, or realestate.com.au.",
+            data: null,
+            candidates: [],
+          },
+          { status: 404 },
+        );
+      }
+
+      return NextResponse.json({
+        data: null,
+        candidates,
+        cached: false,
+        source: "search",
+      });
     }
 
-    const isDomainUrl = propertyUrl?.startsWith(DOMAIN_BASE);
+    const propertyUrl = directUrl;
+    const hostLabel = scrapeHostLabel(propertyUrl);
+    if (hostLabel === "unknown") {
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "Unsupported listing host",
+        status: 400,
+      });
+    }
 
-    // ── Fetch and parse property page ───────────────────────
     const { html: propertyHtml, status: propertyStatus } =
       await fetchHtmlViaWorkspaceProvider(propertyUrl, userId, fetchHtml);
 
@@ -378,14 +400,17 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const data = isDomainUrl
-      ? parseDomainComAuHTML(propertyHtml, propertyUrl)
-      : parseOnTheHouseHTML(propertyHtml, propertyUrl);
+    const rawData =
+      hostLabel === "domain"
+        ? parseDomainComAuHTML(propertyHtml, propertyUrl)
+        : hostLabel === "realestate"
+          ? parseRealestateComAuHTML(propertyHtml, propertyUrl)
+          : parseOnTheHouseHTML(propertyHtml, propertyUrl);
+    const data = sanitizeScrapedPropertyMedia(rawData);
 
-    // ── Cache the result ────────────────────────────────────
     if (normAddress && normPostcode) {
       const now = new Date();
-      const expiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 days
+      const expiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
       try {
         await prisma.propertyLookup.upsert({
@@ -401,7 +426,7 @@ export async function POST(req: NextRequest) {
             lookupDate: now,
             expiresAt,
             apiResponseStatus: propertyStatus,
-            dataSource: isDomainUrl ? "domain" : "onthehouse",
+            dataSource: hostLabel,
             lookupCost: 0,
             confidence: data.confidence,
             propertyData: data as any,
@@ -413,17 +438,18 @@ export async function POST(req: NextRequest) {
             apiResponseStatus: propertyStatus,
             confidence: data.confidence,
             propertyData: data as any,
+            dataSource: hostLabel,
           },
         });
       } catch (err) {
-        // Non-fatal — return the data even if caching fails
         console.error("PropertyLookup cache write failed:", err);
       }
     }
 
-    // Update sourceLabel if we ended up on domain.com.au
-    if (isDomainUrl) sourceLabel = "domain";
-
-    return NextResponse.json({ data, cached: false, source: sourceLabel });
+    return NextResponse.json({
+      data,
+      cached: false,
+      source: hostLabel,
+    });
   });
 }

@@ -533,3 +533,76 @@ export function parseOnTheHouseSearchResults(
 
   return results;
 }
+
+/**
+ * Parse realestate.com.au property page HTML.
+ * REA is Next.js / JSON-LD heavy — reuse the generic extractor, then tidy the address.
+ */
+export function parseRealestateComAuHTML(
+  html: string,
+  sourceUrl: string,
+): ScrapedPropertyData {
+  const data = parseOnTheHouseHTML(html, sourceUrl);
+  data.address = data.address
+    .replace(/\s*\|.*$/, "")
+    .replace(/\s*-\s*Realestate\.com\.au.*$/i, "")
+    .trim();
+  return data;
+}
+
+/**
+ * Extract listing URLs from a realestate.com.au search / buy list page.
+ */
+export function parseRealestateComAuSearchResults(
+  html: string,
+  baseUrl: string,
+): string[] {
+  const seen = new Set<string>();
+  const results: string[] = [];
+
+  const nextData = extractNextData(html);
+  if (nextData) {
+    const props = (nextData.props as Record<string, unknown>)?.pageProps;
+    if (props && typeof props === "object") {
+      const p = props as Record<string, unknown>;
+      const items = (p.listings ??
+        p.results ??
+        p.searchResults ??
+        p.collection) as unknown[] | Record<string, unknown> | undefined;
+      const listArray = Array.isArray(items)
+        ? items
+        : Object.values(items ?? {});
+
+      for (const item of listArray) {
+        const i = item as Record<string, unknown>;
+        const link = (i.url ??
+          i.listingUrl ??
+          i.canonicalUrl ??
+          i.prettyUrl) as string | undefined;
+        if (link) {
+          const full = absoluteUrl(link, baseUrl);
+          if (!seen.has(full) && /realestate\.com\.au/i.test(full)) {
+            seen.add(full);
+            results.push(full);
+          }
+        }
+      }
+    }
+  }
+
+  // HTML fallback — REA listing paths commonly look like
+  // /property-house-qld-brisbane-4000-12345678 or /12345678
+  if (results.length === 0) {
+    for (const m of html.matchAll(
+      /href="(\/(?:property-[^"?#]+|\d{6,})[^"?#]*)"/gi,
+    )) {
+      const full = absoluteUrl(m[1], baseUrl);
+      if (!seen.has(full)) {
+        seen.add(full);
+        results.push(full);
+      }
+    }
+  }
+
+  return results;
+}

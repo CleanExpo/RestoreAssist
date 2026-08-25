@@ -85,6 +85,7 @@ const mockUpsert = (
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("NEXT_PUBLIC_UNDERLAY_URL_IMPORT", "1");
   mockSession.mockResolvedValue({ user: { id: "u_test" } });
   // Fail loudly if the test ever falls through to the scraper.
   vi.spyOn(global, "fetch").mockImplementation(async () => {
@@ -113,7 +114,7 @@ const SAMPLE_DATA = {
   confidence: "high" as const,
 };
 
-describe("RA-1761 — cache read filter widened to include domain.com.au", () => {
+describe("RA-1761 — cache read filter widened to include domain + realestate", () => {
   it("serves a cached `onthehouse` row (regression)", async () => {
     mockFindFirst.mockResolvedValueOnce({
       id: "pl_1",
@@ -129,7 +130,11 @@ describe("RA-1761 — cache read filter widened to include domain.com.au", () =>
     );
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json).toEqual({ data: SAMPLE_DATA, cached: true });
+    expect(json).toEqual({
+      data: SAMPLE_DATA,
+      cached: true,
+      source: "onthehouse",
+    });
     expect(mockUpsert).not.toHaveBeenCalled();
   });
 
@@ -149,11 +154,12 @@ describe("RA-1761 — cache read filter widened to include domain.com.au", () =>
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.cached).toBe(true);
+    expect(json.source).toBe("domain");
     expect(json.data.address).toBe("34 OAK AVE, SYDNEY NSW 2000");
     expect(mockUpsert).not.toHaveBeenCalled();
   });
 
-  it("findFirst is called with `dataSource: { in: [onthehouse, domain] }`", async () => {
+  it("findFirst includes onthehouse, domain, and realestate", async () => {
     mockFindFirst.mockResolvedValueOnce({
       id: "pl_3",
       dataSource: "domain",
@@ -165,7 +171,9 @@ describe("RA-1761 — cache read filter widened to include domain.com.au", () =>
 
     expect(mockFindFirst).toHaveBeenCalledTimes(1);
     const callArg = mockFindFirst.mock.calls[0][0];
-    expect(callArg.where.dataSource).toEqual({ in: ["onthehouse", "domain"] });
+    expect(callArg.where.dataSource).toEqual({
+      in: ["onthehouse", "domain", "realestate"],
+    });
   });
 
   it("returns 401 when unauthenticated (no session)", async () => {

@@ -48,6 +48,7 @@ const mockFindFirst = (
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("NEXT_PUBLIC_UNDERLAY_URL_IMPORT", "1");
   mockSession.mockResolvedValue({ user: { id: "u_test" } });
   vi.spyOn(global, "fetch").mockImplementation(async () => {
     throw new Error("scraper should not be reached in these tests");

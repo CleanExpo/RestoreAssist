@@ -26,14 +26,16 @@ function redirectResponse(status: number, location?: string): Response {
 }
 
 describe("isAllowedScrapeUrl", () => {
-  it("allows https onthehouse and domain hosts", () => {
+  it("allows https onthehouse, domain, and realestate hosts", () => {
     expect(isAllowedScrapeUrl("https://www.onthehouse.com.au/x")).toBe(true);
     expect(isAllowedScrapeUrl("https://onthehouse.com.au/x")).toBe(true);
     expect(isAllowedScrapeUrl("https://www.domain.com.au/x")).toBe(true);
     expect(isAllowedScrapeUrl("https://domain.com.au/x")).toBe(true);
+    expect(isAllowedScrapeUrl("https://www.realestate.com.au/x")).toBe(true);
+    expect(isAllowedScrapeUrl("https://realestate.com.au/x")).toBe(true);
   });
 
-  it("rejects other hosts, http, lookalikes and garbage", () => {
+  it("rejects other hosts, http, lookalikes, credentials and garbage", () => {
     expect(isAllowedScrapeUrl("https://evil.example.com/")).toBe(false);
     expect(isAllowedScrapeUrl("http://www.onthehouse.com.au/")).toBe(false);
     expect(isAllowedScrapeUrl("https://onthehouse.com.au.evil.com/")).toBe(
@@ -42,6 +44,9 @@ describe("isAllowedScrapeUrl", () => {
     expect(isAllowedScrapeUrl("https://169.254.169.254/latest/meta-data")).toBe(
       false,
     );
+    expect(
+      isAllowedScrapeUrl("https://user:pass@www.domain.com.au/x"),
+    ).toBe(false);
     expect(isAllowedScrapeUrl("not a url")).toBe(false);
   });
 });
