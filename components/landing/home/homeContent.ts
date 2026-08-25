@@ -16,14 +16,38 @@ export const HOME = {
 
   hero: {
     eyebrow: BRAND.tagline,
-    headline:
-      "What you captured on site shouldn't need a second draft at the desk.",
+    headline: "Restoration software that works for you. Not the insurer.",
     brand: BRAND.name,
     valueLine: "From site to signed report. One system.",
     support:
-      "The Australian restoration CRM that keeps field evidence, IICRC-aligned paperwork, and client approvals on the same record — so the office builds on the job, not beside it.",
+      "Every other platform in this industry was built to serve the carrier. RestoreAssist was built for the contractor doing the work — and the homeowner living through it. Australian-built. Australian-priced.",
     primaryCta: `Start free — ${trialDays}-day trial`,
     secondaryCta: "See how it works",
+  },
+
+  /**
+   * Sub-hero stance strip — the three commitments the product is built on.
+   * Every line here is checked against shipped behaviour before it goes out:
+   * capture (lib/capture), evidence honesty (lib/evidence/qa-scorer.ts flags
+   * "GPS location not recorded" rather than inventing one), and flat
+   * per-workspace pricing (lib/pricing.ts — one $99 AUD/month plan, no seats).
+   */
+  stance: {
+    eyebrow: "What we build for",
+    pillars: [
+      {
+        title: "Built for the job, not the claim file",
+        body: "Capture the site on your phone — photos, moisture readings, scope notes — while you're standing in it. The report builds from what you recorded, not from what you remembered later.",
+      },
+      {
+        title: "Evidence you can stand behind",
+        body: "Every photo carries its real capture data. If a location wasn't recorded, we say so — we don't invent one to fill a field. Your documentation holds up because it's honest.",
+      },
+      {
+        title: "Priced for Australian businesses",
+        body: "No US-scale licensing. No per-seat gouging. One flat plan, built around how restoration actually runs here.",
+      },
+    ] as const,
   },
 
   workflow: {
@@ -195,6 +219,22 @@ export const HOME = {
       { label: "Codes", value: "NCC 2022 · IICRC" },
       { label: "WHS", value: "State regulators in-flow" },
     ] as const,
+  },
+
+  /**
+   * Positioning — the argument the whole page rests on. Deliberately names no
+   * competitor: the claim is about who a vendor answers to, not about any
+   * named product's conduct.
+   */
+  positioning: {
+    eyebrow: "Who we answer to",
+    title: "Who your software works for tells you everything.",
+    paragraphs: [
+      "The established platforms are owned by, funded by, or sold to insurance interests. Their job is to make the claim cheaper. That's a legitimate business — it just isn't yours.",
+      "When the software is designed around the carrier's workflow, you spend your day feeding their system instead of running your job. Your scope gets questioned by a tool you paid for. Your evidence sits in someone else's database.",
+    ] as const,
+    close:
+      "RestoreAssist has one customer: the restorer. We make your documentation faster, your scope defensible, and your client informed. If that makes your claims run smoother, good. But you're who we answer to.",
   },
 
   faq: {

@@ -240,6 +240,10 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
       "One System. Fewer Gaps. More Confidence.",
       "Office and Field. One System.",
       "From site to signed report.",
+      "Restoration software that works for you. Not the insurer.",
+      "Who your software works for tells you everything.",
+      "RestoreAssist has one customer: the restorer.",
+      "If a location wasn't recorded, we say so",
       "IICRC S500:2021",
       "What's included in the free trial?",
       "Same job. Two systems. Too many gaps.",
@@ -310,7 +314,9 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
         const text = container.textContent ?? "";
         expect(text).toContain("RestoreAssist");
         expect(text).toContain("Start free — 15-day trial");
-        expect(text).toContain("What you captured on site");
+        expect(text).toContain(
+          "Restoration software that works for you. Not the insurer.",
+        );
         expect(container.innerHTML).toContain(heroSrc);
         for (const pattern of AI_THEATRE_FORBIDDEN) {
           expect(text).not.toMatch(pattern);
