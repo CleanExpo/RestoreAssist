@@ -43,6 +43,11 @@ curl -s https://restoreassist.app/api/health
 `.do/app.yaml` pins `branch: main` but sets no `deploy_on_push`, and DigitalOcean
 defaults that to false — which is very likely why main has moved and production hasn't.
 
+**A cache purge alone will not fix this.** `/api/health` is `cf-cache-status: BYPASS` —
+Cloudflare never caches it, so what you're seeing is the live running build. It also
+reports `uptime` of ~16.5 hours, meaning the process started before #2043 even landed.
+It needs an actual redeploy.
+
 ## 4. Purge the Cloudflare cache (2 min)
 
 `cache-control: s-maxage=31536000` — roughly a year. A correct deploy stays invisible

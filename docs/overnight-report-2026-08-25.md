@@ -121,8 +121,22 @@ git show 9352cbe^:lib/env-check.ts | sed -n '/RECOMMENDED_VARS/,/as const/p'   #
 sed -n '/RECOMMENDED_VARS/,/as const/p' lib/env-check.ts                        # does not
 ```
 
+**This is the live origin, not a cached page.** `/api/health` returns
+`cf-cache-status: BYPASS` and `cache-control: private` — Cloudflare does not cache it, and
+its `timestamp`/`uptime` change on every request. So this is the running build, and a
+**cache purge alone will not fix it — it needs a redeploy.**
+
+Third, independent corroboration: `/api/health` reports `uptime: ~59,400s` (~16.5 hours),
+so the production process started around **2026-08-24 23:50 UTC** — *before* `9352cbe`
+landed at 2026-08-25 13:09 UTC. A process that started before a commit cannot be running it.
+
 Likely cause: `.do/app.yaml` pins `branch: main` but sets no `deploy_on_push`, and
 DigitalOcean defaults that to **false**. This independently corroborates the 09:46Z handoff.
+
+**Note on Cloudflare:** it *is* proxying (`server: cloudflare`, `cf-ray`, `__cf_bm`), and
+HTML pages carry `cache-control: s-maxage=31536000`, so the ~1-year edge cache warning in
+the briefs is real **for HTML**. It does not apply to `/api/health`, which is why that
+endpoint is the trustworthy probe. Still purge after deploying, then re-check health.
 
 ### No transactional email is configured
 
@@ -131,6 +145,24 @@ invitations**, and (once merged) signup alerts. `NEXTAUTH_SECRET` **is** set —
 because it's in `REQUIRED_VARS` and `missingRequired` is empty — so **portal JWT auth is
 functional**. Portal routes are live: `/portal/login` and `/portal/signup` return `200`,
 an invalid token correctly `404`s.
+
+---
+
+## 6b. Public surface sweep
+
+Every public page returns 200 (`/faq` is a 308 redirect). **35 unique internal links
+extracted from 14 public pages and checked — exactly one non-200:**
+
+- `/cdn-cgi/l/email-protection` → 404. A Cloudflare email-obfuscation artifact left in the
+  HTML. Harmless to a normal visitor; not worth a PR.
+
+Open Graph: `og:title` and `og:image` are present on every page sampled, and all three
+distinct `og:image` URLs return `200 image/png`. **`og:url` is missing on every page** —
+most platforms fall back to the shared URL, so previews still work, but it's the first
+thing to check if one looks wrong. Filed, not fixed: it's copy/meta work and the brief
+banned changes outside the MVP path.
+
+Zero `restoreassist.com.au` references on any live public page.
 
 ---
 
