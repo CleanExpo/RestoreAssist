@@ -35,7 +35,10 @@ const PACK_GLYPHS: Record<string, string> = {
   PAYMENTS: "▭",
   CLIENT_COMMS: "◉",
   FLOORPLAN_UNDERLAY: "▣",
-  SERVICE_CRM: "⬡",
+  // U+2B21 (white hexagon) sits inside the range scripts/check-no-emoji.mjs
+  // rejects, so it failed the guard on every PR in the repo while its six
+  // siblings here passed. U+2338 keeps the geometric cue and clears the guard.
+  SERVICE_CRM: "⌸",
   TECHNICIAN_SEATS: "⊕",
 };
 
