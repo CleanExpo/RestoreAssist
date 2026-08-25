@@ -777,7 +777,18 @@ export function findReleaseBootstrapViolations(root) {
   const packagePath = join(root, "package.json");
   let packageJson;
   try {
-    packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
+    const packageSource = readFileSync(packagePath, "utf8");
+    const packageDocument = parseDocument(packageSource, {
+      merge: false,
+      strict: true,
+      uniqueKeys: true,
+    });
+    if (packageDocument.errors.length > 0) {
+      throw new Error(
+        `duplicate or ambiguous keys: ${packageDocument.errors.map((error) => error.message).join("; ")}`,
+      );
+    }
+    packageJson = JSON.parse(packageSource);
   } catch (error) {
     return [`package.json cannot be read: ${error.message}`];
   }

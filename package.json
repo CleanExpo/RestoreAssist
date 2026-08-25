@@ -7,8 +7,11 @@
   },
   "type": "module",
   "overrides": {
-      "google-auth-library@^10": "^10.9.1",
-      "dompurify": ">=3.4.13",
+      "google-auth-library": "$google-auth-library",
+      "googleapis-common": {
+        "google-auth-library": "$google-auth-library"
+      },
+      "dompurify": "$dompurify",
       "loader-utils": "^2.0.4",
       "js-yaml@<4": ">=3.15.1 <4",
       "js-yaml@>=4": ">=4.2.0",
@@ -19,14 +22,20 @@
       "qs": ">=6.15.2",
       "effect": ">=3.20.0",
       "defu": ">=6.1.5",
-      "nodemailer": ">=9.0.1",
-      "pilot-tester>undici": "^7.28.0",
-      "@ai-sdk/provider-utils>undici": "^7.29.0",
-      "postcss": ">=8.5.10",
+      "nodemailer": "$nodemailer",
+      "pilot-tester": {
+        "undici": "^7.28.0"
+      },
+      "@ai-sdk/provider-utils": {
+        "undici": "^7.29.0"
+      },
+      "postcss": "$postcss",
       "uuid": ">=11.1.1",
       "ip-address": ">=10.1.1",
       "brace-expansion": ">=5.0.9",
-      "minimatch@3.1.5>brace-expansion": "1.1.12",
+      "minimatch@3.1.5": {
+        "brace-expansion": "1.1.18"
+      },
       "minimatch": ">=9.0.5",
       "@tootallnate/once": ">=3.0.1",
       "fast-xml-builder": ">=1.1.7",
@@ -41,10 +50,12 @@
       "form-data": "^2.5.6",
       "protobufjs": "^7.6.1",
       "linkify-it": "5.0.2",
-      "sharp": "0.35.3",
-      "nanoid": ">=3.3.17",
-      "pdfjs-dist": ">=6.2.108",
-      "@streamdown/code>shiki": "^4.4.2",
+      "sharp": "$sharp",
+      "nanoid": "$nanoid",
+      "pdfjs-dist": "$pdfjs-dist",
+      "@streamdown/code": {
+        "shiki": "$shiki"
+      },
       "shiki": "$shiki"
   },
   "auditConfig": {
@@ -258,11 +269,6 @@
     "vaul": "^1.1.2",
     "zod": "3.25.76",
     "zustand": "^5.0.15"
-  },
-  "overrides": {
-    "googleapis-common": {
-      "google-auth-library": "^10.9.1"
-    }
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.6",

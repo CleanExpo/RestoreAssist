@@ -7,7 +7,7 @@
  *
  * This queries the still-supported **bulk advisory endpoint** instead, keeping
  * the original gate's exact semantics:
- *   - PROD dependency closure only (`npm ls --omit=dev --all`)
+ *   - PROD dependency closure only (the npm lockfile's non-dev packages)
  *   - HIGH + CRITICAL severity only (matching `--audit-level=high`)
  *   - honours the `package.json` `auditConfig.ignoreGhsas` suppressions
  *
@@ -18,7 +18,6 @@
  * silently pass.
  */
 
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 const BULK_ENDPOINT =
@@ -39,6 +38,7 @@ export interface Finding {
 }
 
 type DepTree = Record<string, { version?: string; dependencies?: DepTree }>;
+type LockPackage = { version?: string; dev?: boolean };
 
 function readIgnoredGhsas(): Set<string> {
   const pkg = JSON.parse(readFileSync("package.json", "utf8"));
@@ -68,14 +68,37 @@ export function collectProdDependenciesFromTree(
   );
 }
 
-function collectProdDependencies(): Record<string, string[]> {
-  const raw = execFileSync(
-    "npm",
-    ["ls", "--omit=dev", "--all", "--json"],
-    { encoding: "utf8", maxBuffer: 128 * 1024 * 1024 },
+function packageNameFromLockPath(path: string): string | null {
+  const marker = "node_modules/";
+  const markerIndex = path.lastIndexOf(marker);
+  if (markerIndex < 0) return null;
+  const name = path.slice(markerIndex + marker.length);
+  return name && (!name.startsWith("@") || name.includes("/")) ? name : null;
+}
+
+/** Exact production versions npm ci resolves from a lockfile v2/v3. */
+export function collectProdDependenciesFromLockfile(lockfile: {
+  packages?: Record<string, LockPackage>;
+}): Record<string, string[]> {
+  if (!lockfile.packages || typeof lockfile.packages !== "object") {
+    throw new Error("package-lock.json has no packages map");
+  }
+  const collected = new Map<string, Set<string>>();
+  for (const [path, metadata] of Object.entries(lockfile.packages)) {
+    if (metadata.dev === true || !metadata.version) continue;
+    const name = packageNameFromLockPath(path);
+    if (!name) continue;
+    if (!collected.has(name)) collected.set(name, new Set());
+    collected.get(name)!.add(metadata.version);
+  }
+  return Object.fromEntries(
+    [...collected].map(([name, versions]) => [name, [...versions]]),
   );
-  const project = JSON.parse(raw) as { dependencies?: DepTree };
-  return collectProdDependenciesFromTree(project);
+}
+
+function collectProdDependencies(): Record<string, string[]> {
+  const lockfile = JSON.parse(readFileSync("package-lock.json", "utf8"));
+  return collectProdDependenciesFromLockfile(lockfile);
 }
 
 export function ghsaFromUrl(url: string): string | null {
