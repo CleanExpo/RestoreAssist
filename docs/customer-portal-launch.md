@@ -59,12 +59,13 @@ refuse to boot in production.
 ## 3. Every probed endpoint fails closed
 
 ```bash
-for p in /api/portal/auth/me /api/portal/reports /api/portal/invitations; do
+for p in /api/portal/auth/me /api/portal/reports /api/portal/invitations \
+         /api/portal/deadbeefdeadbeef; do
   curl -s -o /dev/null -w "%{http_code} $p\n" "https://restoreassist.app$p"; done
 # 401 /api/portal/auth/me
 # 401 /api/portal/reports
 # 401 /api/portal/invitations
-# 401 /api/portal/<invalid-token>
+# 401 /api/portal/deadbeefdeadbeef
 ```
 
 Login is rate-limited at 10 requests / 15 min (`prefix: portal-auth-login`), and returns an

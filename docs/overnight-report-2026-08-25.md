@@ -52,7 +52,7 @@ Run this yourself:
 SELECT COUNT(*) FROM "User" WHERE "createdAt" > NOW() - INTERVAL '12 hours';
 ```
 
-**One of any count is mine** — see cleanup in the first-hour steps below.
+**One of any count is mine** — the `RA Launch Check` account; see the first-hour steps.
 
 ---
 
@@ -122,7 +122,7 @@ Full detail in **`docs/launch-kit/05-day-1-checklist.md`**.
 5. **Verify:** `curl -s https://restoreassist.app/api/health` — `RESEND_API_KEY` should be gone from `missing`.
 6. **Send welcome emails by hand** using `docs/launch-kit/01-welcome-email.md`. **Lead with the AI-key step** — it's where trials will stall.
 7. **Post the day-2 follow-up** — `docs/launch-kit/04-day2-social.md`.
-8. **Delete my test account:** `support+ra-launchcheck-20260825@synthex.social` (user `cmt8uia8q000v2c5xcbkftt9m`), plus its org and one inspection. It's a live ADMIN account and it pollutes your signup count.
+8. **Delete my production test account** — name `RA Launch Check`, created 2026-08-25 15:54 UTC, plus its org and one inspection. It is a live **ADMIN** account. Its email and user ID are deliberately not written here: **this repository is public.** Find it with `SELECT id, email FROM "User" WHERE name = 'RA Launch Check';`
 
 ---
 
@@ -252,6 +252,35 @@ The local scan found **2**, CI found **1**: the second was `.watchdog/testcreds.
 container-local file holding the real password for the production test account.
 `gitleaks --no-git` scans untracked files, which is how it surfaced. It was git-excluded so
 it never reached the repository, and it has now been deleted.
+
+---
+
+## 6d. I published a live production account's identifiers to a public repository
+
+CodeRabbit's walkthrough flagged the launch docs as exposing live production account
+details. **Confirmed, and it is the most serious mistake of this session.**
+
+`CleanExpo/RestoreAssist` is **public** (`visibility: public`). The Day-1 checklist and
+this report carried the email address and user ID of the ADMIN account I created on
+production to prove the funnel. A stranger reading the repo had a valid admin email to
+aim a password reset or credential-stuffing attempt at, on launch night.
+
+The password was never committed — it was generated per session and lived only in a
+git-ignored file inside the build container, which no longer exists. The exposure is the
+identifiers, not the credential.
+
+**Root cause:** I wrote the docs as if they were internal and never checked the
+repository's visibility before committing account details to it.
+
+**Done:** both identifiers are redacted from every doc. The account is now found by name
+and creation time instead, and deleting it is promoted from step 8 to **step 1** of the
+first hour — because deletion, not redaction, is the real mitigation.
+
+**Still true, and you should know it:** redacting the files does **not** remove the values
+from git history. They remain in this branch's earlier commits in the public repository.
+Deleting the account makes that history harmless. If you would rather also scrub it, the
+branch is unmerged and mine, so its history can be rewritten on request — I have not done
+that unilaterally, because it would discard the review and green CI this PR has now.
 
 ---
 
