@@ -1,71 +1,101 @@
 ---
 title: DigitalOcean production release
 owner: RestoreAssist release owner
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-26
 ---
 
 # DigitalOcean production release
 
-> **STATUS: FAILED / BLOCKED. There is no repository-owned production deploy
-> action. Do not deploy this release from GitHub or the DigitalOcean console.**
+> **STATUS: BLOCKED / UNPROVEN. DO NOT DISPATCH THE DEPLOY WORKFLOW.**
+> The repository implementation is fail-closed, but production remains
+> ineligible until the external controls and watchdog listed below are proven.
 
-Production must not follow `main` automatically. The committed App Platform
-contract sets `github.deploy_on_push: false`, and the platform health check is
-`/api/health/migrations`. Critical environment variables are enforced by the
-production startup preflight before Next.js can become healthy.
+Production does not follow a branch or image tag. The repository builds the
+reviewed `main` SHA without production credentials, pushes it to GHCR, records
+its immutable `sha256:` digest, generates GitHub artifact provenance, and only
+then offers a separate `production`-environment job for approval.
 
-DigitalOcean's official GitHub source contract accepts a branch name, not a
-commit SHA. Its Create Deployment API then pulls the latest branch revision.
-Checking `main` immediately before or after that call cannot close the race, and
-post-hoc SHA verification can observe the wrong build only after production has
-already been mutated. The repository therefore contains a deliberately failing
-`Deploy — DigitalOcean Production (BLOCKED)` workflow with no credentials and
-no provider call.
+The reviewed `.do/app.yaml` is a non-deployable template. Its all-zero digest
+and Git SHA sentinels are replaced only in the protected job. Secret values are
+never committed or written to receipts. Immediately before the DigitalOcean
+update, the controller carries forward the provider-encrypted values from the
+current app spec in memory and refuses the release if any reviewed secret
+cannot be preserved.
 
-## Controls that still require protected setup
+## Protected configuration
 
-Before using the repository workflow, an owner must complete these protected
-configuration changes. They are production actions and require explicit owner
-approval:
+The GitHub `production` environment must enforce the reviewer policy validated
+by `scripts/ci/verify-production-environment.mjs`, including prevent-self-review
+and no administrator bypass. Store these values as environment-scoped secrets:
 
-1. In DigitalOcean App Platform, apply the `.do/app.yaml` source settings so
-   `deploy_on_push` is off and the service health path is `/api/health/migrations`.
-2. In GitHub, create or update the `production` environment with required
-   reviewers, enable **Prevent self-review**, and set
-   `can_admins_bypass: false`. The read-only parity workflow checks all three
-   controls and refuses production access when any is absent.
-3. Store `DIGITALOCEAN_ACCESS_TOKEN`, `DIGITALOCEAN_APP_ID`, and
-   `PRODUCTION_DIRECT_URL` as environment-scoped secrets. Do not expose their
-   values in logs or repository files.
-4. Confirm the saved live App Platform settings show auto-deploy off and
-   `/api/health/migrations`. This reduces accidental deployment risk but does not create a
-   safe release path while the source remains a mutable branch.
+- `DIGITALOCEAN_ACCESS_TOKEN`
+- `DIGITALOCEAN_APP_ID`
+- `GHCR_PULL_CREDENTIALS` in `username:token` form, with read-only package scope
+- `PRODUCTION_DIRECT_URL`
+- `EXPECTED_DIRECT_DATABASE_HOST`
+- `EXPECTED_DIRECT_DATABASE_NAME`
+- `EXPECTED_DIRECT_DATABASE_SCHEMA`
 
-Until the requirements below are implemented and attacked independently, the
-production deployment path is **FAILED**, not merely unproven.
+Configure the repository variable
+`NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID` for the public client value embedded
+at image build time. It is deliberately not treated as a production secret.
 
-## Requirements before a deploy workflow may act
+The versioned production reviewer allow-list is currently empty, so the
+protected job is guaranteed to stop before provider mutation. An owner must
+approve a separately controlled GitHub user or team, configure the environment
+to match it exactly, and update the reviewed allow-list before this blocker may
+be removed.
 
-1. Build the reviewed SHA into an image without production credentials.
-2. Publish it under an immutable `sha256:` digest and verify the registry
-   receipt binds that digest to the reviewed Git SHA and repository.
-3. Change the App Platform service source from `github.branch` to
-   `image.digest`; tags and image push-to-deploy must be absent or disabled.
-4. Have a separate protected job validate the release report artifact, exact
-   digest, critical App Platform spec (including region), migration
-   compatibility and rollback target before any mutation.
-5. Bind verification to the exact deployment ID returned by DigitalOcean.
-   Failure or timeout must cancel that exact deployment before it can activate.
-6. Run exact-SHA production health and the strict `@smoke` user-flow suite after
-   activation. A missing route (`404`) or method (`405`) is a failure, not an
-   authentication success.
-7. Independently attack the build, deploy, cancellation, rollback and smoke
-   paths. Only then may the intentionally blocked workflow be replaced.
+DigitalOcean's current app spec must already contain provider-encrypted values
+for every `SECRET` entry in `.do/app.yaml`. The controller does not create,
+guess, print, or persist missing application secrets.
 
-## Rollback
+## Release procedure
 
-No protected, pre-activation compatibility-checked rollback workflow exists.
-Manual console rollback is therefore not an approved release path. Production
-rollout remains blocked until rollback can validate the exact target deployment,
-database compatibility, health and smoke before protected activation. Never
-re-enable deploy-on-push to work around this blocker.
+1. Run `Release Gate` manually on the exact `main` SHA and retain its successful
+   run ID. The receipt is accepted for at most 24 hours.
+2. Dispatch `Deploy — DigitalOcean Production` from `main` with:
+   - `release_gate_run_id`: that exact successful run ID.
+   - `confirm_sha`: the full lowercase 40-character `main` SHA.
+3. The unprotected build job verifies the release receipt, builds only that
+   checkout, pushes `ghcr.io/cleanexpo/restoreassist:sha-<SHA>`, and attests the
+   returned digest. It has no DigitalOcean or production database credentials.
+4. Review and approve the waiting `production` environment job. Approval is for
+   that workflow run, Git SHA, and resulting image digest only.
+5. The protected job verifies the attestation, renders the digest-pinned spec,
+   captures the exact active rollback deployment, and proves production
+   migration parity plus logical database identity using the direct session
+   connection. These database checks are read-only; the workflow never applies
+   or resolves a migration.
+6. The controller updates DigitalOcean, binds monitoring to the exact newly
+   created deployment ID, and requires the returned provider spec to preserve
+   the reviewed digest, Git SHA, region, domain, capacity, health route, and
+   environment contract.
+7. After activation, exact-SHA health, migration health, database identity, and
+   the strict production `@smoke` user flows must pass. Redacted receipts are
+   retained as a workflow artifact.
+
+## Failure and rollback
+
+- Before activation, failure or timeout cancels the exact created deployment.
+- After activation, health failure invokes rollback to the exact deployment ID
+  captured before mutation.
+- If the full post-activation smoke fails, the workflow rolls back that same
+  target and runs the production smoke again without claiming the failed SHA.
+- A rollback that cannot restore healthy smoke is reported as critical. Do not
+  retry blindly; preserve the receipts and inspect DigitalOcean deployment logs.
+
+The production workflow intentionally fails closed when the current site is
+degraded, migration health is unavailable, required environment-scoped secrets
+are missing, production migrations differ from the reviewed repository, or the
+provider already has a pending deployment. Resolve the specific preflight
+failure before requesting another approval.
+
+## Remaining release blocker
+
+An independent reconciliation watchdog must be able to finish cancellation or
+rollback if the GitHub runner is lost or the workflow is manually canceled
+after the DigitalOcean update. Provider health checks reduce this risk but do
+not prove the strict user-flow smoke completed. Until a durable action receipt
+and independently triggered reconciler are implemented and attacked, this
+workflow is not an approved live release path.

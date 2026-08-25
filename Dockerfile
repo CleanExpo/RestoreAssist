@@ -11,17 +11,10 @@
 # scripts/start-production.sh: no migrations are applied or resolved here.
 # Applying migrations remains a separate, approved, exact-revision operation.
 
-# Pinned to an exact patch version. `node:22-bookworm-slim` would be mutable
-# in exactly the way this change exists to avoid, but note this is still a TAG,
-# not a digest — the tag could in principle be repointed upstream. Pinning the
-# base by sha256 is the stricter follow-up; it needs a registry lookup that the
-# authoring environment could not perform, so it is left as a deliberate,
-# stated gap rather than a fabricated digest.
-# Matches package.json engines (20.x || 22.x) and .nvmrc (22.22.3). It said so
-# while pinning 22.22.0, which is the drift this line now removes: the image
-# production runs should be the runtime the repo declares, not a neighbouring
-# patch. Tag existence confirmed against registry-1.docker.io (HTTP 200).
-FROM node:22.22.3-bookworm-slim AS base
+# Pin both the repository tag and its multi-platform index digest. The version
+# matches .nvmrc; the digest prevents an upstream tag move from changing the
+# bytes built for the same reviewed release.
+FROM node:22.22.3-bookworm-slim@sha256:e21fc383b50d5347dc7a9f1cae45b8f4e2f0d39f7ade28e4eef7d2934522b752 AS base
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # ── deps ───────────────────────────────────────────────────────────────────
@@ -67,7 +60,9 @@ ENV NODE_OPTIONS=--max-old-space-size=8192
 # The digest proves what shipped; this makes it readable without a registry
 # lookup. Defaults to "unknown" so a local build still succeeds.
 ARG GIT_SHA=unknown
-ENV GIT_SHA=${GIT_SHA}
+ARG NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID
+ENV GIT_SHA=${GIT_SHA} \
+    NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID}
 
 # `npm run build`, NOT `sh scripts/build.sh` directly. package.json defines a
 # `prebuild` lifecycle script (tsx scripts/build-help-index.ts) that writes

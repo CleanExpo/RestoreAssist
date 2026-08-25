@@ -62,6 +62,14 @@ function fingerprintLogicalDatabase(
     .digest("hex");
 }
 
+function fingerprintMigrationLedger(names: readonly string[]) {
+  if (names.length === 0) return null;
+  const hash = createHash("sha256");
+  hash.update("restoreassist-migration-ledger-v1");
+  for (const name of [...names].sort()) hash.update(`\0${name}`);
+  return hash.digest("hex");
+}
+
 export async function GET(request: NextRequest) {
   // Rate-limit: 60/min per IP (matches /api/health). External monitors
   // poll on the order of once per minute — anything more is abuse.
@@ -155,9 +163,13 @@ export async function GET(request: NextRequest) {
     },
     databaseFingerprint:
       rows.length > 0 ? fingerprintLogicalDatabase(rows[0]) : null,
+    migrationLedgerFingerprint: fingerprintMigrationLedger(applied),
   };
 
-  if (payload.databaseFingerprint === null) {
+  if (
+    payload.databaseFingerprint === null ||
+    payload.migrationLedgerFingerprint === null
+  ) {
     payload.status = "drift";
   }
 
