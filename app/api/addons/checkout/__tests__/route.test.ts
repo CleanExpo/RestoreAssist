@@ -129,7 +129,7 @@ describe("POST /api/addons/checkout — FLOORPLAN_UNDERLAY recurring add-on (RA-
     });
   });
 
-  it("builds a subscription-mode session priced inline at $11/mo GST-inclusive", async () => {
+  it("builds a subscription-mode session priced inline at $9.95/mo GST-inclusive", async () => {
     const res = await POST(makeRequest({ addonKey: "FLOORPLAN_UNDERLAY" }));
     expect(res.status).toBe(200);
 
@@ -139,7 +139,7 @@ describe("POST /api/addons/checkout — FLOORPLAN_UNDERLAY recurring add-on (RA-
 
     const lineItem = arg.line_items[0];
     expect(lineItem.price).toBeUndefined();
-    expect(lineItem.price_data.unit_amount).toBe(1100); // $11.00
+    expect(lineItem.price_data.unit_amount).toBe(995); // $9.95
     expect(lineItem.price_data.currency).toBe("aud");
     expect(lineItem.price_data.tax_behavior).toBe("inclusive");
     expect(lineItem.price_data.recurring).toEqual({ interval: "month" });

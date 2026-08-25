@@ -8,7 +8,7 @@ beforeEach(() => vi.restoreAllMocks());
 
 /**
  * RA-6922 — when the scrape returns 402 (no active Floor Plan Underlay add-on)
- * the loader now offers the recurring $11/mo add-on upgrade CTA. This supersedes
+ * the loader now offers the recurring $9.95/mo add-on upgrade CTA. This supersedes
  * the earlier F2 (RA-6929/6930/6931) "neutral note, no upgrade link" behaviour,
  * which held only while there was no add-on to sell.
  */
@@ -29,7 +29,7 @@ describe("FloorPlanUnderlayLoader — 402 handling (RA-6922 add-on)", () => {
 
   afterEach(() => vi.unstubAllEnvs());
 
-  it("offers the recurring $11/mo add-on upgrade CTA on 402", async () => {
+  it("offers the recurring $9.95/mo add-on upgrade CTA on 402", async () => {
     render(
       <FloorPlanUnderlayLoader
         defaultAddress="12 Smith St"
@@ -47,6 +47,6 @@ describe("FloorPlanUnderlayLoader — 402 handling (RA-6922 add-on)", () => {
       }),
     ).toBeInTheDocument();
     // And it is priced as the recurring add-on.
-    expect(screen.getByText(/\$11\/month/i)).toBeInTheDocument();
+    expect(screen.getByText(/\$9\.95\/month/i)).toBeInTheDocument();
   });
 });

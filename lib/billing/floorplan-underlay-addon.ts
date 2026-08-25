@@ -1,11 +1,11 @@
 /**
  * RA-6922 — Floor Plan Underlay recurring add-on (SSOT).
  *
- * Layer 2 of the internet-floorplan-overlay gate. A recurring $11/month AUD
+ * Layer 2 of the internet-floorplan-overlay gate. A recurring $9.95/month AUD
  * subscription add-on whose active `FeatureEntitlement` (sku FLOORPLAN_UNDERLAY)
  * unlocks the floor-plan underlay scrape (`app/api/properties/scrape`). Priced
  * inline via Stripe `price_data` at checkout, so NO pre-created Stripe product
- * or price is required.
+ * or price is required. Other recurring add-ons remain $11/mo.
  *
  * Shared by:
  *   - app/api/addons/checkout/route.ts  (builds the subscription checkout)
@@ -27,14 +27,15 @@ export const FLOORPLAN_ADDON_SUBSCRIPTION_TYPE = "floorplan_underlay_addon" as c
 
 /**
  * Recurring price for the add-on. GST-inclusive (AU convention) so Stripe Tax
- * breaks out the 10% GST component rather than adding it on top of $11.
+ * breaks out the 10% GST component rather than adding it on top of $9.95.
  */
 export const FLOORPLAN_UNDERLAY_ADDON = {
   sku: FLOORPLAN_UNDERLAY_SKU,
   name: "Floor Plan Underlay",
-  description: "Fetch and trace property floor plans from listing sites.",
+  description:
+    "Fetch and trace property floor plans from REA, Domain, and OnTheHouse.",
   /** Dollars, AUD, GST-inclusive. */
-  amount: 11.0,
+  amount: 9.95,
   currency: "AUD",
   interval: "month",
 } as const;

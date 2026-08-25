@@ -1,10 +1,11 @@
 /**
  * RA-6922 (P1) — Feature entitlement types for the BYOK monetisation add-ons.
  *
- * The base plan ($99/month AUD) covers the core CRM. Five $11/month add-ons
- * are sold on top (byok-monetisation-spec §2). Whether a workspace has an
- * add-on is stored per-workspace in the `FeatureEntitlement` table and gated
- * at each add-on's surface by `requireAddon()`.
+ * The base plan ($99/month AUD) covers the core CRM. Recurring add-ons are
+ * mostly $11/month; Floor Plan Underlay is $9.95/month (byok-monetisation-spec
+ * §2). Whether a workspace has an add-on is stored per-workspace in the
+ * `FeatureEntitlement` table and gated at each add-on's surface by
+ * `requireAddon()`.
  *
  * This module is the single source of truth for the add-on SKU keys and
  * mirrors the Prisma `AddonSku` enum (the same pattern `provider-connections`
@@ -27,7 +28,7 @@ export const ADDON_SKUS = [
   "SERVICE_CRM",
   /** Payments Collection — Stripe Connect on the client's own account. */
   "PAYMENTS",
-  /** RA-6922: Floor Plan Underlay — recurring $11/mo internet-floorplan-overlay. */
+  /** RA-6922: Floor Plan Underlay — recurring $9.95/mo internet-floorplan-overlay. */
   "FLOORPLAN_UNDERLAY",
   /** RA-6954: Restoration Pulse client-comms — recurring $11/mo client-facing email updates. */
   "CLIENT_COMMS",
