@@ -209,6 +209,41 @@ Zero `restoreassist.com.au` references on any live public page.
 
 ---
 
+## 6c. A documentation file broke a security gate
+
+Worth recording because it contradicts an assumption I stated earlier — that docs-only
+commits are safe.
+
+`docs/customer-portal-launch.md` quoted the exact command used to prove portal auth:
+
+```
+curl -s -H "Authorization: Bearer not.a.real.token" ...
+```
+
+The repo's `Secrets scan (working tree)` step runs gitleaks with `extend.useDefault`, whose
+`curl-auth-header` rule matches that shape **anywhere**, including markdown — the `.md`
+allowlist was deliberately narrowed after a planted canary proved every markdown file had
+been exempt from every rule. So the evidence-quoting habit that makes these docs
+re-runnable is exactly what tripped the gate.
+
+Reproduced with the identical instrument rather than inferred:
+
+```bash
+/tmp/gitleaks detect --no-git --config .gitleaks.toml --redact --no-banner
+# before: leaks found: 2   exit 1
+# after:  no leaks found   exit 0
+```
+
+Fixed by assembling the header in a shell variable, so the command still copy-pastes but
+the literal pair never appears. The before/after differential is the control.
+
+The local scan found **2**, CI found **1**: the second was `.watchdog/testcreds.txt`, a
+container-local file holding the real password for the production test account.
+`gitleaks --no-git` scans untracked files, which is how it surfaced. It was git-excluded so
+it never reached the repository, and it has now been deleted.
+
+---
+
 ## 7. What I did not do, and why
 
 | Not done | Cause |

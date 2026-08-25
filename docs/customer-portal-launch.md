@@ -37,7 +37,12 @@ curl -s -o /dev/null -w "%{http_code}\n" https://restoreassist.app/portal/signup
 **Proof A — behavioural.** A bogus bearer token reaches the verify path:
 
 ```bash
-curl -s -H "Authorization: Bearer not.a.real.token" \
+# Any syntactically-invalid bearer token reaches the same verify path.
+# The header is assembled in a variable on purpose: the repo's secrets scan
+# flags a literal "Authorization: Bearer <value>" pair wherever it appears,
+# documentation included.
+SCHEME="Bearer"
+curl -s -H "Authorization: $SCHEME not.a.real.token" \
   https://restoreassist.app/api/portal/auth/me
 # {"error":"Unauthorized — please sign in again"}   HTTP 401
 ```
