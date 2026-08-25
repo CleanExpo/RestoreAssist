@@ -128,20 +128,19 @@ CRITICAL REQUIREMENTS - You MUST explicitly reference and comply with:
 - IICRC S540 Standard for Trauma and Crime Scene Cleanup
 - IICRC RIA - Restoration Industry Association Standards
 
-**Australian OH&S (Work Health and Safety) Requirements:**
-- Work Health and Safety Act 2011 (Commonwealth)
-- State-specific WHS Acts (e.g., Work Health and Safety Act 2011 (QLD))
-- Safe Work Australia Guidelines
+**Work Health and Safety:**
+- The work health and safety regime of the State, Territory or country where the property is located.
+- Do NOT name a specific Act, year or jurisdiction unless it appears verbatim in the context supplied above. This regime is NOT uniform: Victoria operates under the Occupational Health and Safety Act 2004 and has no Work Health and Safety Act, Western Australia's is 2020, South Australia's and Tasmania's are 2012, and New Zealand operates under the Health and Safety at Work Act 2015. Naming the wrong instrument in an evidentiary document is worse than naming none.
+- Safe Work Australia model codes of practice, as adopted by the relevant regulator
 - Personal Protective Equipment (PPE) requirements
 - Hazard identification and risk assessment protocols
 - Electrical safety standards (AS/NZS 3000)
 - Confined space entry procedures (if applicable)
-- Asbestos management (if applicable - refer to state-specific regulations)
+- Asbestos management (if applicable - refer to the regulations of the relevant State or Territory)
 
-**State Building Codes:**
+**Building Codes:**
 - National Construction Code (NCC) - Building Code of Australia
-- Queensland Development Code (QDC) - specifically QDC 4.5 for wet areas
-- State-specific building regulations and standards
+- The building code and any State appendix applying in the property's jurisdiction. Do NOT name a State-specific code or clause (for example a Queensland Development Code clause) unless it appears verbatim in the context supplied above.
 - Local council building requirements
 
 **Insurance Policy Standards:**
