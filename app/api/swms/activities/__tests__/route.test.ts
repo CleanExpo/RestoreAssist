@@ -44,6 +44,26 @@ describe("GET /api/swms/activities", () => {
     }
   });
 
+  it("reports the HRCW checklist size, not a claim that HRCW applies", async () => {
+    // The catalogue previously exposed `isHighRiskConstructionWork: true` for
+    // demolition, derived from a list that only ever meant "assess these".
+    // That told a reader the job WAS high-risk construction work, which no
+    // template can know.
+    getServerSession.mockResolvedValueOnce({ user: { id: "user_1" } });
+    const activities = (await (await GET(req())).json()).data.activities;
+
+    const demo = activities.find(
+      (a: { id: string }) => a.id === "demolition-non-structural",
+    );
+    expect(demo.hrcwCategoriesToAssess).toBeGreaterThan(0);
+    expect(demo).not.toHaveProperty("isHighRiskConstructionWork");
+
+    const carpet = activities.find(
+      (a: { id: string }) => a.id === "carpet-removal",
+    );
+    expect(carpet.hrcwCategoriesToAssess).toBe(0);
+  });
+
   it("returns a summary, not the full risk table", async () => {
     // The catalogue is fetched on page load; shipping seven complete risk
     // tables with it would be a large payload nobody asked for.

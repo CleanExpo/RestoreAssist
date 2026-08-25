@@ -161,7 +161,7 @@ const CARPET_REMOVAL: SwmsActivityTemplate = {
   title: "Carpet Removal",
   sourceRevision: "swmcr092022sk",
   scope: STANDARD_SCOPE,
-  highRiskConstructionWork: [],
+  hrcwCategoriesToAssess: [],
   requiredTools: [
     "Dust mask",
     "Knee pads",
@@ -242,7 +242,7 @@ const FLOOR_REMOVAL: SwmsActivityTemplate = {
   title: "Floor Removal",
   sourceRevision: "swmfr092022sk",
   scope: STANDARD_SCOPE,
-  highRiskConstructionWork: [],
+  hrcwCategoriesToAssess: [],
   requiredTools: [
     "Dust mask",
     "Safety glasses",
@@ -341,9 +341,9 @@ const DEMOLITION_NON_STRUCTURAL: SwmsActivityTemplate = {
   scope: STANDARD_SCOPE,
   // The source document reproduces the full statutory HRCW list as a checklist
   // to be ticked per job. Whether a box is ticked is not recoverable from the
-  // PDF text layer, so the list is carried as categories TO BE ASSESSED, never
-  // as categories that apply. See the field's doc comment on the type.
-  highRiskConstructionWork: [
+  // PDF text layer, so these are categories TO BE ASSESSED before the job
+  // starts, never categories that apply. See the field's doc comment.
+  hrcwCategoriesToAssess: [
     "Risk of a person falling more than 2 metres",
     "Demolition of a load-bearing structure",
     "Likely to involve disturbing asbestos",
@@ -509,7 +509,7 @@ const FIRE_SMOKE_CLEANING: SwmsActivityTemplate = {
   title: "Fire and Smoke Cleaning",
   sourceRevision: "swmfasc092022sk",
   scope: STANDARD_SCOPE,
-  highRiskConstructionWork: [],
+  hrcwCategoriesToAssess: [],
   requiredTools: [],
   ppe: ppe(
     "High visibility vest",
@@ -587,7 +587,7 @@ const FIRE_SMOKE_CLEANING: SwmsActivityTemplate = {
             "Do not use electrical equipment that has been exposed to heat from fire until it has been checked by an electrician.",
             "Never operate petrol-powered equipment indoors - it is nearly impossible to tell whether ventilation is sufficient or whether deadly carbon monoxide is in the air.",
             "Avoid back injuries when lifting or moving objects by hand. Use teams of two or more for bulky objects and automated lifting devices for heavier objects.",
-            "Do no work around any fire-damaged structure until it has been examined and certified safe for work by a registered engineer or architect.",
+            "Do not work around any fire-damaged structure until it has been examined and certified safe for work by a registered engineer or architect.",
             "Leave the structure immediately if it shifts, or if unusual noises signal a possible collapse.",
             "Never enter a confined space unless you have been properly trained - many toxic gases and vapours cannot be seen or smelled.",
           ],
@@ -671,7 +671,7 @@ const DECONTAMINATION: SwmsActivityTemplate = {
   title: "Decontamination Work",
   sourceRevision: "swmdw092022sk",
   scope: STANDARD_SCOPE,
-  highRiskConstructionWork: [],
+  hrcwCategoriesToAssess: [],
   requiredTools: [],
   ppe: ppe(
     "Disposable clothing",
@@ -937,7 +937,7 @@ const WATER_EXTRACTION_PORTABLE: SwmsActivityTemplate = {
     "Water and Flood - Extraction of Water using Portable Method and Steam Cleaning Carpets",
   sourceRevision: "swmwafeowupmascc092022sk",
   scope: STANDARD_SCOPE,
-  highRiskConstructionWork: [],
+  hrcwCategoriesToAssess: [],
   requiredTools: [
     "Portable extraction machine",
     "Extraction hoses",
@@ -1047,7 +1047,7 @@ const WATER_EXTRACTION_TRUCK_MOUNT: SwmsActivityTemplate = {
     "Water and Flood - Extraction of Water using Truck Mounted Extraction Unit and Steam Cleaning Carpets",
   sourceRevision: "swmeowutmuascc092022sk",
   scope: STANDARD_SCOPE,
-  highRiskConstructionWork: [],
+  hrcwCategoriesToAssess: [],
   requiredTools: [
     "Truck-mounted extraction unit",
     "Two-inch extraction hose",
