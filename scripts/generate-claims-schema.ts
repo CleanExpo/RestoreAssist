@@ -1,6 +1,7 @@
 /**
- * Regenerates docs/contracts/claims-integration-v1.schema.json from the zod
- * source of truth in lib/export/claims-contract.ts. The colocated contract
+ * Regenerates docs/contracts/claims-integration-v2.schema.json from the zod
+ * source of truth in lib/export/claims-contract.ts. The v1 artifact is frozen
+ * (the retired contract) and is deliberately NOT regenerated. The colocated contract
  * test fails whenever the checked-in artifact drifts from the zod schema —
  * run this script, review the diff, and commit both together.
  *
@@ -9,12 +10,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { claimsIntegrationJsonSchema } from "../lib/export/claims-contract";
+import {
+  CLAIMS_INTEGRATION_ARTIFACT_PATH,
+  claimsIntegrationJsonSchema,
+} from "../lib/export/claims-contract";
 
-const target = join(
-  process.cwd(),
-  "docs/contracts/claims-integration-v1.schema.json",
-);
+const target = join(process.cwd(), CLAIMS_INTEGRATION_ARTIFACT_PATH);
 mkdirSync(dirname(target), { recursive: true });
 writeFileSync(
   target,

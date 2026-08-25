@@ -317,8 +317,10 @@ export function buildNirReportOutput(
       capturedAt: p.timestamp
         ? new Date(p.timestamp).toISOString()
         : new Date().toISOString(),
-      latitude: p.gpsLatitude ?? 0,
-      longitude: p.gpsLongitude ?? 0,
+      // `null`, never 0 — a photo with no fix must not be published to an
+      // insurer as though it were photographed at 0N 0E. See NirPhotoManifest.
+      latitude: p.gpsLatitude ?? null,
+      longitude: p.gpsLongitude ?? null,
       sequenceNumber: idx + 1,
       category: mapPhotoCategory(p.damageCategory),
       standardRef: "IICRC S500:2021 §12.2",
@@ -598,7 +600,7 @@ async function buildResponse(
 
     /**
      * Versioned insurer-agnostic claims envelope (schemaVersion-bound).
-     * Contract: docs/contracts/claims-integration-v1.schema.json.
+     * Contract: docs/contracts/claims-integration-v2.schema.json.
      * Insurer fields we don't hold are listed in explicitOmissions.
      */
     claimsIntegration: buildClaimsIntegrationExport({
