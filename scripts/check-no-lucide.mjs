@@ -23,13 +23,26 @@
  * Usage:  node scripts/check-no-lucide.mjs [--strict|--update-baseline]
  *         pnpm check:no-lucide
  */
-import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  statSync,
+  existsSync,
+} from "node:fs";
 import { join, extname, relative } from "node:path";
 
 const ROOT = process.cwd();
 const SCAN_DIRS = ["app", "src", "components"];
 const EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
-const IGNORE_DIRS = new Set(["node_modules", ".next", ".git", "dist", "build", "coverage"]);
+const IGNORE_DIRS = new Set([
+  "node_modules",
+  ".next",
+  ".git",
+  "dist",
+  "build",
+  "coverage",
+]);
 const ALLOW_MARKER = "ra-allow-lucide";
 const SELF = "scripts/check-no-lucide.mjs";
 const BASELINE_PATH = join(ROOT, "scripts", "lucide-baseline.json");
@@ -39,16 +52,24 @@ const LUCIDE_RE = /(from\s+['"]lucide-react|require\(\s*['"]lucide-react)/;
 const MODE = process.argv.includes("--strict")
   ? "strict"
   : process.argv.includes("--update-baseline")
-  ? "update"
-  : "ratchet";
+    ? "update"
+    : "ratchet";
 
 function walk(dir, out) {
   let entries;
-  try { entries = readdirSync(dir); } catch { return; }
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return;
+  }
   for (const name of entries) {
     const full = join(dir, name);
     let st;
-    try { st = statSync(full); } catch { continue; }
+    try {
+      st = statSync(full);
+    } catch {
+      continue;
+    }
     if (st.isDirectory()) {
       if (!IGNORE_DIRS.has(name)) walk(full, out);
     } else if (EXTS.has(extname(name))) {
@@ -78,24 +99,36 @@ for (const full of files) {
   const rel = relative(ROOT, full).split("\\").join("/");
   if (rel === SELF) continue;
   const n = countFile(full);
-  if (n > 0) { current[rel] = n; total += n; }
+  if (n > 0) {
+    current[rel] = n;
+    total += n;
+  }
 }
 
 if (MODE === "update") {
-  const sorted = Object.fromEntries(Object.entries(current).sort(([a], [b]) => a.localeCompare(b)));
+  const sorted = Object.fromEntries(
+    Object.entries(current).sort(([a], [b]) => a.localeCompare(b)),
+  );
   const out = {
     note: "Baseline of pre-existing lucide-react imports. The guard blocks any increase. Regenerate after migrating icons to RAIcon to ratchet the limit down. See docs/RESTOREASSIST_ICON_SYSTEM.md.",
     total,
     files: sorted,
   };
   writeFileSync(BASELINE_PATH, JSON.stringify(out, null, 2) + "\n");
-  console.log(`check:no-lucide - baseline written: ${total} imports across ${Object.keys(sorted).length} files.`);
+  console.log(
+    `check:no-lucide - baseline written: ${total} imports across ${Object.keys(sorted).length} files.`,
+  );
   process.exit(0);
 }
 
 if (MODE === "strict") {
-  if (total === 0) { console.log("check:no-lucide (strict) - OK. Zero lucide-react imports."); process.exit(0); }
-  console.error(`check:no-lucide (strict) - FAIL: ${total} lucide-react import(s) remain across ${Object.keys(current).length} files. Migrate to RAIcon.`);
+  if (total === 0) {
+    console.log("check:no-lucide (strict) - OK. Zero lucide-react imports.");
+    process.exit(0);
+  }
+  console.error(
+    `check:no-lucide (strict) - FAIL: ${total} lucide-react import(s) remain across ${Object.keys(current).length} files. Migrate to RAIcon.`,
+  );
   process.exit(1);
 }
 
@@ -105,7 +138,9 @@ if (existsSync(BASELINE_PATH)) {
   try {
     baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf8")).files || {};
   } catch (e) {
-    console.error(`check:no-lucide - FAIL: cannot parse ${BASELINE_PATH}: ${e.message}`);
+    console.error(
+      `check:no-lucide - FAIL: cannot parse ${BASELINE_PATH}: ${e.message}`,
+    );
     process.exit(1);
   }
 }
@@ -115,11 +150,19 @@ for (const [rel, n] of Object.entries(current)) {
   if (n > allowed) violations.push(`  ${rel}: ${n} (baseline ${allowed})`);
 }
 if (violations.length) {
-  console.error("check:no-lucide - FAIL: net-new lucide-react imports beyond baseline (Phill Rule 1).");
-  console.error("Use the branded RAIcon / [ra:*] system — see docs/RESTOREASSIST_ICON_SYSTEM.md.");
-  console.error("If a file's baseline legitimately dropped, run: node scripts/check-no-lucide.mjs --update-baseline");
+  console.error(
+    "check:no-lucide - FAIL: net-new lucide-react imports beyond baseline (Phill Rule 1).",
+  );
+  console.error(
+    "Use the branded RAIcon / [ra:*] system — see docs/RESTOREASSIST_ICON_SYSTEM.md.",
+  );
+  console.error(
+    "If a file's baseline legitimately dropped, run: node scripts/check-no-lucide.mjs --update-baseline",
+  );
   console.error(violations.join("\n"));
   process.exit(1);
 }
-console.log(`check:no-lucide - OK. No new lucide-react imports beyond baseline (${total} known, ratcheting down).`);
+console.log(
+  `check:no-lucide - OK. No new lucide-react imports beyond baseline (${total} known, ratcheting down).`,
+);
 process.exit(0);
