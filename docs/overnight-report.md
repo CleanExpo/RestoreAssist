@@ -171,6 +171,26 @@ an invalid token correctly `404`s.
 
 ---
 
+## 5b. Customer portal — verified as far as it can be
+
+Written up in full at **`docs/customer-portal-launch.md`** (the portal had no docs at all).
+
+Routes are live, portal JWT auth works, and every probed endpoint fails closed. The best
+evidence is behavioural: a bogus bearer token to `/api/portal/auth/me` returns a clean
+`401`, and that path runs `getSecret()`, which **throws** when the secret is missing — a
+missing secret would surface as `500`. So `CLIENT_PORTAL_JWT_SECRET`/`NEXTAUTH_SECRET` is
+genuinely set.
+
+`/portal/insurer/<bad-token>` returning `200` was chased as a possible data leak and is
+**clean** — a server component that verifies before it queries, returning a friendly
+"Link Expired or Invalid" page rather than a 404.
+
+**Blocked at step one:** the invitation email cannot send (no provider), and
+`POST /api/portal/invitations` returns `201` regardless — the contractor sees "sent" for an
+email nobody received. Recorded, not worked around.
+
+---
+
 ## 6b. Public surface sweep
 
 Every public page returns 200 (`/faq` is a 308 redirect). **35 unique internal links
