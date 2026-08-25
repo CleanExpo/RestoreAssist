@@ -59,8 +59,8 @@ If the branch already exists, append `-v2` (or `-v3` etc.).
 Run these in order. Fix any errors before continuing:
 
 ```bash
-pnpm type-check
-pnpm lint
+npm run type-check
+npm run lint
 ```
 
 If type-check fails: read the errors, fix them, re-run. Do not proceed with errors.
@@ -95,8 +95,8 @@ Closes RA-XXX
 [List any non-obvious choices you made and why]
 
 ## Test Plan
-- [ ] pnpm type-check passes
-- [ ] pnpm lint passes
+- [ ] npm run type-check passes
+- [ ] npm run lint passes
 - [ ] [specific user-facing verification steps]
 
 🤖 Implemented autonomously by Codex Opus 4.6

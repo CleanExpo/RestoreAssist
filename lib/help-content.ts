@@ -156,7 +156,7 @@ export const helpContent: Record<string, HelpContent> = {
       "Go to Team in the sidebar (Admin/Manager only)",
       'Click "Invite Team Member"',
       "Enter their email and select a role (Manager or Technician)",
-      "They'll receive an email with login credentials",
+      "They'll receive a secure invitation link and set their own password",
       "Manage existing members from the team list",
     ],
     tips: [

@@ -25,7 +25,7 @@ import type { CronJobResult } from "./runner";
 // Provisioning applies real migrations (slow, DDL-heavy). Keep the per-run batch
 // small so the Vercel function (maxDuration 60s) is never killed mid-migration,
 // and process least-recently-touched workspaces first so none is starved.
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 1;
 
 interface PendingWorkspace {
   id: string;
@@ -58,20 +58,36 @@ export async function provisionPendingTenantDbs(): Promise<CronJobResult> {
     // progress — pin it to `error` at the first phase so it stops being retried
     // as if a connection existed.
     if (!ws.tenantDbConnectionEnc) {
-      await markError(ws.id, "validate");
-      errored++;
-      results.push({ id: ws.id, status: "error", phase: "validate" });
+      const recorded = await markError(ws.id, null, "validate");
+      if (recorded) {
+        errored++;
+        results.push({ id: ws.id, status: "error", phase: "validate" });
+      } else {
+        results.push({ id: ws.id, status: "stale" });
+      }
       continue;
     }
 
-    const connectionString = decrypt(ws.tenantDbConnectionEnc);
+    let connectionString: string;
+    try {
+      connectionString = decrypt(ws.tenantDbConnectionEnc);
+    } catch {
+      const recorded = await markCredentialError(ws.id, ws.tenantDbConnectionEnc);
+      if (recorded) errored++;
+      results.push({
+        id: ws.id,
+        status: recorded ? "credential_error" : "stale",
+        phase: "validate",
+      });
+      continue;
+    }
     const resumeFrom = (ws.tenantDbProvisionPhase ?? undefined) as
       | ProvisionPhase
       | undefined;
 
     const result = await provisionTenantDb(
       { workspaceId: ws.id, connectionString, resumeFrom },
-      buildProvisionDeps(),
+      buildProvisionDeps(ws.tenantDbConnectionEnc),
     );
 
     if (result.status === "ready") {
@@ -79,9 +95,17 @@ export async function provisionPendingTenantDbs(): Promise<CronJobResult> {
       ready++;
       results.push({ id: ws.id, status: "ready" });
     } else {
-      await markError(ws.id, result.reachedPhase);
-      errored++;
-      results.push({ id: ws.id, status: "error", phase: result.reachedPhase });
+      const recorded = await markError(
+        ws.id,
+        ws.tenantDbConnectionEnc,
+        result.reachedPhase,
+      );
+      if (recorded) {
+        errored++;
+        results.push({ id: ws.id, status: "error", phase: result.reachedPhase });
+      } else {
+        results.push({ id: ws.id, status: "stale" });
+      }
     }
   }
 
@@ -91,13 +115,41 @@ export async function provisionPendingTenantDbs(): Promise<CronJobResult> {
   };
 }
 
+/** Quarantine an unreadable ciphertext so it cannot starve the oldest-first queue. */
+async function markCredentialError(
+  workspaceId: string,
+  expectedConnectionEnc: string,
+): Promise<boolean> {
+  const result = await prisma.workspace.updateMany({
+    where: {
+      id: workspaceId,
+      tenantDbConnectionEnc: expectedConnectionEnc,
+      tenantDbStatus: { in: ["provisioning", "error"] },
+    },
+    data: {
+      tenantDbStatus: "credential_error",
+      tenantDbProvisionPhase: "validate",
+    } as never,
+  });
+  return result.count === 1;
+}
+
 /** Record a failed attempt with its resumable phase marker. */
-async function markError(workspaceId: string, phase: ProvisionPhase): Promise<void> {
-  await prisma.workspace.update({
-    where: { id: workspaceId },
+async function markError(
+  workspaceId: string,
+  expectedConnectionEnc: string | null,
+  phase: ProvisionPhase,
+): Promise<boolean> {
+  const result = await prisma.workspace.updateMany({
+    where: {
+      id: workspaceId,
+      tenantDbConnectionEnc: expectedConnectionEnc,
+      tenantDbStatus: { in: ["provisioning", "error"] },
+    },
     data: {
       tenantDbStatus: "error",
       tenantDbProvisionPhase: phase,
     } as never,
   });
+  return result.count === 1;
 }

@@ -1,15 +1,15 @@
 /**
  * Production dependency CVE gate.
  *
- * Replaces `pnpm audit --audit-level=high --prod`, whose npm "quick audit"
+ * Replaces the classic quick-audit command, whose npm "quick audit"
  * endpoint (/-/npm/v1/security/audits) npm permanently retired — it now
  * returns HTTP 410 and fails every CI run regardless of the actual CVE state.
  *
  * This queries the still-supported **bulk advisory endpoint** instead, keeping
  * the original gate's exact semantics:
- *   - PROD dependency closure only (`pnpm list --prod --depth Infinity`)
+ *   - PROD dependency closure only (`npm ls --omit=dev --all`)
  *   - HIGH + CRITICAL severity only (matching `--audit-level=high`)
- *   - honours the `package.json` `pnpm.auditConfig.ignoreGhsas` suppressions
+ *   - honours the `package.json` `auditConfig.ignoreGhsas` suppressions
  *
  * The endpoint returns advisories only for the exact versions submitted, so no
  * client-side version-range check is needed. Exit 1 (fail the PR) when any
@@ -42,17 +42,13 @@ type DepTree = Record<string, { version?: string; dependencies?: DepTree }>;
 
 function readIgnoredGhsas(): Set<string> {
   const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-  return new Set<string>(pkg?.pnpm?.auditConfig?.ignoreGhsas ?? []);
+  return new Set<string>(pkg?.auditConfig?.ignoreGhsas ?? []);
 }
 
 /** Installed PROD dependency closure as { packageName: [versions] }. */
-function collectProdDependencies(): Record<string, string[]> {
-  const raw = execFileSync(
-    "pnpm",
-    ["list", "--prod", "--depth", "Infinity", "--json"],
-    { encoding: "utf8", maxBuffer: 128 * 1024 * 1024 },
-  );
-  const projects = JSON.parse(raw) as Array<{ dependencies?: DepTree }>;
+export function collectProdDependenciesFromTree(
+  project: { dependencies?: DepTree },
+): Record<string, string[]> {
   const collected = new Map<string, Set<string>>();
 
   const walk = (deps?: DepTree) => {
@@ -65,11 +61,21 @@ function collectProdDependencies(): Record<string, string[]> {
       walk(node.dependencies);
     }
   };
-  for (const project of projects) walk(project.dependencies);
+  walk(project.dependencies);
 
   return Object.fromEntries(
     [...collected].map(([name, versions]) => [name, [...versions]]),
   );
+}
+
+function collectProdDependencies(): Record<string, string[]> {
+  const raw = execFileSync(
+    "npm",
+    ["ls", "--omit=dev", "--all", "--json"],
+    { encoding: "utf8", maxBuffer: 128 * 1024 * 1024 },
+  );
+  const project = JSON.parse(raw) as { dependencies?: DepTree };
+  return collectProdDependenciesFromTree(project);
 }
 
 export function ghsaFromUrl(url: string): string | null {
@@ -136,7 +142,7 @@ async function main() {
   }
   console.error(
     "\nFix: upgrade the dependency, or add a justified GHSA to package.json " +
-      "pnpm.auditConfig.ignoreGhsas.",
+      "auditConfig.ignoreGhsas.",
   );
   process.exit(1);
 }

@@ -19,6 +19,7 @@ import {
 import { logSecurityEvent, getAccountLockoutStatus } from "./security-audit";
 import { TRIAL_DAYS } from "@/lib/billing/constants";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
 
 const SESSION_REVOCATION_RECHECK_SECONDS = 24 * 60 * 60;
 const SESSION_REVOCATION_RETRY_SECONDS = 5 * 60;
@@ -56,6 +57,50 @@ export function verifyGoogleAuthToken(email: string, token: string): boolean {
 const basePrismaAdapter = PrismaAdapter(prisma);
 const encryptingPrismaAdapter = {
   ...basePrismaAdapter,
+  createUser: async (data: any) => {
+    const email = canonicalEmail(data.email);
+    return prisma.$transaction(async (tx) => {
+      await lockEmailIdentity(tx, email);
+      const activeInvite = await tx.userInvite.findFirst({
+        where: {
+          email: { equals: email, mode: "insensitive" },
+          usedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        select: { id: true },
+      });
+      if (activeInvite) {
+        // OAuth needs a database identity before NextAuth can persist the
+        // provider Account and establish the session used by invite Step 2.
+        // Create only a non-owner, unassigned identity here. The invitation
+        // claim transaction is the sole place that can attach the organisation
+        // and role; no trial, credits, subscription or owner entitlement is
+        // granted at this boundary.
+        return tx.user.create({
+          data: {
+            ...data,
+            email,
+            role: "USER",
+            organizationId: null,
+            subscriptionStatus: null,
+            subscriptionPlan: null,
+            subscriptionId: null,
+            stripeCustomerId: null,
+            trialEndsAt: null,
+            subscriptionEndsAt: null,
+            creditsRemaining: null,
+            totalCreditsUsed: 0,
+            quickFillCreditsRemaining: null,
+            totalQuickFillUsed: 0,
+            signupBonusApplied: false,
+            needsOnboarding: true,
+            pendingInviteIdentity: true,
+          },
+        });
+      }
+      return tx.user.create({ data: { ...data, email } });
+    });
+  },
   linkAccount: (account: any) =>
     basePrismaAdapter.linkAccount!(encryptAccountTokens(account)),
 };
@@ -117,13 +162,20 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        // Keep the submitted spelling for the short-lived Google HMAC: the
+        // email is part of the signed payload, so changing it before
+        // verification would invalidate an authentic token. Database identity,
+        // lockout accounting and audit events use the canonical representation.
+        const submittedEmail = credentials.email;
+        const email = canonicalEmail(submittedEmail);
+
         // RA-1590 — account lockout. Check BEFORE user lookup leaks the
         // "account exists" timing difference. Using email here means a
         // targeted attacker gets locked out per-victim regardless of
         // whether the email is a real user. Fail-open on DB error so a
         // Prisma blip doesn't denial-of-service every login.
         const preLockout = await getAccountLockoutStatus({
-          email: credentials.email,
+          email,
         });
         if (preLockout.locked) {
           throw new Error(
@@ -132,14 +184,14 @@ export const authOptions: NextAuthOptions = {
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email },
         });
 
         if (!user) {
           await logSecurityEvent({
             eventType: "LOGIN_FAILED",
             severity: "INFO",
-            email: credentials.email,
+            email,
             details: { reason: "user_not_found" },
           });
           return null;
@@ -150,7 +202,7 @@ export const authOptions: NextAuthOptions = {
         // not a standing authentication.
         const isGoogleAuth = credentials.password.startsWith("gauth:");
         if (isGoogleAuth) {
-          if (!verifyGoogleAuthToken(credentials.email, credentials.password)) {
+          if (!verifyGoogleAuthToken(submittedEmail, credentials.password)) {
             await logSecurityEvent({
               eventType: "LOGIN_FAILED",
               severity: "WARNING",
@@ -257,12 +309,23 @@ export const authOptions: NextAuthOptions = {
               });
               throw new Error("2FA_INVALID");
             }
-            await prisma.user.update({
-              where: { id: user.id },
+            const consumed = await prisma.user.updateMany({
+              where: {
+                id: user.id,
+                twoFactorRecoveryCodes:
+                  (user as { twoFactorRecoveryCodes?: string | null })
+                    .twoFactorRecoveryCodes ?? null,
+              },
               data: {
                 twoFactorRecoveryCodes: serializeRecoveryCodes(remaining),
               } as any,
             });
+            if (consumed.count !== 1) {
+              // Another login consumed this snapshot first. Refuse this
+              // claimant rather than issuing two sessions for one recovery
+              // code.
+              throw new Error("2FA_INVALID");
+            }
             await logSecurityEvent({
               eventType: "LOGIN_SUCCESS",
               severity: "WARNING", // recovery-code use is noteworthy, not fatal
@@ -351,6 +414,13 @@ export const authOptions: NextAuthOptions = {
     // already collects these fields.
     async createUser({ user }) {
       try {
+        if ((user as { pendingInviteIdentity?: boolean }).pendingInviteIdentity === true) {
+          // adapter.createUser deliberately created a powerless identity so
+          // NextAuth can link the provider Account. Only invite acceptance may
+          // grant an organisation and role. Persisted user state is authoritative;
+          // re-querying an expiring invite here creates a privilege race.
+          return;
+        }
         await prisma.user.update({
           where: { id: user.id },
           data: {
@@ -377,6 +447,28 @@ export const authOptions: NextAuthOptions = {
     },
   },
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider && account.provider !== "credentials") {
+        const existing = user.id
+          ? await prisma.user.findUnique({
+              where: { id: user.id },
+              select: { twoFactorEnabled: true },
+            })
+          : user.email
+            ? await prisma.user.findUnique({
+                where: { email: canonicalEmail(user.email) },
+                select: { twoFactorEnabled: true },
+              })
+            : null;
+        if (existing?.twoFactorEnabled) {
+          // OAuth proves the provider identity, not RestoreAssist's enrolled
+          // second factor. Refuse direct OAuth until a server-verified TOTP
+          // handoff exists; the credentials login provides that challenge.
+          return "/login?error=2FA_REQUIRED";
+        }
+      }
+      return true;
+    },
     async jwt({ token, user, trigger, account }) {
       if (user) {
         token.role = (user as { role?: string }).role ?? "";

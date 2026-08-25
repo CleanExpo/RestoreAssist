@@ -6,7 +6,7 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
 }));
-vi.mock("@/lib/email-send", () => ({ sendEmail: vi.fn(async () => {}) }));
+vi.mock("@/lib/email-send", () => ({ sendEmail: vi.fn(async () => "msg_portal_1") }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findUnique: vi.fn() },
@@ -93,5 +93,13 @@ describe("POST /api/inspections/[id]/client-portal-link", () => {
     expect((await res.json()).data.url).toBe(
       "https://restoreassist.app/portal/OLDTOK",
     );
+  });
+
+  it("does not claim the client was emailed without a provider receipt", async () => {
+    mEmail.mockResolvedValueOnce(null);
+    const res = await POST(req(), params);
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).data.emailed).toBe(false);
   });
 });

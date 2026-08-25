@@ -6,7 +6,8 @@ import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { z } from "zod";
 import { apiError, fromException } from "@/lib/api-errors";
 import { sendSupportReplyEmail } from "@/lib/email";
-import { sendWithRetry } from "@/lib/email-retry";
+import { deliverEmailOnce, EmailDeliveryPending } from "@/lib/email-delivery-ledger";
+import { createHash } from "node:crypto";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -79,25 +80,57 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { message } = parsed.data;
     const nextStatus = parsed.data.status ?? "resolved";
+    const requestKey = request.headers.get("idempotency-key")?.trim();
+    if (!requestKey || requestKey.length > 200) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Idempotency-Key is required",
+        status: 400,
+      });
+    }
+    const deliveryKey = `support-reply:${ticket.id}:${requestKey}`;
+    const priorReply = await prisma.supportTicketReply.findUnique({
+      where: { deliveryKey },
+      include: { ticket: true },
+    });
+    if (priorReply) {
+      if (priorReply.body !== message || priorReply.ticketStatus !== nextStatus) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "Idempotency-Key was already used for another reply payload",
+          status: 409,
+        });
+      }
+      return NextResponse.json({
+        reply: priorReply,
+        ticket: priorReply.ticket,
+        replayed: true,
+      });
+    }
 
     // Send first — persist only after the customer actually got the email.
     try {
-      await sendWithRetry(
-        () =>
+      const replyHash = createHash("sha256").update(message).digest("hex");
+      await deliverEmailOnce({
+        idempotencyKey: deliveryKey,
+        kind: "SUPPORT_TICKET_REPLY",
+        recipient: ticket.email,
+        payloadIdentity: `${ticket.id}|${replyHash}|${nextStatus}`,
+        send: () =>
           sendSupportReplyEmail({
             recipientEmail: ticket.email,
             recipientName: ticket.name,
             ticketSubject: ticket.subject,
             replyBody: message,
+            idempotencyKey: deliveryKey,
           }),
-        { stage: "support-ticket-reply", maxAttempts: 2 },
-      );
+      });
     } catch (err) {
       return apiError(request, {
         code: "UPSTREAM_FAILED",
         message:
           "The reply email could not be sent, so the reply was not recorded. Please try again.",
-        status: 502,
+        status: err instanceof EmailDeliveryPending ? 409 : 502,
         err,
         stage: "reply-send",
       });
@@ -114,6 +147,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       prisma.supportTicketReply.create({
         data: {
           ticketId: ticket.id,
+          deliveryKey,
+          ticketStatus: nextStatus,
           body: message,
           sentToEmail: ticket.email,
           sentById: auth.user!.id,

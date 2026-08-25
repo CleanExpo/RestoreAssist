@@ -1,0 +1,50 @@
+name: Paid pilot preflight
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/paid-pilot-preflight.yml"
+      - "docs/pilot/paid-pilot-launch/**"
+      - "scripts/pilot/**"
+      - "app/api/auth/register/**"
+      - "app/api/create-checkout-session/**"
+      - "app/api/webhooks/stripe/**"
+      - "app/api/team/invites/**"
+      - "app/api/invites/**"
+      - "app/api/inspections/**"
+      - "app/api/reports/**"
+      - "app/api/onboarding/database/**"
+      - "lib/billing/**"
+      - "lib/email/**"
+      - "lib/exports/**"
+      - "lib/tenant/**"
+      - "lib/cron/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paid-pilot-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deterministic-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+        env:
+          HUSKY: "0"
+      - name: Generate Prisma client
+        run: npx --no-install prisma generate
+      - name: Prove paid-pilot package validator
+        run: node --test scripts/pilot/__tests__/validate-paid-pilot-package.test.mjs
+      - name: Run paid-pilot preflight
+        run: node scripts/pilot/run-paid-pilot-preflight.mjs --run

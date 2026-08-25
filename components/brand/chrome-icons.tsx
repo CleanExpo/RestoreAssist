@@ -41,6 +41,16 @@ export function ChromeArrowLeft(props: GlyphProps) {
   );
 }
 
+export function ChromeHome(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="m3.5 10.5 8.5-7 8.5 7" />
+      <path d="M5.5 9v10.5h13V9" />
+      <path d="M9.5 19.5v-6h5v6" />
+    </Glyph>
+  );
+}
+
 export function ChromeChevronRight(props: GlyphProps) {
   return (
     <Glyph {...props}>
@@ -54,6 +64,26 @@ export function ChromeRefresh(props: GlyphProps) {
     <Glyph {...props}>
       <path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1" />
       <path d="M20.5 3.5v4.9h-4.9" />
+    </Glyph>
+  );
+}
+
+export function ChromeEye(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M2.8 12s3.4-6 9.2-6 9.2 6 9.2 6-3.4 6-9.2 6-9.2-6-9.2-6z" />
+      <circle cx="12" cy="12" r="2.7" />
+    </Glyph>
+  );
+}
+
+export function ChromePlug(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="m8 3 1.5 4.5" />
+      <path d="m16 3-1.5 4.5" />
+      <path d="M7 7.5h10v2.8a5 5 0 0 1-10 0V7.5z" />
+      <path d="M12 15.3V21" />
     </Glyph>
   );
 }

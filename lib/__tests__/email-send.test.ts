@@ -55,7 +55,7 @@ describe("sendEmail (lib/email-send)", () => {
     delete process.env.MAILTRAP_API_KEY;
     delete process.env.RESEND_API_KEY;
 
-    await expect(sendEmail(payload)).resolves.toBeUndefined();
+    await expect(sendEmail(payload)).resolves.toBeNull();
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(reportError).toHaveBeenCalledWith(
@@ -64,13 +64,16 @@ describe("sendEmail (lib/email-send)", () => {
     );
   });
 
-  it("sends via Mailtrap with SENDER_EMAIL as from", async () => {
+  it("returns the Mailtrap provider message ID", async () => {
     fetchMock.mockResolvedValue({
       ok: true,
-      text: async () => JSON.stringify({ message_ids: ["1"] }),
+      text: async () =>
+        JSON.stringify({ success: true, message_ids: ["msg_confirmed_1"] }),
     });
 
-    await sendEmail({ ...payload, replyTo: "support@restoreassist.app" });
+    await expect(
+      sendEmail({ ...payload, replyTo: "support@restoreassist.app" }),
+    ).resolves.toBe("msg_confirmed_1");
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, options] = fetchMock.mock.calls[0];
@@ -85,7 +88,7 @@ describe("sendEmail (lib/email-send)", () => {
   it("never throws when the fetch fails, but reports the error", async () => {
     fetchMock.mockRejectedValue(new Error("network down"));
 
-    await expect(sendEmail(payload)).resolves.toBeUndefined();
+    await expect(sendEmail(payload)).resolves.toBeNull();
 
     expect(reportError).toHaveBeenCalledWith(
       expect.any(Error),
@@ -100,7 +103,21 @@ describe("sendEmail (lib/email-send)", () => {
       text: () => Promise.resolve(JSON.stringify({ errors: ["invalid from"] })),
     });
 
-    await expect(sendEmail(payload)).resolves.toBeUndefined();
+    await expect(sendEmail(payload)).resolves.toBeNull();
     expect(reportError).toHaveBeenCalled();
+  });
+
+  it("does not surface a send without a provider message ID", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ success: true, message_ids: [] }),
+    });
+
+    await expect(sendEmail(payload)).resolves.toBeNull();
+    expect(reportError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ stage: "email-send" }),
+    );
   });
 });

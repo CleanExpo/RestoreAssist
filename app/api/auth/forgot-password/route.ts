@@ -8,6 +8,7 @@ import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { verifyBotId } from "@/lib/auth/botid";
 import { apiError, fromException } from "@/lib/api-errors";
+import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
 
 // POST - Send password reset verification code
 export async function POST(request: NextRequest) {
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
     // But only generate code if user exists and has a password (not Google-only user)
     if (user && user.password) {
       const code = generateResetCode();
-      await storeResetCode(email, code);
+      const resetVersion = await storeResetCode(email, code);
 
       const reqCtx = extractRequestContext(request);
       logSecurityEvent({
@@ -83,14 +84,26 @@ export async function POST(request: NextRequest) {
         );
       });
 
-      // Send password reset email
-      await sendPasswordResetEmail({
-        recipientEmail: email,
-        recipientName: user.name || user.email.split("@")[0],
-        resetCode: code,
+      // Keep the external response generic, but record a durable outcome for
+      // this exact reset-token version. An ambiguous provider result blocks an
+      // automatic duplicate send and remains visible for reconciliation.
+      const deliveryKey = `password-reset:${resetVersion.id}`;
+      await deliverEmailOnce({
+        idempotencyKey: deliveryKey,
+        kind: "PASSWORD_RESET_CODE",
+        recipient: email,
+        payloadIdentity: `${resetVersion.id}|${resetVersion.expiresAt.toISOString()}`,
+        send: () =>
+          sendPasswordResetEmail({
+            recipientEmail: email,
+            recipientName: user.name || user.email.split("@")[0],
+            resetCode: code,
+            idempotencyKey: deliveryKey,
+          }),
       }).catch((err) => {
-        // Log but don't fail the request if email fails
-        console.error("[Password Reset] Failed to send email:", err);
+        // Enumeration resistance requires the same public response whether the
+        // account exists or delivery failed. The durable ledger carries truth.
+        console.error("[Password Reset] Delivery was not confirmed:", err);
       });
     }
 

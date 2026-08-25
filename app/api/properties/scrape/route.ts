@@ -56,6 +56,23 @@ const REA_BASE = "https://www.realestate.com.au";
 const TIMEOUT_MS = 15_000;
 const MAX_CANDIDATES = SCRAPE_LIMITS.MAX_CANDIDATES;
 
+function isScrapedPropertyData(value: unknown): value is ScrapedPropertyData {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return (
+    typeof data.address === "string" &&
+    typeof data.url === "string" &&
+    typeof data.scrapedAt === "string" &&
+    (data.confidence === "high" ||
+      data.confidence === "medium" ||
+      data.confidence === "low") &&
+    Array.isArray(data.floorPlanImages) &&
+    data.floorPlanImages.every((item) => typeof item === "string") &&
+    Array.isArray(data.propertyImages) &&
+    data.propertyImages.every((item) => typeof item === "string")
+  );
+}
+
 const SCRAPE_HEADERS: Record<string, string> = {
   "User-Agent":
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -284,15 +301,9 @@ export async function POST(req: NextRequest) {
             expiresAt: { gt: new Date() },
           },
         });
-        if (cached?.propertyData) {
+        if (isScrapedPropertyData(cached?.propertyData)) {
           const safe = sanitizeScrapedPropertyMedia(
-            // Prisma types a Json column as JsonValue, whose JsonArray member
-            // does not overlap ScrapedPropertyData, so a direct assertion is
-            // rejected. The row was written by this route (see the two
-            // `propertyData:` writes below), so the shape is ours; the cast
-            // goes through `unknown` to say "trust the writer" explicitly
-            // rather than to claim the two types are compatible.
-            cached.propertyData as unknown as ScrapedPropertyData,
+            cached.propertyData,
           );
           return NextResponse.json({
             data: safe,

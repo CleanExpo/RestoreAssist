@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Loader2, Play } from "lucide-react";
+import { RAIcon } from "@/components/brand/RAIcon";
+import { ChromeSpinner } from "@/components/brand/chrome-icons";
 
 /**
  * Bootstraps ClaimProgress for a report so it appears on the Claims CRM board.
@@ -67,9 +68,9 @@ export function StartClaimProgressButton({
       }
     >
       {busy ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <ChromeSpinner className="h-4 w-4 animate-spin" />
       ) : (
-        <Play className="h-4 w-4" />
+        <RAIcon name="claim" size={16} decorative />
       )}
       Start claim progress
     </button>

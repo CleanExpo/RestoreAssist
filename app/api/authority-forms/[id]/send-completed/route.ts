@@ -4,9 +4,29 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateAuthorityFormPDF } from "@/lib/generate-authority-form-pdf";
 import { sendSignedFormEmail } from "@/lib/email";
-import { sendWithRetry } from "@/lib/email-retry";
+import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
+import { canonicalEmail } from "@/lib/email-identity";
+import { createHash } from "node:crypto";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+
+export function completedDeliveryResponse(sent: number, failed: number, total: number) {
+  if (sent === 0) {
+    return NextResponse.json(
+      { success: false, state: "DELIVERY_FAILED_OR_UNRESOLVED", sent, failed, total },
+      { status: 502 },
+    );
+  }
+  if (failed > 0) {
+    return NextResponse.json(
+      { success: false, partial: true, state: "PARTIALLY_DELIVERED", sent, failed, total },
+      // 5xx makes the outer request reservation retryable. Recipient-level
+      // delivery identities replay confirmed sends and retry only known failures.
+      { status: 503 },
+    );
+  }
+  return NextResponse.json({ success: true, state: "DELIVERED", sent, failed, total });
+}
 
 /**
  * POST /api/authority-forms/:id/send-completed
@@ -123,12 +143,17 @@ export async function POST(
 
       // Send to each recipient. PDF generation already succeeded at this point,
       // so email failure must not propagate as a 500 — Promise.allSettled
-      // captures individual outcomes. sendWithRetry adds bounded retry (3
-      // attempts, ~200ms / ~600ms backoff) before allSettled sees a rejection.
+      // captures individual outcomes. Each recipient has a durable message
+      // identity, so an ambiguous provider response cannot cause a duplicate.
+      const pdfHash = createHash("sha256").update(pdfBytes).digest("hex");
       const results = await Promise.allSettled(
         recipients.map((r) =>
-          sendWithRetry(
-            () =>
+          deliverEmailOnce({
+            idempotencyKey: `authority-form:${form.id}:${canonicalEmail(r.signatoryEmail!)}:${pdfHash}`,
+            kind: "AUTHORITY_FORM_COMPLETED",
+            recipient: r.signatoryEmail!,
+            payloadIdentity: `${form.id}|${r.id}|${pdfHash}`,
+            send: () =>
               sendSignedFormEmail({
                 recipientEmail: r.signatoryEmail!,
                 recipientName: r.signatoryName,
@@ -139,21 +164,16 @@ export async function POST(
                 signatories: signedSignatories,
                 pdfBase64,
                 pdfFilename,
+                idempotencyKey: `authority-form:${form.id}:${canonicalEmail(r.signatoryEmail!)}:${pdfHash}`,
               }),
-            { stage: "signed-form-send" },
-          ),
+          }),
         ),
       );
 
       const sent = results.filter((r) => r.status === "fulfilled").length;
       const failed = results.filter((r) => r.status === "rejected").length;
 
-      return NextResponse.json({
-        success: true,
-        sent,
-        failed,
-        total: recipients.length,
-      });
+      return completedDeliveryResponse(sent, failed, recipients.length);
     } catch (error: any) {
       console.error("[Send Completed] Error:", error);
       return fromException(request, error, { stage: "send-completed" });

@@ -21,7 +21,7 @@ policies for client-key access.
 
 ```bash
 # repo's scripts test config
-pnpm exec vitest run --config scripts/__tests__/vitest.config.ts \
+npx --no-install vitest run --config scripts/__tests__/vitest.config.ts \
   scripts/__tests__/audit-rls-coverage.test.ts
 ```
 

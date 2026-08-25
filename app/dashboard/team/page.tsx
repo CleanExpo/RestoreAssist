@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,6 +29,23 @@ const inviteFormSchema = z.object({
   role: z.enum(["USER", "MANAGER"]),
 });
 type InviteFormValues = z.infer<typeof inviteFormSchema>;
+
+function apiErrorMessage(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== "object" || !("error" in payload)) {
+    return fallback;
+  }
+  const error = payload.error;
+  if (typeof error === "string") return error;
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  return fallback;
+}
 import {
   Users,
   UserPlus,
@@ -36,15 +53,11 @@ import {
   Copy,
   Check,
   Clock,
-  Shield,
   UserCog,
   Wrench,
   Search,
-  Filter,
   Send,
-  X,
   Crown,
-  Building2,
   Calendar,
   CheckCircle2,
   AlertCircle,
@@ -158,6 +171,11 @@ function formatDate(dateString: string): string {
 
 export default function TeamPage() {
   const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
+  const isManager = session?.user?.role === "MANAGER";
+  const isTechnician = session?.user?.role === "USER";
+  const canInvite = isAdmin || isManager;
+  const canViewInvites = isAdmin || isManager;
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -175,16 +193,15 @@ export default function TeamPage() {
   });
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
   const [resendingEmail, setResendingEmail] = useState<string | null>(null);
+  const resendIdempotencyKeys = useRef(new Map<string, string>());
+  const createInviteIdempotencyKey = useRef<string | null>(null);
 
   // Credentials modal state
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   const [credentials, setCredentials] = useState<{
     email: string;
-    password: string;
   } | null>(null);
-  const [copiedField, setCopiedField] = useState<
-    "email" | "password" | "both" | null
-  >(null);
+  const [copiedField, setCopiedField] = useState<"email" | null>(null);
 
   // Remove member state
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
@@ -195,7 +212,7 @@ export default function TeamPage() {
 
   const inviteLinkBase = useMemo(() => {
     if (typeof window === "undefined") return "";
-    return `${window.location.origin}/signup?invite=`;
+    return `${window.location.origin}/invite/`;
   }, []);
 
   const load = async () => {
@@ -203,15 +220,19 @@ export default function TeamPage() {
     try {
       const [mRes, iRes] = await Promise.all([
         fetch("/api/team/members"),
-        fetch("/api/team/invites"),
+        canViewInvites ? fetch("/api/team/invites") : Promise.resolve(null),
       ]);
       const mJson = await mRes.json();
-      const iJson = await iRes.json();
       if (mRes.ok) setMembers(mJson.members || []);
-      else toast.error(mJson.error || "Failed to load team");
-      if (iRes.ok) setInvites(iJson.invites || []);
-      else toast.error(iJson.error || "Failed to load invites");
-    } catch (e) {
+      else toast.error(apiErrorMessage(mJson, "Failed to load team"));
+      if (iRes) {
+        const iJson = await iRes.json();
+        if (iRes.ok) setInvites(iJson.invites || []);
+        else toast.error(apiErrorMessage(iJson, "Failed to load invites"));
+      } else {
+        setInvites([]);
+      }
+    } catch {
       toast.error("Failed to load team data");
     } finally {
       setLoading(false);
@@ -219,8 +240,8 @@ export default function TeamPage() {
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    if (session?.user) load();
+  }, [session?.user?.role]);
 
   // Managers can only invite Technicians: when opening invite form as Manager, force role to Technician
   useEffect(() => {
@@ -229,36 +250,42 @@ export default function TeamPage() {
     }
   }, [showInviteForm, session?.user?.role, inviteForm]);
 
-  // Debug: Log modal state changes
-  useEffect(() => {
-    console.log("Credentials modal state changed:", {
-      showCredentialsModal,
-      hasCredentials: !!credentials,
-      credentials: credentials
-        ? { email: credentials.email, password: "***" }
-        : null,
-    });
-  }, [showCredentialsModal, credentials]);
-
   const createInvite = inviteForm.handleSubmit(async (values) => {
     const inviteEmail = values.email.trim();
     const inviteRole = values.role;
     setCreating(true);
+    const idempotencyKey =
+      createInviteIdempotencyKey.current ?? globalThis.crypto.randomUUID();
+    createInviteIdempotencyKey.current = idempotencyKey;
+    let receivedResponse = false;
+    let completedResponse = false;
     try {
       const res = await fetch("/api/team/invites", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
       });
+      receivedResponse = true;
+      completedResponse = res.ok;
       const json = await res.json().catch(() => ({}));
 
-      // Debug logging
-      console.log("Invite response:", { status: res.status, json });
-
+      if (json.partial) {
+        toast.error(
+          json.message ?? "The change was saved, but the email could not be sent.",
+          { duration: 6000 },
+        );
+        inviteForm.reset({ email: "", role: "USER" });
+        setShowInviteForm(false);
+        await load();
+        return;
+      }
       if (!res.ok) {
         // RA-1215 — 4xx field errors render inline against the offending
         // field; generic / 5xx falls back to toast.
-        const message = json?.error || "Failed to create invite";
+        const message = apiErrorMessage(json, "Failed to create invite");
         if (res.status >= 400 && res.status < 500) {
           const lower = String(message).toLowerCase();
           if (lower.includes("email")) {
@@ -273,68 +300,36 @@ export default function TeamPage() {
         }
         return;
       }
-
-      // Show credentials modal if credentials are available
-      // Check multiple possible response formats
+      // Same-organization existing users may have been role-updated. New-user
+      // invites do not expose credentials and therefore do not open this modal.
       let credentialsData = null;
 
-      // Check for credentials in response (new users will have password, transferred users will have null password)
-      if (json.credentials && json.credentials.email) {
+      if (json.user?.email) {
         credentialsData = {
-          email: json.credentials.email,
-          password: json.credentials.password || null,
-        };
-      } else if (
-        json.tempPassword &&
-        (json.invite?.email || json.user?.email || inviteEmail)
-      ) {
-        credentialsData = {
-          email: json.invite?.email || json.user?.email || inviteEmail,
-          password: json.tempPassword,
-        };
-      } else if (json.user?.email || json.invite?.email) {
-        // For transferred users, show email but no password
-        credentialsData = {
-          email: json.user?.email || json.invite?.email || inviteEmail,
-          password: null,
+          email: json.user.email,
         };
       }
 
       // Show modal if we have at least an email
       if (credentialsData && credentialsData.email) {
-        console.log("Credentials found, showing modal:", {
-          email: credentialsData.email,
-          hasPassword: !!credentialsData.password,
-        });
-
         // Set both states together - React will batch these updates
-        setCredentials({
-          email: credentialsData.email,
-          password: credentialsData.password || "",
-        });
+        setCredentials({ email: credentialsData.email });
         setShowCredentialsModal(true);
 
-        if (res.status === 207) {
+        if (json.updated) {
           toast.success(
-            `Account created for ${credentialsData.email}. Email sending failed - please share credentials manually.`,
-            { duration: 6000 },
-          );
-        } else if (json.transferred || json.updated) {
-          toast.success(
-            `User ${json.transferred ? "transferred" : "updated"} successfully! Notification email sent to ${credentialsData.email}.`,
+            `Membership updated. Notification email sent to ${credentialsData.email}.`,
             { duration: 5000 },
           );
         } else {
-          toast.success(
-            `Account created and invitation email sent to ${credentialsData.email}!`,
-            { duration: 5000 },
-          );
+          toast.success(`Notification email sent to ${credentialsData.email}.`, {
+            duration: 5000,
+          });
         }
       } else {
-        console.warn("No credentials found in response. Response:", json);
         const userEmail = json.invite?.email || json.user?.email || inviteEmail;
         toast.success(
-          `Account created and invitation email sent to ${userEmail}!`,
+          `Secure invitation sent to ${userEmail}.`,
           { duration: 5000 },
         );
       }
@@ -342,7 +337,17 @@ export default function TeamPage() {
       inviteForm.reset({ email: "", role: "USER" });
       setShowInviteForm(false);
       await load();
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Could not reach the server. Please try again.";
+      inviteForm.setError("root", { type: "network", message });
+      toast.error(message);
     } finally {
+      if (receivedResponse && completedResponse) {
+        createInviteIdempotencyKey.current = null;
+      }
       setCreating(false);
     }
   });
@@ -354,47 +359,51 @@ export default function TeamPage() {
       setCopiedInviteId(inviteId);
       toast.success("Invite link copied to clipboard!");
       setTimeout(() => setCopiedInviteId(null), 2000);
-    } catch (err) {
+    } catch {
       toast.error("Failed to copy link");
     }
   };
 
-  const copyCredentials = async (field: "email" | "password" | "both") => {
+  const copyCredentials = async () => {
     if (!credentials) return;
 
     try {
-      let textToCopy = "";
-      if (field === "email") {
-        textToCopy = credentials.email;
-      } else if (field === "password") {
-        textToCopy = credentials.password;
-      } else {
-        textToCopy = `Email: ${credentials.email}\nPassword: ${credentials.password}`;
-      }
-
-      await navigator.clipboard.writeText(textToCopy);
-      setCopiedField(field);
-      toast.success(
-        field === "both"
-          ? "Credentials copied to clipboard!"
-          : `${field === "email" ? "Email" : "Password"} copied to clipboard!`,
-      );
+      await navigator.clipboard.writeText(credentials.email);
+      setCopiedField("email");
+      toast.success("Email copied to clipboard!");
       setTimeout(() => setCopiedField(null), 2000);
-    } catch (err) {
+    } catch {
       toast.error("Failed to copy to clipboard");
     }
   };
 
   const resendEmail = async (invite: Invite) => {
+    let idempotencyKey = resendIdempotencyKeys.current.get(invite.id);
+    if (!idempotencyKey) {
+      idempotencyKey = globalThis.crypto.randomUUID();
+      resendIdempotencyKeys.current.set(invite.id, idempotencyKey);
+    }
     setResendingEmail(invite.id);
+    let receivedResponse = false;
+    let completedResponse = false;
     try {
       const res = await fetch(`/api/team/invites/${invite.id}/resend`, {
         method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
       });
+      receivedResponse = true;
+      completedResponse = res.ok;
 
+      const data = await res.json().catch(() => ({}));
+      if (data.partial) {
+        toast.error(
+          data.message ?? "Invite updated, but the email could not be sent.",
+        );
+        await load();
+        return;
+      }
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to resend email");
+        throw new Error(apiErrorMessage(data, "Failed to resend email"));
       }
 
       toast.success(`Email resent to ${invite.email}!`);
@@ -403,6 +412,12 @@ export default function TeamPage() {
         err instanceof Error ? err.message : "Failed to resend email",
       );
     } finally {
+      // A rejected fetch is ambiguous: the server may have committed and the
+      // response may have been lost. Retain the same key so the next click
+      // replays the server receipt instead of sending a duplicate email.
+      if (receivedResponse && completedResponse) {
+        resendIdempotencyKeys.current.delete(invite.id);
+      }
       setResendingEmail(null);
     }
   };
@@ -419,14 +434,14 @@ export default function TeamPage() {
       const json = await res.json();
 
       if (!res.ok) {
-        toast.error(json.error || "Failed to remove team member");
+        toast.error(apiErrorMessage(json, "Failed to remove team member"));
         return;
       }
 
       toast.success(json.message || "Team member removed successfully");
       setMemberToRemove(null);
       await load();
-    } catch (err) {
+    } catch {
       toast.error("Failed to remove team member");
     } finally {
       setRemoving(false);
@@ -447,7 +462,7 @@ export default function TeamPage() {
       });
       const json = await res.json();
       if (!res.ok) {
-        toast.error(json.error || "Failed to change role");
+        toast.error(apiErrorMessage(json, "Failed to change role"));
         // Revert optimistic update on failure
         await load();
         return;
@@ -460,13 +475,6 @@ export default function TeamPage() {
       setChangingRoleFor(null);
     }
   };
-
-  // Check if current user is Admin
-  const isAdmin = session?.user?.role === "ADMIN";
-  const isManager = session?.user?.role === "MANAGER";
-  const isTechnician = session?.user?.role === "USER";
-  const canInvite = isAdmin || isManager; // Only ADMIN and MANAGER can invite
-  const canViewInvites = isAdmin || isManager; // Only ADMIN and MANAGER can view invites
 
   // Filter members and invites
   const filteredMembers = useMemo(() => {
@@ -756,8 +764,8 @@ export default function TeamPage() {
                 Invite New Team Member
               </CardTitle>
               <CardDescription>
-                An account will be created immediately and an email with login
-                credentials will be sent.
+                A secure invitation link valid for 7 days will be sent. New
+                members set their own password when they accept.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1119,16 +1127,12 @@ export default function TeamPage() {
               )}
             >
               <CheckCircle2 className="w-5 h-5 text-success" />
-              {credentials?.password
-                ? "User Account Created"
-                : "User Added to Organization"}
+              User Membership Updated
             </DialogTitle>
             <DialogDescription
               className={cn("text-neutral-600 dark:text-neutral-400")}
             >
-              {credentials?.password
-                ? "Account has been created successfully. Please copy and share these credentials with the user."
-                : "User has been added to your organisation. Please share the email address with them."}
+              This existing member can continue using their current account.
             </DialogDescription>
           </DialogHeader>
 
@@ -1159,7 +1163,7 @@ export default function TeamPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => copyCredentials("email")}
+                  onClick={copyCredentials}
                   className="shrink-0"
                 >
                   {copiedField === "email" ? (
@@ -1171,98 +1175,27 @@ export default function TeamPage() {
               </div>
             </div>
 
-            {/* Password Field - Only show if password exists */}
-            {credentials?.password && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Temporary Password
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={credentials.password}
-                    className={cn(
-                      "flex-1 px-3 py-2 rounded-lg border font-mono text-sm font-semibold",
-                      "bg-neutral-100 dark:bg-slate-800/50 border-neutral-300 dark:border-slate-600",
-                      "text-neutral-900 dark:text-white",
-                      "focus:outline-none focus:ring-2 focus:ring-cyan-500",
-                    )}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyCredentials("password")}
-                    className="shrink-0"
-                  >
-                    {copiedField === "password" ? (
-                      <Check className="w-4 h-4 text-success" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-
             {/* Info Box - explicit contrast for light mode */}
             <div
               className={cn(
                 "p-3 rounded-lg border",
-                credentials?.password
-                  ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200"
-                  : "bg-amber-50 dark:bg-amber-900/20 border-amber-200",
+                "bg-amber-50 dark:bg-amber-900/20 border-amber-200",
               )}
             >
               <p
                 className={cn(
                   "text-xs font-medium",
-                  credentials?.password
-                    ? "text-blue-900 dark:text-blue-200"
-                    : "text-amber-900 dark:text-amber-200",
+                  "text-amber-900 dark:text-amber-200",
                 )}
               >
-                {credentials?.password ? (
-                  <>
-                    <strong>Note:</strong> The user will be required to change
-                    their password on first login. An invitation email with
-                    login credentials has been sent to{" "}
-                    {credentials?.email || "the user"}.
-                  </>
-                ) : (
-                  <>
-                    <strong>Note:</strong> This user already has an account.
-                    They can log in with their existing credentials. A
-                    notification email has been sent to{" "}
-                    {credentials?.email || "the user"}.
-                  </>
-                )}
+                <strong>Note:</strong> This user already has an account. They
+                can log in with their existing credentials. A notification
+                email has been sent to {credentials?.email || "the user"}.
               </p>
             </div>
           </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
-            {credentials?.password && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => copyCredentials("both")}
-                className="w-full sm:w-auto"
-              >
-                {copiedField === "both" ? (
-                  <>
-                    <Check className="w-4 h-4 mr-2" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4 mr-2" />
-                    Copy Both
-                  </>
-                )}
-              </Button>
-            )}
             <Button
               type="button"
               onClick={() => {
@@ -1338,8 +1271,8 @@ export default function TeamPage() {
               Invitations ({filteredInvites.length})
             </CardTitle>
             <CardDescription>
-              Accounts are created immediately when invites are sent. Users
-              receive an email with their login credentials.
+              New accounts are created only after the recipient accepts their
+              secure invitation and sets a password.
             </CardDescription>
           </CardHeader>
           <CardContent>

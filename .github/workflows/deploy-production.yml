@@ -1,0 +1,24 @@
+name: Deploy — DigitalOcean Production (BLOCKED)
+
+# There is intentionally no deployment action in this workflow. DigitalOcean's
+# GitHub source accepts a mutable branch only, and Create Deployment pulls that
+# branch's latest commit without an exact-SHA selector. RestoreAssist has no
+# independently proven digest-pinned production image path yet. A release must
+# therefore stop before receiving any production token or mutating DigitalOcean.
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  blocked:
+    name: Refuse mutable-source production deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Fail before any production mutation
+        run: |
+          echo "BLOCKED: DigitalOcean production source is a mutable GitHub branch." >&2
+          echo "Required: a digest-pinned image source plus protected rollback and post-deploy smoke." >&2
+          exit 1

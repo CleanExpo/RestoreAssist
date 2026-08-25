@@ -7,10 +7,34 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  collectProdDependenciesFromTree,
   selectBlockingFindings,
   ghsaFromUrl,
   type BulkAdvisory,
 } from "../audit-prod-cves";
+
+describe("collectProdDependenciesFromTree", () => {
+  it("collects the npm ls production dependency tree without dropping nested versions", () => {
+    expect(
+      collectProdDependenciesFromTree({
+        dependencies: {
+          alpha: {
+            version: "1.0.0",
+            dependencies: { shared: { version: "2.0.0" } },
+          },
+          beta: {
+            version: "3.0.0",
+            dependencies: { shared: { version: "4.0.0" } },
+          },
+        },
+      }),
+    ).toEqual({
+      alpha: ["1.0.0"],
+      shared: ["2.0.0", "4.0.0"],
+      beta: ["3.0.0"],
+    });
+  });
+});
 
 const LODASH_HIGH: BulkAdvisory = {
   severity: "high",

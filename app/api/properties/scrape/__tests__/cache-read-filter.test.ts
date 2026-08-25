@@ -115,6 +115,22 @@ const SAMPLE_DATA = {
 };
 
 describe("RA-1761 — cache read filter widened to include domain + realestate", () => {
+  it("ignores malformed cached JSON instead of returning it as property data", async () => {
+    mockFindFirst.mockResolvedValueOnce({
+      id: "pl_bad",
+      propertyAddress: "12 SMITH ST",
+      propertyPostcode: "4000",
+      dataSource: "onthehouse",
+      expiresAt: new Date(Date.now() + 86_400_000),
+      propertyData: ["not", "property", "data"],
+    });
+
+    await expect(
+      POST(makePost({ address: "12 Smith St", postcode: "4000" })),
+    ).rejects.toThrow();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
   it("serves a cached `onthehouse` row (regression)", async () => {
     mockFindFirst.mockResolvedValueOnce({
       id: "pl_1",

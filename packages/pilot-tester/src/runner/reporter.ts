@@ -47,9 +47,11 @@ function renderMarkdown(
   lines.push(`# Pilot tester run · ${report.runId}`);
   lines.push("");
   lines.push(`- Base URL: ${report.baseUrl}`);
+  lines.push(`- Source revision: ${report.revision}`);
   lines.push(`- Started: ${report.startedAt}`);
   lines.push(`- Finished: ${report.finishedAt}`);
   lines.push(`- Duration: ${(report.totalMs / 1000).toFixed(1)}s`);
+  lines.push(`- Daily budget ceiling per workspace: $${report.dailyBudgetUsd.toFixed(2)}`);
   lines.push(
     `- Outcome: ${report.success ? "✅ all jobs ran" : "⚠️ failures"}`,
   );
@@ -105,7 +107,7 @@ function renderMarkdown(
         `- ⚠️  No baseline found. First run, or baseline file deleted.`,
       );
       lines.push(
-        `- Run \`tsx pilot-tester/src/runner/baseline.ts promote <report.json>\` to seed one.`,
+        `- From packages/pilot-tester, run \`npx --no-install tsx src/runner/baseline.ts promote <report.json>\` after independent review to seed one.`,
       );
     } else {
       lines.push(

@@ -8,7 +8,7 @@ export function generateResetCode(): string {
 export async function storeResetCode(
   email: string,
   code: string,
-): Promise<void> {
+): Promise<{ id: string; expiresAt: Date }> {
   const normalizedEmail = email.toLowerCase();
 
   // Delete any existing unused codes for this email
@@ -20,14 +20,16 @@ export async function storeResetCode(
   });
 
   // Create new reset code
-  await prisma.passwordResetToken.create({
+  const created = await prisma.passwordResetToken.create({
     data: {
       token: code,
       email: normalizedEmail,
       expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       attempts: 0,
     },
+    select: { id: true, expiresAt: true },
   });
+  return created;
 }
 
 export async function verifyResetCode(

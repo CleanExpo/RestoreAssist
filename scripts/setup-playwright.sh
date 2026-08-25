@@ -17,7 +17,7 @@ CA="${NODE_EXTRA_CA_CERTS:-/root/.ccr/ca-bundle.crt}"
 BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
 
 # Resolve the Chromium revision @playwright/test pins.
-REV="$(node -e "const f=require('child_process').execSync('find node_modules/.pnpm node_modules -name browsers.json -path \"*playwright-core*\"',{encoding:'utf8'}).split('\n').filter(Boolean)[0]; const b=require(require('path').resolve(f)); console.log(b.browsers.find(x=>x.name==='chromium').revision)")"
+REV="$(node -e "const f=require.resolve('playwright-core/browsers.json'); const b=require(f); console.log(b.browsers.find(x=>x.name==='chromium').revision)")"
 EXE="$BROWSERS_PATH/chromium-$REV/chrome-linux64/chrome"
 
 if [ -x "$EXE" ] && "$EXE" --version >/dev/null 2>&1; then

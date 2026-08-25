@@ -27,6 +27,7 @@ import {
   RA4956_MIGRATION,
   RA4970_MIGRATION,
   RA4956_FOLLOWUP_MIGRATION,
+  SERVICE_ONLY_SECURITY_BOUNDARIES_MIGRATION,
   readMigration,
   parseEmittedPolicies,
   parseRlsEnabledTables,
@@ -146,9 +147,16 @@ export function runRlsAudit(): AuditResult {
   const downgraded = parseServiceOnlyDowngrade(
     readMigration(RA4956_FOLLOWUP_MIGRATION),
   );
+  const securityBoundaryDowngrades = parseServiceOnlyDowngrade(
+    readMigration(SERVICE_ONLY_SECURITY_BOUNDARIES_MIGRATION),
+  );
+  const effectiveDowngrades = new Set([
+    ...downgraded,
+    ...securityBoundaryDowngrades,
+  ]);
   const emitted = new Map(
     [...parseEmittedPolicies(readMigration(RA4956_MIGRATION))].filter(
-      ([t]) => !downgraded.has(t),
+      ([t]) => !effectiveDowngrades.has(t),
     ),
   );
 

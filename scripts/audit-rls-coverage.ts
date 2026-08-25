@@ -58,6 +58,16 @@ export const RA4956_FOLLOWUP_MIGRATION = resolve(
   "prisma/migrations/20260615000000_ra_4956_session_account_service_only/migration.sql",
 );
 /**
+ * P0 secret/replay boundary: removes every client policy from invite, email
+ * credential/audit, and OAuth nonce tables and leaves RLS enabled. The
+ * migration is deliberately data-preserving and makes these tables accessible
+ * only through the server/service-role connection.
+ */
+export const SERVICE_ONLY_SECURITY_BOUNDARIES_MIGRATION = resolve(
+  REPO,
+  "prisma/migrations/20260825135000_service_only_security_boundaries/migration.sql",
+);
+/**
  * PR #1326 — RLS for the 8 Sketch/Capture/Insurer/Material tables that shipped
  * after RA-4970 and were found anon-exposed. Uses its own `rask_*` emitters +
  * an ENABLE-RLS loop; the guard below asserts none of the 8 silently loses its
@@ -167,6 +177,31 @@ export const SERVICE_ONLY = new Set<string>([
   "AgentTaskLog",
   "EvaluationRun",
   "PromptVariant",
+  // Pilot tester accounting is a server/service-role ledger. It deliberately
+  // has RLS enabled with zero client policies; adding tenant policies would
+  // create a client write/read surface for budget state.
+  "PilotBudgetReservation",
+  "PilotJudgeReceipt",
+  "PilotAdjusterReceipt",
+  "PilotGenerationReceipt",
+  "PilotNoChargeApproval",
+  // Durable delivery/cleanup/authentication ledgers are only consumed by
+  // trusted server jobs and route handlers. No browser database role needs a
+  // policy on these tables.
+  "OutboundEmailDelivery",
+  "MediaCleanupTask",
+  "NativeAuthNonce",
+  // These rows contain invite secrets, provider access/refresh tokens, delivery
+  // audit details, or replay-prevention nonces. Even a user-scoped SELECT policy
+  // would expose server credentials/security state, so they remain default-deny.
+  "UserInvite",
+  "EmailConnection",
+  "EmailAudit",
+  "OAuthStateNonce",
+  // Migration-owned physical database identity marker. It must remain
+  // server-only/default-deny: deployment verification reads it through the
+  // Prisma/direct connection, never through a browser or PostgREST role.
+  "DatabaseInstanceSentinel",
   "AscoraIntegration",
   "DrNrpgIntegration",
   "AscoraJob",
@@ -316,7 +351,7 @@ export function parseRlsEnabledTables(sql: string): Set<string> {
   const out = new Set<string>();
   // direct ALTER TABLE statements
   for (const m of sql.matchAll(
-    /ALTER\s+TABLE\s+(?:public\.)?["']?(\w+)["']?\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/gi,
+    /ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:public\.)?["']?(\w+)["']?\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/gi,
   )) {
     out.add(m[1]);
   }
@@ -328,14 +363,14 @@ export function parseRlsEnabledTables(sql: string): Set<string> {
 }
 
 /**
- * Tables a ra4956 follow-up migration downgrades to service-only (drops all
- * their ra4956_* policies). Parses table names out of the FOREACH array(s),
- * ignoring the policy-name array (`ra4956_select` …). Returns empty for any SQL
- * that is not a ra4956 policy-drop migration.
+ * Tables a follow-up migration downgrades to service-only by dropping policies.
+ * Parses table names out of its FOREACH array(s), ignoring the historical
+ * ra4956 policy-name array (`ra4956_select` …). Returns empty for SQL that does
+ * not drop a policy.
  */
 export function parseServiceOnlyDowngrade(sql: string): Set<string> {
   const out = new Set<string>();
-  if (!/DROP\s+POLICY/i.test(sql) || !/ra4956/.test(sql)) return out;
+  if (!/DROP\s+POLICY/i.test(sql)) return out;
   for (const arr of sql.matchAll(/ARRAY\[([^\]]+)\]/g)) {
     for (const member of arr[1].matchAll(/'([^']+)'/g)) {
       if (!/^ra4956_/.test(member[1])) out.add(member[1]);
@@ -410,7 +445,7 @@ export function allRlsEnabledTables(): Set<string> {
       } else if (e.name.endsWith(".sql")) {
         const sql = readFileSync(p, "utf8");
         for (const m of sql.matchAll(
-          /ALTER\s+TABLE\s+(?:public\.)?"?(\w+)"?\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/gi,
+          /ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:public\.)?"?(\w+)"?\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/gi,
         )) {
           out.add(m[1]);
         }
@@ -453,8 +488,6 @@ export const PENDING_RLS = new Set<string>([
   "MobileInspection",
   "PushToken",
   "DeviceSigningKey",
-  "EmailAudit",
-  "EmailConnection",
   "FloorPlan",
   "FormAttachment",
   "FormAuditLog",
@@ -473,7 +506,6 @@ export const PENDING_RLS = new Set<string>([
   "LidarScan",
   "LiveTeacherSession",
   "MakeSafeAction",
-  "OAuthStateNonce",
   "ProgressAttestation",
   "ProgressTransition",
   // Arrived with 20260727120000_roomplan_custody_receipt_room_links without an

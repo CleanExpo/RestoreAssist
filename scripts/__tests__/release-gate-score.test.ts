@@ -26,19 +26,143 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { execSync } from "node:child_process";
+import { createHash } from "node:crypto";
 
-import { ownerEvidence, readEvidenceVerifiedDate } from "../release-gate-score";
+import {
+  ownerEvidence,
+  parseReleaseProfile,
+  readEvidenceVerifiedDate,
+  runReleaseGate,
+  shellOK,
+  verifyReleaseDbProfile,
+  verifyRunbooksSla,
+} from "../release-gate-score";
+import type { Criterion } from "../release-gate-score";
 
 const GATE_VERSION = "1.0.0";
+
+describe("retained command evidence", () => {
+  it("never copies planted secret output into the report detail", () => {
+    const planted = "RA_PLANTED_SECRET_DO_NOT_RETAIN_7f4b";
+    process.env.RA_PLANTED_RELEASE_SECRET = planted;
+    const result = shellOK(
+      `node -e "process.stderr.write(process.env.RA_PLANTED_RELEASE_SECRET); process.exit(9)"`,
+    );
+    delete process.env.RA_PLANTED_RELEASE_SECRET;
+    expect(result.status).toBe("fail");
+    expect(result.detail).toContain("exit 9");
+    expect(result.detail).not.toContain(planted);
+  });
+});
+
+describe("B3 DB-backed release profile", () => {
+  const postgres = "postgresql://ci:ci@localhost:5432/ci";
+
+  it("fails closed when the release DB profile marker is missing", () => {
+    const result = verifyReleaseDbProfile({
+      DATABASE_URL: postgres,
+      DIRECT_URL: postgres,
+    });
+    expect(result.status).toBe("fail");
+    expect(result.detail).toContain("RELEASE_DB_PROFILE");
+  });
+
+  it("accepts only the complete explicit Postgres profile", () => {
+    expect(
+      verifyReleaseDbProfile({
+        DATABASE_URL: postgres,
+        DIRECT_URL: postgres,
+        RELEASE_DB_PROFILE: "1",
+      }).status,
+    ).toBe("pass");
+    expect(
+      verifyReleaseDbProfile({
+        DATABASE_URL: "https://example.test/db",
+        DIRECT_URL: postgres,
+        RELEASE_DB_PROFILE: "1",
+      }).status,
+    ).toBe("fail");
+  });
+});
+
+function assertGitleaksArchiveVerifiedBeforeExtraction(workflow: string): void {
+  if (!/ARCHIVE_SHA256="[a-f0-9]{64}"/.test(workflow)) {
+    throw new Error("missing pinned Gitleaks archive SHA-256");
+  }
+  const download = workflow.indexOf('-o "/tmp/${ARCHIVE}"');
+  const verify = workflow.indexOf("sha256sum --check --strict");
+  const extract = workflow.indexOf('tar -xzf "/tmp/${ARCHIVE}"');
+  if (download < 0 || verify <= download || extract <= verify) {
+    throw new Error(
+      "Gitleaks archive must be downloaded, verified, then extracted",
+    );
+  }
+}
+
+describe("Gitleaks archive supply-chain guard", () => {
+  const workflow = fs.readFileSync(
+    path.join(process.cwd(), ".github/workflows/pr-checks.yml"),
+    "utf8",
+  );
+
+  it("verifies the pinned SHA-256 before extraction", () => {
+    expect(() =>
+      assertGitleaksArchiveVerifiedBeforeExtraction(workflow),
+    ).not.toThrow();
+  });
+
+  it("fails when the reviewed checksum is planted missing", () => {
+    const missingChecksum = workflow.replace(
+      /ARCHIVE_SHA256="[a-f0-9]{64}"/,
+      'ARCHIVE_SHA256=""',
+    );
+    expect(() =>
+      assertGitleaksArchiveVerifiedBeforeExtraction(missingChecksum),
+    ).toThrow(/missing pinned/);
+  });
+});
+
+function assertHistoricalComposioScan(config: string, workflow: string): void {
+  if (!/id\s*=\s*"composio-api-key"/.test(config)) {
+    throw new Error("missing Composio API key detection rule");
+  }
+  if (!/ck_\[A-Za-z0-9_-\]\{8,\}/.test(config)) {
+    throw new Error("Composio detection rule does not cover ck_ credentials");
+  }
+  if (/1577f7cec36870638a08a3ae2cc8653321c3b15b/.test(config)) {
+    throw new Error("unrotated historical Composio credential is allowlisted");
+  }
+  if (!/fetch-depth:\s*0/.test(workflow) || !/gitleaks git --config/.test(workflow)) {
+    throw new Error("weekly workflow does not scan complete git history");
+  }
+}
+
+describe("historical Composio credential recurrence guard", () => {
+  const config = fs.readFileSync(path.join(process.cwd(), ".gitleaks.toml"), "utf8");
+  const workflow = fs.readFileSync(
+    path.join(process.cwd(), ".github/workflows/deepsec-weekly.yml"),
+    "utf8",
+  );
+
+  it("detects ck_ credentials across complete history without allowlisting the exposure", () => {
+    expect(() => assertHistoricalComposioScan(config, workflow)).not.toThrow();
+  });
+
+  it("fails when the complete-history scan is planted missing", () => {
+    const planted = workflow.replace("/tmp/gitleaks git --config", "/tmp/gitleaks version --config");
+    expect(() => assertHistoricalComposioScan(config, planted)).toThrow(
+      /complete git history/,
+    );
+  });
+});
 
 let evidenceRoot: string;
 let versionDir: string;
 
 /** ISO yyyy-mm-dd for a date `daysAgo` days before now. */
 function isoDaysAgo(daysAgo: number): string {
-  return new Date(Date.now() - daysAgo * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
+  return new Date(Date.now() - daysAgo * 86_400_000).toISOString().slice(0, 10);
 }
 
 /**
@@ -47,7 +171,26 @@ function isoDaysAgo(daysAgo: number): string {
  */
 function writeEvidence(criterionId: string, frontmatter: string): string {
   const file = path.join(versionDir, `${criterionId}.md`);
-  fs.writeFileSync(file, `---\n${frontmatter}\n---\n\n# ${criterionId}\n`);
+  const evidence =
+    "Observed the named criterion against the exact release revision and retained the machine or operator receipt linked above. The independent reviewer examined the result and the alternative failure state.";
+  if (/^status:\s*pass\s*$/im.test(frontmatter)) {
+    const head = execSync("git rev-parse HEAD").toString().trim();
+    if (!/^criterion:/im.test(frontmatter))
+      frontmatter += `\ncriterion: ${criterionId}`;
+    if (!/^release_sha:/im.test(frontmatter))
+      frontmatter += `\nrelease_sha: ${head}`;
+    if (!/^owner:/im.test(frontmatter)) frontmatter += "\nowner: fixture-owner";
+    if (!/^reviewer:/im.test(frontmatter))
+      frontmatter += "\nreviewer: fixture-reviewer";
+    if (!/^artifact:/im.test(frontmatter)) {
+      const receipt = createHash("sha256").update(evidence).digest("hex");
+      frontmatter += `\nartifact: sha256:${receipt}`;
+    }
+  }
+  fs.writeFileSync(
+    file,
+    `---\n${frontmatter}\n---\n\n## Evidence\n${evidence}\n\n## Not checked\nThis fixture does not claim production truth; it exercises only the release-gate evidence parser and freshness contract.\n`,
+  );
   return file;
 }
 
@@ -86,9 +229,7 @@ describe("ownerEvidence — freshness rule", () => {
     expect(result.detail).toContain("stale");
   });
 
-  // NEGATIVE CONTROL: the rule must not simply always fail, or it would be
-  // just as useless in the opposite direction.
-  it("passes a claim verified within the freshness window", () => {
+  it("does not award points to a fresh self-attested narrative", () => {
     writeEvidence(
       "A3-no-sev1-sev2-open",
       `criterion: A3-no-sev1-sev2-open\nstatus: pass\nverified: ${isoDaysAgo(1)}`,
@@ -98,7 +239,65 @@ describe("ownerEvidence — freshness rule", () => {
       GATE_VERSION,
       evidenceRoot,
     );
-    expect(result.status).toBe("pass");
+    expect(result.status).toBe("fail");
+    expect(result.detail).toContain("not machine-verifiable");
+  });
+
+  it("rejects a shaped SHA-256 that is not bound to the evidence section", () => {
+    writeEvidence(
+      "C2-secrets-scan",
+      `criterion: C2-secrets-scan\nstatus: pass\nverified: ${isoDaysAgo(1)}\nartifact: sha256:${"0".repeat(64)}`,
+    );
+    const result = ownerEvidence("C2-secrets-scan", GATE_VERSION, evidenceRoot);
+    expect(result.status).toBe("fail");
+    expect(result.detail).toContain("not bound");
+  });
+
+  it("does not credit criterion terms that appear only under Not checked", () => {
+    const criterionId = "E3-release-rollback-plan";
+    const head = execSync("git rev-parse HEAD").toString().trim();
+    const evidence =
+      "No production control was executed. This paragraph exists only to prove that a long narrative cannot substitute for an affirmative observation in the evidence section.";
+    const receipt = createHash("sha256").update(evidence).digest("hex");
+    fs.writeFileSync(
+      path.join(versionDir, `${criterionId}.md`),
+      `---\ncriterion: ${criterionId}\nstatus: pass\nverified: ${isoDaysAgo(1)}\nrelease_sha: ${head}\nowner: owner\nreviewer: reviewer\nartifact: sha256:${receipt}\n---\n\n## Evidence\n${evidence}\n\n## Not checked\nApp Review, release, rollback, and reviewer evidence were not checked.\n`,
+    );
+    const result = ownerEvidence(criterionId, GATE_VERSION, evidenceRoot);
+    expect(result.status).toBe("fail");
+    expect(result.detail).toContain("criterion-specific");
+  });
+
+  it("requires the full documented A1 journey, not only the old partial terms", () => {
+    const criterionId = "A1-core-journeys";
+    const head = execSync("git rev-parse HEAD").toString().trim();
+    const evidence =
+      "The signup, inspection, claim, attestation and PDF checkpoints were observed. This deliberately omits four independently documented stages between entry and the first inspection so a partial journey cannot score.";
+    const receipt = createHash("sha256").update(evidence).digest("hex");
+    fs.writeFileSync(
+      path.join(versionDir, `${criterionId}.md`),
+      `---\ncriterion: ${criterionId}\nstatus: pass\nverified: ${isoDaysAgo(1)}\nrelease_sha: ${head}\nowner: owner\nreviewer: reviewer\nartifact: sha256:${receipt}\n---\n\n## Evidence\n${evidence}\n\n## Not checked\nThe deliberately omitted stages were not checked in this attack fixture.\n`,
+    );
+    const result = ownerEvidence(criterionId, GATE_VERSION, evidenceRoot);
+    expect(result.status).toBe("fail");
+    expect(result.detail).toContain("criterion-specific");
+    expect(result.detail).toContain("login");
+    expect(result.detail).toContain("onboarding");
+    expect(result.detail).toContain("storage setup");
+    expect(result.detail).toContain("restore");
+  });
+
+  it("rejects a semantically empty markdown or comment shell", () => {
+    const head = execSync("git rev-parse HEAD").toString().trim();
+    const file = path.join(versionDir, "E3-release-rollback-plan.md");
+    fs.writeFileSync(
+      file,
+      `---\ncriterion: E3-release-rollback-plan\nstatus: pass\nverified: ${isoDaysAgo(1)}\nrelease_sha: ${head}\nowner: owner\nreviewer: reviewer\nartifact: sha256:${"a".repeat(64)}\n---\n\n#\n<!-- -->\n`,
+    );
+    expect(
+      ownerEvidence("E3-release-rollback-plan", GATE_VERSION, evidenceRoot)
+        .status,
+    ).toBe("fail");
   });
 
   it("fails when the verified date is missing entirely", () => {
@@ -126,13 +325,14 @@ describe("ownerEvidence — freshness rule", () => {
   // The one day of future slack is deliberate, not incidental: dates parse at
   // UTC midnight, so someone in UTC+10 writing today's date is briefly "ahead"
   // of now. Pinned here so nobody tightens it and starts failing honest entries.
-  it("accepts today's date from a UTC+10 author (one day of slack)", () => {
+  it("accepts today's date for parsing but still refuses narrative release points", () => {
     writeEvidence(
       "C2-secrets-scan",
       `criterion: C2-secrets-scan\nstatus: pass\nverified: ${isoDaysAgo(-1)}`,
     );
     const result = ownerEvidence("C2-secrets-scan", GATE_VERSION, evidenceRoot);
-    expect(result.status).toBe("pass");
+    expect(result.status).toBe("fail");
+    expect(result.detail).toContain("not machine-verifiable");
   });
 
   it("fails when the evidence file is absent", () => {
@@ -147,7 +347,11 @@ describe("ownerEvidence — freshness rule", () => {
       "D1-billing-flows",
       `criterion: D1-billing-flows\nstatus: deferred\nverified: ${isoDaysAgo(1)}`,
     );
-    const result = ownerEvidence("D1-billing-flows", GATE_VERSION, evidenceRoot);
+    const result = ownerEvidence(
+      "D1-billing-flows",
+      GATE_VERSION,
+      evidenceRoot,
+    );
     expect(result.status).toBe("fail");
     expect(result.detail).toContain("deferred");
   });
@@ -172,7 +376,10 @@ describe("ownerEvidence — freshness rule", () => {
 
   // A pass claim with no date must not slip through just because it says pass.
   it("fails a pass claim that omits the verified date", () => {
-    writeEvidence("F2-runbooks-sla", "criterion: F2-runbooks-sla\nstatus: pass");
+    writeEvidence(
+      "F2-runbooks-sla",
+      "criterion: F2-runbooks-sla\nstatus: pass",
+    );
     const result = ownerEvidence("F2-runbooks-sla", GATE_VERSION, evidenceRoot);
     expect(result.status).toBe("fail");
     expect(result.detail).toContain("verified");
@@ -245,13 +452,24 @@ describe("frontmatter keys must be unambiguous", () => {
     );
   });
 
-  it("still accepts a single well-formed pair", () => {
+  it("parses a single well-formed pair but does not score self-attestation", () => {
     writeEvidence(
       "C2-secrets-scan",
       `status: pass\nverified: ${isoDaysAgo(1)}`,
     );
     const result = ownerEvidence("C2-secrets-scan", GATE_VERSION, evidenceRoot);
-    expect(result.status).toBe("pass");
+    expect(result.status).toBe("fail");
+    expect(result.detail).toContain("not machine-verifiable");
+  });
+
+  it("rejects a plausible HTTPS URL because reachability is not attestation", () => {
+    writeEvidence(
+      "C2-secrets-scan",
+      `status: pass\nverified: ${isoDaysAgo(1)}\nartifact: https://example.com/fake-green-receipt`,
+    );
+    const result = ownerEvidence("C2-secrets-scan", GATE_VERSION, evidenceRoot);
+    expect(result.status).toBe("fail");
+    expect(result.detail).toContain("URLs and narrative links");
   });
 });
 
@@ -305,5 +523,322 @@ describe("impossible calendar dates are rejected, not rolled forward", () => {
     expect(readEvidenceVerifiedDate(file)?.toISOString().slice(0, 10)).toBe(
       "2024-02-29",
     );
+  });
+});
+
+describe("verifyRunbooksSla", () => {
+  function writeDoc(root: string, relativePath: string, body: string): void {
+    const file = path.join(root, relativePath);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, body);
+  }
+
+  function completeSupportDocs(root: string): void {
+    writeDoc(
+      root,
+      "docs/MOBILE_RELEASE_RUNBOOK.md",
+      [
+        "# Mobile release runbook",
+        "## 1. Pre-flight",
+        "| Check | Owner | Done |\n|---|---|---|\n| Validate signing, secrets, production URLs, and rollback owner before any build is created. | release owner | [ ] |",
+        "## 5. Build + upload",
+        "| Check | Owner | Done |\n|---|---|---|\n| Build signed binaries, retain checksums, upload to internal tracks, and record provider build identifiers. | release owner | [ ] |",
+        "## 6. Soft launch",
+        "| Check | Owner | Done |\n|---|---|---|\n| Install the candidate and exercise authentication, creation, export, offline recovery, and rollback tests with named internal testers for seven days. | QA owner | [ ] |",
+        "## 7. Public production submission",
+        "| Check | Owner | Done |\n|---|---|---|\n| Confirm soft-launch evidence, privacy declarations, phased release, support coverage, and owner-only submission approval. | owner | [ ] |",
+        "## 8. Post-launch",
+        "| Check | Owner | Done |\n|---|---|---|\n| Monitor crash-free sessions, authentication, billing, exports, reviews, and rollback thresholds after publication. | on-call | [ ] |",
+      ].join("\n\n"),
+    );
+    writeDoc(
+      root,
+      "docs/PILOT_CUTOVER_CHECKLIST.md",
+      "# Pilot cutover\n\n## Rollback decision tree\n\n| Signal | Severity | Action |\n|---|---|---|\n| All users receive 5xx | P0 | Roll back the release |\n| Provider spend exceeds guard | P1 | Revoke the key and restore the prior budget |",
+    );
+    writeDoc(
+      root,
+      "docs/SUPPORT_SLA.md",
+      "# Support SLA\n\n## Response-time commitments\n\n| Severity | First human response | Status update cadence | Resolution target |\n|---|---|---|---|\n| **P1** | **<=1 h** | Every 2 h | <=24 h |",
+    );
+    writeDoc(
+      root,
+      "docs/CUSTOMER_COMMS_TEMPLATE.md",
+      [
+        "## Template A — Initial acknowledgement\n```\nSubject: P1 incident\nThis started at {time}. Next update by {time}. Workaround: {action}.\n```",
+        "## Template B — Progress update\n```\nSubject: P1 update\nWhat we know: {facts}. What we ruled out: {causes}. Next update by {time}.\n```",
+        "## Template C — Resolution notice\n```\nSubject: RESOLVED: {incident}\nRoot cause: {cause}. What we've changed: {change}. Anything you need to do: {action}.\n```",
+        "## Template D — Post-mortem\n```\nSubject: Post-mortem: {incident}\nTimeline: {events}. Root cause: {cause}. Action items: {items}. Customer impact: {impact}.\n```",
+        "## Template E — Compliance incident\n```\nSubject: COMPLIANCE NOTICE: {issue}\nImmediate steps: {steps}. Customer-side action: {action}. Remediation plan: {plan}.\n```",
+      ].join("\n\n"),
+    );
+  }
+
+  it("passes when the required support docs and content are present", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
+    try {
+      completeSupportDocs(root);
+      expect(verifyRunbooksSla(root)).toEqual({
+        status: "pass",
+        detail:
+          "release-support docs present with P1 <=1 h, templates A-E, and rollback decision tree",
+      });
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed when any required support doc is missing", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
+    try {
+      completeSupportDocs(root);
+      fs.rmSync(path.join(root, "docs", "CUSTOMER_COMMS_TEMPLATE.md"));
+      const result = verifyRunbooksSla(root);
+      expect(result.status).toBe("fail");
+      expect(result.detail).toContain("required release-support docs missing");
+      expect(result.detail).toContain(
+        "customerComms=docs/CUSTOMER_COMMS_TEMPLATE.md",
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when the P1 SLA no longer commits to <=1 h", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
+    try {
+      completeSupportDocs(root);
+      writeDoc(
+        root,
+        "docs/SUPPORT_SLA.md",
+        "## Response-time commitments\n\n| Severity | First human response | Status update cadence | Resolution target |\n|---|---|---|---|\n| **P1** | **<=2 h** | Every 2 h | <=24 h |",
+      );
+      const result = verifyRunbooksSla(root);
+      expect(result.status).toBe("fail");
+      expect(result.detail).toContain("P1 row");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects marker-only support documents", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
+    try {
+      completeSupportDocs(root);
+      writeDoc(
+        root,
+        "docs/CUSTOMER_COMMS_TEMPLATE.md",
+        ["A", "B", "C", "D", "E"]
+          .map((label) => `## Template ${label}`)
+          .join("\n\n"),
+      );
+      const result = verifyRunbooksSla(root);
+      expect(result.status).toBe("fail");
+      expect(result.detail).toContain("missing or incomplete templates");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects conflicting duplicate P1 commitments", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
+    try {
+      completeSupportDocs(root);
+      writeDoc(
+        root,
+        "docs/SUPPORT_SLA.md",
+        "## Response-time commitments\n\n| Severity | First human response |\n|---|---|\n| P1 | <=1 h |\n| P1 | <=8 h |",
+      );
+      expect(verifyRunbooksSla(root).status).toBe("fail");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects duplicate SLA and template sections even when the first copy is valid", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
+    try {
+      completeSupportDocs(root);
+      fs.appendFileSync(
+        path.join(root, "docs/SUPPORT_SLA.md"),
+        "\n\n## Response-time commitments\n| Severity | First human response |\n|---|---|\n| P1 | <=8 h |",
+      );
+      expect(verifyRunbooksSla(root).status).toBe("fail");
+
+      completeSupportDocs(root);
+      fs.appendFileSync(
+        path.join(root, "docs/CUSTOMER_COMMS_TEMPLATE.md"),
+        "\n\n## Template A — conflicting copy\n```\nSubject: no service commitment is made in this duplicate section.\n```",
+      );
+      expect(verifyRunbooksSla(root).status).toBe("fail");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a conditional P1 commitment that degrades outside staffed hours", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
+    try {
+      completeSupportDocs(root);
+      writeDoc(
+        root,
+        "docs/SUPPORT_SLA.md",
+        "## Response-time commitments\n\n| Severity | First human response |\n|---|---|\n| P1 | <=1 h when staffed; otherwise <=8 h |",
+      );
+      expect(verifyRunbooksSla(root).status).toBe("fail");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects hidden, prefix-only, empty, padded and negated marker documents", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
+    try {
+      completeSupportDocs(root);
+      const hidden = {
+        A: "Subject: P1\nstarted at\nNext update by\nworkaround",
+        B: "Subject: P1\nWhat we know\nruled out\nNext update by",
+        C: "Subject: RESOLVED\nRoot cause:\nWhat we've changed\nneed to do",
+        D: "Subject: Post-mortem\nTimeline\nRoot cause:\nAction items\nCustomer impact",
+        E: "Subject: COMPLIANCE NOTICE\nImmediate steps\nCustomer-side action\nremediation plan",
+      };
+      writeDoc(
+        root,
+        "docs/CUSTOMER_COMMS_TEMPLATE.md",
+        Object.entries(hidden)
+          .map(
+            ([label, body]) =>
+              `## Template ${label}ardvark\n<!-- \`\`\`\n${body}\n\`\`\` -->`,
+          )
+          .join("\n"),
+      );
+      writeDoc(
+        root,
+        "docs/PILOT_CUTOVER_CHECKLIST.md",
+        "## Rollback decision tree\n| Signal | Severity | Action |\n|---|---|---|\n| none | P0 | Do not roll back or restore anything |\n| none | P1 | Never revoke or disable anything |",
+      );
+      expect(verifyRunbooksSla(root).status).toBe("fail");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("requires template fields inside the copyable fenced body", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
+    try {
+      completeSupportDocs(root);
+      const file = path.join(root, "docs/CUSTOMER_COMMS_TEMPLATE.md");
+      const original = fs.readFileSync(file, "utf8");
+      fs.writeFileSync(
+        file,
+        original.replace(
+          /## Template A[^\n]*\n```[\s\S]*?```/,
+          "## Template A — Initial acknowledgement\nSubject: P1; started at; Next update by; workaround\n```\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n```",
+        ),
+      );
+      expect(verifyRunbooksSla(root).status).toBe("fail");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a rollback heading without actionable P0 and P1 table rows", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
+    try {
+      completeSupportDocs(root);
+      writeDoc(
+        root,
+        "docs/PILOT_CUTOVER_CHECKLIST.md",
+        "## Rollback decision tree\n\nRollback when needed.",
+      );
+      expect(verifyRunbooksSla(root).status).toBe("fail");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("parseReleaseProfile", () => {
+  it.each([
+    { args: ["--profile"] },
+    { args: ["--profile="] },
+    { args: ["--profile", "--json"] },
+  ])("rejects a missing profile value in $args", ({ args }) => {
+    expect(() => parseReleaseProfile(args)).toThrow(
+      /Missing release profile value/,
+    );
+  });
+
+  it("still defaults to the fail-closed mobile profile when no flag is supplied", () => {
+    expect(parseReleaseProfile(["--json"])).toBe("mobile");
+  });
+
+  it.each([
+    ["--profile=web", "--profile", "mobile"],
+    ["--profile=mobile", "--profile=web"],
+    ["--profile=web", "--profile=invalid"],
+  ])("rejects repeated or conflicting profile flags: %j", (...args) => {
+    expect(() => parseReleaseProfile(args)).toThrow(/exactly once/);
+  });
+});
+
+describe("runReleaseGate profiles", () => {
+  const fakeCriterion = (
+    id: string,
+    points: number,
+    profiles: Criterion["profiles"],
+    status: "pass" | "fail",
+    section: Criterion["section"] = "A",
+  ): Criterion => ({
+    id,
+    section,
+    points,
+    kind: "machine",
+    profiles,
+    description: `${id} fixture`,
+    run: () => ({ status, detail: `${id} ${status}` }),
+  });
+
+  it("web excludes mobile-only criteria from max score but still fails on any applicable red item", () => {
+    const criteria: Criterion[] = [
+      fakeCriterion("A-pass", 10, ["web", "mobile"], "pass"),
+      fakeCriterion("F2-pass", 5, ["web", "mobile"], "pass", "F"),
+      fakeCriterion("D-fail", 5, ["web", "mobile"], "fail", "D"),
+      fakeCriterion("E1-mobile-only", 5, ["mobile"], "fail", "E"),
+    ];
+
+    const { report, strictFail } = runReleaseGate("web", criteria);
+    expect(report.profile).toBe("web");
+    expect(report.max_score).toBe(20);
+    expect(report.total_score).toBe(15);
+    expect(report.passed).toBe(false);
+    expect(report.criteria.map((criterion) => criterion.id)).toEqual([
+      "A-pass",
+      "F2-pass",
+      "D-fail",
+    ]);
+    expect(strictFail).toBe(true);
+  });
+
+  it("mobile still requires E1-E3 because they remain applicable criteria", () => {
+    const criteria: Criterion[] = [
+      fakeCriterion("A-pass", 10, ["web", "mobile"], "pass"),
+      fakeCriterion("E1-app-store-metadata", 5, ["mobile"], "fail", "E"),
+      fakeCriterion("E2-testflight-stability", 5, ["mobile"], "pass", "E"),
+      fakeCriterion("E3-release-rollback-plan", 5, ["mobile"], "pass", "E"),
+    ];
+
+    const { report, strictFail } = runReleaseGate("mobile", criteria);
+    expect(report.profile).toBe("mobile");
+    expect(report.max_score).toBe(25);
+    expect(report.total_score).toBe(20);
+    expect(report.passed).toBe(false);
+    expect(report.criteria.map((criterion) => criterion.id)).toEqual([
+      "A-pass",
+      "E1-app-store-metadata",
+      "E2-testflight-stability",
+      "E3-release-rollback-plan",
+    ]);
+    expect(strictFail).toBe(true);
   });
 });

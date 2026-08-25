@@ -1,7 +1,6 @@
 #!/usr/bin/env sh
 set -eu
 
-PNPM_VERSION="9.15.9"
 REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 
 print_problem() {
@@ -28,60 +27,38 @@ if [ "$NODE_MAJOR" != "22" ]; then
 fi
 echo "[bootstrap] node: $NODE_VERSION"
 
-if command -v corepack >/dev/null 2>&1; then
-  echo "[bootstrap] corepack: $(corepack --version)"
-  corepack enable
-  corepack prepare "pnpm@$PNPM_VERSION" --activate
-elif command -v npm >/dev/null 2>&1; then
-  echo "[bootstrap] corepack unavailable; installing pnpm@$PNPM_VERSION as global tooling via npm"
-  npm install -g "pnpm@$PNPM_VERSION"
-else
-  print_problem "Neither corepack nor npm is available." "The shell cannot activate pnpm." "Install Node.js with corepack or npm available." "Re-run this bootstrap script."
+if ! command -v npm >/dev/null 2>&1; then
+  print_problem "npm is unavailable." "The Node.js installation does not expose npm on PATH." "Install the complete Node.js 22.x distribution." "Re-run this bootstrap script."
   exit 1
 fi
-
-if ! command -v pnpm >/dev/null 2>&1; then
-  NPM_PREFIX="$(npm prefix -g 2>/dev/null || true)"
-  if [ -n "$NPM_PREFIX" ] && [ -x "$NPM_PREFIX/bin/pnpm" ]; then
-    export PATH="$NPM_PREFIX/bin:$PATH"
-  fi
-fi
-
-if ! command -v pnpm >/dev/null 2>&1; then
-  print_problem "pnpm is still unavailable after activation." "Global npm binaries may not be on PATH." "Add the npm global bin directory to PATH or symlink pnpm into a directory already on PATH." "Run 'npm prefix -g' to find the global prefix, then re-run this script."
-  exit 1
-fi
-
-ACTUAL_PNPM_VERSION="$(pnpm --version)"
-if [ "$ACTUAL_PNPM_VERSION" != "$PNPM_VERSION" ]; then
-  print_problem "pnpm version mismatch: $ACTUAL_PNPM_VERSION." "RestoreAssist pins packageManager to pnpm@$PNPM_VERSION." "Run 'corepack prepare pnpm@$PNPM_VERSION --activate' or install pnpm@$PNPM_VERSION globally." "Re-run this bootstrap script."
-  exit 1
-fi
-echo "[bootstrap] pnpm: $ACTUAL_PNPM_VERSION"
+echo "[bootstrap] npm: $(npm --version)"
 
 cd "$REPO_ROOT"
 
-if [ ! -f pnpm-lock.yaml ]; then
-  print_problem "pnpm-lock.yaml is missing." "RestoreAssist uses pnpm as the only repo package manager." "Restore pnpm-lock.yaml before installing dependencies." "Stop Phase 0 and repair package manager state."
+if [ ! -f package-lock.json ]; then
+  print_problem "package-lock.json is missing." "RestoreAssist uses npm ci and package-lock.json as its dependency source of truth." "Restore the committed package-lock.json before installing dependencies." "Stop Phase 0 and repair package manager state."
   exit 1
 fi
 
-for disallowed_lockfile in package-lock.json yarn.lock bun.lockb bun.lock; do
+for disallowed_lockfile in pnpm-lock.yaml yarn.lock bun.lockb bun.lock; do
   if [ -f "$disallowed_lockfile" ]; then
-    print_problem "Unexpected lockfile found: $disallowed_lockfile." "Multiple package manager lockfiles make installs non-deterministic." "Remove the non-pnpm lockfile and keep pnpm-lock.yaml authoritative." "Re-run this bootstrap script."
+    print_problem "Unexpected lockfile found: $disallowed_lockfile." "Multiple package manager lockfiles make installs non-deterministic." "Remove the non-npm lockfile and keep package-lock.json authoritative." "Re-run this bootstrap script."
     exit 1
   fi
 done
 
-echo "[bootstrap] installing dependencies from pnpm-lock.yaml"
-pnpm install --frozen-lockfile
+echo "[bootstrap] validating release bootstrap contract"
+node scripts/ci/check-release-bootstrap.mjs
+
+echo "[bootstrap] installing dependencies from package-lock.json"
+npm ci
 
 echo "[bootstrap] generating Prisma client"
-pnpm prisma:generate
+npm run prisma:generate
 
 echo "[bootstrap] running baseline validation"
-pnpm type-check
-pnpm lint
-pnpm exec vitest run --config config/vitest.config.js
+npm run type-check
+npm run lint
+npm run test:unit
 
 echo "[bootstrap] PASS: local RestoreAssist validation environment is ready for Phase 1."

@@ -30,6 +30,15 @@ function jitteredDelay(attempt: number, baseMs: number): number {
   return baseMs * exp + jitter;
 }
 
+export function hasProviderReceipt(value: unknown): boolean {
+  if (typeof value === "string") return value.trim().length > 0;
+  if (!value || typeof value !== "object") return false;
+  const data = (value as { data?: unknown }).data;
+  if (!data || typeof data !== "object") return false;
+  const id = (data as { id?: unknown }).id;
+  return typeof id === "string" && id.trim().length > 0;
+}
+
 export async function sendWithRetry<T>(
   send: () => Promise<T>,
   opts: EmailRetryOptions,
@@ -40,15 +49,27 @@ export async function sendWithRetry<T>(
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      return await send();
+      const result = await send();
+      if (!hasProviderReceipt(result)) {
+        // A missing receipt is not a proven rejection. The provider may have
+        // accepted the message and lost the response, so retrying can send a
+        // duplicate. Fail immediately; durable callers reconcile ambiguity.
+        throw new Error(
+          "Email provider did not return a confirmed message ID",
+        );
+      }
+      return result;
     } catch (err) {
       lastErr = err;
+      const ambiguousReceipt =
+        err instanceof Error &&
+        err.message === "Email provider did not return a confirmed message ID";
       reportError(err, {
         stage: opts.stage,
         attempt,
         retrying: attempt < maxAttempts - 1,
       });
-      if (attempt === maxAttempts - 1) break;
+      if (ambiguousReceipt || attempt === maxAttempts - 1) break;
       await new Promise((r) =>
         setTimeout(r, jitteredDelay(attempt, baseDelayMs)),
       );

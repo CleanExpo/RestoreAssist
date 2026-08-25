@@ -7,11 +7,12 @@ import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { sendWelcomeEmail } from "@/lib/email";
-import { sendWithRetry } from "@/lib/email-retry";
 import { notifyWelcome } from "@/lib/notifications";
 import { seedDemoDataForNewUser } from "@/lib/demo-data";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { apiError, fromException } from "@/lib/api-errors";
+import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
+import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
@@ -72,6 +73,17 @@ export async function POST(request: NextRequest) {
     if (adminAuth) {
       try {
         const decodedToken = await adminAuth.verifyIdToken(idToken);
+        const signInProvider = decodedToken.firebase?.sign_in_provider;
+        if (
+          decodedToken.email_verified !== true ||
+          signInProvider !== "google.com"
+        ) {
+          return apiError(request, {
+            code: "UNAUTHORIZED",
+            message: "A verified Google account is required",
+            status: 401,
+          });
+        }
         verifiedEmail = decodedToken.email;
       } catch {
         // Expected client error (forged/expired token) — 401s are not
@@ -109,10 +121,8 @@ export async function POST(request: NextRequest) {
     }
     const name = sanitizeString(body.name, 200);
     const image = sanitizeString(body.image, 2000);
-    const emailVerified = body.emailVerified;
-
     // Always use the server-verified email from the Firebase token (never body.email)
-    const userEmail = verifiedEmail;
+    const userEmail = verifiedEmail ? canonicalEmail(verifiedEmail) : undefined;
 
     if (!userEmail) {
       return apiError(request, {
@@ -122,74 +132,86 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: userEmail },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        image: true,
-        role: true,
-      },
+    const accountResult = await prisma.$transaction(async (tx) => {
+      await lockEmailIdentity(tx, userEmail);
+      const activeInvite = await tx.userInvite.findFirst({
+        where: {
+          email: { equals: userEmail, mode: "insensitive" },
+          usedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        select: { id: true },
+      });
+      if (activeInvite) return { kind: "INVITED" as const };
+
+      const existingUser = await tx.user.findUnique({
+        where: { email: userEmail },
+        select: { id: true, email: true, name: true, image: true, role: true },
+      });
+      if (existingUser) {
+        const user = await tx.user.update({
+          where: { email: userEmail },
+          data: {
+            name: name || existingUser.name,
+            image: image || existingUser.image,
+            emailVerified: new Date(),
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            image: true,
+            role: true,
+          },
+        });
+        return { kind: "EXISTING" as const, user };
+      }
+
+      const user = await tx.user.create({
+        data: {
+          email: userEmail,
+          name: name || userEmail.split("@")[0] || "User",
+          image,
+          emailVerified: new Date(),
+          role: "ADMIN",
+          subscriptionStatus: "TRIAL",
+          creditsRemaining: TRIAL_REPORT_CREDITS,
+          totalCreditsUsed: 0,
+          trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS),
+          quickFillCreditsRemaining: TRIAL_QUICK_FILL_CREDITS,
+          totalQuickFillUsed: 0,
+        },
+        select: { id: true, email: true, name: true, image: true, role: true },
+      });
+      return { kind: "NEW" as const, user };
     });
 
-    if (existingUser) {
-      // Update existing user's name/image from Google
-      const updatedUser = await prisma.user.update({
-        where: { email: userEmail },
-        data: {
-          name: name || existingUser.name,
-          image: image || existingUser.image,
-          emailVerified: emailVerified ? new Date() : undefined,
-        },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          image: true,
-          role: true,
-        },
+    if (accountResult.kind === "INVITED") {
+      return apiError(request, {
+        code: "CONFLICT",
+        message:
+          "A team invitation is waiting for this email. Use the secure invitation link instead.",
+        status: 409,
       });
+    }
+    const authenticatedUser = accountResult.user;
 
+    if (accountResult.kind === "EXISTING") {
       const reqCtx = extractRequestContext(request);
       logSecurityEvent({
         eventType: "GOOGLE_SIGNIN",
-        userId: updatedUser.id,
-        email: updatedUser.email,
+        userId: authenticatedUser.id,
+        email: authenticatedUser.email,
         ...reqCtx,
         details: { isNewUser: false },
       }).catch(() => {});
 
       return NextResponse.json({
-        ...updatedUser,
+        ...authenticatedUser,
         googleAuthToken: generateGoogleAuthToken(userEmail),
       });
     }
-
-    // Create new user - default role is ADMIN for self-signup (business owner creating account)
-    const newUser = await prisma.user.create({
-      data: {
-        email: userEmail,
-        name: name || userEmail.split("@")[0] || "User",
-        image: image,
-        emailVerified: emailVerified ? new Date() : null,
-        role: "ADMIN",
-        subscriptionStatus: "TRIAL",
-        creditsRemaining: TRIAL_REPORT_CREDITS,
-        totalCreditsUsed: 0,
-        trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS), // 15-day trial
-        quickFillCreditsRemaining: TRIAL_QUICK_FILL_CREDITS,
-        totalQuickFillUsed: 0,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        image: true,
-        role: true,
-      },
-    });
+    const newUser = authenticatedUser;
 
     const reqCtx = extractRequestContext(request);
     logSecurityEvent({
@@ -203,27 +225,37 @@ export async function POST(request: NextRequest) {
     // RA-1254: Google OAuth new-signups previously skipped the welcome
     // email that email+password signups get — the template existed but
     // was only called from /api/auth/register.
-    sendWithRetry(
-      () =>
-        sendWelcomeEmail({
-          recipientEmail: userEmail,
-          recipientName: name || userEmail.split("@")[0] || "there",
-          loginUrl: `${APP_URL}/login`,
-          trialDays: TRIAL_DAYS,
-          trialCredits: TRIAL_REPORT_CREDITS,
-        }),
-      { stage: "google-signin-welcome" },
-    ).catch((err) =>
-      console.error("[google-signin] Welcome email failed:", err),
-    );
-    notifyWelcome(newUser.id).catch((err) =>
-      console.error("[google-signin] notifyWelcome failed:", err),
-    );
-
-    // RA-1239: demo data seed so Google signups don't land on empty dashboard
-    seedDemoDataForNewUser(newUser.id).catch((err) =>
-      console.error("[google-signin] seedDemoDataForNewUser failed:", err),
-    );
+    // Serverless work is not guaranteed to survive after the response commits.
+    // Await each independent side effect without letting one failure suppress
+    // the others or change the generic successful sign-in response.
+    const sideEffects = await Promise.allSettled([
+      deliverEmailOnce({
+        idempotencyKey: `google-signin-welcome:${newUser.id}`,
+        kind: "GOOGLE_SIGNIN_WELCOME",
+        recipient: userEmail,
+        payloadIdentity: `${newUser.id}|${userEmail}|${APP_URL}`,
+        send: () =>
+          sendWelcomeEmail({
+            recipientEmail: userEmail,
+            recipientName: name || userEmail.split("@")[0] || "there",
+            loginUrl: `${APP_URL}/login`,
+            trialDays: TRIAL_DAYS,
+            trialCredits: TRIAL_REPORT_CREDITS,
+            idempotencyKey: `google-signin-welcome:${newUser.id}`,
+          }),
+      }),
+      notifyWelcome(newUser.id),
+      // RA-1239: demo data seed so Google signups don't land on empty dashboard.
+      seedDemoDataForNewUser(newUser.id),
+    ]);
+    for (const [index, result] of sideEffects.entries()) {
+      if (result.status === "rejected") {
+        console.error(
+          `[google-signin] post-signin side effect ${index + 1} failed:`,
+          result.reason,
+        );
+      }
+    }
 
     return NextResponse.json({
       ...newUser,

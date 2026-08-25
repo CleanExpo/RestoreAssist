@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json(
     {
       error:
-        "Runtime DDL endpoint retired. Use Prisma migrations and pnpm prisma:generate instead.",
+        "Runtime DDL endpoint retired. Use Prisma migrations and npm run prisma:generate instead.",
       code: "MIGRATIONS_ONLY",
     },
     { status: 410 },

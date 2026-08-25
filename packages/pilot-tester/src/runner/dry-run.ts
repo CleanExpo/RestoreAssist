@@ -11,7 +11,7 @@
  *   - Fixture invariants hold (5 companies, 7 domains, key uniqueness)
  *   - Manifest schema parses
  *   - Reporter renders cleanly against synthetic graded results
- *   - Baseline analyser tolerates missing baseline file
+ *   - Baseline analyser fails closed when the baseline file is missing
  *
  * If anything trips, exit non-zero so PR CI fails.
  */
@@ -32,7 +32,10 @@ export async function dryRun(): Promise<boolean> {
 
   // 1. Safety guard — accepts sandbox.
   try {
-    assertSandbox({ baseUrl: "https://restoreassist-sandbox.vercel.app" });
+    assertSandbox({
+      baseUrl: "https://restoreassist-sandbox.vercel.app",
+      allowedBaseUrls: ["https://restoreassist-sandbox.vercel.app"],
+    });
     checks.push({ name: "safety: accepts sandbox", ok: true });
   } catch (err) {
     checks.push({
@@ -100,7 +103,7 @@ export async function dryRun(): Promise<boolean> {
     });
   }
 
-  // 5. Reporter + baseline analyser tolerate missing baseline.
+  // 5. Reporter renders and the baseline analyser fails closed.
   try {
     const synthetic: RunReport = makeSyntheticReport();
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "pilot-dry-"));
@@ -114,8 +117,12 @@ export async function dryRun(): Promise<boolean> {
       const written = await writeReport(synthetic, regression);
       const md = await fs.readFile(written.markdownPath, "utf8");
       checks.push({
-        name: "reporter: renders + handles missing baseline",
-        ok: md.includes("Pilot tester run") && md.includes("No baseline found"),
+        name: "reporter: renders + fails closed without baseline",
+        ok:
+          !regression.pass &&
+          !regression.baselineFound &&
+          md.includes("Pilot tester run") &&
+          md.includes("No baseline found"),
       });
     } finally {
       process.chdir(originalCwd);
@@ -157,6 +164,7 @@ function makeSyntheticReport(): RunReport {
       inspectionId: "dry-run-inspection",
       domain: job.domain,
       generationId: "dry-run-generation",
+      assessmentSha256: "0".repeat(64),
       modelUsed: "rule-based",
       latencyMs: 42,
       costEstimateUsd: null,
@@ -176,10 +184,12 @@ function makeSyntheticReport(): RunReport {
   const startedAt = new Date().toISOString();
   return {
     runId: "dry-run",
+    revision: "0".repeat(40),
     baseUrl: "https://restoreassist-sandbox.vercel.app",
     startedAt,
     finishedAt: startedAt,
     totalMs: 1234,
+    dailyBudgetUsd: 5,
     results: [result],
     success: true,
   };

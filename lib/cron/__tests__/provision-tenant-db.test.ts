@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // the DB-touching side effects (test/migrate/store/markReady) are faked — no
 // live database. This is "the provision orchestration with its deps mocked".
 const h = vi.hoisted(() => ({
+  expectedConnectionEnc: undefined as string | undefined,
+  decrypt: vi.fn(() => "postgres://t:pw@tenant-host:5432/acme?sslmode=verify-full"),
   deps: {
     validate: vi.fn(() => ({ ok: true }) as { ok: boolean; error?: string }),
     test: vi.fn(async () => true),
@@ -13,24 +15,34 @@ const h = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/lib/tenant/provision-deps", () => ({ buildProvisionDeps: () => h.deps }));
+vi.mock("@/lib/tenant/provision-deps", () => ({
+  buildProvisionDeps: (expectedConnectionEnc: string) => {
+    h.expectedConnectionEnc = expectedConnectionEnc;
+    return h.deps;
+  },
+}));
 vi.mock("@/lib/credential-vault", () => ({
-  decrypt: vi.fn(() => "postgres://t:pw@tenant-host:5432/acme"),
+  decrypt: (...args: unknown[]) => h.decrypt(...args),
 }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { workspace: { findMany: vi.fn(), update: vi.fn() } },
+  prisma: { workspace: { findMany: vi.fn(), updateMany: vi.fn() } },
 }));
 
 import { prisma } from "@/lib/prisma";
 import { provisionPendingTenantDbs } from "../provision-tenant-db";
 
 const ws = (prisma as unknown as {
-  workspace: { findMany: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
+  workspace: { findMany: ReturnType<typeof vi.fn>; updateMany: ReturnType<typeof vi.fn> };
 }).workspace;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  ws.update.mockResolvedValue({});
+  ws.updateMany.mockResolvedValue({ count: 1 });
+  h.expectedConnectionEnc = undefined;
+  h.decrypt.mockReset();
+  h.decrypt.mockReturnValue(
+    "postgres://t:pw@tenant-host:5432/acme?sslmode=verify-full",
+  );
   h.deps.validate.mockReturnValue({ ok: true });
   h.deps.test.mockResolvedValue(true);
   h.deps.migrate.mockResolvedValue(undefined);
@@ -59,7 +71,8 @@ describe("provisionPendingTenantDbs — worker", () => {
     expect(h.deps.store).toHaveBeenCalledTimes(1);
     expect(h.deps.markReady).toHaveBeenCalledTimes(1);
     // markReady (the dep) owns the ready flip — the worker must not also write.
-    expect(ws.update).not.toHaveBeenCalled();
+    expect(ws.updateMany).not.toHaveBeenCalled();
+    expect(h.expectedConnectionEnc).toBe("enc:blob");
     expect(r.itemsProcessed).toBe(1);
     expect(r.metadata?.ready).toBe(1);
   });
@@ -71,8 +84,12 @@ describe("provisionPendingTenantDbs — worker", () => {
     const r = await provisionPendingTenantDbs();
 
     expect(h.deps.migrate).not.toHaveBeenCalled();
-    expect(ws.update).toHaveBeenCalledWith({
-      where: { id: "w1" },
+    expect(ws.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "w1",
+        tenantDbConnectionEnc: "enc:blob",
+        tenantDbStatus: { in: ["provisioning", "error"] },
+      },
       data: { tenantDbStatus: "error", tenantDbProvisionPhase: "test" },
     });
     expect(r.metadata?.errored).toBe(1);
@@ -86,8 +103,12 @@ describe("provisionPendingTenantDbs — worker", () => {
 
     expect(h.deps.store).not.toHaveBeenCalled();
     expect(h.deps.markReady).not.toHaveBeenCalled();
-    expect(ws.update).toHaveBeenCalledWith({
-      where: { id: "w1" },
+    expect(ws.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "w1",
+        tenantDbConnectionEnc: "enc:blob",
+        tenantDbStatus: { in: ["provisioning", "error"] },
+      },
       data: { tenantDbStatus: "error", tenantDbProvisionPhase: "migrate" },
     });
   });
@@ -122,10 +143,63 @@ describe("provisionPendingTenantDbs — worker", () => {
     await provisionPendingTenantDbs();
 
     expect(h.deps.test).not.toHaveBeenCalled();
-    expect(ws.update).toHaveBeenCalledWith({
-      where: { id: "w1" },
+    expect(ws.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "w1",
+        tenantDbConnectionEnc: null,
+        tenantDbStatus: { in: ["provisioning", "error"] },
+      },
       data: { tenantDbStatus: "error", tenantDbProvisionPhase: "validate" },
     });
+  });
+
+  it("discards stale error state after a concurrent connection replacement", async () => {
+    ws.findMany.mockResolvedValueOnce([pending()]);
+    h.deps.test.mockResolvedValue(false);
+    ws.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    const result = await provisionPendingTenantDbs();
+
+    expect(ws.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tenantDbConnectionEnc: "enc:blob" }),
+      }),
+    );
+    expect(result.metadata?.errored).toBe(0);
+    expect(result.metadata?.results).toEqual([{ id: "w1", status: "stale" }]);
+  });
+
+  it("quarantines corrupt ciphertext and processes the next workspace on the next run", async () => {
+    ws.findMany
+      .mockResolvedValueOnce([pending({ id: "corrupt", tenantDbConnectionEnc: "enc:bad" })])
+      .mockResolvedValueOnce([pending({ id: "good", tenantDbConnectionEnc: "enc:good" })]);
+    h.decrypt
+      .mockImplementationOnce(() => {
+        throw new Error("cipher authentication failed");
+      })
+      .mockReturnValueOnce(
+        "postgres://t:pw@tenant-host:5432/acme?sslmode=verify-full",
+      );
+
+    const corrupt = await provisionPendingTenantDbs();
+    const good = await provisionPendingTenantDbs();
+
+    expect(ws.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "corrupt",
+        tenantDbConnectionEnc: "enc:bad",
+        tenantDbStatus: { in: ["provisioning", "error"] },
+      },
+      data: {
+        tenantDbStatus: "credential_error",
+        tenantDbProvisionPhase: "validate",
+      },
+    });
+    expect(corrupt.metadata?.results).toEqual([
+      { id: "corrupt", status: "credential_error", phase: "validate" },
+    ]);
+    expect(good.metadata?.ready).toBe(1);
+    expect(h.expectedConnectionEnc).toBe("enc:good");
   });
 });
 

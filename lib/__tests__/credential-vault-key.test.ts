@@ -6,6 +6,7 @@ const ENV_KEYS = [
   "CREDENTIAL_ENCRYPTION_KEY",
   "INTEGRATION_ENCRYPTION_KEY",
   "NEXTAUTH_SECRET",
+  "NODE_ENV",
   "VERCEL_ENV",
 ] as const;
 const saved: Record<string, string | undefined> = {};
@@ -34,6 +35,12 @@ describe("credential-vault key resolution hardening (B5)", () => {
 
   it("refuses the NEXTAUTH_SECRET-only fallback in production", () => {
     process.env.VERCEL_ENV = "production";
+    process.env.NEXTAUTH_SECRET = "a".repeat(40);
+    expect(() => encrypt("secret")).toThrow(/production/i);
+  });
+
+  it("refuses the NEXTAUTH_SECRET-only fallback on non-Vercel production", () => {
+    process.env.NODE_ENV = "production";
     process.env.NEXTAUTH_SECRET = "a".repeat(40);
     expect(() => encrypt("secret")).toThrow(/production/i);
   });

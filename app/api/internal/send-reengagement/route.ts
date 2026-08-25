@@ -22,6 +22,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email-send";
 import { reengagementEmail } from "@/lib/email-templates";
 import { BRAND } from "@/lib/brand";
+import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
 
 /** Constant-time bearer check; fails closed when the token is unset. */
 function verifyToken(request: NextRequest): boolean {
@@ -68,8 +69,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!process.env.RESEND_API_KEY) {
-    return NextResponse.json({ sent: false, reason: "RESEND_API_KEY not set" });
+  if (!isEmailServiceConfigured()) {
+    return NextResponse.json({
+      sent: false,
+      reason: "Email service is not configured",
+    });
   }
 
   const baseUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
@@ -80,7 +84,7 @@ export async function POST(request: NextRequest) {
   const replyTo = process.env.RESEND_REPLY_TO || BRAND.company.supportEmail;
 
   try {
-    await sendEmail({
+    const messageId = await sendEmail({
       to: recipientEmail,
       subject: "Pick up where you left off — RestoreAssist",
       html: reengagementEmail({
@@ -90,7 +94,13 @@ export async function POST(request: NextRequest) {
       }),
       replyTo,
     });
-    return NextResponse.json({ sent: true, to: recipientEmail });
+    if (!messageId) {
+      return NextResponse.json(
+        { sent: false, reason: "Email provider did not confirm delivery" },
+        { status: 502 },
+      );
+    }
+    return NextResponse.json({ sent: true, to: recipientEmail, messageId });
   } catch {
     // sendEmail is fire-and-forget, but guard anyway — never leak internals.
     return NextResponse.json(

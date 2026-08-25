@@ -202,6 +202,23 @@ const nextConfig = {
     "qrcode",
   ],
 
+  // Tenant provisioning runs the repository-pinned Prisma CLI as a child
+  // process. These runtime assets are not discoverable from a normal static
+  // import, so include only the provisioning route's CLI, engines, config,
+  // schema, and tenant migration history in its server trace.
+  outputFileTracingIncludes: {
+    "/api/cron/provision-tenant-db": [
+      "prisma/tenant/**/*",
+      "node_modules/prisma/build/**/*",
+      "node_modules/prisma/config.*",
+      "node_modules/prisma/package.json",
+      "node_modules/@prisma/config/**/*",
+      "node_modules/@prisma/debug/**/*",
+      "node_modules/@prisma/engines/**/*",
+      "node_modules/@prisma/get-platform/**/*",
+    ],
+  },
+
   // Exclude non-Linux-x64 sharp platform binaries from serverless function bundles.
   // Vercel runs on Linux x64 — the 10 other platform-specific libvips packages
   // add ~140 MB of dead weight that pushes functions over the 250 MB limit.

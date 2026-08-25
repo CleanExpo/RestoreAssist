@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendPricingSetupReminderEmail } from "@/lib/email";
-import { sendWithRetry } from "@/lib/email-retry";
+import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
 import { isPricingConfigured } from "@/lib/pricing/effective-pricing";
 import type { CronJobResult } from "./runner";
 
@@ -109,15 +109,18 @@ export async function sendPricingSetupReminders(): Promise<CronJobResult> {
     }
 
     try {
-      await sendWithRetry(
-        () =>
+      await deliverEmailOnce({
+        idempotencyKey: `pricing-setup:${owner.id}`,
+        kind: "PRICING_SETUP",
+        recipient: owner.email as string,
+        payloadIdentity: `${owner.id}|${setupUrl}`,
+        send: () =>
           sendPricingSetupReminderEmail({
             recipientEmail: owner.email as string,
             recipientName: owner.name ?? "there",
             setupUrl,
           }),
-        { stage: "cron-pricing-setup-reminder" },
-      );
+      });
       // Record BEFORE the next iteration so a crash can't re-send on retry.
       await prisma.user.update({
         where: { id: owner.id },

@@ -91,7 +91,7 @@ export async function POST(
     const origin = request.headers.get("origin") ?? "";
     const url = `${origin}/portal/${token}`;
 
-    await sendEmail({
+    const messageId = await sendEmail({
       to: client.email,
       subject: "Your RestoreAssist claim — view and respond",
       html: `<p>Your assessor has shared your claim with you.</p>
@@ -100,7 +100,9 @@ export async function POST(
 <p>If you didn’t expect this, you can ignore this email.</p>`,
     });
 
-    return NextResponse.json({ data: { url, emailed: true } });
+    return NextResponse.json({
+      data: { url, emailed: Boolean(messageId), messageId },
+    });
   } catch (e) {
     return fromException(request, e);
   }

@@ -1,10 +1,10 @@
 name: iOS Release — App Store Connect
 
+# Reusable only. Direct tag/manual publishing was fail-open because it ran in
+# parallel with the release gate. A gated orchestrator may call this workflow
+# after score, version/build and owner-approval receipts are proven.
 on:
-  push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
-  workflow_dispatch: # Manual trigger from GitHub Actions UI
+  workflow_call:
 
 permissions:
   contents: read
@@ -19,20 +19,21 @@ jobs:
     # iOS 26 SDK or later." (RA-1842 run #25243191151, 2026-05-02)
     runs-on: macos-26
     timeout-minutes: 45
+    environment: mobile-release
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # RA-3010 — pre-flight: assert Info.plist reversed-client-ID matches the
       # GitHub repo variable GOOGLE_IOS_REVERSED_CLIENT_ID. Catches plist
-      # drift between staging/prod before notarisation. Skips gracefully if
-      # the variable isn't configured yet so existing releases aren't blocked.
+      # drift between staging/prod before notarisation. Missing configuration
+      # is a release failure: skipping would leave Google Sign-In unverified.
       - name: Verify Info.plist reversed-client-ID matches GOOGLE_IOS_REVERSED_CLIENT_ID
         env:
           EXPECTED_REVERSED_CLIENT_ID: ${{ vars.GOOGLE_IOS_REVERSED_CLIENT_ID }}
         run: |
           if [ -z "$EXPECTED_REVERSED_CLIENT_ID" ]; then
-            echo "::warning::GOOGLE_IOS_REVERSED_CLIENT_ID not configured — skipping plist drift check (RA-3010)"
-            exit 0
+            echo "::error::GOOGLE_IOS_REVERSED_CLIENT_ID is required; Google Sign-In cannot be released unverified (RA-3010)"
+            exit 1
           fi
           PLIST_VALUE=$(grep -oE 'com\.googleusercontent\.apps\.[0-9]+-[a-z0-9]+' ios/App/App/Info.plist | head -1 || true)
           if [ -z "$PLIST_VALUE" ]; then
@@ -47,16 +48,13 @@ jobs:
           fi
           echo "Info.plist reversed-client-ID matches GOOGLE_IOS_REVERSED_CLIENT_ID ✓"
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6
-        # version is read from package.json#packageManager (pnpm@9.15.9) — single SSOT
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "22"
-          cache: "pnpm"
+          cache: "npm"
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: npm ci
 
       # Server-hosted WebView — no Next.js build needed.
       # The iOS app loads https://restoreassist.app directly.
@@ -64,7 +62,7 @@ jobs:
       - name: Sync Capacitor iOS
         run: |
           mkdir -p ios/App/App/public
-          npx cap sync ios
+          npx --no-install cap sync ios
 
       - name: Install Fastlane
         run: gem install fastlane -N
@@ -277,14 +275,22 @@ jobs:
         # but nothing reached TestFlight). We grep altool's output
         # for the known failure markers and force exit 1 ourselves.
         run: |
+          set -o pipefail
           xcrun altool --validate-app \
             --type ios \
             --file ./build/RestoreAssist.ipa \
             --apiKey "$ASC_API_KEY_ID" \
             --apiIssuer "$ASC_ISSUER_ID" \
             --output-format normal 2>&1 | tee /tmp/altool-validate.log
-          if grep -Eq 'ERROR ITMS|Failed to validate|iris-code|ENTITY_ERROR' /tmp/altool-validate.log; then
+          # Remove only the known success phrase, not its whole line. The old
+          # `grep -v` deleted `No errors validating ... ENTITY_ERROR` entirely.
+          # A same-line App Store rejection therefore looked green.
+          if sed -E 's/No errors validating//Ig' /tmp/altool-validate.log | grep -Eiq 'error|fail|reject|denied|unauthori|authentication|invalid|iris-code|ENTITY_ERROR'; then
             echo "::error ::altool validation reported an error — failing the workflow"
+            exit 1
+          fi
+          if ! grep -Fq 'No errors validating' /tmp/altool-validate.log; then
+            echo "::error ::altool validation did not emit its positive success receipt"
             exit 1
           fi
 
@@ -294,8 +300,12 @@ jobs:
             --apiKey "$ASC_API_KEY_ID" \
             --apiIssuer "$ASC_ISSUER_ID" \
             --output-format normal 2>&1 | tee /tmp/altool-upload.log
-          if grep -Eq 'ERROR ITMS|Failed to upload|iris-code|ENTITY_ERROR' /tmp/altool-upload.log; then
+          if sed -E 's/No errors uploading|Successfully uploaded//Ig' /tmp/altool-upload.log | grep -Eiq 'error|fail|reject|denied|unauthori|authentication|invalid|iris-code|ENTITY_ERROR'; then
             echo "::error ::altool upload reported an error — failing the workflow"
+            exit 1
+          fi
+          if ! grep -Eq 'No errors uploading|Successfully uploaded' /tmp/altool-upload.log; then
+            echo "::error ::altool upload did not emit its positive success receipt"
             exit 1
           fi
 

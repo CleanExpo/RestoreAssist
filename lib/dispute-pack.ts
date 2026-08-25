@@ -140,6 +140,7 @@ function fmtDate(d: Date | string | null | undefined): string {
     day: "2-digit",
     month: "long",
     year: "numeric",
+    timeZone: "Australia/Sydney",
   });
 }
 
@@ -176,6 +177,7 @@ function fmtDateTime(d: Date | string | null | undefined): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    timeZone: "Australia/Sydney",
   });
 }
 

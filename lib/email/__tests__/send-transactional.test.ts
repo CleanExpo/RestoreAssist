@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const { resendSend } = vi.hoisted(() => ({ resendSend: vi.fn() }));
+
+vi.mock("resend", () => ({
+  Resend: class {
+    emails = { send: resendSend };
+  },
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: { organization: { findUnique: vi.fn().mockResolvedValue(null) } },
 }));
@@ -17,6 +25,7 @@ const original = {
 
 beforeEach(() => {
   fetchMock.mockReset();
+  resendSend.mockReset();
   vi.stubGlobal("fetch", fetchMock);
   delete process.env.RESEND_API_KEY;
   delete process.env.RESEND_FROM_EMAIL;
@@ -81,5 +90,91 @@ describe("sendTransactionalEmail (Mailtrap)", () => {
     });
     expect(result.data).toBeNull();
     expect(result.error?.message).toContain("unauthorized");
+    expect(result.error?.name).toBe("mailtrap_401");
+  });
+
+  it.each([408, 425, 429, 500, 503])(
+    "marks Mailtrap HTTP %i ambiguous because the provider may have accepted it",
+    async (status) => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status,
+        text: async () => JSON.stringify({ errors: ["temporary upstream failure"] }),
+      });
+
+      const result = await sendTransactionalEmail({
+        to: "a@b.com",
+        subject: "x",
+        html: "<p>x</p>",
+      });
+
+      expect(result).toMatchObject({
+        data: null,
+        error: { name: "send_failed" },
+        provider: "mailtrap",
+      });
+    },
+  );
+
+  it.each([
+    ["success=false", { success: false }],
+    ["missing message_ids", { success: true }],
+    ["empty message id", { success: true, message_ids: ["  "] }],
+  ])("refuses HTTP 2xx with %s instead of inventing a receipt", async (_case, body) => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify(body),
+    });
+
+    const result = await sendTransactionalEmail({
+      to: "a@b.com",
+      subject: "x",
+      html: "<p>x</p>",
+    });
+
+    expect(result.data).toBeNull();
+    expect(result.error).toMatchObject({ name: "mailtrap_missing_receipt" });
+  });
+});
+
+describe("sendTransactionalEmail (Resend)", () => {
+  beforeEach(() => {
+    delete process.env.MAILTRAP_API_KEY;
+    delete process.env.SENDER_EMAIL;
+    process.env.RESEND_API_KEY = "re_test_key";
+    process.env.RESEND_FROM_EMAIL = "support@restoreassist.app";
+  });
+
+  it("turns data:null,error:null into an explicit missing-receipt failure", async () => {
+    resendSend.mockResolvedValueOnce({ data: null, error: null });
+
+    const result = await sendTransactionalEmail({
+      to: "a@b.com",
+      subject: "x",
+      html: "<p>x</p>",
+    });
+
+    expect(result.data).toBeNull();
+    expect(result.error).toMatchObject({ name: "resend_missing_receipt" });
+  });
+
+  it("returns a trimmed provider receipt on a confirmed send", async () => {
+    resendSend.mockResolvedValueOnce({
+      data: { id: "  resend-msg-1  " },
+      error: null,
+    });
+
+    const result = await sendTransactionalEmail({
+      to: "a@b.com",
+      subject: "x",
+      html: "<p>x</p>",
+    });
+
+    expect(result).toMatchObject({
+      data: { id: "resend-msg-1" },
+      error: null,
+      provider: "resend",
+    });
   });
 });

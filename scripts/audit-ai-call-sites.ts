@@ -231,6 +231,14 @@ function extractModelHints(content: string): string[] {
 export function classifyAiTask(file: string, content: string): AiTaskClass {
   const normalizedFile = file.toLowerCase();
   const target = `${file}\n${content}`.toLowerCase();
+  // The pilot judge evaluates a persisted assessment for release evidence. It
+  // receives the same compliance-report data class as report drafting, and its
+  // server receipt is reservation-accounted before the result is returned.
+  // Keep this exact path explicit: a generic "judge" keyword is too broad to
+  // safely classify unrelated provider calls.
+  if (normalizedFile.endsWith("lib/pilot-tester/judge.ts")) {
+    return "report_drafting";
+  }
   if (includesAny(target, ["embedding", "embeddings.create", "text-embedding"])) {
     return "embeddings";
   }

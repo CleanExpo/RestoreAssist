@@ -8,6 +8,8 @@
     "run": "tsx src/index.ts run",
     "swarm": "tsx src/index.ts swarm",
     "dryrun": "tsx src/index.ts dryrun",
+    "preflight": "tsx src/runner/preflight.ts",
+    "validate:user-pool": "tsx src/runner/validate-user-pool.ts",
     "test": "vitest run"
   },
   "engines": {
@@ -19,9 +21,8 @@
     "undici": "^6.21.0"
   },
   "devDependencies": {
-    "@types/tough-cookie": "^4.0.5",
-    "tsx": "^4.23.0",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.10"
+    "tsx": "^4.23.12",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
   }
 }

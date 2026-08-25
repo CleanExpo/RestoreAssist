@@ -6,6 +6,13 @@ const userFindUnique = vi.fn();
 const userCreate = vi.fn();
 const encodeJwt = vi.fn();
 const logSecurityEvent = vi.fn();
+const userInviteFindFirst = vi.fn();
+const executeRaw = vi.fn();
+const nonceUpdateMany = vi.fn();
+const nonceFindFirst = vi.fn();
+const accountFindUnique = vi.fn();
+const accountCreate = vi.fn();
+const applyRateLimit = vi.fn();
 
 vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => "jwks"),
@@ -16,11 +23,33 @@ vi.mock("next-auth/jwt", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    $transaction: async (fn: (tx: unknown) => unknown) =>
+      fn({
+        $executeRaw: (...args: unknown[]) => executeRaw(...args),
+        userInvite: {
+          findFirst: (...args: unknown[]) => userInviteFindFirst(...args),
+        },
+        account: {
+          findUnique: (...args: unknown[]) => accountFindUnique(...args),
+          create: (...args: unknown[]) => accountCreate(...args),
+        },
+        user: {
+          findUnique: (...args: unknown[]) => userFindUnique(...args),
+          create: (...args: unknown[]) => userCreate(...args),
+        },
+      }),
+    nativeAuthNonce: {
+      findFirst: (...args: unknown[]) => nonceFindFirst(...args),
+      updateMany: (...args: unknown[]) => nonceUpdateMany(...args),
+    },
     user: {
       findUnique: (...args: unknown[]) => userFindUnique(...args),
       create: (...args: unknown[]) => userCreate(...args),
     },
   },
+}));
+vi.mock("@/lib/rate-limiter", () => ({
+  applyRateLimit: (...args: unknown[]) => applyRateLimit(...args),
 }));
 vi.mock("@/lib/security-audit", () => ({
   extractRequestContext: vi.fn(() => ({ ip: "127.0.0.1" })),
@@ -36,6 +65,20 @@ beforeEach(() => {
   encodeJwt.mockReset();
   logSecurityEvent.mockReset();
   logSecurityEvent.mockResolvedValue(undefined);
+  userInviteFindFirst.mockReset();
+  userInviteFindFirst.mockResolvedValue(null);
+  executeRaw.mockReset();
+  executeRaw.mockResolvedValue(1);
+  nonceUpdateMany.mockReset();
+  nonceUpdateMany.mockResolvedValue({ count: 1 });
+  nonceFindFirst.mockReset();
+  nonceFindFirst.mockResolvedValue({ id: "nonce-1" });
+  accountFindUnique.mockReset();
+  accountFindUnique.mockResolvedValue(null);
+  accountCreate.mockReset();
+  accountCreate.mockResolvedValue({ id: "account-1" });
+  applyRateLimit.mockReset();
+  applyRateLimit.mockResolvedValue(null);
 });
 
 function postRequest(body: Record<string, unknown>) {
@@ -48,6 +91,7 @@ function postRequest(body: Record<string, unknown>) {
 const VALID_BODY = {
   provider: "google",
   idToken: "a".repeat(64),
+  nonce: "native-client-nonce",
 };
 
 const VALID_CLAIMS = {
@@ -56,9 +100,160 @@ const VALID_CLAIMS = {
   email_verified: true,
   name: "Test User",
   picture: null,
+  nonce: "native-client-nonce",
 };
 
 describe("POST /api/auth/native-token-exchange", () => {
+  it("accepts the configured Android Web client as a Google token audience", async () => {
+    process.env.NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID =
+      "123456789-android-web.apps.googleusercontent.com";
+    jwtVerify.mockRejectedValueOnce(new Error("stop after options capture"));
+
+    try {
+      await POST(postRequest(VALID_BODY));
+      const options = jwtVerify.mock.calls[0][2] as { audience: string[] };
+      expect(options.audience).toContain(
+        "123456789-android-web.apps.googleusercontent.com",
+      );
+    } finally {
+      delete process.env.NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID;
+    }
+  });
+
+  it("never accepts an Android OAuth placeholder as a token audience", async () => {
+    process.env.NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID =
+      "TODO-from-google-cloud-console-web-client-id";
+    jwtVerify.mockRejectedValueOnce(new Error("stop after options capture"));
+
+    try {
+      await POST(postRequest(VALID_BODY));
+      const options = jwtVerify.mock.calls[0][2] as { audience: string[] };
+      expect(options.audience).not.toContain(
+        "TODO-from-google-cloud-console-web-client-id",
+      );
+    } finally {
+      delete process.env.NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID;
+    }
+  });
+
+  it("fails closed when a signed Google token omits nonce binding", async () => {
+    jwtVerify.mockResolvedValueOnce({
+      payload: { ...VALID_CLAIMS, nonce: undefined },
+    });
+    const response = await POST(postRequest(VALID_BODY));
+    expect(response.status).toBe(401);
+    expect((await response.json()).error.code).toBe(
+      "TOKEN_VERIFICATION_FAILED",
+    );
+    expect(userFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("consumes a server-issued nonce once and refuses replay", async () => {
+    jwtVerify.mockResolvedValue({ payload: VALID_CLAIMS });
+    userFindUnique.mockResolvedValue({
+      id: "u1", email: "user@example.com", name: "User", image: null,
+      role: "USER", needsOnboarding: false, organization: { setupCompletedAt: null },
+    });
+    encodeJwt.mockResolvedValue("session");
+    nonceUpdateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+    const first = await POST(postRequest(VALID_BODY));
+    const replay = await POST(postRequest(VALID_BODY));
+    expect(first.status).toBe(200);
+    expect(replay.status).toBe(401);
+    expect((await replay.json()).error.code).toBe("NONCE_REPLAYED_OR_EXPIRED");
+    expect(encodeJwt).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects an unknown challenge before remote JWKS verification", async () => {
+    nonceFindFirst.mockResolvedValueOnce(null);
+    const response = await POST(postRequest(VALID_BODY));
+    expect(response.status).toBe(401);
+    expect(jwtVerify).not.toHaveBeenCalled();
+    expect(nonceUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("rate-limits before remote JWKS verification", async () => {
+    applyRateLimit.mockResolvedValueOnce(
+      Response.json({ error: "Too many requests" }, { status: 429 }),
+    );
+    const response = await POST(postRequest(VALID_BODY));
+    expect(response.status).toBe(429);
+    expect(jwtVerify).not.toHaveBeenCalled();
+    expect(nonceFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("uses the linked provider subject when Apple omits email on later sign-ins", async () => {
+    jwtVerify.mockResolvedValueOnce({
+      payload: {
+        sub: "apple_sub",
+        nonce: "native-client-nonce",
+      },
+    });
+    accountFindUnique.mockResolvedValueOnce({
+      id: "account-apple",
+      user: {
+        id: "apple-user",
+        email: "relay@example.com",
+        name: "Apple User",
+        image: null,
+        role: "USER",
+        needsOnboarding: false,
+      },
+    });
+    userFindUnique.mockResolvedValueOnce({
+      organization: { setupCompletedAt: null },
+    });
+    encodeJwt.mockResolvedValueOnce("session");
+
+    const response = await POST(
+      postRequest({ ...VALID_BODY, provider: "apple" }),
+    );
+    expect(response.status).toBe(200);
+    expect(accountFindUnique).toHaveBeenCalledWith({
+      where: {
+        provider_providerAccountId: {
+          provider: "apple",
+          providerAccountId: "apple_sub",
+        },
+      },
+      include: { user: true },
+    });
+    expect(userCreate).not.toHaveBeenCalled();
+    expect(accountCreate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      { provider: "apple", idToken: "a".repeat(64) },
+      undefined,
+      400,
+      "VALIDATION",
+    ],
+    [
+      { provider: "apple", idToken: "a".repeat(64), nonce: "native-client-nonce" },
+      undefined,
+      401,
+      "TOKEN_VERIFICATION_FAILED",
+    ],
+  ])(
+    "fails closed when a signed Apple token lacks request/claim nonce binding",
+    async (body, tokenNonce, expectedStatus, expectedCode) => {
+      jwtVerify.mockResolvedValueOnce({
+        payload: {
+          ...VALID_CLAIMS,
+          sub: "apple_sub",
+          nonce: tokenNonce,
+        },
+      });
+      const response = await POST(postRequest(body));
+      expect(response.status).toBe(expectedStatus);
+      expect((await response.json()).error.code).toBe(expectedCode);
+      expect(userFindUnique).not.toHaveBeenCalled();
+    },
+  );
+
   it("does not expose token verification exception details", async () => {
     jwtVerify.mockRejectedValueOnce(
       new Error("signature failed for kid internal-secret"),
@@ -75,6 +270,56 @@ describe("POST /api/auth/native-token-exchange", () => {
         message: "Token verification failed",
       },
     });
+  });
+
+  it("rejects a signed token whose provider email is not verified", async () => {
+    jwtVerify.mockResolvedValueOnce({
+      payload: { ...VALID_CLAIMS, email_verified: false },
+    });
+    userFindUnique
+      .mockResolvedValueOnce({
+        id: "victim",
+        email: "user@example.com",
+        name: "Victim",
+        image: null,
+        role: "ADMIN",
+        needsOnboarding: false,
+      })
+      .mockResolvedValueOnce({ organization: { setupCompletedAt: null } });
+    encodeJwt.mockResolvedValueOnce("mutant-session");
+    const response = await POST(postRequest(VALID_BODY));
+    expect(response.status).toBe(401);
+    expect((await response.json()).error.code).toBe("EMAIL_NOT_VERIFIED");
+    expect(userFindUnique).not.toHaveBeenCalled();
+    expect(encodeJwt).not.toHaveBeenCalled();
+  });
+
+  it("refuses owner sign-in while a live team invitation owns the email", async () => {
+    jwtVerify.mockResolvedValueOnce({ payload: VALID_CLAIMS });
+    userInviteFindFirst.mockResolvedValueOnce({ id: "invite_1" });
+    const response = await POST(postRequest(VALID_BODY));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.code).toBe("ACTIVE_INVITE");
+    expect(userCreate).not.toHaveBeenCalled();
+    expect(encodeJwt).not.toHaveBeenCalled();
+  });
+
+  it("fails closed instead of minting a native session for an existing 2FA account", async () => {
+    jwtVerify.mockResolvedValueOnce({ payload: VALID_CLAIMS });
+    userFindUnique.mockResolvedValueOnce({
+      id: "u-2fa",
+      email: "user@example.com",
+      name: "Protected User",
+      image: null,
+      role: "ADMIN",
+      needsOnboarding: false,
+      twoFactorEnabled: true,
+    });
+    const response = await POST(postRequest(VALID_BODY));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.code).toBe("NATIVE_2FA_REQUIRED");
+    expect(encodeJwt).not.toHaveBeenCalled();
+    expect(findSessionCookie(response)).toBeUndefined();
   });
 
   it("does not expose user create exception details", async () => {
@@ -170,6 +415,17 @@ describe("POST /api/auth/native-token-exchange — persistence contract", () => 
     expect(body.isNewUser).toBe(false);
     // Existing user is redeemed, not re-created.
     expect(userCreate).not.toHaveBeenCalled();
+    expect(userFindUnique).toHaveBeenNthCalledWith(1, {
+      where: { email: "user@example.com" },
+    });
+    expect(accountCreate).toHaveBeenCalledWith({
+      data: {
+        userId: EXISTING_USER.id,
+        type: "oauth",
+        provider: "google",
+        providerAccountId: "google_sub",
+      },
+    });
 
     const cookie = findSessionCookie(response);
     expect(cookie).toBeDefined();
@@ -223,6 +479,11 @@ describe("POST /api/auth/native-token-exchange — persistence contract", () => 
     expect(response.status).toBe(200);
     expect(body.isNewUser).toBe(true);
     expect(userCreate).toHaveBeenCalledTimes(1);
+    expect(userCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ email: "user@example.com" }),
+      }),
+    );
 
     const cookie = findSessionCookie(response);
     expect(cookie).toBeDefined();

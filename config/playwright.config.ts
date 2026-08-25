@@ -23,10 +23,6 @@ export default defineConfig({
     baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    /* RA-4987: prod smoke bypass for Vercel BotID. */
-    extraHTTPHeaders: process.env.SMOKE_TEST_BOT_BYPASS_SECRET
-      ? { "x-smoke-test-token": process.env.SMOKE_TEST_BOT_BYPASS_SECRET }
-      : undefined,
   },
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },
@@ -59,7 +55,7 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: "pnpm dev",
+        command: "npm run dev",
         url: "http://localhost:3000",
         reuseExistingServer: !process.env.CI,
         timeout: 180_000,

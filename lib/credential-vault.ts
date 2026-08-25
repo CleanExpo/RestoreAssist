@@ -73,7 +73,10 @@ function getDefaultKey(): Buffer {
   // Production boot guard: a dedicated vault key is mandatory in prod. Never
   // silently fall back to NEXTAUTH_SECRET there — rotating the auth secret
   // would make every stored credential permanently undecryptable.
-  if (!dedicated && process.env.VERCEL_ENV === "production") {
+  if (
+    !dedicated &&
+    (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production")
+  ) {
     throw new Error(
       "CREDENTIAL_ENCRYPTION_KEY (or INTEGRATION_ENCRYPTION_KEY) must be set in production; refusing to fall back to NEXTAUTH_SECRET.",
     );

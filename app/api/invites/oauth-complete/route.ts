@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { isUserInviteToken } from "@/lib/public-token-shape";
+import { canonicalEmail } from "@/lib/email-identity";
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,11 +17,11 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const token = req.cookies.get("invite_token")?.value;
-    if (!token) {
+    const token = req.nextUrl.searchParams.get("token") ?? "";
+    if (!isUserInviteToken(token)) {
       return apiError(req, {
         code: "VALIDATION",
-        message: "Missing invite token",
+        message: "Missing or invalid invite token",
         status: 400,
       });
     }
@@ -58,30 +60,24 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Override the OAuth signup defaults (which assumed this user owns their
-    // own org — see lib/auth.ts events.createUser). Bind them to the invited
-    // org as a USER. Trial/credits stay intact — technicians still get a trial.
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: {
-        role: invite.role,
-        organizationId: invite.organizationId,
-        needsOnboarding: false,
-      } as any,
-    });
+    if (
+      !session.user.email ||
+      canonicalEmail(session.user.email) !== canonicalEmail(invite.email)
+    ) {
+      return apiError(req, {
+        code: "FORBIDDEN",
+        message: "The signed-in Google account does not match this invitation",
+        status: 403,
+      });
+    }
 
-    await prisma.userInvite.update({
-      where: { id: invite.id },
-      data: { usedAt: new Date() },
-    });
-
+    // Do not consume or mutate membership here. Step 2 still needs consent and
+    // profile data; its authenticated POST performs both writes atomically.
     const url = req.nextUrl.clone();
     url.pathname = `/invite/${token}`;
+    url.search = "";
     url.searchParams.set("step", "2");
-    // Clear the invite_token cookie now that we've used it.
-    const response = NextResponse.redirect(url, 307);
-    response.cookies.delete("invite_token");
-    return response;
+    return NextResponse.redirect(url, 307);
   } catch (err) {
     return fromException(req, err, { stage: "oauth-complete:get" });
   }

@@ -1,6 +1,5 @@
 $ErrorActionPreference = "Stop"
 
-$PnpmVersion = "9.15.9"
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 
 function Write-Problem {
@@ -39,63 +38,38 @@ if ($NodeMajor -ne "22") {
 }
 Write-Host "[bootstrap] node: $NodeVersion"
 
-$CorepackCommand = Get-Command corepack -ErrorAction SilentlyContinue
-if ($CorepackCommand) {
-  Write-Host "[bootstrap] corepack: $(& corepack --version)"
-  & corepack enable
-  & corepack prepare "pnpm@$PnpmVersion" --activate
-} elseif (Get-Command npm -ErrorAction SilentlyContinue) {
-  Write-Host "[bootstrap] corepack unavailable; installing pnpm@$PnpmVersion as global tooling via npm"
-  & npm install -g "pnpm@$PnpmVersion"
-} else {
-  Write-Problem "Neither corepack nor npm is available." "The shell cannot activate pnpm." "Install Node.js with corepack or npm available." "Re-run this bootstrap script."
+if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+  Write-Problem "npm is unavailable." "The Node.js installation does not expose npm on PATH." "Install the complete Node.js 22.x distribution." "Re-run this bootstrap script."
   exit 1
 }
-
-$PnpmCommand = Get-Command pnpm -ErrorAction SilentlyContinue
-if (-not $PnpmCommand -and (Get-Command npm -ErrorAction SilentlyContinue)) {
-  $NpmPrefix = (& npm prefix -g)
-  $NpmBin = Join-Path $NpmPrefix "bin"
-  if (Test-Path (Join-Path $NpmBin "pnpm")) {
-    $env:PATH = "$NpmBin$([IO.Path]::PathSeparator)$env:PATH"
-  }
-}
-
-if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
-  Write-Problem "pnpm is still unavailable after activation." "Global npm binaries may not be on PATH." "Add the npm global bin directory to PATH." "Run 'npm prefix -g' to find the global prefix, then re-run this script."
-  exit 1
-}
-
-$ActualPnpmVersion = (& pnpm --version)
-if ($ActualPnpmVersion -ne $PnpmVersion) {
-  Write-Problem "pnpm version mismatch: $ActualPnpmVersion." "RestoreAssist pins packageManager to pnpm@$PnpmVersion." "Run 'corepack prepare pnpm@$PnpmVersion --activate' or install pnpm@$PnpmVersion globally." "Re-run this bootstrap script."
-  exit 1
-}
-Write-Host "[bootstrap] pnpm: $ActualPnpmVersion"
+Write-Host "[bootstrap] npm: $(& npm --version)"
 
 Set-Location $RepoRoot
 
-if (-not (Test-Path "pnpm-lock.yaml")) {
-  Write-Problem "pnpm-lock.yaml is missing." "RestoreAssist uses pnpm as the only repo package manager." "Restore pnpm-lock.yaml before installing dependencies." "Stop Phase 0 and repair package manager state."
+if (-not (Test-Path "package-lock.json")) {
+  Write-Problem "package-lock.json is missing." "RestoreAssist uses npm ci and package-lock.json as its dependency source of truth." "Restore the committed package-lock.json before installing dependencies." "Stop Phase 0 and repair package manager state."
   exit 1
 }
 
-@("package-lock.json", "yarn.lock", "bun.lockb", "bun.lock") | ForEach-Object {
+@("pnpm-lock.yaml", "yarn.lock", "bun.lockb", "bun.lock") | ForEach-Object {
   if (Test-Path $_) {
-    Write-Problem "Unexpected lockfile found: $_." "Multiple package manager lockfiles make installs non-deterministic." "Remove the non-pnpm lockfile and keep pnpm-lock.yaml authoritative." "Re-run this bootstrap script."
+    Write-Problem "Unexpected lockfile found: $_." "Multiple package manager lockfiles make installs non-deterministic." "Remove the non-npm lockfile and keep package-lock.json authoritative." "Re-run this bootstrap script."
     exit 1
   }
 }
 
-Write-Host "[bootstrap] installing dependencies from pnpm-lock.yaml"
-& pnpm install --frozen-lockfile
+Write-Host "[bootstrap] validating release bootstrap contract"
+& node scripts/ci/check-release-bootstrap.mjs
+
+Write-Host "[bootstrap] installing dependencies from package-lock.json"
+& npm ci
 
 Write-Host "[bootstrap] generating Prisma client"
-& pnpm prisma:generate
+& npm run prisma:generate
 
 Write-Host "[bootstrap] running baseline validation"
-& pnpm type-check
-& pnpm lint
-& pnpm exec vitest run
+& npm run type-check
+& npm run lint
+& npm run test:unit
 
 Write-Host "[bootstrap] PASS: local RestoreAssist validation environment is ready for Phase 1."

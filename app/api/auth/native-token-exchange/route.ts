@@ -37,6 +37,8 @@ import { encode as encodeJwt } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 // Free-trial grant — sourced from PRICING_CONFIG (the SSOT) so the native iOS
 // signup path grants the identical 15-day / 30-credit trial as email/register
@@ -60,6 +62,13 @@ const GOOGLE_JWKS = createRemoteJWKSet(
 // Google issues tokens with either `https://accounts.google.com` or
 // `accounts.google.com`. Both are valid (per Google's docs).
 const GOOGLE_ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
+const GOOGLE_CLIENT_ID_PATTERN = /^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/i;
+
+function configuredGoogleAudience(value: string | undefined): string | null {
+  const candidate = value?.trim();
+  if (!candidate || /todo|placeholder|replace[-_ ]?me/i.test(candidate)) return null;
+  return GOOGLE_CLIENT_ID_PATTERN.test(candidate) ? candidate : null;
+}
 
 // Match NextAuth's session config in lib/auth.ts:289-307. These constants
 // MUST stay in sync; if NextAuth's cookie config changes, update here too.
@@ -144,7 +153,10 @@ async function verifyAndNormaliseToken(
       process.env.GOOGLE_IOS_CLIENT_ID,
       process.env.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID,
       "292141944467-8hhd4eub33tplq6ep5lc9iltu8jcatvp.apps.googleusercontent.com",
-    ].filter(Boolean) as string[];
+      process.env.NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID,
+    ]
+      .map(configuredGoogleAudience)
+      .filter((audience): audience is string => audience !== null);
 
     const { payload: verified } = await jwtVerify(idToken, GOOGLE_JWKS, {
       issuer: GOOGLE_ISSUERS,
@@ -156,22 +168,22 @@ async function verifyAndNormaliseToken(
   // Replay protection: the IdP is SUPPOSED to echo the nonce we sent in
   // the token's `nonce` claim. In practice:
   //   - Apple ASAuthorizationController echoes it back
-  //   - Google via capgo SocialLogin 1.0.4(15) DOES NOT — the plugin
-  //     drops `options.nonce` before calling GIDSignIn, so Google's
-  //     idToken has no nonce claim at all (claim=undefined).
-  //     Evidence: SecurityEvent 2026-05-15T10:29:08Z claim=… (empty).
-  //
-  // Strategy: enforce nonce check IF AND ONLY IF the IdP returned one.
-  // When the claim is absent (Google native iOS via capgo), skip and
-  // rely on the JWT's iss/aud/exp/signature for authenticity. Standard
-  // NextAuth OAuth flows don't enforce nonce on their callback either,
-  // so this matches the security posture of the web path.
+  // Fail closed for Google: a signed bearer token without client-bound nonce
+  // proof is replayable until expiry. The native client/plugin must provide and
+  // receive the nonce; an older plugin that drops it is not an acceptable auth
+  // downgrade.
   //
   // When the claim IS present, accept either plaintext OR SHA-256 hex
   // match for plugin-version forward compatibility.
   //
-  // TODO(RA-iOS-nonce): file follow-up to either patch the capgo plugin
-  // upstream to forward the nonce, or swap to a plugin that does.
+  if (!noncePlaintext) {
+    throw new Error(`${provider} native token exchange requires a client nonce`);
+  }
+  if (
+    (typeof payload.nonce !== "string" || payload.nonce.length === 0)
+  ) {
+    throw new Error(`${provider} native token is missing nonce binding`);
+  }
   if (
     noncePlaintext &&
     typeof payload.nonce === "string" &&
@@ -193,8 +205,10 @@ async function verifyAndNormaliseToken(
   const sub = typeof payload.sub === "string" ? payload.sub : null;
   if (!sub) throw new Error(`${provider} token missing sub claim`);
 
-  const email =
-    typeof payload.email === "string" ? payload.email.toLowerCase() : null;
+  // Preserve the provider-signed claim exactly while verifying the JWT. The
+  // account boundary canonicalises it only after signature/issuer/audience
+  // verification has succeeded.
+  const email = typeof payload.email === "string" ? payload.email : null;
   const emailVerified =
     payload.email_verified === true || payload.email_verified === "true";
   const name = typeof payload.name === "string" ? payload.name : null;
@@ -216,6 +230,14 @@ async function verifyAndNormaliseToken(
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 10,
+    windowMs: 15 * 60 * 1000,
+    prefix: "native-token-exchange",
+    failClosedOnUpstashError: true,
+  });
+  if (rateLimited) return rateLimited;
+
   let body: ExchangeBody;
   try {
     body = (await request.json()) as ExchangeBody;
@@ -242,6 +264,40 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  if (typeof body.nonce !== "string" || body.nonce.length < 16) {
+    return jsonError(
+      request,
+      400,
+      "VALIDATION",
+      "Missing or malformed native authentication challenge",
+    );
+  }
+
+  // Reject invented/replayed challenges before remote JWKS work. The nonce is
+  // consumed only after signature verification, but an attacker cannot turn an
+  // arbitrary bearer string into an expensive outbound verification request.
+  const nonceHash = crypto
+    .createHash("sha256")
+    .update(body.nonce)
+    .digest("hex");
+  const challenge = await (prisma as any).nativeAuthNonce.findFirst({
+    where: {
+      nonceHash,
+      provider,
+      usedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    select: { id: true },
+  });
+  if (!challenge) {
+    return jsonError(
+      request,
+      401,
+      "NONCE_REPLAYED_OR_EXPIRED",
+      "Native authentication challenge is invalid or expired",
+    );
+  }
+
   let claims: VerifiedClaims;
   try {
     claims = await verifyAndNormaliseToken(provider, body.idToken, body.nonce);
@@ -255,21 +311,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  if (!claims.email) {
-    // Apple sometimes omits email on subsequent sign-ins (only first
-    // returns it). Google omits it only if the user revoked the email
-    // scope. We require it for find-or-create today; a future change
-    // could store appleSubject/googleSubject and look up by sub.
+  const consumed = await (prisma as any).nativeAuthNonce.updateMany({
+    where: {
+      id: challenge.id,
+      nonceHash,
+      provider,
+      usedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    data: { usedAt: new Date() },
+  });
+  if (consumed.count !== 1) {
     return jsonError(
       request,
       401,
-      "MISSING_EMAIL",
-      provider === "apple"
-        ? "Apple token missing email claim. On a subsequent sign-in, sign out of Sign in with Apple in iOS Settings → Apple ID → Sign in with Apple, then retry."
-        : "Google token missing email claim. Re-grant the email scope and retry.",
+      "NONCE_REPLAYED_OR_EXPIRED",
+      "Native authentication challenge is invalid or expired",
     );
   }
-  const email = claims.email;
+
+  let email = claims.email ? canonicalEmail(claims.email) : null;
 
   // Find-or-create user. PrismaAdapter normally handles this for OAuth;
   // for our native flow we replicate the same shape — including the
@@ -277,37 +338,101 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let user: any;
   let isNewUser = false;
   try {
-    user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      isNewUser = true;
-      try {
-        user = await prisma.user.create({
+    const result = await prisma.$transaction(async (tx) => {
+      const linked = await tx.account.findUnique({
+        where: {
+          provider_providerAccountId: {
+            provider,
+            providerAccountId: claims.sub,
+          },
+        },
+        include: { user: true },
+      });
+      if (linked) return { kind: "LINKED" as const, user: linked.user };
+
+      if (!email) return { kind: "MISSING_EMAIL" as const };
+      if (!claims.emailVerified) return { kind: "EMAIL_NOT_VERIFIED" as const };
+      await lockEmailIdentity(tx, email);
+      const activeInvite = await tx.userInvite.findFirst({
+        where: {
+          email: { equals: email, mode: "insensitive" },
+          usedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        select: { id: true },
+      });
+      if (activeInvite) return { kind: "INVITED" as const };
+
+      const existing = await tx.user.findUnique({ where: { email } });
+      if (existing) {
+        await tx.account.create({
           data: {
-            email,
-            name: claims.name,
-            image: claims.picture,
-            needsOnboarding: true,
-            role: "ADMIN",
-            subscriptionStatus: "TRIAL",
-            creditsRemaining: TRIAL_REPORT_CREDITS,
-            totalCreditsUsed: 0,
-            trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS),
-            quickFillCreditsRemaining: TRIAL_QUICK_FILL_CREDITS,
-            totalQuickFillUsed: 0,
-            emailVerified: claims.emailVerified ? new Date() : null,
-          } as any,
+            userId: existing.id,
+            type: "oauth",
+            provider,
+            providerAccountId: claims.sub,
+          },
         });
-      } catch (err) {
-        console.error("[native-token-exchange] user create failed:", err);
-        return jsonError(
-          request,
-          500,
-          "USER_CREATE_FAILED",
-          USER_CREATE_FAILED_MESSAGE,
-          email,
-        );
+        return { kind: "EXISTING" as const, user: existing };
       }
+
+      const created = await tx.user.create({
+        data: {
+          email,
+          name: claims.name,
+          image: claims.picture,
+          needsOnboarding: true,
+          role: "ADMIN",
+          subscriptionStatus: "TRIAL",
+          creditsRemaining: TRIAL_REPORT_CREDITS,
+          totalCreditsUsed: 0,
+          trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS),
+          quickFillCreditsRemaining: TRIAL_QUICK_FILL_CREDITS,
+          totalQuickFillUsed: 0,
+          emailVerified: new Date(),
+        } as any,
+      });
+      await tx.account.create({
+        data: {
+          userId: created.id,
+          type: "oauth",
+          provider,
+          providerAccountId: claims.sub,
+        },
+      });
+      return { kind: "NEW" as const, user: created };
+    });
+    if (result.kind === "MISSING_EMAIL") {
+      return jsonError(
+        request,
+        401,
+        "MISSING_EMAIL",
+        provider === "apple"
+          ? "Apple did not return an email for this unlinked identity. Re-authorise RestoreAssist in Sign in with Apple and retry."
+          : "Google token missing email claim. Re-grant the email scope and retry.",
+      );
     }
+    if (result.kind === "EMAIL_NOT_VERIFIED") {
+      return jsonError(
+        request,
+        401,
+        "EMAIL_NOT_VERIFIED",
+        "A provider-verified email address is required",
+        email ?? undefined,
+      );
+    }
+    if (result.kind === "INVITED") {
+      return jsonError(
+        request,
+        409,
+        "ACTIVE_INVITE",
+        "A team invitation is waiting for this email. Use the secure invitation link instead.",
+        email ?? undefined,
+      );
+    }
+    user = result.user;
+    email = canonicalEmail(user.email);
+    isNewUser = result.kind === "NEW";
   } catch (err) {
     console.error("[native-token-exchange] user lookup failed:", err);
     return jsonError(
@@ -315,7 +440,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       500,
       "USER_CREATE_FAILED",
       USER_CREATE_FAILED_MESSAGE,
-      email,
+      email ?? undefined,
+    );
+  }
+
+  // The native token proves control of the external identity, but it is not a
+  // replacement for an enrolled RestoreAssist second factor. Until the native
+  // client implements a dedicated TOTP/recovery-code challenge, fail closed
+  // and direct the user through the web login flow that enforces 2FA.
+  if (!isNewUser && Boolean((user as { twoFactorEnabled?: boolean }).twoFactorEnabled)) {
+    return jsonError(
+      request,
+      409,
+      "NATIVE_2FA_REQUIRED",
+      "This account requires two-factor authentication. Sign in through the secure web login.",
+      email ?? undefined,
     );
   }
 

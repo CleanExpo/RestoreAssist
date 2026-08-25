@@ -17,21 +17,35 @@
 
 const REQUIRED_VARS = [
   "DATABASE_URL",
+  "CREDENTIAL_ENCRYPTION_KEY",
   "NEXTAUTH_SECRET",
   "NEXTAUTH_URL",
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
+  "NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID",
   "STRIPE_WEBHOOK_SECRET", // RA-1801 — missing webhook secret silently drifts subscription state
 ] as const;
 
 const RECOMMENDED_VARS = [
   "STRIPE_SECRET_KEY",
   "CLOUDINARY_URL",
-  "RESEND_API_KEY",
   // TURNSTILE_SECRET_KEY removed — replaced by Vercel BotID (no env var needed).
   "XERO_WEBHOOK_KEY", // RA-1802 — without it, Xero invoice/payment events return 500
   "GITHUB_WEBHOOK_SECRET", // RA-1803 — without it, auto-release-notes returns 500
 ] as const;
+
+const TRANSACTIONAL_EMAIL_RECOMMENDATION =
+  "MAILTRAP_API_KEY+SENDER_EMAIL_OR_RESEND_API_KEY+RESEND_FROM_EMAIL";
+
+function hasTransactionalEmailProvider(): boolean {
+  const mailtrapReady = Boolean(
+    process.env.MAILTRAP_API_KEY?.trim() && process.env.SENDER_EMAIL?.trim(),
+  );
+  const resendReady = Boolean(
+    process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM_EMAIL?.trim(),
+  );
+  return mailtrapReady || resendReady;
+}
 
 export interface EnvStatus {
   missingRequired: readonly string[];
@@ -47,7 +61,12 @@ export interface EnvStatus {
  */
 export function getEnvStatus(): EnvStatus {
   const missingRequired = REQUIRED_VARS.filter((v) => !process.env[v]);
-  const missingRecommended = RECOMMENDED_VARS.filter((v) => !process.env[v]);
+  const missingRecommended: string[] = RECOMMENDED_VARS.filter(
+    (v) => !process.env[v],
+  );
+  if (!hasTransactionalEmailProvider()) {
+    missingRecommended.push(TRANSACTIONAL_EMAIL_RECOMMENDATION);
+  }
   return {
     missingRequired,
     missingRecommended,

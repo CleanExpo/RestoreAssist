@@ -13,7 +13,7 @@
 #              no live-server (smoke) tests.
 #   --quick    interim gates only — type-check + lint + no-emoji. Fastest; for
 #              frequent mid-session handoffs.
-#   --full     install deps first (pnpm install), then the standard gates plus
+#   --full     install deps first (npm ci), then the standard gates plus
 #              the real production build and the DB-independent audit suite.
 #
 # Escape hatch: HANDOFF_GATE_SKIP=1 short-circuits to exit 0 (logged loudly),
@@ -91,14 +91,14 @@ gate_clean() {
   return 0
 }
 
-gate_deps()      { command -v pnpm >/dev/null 2>&1 || { echo "pnpm not on PATH"; return 77; }; pnpm install --frozen-lockfile; }
-gate_generated() { need_deps && pnpm prisma:generate; }
-gate_type()      { need_deps && pnpm type-check; }
-gate_lint()      { need_deps && pnpm lint; }
-gate_emoji()     { need_deps && pnpm check:no-emoji; }
-gate_build_nodb(){ need_deps && pnpm validate:next-build-no-db; }
-gate_build_full(){ need_deps && pnpm build; }
-gate_security()  { need_deps && pnpm security:scan; }
+gate_deps()      { command -v npm >/dev/null 2>&1 || { echo "npm not on PATH"; return 77; }; npm ci; }
+gate_generated() { need_deps && npm run prisma:generate; }
+gate_type()      { need_deps && npm run type-check; }
+gate_lint()      { need_deps && npm run lint; }
+gate_emoji()     { need_deps && npm run check:no-emoji; }
+gate_build_nodb(){ need_deps && npm run validate:next-build-no-db; }
+gate_build_full(){ need_deps && npm run build; }
+gate_security()  { need_deps && npm run security:scan; }
 
 # The content/convention guards that .github/workflows/pr-checks.yml enforces on
 # every PR. They were absent here, so "RESULT: green" could — and on 2026-07-29
@@ -108,14 +108,14 @@ gate_security()  { need_deps && pnpm security:scan; }
 gate_guards() {
   need_deps || return 77
   local rc=0
-  pnpm check:no-lucide          || rc=1
-  pnpm check:spec-docs          || rc=1
-  pnpm check:encoding           || rc=1
-  pnpm check:ssot               || rc=1
-  pnpm check:standards          || rc=1
-  pnpm check:no-verbatim        || rc=1
-  pnpm check:marketing-verbatim || rc=1
-  pnpm check:au-english         || rc=1
+  npm run check:no-lucide          || rc=1
+  npm run check:spec-docs          || rc=1
+  npm run check:encoding           || rc=1
+  npm run check:ssot               || rc=1
+  npm run check:standards          || rc=1
+  npm run check:no-verbatim        || rc=1
+  npm run check:marketing-verbatim || rc=1
+  npm run check:au-english         || rc=1
   return $rc
 }
 
@@ -146,7 +146,7 @@ gate_guards() {
 # URL names as a side effect of a handoff check. Same hazard class this script
 # already refuses for `prisma migrate deploy`.
 #
-# The safe CI-representative path is `pnpm test:db`, which stands up its own
+# The safe CI-representative path is `npm run test:db`, which stands up its own
 # throwaway pgvector container and destroys it on exit. It is run deliberately by
 # an operator, never implicitly by this gate.
 gate_tests() {
@@ -155,20 +155,20 @@ gate_tests() {
   echo "The DB-backed suites truncate users/workspaces/organizations, so keying"
   echo "them off DATABASE_URL would destroy data in whatever DB it points at."
   echo "This gate is NOT green, it did not run."
-  echo "CI-representative run, isolated and disposable:  pnpm test:db"
+  echo "CI-representative run, isolated and disposable:  npm run test:db"
   return 77
 }
 
 gate_audits() {
   need_deps || return 77
   local rc=0
-  pnpm audit:ai   || rc=1
-  pnpm audit:api  || rc=1
-  pnpm audit:rls  || rc=1
+  npm run audit:ai   || rc=1
+  npm run audit:api  || rc=1
+  npm run audit:rls  || rc=1
   # audit:prod is ENFORCING in CI (pr-checks.yml, RA-6719): a new high/critical
   # production advisory fails the PR. Omitting it here meant --full could report
   # green while CI redded on a fresh CVE.
-  pnpm audit:prod || rc=1
+  npm run audit:prod || rc=1
   return $rc
 }
 
@@ -176,8 +176,8 @@ gate_audits() {
 # (pr-checks.yml) runs three `prisma migrate resolve --applied`, then
 # `migrate deploy`, then `migrate status`.
 #
-# That sequence IS reproducible locally — `pnpm test:db` (scripts/ci/test-with-db.sh)
-# provisions the same pgvector/pgvector:pg16 image CI uses, pre-resolves the same
+# That sequence IS reproducible locally — `npm run test:db` (scripts/ci/test-with-db.sh)
+# provisions the same digest-pinned pgvector 0.8.6-pg16 image CI uses, pre-resolves the same
 # migrations, applies them, and tears the container down on exit. What is unsafe
 # is running it from HERE against whatever DATABASE_URL happens to be set: that
 # would apply migrations to a real database as a side effect of a handoff check.
@@ -186,9 +186,9 @@ gate_audits() {
 # but never executes migration SQL, so it cannot catch a migration that fails on
 # apply — the exact class RA-1546 exists to catch — while appearing to cover it.
 #
-# So: drift stays a CI gate, and `pnpm test:db` is the local parity path an
+# So: drift stays a CI gate, and `npm run test:db` is the local parity path an
 # operator can run deliberately. gate_tests does NOT invoke it automatically:
-# measured 2026-07-31 on origin/main, `pnpm test:db` is currently RED — 125 test
+# measured 2026-07-31 on origin/main, `npm run test:db` is currently RED — 125 test
 # files / 178 tests fail with "headers was called outside a request scope", a
 # Next.js request-context problem unrelated to the database. Wiring a gate to a
 # suite that is already red would just get the gate ignored. Fix test:db first,
@@ -197,7 +197,7 @@ gate_audits() {
 # Do not add a migrate-deploy against an unknown DATABASE_URL in this script.
 #
 # STANDING HAZARD, pre-existing and NOT introduced here: --full runs
-# gate_build_full -> pnpm build -> scripts/build.sh:48, which itself runs
+# gate_build_full -> npm run build -> scripts/build.sh:48, which itself runs
 # `prisma migrate deploy` whenever DATABASE_URL is set and VERCEL_ENV is not
 # preview/development. So running --full against a real DATABASE_URL already
 # mutates that database. Run --full with DATABASE_URL unset, or against a

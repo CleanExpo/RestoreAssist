@@ -45,6 +45,7 @@ export const CAPTION_REGISTRY: Record<string, string> = {
   "compliance-checklists": "/videos/captions/compliance-checklists.vtt",
   "analytics-overview": "/videos/captions/analytics-overview.vtt",
   "team-management": "/videos/captions/team-management.vtt",
+  "mobile-workflow": "/videos/captions/mobile-workflow.vtt",
   "pricing-overview": "/videos/captions/pricing-overview.vtt",
   "roi-explainer": "/videos/captions/roi-explainer.vtt",
   "moisture-deep-dive": "/videos/captions/moisture-deep-dive.vtt",

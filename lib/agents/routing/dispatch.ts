@@ -63,7 +63,7 @@ function describeIssueForTask(issue: LinearIssueInput): string {
     `${issue.description} ` +
     `This is a "${issue.team}" team item${issue.project ? ` in project "${issue.project}"` : ""}. ` +
     "Implement it end-to-end following the linear-task-processor skill's phases " +
-    "(understand, plan, implement, verify with pnpm type-check && pnpm lint, commit), " +
+    "(understand, plan, implement, verify with npm run type-check && npm run lint, commit), " +
     "with one override: PR target is `main`, not `sandbox`. Open a small, scoped PR and stop — " +
     "do not merge."
   );
@@ -148,7 +148,7 @@ export function buildMoaDispatch(
     "the panel's verbatim responses, min_pairwise_similarity, and the escalation/confidence fields per " +
     "boardroom's output contract. Then proceed to implement the synthesised decision end-to-end following " +
     "the linear-task-processor skill's phases (understand, plan, implement, verify with " +
-    "pnpm type-check && pnpm lint, commit), with one override: PR target is `main`, not `sandbox`. " +
+    "npm run type-check && npm run lint, commit), with one override: PR target is `main`, not `sandbox`. " +
     "Open a small, scoped PR and stop — do not merge.";
 
   const prompt = wrapWithNexus(task);
