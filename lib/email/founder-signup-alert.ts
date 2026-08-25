@@ -22,6 +22,7 @@
  */
 
 import { sendTransactionalEmail } from "@/lib/email/send-transactional";
+import { sanitiseEmailField } from "@/lib/email/sanitise-header";
 
 export interface FounderSignupAlertInput {
   userId: string;
@@ -66,7 +67,15 @@ export async function sendFounderSignupAlert(
       to,
       // The address is in the subject so the founder can triage — and reply —
       // from a phone notification without opening anything.
-      subject: `New RestoreAssist signup: ${input.name} <${input.email}>`,
+      //
+      // sanitiseEmailField folds CR/LF to spaces. The subject is a HEADER, and
+      // the values reaching it are attacker-chosen: sanitizeString() in the
+      // register route strips tags and null bytes but NOT embedded newlines.
+      // Low real-world risk (the provider takes JSON, not raw SMTP) — but this
+      // is a header boundary, so it gets the header sanitiser.
+      subject: sanitiseEmailField(
+        `New RestoreAssist signup: ${input.name} <${input.email}>`,
+      ),
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <h2>New signup</h2>

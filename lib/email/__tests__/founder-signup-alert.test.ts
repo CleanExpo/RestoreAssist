@@ -56,6 +56,31 @@ describe("sendFounderSignupAlert", () => {
     expect(`${payload.subject} ${payload.html}`).toContain("Jane Restorer");
   });
 
+  it("strips CR/LF from name and email before they reach the subject header", async () => {
+    // CodeRabbit review on PR #2052, confirmed independently: sanitizeString()
+    // (lib/sanitize.ts) strips null bytes, HTML tags and entities, then trims —
+    // it does NOT remove EMBEDDED newlines. `const name = sanitizeString(body.name, 200)`
+    // in the register route therefore lets an attacker-chosen newline reach here,
+    // and the subject of an email is a header. Real-world exploitability is low
+    // (the provider takes JSON, not raw SMTP) but this is a header boundary and
+    // the app already ships sanitiseEmailField() for exactly this.
+    vi.stubEnv("SIGNUP_ALERT_EMAIL", "founder@restoreassist.app");
+    const { sendFounderSignupAlert } = await import("../founder-signup-alert");
+
+    await sendFounderSignupAlert({
+      ...SIGNUP,
+      name: "Bob\nBcc: attacker@evil.example",
+      email: "victim@example.com\r\nX-Injected: yes",
+    });
+
+    const subject = sendTransactionalEmail.mock.calls[0][0].subject as string;
+    expect(subject).not.toMatch(/[\r\n]/);
+    // The text is kept (folded to spaces), not silently dropped — the founder
+    // still sees who signed up.
+    expect(subject).toContain("Bob");
+    expect(subject).toContain("victim@example.com");
+  });
+
   it("is a no-op that reports why when SIGNUP_ALERT_EMAIL is unset", async () => {
     vi.stubEnv("SIGNUP_ALERT_EMAIL", "");
     const { sendFounderSignupAlert } = await import("../founder-signup-alert");
