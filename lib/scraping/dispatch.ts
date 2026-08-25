@@ -14,7 +14,7 @@
 
 import { prisma } from "../prisma";
 import { getActiveScrapingProvider } from "../workspace/scraping-provider-connections";
-import { fetchViaApify } from "./providers/apify";
+import { fetchViaApify, resolveApifyToken } from "./providers/apify";
 import { fetchViaBrightData } from "./providers/brightdata";
 import { fetchViaFirecrawl } from "./providers/firecrawl";
 import { fetchViaZyte } from "./providers/zyte";
@@ -74,35 +74,61 @@ async function recordProviderError(
  * back to SHARED on any failure. Safe to call on every scrape — the
  * underlying provider lookup is a single Prisma query.
  */
+async function fetchViaPlatformApify(
+  url: string,
+): Promise<FetchResult | null> {
+  const token = resolveApifyToken();
+  if (!token) return null;
+  return fetchViaApify(url, token);
+}
+
 export async function fetchHtmlViaWorkspaceProvider(
   url: string,
   userId: string,
   sharedFetch: SharedFetchFn,
 ): Promise<DispatchResult> {
   const workspaceId = await resolveWorkspaceId(userId);
-  if (!workspaceId) {
-    const result = await sharedFetch(url);
-    return { ...result, providerUsed: "SHARED", fellBack: false };
-  }
+  const active = workspaceId
+    ? await getActiveScrapingProvider(workspaceId)
+    : null;
 
-  const active = await getActiveScrapingProvider(workspaceId);
-  if (!active || active.provider === "SHARED") {
-    const result = await sharedFetch(url);
-    return { ...result, providerUsed: "SHARED", fellBack: false };
+  if (active && active.provider !== "SHARED") {
+    try {
+      const result = await dispatchByProvider(url, active);
+      return { ...result, providerUsed: active.provider, fellBack: false };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.warn(
+        `[dispatch] BYOK provider ${active.provider} failed — trying platform Apify, then direct fetch: ${message}`,
+      );
+      if (workspaceId) {
+        await recordProviderError(workspaceId, active.provider, message);
+      }
+    }
   }
 
   try {
-    const result = await dispatchByProvider(url, active);
-    return { ...result, providerUsed: active.provider, fellBack: false };
+    const platform = await fetchViaPlatformApify(url);
+    if (platform) {
+      return {
+        ...platform,
+        providerUsed: "APIFY",
+        fellBack: Boolean(active && active.provider !== "SHARED"),
+      };
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.warn(
-      `[dispatch] BYOK provider ${active.provider} failed for ${url} — falling back to SHARED: ${message}`,
+      `[dispatch] platform Apify failed — falling back to direct fetch: ${message}`,
     );
-    await recordProviderError(workspaceId, active.provider, message);
-    const result = await sharedFetch(url);
-    return { ...result, providerUsed: "SHARED", fellBack: true };
   }
+
+  const result = await sharedFetch(url);
+  return {
+    ...result,
+    providerUsed: "SHARED",
+    fellBack: Boolean(active && active.provider !== "SHARED") || Boolean(resolveApifyToken()),
+  };
 }
 
 async function dispatchByProvider(

@@ -103,6 +103,7 @@ import type { ScaleConfig } from "./SketchScaleModal";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
 import { UnderlayTransformControls } from "./UnderlayTransformControls";
 import { SketchStartOverlay } from "./SketchStartOverlay";
+import { SketchCreateCoach } from "./SketchCreateCoach";
 import { SketchPlanLifecycleBanner } from "./SketchPlanLifecycleBanner";
 import { SketchRoomMoistureCrop } from "./SketchRoomMoistureCrop";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
@@ -318,6 +319,25 @@ export function SketchEditorV2({
   >([]);
   /** Dismiss empty-canvas start chooser after the tech picks a path. */
   const [startOverlayDismissed, setStartOverlayDismissed] = useState(false);
+  const [createCoachDismissed, setCreateCoachDismissed] = useState(false);
+
+  // Re-open the studio when the technician moves to a blank floor
+  // (Add floor, or switch away from a drawn floor). Dismissal is per-visit.
+  useEffect(() => {
+    const fd = floorsData[activeIdx];
+    if (!fd) return;
+    const blank =
+      !fd.backgroundUrl &&
+      fd.moisturePins.length === 0 &&
+      fd.evidencePins.length === 0 &&
+      isEmptySketchData(fd.sketchSnapshot ?? fd.pendingSketchData);
+    if (blank) {
+      setStartOverlayDismissed(false);
+      setCreateCoachDismissed(false);
+    }
+    // Only when the active floor changes — not on every sketch keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIdx]);
   const [planReadyAck, setPlanReadyAck] = useState(false);
   /** Separate from confirm ack — keeps “Plan ready” visible until Got it / Advanced. */
   const [planReadyBannerDismissed, setPlanReadyBannerDismissed] =
@@ -1996,7 +2016,7 @@ export function SketchEditorV2({
       <div className="flex items-center justify-between px-4 py-2 bg-brand-deep border-b border-white/10 flex-shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-xs font-semibold text-white/40 uppercase tracking-widest">
-            RestoreAssist Sketch
+            Floor Plan
           </span>
           {activeFloor?.scaleConfig && (
             <span className="text-xs text-cyan-400/70">
@@ -2424,14 +2444,23 @@ export function SketchEditorV2({
             }
             onStartBlank={() => {
               setStartOverlayDismissed(true);
+              setCreateCoachDismissed(false);
               editorModeUserSetRef.current = true;
               setEditorMode("advanced");
               writeEditorMode("advanced");
               setToolMode("room");
-              toast("Tap to place a room, or drag for a custom size", {
-                duration: 3500,
-              });
             }}
+            onApplyUnderlay={(url, opacity) => {
+              handleApplyBackground(url, opacity);
+              setStartOverlayDismissed(true);
+              setCreateCoachDismissed(true);
+              editorModeUserSetRef.current = true;
+              setEditorMode("advanced");
+              writeEditorMode("advanced");
+              setToolMode("room");
+              toast.success("Plan placed — tap to trace the first room");
+            }}
+            inspectionId={inspectionId}
             onImportUnderlay={() => {
               setStartOverlayDismissed(true);
               underlayPanelRef.current?.scrollIntoView({
@@ -2453,6 +2482,24 @@ export function SketchEditorV2({
                 duration: 3500,
               });
             }}
+          />
+        )}
+
+        {!readonly && !guided && sketchesHydrated && (
+          <SketchCreateCoach
+            visible={
+              startOverlayDismissed &&
+              !createCoachDismissed &&
+              toolMode === "room" &&
+              !activeFloor?.backgroundUrl &&
+              (activeFloor?.moisturePins.length ?? 0) === 0 &&
+              isEmptySketchData(
+                activeFloor?.sketchSnapshot ?? activeFloor?.pendingSketchData,
+              )
+            }
+            templateKind={roomTemplateKind}
+            onTemplateKindChange={setRoomTemplateKind}
+            onDismiss={() => setCreateCoachDismissed(true)}
           />
         )}
 

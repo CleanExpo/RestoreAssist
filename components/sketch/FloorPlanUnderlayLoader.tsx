@@ -24,20 +24,42 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { ScrapedPropertyData } from "@/lib/property-data-parser";
-import {
-  validateUnderlayUpload,
-  isPdfUnderlay,
-} from "@/lib/sketch/validate-underlay-upload";
-import { watermarkImageDataUrl } from "@/lib/sketch/underlay-watermark";
-import { persistUnderlayImage } from "@/lib/sketch/persist-underlay-image";
+import { prepareUnderlayFile } from "@/lib/sketch/prepare-underlay-file";
+import { commitUnderlayImport } from "@/lib/sketch/commit-underlay-import";
 import { isUnderlayUrlImportEnabled } from "@/lib/sketch/underlay-import-flag";
 import { FLOORPLAN_UNDERLAY_SKU } from "@/lib/billing/floorplan-underlay-addon";
 import {
   evaluateUnderlayAttestation,
-  buildUnderlayAttestationRecord,
   UNDERLAY_RIGHTS_STATEMENT,
   type UnderlaySource,
 } from "@/lib/sketch/underlay-attestation";
+
+function listingSourceLabel(data: ScrapedPropertyData): string {
+  try {
+    const host = new URL(data.url).hostname.replace(/^www\./, "").toLowerCase();
+    if (host === "domain.com.au") return "Domain";
+    if (host === "realestate.com.au") return "realestate.com.au";
+    if (host === "onthehouse.com.au") return "OnTheHouse";
+  } catch {
+    /* ignore */
+  }
+  return "the listing";
+}
+
+function scrapeErrorMessage(json: unknown, fallback: string): string {
+  if (!json || typeof json !== "object") return fallback;
+  const err = (json as { error?: unknown }).error;
+  if (typeof err === "string" && err.trim()) return err;
+  if (
+    err &&
+    typeof err === "object" &&
+    typeof (err as { message?: unknown }).message === "string"
+  ) {
+    const message = (err as { message: string }).message.trim();
+    if (message) return message;
+  }
+  return fallback;
+}
 
 export interface FloorPlanUnderlayLoaderProps {
   /** Pass the inspection's address to pre-fill the search. */
@@ -96,6 +118,7 @@ export function FloorPlanUnderlayLoader({
   const [holdsRights, setHoldsRights] = useState(false);
   const [compliesTerms, setCompliesTerms] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
   // Track whether we've already auto-applied so we don't re-trigger on re-renders
   const autoAppliedRef = useRef(false);
 
@@ -198,11 +221,7 @@ export function FloorPlanUnderlayLoader({
 
         const json = await res.json();
         if (!res.ok || !json.data) {
-          setError(
-            typeof json.error === "string"
-              ? json.error
-              : "Could not load that listing",
-          );
+          setError(scrapeErrorMessage(json, "Could not load that listing"));
           return;
         }
 
@@ -272,12 +291,12 @@ export function FloorPlanUnderlayLoader({
 
       const found = (json.candidates as string[] | undefined) ?? [];
       if (!res.ok && found.length === 0) {
-        setError(json.error ?? "No property found for this address");
+        setError(scrapeErrorMessage(json, "No property found for this address"));
         return;
       }
 
       if (found.length === 0) {
-        setError(json.error ?? "No property found for this address");
+        setError(scrapeErrorMessage(json, "No property found for this address"));
         return;
       }
 
@@ -327,109 +346,50 @@ export function FloorPlanUnderlayLoader({
     }
   }, []);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const acceptUploadedFile = useCallback(async (file: File | undefined) => {
     if (!file) return;
-    // RA-120 (PR4): reject unsupported type / oversized files before inlining.
-    const check = validateUnderlayUpload({ type: file.type, size: file.size });
-    if (!check.ok) {
-      setError(check.error ?? "Invalid file.");
-      e.target.value = "";
-      return;
-    }
-    // Reset so the same file can be re-selected
-    e.target.value = "";
-    // RA-6849 [C3]: a PDF can't be embedded directly — rasterise page 1 to a PNG
-    // data URL first. RA-6847 [C1]: every imported underlay is then watermarked
-    // as a reference-only layer before it enters the preview/persist path.
-    if (isPdfUnderlay(file.type)) {
-      setError(null);
-      setPreparingUnderlay(true);
-      (async () => {
-        try {
-          const { pdfFileToPngDataUrl } = await import(
-            "@/lib/sketch/pdf-to-raster"
-          );
-          const png = await pdfFileToPngDataUrl(file);
-          const marked = await watermarkImageDataUrl(png);
-          setSelectedImage(marked);
-          setResults(null);
-        } catch {
-          setError("Couldn't read that PDF — try exporting page 1 as an image.");
-        } finally {
-          setPreparingUnderlay(false);
-        }
-      })();
-      return;
-    }
-    // RA-6847 [C1]: uploaded images are watermarked before use, same as PDFs.
     setError(null);
     setPreparingUnderlay(true);
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      try {
-        if (!ev.target?.result) throw new Error("read failed");
-        const marked = await watermarkImageDataUrl(ev.target.result as string);
-        setSelectedImage(marked);
-        setResults(null);
-      } catch {
-        setError("Couldn't prepare that image — please try another file.");
-      } finally {
-        setPreparingUnderlay(false);
-      }
-    };
-    reader.onerror = () => {
-      setError("Couldn't read that file — please try again.");
-      setPreparingUnderlay(false);
-    };
-    reader.readAsDataURL(file);
+    const result = await prepareUnderlayFile(file);
+    setPreparingUnderlay(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setSelectedImage(result.dataUrl);
+    setResults(null);
+    setExpanded(true);
+  }, []);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    void acceptUploadedFile(file);
   };
 
   const handleApply = async () => {
     if (!selectedImage || applying) return;
-    // RA-6848 [C2] / RA-6849 [C3]: an imported plan can never be applied until
-    // the operator affirms rights + source-ToS compliance.
     if (!attestation.ok) {
       setError(attestation.reason ?? "Confirm the rights attestation first.");
       return;
     }
-    // PR4b: manual uploads arrive as base64 `data:` URLs. Persist them to
-    // storage first so the sketch (and the report PDF) references a hosted URL
-    // instead of inlining megabytes of base64. Hosted/scraped URLs pass through.
     setApplying(true);
     setError(null);
-    try {
-      const { dataUrlToBlob, uploadFloorPlanUnderlay } = await import(
-        "@/lib/sketch-storage"
-      );
-      const imageUrl = await persistUnderlayImage(selectedImage, inspectionId, {
-        toBlob: dataUrlToBlob,
-        upload: uploadFloorPlanUnderlay,
-      });
-      // RA-6848 [C2]: record the attestation before applying. A recording
-      // failure must NOT silently apply an unattested third-party plan — surface
-      // it and stop. `results` present ⇒ this came from the URL scrape path.
-      const source: UnderlaySource = results ? "url" : "upload";
-      const record = buildUnderlayAttestationRecord(
-        { holdsRights, compliesWithSourceTerms: compliesTerms },
-        source,
-      );
-      const res = await fetch("/api/sketch/underlay-attestation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...record, inspectionId: inspectionId ?? null }),
-      });
-      if (!res.ok) {
-        setError("Couldn't record the rights attestation — please try again.");
-        return;
-      }
-      onApply(imageUrl, opacity);
-      setExpanded(false);
-    } catch {
-      setError("Couldn't save the floor plan — please try again.");
-    } finally {
-      setApplying(false);
+    const source: UnderlaySource = results ? "url" : "upload";
+    const result = await commitUnderlayImport({
+      selectedImage,
+      inspectionId,
+      holdsRights,
+      compliesWithSourceTerms: compliesTerms,
+      source,
+    });
+    setApplying(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
     }
+    onApply(result.imageUrl, opacity);
+    setExpanded(false);
   };
 
   const handleClear = () => {
@@ -476,7 +436,7 @@ export function FloorPlanUnderlayLoader({
           {urlImportEnabled && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wide">
-                Listing URL (REA / Domain / OnTheHouse)
+                Listing URL (Domain / REA / OnTheHouse)
               </label>
               <div className="flex gap-1.5">
                 <input
@@ -484,7 +444,7 @@ export function FloorPlanUnderlayLoader({
                   value={listingUrl}
                   onChange={(e) => setListingUrl(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="https://www.realestate.com.au/…"
+                  placeholder="https://www.domain.com.au/…"
                   className="flex-1 min-w-0 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400"
                 />
                 <button
@@ -541,21 +501,42 @@ export function FloorPlanUnderlayLoader({
           {/* Upload option */}
           <div>
             <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wide block mb-1.5">
-              Or upload a floor plan
+              Upload a floor plan
             </label>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={preparingUnderlay}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-dashed border-neutral-300 dark:border-slate-600 text-neutral-500 dark:text-slate-400 hover:border-cyan-400 hover:text-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {preparingUnderlay ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <Upload size={13} />
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                void acceptUploadedFile(e.dataTransfer.files?.[0]);
+              }}
+              className={cn(
+                "rounded-lg border border-dashed p-3 transition-colors",
+                dragOver
+                  ? "border-cyan-400 bg-cyan-500/5"
+                  : "border-neutral-300 dark:border-slate-600",
               )}
-              {preparingUnderlay ? "Preparing underlay…" : "Choose image or PDF…"}
-            </button>
+            >
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={preparingUnderlay}
+                className="flex items-center gap-2 text-sm text-neutral-500 dark:text-slate-400 hover:text-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {preparingUnderlay ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Upload size={13} />
+                )}
+                {preparingUnderlay
+                  ? "Preparing underlay…"
+                  : "Drop a PNG, JPG, WebP or PDF — or choose a file"}
+              </button>
+            </div>
             <input
               ref={fileInputRef}
               type="file"
@@ -640,11 +621,22 @@ export function FloorPlanUnderlayLoader({
             </div>
           )}
 
-          {/* Selected from file upload indicator */}
+          {/* Selected from file upload — preview, not a text-only stub */}
           {selectedImage && !results && (
-            <div className="flex items-center gap-2 text-xs text-success">
-              <ImageIcon size={13} />
-              Local file selected
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-xs text-success">
+                <ImageIcon size={13} />
+                Ready to place as a reference underlay
+              </div>
+              <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-slate-600 bg-neutral-50 dark:bg-slate-900">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selectedImage}
+                  alt="Uploaded floor plan preview"
+                  className="mx-auto max-h-36 w-full object-contain"
+                  style={{ opacity }}
+                />
+              </div>
             </div>
           )}
 
@@ -731,7 +723,8 @@ export function FloorPlanUnderlayLoader({
 
           {results && (
             <p className="text-[11px] text-neutral-400 dark:text-slate-500">
-              Data from OnTheHouse.com.au · {results.confidence} confidence
+              Data from {listingSourceLabel(results)} · {results.confidence}{" "}
+              confidence
             </p>
           )}
         </div>

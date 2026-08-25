@@ -37,6 +37,8 @@ import {
   type ScrapedPropertyData,
 } from "@/lib/property-data-parser";
 import { fetchHtmlViaWorkspaceProvider } from "@/lib/scraping/dispatch";
+import { resolveApifyToken } from "@/lib/scraping/providers/apify";
+import { domainSuburbSaleSearchUrl } from "@/lib/scraping/providers/apify-domain-map";
 import {
   fetchWithValidatedRedirect,
   scrapeHostLabel,
@@ -322,41 +324,70 @@ export async function POST(req: NextRequest) {
         }
       };
 
-      const searchUrl = `${OTH_BASE}/search?q=${encodeURIComponent(searchQuery)}`;
-      const { html: searchHtml, status: searchStatus } =
-        await fetchHtmlViaWorkspaceProvider(searchUrl, userId, fetchHtml);
+      const blockedStatuses: number[] = [];
+      const recordStatus = (status: number) => {
+        if (status === 0 || status === 403 || status === 429 || status === 503) {
+          blockedStatuses.push(status);
+        }
+      };
 
-      if (searchStatus === 200 && searchHtml) {
-        pushUnique(parseOnTheHouseSearchResults(searchHtml, OTH_BASE));
-      }
+      const preferDomain = Boolean(resolveApifyToken());
 
-      if (candidates.length < MAX_CANDIDATES && useDomainFallback) {
-        const domainSearchUrl = `${DOMAIN_BASE}/sale/?q=${encodeURIComponent(searchQuery)}`;
+      const searchDomain = async () => {
+        if (!useDomainFallback || candidates.length >= MAX_CANDIDATES) return;
+        const domainSearchUrl =
+          domainSuburbSaleSearchUrl(address ?? searchQuery, postcode) ??
+          `${DOMAIN_BASE}/sale/?q=${encodeURIComponent(searchQuery)}`;
         const { html: domainHtml, status: domainStatus } =
           await fetchHtmlViaWorkspaceProvider(
             domainSearchUrl,
             userId,
             fetchHtml,
           );
+        recordStatus(domainStatus);
         if (domainStatus === 200 && domainHtml) {
           pushUnique(parseDomainComAuSearchResults(domainHtml, DOMAIN_BASE));
         }
+      };
+
+      if (preferDomain) {
+        await searchDomain();
       }
 
-      if (candidates.length < MAX_CANDIDATES && useReaFallback) {
+      // Domain via Apify is the reliable path. Skip slower hosts once we
+      // already have listings — they are usually Cloudflare-blocked.
+      if (!preferDomain || candidates.length === 0) {
+        if (candidates.length < MAX_CANDIDATES) {
+          const searchUrl = `${OTH_BASE}/search?q=${encodeURIComponent(searchQuery)}`;
+          const { html: searchHtml, status: searchStatus } =
+            await fetchHtmlViaWorkspaceProvider(searchUrl, userId, fetchHtml);
+          recordStatus(searchStatus);
+          if (searchStatus === 200 && searchHtml) {
+            pushUnique(parseOnTheHouseSearchResults(searchHtml, OTH_BASE));
+          }
+        }
+
+        if (!preferDomain) {
+          await searchDomain();
+        }
+      }
+
+      if (candidates.length < MAX_CANDIDATES && useReaFallback && (!preferDomain || candidates.length === 0)) {
         const reaSearchUrl = `${REA_BASE}/buy/list-1?keywords=${encodeURIComponent(searchQuery)}`;
         const { html: reaHtml, status: reaStatus } =
           await fetchHtmlViaWorkspaceProvider(reaSearchUrl, userId, fetchHtml);
+        recordStatus(reaStatus);
         if (reaStatus === 200 && reaHtml) {
           pushUnique(parseRealestateComAuSearchResults(reaHtml, REA_BASE));
         }
       }
 
       if (candidates.length === 0) {
-        if (searchStatus === 0 && !useDomainFallback && !useReaFallback) {
+        if (blockedStatuses.length > 0) {
           return apiError(req, {
             code: "UPSTREAM_FAILED",
-            message: "Could not connect to listing sites. Please try again.",
+            message:
+              "Could not reach listing sites. Check the Apify key, or upload a floor plan image instead.",
             status: 503,
           });
         }
@@ -430,7 +461,6 @@ export async function POST(req: NextRequest) {
             lookupCost: 0,
             confidence: data.confidence,
             propertyData: data as any,
-            ...(inspectionId ? { inspectionId } : {}),
           },
           update: {
             lookupDate: now,
