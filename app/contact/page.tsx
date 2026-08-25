@@ -216,7 +216,7 @@ export default function ContactPage() {
                 onSubmit={handleSubmit}
                 // @ts-expect-error WebMCP attributes are W3C-draft and not yet in React's type defs
                 toolname="submit_contact_enquiry"
-                tooldescription="Submit a contact enquiry to RestoreAssist (Australia's first Australian-designed CRM for the restoration industry). Routes to the team for human follow-up. For active disaster-recovery claims, use disasterrecovery.com.au instead."
+                tooldescription="Submit a contact enquiry to RestoreAssist (an Australian-designed CRM for the restoration industry). Routes to the team for human follow-up. For active disaster-recovery claims, use disasterrecovery.com.au instead."
               >
                 <div>
                   <label htmlFor="contact-name" className="sr-only">

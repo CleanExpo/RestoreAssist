@@ -26,7 +26,7 @@ const FAQS = [
   {
     cat: "Product",
     q: "What is RestoreAssist?",
-    a: "RestoreAssist is Australia's first Australian-designed full CRM — an Office and Field Management System for the Australian Restoration Industry. It connects field capture, IICRC-aligned reporting, GST invoicing, and client approvals in one system so teams remove double-handling between the driveway and the desk.",
+    a: "RestoreAssist is an Australian-designed full CRM — an Office and Field Management System for the Australian Restoration Industry. It connects field capture, IICRC-aligned reporting, GST invoicing, and client approvals in one system so teams remove double-handling between the driveway and the desk.",
   },
   {
     cat: "Trial",

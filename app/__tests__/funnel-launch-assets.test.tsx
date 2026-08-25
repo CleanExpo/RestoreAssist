@@ -229,6 +229,38 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
     });
   });
 
+  describe("folio index is reachable by screen reader", () => {
+    it("every page-section link has an accessible name, not just a numeral", () => {
+      const { container, unmount } = render(<Home />);
+      const nav = container.querySelector('nav[aria-label="Page sections"]');
+      expect(nav).not.toBeNull();
+      const links = Array.from(nav!.querySelectorAll("a"));
+      expect(links.length).toBeGreaterThan(0);
+      for (const link of links) {
+        const name = link.getAttribute("aria-label");
+        // The visible text is the numeral ("01"); without aria-label a screen
+        // reader announces nothing else. Guards the CodeRabbit finding on #2031.
+        expect(name).toBeTruthy();
+        expect(name).not.toMatch(/^\d+$/);
+      }
+      unmount();
+    });
+
+    it("marks exactly one page-section link as the current one", () => {
+      const { container, unmount } = render(<Home />);
+      const nav = container.querySelector('nav[aria-label="Page sections"]');
+      const current = Array.from(
+        nav!.querySelectorAll('a[aria-current="true"]'),
+      );
+      // Scroll-spy starts on #stance; without aria-current a later refactor
+      // could drop active-section semantics and the label test alone would
+      // still pass.
+      expect(current).toHaveLength(1);
+      expect(current[0].getAttribute("href")).toBe("#stance");
+      unmount();
+    });
+  });
+
   describe("premium hero copy / CTA is present", () => {
     it("home page renders the primary trial CTA", () => {
       const { container, unmount } = render(<Home />);
@@ -240,6 +272,10 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
       "One System. Fewer Gaps. More Confidence.",
       "Office and Field. One System.",
       "From site to signed report.",
+      "Restoration software that works for you. Not the insurer.",
+      "Who your software works for tells you everything.",
+      "RestoreAssist has one customer: the restorer.",
+      "If a location wasn't recorded, we say so",
       "IICRC S500:2021",
       "What's included in the free trial?",
       "Same job. Two systems. Too many gaps.",
@@ -310,7 +346,9 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
         const text = container.textContent ?? "";
         expect(text).toContain("RestoreAssist");
         expect(text).toContain("Start free — 15-day trial");
-        expect(text).toContain("What you captured on site");
+        expect(text).toContain(
+          "Restoration software that works for you. Not the insurer.",
+        );
         expect(container.innerHTML).toContain(heroSrc);
         for (const pattern of AI_THEATRE_FORBIDDEN) {
           expect(text).not.toMatch(pattern);

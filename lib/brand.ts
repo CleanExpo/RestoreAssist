@@ -7,7 +7,7 @@ export const BRAND = {
   slogan: "One System. Fewer Gaps. More Confidence.",
   tagline: "Office and Field. One System.",
   description:
-    "RestoreAssist is Australia's first Australian-designed full CRM — an Office and Field Management System for the Australian Restoration Industry. Inbuilt IICRC frameworks, WHS policies, and Australian Building Code references remove double-handling between field capture and office processing. Designed in Australia, deployed across Australia and New Zealand.",
+    "RestoreAssist is an Australian-designed full CRM — an Office and Field Management System for the Australian Restoration Industry. Inbuilt IICRC frameworks, WHS policies, and Australian Building Code references remove double-handling between field capture and office processing. Designed in Australia, deployed across Australia and New Zealand.",
   shortDescription:
     "Helps restoration contractors run jobs with less paperwork and more confidence — from first visit to final report.",
   cta: {

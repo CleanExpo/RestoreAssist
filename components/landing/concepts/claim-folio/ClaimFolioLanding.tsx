@@ -16,14 +16,21 @@ import {
 } from "@/components/landing/home/motion";
 import { useLandingReduceMotion } from "@/components/landing/home/useLandingReduceMotion";
 
+/**
+ * Folio index. `label` is the visual numeral; `title` is the accessible name —
+ * the link text is the numeral alone, so without it a screen reader announces
+ * "01" and nothing else.
+ */
 const SECTIONS = [
-  { id: "workflow", label: "01" },
-  { id: "gaps", label: "02" },
-  { id: "platform", label: "03" },
-  { id: "damage", label: "04" },
-  { id: "coverage", label: "05" },
-  { id: "faq", label: "06" },
-  { id: "start", label: "07" },
+  { id: "stance", label: "01", title: "What we build for" },
+  { id: "workflow", label: "02", title: "How the workflow runs" },
+  { id: "gaps", label: "03", title: "The double-handling problem" },
+  { id: "platform", label: "04", title: "Platform capabilities" },
+  { id: "damage", label: "05", title: "Damage types covered" },
+  { id: "coverage", label: "06", title: "Australia and New Zealand coverage" },
+  { id: "positioning", label: "07", title: "Who we answer to" },
+  { id: "faq", label: "08", title: "Frequently asked questions" },
+  { id: "start", label: "09", title: "Start with real work" },
 ] as const;
 
 /**
@@ -35,7 +42,7 @@ export function ClaimFolioLanding() {
   const reduce = useLandingReduceMotion();
   const faqs = getHomeFaqs();
   const [faqOpen, setFaqOpen] = useState(0);
-  const [active, setActive] = useState("workflow");
+  const [active, setActive] = useState("stance");
   const { scrollYProgress } = useScroll();
   const spineHeight = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
 
@@ -81,6 +88,8 @@ export function ClaimFolioLanding() {
           <a
             key={s.id}
             href={`#${s.id}`}
+            aria-label={s.title}
+            aria-current={active === s.id ? "true" : undefined}
             className={`font-[family-name:var(--font-landing-display)] rounded px-2 py-1.5 text-[10px] font-bold tracking-[0.14em] transition-colors ${
               active === s.id
                 ? "text-[#3B6D8C]"
@@ -121,7 +130,7 @@ export function ClaimFolioLanding() {
         />
 
         <div
-          className={`${CONTAINER} relative flex min-h-[calc(100dvh-4.25rem)] items-center py-16`}
+          className={`${CONTAINER} relative flex min-h-[calc(100dvh-4.25rem)] items-center py-16 pb-28 sm:pb-16`}
         >
           <div className="max-w-[min(100%,36rem)] lg:max-w-[34rem]">
             <motion.p
@@ -207,6 +216,50 @@ export function ClaimFolioLanding() {
               >
                 {item}
               </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+
+      {/* ── STANCE: the three commitments, ruled strip ── */}
+      <section
+        id="stance"
+        className="scroll-mt-24 border-b border-[#0B1F3A]/10 bg-white py-20 sm:py-24"
+      >
+        <div className={CONTAINER}>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]">
+            {HOME.stance.eyebrow}
+          </p>
+          <ul className="mt-10 grid gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+            {HOME.stance.pillars.map((pillar, i) => (
+              <motion.li
+                key={pillar.title}
+                initial={reduce ? false : { opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={VIEWPORT}
+                transition={{
+                  duration: 0.6,
+                  ease: EASE_OUT,
+                  delay: reduce ? 0 : i * 0.08,
+                }}
+                className="border-t border-[#0B1F3A]/12 pt-6"
+              >
+                <span
+                  className={`${FONT_DISPLAY} text-[13px] font-bold text-[#3B6D8C]`}
+                  aria-hidden
+                >
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <h3
+                  className={`${FONT_DISPLAY} mt-3 text-[1.2rem] font-semibold leading-snug tracking-[-0.025em] text-[#0B1F3A]`}
+                >
+                  {pillar.title}
+                </h3>
+                <p className="mt-3 text-[15px] leading-[1.75] text-slate-600">
+                  {pillar.body}
+                </p>
+              </motion.li>
             ))}
           </ul>
         </div>
@@ -506,6 +559,43 @@ export function ClaimFolioLanding() {
               </li>
             ))}
           </ul>
+        </div>
+      </section>
+
+
+      {/* ── POSITIONING: who we answer to ── */}
+      <section
+        id="positioning"
+        className="scroll-mt-24 relative overflow-hidden bg-[#0B1F3A] py-28 text-white sm:py-36"
+      >
+        <div
+          className="pointer-events-none absolute -top-24 -left-24 h-[26rem] w-[26rem] rounded-full bg-[#3B6D8C]/20 blur-3xl"
+          aria-hidden
+        />
+        <div className={`${CONTAINER} relative max-w-3xl`}>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#7BA3BD]">
+            {HOME.positioning.eyebrow}
+          </p>
+          <h2
+            className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.035em]`}
+          >
+            {HOME.positioning.title}
+          </h2>
+          <div className="mt-10 space-y-6">
+            {HOME.positioning.paragraphs.map((para) => (
+              <p
+                key={para}
+                className="text-[16px] leading-[1.8] text-white/65 sm:text-[17px]"
+              >
+                {para}
+              </p>
+            ))}
+          </div>
+          <p
+            className={`${FONT_DISPLAY} mt-10 border-l-2 border-[#3B6D8C] pl-6 text-[17px] font-medium leading-[1.7] text-white sm:text-[18px]`}
+          >
+            {HOME.positioning.close}
+          </p>
         </div>
       </section>
 
