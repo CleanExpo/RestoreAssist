@@ -64,11 +64,13 @@ export async function GET(
       return redirectWithError("State/provider mismatch", providerParam);
     }
 
-    // Find integration by user and provider
+    // Find the exact integration bound to this one-time state. The fallback
+    // keeps callbacks issued before the PKCE-context migration valid.
     const integration = await prisma.integration.findFirst({
       where: {
         userId: stateData.userId,
         provider,
+        ...(stateData.integrationId ? { id: stateData.integrationId } : {}),
       },
     });
 
@@ -134,12 +136,17 @@ export async function GET(
     }
 
     const redirectUri =
+      stateData.redirectUri ||
       config.redirectUri ||
       `${process.env.NEXTAUTH_URL}/api/integrations/oauth/${providerParam.toLowerCase()}/callback`;
 
     // Create client and exchange code for tokens
     const client = await createClientForIntegration(integration.id);
-    await client.exchangeCodeForTokens(code, redirectUri, config.codeVerifier);
+    await client.exchangeCodeForTokens(
+      code,
+      redirectUri,
+      stateData.codeVerifier || config.codeVerifier,
+    );
 
     // Handle QuickBooks realm ID from callback
     if (provider === "QUICKBOOKS") {

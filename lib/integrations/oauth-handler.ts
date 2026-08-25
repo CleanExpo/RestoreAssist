@@ -295,12 +295,17 @@ export async function logSync(
 export async function generateOAuthState(
   userId: string,
   provider: string,
+  context?: {
+    integrationId?: string;
+    redirectUri?: string;
+    codeVerifier?: string;
+  },
 ): Promise<string> {
   const nonce = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min TTL
 
   await (prisma as any).oAuthStateNonce.create({
-    data: { nonce, userId, provider, expiresAt },
+    data: { nonce, userId, provider, expiresAt, ...context },
   });
 
   // The nonce IS the state — no JSON payload required. userId and
@@ -311,6 +316,9 @@ export async function generateOAuthState(
 export async function validateOAuthState(state: string): Promise<{
   userId: string;
   provider: string;
+  integrationId?: string | null;
+  redirectUri?: string | null;
+  codeVerifier?: string | null;
 } | null> {
   try {
     // One-shot: findUnique → check expiry + usedAt → mark used. Using
@@ -321,6 +329,9 @@ export async function validateOAuthState(state: string): Promise<{
     })) as {
       userId: string;
       provider: string;
+      integrationId: string | null;
+      redirectUri: string | null;
+      codeVerifier: string | null;
       expiresAt: Date;
       usedAt: Date | null;
     } | null;
@@ -335,7 +346,13 @@ export async function validateOAuthState(state: string): Promise<{
     });
     if (result.count === 0) return null; // race: used by another callback
 
-    return { userId: row.userId, provider: row.provider };
+    return {
+      userId: row.userId,
+      provider: row.provider,
+      integrationId: row.integrationId,
+      redirectUri: row.redirectUri,
+      codeVerifier: row.codeVerifier,
+    };
   } catch (err) {
     console.error("[oauth-handler] validateOAuthState error:", err);
     return null;

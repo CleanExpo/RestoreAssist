@@ -27,7 +27,7 @@ vi.mock("@/lib/trial-handling", () => ({
 import { getToken } from "next-auth/jwt";
 import { proxy } from "../../proxy";
 
-function mkReq(pathname: string, search: string = "") {
+function mkReq(pathname: string, search: string = "", method: string = "GET") {
   const parsed = new URL(`http://test${pathname}${search}`);
   return {
     nextUrl: {
@@ -37,7 +37,7 @@ function mkReq(pathname: string, search: string = "") {
       searchParams: parsed.searchParams,
     },
     url: `http://test${pathname}${search}`,
-    method: "GET",
+    method,
     headers: new Headers(),
   } as any;
 }
@@ -137,6 +137,156 @@ describe("middleware setup gate", () => {
     });
     const res = await proxy(mkReq("/api/setup/hydrate"));
     expect((res as any).status).not.toBe(307);
+  });
+
+  // ── The wizard's Integrations step ──────────────────────────────────────
+  // Every path below is reached FROM /setup by a control the operator can
+  // see. Without a bypass entry each one 307s straight back to /setup, so
+  // the control it belongs to becomes a dead end the moment the flag is on.
+
+  it("allows the Integrations step's OAuth connect POST through", async () => {
+    // The card fetches this and parses JSON. A 307 to /setup resolves as a
+    // 200 of HTML — `res.ok` is true and `json()` throws.
+    (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
+    const res = await proxy(mkReq("/api/integrations/oauth/xero/connect", "", "POST"));
+    expect((res as any).status).not.toBe(307);
+  });
+
+  it("allows the provider's OAuth callback back through", async () => {
+    (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
+    const res = await proxy(
+      mkReq("/api/integrations/oauth/quickbooks/callback", "?code=abc&state=s"),
+    );
+    expect((res as any).status).not.toBe(307);
+  });
+
+  it.each([
+    ["/dashboard/subscription", 'IntegrationsCard "View add-ons" / "View plans"'],
+    ["/dashboard/addons", 'IntegrationsCard "View add-ons" checkout destination'],
+    ["/dashboard/success", "Stripe checkout fulfillment return"],
+    ["/dashboard/integrations", 'IntegrationsCard "Set up Ascora"'],
+    ["/dashboard/settings/ai-providers", 'IntegrationsCard "Manage AI keys"'],
+  ])("allows %s — the destination of %s", async (pathname) => {
+    (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
+    const res = await proxy(mkReq(pathname));
+    expect((res as any).status).not.toBe(307);
+  });
+
+  it.each([
+    ["/api/subscription", "GET"],
+    ["/api/subscription/portal", "POST"],
+    ["/api/create-checkout-session", "POST"],
+    ["/api/addons/catalog", "GET"],
+    ["/api/addons/checkout", "POST"],
+    ["/api/addons/verify", "POST"],
+    ["/api/verify-subscription", "POST"],
+    ["/api/check-active-subscription", "POST"],
+    ["/api/integrations", "GET"],
+    ["/api/ascora/connect", "POST"],
+    ["/api/workspace/provider-connections", "GET"],
+    ["/api/workspace/provider-connections/validate", "POST"],
+    ["/api/user/cloud-mirror", "GET"],
+  ])("allows wizard dependency %s through on %s", async (pathname, method) => {
+    (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
+    const res = await proxy(mkReq(pathname, "", method));
+    expect((res as any).status).not.toBe(307);
+  });
+
+  it.each([
+    "/api/oauth/google-drive/status",
+    "/api/oauth/google-drive/start",
+    "/api/oauth/google-drive/callback",
+    "/api/oauth/microsoft-onedrive/status",
+    "/api/oauth/microsoft-onedrive/start",
+    "/api/oauth/microsoft-onedrive/callback",
+  ])("allows the Storage step dependency %s through on GET", async (pathname) => {
+    (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
+    const res = await proxy(mkReq(pathname));
+    expect((res as any).status).not.toBe(307);
+  });
+
+  it("does not let onboarding redirect block a wizard destination", async () => {
+    (getToken as any).mockResolvedValue({
+      sub: "u1",
+      setupCompletedAt: null,
+      needsOnboarding: true,
+      subscriptionStatus: "TRIAL",
+      trialEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+
+    const res = await proxy(mkReq("/dashboard/integrations"));
+    expect((res as any).status).not.toBe(307);
+    expect((res as any).headers.get("location")).toBeNull();
+  });
+
+  it("keeps the legacy onboarding gate when the setup wizard flag is off", async () => {
+    process.env.SETUP_WIZARD_ENABLED = "false";
+    (getToken as any).mockResolvedValue({
+      sub: "u1",
+      setupCompletedAt: null,
+      needsOnboarding: true,
+    });
+
+    const res = await proxy(mkReq("/dashboard/integrations"));
+    expect((res as any).status).toBe(307);
+    expect((res as any).headers.get("location")).toContain(
+      "/onboarding/account-type",
+    );
+  });
+
+  it("matches wizard destinations exactly, not descendants or bare prefixes", async () => {
+    (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
+
+    for (const gated of [
+      "/dashboard/subscription/invoices",
+      "/dashboard/subscription-audit",
+      "/dashboard/addons/history",
+      "/dashboard/success/history",
+      "/dashboard/integrations/health",
+      "/dashboard/integrations/sync-history",
+      "/dashboard/integrations/webhooks",
+      "/dashboard/integrations-admin",
+      "/dashboard/settings/ai-providers/openrouter",
+      "/dashboard/settings/ai-providers-internal",
+    ]) {
+      const res = await proxy(mkReq(gated));
+      expect((res as any).status).toBe(307);
+      expect((res as any).headers.get("location")).toContain("/setup");
+    }
+  });
+
+  it.each([
+    ["/api/integrations/oauth/xero/disconnect", "POST"],
+    ["/api/integrations/oauth/xero/sync", "POST"],
+    ["/api/integrations/oauth/xero/jobs", "GET"],
+    ["/api/integrations/oauth/xero/clients", "POST"],
+    ["/api/integrations/oauth/ascora/connect", "POST"],
+    ["/api/integrations/oauth/xero/connect", "GET"],
+    ["/api/integrations/oauth/xero/callback", "POST"],
+    ["/api/addons/checkout", "DELETE"],
+    ["/api/oauth/google-drive/disconnect", "POST"],
+    ["/api/oauth/microsoft-onedrive/status", "POST"],
+  ])("keeps non-wizard OAuth/API operation %s %s gated", async (pathname, method) => {
+    (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
+    const res = await proxy(mkReq(pathname, "", method));
+    expect((res as any).status).toBe(307);
+    expect((res as any).headers.get("location")).toContain("/setup");
+  });
+
+  it("still gates the rest of /dashboard — the bypass is not a blanket one", async () => {
+    (getToken as any).mockResolvedValue({ sub: "u1", setupCompletedAt: null });
+    for (const pathname of [
+      "/dashboard",
+      "/dashboard/reports/new",
+      "/dashboard/settings",
+      "/api/integrations/health",
+      "/api/integrations-admin",
+      "/api/workspace/provider-connections-internal",
+    ]) {
+      const res = await proxy(mkReq(pathname));
+      expect((res as any).status).toBe(307);
+      expect((res as any).headers.get("location")).toContain("/setup");
+    }
   });
 
   // P1 #16 added an unauth → /login redirect that runs BEFORE the setup
