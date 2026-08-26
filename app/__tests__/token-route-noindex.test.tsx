@@ -17,6 +17,25 @@ import { pathToFileURL } from "node:url";
 
 const APP_DIR = join(process.cwd(), "app");
 
+/**
+ * Next's default `pageExtensions`, which this project does not override. The
+ * repo is all-TSX today, but matching only `.tsx` would mean a token route
+ * added later as `page.js` is never discovered by the finder below — it would
+ * ship indexable with this suite still green, which is the exact failure this
+ * file exists to prevent.
+ */
+const PAGE_EXTENSIONS = ["tsx", "ts", "jsx", "js"] as const;
+
+/** Resolve `page`/`layout` in `dir` across every extension Next accepts. */
+function resolveRouteFile(dir: string, base: "page" | "layout"): string | null {
+  for (const ext of PAGE_EXTENSIONS) {
+    const candidate = join(dir, `${base}.${ext}`);
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+/** Collect every `[token]` segment that renders a page, at any depth. */
 function findTokenRouteDirs(dir: string, found: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
@@ -24,7 +43,7 @@ function findTokenRouteDirs(dir: string, found: string[] = []): string[] {
     const full = join(dir, entry.name);
     // Only segments that render a page. `app/api/**/[token]/route.ts` handlers
     // serve JSON, carry no metadata, and are already disallowed in robots.txt.
-    if (entry.name === "[token]" && existsSync(join(full, "page.tsx"))) {
+    if (entry.name === "[token]" && resolveRouteFile(full, "page")) {
       found.push(full);
     }
     findTokenRouteDirs(full, found);
@@ -53,14 +72,14 @@ describe("token-gated routes are never indexable", () => {
   it.each(tokenRouteDirs.map((d) => [relative(APP_DIR, d), d]))(
     "%s declares noindex",
     async (_route, dir) => {
-      const layoutPath = join(dir, "layout.tsx");
+      const layoutPath = resolveRouteFile(dir, "layout");
       expect(
-        existsSync(layoutPath),
-        `${_route} has no layout.tsx, so it inherits the root layout's index:true`,
-      ).toBe(true);
+        layoutPath,
+        `${_route} has no layout file, so it inherits the root layout's index:true`,
+      ).not.toBeNull();
 
       const mod = await import(
-        /* @vite-ignore */ pathToFileURL(layoutPath).href
+        /* @vite-ignore */ pathToFileURL(layoutPath as string).href
       );
 
       expect(mod.metadata?.robots).toMatchObject({

@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+/** Pass-through layout; it exists so the noindex metadata above applies to this route. */
 export default function InsurerPortalLayout({
   children,
 }: {
