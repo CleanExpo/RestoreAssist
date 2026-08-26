@@ -1,11 +1,22 @@
 # DESIGN.md — RestoreAssist
 
-> The brand contract every AI agent (Claude Code, Claude Design, Cursor, v0, Aura)
-> reads before producing UI, copy, or motion for this repo. Source of truth at
-> `Synthex/packages/brand-config/src/brands/ra.ts`. This file is the human- and
-> agent-readable projection of that config plus Phill's 7 non-negotiable rules.
+> The brand contract every AI agent reads before producing UI, copy, or motion
+> for this repo.
 >
-> Updated: 2026-05-11. Spec: Google DESIGN.md v1 (community implementation).
+> **Source of truth is `app/globals.css`.** The `--color-brand-*` custom
+> properties there are what ships; this file describes them. Where the two
+> disagree, `globals.css` wins and this file is the bug —
+> `npm run check:design-tokens` fails the build on any divergence.
+>
+> Updated: 2026-08-26. Spec: Google DESIGN.md v1 (community implementation).
+>
+> Earlier revisions of this file declared an orange `--ra-primary #E55A2B`
+> palette with Inter and JetBrains Mono, sourced from a
+> Synthex/packages/brand-config path outside this repository. None of it was
+> ever real here: no `--ra-*` token appears in any file, Inter is not loaded as
+> a font, and no Synthex directory exists. The CI lint could not detect this
+> because it only checked that six headings were present. Anything generated
+> against those tokens was off-brand.
 
 ---
 
@@ -27,39 +38,53 @@ not by being loud.
 
 ## Visual Tokens
 
-> The CEO register (Command Center, internal ops) uses Gun Metal + Candy Red.
-> The product register (field technician app) uses RestoreAssist orange.
-> Tokens below are the product register. CEO surfaces overlay Gun Metal.
+The palette is navy and bronze. Use the Tailwind utility (`bg-brand-navy`)
+rather than the hex; components must carry no raw hex literal.
 
-### Colour
-
-| Token | Hex | Use |
-|---|---|---|
-| `--ra-primary` | `#E55A2B` | Brand primary — candy orange dark |
-| `--ra-secondary` | `#2A3D45` | Slate — body chrome |
-| `--ra-accent` | `#C5E063` | Lime — NIR highlight / action confirm |
-| `--neutral-50` | `#F5F7F8` | Canvas |
-| `--neutral-100` | `#E4E9EC` | Surface |
-| `--neutral-500` | `#6F7B82` | Muted text |
-| `--neutral-900` | `#0E1518` | Body text |
-| `--success` | `#3FA34D` | Pass / completed |
-| `--warning` | `#E0A800` | Attention required |
-| `--danger` | `#C0392B` | Reserved for danger only — never as brand primary |
-
-### CEO-Surface Overlay Tokens (Phill Rule 6)
+### Colour — core brand
 
 | Token | Hex | Use |
 |---|---|---|
-| `--canvas` | `#0e1014` | Gun Metal base — all CEO views |
-| `--red-500` | `#b30000` | Candy Red primary — CEO actions |
-| `--orange-400` | `#e07020` | CEO secondary |
-| `--green-500` | `#00a854` | CEO success |
+| `--color-brand-navy` | `#1c2e47` | Primary — headings, accents, strong text |
+| `--color-brand-bronze` | `#8a6b4e` | Secondary — CTAs, highlights, borders |
+| `--color-brand-slate` | `#5a6a7b` | Muted — body copy, meta text |
+| `--color-brand-gold` | `#d4a574` | Tertiary highlight |
+
+### Colour — marketing CTA
+
+| Token | Hex | Use |
+|---|---|---|
+| `--color-brand-cta` | `#765c43` | Primary CTA bronze |
+| `--color-brand-cta-hover` | `#634a2f` | Primary CTA bronze, hover |
+| `--color-brand-steel` | `#546272` | Secondary CTA steel |
+| `--color-brand-steel-hover` | `#445163` | Secondary CTA steel, hover |
+| `--color-brand-mist` | `#c4c8ca` | Translucent glass surface on hero |
+| `--color-brand-cloud` | `#f4f5f6` | Off-white section surface |
+
+### Colour — dark surfaces
+
+| Token | Hex | Use |
+|---|---|---|
+| `--color-brand-canvas` | `#050505` | Near-black full-bleed canvas |
+| `--color-brand-surface` | `#0e1320` | Help-centre card / panel |
+| `--color-brand-surface-2` | `#11172a` | Help-centre card, hover |
+| `--color-brand-deep` | `#0d1b2e` | Sketch editor / capture flow |
+| `--color-brand-ink` | `#0a0a0a` | Drawer / sidebar |
+| `--color-brand-abyss` | `#02040b` | WebGL hero background |
+
+### Contrast — read before choosing a CTA colour
+
+`--color-brand-bronze` `#8a6b4e` measures **4.33:1** on white, below the 4.5:1
+WCAG AA floor for body-size text. `--color-brand-cta` `#765c43` is the darker
+replacement and clears it. Both are still in the palette, so picking the wrong
+one is easy; use `--color-brand-cta` for anything a user must read or action.
 
 ### Typography
 
-- **Display:** Inter, weight 800. `fonts/ra/Inter-ExtraBold.woff2`
-- **Body:** Inter, weight 400. `fonts/ra/Inter-Regular.woff2`
-- **Mono:** JetBrains Mono, weight 500. `fonts/ra/JetBrainsMono-Medium.woff2`
+Loaded in `app/layout.tsx` via `next/font/google`:
+
+- **Sans:** Geist, exposed as `--font-sans`.
+- **Mono:** Geist Mono, exposed as `--font-mono`.
 
 ### Radius
 
@@ -82,8 +107,12 @@ These are **auto-fail** in CI lint and code review.
 ### Icons
 - **NO Lucide, HeroIcons, FontAwesome, or any other icon library in app code.**
   Phill Rule 1. Generic icons make every app look the same.
-- Shadcn UI library internals may keep their own icons — app-level code only
-  imports from `src/components/ui/marks.tsx`.
+- Shadcn UI library internals may keep their own icons. App-level code defines
+  the mark it needs as an inline SVG in the component that uses it — see the
+  `CheckCircleMark` / `SpinnerMark` pattern in `components/setup/AiKeyCard.tsx`.
+  There is no shared marks module; earlier revisions of this file pointed at a
+  src/components/ui/marks.tsx that has never existed in this repo, which also
+  has no src/ directory.
 
 ### AI-Slop Phrases (from brand-guardian global banned list)
 
@@ -108,7 +137,7 @@ These are **auto-fail** in CI lint and code review.
 - `leverage`, `utilise`, `best-in-class`, `world-class`, `game-changer`,
   `revolutionary`, `seamless`, `powerful`, `unlock`, `journey`, `excited`,
   `thrilled`, `delighted`
-- Pronouns from `FORBIDDEN_PRONOUNS` (see `Synthex/packages/brand-config/src/types.ts`)
+- First-person plural for the company ("we", "our") in product copy — write about what the customer does, not what we do. (Earlier revisions cited a FORBIDDEN_PRONOUNS constant from a package outside this repo; neither exists.)
 - Never abbreviate the company name to "RA" in voiceover or on-screen titles.
 - Never use red as a primary brand colour (reserved for danger only).
 - Never imply the NIR is optional or vendor-specific.
@@ -143,8 +172,9 @@ Design grammar:
 - 1–3 path elements maximum per mark
 - Derived from the hexagon in the Unite-Group logo mark
 
-Before adding any icon-like element, check `src/components/ui/marks.tsx` first.
-If a mark doesn't exist, design one following the grammar above.
+Before adding an icon-like element, grep for an existing inline mark with the
+same job — several components define their own. If none fits, design one
+following the grammar above and keep it local to the component.
 
 ### Real Logos (Phill Rule 4)
 
@@ -206,24 +236,32 @@ This repo runs the DESIGN.md lint on every PR via
    tracked content files (excluding this DESIGN.md and brand-guardian's own
    reference docs).
 4. No **net-new** imports from `lucide-react`, `@heroicons/react`, or
-   `@fortawesome/*` in `src/**/*.{ts,tsx,js,jsx}` (Phill Rule 1). The
-   pre-existing count is recorded as a baseline in
-   `.github/design-md-lint.baseline.txt`; PRs that grow the count fail CI.
-   Migrate to `src/components/ui/marks.tsx` and lower the baseline.
+   `@fortawesome/*` (Phill Rule 1). The pre-existing count is recorded per file
+   in `scripts/lucide-baseline.json`; a PR that grows any file past its
+   baseline, or adds an import to a file with no baseline, fails
+   `npm run check:no-lucide`. Replace with an inline mark and lower the
+   baseline.
 
 To run locally: `bash .github/scripts/design-md-lint.sh`.
 
-To upgrade this lint to the Google `google-labs-code/design.md` CLI once it
-publishes an npm package, swap the shell script for `npx design-md lint`
-and keep the same workflow trigger.
+The heading lint cannot tell whether what this file says is true — it passed
+throughout the period the palette above was fiction. `npm run check:design-tokens`
+is the check that compares the token tables against `app/globals.css`; keep both
+in the workflow.
 
 ---
 
 ## References
 
-- Source of truth (typed BrandConfig): `Synthex/packages/brand-config/src/brands/ra.ts`
-- Visual tokens (.design.md projection): `Synthex/packages/brand-config/src/brands/ra.design.md`
-- Phill's 7 design rules: `~/.claude/projects/-Users-phill-mac-2nd-Brain/memory/feedback_design_preferences.md`
-- Brand voice (Klark Brown): `~/2nd Brain/2nd Brain/Wiki/voice-klark-brown.md`
-- Brand guardian skill: `~/.claude/skills/brand-guardian/SKILL.md`
-- Pattern reference: `~/2nd Brain/2nd Brain/Wiki/design-system-approach.md`
+In this repository:
+
+- Token source of truth: `app/globals.css` (`--color-brand-*`)
+- Token drift gate: `scripts/check-design-tokens.mjs`
+- Heading lint: `.github/scripts/design-md-lint.sh`
+- Icon baseline: `scripts/lucide-baseline.json`
+- Known accessibility debt: `docs/design/a11y-tokens.md`, `docs/design/modal-focus-audit.md`
+
+Referenced from the owner's machine, not this repo, so an agent cannot open
+them and must not assume their contents: the brand-guardian and qa-lead skills
+under the user-level `.claude/skills/`, and the 2nd Brain wiki notes on brand
+voice and design-system approach.

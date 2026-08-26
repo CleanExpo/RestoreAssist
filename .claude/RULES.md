@@ -1,8 +1,14 @@
 # Rules — RestoreAssist (full list)
 
-`CLAUDE.md` lists the 17 non-negotiables. This file holds the full 28-rule set + the Progress Framework constraints + Karpathy recall principles. Read it when a rule in CLAUDE.md needs context, or before a non-trivial change to auth / data / billing / progress code.
+The 33 rules below are the full set: engineering non-negotiables (1-20), the
+Progress Framework constraints (21-28), and the owner-gated actions (29-33).
 
-## Full 28-rule set
+**Nothing auto-loads this file.** Claude Code loads `CLAUDE.md`, `AGENTS.md` and
+`.claude/rules/*.md` only, so `CLAUDE.md` routes here. Read it before any change
+to auth, data, billing, AI calls or `lib/progress/**`, and whenever you are
+about to do something that looks owner-gated.
+
+## The 33 rules
 
 ### Auth & Identity
 1. Every API route requires `getServerSession` — only `/api/auth/*`, `/api/cron/*` (bearer-token), and webhook endpoints are exempt.
@@ -35,15 +41,15 @@ Any dependency change:
 13. All sync is fire-and-forget — failures queue to dead-letter, never block user-facing requests.
 
 ### Compliance & UI
-14. IICRC references cite edition and section: `S500:2021 §7.1` — never abbreviate or omit version.
-15. Australian compliance: GST = 10%, ABN = 11 digits, state building codes via `lib/nir-jurisdictional-matrix.ts`.
+14. IICRC references cite edition and section: `S500:2021 §7.1` — never abbreviate or omit version. Generate them with `standardCite()` (`lib/nir-standards-mapping.ts`), which owns the current editions; a hand-typed year goes stale silently and `npm run check:standards` will reject an invented one.
+15. Tax and identifiers come from `lib/gst-rules.ts` — **AU GST 10%, NZ GST 15%**. Never hardcode `0.1`, `?? 10` or `/ 11`; the product ships to both countries and roughly a dozen call sites still bypass this helper. ABN = 11 digits (`lib/validation/`), NZBN via `lib/validation/nzbn-validator.ts`. State building codes via `lib/nir-jurisdictional-matrix.ts`.
 16. Use shadcn/ui from `components/ui/` — never create custom form controls or dialogs.
 17. Brand: navy `#1C2E47` · warm `#8A6B4E` · light `#D4A574` · dark bg `#050505`.
 
 ### General
 18. REST conventions: GET/POST/PATCH/DELETE — consistent `{ data }` or `{ error }` response shape.
 19. Secrets in `.env.local` only (never committed) — reference `.env.example` for full variable list.
-20. Read source files before modifying — 120+ Prisma models, 800+ files; never assume structure.
+20. Read source files before modifying — 221 Prisma models, ~3,200 TypeScript files; never assume structure. Several concerns have a correct owner and a tempting near-duplicate (see the source-of-truth table in `CLAUDE.md`), so grep for an existing helper before adding one.
 
 ### Progress Framework (Epic RA-1376 · Board 2026-04-18 · Motion M-4)
 Non-negotiable engineering constraints on every `lib/progress/**` and related surface. Reviews reject PRs that regress any. Full rationale: `.claude/board-2026-04-18/progress-principles.md`.
@@ -65,7 +71,7 @@ These actions require explicit owner/human authorization before any agent — lo
 30. **Secret and credential rotation** — API keys, OAuth client secrets, service-role tokens, signing keys, `.env` values in any deployed environment.
 31. **Spend above a real-money threshold** — any action that provisions paid infrastructure, upgrades a paid tier, or otherwise commits spend over **$50 AUD** in a single action.
 32. **Deleting or cancelling production resources** — dropping a prod database/branch, deleting a prod deployment, cancelling a subscription, revoking a domain, deleting user data outside a documented data-subject request.
-33. **Merging into `main`** — see rule 18 (AGENTS.md); restated here for completeness of the owner-gated list.
+33. **Merging into `main`, and promoting a release** — an agent opens a PR and stops. Merging is the owner's, and merging ships nothing on its own: `deploy-production.yml` is `workflow_dispatch`-only and needs a release-gate run ID plus the 40-character SHA typed as confirmation.
 
 An agent that reaches an owner-gated action must stop, state exactly what it would do and why, and wait for explicit human go-ahead in that session. It must not infer prior approval from a Linear ticket status, a runbook's existence, or a prior session's notes.
 
@@ -81,18 +87,19 @@ Agents must **checkpoint-commit every ~3 edits** with `git commit --allow-empty 
 
 The Linear-driven continuous loop is **session-bound, not a standing cron**: it runs only for the lifetime of the invoking session and must not schedule, daemonize, or re-trigger itself after the session ends. (A prior autonomous "Shipit continuous-execution cron" was paused after it opened conflicting PRs into `main` unattended — this constraint exists to prevent a repeat.) Each backlog item dispatched by the loop follows the same one-code-modifying-agent-at-a-time / worktree-isolation / checkpoint-commit rules above, and every item's terminus is a single PR-open — never a merge, never a chain of dependent unmerged PRs assumed to land together.
 
-## Karpathy recall (you know these — write code that reflects them)
+## Working style
 
-These are not training; they are reminders. The model already understands good engineering. Use this section when a draft response feels bloated.
+General engineering judgement is assumed; this section only covers where this
+repo's grain differs from the obvious default.
 
-### 1. Think before coding
-State your assumptions explicitly. If uncertain, ask. If multiple interpretations exist, present them — don't pick silently. If a simpler approach exists, say so. If something is unclear, stop. Name what's confusing. Ask.
-
-### 2. Simplicity first
-Minimum code that solves the problem. No features beyond what was asked. No abstractions for single-use code. No "flexibility" or "configurability" that wasn't requested. No error handling for impossible scenarios. If you write 200 lines and it could be 50, rewrite it. Ask: "Would a senior engineer say this is overcomplicated?"
-
-### 3. Surgical changes
-Touch only what you must. Don't "improve" adjacent code, comments, or formatting. Don't refactor things that aren't broken. Match existing style, even if you'd do it differently. If you notice unrelated dead code, mention it — don't delete it. Every changed line should trace directly to the user's request.
-
-### 4. Goal-driven execution
-Transform tasks into verifiable goals: "Add validation" → "Write tests for invalid inputs, then make them pass." For multi-step tasks, state a brief plan: `1. step → verify: check 2. step → verify: check`. Strong success criteria let you loop independently.
+- **Scope is the deliverable.** Touch what the request needs. Noticing adjacent
+  dead code is worth a sentence, not a commit.
+- **A test that has never been red proves nothing.** Run it against the unfixed
+  code and watch it fail before you claim it guards anything. This repo has a
+  standing weekly job hunting suites that pass without exercising the
+  production path, because they keep appearing.
+- **"Did not run" and "ran and found nothing" look identical in a summary.**
+  Say which one it was, and say plainly when something could not be checked
+  from the current environment rather than reporting a confident zero.
+- **Read before you assume.** 221 models and ~3,200 files mean the helper you
+  are about to write probably exists under a different name.

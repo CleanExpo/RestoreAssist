@@ -19,6 +19,7 @@ import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 import { Video, X, Volume2, VolumeX, Send, MessageCircle, Loader2 } from "lucide-react";
 import { BRAND } from "@/lib/brand";
+import { computePanelAnchor, useDraggableOrb } from "./use-draggable-orb";
 import {
   MARGOT_ACCENT,
   MARGOT_AVATAR_ORB_PATH,
@@ -60,6 +61,9 @@ const SUGGESTED_QUESTIONS = [
 const PUBLIC_CHAT_OFFLINE_MESSAGE =
   "I'm having trouble connecting right now. Please try again in a moment — if this keeps happening, use Get Started below to explore RestoreAssist inside your workspace.";
 
+/** id of the screen-reader hint describing how to reposition the orb. */
+const ORB_MOVE_HINT_ID = "margot-orb-move-hint";
+
 const PUBLIC_CHAT_RATE_LIMIT_MESSAGE =
   "I am getting a lot of questions right now. Give me a minute and try again.";
 
@@ -100,6 +104,28 @@ export function AvatarOrb({
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
 
+  // Drag-to-move. Keeps Margot off the field the user is trying to fill.
+  const {
+    position,
+    isDragging,
+    onPointerDown,
+    onKeyDown,
+    consumeDragSuppression,
+  } = useDraggableOrb(size);
+
+  // Touch devices get no unprompted tooltip. The card is 224px wide and the
+  // screen it covers is the signup form, so on a phone the "helpful" greeting
+  // is the obstruction. Tapping Margot still opens her.
+  const [coarsePointer, setCoarsePointer] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia("(pointer: coarse)");
+    setCoarsePointer(query.matches);
+    const onChange = (e: MediaQueryListEvent) => setCoarsePointer(e.matches);
+    query.addEventListener?.("change", onChange);
+    return () => query.removeEventListener?.("change", onChange);
+  }, []);
+
   // Animate entrance
   const [entered, setEntered] = useState(false);
   useEffect(() => {
@@ -109,14 +135,14 @@ export function AvatarOrb({
 
   // Show tooltip briefly on first load (only when chat isn't already open)
   useEffect(() => {
-    if (!entered || isChatOpen) return;
+    if (!entered || isChatOpen || coarsePointer) return;
     const t1 = setTimeout(() => setTooltipVisible(true), 800);
     const t2 = setTimeout(() => setTooltipVisible(false), 6000);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [entered, isChatOpen]);
+  }, [entered, isChatOpen, coarsePointer]);
 
   // Auto-play greeting if enabled (muted per browser policy)
   useEffect(() => {
@@ -137,6 +163,22 @@ export function AvatarOrb({
 
   const hasVideo = Boolean(greetingVideoUrl || explainerVideoUrl);
 
+  // Panel geometry mirrors the Tailwind classes below: w-[min(24rem,100vw-2rem)]
+  // and h-[min(600px,70vh)]. Kept in sync by hand — there is no layout read to
+  // derive it from before the panel has rendered.
+  const panelAnchor =
+    position && typeof window !== "undefined"
+      ? computePanelAnchor(
+          position,
+          size,
+          { width: window.innerWidth, height: window.innerHeight },
+          {
+            width: Math.min(384, window.innerWidth - 32),
+            height: Math.min(600, window.innerHeight * 0.7),
+          },
+        )
+      : null;
+
   const openChat = useCallback(() => {
     setIsChatOpen(true);
     setTooltipVisible(false);
@@ -154,6 +196,10 @@ export function AvatarOrb({
   }, [greetingText]);
 
   const handleOrbClick = () => {
+    // The browser fires click after a drag's pointerup. Opening the panel here
+    // is the behaviour being complained about, so a drag consumes its click.
+    if (consumeDragSuppression()) return;
+
     if (hasVideo) {
       setIsOpen(true);
       setTooltipVisible(false);
@@ -270,12 +316,20 @@ export function AvatarOrb({
       <button
         ref={orbRef}
         onClick={handleOrbClick}
+        onPointerDown={onPointerDown}
+        onKeyDown={onKeyDown}
         type="button"
         className={cn(
-          "group relative z-[100] flex aspect-square shrink-0 cursor-pointer items-center justify-center rounded-full p-1 transition-all duration-300",
-          "hover:scale-110 hover:shadow-xl",
+          "group relative z-[100] flex aspect-square shrink-0 items-center justify-center rounded-full p-1",
+          // Scale/shadow transitions are fine at rest but fight the pointer
+          // while dragging, so the orb lags behind the finger.
+          isDragging
+            ? "cursor-grabbing"
+            : "cursor-grab transition-all duration-300 hover:scale-110 hover:shadow-xl",
           entered ? "scale-100 opacity-100" : "scale-50 opacity-0",
-          className,
+          // Once moved, inline left/top positions the orb, so the caller's
+          // corner utilities must not also apply.
+          position ? "fixed" : className,
         )}
         style={{
           width: `${size}px`,
@@ -283,6 +337,10 @@ export function AvatarOrb({
           minWidth: `${size}px`,
           minHeight: `${size}px`,
           boxShadow: isChatOpen ? undefined : `0 8px 28px ${MARGOT_ACCENT}66`,
+          // Without this the browser claims the gesture for scrolling and the
+          // orb never receives pointermove on a touch screen.
+          touchAction: "none",
+          ...(position ? { left: position.x, top: position.y } : {}),
         }}
         aria-label={
           hasVideo
@@ -291,6 +349,8 @@ export function AvatarOrb({
               ? `Close ${MARGOT_DISPLAY_NAME}`
               : `Open ${MARGOT_DISPLAY_NAME}`
         }
+        aria-describedby={ORB_MOVE_HINT_ID}
+        title={`${MARGOT_DISPLAY_NAME} — drag to move, or use the arrow keys`}
         aria-expanded={!hasVideo ? isChatOpen : undefined}
       >
         {isChatOpen && !hasVideo ? (
@@ -357,10 +417,25 @@ export function AvatarOrb({
         )}
       </button>
 
+      <span id={ORB_MOVE_HINT_ID} className="sr-only">
+        Drag to move {MARGOT_DISPLAY_NAME} out of the way, or press the arrow
+        keys while she is focused.
+      </span>
+
       {/* Assistant chatbox — Margot surface, same identity as client Chatbot */}
       {isChatOpen && !hasVideo && (
         <div
-          className="fixed right-6 bottom-24 z-[100] flex h-[min(600px,70vh)] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl animate-in fade-in slide-in-from-bottom-4"
+          className={cn(
+            "fixed z-[100] flex h-[min(600px,70vh)] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl animate-in fade-in slide-in-from-bottom-4",
+            // Default corner until the orb has been moved; after that the panel
+            // follows her so the two do not drift apart.
+            panelAnchor ? undefined : "right-6 bottom-24",
+          )}
+          style={
+            panelAnchor
+              ? { left: panelAnchor.x, top: panelAnchor.y }
+              : undefined
+          }
           role="dialog"
           aria-label={`${MARGOT_DISPLAY_NAME} assistant`}
         >
