@@ -6,7 +6,10 @@ import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { decomposeElements } from "@/lib/sketch/decompose-elements";
 import { pinsToMoistureReadingInputs } from "@/lib/sketch/moisture-readings-sync";
-import { extractRoomGraphNodes } from "@/lib/sketch/sync-room-graph";
+import {
+  extractRoomGraphNodes,
+  partitionStaleRooms,
+} from "@/lib/sketch/sync-room-graph";
 
 // GET /api/inspections/[id]/sketches — list all sketches for an inspection
 export async function GET(
@@ -128,9 +131,8 @@ export async function POST(
       where: { inspectionId: id, floorNumber },
     });
 
-    const { resolveSketchCaptureAdapter } = await import(
-      "@/lib/sketch/ingest-roomplan"
-    );
+    const { resolveSketchCaptureAdapter } =
+      await import("@/lib/sketch/ingest-roomplan");
     const captureAdapter = resolveSketchCaptureAdapter({
       sketchData,
       explicit: captureAdapterRaw,
@@ -281,7 +283,21 @@ export async function POST(
       );
       const existingRooms = await (prisma as any).sketchRoom.findMany({
         where: { sketchId: sketch.id },
-        select: { id: true, fabricObjectId: true, name: true, geometryJson: true },
+        select: {
+          id: true,
+          fabricObjectId: true,
+          name: true,
+          geometryJson: true,
+          // Dependent counts decide delete vs detach below — a room holding
+          // evidence must never be deleted, because the FKs are SetNull.
+          _count: {
+            select: {
+              evidencePins: true,
+              moistureReadings: true,
+              hazards: true,
+            },
+          },
+        },
         take: 500,
       });
       const byFabric = new Map(
@@ -306,6 +322,9 @@ export async function POST(
               provenance: node.provenance,
               geometryJson: node.geometryJson,
               floorNumber,
+              // Back on the canvas — clear any previous detachment so the room
+              // is a placement target again.
+              detachedAt: null,
             },
           });
         } else {
@@ -325,19 +344,34 @@ export async function POST(
           });
         }
       }
-      const staleIds = existingRooms
-        .filter(
-          (r: { fabricObjectId: string }) => !seenFabric.has(r.fabricObjectId),
-        )
-        .map((r: { id: string }) => r.id);
-      if (staleIds.length) {
+      // A room missing from the incoming canvas is only safe to delete when
+      // nothing was captured in it. Deleting one that holds evidence would
+      // SetNull the room link on those pins/readings/hazards and silently lose
+      // which room they came from — see partitionStaleRooms.
+      const staleRooms = existingRooms.filter(
+        (r: { fabricObjectId: string }) => !seenFabric.has(r.fabricObjectId),
+      );
+      const { deletableIds, detachableIds } = partitionStaleRooms(staleRooms);
+
+      if (deletableIds.length) {
         await (prisma as any).sketchRoom.deleteMany({
-          where: { id: { in: staleIds } },
+          where: { id: { in: deletableIds } },
+        });
+      }
+      if (detachableIds.length) {
+        // Only stamp rooms detaching for the first time, so a room that stays
+        // off-canvas across saves keeps the timestamp it actually left at.
+        await (prisma as any).sketchRoom.updateMany({
+          where: { id: { in: detachableIds }, detachedAt: null },
+          data: { detachedAt: new Date() },
         });
       }
 
       const roomsForPins = await (prisma as any).sketchRoom.findMany({
-        where: { sketchId: sketch.id },
+        // Detached rooms are history, not placement targets: hit-testing a
+        // point against geometry that is no longer on the canvas would bind
+        // new evidence to a room the operator cannot see.
+        where: { sketchId: sketch.id, detachedAt: null },
         select: {
           id: true,
           name: true,
