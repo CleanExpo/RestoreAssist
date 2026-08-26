@@ -20,3 +20,11 @@ jobs:
         run: chmod +x .github/scripts/design-md-lint.sh
       - name: Run DESIGN.md lint
         run: bash .github/scripts/design-md-lint.sh
+
+      # The heading lint above cannot see whether the tokens DESIGN.md declares
+      # are real. It passed for months while the file documented an orange
+      # palette the app has never shipped, so every agent that generated UI
+      # from it produced off-brand work. This step compares the declared tokens
+      # against app/globals.css, which is the source of truth.
+      - name: Verify DESIGN.md tokens match app/globals.css
+        run: node scripts/check-design-tokens.mjs

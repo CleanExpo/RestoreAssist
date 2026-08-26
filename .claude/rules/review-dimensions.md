@@ -51,8 +51,8 @@ lib/ai/**                  → 3, 4, 5, 14
 components/**              → 1, 5, 9, 13, 18
 lib/*.ts                   → 1, 4, 5, 14
 .github/**                 → (no dimensions — infra review only)
-content/**                 → 11, 15
-packages/videos/**         → 1, 12, 13
+data/content/**            → 11, 15
+tools/remotion/**          → 1, 12, 13
 ```
 
 ## Verdict Thresholds
