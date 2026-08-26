@@ -59,9 +59,7 @@ import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
  * portal) — only the email connector itself needs to be configured.
  */
 function reviewAskEnvConfigured(): boolean {
-  return isEmailServiceConfigured() && Boolean(
-    process.env.SENDER_EMAIL?.trim() || process.env.RESEND_FROM_EMAIL?.trim(),
-  );
+  return isEmailServiceConfigured();
 }
 
 /**
@@ -151,9 +149,9 @@ export async function dispatchReviewAskNotification(
   if (!reviewAskEnvConfigured()) {
     reportError(
       new Error(
-        "[pulse] Resend env not configured — review-ask suppressed",
+        "[pulse] Mailtrap env not configured — review-ask suppressed",
       ),
-      { stage: "pulse:review-ask", inspectionId, connector: "resend" },
+      { stage: "pulse:review-ask", inspectionId, connector: "mailtrap" },
     );
     return suppress("MISSING_ENV");
   }

@@ -72,7 +72,8 @@ beforeEach(() => {
   org.user.update.mockResolvedValue({});
   configured.mockResolvedValue(false); // unconfigured by default
   process.env.PRICING_REMINDER_ENABLED = "true";
-  process.env.RESEND_API_KEY = "re_test";
+  process.env.MAILTRAP_API_KEY = "mt_test";
+  process.env.SENDER_EMAIL = "support@restoreassist.app";
 });
 
 afterEach(() => {
@@ -170,7 +171,7 @@ describe("sendPricingSetupReminders", () => {
   });
 
   it("does not stamp the owner when the send throws (so the next run retries)", async () => {
-    sendEmail.mockRejectedValueOnce(new Error("resend 500"));
+    sendEmail.mockRejectedValueOnce(new Error("mailtrap 500"));
     org.organization.findMany.mockResolvedValueOnce([ownerOrg()]);
     const res = await sendPricingSetupReminders();
     expect(org.user.update).not.toHaveBeenCalled();

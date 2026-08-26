@@ -197,7 +197,7 @@ describe("POST /api/support/tickets/[id]/reply", () => {
 
   it("returns 502 and persists nothing when the email cannot be sent", async () => {
     sendSupportReplyEmail.mockRejectedValue(
-      new Error("[email] Resend send failed (support-reply)"),
+      new Error("[email] Email send failed (support-reply)"),
     );
 
     const response = await POST(

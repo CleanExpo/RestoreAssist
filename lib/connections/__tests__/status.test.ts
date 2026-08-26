@@ -17,7 +17,8 @@ const FULL_ENV = {
   ASCORA_API_KEY: "ascora-key",
   STRIPE_SECRET_KEY: "sk_test_value",
   STRIPE_WEBHOOK_SECRET: "whsec_value",
-  RESEND_API_KEY: "re_value",
+  MAILTRAP_API_KEY: "mt_value",
+  SENDER_EMAIL: "support@restoreassist.app",
   LINEAR_API_KEY: "lin_api_value",
   LINEAR_RA_TEAM_ID: "team-uuid",
   GOOGLE_CLIENT_ID: "google-client-id-value",
@@ -156,7 +157,7 @@ describe("buildRestoreAssistConnectionStatus", () => {
       "sk-ant-value",
       "sk_test_value",
       "whsec_value",
-      "re_value",
+      "mt_value",
       "anon-key-value",
       "nextauth-secret-value",
       "ascora-key",
@@ -185,7 +186,6 @@ describe("buildRestoreAssistConnectionStatusWithProbes", () => {
     const status = await buildRestoreAssistConnectionStatusWithProbes(FULL_ENV, NOW, {
       database: async () => {},
       stripe: async () => {},
-      email: async () => {},
     });
     const byId = Object.fromEntries(status.connections.map((c) => [c.id, c]));
 
@@ -193,9 +193,8 @@ describe("buildRestoreAssistConnectionStatusWithProbes", () => {
     expect(byId.database.state).toBe("connected");
     expect(byId.stripe.method).toBe("live-probe");
     expect(byId.stripe.state).toBe("ready");
-    expect(byId.email.method).toBe("live-probe");
+    expect(byId.email.method).toBe("env-presence");
     expect(byId.email.state).toBe("ready");
-    // Non-probed checks keep the honest env-presence label.
     expect(byId.supabase.method).toBe("env-presence");
     expect(byId.ascora.method).toBe("env-presence");
   });
@@ -206,7 +205,6 @@ describe("buildRestoreAssistConnectionStatusWithProbes", () => {
       stripe: async () => {
         throw new Error("provider responded 401");
       },
-      email: async () => {},
     });
     const byId = Object.fromEntries(status.connections.map((c) => [c.id, c]));
 
@@ -223,7 +221,6 @@ describe("buildRestoreAssistConnectionStatusWithProbes", () => {
       {
         database: () => new Promise<void>(() => {}), // never settles
         stripe: async () => {},
-        email: async () => {},
       },
       25, // short timeout to keep the test fast
     );
@@ -237,16 +234,15 @@ describe("buildRestoreAssistConnectionStatusWithProbes", () => {
   it("does not echo raw provider error text into the payload", async () => {
     const status = await buildRestoreAssistConnectionStatusWithProbes(FULL_ENV, NOW, {
       database: async () => {},
-      stripe: async () => {},
-      email: async () => {
-        throw new Error("ECONNREFUSED api.resend.com sk_live_leaky_detail");
+      stripe: async () => {
+        throw new Error("ECONNREFUSED api.stripe.com sk_live_leaky_detail");
       },
     });
     const serialized = JSON.stringify(status);
 
     expect(serialized).not.toContain("ECONNREFUSED");
     expect(serialized).not.toContain("sk_live_leaky_detail");
-    expect(status.connections.find((c) => c.id === "email")?.detail).toContain(
+    expect(status.connections.find((c) => c.id === "stripe")?.detail).toContain(
       "probe failed",
     );
   });
@@ -259,7 +255,6 @@ describe("buildRestoreAssistConnectionStatusWithProbes", () => {
       stripe: async () => {
         stripeProbed = true;
       },
-      email: async () => {},
     });
     const stripe = status.connections.find((c) => c.id === "stripe");
 

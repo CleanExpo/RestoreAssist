@@ -21,7 +21,7 @@ import type { CronJobResult } from "./runner";
  *
  * DARK BY DEFAULT: sends nothing unless PRICING_REMINDER_ENABLED === "true".
  * Deploying the cron is therefore harmless; the operator flips the flag when
- * ready. (RESEND_API_KEY absence also no-ops the send, as with sibling crons.)
+ * ready. (MAILTRAP_API_KEY absence also no-ops the send, as with sibling crons.)
  *
  * Runs: /api/cron/pricing-setup-reminders, Vercel daily 19:00 UTC.
  */

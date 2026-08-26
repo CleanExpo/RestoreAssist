@@ -171,7 +171,7 @@ const nextConfig = {
   // Categories:
   //   Native binaries:   sharp, puppeteer, exifr — platform-specific .node files
   //   AI SDKs:           @anthropic-ai/sdk, openai, @google/generative-ai
-  //   Cloud/infra:       firebase-admin, googleapis, cloudinary, stripe, resend, nodemailer
+  //   Cloud/infra:       firebase-admin, googleapis, cloudinary, stripe, nodemailer
   //   PDF generation:    pdf-lib, jspdf, pdf-parse
   //   Office formats:    exceljs, mammoth
   //   Media/video:       @remotion/lambda
@@ -191,7 +191,6 @@ const nextConfig = {
     "google-auth-library",
     "cloudinary",
     "stripe",
-    "resend",
     "nodemailer",
     // PDF generation / parsing — heavy, server-only
     "pdf-lib",

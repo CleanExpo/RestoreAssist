@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Capture the payload handed to Resend so we can assert on the rendered HTML.
 const sendMock = vi.fn();
-vi.mock("resend", () => ({
-  Resend: class {
-    emails = { send: sendMock };
-  },
+vi.mock("@/lib/email/send-transactional", () => ({
+  sendTransactionalEmail: (...args: unknown[]) => sendMock(...args),
+  EMAIL_SEND_TIMEOUT_MS: 10_000,
 }));
 vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
 
@@ -17,11 +15,9 @@ import {
   sendSubscriptionCancelledEmail,
 } from "../email";
 
-const originalKey = process.env.RESEND_API_KEY;
-const originalFrom = process.env.RESEND_FROM_EMAIL;
+const originalKey = process.env.MAILTRAP_API_KEY;
+const originalFrom = process.env.SENDER_EMAIL;
 
-// A payload that injects markup + an event handler. If interpolated raw it
-// becomes live HTML in the recipient's inbox (phishing / HTML injection).
 const XSS = `<img src=x onerror="alert(1)">`;
 const ESCAPED = "&lt;img src=x onerror=&quot;alert(1)&quot;&gt;";
 
@@ -30,16 +26,16 @@ beforeEach(() => {
   sendMock.mockResolvedValue({ data: { id: "test-id" }, error: null });
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
-  process.env.RESEND_API_KEY = "re_test_key";
-  process.env.RESEND_FROM_EMAIL = "Restore Assist <noreply@restoreassist.app>";
+  process.env.MAILTRAP_API_KEY = "mt_test_key";
+  process.env.SENDER_EMAIL = "Restore Assist <noreply@restoreassist.app>";
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
-  if (originalKey === undefined) delete process.env.RESEND_API_KEY;
-  else process.env.RESEND_API_KEY = originalKey;
-  if (originalFrom === undefined) delete process.env.RESEND_FROM_EMAIL;
-  else process.env.RESEND_FROM_EMAIL = originalFrom;
+  if (originalKey === undefined) delete process.env.MAILTRAP_API_KEY;
+  else process.env.MAILTRAP_API_KEY = originalKey;
+  if (originalFrom === undefined) delete process.env.SENDER_EMAIL;
+  else process.env.SENDER_EMAIL = originalFrom;
 });
 
 function lastHtml(): string {

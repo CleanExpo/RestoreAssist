@@ -37,7 +37,7 @@ export async function withEmailTimeout<T>(
   }
 }
 
-interface ResendSendResult {
+interface EmailSendResult {
   data: { id: string } | null;
   error: { message?: string; name?: string } | null;
 }
@@ -45,7 +45,7 @@ interface ResendSendResult {
 /**
  * Provider failures come back as `{ data: null, error }`. Fail-loud senders funnel through this so a failed send actually throws (and sendWithRetry can retry it) instead of being silently reported as success.
  */
-function assertResendSuccess<T extends ResendSendResult>(
+function assertEmailSuccess<T extends EmailSendResult>(
   result: T,
   stage: string,
 ): T {
@@ -72,7 +72,7 @@ function assertResendSuccess<T extends ResendSendResult>(
  * logs the provider error loudly and returns null so callers can tell the
  * send did not go out.
  */
-function reportResendFailure<T extends ResendSendResult>(
+function reportEmailFailure<T extends EmailSendResult>(
   result: T,
   stage: string,
 ): T | null {
@@ -90,8 +90,7 @@ function reportResendFailure<T extends ResendSendResult>(
 
 /**
  * Resolve the verified "from" address for outbound email.
- * Prefers SENDER_EMAIL (Mailtrap), then RESEND_FROM_EMAIL. Never falls back
- * to a provider sandbox domain.
+ * Requires SENDER_EMAIL. Never falls back to a provider sandbox domain.
  */
 export function getFromEmail(): string {
   return resolveFromAddress();
@@ -108,11 +107,11 @@ export interface PulseUpdateEmailData {
 
 /**
  * Generic curated Pulse notification send. The Pulse dispatcher pre-checks
- * that MAILTRAP_API_KEY+SENDER_EMAIL (or RESEND_*) are configured and fails closed
+ * that MAILTRAP_API_KEY+SENDER_EMAIL are configured and fails closed
  * (suppressed row + connector-health report) when they are not, so reaching
- * here means the connector is configured. Throws on an actual Resend send
+ * here means the connector is configured. Throws on an actual send
  * failure — the dispatcher catches it and records a SEND_FAILED suppression.
- * Returns the Resend message id on success.
+ * Returns the provider message id on success.
  */
 export async function sendPulseUpdateEmail(
   data: PulseUpdateEmailData,
@@ -126,7 +125,7 @@ export async function sendPulseUpdateEmail(
       text: data.text,
     }),
   );
-  const ok = assertResendSuccess(result, "pulse-update");
+  const ok = assertEmailSuccess(result, "pulse-update");
   return ok.data?.id ?? null;
 }
 
@@ -221,7 +220,7 @@ export async function sendSignedFormEmail(data: SignedFormEmailData) {
       idempotencyKey: data.idempotencyKey,
     }),
   );
-  return assertResendSuccess(result, "signed-form");
+  return assertEmailSuccess(result, "signed-form");
 }
 
 // ── Invite Email ──
@@ -236,13 +235,13 @@ export interface InviteEmailData {
   loginUrl: string;
   inviterName: string;
   isTransfer?: boolean; // True if user already exists and is being transferred
-  /** Prefer org Resend BYOK when set. */
+  /** Workspace id (Mailtrap is platform-only; kept for call-site compatibility). */
   organizationId?: string | null;
   idempotencyKey?: string;
 }
 
 export async function sendInviteEmail(data: InviteEmailData) {
-  if (!isEmailServiceConfigured() && !data.organizationId) {
+  if (!isEmailServiceConfigured()) {
     throw new EmailDeliveryNotAttempted("Email service is not configured");
   }
   const roleLabel = data.role === "MANAGER" ? "Manager" : "Technician";
@@ -432,7 +431,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
         idempotencyKey: data.idempotencyKey,
       }),
     );
-    assertResendSuccess(result, "invite");
+    assertEmailSuccess(result, "invite");
     console.log("[email] Invite email sent", { id: result.data?.id ?? null });
     return result;
   } catch (error) {
@@ -576,7 +575,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
         text,
       }),
     );
-    if (!reportResendFailure(result, "email-dunning")) return null;
+    if (!reportEmailFailure(result, "email-dunning")) return null;
     console.log("[email] Dunning email sent:", result.data?.id);
     return result;
   } catch (error: any) {
@@ -676,7 +675,7 @@ export async function sendSubscriptionCancelledEmail(
         html,
       }),
     );
-    if (!reportResendFailure(result, "email-cancellation")) return null;
+    if (!reportEmailFailure(result, "email-cancellation")) return null;
     console.log("[email] Cancellation email sent:", result.data?.id);
     return result;
   } catch (error: any) {
@@ -771,7 +770,7 @@ export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
         html,
       }),
     );
-    if (!reportResendFailure(result, "email-trial-expiring")) return null;
+    if (!reportEmailFailure(result, "email-trial-expiring")) return null;
     console.log("[email] Trial expiring email sent:", result.data?.id);
     return result;
   } catch (error: any) {
@@ -878,7 +877,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
       idempotencyKey: data.idempotencyKey,
     }),
   );
-  return assertResendSuccess(result, "email-password-reset");
+  return assertEmailSuccess(result, "email-password-reset");
 }
 
 // ── Welcome Email (Admin Signup) ──
@@ -992,7 +991,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
         idempotencyKey: data.idempotencyKey,
       }),
     );
-    if (!reportResendFailure(result, "email-welcome")) return null;
+    if (!reportEmailFailure(result, "email-welcome")) return null;
     console.log("[email] Welcome email sent:", result.data?.id);
     return result;
   } catch (error: any) {
@@ -1104,7 +1103,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
         text,
       }),
     );
-    if (!reportResendFailure(result, "email-report-completed")) return null;
+    if (!reportEmailFailure(result, "email-report-completed")) return null;
     console.log("[email] Report completed email sent:", result.data?.id);
     return result;
   } catch (error: any) {
@@ -1199,7 +1198,7 @@ export async function sendSubscriptionActivatedEmail(
         html,
       }),
     );
-    if (!reportResendFailure(result, "email-subscription-activated"))
+    if (!reportEmailFailure(result, "email-subscription-activated"))
       return null;
     return result;
   } catch (error: any) {
@@ -1241,7 +1240,7 @@ export async function sendPricingSetupReminderEmail(
 ) {
   if (!isEmailServiceConfigured()) {
     console.warn(
-      "[email] RESEND_API_KEY not set — skipping pricing-setup reminder email",
+      "[email] MAILTRAP_API_KEY not set — skipping pricing-setup reminder email",
     );
     return null;
   }
@@ -1302,7 +1301,7 @@ export async function sendPricingSetupReminderEmail(
         html,
       }),
     );
-    assertResendSuccess(result, "pricing-setup-reminder");
+    assertEmailSuccess(result, "pricing-setup-reminder");
     console.log("[email] Pricing-setup reminder sent:", result.data?.id);
     return result;
   } catch (error: any) {
@@ -1317,7 +1316,7 @@ export async function sendPricingSetupReminderEmail(
 export async function sendWinbackEmail(data: WinbackEmailData) {
   if (!isEmailServiceConfigured()) {
     console.warn(
-      "[email] RESEND_API_KEY not set — skipping win-back email send",
+      "[email] MAILTRAP_API_KEY not set — skipping win-back email send",
     );
     return null;
   }
@@ -1382,7 +1381,7 @@ export async function sendWinbackEmail(data: WinbackEmailData) {
         html,
       }),
     );
-    assertResendSuccess(result, "winback");
+    assertEmailSuccess(result, "winback");
     console.log("[email] Win-back email sent:", result.data?.id);
     return result;
   } catch (error: any) {
@@ -1404,7 +1403,7 @@ export interface SupportReplyEmailData {
 
 /**
  * RA-6936 — emails a support-ticket reply to the requester so the inbox is
- * no longer write-only. Throws on any failure (config, Resend error, or
+ * no longer write-only. Throws on any failure (config, Mailtrap error, or
  * timeout) so the route can tell the admin the reply did NOT go out.
  *
  * replyTo is the monitored support mailbox so customer replies land
@@ -1413,7 +1412,7 @@ export interface SupportReplyEmailData {
 export async function sendSupportReplyEmail(data: SupportReplyEmailData) {
   if (!isEmailServiceConfigured()) {
     console.error(
-      "[email] email service is not configured (MAILTRAP_API_KEY or RESEND_API_KEY) — support reply not sent",
+      "[email] email service is not configured (MAILTRAP_API_KEY) — support reply not sent",
     );
     throw new Error("Email service is not configured");
   }
@@ -1472,5 +1471,5 @@ Restore Assist — Australia's compliance platform for water damage restoration`
       idempotencyKey: data.idempotencyKey,
     }),
   );
-  return assertResendSuccess(result, "support-reply");
+  return assertEmailSuccess(result, "support-reply");
 }

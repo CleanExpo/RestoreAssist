@@ -1,5 +1,5 @@
 /**
- * Lightweight transactional email sender — Mailtrap (preferred) or Resend.
+ * Lightweight transactional email sender — Mailtrap Sending API.
  * Fire-and-forget: reports errors loudly but never throws, so callers
  * don't fail. Every failure path emits `[email-send]` via console.error
  * plus a structured reportError so Vercel Observability can alert on it.
@@ -14,7 +14,6 @@ export interface EmailPayload {
   subject: string;
   html: string;
   replyTo?: string;
-  /** When set, prefer the org's Resend BYOK key over platform env. */
   organizationId?: string | null;
 }
 
@@ -22,9 +21,9 @@ export interface EmailPayload {
 export { EMAIL_SEND_TIMEOUT_MS } from "@/lib/email/send-transactional";
 
 export async function sendEmail(payload: EmailPayload): Promise<string | null> {
-  if (!isEmailServiceConfigured() && !payload.organizationId) {
+  if (!isEmailServiceConfigured()) {
     console.error(
-      "[email-send] MAILTRAP_API_KEY / RESEND_API_KEY is not configured — email NOT sent",
+      "[email-send] MAILTRAP_API_KEY is not configured — email NOT sent",
       { subject: payload.subject },
     );
     reportError(

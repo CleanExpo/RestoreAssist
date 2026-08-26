@@ -93,7 +93,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Mailtrap is the preferred platform provider; Resend is the fallback.
     if (!isEmailServiceConfigured()) {
       return NextResponse.json({
         sent: false,
@@ -106,17 +105,17 @@ export async function POST(req: NextRequest) {
     try {
       // ── customer_reengagement: no inspection/invoice; admin-only because it
       //    can target an arbitrary address. Reply-to points at the monitored
-      //    RestoreAssist mailbox (RESEND_REPLY_TO env, else the support inbox)
+      //    RestoreAssist mailbox (EMAIL_REPLY_TO env, else the support inbox)
       //    so replies land somewhere a human reads. Sends from the verified
-      //    restoreassist.app domain — a @gmail.com From cannot be
-      //    SPF/DKIM-authenticated through Resend and would bounce/spam.
+      //    SENDER_EMAIL domain — a @gmail.com From cannot be
+      //    SPF/DKIM-authenticated through Mailtrap and would bounce/spam.
       if (event === "customer_reengagement") {
         const auth = await verifyAdminFromDb(session);
         if (auth.response) return auth.response;
 
         const baseUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
         const replyTo =
-          process.env.RESEND_REPLY_TO || BRAND.company.supportEmail;
+          process.env.EMAIL_REPLY_TO || BRAND.company.supportEmail;
         const messageId = await sendEmail({
           to: recipientEmail,
           subject: "Pick up where you left off — RestoreAssist",

@@ -75,7 +75,7 @@ via a raw `fetch()` instead of the SDK — was invisible to the audit entirely, 
 adding `https://api.anthropic.com/` to the Anthropic provider-detection markers (parity with the existing OpenAI
 raw-fetch check), and treating a bare read of a *named* AI-provider key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
 `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`) as itself an AI surface — scoped to those names specifically so
-unrelated integrations (`RESEND_API_KEY`, `ASCORA_API_KEY`, `LINEAR_API_KEY`, ...) aren't misclassified.
+unrelated integrations (`MAILTRAP_API_KEY`, `ASCORA_API_KEY`, `LINEAR_API_KEY`, ...) aren't misclassified.
 
 ## 5. Delivery batches (P0)
 

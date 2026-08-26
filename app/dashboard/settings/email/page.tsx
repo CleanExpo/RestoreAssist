@@ -4,8 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function EmailSettingsPage() {
@@ -13,9 +11,7 @@ export default function EmailSettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [connected, setConnected] = useState(false);
-  const [fromAddress, setFromAddress] = useState("");
-  const [apiKey, setApiKey] = useState("");
+  const [leftoverResend, setLeftoverResend] = useState(false);
   const [hasPlatformFallback, setHasPlatformFallback] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -30,8 +26,7 @@ export default function EmailSettingsPage() {
         return;
       }
       const data = await res.json();
-      setConnected(!!data.connected);
-      setFromAddress(data.fromAddress ?? "");
+      setLeftoverResend(!!data.connected);
       setHasPlatformFallback(!!data.hasPlatformFallback);
     } catch {
       setLoadError("Failed to load email settings");
@@ -48,34 +43,6 @@ export default function EmailSettingsPage() {
     if (status === "authenticated") void fetchStatus();
   }, [status, router, fetchStatus]);
 
-  const handleSave = async () => {
-    setSaving(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/workspace/email-provider", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey, fromAddress }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setMessage(
-          typeof body.error === "string"
-            ? body.error
-            : "Failed to save Resend key",
-        );
-        return;
-      }
-      setApiKey("");
-      setMessage("Resend API key saved.");
-      await fetchStatus();
-    } catch {
-      setMessage("Failed to save Resend key");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleDisconnect = async () => {
     setSaving(true);
     setMessage(null);
@@ -87,7 +54,7 @@ export default function EmailSettingsPage() {
         setMessage("Failed to disconnect");
         return;
       }
-      setMessage("Disconnected — outbound email uses the platform Resend key.");
+      setMessage("Removed the leftover Resend key. Outbound email uses Mailtrap.");
       await fetchStatus();
     } catch {
       setMessage("Failed to disconnect");
@@ -106,12 +73,12 @@ export default function EmailSettingsPage() {
     <div className="max-w-xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">
-          Email provider (BYOK)
+          Email
         </h1>
         <p className="text-sm text-neutral-500 mt-1">
-          Connect your own Resend API key so invites and notifications send from
-          your domain. Without a key, RestoreAssist uses the platform Resend
-          account{hasPlatformFallback ? "" : " (not configured on this env)"}.
+          RestoreAssist sends invites, welcome mail, and notifications through
+          Mailtrap
+          {hasPlatformFallback ? "." : " (not configured on this environment)."}
         </p>
         <p className="text-xs text-neutral-400 mt-2">
           <a
@@ -139,51 +106,30 @@ export default function EmailSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            Status: {connected ? "Connected (Resend)" : "Using platform default"}
+            Status:{" "}
+            {hasPlatformFallback
+              ? "Mailtrap Sending API"
+              : "Mailtrap is not configured"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="apiKey">Resend API key</Label>
-            <Input
-              id="apiKey"
-              type="password"
-              autoComplete="off"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="re_…"
-            />
-          </div>
-          <div>
-            <Label htmlFor="from">From address (optional)</Label>
-            <Input
-              id="from"
-              type="email"
-              value={fromAddress}
-              onChange={(e) => setFromAddress(e.target.value)}
-              placeholder="jobs@yourcompany.com.au"
-            />
-          </div>
-          {message && <p className="text-sm text-neutral-600">{message}</p>}
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              disabled={saving || !apiKey.trim()}
-              onClick={() => void handleSave()}
-            >
-              {saving ? "Saving…" : "Save key"}
-            </Button>
-            {connected && (
+          {leftoverResend && (
+            <>
+              <p className="text-sm text-neutral-600">
+                This organisation still has an unused Resend key stored. It is
+                no longer used for sending.
+              </p>
               <Button
                 type="button"
                 variant="outline"
                 disabled={saving}
                 onClick={() => void handleDisconnect()}
               >
-                Disconnect
+                Remove leftover Resend key
               </Button>
-            )}
-          </div>
+            </>
+          )}
+          {message && <p className="text-sm text-neutral-600">{message}</p>}
         </CardContent>
       </Card>
     </div>

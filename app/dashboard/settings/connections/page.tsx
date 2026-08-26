@@ -3,7 +3,7 @@
 /**
  * Workstream C — unified Connections settings hub.
  *
- * Surfaces AI BYOK, Resend email, and cloud mirror (OneDrive/Drive) as
+ * Surfaces AI BYOK, Mailtrap email, and cloud mirror (OneDrive/Drive) as
  * professional connection cards with live status. Detail pages remain the
  * place to configure each connection.
  */
@@ -152,27 +152,23 @@ export default function ConnectionsSettingsPage() {
       });
     }
 
-    // Resend
     const emailRes = results[1];
     if (emailRes.status === "fulfilled" && emailRes.value.ok) {
       anyOk = true;
       const data = await emailRes.value.json();
-      if (data.connected) {
+      if (data.hasPlatformFallback) {
         setEmailState({
           state: "connected",
-          detail: data.fromAddress
-            ? `Sending as ${data.fromAddress}`
-            : "Resend connected",
-        });
-      } else if (data.hasPlatformFallback) {
-        setEmailState({
-          state: "missing",
-          detail: "Using platform fallback — add your Resend key for BYOK",
+          detail: data.connected
+            ? "Mailtrap Sending API (unused Resend key still stored)"
+            : "Mailtrap Sending API",
         });
       } else {
         setEmailState({
           state: "missing",
-          detail: "Connect Resend to send client email",
+          detail: data.connected
+            ? "Mailtrap is not configured — leftover Resend key is unused"
+            : "Mailtrap is not configured",
         });
       }
     } else if (
@@ -181,7 +177,7 @@ export default function ConnectionsSettingsPage() {
     ) {
       setEmailState({
         state: "missing",
-        detail: "Owner access required for email BYOK",
+        detail: "Owner access required for email settings",
       });
     } else {
       setEmailState({
@@ -256,14 +252,14 @@ export default function ConnectionsSettingsPage() {
     },
     {
       id: "email",
-      title: "Email (Resend)",
+      title: "Email (Mailtrap)",
       description:
-        "Org-owned Resend API key for invitations, pulse, and client notifications.",
+        "Platform Mailtrap Sending API for invitations, pulse, and client notifications.",
       href: "/dashboard/settings/email",
       icon: ChromeMail,
       state: emailState.state,
       detail: emailState.detail,
-      manageLabel: "Manage Resend",
+      manageLabel: "Email settings",
     },
     {
       id: "cloud",

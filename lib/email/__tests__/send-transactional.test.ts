@@ -1,13 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { resendSend } = vi.hoisted(() => ({ resendSend: vi.fn() }));
-
-vi.mock("resend", () => ({
-  Resend: class {
-    emails = { send: resendSend };
-  },
-}));
-
 vi.mock("@/lib/prisma", () => ({
   prisma: { organization: { findUnique: vi.fn().mockResolvedValue(null) } },
 }));
@@ -19,16 +11,11 @@ const fetchMock = vi.fn();
 const original = {
   mailtrap: process.env.MAILTRAP_API_KEY,
   sender: process.env.SENDER_EMAIL,
-  resend: process.env.RESEND_API_KEY,
-  resendFrom: process.env.RESEND_FROM_EMAIL,
 };
 
 beforeEach(() => {
   fetchMock.mockReset();
-  resendSend.mockReset();
   vi.stubGlobal("fetch", fetchMock);
-  delete process.env.RESEND_API_KEY;
-  delete process.env.RESEND_FROM_EMAIL;
   process.env.MAILTRAP_API_KEY = "mt_test_key";
   process.env.SENDER_EMAIL = "support@restoreassist.app";
 });
@@ -38,8 +25,6 @@ afterEach(() => {
   for (const [k, v] of Object.entries({
     MAILTRAP_API_KEY: original.mailtrap,
     SENDER_EMAIL: original.sender,
-    RESEND_API_KEY: original.resend,
-    RESEND_FROM_EMAIL: original.resendFrom,
   })) {
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;
@@ -135,46 +120,5 @@ describe("sendTransactionalEmail (Mailtrap)", () => {
 
     expect(result.data).toBeNull();
     expect(result.error).toMatchObject({ name: "mailtrap_missing_receipt" });
-  });
-});
-
-describe("sendTransactionalEmail (Resend)", () => {
-  beforeEach(() => {
-    delete process.env.MAILTRAP_API_KEY;
-    delete process.env.SENDER_EMAIL;
-    process.env.RESEND_API_KEY = "re_test_key";
-    process.env.RESEND_FROM_EMAIL = "support@restoreassist.app";
-  });
-
-  it("turns data:null,error:null into an explicit missing-receipt failure", async () => {
-    resendSend.mockResolvedValueOnce({ data: null, error: null });
-
-    const result = await sendTransactionalEmail({
-      to: "a@b.com",
-      subject: "x",
-      html: "<p>x</p>",
-    });
-
-    expect(result.data).toBeNull();
-    expect(result.error).toMatchObject({ name: "resend_missing_receipt" });
-  });
-
-  it("returns a trimmed provider receipt on a confirmed send", async () => {
-    resendSend.mockResolvedValueOnce({
-      data: { id: "  resend-msg-1  " },
-      error: null,
-    });
-
-    const result = await sendTransactionalEmail({
-      to: "a@b.com",
-      subject: "x",
-      html: "<p>x</p>",
-    });
-
-    expect(result).toMatchObject({
-      data: { id: "resend-msg-1" },
-      error: null,
-      provider: "resend",
-    });
   });
 });

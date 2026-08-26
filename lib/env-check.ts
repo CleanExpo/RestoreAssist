@@ -34,17 +34,12 @@ const RECOMMENDED_VARS = [
   "GITHUB_WEBHOOK_SECRET", // RA-1803 — without it, auto-release-notes returns 500
 ] as const;
 
-const TRANSACTIONAL_EMAIL_RECOMMENDATION =
-  "MAILTRAP_API_KEY+SENDER_EMAIL_OR_RESEND_API_KEY+RESEND_FROM_EMAIL";
+const TRANSACTIONAL_EMAIL_RECOMMENDATION = "MAILTRAP_API_KEY+SENDER_EMAIL";
 
 function hasTransactionalEmailProvider(): boolean {
-  const mailtrapReady = Boolean(
+  return Boolean(
     process.env.MAILTRAP_API_KEY?.trim() && process.env.SENDER_EMAIL?.trim(),
   );
-  const resendReady = Boolean(
-    process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM_EMAIL?.trim(),
-  );
-  return mailtrapReady || resendReady;
 }
 
 export interface EnvStatus {

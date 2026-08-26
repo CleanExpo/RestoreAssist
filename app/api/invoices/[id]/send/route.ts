@@ -2,16 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Resend } from "resend";
 import { generateInvoiceSentEmail } from "@/lib/invoices/email-templates";
 import { isDraft } from "@/lib/invoice-status";
 import { withIdempotency } from "@/lib/idempotency";
 import { mintPublicToken } from "@/lib/invoices/public-token";
 import { apiError, fromException } from "@/lib/api-errors";
-import { resolveResendConfig } from "@/lib/email/resolve-resend-config";
-import { withEmailTimeout } from "@/lib/email";
+import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
+import { sendTransactionalEmail } from "@/lib/email/send-transactional";
+import { getFromEmail, withEmailTimeout } from "@/lib/email";
 
-function isResendConfigError(message: string): boolean {
+function isEmailConfigError(message: string): boolean {
   const m = message.toLowerCase();
   return (
     m.includes("api key") ||
@@ -84,14 +84,11 @@ export async function POST(
         });
       }
 
-      const resendConfig = await resolveResendConfig(
-        invoice.user.organizationId,
-      );
-      if (!resendConfig?.apiKey?.trim()) {
+      if (!isEmailServiceConfigured()) {
         return apiError(request, {
           code: "UPSTREAM_FAILED",
           message:
-            "Email service not configured. Set RESEND_API_KEY (and RESEND_FROM_EMAIL) or connect a Resend key in Integrations.",
+            "Email service not configured. Set MAILTRAP_API_KEY and SENDER_EMAIL.",
           status: 503,
         });
       }
@@ -121,10 +118,10 @@ export async function POST(
       const replyTo =
         invoice.user.businessEmail || invoice.user.email || undefined;
 
-      // Always send from the verified Resend "from" address. Using the
+      // Always send from the verified Mailtrap sender. Using the
       // technician's personal/business mailbox as `from` fails delivery
-      // unless that domain is verified on the Resend account.
-      const fromAddress = resendConfig.from;
+      // unless that domain is verified on the Mailtrap account.
+      const fromAddress = getFromEmail();
 
       const emailHtml = generateInvoiceSentEmail({
         invoiceNumber: invoice.invoiceNumber,
@@ -140,11 +137,9 @@ export async function POST(
         appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://restoreassist.app",
       });
 
-      const resend = new Resend(resendConfig.apiKey.trim());
-
       try {
-        const { data: emailData, error: emailError } = await withEmailTimeout(
-          resend.emails.send({
+        const sent = await withEmailTimeout(
+          sendTransactionalEmail({
             from: fromAddress,
             to: invoice.customerEmail,
             subject: `Invoice ${invoice.invoiceNumber} from ${displayName}`,
@@ -152,14 +147,16 @@ export async function POST(
             ...(replyTo ? { replyTo } : {}),
           }),
         );
+        const emailData = sent.data;
+        const emailError = sent.error;
 
         if (emailError) {
           const message = emailError.message || "Email provider rejected the send";
           console.error("Email send error:", emailError);
           return apiError(request, {
             code: "UPSTREAM_FAILED",
-            message: isResendConfigError(message)
-              ? "Email service misconfigured — check RESEND_API_KEY and RESEND_FROM_EMAIL (verified domain)."
+            message: isEmailConfigError(message)
+              ? "Email service misconfigured — check MAILTRAP_API_KEY and SENDER_EMAIL (verified domain)."
               : "Failed to send invoice email. Please try again shortly.",
             status: 503,
             err: emailError,
@@ -214,8 +211,8 @@ export async function POST(
           emailError instanceof Error ? emailError.message : String(emailError);
         return apiError(request, {
           code: "UPSTREAM_FAILED",
-          message: isResendConfigError(raw)
-            ? "Email service misconfigured — check RESEND_API_KEY and RESEND_FROM_EMAIL (verified domain)."
+          message: isEmailConfigError(raw)
+            ? "Email service misconfigured — check MAILTRAP_API_KEY and SENDER_EMAIL (verified domain)."
             : "Failed to send invoice email. Please try again shortly.",
           status: 503,
           err: emailError,

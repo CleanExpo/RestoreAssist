@@ -366,7 +366,7 @@ export default function SettingsPage() {
           <div className="min-w-0">
             <p className="font-medium text-white">Connections</p>
             <p className="text-sm text-slate-400 mt-0.5">
-              AI providers, Resend email, and cloud mirror — live status in one
+              AI providers, Mailtrap email, and cloud mirror — live status in one
               place.
             </p>
           </div>

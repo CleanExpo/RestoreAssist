@@ -3,21 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
-import { Resend } from "resend";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
-import { escapeHtml } from "@/lib/email";
-
-let resend: Resend | null = null;
-function getResendClient(): Resend {
-  if (!resend) {
-    if (!process.env.RESEND_API_KEY) {
-      throw new Error("RESEND_API_KEY is not configured");
-    }
-    resend = new Resend(process.env.RESEND_API_KEY);
-  }
-  return resend;
-}
+import { escapeHtml, getFromEmail } from "@/lib/email";
+import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
+import { sendTransactionalEmail } from "@/lib/email/send-transactional";
 
 /**
  * POST /api/authority-forms/:id/send-signature-request
@@ -164,13 +154,16 @@ export async function POST(
       const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3008";
       const signingUrl = `${baseUrl}/sign/${token}`;
 
-      // Send email
-      const fromEmail =
-        process.env.RESEND_FROM_EMAIL ||
-        "Restore Assist <onboarding@resend.dev>";
+      if (!isEmailServiceConfigured()) {
+        return apiError(request, {
+          code: "UPSTREAM_FAILED",
+          message: "Email service is not configured.",
+          status: 503,
+        });
+      }
 
-      await getResendClient().emails.send({
-        from: fromEmail,
+      const sendResult = await sendTransactionalEmail({
+        from: getFromEmail(),
         to: signature.signatoryEmail,
         subject: `Signature Required: ${form.template.name} — ${form.clientName}`,
         html: `
@@ -201,6 +194,15 @@ export async function POST(
         </html>
       `,
       });
+      if (sendResult.error) {
+        return apiError(request, {
+          code: "UPSTREAM_FAILED",
+          message: "Failed to send signature request email.",
+          status: 503,
+          err: sendResult.error,
+          stage: "send-signature-request",
+        });
+      }
 
       return NextResponse.json({ success: true, token });
     } catch (error: any) {

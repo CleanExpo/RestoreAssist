@@ -91,7 +91,7 @@ function connectionSummary(
  * Every connection carries a `method` label so consumers can distinguish
  * "the env var exists" from "we actually reached the provider". Use
  * buildRestoreAssistConnectionStatusWithProbes for live verification of the
- * cheap, safe probe targets (database, Stripe, Resend).
+ * cheap, safe probe targets (database, Stripe).
  */
 export function buildRestoreAssistConnectionStatus(
   env: NodeJS.ProcessEnv = process.env,
@@ -110,7 +110,8 @@ export function buildRestoreAssistConnectionStatus(
   const ascoraReady = envSet("ASCORA_API_KEY", env);
   const stripeReady = envSet("STRIPE_SECRET_KEY", env);
   const stripeWebhookReady = envSet("STRIPE_WEBHOOK_SECRET", env);
-  const emailReady = envSet("RESEND_API_KEY", env);
+  const emailReady =
+    envSet("MAILTRAP_API_KEY", env) && envSet("SENDER_EMAIL", env);
   const linearReady = envSet("LINEAR_API_KEY", env) && envSet("LINEAR_RA_TEAM_ID", env);
 
   // Google sign-in provider pair — read by lib/auth.ts (GoogleProvider).
@@ -210,14 +211,16 @@ export function buildRestoreAssistConnectionStatus(
     },
     {
       id: "email",
-      label: "Transactional email (Resend)",
+      label: "Transactional email (Mailtrap)",
       state: emailReady ? "ready" : "blocked",
       method: "env-presence",
       safeForMissionControl: true,
       detail: emailReady
-        ? "Resend key present; sends remain policy-gated."
-        : "RESEND_API_KEY is not set — no transactional email.",
-      nextAction: emailReady ? undefined : "Set RESEND_API_KEY and RESEND_FROM_EMAIL.",
+        ? "Mailtrap Sending API is configured; sends remain policy-gated."
+        : "MAILTRAP_API_KEY + SENDER_EMAIL are not set — no transactional email.",
+      nextAction: emailReady
+        ? undefined
+        : "Set MAILTRAP_API_KEY and SENDER_EMAIL.",
     },
     {
       id: "sentry",
@@ -384,8 +387,6 @@ export interface ConnectionProbes {
   database?: () => Promise<void>;
   /** Stripe balance retrieve (read-only, no side effects). */
   stripe?: () => Promise<void>;
-  /** Resend domain list (read-only, no side effects). */
-  email?: () => Promise<void>;
 }
 
 class ProbeTimeoutError extends Error {
@@ -479,7 +480,7 @@ function applyProbeOutcome(
 /**
  * Env-presence manifest upgraded with cheap, safe live probes for the
  * connections we can verify without side effects: database (SELECT 1),
- * Stripe (balance retrieve), Resend (domain list). Probes only run when the
+ * Stripe (balance retrieve). Probes only run when the
  * corresponding credential is present; each is bounded by a short timeout and
  * a failure downgrades the connection to "degraded" — never throws.
  */
@@ -515,18 +516,6 @@ export async function buildRestoreAssistConnectionStatusWithProbes(
           timeoutMs,
         ),
       successDetail: "Live probe passed: Stripe balance endpoint accepted the key.",
-    },
-    {
-      connection: byId.get("email"),
-      enabled: envSet("RESEND_API_KEY", env),
-      probe:
-        probes.email ??
-        bearerFetchProbe(
-          "https://api.resend.com/domains",
-          env.RESEND_API_KEY ?? "",
-          timeoutMs,
-        ),
-      successDetail: "Live probe passed: Resend domains endpoint accepted the key.",
     },
   ];
 

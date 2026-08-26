@@ -18,7 +18,7 @@ const MAX_ATTEMPTS = 3;
 
 /**
  * Processes pending ScheduledEmail records whose scheduledAt time has arrived.
- * Sends emails via Mailtrap (or Resend fallback) and updates status accordingly.
+ * Sends emails via Mailtrap Sending API and updates status accordingly.
  *
  * @returns Result with count of emails processed and send/fail breakdown
  */

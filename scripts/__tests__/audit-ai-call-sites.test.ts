@@ -292,15 +292,15 @@ describe("platform-key-fallback detection (RA-6921 P0)", () => {
     expect(finding).toBeNull();
   });
 
-  it("does not misclassify an unrelated *_API_KEY env var (e.g. RESEND_API_KEY) as an AI surface", () => {
+  it("does not misclassify an unrelated *_API_KEY env var (e.g. MAILTRAP_API_KEY) as an AI surface", () => {
     // Regression test: the fix must scope to named AI-provider keys only —
     // broadening to any *_API_KEY pattern previously false-positived on
     // email/CRM/OAuth integrations that have nothing to do with AI spend.
     const finding = auditAiCallSite(
       "app/api/notifications/email/route.ts",
       `
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({ to, subject, html });
+        const mailtrap = process.env.MAILTRAP_API_KEY;
+        await sendEmail({ to, subject, html, apiKey: mailtrap });
       `,
     );
 

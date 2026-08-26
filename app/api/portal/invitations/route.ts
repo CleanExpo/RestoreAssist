@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
       throw err;
     }
 
-    // Send invitation email via platform / org BYOK (Mailtrap or Resend).
+    // Send invitation email via Mailtrap.
     const baseUrl = process.env.NEXTAUTH_URL || "https://restoreassist.app";
     const inviteUrl = `${baseUrl}/portal/signup?token=${invitation.token}`;
     const contractorName =

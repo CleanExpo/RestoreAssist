@@ -52,7 +52,7 @@ describe("sendInviteEmail delivery receipt", () => {
     });
   });
 
-  it.each(["mailtrap_missing_receipt", "resend_missing_receipt"])(
+  it.each(["mailtrap_missing_receipt"])(
     "treats provider success without a durable receipt as ambiguous: %s",
     async (name) => {
       sendTransactionalEmail.mockResolvedValueOnce({

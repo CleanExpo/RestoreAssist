@@ -123,10 +123,10 @@ beforeEach(() => {
     return { id: `log_${commsSeq}`, ...data };
   });
   commsUpdate.mockResolvedValue({});
-  sendPulseUpdateEmail.mockResolvedValue("resend_msg_1");
+  sendPulseUpdateEmail.mockResolvedValue("mailtrap_msg_1");
   requireAddon.mockResolvedValue({ allowed: true, sku: "CLIENT_COMMS", workspaceId: "ws_1" });
-  process.env.RESEND_API_KEY = "re_test";
-  process.env.RESEND_FROM_EMAIL = "updates@restoreassist.app";
+  process.env.MAILTRAP_API_KEY = "mt_test";
+  process.env.SENDER_EMAIL = "updates@restoreassist.app";
   process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
 });
 
@@ -154,7 +154,7 @@ describe("dispatchPulseNotification — sends", () => {
     // provider message id stamped after the send.
     expect(commsUpdate).toHaveBeenCalledWith({
       where: { id: "log_1" },
-      data: { providerMessageId: "resend_msg_1" },
+      data: { providerMessageId: "mailtrap_msg_1" },
     });
     // Deep-links to the client's portal token page.
     const arg = sendPulseUpdateEmail.mock.calls[0][0];
@@ -297,7 +297,7 @@ describe("dispatchPulseNotification — suppressions", () => {
   });
 
   it("fails closed with MISSING_ENV and reports connector health when env is unset", async () => {
-    delete process.env.RESEND_FROM_EMAIL;
+    delete process.env.SENDER_EMAIL;
     inspectionFindUnique.mockResolvedValue(jobFixture());
 
     const result = await dispatchPulseNotification({
@@ -311,7 +311,7 @@ describe("dispatchPulseNotification — suppressions", () => {
     });
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
     expect(reportError).toHaveBeenCalledTimes(1);
-    expect(reportError.mock.calls[0][1]).toMatchObject({ connector: "resend" });
+    expect(reportError.mock.calls[0][1]).toMatchObject({ connector: "mailtrap" });
   });
 
   it("suppresses the second send of a duplicate logical event", async () => {
@@ -334,7 +334,7 @@ describe("dispatchPulseNotification — suppressions", () => {
 
   it("records SEND_FAILED and reports when the provider send throws", async () => {
     inspectionFindUnique.mockResolvedValue(jobFixture());
-    sendPulseUpdateEmail.mockRejectedValueOnce(new Error("resend down"));
+    sendPulseUpdateEmail.mockRejectedValueOnce(new Error("mailtrap down"));
 
     const result = await dispatchPulseNotification({
       inspectionId: "insp_1",
@@ -394,8 +394,8 @@ describe("dispatchPulseNotification — CLIENT_COMMS entitlement gate (RA-6954)"
     expect(sendPulseUpdateEmail).toHaveBeenCalledTimes(1);
   });
 
-  it("checks the entitlement gate before checking the Resend/app env", async () => {
-    delete process.env.RESEND_FROM_EMAIL;
+  it("checks the entitlement gate before checking the Mailtrap/app env", async () => {
+    delete process.env.SENDER_EMAIL;
     inspectionFindUnique.mockResolvedValue(jobFixture());
     requireAddon.mockResolvedValue({
       allowed: false,

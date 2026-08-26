@@ -25,7 +25,8 @@ function req(body: unknown, auth?: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.REENGAGEMENT_SEND_TOKEN = TOKEN;
-  process.env.RESEND_API_KEY = "re_test";
+  process.env.MAILTRAP_API_KEY = "mt_test";
+  process.env.SENDER_EMAIL = "support@restoreassist.app";
   process.env.NEXTAUTH_URL = "https://restoreassist.app";
 });
 
@@ -65,7 +66,7 @@ describe("POST /api/internal/send-reengagement", () => {
   });
 
   it("sends the branded email with reply-to on a valid authed request", async () => {
-    process.env.RESEND_REPLY_TO = "airestoreassist@gmail.com";
+    process.env.EMAIL_REPLY_TO = "airestoreassist@gmail.com";
     const res = await POST(
       req(
         { recipientEmail: "ryan.morey@outlook.com.au", recipientName: "Ryan" },
@@ -81,7 +82,7 @@ describe("POST /api/internal/send-reengagement", () => {
     expect(arg.html).toContain("Hi Ryan,");
     expect(arg.html).toContain("utm_source=reengagement");
     expect(json).toMatchObject({ sent: true, to: "ryan.morey@outlook.com.au" });
-    delete process.env.RESEND_REPLY_TO;
+    delete process.env.EMAIL_REPLY_TO;
   });
 
   it("ignores a non-root-relative ctaPath (no open redirect)", async () => {
@@ -96,8 +97,7 @@ describe("POST /api/internal/send-reengagement", () => {
     expect(arg.html).toContain("/dashboard/pricing");
   });
 
-  it("returns sent:false (not a send) when RESEND_API_KEY is unset", async () => {
-    delete process.env.RESEND_API_KEY;
+  it("returns sent:false (not a send) when MAILTRAP_API_KEY is unset", async () => {
     delete process.env.MAILTRAP_API_KEY;
     delete process.env.SENDER_EMAIL;
     const res = await POST(
@@ -107,8 +107,7 @@ describe("POST /api/internal/send-reengagement", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("uses configured Mailtrap when Resend is absent", async () => {
-    delete process.env.RESEND_API_KEY;
+  it("sends when Mailtrap is configured", async () => {
     process.env.MAILTRAP_API_KEY = "mt_test";
     process.env.SENDER_EMAIL = "support@restoreassist.app";
 

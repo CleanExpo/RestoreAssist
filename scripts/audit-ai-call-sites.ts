@@ -286,7 +286,7 @@ const PLATFORM_KEY_ENV_PATTERN = /process\.env\.[A-Z0-9_]*_API_KEY\b/;
 /**
  * Named AI-provider env keys only — deliberately narrower than
  * PLATFORM_KEY_ENV_PATTERN so a route reading an unrelated *_API_KEY
- * (RESEND_API_KEY, ASCORA_API_KEY, LINEAR_API_KEY, ...) isn't misclassified
+ * (MAILTRAP_API_KEY, ASCORA_API_KEY, LINEAR_API_KEY, ...) isn't misclassified
  * as an AI call site just for having "API_KEY" in the name.
  */
 const AI_PROVIDER_KEY_ENV_PATTERN =

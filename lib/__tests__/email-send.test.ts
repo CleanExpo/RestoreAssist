@@ -14,8 +14,6 @@ import { sendEmail } from "../email-send";
 const original = {
   mailtrap: process.env.MAILTRAP_API_KEY,
   sender: process.env.SENDER_EMAIL,
-  resend: process.env.RESEND_API_KEY,
-  resendFrom: process.env.RESEND_FROM_EMAIL,
 };
 const fetchMock = vi.fn();
 
@@ -24,8 +22,6 @@ beforeEach(() => {
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
   vi.spyOn(console, "error").mockImplementation(() => {});
-  delete process.env.RESEND_API_KEY;
-  delete process.env.RESEND_FROM_EMAIL;
   process.env.MAILTRAP_API_KEY = "mt_test_key";
   process.env.SENDER_EMAIL = "support@restoreassist.app";
 });
@@ -36,8 +32,6 @@ afterEach(() => {
   for (const [k, v] of Object.entries({
     MAILTRAP_API_KEY: original.mailtrap,
     SENDER_EMAIL: original.sender,
-    RESEND_API_KEY: original.resend,
-    RESEND_FROM_EMAIL: original.resendFrom,
   })) {
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;
@@ -53,7 +47,7 @@ const payload = {
 describe("sendEmail (lib/email-send)", () => {
   it("is loud when no email provider key is configured", async () => {
     delete process.env.MAILTRAP_API_KEY;
-    delete process.env.RESEND_API_KEY;
+    delete process.env.SENDER_EMAIL;
 
     await expect(sendEmail(payload)).resolves.toBeNull();
 

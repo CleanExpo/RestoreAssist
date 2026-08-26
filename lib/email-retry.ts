@@ -3,7 +3,7 @@
  *
  * Transactional email paths (welcome, password reset, Google signin,
  * team invite) historically did `sendEmail(...).catch(() => {})` so a
- * transient Resend / SES outage silently dropped the mail. This helper
+ * transient Mailtrap outage silently dropped the mail. This helper
  * retries up to `maxAttempts` with jittered exponential backoff (200ms,
  * 600ms, 1800ms) and re-throws on final failure so callers can surface
  * "email delivery failed — your account is created, please request a

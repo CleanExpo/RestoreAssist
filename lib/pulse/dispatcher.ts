@@ -4,14 +4,14 @@
  * Event-triggered service that maps client-visible step transitions
  * (buildClientStatusFeed steps), drying-goal changes, the daily digest
  * (RA-6951), and the 20-business-day Code of Practice update (RA-6951) to
- * templated Resend emails. Every dispatch writes exactly one ClientCommsLog
+ * templated Mailtrap emails. Every dispatch writes exactly one ClientCommsLog
  * row:
  *   - a SENT row when the email goes out, or
  *   - a SUPPRESSED row (with a machine-readable reason) when it does not.
  *
  * Suppression reasons: the per-job Pulse toggle is off (mid-dispute kill
  * switch, judge AC6), the homeowner opted out, no recipient, the workspace
- * lacks the CLIENT_COMMS entitlement (RA-6954), the Resend/app env is unset
+ * lacks the CLIENT_COMMS entitlement (RA-6954), the Mailtrap/app env is unset
  * (fail-closed with connector-health visibility, mirroring lib/email.ts), or
  * the logical event was already dispatched (duplicate).
  *
@@ -74,13 +74,13 @@ const CHANNEL_EMAIL = "EMAIL";
 
 /**
  * Hard dependencies for a Pulse send. Missing any one fails closed — mirrors
- * the RESEND_FROM_EMAIL guard in lib/email.ts (never silently send from the
+ * the SENDER_EMAIL guard in lib/email.ts (never silently send from the
  * sandbox / to a broken link).
  */
 function pulseEnvConfigured(): boolean {
   return Boolean(
-    process.env.RESEND_API_KEY &&
-      process.env.RESEND_FROM_EMAIL &&
+    process.env.MAILTRAP_API_KEY &&
+      process.env.SENDER_EMAIL &&
       process.env.NEXT_PUBLIC_APP_URL,
   );
 }
@@ -206,9 +206,9 @@ export async function dispatchPulseNotification(
   if (!pulseEnvConfigured()) {
     reportError(
       new Error(
-        "[pulse] Resend/app-url env not configured — notification suppressed",
+        "[pulse] Mailtrap/app-url env not configured — notification suppressed",
       ),
-      { stage: "pulse:dispatch", inspectionId, connector: "resend" },
+      { stage: "pulse:dispatch", inspectionId, connector: "mailtrap" },
     );
     return suppress("MISSING_ENV");
   }

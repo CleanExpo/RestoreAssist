@@ -8,8 +8,8 @@
  * getServerSession. The token (REENGAGEMENT_SEND_TOKEN) is a dedicated secret,
  * so a leak can't reach anything but this one endpoint.
  *
- * Sends from the verified RESEND_FROM_EMAIL domain with reply-to pointed at the
- * RestoreAssist inbox (RESEND_REPLY_TO, else the support mailbox).
+ * Sends from the verified SENDER_EMAIL domain with reply-to pointed at the
+ * RestoreAssist inbox (else the support mailbox).
  *
  *   curl -X POST https://restoreassist.app/api/internal/send-reengagement \
  *     -H "Authorization: Bearer $REENGAGEMENT_SEND_TOKEN" \
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     body.ctaPath && body.ctaPath.startsWith("/")
       ? body.ctaPath
       : "/dashboard/pricing";
-  const replyTo = process.env.RESEND_REPLY_TO || BRAND.company.supportEmail;
+  const replyTo = process.env.EMAIL_REPLY_TO || BRAND.company.supportEmail;
 
   try {
     const messageId = await sendEmail({

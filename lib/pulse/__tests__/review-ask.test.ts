@@ -94,10 +94,10 @@ beforeEach(() => {
     return { id: `log_${commsSeq}`, ...data };
   });
   commsUpdate.mockResolvedValue({});
-  sendPulseUpdateEmail.mockResolvedValue("resend_msg_1");
+  sendPulseUpdateEmail.mockResolvedValue("mailtrap_msg_1");
   requireAddon.mockResolvedValue({ allowed: true, sku: "CLIENT_COMMS", workspaceId: "ws_1" });
-  process.env.RESEND_API_KEY = "re_test";
-  process.env.RESEND_FROM_EMAIL = "updates@restoreassist.app";
+  process.env.MAILTRAP_API_KEY = "mt_test";
+  process.env.SENDER_EMAIL = "updates@restoreassist.app";
 });
 
 function sentCreateCall() {
@@ -121,7 +121,7 @@ describe("dispatchReviewAskNotification — sends", () => {
     expect(sent.idempotencyKey).toBe("reviewask:insp_1");
     expect(commsUpdate).toHaveBeenCalledWith({
       where: { id: "log_1" },
-      data: { providerMessageId: "resend_msg_1" },
+      data: { providerMessageId: "mailtrap_msg_1" },
     });
     const arg = sendPulseUpdateEmail.mock.calls[0][0];
     expect(arg.html).toContain("https://g.page/r/acme-restoration/review");
@@ -172,8 +172,8 @@ describe("dispatchReviewAskNotification — suppressions", () => {
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
   });
 
-  it("fails closed with MISSING_ENV and reports connector health when Resend env is unset", async () => {
-    delete process.env.RESEND_FROM_EMAIL;
+  it("fails closed with MISSING_ENV and reports connector health when Mailtrap env is unset", async () => {
+    delete process.env.SENDER_EMAIL;
     inspectionFindUnique.mockResolvedValue(jobFixture());
 
     const result = await dispatchReviewAskNotification("insp_1");
@@ -181,7 +181,7 @@ describe("dispatchReviewAskNotification — suppressions", () => {
     expect(result).toMatchObject({ status: "SUPPRESSED", reason: "MISSING_ENV" });
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
     expect(reportError).toHaveBeenCalledTimes(1);
-    expect(reportError.mock.calls[0][1]).toMatchObject({ connector: "resend" });
+    expect(reportError.mock.calls[0][1]).toMatchObject({ connector: "mailtrap" });
   });
 
   it("suppresses the second close / re-close of the same job as a duplicate (idempotent)", async () => {

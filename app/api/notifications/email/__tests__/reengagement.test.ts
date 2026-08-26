@@ -32,7 +32,8 @@ function post(body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  process.env.RESEND_API_KEY = "re_test";
+  process.env.MAILTRAP_API_KEY = "mt_test";
+  process.env.SENDER_EMAIL = "support@restoreassist.app";
   process.env.NEXTAUTH_URL = "https://restoreassist.app";
   session.mockResolvedValue({ user: { id: "u1", name: "Phill", role: "ADMIN" } });
   admin.mockResolvedValue({ user: { id: "u1", role: "ADMIN" } }); // authorised
@@ -46,7 +47,7 @@ afterEach(() => {
 
 describe("POST customer_reengagement", () => {
   it("admin send: sends to the recipient with reply-to and returns sent:true", async () => {
-    process.env.RESEND_REPLY_TO = "airestoreassist@gmail.com";
+    process.env.EMAIL_REPLY_TO = "airestoreassist@gmail.com";
     const res = await POST(post({
       event: "customer_reengagement",
       recipientEmail: "ryan.morey@outlook.com.au",
@@ -61,7 +62,7 @@ describe("POST customer_reengagement", () => {
     expect(arg.subject).toContain("Pick up where you left off");
     expect(arg.html).toContain("Hi Ryan,");
     expect(json).toMatchObject({ sent: true, event: "customer_reengagement" });
-    delete process.env.RESEND_REPLY_TO;
+    delete process.env.EMAIL_REPLY_TO;
   });
 
   it("non-admin is blocked (403) and no email is sent", async () => {
@@ -76,8 +77,7 @@ describe("POST customer_reengagement", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("no RESEND key: returns sent:false without attempting a send", async () => {
-    delete process.env.RESEND_API_KEY;
+  it("no Mailtrap key: returns sent:false without attempting a send", async () => {
     delete process.env.MAILTRAP_API_KEY;
     delete process.env.SENDER_EMAIL;
     const res = await POST(post({
@@ -89,8 +89,7 @@ describe("POST customer_reengagement", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("uses configured Mailtrap when Resend is absent", async () => {
-    delete process.env.RESEND_API_KEY;
+  it("sends when Mailtrap is configured", async () => {
     process.env.MAILTRAP_API_KEY = "mt_test";
     process.env.SENDER_EMAIL = "support@restoreassist.app";
 

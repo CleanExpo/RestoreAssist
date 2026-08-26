@@ -1,30 +1,25 @@
 /**
- * Platform email config: Mailtrap (preferred when MAILTRAP_API_KEY is set)
- * or Resend. Org BYOK Resend still wins when an organizationId is supplied.
+ * Platform email config: Mailtrap Sending API only.
  */
 
-import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/credential-vault";
-
-export type EmailProviderKind = "mailtrap" | "resend";
+export type EmailProviderKind = "mailtrap";
 
 export interface PlatformEmailConfig {
   provider: EmailProviderKind;
   apiKey: string;
   from: string;
-  source: "byok" | "platform";
+  source: "platform";
 }
 
-/** True when any platform (or org) send path can work without a BYOK org. */
+/** True when platform Mailtrap can send. */
 export function isEmailServiceConfigured(): boolean {
   return Boolean(
-    process.env.MAILTRAP_API_KEY?.trim() || process.env.RESEND_API_KEY?.trim(),
+    process.env.MAILTRAP_API_KEY?.trim() && process.env.SENDER_EMAIL?.trim(),
   );
 }
 
 /**
- * Resolve the verified "from" address.
- * Prefer SENDER_EMAIL (Mailtrap / product default), then RESEND_FROM_EMAIL.
+ * Resolve the verified "from" address. Requires SENDER_EMAIL.
  */
 export function resolveFromAddress(override?: string | null): string {
   if (override?.trim()) return formatFromAddress(override.trim());
@@ -32,11 +27,8 @@ export function resolveFromAddress(override?: string | null): string {
   const sender = process.env.SENDER_EMAIL?.trim();
   if (sender) return formatFromAddress(sender);
 
-  const resendFrom = process.env.RESEND_FROM_EMAIL?.trim();
-  if (resendFrom) return formatFromAddress(resendFrom);
-
   throw new Error(
-    "SENDER_EMAIL (or RESEND_FROM_EMAIL) is not configured — refusing to send without a verified sender",
+    "SENDER_EMAIL is not configured — refusing to send without a verified sender",
   );
 }
 
@@ -57,57 +49,20 @@ export function parseFromAddress(from: string): { email: string; name?: string }
 }
 
 /**
- * Resolve credentials for a send.
- * Order: org BYOK Resend → Mailtrap platform → Resend platform.
+ * Resolve Mailtrap credentials for a send.
+ * Organization BYOK Resend keys are ignored — outbound mail is Mailtrap only.
  */
 export async function resolvePlatformEmailConfig(
-  organizationId?: string | null,
+  _organizationId?: string | null,
 ): Promise<PlatformEmailConfig | null> {
-  if (organizationId) {
-    const org = await prisma.organization.findUnique({
-      where: { id: organizationId },
-      select: {
-        emailProvider: true,
-        emailProviderEncryptedKey: true,
-        emailFromAddress: true,
-      },
-    });
-    if (org?.emailProvider === "RESEND" && org.emailProviderEncryptedKey) {
-      try {
-        const apiKey = decrypt(org.emailProviderEncryptedKey);
-        if (apiKey.trim()) {
-          return {
-            provider: "resend",
-            apiKey,
-            from: resolveFromAddress(org.emailFromAddress),
-            source: "byok",
-          };
-        }
-      } catch (err) {
-        console.error("[email] failed to decrypt org Resend key:", err);
-      }
-    }
-  }
-
   const mailtrapKey = process.env.MAILTRAP_API_KEY?.trim();
-  if (mailtrapKey) {
-    return {
-      provider: "mailtrap",
-      apiKey: mailtrapKey,
-      from: resolveFromAddress(),
-      source: "platform",
-    };
+  if (!mailtrapKey || !process.env.SENDER_EMAIL?.trim()) {
+    return null;
   }
-
-  const resendKey = process.env.RESEND_API_KEY?.trim();
-  if (resendKey) {
-    return {
-      provider: "resend",
-      apiKey: resendKey,
-      from: resolveFromAddress(),
-      source: "platform",
-    };
-  }
-
-  return null;
+  return {
+    provider: "mailtrap",
+    apiKey: mailtrapKey,
+    from: resolveFromAddress(),
+    source: "platform",
+  };
 }

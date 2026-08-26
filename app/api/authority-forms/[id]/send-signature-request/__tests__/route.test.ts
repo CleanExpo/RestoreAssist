@@ -45,10 +45,9 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
-vi.mock("resend", () => ({
-  Resend: class {
-    emails = { send: (...args: unknown[]) => emailSend(...args) };
-  },
+vi.mock("@/lib/email/send-transactional", () => ({
+  EMAIL_SEND_TIMEOUT_MS: 10_000,
+  sendTransactionalEmail: (...args: unknown[]) => emailSend(...args),
 }));
 
 import { POST } from "../route";
@@ -80,7 +79,8 @@ const ownedForm = {
 };
 
 beforeEach(() => {
-  process.env.RESEND_API_KEY = "test-key";
+  process.env.MAILTRAP_API_KEY = "test-key";
+  process.env.SENDER_EMAIL = "support@restoreassist.app";
   getServerSession.mockReset();
   withIdempotency.mockReset();
   instanceFindUnique.mockReset();

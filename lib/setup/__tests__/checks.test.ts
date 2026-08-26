@@ -146,184 +146,41 @@ describe.skipIf(!process.env.DATABASE_URL)("runAllChecks", () => {
   });
 });
 
-describe("welcomeEmailCheck (Resend domain probe)", () => {
+describe("welcomeEmailCheck (Mailtrap presence)", () => {
   const ORIGINAL_ENV = { ...process.env };
-  // Re-created in beforeEach (not once at module load): the sibling DB-gated
-  // runAllChecks block runs vi.restoreAllMocks(), which would otherwise DETACH
-  // this spy. Since CI now provides DATABASE_URL (#1337), that block runs and
-  // strands the spy — letting welcomeEmailCheck hit the real Resend API (→ 400).
-  let fetchSpy!: ReturnType<typeof vi.spyOn>;
-
-  // The welcome-email check is the 10th registered check.
   const welcomeEmailCheck = CHECKS[9];
 
-  function mockResendResponse(body: unknown, ok = true, status = 200) {
-    fetchSpy.mockResolvedValueOnce(
-      new Response(JSON.stringify(body), {
-        status: ok ? status : status,
-        headers: { "content-type": "application/json" },
-      }),
-    );
-  }
-
   beforeEach(() => {
-    // Detach any spy a prior suite left behind, then re-attach a fresh one so
-    // this block is immune to sibling vi.restoreAllMocks() calls.
-    vi.restoreAllMocks();
-    fetchSpy = vi.spyOn(globalThis, "fetch");
-    fetchSpy.mockReset();
     process.env = { ...ORIGINAL_ENV };
-    process.env.RESEND_API_KEY = "re_test_key";
-    process.env.RESEND_FROM_EMAIL = "RestoreAssist <noreply@restoreassist.app>";
   });
 
   afterAll(() => {
     process.env = ORIGINAL_ENV;
-    fetchSpy.mockRestore();
   });
 
-  it("returns red when RESEND_API_KEY is not set", async () => {
-    delete process.env.RESEND_API_KEY;
+  it("returns red when MAILTRAP_API_KEY is not set", async () => {
+    delete process.env.MAILTRAP_API_KEY;
+    process.env.SENDER_EMAIL = "support@restoreassist.app";
     const r = await welcomeEmailCheck("any-org");
     expect(r.status).toBe("red");
-    expect(r.note).toMatch(/RESEND_API_KEY/);
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(r.note).toMatch(/MAILTRAP_API_KEY\+SENDER_EMAIL/);
   });
 
-  it("returns green when SPF, DKIM and DMARC are all verified", async () => {
-    mockResendResponse({
-      data: [
-        {
-          id: "d1",
-          name: "restoreassist.app",
-          status: "verified",
-          records: [
-            { record: "SPF", status: "verified" },
-            { record: "DKIM", status: "verified" },
-            { record: "DMARC", status: "verified" },
-          ],
-        },
-      ],
-    });
+  it("returns red when SENDER_EMAIL is not set", async () => {
+    process.env.MAILTRAP_API_KEY = "mt_test_key";
+    delete process.env.SENDER_EMAIL;
+    const r = await welcomeEmailCheck("any-org");
+    expect(r.status).toBe("red");
+    expect(r.note).toMatch(/MAILTRAP_API_KEY\+SENDER_EMAIL/);
+  });
+
+  it("returns green when Mailtrap Sending API is configured", async () => {
+    process.env.MAILTRAP_API_KEY = "mt_test_key";
+    process.env.SENDER_EMAIL = "RestoreAssist <noreply@restoreassist.app>";
     const r = await welcomeEmailCheck("any-org");
     expect(r.status).toBe("green");
-    expect(r.note).toBeUndefined();
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.resend.com/domains",
-      expect.objectContaining({
-        method: "GET",
-        headers: expect.objectContaining({
-          Authorization: "Bearer re_test_key",
-        }),
-      }),
-    );
-  });
-
-  it("returns yellow when DKIM aligned but SPF or DMARC missing", async () => {
-    mockResendResponse({
-      data: [
-        {
-          name: "restoreassist.app",
-          records: [
-            { record: "DKIM", status: "verified" },
-            { record: "SPF", status: "pending" },
-            { record: "DMARC", status: "not_started" },
-          ],
-        },
-      ],
-    });
-    const r = await welcomeEmailCheck("any-org");
-    expect(r.status).toBe("yellow");
-    expect(r.note).toMatch(/DKIM aligned/);
-    expect(r.note).toMatch(/SPF/);
-    expect(r.note).toMatch(/DMARC/);
-  });
-
-  it("returns red when DKIM is not verified", async () => {
-    mockResendResponse({
-      data: [
-        {
-          name: "restoreassist.app",
-          records: [
-            { record: "DKIM", status: "pending" },
-            { record: "SPF", status: "verified" },
-            { record: "DMARC", status: "not_started" },
-          ],
-        },
-      ],
-    });
-    const r = await welcomeEmailCheck("any-org");
-    expect(r.status).toBe("red");
-    expect(r.note).toMatch(/no DNS records aligned/);
-    expect(r.note).toMatch(/DKIM/);
-    expect(r.note).toMatch(/DMARC/);
-  });
-
-  it("returns red when the From domain is not registered in Resend", async () => {
-    mockResendResponse({
-      data: [
-        {
-          name: "some-other-domain.com",
-          records: [{ record: "DKIM", status: "verified" }],
-        },
-      ],
-    });
-    const r = await welcomeEmailCheck("any-org");
-    expect(r.status).toBe("red");
-    expect(r.note).toMatch(/not registered in Resend/);
+    expect(r.note).toMatch(/Mailtrap Sending API/);
     expect(r.note).toMatch(/restoreassist\.app/);
-  });
-
-  it("returns red when Resend returns a non-2xx status", async () => {
-    fetchSpy.mockResolvedValueOnce(
-      new Response("Unauthorized", { status: 401 }),
-    );
-    const r = await welcomeEmailCheck("any-org");
-    expect(r.status).toBe("red");
-    expect(r.note).toMatch(/401/);
-  });
-
-  it("returns red when the fetch throws (network failure)", async () => {
-    fetchSpy.mockRejectedValueOnce(new Error("ECONNRESET"));
-    const r = await welcomeEmailCheck("any-org");
-    expect(r.status).toBe("red");
-    expect(r.note).toMatch(/unreachable/);
-  });
-
-  it("extracts the domain from a plain-address RESEND_FROM_EMAIL", async () => {
-    process.env.RESEND_FROM_EMAIL = "hello@example.com";
-    mockResendResponse({
-      data: [
-        {
-          name: "example.com",
-          records: [
-            { record: "SPF", status: "verified" },
-            { record: "DKIM", status: "verified" },
-            { record: "DMARC", status: "verified" },
-          ],
-        },
-      ],
-    });
-    const r = await welcomeEmailCheck("any-org");
-    expect(r.status).toBe("green");
-  });
-
-  it("falls back to restoreassist.app when RESEND_FROM_EMAIL is unset", async () => {
-    delete process.env.RESEND_FROM_EMAIL;
-    mockResendResponse({
-      data: [
-        {
-          name: "restoreassist.app",
-          records: [
-            { record: "SPF", status: "verified" },
-            { record: "DKIM", status: "verified" },
-            { record: "DMARC", status: "verified" },
-          ],
-        },
-      ],
-    });
-    const r = await welcomeEmailCheck("any-org");
-    expect(r.status).toBe("green");
   });
 });
 

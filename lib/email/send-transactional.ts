@@ -1,9 +1,8 @@
 /**
- * Unified transactional email send — Mailtrap Sending API or Resend.
- * Returns a Resend-shaped result so existing assertResendSuccess helpers work.
+ * Unified transactional email send — Mailtrap Sending API only.
+ * Returns `{ data: { id } }` so existing receipt helpers keep working.
  */
 
-import { Resend } from "resend";
 import {
   parseFromAddress,
   resolvePlatformEmailConfig,
@@ -26,11 +25,11 @@ export interface TransactionalEmailInput {
   text?: string;
   from?: string;
   replyTo?: string;
-  /** Resend SDK compatibility alias */
+  /** Alias for replyTo */
   reply_to?: string;
   attachments?: TransactionalAttachment[];
   organizationId?: string | null;
-  /** Stable logical message identity. Resend supports this natively. */
+  /** Stable logical message identity (logged; Mailtrap has no idempotency key). */
   idempotencyKey?: string;
 }
 
@@ -53,7 +52,7 @@ export async function sendTransactionalEmail(
       error: {
         name: "not_configured",
         message:
-          "Email service is not configured (set MAILTRAP_API_KEY + SENDER_EMAIL, or RESEND_API_KEY + RESEND_FROM_EMAIL)",
+          "Email service is not configured (set MAILTRAP_API_KEY + SENDER_EMAIL)",
       },
     };
   }
@@ -63,15 +62,7 @@ export async function sendTransactionalEmail(
   const replyTo = input.replyTo || input.reply_to;
 
   try {
-    if (config.provider === "mailtrap") {
-      return await sendViaMailtrap(config, {
-        ...input,
-        from,
-        to: toList,
-        replyTo,
-      });
-    }
-    return await sendViaResend(config, {
+    return await sendViaMailtrap(config, {
       ...input,
       from,
       to: toList,
@@ -176,68 +167,6 @@ async function sendViaMailtrap(
     data: { id },
     error: null,
     provider: "mailtrap",
-    source: config.source,
-  };
-}
-
-async function sendViaResend(
-  config: PlatformEmailConfig,
-  input: TransactionalEmailInput & { from: string; to: string[] },
-): Promise<TransactionalSendResult> {
-  const client = new Resend(config.apiKey);
-  const payload = {
-    from: input.from,
-    to: input.to,
-    subject: input.subject,
-    html: input.html,
-    ...(input.text ? { text: input.text } : {}),
-    ...(input.replyTo ? { replyTo: input.replyTo } : {}),
-    ...(input.attachments?.length
-      ? {
-          attachments: input.attachments.map((a) => ({
-            filename: a.filename,
-            content: a.content,
-          })),
-        }
-      : {}),
-  };
-
-  const result = (await Promise.race([
-    client.emails.send(
-      payload,
-      input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : undefined,
-    ),
-    new Promise<never>((_, reject) =>
-      setTimeout(
-        () =>
-          reject(
-            new Error(`Email send timed out after ${EMAIL_SEND_TIMEOUT_MS}ms`),
-          ),
-        EMAIL_SEND_TIMEOUT_MS,
-      ),
-    ),
-  ])) as { data: { id: string } | null; error: { message?: string; name?: string } | null };
-
-  const id = result.data?.id?.trim();
-  if (result.error || !id) {
-    return {
-      data: null,
-      error:
-        result.error ??
-        {
-          name: "resend_missing_receipt",
-          message:
-            "Resend returned success without a confirmed provider message ID",
-        },
-      provider: "resend",
-      source: config.source,
-    };
-  }
-
-  return {
-    data: { id },
-    error: null,
-    provider: "resend",
     source: config.source,
   };
 }

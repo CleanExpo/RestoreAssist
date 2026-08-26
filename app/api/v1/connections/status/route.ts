@@ -13,7 +13,7 @@
  *  2. An authenticated ADMIN session, DB-revalidated via verifyAdminFromDb.
  *
  * `?probe=1` opts into cheap live probes (DB SELECT 1, Stripe balance,
- * Resend domains); every check is labelled with its verification `method`.
+ * Stripe balance); every check is labelled with its verification `method`.
  */
 import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";

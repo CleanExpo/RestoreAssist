@@ -15,9 +15,9 @@ describe("withEmailTimeout", () => {
     await expect(result).resolves.toEqual({ data: { id: "e_1" } });
   });
 
-  it("rejects when the Resend call hangs past the timeout", async () => {
+  it("rejects when the Mailtrap call hangs past the timeout", async () => {
     const hung = new Promise(() => {
-      // never settles — simulates a hung Resend upstream
+      // never settles — simulates a hung Mailtrap upstream
     });
     const result = withEmailTimeout(hung);
     const assertion = expect(result).rejects.toThrow(
@@ -28,7 +28,7 @@ describe("withEmailTimeout", () => {
   });
 
   it("propagates the send rejection unchanged", async () => {
-    const failure = new Error("resend exploded");
+    const failure = new Error("mailtrap exploded");
     await expect(
       withEmailTimeout(Promise.reject(failure)),
     ).rejects.toBe(failure);

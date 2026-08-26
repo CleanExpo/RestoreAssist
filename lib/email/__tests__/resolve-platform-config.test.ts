@@ -23,16 +23,12 @@ const p = prisma as unknown as {
 const original = {
   mailtrap: process.env.MAILTRAP_API_KEY,
   sender: process.env.SENDER_EMAIL,
-  resend: process.env.RESEND_API_KEY,
-  resendFrom: process.env.RESEND_FROM_EMAIL,
 };
 
 afterEach(() => {
   for (const [k, v] of Object.entries({
     MAILTRAP_API_KEY: original.mailtrap,
     SENDER_EMAIL: original.sender,
-    RESEND_API_KEY: original.resend,
-    RESEND_FROM_EMAIL: original.resendFrom,
   })) {
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;
@@ -53,11 +49,9 @@ describe("resolve-platform-config", () => {
     );
   });
 
-  it("prefers Mailtrap + SENDER_EMAIL over Resend", async () => {
+  it("resolves Mailtrap + SENDER_EMAIL as the only platform provider", async () => {
     process.env.MAILTRAP_API_KEY = "mt_test";
     process.env.SENDER_EMAIL = "support@restoreassist.app";
-    process.env.RESEND_API_KEY = "re_should_not_win";
-    process.env.RESEND_FROM_EMAIL = "other@example.com";
 
     const cfg = await resolvePlatformEmailConfig();
     expect(cfg).toMatchObject({
@@ -69,18 +63,16 @@ describe("resolve-platform-config", () => {
     expect(isEmailServiceConfigured()).toBe(true);
   });
 
-  it("falls back to Resend when Mailtrap is unset", async () => {
+  it("returns null when Mailtrap is unset", async () => {
     delete process.env.MAILTRAP_API_KEY;
-    delete process.env.SENDER_EMAIL;
-    process.env.RESEND_API_KEY = "re_test";
-    process.env.RESEND_FROM_EMAIL = "RestoreAssist <noreply@restoreassist.app>";
+    process.env.SENDER_EMAIL = "support@restoreassist.app";
 
     const cfg = await resolvePlatformEmailConfig();
-    expect(cfg?.provider).toBe("resend");
-    expect(resolveFromAddress()).toContain("noreply@restoreassist.app");
+    expect(cfg).toBeNull();
+    expect(isEmailServiceConfigured()).toBe(false);
   });
 
-  it("prefers org BYOK Resend over platform Mailtrap", async () => {
+  it("ignores leftover org BYOK Resend keys", async () => {
     process.env.MAILTRAP_API_KEY = "mt_platform";
     process.env.SENDER_EMAIL = "support@restoreassist.app";
     p.organization.findUnique.mockResolvedValue({
@@ -91,16 +83,15 @@ describe("resolve-platform-config", () => {
 
     const cfg = await resolvePlatformEmailConfig("org_1");
     expect(cfg).toMatchObject({
-      provider: "resend",
-      apiKey: "re_byok",
-      from: "RestoreAssist <jobs@acme.test>",
-      source: "byok",
+      provider: "mailtrap",
+      apiKey: "mt_platform",
+      from: "RestoreAssist <support@restoreassist.app>",
+      source: "platform",
     });
   });
 
-  it("throws when no sender is configured", () => {
+  it("throws when SENDER_EMAIL is unset", () => {
     delete process.env.SENDER_EMAIL;
-    delete process.env.RESEND_FROM_EMAIL;
     expect(() => resolveFromAddress()).toThrow(/SENDER_EMAIL/);
   });
 });

@@ -13,7 +13,7 @@
  * check is the access control here.
  *
  * No schema change — CronJobRun already exists (prisma/schema.prisma).
- * No external alerting (Slack/Resend) — that needs an owner-supplied
+ * No external alerting (Slack/email) — that needs an owner-supplied
  * endpoint and is out of scope for this read surface.
  */
 

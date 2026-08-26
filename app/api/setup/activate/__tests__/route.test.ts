@@ -8,7 +8,7 @@ import { getServerSession } from 'next-auth';
 vi.mock('@/lib/ai/model-router', () => ({ routeBasic: vi.fn() }));
 import { routeBasic } from '@/lib/ai/model-router';
 
-// Stub email so no real Resend calls are made during tests
+// Stub email so no real Mailtrap calls are made during tests
 vi.mock('@/lib/email', () => ({ sendWelcomeEmail: vi.fn().mockResolvedValue(null) }));
 
 // byok_keys is now a REQUIRED operating-key check (Anthropic or OpenAI). The
@@ -75,30 +75,8 @@ describe.skipIf(!process.env.DATABASE_URL)('POST /api/setup/activate', () => {
       },
     ]);
     (validateProviderKey as ReturnType<typeof vi.fn>).mockResolvedValue({ provider: 'ANTHROPIC', valid: true, latencyMs: 1 });
-    // welcomeEmailCheck (inside runAllChecks) does a live Resend domain probe —
-    // the only env-dependent check that goes red (Drive/Xero stay yellow when
-    // unconnected and never reach fetch). Stub fetch + key so it resolves green,
-    // making the gate deterministic. Re-spied after restoreAllMocks() above.
-    process.env.RESEND_API_KEY = 're_test_key';
-    process.env.RESEND_FROM_EMAIL = 'RestoreAssist <noreply@restoreassist.app>';
-    vi.spyOn(globalThis, 'fetch').mockImplementation(
-      async () =>
-        new Response(
-          JSON.stringify({
-            data: [
-              {
-                name: 'restoreassist.app',
-                records: [
-                  { record: 'SPF', status: 'verified' },
-                  { record: 'DKIM', status: 'verified' },
-                  { record: 'DMARC', status: 'verified' },
-                ],
-              },
-            ],
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        ),
-    );
+    process.env.MAILTRAP_API_KEY = 'mt_test_key';
+    process.env.SENDER_EMAIL = 'RestoreAssist <noreply@restoreassist.app>';
     // Reset Organization state between tests
     await prisma.organization.update({
       where: { id: testOrgId },
