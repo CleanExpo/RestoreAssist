@@ -23,10 +23,10 @@
 | Android applicationId    | `com.restoreassist.app`                                                      | `android/app/build.gradle`              |
 | iOS signing pipeline     | Wired (Fastlane gym → TestFlight) — secrets-driven                           | `.github/workflows/ios-release.yml`     |
 | Android signing pipeline | Wired (Gradle bundleRelease → Play internal track) — secrets-driven          | `.github/workflows/android-release.yml` |
-| App icons                | [PASS] Generated 2026-04-26 (1024×1024 + adaptive layers + Play feature graphic) | `distribution/icon-source/out/`         |
-| Store listing copy       | [PASS] Refreshed 2026-04-26 (S500:2021, removed QBCC-only)                       | `distribution/store-listings.md`        |
-| Privacy disclosures      | [PASS] Drafted 2026-04-26                                                        | `distribution/PRIVACY_DISCLOSURES.md`   |
-| Screenshots              | [WARN] Capture script ready; operator runs against sandbox                       | `distribution/capture-screenshots.mjs`  |
+| App icons                | [PASS] Generated 2026-04-26 (1024×1024 + adaptive layers + Play feature graphic) | `distribution/app-store/icon-source/out/`         |
+| Store listing copy       | [PASS] Refreshed 2026-04-26 (S500:2021, removed QBCC-only)                       | `distribution/app-store/store-listings.md`        |
+| Privacy disclosures      | [PASS] Drafted 2026-04-26                                                        | `distribution/app-store/PRIVACY_DISCLOSURES.md`   |
+| Screenshots              | [WARN] Capture script ready; operator runs against sandbox                       | `distribution/app-store/capture-screenshots.mjs`  |
 | Privacy policy live URL  | [PASS] `app/privacy/page.tsx`                                                    | live on prod                            |
 | Terms live URL           | [PASS] `app/terms/page.tsx`                                                      | live on prod                            |
 
@@ -171,7 +171,7 @@ App Store Connect → My Apps → ＋ → New App.
 | Field            | Value                   | Source                           |
 | ---------------- | ----------------------- | -------------------------------- |
 | Platform         | iOS                     | —                                |
-| Name             | RestoreAssist           | `distribution/store-listings.md` |
+| Name             | RestoreAssist           | `distribution/app-store/store-listings.md` |
 | Primary Language | English (Australia)     | —                                |
 | Bundle ID        | `com.restoreassist.app` | matches Xcode                    |
 | SKU              | `restoreassist-au-001`  | any unique value                 |
@@ -183,7 +183,7 @@ App Store Connect → My Apps → ＋ → New App.
 | 2.2 | App Information → Subtitle = "Water Damage Compliance"                                                                                                              | [ ]     |
 | 2.3 | App Information → Category = Business / Productivity                                                                                                                | [ ]     |
 | 2.4 | App Information → Privacy Policy URL = `https://restoreassist.app/privacy`                                                                                          | [ ]     |
-| 2.5 | App Privacy → Privacy Nutrition Labels — copy from `distribution/PRIVACY_DISCLOSURES.md` § "App Store Connect"                                                      | [ ]     |
+| 2.5 | App Privacy → Privacy Nutrition Labels — copy from `distribution/app-store/PRIVACY_DISCLOSURES.md` § "App Store Connect"                                                      | [ ]     |
 | 2.6 | Pricing and Availability → Free, AU + NZ markets only for V1                                                                                                        | [ ]     |
 | 2.7 | App Review Information → Sign-in required = Yes; provide demo account creds (DO NOT use real pilot creds — provision a `reviewer@restoreassist.app` test workspace) | [ ]     |
 
@@ -207,11 +207,11 @@ Play Console → All apps → Create app.
 | 3.2  | Setup → App content → Privacy policy = `https://restoreassist.app/privacy`                                                                                                | [ ]     |
 | 3.3  | Setup → App content → App access → "All functionality is available without special access" — **NO**: provide reviewer creds (same `reviewer@restoreassist.app` from §2.7) | [ ]     |
 | 3.4  | Setup → App content → Ads = "No, my app does not contain ads"                                                                                                             | [ ]     |
-| 3.5  | Setup → App content → Content rating → answer questionnaire (`distribution/store-listings.md` § Content Rating)                                                           | [ ]     |
+| 3.5  | Setup → App content → Content rating → answer questionnaire (`distribution/app-store/store-listings.md` § Content Rating)                                                           | [ ]     |
 | 3.6  | Setup → App content → Target audience → 18+ (professional tool)                                                                                                           | [ ]     |
 | 3.7  | Setup → App content → News app declaration = No                                                                                                                           | [ ]     |
 | 3.8  | Setup → App content → COVID-19 contact tracing = No                                                                                                                       | [ ]     |
-| 3.9  | Setup → App content → Data safety → copy from `distribution/PRIVACY_DISCLOSURES.md` § "Google Play Console — Data Safety"                                                 | [ ]     |
+| 3.9  | Setup → App content → Data safety → copy from `distribution/app-store/PRIVACY_DISCLOSURES.md` § "Google Play Console — Data Safety"                                                 | [ ]     |
 | 3.10 | Setup → App content → Government apps = No                                                                                                                                | [ ]     |
 | 3.11 | Setup → App content → Financial features = No (Stripe payment is processing only, not a financial product)                                                                | [ ]     |
 | 3.12 | Setup → App content → Health = No                                                                                                                                         | [ ]     |
@@ -223,15 +223,15 @@ Play Console → All apps → Create app.
 
 | #   | Item                                                                                               | Source                                                                                      | Done? |
 | --- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ----- |
-| 4.1 | App icon (App Store): 1024×1024 PNG, no alpha — operator-supplied artwork as-is, locked 2026-04-26 | `distribution/icon-source/out/ios-1024.png`                                                 | [ ]     |
-| 4.2 | App icon (Play): 512×512 PNG                                                                       | `distribution/icon-source/out/android-512.png`                                              | [ ]     |
-| 4.3 | Adaptive icon (Play, internal — synced via `npx cap sync android`)                                 | `mobile/assets/adaptive-icon.png` + `distribution/icon-source/out/adaptive-{fg,bg}-432.png` | [ ]     |
-| 4.4 | Feature graphic (Play): 1024×500 PNG                                                               | `distribution/icon-source/out/android-feature-graphic.png`                                  | [ ]     |
+| 4.1 | App icon (App Store): 1024×1024 PNG, no alpha — operator-supplied artwork as-is, locked 2026-04-26 | `distribution/app-store/icon-source/out/ios-1024.png`                                                 | [ ]     |
+| 4.2 | App icon (Play): 512×512 PNG                                                                       | `distribution/app-store/icon-source/out/android-512.png`                                              | [ ]     |
+| 4.3 | Adaptive icon (Play, internal — synced via `npx cap sync android`)                                 | `mobile/assets/adaptive-icon.png` + `distribution/app-store/icon-source/out/adaptive-{fg,bg}-432.png` | [ ]     |
+| 4.4 | Feature graphic (Play): 1024×500 PNG                                                               | `distribution/app-store/icon-source/out/android-feature-graphic.png`                                  | [ ]     |
 | 4.5 | Screenshots — captured + uploaded                                                                  | run `node distribution/capture-screenshots.mjs` against the sandbox                         | [ ]     |
-| 4.6 | Promotional text (App Store, 170 chars max)                                                        | `distribution/store-listings.md` § Promotional Text                                         | [ ]     |
-| 4.7 | Description (both stores)                                                                          | `distribution/store-listings.md` § Full Description                                         | [ ]     |
-| 4.8 | Keywords (App Store, 100 chars max)                                                                | `distribution/store-listings.md` § Keywords                                                 | [ ]     |
-| 4.9 | What's new (release notes)                                                                         | `distribution/whatsnew/whatsnew-en-AU`                                                      | [ ]     |
+| 4.6 | Promotional text (App Store, 170 chars max)                                                        | `distribution/app-store/store-listings.md` § Promotional Text                                         | [ ]     |
+| 4.7 | Description (both stores)                                                                          | `distribution/app-store/store-listings.md` § Full Description                                         | [ ]     |
+| 4.8 | Keywords (App Store, 100 chars max)                                                                | `distribution/app-store/store-listings.md` § Keywords                                                 | [ ]     |
+| 4.9 | What's new (release notes)                                                                         | `distribution/app-store/whatsnew/whatsnew-en-AU`                                                      | [ ]     |
 
 ---
 
@@ -299,8 +299,8 @@ Phase 5 cutover.
 - **App Store: "App icon shows transparency"** — our icon is opaque-flattened; if rejected, re-run `node distribution/icon-source/build-icons.mjs` and confirm `flatten()` ran.
 - **App Store: "App icon shouldn't include the device frame / shadow / drop"** — our icon (silver disc + brushed metal rim) is intentionally a coin-style brand asset. If reviewers flag the textured-grey backdrop in the rounded corners, regenerate via the build-icons script with a circular mask onto `#050505` (the alternate variant logic is in git history at commit before 2026-04-26 — restore via `git show <prev>:distribution/icon-source/build-icons.mjs`).
 - **App Store: "Login required, no demo account"** — fix in §2.7.
-- **App Store: "Privacy policy doesn't match nutrition labels"** — re-audit `app/privacy/page.tsx` against `distribution/PRIVACY_DISCLOSURES.md`.
-- **Play: "Data Safety incomplete"** — every Yes in `distribution/PRIVACY_DISCLOSURES.md` § Data Safety must have a purpose selected; tick "Account management" + "App functionality" everywhere.
+- **App Store: "Privacy policy doesn't match nutrition labels"** — re-audit `app/privacy/page.tsx` against `distribution/app-store/PRIVACY_DISCLOSURES.md`.
+- **Play: "Data Safety incomplete"** — every Yes in `distribution/app-store/PRIVACY_DISCLOSURES.md` § Data Safety must have a purpose selected; tick "Account management" + "App functionality" everywhere.
 - **Play: "App access requires login but no creds provided"** — fix in §3.3.
 
 ---
