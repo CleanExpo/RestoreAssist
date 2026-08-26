@@ -7,7 +7,7 @@ const trialReports = PRICING_CONFIG.free.trialReportCredits;
 
 export const metadata: Metadata = {
   title: "How It Works — RestoreAssist Restoration CRM",
-  description: `See how RestoreAssist moves a claim from field capture to IICRC-aligned reporting, GST invoicing, and client approval — ${trialDays}-day trial with ${trialReports} report credits. ${BRAND.tagline}`,
+  description: `See how RestoreAssist moves a claim from field capture to IICRC-aligned reporting, GST invoicing, and client approval — ${trialDays}-day trial with ${trialReports} report credits, generated on your own Anthropic or OpenAI key. ${BRAND.tagline}`,
   keywords: [
     "how restoration software works",
     "restoration CRM workflow",

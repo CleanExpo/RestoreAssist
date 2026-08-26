@@ -255,7 +255,7 @@ export const HOME = {
     secondaryCta: "View pricing",
     reassurances: [
       `${trialDays}-day trial · ${trialReports} report credits`,
-      "Instant setup",
+      "Your own AI key — no margin on usage",
       "24/7 support",
     ] as const,
   },
@@ -273,7 +273,7 @@ export function getHomeFaqs() {
     {
       cat: "Trial",
       q: "What's included in the free trial?",
-      a: `${trialDays}-day trial with ${trialReports} inspection report credits and instant setup. Field capture, reporting, invoicing, and the client portal are ready from day one — so you can prove value on real work without rewriting your process.`,
+      a: `${trialDays}-day trial with ${trialReports} inspection report credits. Report generation runs on your own Anthropic or OpenAI key, which takes about two minutes to add in settings. After that, field capture, reporting, invoicing, and the client portal are ready from day one — so you can prove value on real work without rewriting your process.`,
     },
     {
       cat: "Pricing",
