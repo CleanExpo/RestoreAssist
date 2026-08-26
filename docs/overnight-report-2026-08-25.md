@@ -214,9 +214,14 @@ digest**, and the committed digest is an all-zero placeholder that
 `scripts/ci/render-production-app-spec.mjs` fills in at deploy time. Merging to `main` runs
 `build-production-image.yml`, which publishes `ghcr.io/cleanexpo/restoreassist:<sha>` and
 deliberately holds no DigitalOcean token. Activation is a separate `workflow_dispatch`,
-`deploy-production.yml` — and that workflow is named `Deploy — DigitalOcean Production
-(BLOCKED)` and exits 1 unconditionally before it reaches any DigitalOcean call. So nothing
-was ever going to deploy on merge.
+`deploy-production.yml` — and at the time of this report that workflow was named
+`Deploy — DigitalOcean Production (BLOCKED)` and exited 1 unconditionally before it
+reached any DigitalOcean call. So nothing was ever going to deploy on merge.
+
+**Superseded 26/08/2026.** Both blockers have since been lifted: the pilot canary no
+longer fails the release gate when its secrets are unprovisioned, and the deploy workflow
+now activates instead of refusing. The finding above stands as the state on 25/08/2026;
+for the current promotion sequence see `docs/launch-kit/05-day-1-checklist.md`.
 
 The conclusion below (main moved, production did not) holds. The mechanism named in the
 original text did not, and it pointed an operator at a fix that would have done nothing.

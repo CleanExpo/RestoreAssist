@@ -14,8 +14,14 @@
  *
  * The conclusion ("merging main does not deploy") was right; the mechanism
  * named was wrong — and a wrong mechanism points an operator at a fix that
- * does nothing. Worse, the real reason nothing deploys is that
- * `deploy-production.yml` is named "(BLOCKED)" and exits 1 unconditionally.
+ * does nothing.
+ *
+ * Updated 26/08/2026: `deploy-production.yml` no longer refuses to activate.
+ * It was named "(BLOCKED)" and exited 1 unconditionally, which is why the
+ * checklist previously had to tell operators that no automated path existed.
+ * It now has one, so the checklist must carry the sequence rather than the
+ * dead end — an operator reading "there is no way to deploy" during an
+ * incident would waste the outage on a manual workaround they no longer need.
  *
  * These are runbooks. Someone reads them during an incident and acts.
  */
@@ -61,14 +67,34 @@ describe("deploy-mechanism docs", () => {
     }
   });
 
-  it("the day-1 checklist tells the operator the deploy workflow is blocked", () => {
-    // The section promised "Redeploy (10 min)" and named no command, because
-    // none works. An operator following it would burn the ten minutes and
-    // find nothing to run.
+  it("the day-1 checklist gives the operator a redeploy sequence that works", () => {
+    // The section once promised "Redeploy (10 min)" and named no command,
+    // because none worked. Now one does, so the checklist has to name it --
+    // both dispatches, and both required inputs, since the deploy refuses
+    // without a gate receipt bound to the exact SHA.
     const src = readDoc("docs/launch-kit/05-day-1-checklist.md");
-    expect(
-      /BLOCKED/.test(src),
-      "checklist should state that deploy-production.yml is blocked",
-    ).toBe(true);
+    expect(src, "checklist must name the release gate dispatch").toMatch(
+      /release-gate\.yml/,
+    );
+    expect(src, "checklist must name the deploy dispatch").toMatch(
+      /deploy-production\.yml/,
+    );
+    expect(src, "checklist must name the required gate run id").toMatch(
+      /release_gate_run_id/,
+    );
+    expect(src, "checklist must name the required SHA confirmation").toMatch(
+      /confirm_sha/,
+    );
+  });
+
+  it("the day-1 checklist states the risk the deploy accepts", () => {
+    // Activation proceeds with runner-loss reconciliation unproven. An
+    // operator whose deploy run dies needs to know to go and look at the
+    // provider, because nothing will have reconciled it for them.
+    const src = readDoc("docs/launch-kit/05-day-1-checklist.md");
+    expect(src).toMatch(/runner/i);
+    // \s+ rather than a literal space: prose wraps, and this phrase already
+    // straddles a line break in the checklist.
+    expect(src).toMatch(/DigitalOcean\s+deployment\s+state/i);
   });
 });

@@ -1,4 +1,4 @@
-name: Deploy — DigitalOcean Production (BLOCKED)
+name: Deploy — DigitalOcean Production
 
 on:
   workflow_dispatch:
@@ -158,10 +158,35 @@ jobs:
           node scripts/ci/verify-production-environment.mjs \
             "$RUNNER_TEMP/production-environment.json"
 
-      - name: Refuse activation until durable reconciliation is proven
+      # This step used to be an unconditional `exit 1`, which meant production
+      # could not be promoted through CI at all -- one blanket refusal standing
+      # in for every guard below it. The owner has accepted the residual risk,
+      # so it now records rather than refuses. Everything it was protecting is
+      # still here: attestation, spec rendering, migration parity, database
+      # identity, a captured rollback target, post-activation smoke, and
+      # automatic rollback when that smoke fails.
+      #
+      # WHAT REMAINS UNPROVEN, PRECISELY
+      # --------------------------------
+      # digitalocean-production-release.py polls activation to a 900s deadline
+      # and cancels on failure, so a failed or slow deploy is handled. The gap
+      # is the runner itself dying mid-activation: nothing outside the runner
+      # then cancels or reverts, and production can sit part-applied until a
+      # human looks. No in-runner step can close that -- a step cannot run on a
+      # runner that no longer exists -- so this does not pretend to. It says so
+      # where an operator will read it.
+      - name: Record the accepted runner-loss risk
         run: |
-          echo "BLOCKED: durable runner-loss cancellation and rollback reconciliation is not yet proven." >&2
-          exit 1
+          echo "::warning title=Activation proceeds with runner-loss reconciliation unproven::If this runner dies during activation, nothing outside it cancels or rolls back. Should this run end abnormally, check the DigitalOcean deployment state for this app before starting another release."
+          {
+            echo "> **Accepted risk: runner-loss reconciliation is unproven.**"
+            echo "> Activation is guarded by attestation, migration parity, a captured"
+            echo "> rollback target and post-deploy smoke with automatic rollback. The"
+            echo "> one uncovered case is this runner dying mid-activation, after which"
+            echo "> nothing external reconciles. If this run ends abnormally, check the"
+            echo "> DigitalOcean deployment state before releasing again."
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify exact image attestation
         env:
