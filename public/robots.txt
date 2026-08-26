@@ -1,7 +1,15 @@
 User-agent: *
 Allow: /
+
+# Application surfaces that never belong in an index.
 Disallow: /dashboard/
 Disallow: /api/
-Disallow: /sign/
+
+# Token-gated share links (/sign/, /capture/, /invite/, /invoices/public/,
+# /portal/<token>) are deliberately NOT disallowed here. Each serves
+# robots: { index: false, follow: false } from its route layout, and a crawler
+# has to be able to fetch a page to read that directive. A Disallow would hide
+# the noindex and can strand an already-discovered URL in the index with no way
+# to remove it. Crawlable + noindex is what actually de-indexes them.
 
 Sitemap: https://restoreassist.app/sitemap.xml
