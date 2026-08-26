@@ -117,11 +117,25 @@ jobs:
           EVIDENCE_BUNDLE_SHA256: ${{ secrets.PILOT_TESTER_EVIDENCE_BUNDLE_SHA256 }}
           ALLOWED_DATABASE_HOSTS: ${{ secrets.PILOT_TESTER_ALLOWED_DATABASE_HOSTS }}
         run: |
-          if [ -n "${POOL_JSON:-}" ] && [ -n "${DATABASE_URL:-}" ] && [ -n "${RESTOREASSIST_AI_API_KEY:-}" ] && [ -n "${PILOT_TESTER_JUDGE_API_KEY:-}" ] && [ -n "${UNSPLASH_ACCESS_KEY:-}" ] && [ -n "${ALLOWED_DATABASE_HOSTS:-}" ] && [ -n "${EVIDENCE_BUNDLE_URL:-}" ] && [ -n "${EVIDENCE_BUNDLE_SHA256:-}" ]; then
+          # Names only, never values -- this string is printed to a public log.
+          # Naming each missing secret matters most in the partly-provisioned
+          # case: "all of them are required" tells someone who has set six of
+          # eight nothing at all about which two are left.
+          MISSING=""
+          [ -n "${POOL_JSON:-}" ]                   || MISSING="$MISSING PILOT_TESTER_USER_POOL_JSON"
+          [ -n "${DATABASE_URL:-}" ]                || MISSING="$MISSING PILOT_TESTER_DATABASE_URL"
+          [ -n "${ALLOWED_DATABASE_HOSTS:-}" ]      || MISSING="$MISSING PILOT_TESTER_ALLOWED_DATABASE_HOSTS"
+          [ -n "${RESTOREASSIST_AI_API_KEY:-}" ]    || MISSING="$MISSING RESTOREASSIST_AI_API_KEY"
+          [ -n "${PILOT_TESTER_JUDGE_API_KEY:-}" ]  || MISSING="$MISSING PILOT_TESTER_JUDGE_API_KEY"
+          [ -n "${UNSPLASH_ACCESS_KEY:-}" ]         || MISSING="$MISSING UNSPLASH_ACCESS_KEY"
+          [ -n "${EVIDENCE_BUNDLE_URL:-}" ]         || MISSING="$MISSING PILOT_TESTER_EVIDENCE_BUNDLE_URL"
+          [ -n "${EVIDENCE_BUNDLE_SHA256:-}" ]      || MISSING="$MISSING PILOT_TESTER_EVIDENCE_BUNDLE_SHA256"
+
+          if [ -z "$MISSING" ]; then
             echo "provisioned=true" >> "$GITHUB_OUTPUT"
           else
             echo "provisioned=false" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Pilot canary cannot grade this SHA::User pool, database, self-hosted adjuster AI, server judge AI, Unsplash, and immutable evidence-bundle URL/SHA-256 secrets are all required. The canary is ADVISORY on this run: it graded nothing."
+            echo "::warning title=Pilot canary cannot grade this SHA::The canary is ADVISORY on this run: it graded nothing. Repository secrets not set:${MISSING}."
           fi
 
   swarm:

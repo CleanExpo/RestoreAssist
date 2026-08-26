@@ -37,6 +37,18 @@ const SECRET_ENV = [
   "ALLOWED_DATABASE_HOSTS",
 ] as const;
 
+/** Repository secret names, which differ from the env names above. */
+const SECRET_NAMES = [
+  "PILOT_TESTER_USER_POOL_JSON",
+  "PILOT_TESTER_DATABASE_URL",
+  "PILOT_TESTER_ALLOWED_DATABASE_HOSTS",
+  "RESTOREASSIST_AI_API_KEY",
+  "PILOT_TESTER_JUDGE_API_KEY",
+  "UNSPLASH_ACCESS_KEY",
+  "PILOT_TESTER_EVIDENCE_BUNDLE_URL",
+  "PILOT_TESTER_EVIDENCE_BUNDLE_SHA256",
+] as const;
+
 interface Step {
   id?: string;
   name?: string;
@@ -44,6 +56,7 @@ interface Step {
   env?: Record<string, unknown>;
 }
 
+/** Parse a workflow file into the subset of its shape these tests assert on. */
 function workflow(path: string) {
   return parse(readFileSync(path, "utf8")) as {
     on: {
@@ -109,7 +122,7 @@ describe("pilot canary secrets gate", () => {
     const r = runGate(SECRET_ENV);
     expect(r.code).toBe(0);
     expect(r.outputs).toContain("provisioned=true");
-    expect(r.stdout).not.toContain("::warning::");
+    expect(r.stdout).not.toContain("::warning");
   });
 
   // The defect this change exists for: an unprovisioned canary took the whole
@@ -137,8 +150,25 @@ describe("pilot canary secrets gate", () => {
     expect(r.outputs).toContain("provisioned=false");
   });
 
-  it("still names what is missing, so the reason stays greppable", () => {
-    expect(runGate([]).stdout).toMatch(/evidence-bundle|user pool/i);
+  it("names every missing secret when none are set", () => {
+    const out = runGate([]).stdout;
+    for (const name of SECRET_NAMES) expect(out).toContain(name);
+  });
+
+  // The case the old message was useless for: "all of them are required" tells
+  // someone who has set six of eight nothing about which two remain.
+  it("names only the secrets actually missing from a partial set", () => {
+    const present = SECRET_ENV.filter((n) => n !== "UNSPLASH_ACCESS_KEY");
+    const out = runGate(present).stdout;
+    expect(out).toContain("UNSPLASH_ACCESS_KEY");
+    expect(out).not.toContain("PILOT_TESTER_USER_POOL_JSON");
+    expect(out).not.toContain("PILOT_TESTER_DATABASE_URL");
+  });
+
+  // The warning is printed to a public log.
+  it("never echoes a secret value", () => {
+    const out = runGate(SECRET_ENV.slice(0, 3)).stdout;
+    expect(out).not.toContain("stub-");
   });
 });
 
