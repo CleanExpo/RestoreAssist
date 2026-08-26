@@ -65,6 +65,23 @@ jobs:
           PLAYWRIGHT_BASE_URL: https://restoreassist.app
         run: node scripts/ci/assert-production-smoke-origin.mjs "$PLAYWRIGHT_BASE_URL"
 
+      # Split from the smoke run so the two failures are told apart at a
+      # glance in the checks list. A stale deploy fails HERE, under a step
+      # named for what is actually wrong, and the user-flow step below never
+      # runs -- testing flows against a revision that is not this one proves
+      # nothing about this one. A genuine outage or regression fails BELOW.
+      # Exit 3 from the runner means stale; exit 1 means production is broken.
+      - name: Verify production is serving this revision
+        env:
+          PLAYWRIGHT_BASE_URL: https://restoreassist.app
+          EXPECTED_DEPLOYMENT_SHA: ${{ github.sha }}
+          EXPECTED_DATABASE_FINGERPRINT: ${{ secrets.EXPECTED_DATABASE_FINGERPRINT }}
+          CI: true
+        run: >-
+          node scripts/run-smoke.mjs
+          https://restoreassist.app
+          --preflight-only
+
       - name: Run origin-bound production smoke
         env:
           PLAYWRIGHT_BASE_URL: https://restoreassist.app

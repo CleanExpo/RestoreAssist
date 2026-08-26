@@ -27,19 +27,59 @@
  * platform and arguments containing spaces survive intact.
  *
  * Usage:
- *   node scripts/run-smoke.mjs <base-url> [extra playwright args...]
+ *   node scripts/run-smoke.mjs <base-url> [--preflight-only] [playwright args...]
+ *
+ * EXIT CODES
+ * ----------
+ * Callers (and the workflow) distinguish these, so do not collapse them:
+ *
+ *   0  everything asked for passed
+ *   1  production is broken: unreachable, migration parity failed, or a
+ *      @smoke user flow failed
+ *   2  usage or local setup error (bad base URL, Playwright not installed)
+ *   3  production is HEALTHY but STALE -- it is not serving this revision.
+ *      Nothing is broken; the release was never promoted. Kept distinct from
+ *      1 so an un-deployed backlog cannot masquerade as an outage, and so a
+ *      real outage during such a backlog is still visible.
+ *
+ * `--preflight-only` stops after the freshness and migration probes without
+ * running Playwright, so a workflow can report "is production current?"
+ * as its own named step, separately from "do the user flows work?".
  */
 
 import { spawnSync } from "node:child_process";
+import { appendFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertMigrationHealthPayload } from "./ci/assert-migration-health.mjs";
+import {
+  classifyDeploymentFreshness,
+  FRESH,
+  STALE,
+} from "./ci/classify-deployment-freshness.mjs";
 
 const require = createRequire(import.meta.url);
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-const [baseUrl, ...extraArgs] = process.argv.slice(2);
+const [baseUrl, ...rawArgs] = process.argv.slice(2);
+const preflightOnly = rawArgs.includes("--preflight-only");
+const extraArgs = rawArgs.filter((arg) => arg !== "--preflight-only");
+
+/**
+ * State the verdict where the run page shows it without opening logs. Silent
+ * when not on Actions, and never fatal -- a summary that cannot be written
+ * must not change the gate's outcome.
+ */
+function reportToStepSummary(heading, detail) {
+  const target = process.env.GITHUB_STEP_SUMMARY;
+  if (!target) return;
+  try {
+    appendFileSync(target, `### ${heading}\n\n${detail}\n\n`);
+  } catch {
+    /* a missing summary file is not a smoke result */
+  }
+}
 
 if (!baseUrl) {
   console.error(
@@ -61,43 +101,74 @@ if (
 }
 const isLocal = ["localhost", "127.0.0.1", "::1"].includes(parsedBase.hostname);
 const isProduction = parsedBase.origin === "https://restoreassist.app";
-const expectedSha = process.env.EXPECTED_DEPLOYMENT_SHA ?? process.env.GITHUB_SHA;
+const expectedSha =
+  process.env.EXPECTED_DEPLOYMENT_SHA ?? process.env.GITHUB_SHA;
 if (!isLocal && expectedSha) {
-  let response;
+  const healthUrl = new URL("/api/health", parsedBase).toString();
+  let fetchError;
+  const probe = {
+    expectedSha,
+    reached: false,
+    requestedUrl: healthUrl,
+    finalUrl: undefined,
+    status: undefined,
+    contentType: undefined,
+    body: undefined,
+  };
+
   try {
-    const healthUrl = new URL("/api/health", parsedBase);
-    response = await fetch(healthUrl, {
+    const response = await fetch(healthUrl, {
       headers: { accept: "application/json" },
       redirect: "manual",
       signal: AbortSignal.timeout(30_000),
     });
-    if (response.url !== healthUrl.toString()) {
-      console.error(
-        `Deployment SHA preflight URL mismatch: expected ${healthUrl}, observed ${response.url}`,
-      );
-      process.exit(1);
+    probe.reached = true;
+    probe.finalUrl = response.url;
+    probe.status = response.status;
+    probe.contentType = response.headers.get("content-type") ?? undefined;
+    // Only a 200 JSON response is worth parsing; a parse failure here is
+    // itself evidence production is not answering properly, so it stays
+    // inside the probe rather than throwing past the classifier.
+    try {
+      probe.body = await response.json();
+    } catch {
+      probe.body = undefined;
     }
   } catch (error) {
-    console.error(`Deployment SHA preflight could not reach health endpoint: ${error}`);
-    process.exit(1);
+    // Keep the transport error: for a genuine outage, whether this was DNS,
+    // TLS, or a timeout is the most useful line in the log.
+    fetchError = error;
   }
-  if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) {
-    console.error(`Deployment SHA preflight received HTTP ${response.status} or non-JSON health`);
-    process.exit(1);
-  }
-  const health = await response.json();
-  const observedSha = health?.deploymentSha;
-  if (
-    typeof observedSha !== "string" ||
-    !/^[0-9a-f]{40}$/i.test(observedSha) ||
-    observedSha.toLowerCase() !== expectedSha.toLowerCase()
-  ) {
+
+  const { verdict, reason } = classifyDeploymentFreshness(probe);
+
+  if (verdict === STALE) {
+    console.error(`Production is STALE, not broken: ${reason}`);
     console.error(
-      `Deployment SHA preflight mismatch: expected ${expectedSha}, observed ${JSON.stringify(observedSha)}`,
+      "Nothing here says the application is unhealthy. main has moved ahead " +
+        "of what is deployed; promote a release rather than debugging the app.",
+    );
+    reportToStepSummary(
+      "🟡 Production is stale, not broken",
+      `${reason}\n\nThe application answered \`/api/health\` normally. This run did not ` +
+        `test user flows, because testing them against a revision that is not this ` +
+        `one would not tell you anything about this revision.\n\n` +
+        `**Fix:** promote a release. **Do not** debug the app for this.`,
+    );
+    process.exit(3);
+  }
+
+  if (verdict !== FRESH) {
+    const detail = fetchError ? `${reason}: ${fetchError}` : reason;
+    console.error(`Deployment freshness preflight failed: ${detail}`);
+    reportToStepSummary(
+      "🔴 Production did not answer",
+      `${detail}\n\nThis is an availability failure, not a stale deploy.`,
     );
     process.exit(1);
   }
-  console.log(`Deployment SHA preflight passed: ${observedSha}`);
+
+  console.log(`Deployment freshness preflight passed: ${reason}`);
 }
 
 if (isProduction) {
@@ -138,13 +209,16 @@ if (isProduction) {
   );
 }
 
+if (preflightOnly) {
+  console.log("Preflight only: production is current. Not running Playwright.");
+  process.exit(0);
+}
+
 let playwrightCli;
 try {
   playwrightCli = require.resolve("@playwright/test/cli");
 } catch {
-  console.error(
-    "Could not resolve @playwright/test/cli. Run `npm ci` first.",
-  );
+  console.error("Could not resolve @playwright/test/cli. Run `npm ci` first.");
   process.exit(2);
 }
 
