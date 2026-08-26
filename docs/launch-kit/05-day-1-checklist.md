@@ -63,13 +63,32 @@ string. Re-run the check yourself:
 curl -s https://restoreassist.app/api/health
 ```
 
-`.do/app.yaml` pins `branch: main` but sets no `deploy_on_push`, and DigitalOcean
-defaults that to false — which is very likely why main has moved and production hasn't.
+**Corrected 26/08/2026.** `.do/app.yaml` is not a source-repo spec — it carries no branch
+key and no push-deploy flag. It is a container-image spec pinned to a GHCR digest. Merging
+to `main` builds and publishes the image but never deploys it, and `deploy-production.yml`
+is named `Deploy — DigitalOcean Production (BLOCKED)` and exits 1 before any DigitalOcean
+call. That is why main has moved and production hasn't.
 
 **A cache purge alone will not fix this.** `/api/health` is `cf-cache-status: BYPASS` —
 Cloudflare never caches it, so what you're seeing is the live running build. It also
 reports `uptime` of ~16.5 hours, meaning the process started before #2043 even landed.
-It needs an actual redeploy.
+It needs an actual redeploy — and **there is currently no automated path to one.** Two
+options, both deliberate decisions rather than routine steps:
+
+1. **Apply the built digest directly.** Take the digest from inside the latest
+   `build-production-image.yml` run's `production-image.txt` artefact — NOT the artifact
+   digest shown on the Actions run page, which is a different value and would deploy the
+   wrong thing. Then render the spec and apply it:
+
+   ```bash
+   doctl apps update <app-id> --spec <rendered-spec>
+   ```
+
+   This bypasses the release-gate and attestation checks the blocked workflow would enforce.
+
+2. **Lift the guard** in `deploy-production.yml`, which means proving the durable
+   runner-loss cancellation and rollback reconciliation it is waiting on. That is a
+   governance decision, not a fix.
 
 ## 5. Purge the Cloudflare cache (2 min)
 
