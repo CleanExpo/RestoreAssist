@@ -78,6 +78,32 @@ jobs:
       RELEASE_DB_PROFILE: "1"
 
     steps:
+      # The canary is advisory when its secrets are absent, so this job now runs
+      # in cases where nothing exercised the sandbox on this SHA. The receipt
+      # cannot carry that fact: scripts/ci/verify-release-gate-run.mjs compares
+      # release-gate-report.json's top-level keys against a fixed set, so adding
+      # a field would break the deploy it is meant to inform. The run has to say
+      # it instead -- an annotation and the top of the job summary, both of which
+      # a human sees before promoting a release.
+      - name: Record whether a canary backs this score
+        env:
+          CANARY_PROVISIONED: ${{ needs.pilot-canary.outputs.provisioned }}
+        run: |
+          if [ "$CANARY_PROVISIONED" = "true" ]; then
+            echo "Pilot canary graded this SHA."
+            echo "Pilot canary: graded this SHA." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "::warning title=Score carries no canary evidence::The pilot canary did not grade this SHA (its secrets are not provisioned), so nothing here exercised the sandbox end to end. The release-gate report cannot record this -- it is only in this run."
+          {
+            echo "> **No canary evidence backs this score.**"
+            echo "> The pilot canary did not grade this SHA because its secrets are"
+            echo "> not provisioned, so no end-to-end sandbox run stands behind the"
+            echo "> criteria below. The signed report cannot express this; provision"
+            echo "> the eight PILOT_TESTER secrets to restore it."
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

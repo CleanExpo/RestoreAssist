@@ -8,23 +8,37 @@ on:
         required: false
         type: string
         default: "https://restoreassist-sandbox.vercel.app"
+    outputs:
+      provisioned:
+        description: >-
+          "true" when all eight pilot secrets are present and the swarm actually
+          graded this SHA. Callers must treat anything else as "no canary
+          evidence" rather than as a pass.
+        value: ${{ jobs.secrets-gate.outputs.provisioned }}
     secrets:
+      # DELIBERATELY NOT `required: true`. Under workflow_call, a required
+      # secret that does not exist fails the calling job at INITIALISATION --
+      # zero steps, no logs, and a 404 on the log endpoint. That is how an
+      # unprovisioned canary took down the release gate with a failure nobody
+      # could read; it was only diagnosable by dispatching this workflow
+      # directly. Presence is checked in secrets-gate below, which can report
+      # what is missing.
       PILOT_TESTER_USER_POOL_JSON:
-        required: true
+        required: false
       PILOT_TESTER_DATABASE_URL:
-        required: true
+        required: false
       PILOT_TESTER_ALLOWED_DATABASE_HOSTS:
-        required: true
+        required: false
       RESTOREASSIST_AI_API_KEY:
-        required: true
+        required: false
       PILOT_TESTER_JUDGE_API_KEY:
-        required: true
+        required: false
       UNSPLASH_ACCESS_KEY:
-        required: true
+        required: false
       PILOT_TESTER_EVIDENCE_BUNDLE_URL:
-        required: true
+        required: false
       PILOT_TESTER_EVIDENCE_BUNDLE_SHA256:
-        required: true
+        required: false
   schedule:
     # 16:00 UTC = 02:00 AEST next-day (off-peak for the sandbox).
     - cron: "0 16 * * *"
@@ -74,8 +88,16 @@ jobs:
         working-directory: packages/pilot-tester
         run: npm run dryrun
 
-  # Fail-closed preflight: a canary without its account pool, sandbox database,
-  # or independent judge is not release evidence.
+  # Presence preflight. A canary without its account pool, sandbox database or
+  # independent judge is not release evidence -- but it is also not a reason to
+  # block a release, which is what exiting non-zero here did: it skipped the
+  # release-gate score job, so no receipt artifact was produced and production
+  # could not be promoted at all.
+  #
+  # This job therefore REPORTS rather than blocks. What stops an unprovisioned
+  # canary from pretending it graded anything is the `swarm` job below, which
+  # still refuses to run unless `provisioned == 'true'`, and the release gate,
+  # which states plainly when a score carries no canary evidence.
   secrets-gate:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -95,12 +117,25 @@ jobs:
           EVIDENCE_BUNDLE_SHA256: ${{ secrets.PILOT_TESTER_EVIDENCE_BUNDLE_SHA256 }}
           ALLOWED_DATABASE_HOSTS: ${{ secrets.PILOT_TESTER_ALLOWED_DATABASE_HOSTS }}
         run: |
-          if [ -n "${POOL_JSON:-}" ] && [ -n "${DATABASE_URL:-}" ] && [ -n "${RESTOREASSIST_AI_API_KEY:-}" ] && [ -n "${PILOT_TESTER_JUDGE_API_KEY:-}" ] && [ -n "${UNSPLASH_ACCESS_KEY:-}" ] && [ -n "${ALLOWED_DATABASE_HOSTS:-}" ] && [ -n "${EVIDENCE_BUNDLE_URL:-}" ] && [ -n "${EVIDENCE_BUNDLE_SHA256:-}" ]; then
+          # Names only, never values -- this string is printed to a public log.
+          # Naming each missing secret matters most in the partly-provisioned
+          # case: "all of them are required" tells someone who has set six of
+          # eight nothing at all about which two are left.
+          MISSING=""
+          [ -n "${POOL_JSON:-}" ]                   || MISSING="$MISSING PILOT_TESTER_USER_POOL_JSON"
+          [ -n "${DATABASE_URL:-}" ]                || MISSING="$MISSING PILOT_TESTER_DATABASE_URL"
+          [ -n "${ALLOWED_DATABASE_HOSTS:-}" ]      || MISSING="$MISSING PILOT_TESTER_ALLOWED_DATABASE_HOSTS"
+          [ -n "${RESTOREASSIST_AI_API_KEY:-}" ]    || MISSING="$MISSING RESTOREASSIST_AI_API_KEY"
+          [ -n "${PILOT_TESTER_JUDGE_API_KEY:-}" ]  || MISSING="$MISSING PILOT_TESTER_JUDGE_API_KEY"
+          [ -n "${UNSPLASH_ACCESS_KEY:-}" ]         || MISSING="$MISSING UNSPLASH_ACCESS_KEY"
+          [ -n "${EVIDENCE_BUNDLE_URL:-}" ]         || MISSING="$MISSING PILOT_TESTER_EVIDENCE_BUNDLE_URL"
+          [ -n "${EVIDENCE_BUNDLE_SHA256:-}" ]      || MISSING="$MISSING PILOT_TESTER_EVIDENCE_BUNDLE_SHA256"
+
+          if [ -z "$MISSING" ]; then
             echo "provisioned=true" >> "$GITHUB_OUTPUT"
           else
             echo "provisioned=false" >> "$GITHUB_OUTPUT"
-            echo "::error title=Pilot canary cannot grade fully::User pool, database, self-hosted adjuster AI, server judge AI, Unsplash, and immutable evidence-bundle URL/SHA-256 secrets are all required."
-            exit 2
+            echo "::warning title=Pilot canary cannot grade this SHA::The canary is ADVISORY on this run: it graded nothing. Repository secrets not set:${MISSING}."
           fi
 
   swarm:
