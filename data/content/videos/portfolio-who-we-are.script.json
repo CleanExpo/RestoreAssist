@@ -1,0 +1,16 @@
+{
+  "slug": "portfolio-who-we-are",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 55,
+  "whiteLabel": true,
+  "segments": [
+    { "text": "It is ten at night. Your ceiling is coming down, and there is someone at your door you have never met.", "startSec": 0.5, "durationSec": 8.0 },
+    { "text": "You are entitled to know exactly who that is before you let them in.", "startSec": 9.0, "durationSec": 5.5 },
+    { "text": "{{COMPANY}} is a restoration contractor. Not a builder, not a cleaner, not a plumber.", "startSec": 15.0, "durationSec": 7.0 },
+    { "text": "The work starts the moment the damage stops spreading, and ends when your property is back to the condition it was in beforehand.", "startSec": 22.5, "durationSec": 9.5 },
+    { "text": "Every technician who attends carries photo identification and a certification you can verify.", "startSec": 32.5, "durationSec": 7.0 },
+    { "text": "You will be told their name before they arrive.", "startSec": 40.0, "durationSec": 4.0 },
+    { "text": "If anyone attends and cannot show you both, do not let them in. That applies to us as much as it applies to anybody else.", "startSec": 44.5, "durationSec": 8.0 },
+    { "text": "Call the number on this page to confirm any attendance.", "startSec": 52.5, "durationSec": 2.5 }
+  ]
+}
