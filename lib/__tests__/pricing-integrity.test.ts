@@ -161,6 +161,50 @@ describe("free-trial honesty — grant matches advertised copy", () => {
     expect(src).not.toMatch(/3 complimentary/i);
   });
 
+  // The trial advertises report credits, but report generation requires a
+  // workspace Anthropic/OpenAI key — without one the API returns 402 and the
+  // trial cannot produce the thing it was sold on. That is why
+  // AiKeySetupBanner exists. Copy that promises the credits must not also
+  // promise that setup is instant, and the claim surfaces that end up in
+  // search results must carry the precondition. The pricing metadata already
+  // sets this standard ("on your own provider key"); these are the two places
+  // that did not meet it.
+  it("marketing copy never promises instant setup, since a BYOK key is required first", () => {
+    // Every rendered landing copy source, not just one file: FAQSection is
+    // live on /landing/dawn-split and carried the same claim.
+    for (const rel of [
+      "components/landing/home/homeContent.ts",
+      "components/landing/home/FAQSection.tsx",
+    ]) {
+      // "Instant setup" is false: the user must obtain a provider key and add
+      // it in workspace settings before a single report can be generated.
+      expect(readSrc(rel), `${rel} should not promise instant setup`).not.toMatch(
+        /instant setup/i,
+      );
+    }
+    const src = readSrc("components/landing/home/homeContent.ts");
+    // The CTA reassurance block sits directly above the signup button, so if it
+    // states the credit grant it must also state the key requirement.
+    expect(src).toMatch(/reassurances/);
+    expect(
+      /your own [^.]{0,60}key/i.test(src),
+      "home copy should state the bring-your-own-key requirement",
+    ).toBe(true);
+  });
+
+  it("how-it-works metadata states the AI-key requirement alongside the trial claim", () => {
+    const src = readSrc("app/how-it-works/layout.tsx");
+    // Metadata is the claim surface that lands in search results and link
+    // previews, so a trial/credits promise there needs the precondition with
+    // it — the same rule app/pricing/layout.tsx already follows.
+    const advertisesTrial = /trial|report credits/i.test(src);
+    expect(advertisesTrial).toBe(true);
+    expect(
+      /your own [^.]{0,60}key/i.test(src),
+      "how-it-works metadata advertises the trial, so it must state the key requirement",
+    ).toBe(true);
+  });
+
   it("OAuth createUser grant matches PRICING_CONFIG (not a hardcoded 30)", () => {
     const src = readSrc("lib/auth.ts");
     expect(src).toContain("PRICING_CONFIG.free.trialReportCredits");
