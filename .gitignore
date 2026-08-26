@@ -140,3 +140,13 @@ logs/
 # Local-only property-based soak harness (run.ts header: "NOT a repo artifact —
 # never committed"). Source + 9MB run logs/ledgers stay on the operator's machine.
 scripts/overnight-soak/
+
+# BMAD (bmad-method) — the framework itself is committed so the whole team
+# gets the same agents, but two classes of file are per-developer:
+#   config.user.toml holds install answers scoped to one person (the agent's
+#   user_name comes from whoever ran the installer), and it is regenerated on
+#   every install — committing it would hand your name to everyone else.
+#   _bmad-output/ is generated planning and implementation artifacts.
+_bmad/config.user.toml
+_bmad/custom/config.user.toml
+_bmad-output/
