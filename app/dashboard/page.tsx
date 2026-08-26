@@ -30,6 +30,7 @@ import SessionMetadataCard, {
   EvaluatorScoreBadge,
 } from "@/components/SessionMetadataCard";
 import { TechLicenceBanner } from "@/components/dashboard/TechLicenceBanner";
+import { AiKeySetupBanner } from "@/components/dashboard/AiKeySetupBanner";
 import { InboundJobAlert } from "@/components/dashboard/InboundJobAlert";
 import type { ReportWithSessionData } from "@/lib/session-types";
 
@@ -292,6 +293,9 @@ export default function DashboardPage() {
         <InboundJobAlert />
       </div>
       <TechLicenceBanner />
+      {/* The one REQUIRED onboarding step, shown on every visit rather than
+          only behind ?welcome=1 — without a key, report generation 402s. */}
+      <AiKeySetupBanner />
       {dashboardData.loadFailed && !dashboardData.loading && (
         <div className="mx-6 mt-4 flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
           <span className="text-sm">

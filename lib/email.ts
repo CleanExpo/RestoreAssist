@@ -1,4 +1,5 @@
 import { reportError } from "@/lib/observability";
+import { sanitiseEmailField } from "@/lib/email/sanitise-header";
 import { BRAND } from "@/lib/brand";
 import {
   isEmailServiceConfigured,
@@ -145,9 +146,7 @@ export interface SignedFormEmailData {
 }
 
 /** Strip CR/LF characters that could be used for email header injection. */
-function sanitiseEmailField(value: string, maxLength = 255): string {
-  return value.replace(/[\r\n]/g, " ").slice(0, maxLength);
-}
+
 
 /** Escape user-provided content before interpolating into HTML email bodies. */
 export function escapeHtml(value: string): string {
@@ -1473,3 +1472,5 @@ Restore Assist — Australia's compliance platform for water damage restoration`
   );
   return assertEmailSuccess(result, "support-reply");
 }
+
+export { sanitiseEmailField };

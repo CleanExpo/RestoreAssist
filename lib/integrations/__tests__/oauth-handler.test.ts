@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const integrationFindUnique = vi.fn();
 const integrationUpdate = vi.fn();
+const oauthStateCreate = vi.fn();
+const oauthStateFindUnique = vi.fn();
+const oauthStateUpdateMany = vi.fn();
 const decryptMock = vi.fn((v: string) => v.replace(/^encrypted:/, ""));
 
 vi.mock("@/lib/prisma", () => ({
@@ -10,6 +13,11 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: (...args: unknown[]) => integrationFindUnique(...args),
       update: (...args: unknown[]) => integrationUpdate(...args),
     },
+    oAuthStateNonce: {
+      create: (...args: unknown[]) => oauthStateCreate(...args),
+      findUnique: (...args: unknown[]) => oauthStateFindUnique(...args),
+      updateMany: (...args: unknown[]) => oauthStateUpdateMany(...args),
+    },
   },
 }));
 vi.mock("@/lib/credential-vault", () => ({
@@ -17,7 +25,11 @@ vi.mock("@/lib/credential-vault", () => ({
   decrypt: (...args: [string]) => decryptMock(...args),
 }));
 
-import { disconnectIntegration } from "../oauth-handler";
+import {
+  disconnectIntegration,
+  generateOAuthState,
+  validateOAuthState,
+} from "../oauth-handler";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -25,9 +37,56 @@ beforeEach(() => {
   integrationFindUnique.mockReset();
   integrationUpdate.mockReset();
   integrationUpdate.mockResolvedValue({});
+  oauthStateCreate.mockReset();
+  oauthStateCreate.mockResolvedValue({});
+  oauthStateFindUnique.mockReset();
+  oauthStateUpdateMany.mockReset();
   decryptMock.mockReset();
   decryptMock.mockImplementation((v: string) => v.replace(/^encrypted:/, ""));
   vi.unstubAllGlobals();
+});
+
+describe("OAuth state callback context", () => {
+  it("persists PKCE context on the one-time state instead of shared integration config", async () => {
+    const state = await generateOAuthState("u1", "XERO", {
+      integrationId: "integration_1",
+      redirectUri: "https://app.example/api/integrations/oauth/xero/callback",
+      codeVerifier: "verifier-1",
+    });
+
+    expect(state).toMatch(/^[a-f0-9]{64}$/);
+    expect(oauthStateCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        nonce: state,
+        userId: "u1",
+        provider: "XERO",
+        integrationId: "integration_1",
+        redirectUri: "https://app.example/api/integrations/oauth/xero/callback",
+        codeVerifier: "verifier-1",
+      }),
+    });
+  });
+
+  it("returns the context belonging to the consumed state", async () => {
+    oauthStateFindUnique.mockResolvedValue({
+      userId: "u1",
+      provider: "XERO",
+      integrationId: "integration_1",
+      redirectUri: "https://app.example/callback",
+      codeVerifier: "verifier-1",
+      expiresAt: new Date(Date.now() + 60_000),
+      usedAt: null,
+    });
+    oauthStateUpdateMany.mockResolvedValue({ count: 1 });
+
+    await expect(validateOAuthState("state-1")).resolves.toEqual({
+      userId: "u1",
+      provider: "XERO",
+      integrationId: "integration_1",
+      redirectUri: "https://app.example/callback",
+      codeVerifier: "verifier-1",
+    });
+  });
 });
 
 afterEach(() => {

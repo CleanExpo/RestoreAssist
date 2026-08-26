@@ -4438,13 +4438,16 @@ enum WebhookEventStatus {
 /// Now: we store the nonce here on `generateOAuthState`, look it up on
 /// callback, and delete it after use. TTL cleanup via cron.
 model OAuthStateNonce {
-  id        String    @id @default(cuid())
-  nonce     String    @unique
-  userId    String
-  provider  String
-  expiresAt DateTime
-  createdAt DateTime  @default(now())
-  usedAt    DateTime?
+  id            String    @id @default(cuid())
+  nonce         String    @unique
+  userId        String
+  provider      String
+  integrationId String?
+  redirectUri   String?
+  codeVerifier  String?
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+  usedAt        DateTime?
 
   @@index([expiresAt])
   @@index([userId, provider])
