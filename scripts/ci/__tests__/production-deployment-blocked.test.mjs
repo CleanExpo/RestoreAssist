@@ -62,10 +62,15 @@ test("production workflow binds build, approval, activation and rollback to exac
   assert.match(workflow, /digitalocean-production-release\.py deploy/);
   assert.match(workflow, /Post-activation smoke failed; rolling back/);
   assert.match(workflow, /digitalocean-production-release\.py rollback/);
-  const durableBlock = workflow.indexOf("Refuse activation until durable reconciliation is proven");
+  // Until 26/08/2026 this asserted an unconditional `exit 1` here, which made
+  // the workflow undeployable by design. That block has been relaxed; the
+  // accepted risk is now recorded instead of refused. The live replacement for
+  // these invariants is scripts/__tests__/production-release-path.test.ts --
+  // this file is a .test.mjs and config/vitest.config.js never runs it.
+  const riskRecord = workflow.indexOf("Record the accepted runner-loss risk");
   const firstProviderCredential = workflow.indexOf("DIGITALOCEAN_ACCESS_TOKEN");
-  assert.ok(durableBlock > 0 && durableBlock < firstProviderCredential);
-  assert.match(workflow.slice(durableBlock, firstProviderCredential), /exit 1/);
+  assert.ok(riskRecord > 0 && riskRecord < firstProviderCredential);
+  assert.match(workflow.slice(riskRecord, firstProviderCredential), /::warning/);
   const buildJob = workflow.slice(workflow.indexOf("  build:"), workflow.indexOf("  reject-non-main:"));
   assert.doesNotMatch(buildJob, /DIGITALOCEAN_ACCESS_TOKEN|DIGITALOCEAN_APP_ID|PRODUCTION_DIRECT_URL/);
 });
