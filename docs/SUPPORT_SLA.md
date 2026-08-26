@@ -30,6 +30,13 @@ Formal response-time commitments for paying customers (Trial, Active, Lifetime).
 
 **Business hours:** Mon-Fri 08:00-18:00 Australia/Brisbane (AEST/AEDT auto-adjusted). After hours: P0 only, paged via on-call rotation.
 
+**On the P1 commitment, for anyone reading a green release gate.** P1 degrades
+to <=2 h outside business hours by design -- this is not 24/7 cover, and only P0
+pages the on-call rotation. The gate's F2-runbooks-sla criterion checks that the
+degradation is written down and bounded at <=2 h; it used to demand an
+unconditional <=1 h, which this document has never offered. If the out-of-hours
+bound is ever loosened past 2 h, or dropped, F2 fails and the release blocks.
+
 ## Channels
 
 | Channel | Use for | Response window |

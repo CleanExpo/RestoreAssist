@@ -63,34 +63,58 @@ const GATE_DOC = path.join(ROOT, "docs", "RELEASE_GATE.md");
 const EVIDENCE_MAX_AGE_DAYS = 14;
 const ALL_PROFILES: ReleaseProfile[] = ["web", "mobile"];
 
+const FENCE = /^\s*(?:```|~~~)/;
+const ATX_HEADING = /^#{1,2}\s+\S/;
+
+/**
+ * A `#` comment inside a fenced code block is not a markdown heading.
+ *
+ * Treating it as one truncated every section containing a shell snippet. In
+ * `docs/MOBILE_RELEASE_RUNBOOK.md` the "Build + upload" section collapsed at
+ * `# Bump version on main first.` to 186 characters and zero table rows, so
+ * F2-runbooks-sla reported it as a missing or non-operational section when the
+ * content was simply never read. A gate that mis-scores well-written docs is
+ * worse than no gate: it teaches people to write around the parser.
+ */
+function isHeadingOutsideFence(lines: string[], index: number): boolean {
+  if (!ATX_HEADING.test(lines[index].trim())) return false;
+  let inFence = false;
+  for (let i = 0; i < index; i++) {
+    if (FENCE.test(lines[i])) inFence = !inFence;
+  }
+  return !inFence;
+}
+
+function sectionBodyFrom(lines: string[], start: number): string {
+  let inFence = false;
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (FENCE.test(lines[i])) {
+      inFence = !inFence;
+      continue;
+    }
+    if (!inFence && ATX_HEADING.test(lines[i].trim())) {
+      end = i;
+      break;
+    }
+  }
+  return lines.slice(start + 1, end).join("\n").trim();
+}
+
 function markdownSection(body: string, heading: string): string | null {
   const lines = body.replace(/\r\n/g, "\n").split("\n");
   const start = lines.findIndex(
     (line) => line.trim().toLowerCase() === `## ${heading.toLowerCase()}`,
   );
   if (start < 0) return null;
-  const endOffset = lines
-    .slice(start + 1)
-    .findIndex((line) => /^#{1,2}\s+\S/.test(line.trim()));
-  const end = endOffset < 0 ? lines.length : start + 1 + endOffset;
-  return lines
-    .slice(start + 1, end)
-    .join("\n")
-    .trim();
+  return sectionBodyFrom(lines, start);
 }
 
 function markdownSectionMatching(body: string, heading: RegExp): string | null {
   const lines = body.replace(/\r\n/g, "\n").split("\n");
   const start = lines.findIndex((line) => heading.test(line.trim()));
   if (start < 0) return null;
-  const endOffset = lines
-    .slice(start + 1)
-    .findIndex((line) => /^#{1,2}\s+\S/.test(line.trim()));
-  const end = endOffset < 0 ? lines.length : start + 1 + endOffset;
-  return lines
-    .slice(start + 1, end)
-    .join("\n")
-    .trim();
+  return sectionBodyFrom(lines, start);
 }
 
 function renderedMarkdown(body: string): string {
@@ -98,10 +122,13 @@ function renderedMarkdown(body: string): string {
 }
 
 function headingCount(body: string, heading: RegExp): number {
-  return body
-    .replace(/\r\n/g, "\n")
-    .split("\n")
-    .filter((line) => heading.test(line.trim())).length;
+  // Same fence rule as sectionBodyFrom: a heading-shaped line inside a code
+  // block is sample text, not a section of this document.
+  const lines = body.replace(/\r\n/g, "\n").split("\n");
+  return lines.filter(
+    (line, index) =>
+      heading.test(line.trim()) && isHeadingOutsideFence(lines, index),
+  ).length;
 }
 
 function readGateVersion(): string {
@@ -501,17 +528,33 @@ export function verifyRunbooksSla(root: string = ROOT): CriterionResult {
         .map((cell) => cell.replace(/[*_`]/g, "").trim()),
     )
     .filter((cells) => cells[0]?.toUpperCase() === "P1");
+  // The P1 first-response commitment may take one of two shapes, and nothing
+  // else. Either it is unconditional -- `<=1 h`, optionally marked `(24/7)` or
+  // `(all hours)` -- or it degrades outside stated hours, in which case the
+  // fallback must be written down and must itself be no worse than 2 h.
+  //
+  // This deliberately admits `<=1 h (business hours ...); <=2 h outside`, which
+  // an earlier revision rejected. What it must never admit is a commitment that
+  // degrades without saying how far: `<=1 h when staffed` with no fallback, or
+  // one that falls to 8 h, still fails. Relaxing the shape is not the same as
+  // dropping the bound, and the bound is the part that protects a customer.
+  const UNCONDITIONAL_P1 =
+    /^(?:≤|<=)\s*1\s*h(?:our)?s?(?:\s*\((?:24\/7|all hours)\))?\s*$/i;
+  const BOUNDED_DEGRADATION_P1 =
+    /^(?:≤|<=)\s*1\s*h(?:our)?s?\s*\([^)]+\)\s*;\s*(?:≤|<=)\s*[12]\s*h(?:our)?s?(?:\s+[A-Za-z][A-Za-z ]*)?\s*$/i;
+  const p1FirstResponse = p1Rows[0]?.[1] ?? "";
   if (
     p1Rows.length !== 1 ||
     p1Rows[0].length < 2 ||
-    !/^(?:≤|<=)\s*1\s*h(?:our)?(?:\s*\((?:24\/7|all hours)\))?\s*$/i.test(
-      p1Rows[0][1],
+    !(
+      UNCONDITIONAL_P1.test(p1FirstResponse) ||
+      BOUNDED_DEGRADATION_P1.test(p1FirstResponse)
     )
   ) {
     return {
       status: "fail",
       detail:
-        "docs/SUPPORT_SLA.md must contain exactly one unconditional P1 row whose First human response is <=1 h",
+        "docs/SUPPORT_SLA.md must contain exactly one P1 row whose First human response is <=1 h, degrading no further than <=2 h outside stated hours",
     };
   }
 

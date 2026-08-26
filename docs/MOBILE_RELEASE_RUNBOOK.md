@@ -251,6 +251,19 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
+Both workflows upload for you, and neither uploads anywhere a customer can see.
+`ios-release.yml` uploads the signed IPA to TestFlight with Apple's `altool`;
+`android-release.yml` uploads the signed AAB to the Play Console **internal**
+track (`track: internal`). A green workflow therefore means the build reached
+internal distribution -- it does not mean it reached review.
+
+> **A green iOS run is not proof the upload landed.** `altool` exits 0 even when
+> App Store Connect rejects the build, most often on a build number that was not
+> bumped. Five tagged releases once reported green while nothing arrived in
+> TestFlight. `ios-release.yml` now greps altool's output for the known rejection
+> markers and fails the job itself, but confirm the build in App Store Connect
+> before ticking 5.1 regardless.
+
 | #   | Item                                                                                                         | Done? |
 | --- | ------------------------------------------------------------------------------------------------------------ | ----- |
 | 5.1 | iOS — `.github/workflows/ios-release.yml` finishes green; build appears in TestFlight                        | [ ]     |
@@ -313,6 +326,15 @@ Phase 5 cutover.
 | 8.2 | Play Console → Statistics → enable Play Console reports                                  | [ ]     |
 | 8.3 | Linear ticket for V1.1 mobile follow-ups (offline mode polish, push notifications, etc.) | [ ]     |
 | 8.4 | Day-7 retro lessons → memory file (`feedback_mobile_release_lessons.md`)                 | [ ]     |
+| 8.5 | Monitor the crash-free session rate daily for seven days — App Store Connect → Crashes, Play Console → Android vitals | [ ]     |
+| 8.6 | Monitor the staged Play rollout before each percentage increase; halt it in Play Console → Production → Releases rather than raising it | [ ]     |
+
+Store-native crash reporting is the only monitoring this release has. There is
+no error-tracking or alerting service wired into the mobile builds (see
+F1-monitoring-alerting, still deferred), so nobody is paged: someone has to look.
+Roll back — halt the Play rollout, and expire the TestFlight build — on a
+crash-free session rate under 99%, or on any crash at all in sign-up or the
+first job capture, whichever comes first.
 
 ---
 

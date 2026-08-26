@@ -12,7 +12,19 @@ import { handleCheckoutCompleted } from "../route";
 
 describe.skipIf(!process.env.DATABASE_URL)("checkout.session.completed handler", () => {
   let userId: string;
+  // `User.subscriptionId` and `User.stripeCustomerId` are both @unique, and the
+  // release gate runs this file TWICE against one database -- once inside B3's
+  // whole-suite run and again for D2-paywall-tests. Hardcoded IDs therefore
+  // survive the first pass and make the second collide on the activation write.
+  // Derive them per test, the same way the email and the Stripe event ID
+  // already are. Both must be derived: they are written by the same UPDATE, so
+  // fixing only one just moves the violation to the other index.
+  let subscriptionId: string;
+  let customerId: string;
   beforeEach(async () => {
+    const nonce = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    subscriptionId = `sub_${nonce}`;
+    customerId = `cus_${nonce}`;
     const u = await prisma.user.create({
       data: {
         email: `webhook-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
@@ -30,8 +42,8 @@ describe.skipIf(!process.env.DATABASE_URL)("checkout.session.completed handler",
       data: {
         object: {
           mode: "subscription",
-          subscription: "sub_test_123",
-          customer: "cus_test_123",
+          subscription: subscriptionId,
+          customer: customerId,
           metadata: { userId, tier: "STANDARD" },
           payment_status: "paid",
         },
@@ -40,8 +52,8 @@ describe.skipIf(!process.env.DATABASE_URL)("checkout.session.completed handler",
     await handleCheckoutCompleted(stripeEvent as never);
     const u = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     expect(u.subscriptionStatus).toBe("ACTIVE");
-    expect(u.subscriptionId).toBe("sub_test_123");
-    expect(u.stripeCustomerId).toBe("cus_test_123");
+    expect(u.subscriptionId).toBe(subscriptionId);
+    expect(u.stripeCustomerId).toBe(customerId);
     const ev = await prisma.subscriptionEvent.findFirstOrThrow({
       where: { userId },
     });
@@ -56,8 +68,8 @@ describe.skipIf(!process.env.DATABASE_URL)("checkout.session.completed handler",
       data: {
         object: {
           mode: "subscription",
-          subscription: "sub_dupe",
-          customer: "cus_dupe",
+          subscription: subscriptionId,
+          customer: customerId,
           metadata: { userId, tier: "STANDARD" },
           payment_status: "paid",
         },
