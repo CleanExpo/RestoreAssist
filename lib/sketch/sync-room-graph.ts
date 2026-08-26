@@ -87,8 +87,62 @@ function perimeterPx(points: Point[]): number {
   return sum;
 }
 
+/** A room that is no longer present in the incoming canvas. */
+export interface StaleRoom {
+  id: string;
+  _count: {
+    evidencePins: number;
+    moistureReadings: number;
+    hazards: number;
+  };
+}
+
+/**
+ * Decide what happens to rooms that vanished from the canvas.
+ *
+ * WHY THIS IS NOT JUST A DELETE
+ * -----------------------------
+ * `EvidencePin`, `SketchMoistureReading` and `Hazard` all reference
+ * `SketchRoom` with `onDelete: SetNull`. Deleting a room therefore does not
+ * fail and does not cascade -- it silently blanks the room link on evidence
+ * that was already captured. The reading survives; the answer to "which room
+ * was this taken in" does not.
+ *
+ * That mattered far more often than "the operator deleted a room", because
+ * `resolveFabricObjectId` falls back to hashing an object's array index,
+ * position and size when it has no `data.id`. Moving or resizing such a room
+ * mints a new id, which made the original row look stale.
+ *
+ * So: a room carrying no evidence is safe to delete. A room carrying evidence
+ * is retained and marked detached, keeping the link intact.
+ */
+export function partitionStaleRooms(stale: StaleRoom[]): {
+  deletableIds: string[];
+  detachableIds: string[];
+} {
+  const deletableIds: string[] = [];
+  const detachableIds: string[] = [];
+
+  for (const room of stale) {
+    const dependents =
+      (room._count?.evidencePins ?? 0) +
+      (room._count?.moistureReadings ?? 0) +
+      (room._count?.hazards ?? 0);
+    if (dependents > 0) {
+      detachableIds.push(room.id);
+    } else {
+      deletableIds.push(room.id);
+    }
+  }
+
+  return { deletableIds, detachableIds };
+}
+
 /** Stable fabric object id — prefer data.id, else hash of geometry. */
-export function resolveFabricObjectId(obj: FabricObject, index: number): string {
+export function resolveFabricObjectId(
+  obj: FabricObject,
+  index: number,
+): string {
   const existing = obj.data?.id;
   if (typeof existing === "string" && existing.length > 0) return existing;
 
@@ -127,8 +181,7 @@ export function extractRoomGraphNodes(
         : points.length >= 3
           ? shoelacePx(points) / (pxPerM * pxPerM)
           : null;
-    const perimeterM =
-      points.length >= 2 ? perimeterPx(points) / pxPerM : null;
+    const perimeterM = points.length >= 2 ? perimeterPx(points) / pxPerM : null;
 
     const name =
       (typeof obj.data.label === "string" && obj.data.label) ||
@@ -233,8 +286,7 @@ export function resolveEvidenceRoomLink(
     return {
       sketchRoomId: room.id,
       fabricObjectId:
-        room.fabricObjectId ??
-        (typeof data?.id === "string" ? data.id : null),
+        room.fabricObjectId ?? (typeof data?.id === "string" ? data.id : null),
       roomName:
         (typeof room.name === "string" && room.name) ||
         (typeof data?.label === "string" && data.label) ||

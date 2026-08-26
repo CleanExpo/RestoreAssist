@@ -163,7 +163,7 @@ model User {
   // RA-1259: Google OAuth signups skip the account-type form; flag them
   // so middleware redirects them to /onboarding/account-type until the
   // required business fields are captured.
-  needsOnboarding Boolean @default(false)
+  needsOnboarding       Boolean @default(false)
   // Persisted OAuth-invite boundary. Only successful invite acceptance clears
   // this state; event hooks must not infer it from mutable invite rows.
   pendingInviteIdentity Boolean @default(false)
@@ -6588,6 +6588,15 @@ model SketchRoom {
   dryingStatus     String                  @default("unknown") // unknown | wet | drying | dry
   locked           Boolean                 @default(false)
   hidden           Boolean                 @default(false)
+  // Set when the room's fabricObjectId is no longer present in the saved
+  // canvas but the row still carries evidence. The row is RETAINED rather
+  // than deleted so its pins, moisture readings and hazards keep the room
+  // they were captured in -- deleting it would SetNull those links and lose,
+  // silently, which room the evidence came from. A detached room is excluded
+  // from pin hit-testing; it is history, not a placement target. Cleared if
+  // the same fabricObjectId reappears. Distinct from `hidden`, which means an
+  // operator hid a room that still exists.
+  detachedAt       DateTime?
   geometryJson     Json?
   provenance       String                  @default("operator_measured")
   evidencePins     EvidencePin[]
@@ -6599,6 +6608,7 @@ model SketchRoom {
   @@unique([sketchId, fabricObjectId])
   @@index([sketchId])
   @@index([sketchId, floorNumber])
+  @@index([sketchId, detachedAt])
 }
 
 // Server receipt for a RoomPlan CapturedRoom JSON payload (RA-7090 bridge).
