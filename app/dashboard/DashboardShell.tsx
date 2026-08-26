@@ -54,6 +54,7 @@ import { PastDueBanner } from "@/components/billing/PastDueBanner";
 import { CancellationCountdownBanner } from "@/components/billing/CancellationCountdownBanner";
 import TrialCountdownBanner from "@/components/billing/TrialCountdownBanner";
 import CreditExhaustModal from "@/components/billing/CreditExhaustModal";
+import { AiProviderBanner } from "@/components/dashboard/AiProviderBanner";
 
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false });
 import GlobalSearch from "@/components/GlobalSearch";
@@ -800,6 +801,10 @@ export default function DashboardShell({
               subscriptionStatus === TRIAL + daysRemaining set. Dismissible
               per-session. Escalates amber → orange → red at ≤3d and ≤1d. */}
           <TrialBanner />
+
+          {/* Missing-AI-key guidance — report generation 402s without BYOK.
+              Persistent across dashboard routes; silent until status resolves. */}
+          <AiProviderBanner />
 
           {/* PAST_DUE dunning banner — RA-1244; hidden in iOS shell (3.1.1) */}
           {!hideBillingNav && <PastDueBanner status={subscriptionStatus} />}
