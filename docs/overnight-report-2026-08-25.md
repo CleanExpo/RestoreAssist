@@ -208,8 +208,20 @@ for i in 1 2 3; do curl -s https://restoreassist.app/api/health \
   | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['uptime'])"; done
 ```
 
-Likely cause: `.do/app.yaml` pins `branch: main` but sets no `deploy_on_push`, and
-DigitalOcean defaults that to **false**. This independently corroborates the 09:46Z handoff.
+Cause — **corrected 26/08/2026**: `.do/app.yaml` is not a source-repo spec. It carries no
+branch key and no push-deploy flag at all. It is a **container-image spec pinned to a GHCR
+digest**, and the committed digest is an all-zero placeholder that
+`scripts/ci/render-production-app-spec.mjs` fills in at deploy time. Merging to `main` runs
+`build-production-image.yml`, which publishes `ghcr.io/cleanexpo/restoreassist:<sha>` and
+deliberately holds no DigitalOcean token. Activation is a separate `workflow_dispatch`,
+`deploy-production.yml` — and that workflow is named `Deploy — DigitalOcean Production
+(BLOCKED)` and exits 1 unconditionally before it reaches any DigitalOcean call. So nothing
+was ever going to deploy on merge.
+
+The conclusion below (main moved, production did not) holds. The mechanism named in the
+original text did not, and it pointed an operator at a fix that would have done nothing.
+Live-spec parity is still unverified: everything here is read from the repo, the Actions
+artefacts and GHCR. Confirming the running app needs `doctl apps spec get <app-id>`.
 
 **Note on Cloudflare:** it *is* proxying (`server: cloudflare`, `cf-ray`, `__cf_bm`), and
 HTML pages carry `cache-control: s-maxage=31536000`, so the ~1-year edge cache warning in
