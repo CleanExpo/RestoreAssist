@@ -1,5 +1,65 @@
 import {renderMedia, getCompositions} from '@remotion/renderer';
+import {existsSync, readFileSync, readdirSync} from 'fs';
 import path from 'path';
+import {fileURLToPath} from 'url';
+
+/**
+ * Paths are resolved against this file, not process.cwd().
+ *
+ * The previous `path.join(process.cwd(), 'remotion', ...)` only resolved when
+ * the script happened to be run from `tools/`. From the repo root — which is
+ * where `npm run render:tutorials` runs it — it pointed at a `remotion/`
+ * directory that does not exist.
+ */
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Remotion resolves `staticFile()` against the bundle's public directory, and
+ * `bundle()` defaults it to `public/` beside the entry point. This project has
+ * no such folder — the 63 narration MP3s live in `assets/` — so every
+ * `<Audio src={staticFile('narration/…')} />` resolved to nothing and each
+ * video rendered silent. Point publicDir at `assets/` and `staticFile('narration/x.mp3')`
+ * resolves to `assets/narration/x.mp3`.
+ */
+const PUBLIC_DIR = path.join(HERE, 'assets');
+const NARRATION_DIR = path.join(PUBLIC_DIR, 'narration');
+const COMPOSITIONS_DIR = path.join(HERE, 'compositions');
+
+/**
+ * Fail before rendering if a composition asks for narration that is not there.
+ *
+ * Remotion does not error on a missing audio source — it renders the video
+ * without it. That is exactly how nine silent tutorials shipped and were only
+ * caught by someone playing one, so the check has to happen here.
+ */
+function assertNarrationPresent(): void {
+  const missing: string[] = [];
+  const files = existsSync(COMPOSITIONS_DIR) ? readdirSync(COMPOSITIONS_DIR) : [];
+
+  for (const file of files) {
+    if (!file.endsWith('.tsx')) continue;
+    const source = readFileSync(path.join(COMPOSITIONS_DIR, file), 'utf8');
+    for (const [, asset] of source.matchAll(/staticFile\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      if (!existsSync(path.join(PUBLIC_DIR, asset))) {
+        missing.push(`${file} -> ${asset}`);
+      }
+    }
+  }
+
+  if (missing.length > 0) {
+    console.error(
+      `[render] ${missing.length} asset reference(s) do not resolve under ${PUBLIC_DIR}.`,
+    );
+    console.error('[render] Rendering now would produce videos with no audio.');
+    for (const entry of missing) console.error(`  missing: ${entry}`);
+    process.exit(1);
+  }
+
+  const narrationCount = existsSync(NARRATION_DIR)
+    ? readdirSync(NARRATION_DIR).filter((f) => f.endsWith('.mp3')).length
+    : 0;
+  console.log(`[render] narration assets present: ${narrationCount}`);
+}
 
 const compositionsToRender = [
   // New-client welcome (top of /setup)
@@ -84,12 +144,19 @@ const compositionsToRender = [
 ];
 
 async function renderAll() {
-  const entry = path.join(process.cwd(), 'remotion', 'index.tsx');
+  const entry = path.join(HERE, 'index.tsx');
+  if (!existsSync(entry)) {
+    console.error(`[render] entry point not found: ${entry}`);
+    process.exit(1);
+  }
+
+  assertNarrationPresent();
 
   console.log('[render] bundling Remotion project...');
   const {bundle} = await import('@remotion/bundler');
   const bundleLocationResult = await bundle({
     entryPoint: entry,
+    publicDir: PUBLIC_DIR,
     onProgress: (progress) => {
       console.log(`[bundle] ${Math.round(progress * 100)}%`);
     },
@@ -105,7 +172,7 @@ async function renderAll() {
       continue;
     }
 
-    const outputPath = path.join(process.cwd(), 'remotion', 'output', compInfo.fileName);
+    const outputPath = path.join(HERE, 'output', compInfo.fileName);
     console.log(`[render] rendering ${compInfo.id} → ${outputPath}`);
 
     await renderMedia({

@@ -10,6 +10,7 @@ import { PricingCard } from './PricingCard';
 import { IntegrationsCard } from './IntegrationsCard';
 import { FeatureHealthCard } from './FeatureHealthCard';
 import { VideoExplainer } from './VideoExplainer';
+import { WelcomeOverview } from './WelcomeOverview';
 import { AiKeyCard } from './AiKeyCard';
 import { SetupStepper, type SetupStepperItem } from './SetupStepper';
 
@@ -123,8 +124,16 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       required: false,
       complete: true,
       description:
-        'A two-minute tour of what RestoreAssist does and how setup works.',
-      content: <VideoExplainer slug="remotion-onboarding-welcome" />,
+        'What RestoreAssist does, how a job moves through it, and what setup asks of you.',
+      // The overview leads. The video is a supplement, not the explanation:
+      // it currently renders with no audio track and starts muted on mobile,
+      // so a customer who never hears it still gets the whole picture here.
+      content: (
+        <div className="space-y-6">
+          <WelcomeOverview />
+          <VideoExplainer slug="remotion-onboarding-welcome" />
+        </div>
+      ),
     },
     {
       key: 'ai_key',

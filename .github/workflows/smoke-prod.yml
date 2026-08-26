@@ -2,7 +2,13 @@ name: Smoke — Production
 
 on:
   schedule:
+    # Outage watch. A stale deploy is REPORTED here but does not fail the run
+    # -- see "Verify production is serving this revision" below for why.
     - cron: "*/15 * * * *"
+    # Staleness report. Identical checks, but a stale deploy DOES fail on this
+    # schedule, so an unpromoted production is chased once a day rather than
+    # ninety-six times.
+    - cron: "23 22 * * *"
   workflow_dispatch:
 
 permissions:
@@ -66,22 +72,61 @@ jobs:
         run: node scripts/ci/assert-production-smoke-origin.mjs "$PLAYWRIGHT_BASE_URL"
 
       # Split from the smoke run so the two failures are told apart at a
-      # glance in the checks list. A stale deploy fails HERE, under a step
-      # named for what is actually wrong, and the user-flow step below never
-      # runs -- testing flows against a revision that is not this one proves
-      # nothing about this one. A genuine outage or regression fails BELOW.
-      # Exit 3 from the runner means stale; exit 1 means production is broken.
+      # glance in the checks list. Exit 3 from the runner means stale; exit 1
+      # means production is broken.
+      #
+      # WHY STALENESS NO LONGER FAILS THE FIFTEEN-MINUTE WATCH
+      # -----------------------------------------------------
+      # Production has not been promoted since 2026-08-25, so this step
+      # returned exit 3 on every run -- ~96 identical failure emails a day.
+      # That is alert fatigue, but the worse half is that failing here ABORTED
+      # THE JOB, so the user-flow smoke below never ran. For over a day this
+      # workflow tested nothing about production, and a genuine outage would
+      # have produced exactly the same red run everyone had learned to ignore.
+      #
+      # So: staleness is a release problem, not an outage. It is reported as a
+      # warning on the watch and fails once a day on the dedicated schedule (or
+      # on demand via workflow_dispatch, where you asked the question directly).
+      # Anything that is NOT staleness still fails immediately, as before.
       - name: Verify production is serving this revision
+        id: freshness
         env:
           PLAYWRIGHT_BASE_URL: https://restoreassist.app
           EXPECTED_DEPLOYMENT_SHA: ${{ github.sha }}
           EXPECTED_DATABASE_FINGERPRINT: ${{ secrets.EXPECTED_DATABASE_FINGERPRINT }}
           CI: true
-        run: >-
-          node scripts/run-smoke.mjs
-          https://restoreassist.app
-          --preflight-only
+          STALE_FAILS_THE_RUN: >-
+            ${{ github.event_name == 'workflow_dispatch'
+            || github.event.schedule == '23 22 * * *' }}
+        run: |
+          set +e
+          node scripts/run-smoke.mjs https://restoreassist.app --preflight-only
+          code=$?
+          set -e
 
+          if [ "$code" -eq 0 ]; then
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Only exit 3 means "stale". Anything else is a preflight that could
+          # not answer the question, which is never something to wave through.
+          if [ "$code" -ne 3 ]; then
+            echo "::error::Production preflight failed with exit $code -- this is not staleness."
+            exit "$code"
+          fi
+
+          echo "stale=true" >> "$GITHUB_OUTPUT"
+          if [ "$STALE_FAILS_THE_RUN" = "true" ]; then
+            echo "::error::Production is stale: main has moved ahead of the deployed build. Promote a release."
+            exit 3
+          fi
+          echo "::warning::Production is stale (serving an older build than main). Not an outage -- the daily 22:23 UTC run fails on this. Flow smoke continues below."
+
+      # Runs even when production is stale. Against a stale build this proves
+      # availability rather than that THIS revision works -- which is exactly
+      # what an outage watch needs, and what the old abort-on-stale behaviour
+      # threw away.
       - name: Run origin-bound production smoke
         env:
           PLAYWRIGHT_BASE_URL: https://restoreassist.app
