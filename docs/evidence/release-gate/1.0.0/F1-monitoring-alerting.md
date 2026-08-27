@@ -63,24 +63,47 @@ Vercel dashboard: **https://vercel.com/dashboard** - select the **`restoreassist
 | # | Failure class | Signal to alert on | Suggested trigger | Route and SLA |
 |---|---|---|---|---|
 | 1 | Auth failures | `LOGIN_FAILED` SecurityEvent log line | spike: more than N in 5 min (tune N to baseline) | email → owner, respond within 30 min |
-| 2 | Billing webhook errors | **HTTP 500 on `POST /api/webhooks/stripe`** - do **not** write this rule against `StripeWebhookEvent.status = 'FAILED'`, see the warning below | 1 or more in 15 min | email → owner, respond within 1 h |
+| 2 | Billing webhook errors | `[error]` log line with `stage = "stripe-webhook:processing"` (**Option B is now done in code** - see below). HTTP 500 on `POST /api/webhooks/stripe` still works as a fallback. Do **not** write this rule against `StripeWebhookEvent.status = 'FAILED'` | 1 or more in 15 min | email → owner, respond within 1 h |
 | 3 | Restore / report workflow failures | `reportError()` via `onRequestError`, plus failed `StorageRestoreJob` | 1 or more in 15 min | email → owner, respond within 1 h |
 
 Wiring note: rule 3 can match the `reportError()` output directly, because `onRequestError` already surfaces it to Vercel logs. Rule 1 is a database-row signal - if it does not already emit a Vercel-visible log line at the failure point, add a `logger.error` at that site. That is a small code follow-up and does not block creating the rule.
 
-### Warning: the obvious rule for billing webhooks would never fire
+### Warning: the obvious rule for billing webhooks would never fire - and the code half is now closed
 
-An earlier draft of this document told you to alert on `StripeWebhookEvent.status = 'FAILED'`. **That rule would sit silent through the common failure.** From `app/api/webhooks/stripe/route.ts:659-687`:
+An earlier draft of this document told you to alert on `StripeWebhookEvent.status = 'FAILED'`. **That rule would sit silent through the common failure.** As the handler stood:
 
-- On a webhook processing failure, the `catch` block writes the row `status: "FAILED"` and returns HTTP 500. **No `console.error` is emitted on that path.**
+- On a webhook processing failure, the `catch` block wrote the row `status: "FAILED"` and returned HTTP 500. **No `console.error` was emitted on that path.**
 - The two `console.error` calls in that block sit inside the `.catch()` attached to the audit write. They fire **only when the `status: "FAILED"` update itself also fails** - the rare double failure.
 
-So on an ordinary single webhook failure the only Vercel-observable signal is the **HTTP 500** on that route. The database row changes, but Vercel Observability cannot see the database.
+So on an ordinary single webhook failure the only Vercel-observable signal was the **HTTP 500** on that route. The database row changes, but Vercel Observability cannot see the database.
 
-Two acceptable options - pick one deliberately:
+Two options were offered - Option A (alert on the bare 500, no code change) and Option B (emit a log line first, so the alert carries the Stripe event id and the error). **Option B has been taken, and the code change is done**, which is what the note demanded: make the change *before* creating the rule, or the rule matches nothing.
 
-- **Option A (no code change):** alert on HTTP 500 for path `/api/webhooks/stripe`. Works today.
-- **Option B (small code change first):** add a `logger.error` immediately after the `status: "FAILED"` write, then alert on that log line. Better long-term, because the alert then carries the Stripe event ID and the error message. If you pick B, make the code change **before** creating the rule, or the rule matches nothing.
+#### What changed
+
+The catch block's bare `NextResponse.json(..., { status: 500 })` now returns through `apiError` - the same helper this handler's other error paths (`no signature`, `webhook secret not configured`, `invalid signature`) already use. `apiError` calls `reportError` for every 5xx, so the failure emits the repository's standard structured line:
+
+```
+[error] {"message":"<original error>","name":"Error","stack":"...","timestamp":"...",
+         "route":"/api/webhooks/stripe","stage":"stripe-webhook:processing",
+         "code":"INTERNAL","status":500,"eventId":"<correlation id>",
+         "stripeEventId":"evt_...","eventType":"checkout.session.completed"}
+```
+
+Rule 2 can therefore filter on `stage = "stripe-webhook:processing"` and the page arrives carrying the Stripe event id and the underlying error, rather than a bare status code an operator has to go and correlate by hand. The 500 is unchanged, so Stripe's retry behaviour is untouched and Option A remains available as a fallback rule.
+
+The RA-1302 double-failure trail is deliberately left in place: those two `[Stripe] Audit update` lines say something the structured line cannot - that the audit write *also* broke - and losing that would trade one blind spot for another. Both now fire on a double failure.
+
+#### Proven, not asserted
+
+`app/api/webhooks/stripe/__tests__/processing-failure-observability.test.ts` pins the signal - stage, route, status, code, Stripe event id, event type, and the original error message - rather than the wording of the message.
+
+- **Positive control:** the suite was run against the unmodified `origin/main` handler and **3 of its 4 tests fail**. The fourth is the negative control ("no `[error]` line on a successful delivery"), which must pass on both sides and does.
+- **Mutation controls - five mutants, all killed**, sources restored byte-identical afterwards (`app/api/webhooks/stripe/route.ts` sha256 `2776f309...`, `lib/api-errors.ts` sha256 `59e0af33...`, before and after each): dropping `err` loses the error message; mis-labelling the `stage` breaks the field an alert rule filters on; dropping the Stripe context loses the event id; logging unconditionally - which would page on every healthy webhook - kills the negative control; and generating the response's `eventId` independently of the log's makes the two diverge, which kills the correlation assertion.
+- **The correlation id is asserted, not just claimed.** The 500 a caller sees and the log line carry the *same* `eventId`, so an operator holding one can find the other. Asserting only that both are non-empty would hold even if they were two independently generated ids - which is exactly what the fifth mutant plants.
+- **Full definition of done, on a clean `npm ci` install with the Prisma client generated:** `npm run type-check` exit **0**; `npm run lint` exit **0** (707 pre-existing warnings, zero errors); the whole `vitest` suite exit **0** - **904 files passed / 20 skipped, 6946 tests passed / 107 skipped**; all **12** CI Quality Checks guards **PASS**.
+
+**Still open for the owner, and unchanged by this:** creating the three Vercel alert rules (Step 2) and firing the alert test (Step 3). Code cannot create a Vercel alert rule, and a rule that has never fired is not evidence. This closes only the prerequisite Option B named above.
 
 This is the same failure class as the advisor gate above: a notifier wired to a signal that never arrives. It was only caught because someone tried to actually fire it, which is what Step 3 forces.
 
