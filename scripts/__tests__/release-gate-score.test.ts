@@ -691,6 +691,84 @@ describe("verifyRunbooksSla", () => {
     }
   });
 
+  // The gate used to demand an unconditional <=1 h, which the real
+  // docs/SUPPORT_SLA.md does not offer: P1 is <=1 h in AEST business hours and
+  // <=2 h outside them. The owner chose to keep the staffed commitment and
+  // relax the check, so the shape is now admitted -- but only with the bound
+  // still written down. The three cases below are the whole of that decision:
+  // stated and <=2 h passes, unstated fails, worse-than-2 h fails.
+  it("accepts a P1 commitment that degrades to a stated bound no worse than 2 h", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
+    try {
+      completeSupportDocs(root);
+      writeDoc(
+        root,
+        "docs/SUPPORT_SLA.md",
+        "## Response-time commitments\n\n| Severity | First human response |\n|---|---|\n| **P1** | **\u22641 h** (business hours AEST 08:00-18:00); \u22642 h outside |",
+      );
+      expect(verifyRunbooksSla(root).status).toBe("pass");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a P1 commitment restricted to stated hours with no fallback at all", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
+    try {
+      completeSupportDocs(root);
+      writeDoc(
+        root,
+        "docs/SUPPORT_SLA.md",
+        "## Response-time commitments\n\n| Severity | First human response |\n|---|---|\n| **P1** | **\u22641 h** (business hours AEST 08:00-18:00) |",
+      );
+      expect(verifyRunbooksSla(root).status).toBe("fail");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a stated fallback that is worse than 2 h", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
+    try {
+      completeSupportDocs(root);
+      writeDoc(
+        root,
+        "docs/SUPPORT_SLA.md",
+        "## Response-time commitments\n\n| Severity | First human response |\n|---|---|\n| **P1** | **\u22641 h** (business hours AEST 08:00-18:00); \u22648 h outside |",
+      );
+      expect(verifyRunbooksSla(root).status).toBe("fail");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  // Regression: a `#` comment inside a fenced code block is not a heading. The
+  // section reader used to stop at one, truncating the real "Build + upload"
+  // section of docs/MOBILE_RELEASE_RUNBOOK.md to 186 characters and zero table
+  // rows -- reported as a non-operational section when nothing was wrong with
+  // the document. Without the fence rule this case fails.
+  it("reads a whole section past a shell comment inside a fenced code block", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
+    try {
+      completeSupportDocs(root);
+      const mobile = fs.readFileSync(
+        path.join(root, "docs", "MOBILE_RELEASE_RUNBOOK.md"),
+        "utf8",
+      );
+      writeDoc(
+        root,
+        "docs/MOBILE_RELEASE_RUNBOOK.md",
+        mobile.replace(
+          "## 5. Build + upload",
+          "## 5. Build + upload\n\n```bash\n# Bump the version, then tag.\ngit tag v1.0.0\n```",
+        ),
+      );
+      expect(verifyRunbooksSla(root).status).toBe("pass");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("rejects hidden, prefix-only, empty, padded and negated marker documents", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ra-runbooks-sla-"));
     try {
