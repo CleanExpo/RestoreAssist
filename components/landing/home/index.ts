@@ -1,5 +1,6 @@
 export { LandingNav } from "./LandingNav";
 export { LandingHero } from "./LandingHero";
+export { LandingOverviewVideo } from "./LandingOverviewVideo";
 export { WorkflowSection } from "./WorkflowSection";
 export { BeforeAfterSection } from "./BeforeAfterSection";
 export { BentoFeatures } from "./BentoFeatures";

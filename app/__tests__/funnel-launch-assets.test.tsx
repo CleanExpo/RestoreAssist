@@ -252,11 +252,11 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
       const current = Array.from(
         nav!.querySelectorAll('a[aria-current="true"]'),
       );
-      // Scroll-spy starts on #stance; without aria-current a later refactor
+      // Scroll-spy starts on #overview; without aria-current a later refactor
       // could drop active-section semantics and the label test alone would
       // still pass.
       expect(current).toHaveLength(1);
-      expect(current[0].getAttribute("href")).toBe("#stance");
+      expect(current[0].getAttribute("href")).toBe("#overview");
       unmount();
     });
   });
@@ -281,6 +281,7 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
       "Same job. Two systems. Too many gaps.",
       "Prove it on your next claim",
       "How does pricing work?",
+      "Watch how RestoreAssist runs a job",
     ])("home page renders brand/trust signal: %s", (copy) => {
       const { container, unmount } = render(<Home />);
       expect(container.textContent).toContain(copy);

@@ -6,6 +6,7 @@ import Image from "next/image";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { BRAND } from "@/lib/brand";
 import { HOME, getHomeFaqs } from "@/components/landing/home/homeContent";
+import { LandingOverviewVideo } from "@/components/landing/home/LandingOverviewVideo";
 import {
   CTA_PRIMARY,
   CTA_SECONDARY,
@@ -22,15 +23,16 @@ import { useLandingReduceMotion } from "@/components/landing/home/useLandingRedu
  * "01" and nothing else.
  */
 const SECTIONS = [
-  { id: "stance", label: "01", title: "What we build for" },
-  { id: "workflow", label: "02", title: "How the workflow runs" },
-  { id: "gaps", label: "03", title: "The double-handling problem" },
-  { id: "platform", label: "04", title: "Platform capabilities" },
-  { id: "damage", label: "05", title: "Damage types covered" },
-  { id: "coverage", label: "06", title: "Australia and New Zealand coverage" },
-  { id: "positioning", label: "07", title: "Who we answer to" },
-  { id: "faq", label: "08", title: "Frequently asked questions" },
-  { id: "start", label: "09", title: "Start with real work" },
+  { id: "overview", label: "01", title: "Product overview" },
+  { id: "stance", label: "02", title: "What we build for" },
+  { id: "workflow", label: "03", title: "How the workflow runs" },
+  { id: "gaps", label: "04", title: "The double-handling problem" },
+  { id: "platform", label: "05", title: "Platform capabilities" },
+  { id: "damage", label: "06", title: "Damage types covered" },
+  { id: "coverage", label: "07", title: "Australia and New Zealand coverage" },
+  { id: "positioning", label: "08", title: "Who we answer to" },
+  { id: "faq", label: "09", title: "Frequently asked questions" },
+  { id: "start", label: "10", title: "Start with real work" },
 ] as const;
 
 /**
@@ -42,7 +44,7 @@ export function ClaimFolioLanding() {
   const reduce = useLandingReduceMotion();
   const faqs = getHomeFaqs();
   const [faqOpen, setFaqOpen] = useState(0);
-  const [active, setActive] = useState("stance");
+  const [active, setActive] = useState("overview");
   const { scrollYProgress } = useScroll();
   const spineHeight = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
 
@@ -194,7 +196,7 @@ export function ClaimFolioLanding() {
                 {HOME.hero.primaryCta}
               </Link>
               <Link
-                href={BRAND.cta.secondary.href}
+                href="#overview"
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/55 bg-[#0B1F3A]/55 px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white backdrop-blur-sm transition-[background-color,border-color,transform] duration-200 ease-out hover:border-white/80 hover:bg-[#0B1F3A]/75 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]"
               >
                 {HOME.hero.secondaryCta}
@@ -221,6 +223,30 @@ export function ClaimFolioLanding() {
         </div>
       </section>
 
+      {/* ── OVERVIEW: founder walkthrough ── */}
+      <section
+        id="overview"
+        className="scroll-mt-24 border-b border-[#0B1F3A]/10 bg-white py-20 sm:py-28"
+      >
+        <div className={CONTAINER}>
+          <div className="mx-auto max-w-[40rem] text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]">
+              {HOME.overview.eyebrow}
+            </p>
+            <h2
+              className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.035em] text-[#0B1F3A]`}
+            >
+              {HOME.overview.title}
+            </h2>
+            <p className="mx-auto mt-6 text-[16px] leading-[1.75] text-slate-600">
+              {HOME.overview.body}
+            </p>
+          </div>
+          <div className="mx-auto mt-12 w-full">
+            <LandingOverviewVideo />
+          </div>
+        </div>
+      </section>
 
       {/* ── STANCE: the three commitments, ruled strip ── */}
       <section

@@ -26,6 +26,19 @@ export const HOME = {
   },
 
   /**
+   * Product overview — founder walkthrough hosted on YouTube.
+   * Embedded click-to-load via youtube-nocookie so the page does not
+   * fetch player JS until the visitor asks to watch.
+   */
+  overview: {
+    eyebrow: "Product overview",
+    title: "Watch how RestoreAssist runs a job",
+    body: "A short overview of the claim spine — capture on site, finish the report, and get the client to approve, on one system.",
+    youtubeId: "LTvdsd9jSBY",
+    playLabel: "Play RestoreAssist overview",
+  },
+
+  /**
    * Sub-hero stance strip — the three commitments the product is built on.
    * Every line here is checked against shipped behaviour before it goes out:
    * capture (lib/capture), evidence honesty (lib/evidence/qa-scorer.ts flags
