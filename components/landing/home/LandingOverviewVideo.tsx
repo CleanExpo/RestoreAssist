@@ -2,34 +2,37 @@
 
 import { useState } from "react";
 import { HOME } from "./homeContent";
-
-const YOUTUBE_NOCOOKIE = "https://www.youtube-nocookie.com/embed";
-
-function thumbnailSrc(youtubeId: string, quality: "maxresdefault" | "hqdefault") {
-  return `https://i.ytimg.com/vi/${youtubeId}/${quality}.jpg`;
-}
+import {
+  youtubeNocookieEmbedSrc,
+  youtubeThumbnailSrc,
+} from "./youtube-embed";
 
 /**
  * Click-to-load YouTube embed for the marketing home overview.
- * Matches the features-gallery / VideoExplainer pattern: poster first,
- * youtube-nocookie iframe only after the visitor asks to play.
+ * Poster first; youtube-nocookie iframe only after the visitor asks to play.
+ * The id is allowlisted before it is interpolated into any URL.
  */
 export function LandingOverviewVideo() {
   const { youtubeId, playLabel, title } = HOME.overview;
   const [playing, setPlaying] = useState(false);
+  const embedSrc = youtubeNocookieEmbedSrc(youtubeId);
+  const poster = youtubeThumbnailSrc(youtubeId, "maxresdefault");
+  const posterFallback = youtubeThumbnailSrc(youtubeId, "hqdefault");
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[#0B1F3A]/12 bg-[#0B1F3A] shadow-[0_12px_40px_rgba(11,31,58,0.12)]">
       <div className="relative aspect-video w-full">
-        {playing ? (
+        {playing && embedSrc ? (
           <iframe
-            src={`${YOUTUBE_NOCOOKIE}/${youtubeId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`}
+            src={embedSrc}
             title={title}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
+            sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+            referrerPolicy="strict-origin-when-cross-origin"
             className="absolute inset-0 h-full w-full"
           />
-        ) : (
+        ) : poster ? (
           <button
             type="button"
             onClick={() => setPlaying(true)}
@@ -38,13 +41,15 @@ export function LandingOverviewVideo() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- YouTube CDN thumb; not in next/image remotePatterns */}
             <img
-              src={thumbnailSrc(youtubeId, "maxresdefault")}
+              src={poster}
               alt=""
               width={1280}
               height={720}
               className="absolute inset-0 h-full w-full object-cover"
               onError={(event) => {
-                event.currentTarget.src = thumbnailSrc(youtubeId, "hqdefault");
+                if (posterFallback) {
+                  event.currentTarget.src = posterFallback;
+                }
               }}
             />
             <span
@@ -62,6 +67,13 @@ export function LandingOverviewVideo() {
               </svg>
             </span>
           </button>
+        ) : (
+          <p
+            className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
+            role="status"
+          >
+            Overview video is unavailable.
+          </p>
         )}
       </div>
     </div>

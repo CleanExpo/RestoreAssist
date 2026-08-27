@@ -31,5 +31,12 @@ describe("LandingOverviewVideo", () => {
       `https://www.youtube-nocookie.com/embed/${HOME.overview.youtubeId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`,
     );
     expect(iframe?.getAttribute("title")).toBe(HOME.overview.title);
+    expect(iframe?.getAttribute("sandbox")).toBe(
+      "allow-scripts allow-same-origin allow-presentation allow-popups",
+    );
+    expect(iframe?.getAttribute("referrerpolicy")).toBe(
+      "strict-origin-when-cross-origin",
+    );
+    expect(iframe?.getAttribute("allow")).not.toContain("clipboard-write");
   });
 });
