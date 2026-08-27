@@ -27,16 +27,22 @@ describe("LandingOverviewVideo", () => {
 
     const iframe = container.querySelector("iframe");
     expect(iframe).not.toBeNull();
-    expect(iframe?.getAttribute("src")).toBe(
-      `https://www.youtube-nocookie.com/embed/${HOME.overview.youtubeId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`,
+    expect(iframe?.getAttribute("src")).toMatch(
+      new RegExp(
+        `^https://www\\.youtube-nocookie\\.com/embed/${HOME.overview.youtubeId}\\?`,
+      ),
     );
+    expect(iframe?.getAttribute("src")).toContain("enablejsapi=0");
     expect(iframe?.getAttribute("title")).toBe(HOME.overview.title);
     expect(iframe?.getAttribute("sandbox")).toBe(
-      "allow-scripts allow-same-origin allow-presentation allow-popups",
+      "allow-scripts allow-same-origin allow-presentation",
     );
+    expect(iframe?.getAttribute("sandbox")).not.toContain("allow-popups");
     expect(iframe?.getAttribute("referrerpolicy")).toBe(
       "strict-origin-when-cross-origin",
     );
     expect(iframe?.getAttribute("allow")).not.toContain("clipboard-write");
+    expect(iframe?.hasAttribute("credentialless")).toBe(true);
   });
 });
+

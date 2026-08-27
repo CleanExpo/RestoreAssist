@@ -34,4 +34,16 @@ describe("global security headers", () => {
     expect(scriptSources).not.toContain("https://unpkg.com");
     expect(scriptSources).not.toContain("https://*.unpkg.com");
   });
+
+  it("allows privacy-friendly YouTube embeds and refuses the cookie host", async () => {
+    const csp = await contentSecurityPolicy();
+    const frames = directiveSources(csp, "frame-src");
+    const images = directiveSources(csp, "img-src");
+
+    expect(frames).toContain("https://www.youtube-nocookie.com");
+    expect(frames).not.toContain("https://www.youtube.com");
+    expect(frames).not.toContain("https://youtube.com");
+    expect(frames).not.toContain("https://*.youtube.com");
+    expect(images).toContain("https://i.ytimg.com");
+  });
 });
