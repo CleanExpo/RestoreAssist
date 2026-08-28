@@ -48,3 +48,10 @@ All four are release-blocking controls, not advisory clean-up.
 | Detection gap | Earlier green totals belonged to the preceding tree, and a later full-suite process disappeared without a recoverable final status. Neither result proved the current commit. |
 | Repair | Preserve an exit-code receipt for the exact tree; make the synchronous palette assertion synchronous; give the rejected-upload UI test a bounded 15-second budget for repository-wide serial-run scheduler delay |
 | Prevention proof | Ten independent focused runs must pass before another full-suite receipt; handoff requires local full-suite, type, lint, hosted Pilot, and current-SHA external-review evidence from the same tree |
+
+The first corrected Sketch E2E run exposed another bookkeeping-only green: it
+pre-resolved the security-critical concurrent replay-index migration and never
+executed its SQL. The gate now runs that migration file after the column exists,
+checks that the unique index is valid and ready, and attempts a duplicate insert
+inside a rolled-back transaction. A migration receipt is not green unless that
+mutation probe rejects the duplicate fulfilment key.

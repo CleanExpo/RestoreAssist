@@ -145,6 +145,9 @@ jobs:
       - name: Apply migrations for DB-backed release tests
         run: npx --no-install prisma migrate deploy
 
+      - name: Apply and verify paid-audit replay index
+        run: scripts/ci/apply-and-verify-job-file-audit-replay-index.sh
+
       # B4-smoke-sandbox is scored by shelling out to
       # `npm run test:smoke:sandbox`, which drives a real Chromium. Without this
       # step Playwright has no browser binary and B4 fails on

@@ -83,14 +83,32 @@ describe("PR quality contract", () => {
     expect(columnMigration).not.toContain("CREATE UNIQUE INDEX");
     expect(indexMigration).toContain("CREATE UNIQUE INDEX CONCURRENTLY");
 
+    const replayProofScriptPath =
+      "scripts/ci/apply-and-verify-job-file-audit-replay-index.sh";
+    const replayProofScript = readFileSync(
+      join(ROOT, replayProofScriptPath),
+      "utf8",
+    );
+    expect(replayProofScript).toContain('-f "$migration_file"');
+    expect(replayProofScript).toContain("index_state.indisunique");
+    expect(replayProofScript).toContain("index_state.indisvalid");
+    expect(replayProofScript).toContain("index_state.indisready");
+    expect(replayProofScript).toContain("WHEN unique_violation");
+    expect(replayProofScript).toContain(
+      "Refusing to apply the replay-index CI probe outside local ephemeral Postgres.",
+    );
+
     for (const path of [
       ".github/workflows/pr-checks.yml",
       ".github/workflows/release-gate.yml",
       ".github/workflows/sketch-e2e.yml",
       "scripts/ci/test-with-db.sh",
     ]) {
-      expect(readFileSync(join(ROOT, path), "utf8"), path).toContain(
-        indexMigrationName,
+      const surface = readFileSync(join(ROOT, path), "utf8");
+      expect(surface, path).toContain(indexMigrationName);
+      expect(surface, path).toContain(replayProofScriptPath);
+      expect(surface, path).toMatch(
+        /prisma migrate deploy[\s\S]{0,500}apply-and-verify-job-file-audit-replay-index\.sh/,
       );
     }
   });

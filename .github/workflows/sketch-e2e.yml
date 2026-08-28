@@ -97,6 +97,9 @@ jobs:
       - name: Apply migrations
         run: npx --no-install prisma migrate deploy
 
+      - name: Apply and verify paid-audit replay index
+        run: scripts/ci/apply-and-verify-job-file-audit-replay-index.sh
+
       - name: Seed e2e login account
         run: npx --no-install tsx scripts/seed-e2e-user.ts
 

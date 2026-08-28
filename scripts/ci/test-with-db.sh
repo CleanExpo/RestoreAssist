@@ -71,6 +71,9 @@ done
 echo "==> Applying migrations"
 npx --no-install prisma migrate deploy >/dev/null
 
+echo "==> Applying and verifying paid-audit replay index"
+scripts/ci/apply-and-verify-job-file-audit-replay-index.sh
+
 echo "==> Verifying CI parity (no env-gated suite will skip)"
 node scripts/ci/check-test-parity.mjs --strict
 
