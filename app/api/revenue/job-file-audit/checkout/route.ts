@@ -94,6 +94,17 @@ export async function POST(request: NextRequest) {
       cancel_url: `${origin}/job-file-audit?canceled=true`,
       automatic_tax: { enabled: true },
       tax_id_collection: { enabled: true },
+      // The existing Stripe webhook treats a PaymentIntent carrying userId as
+      // a known browser-independent one-time payment and acknowledges it when
+      // no RestoreAssist invoiceId exists. This public offer has no app user,
+      // so use a synthetic non-secret marker. Session metadata below remains
+      // authoritative for audit fulfilment and never grants app entitlements.
+      payment_intent_data: {
+        metadata: {
+          userId: "public-job-file-audit",
+          type: "job_file_audit",
+        },
+      },
       metadata: {
         offer: "job-file-audit",
         package: parsed.data.package,
