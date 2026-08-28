@@ -58,6 +58,9 @@
  *                                process.env.ALLOW_TEST_HELPERS !== "true"
  *                                (the env flag is off in prod, so the route is
  *                                inert there).
+ *   5. Reviewed capabilities:    exact public endpoints whose source retains
+ *                                every required capability-auth marker. A
+ *                                missing marker or a nested route is scanned.
  *
  * NOTE: exceptions 1/3/4 suppress BOTH classes; exception 2 (token path)
  * likewise suppresses both — a token route is self-authenticating.
@@ -184,12 +187,40 @@ function isGuardedTestHelper(relPath, content) {
   return relPath.startsWith("app/api/test/") && hasTestHelperEnvGuard(content);
 }
 
+// Public paid intake cannot require a pre-existing RestoreAssist session: the
+// paid Stripe Checkout Session is its capability. Keep this exact-path and
+// source-bound so removing payment, offer, payer, rate-limit, or replay
+// controls immediately makes the route visible to this scanner again.
+const REVIEWED_CAPABILITY_ROUTES = new Map([
+  [
+    "app/api/revenue/job-file-audit/intake/route.ts",
+    [
+      "stripe.checkout.sessions.retrieve(",
+      'checkoutSession.payment_status !== "paid"',
+      'checkoutSession.metadata?.offer !== "job-file-audit"',
+      "checkoutSession.customer_details?.email",
+      "payerEmail.trim().toLowerCase() !== data.email.trim().toLowerCase()",
+      "failClosedOnUpstashError: true",
+      'externalReference: `stripe:job-file-audit:${checkoutSession.id}`',
+    ],
+  ],
+]);
+
+function isReviewedCapabilityRoute(relPath, content) {
+  const requiredMarkers = REVIEWED_CAPABILITY_ROUTES.get(relPath);
+  return (
+    requiredMarkers !== undefined &&
+    requiredMarkers.every((marker) => content.includes(marker))
+  );
+}
+
 function isLegitException(relPath, content) {
   return (
     isAuthEntryRoute(relPath) ||
     isWebhookRoute(relPath) ||
     isTokenParamRoute(relPath) ||
-    isGuardedTestHelper(relPath, content)
+    isGuardedTestHelper(relPath, content) ||
+    isReviewedCapabilityRoute(relPath, content)
   );
 }
 
@@ -214,46 +245,48 @@ function toRel(file) {
 }
 
 // ── Core scan ───────────────────────────────────────────────────────────────
+export function auditRouteSafety(relPath, content) {
+  const findings = [];
+  const gated = hasAuthGate(content);
+  const exception = isLegitException(relPath, content);
+
+  // (a) paid-AI proxy without auth — the critical class.
+  if (isPaidAiProxy(relPath, content) && !gated && !exception) {
+    findings.push({
+      file: relPath,
+      class: "paid-ai-no-auth",
+      reason:
+        "Route proxies a paid/metered AI provider (HeyGen/ElevenLabs/Synthex client) " +
+        "but has no getServerSession/getToken/verifyAdminFromDb auth gate and is not a " +
+        "legit-exception (auth/webhook/[token]/test-helper/capability) route.",
+    });
+  }
+
+  // (b) mutation route doing a Prisma write without auth.
+  if (
+    exportsMutation(content) &&
+    hasPrismaWrite(content) &&
+    !gated &&
+    !exception
+  ) {
+    findings.push({
+      file: relPath,
+      class: "mutation-no-auth",
+      reason:
+        "Route exports a mutating handler (POST/PUT/PATCH/DELETE) that performs a Prisma " +
+        "write but has no getServerSession/getToken/verifyAdminFromDb auth gate and is not " +
+        "a legit-exception (auth/webhook/[token]/test-helper/capability) route.",
+    });
+  }
+
+  return findings;
+}
+
 function scan() {
   const files = walkRouteFiles(API_ROOT);
-  const findings = [];
-
-  for (const file of files) {
-    const relPath = toRel(file);
-    const content = readFileSync(file, "utf8");
-
-    const gated = hasAuthGate(content);
-    const exception = isLegitException(relPath, content);
-
-    // (a) paid-AI proxy without auth — the critical class.
-    if (isPaidAiProxy(relPath, content) && !gated && !exception) {
-      findings.push({
-        file: relPath,
-        class: "paid-ai-no-auth",
-        reason:
-          "Route proxies a paid/metered AI provider (HeyGen/ElevenLabs/Synthex client) " +
-          "but has no getServerSession/getToken/verifyAdminFromDb auth gate and is not a " +
-          "legit-exception (auth/webhook/[token]/test-helper) route.",
-      });
-    }
-
-    // (b) mutation route doing a Prisma write without auth.
-    if (
-      exportsMutation(content) &&
-      hasPrismaWrite(content) &&
-      !gated &&
-      !exception
-    ) {
-      findings.push({
-        file: relPath,
-        class: "mutation-no-auth",
-        reason:
-          "Route exports a mutating handler (POST/PUT/PATCH/DELETE) that performs a Prisma " +
-          "write but has no getServerSession/getToken/verifyAdminFromDb auth gate and is not " +
-          "a legit-exception (auth/webhook/[token]/test-helper) route.",
-      });
-    }
-  }
+  const findings = files.flatMap((file) =>
+    auditRouteSafety(toRel(file), readFileSync(file, "utf8")),
+  );
 
   // Stable ordering: by file then class.
   findings.sort((a, b) =>
@@ -365,4 +398,9 @@ function main() {
   process.exit(1);
 }
 
-main();
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  main();
+}
