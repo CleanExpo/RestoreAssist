@@ -125,6 +125,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Accessibility ratchet
+        run: npm run check:a11y
+
+      - name: AU/NZ GST single-source guard
+        run: npm run check:gst-callers
+
       # Branded-icon guard (RA-icon-system). Ratchet mode: fails if a PR adds
       # generic Unicode emojis beyond the recorded baseline
       # (scripts/emoji-baseline.json). Use [ra:*] tokens instead — see
@@ -201,6 +207,12 @@ jobs:
       # failed CI.
       - name: API route audit
         run: npm run audit:api
+
+      # Track B reference floor plans are editing aids, never claim evidence.
+      # This gate protects the content-bound custody path, cross-tenant child
+      # checks, server verification, and clean-report export firewall.
+      - name: Floor-plan custody and export firewall
+        run: npm run check:floorplan-custody
 
       # Release-gate criterion C2 — secrets scan over the working tree.
       #

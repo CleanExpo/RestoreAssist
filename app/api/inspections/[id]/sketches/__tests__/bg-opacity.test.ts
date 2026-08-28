@@ -13,6 +13,10 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     claimSketch: { findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
+    sketchUnderlayReference: {
+      findFirst: vi.fn(async () => null),
+      update: vi.fn(),
+    },
     material: { findMany: vi.fn() },
     sketchElement: { deleteMany: vi.fn(), createMany: vi.fn() },
     sketchMoistureReading: { deleteMany: vi.fn(), createMany: vi.fn() },

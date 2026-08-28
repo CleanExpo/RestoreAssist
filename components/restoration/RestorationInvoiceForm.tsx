@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Printer, Save, Loader2, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
+import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
 
 export interface RestorationInvoiceFormData {
   invoiceTypeId: string;
@@ -305,7 +306,7 @@ export default function RestorationInvoiceForm({
     (sum, i) => sum + (parseFloat(i.qty) || 0) * (parseFloat(i.rate) || 0),
     0,
   );
-  const gst = round2(subtotal * 0.1);
+  const gst = round2(subtotal * DEFAULT_GST_TREATMENT.rate);
   const total = round2(subtotal + gst);
   const excess = parseFloat(data.excessAmt) || 0;
   const netReimburse = Math.max(0, total - excess);
@@ -784,7 +785,7 @@ export default function RestorationInvoiceForm({
               <span>${subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between border-b border-neutral-200 py-1.5 text-neutral-500 dark:border-slate-600 dark:text-slate-400">
-              <span>GST (10%):</span>
+              <span>GST:</span>
               <span>${gst.toFixed(2)}</span>
             </div>
             <div className="flex justify-between border-b-2 border-double border-neutral-900 py-2.5 text-base font-bold dark:border-slate-100">

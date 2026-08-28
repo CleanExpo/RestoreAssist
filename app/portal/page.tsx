@@ -27,8 +27,6 @@ interface Report {
   totalCost: number | null;
   createdAt: string;
   updatedAt: string;
-  waterCategory: string | null;
-  waterClass: string | null;
   completionDate: string | null;
   pendingApprovals: number;
   approvedCount: number;

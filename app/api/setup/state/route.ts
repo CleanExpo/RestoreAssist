@@ -11,6 +11,7 @@ import {
   isTimezoneForCountry,
 } from "@/lib/locale/organization-locale";
 import type { Country } from "@/lib/gst-rules";
+import { validateOrganizationLocaleProfile } from "@/lib/locale/validate-organization-profile";
 
 const PATCHABLE_FIELDS = [
   "legalName",
@@ -132,7 +133,14 @@ export async function PATCH(req: Request) {
 
   const org = await prisma.organization.findFirst({
     where: { ownerId: session.user.id },
-    select: { id: true, country: true, setupCompletedAt: true },
+    select: {
+      id: true,
+      country: true,
+      timezone: true,
+      abn: true,
+      nzbn: true,
+      setupCompletedAt: true,
+    },
   });
   if (!org) {
     return apiError(undefined, {
@@ -261,6 +269,23 @@ export async function PATCH(req: Request) {
     return apiError(undefined, {
       code: "VALIDATION",
       message: "No patchable fields in body",
+      status: 400,
+    });
+  }
+
+  const localeValidation = validateOrganizationLocaleProfile(
+    {
+      country: patch.country ?? org.country,
+      timezone: patch.timezone === undefined ? org.timezone : patch.timezone,
+      abn: patch.abn === undefined ? org.abn : patch.abn,
+      nzbn: patch.nzbn === undefined ? org.nzbn : patch.nzbn,
+    },
+    { requireComplete: false },
+  );
+  if (!localeValidation.valid) {
+    return apiError(undefined, {
+      code: "VALIDATION",
+      message: localeValidation.error,
       status: 400,
     });
   }

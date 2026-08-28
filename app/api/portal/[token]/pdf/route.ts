@@ -1,522 +1,91 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPortalToken } from "@/lib/portal-token";
 import { prisma } from "@/lib/prisma";
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { applyRateLimit } from "@/lib/rate-limiter";
-import { SQFT_TO_SQM, resolveAreaSqm } from "@/lib/units";
+import { generateConsumerReportPdf } from "@/lib/portal/consumer-report";
 
-const MAX_PORTAL_PDF_MOISTURE_READINGS = 500;
-const MAX_PORTAL_PDF_AFFECTED_AREAS = 100;
-const MAX_PORTAL_PDF_SCOPE_ITEMS = 200;
-
-// GET /api/portal/[token]/pdf
-// Token-authenticated PDF download — no client account required.
-// Generates a client-facing S500:2021-compliant summary for a completed inspection.
+// Public token downloads intentionally exclude reviewer-only classifications,
+// environmental measurements and raw moisture readings.
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
-  try {
-    const rateLimited = await applyRateLimit(request, {
-      maxRequests: 30,
-      windowMs: 15 * 60 * 1000,
-      prefix: "portal-token-pdf",
-    });
-    if (rateLimited) return rateLimited;
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 30,
+    windowMs: 15 * 60 * 1000,
+    prefix: "portal-token-pdf",
+  });
+  if (rateLimited) return rateLimited;
 
-    const { token } = await params;
-    const verified = verifyPortalToken(token);
-
-    if (!verified) {
-      return NextResponse.json(
-        { error: "Link has expired or is invalid" },
-        { status: 401 },
-      );
-    }
-
-    const { inspectionId } = verified;
-
-    const [
-      inspection,
-      moistureCount,
-      moistureAverage,
-      affectedAreaCount,
-      affectedAreaTotal,
-      scopeItemCount,
-    ] = await Promise.all([
-      prisma.inspection.findUnique({
-        where: { id: inspectionId },
-        include: {
-          moistureReadings: {
-            orderBy: [{ recordedAt: "asc" }, { id: "asc" }],
-            take: MAX_PORTAL_PDF_MOISTURE_READINGS,
-          },
-          affectedAreas: {
-            orderBy: { createdAt: "asc" },
-            take: MAX_PORTAL_PDF_AFFECTED_AREAS,
-          },
-          scopeItems: {
-            where: { isSelected: true },
-            orderBy: { createdAt: "asc" },
-            take: MAX_PORTAL_PDF_SCOPE_ITEMS,
-          },
-          // RA-1383 (M-7): EnvironmentalData is a time-series — use the most recent reading
-          environmentalData: { orderBy: { recordedAt: "desc" }, take: 1 },
-          classifications: { orderBy: { createdAt: "desc" }, take: 1 },
-          report: { select: { id: true, status: true } },
-        },
-      }),
-      prisma.moistureReading.count({ where: { inspectionId } }),
-      prisma.moistureReading.aggregate({
-        where: { inspectionId },
-        _avg: { moistureLevel: true },
-      }),
-      prisma.affectedArea.count({ where: { inspectionId } }),
-      prisma.affectedArea.aggregate({
-        where: { inspectionId },
-        _sum: { affectedSquareFootage: true },
-      }),
-      prisma.scopeItem.count({
-        where: { inspectionId, isSelected: true },
-      }),
-    ]);
-
-    if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
-    }
-
-    if (inspection.report?.status !== "COMPLETED") {
-      return NextResponse.json(
-        { error: "Report is not yet ready for download" },
-        { status: 400 },
-      );
-    }
-
-    // ── Build PDF ──────────────────────────────────────────────────────────
-    const pdfDoc = await PDFDocument.create();
-    const W = 595.28; // A4 width pt
-    const H = 841.89; // A4 height pt
-
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-    const CYAN = rgb(0.0, 0.63, 0.8);
-    const DARK = rgb(0.08, 0.09, 0.11);
-    const MUTED = rgb(0.45, 0.48, 0.53);
-    const WHITE = rgb(1, 1, 1);
-    const EMERALD = rgb(0.13, 0.77, 0.37);
-
-    let page = pdfDoc.addPage([W, H]);
-    let y = H - 50;
-
-    const newPage = () => {
-      drawFooter(page);
-      page = pdfDoc.addPage([W, H]);
-      y = H - 50;
-    };
-
-    const drawHeader = (p: ReturnType<typeof pdfDoc.addPage>) => {
-      p.drawRectangle({
-        x: 0,
-        y: H - 38,
-        width: W,
-        height: 38,
-        color: rgb(0.02, 0.04, 0.06),
-      });
-      p.drawText("RestoreAssist  |  Client Restoration Report", {
-        x: 44,
-        y: H - 25,
-        size: 11,
-        font: bold,
-        color: WHITE,
-      });
-      p.drawText("IICRC S500:2021 Compliant", {
-        x: W - 165,
-        y: H - 25,
-        size: 9,
-        font,
-        color: CYAN,
-      });
-    };
-
-    const drawFooter = (p: ReturnType<typeof pdfDoc.addPage>) => {
-      p.drawRectangle({
-        x: 0,
-        y: 0,
-        width: W,
-        height: 32,
-        color: rgb(0.02, 0.04, 0.06),
-      });
-      p.drawText(
-        `Generated by RestoreAssist  •  ${new Date().toLocaleDateString("en-AU")}  •  IICRC S500:2021`,
-        { x: 44, y: 10, size: 8, font, color: MUTED },
-      );
-      p.drawText(`Inspection: ${inspection.inspectionNumber}`, {
-        x: W - 200,
-        y: 10,
-        size: 8,
-        font,
-        color: MUTED,
-      });
-    };
-
-    const section = (title: string) => {
-      if (y < 120) newPage();
-      y -= 6;
-      page.drawRectangle({
-        x: 40,
-        y: y - 4,
-        width: W - 80,
-        height: 20,
-        color: rgb(0.96, 0.97, 0.98),
-      });
-      page.drawText(title, {
-        x: 44,
-        y: y + 2,
-        size: 10,
-        font: bold,
-        color: DARK,
-      });
-      y -= 20;
-    };
-
-    const row = (label: string, value: string) => {
-      if (y < 80) newPage();
-      page.drawText(label, { x: 48, y, size: 9, font: bold, color: MUTED });
-      page.drawText(value || "—", { x: 200, y, size: 9, font, color: DARK });
-      y -= 14;
-    };
-
-    const textBlock = (text: string) => {
-      const words = text.replace(/\s+/g, " ").trim().split(" ");
-      let line = "";
-      for (const w of words) {
-        const test = line ? `${line} ${w}` : w;
-        const tw = font.widthOfTextAtSize(test, 9);
-        if (tw > W - 100 && line) {
-          if (y < 80) newPage();
-          page.drawText(line, { x: 48, y, size: 9, font, color: DARK });
-          y -= 13;
-          line = w;
-        } else {
-          line = test;
-        }
-      }
-      if (line) {
-        if (y < 80) newPage();
-        page.drawText(line, { x: 48, y, size: 9, font, color: DARK });
-        y -= 13;
-      }
-    };
-
-    drawHeader(page);
-    y = H - 60;
-
-    // ── Cover info ─────────────────────────────────────────────────────────
-    const insDate = new Date(inspection.createdAt).toLocaleDateString("en-AU", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-    page.drawText(inspection.propertyAddress, {
-      x: 44,
-      y,
-      size: 16,
-      font: bold,
-      color: DARK,
-    });
-    y -= 20;
-    page.drawText(`Inspection ${inspection.inspectionNumber}  •  ${insDate}`, {
-      x: 44,
-      y,
-      size: 10,
-      font,
-      color: MUTED,
-    });
-    y -= 8;
-
-    // Status badge
-    const statusLabel =
-      inspection.status === "COMPLETED" ? "Report Complete" : inspection.status;
-    const badgeColour = inspection.status === "COMPLETED" ? EMERALD : CYAN;
-    page.drawRectangle({
-      x: 44,
-      y: y - 4,
-      width: 110,
-      height: 16,
-      color: badgeColour,
-    });
-    page.drawText(statusLabel, {
-      x: 48,
-      y: y - 1,
-      size: 8,
-      font: bold,
-      color: WHITE,
-    });
-    y -= 28;
-
-    // ── S500:2021 §3 — Property Information ────────────────────────────────
-    section("IICRC S500:2021 §3  —  Property Information");
-    row("Property Address", inspection.propertyAddress);
-    row("Postcode", inspection.propertyPostcode ?? "");
-    row("Inspection Number", inspection.inspectionNumber);
-    row("Inspection Date", insDate);
-    if (inspection.technicianName) row("Technician", inspection.technicianName);
-    y -= 4;
-
-    // ── S500:2021 §12.1 — Water Source & Category ──────────────────────────
-    section("IICRC S500:2021 §12.1  —  Water Source & Damage Classification");
-    const classification = inspection.classifications[0];
-    if (classification) {
-      row(
-        "Category",
-        `Category ${classification.category}  —  ${
-          classification.category === "1"
-            ? "Clean Water"
-            : classification.category === "2"
-              ? "Grey Water"
-              : classification.category === "3"
-                ? "Black Water"
-                : "Unknown"
-        }`,
-      );
-      row(
-        "Class",
-        `Class ${classification.class}  —  ${
-          classification.class === "1"
-            ? "Least Significant (surface)"
-            : classification.class === "2"
-              ? "Significant (porous material affected)"
-              : classification.class === "3"
-                ? "Greatest Significance (saturation)"
-                : classification.class === "4"
-                  ? "Specialty Drying"
-                  : "Unknown"
-        }`,
-      );
-      if (classification.confidence)
-        row("AI Confidence", `${classification.confidence}%`);
-      if (classification.justification) {
-        y -= 2;
-        textBlock(classification.justification);
-      }
-      row(
-        "Standard Reference",
-        classification.standardReference || "IICRC S500:2021",
-      );
-    } else {
-      row("Status", "Classification pending");
-    }
-    y -= 4;
-
-    // ── S500:2021 §12.4 — Environmental Conditions ────────────────────────
-    section("IICRC S500:2021 §12.4  —  Environmental Conditions");
-    const env = inspection.environmentalData[0];
-    if (env) {
-      row("Ambient Temperature", `${env.ambientTemperature}°C`);
-      row("Relative Humidity", `${env.humidityLevel}%`);
-      if (env.dewPoint !== null && env.dewPoint !== undefined)
-        row("Dew Point", `${env.dewPoint.toFixed(1)}°C`);
-      row("Air Circulation Active", env.airCirculation ? "Yes" : "No");
-      if (env.weatherConditions)
-        row("Weather Conditions", env.weatherConditions);
-    } else {
-      row("Status", "Environmental data not recorded");
-    }
-    y -= 4;
-
-    // ── S500:2021 §12.3 — Moisture Readings ───────────────────────────────
-    section(
-      `IICRC S500:2021 §12.3  —  Moisture Readings  (${moistureCount} recorded)`,
-    );
-    if (moistureCount > 0) {
-      const avg =
-        moistureAverage._avg.moistureLevel !== null
-          ? Math.round(moistureAverage._avg.moistureLevel)
-          : 0;
-      row("Average Moisture Level", `${avg}%`);
-      row("Readings Count", `${moistureCount}`);
-      // Table header
-      y -= 4;
-      if (y < 100) newPage();
-      page.drawRectangle({
-        x: 44,
-        y: y - 2,
-        width: W - 88,
-        height: 14,
-        color: rgb(0.93, 0.94, 0.96),
-      });
-      page.drawText("Location", {
-        x: 48,
-        y: y + 1,
-        size: 8,
-        font: bold,
-        color: DARK,
-      });
-      page.drawText("Surface", {
-        x: 180,
-        y: y + 1,
-        size: 8,
-        font: bold,
-        color: DARK,
-      });
-      page.drawText("Level %", {
-        x: 310,
-        y: y + 1,
-        size: 8,
-        font: bold,
-        color: DARK,
-      });
-      page.drawText("Depth", {
-        x: 380,
-        y: y + 1,
-        size: 8,
-        font: bold,
-        color: DARK,
-      });
-      y -= 16;
-      for (const r of inspection.moistureReadings.slice(0, 20)) {
-        if (y < 80) newPage();
-        const lvlColour =
-          r.moistureLevel >= 25
-            ? rgb(0.8, 0.2, 0.2)
-            : r.moistureLevel >= 15
-              ? rgb(0.8, 0.55, 0.1)
-              : EMERALD;
-        page.drawText((r.location ?? "").slice(0, 28), {
-          x: 48,
-          y,
-          size: 8,
-          font,
-          color: DARK,
-        });
-        page.drawText((r.surfaceType ?? "").slice(0, 18), {
-          x: 180,
-          y,
-          size: 8,
-          font,
-          color: DARK,
-        });
-        page.drawText(`${r.moistureLevel}%`, {
-          x: 310,
-          y,
-          size: 8,
-          font: bold,
-          color: lvlColour,
-        });
-        page.drawText(r.depth ?? "", { x: 380, y, size: 8, font, color: DARK });
-        y -= 13;
-      }
-      if (moistureCount > 20) {
-        page.drawText(
-          `... and ${moistureCount - 20} more readings`,
-          { x: 48, y, size: 8, font, color: MUTED },
-        );
-        y -= 13;
-      }
-    } else {
-      row("Status", "No moisture readings recorded");
-    }
-    y -= 4;
-
-    // ── S500:2021 §12.2 — Affected Areas ──────────────────────────────────
-    section(
-      `IICRC S500:2021 §12.2  —  Affected Areas  (${affectedAreaCount} zones)`,
-    );
-    if (affectedAreaCount > 0) {
-      // RA-7001: legacy _sum is in sq ft; convert to canonical m². Because we
-      // dual-write affectedSquareFootage = affectedAreaSqm / 0.09290304, the
-      // converted sq-ft sum equals the true m² total for every row.
-      const totalArea =
-        (affectedAreaTotal._sum.affectedSquareFootage ?? 0) * SQFT_TO_SQM;
-      row("Total Affected Area", `${totalArea.toFixed(1)} m²`);
-      for (const area of inspection.affectedAreas) {
-        if (y < 80) newPage();
-        const catLabel = area.category ? ` — Cat ${area.category}` : "";
-        const clsLabel = area.class ? ` / Class ${area.class}` : "";
-        row(
-          area.roomZoneId,
-          `${resolveAreaSqm(area).toFixed(1)} m²${catLabel}${clsLabel}`,
-        );
-      }
-      if (affectedAreaCount > inspection.affectedAreas.length) {
-        row(
-          "Additional Zones",
-          `${affectedAreaCount - inspection.affectedAreas.length} omitted from this PDF`,
-        );
-      }
-    } else {
-      row("Status", "No affected areas recorded");
-    }
-    y -= 4;
-
-    // ── S500:2021 §10.2 — Scope of Works ──────────────────────────────────
-    section(
-      `IICRC S500:2021 §10.2  —  Scope of Works  (${scopeItemCount} items)`,
-    );
-    if (scopeItemCount > 0) {
-      for (let i = 0; i < inspection.scopeItems.length; i++) {
-        const item = inspection.scopeItems[i];
-        if (y < 80) newPage();
-        const prefix = `${i + 1}. `;
-        page.drawText(prefix, { x: 48, y, size: 9, font: bold, color: CYAN });
-        textBlock(`${prefix}${item.description}`);
-        y -= 2;
-      }
-      if (scopeItemCount > inspection.scopeItems.length) {
-        row(
-          "Additional Items",
-          `${scopeItemCount - inspection.scopeItems.length} omitted from this PDF`,
-        );
-      }
-    } else {
-      row("Status", "Scope of works not yet generated");
-    }
-    y -= 4;
-
-    // ── Compliance Statement ───────────────────────────────────────────────
-    if (y < 120) newPage();
-    section("Compliance Statement");
-    textBlock(
-      "This report has been prepared in accordance with the IICRC S500:2021 Standard for " +
-        "Professional Water Damage Restoration. All moisture readings, environmental conditions, " +
-        "affected area classifications, and scope determinations comply with the current edition " +
-        "of the standard. This document is intended for use by the property owner and their insurer.",
-    );
-    y -= 4;
-    row("Standards Referenced", "IICRC S500:2021, 7th Edition");
-    row("Prepared by", "RestoreAssist Platform");
-    row(
-      "Report Generated",
-      new Date().toLocaleDateString("en-AU", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      }),
-    );
-
-    drawFooter(page);
-
-    // ── Serialize & return ────────────────────────────────────────────────
-    const pdfBytes = await pdfDoc.save();
-    const filename = `restoreassist-${inspection.inspectionNumber}-client-report.pdf`;
-
-    return new NextResponse(Buffer.from(pdfBytes), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "Content-Length": pdfBytes.length.toString(),
-        "Cache-Control": "no-store",
-      },
-    });
-  } catch (error) {
-    console.error("Portal PDF generation error:", error);
+  const { token } = await params;
+  const verified = verifyPortalToken(token);
+  if (!verified) {
     return NextResponse.json(
-      { error: "Failed to generate PDF" },
-      { status: 500 },
+      { error: "Link has expired or is invalid" },
+      { status: 401 },
     );
   }
+
+  const inspection = await prisma.inspection.findUnique({
+    where: { id: verified.inspectionId },
+    select: {
+      inspectionNumber: true,
+      propertyAddress: true,
+      createdAt: true,
+      status: true,
+      technicianName: true,
+      affectedAreas: {
+        orderBy: { createdAt: "asc" },
+        take: 100,
+        select: { id: true },
+      },
+      scopeItems: {
+        where: { isSelected: true },
+        orderBy: { createdAt: "asc" },
+        take: 200,
+        select: { id: true },
+      },
+      report: {
+        select: {
+          title: true,
+          status: true,
+          user: { select: { businessName: true, name: true } },
+        },
+      },
+    },
+  });
+
+  if (!inspection) {
+    return NextResponse.json({ error: "Inspection not found" }, { status: 404 });
+  }
+  if (inspection.report?.status !== "COMPLETED") {
+    return NextResponse.json(
+      { error: "Report is not yet ready for download" },
+      { status: 400 },
+    );
+  }
+
+  const report = inspection.report;
+  const pdfBytes = await generateConsumerReportPdf({
+    title: report.title,
+    inspectionNumber: inspection.inspectionNumber,
+    propertyAddress: inspection.propertyAddress,
+    status: inspection.status,
+    date: inspection.createdAt,
+    affectedAreaCount: inspection.affectedAreas.length,
+    scopeItemCount: inspection.scopeItems.length,
+    contractorName: report.user.businessName ?? report.user.name,
+  });
+
+  const filename = `client-report-${inspection.inspectionNumber}.pdf`.replace(
+    /[^a-zA-Z0-9.\-_]/g,
+    "-",
+  );
+  return new NextResponse(Buffer.from(pdfBytes), {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Cache-Control": "no-store",
+    },
+  });
 }

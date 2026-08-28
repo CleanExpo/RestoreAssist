@@ -18,7 +18,9 @@ vi.mock("@/lib/workspace/scraping-provider-connections", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    workspace: { findFirst: (...args: unknown[]) => workspaceFindFirst(...args) },
+    workspace: {
+      findFirst: (...args: unknown[]) => workspaceFindFirst(...args),
+    },
     workspaceMember: {
       findFirst: (...args: unknown[]) => memberFindFirst(...args),
     },
@@ -76,6 +78,56 @@ describe("fetchHtmlViaWorkspaceProvider — platform Apify", () => {
 
     expect(result.providerUsed).toBe("SHARED");
     expect(result.fellBack).toBe(true);
+    expect(sharedFetch).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed when a configured BYOK provider fails", async () => {
+    workspaceFindFirst.mockResolvedValue({ id: "workspace-1" });
+    getActiveScrapingProvider.mockResolvedValue({
+      provider: "APIFY",
+      apiKey: "workspace-token",
+      config: null,
+    });
+    fetchViaApify.mockRejectedValue(new Error("provider refused request"));
+    resolveApifyToken.mockReturnValue("platform-token");
+    const sharedFetch = vi.fn();
+
+    const result = await fetchHtmlViaWorkspaceProvider(
+      "https://www.onthehouse.com.au/x",
+      "user-1",
+      sharedFetch,
+    );
+
+    expect(result).toMatchObject({
+      html: "",
+      status: 503,
+      providerUsed: "APIFY",
+      fellBack: false,
+    });
+    expect(fetchViaApify).toHaveBeenCalledTimes(1);
+    expect(fetchViaApify).toHaveBeenCalledWith(
+      "https://www.onthehouse.com.au/x",
+      "workspace-token",
+    );
+    expect(sharedFetch).not.toHaveBeenCalled();
+  });
+
+  it("does not resolve a workspace through an inactive membership", async () => {
+    resolveApifyToken.mockReturnValue(null);
+    const sharedFetch = vi.fn().mockResolvedValue({ html: "", status: 403 });
+
+    await fetchHtmlViaWorkspaceProvider(
+      "https://www.domain.com.au/x",
+      "user-1",
+      sharedFetch,
+    );
+
+    expect(memberFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: "user-1", status: "ACTIVE" },
+      }),
+    );
+    expect(getActiveScrapingProvider).not.toHaveBeenCalled();
     expect(sharedFetch).toHaveBeenCalledOnce();
   });
 });

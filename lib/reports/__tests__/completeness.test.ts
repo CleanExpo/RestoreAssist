@@ -18,7 +18,11 @@ import {
 /** A report where every one of the 10 sections scores 100. */
 function completeInput(): CompletenessInput {
   return {
-    client: { name: "Acme Pty Ltd", email: "ops@acme.test", phone: "0400000000" },
+    client: {
+      name: "Acme Pty Ltd",
+      email: "ops@acme.test",
+      phone: "0400000000",
+    },
     reportNumber: "R-1",
     scopeOfWorksDocument: null,
     costEstimationDocument: null,
@@ -32,7 +36,13 @@ function completeInput(): CompletenessInput {
       scopeItems: [{ id: "s1" }],
       costEstimates: [{ id: "ce1" }],
       photos: [{ id: "p1" }, { id: "p2" }, { id: "p3" }],
-      claimSketches: [{ id: "sk1", renderedPngUrl: "https://cdn.test/plan.png" }],
+      claimSketches: [
+        {
+          id: "sk1",
+          floorNumber: 0,
+          renderedPngUrl: `storage://sketch-media/inspections/i1/exports/verified/floor-0-${"a".repeat(64)}.png`,
+        },
+      ],
       contentsManifestDraft: "manifest",
       floorPlanImageUrl: null,
       powerCircuits: 2,
@@ -42,18 +52,13 @@ function completeInput(): CompletenessInput {
 }
 
 /** Deep-clone the complete fixture then apply an override mutation. */
-function withInput(
-  mutate: (i: CompletenessInput) => void,
-): CompletenessInput {
+function withInput(mutate: (i: CompletenessInput) => void): CompletenessInput {
   const i = completeInput();
   mutate(i);
   return i;
 }
 
-function section(
-  input: CompletenessInput,
-  name: string,
-): CompletenessSection {
+function section(input: CompletenessInput, name: string): CompletenessSection {
   const found = computeReportCompletenessSections(input).find(
     (s) => s.name === name,
   );
@@ -279,7 +284,7 @@ const ROWS: Row[] = [
     status: "partial",
   },
 
-  // --- Floor Plan: OR (rendered sketch OR floorPlanImageUrl); unrendered sketch ≠ pass
+  // --- Floor Plan: clean rendered sketch only; reference artwork never counts
   {
     desc: "floor plan via rendered sketch",
     section: "Floor Plan",
@@ -288,14 +293,14 @@ const ROWS: Row[] = [
     status: "complete",
   },
   {
-    desc: "floor plan via uploaded image when no sketch (OR branch)",
+    desc: "reference image alone never satisfies the clean floor-plan section",
     section: "Floor Plan",
     mutate: (i) => {
       i.inspection!.claimSketches = [];
       i.inspection!.floorPlanImageUrl = "https://cdn.test/upload.png";
     },
-    score: 100,
-    status: "complete",
+    score: 0,
+    status: "missing",
   },
   {
     desc: "unrendered sketch (null renderedPngUrl) does not satisfy floor plan",
@@ -303,6 +308,26 @@ const ROWS: Row[] = [
     mutate: (i) => {
       i.inspection!.claimSketches = [{ id: "sk1", renderedPngUrl: null }];
       i.inspection!.floorPlanImageUrl = null;
+    },
+    score: 0,
+    status: "missing",
+  },
+  {
+    desc: "rendered sketch with an unverified underlay receipt does not satisfy floor plan",
+    section: "Floor Plan",
+    mutate: (i) => {
+      i.inspection!.claimSketches = [
+        {
+          id: "sk1",
+          floorNumber: 0,
+          renderedPngUrl:
+            `storage://sketch-media/inspections/i1/exports/verified/floor-0-${"a".repeat(64)}.png`,
+          sketchData: { objects: [] },
+          underlayReferences: [
+            { verifiedAt: null, verificationJson: null },
+          ],
+        },
+      ];
     },
     score: 0,
     status: "missing",

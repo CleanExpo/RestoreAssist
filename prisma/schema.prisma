@@ -2200,9 +2200,10 @@ model Inspection {
   workspace   Workspace? @relation("InspectionWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
 
   // V2: Sketch tool, DR-NRPG sync, drying goals
-  claimSketches    ClaimSketch[]
-  drNrpgJobSync    DrNrpgJobSync?
-  dryingGoalRecord DryingGoalRecord?
+  claimSketches            ClaimSketch[]
+  sketchUnderlayReferences SketchUnderlayReference[]
+  drNrpgJobSync            DrNrpgJobSync?
+  dryingGoalRecord         DryingGoalRecord?
 
   // RA-6949 — Restoration Pulse per-job comms log (send + suppression audit).
   clientCommsLogs ClientCommsLog[]
@@ -3431,13 +3432,14 @@ model InspectionPhoto {
   // longitude are the mobile-capture coordinates (distinct from the existing
   // gpsLatitude/gpsLongitude EXIF fields).
   roomId        String?
-  room          Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  room          Room?         @relation(fields: [roomId], references: [id], onDelete: SetNull)
   latitude      Float?
   longitude     Float?
   width         Int?
   height        Int?
   mobileLocalId String?
-  metadata      Json?   @default("{}")
+  metadata      Json?         @default("{}")
+  evidencePins  EvidencePin[]
 
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -6527,17 +6529,16 @@ model IicrcChunk {
 // ─── V2: Sketch Tool (RA-89) ──────────────────────────────────────────────────
 
 model ClaimSketch {
-  id                      String                  @id @default(cuid())
+  id                      String                    @id @default(cuid())
   inspectionId            String
-  inspection              Inspection              @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  floorNumber             Int                     @default(0)
-  floorLabel              String                  @default("Ground Floor")
-  sketchType              String                  @default("structural")
+  inspection              Inspection                @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  floorNumber             Int                       @default(0)
+  floorLabel              String                    @default("Ground Floor")
+  sketchType              String                    @default("structural")
   sketchData              Json?
   backgroundImageUrl      String?
-  // RA-120 (PR2): rasterised PNG of the floor (underlay + annotations) captured
-  // client-side via Fabric canvas.toDataURL and uploaded to sketch-media/exports.
-  // The canonical IICRC report embeds this per floor (server can't render Fabric).
+  // Immutable server-rendered PNG of allowlisted floor geometry. Reference
+  // pixels and client-supplied raster bytes are never canonical report input.
   renderedPngUrl          String?
   // RA-120 (PR4): per-floor underlay opacity (0..1). Without this the slider
   // value lived in React state only and reset to the default on every reload.
@@ -6557,8 +6558,8 @@ model ClaimSketch {
   pendingHomeownerCapture Json?
   // RestoreAssist Mapping V2 (spec §12): canonical model + ANZ context
   totalFloorAreaM2        Float?
-  country                 String                  @default("AU") // AU | NZ
-  captureAdapter          String                  @default("manual") // manual | roomplan | cloud_ai | underlay_import
+  country                 String                    @default("AU") // AU | NZ
+  captureAdapter          String                    @default("manual") // manual | roomplan | cloud_ai | underlay_import
   annotations             SketchAnnotation[]
   elements                SketchElement[]
   rooms                   SketchRoom[]
@@ -6566,11 +6567,52 @@ model ClaimSketch {
   hazards                 Hazard[]
   insuranceContext        InsuranceContext?
   sketchMoistureReadings  SketchMoistureReading[]
-  createdAt               DateTime                @default(now())
-  updatedAt               DateTime                @updatedAt
+  underlayReferences      SketchUnderlayReference[]
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
 
   @@index([inspectionId])
   @@index([inspectionId, floorNumber])
+}
+
+// Durable custody + rights record for an imported floor-plan reference.
+// The imported pixels are private orientation material only. `ClaimSketch`
+// stores the active private storage URL for the editor; reports consume only
+// the source-free rendered geometry. Prior rows remain retained when a plan is
+// replaced so the attestation history cannot be silently rewritten.
+model SketchUnderlayReference {
+  id                      String       @id @default(cuid())
+  inspectionId            String
+  inspection              Inspection   @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  sketchId                String?
+  sketch                  ClaimSketch? @relation(fields: [sketchId], references: [id], onDelete: SetNull)
+  floorNumber             Int          @default(0)
+  storagePath             String
+  sourceType              String // upload | url
+  sourcePageUrl           String?
+  sourceImageUrl          String?
+  contentSha256           String
+  mimeType                String
+  sourceSizeBytes         Int
+  storedSizeBytes         Int
+  attestationVersion      String
+  attestationStatement    String       @db.Text
+  holdsRights             Boolean
+  compliesWithSourceTerms Boolean
+  attestedByUserId        String
+  attestedAt              DateTime
+  verifiedByUserId        String?
+  verifiedAt              DateTime?
+  verificationMethod      String?
+  verificationJson        Json?
+  replacedAt              DateTime?
+  removedAt               DateTime?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+
+  @@index([inspectionId, floorNumber, replacedAt, removedAt])
+  @@index([sketchId])
+  @@index([contentSha256])
 }
 
 // RoomGraph V1 — derived room nodes. Fabric sketchData remains render SSOT;
@@ -6640,20 +6682,21 @@ model RoomPlanCaptureReceipt {
 
 // Evidence pins on the floor plan — photos/videos/docs/voice at canvas coords.
 model EvidencePin {
-  id                String      @id @default(cuid())
+  id                String           @id @default(cuid())
   sketchId          String
-  sketch            ClaimSketch @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  sketch            ClaimSketch      @relation(fields: [sketchId], references: [id], onDelete: Cascade)
   sketchRoomId      String?
-  sketchRoom        SketchRoom? @relation(fields: [sketchRoomId], references: [id], onDelete: SetNull)
+  sketchRoom        SketchRoom?      @relation(fields: [sketchRoomId], references: [id], onDelete: SetNull)
   inspectionPhotoId String?
-  kind              String      @default("photo") // photo | video | document | voice
+  inspectionPhoto   InspectionPhoto? @relation(fields: [inspectionPhotoId], references: [id], onDelete: SetNull)
+  kind              String           @default("photo") // photo | video | document | voice
   // Absolute canvas px (legacy render) + normalized 0..1 (stable under zoom/pan).
   x                 Float
   y                 Float
   nx                Float?
   ny                Float?
-  rotationDeg       Float       @default(0)
-  scale             Float       @default(1)
+  rotationDeg       Float            @default(0)
+  scale             Float            @default(1)
   fileUrl           String?
   thumbnailUrl      String?
   fileName          String?
@@ -6661,11 +6704,11 @@ model EvidencePin {
   fileSizeBytes     Int?
   caption           String?
   capturedByUserId  String?
-  captureSource     String      @default("web") // web | camera | upload | import
-  offlineQueued     Boolean     @default(false)
-  syncState         String      @default("synced") // pending | synced | failed
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  captureSource     String           @default("web") // web | camera | upload | import
+  offlineQueued     Boolean          @default(false)
+  syncState         String           @default("synced") // pending | synced | failed
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   @@index([sketchId])
   @@index([sketchRoomId])

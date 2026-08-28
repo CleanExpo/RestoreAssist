@@ -9,6 +9,7 @@ import { getTokens, markIntegrationError, logSync } from "../oauth-handler";
 import { MYOBClient } from "./client";
 import { prisma } from "@/lib/prisma";
 import type { NIRJobPayload } from "../xero/nir-sync";
+import { getGstTreatment } from "@/lib/gst-rules";
 
 function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
@@ -96,6 +97,7 @@ export async function syncNIRJobToMYOB(
 
   const companyFileUrl = `https://api.myob.com/accountright/${integration.companyId}`;
   const accountDisplayId = getAccountDisplayId(job.damageType);
+  const jurisdiction = getGstTreatment(job.country);
   const customerId = await findOrCreateCustomer(
     accessToken,
     companyFileUrl,
@@ -123,7 +125,9 @@ export async function syncNIRJobToMYOB(
       DiscountPercent: 0,
       Total: cents(item.subtotalExGST),
       Account: { DisplayID: accountDisplayId },
-      TaxCode: { Code: item.gstRate === 10 ? "GST" : "FRE" },
+      TaxCode: {
+        Code: item.gstRate === 0 ? "FRE" : jurisdiction.myobTaxCode,
+      },
     })),
     InvoiceDeliveryStatus: "Print",
     Terms: {

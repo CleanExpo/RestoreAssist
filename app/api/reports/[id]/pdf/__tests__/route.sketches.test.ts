@@ -37,6 +37,18 @@ vi.mock("@/lib/api-errors", () => ({
     new Response("e", { status: o.status }),
   fromException: () => new Response("e", { status: 500 }),
 }));
+vi.mock("@/lib/storage/sign-stored-url", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@/lib/storage/sign-stored-url")>();
+  return {
+    ...original,
+    signStoredMediaUrl: vi.fn(async (url: string) =>
+      url.startsWith("storage://")
+        ? "https://trusted.supabase.co/storage/v1/object/sign/sketch-media/plan.png?token=test"
+        : url,
+    ),
+  };
+});
 
 // claim-sketch-floors + append-sketch-pages are NOT mocked — the test exercises
 // the real embed pipeline end-to-end (real pdf-lib, real PNG).
@@ -94,10 +106,13 @@ beforeEach(async () => {
   // Stub global fetch used by claimSketchesToFloors to pull the rendered PNG.
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => ({
-      ok: true,
-      arrayBuffer: async () => pngBytes().buffer,
-    })),
+    vi.fn(
+      async () =>
+        new Response(pngBytes(), {
+          status: 200,
+          headers: { "content-type": "image/png" },
+        }),
+    ),
   );
 });
 
@@ -109,13 +124,15 @@ describe("GET /api/reports/[id]/pdf — floor plan embedding", () => {
           {
             floorNumber: 0,
             floorLabel: "Ground Floor",
-            renderedPngUrl: "https://x/0.png",
+            renderedPngUrl:
+              `storage://sketch-media/inspections/i1/exports/verified/floor-0-${"a".repeat(64)}.png`,
             sketchData: null,
           },
           {
             floorNumber: 1,
             floorLabel: "Level 1",
-            renderedPngUrl: "https://x/1.png",
+            renderedPngUrl:
+              `storage://sketch-media/inspections/i1/exports/verified/floor-1-${"b".repeat(64)}.png`,
             sketchData: null,
           },
         ],
@@ -195,7 +212,8 @@ describe("GET /api/reports/[id]/pdf — floor plan embedding", () => {
           {
             floorNumber: 0,
             floorLabel: "Ground Floor",
-            renderedPngUrl: "https://x/0.png",
+            renderedPngUrl:
+              `storage://sketch-media/inspections/i1/exports/verified/floor-0-${"a".repeat(64)}.png`,
             sketchData: null,
             moisturePoints: [
               { nx: 0.25, ny: 0.5, wme: 12 },
@@ -219,7 +237,8 @@ describe("GET /api/reports/[id]/pdf — floor plan embedding", () => {
           {
             floorNumber: 0,
             floorLabel: "Ground Floor",
-            renderedPngUrl: "https://x/0.png",
+            renderedPngUrl:
+              `storage://sketch-media/inspections/i1/exports/verified/floor-0-${"a".repeat(64)}.png`,
             sketchData: null,
             evidencePins: [
               {
