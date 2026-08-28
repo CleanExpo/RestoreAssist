@@ -48,26 +48,14 @@ on:
         description: "Exact approved sandbox base URL"
         required: true
         default: "https://restoreassist-sandbox.vercel.app"
-  pull_request:
-    paths:
-      - "packages/pilot-tester/**"
-      - "app/api/pilot-tester/**"
-      - "app/api/inspections/[id]/assessments/[type]/generate/**"
-      - "lib/pilot-tester/**"
-      - "lib/ai/adjuster-agent.ts"
-      - "lib/ai/restoreassist-ai-client.ts"
-      - "lib/workspace/permissions.ts"
-      - "prisma/schema.prisma"
-      - "prisma/migrations/**"
-      - ".github/workflows/pilot-canary.yml"
 
 permissions:
   contents: read
 
 jobs:
-  # Per-PR self-test — needs no secrets, no creds, no network.
-  # Catches harness-internal regressions (safety guard, fixtures,
-  # reporter, baseline analyser) without consuming AI budget.
+  # Harness self-test before a scheduled/manual/reusable live run. Pull
+  # requests use pilot-harness-pr.yml so GitHub never presents the live swarm
+  # as a mysteriously skipped PR job.
   dry-run:
     runs-on: ubuntu-latest
     timeout-minutes: 5
