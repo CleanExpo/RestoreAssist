@@ -24,7 +24,10 @@ describe("PR quality contract", () => {
       readFileSync(join(ROOT, "package.json"), "utf8"),
     ) as { scripts: Record<string, string> };
     expect(packageJson.scripts["test:unit:full"]).toBe(
-      "vitest run --config config/vitest.config.js",
+      "vitest run --config config/vitest.config.js && npm run test:pilot-harness",
+    );
+    expect(packageJson.scripts["test:pilot-harness"]).toBe(
+      "npm --prefix packages/pilot-tester test",
     );
 
     const workflow = parse(

@@ -14,6 +14,8 @@ on:
       - "prisma/migrations/**"
       - ".github/workflows/pilot-canary.yml"
       - ".github/workflows/pilot-harness-pr.yml"
+      - ".github/workflows/release-gate.yml"
+      - ".do/app.yaml"
 
 permissions:
   contents: read

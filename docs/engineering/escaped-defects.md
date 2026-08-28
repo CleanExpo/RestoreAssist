@@ -21,3 +21,14 @@ executable control added to prevent recurrence.
 Feature-selected tests remain useful development evidence, but they must be
 labelled as selected tests. Only `npm run test:unit:full` is a local unit-suite
 parity receipt for PR Quality.
+
+## 2026-08-28 — PR-only pilot harness failed on its first hosted run
+
+| Field | Record |
+| --- | --- |
+| Defect class | Test inventory gap; workflow path ownership drift |
+| First detected revision | Draft audit PR #2073, run `33206759215` |
+| Failure | `packages/pilot-tester/src/__tests__/workflow-wiring.test.ts` still expected PR path filters in the live canary after those filters moved into `pilot-harness-pr.yml` |
+| Detection gap | The root command named `test:unit:full` did not execute the separate pilot-tester Vitest suite, so 99 package tests were absent from the earlier full-suite receipt |
+| Repair | Validate PR watch paths against the PR harness; watch every file the wiring test reads; include the pilot-tester package in the canonical full-suite command |
+| Prevention proof | Removing a required PR-harness path fails `workflow-wiring.test.ts`; both the package test and PR Quality contract enforce the root-to-package test connection |
