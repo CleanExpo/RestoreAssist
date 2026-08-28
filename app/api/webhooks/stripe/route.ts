@@ -689,10 +689,23 @@ export async function POST(request: NextRequest) {
         );
       });
 
-    return NextResponse.json(
-      { error: "Webhook processing failed" },
-      { status: 500 },
-    );
+    // F1 (release gate) — an ORDINARY processing failure, where the audit
+    // write above succeeds, previously left no console output at all: the two
+    // console.error calls sit inside the audit `.catch()` and fire only on the
+    // rare double failure. Vercel Observability cannot see the
+    // `StripeWebhookEvent.status = 'FAILED'` row, so the only observable
+    // signal was a bare HTTP 500 carrying neither the Stripe event id nor the
+    // error. Routing through `apiError` — the same helper this handler's other
+    // error paths already use — emits the structured `[error]` line that an
+    // alert rule can match on `stage`, and carries the event id with it.
+    return apiError(request, {
+      code: "INTERNAL",
+      message: "Webhook processing failed",
+      status: 500,
+      err: processingError,
+      stage: "stripe-webhook:processing",
+      context: { stripeEventId: event.id, eventType: event.type },
+    });
   }
 }
 
