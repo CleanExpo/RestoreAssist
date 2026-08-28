@@ -28,7 +28,7 @@ import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
  *   green  = satisfied.
  *
  * Required (RED-when-unmet) — must pass to start using the app:
- *   - business_profile       (legalName + state + ABN or PRE_TRADING)
+ *   - business_profile       (legalName + region + timezone + ABN/NZBN or PRE_TRADING)
  *   - branding               (logoUrl or primaryColor)
  *   - pricing                (master qualified hours + administration fee)
  *   - ai_generation          (AI inference reachable — system health)
@@ -53,7 +53,15 @@ type Check = (orgId: string) => Promise<CheckResult>;
 const businessProfileCheck: Check = async (orgId) => {
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
-    select: { legalName: true, abn: true, state: true, tradingStatus: true },
+    select: {
+      legalName: true,
+      country: true,
+      abn: true,
+      nzbn: true,
+      state: true,
+      timezone: true,
+      tradingStatus: true,
+    },
   });
   if (!org) {
     return {
@@ -63,16 +71,18 @@ const businessProfileCheck: Check = async (orgId) => {
       note: "Organization not found",
     };
   }
+  const businessIdentifier = org.country === "NZ" ? org.nzbn : org.abn;
   const missing =
     !org.legalName ||
     !org.state ||
-    (!org.abn && org.tradingStatus !== "PRE_TRADING");
+    !org.timezone ||
+    (!businessIdentifier && org.tradingStatus !== "PRE_TRADING");
   return {
     capability: "business_profile",
     label: "Business profile complete",
     status: missing ? "red" : "green",
     note: missing
-      ? "Add legal name, state, and ABN (or mark pre-trading)"
+      ? `Add legal name, region, timezone, and ${org.country === "NZ" ? "NZBN" : "ABN"} (or mark pre-trading)`
       : undefined,
   };
 };
@@ -111,7 +121,10 @@ export const pricingCheck: Check = async (orgId) => {
     where: { organizationId: orgId },
     select: { masterQualifiedNormalHours: true, administrationFee: true },
   });
-  const ready = p != null && p.masterQualifiedNormalHours != null && p.administrationFee != null;
+  const ready =
+    p != null &&
+    p.masterQualifiedNormalHours != null &&
+    p.administrationFee != null;
   return {
     capability: "pricing",
     label: "Pricing config",

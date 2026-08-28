@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { verifyPortalToken } from "@/lib/portal-token";
 import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
 import { prisma } from "@/lib/prisma";
-import { resolveAreaSqm } from "@/lib/units";
 import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
 import { ClientPortalUpload } from "@/components/portal/ClientPortalUpload";
 import { ClientPortalAuthorities } from "@/components/portal/ClientPortalAuthorities";
@@ -12,21 +11,6 @@ import {
   PortalContentSections,
 } from "@/components/portal/PortalContentHub";
 import { fetchPublishedPortalContent } from "@/lib/portal/fetch-portal-content";
-
-const CATEGORY_COLOURS: Record<string, string> = {
-  "1": "bg-success-subtle text-success-subtle-foreground",
-  "2": "bg-warning-subtle text-warning-subtle-foreground",
-  "3": "bg-orange-100 text-orange-800",
-  "4": "bg-destructive-subtle text-destructive-subtle-foreground",
-  A: "bg-info-subtle text-info-subtle-foreground",
-  B: "bg-purple-100 text-purple-800",
-  C: "bg-pink-100 text-pink-800",
-};
-
-function categoryBadge(category: string | null): string {
-  if (!category) return "bg-slate-100 text-slate-600";
-  return CATEGORY_COLOURS[category] ?? "bg-slate-100 text-slate-600";
-}
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -212,23 +196,9 @@ export default async function ClientPortalPage({ params }: PageProps) {
                   <span className="text-sm text-slate-700">
                     {area.roomZoneId}
                   </span>
-                  <div className="flex items-center gap-2">
-                    {area.category && (
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryBadge(area.category)}`}
-                      >
-                        Cat {area.category}
-                      </span>
-                    )}
-                    {area.class && (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-600">
-                        Class {area.class}
-                      </span>
-                    )}
-                    <span className="text-xs text-slate-400">
-                      {resolveAreaSqm(area).toFixed(1)} m²
-                    </span>
-                  </div>
+                  <span className="text-xs text-slate-500">
+                    Included in the restoration plan
+                  </span>
                 </li>
               ))}
             </ul>

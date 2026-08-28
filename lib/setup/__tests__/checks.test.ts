@@ -103,6 +103,34 @@ describe.skipIf(!process.env.DATABASE_URL)("runAllChecks", () => {
     expect(bp?.status).toBe("green");
   });
 
+  it("accepts a New Zealand profile with NZBN instead of ABN", async () => {
+    await prisma.organization.update({
+      where: { id: testOrgId },
+      data: {
+        country: "NZ",
+        legalName: "Test NZ Limited",
+        state: "Auckland",
+        timezone: "Pacific/Auckland",
+        abn: null,
+        nzbn: "9429031234566",
+      },
+    });
+    const results = await runAllChecks(testOrgId);
+    const bp = results.find((r) => r.capability === "business_profile");
+    expect(bp?.status).toBe("green");
+
+    await prisma.organization.update({
+      where: { id: testOrgId },
+      data: {
+        country: "AU",
+        timezone: "Australia/Sydney",
+        nzbn: null,
+        abn: "53004085616",
+        state: "NSW",
+      },
+    });
+  });
+
   it("returns red for ai_generation when routeBasic throws", async () => {
     (routeBasic as any).mockRejectedValueOnce(new Error("gemma down"));
     const results = await runAllChecks(testOrgId);

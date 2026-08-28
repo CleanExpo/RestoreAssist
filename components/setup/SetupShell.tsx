@@ -32,7 +32,6 @@ interface InitialPayload extends SetupOrganization {
   hydrationJobs: Array<{ kind: 'ABR' | 'WEBSITE' | 'PRICING'; status: string }>;
 }
 
-
 export function SetupShell({ initial }: { initial: InitialPayload }) {
   const setOrg = useSetupStore((s) => s.setOrg);
   const setSectionStatus = useSetupStore((s) => s.setSectionStatus);
@@ -65,6 +64,10 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     for (const job of hydrationJobs) {
       setSectionStatus(jobKindToSectionKey(job.kind), jobStatusToHydrationState(job.status));
     }
+    const hasBusinessHydration = hydrationJobs.some((job) => job.kind === 'ABR');
+    if (!hasBusinessHydration && orgFields.country === 'NZ' && orgFields.legalName && orgFields.nzbn && orgFields.state && orgFields.timezone) {
+      setSectionStatus('businessDetails', 'ready');
+    }
 
     // SSE bridge — only subscribe if any non-terminal jobs
     const hasActive = hydrationJobs.some((j) => j.status === 'RUNNING');
@@ -73,7 +76,10 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     const es = new EventSource('/api/setup/hydrate/stream');
     es.onmessage = (e) => {
       try {
-        const jobs: Array<{ kind: 'ABR' | 'WEBSITE' | 'PRICING'; status: string }> = JSON.parse(e.data);
+        const jobs: Array<{
+          kind: 'ABR' | 'WEBSITE' | 'PRICING';
+          status: string;
+        }> = JSON.parse(e.data);
         for (const job of jobs) {
           setSectionStatus(jobKindToSectionKey(job.kind), jobStatusToHydrationState(job.status));
         }
@@ -113,7 +119,8 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
   // steps (AI key + business details) gates progression; optional steps never
   // block. The flow ends on a "first report" step whose CTA is enabled once the
   // required steps are done.
-  const businessComplete = !!(org?.legalName && org?.abn && org?.state);
+  const businessIdentifier = org?.country === 'NZ' ? org.nzbn : org?.abn;
+  const businessComplete = !!(org?.legalName && businessIdentifier && org.state && org.timezone);
   const brandingComplete = !!(org?.logoUrl || org?.primaryColor);
   const pricingComplete = !!org?.pricingConfig;
 
@@ -123,8 +130,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       title: 'Welcome',
       required: false,
       complete: true,
-      description:
-        'What RestoreAssist does, how a job moves through it, and what setup asks of you.',
+      description: 'What RestoreAssist does, how a job moves through it, and what setup asks of you.',
       // The overview leads. The video is a supplement, not the explanation:
       // it currently renders with no audio track and starts muted on mobile,
       // so a customer who never hears it still gets the whole picture here.
@@ -140,8 +146,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       title: 'Add your AI key',
       required: true,
       complete: hasApiKey,
-      description:
-        'Connect your own AI provider key — it powers report drafting and stays in your workspace.',
+      description: 'Connect your own AI provider key — it powers report drafting and stays in your workspace.',
       content: <AiKeyCard onSaved={() => setHasApiKey(true)} />,
     },
     {
@@ -149,8 +154,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       title: 'Business details',
       required: true,
       complete: businessComplete,
-      description:
-        'Your legal name, ABN and state appear on every report and invoice you send.',
+      description: 'Your legal name, business number, region and timezone keep reports and invoices locally correct.',
       content: <BusinessDetailsCard />,
     },
     {
@@ -158,8 +162,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       title: 'Branding',
       required: false,
       complete: brandingComplete,
-      description:
-        'Preview your letterhead live — logo, colours, and a short company line for every client document.',
+      description: 'Preview your letterhead live — logo, colours, and a short company line for every client document.',
       content: <BrandCard />,
     },
     {
@@ -167,8 +170,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       title: 'Pricing',
       required: false,
       complete: pricingComplete,
-      description:
-        'Set your rate card once — estimates and invoices pick it up automatically.',
+      description: 'Set your rate card once — estimates and invoices pick it up automatically.',
       content: <PricingCard />,
     },
     {
@@ -176,8 +178,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       title: 'Integrations',
       required: false,
       complete: false,
-      description:
-        'Connect the tools you already use and confirm every feature is healthy.',
+      description: 'Connect the tools you already use and confirm every feature is healthy.',
       content: (
         <div className="space-y-6">
           <IntegrationsCard />
@@ -190,21 +191,16 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       title: 'Your first report',
       required: false,
       complete: false,
-      description:
-        'Everything is in place — turn a job into an IICRC S500:2021 compliance report.',
+      description: 'Everything is in place — turn a job into an IICRC S500:2021 compliance report.',
       content: (
         <div className="overflow-hidden rounded-2xl border border-brand-navy/10 bg-white shadow-sm">
           <div className="bg-linear-to-br from-brand-navy to-brand-deep px-6 py-8 text-center text-white sm:px-10">
             <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-gold/20 ring-1 ring-brand-gold/40">
               <RAIcon name="success" size={24} decorative />
             </span>
-            <h3 className="mt-4 text-xl font-semibold tracking-tight">
-              You&apos;re ready to go
-            </h3>
+            <h3 className="mt-4 text-xl font-semibold tracking-tight">You&apos;re ready to go</h3>
             <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-white/70">
-              Use the button below to generate your first report. You can
-              always come back and finish the optional steps later from your
-              dashboard.
+              Use the button below to generate your first report. You can always come back and finish the optional steps later from your dashboard.
             </p>
           </div>
           <ul className="divide-y divide-brand-navy/5 px-6 py-2 sm:px-10">
@@ -214,10 +210,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
               { label: 'Branding applied', done: brandingComplete },
               { label: 'Pricing configured', done: pricingComplete },
             ].map((row) => (
-              <li
-                key={row.label}
-                className="flex items-center justify-between py-3 text-sm"
-              >
+              <li key={row.label} className="flex items-center justify-between py-3 text-sm">
                 <span className="text-brand-navy">{row.label}</span>
                 <span
                   className={

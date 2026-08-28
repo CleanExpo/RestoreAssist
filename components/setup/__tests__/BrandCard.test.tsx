@@ -6,18 +6,36 @@ import { BrandCard } from '../BrandCard';
 import { useSetupStore } from '../store';
 
 const TEST_ORG = {
-  id: 'org-1', legalName: 'Acme', tradingName: null, abn: '53004085616', acn: null,
-  state: 'NSW', address: null, phone: null, email: null, website: null,
-  logoUrl: null, primaryColor: null, accentColor: null, aboutCopy: null,
+  id: 'org-1',
+  legalName: 'Acme',
+  tradingName: null,
+  country: 'AU' as const,
+  abn: '53004085616',
+  nzbn: null,
+  acn: null,
+  timezone: 'Australia/Sydney',
+  state: 'NSW',
+  address: null,
+  phone: null,
+  email: null,
+  website: null,
+  logoUrl: null,
+  primaryColor: null,
+  accentColor: null,
+  aboutCopy: null,
   tradingStatus: 'ACTIVE' as const,
-  setupStartedAt: null, setupCompletedAt: null,
+  setupStartedAt: null,
+  setupCompletedAt: null,
 };
 
 describe('BrandCard', () => {
   beforeEach(() => {
     useSetupStore.getState().reset();
     useSetupStore.getState().setOrg(TEST_ORG);
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: { updated: [] } }) }) as never;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { updated: [] } }),
+    }) as never;
   });
 
   it('renders pending placeholder when status is pending', () => {
@@ -77,7 +95,9 @@ describe('BrandCard', () => {
     const CLOUDINARY_URL = 'https://res.cloudinary.com/demo/business-logos/acme.png';
 
     const pickFile = (file: File) => {
-      fireEvent.change(screen.getByLabelText(/logo file/i), { target: { files: [file] } });
+      fireEvent.change(screen.getByLabelText(/logo file/i), {
+        target: { files: [file] },
+      });
     };
 
     beforeEach(() => {
@@ -104,7 +124,10 @@ describe('BrandCard', () => {
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
           '/api/upload/logo',
-          expect.objectContaining({ method: 'POST', body: expect.any(FormData) }),
+          expect.objectContaining({
+            method: 'POST',
+            body: expect.any(FormData),
+          }),
         );
       });
       await waitFor(() => {
@@ -125,7 +148,9 @@ describe('BrandCard', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 400,
-        json: async () => ({ error: { message: 'Invalid file type. Only images are allowed.' } }),
+        json: async () => ({
+          error: { message: 'Invalid file type. Only images are allowed.' },
+        }),
       }) as never;
 
       render(<BrandCard />);
@@ -166,7 +191,11 @@ describe('BrandCard', () => {
         return Promise.resolve({
           ok: false,
           status: 409,
-          json: async () => ({ error: { message: 'Setup already complete; edit in Settings instead' } }),
+          json: async () => ({
+            error: {
+              message: 'Setup already complete; edit in Settings instead',
+            },
+          }),
         });
       }) as never;
 

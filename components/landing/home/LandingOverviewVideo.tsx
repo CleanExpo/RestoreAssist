@@ -31,7 +31,7 @@ export function LandingOverviewVideo() {
             sandbox="allow-scripts allow-same-origin allow-presentation"
             referrerPolicy="strict-origin-when-cross-origin"
             loading="lazy"
-            credentialless=""
+            {...{ credentialless: "" }}
             className="absolute inset-0 h-full w-full"
           />
         ) : poster ? (
@@ -41,7 +41,6 @@ export function LandingOverviewVideo() {
             className="group absolute inset-0 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7BA3BD] focus-visible:ring-inset"
             aria-label={playLabel}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element -- YouTube CDN thumb; not in next/image remotePatterns */}
             <img
               src={poster}
               alt=""

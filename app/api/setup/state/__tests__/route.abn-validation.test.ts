@@ -37,7 +37,11 @@ describe("PATCH /api/setup/state — ABN checksum validation (offline)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetServerSession.mockResolvedValue({ user: { id: "user-1" } });
-    mockFindFirst.mockResolvedValue({ id: "org-1", setupCompletedAt: null });
+    mockFindFirst.mockResolvedValue({
+      id: "org-1",
+      country: "AU",
+      setupCompletedAt: null,
+    });
     mockUpdate.mockResolvedValue({});
   });
 
@@ -68,5 +72,55 @@ describe("PATCH /api/setup/state — ABN checksum validation (offline)", () => {
         data: { abn: "53004085616" },
       }),
     );
+  });
+
+  it("rejects an NZBN for an Australian organization", async () => {
+    const req = new Request("http://localhost/api/setup/state", {
+      method: "PATCH",
+      body: JSON.stringify({ nzbn: "9429031234566" }),
+    });
+    const res = await PATCH(req);
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.message).toMatch(
+      /only valid for New Zealand/i,
+    );
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("accepts a valid NZ locale and NZBN in one atomic patch", async () => {
+    const req = new Request("http://localhost/api/setup/state", {
+      method: "PATCH",
+      body: JSON.stringify({
+        country: "NZ",
+        timezone: "Pacific/Auckland",
+        nzbn: "9429 0312 3456 6",
+      }),
+    });
+    const res = await PATCH(req);
+
+    expect(res.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "org-1" },
+        data: {
+          country: "NZ",
+          timezone: "Pacific/Auckland",
+          nzbn: "9429031234566",
+        },
+      }),
+    );
+  });
+
+  it("rejects a timezone from the other jurisdiction", async () => {
+    const req = new Request("http://localhost/api/setup/state", {
+      method: "PATCH",
+      body: JSON.stringify({ country: "NZ", timezone: "Australia/Sydney" }),
+    });
+    const res = await PATCH(req);
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.message).toMatch(/not valid for NZ/i);
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
