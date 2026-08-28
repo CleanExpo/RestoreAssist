@@ -4,7 +4,6 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { stripe } from "@/lib/stripe";
-import { requireClientAuth } from "@/lib/portal/require-client-auth";
 
 const intakeSchema = z.object({
   sessionId: z.string().min(10).max(255),
@@ -18,9 +17,6 @@ const intakeSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const auth = await requireClientAuth(request);
-  if (!auth.ok) return auth.response;
-
   const rateLimited = await applyRateLimit(request, {
     prefix: "revenue-job-file-audit-intake",
     maxRequests: 8,
@@ -70,6 +66,17 @@ export async function POST(request: NextRequest) {
     }
 
     const payerEmail = checkoutSession.customer_details?.email ?? "not supplied";
+    if (
+      payerEmail === "not supplied" ||
+      payerEmail.trim().toLowerCase() !== data.email.trim().toLowerCase()
+    ) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Use the email address supplied during payment",
+        status: 403,
+      });
+    }
+
     const packageName = checkoutSession.metadata?.package ?? "unknown";
     const includedAudits = checkoutSession.metadata?.includedAudits ?? "1";
 
@@ -90,16 +97,29 @@ export async function POST(request: NextRequest) {
       "Fulfilment note: request the job report, photographs, moisture/drying records and relevant scope/communications through the approved secure file-sharing channel before review.",
     ].join("\n");
 
-    const ticket = await prisma.supportTicket.create({
-      data: {
-        email: data.email,
-        name: data.name,
-        subject: `PAID Job File Audit — ${data.businessName}`,
-        body,
-        category: "general",
-        priority: "high",
-      },
-    });
+    let ticket: { id: string };
+    try {
+      ticket = await prisma.supportTicket.create({
+        data: {
+          externalReference: `stripe:job-file-audit:${checkoutSession.id}`,
+          email: data.email,
+          name: data.name,
+          subject: `PAID Job File Audit — ${data.businessName}`,
+          body,
+          category: "general",
+          priority: "high",
+        },
+      });
+    } catch (error) {
+      if ((error as { code?: string })?.code === "P2002") {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "This payment has already been submitted",
+          status: 409,
+        });
+      }
+      throw error;
+    }
 
     return NextResponse.json(
       {
