@@ -52,6 +52,11 @@ const PUBLIC_TOKEN_ROUTE_PREFIXES = [
   // Public marketing-page Margot chat — rate-limited (applyRateLimit), platform
   // key, no auth by design; serves the home/features/pricing pages.
   "app/api/margot/public-chat/",
+  // Public revenue funnel. Checkout accepts only server-owned package IDs;
+  // intake treats the paid Stripe Checkout Session as its capability and
+  // verifies payment + offer before creating fulfilment work. Behaviour tests
+  // pin those controls, so adding homeowner auth would break the sales path.
+  "app/api/revenue/job-file-audit/",
 ];
 
 function normalisePath(file: string): string {
@@ -258,7 +263,7 @@ export function auditApiRoute(
       normalized,
       "api-auth-required",
       "error",
-      "Route is not in an auth/cron/webhook exemption and does not call getServerSession/getToken/verifyAdminFromDb.",
+      "Route is not in an auth/cron/webhook/public-capability exemption and does not call a recognised authentication gate.",
     );
   }
 
@@ -321,7 +326,7 @@ export function auditApiRoute(
       normalized,
       "public-token-route-review",
       "warning",
-      "Public/token/monitoring route is unauthenticated by design candidate; verify scope, expiry where applicable, audit event, and rate limit.",
+      "Public/capability/monitoring route is unauthenticated by design; verify scope, expiry or payment proof where applicable, audit event, and rate limit.",
       true,
     );
   }

@@ -20,7 +20,7 @@ import { POST } from "../route";
 const validBody = {
   sessionId: "cs_audit_paid_123456",
   name: "Alex Restorer",
-  email: "alex@example.com",
+  email: "payer@example.com",
   businessName: "Example Restoration",
   phone: "0400000000",
   jobReference: "JOB-101",
@@ -65,6 +65,8 @@ describe("POST /api/revenue/job-file-audit/intake", () => {
     );
     expect(prismaMock.supportTicket.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        externalReference:
+          "stripe:job-file-audit:cs_audit_paid_123456",
         email: validBody.email,
         name: validBody.name,
         subject: "PAID Job File Audit — Example Restoration",
@@ -101,6 +103,25 @@ describe("POST /api/revenue/job-file-audit/intake", () => {
 
     expect(response.status).toBe(402);
     expect(prismaMock.supportTicket.create).not.toHaveBeenCalled();
+  });
+
+  it("binds fulfilment to the payer email without disclosing it", async () => {
+    const response = await POST(
+      makeRequest({ ...validBody, email: "attacker@example.com" }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.text()).not.toContain("payer@example.com");
+    expect(prismaMock.supportTicket.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects replay after the database uniqueness boundary consumes the session", async () => {
+    prismaMock.supportTicket.create.mockRejectedValue({ code: "P2002" });
+
+    const response = await POST(makeRequest(validBody));
+
+    expect(response.status).toBe(409);
+    expect(prismaMock.supportTicket.create).toHaveBeenCalledTimes(1);
   });
 
   it("silently discards honeypot submissions before Stripe or the database", async () => {

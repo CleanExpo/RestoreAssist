@@ -13,6 +13,14 @@ import {
 } from "../audit-ai-call-sites";
 import { getAiTaskPolicy } from "../../lib/ai/task-policy";
 
+let liveReport: ReturnType<typeof auditAiCallSites>;
+
+// The repository scan is intentionally expensive. Run it once outside the
+// five-second per-test budget and share the immutable result between ratchets.
+beforeAll(() => {
+  liveReport = auditAiCallSites();
+}, 30_000);
+
 describe("auditAiCallSite", () => {
   it("detects direct Anthropic report call guardrails", () => {
     const finding = auditAiCallSite(
@@ -308,9 +316,8 @@ describe("platform-key-fallback detection (RA-6921 P0)", () => {
   });
 
   it("keeps the live audit's platform-key-fallback findings pinned to the ratchet baseline", () => {
-    const report = auditAiCallSites();
     const baseline = readPlatformKeyFallbackBaseline();
-    const netNew = report.guardrailSummary.platformKeyFallbackFiles.filter(
+    const netNew = liveReport.guardrailSummary.platformKeyFallbackFiles.filter(
       (file) => !baseline.includes(file),
     );
 
@@ -405,12 +412,6 @@ describe("AI guardrail gate summary", () => {
 });
 
 describe("AI task policies", () => {
-  let liveReport: ReturnType<typeof auditAiCallSites>;
-
-  beforeAll(() => {
-    liveReport = auditAiCallSites();
-  }, 30_000);
-
   it("requires cost observability for paid task classes", () => {
     expect(getAiTaskPolicy("report_drafting")).toEqual(
       expect.objectContaining({
