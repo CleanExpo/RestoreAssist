@@ -97,7 +97,12 @@ function hasAuth(content: string): boolean {
     // requireOwner() is the codebase's named ownership gate; it resolves to
     // getServerSession internally. Recognising it here is behaviour-based
     // (any route that actually calls the gate passes) rather than path-exempt.
-    content.includes("requireOwner(")
+    content.includes("requireOwner(") ||
+    // requireClientAuth() is the codebase's named homeowner portal gate; it
+    // resolves to getServerSession internally for next-auth / portal-jwt.
+    // Recognising it here is behaviour-based (any route that actually calls the
+    // gate passes) rather than path-exempt.
+    content.includes("requireClientAuth(")
   );
 }
 
