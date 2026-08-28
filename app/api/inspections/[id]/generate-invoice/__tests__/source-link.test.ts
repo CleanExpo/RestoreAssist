@@ -3,6 +3,18 @@ import { NextRequest } from "next/server";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+vi.mock("@/lib/gst/resolve-user-gst", () => ({
+  resolveUserGstTreatment: vi.fn().mockResolvedValue({
+    country: "AU",
+    rate: 0.1,
+    ratePercent: 10,
+    currency: "AUD",
+    percentLabel: "10%",
+    xeroTaxType: "OUTPUT",
+    myobTaxCode: "GST",
+    qboTaxRateName: "GST",
+  }),
+}));
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: (_req: unknown, _uid: string, fn: () => Promise<unknown>) =>
     fn(),

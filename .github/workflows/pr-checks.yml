@@ -4,12 +4,17 @@ on:
   pull_request:
     branches: [main, sandbox]
     types: [opened, synchronize, reopened]
+  # The same exact gate also reconciles main daily. This catches a protected-
+  # branch bypass or external merge that entered while a PR check was red.
+  schedule:
+    - cron: "30 15 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: pr-${{ github.event.pull_request.number }}
+  group: quality-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -51,6 +56,15 @@ jobs:
         with:
           node-version-file: ".nvmrc"
           cache: "npm"
+
+      # CodeRabbit's configured review ceiling is 100 files. PR #2072 crossed
+      # it, so the external review reported success while reviewing nothing.
+      # Fail early and require a stacked/split PR before expensive gates run.
+      - name: PR review scope
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-pr-scope.mjs
+        env:
+          PR_CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
 
       - name: Install dependencies
         run: npm ci
@@ -266,7 +280,9 @@ jobs:
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
 
       - name: Unit tests
-        run: npx --no-install vitest run --config config/vitest.config.js
+        # This package command is also the only valid local full-suite receipt.
+        # Feature-selected test totals must never be reported as PR parity.
+        run: npm run test:unit:full
         # RA-6685 — without DATABASE_URL the `skipIf(!process.env.DATABASE_URL)`
         # suites evaluate `skipIf(true)` and report green WITHOUT running.
         env:

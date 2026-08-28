@@ -27,6 +27,7 @@ const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  userFindUnique.mockReset();
   mockSession.mockResolvedValue({ user: { id: "user_abcd" } });
   userFindUnique
     .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
@@ -37,6 +38,7 @@ beforeEach(() => {
       businessPhone: null,
       businessEmail: "a@test.com",
       businessLogo: null,
+      organization: { country: "AU" },
     });
 });
 
@@ -89,5 +91,44 @@ describe("POST /api/calculate", () => {
     expect(json.totalIncGST).toBe(3025);
     expect(json.pricingSource).toBe("default_rates");
     expect(String(json.pricingNote)).toMatch(/Cost Libraries/i);
+  });
+
+  it("uses the organisation country for NZ GST", async () => {
+    userFindUnique.mockReset();
+    userFindUnique
+      .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
+      .mockResolvedValueOnce({
+        businessName: "NZ Test Co",
+        businessABN: "9429041922228",
+        businessAddress: "1 Queen St",
+        businessPhone: null,
+        businessEmail: "nz@test.example",
+        businessLogo: null,
+        organization: { country: "NZ" },
+      });
+
+    const res = await POST(calcReq(validBody));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.gst).toBe(412.5);
+    expect(json.totalIncGST).toBe(3162.5);
+  });
+
+  it("fails closed when the organisation country is missing", async () => {
+    userFindUnique.mockReset();
+    userFindUnique
+      .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
+      .mockResolvedValueOnce({
+        businessName: "Incomplete Co",
+        businessABN: "53 004 085 616",
+        businessAddress: "1 St",
+        businessPhone: null,
+        businessEmail: "missing@test.example",
+        businessLogo: null,
+        organization: null,
+      });
+
+    const res = await POST(calcReq(validBody));
+    expect(res.status).toBe(422);
   });
 });

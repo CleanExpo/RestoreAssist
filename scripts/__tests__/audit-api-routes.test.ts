@@ -216,6 +216,28 @@ describe("auditApiRoute", () => {
     );
   });
 
+  it("classifies the paid public audit funnel without forcing homeowner auth", () => {
+    const findings = auditApiRoute(
+      "app/api/revenue/job-file-audit/intake/route.ts",
+      `
+        await applyRateLimit(request, { failClosedOnUpstashError: true });
+        const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId);
+        if (checkoutSession.payment_status !== "paid") return paymentRequired();
+      `,
+    );
+
+    expect(findings.some((f) => f.rule === "api-auth-required")).toBe(false);
+    expect(findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rule: "public-token-route-review",
+          exception: true,
+          severity: "warning",
+        }),
+      ]),
+    );
+  });
+
   it("accepts test helpers with an explicit ALLOW_TEST_HELPERS hard guard", () => {
     const findings = auditApiRoute(
       "app/api/test/sign-in-as/route.ts",
