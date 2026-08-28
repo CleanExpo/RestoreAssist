@@ -7,8 +7,11 @@ export interface SetupOrganization {
   id: string;
   legalName: string | null;
   tradingName: string | null;
+  country: 'AU' | 'NZ';
   abn: string | null;
+  nzbn: string | null;
   acn: string | null;
+  timezone: string;
   state: string | null;
   address: string | null;
   phone: string | null;
@@ -45,9 +48,7 @@ export const useSetupStore = create<SetupState>((set) => ({
   org: null,
   sections: INITIAL_SECTIONS,
   setOrg: (org) => set({ org }),
-  setSectionStatus: (key, status) =>
-    set((s) => ({ sections: { ...s.sections, [key]: status } })),
-  updateOrgField: (key, value) =>
-    set((s) => (s.org ? { org: { ...s.org, [key]: value } } : s)),
+  setSectionStatus: (key, status) => set((s) => ({ sections: { ...s.sections, [key]: status } })),
+  updateOrgField: (key, value) => set((s) => (s.org ? { org: { ...s.org, [key]: value } } : s)),
   reset: () => set({ org: null, sections: INITIAL_SECTIONS }),
 }));

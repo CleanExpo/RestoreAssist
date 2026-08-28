@@ -173,7 +173,9 @@ export default function PortalReportDetail({
     if (!report) return;
     setDownloadingPdf(true);
     try {
-      const res = await portalFetch(`/api/portal/reports/${report.id}/download`);
+      const res = await portalFetch(
+        `/api/portal/reports/${report.id}/download`,
+      );
       if (!res.ok) throw new Error("Download failed");
 
       const contentType = res.headers.get("content-type") ?? "";
@@ -342,21 +344,6 @@ export default function PortalReportDetail({
                   <p className="text-brand-slate">{report.hazardType}</p>
                 </div>
               </div>
-
-              {(report.waterCategory || report.waterClass) && (
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="text-brand-bronze mt-1" size={20} />
-                  <div>
-                    <p className="text-sm font-medium text-brand-navy">
-                      Water Classification
-                    </p>
-                    <p className="text-brand-slate">
-                      {report.waterCategory}
-                      {report.waterClass && ` • Class ${report.waterClass}`}
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="space-y-4">

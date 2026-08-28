@@ -38,6 +38,8 @@ const initial = { id: "o1", hydrationJobs: [] } as never;
 
 beforeEach(() => {
   storeState.org = null;
+  storeState.setOrg.mockClear();
+  storeState.setSectionStatus.mockClear();
   // mockReset, not mockClear: the ordering test installs a deferred
   // implementation that never settles on its own, and leaking that into the
   // next test hangs it.
@@ -73,6 +75,27 @@ describe("SetupShell — one-step wizard wiring", () => {
     expect(
       screen.getByText(/complete this step to continue/i),
     ).toBeInTheDocument();
+  });
+
+  it("restores a completed New Zealand business step without an ABR hydration job", async () => {
+    const nzInitial = {
+      id: "nz-org",
+      country: "NZ",
+      timezone: "Pacific/Auckland",
+      legalName: "Aotearoa Restoration Limited",
+      nzbn: "9429031234566",
+      state: "Auckland",
+      hydrationJobs: [],
+    } as never;
+
+    render(<SetupShell initial={nzInitial} />);
+
+    await waitFor(() => {
+      expect(storeState.setSectionStatus).toHaveBeenCalledWith(
+        "businessDetails",
+        "ready",
+      );
+    });
   });
 });
 
@@ -123,7 +146,13 @@ describe("SetupShell — the finish CTA completes setup", () => {
   beforeEach(() => {
     // Required-step completion: business details come from the store, the AI
     // key from /api/onboarding/status (stubbed complete in stubFetch).
-    storeState.org = { legalName: "Acme Restoration", abn: "12345678901", state: "NSW" };
+    storeState.org = {
+      legalName: "Acme Restoration",
+      country: "AU",
+      abn: "12345678901",
+      state: "NSW",
+      timezone: "Australia/Sydney",
+    };
     assign = vi.fn();
     Object.defineProperty(window, "location", {
       configurable: true,

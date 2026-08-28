@@ -7,11 +7,25 @@ import { useSetupStore } from '../store';
 
 const TEST_ORG = {
   id: 'org-1',
-  legalName: null, tradingName: null, abn: null, acn: null, state: null,
-  address: null, phone: null, email: null, website: null, logoUrl: null,
-  primaryColor: null, accentColor: null, aboutCopy: null,
+  legalName: null,
+  tradingName: null,
+  country: 'AU' as const,
+  abn: null,
+  nzbn: null,
+  acn: null,
+  timezone: 'Australia/Sydney',
+  state: null,
+  address: null,
+  phone: null,
+  email: null,
+  website: null,
+  logoUrl: null,
+  primaryColor: null,
+  accentColor: null,
+  aboutCopy: null,
   tradingStatus: 'ACTIVE' as const,
-  setupStartedAt: null, setupCompletedAt: null,
+  setupStartedAt: null,
+  setupCompletedAt: null,
 };
 
 describe('BusinessDetailsCard', () => {
@@ -19,7 +33,10 @@ describe('BusinessDetailsCard', () => {
     useSetupStore.getState().reset();
     useSetupStore.getState().setOrg(TEST_ORG);
     // jsdom doesn't have fetch by default
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: { accepted: true } }) }) as never;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { accepted: true } }),
+    }) as never;
   });
 
   it('renders the ABN input when pending', () => {
@@ -29,18 +46,62 @@ describe('BusinessDetailsCard', () => {
 
   it('disables submit on invalid ABN', () => {
     render(<BusinessDetailsCard />);
-    fireEvent.change(screen.getByPlaceholderText(/53 004/i), { target: { value: '123' } });
+    fireEvent.change(screen.getByPlaceholderText(/53 004/i), {
+      target: { value: '123' },
+    });
     expect(screen.getByRole('button', { name: /start setup/i })).toBeDisabled();
   });
 
   it('enables submit on valid ABN', () => {
     render(<BusinessDetailsCard />);
-    fireEvent.change(screen.getByPlaceholderText(/53 004/i), { target: { value: '53004085616' } });
+    fireEvent.change(screen.getByPlaceholderText(/53 004/i), {
+      target: { value: '53004085616' },
+    });
     expect(screen.getByRole('button', { name: /start setup/i })).not.toBeDisabled();
   });
 
+  it('offers a complete New Zealand business path without calling the Australian register', async () => {
+    render(<BusinessDetailsCard />);
+    fireEvent.change(screen.getByLabelText(/^country$/i), {
+      target: { value: 'NZ' },
+    });
+    fireEvent.change(screen.getByLabelText(/^legal name$/i), {
+      target: { value: 'Aotearoa Restoration Limited' },
+    });
+    fireEvent.change(screen.getByLabelText(/NZBN/i), {
+      target: { value: '9429031234566' },
+    });
+    fireEvent.change(screen.getByLabelText(/^region$/i), {
+      target: { value: 'Auckland' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save business details/i }));
+
+    await vi.waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/setup/state',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({
+            country: 'NZ',
+            timezone: 'Pacific/Auckland',
+            legalName: 'Aotearoa Restoration Limited',
+            nzbn: '9429031234566',
+            state: 'Auckland',
+            website: null,
+          }),
+        }),
+      );
+    });
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/setup/hydrate', expect.anything());
+  });
+
   it('renders ready state with org data after status flip', () => {
-    useSetupStore.getState().setOrg({ ...TEST_ORG, legalName: 'Acme Pty Ltd', abn: '53004085616', state: 'NSW' });
+    useSetupStore.getState().setOrg({
+      ...TEST_ORG,
+      legalName: 'Acme Pty Ltd',
+      abn: '53004085616',
+      state: 'NSW',
+    });
     useSetupStore.getState().setSectionStatus('businessDetails', 'ready');
     render(<BusinessDetailsCard />);
     expect(screen.getByText('Acme Pty Ltd')).toBeInTheDocument();
@@ -113,7 +174,9 @@ describe('BusinessDetailsCard', () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 400,
-      json: async () => ({ error: { code: 'VALIDATION', message: 'Invalid ABN' } }),
+      json: async () => ({
+        error: { code: 'VALIDATION', message: 'Invalid ABN' },
+      }),
     }) as never;
 
     useSetupStore.getState().setSectionStatus('businessDetails', 'manual');
@@ -139,9 +202,14 @@ describe('BusinessDetailsCard', () => {
       .mockResolvedValueOnce({
         ok: false,
         status: 400,
-        json: async () => ({ error: { code: 'VALIDATION', message: 'Invalid ABN' } }),
+        json: async () => ({
+          error: { code: 'VALIDATION', message: 'Invalid ABN' },
+        }),
       })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: { updated: ['abn'] } }) }) as never;
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: { updated: ['abn'] } }),
+      }) as never;
 
     useSetupStore.getState().setSectionStatus('businessDetails', 'manual');
     render(<BusinessDetailsCard />);

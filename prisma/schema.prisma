@@ -954,13 +954,15 @@ model Organization {
   storageProviderAccountEmail   String? // The gmail the user OAuth'd as — shown on StorageCard
   storageProviderPkceVerifier   String? // Transient: cleared on successful callback
 
-  // RA-1120: NZ locale support — "AU" | "NZ"
-  country String @default("AU")
+  // D-021: authoritative tenant locale — "AU" | "NZ"
+  country  String @default("AU")
+  timezone String @default("Australia/Sydney")
 
   // Setup wizard additions (Migration A, 2026-05-12)
   legalName        String?
   tradingName      String?
   abn              String?       @unique
+  nzbn             String?       @unique
   acn              String?
   state            String?
   address          String?

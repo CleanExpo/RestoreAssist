@@ -172,13 +172,6 @@ export default function PortalDashboard() {
                     <span className="font-medium">Type:</span>{" "}
                     {report.hazardType}
                   </p>
-                  {report.waterCategory && (
-                    <p>
-                      <span className="font-medium">Category:</span>{" "}
-                      {report.waterCategory}
-                      {report.waterClass && ` • Class ${report.waterClass}`}
-                    </p>
-                  )}
                   {report.totalCost && (
                     <p className="text-brand-navy font-semibold mt-3">
                       Estimated Cost: ${report.totalCost.toLocaleString()}

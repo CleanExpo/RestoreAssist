@@ -73,6 +73,8 @@ describe.skipIf(!process.env.DATABASE_URL)("GET /api/setup/state", () => {
     const json = await res.json();
     expect(json.data.organization.legalName).toBe("State Test Pty Ltd");
     expect(json.data.organization.abn).toBe("53004085616");
+    expect(json.data.organization.country).toBe("AU");
+    expect(json.data.organization.timezone).toBe("Australia/Sydney");
     expect(json.data.sections.businessDetails).toBe("PENDING");
     expect(json.data.sections.branding).toBe("PENDING");
     expect(json.data.sections.pricing).toBe("PENDING");

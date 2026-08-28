@@ -1,7 +1,7 @@
 # RestoreAssist — Job Continuity spec reconciliation (Document Eight)
 
 **Date:** 2026-08-26
-**Status:** Proposal for owner review. Nothing here has been applied.
+**Status:** Accepted 2026-08-28. D-019–D-021 and non-conflicting backlog entries have been applied.
 **Governs:** D-010 (spec is the living source of truth). Follows the pattern of
 `RESTOREASSIST-SPEC-RECONCILIATION.md`.
 
@@ -295,8 +295,8 @@ and a named verifier, exactly as §11.2 proposes — never as a literal.
 
 ## 9. Proposed decisions and backlog entries
 
-For owner acceptance. **Not self-applied** — nothing has been written to
-`RESTOREASSIST-DECISIONS.md` or `RESTOREASSIST-V1-BACKLOG.md`.
+Accepted by the owner on 2026-08-28 and applied to
+`RESTOREASSIST-DECISIONS.md` and `RESTOREASSIST-V1-BACKLOG.md`.
 
 ### Proposed decisions
 
@@ -319,12 +319,12 @@ timezone. Per-sketch `country` is derived from it, not the reverse.
 |---|---|---|---|
 | P1-12 | `SketchRoom` stable identity; stop hard-deleting rooms with children | — | **Prerequisite to D-009.** Fixes live evidence orphaning |
 | P1-13 | `ScopeItem.sketchRoomId`; retire `ScopeItem.roomId` | P1-12 | Scope currently points at the retiring `Room` model |
-| P3-4 | Organisation locale settings surface (country/currency/GST/timezone) | — | Independent of §3.1/§3.2 |
-| P3-5 | GST call-site consolidation onto `getGstTreatment()`; NZBN wired into setup | P3-4 | Also update RULES.md rule 15 |
-| P4-4 | Cross-job exception inbox (§9.4); adopt the orphaned notifications page into nav | P4-3 | No cross-job surface exists today |
-| P4-5 | Consumer jargon removal — Cat/Class and m² out of the homeowner portal | — | Small, contradicts §9.7 today |
-| P5-1 | Accessibility ratchet epic (§12) | — | Sequence separately; see §6 |
-| P5-2 | Reconcile `.claude/DESIGN.md` with shipped tokens | — | **Prerequisite to any §10 visual work** |
+| P3-6 | Organisation locale settings surface (country/currency/GST/timezone) + NZBN setup | — | Non-conflicting ID; independent of §3.1/§3.2 |
+| P3-7 | GST call-site consolidation onto `getGstTreatment()` | P3-6 | Rule 15 already prohibits AU-only literals |
+| P4-5 | Cross-job exception inbox (§9.4); adopt the orphaned notifications page into nav | P4-3 | No cross-job surface exists today |
+| P4-6 | Consumer jargon removal — Cat/Class and m² out of the homeowner portal | — | Small, contradicts §9.7 today |
+| P5-3 | Accessibility ratchet epic (§12) | — | Sequence separately; see §6 |
+| P5-4 | Reconcile `.claude/DESIGN.md` with shipped tokens | — | **DONE** in #2063 |
 
 ---
 
@@ -332,13 +332,13 @@ timezone. Per-sketch `country` is derived from it, not the reverse.
 
 ```
 Independent, start now
-  ├── P3-4  org locale settings          (§5)
-  ├── P3-5  GST consolidation + NZBN     (§5)
-  ├── P4-5  consumer jargon removal      (§4)
-  └── P5-2  DESIGN.md reconciliation     (§7)   ← gates all visual work
+  ├── P3-6  org locale settings + NZBN   (§5)
+  ├── P3-7  GST consolidation            (§5)
+  ├── P4-6  consumer jargon removal      (§4)
+  └── P5-4  DESIGN.md reconciliation     (§7)   DONE
 
 Structural, in order
-  P1-12 SketchRoom stable identity       (§3.2) ← fixes a live defect
+  P1-12 SketchRoom stable identity       (§3.2) DONE
     └── P1-13 ScopeItem → sketchRoomId
           └── free-text room migration
   P1-7  ClaimProgress one protocol       (§3.1)
@@ -348,10 +348,10 @@ Structural, in order
 Consolidation
   P4-3  completeness engine (8 → 1)      (§3.3)
     └── ten continuity checks as rules
-          └── P4-4 exception inbox
+          └── P4-5 exception inbox
 
 Separate track
-  P5-1  accessibility ratchet            (§6)
+  P5-3  accessibility ratchet            (§6)
 ```
 
 **The three high-fidelity screens named in the specification (Job Overview, Field Capture,
