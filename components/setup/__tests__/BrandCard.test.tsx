@@ -60,14 +60,15 @@ describe('BrandCard', () => {
     expect(screen.getByText(/acme/i)).toBeInTheDocument();
   });
 
-  it('applies a suggested palette to primary and accent', async () => {
+  it('applies a suggested palette to primary and accent', () => {
     useSetupStore.getState().setSectionStatus('branding', 'ready');
     render(<BrandCard />);
     fireEvent.click(screen.getByRole('button', { name: /claim steel/i }));
-    await waitFor(() => {
-      expect(useSetupStore.getState().org?.primaryColor).toBe('#0B1F3A');
-      expect(useSetupStore.getState().org?.accentColor).toBe('#3B6D8C');
-    });
+    // Zustand applies these optimistic updates synchronously. Keeping this a
+    // synchronous assertion avoids making the test depend on a polling timer
+    // that can be starved during the repository-wide serial Vitest run.
+    expect(useSetupStore.getState().org?.primaryColor).toBe('#0B1F3A');
+    expect(useSetupStore.getState().org?.accentColor).toBe('#3B6D8C');
   });
 
   it('PATCH /api/setup/state is called when primary colour changes', async () => {
@@ -159,7 +160,7 @@ describe('BrandCard', () => {
       expect(await screen.findByRole('alert')).toHaveTextContent(/only images are allowed/i);
       expect(global.fetch).toHaveBeenCalledTimes(1);
       expect(useSetupStore.getState().org?.logoUrl).toBeNull();
-    });
+    }, 15_000);
 
     it('rejects non-image types client-side without calling fetch', async () => {
       render(<BrandCard />);

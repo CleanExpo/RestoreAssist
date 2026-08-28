@@ -2,34 +2,110 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 
-function wiringFailures(pilot: string, release: string, appYaml = ""): string[] {
+function checkoutControlFailures(workflow: string): string[] {
+  const lines = workflow.split("\n");
+  const checkoutSteps: string[] = [];
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const checkoutStart = lines[lineIndex].match(
+      /^(\s*)-\s+uses:\s*actions\/checkout@/,
+    );
+    if (!checkoutStart) continue;
+
+    const stepIndent = checkoutStart[1];
+    let stepEnd = lineIndex + 1;
+    while (
+      stepEnd < lines.length &&
+      !new RegExp(`^${stepIndent.replaceAll(" ", "\\s")}-\\s+`).test(
+        lines[stepEnd],
+      )
+    ) {
+      stepEnd += 1;
+    }
+    checkoutSteps.push(lines.slice(lineIndex, stepEnd).join("\n"));
+    lineIndex = stepEnd - 1;
+  }
+
+  if (checkoutSteps.length === 0) return ["PR checkout action absent"];
+
   const failures: string[] = [];
-  if (!/^\s{2}workflow_call:/m.test(pilot)) failures.push("workflow_call absent");
+  checkoutSteps.forEach((step, index) => {
+    if (
+      !/^\s*-\s+uses:\s*actions\/checkout@[0-9a-f]{40}(?:\s|#|$)/m.test(step)
+    ) {
+      failures.push(
+        `PR checkout action is not commit-pinned (step ${index + 1})`,
+      );
+    }
+    if (!/^\s+persist-credentials:\s*false\s*(?:#.*)?$/m.test(step)) {
+      failures.push(`PR checkout credentials persist (step ${index + 1})`);
+    }
+  });
+  return failures;
+}
+
+function wiringFailures(
+  pilot: string,
+  prHarness: string,
+  release: string,
+  appYaml = "",
+): string[] {
+  const failures: string[] = [];
+  if (!/^\s{2}workflow_call:/m.test(pilot))
+    failures.push("workflow_call absent");
   if (!/PILOT_TESTER_EVIDENCE_BUNDLE_URL:[\s\S]*?required: true/.test(pilot)) {
     failures.push("evidence URL secret not required");
   }
-  if (!/PILOT_TESTER_EVIDENCE_BUNDLE_SHA256:[\s\S]*?required: true/.test(pilot)) {
+  if (
+    !/PILOT_TESTER_EVIDENCE_BUNDLE_SHA256:[\s\S]*?required: true/.test(pilot)
+  ) {
     failures.push("evidence hash secret not required");
   }
   if (!/PILOT_TESTER_JUDGE_API_KEY:[\s\S]*?required: true/.test(pilot)) {
     failures.push("server judge secret not required");
   }
-  if (!/PILOT_TESTER_JUDGE_API_KEY:\s*\$\{\{\s*secrets\.PILOT_TESTER_JUDGE_API_KEY\s*\}\}/.test(pilot)) {
+  if (
+    !/PILOT_TESTER_JUDGE_API_KEY:\s*\$\{\{\s*secrets\.PILOT_TESTER_JUDGE_API_KEY\s*\}\}/.test(
+      pilot,
+    )
+  ) {
     failures.push("server judge secret not passed to canary");
   }
   if (!/RESTOREASSIST_AI_API_KEY:[\s\S]*?required: true/.test(pilot)) {
     failures.push("adjuster provider secret not required");
   }
-  if (!/RESTOREASSIST_AI_API_KEY:\s*\$\{\{\s*secrets\.RESTOREASSIST_AI_API_KEY\s*\}\}/.test(pilot)) {
+  if (
+    !/RESTOREASSIST_AI_API_KEY:\s*\$\{\{\s*secrets\.RESTOREASSIST_AI_API_KEY\s*\}\}/.test(
+      pilot,
+    )
+  ) {
     failures.push("adjuster provider secret not passed");
   }
-  if (/ANTHROPIC_API_KEY/.test(pilot)) failures.push("unused Anthropic secret exposed");
-  for (const surface of ["app/api/pilot-tester/**", "lib/pilot-tester/**", "prisma/schema.prisma", "prisma/migrations/**"]) {
-    if (!pilot.includes(`- \"${surface}\"`)) failures.push(`server surface not watched: ${surface}`);
+  if (/ANTHROPIC_API_KEY/.test(pilot))
+    failures.push("unused Anthropic secret exposed");
+  for (const surface of [
+    "app/api/pilot-tester/**",
+    "lib/pilot-tester/**",
+    "prisma/schema.prisma",
+    "prisma/migrations/**",
+    ".github/workflows/pilot-canary.yml",
+    ".github/workflows/release-gate.yml",
+    ".do/app.yaml",
+    "package.json",
+    "package-lock.json",
+    ".nvmrc",
+  ]) {
+    if (!prHarness.includes(`- \"${surface}\"`)) {
+      failures.push(`PR harness surface not watched: ${surface}`);
+    }
   }
-  if (!/sha256sum --check --strict/.test(pilot)) failures.push("bundle hash not checked");
-  if (!/Evidence bundle contains an unsafe path/.test(pilot)) failures.push("archive paths not checked");
-  if (!/needs: \[provenance, pilot-canary\]/.test(release)) failures.push("score can bypass pilot");
+  failures.push(...checkoutControlFailures(prHarness));
+  if (!/sha256sum --check --strict/.test(pilot))
+    failures.push("bundle hash not checked");
+  if (!/Evidence bundle contains an unsafe path/.test(pilot))
+    failures.push("archive paths not checked");
+  if (!/needs: \[provenance, pilot-canary\]/.test(release))
+    failures.push("score can bypass pilot");
   if (!/uses: \.\/\.github\/workflows\/pilot-canary\.yml/.test(release)) {
     failures.push("release does not call local pilot workflow");
   }
@@ -47,32 +123,90 @@ function wiringFailures(pilot: string, release: string, appYaml = ""): string[] 
 describe("release-to-pilot workflow wiring", () => {
   it("requires the immutable evidence bundle and canary before scoring", async () => {
     const root = path.resolve(process.cwd(), "../..");
-    const [pilot, release, appYaml] = await Promise.all([
-      fs.readFile(path.join(root, ".github/workflows/pilot-canary.yml"), "utf8"),
-      fs.readFile(path.join(root, ".github/workflows/release-gate.yml"), "utf8"),
+    const [pilot, prHarness, release, appYaml] = await Promise.all([
+      fs.readFile(
+        path.join(root, ".github/workflows/pilot-canary.yml"),
+        "utf8",
+      ),
+      fs.readFile(
+        path.join(root, ".github/workflows/pilot-harness-pr.yml"),
+        "utf8",
+      ),
+      fs.readFile(
+        path.join(root, ".github/workflows/release-gate.yml"),
+        "utf8",
+      ),
       fs.readFile(path.join(root, ".do/app.yaml"), "utf8"),
     ]);
-    expect(wiringFailures(pilot, release, appYaml)).toEqual([]);
+    expect(wiringFailures(pilot, prHarness, release, appYaml)).toEqual([]);
 
     const bypass = release.replace(
       "needs: [provenance, pilot-canary]",
       "needs: [provenance]",
     );
-    expect(wiringFailures(pilot, bypass, appYaml)).toContain("score can bypass pilot");
+    expect(wiringFailures(pilot, prHarness, bypass, appYaml)).toContain(
+      "score can bypass pilot",
+    );
 
     const unhashed = pilot.replace("sha256sum --check --strict", "true");
-    expect(wiringFailures(unhashed, release, appYaml)).toContain("bundle hash not checked");
+    expect(wiringFailures(unhashed, prHarness, release, appYaml)).toContain(
+      "bundle hash not checked",
+    );
 
-    const noJudge = pilot.replaceAll("PILOT_TESTER_JUDGE_API_KEY", "PILOT_TESTER_JUDGE_API_KEY_REMOVED");
-    expect(wiringFailures(noJudge, release, appYaml)).toContain("server judge secret not required");
+    const noJudge = pilot.replaceAll(
+      "PILOT_TESTER_JUDGE_API_KEY",
+      "PILOT_TESTER_JUDGE_API_KEY_REMOVED",
+    );
+    expect(wiringFailures(noJudge, prHarness, release, appYaml)).toContain(
+      "server judge secret not required",
+    );
 
-    const appWithoutJudge = appYaml.replace("PILOT_TESTER_JUDGE_API_KEY", "PILOT_TESTER_JUDGE_API_KEY_REMOVED");
-    expect(wiringFailures(pilot, release, appWithoutJudge)).toContain("deployment judge secret absent");
+    const appWithoutJudge = appYaml.replace(
+      "PILOT_TESTER_JUDGE_API_KEY",
+      "PILOT_TESTER_JUDGE_API_KEY_REMOVED",
+    );
+    expect(
+      wiringFailures(pilot, prHarness, release, appWithoutJudge),
+    ).toContain("deployment judge secret absent");
 
-    const noAdjuster = pilot.replaceAll("RESTOREASSIST_AI_API_KEY", "RESTOREASSIST_AI_API_KEY_REMOVED");
-    expect(wiringFailures(noAdjuster, release, appYaml)).toContain("adjuster provider secret not required");
+    const noAdjuster = pilot.replaceAll(
+      "RESTOREASSIST_AI_API_KEY",
+      "RESTOREASSIST_AI_API_KEY_REMOVED",
+    );
+    expect(wiringFailures(noAdjuster, prHarness, release, appYaml)).toContain(
+      "adjuster provider secret not required",
+    );
 
-    const stalePaths = pilot.replace('- "lib/pilot-tester/**"', '- "docs/**"');
-    expect(wiringFailures(stalePaths, release, appYaml)).toContain("server surface not watched: lib/pilot-tester/**");
+    const stalePaths = prHarness.replace(
+      '- "lib/pilot-tester/**"',
+      '- "docs/**"',
+    );
+    expect(wiringFailures(pilot, stalePaths, release, appYaml)).toContain(
+      "PR harness surface not watched: lib/pilot-tester/**",
+    );
+
+    const persistedToken = prHarness.replace(
+      "persist-credentials: false",
+      "persist-credentials: true",
+    );
+    expect(
+      wiringFailures(pilot, persistedToken, release, appYaml),
+    ).toContainEqual(
+      expect.stringContaining("PR checkout credentials persist"),
+    );
+
+    const mixedCheckoutControls = prHarness.replace(
+      /      - uses: actions\/checkout@[0-9a-f]{40} # v7\n        with:\n          persist-credentials: false/,
+      `      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false`,
+    );
+    expect(
+      wiringFailures(pilot, mixedCheckoutControls, release, appYaml),
+    ).toContain("PR checkout action is not commit-pinned (step 1)");
+    expect(
+      wiringFailures(pilot, mixedCheckoutControls, release, appYaml),
+    ).toContain("PR checkout credentials persist (step 1)");
   });
 });

@@ -5433,6 +5433,11 @@ model SupportTicket {
   userId String?
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  // Stable producer-owned key for exactly-once external fulfilment. Nullable
+  // so ordinary support requests remain unaffected; uniqueness is enforced by
+  // Postgres for paid or webhook-created tickets that supply a key.
+  externalReference String? @unique
+
   email   String
   name    String
   subject String

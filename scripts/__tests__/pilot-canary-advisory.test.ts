@@ -23,6 +23,7 @@ import { parse } from "yaml";
 
 const ROOT = process.cwd();
 const CANARY = join(ROOT, ".github", "workflows", "pilot-canary.yml");
+const PR_HARNESS = join(ROOT, ".github", "workflows", "pilot-harness-pr.yml");
 const RELEASE_GATE = join(ROOT, ".github", "workflows", "release-gate.yml");
 
 /** The eight secrets the gate script reads, by its own env-var names. */
@@ -60,6 +61,7 @@ interface Step {
 function workflow(path: string) {
   return parse(readFileSync(path, "utf8")) as {
     on: {
+      pull_request?: unknown;
       workflow_call?: {
         secrets?: Record<string, { required?: boolean }>;
         outputs?: Record<string, { value?: string }>;
@@ -67,7 +69,7 @@ function workflow(path: string) {
     };
     jobs: Record<
       string,
-      { if?: string; needs?: string | string[]; steps?: Step[]; outputs?: Record<string, string> }
+      { name?: string; if?: string; needs?: string | string[]; steps?: Step[]; outputs?: Record<string, string> }
     >;
   };
 }
@@ -199,6 +201,21 @@ describe("pilot canary reusable-workflow contract", () => {
   it("still refuses to run the swarm without secrets", () => {
     const swarm = workflow(CANARY).jobs.swarm;
     expect(swarm?.if).toContain("provisioned == 'true'");
+  });
+});
+
+describe("pilot workflow presentation", () => {
+  it("separates the PR harness from the live canary", () => {
+    expect(workflow(CANARY).on.pull_request).toBeUndefined();
+    expect(workflow(PR_HARNESS).on.pull_request).toBeDefined();
+  });
+
+  it("labels the PR job so a skipped live pilot cannot be inferred", () => {
+    const prJob = workflow(PR_HARNESS).jobs["dry-run"];
+    expect(prJob?.name).toContain("live pilot not requested");
+    const commands = (prJob?.steps ?? []).map((step) => step.run);
+    expect(commands).toContain("npm test");
+    expect(commands).toContain("npm run dryrun");
   });
 });
 
