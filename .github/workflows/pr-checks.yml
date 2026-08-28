@@ -108,10 +108,11 @@ jobs:
       # a failed row in `_prisma_migrations` that poisons every later
       # `migrate deploy` (P3009) and turns this gate red on every PR.
       #
-      # Marking them `--applied` here means CI agrees they're considered
-      # applied without actually running them. The indexes they would
-      # have created don't exist in CI's ephemeral DB, but no test in
-      # this gate depends on those indexes existing.
+      # Marking them `--applied` here keeps Prisma deploy outside the
+      # transaction-incompatible DDL. Performance-only indexes remain skipped
+      # in ephemeral CI. The paid-audit replay index is different: after the
+      # column migration runs, a later step executes and mutation-tests that
+      # security-critical index directly.
       #
       # If a NEW migration file uses `CREATE INDEX CONCURRENTLY` and
       # this gate goes red again, append the migration name to the list
@@ -121,6 +122,7 @@ jobs:
           npx --no-install prisma migrate resolve --applied 20260407_n1_performance_indexes
           npx --no-install prisma migrate resolve --applied 20260407_perf_composite_indexes
           npx --no-install prisma migrate resolve --applied 20260516010000_inspection_close_terminal_index
+          npx --no-install prisma migrate resolve --applied 20260828213100_job_file_audit_intake_replay_guard_index
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
@@ -275,6 +277,12 @@ jobs:
       # so the drift gate is unchanged.
       - name: Apply migrations for DB-gated tests
         run: npx --no-install prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+
+      - name: Apply and verify paid-audit replay index
+        run: scripts/ci/apply-and-verify-job-file-audit-replay-index.sh
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci

@@ -32,7 +32,9 @@ describe("PR quality contract", () => {
 
     const workflow = parse(
       readFileSync(join(ROOT, ".github/workflows/pr-checks.yml"), "utf8"),
-    ) as { jobs: { quality: { steps: Array<{ name?: string; run?: string }> } } };
+    ) as {
+      jobs: { quality: { steps: Array<{ name?: string; run?: string }> } };
+    };
     const unitStep = workflow.jobs.quality.steps.find(
       (step) => step.name === "Unit tests",
     );
@@ -63,5 +65,67 @@ describe("PR quality contract", () => {
       (step) => step.name === "PR review scope",
     );
     expect(scopeStep?.if).toContain("pull_request");
+  });
+
+  it("keeps the live replay index out of Prisma transactions", () => {
+    const columnMigration = readFileSync(
+      join(
+        ROOT,
+        "prisma/migrations/20260828213000_job_file_audit_intake_replay_guard/migration.sql",
+      ),
+      "utf8",
+    );
+    const indexMigrationName =
+      "20260828213100_job_file_audit_intake_replay_guard_index";
+    const indexMigration = readFileSync(
+      join(ROOT, "prisma/migrations", indexMigrationName, "migration.sql"),
+      "utf8",
+    );
+
+    expect(columnMigration).not.toContain("CREATE UNIQUE INDEX");
+    expect(indexMigration).toContain("CREATE UNIQUE INDEX CONCURRENTLY");
+    expect(indexMigration).toContain("NOT index_state.indisvalid");
+    expect(indexMigration).toContain("NOT index_state.indisready");
+    expect(indexMigration).toContain(
+      "Never let IF NOT EXISTS hide broken state",
+    );
+
+    const replayProofScriptPath =
+      "scripts/ci/apply-and-verify-job-file-audit-replay-index.sh";
+    const replayProofScript = readFileSync(
+      join(ROOT, replayProofScriptPath),
+      "utf8",
+    );
+    expect(replayProofScript).toContain('-f "$migration_file"');
+    expect(replayProofScript).toContain("index_state.indisunique");
+    expect(replayProofScript).toContain("index_state.indisvalid");
+    expect(replayProofScript).toContain("index_state.indisready");
+    expect(replayProofScript).toContain("drop_recoverable_index");
+    expect(replayProofScript).toContain("DROP INDEX CONCURRENTLY");
+    expect(replayProofScript).toContain(
+      '[[ "$current_state" != "recoverable" ]]',
+    );
+    expect(replayProofScript).toContain('initial_state" == "valid"');
+    expect(replayProofScript).toContain(
+      "Replay-index mutation unexpectedly accepted duplicate keys.",
+    );
+    expect(replayProofScript).toContain("WHEN unique_violation");
+    expect(replayProofScript).toContain(
+      "Refusing to apply the replay-index CI probe outside local ephemeral Postgres.",
+    );
+
+    for (const path of [
+      ".github/workflows/pr-checks.yml",
+      ".github/workflows/release-gate.yml",
+      ".github/workflows/sketch-e2e.yml",
+      "scripts/ci/test-with-db.sh",
+    ]) {
+      const surface = readFileSync(join(ROOT, path), "utf8");
+      expect(surface, path).toContain(indexMigrationName);
+      expect(surface, path).toContain(replayProofScriptPath);
+      expect(surface, path).toMatch(
+        /prisma migrate deploy[\s\S]{0,500}apply-and-verify-job-file-audit-replay-index\.sh/,
+      );
+    }
   });
 });

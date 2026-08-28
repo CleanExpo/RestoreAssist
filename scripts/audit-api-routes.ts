@@ -52,12 +52,15 @@ const PUBLIC_TOKEN_ROUTE_PREFIXES = [
   // Public marketing-page Margot chat — rate-limited (applyRateLimit), platform
   // key, no auth by design; serves the home/features/pricing pages.
   "app/api/margot/public-chat/",
-  // Public revenue funnel. Checkout accepts only server-owned package IDs;
-  // intake treats the paid Stripe Checkout Session as its capability and
-  // verifies payment + offer before creating fulfilment work. Behaviour tests
-  // pin those controls, so adding homeowner auth would break the sales path.
-  "app/api/revenue/job-file-audit/",
 ];
+
+// Exact public revenue endpoints. Do not make this a directory prefix: a new
+// route below job-file-audit must receive the default authentication error
+// until its own capability controls and behaviour tests are reviewed.
+const PUBLIC_TOKEN_ROUTE_PATHS = new Set([
+  "app/api/revenue/job-file-audit/checkout/route.ts",
+  "app/api/revenue/job-file-audit/intake/route.ts",
+]);
 
 function normalisePath(file: string): string {
   return file.split(path.sep).join("/");
@@ -81,6 +84,13 @@ function walkRouteFiles(dir: string): string[] {
 
 function isPrefixMatch(file: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => file.startsWith(prefix));
+}
+
+function isPublicTokenRoute(file: string): boolean {
+  return (
+    PUBLIC_TOKEN_ROUTE_PATHS.has(file) ||
+    isPrefixMatch(file, PUBLIC_TOKEN_ROUTE_PREFIXES)
+  );
 }
 
 function addFinding(
@@ -247,14 +257,11 @@ export function auditApiRoute(
   const isExempt = isPrefixMatch(normalized, EXEMPT_ROUTE_PREFIXES);
   const isGuardedTestHelper =
     normalized.startsWith("app/api/test/") && hasTestHelperEnvGuard(content);
-  const isPublicTokenRoute = isPrefixMatch(
-    normalized,
-    PUBLIC_TOKEN_ROUTE_PREFIXES,
-  );
+  const publicTokenRoute = isPublicTokenRoute(normalized);
 
   if (
     !isExempt &&
-    !isPublicTokenRoute &&
+    !publicTokenRoute &&
     !isGuardedTestHelper &&
     !hasAuth(content)
   ) {
@@ -320,7 +327,7 @@ export function auditApiRoute(
     );
   }
 
-  if (isPublicTokenRoute && !hasAuth(content)) {
+  if (publicTokenRoute && !hasAuth(content)) {
     addFinding(
       findings,
       normalized,

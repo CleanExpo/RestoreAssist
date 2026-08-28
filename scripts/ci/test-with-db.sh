@@ -63,12 +63,16 @@ echo "==> Pre-resolving CONCURRENTLY migrations (matches CI)"
 for mig in \
   20260407_n1_performance_indexes \
   20260407_perf_composite_indexes \
-  20260516010000_inspection_close_terminal_index; do
+  20260516010000_inspection_close_terminal_index \
+  20260828213100_job_file_audit_intake_replay_guard_index; do
   npx --no-install prisma migrate resolve --applied "$mig" >/dev/null 2>&1 || true
 done
 
 echo "==> Applying migrations"
 npx --no-install prisma migrate deploy >/dev/null
+
+echo "==> Applying and verifying paid-audit replay index"
+scripts/ci/apply-and-verify-job-file-audit-replay-index.sh
 
 echo "==> Verifying CI parity (no env-gated suite will skip)"
 node scripts/ci/check-test-parity.mjs --strict

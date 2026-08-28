@@ -140,9 +140,13 @@ jobs:
           npx --no-install prisma migrate resolve --applied 20260407_n1_performance_indexes
           npx --no-install prisma migrate resolve --applied 20260407_perf_composite_indexes
           npx --no-install prisma migrate resolve --applied 20260516010000_inspection_close_terminal_index
+          npx --no-install prisma migrate resolve --applied 20260828213100_job_file_audit_intake_replay_guard_index
 
       - name: Apply migrations for DB-backed release tests
         run: npx --no-install prisma migrate deploy
+
+      - name: Apply and verify paid-audit replay index
+        run: scripts/ci/apply-and-verify-job-file-audit-replay-index.sh
 
       # B4-smoke-sandbox is scored by shelling out to
       # `npm run test:smoke:sandbox`, which drives a real Chromium. Without this

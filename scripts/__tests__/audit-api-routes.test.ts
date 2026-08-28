@@ -238,6 +238,23 @@ describe("auditApiRoute", () => {
     );
   });
 
+  it("does not exempt future nested Job File Audit routes", () => {
+    const findings = auditApiRoute(
+      "app/api/revenue/job-file-audit/status/route.ts",
+      "export async function GET() { return Response.json({ ok: true }); }",
+    );
+
+    expect(findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rule: "api-auth-required",
+          exception: false,
+          severity: "error",
+        }),
+      ]),
+    );
+  });
+
   it("accepts test helpers with an explicit ALLOW_TEST_HELPERS hard guard", () => {
     const findings = auditApiRoute(
       "app/api/test/sign-in-as/route.ts",
