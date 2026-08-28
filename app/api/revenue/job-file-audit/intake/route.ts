@@ -4,6 +4,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { stripe } from "@/lib/stripe";
+import { requireClientAuth } from "@/lib/portal/require-client-auth";
 
 const intakeSchema = z.object({
   sessionId: z.string().min(10).max(255),
@@ -17,6 +18,9 @@ const intakeSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const auth = await requireClientAuth(request);
+  if (!auth.ok) return auth.response;
+
   const rateLimited = await applyRateLimit(request, {
     prefix: "revenue-job-file-audit-intake",
     maxRequests: 8,

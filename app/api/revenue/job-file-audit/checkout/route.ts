@@ -4,6 +4,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { stripe } from "@/lib/stripe";
+import { requireClientAuth } from "@/lib/portal/require-client-auth";
 
 const checkoutSchema = z.object({
   package: z.enum(["single", "three"]),
@@ -37,6 +38,9 @@ function baseUrl(): string {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireClientAuth(request);
+  if (!auth.ok) return auth.response;
+
   const iosBlocked = rejectIfIOSCapacitor(request);
   if (iosBlocked) return iosBlocked;
 
