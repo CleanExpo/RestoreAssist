@@ -32,7 +32,9 @@ describe("PR quality contract", () => {
 
     const workflow = parse(
       readFileSync(join(ROOT, ".github/workflows/pr-checks.yml"), "utf8"),
-    ) as { jobs: { quality: { steps: Array<{ name?: string; run?: string }> } } };
+    ) as {
+      jobs: { quality: { steps: Array<{ name?: string; run?: string }> } };
+    };
     const unitStep = workflow.jobs.quality.steps.find(
       (step) => step.name === "Unit tests",
     );
@@ -82,6 +84,11 @@ describe("PR quality contract", () => {
 
     expect(columnMigration).not.toContain("CREATE UNIQUE INDEX");
     expect(indexMigration).toContain("CREATE UNIQUE INDEX CONCURRENTLY");
+    expect(indexMigration).toContain("NOT index_state.indisvalid");
+    expect(indexMigration).toContain("NOT index_state.indisready");
+    expect(indexMigration).toContain(
+      "Never let IF NOT EXISTS hide broken state",
+    );
 
     const replayProofScriptPath =
       "scripts/ci/apply-and-verify-job-file-audit-replay-index.sh";
@@ -93,6 +100,15 @@ describe("PR quality contract", () => {
     expect(replayProofScript).toContain("index_state.indisunique");
     expect(replayProofScript).toContain("index_state.indisvalid");
     expect(replayProofScript).toContain("index_state.indisready");
+    expect(replayProofScript).toContain("drop_recoverable_index");
+    expect(replayProofScript).toContain("DROP INDEX CONCURRENTLY");
+    expect(replayProofScript).toContain(
+      '[[ "$current_state" != "recoverable" ]]',
+    );
+    expect(replayProofScript).toContain('initial_state" == "valid"');
+    expect(replayProofScript).toContain(
+      "Replay-index mutation unexpectedly accepted duplicate keys.",
+    );
     expect(replayProofScript).toContain("WHEN unique_violation");
     expect(replayProofScript).toContain(
       "Refusing to apply the replay-index CI probe outside local ephemeral Postgres.",
