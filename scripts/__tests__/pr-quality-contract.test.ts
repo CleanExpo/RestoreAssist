@@ -64,4 +64,34 @@ describe("PR quality contract", () => {
     );
     expect(scopeStep?.if).toContain("pull_request");
   });
+
+  it("keeps the live replay index out of Prisma transactions", () => {
+    const columnMigration = readFileSync(
+      join(
+        ROOT,
+        "prisma/migrations/20260828213000_job_file_audit_intake_replay_guard/migration.sql",
+      ),
+      "utf8",
+    );
+    const indexMigrationName =
+      "20260828213100_job_file_audit_intake_replay_guard_index";
+    const indexMigration = readFileSync(
+      join(ROOT, "prisma/migrations", indexMigrationName, "migration.sql"),
+      "utf8",
+    );
+
+    expect(columnMigration).not.toContain("CREATE UNIQUE INDEX");
+    expect(indexMigration).toContain("CREATE UNIQUE INDEX CONCURRENTLY");
+
+    for (const path of [
+      ".github/workflows/pr-checks.yml",
+      ".github/workflows/release-gate.yml",
+      ".github/workflows/sketch-e2e.yml",
+      "scripts/ci/test-with-db.sh",
+    ]) {
+      expect(readFileSync(join(ROOT, path), "utf8"), path).toContain(
+        indexMigrationName,
+      );
+    }
+  });
 });

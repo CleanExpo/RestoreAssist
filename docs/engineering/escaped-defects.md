@@ -32,3 +32,19 @@ parity receipt for PR Quality.
 | Detection gap | The root command named `test:unit:full` did not execute the separate pilot-tester Vitest suite, so 99 package tests were absent from the earlier full-suite receipt |
 | Repair | Validate PR watch paths against the PR harness; watch every file the wiring test reads; include the pilot-tester package in the canonical full-suite command |
 | Prevention proof | Removing a required PR-harness path fails `workflow-wiring.test.ts`; both the package test and PR Quality contract enforce the root-to-package test connection |
+
+Cross-vendor review of PR #2073 also required credential non-persistence for
+PR checkout, dependency/runtime watch paths, an index-only concurrent
+migration for the live ticket table, and exact-file public-route exemptions.
+All four are release-blocking controls, not advisory clean-up.
+
+## 2026-08-28 — Full-suite receipt was not rerun after audit repairs
+
+| Field | Record |
+| --- | --- |
+| Defect class | Handoff evidence drift; load-sensitive test timing |
+| First detected revision | Local audit repair commit `6d5d797e` |
+| Failure | The post-repair `npm run test:unit:full` receipt failed two `BrandCard` tests after 921 files had passed; the pilot package correctly remained blocked behind the red root suite |
+| Detection gap | Earlier green totals belonged to the preceding tree, and a later full-suite process disappeared without a recoverable final status. Neither result proved the current commit. |
+| Repair | Preserve an exit-code receipt for the exact tree; make the synchronous palette assertion synchronous; give the rejected-upload UI test a bounded 15-second budget for repository-wide serial-run scheduler delay |
+| Prevention proof | Ten independent focused runs must pass before another full-suite receipt; handoff requires local full-suite, type, lint, hosted Pilot, and current-SHA external-review evidence from the same tree |

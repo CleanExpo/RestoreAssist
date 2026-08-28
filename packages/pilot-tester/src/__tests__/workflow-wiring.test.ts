@@ -37,10 +37,16 @@ function wiringFailures(
     ".github/workflows/pilot-canary.yml",
     ".github/workflows/release-gate.yml",
     ".do/app.yaml",
+    "package.json",
+    "package-lock.json",
+    ".nvmrc",
   ]) {
     if (!prHarness.includes(`- \"${surface}\"`)) {
       failures.push(`PR harness surface not watched: ${surface}`);
     }
+  }
+  if (!/actions\/checkout@[0-9a-f]{40}[\s\S]*?persist-credentials:\s*false/.test(prHarness)) {
+    failures.push("PR checkout credentials persist");
   }
   if (!/sha256sum --check --strict/.test(pilot)) failures.push("bundle hash not checked");
   if (!/Evidence bundle contains an unsafe path/.test(pilot)) failures.push("archive paths not checked");
@@ -107,6 +113,14 @@ describe("release-to-pilot workflow wiring", () => {
     );
     expect(wiringFailures(pilot, stalePaths, release, appYaml)).toContain(
       "PR harness surface not watched: lib/pilot-tester/**",
+    );
+
+    const persistedToken = prHarness.replace(
+      "persist-credentials: false",
+      "persist-credentials: true",
+    );
+    expect(wiringFailures(pilot, persistedToken, release, appYaml)).toContain(
+      "PR checkout credentials persist",
     );
   });
 });

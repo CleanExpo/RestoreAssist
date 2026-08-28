@@ -4,6 +4,3 @@
 -- instances. Ordinary support tickets leave this nullable.
 ALTER TABLE "SupportTicket"
   ADD COLUMN "externalReference" TEXT;
-
-CREATE UNIQUE INDEX "SupportTicket_externalReference_key"
-  ON "SupportTicket"("externalReference");

@@ -140,6 +140,7 @@ jobs:
           npx --no-install prisma migrate resolve --applied 20260407_n1_performance_indexes
           npx --no-install prisma migrate resolve --applied 20260407_perf_composite_indexes
           npx --no-install prisma migrate resolve --applied 20260516010000_inspection_close_terminal_index
+          npx --no-install prisma migrate resolve --applied 20260828213100_job_file_audit_intake_replay_guard_index
 
       - name: Apply migrations for DB-backed release tests
         run: npx --no-install prisma migrate deploy
