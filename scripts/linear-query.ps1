@@ -44,9 +44,10 @@ function Remove-ControlCharacter {
 
 $apiKey = $env:LINEAR_API_KEY
 if ([string]::IsNullOrWhiteSpace($apiKey)) {
-    Write-Error ("LINEAR_API_KEY is not set. Create a personal API key at " +
-        "https://linear.app/settings/api and set it, or reconnect the Linear " +
-        "MCP connector and use that instead.") -ErrorAction Continue
+    Write-Error ("LINEAR_API_KEY is not set. This script needs its own key: " +
+        "create one at https://linear.app/settings/api under Personal API keys, " +
+        "then set it. The Linear MCP connector does not supply this variable " +
+        "- it authenticates Claude's tools, not this process.") -ErrorAction Continue
     exit 1
 }
 

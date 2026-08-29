@@ -219,9 +219,10 @@ async function main(): Promise<void> {
   const apiKey = process.env.LINEAR_API_KEY;
   if (!apiKey) {
     process.stderr.write(
-      "LINEAR_API_KEY is not set. Create a personal API key at " +
-        "https://linear.app/settings/api and export it, or reconnect the " +
-        "Linear MCP connector and use that instead.\n",
+      "LINEAR_API_KEY is not set. This script needs its own key: create one " +
+        "at https://linear.app/settings/api under Personal API keys, then " +
+        "export it. The Linear MCP connector does not supply this variable " +
+        "— it authenticates Claude's tools, not this process.\n",
     );
     process.exit(1);
   }
