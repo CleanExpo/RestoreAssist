@@ -105,6 +105,7 @@
     "prisma:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:seed:ceo": "npx tsx prisma/seed-ceo.ts",
+    "script:linear-query": "tsx scripts/linear-query.ts",
     "script:grant-trial-credits": "npx tsx scripts/grant-trial-credits.ts",
     "script:upgrade-user": "npx tsx scripts/upgrade-user-package.ts",
     "build:help-index": "tsx scripts/build-help-index.ts",

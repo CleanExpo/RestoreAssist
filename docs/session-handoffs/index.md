@@ -1,9 +1,9 @@
 ---
 type: index
 name: session-handoffs
-description: OKF index — 8 concepts, 0 subfolders
+description: OKF index — 9 concepts, 0 subfolders
 okf_version: "0.1"
-updated: 2026-08-26
+updated: 2026-08-29
 ---
 
 <!-- okf:generated -->
@@ -13,6 +13,7 @@ _Read this first. Lists every concept + subfolder here so an agent loads only wh
 
 ## Concepts
 
+- [[handoff-20260829T073028Z]] — Session Handoff — Feature-enablement audit, and a Linear MCP fallback that two live-data defects nearly shipped with (PR #2079)
 - [[handoff-20260826T101451Z]] — Session Handoff — Five merged fixes, the Job Continuity reconciliation, and BMAD (PRs #2054–#2061)
 - [[handoff-20260825T060000Z]] — Session Handoff — Launch sprint: production is not deploying, plus an exposed credential
 - [[handoff-20260825T043953Z]] — Session Handoff — RestoreAssist launch copy, SEO export, and the CI unblock (PR #2031)
