@@ -72,6 +72,7 @@ function flag(name: string): string | undefined {
   return value?.startsWith("--") ? undefined : nonEmpty(value);
 }
 
+/** True when the bare `--name` switch is present, regardless of any value. */
 function hasFlag(name: string): boolean {
   return process.argv.includes(`--${name}`);
 }
@@ -114,6 +115,18 @@ function buildFilter(): Record<string, unknown> {
 }
 
 /**
+ * Strips control characters from issue-authored text before it reaches a
+ * terminal. Titles and label names are free text written by any workspace
+ * member, and an embedded ANSI sequence (e.g. erase-line + cursor-home) can
+ * repaint the row so a listing misreports which issue is urgent. JSON output
+ * needs no equivalent: JSON.stringify already escapes these as \uXXXX.
+ */
+function sanitise(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+}
+
+/**
  * Orders by urgency the way the agents describe it: 1 (Urgent) first, with
  * priority 0 sorted last because it means "unset" rather than "most urgent".
  * Done client-side — Linear's `orderBy` only accepts createdAt/updatedAt.
@@ -123,6 +136,10 @@ function byPriority(a: IssueNode, b: IssueNode): number {
   return rank(a.priority) - rank(b.priority);
 }
 
+/**
+ * Runs the issue query. Throws on a non-2xx response and on GraphQL errors,
+ * which Linear returns inside a 200 body rather than as an HTTP status.
+ */
 async function fetchIssues(
   apiKey: string,
   first: number,
@@ -186,16 +203,18 @@ function toIssueInput(node: IssueNode): LinearIssueInput {
   };
 }
 
+/** Renders one issue as a single human-readable line, control-characters removed. */
 function formatLine(node: IssueNode): string {
   const priority = PRIORITY_LABELS[node.priority] ?? "None";
-  const labels = node.labels.nodes.map((l) => l.name).join(", ");
-  const state = node.state?.name ?? "Unknown";
+  const labels = node.labels.nodes.map((l) => sanitise(l.name)).join(", ");
+  const state = sanitise(node.state?.name ?? "Unknown");
   return (
-    `${node.identifier}: [${priority}] ${node.title} - ${state}` +
+    `${sanitise(node.identifier)}: [${priority}] ${sanitise(node.title)} - ${state}` +
     (labels ? ` [${labels}]` : "")
   );
 }
 
+/** Entry point: validates credentials and arguments, then prints the listing. */
 async function main(): Promise<void> {
   const apiKey = process.env.LINEAR_API_KEY;
   if (!apiKey) {
