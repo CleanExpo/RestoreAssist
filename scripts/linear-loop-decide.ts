@@ -11,13 +11,20 @@
  * away from task-2-brief.md's Step 3, which re-composed those internals
  * from scratch — dispatchWorkItem already does that composition.
  *
- * Prints exactly one JSON line to stdout:
- *   - Owner-gated:     { ownerGated: true }
+ * Prints exactly one JSON line to stdout, in every case including failure:
+ *   - Owner-gated:     { ownerGated: true, issueId, reason }
  *   - Not owner-gated: { ownerGated: false, mode, skill, tier, prompt }
  *     (mode/skill/tier/prompt map 1:1 from dispatchWorkItem's DispatchPlan)
+ *   - Cannot decide:   { blocked: true, issueId, reason }, exit 1
+ *
+ * The third case exists because dispatch reads the nexus skill's prompt
+ * template from disk, and a machine without that skill installed threw an
+ * unhandled error — the caller got a stack trace on stderr instead of the
+ * single line this contract promises, and could not tell "environment not
+ * ready" apart from "script is broken".
  */
 
-import { isOwnerGated } from "../lib/linear-loop/owner-gated";
+import { isOwnerGated, ownerGateReason } from "../lib/linear-loop/owner-gated";
 import { dispatchWorkItem } from "../lib/agents/routing/dispatch";
 import type { LinearIssueInput } from "../lib/agents/routing/types";
 
@@ -32,16 +39,20 @@ function parseArgs(): LinearIssueInput {
 function main(): void {
   const issue = parseArgs();
 
-  const ownerGated = isOwnerGated({
+  // The title carries the gate on real issues: RA-7132 announced itself as
+  // "[BLOCKER — needs founder auth]" there and nowhere else machine-readable.
+  const gateInput = {
     labels: issue.labels ?? [],
     description: issue.description ?? null,
-  });
+    title: issue.title ?? null,
+  };
 
-  if (ownerGated) {
+  if (isOwnerGated(gateInput)) {
     process.stdout.write(
       JSON.stringify({
         ownerGated: true,
         issueId: issue.identifier,
+        reason: ownerGateReason(gateInput),
       }) + "\n",
     );
     return;
@@ -60,4 +71,32 @@ function main(): void {
   );
 }
 
-main();
+/**
+ * Best-effort issue id for the failure line. Parsing may itself be what
+ * failed, so this must never throw.
+ */
+function readIdentifierForErrorReport(): string | null {
+  try {
+    const flagIndex = process.argv.indexOf("--issue-json");
+    const raw = flagIndex === -1 ? null : process.argv[flagIndex + 1];
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { identifier?: string };
+    return parsed.identifier ?? null;
+  } catch {
+    return null;
+  }
+}
+
+try {
+  main();
+} catch (error) {
+  // Still one JSON line, so the caller parses an outcome rather than a trace.
+  process.stdout.write(
+    JSON.stringify({
+      blocked: true,
+      issueId: readIdentifierForErrorReport(),
+      reason: error instanceof Error ? error.message : String(error),
+    }) + "\n",
+  );
+  process.exit(1);
+}
