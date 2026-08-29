@@ -152,3 +152,44 @@ describe("isOwnerGated — must not over-block ordinary restoration work", () =>
     ).toBe(false);
   });
 });
+
+describe("isOwnerGated — 'human' is a gating subject, like 'founder' and 'owner'", () => {
+  // Caught in review of PR #2084: the surrounding patterns accept "human"
+  // ("blocked on human", "awaiting human") but the needs-authority pattern
+  // listed only founder|owner, so an unlabelled issue titled "needs human
+  // approval" scored not-gated and would have been dispatched.
+  it("gates an unlabelled issue titled 'needs human approval'", () => {
+    expect(
+      isOwnerGated({ labels: [], title: "needs human approval", description: null })
+    ).toBe(true);
+  });
+
+  it("reports the same reason for 'human' as for 'founder' and 'owner'", () => {
+    for (const subject of ["founder", "owner", "human"]) {
+      expect(
+        ownerGateReason({ labels: [], title: `needs ${subject} approval`, description: null })
+      ).toBe("text:needs human authority");
+    }
+  });
+
+  it("gates the other authority words for a human subject", () => {
+    for (const title of [
+      "needs human sign-off",
+      "needs human authorisation",
+      "needs the human's decision",
+      "need human permission",
+    ]) {
+      expect(isOwnerGated({ labels: [], title, description: null })).toBe(true);
+    }
+  });
+
+  it("does not gate ordinary sentences that merely contain the word 'human'", () => {
+    expect(
+      isOwnerGated({
+        labels: ["feature"],
+        title: "Make the moisture chart human readable",
+        description: "A human reads this report, so round the readings to one decimal.",
+      })
+    ).toBe(false);
+  });
+});

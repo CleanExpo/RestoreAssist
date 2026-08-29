@@ -37,10 +37,14 @@ const OWNER_GATED_PATTERNS: ReadonlyArray<{ name: string; pattern: RegExp }> = [
   { name: "blocked on a named human", pattern: /blocked on (?:the )?(?:founder|owner|human)\b/i },
 
   // RA-7132 title: "[BLOCKER — needs founder auth] Move skills-library to GitLab".
+  // "human" belongs in the subject group alongside "founder" and "owner": the
+  // two patterns either side of this one already accept it ("blocked on human",
+  // "awaiting human"), so leaving it out here let "needs human approval" —
+  // wording that gates just as plainly — route straight to an agent.
   {
     name: "needs human authority",
     pattern:
-      /needs?\s+(?:the\s+)?(?:founder|owner)(?:'s)?\s+(?:auth\w*|approval|sign-?off|decision|permission)/i,
+      /needs?\s+(?:the\s+)?(?:founder|owner|human)(?:'s)?\s+(?:auth\w*|approval|sign-?off|decision|permission)/i,
   },
 
   // RA-7132 description: "Agents do not create accounts", "an agent must not take".
@@ -70,7 +74,14 @@ export interface OwnerGateCheckInput {
   title?: string | null;
 }
 
-/** The label or pattern that gated the issue, for logging and audit. */
+/**
+ * The label or pattern that gated the issue, for logging and audit.
+ *
+ * @param issue Labels, description and (please) title of the Linear issue.
+ * @returns `label:owner-gated` when the durable label is present, otherwise
+ *   `text:<pattern name>` for the first matching pattern, or `null` when the
+ *   issue is free for an agent to pick up.
+ */
 export function ownerGateReason(issue: OwnerGateCheckInput): string | null {
   if (issue.labels.includes(OWNER_GATED_LABEL_NAME)) {
     return `label:${OWNER_GATED_LABEL_NAME}`;
@@ -87,6 +98,11 @@ export function ownerGateReason(issue: OwnerGateCheckInput): string | null {
   return null;
 }
 
+/**
+ * True when the issue must not be dispatched to an agent without a human
+ * acting first. Prefer {@link ownerGateReason} where the caller logs or
+ * reports *why* an issue was skipped; this is the boolean shorthand.
+ */
 export function isOwnerGated(issue: OwnerGateCheckInput): boolean {
   return ownerGateReason(issue) !== null;
 }
