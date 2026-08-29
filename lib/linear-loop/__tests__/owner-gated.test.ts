@@ -193,3 +193,106 @@ describe("isOwnerGated — 'human' is a gating subject, like 'founder' and 'owne
     ).toBe(false);
   });
 });
+
+describe("isOwnerGated — issues whose own governance section says 'do not patch this'", () => {
+  // Found by running the loop against the live RA board on 2026-08-29, after
+  // the fixes above had shipped. Four Urgent P0s scored not-gated while each
+  // one's Governance section says an agent must not be the one to fix it.
+  // Three share wording the gate can read; RA-7256 does not and is not
+  // claimed here.
+
+  it("gates RA-7254 on 'Filed, not patched.'", () => {
+    expect(
+      isOwnerGated({
+        labels: [],
+        title:
+          "P0: pr_release_gate run_tests uses shell=True without pipefail",
+        description:
+          "## Governance\nChanges release authority -> RA-7120 applies. Filed, not patched.",
+      })
+    ).toBe(true);
+  });
+
+  it("gates RA-7253 on 'Filed rather than patched'", () => {
+    expect(
+      ownerGateReason({
+        labels: [],
+        title: "P0: the exact-SHA receipt does not bind the ref being pushed",
+        description:
+          "Per RA-7120, this changes release authority and needs a human-approved " +
+          "design plus an independent review that itself executes. **Filed rather " +
+          "than patched** - an agent quietly rewriting the gate that authorises " +
+          "its own releases is the failure mode this estate is built to prevent.",
+      })
+    ).not.toBeNull();
+  });
+
+  it("gates 'needs a human-approved design' — article and hyphen included", () => {
+    // The pre-existing pattern required whitespace and no article, so it read
+    // "needs founder approval" but not "needs a human-approved design".
+    expect(
+      isOwnerGated({ labels: [], title: "needs a human-approved design", description: null })
+    ).toBe(true);
+    expect(
+      isOwnerGated({ labels: [], title: "needs an owner-approved rollout", description: null })
+    ).toBe(true);
+  });
+
+  it("gates an issue that says it changes release authority", () => {
+    // Release authority is what .claude/RULES.md 29-33 reserves to the owner.
+    expect(
+      ownerGateReason({
+        labels: [],
+        title: "Harden the release gate",
+        description: "## Governance\nChanges release authority -> RA-7120.",
+      })
+    ).toBe("text:changes release authority");
+  });
+
+  it("gates the 'filed instead of patched' and 'filed, not fixed' variants", () => {
+    for (const description of [
+      "Filed instead of patched pending review.",
+      "Filed, not fixed.",
+    ]) {
+      expect(isOwnerGated({ labels: [], description })).toBe(true);
+    }
+  });
+});
+
+describe("isOwnerGated — 'filed' and 'patched' are ordinary restoration words", () => {
+  // Both new patterns were loosened once and gated these. They are the reason
+  // the filed/patched pattern is pinned to the fixed idiom with adjacent words
+  // only, rather than allowing anything in between.
+  it("does not gate ordinary claim and repair language", () => {
+    for (const description of [
+      "The claim was filed on Tuesday and the roof was patched on Friday.",
+      "Insurer filed the dispute; we have not patched the estimate yet.",
+      "The tech filed a report rather than patching the wall himself.",
+      "We filed the drywall smooth, not patched it, per S500.",
+      "The claim was filed; not patched through to the insurer yet.",
+    ]) {
+      expect(isOwnerGated({ labels: ["billing"], description })).toBe(false);
+    }
+  });
+
+  it("does not gate ordinary release or approval vocabulary", () => {
+    for (const description of [
+      "Release notes are generated from the changelog.",
+      "This changes the release notes template.",
+      "Owner approval emails are stored against the job.",
+      "The human factors review is scheduled for Q3.",
+    ]) {
+      expect(isOwnerGated({ labels: [], description })).toBe(false);
+    }
+  });
+
+  it("does not gate 'needs a human tester' — tester is not an authority word", () => {
+    expect(
+      isOwnerGated({
+        labels: [],
+        title: "Needs a human tester to confirm the tap target size",
+        description: null,
+      })
+    ).toBe(false);
+  });
+});
