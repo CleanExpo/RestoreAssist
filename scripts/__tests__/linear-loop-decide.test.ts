@@ -50,7 +50,14 @@ function runCliProcess(args: string[]) {
     ["--import", "tsx/esm", CLI_PATH, ...args],
     {
       encoding: "utf-8",
-      env: { ...process.env, NEXUS_PROMPT_PATH: NEXUS_PROMPT_FIXTURE },
+      env: {
+        ...process.env,
+        // The probe flag forces the missing-prompt branch without disturbing
+        // the other cases, which must stay hermetic on the committed fixture.
+        NEXUS_PROMPT_PATH: args.includes("--nexus-missing-probe")
+          ? join(__dirname, "fixtures", "does-not-exist.fixture.md")
+          : NEXUS_PROMPT_FIXTURE,
+      },
     },
   );
   if (result.error) throw result.error;
@@ -120,5 +127,46 @@ describe("linear-loop-decide CLI", () => {
     const result = runCliProcess(["--issue-json", "{not-json"]);
     expect(result.status).not.toBe(0);
     expect(result.stdout).toBe("");
+  });
+
+  it("gates on the title alone, as RA-7132 does", () => {
+    // RA-7132 is Urgent and unlabelled; it announces its gating only in the
+    // title, as "[BLOCKER — needs founder auth]". The gate read labels and
+    // description only, so the loop would have picked it up.
+    const out = runCli({
+      identifier: "RA-7132",
+      title: "[BLOCKER — needs founder auth] Move skills-library to GitLab Free",
+      description: "Northstar: unreviewed code must not reach main.",
+      labels: [],
+      team: "RestoreAssist",
+    });
+    const decision = JSON.parse(out.trim());
+    expect(decision.ownerGated).toBe(true);
+    expect(decision.reason).toBe("text:needs human authority");
+  });
+
+  it("reports a dispatch-phase failure as one JSON line, not a stack trace", () => {
+    // The decision phase reads NEXUS_PROMPT.md from disk. On a machine without
+    // the nexus skill this threw unhandled, so the caller got a trace on stderr
+    // and could not tell "environment not ready" from "script is broken".
+    const result = runCliProcess([
+      "--issue-json",
+      JSON.stringify({
+        identifier: "RA-9996",
+        title: "Fix a null pointer in the report renderer",
+        description: "Reports crash when totalCost is null.",
+        labels: [],
+        team: "RestoreAssist",
+      }),
+      "--nexus-missing-probe",
+    ]);
+    expect(result.status).not.toBe(0);
+
+    const lines = result.stdout.trim().split("\n");
+    expect(lines).toHaveLength(1);
+    const outcome = JSON.parse(lines[0]);
+    expect(outcome.blocked).toBe(true);
+    expect(outcome.issueId).toBe("RA-9996");
+    expect(outcome.reason).toContain("NEXUS_PROMPT");
   });
 });
