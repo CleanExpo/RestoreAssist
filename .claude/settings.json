@@ -13,5 +13,15 @@
   },
   "attribution": {
     "sessionUrl": false
+  },
+  "permissions": {
+    "allow": [
+      "mcp__github__pull_request_read",
+      "mcp__Linear__list_issues",
+      "mcp__Linear__list_teams",
+      "mcp__Linear__list_issue_labels",
+      "mcp__Linear__list_issue_statuses",
+      "mcp__Linear__search_documentation"
+    ]
   }
 }
