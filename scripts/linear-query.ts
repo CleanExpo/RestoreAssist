@@ -40,7 +40,7 @@ const PRIORITY_LABELS: Record<number, string> = {
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-interface IssueNode {
+export interface IssueNode {
   identifier: string;
   title: string;
   description: string | null;
@@ -121,7 +121,7 @@ function buildFilter(): Record<string, unknown> {
  * repaint the row so a listing misreports which issue is urgent. JSON output
  * needs no equivalent: JSON.stringify already escapes these as \uXXXX.
  */
-function sanitise(text: string): string {
+export function sanitise(text: string): string {
   // eslint-disable-next-line no-control-regex
   return text.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
 }
@@ -131,7 +131,7 @@ function sanitise(text: string): string {
  * priority 0 sorted last because it means "unset" rather than "most urgent".
  * Done client-side — Linear's `orderBy` only accepts createdAt/updatedAt.
  */
-function byPriority(a: IssueNode, b: IssueNode): number {
+export function byPriority(a: IssueNode, b: IssueNode): number {
   const rank = (p: number) => (p === 0 ? Number.POSITIVE_INFINITY : p);
   return rank(a.priority) - rank(b.priority);
 }
@@ -192,7 +192,7 @@ async function fetchIssues(
 }
 
 /** Maps to the exact shape scripts/linear-loop-decide.ts consumes. */
-function toIssueInput(node: IssueNode): LinearIssueInput {
+export function toIssueInput(node: IssueNode): LinearIssueInput {
   return {
     identifier: node.identifier,
     title: node.title,
@@ -204,7 +204,7 @@ function toIssueInput(node: IssueNode): LinearIssueInput {
 }
 
 /** Renders one issue as a single human-readable line, control-characters removed. */
-function formatLine(node: IssueNode): string {
+export function formatLine(node: IssueNode): string {
   const priority = PRIORITY_LABELS[node.priority] ?? "None";
   const labels = node.labels.nodes.map((l) => sanitise(l.name)).join(", ");
   const state = sanitise(node.state?.name ?? "Unknown");
@@ -248,9 +248,19 @@ async function main(): Promise<void> {
   process.stdout.write(issues.map(formatLine).join("\n") + "\n");
 }
 
-main().catch((error: unknown) => {
-  process.stderr.write(
-    `Error querying Linear: ${error instanceof Error ? error.message : String(error)}\n`,
-  );
-  process.exit(1);
-});
+// CLI entry point — ESM-compatible main check, matching
+// scripts/backfill-setup-wizard.ts. Without it, importing this module from a
+// test would run the query and exit the process.
+const isMain =
+  typeof process !== "undefined" &&
+  process.argv[1] != null &&
+  new URL(import.meta.url).pathname === process.argv[1];
+
+if (isMain) {
+  main().catch((error: unknown) => {
+    process.stderr.write(
+      `Error querying Linear: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    process.exit(1);
+  });
+}
