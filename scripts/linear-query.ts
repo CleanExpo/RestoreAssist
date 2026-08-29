@@ -51,9 +51,25 @@ interface IssueNode {
   labels: { nodes: Array<{ name: string }> };
 }
 
+/**
+ * Collapses blank values to undefined so `??` chains fall through to their
+ * default. `.env.example` ships LINEAR_RA_TEAM_ID="", and `??` alone would
+ * accept that empty string as the team — filtering on a team key of "" matches
+ * no issues and reports "No matching issues." rather than failing.
+ */
+function nonEmpty(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+/** Reads `--name <value>`. A missing value, or another flag, counts as unset. */
 function flag(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`);
-  return index === -1 ? undefined : process.argv[index + 1];
+  if (index === -1) {
+    return undefined;
+  }
+  const value = process.argv[index + 1];
+  return value?.startsWith("--") ? undefined : nonEmpty(value);
 }
 
 function hasFlag(name: string): boolean {
@@ -70,15 +86,25 @@ function hasFlag(name: string): boolean {
 function buildFilter(): Record<string, unknown> {
   const filter: Record<string, unknown> = {};
 
-  const states = flag("state");
-  if (states) {
-    filter.state = { name: { in: states.split(",").map((s) => s.trim()) } };
+  const states = flag("state")
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (states?.length) {
+    filter.state = { name: { in: states } };
   } else {
-    filter.state = { type: { nin: ["completed", "canceled"] } };
+    // Terminal state types, spelled as Linear spells them. The full set is
+    // documented on WorkflowStateFilter.type in @linear/sdk: triage, backlog,
+    // unstarted, started, completed, canceled, duplicate. "duplicate" is a
+    // real status on the RA team and is not actionable work, so it is excluded
+    // alongside the other two; "triage" is deliberately kept, being unresolved.
+    filter.state = { type: { nin: ["completed", "canceled", "duplicate"] } };
   }
 
   if (!hasFlag("all-teams")) {
-    const team = flag("team") ?? process.env.LINEAR_RA_TEAM_ID ?? "RA";
+    const team =
+      flag("team") ?? nonEmpty(process.env.LINEAR_RA_TEAM_ID) ?? "RA";
     filter.team = UUID_PATTERN.test(team)
       ? { id: { eq: team } }
       : { key: { eq: team } };
