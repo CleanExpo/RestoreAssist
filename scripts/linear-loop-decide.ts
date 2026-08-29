@@ -37,7 +37,27 @@ function parseArgs(): LinearIssueInput {
 }
 
 function main(): void {
+  // parseArgs deliberately throws on malformed input: a bad invocation is the
+  // caller's error, and scripts/__tests__/linear-loop-decide.test.ts pins that
+  // to a non-zero exit with empty stdout. Only the decision phase below, which
+  // touches the filesystem, reports failure as a JSON line.
   const issue = parseArgs();
+
+  try {
+    decide(issue);
+  } catch (error) {
+    process.stdout.write(
+      JSON.stringify({
+        blocked: true,
+        issueId: issue.identifier,
+        reason: error instanceof Error ? error.message : String(error),
+      }) + "\n",
+    );
+    process.exit(1);
+  }
+}
+
+function decide(issue: LinearIssueInput): void {
 
   // The title carries the gate on real issues: RA-7132 announced itself as
   // "[BLOCKER — needs founder auth]" there and nowhere else machine-readable.
@@ -71,32 +91,4 @@ function main(): void {
   );
 }
 
-/**
- * Best-effort issue id for the failure line. Parsing may itself be what
- * failed, so this must never throw.
- */
-function readIdentifierForErrorReport(): string | null {
-  try {
-    const flagIndex = process.argv.indexOf("--issue-json");
-    const raw = flagIndex === -1 ? null : process.argv[flagIndex + 1];
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { identifier?: string };
-    return parsed.identifier ?? null;
-  } catch {
-    return null;
-  }
-}
-
-try {
-  main();
-} catch (error) {
-  // Still one JSON line, so the caller parses an outcome rather than a trace.
-  process.stdout.write(
-    JSON.stringify({
-      blocked: true,
-      issueId: readIdentifierForErrorReport(),
-      reason: error instanceof Error ? error.message : String(error),
-    }) + "\n",
-  );
-  process.exit(1);
-}
+main();
