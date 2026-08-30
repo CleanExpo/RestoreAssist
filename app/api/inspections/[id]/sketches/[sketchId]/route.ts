@@ -3,8 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
-// PUT /api/inspections/[id]/sketches/[sketchId] — update sketch
+// PUT /api/inspections/[id]/sketches/[sketchId] — retired unsafe partial update
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; sketchId: string }> },
@@ -21,52 +22,21 @@ export async function PUT(
 
     const { id, sketchId } = await params;
 
-    const sketch = await (prisma as any).claimSketch.findFirst({
-      where: { id: sketchId, inspection: { id, userId: session.user.id } },
-    });
-    if (!sketch) {
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
       return apiError(request, {
-        code: "NOT_FOUND",
-        message: "Sketch not found",
-        status: 404,
+        code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+        message: tenancy.reason ?? "Inspection not found",
+        status: tenancy.status,
       });
     }
-
-    const body = await request.json();
-    const updated = await (prisma as any).claimSketch.update({
-      where: { id: sketchId },
-      data: {
-        sketchType: body.sketchType ?? sketch.sketchType,
-        sketchData:
-          body.sketchData !== undefined ? body.sketchData : sketch.sketchData,
-        backgroundImageUrl:
-          body.backgroundImageUrl !== undefined
-            ? body.backgroundImageUrl
-            : sketch.backgroundImageUrl,
-        moisturePoints:
-          body.moisturePoints !== undefined
-            ? body.moisturePoints
-            : sketch.moisturePoints,
-        equipmentPoints:
-          body.equipmentPoints !== undefined
-            ? body.equipmentPoints
-            : sketch.equipmentPoints,
-      },
-      include: {
-        annotations: {
-          select: {
-            id: true,
-            sketchId: true,
-            type: true,
-            data: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
-      },
+    return apiError(request, {
+      code: "CONFLICT",
+      message:
+        "This partial sketch update endpoint is retired. Save through the inspection sketch endpoint so provenance, staleness and room-graph checks run.",
+      status: 409,
+      context: { inspectionId: id, sketchId },
     });
-
-    return NextResponse.json(updated);
   } catch (error) {
     return fromException(request, error, { stage: "sketch:update" });
   }
@@ -89,8 +59,18 @@ export async function DELETE(
 
     const { id, sketchId } = await params;
 
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+        message: tenancy.reason ?? "Inspection not found",
+        status: tenancy.status,
+      });
+    }
+
     const sketch = await (prisma as any).claimSketch.findFirst({
-      where: { id: sketchId, inspection: { id, userId: session.user.id } },
+      where: { id: sketchId, inspectionId: id },
+      select: { id: true },
     });
     if (!sketch) {
       return apiError(request, {

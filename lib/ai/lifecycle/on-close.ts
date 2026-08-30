@@ -114,7 +114,7 @@ const SYSTEM_PROMPT = `You are RestoreAssist's close-summary assistant.
 Draft a concise, client-facing summary (max 200 words) for a completed water
 damage / restoration inspection in Australia. Be warm but professional.
 Cite IICRC S500:2021 §X.Y where relevant. Include: scope completed, total
-billed (GST 10%), warranty period. No internal jargon.`;
+billed (including GST), warranty period. No internal jargon.`;
 
 function buildPrompt(i: BuildInput): string {
   const signedAt = i.inspection.signedAt
@@ -145,7 +145,7 @@ function fallbackTemplate(i: BuildInput): string {
     : "[total pending]";
   return [
     `Inspection ${i.inspection.inspectionNumber} at ${i.inspection.propertyAddress} was completed on ${signedAt}.`,
-    `Total billed (inc GST 10%): ${total}.`,
+    `Total billed (inc GST): ${total}.`,
     `Workmanship is covered by a 90-day warranty from the completion date.`,
     `This water damage restoration was carried out with reference to IICRC S500:2021 (Standard for Professional Water Damage Restoration).`,
     `Please review and edit this summary before sending to the customer.`,

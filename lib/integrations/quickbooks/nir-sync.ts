@@ -10,6 +10,7 @@ import { getTokens, markIntegrationError, logSync } from "../oauth-handler";
 import { QuickBooksClient } from "./client";
 import { prisma } from "@/lib/prisma";
 import type { NIRJobPayload } from "../xero/nir-sync";
+import { getGstTreatment } from "@/lib/gst-rules";
 
 function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
@@ -94,6 +95,7 @@ export async function syncNIRJobToQuickBooks(
   };
   const dueDate = new Date(job.reportDate);
   dueDate.setDate(dueDate.getDate() + 14);
+  const jurisdiction = getGstTreatment(job.country);
 
   const invoice = {
     CustomerRef: { value: customerId, name: job.clientName },
@@ -116,10 +118,13 @@ export async function syncNIRJobToQuickBooks(
       SalesItemLineDetail: {
         Qty: item.quantity,
         UnitPrice: cents(item.unitPriceExGST),
-        TaxCodeRef: { value: item.gstRate === 10 ? "GST" : "EXEMPTINC" },
+        TaxCodeRef: {
+          value:
+            item.gstRate === 0 ? "EXEMPTINC" : jurisdiction.qboTaxRateName,
+        },
       },
     })),
-    CurrencyRef: { value: "AUD" },
+    CurrencyRef: { value: job.currency },
     GlobalTaxCalculation: "TaxExcluded",
   };
 

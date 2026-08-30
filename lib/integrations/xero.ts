@@ -51,13 +51,12 @@ interface XeroInvoiceResponse {
 /**
  * Sync invoice to Xero.
  *
- * @param country - Billing jurisdiction. Defaults to "AU" (10% GST / OUTPUT).
- *   Pass "NZ" for 15% GST (OUTPUT2). Upstream source: Organization.country (RA-1120).
+ * @param country - Required billing jurisdiction from Organization.country.
  */
 export async function syncInvoiceToXero(
   invoice: any,
   integration: Integration,
-  country: Country = "AU",
+  country: Country,
 ) {
   const gst = getGstTreatment(country);
   if (!integration.accessToken) {
@@ -115,7 +114,7 @@ export async function syncInvoiceToXero(
         TrackingCategories: tracking,
       };
     }),
-    CurrencyCode: invoice.currency || "AUD",
+    CurrencyCode: invoice.currency || gst.currency,
   };
 
   // Add discount as negative line item if present

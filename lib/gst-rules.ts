@@ -12,6 +12,7 @@ export type Country = "AU" | "NZ";
 export type GstTreatment = {
   country: Country;
   rate: 0.1 | 0.15;
+  ratePercent: 10 | 15;
   /** ISO-4217 billing currency for the jurisdiction. */
   currency: "AUD" | "NZD";
   percentLabel: "10%" | "15%";
@@ -28,6 +29,7 @@ export function getGstTreatment(country: Country): GstTreatment {
     return {
       country: "NZ",
       rate: 0.15,
+      ratePercent: 15,
       currency: "NZD",
       percentLabel: "15%",
       xeroTaxType: "OUTPUT2",
@@ -38,12 +40,38 @@ export function getGstTreatment(country: Country): GstTreatment {
   return {
     country: "AU",
     rate: 0.1,
+    ratePercent: 10,
     currency: "AUD",
     percentLabel: "10%",
     xeroTaxType: "OUTPUT",
     myobTaxCode: "GST",
     qboTaxRateName: "GST",
   };
+}
+
+/** Compatibility default for AU-only client drafts; server writes re-resolve the tenant. */
+export const DEFAULT_GST_TREATMENT = getGstTreatment("AU");
+
+/** Resolve tax treatment from an immutable financial document currency. */
+export function getGstTreatmentForCurrency(currency: unknown): GstTreatment {
+  if (currency === "AUD") return getGstTreatment("AU");
+  if (currency === "NZD") return getGstTreatment("NZ");
+  throw new Error("Invoice currency must be AUD or NZD before tax processing");
+}
+
+/** AU/NZ invoices support the tenant standard rate or an explicitly GST-free line. */
+export function resolveLineGstRatePercent(
+  requestedRate: unknown,
+  treatment: GstTreatment,
+): number {
+  if (requestedRate === null || requestedRate === undefined || requestedRate === "") {
+    return treatment.ratePercent;
+  }
+  const rate = Number(requestedRate);
+  if (!Number.isFinite(rate) || rate < 0) {
+    throw new Error("GST rate must be a non-negative number");
+  }
+  return rate === 0 ? 0 : treatment.ratePercent;
 }
 
 /**

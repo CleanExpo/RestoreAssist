@@ -158,13 +158,12 @@ function isQuickBooksDuplicateDocError(errorData: any): boolean {
  * a duplicate. A duplicate-DocNumber fault on the create path is also recovered
  * to the update path, mirroring lib/integrations/xero.ts.
  *
- * @param country - Billing jurisdiction. Defaults to "AU" (GST tax rate name).
- *   Pass "NZ" for "GST NZ" tax rate name. Upstream source: Organization.country (RA-1120).
+ * @param country - Required billing jurisdiction from Organization.country.
  */
 export async function syncInvoiceToQuickBooks(
   invoice: any,
   integration: Integration,
-  country: Country = "AU",
+  country: Country,
 ) {
   const gst = getGstTreatment(country);
   if (!integration.accessToken) {

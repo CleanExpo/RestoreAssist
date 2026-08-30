@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -10,6 +11,12 @@ import {
   extractRoomGraphNodes,
   partitionStaleRooms,
 } from "@/lib/sketch/sync-room-graph";
+import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
+import {
+  enforceUnverifiedUnderlayProvenance,
+  evaluateUnderlayVerification,
+} from "@/lib/sketch/underlay-verification";
+import { stableStringify } from "@/lib/sketch/roomplan-custody-queue";
 
 // GET /api/inspections/[id]/sketches — list all sketches for an inspection
 export async function GET(
@@ -57,7 +64,20 @@ export async function GET(
       take: 50,
     });
 
-    return NextResponse.json({ sketches });
+    const signedSketches = await Promise.all(
+      sketches.map(async (sketch: Record<string, unknown>) => ({
+        ...sketch,
+        backgroundImageUrl:
+          typeof sketch.backgroundImageUrl === "string"
+            ? await signStoredMediaUrl(sketch.backgroundImageUrl)
+            : sketch.backgroundImageUrl,
+        renderedPngUrl:
+          typeof sketch.renderedPngUrl === "string"
+            ? await signStoredMediaUrl(sketch.renderedPngUrl)
+            : sketch.renderedPngUrl,
+      })),
+    );
+    return NextResponse.json({ sketches: signedSketches });
   } catch (error) {
     return fromException(request, error, { stage: "sketches:list" });
   }
@@ -96,7 +116,6 @@ export async function POST(
       floorLabel = "Ground Floor",
       sketchType = "structural",
       sketchData,
-      backgroundImageUrl,
       renderedPngUrl,
       backgroundImageOpacity,
       backgroundImageScale,
@@ -106,6 +125,8 @@ export async function POST(
       equipmentPoints,
       country,
       captureAdapter: captureAdapterRaw,
+      confirmUnderlayVerification,
+      requestCanonicalRender,
     } = body;
 
     // RA-120 (PR4): underlay opacity is a 0..1 slider value; clamp defensively
@@ -126,31 +147,26 @@ export async function POST(
     const bgOffsetX = clampNumber(backgroundImageOffsetX, -100000, 100000);
     const bgOffsetY = clampNumber(backgroundImageOffsetY, -100000, 100000);
 
+    // Canonical report images are generated from allowlisted geometry below.
+    // Client PNG locators are retired because a source image can be relabelled
+    // as a render even when its object path is tenant-scoped.
+    let renderLocator: string | null | undefined;
+    if (renderedPngUrl != null) {
+      return apiError(request, {
+        code: "FEATURE_UNAVAILABLE",
+        message:
+          "Client floor-plan renders are retired; request a canonical server render with the sketch save.",
+        status: 409,
+      });
+    }
+
     // If a sketch already exists for this floor, update it; otherwise create
     const existing = await (prisma as any).claimSketch.findFirst({
       where: { inspectionId: id, floorNumber },
     });
 
-    const { resolveSketchCaptureAdapter } =
-      await import("@/lib/sketch/ingest-roomplan");
-    const captureAdapter = resolveSketchCaptureAdapter({
-      sketchData,
-      explicit: captureAdapterRaw,
-      previous: existing?.captureAdapter ?? null,
-    });
-
-    // RA-1762 — staleness guard. The offline sketch queue can hold a
-    // payload whose logical timestamp predates the latest server write
-    // (user dropped offline, drew, came back online and saved fresh,
-    // then a slow queued POST finally arrives carrying the older state).
-    // Without this check the older payload would clobber the newer one.
-    //
-    // Client sends `x-client-updated-at` (epoch ms or ISO) representing
-    // the moment the sketch state was captured locally. If we already
-    // have a newer row, return 409 with `{ stale: true }` so the queue
-    // drain drops the entry silently rather than retrying or storing
-    // a conflict record. Online-first saves can omit the header — the
-    // null branch behaves like the old code.
+    // Reject stale queue entries before storage, verification or database
+    // state can change.
     const clientUpdatedAtRaw = request.headers.get("x-client-updated-at");
     if (existing && clientUpdatedAtRaw) {
       const clientMs = Number.isFinite(Number(clientUpdatedAtRaw))
@@ -169,10 +185,73 @@ export async function POST(
       }
     }
 
+    const activeUnderlay = await (
+      prisma as any
+    ).sketchUnderlayReference.findFirst({
+      where: {
+        inspectionId: id,
+        floorNumber,
+        replacedAt: null,
+        removedAt: null,
+      },
+      select: { id: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const underlayVerification = activeUnderlay
+      ? confirmUnderlayVerification === true
+        ? evaluateUnderlayVerification(sketchData)
+        : {
+            ok: false as const,
+            reason: "Technician confirmation is required for this reference.",
+          }
+      : null;
+    const securedSketchData =
+      activeUnderlay &&
+      !underlayVerification?.ok &&
+      sketchData &&
+      typeof sketchData === "object"
+        ? enforceUnverifiedUnderlayProvenance(
+            sketchData as Record<string, unknown>,
+          )
+        : sketchData;
+
+    // Every canonical claim image is rendered from allowlisted geometry on the
+    // server. Underlay pixels are never an input. An active underlay must also
+    // pass explicit technician verification before a canonical render exists.
+    let cleanRenderReceipt:
+      | { storagePath: string; renderSha256: string }
+      | undefined;
+    if (activeUnderlay) {
+      renderLocator = null;
+    }
+    if (
+      requestCanonicalRender === true &&
+      (!activeUnderlay || underlayVerification?.ok)
+    ) {
+      const { storeVerifiedCleanRender } = await import(
+        "@/lib/sketch/server-clean-render"
+      );
+      const clean = await storeVerifiedCleanRender(
+        id,
+        floorNumber,
+        securedSketchData,
+      );
+      renderLocator = clean.storageLocator;
+      cleanRenderReceipt = clean;
+    }
+
+    const { resolveSketchCaptureAdapter } =
+      await import("@/lib/sketch/ingest-roomplan");
+    const captureAdapter = resolveSketchCaptureAdapter({
+      sketchData: securedSketchData,
+      explicit: captureAdapterRaw,
+      previous: existing?.captureAdapter ?? null,
+    });
+
     // Guard: never let an empty Fabric blob (common after dispose-on-unmount)
     // wipe a previously saved drawing. Explicit clears should send objects:[].
-    const incomingObjects = Array.isArray(sketchData?.objects)
-      ? sketchData.objects.length
+    const incomingObjects = Array.isArray(securedSketchData?.objects)
+      ? securedSketchData.objects.length
       : -1;
     const existingObjects = Array.isArray(existing?.sketchData?.objects)
       ? existing.sketchData.objects.length
@@ -181,12 +260,28 @@ export async function POST(
       !!existing &&
       incomingObjects === 0 &&
       existingObjects > 0 &&
-      !sketchData?.backgroundImage &&
-      !sketchData?.background;
+      !securedSketchData?.backgroundImage &&
+      !securedSketchData?.background;
 
     const sketchDataToPersist = skipEmptyOverwrite
       ? undefined
-      : (sketchData ?? undefined);
+      : (securedSketchData ?? undefined);
+
+    // Verification belongs to the complete save + normalized room graph, not
+    // merely to a floor number. Revoke any previous verification before the
+    // new blob is written; only the successful graph-sync path below may grant
+    // it again. A graph failure therefore fails closed for report export.
+    if (activeUnderlay) {
+      await (prisma as any).sketchUnderlayReference.update({
+        where: { id: activeUnderlay.id },
+        data: {
+          verifiedByUserId: null,
+          verifiedAt: null,
+          verificationMethod: null,
+          verificationJson: null,
+        },
+      });
+    }
 
     const sketch = existing
       ? await (prisma as any).claimSketch.update({
@@ -194,8 +289,7 @@ export async function POST(
           data: {
             sketchType,
             sketchData: sketchDataToPersist,
-            backgroundImageUrl: backgroundImageUrl ?? undefined,
-            renderedPngUrl: renderedPngUrl ?? undefined,
+            renderedPngUrl: renderLocator,
             backgroundImageOpacity: opacity,
             backgroundImageScale: bgScale,
             backgroundImageOffsetX: bgOffsetX,
@@ -212,9 +306,8 @@ export async function POST(
             floorNumber,
             floorLabel,
             sketchType,
-            sketchData: sketchData ?? undefined,
-            backgroundImageUrl: backgroundImageUrl ?? undefined,
-            renderedPngUrl: renderedPngUrl ?? undefined,
+            sketchData: securedSketchData ?? undefined,
+            renderedPngUrl: renderLocator,
             backgroundImageOpacity: opacity,
             backgroundImageScale: bgScale,
             backgroundImageOffsetX: bgOffsetX,
@@ -231,8 +324,8 @@ export async function POST(
     // so a decomposition failure must never reject the sketch save.
     try {
       const decomposed =
-        sketchData && typeof sketchData === "object"
-          ? decomposeElements(sketchData as Record<string, unknown>)
+        securedSketchData && typeof securedSketchData === "object"
+          ? decomposeElements(securedSketchData as Record<string, unknown>)
           : [];
       const slugs = [
         ...new Set(
@@ -279,7 +372,7 @@ export async function POST(
       // RoomGraph V1 — upsert rooms BEFORE moisture pin sync so pins can bind
       // to SketchRoom ids (EvidencePin / moisture / hazards join target).
       const roomNodes = extractRoomGraphNodes(
-        sketchData as Record<string, unknown>,
+        securedSketchData as Record<string, unknown>,
       );
       const existingRooms = await (prisma as any).sketchRoom.findMany({
         where: { sketchId: sketch.id },
@@ -401,6 +494,50 @@ export async function POST(
             ]
           : []),
       ]);
+
+      if (
+        activeUnderlay &&
+        underlayVerification?.ok &&
+        cleanRenderReceipt
+      ) {
+        const verifiedAt = new Date();
+        const verificationJson = {
+          roomCount: underlayVerification.roomCount,
+          pxPerMetre: underlayVerification.pxPerMetre,
+          scaleDescription: underlayVerification.scaleDescription,
+          sketchSha256: createHash("sha256")
+            .update(stableStringify(securedSketchData))
+            .digest("hex"),
+          renderSha256: cleanRenderReceipt?.renderSha256,
+          storagePath: cleanRenderReceipt?.storagePath,
+        };
+        await (prisma as any).$transaction([
+          (prisma as any).sketchUnderlayReference.update({
+            where: { id: activeUnderlay.id },
+            data: {
+              sketchId: sketch.id,
+              verifiedByUserId: session.user.id,
+              verifiedAt,
+              verificationMethod: underlayVerification.method,
+              verificationJson,
+            },
+          }),
+          (prisma as any).auditLog.create({
+            data: {
+              inspectionId: id,
+              action: "Reference floor plan geometry verified",
+              entityType: "SketchUnderlayReference",
+              entityId: activeUnderlay.id,
+              userId: session.user.id,
+              changes: JSON.stringify({
+                floorNumber,
+                method: underlayVerification.method,
+                ...verificationJson,
+              }),
+            },
+          }),
+        ]);
+      }
     } catch (e) {
       console.error(
         "[sketches] SketchElement / moisture / room-graph decomposition failed (non-fatal):",

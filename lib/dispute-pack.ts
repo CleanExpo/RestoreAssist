@@ -18,6 +18,7 @@ import {
 } from "pdf-lib";
 import { PrismaClient } from "@prisma/client";
 import { resolveAreaSqm } from "@/lib/units";
+import { getGstTreatment, type GstTreatment } from "@/lib/gst-rules";
 
 // ── Brand colours ──────────────────────────────────────────────────────────────
 const NAVY = rgb(0.11, 0.18, 0.28); // #1C2E47
@@ -41,6 +42,7 @@ const CONTENT_WIDTH = PAGE_W - MARGIN * 2;
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface DisputePackData {
+  gstTreatment: GstTreatment;
   inspection: {
     id: string;
     inspectionNumber: string;
@@ -601,6 +603,11 @@ export async function generateDisputePack(
       submittedAt: true,
       processedAt: true,
       userId: true,
+      user: {
+        select: {
+          organization: { select: { country: true } },
+        },
+      },
       classifications: {
         select: {
           category: true,
@@ -685,6 +692,9 @@ export async function generateDisputePack(
   }
 
   const data: DisputePackData = {
+    gstTreatment: getGstTreatment(
+      inspection.user?.organization?.country === "NZ" ? "NZ" : "AU",
+    ),
     inspection: {
       id: inspection.id,
       inspectionNumber: inspection.inspectionNumber,
@@ -919,10 +929,10 @@ function drawExecutiveSummary(w: PDFWriter, data: DisputePackData): void {
   // Cost summary
   if (data.costEstimates.length > 0) {
     const totalValue = data.costEstimates.reduce((s, c) => s + c.total, 0);
-    const gst = totalValue * 0.1;
+    const gst = totalValue * data.gstTreatment.rate;
     w.subHeading("Estimated Value");
     w.kvPair("Subtotal (ex GST)", fmtCurrency(totalValue));
-    w.kvPair("GST (10%)", fmtCurrency(gst));
+    w.kvPair(`GST (${data.gstTreatment.percentLabel})`, fmtCurrency(gst));
     w.kvPair("Total (inc GST)", fmtCurrency(totalValue + gst));
   }
 
@@ -1119,7 +1129,7 @@ function drawScopeOfWorks(w: PDFWriter, data: DisputePackData): void {
     w.skip(4);
     w.hr();
     const total = data.costEstimates.reduce((s, c) => s + c.total, 0);
-    const gst = total * 0.1;
+    const gst = total * data.gstTreatment.rate;
     w.tableRow(
       [
         { text: "Subtotal (ex GST)", x: MARGIN, width: 280 },
@@ -1133,7 +1143,11 @@ function drawScopeOfWorks(w: PDFWriter, data: DisputePackData): void {
     );
     w.tableRow(
       [
-        { text: "GST (10%)", x: MARGIN, width: 280 },
+        {
+          text: `GST (${data.gstTreatment.percentLabel})`,
+          x: MARGIN,
+          width: 280,
+        },
         { text: "", x: MARGIN + 152, width: 35 },
         { text: "", x: MARGIN + 189, width: 40 },
         { text: "", x: MARGIN + 231, width: 55 },

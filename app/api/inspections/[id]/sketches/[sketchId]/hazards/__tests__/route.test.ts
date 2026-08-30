@@ -11,7 +11,12 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
 }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { hazard: { create: vi.fn() } },
+  prisma: {
+    claimSketch: { findFirst: vi.fn() },
+    sketchElement: { findFirst: vi.fn() },
+    sketchRoom: { findFirst: vi.fn() },
+    hazard: { create: vi.fn() },
+  },
 }));
 
 import { getServerSession } from "next-auth";
@@ -25,12 +30,18 @@ const mockTenancy = assertInspectionTenancy as unknown as ReturnType<
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const p = prisma as unknown as {
+  claimSketch: { findFirst: ReturnType<typeof vi.fn> };
+  sketchElement: { findFirst: ReturnType<typeof vi.fn> };
+  sketchRoom: { findFirst: ReturnType<typeof vi.fn> };
   hazard: { create: ReturnType<typeof vi.fn> };
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockSession.mockResolvedValue({ user: { id: "u_1" } });
+  p.claimSketch.findFirst.mockResolvedValue({ id: "s1" });
+  p.sketchElement.findFirst.mockResolvedValue({ id: "e1" });
+  p.sketchRoom.findFirst.mockResolvedValue({ id: "room1" });
   p.hazard.create.mockImplementation(async ({ data }: any) => ({
     id: "hz_1",
     ...data,
@@ -103,5 +114,22 @@ describe("POST hazards", () => {
     });
     const res = await POST(post({ type: "asbestos" }), params);
     expect(res.status).toBe(403);
+  });
+
+  it("404s before writing when the sketch belongs to another inspection", async () => {
+    p.claimSketch.findFirst.mockResolvedValueOnce(null);
+    const res = await POST(post({ type: "asbestos" }), params);
+    expect(res.status).toBe(404);
+    expect(p.hazard.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a room from another sketch", async () => {
+    p.sketchRoom.findFirst.mockResolvedValueOnce(null);
+    const res = await POST(
+      post({ type: "asbestos", sketchRoomId: "foreign" }),
+      params,
+    );
+    expect(res.status).toBe(422);
+    expect(p.hazard.create).not.toHaveBeenCalled();
   });
 });

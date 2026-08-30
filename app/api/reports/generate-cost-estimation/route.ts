@@ -13,6 +13,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
+import { getGstTreatment } from "@/lib/gst-rules";
 
 // POST - Generate Cost Estimation document
 export async function POST(request: NextRequest) {
@@ -42,6 +43,9 @@ export async function POST(request: NextRequest) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
+          organization: {
+            select: { country: true },
+          },
           pricingConfig: {
             select: {
               id: true,
@@ -70,6 +74,16 @@ export async function POST(request: NextRequest) {
           status: 404,
         });
       }
+
+      const country = user.organization?.country;
+      if (country !== "AU" && country !== "NZ") {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Complete your organisation country before calculating tax.",
+          status: 422,
+        });
+      }
+      const gstTreatment = getGstTreatment(country);
 
       // Subscription gate — CANCELED/PAST_DUE users must not run AI generation
       const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
@@ -193,6 +207,7 @@ export async function POST(request: NextRequest) {
         equipmentSelection,
         psychrometricAssessment,
         scopeAreas,
+        gstTreatment,
       });
 
       // Generate the document - build it server-side with exact values, use AI only for narrative enhancement
@@ -243,6 +258,7 @@ function buildCostEstimationData(data: {
   equipmentSelection?: any[];
   psychrometricAssessment?: any;
   scopeAreas?: any[];
+  gstTreatment: ReturnType<typeof getGstTreatment>;
 }) {
   const {
     report,
@@ -255,6 +271,7 @@ function buildCostEstimationData(data: {
     equipmentSelection = [],
     psychrometricAssessment,
     scopeAreas = [],
+    gstTreatment,
   } = data;
 
   // Extract information
@@ -717,7 +734,7 @@ function buildCostEstimationData(data: {
     totalAdmin +
     totalCallOut +
     totalThermal;
-  const gst = subtotal * 0.1; // 10% GST
+  const gst = subtotal * gstTreatment.rate;
   const totalIncGST = subtotal + gst;
 
   // Industry comparison
@@ -810,6 +827,8 @@ function buildCostEstimationData(data: {
       subtotal,
       gst,
       totalIncGST,
+      gstPercentLabel: gstTreatment.percentLabel,
+      currency: gstTreatment.currency,
     },
     industryComparison: {
       average: industryAverage,
@@ -923,7 +942,7 @@ ${formatCategories(costData.categories)}
 - Total Administrative & Miscellaneous: $${costData.totals.totalAdmin.toFixed(2)}
 - ———————————————————
 - **SUBTOTAL (Restoration Works): $${costData.totals.subtotal.toFixed(2)}**
-- GST (10%): $${costData.totals.gst.toFixed(2)}
+- GST (${costData.totals.gstPercentLabel}): $${costData.totals.gst.toFixed(2)}
 - **TOTAL ESTIMATED COST (Restoration Services): $${costData.totals.totalIncGST.toFixed(2)}**
 
 # SECTION 3: COST COMPARISON AND JUSTIFICATION
