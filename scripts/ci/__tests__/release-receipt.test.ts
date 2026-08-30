@@ -324,7 +324,10 @@ describe("planted defect: the measurements themselves", () => {
   it("keeps the registry to criteria that have actually been defined", () => {
     // Deliberately exact. Adding a criterion here must be a conscious edit
     // with its own measurement predicate and tests, not a side effect.
-    expect(Object.keys(CRITERION_POLICIES).sort()).toEqual(["C2-secrets-scan"]);
+    expect(Object.keys(CRITERION_POLICIES).sort()).toEqual([
+      "A3-no-sev1-sev2-open",
+      "C2-secrets-scan",
+    ]);
   });
 
   it("refuses a secrets scan that found something", () => {
@@ -539,5 +542,126 @@ describe("planted defect: environment binding", () => {
     // Exact on purpose: widening this must be a deliberate edit. A secrets
     // scan reads the tree, so it has no business claiming production.
     expect(CRITERION_POLICIES["C2-secrets-scan"].environments).toEqual(["ci"]);
+  });
+});
+
+describe("A3-no-sev1-sev2-open policy", () => {
+  const A3 = "A3-no-sev1-sev2-open";
+
+  /** Measurements a correct A3 producer run emits. */
+  function a3(overrides: Record<string, string | number | boolean> = {}) {
+    return {
+      source: "linear",
+      teamKey: "RA",
+      prioritiesScanned: "1,2",
+      stateTypesScanned: "backlog,started,triage,unstarted",
+      excludedProjects: "Margot,Pi-Dev-Ops",
+      populationCount: 214,
+      openBlockerCount: 0,
+      blockers: "",
+      ...overrides,
+    };
+  }
+
+  function verifyA3(measurements: Record<string, string | number | boolean>) {
+    const { privateKey, publicKeyPem } = keypair();
+    return verifyReleaseReceipt(
+      sign(validReceipt({ criterionId: A3, measurements }), privateKey),
+      context({ criterionId: A3 }),
+      keySet(publicKeyPem, [A3]),
+    );
+  }
+
+  it("accepts a clean run", () => {
+    expect(verifyA3(a3())).toEqual({ ok: true });
+  });
+
+  it("refuses an empty population — the unplugged smoke detector", () => {
+    // The exact defect the evidence file records: a query naming a project
+    // that did not exist returned nothing, and nothing read as zero blockers.
+    // This is the single most important assertion in this block.
+    expect(verifyA3(a3({ populationCount: 0 }))).toEqual({
+      ok: false,
+      message: expect.stringContaining("populationCount must be positive"),
+    });
+  });
+
+  it("refuses a negative or non-numeric population", () => {
+    expect(verifyA3(a3({ populationCount: -1 })).ok).toBe(false);
+    expect(verifyA3(a3({ populationCount: "many" })).ok).toBe(false);
+  });
+
+  it("refuses a run that still has open blockers", () => {
+    expect(
+      verifyA3(a3({ openBlockerCount: 12, blockers: "RA-6678,RA-6955" })),
+    ).toEqual({
+      ok: false,
+      message: "measurement openBlockerCount is 12, expected 0",
+    });
+  });
+
+  it("refuses a query narrowed to `started` only", () => {
+    // How blockers sitting in triage, backlog or unstarted went unseen.
+    expect(verifyA3(a3({ stateTypesScanned: "started" }))).toEqual({
+      ok: false,
+      message: expect.stringContaining("every open state type"),
+    });
+  });
+
+  it("refuses a query narrowed to Urgent only", () => {
+    expect(verifyA3(a3({ prioritiesScanned: "1" }))).toEqual({
+      ok: false,
+      message: expect.stringContaining("prioritiesScanned must be 1,2"),
+    });
+  });
+
+  it("refuses widened project exclusions, which could zero any count", () => {
+    // A producer free to exclude anything can always report success.
+    expect(
+      verifyA3(a3({ excludedProjects: "Margot,Pi-Dev-Ops,RestoreAssist" })),
+    ).toEqual({
+      ok: false,
+      message: expect.stringContaining("exactly Margot,Pi-Dev-Ops"),
+    });
+  });
+
+  it("refuses a measurement from another team", () => {
+    expect(verifyA3(a3({ teamKey: "PID" })).ok).toBe(false);
+  });
+
+  it("refuses a source that is not the Linear query", () => {
+    expect(verifyA3(a3({ source: "spreadsheet" }))).toEqual({
+      ok: false,
+      message: "measurement source must be linear",
+    });
+  });
+
+  it("still refuses a key not scoped to A3", () => {
+    const { privateKey, publicKeyPem } = keypair();
+    expect(
+      verifyReleaseReceipt(
+        sign(validReceipt({ criterionId: A3, measurements: a3() }), privateKey),
+        context({ criterionId: A3 }),
+        keySet(publicKeyPem, ["C2-secrets-scan"]),
+      ).ok,
+    ).toBe(false);
+  });
+
+  it("still refuses an environment A3 does not accept", () => {
+    const { privateKey, publicKeyPem } = keypair();
+    expect(
+      verifyReleaseReceipt(
+        sign(
+          validReceipt({
+            criterionId: A3,
+            measurements: a3(),
+            environment: "production",
+          }),
+          privateKey,
+        ),
+        context({ criterionId: A3 }),
+        keySet(publicKeyPem, [A3]),
+      ).ok,
+    ).toBe(false);
   });
 });

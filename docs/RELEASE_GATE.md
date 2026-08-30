@@ -86,8 +86,8 @@ Profile omission does not award points: excluded criteria are removed from that 
 ## Machine-verifiable vs blocked owner-evidence breakdown
 
 - **Web profile machine-verifiable (50 / 85 pts):** A2 (10), all of B (20), C1 (10), D2 (5), and F2 (5).
-- **Web profile reachable by signed receipt (5 / 85 pts):** C2, once a receipt signed by a trusted key is present. See "Signed receipts" below.
-- **Web profile owner-evidence still blocked (30 / 85 pts):** A1/A3 (15), D1/D3 (10), and F1 (5).
+- **Web profile reachable by signed receipt (10 / 85 pts):** C2 (5) and A3 (5), once a receipt signed by a trusted key is present. See "Signed receipts" below.
+- **Web profile owner-evidence still blocked (25 / 85 pts):** A1 (10), D1/D3 (10), and F1 (5).
 - **Mobile-only blocked additions (15 / 100 pts):** E1-E3 remain required in the `mobile` profile and are excluded from the `web` profile.
 
 Committed prose, screenshots, URLs and hashes of narrative evidence do not earn release points: they are self-attestable. The scorer validates their structure and freshness for diagnostics, then fails closed until each owner criterion has a signed, criterion-specific machine receipt producer and verifier. A1 requires signup, login, onboarding, storage setup, restore, inspection, claim, attestation and PDF observations. E3 requires App Review, release, rollback and reviewer observations. Freshness is aged from the stated date, never filesystem metadata.
@@ -138,12 +138,30 @@ That third property is why a signature alone cannot enable a criterion. Each
 one needs a registered measurement check saying what "measured" means for it,
 and a criterion absent from that registry cannot pass however good its key.
 
-**Registered:** C2-secrets-scan, which requires a `git-checkout-index` export
-rather than a working-directory scan (`gitleaks --no-git` ignores
-`.gitignore`), zero findings, and zero missing recommended environment
-variables.
+**Registered:**
 
-**Still unregistered, and therefore still scoring zero:** A1, A3, D1, D3, F1
+- **C2-secrets-scan** — requires a `git-checkout-index` export rather than a
+  working-directory scan (`gitleaks --no-git` ignores `.gitignore`), zero
+  findings, and zero missing recommended environment variables.
+- **A3-no-sev1-sev2-open** — produced by
+  `scripts/ci/producers/a3-open-blockers.ts`, which counts open Urgent/High
+  issues on Linear team RA. Every check on it answers a line of that
+  criterion's own evidence file, which records how it once scored 5 points it
+  had not earned:
+
+  | Check | The failure it answers |
+  | --- | --- |
+  | `populationCount` must be positive | The recorded query named a project that did not exist. Linear answered "Could not find project", and the empty result read as zero blockers — "the absence of a measurement, in the way an unplugged smoke detector reports no smoke." |
+  | `stateTypesScanned` must be all four open types | The old query scanned `state = started` only, so triage, backlog and unstarted blockers were invisible. |
+  | `prioritiesScanned` must be `1,2` | Urgent alone does not answer a criterion about Urgent **and** High. |
+  | `excludedProjects` must be exactly `Margot,Pi-Dev-Ops` | Exclusions can drive any count to zero. The RA-2232 scope verdict is pinned here, so widening it is a reviewed code change rather than a producer flag. |
+
+  The producer deliberately does **not** judge severity. Priority is not
+  severity — an epic or a growth ticket can carry Urgent without being a
+  customer-impacting defect, and that mismatch is why the criterion drifted.
+  Reconciling the two is a human call made in Linear by downgrading the ticket.
+
+**Still unregistered, and therefore still scoring zero:** A1, D1, D3, F1
 and E1-E3. Each needs a producer that can take its measurement without a human
 retyping it -- a Linear query for A3, Stripe reconciliation for D3, an
 instrumented end-to-end run for A1 -- plus its own measurement check and
