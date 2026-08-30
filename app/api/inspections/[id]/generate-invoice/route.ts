@@ -8,15 +8,14 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
 import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
-
-const GST_RATE = 10.0;
+import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 
 const toCents = (amount: number | null) => Math.round((amount ?? 0) * 100);
 
-const gstRateForTaxType = (taxType: string) =>
+const gstRateForTaxType = (taxType: string, tenantRate: number) =>
   taxType === "EXEMPT" || taxType === "EXEMPTOUTPUT" || taxType === "NONE"
     ? 0
-    : GST_RATE;
+    : tenantRate;
 
 const ISSUE_INVOICE_CONTEXT = {
   invoiceStatus: null,
@@ -219,6 +218,7 @@ export async function POST(
   // without idempotency would create two invoices for the same job.
   return withIdempotency(request, userId, async () => {
     try {
+      const gstTreatment = await resolveUserGstTreatment(userId);
       // Resolve the inspection, report and client in one tenant-scoped query.
       const inspection = await prisma.inspection.findFirst({
         where: { id, userId },
@@ -405,7 +405,10 @@ export async function POST(
         estimate.lineItems.map((item, index) => {
           const unitPrice = toCents(item.rate);
           const subtotal = toCents(item.subtotal);
-          const gstRate = gstRateForTaxType(item.taxType);
+          const gstRate = gstRateForTaxType(
+            item.taxType,
+            gstTreatment.ratePercent,
+          );
           const itemGst = Math.round(subtotal * (gstRate / 100));
           const total = subtotal + itemGst;
 
@@ -426,7 +429,8 @@ export async function POST(
             code: item.code,
             unit: item.unit,
             isPassThrough: item.isPassThrough,
-            taxType: item.taxType,
+            taxType:
+              gstRate === 0 ? item.taxType : gstTreatment.xeroTaxType,
             xeroAccountCode: item.xeroAccountCode,
           };
         });
@@ -442,7 +446,7 @@ export async function POST(
         const subtotal = toCents(amount);
         if (subtotal === 0) continue;
 
-        const itemGst = Math.round(subtotal * (GST_RATE / 100));
+        const itemGst = Math.round(subtotal * gstTreatment.rate);
         subtotalExGST += subtotal;
         gstAmount += itemGst;
         lineItemsData.push({
@@ -451,7 +455,7 @@ export async function POST(
           quantity: 1,
           unitPrice: subtotal,
           subtotal,
-          gstRate: GST_RATE,
+          gstRate: gstTreatment.ratePercent,
           gstAmount: itemGst,
           total: subtotal + itemGst,
           sortOrder: lineItemsData.length,
@@ -459,7 +463,7 @@ export async function POST(
           code: null,
           unit: "item",
           isPassThrough: false,
-          taxType: "OUTPUT",
+          taxType: gstTreatment.xeroTaxType,
           xeroAccountCode: null,
         });
       }
@@ -574,6 +578,7 @@ export async function POST(
               gstAmount,
               totalIncGST,
               amountDue: totalIncGST,
+              currency: gstTreatment.currency,
               adjustmentAmount,
               adjustmentNote:
                 adjustmentAmount === 0

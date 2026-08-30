@@ -1,4 +1,16 @@
 import { describe, it, expect, vi } from "vitest";
+import { createHash } from "node:crypto";
+import { stableStringify } from "@/lib/sketch/roomplan-custody-queue";
+
+vi.mock("@/lib/storage/sign-stored-url", () => ({
+  signStoredMediaUrl: vi.fn(async (url: string) =>
+    url.replace(/^storage:\/\//, "https://"),
+  ),
+  parseSupabaseStorageUrl: vi.fn((url: string) => {
+    const match = url.match(/^storage:\/\/([^/]+)\/(.+)$/);
+    return match ? { bucket: match[1], path: match[2] } : null;
+  }),
+}));
 import {
   claimSketchesToFloors,
   expandFloorsWithRoomMoisture,
@@ -7,21 +19,24 @@ import type { SketchFloor } from "@/lib/generate-sketch-pdf";
 
 /** Minimal stand-in PNG bytes — content is irrelevant to the mapper. */
 function pngBytes(marker: number): Uint8Array {
-  return new Uint8Array([0x89, 0x50, 0x4e, 0x47, marker]);
+  return new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, marker]);
 }
+
+const canonicalRender = (floor: number, hash = "a".repeat(64)) =>
+  `storage://sketch-media/inspections/i1/exports/verified/floor-${floor}-${hash}.png`;
 
 /** Fake fetch keyed by URL. A "fail" value yields a non-ok response. */
 function fakeFetch(map: Record<string, Uint8Array | "fail">) {
   return vi.fn(async (url: string) => {
-    const v = map[url];
+    const storageUrl = url.replace(/^https:\/\//, "storage://");
+    const v = map[storageUrl];
     if (!v || v === "fail") {
-      return { ok: false, arrayBuffer: async () => new ArrayBuffer(0) };
+      return new Response(null, { status: 404 });
     }
-    return {
-      ok: true,
-      arrayBuffer: async () =>
-        v.buffer.slice(v.byteOffset, v.byteOffset + v.byteLength),
-    };
+    return new Response(v, {
+      status: 200,
+      headers: { "content-type": "image/png" },
+    });
   });
 }
 
@@ -81,19 +96,19 @@ describe("claimSketchesToFloors", () => {
       {
         floorNumber: 2,
         floorLabel: "Level 1",
-        renderedPngUrl: "https://x/2.png",
+        renderedPngUrl: canonicalRender(2),
         sketchData: { a: 1 },
       },
       {
         floorNumber: 0,
         floorLabel: "Ground Floor",
-        renderedPngUrl: "https://x/0.png",
+        renderedPngUrl: canonicalRender(0),
         sketchData: { b: 2 },
       },
     ];
     const fetchImpl = fakeFetch({
-      "https://x/2.png": pngBytes(2),
-      "https://x/0.png": pngBytes(0),
+      [canonicalRender(2)]: pngBytes(2),
+      [canonicalRender(0)]: pngBytes(0),
     });
 
     const floors = await claimSketchesToFloors(sketches, fetchImpl as never);
@@ -114,11 +129,13 @@ describe("claimSketchesToFloors", () => {
       {
         floorNumber: 1,
         floorLabel: "Level 1",
-        renderedPngUrl: "https://x/1.png",
+        renderedPngUrl: canonicalRender(1),
         sketchData: null,
       },
     ];
-    const fetchImpl = fakeFetch({ "https://x/1.png": pngBytes(1) });
+    const fetchImpl = fakeFetch({
+      [canonicalRender(1)]: pngBytes(1),
+    });
 
     const floors = await claimSketchesToFloors(sketches, fetchImpl as never);
 
@@ -132,19 +149,19 @@ describe("claimSketchesToFloors", () => {
       {
         floorNumber: 0,
         floorLabel: "Ground Floor",
-        renderedPngUrl: "https://x/0.png",
+        renderedPngUrl: canonicalRender(0),
         sketchData: null,
       },
       {
         floorNumber: 1,
         floorLabel: "Level 1",
-        renderedPngUrl: "https://x/broken.png",
+        renderedPngUrl: canonicalRender(1, "b".repeat(64)),
         sketchData: null,
       },
     ];
     const fetchImpl = fakeFetch({
-      "https://x/0.png": pngBytes(0),
-      "https://x/broken.png": "fail",
+      [canonicalRender(0)]: pngBytes(0),
+      [canonicalRender(1, "b".repeat(64))]: "fail",
     });
 
     const floors = await claimSketchesToFloors(sketches, fetchImpl as never);
@@ -164,7 +181,7 @@ describe("claimSketchesToFloors", () => {
       {
         floorNumber: 0,
         floorLabel: "Ground Floor",
-        renderedPngUrl: "https://x/0.png",
+        renderedPngUrl: canonicalRender(0),
         sketchData: null,
         moisturePoints: [
           { nx: 0.5, ny: 0.5, wme: 20 },
@@ -172,7 +189,9 @@ describe("claimSketchesToFloors", () => {
         ],
       },
     ];
-    const fetchImpl = fakeFetch({ "https://x/0.png": pngBytes(0) });
+    const fetchImpl = fakeFetch({
+      [canonicalRender(0)]: pngBytes(0),
+    });
 
     const floors = await claimSketchesToFloors(sketches, fetchImpl as never);
 
@@ -190,11 +209,13 @@ describe("claimSketchesToFloors", () => {
       {
         floorNumber: 0,
         floorLabel: "Ground Floor",
-        renderedPngUrl: "https://x/0.png",
+        renderedPngUrl: canonicalRender(0),
         sketchData: null,
       },
     ];
-    const fetchImpl = fakeFetch({ "https://x/0.png": pngBytes(0) });
+    const fetchImpl = fakeFetch({
+      [canonicalRender(0)]: pngBytes(0),
+    });
 
     const floors = await claimSketchesToFloors(sketches, fetchImpl as never);
 
@@ -206,7 +227,7 @@ describe("claimSketchesToFloors", () => {
       {
         floorNumber: 0,
         floorLabel: "Ground Floor",
-        renderedPngUrl: "https://x/0.png",
+        renderedPngUrl: canonicalRender(0),
         sketchData: null,
         evidencePins: [
           {
@@ -219,7 +240,9 @@ describe("claimSketchesToFloors", () => {
         ],
       },
     ];
-    const fetchImpl = fakeFetch({ "https://x/0.png": pngBytes(0) });
+    const fetchImpl = fakeFetch({
+      [canonicalRender(0)]: pngBytes(0),
+    });
 
     const floors = await claimSketchesToFloors(sketches, fetchImpl as never);
 
@@ -232,5 +255,111 @@ describe("claimSketchesToFloors", () => {
         inspectionPhotoId: "photo-1",
       },
     ]);
+  });
+
+  it("requires a verified underlay receipt bound to the exact immutable render", async () => {
+    const renderSha256 = "c".repeat(64);
+    const sketchSha256 =
+      "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b";
+    const storagePath = `inspections/i1/exports/verified/floor-0-${renderSha256}.png`;
+    const renderedPngUrl = `storage://sketch-media/${storagePath}`;
+    const fetchImpl = fakeFetch({ [renderedPngUrl]: pngBytes(0) });
+    const base = {
+      floorNumber: 0,
+      floorLabel: "Ground Floor",
+      renderedPngUrl,
+      sketchData: null,
+    };
+
+    await expect(
+      claimSketchesToFloors(
+        [
+          {
+            ...base,
+            underlayReferences: [
+              { verifiedAt: new Date(), verificationJson: { storagePath: "wrong" } },
+            ],
+          },
+        ],
+        fetchImpl as never,
+      ),
+    ).resolves.toEqual([]);
+
+    const floors = await claimSketchesToFloors(
+      [
+        {
+          ...base,
+          underlayReferences: [
+            {
+              verifiedAt: new Date(),
+              verificationJson: { storagePath, renderSha256, sketchSha256 },
+            },
+          ],
+        },
+      ],
+      fetchImpl as never,
+    );
+    expect(floors).toHaveLength(1);
+  });
+
+  it("blocks a recreated sketch when the inspection-floor custody history is unverified", async () => {
+    const renderedPngUrl = canonicalRender(0);
+    const floors = await claimSketchesToFloors(
+      [
+        {
+          floorNumber: 0,
+          floorLabel: "Recreated Ground Floor",
+          renderedPngUrl,
+          sketchData: { objects: [] },
+          underlayReferences: [],
+          inspection: {
+            sketchUnderlayReferences: [
+              {
+                floorNumber: 0,
+                verifiedAt: null,
+                verificationJson: null,
+              },
+            ],
+          },
+        },
+      ],
+      fakeFetch({ [renderedPngUrl]: pngBytes(0) }) as never,
+    );
+    expect(floors).toEqual([]);
+  });
+
+  it("uses canonical JSON hashing across JSONB key reordering", async () => {
+    const renderSha256 = "d".repeat(64);
+    const storagePath = `inspections/i1/exports/verified/floor-0-${renderSha256}.png`;
+    const renderedPngUrl = `storage://sketch-media/${storagePath}`;
+    const sketchData = { nested: { a: 1, z: 2 }, first: true };
+    const sketchSha256 = createHash("sha256")
+      .update(stableStringify({ first: true, nested: { z: 2, a: 1 } }))
+      .digest("hex");
+    const floors = await claimSketchesToFloors(
+      [
+        {
+          floorNumber: 0,
+          floorLabel: "Ground Floor",
+          renderedPngUrl,
+          sketchData,
+          inspection: {
+            sketchUnderlayReferences: [
+              {
+                floorNumber: 0,
+                verifiedAt: new Date(),
+                verificationJson: {
+                  storagePath,
+                  renderSha256,
+                  sketchSha256,
+                },
+              },
+            ],
+          },
+        },
+      ],
+      fakeFetch({ [renderedPngUrl]: pngBytes(0) }) as never,
+    );
+    expect(floors).toHaveLength(1);
   });
 });

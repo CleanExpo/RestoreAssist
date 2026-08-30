@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
+import { resolveLineGstRatePercent } from "@/lib/gst-rules";
 
 function nextDateFromFrequency(start: Date, frequency: string): Date {
   const d = new Date(start);
@@ -118,6 +120,7 @@ export async function POST(request: NextRequest) {
 
       const start = new Date(startDate);
       const nextInvoiceDate = nextDateFromFrequency(start, frequency);
+      const gstTreatment = await resolveUserGstTreatment(userId);
 
       const items: Array<{
         description: string;
@@ -125,6 +128,19 @@ export async function POST(request: NextRequest) {
         unitPrice: number;
         gstRate?: number;
       }> = Array.isArray(lineItems) ? lineItems : [];
+
+      const invalidGstIndex = items.findIndex((item) => {
+        if (item.gstRate === null || item.gstRate === undefined) return false;
+        const rate = Number(item.gstRate);
+        return !Number.isFinite(rate) || rate < 0;
+      });
+      if (invalidGstIndex >= 0) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Line item ${invalidGstIndex + 1} has an invalid GST rate`,
+          status: 400,
+        });
+      }
 
       const subtotalExGST = items.reduce(
         (sum, item) => sum + Math.round(item.quantity * item.unitPrice),
@@ -134,7 +150,9 @@ export async function POST(request: NextRequest) {
         (sum, item) =>
           sum +
           Math.round(
-            item.quantity * item.unitPrice * ((item.gstRate ?? 10) / 100),
+            item.quantity *
+              item.unitPrice *
+              (resolveLineGstRatePercent(item.gstRate, gstTreatment) / 100),
           ),
         0,
       );
@@ -157,7 +175,10 @@ export async function POST(request: NextRequest) {
           subtotalExGST,
           gstAmount,
           totalIncGST,
-          lineItemsTemplate: items,
+          lineItemsTemplate: items.map((item) => ({
+            ...item,
+            gstRate: resolveLineGstRatePercent(item.gstRate, gstTreatment),
+          })),
           dueInDays: dueInDays ?? 30,
           terms: terms || null,
           notes: notes || null,

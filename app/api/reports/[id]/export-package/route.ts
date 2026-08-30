@@ -17,7 +17,6 @@ import {
 import { drawAiOwnershipWatermark } from "@/lib/reports/ai-ownership-watermark";
 import { aiOwnershipExportMeta } from "@/lib/reports/ai-ownership-export-meta";
 
-
 /**
  * RA-7003: the "complete package" previously contained only the three text
  * documents + version history — no floor plans, no photos, no signed
@@ -48,6 +47,22 @@ async function appendArtifactsToPackage(
           renderedPngUrl: true,
           sketchData: true,
           moisturePoints: true,
+          underlayReferences: {
+            select: { verifiedAt: true, verificationJson: true },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+          inspection: {
+            select: {
+              sketchUnderlayReferences: {
+                select: {
+                  floorNumber: true,
+                  verifiedAt: true,
+                  verificationJson: true,
+                },
+              },
+            },
+          },
         },
         orderBy: { floorNumber: "asc" },
         take: 20,
@@ -94,10 +109,7 @@ async function appendArtifactsToPackage(
           const response = await fetch(form.pdfUrl!);
           if (!response.ok) continue;
           const source = await PDFDocument.load(await response.arrayBuffer());
-          const pages = await target.copyPages(
-            source,
-            source.getPageIndices(),
-          );
+          const pages = await target.copyPages(source, source.getPageIndices());
           pages.forEach((page) => target.addPage(page));
         } catch (err) {
           console.error(

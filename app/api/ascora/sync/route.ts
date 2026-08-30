@@ -36,6 +36,7 @@ import { sanitizeForPostgresText } from "@/lib/sanitize";
 import { SERVICE_CRM_SKU } from "@/lib/billing/service-crm-addon";
 import { fetchAscoraWithRetry } from "@/lib/integrations/ascora/fetch-with-retry";
 import { mapAscoraUpstreamError } from "@/lib/integrations/ascora/upstream-errors";
+import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 
 /** Page size for Ascora list endpoints. 1000 ≈ 2.5MB / ~26s and races the
  * 30s attempt budget; 100 stays well under both. */
@@ -710,6 +711,8 @@ export async function POST(request: NextRequest) {
         status: 403,
       });
     }
+    if (!userId) throw new Error("Ascora sync user could not be resolved");
+    const gstTreatment = await resolveUserGstTreatment(userId);
 
     // Decrypt the stored API key for outbound Ascora calls. Legacy plaintext
     // rows (pre-backfill) aren't in cipher shape, so pass them through unchanged.
@@ -973,7 +976,8 @@ export async function POST(request: NextRequest) {
             customerName,
             totalExTax: job.totalExTax ?? 0,
             totalIncTax:
-              job.totalIncTax ?? (job.totalExTax ? job.totalExTax * 1.1 : 0),
+              job.totalIncTax ??
+              (job.totalExTax ? job.totalExTax * (1 + gstTreatment.rate) : 0),
             completedDate: job.completedDate
               ? new Date(job.completedDate)
               : null,
@@ -989,7 +993,8 @@ export async function POST(request: NextRequest) {
             description,
             totalExTax: job.totalExTax ?? 0,
             totalIncTax:
-              job.totalIncTax ?? (job.totalExTax ? job.totalExTax * 1.1 : 0),
+              job.totalIncTax ??
+              (job.totalExTax ? job.totalExTax * (1 + gstTreatment.rate) : 0),
             completedDate: job.completedDate
               ? new Date(job.completedDate)
               : null,

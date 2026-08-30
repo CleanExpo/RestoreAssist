@@ -3,10 +3,12 @@
  *
  * Resolves the workspace's active scraping provider (RA-2966) and routes
  * an HTML fetch through the corresponding adapter. Falls back to the
- * caller-supplied SHARED fetch path on:
+ * caller-supplied SHARED fetch path when there is no configured BYOK provider.
+ * A configured BYOK provider fails closed instead of crossing a credential or
+ * contractual boundary. Platform Apify may fall back to shared fetch on:
  *   - No workspace
  *   - No active provider / provider = SHARED
- *   - Adapter throws (network, auth, bad response)
+ *   - Platform adapter throws (network, auth, bad response)
  *
  * On adapter failure the provider connection's `lastError` is updated so
  * the workspace admin sees what went wrong in the settings UI.
@@ -47,7 +49,7 @@ async function resolveWorkspaceId(userId: string): Promise<string | null> {
   if (workspace) return workspace.id;
 
   const membership = await prisma.workspaceMember.findFirst({
-    where: { userId },
+    where: { userId, status: "ACTIVE" },
     select: { workspaceId: true },
     orderBy: { createdAt: "asc" },
   });
@@ -70,13 +72,10 @@ async function recordProviderError(
 }
 
 /**
- * Fetch HTML via the workspace's configured scraping provider, falling
- * back to SHARED on any failure. Safe to call on every scrape — the
- * underlying provider lookup is a single Prisma query.
+ * Fetch HTML via the workspace's configured scraping provider. A BYOK failure
+ * returns a synthetic 503; only platform/shared dispatch may fall back.
  */
-async function fetchViaPlatformApify(
-  url: string,
-): Promise<FetchResult | null> {
+async function fetchViaPlatformApify(url: string): Promise<FetchResult | null> {
   const token = resolveApifyToken();
   if (!token) return null;
   return fetchViaApify(url, token);
@@ -104,6 +103,14 @@ export async function fetchHtmlViaWorkspaceProvider(
       if (workspaceId) {
         await recordProviderError(workspaceId, active.provider, message);
       }
+      // A configured BYOK connection is a legal/account boundary. Do not
+      // silently reroute its request through platform or shared credentials.
+      return {
+        html: "",
+        status: 503,
+        providerUsed: active.provider,
+        fellBack: false,
+      };
     }
   }
 
@@ -127,7 +134,9 @@ export async function fetchHtmlViaWorkspaceProvider(
   return {
     ...result,
     providerUsed: "SHARED",
-    fellBack: Boolean(active && active.provider !== "SHARED") || Boolean(resolveApifyToken()),
+    fellBack:
+      Boolean(active && active.provider !== "SHARED") ||
+      Boolean(resolveApifyToken()),
   };
 }
 

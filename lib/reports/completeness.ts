@@ -7,6 +7,8 @@
  * scoring so the gate-metrics aggregation (Part 3) can score the same way.
  */
 
+import { isClaimSketchExportEligible } from "@/lib/reports/claim-sketch-floors";
+
 export interface CompletenessSection {
   name: string;
   score: number; // 0-100
@@ -38,7 +40,23 @@ export interface CompletenessInput {
     scopeItems: { id: string }[];
     costEstimates: { id: string }[];
     photos: { id: string }[];
-    claimSketches: { id: string; renderedPngUrl: string | null }[];
+    claimSketches: Array<{
+      id: string;
+      floorNumber?: number;
+      renderedPngUrl: string | null;
+      sketchData?: unknown;
+      underlayReferences?: Array<{
+        verifiedAt: Date | string | null;
+        verificationJson?: unknown;
+      }>;
+      inspection?: {
+        sketchUnderlayReferences?: Array<{
+          floorNumber: number;
+          verifiedAt: Date | string | null;
+          verificationJson?: unknown;
+        }>;
+      };
+    }>;
     contentsManifestDraft?: string | null;
     floorPlanImageUrl?: string | null;
     powerCircuits?: number | null;
@@ -112,8 +130,7 @@ export function computeReportCompletenessSections(
   // guided-flow report with a generated scope shows a false "missing".
   const scopeIssues: string[] = [];
   const hasScope =
-    (insp?.scopeItems.length ?? 0) > 0 ||
-    Boolean(report.scopeOfWorksDocument);
+    (insp?.scopeItems.length ?? 0) > 0 || Boolean(report.scopeOfWorksDocument);
   if (!hasScope) scopeIssues.push("No scope of works generated");
   sections.push({
     name: "Scope of Works",
@@ -153,11 +170,19 @@ export function computeReportCompletenessSections(
   // --- Floor Plan (RA-7003: previously unchecked) ---
   const floorPlanIssues: string[] = [];
   const renderedSketches = (insp?.claimSketches ?? []).filter(
-    (s) => s.renderedPngUrl,
+    (s) =>
+      isClaimSketchExportEligible({
+        floorNumber: s.floorNumber ?? 0,
+        floorLabel: "Floor plan",
+        renderedPngUrl: s.renderedPngUrl,
+        sketchData: s.sketchData,
+        underlayReferences: s.underlayReferences,
+        inspection: s.inspection,
+      }),
   );
-  if (!insp || (renderedSketches.length === 0 && !insp.floorPlanImageUrl)) {
+  if (!insp || renderedSketches.length === 0) {
     floorPlanIssues.push(
-      "No floor plan on file — add a sketch (render it) or upload a floor plan image",
+      "No verified floor plan render on file — trace and save the site sketch",
     );
   }
   sections.push({

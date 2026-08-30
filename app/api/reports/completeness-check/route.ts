@@ -50,7 +50,30 @@ export async function POST(request: NextRequest) {
             costEstimates: { select: { id: true } },
             photos: { select: { id: true } },
             // RA-7003: floor-plan presence (sketches only count when rendered).
-            claimSketches: { select: { id: true, renderedPngUrl: true } },
+            claimSketches: {
+              select: {
+                id: true,
+                floorNumber: true,
+                renderedPngUrl: true,
+                sketchData: true,
+                underlayReferences: {
+                  select: { verifiedAt: true, verificationJson: true },
+                  orderBy: { createdAt: "desc" },
+                  take: 1,
+                },
+                inspection: {
+                  select: {
+                    sketchUnderlayReferences: {
+                      select: {
+                        floorNumber: true,
+                        verifiedAt: true,
+                        verificationJson: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
             // RA-7006 Gap 5: contents manifest presence.
             contentsManifestDraft: true,
           },

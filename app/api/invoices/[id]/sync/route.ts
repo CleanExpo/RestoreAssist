@@ -12,6 +12,7 @@ import {
   INVOICE_SYNC_FAILURE_MESSAGE,
 } from "@/lib/integrations/sync-error";
 import { apiError, fromException } from "@/lib/api-errors";
+import { getGstTreatmentForCurrency } from "@/lib/gst-rules";
 
 export async function POST(
   request: NextRequest,
@@ -174,21 +175,34 @@ export async function POST(
       // Sync to accounting software based on provider
       let externalInvoiceId = "";
       let syncResult: any;
+      const gstTreatment = getGstTreatmentForCurrency(invoice.currency);
 
       try {
         switch (provider.toLowerCase()) {
           case "xero":
-            syncResult = await syncInvoiceToXero(invoice, integration);
+            syncResult = await syncInvoiceToXero(
+              invoice,
+              integration,
+              gstTreatment.country,
+            );
             externalInvoiceId = syncResult.invoiceId;
             break;
 
           case "quickbooks":
-            syncResult = await syncInvoiceToQuickBooks(invoice, integration);
+            syncResult = await syncInvoiceToQuickBooks(
+              invoice,
+              integration,
+              gstTreatment.country,
+            );
             externalInvoiceId = syncResult.invoiceId;
             break;
 
           case "myob":
-            syncResult = await syncInvoiceToMYOB(invoice, integration);
+            syncResult = await syncInvoiceToMYOB(
+              invoice,
+              integration,
+              gstTreatment.country,
+            );
             externalInvoiceId = syncResult.invoiceId;
             break;
         }

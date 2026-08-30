@@ -7,7 +7,7 @@
  *
  * Usage:
  *   const results = await syncNIRToAllConnectedIntegrations(userId, payload)
- *   const result  = await syncNIRToSpecificIntegration(integrationId, payload)
+ *   const result  = await syncNIRToSpecificIntegration(userId, integrationId, payload)
  */
 
 import { prisma } from "@/lib/prisma";
@@ -54,18 +54,19 @@ export async function syncNIRToAllConnectedIntegrations(
 
   return Promise.all(
     integrations.map((i) =>
-      syncNIRToSpecificIntegration(i.id, payload, i.provider),
+      syncNIRToSpecificIntegration(userId, i.id, payload, i.provider),
     ),
   );
 }
 
 export async function syncNIRToSpecificIntegration(
+  userId: string,
   integrationId: string,
   payload: import("./xero/nir-sync").NIRJobPayload,
   providerHint?: string,
 ): Promise<NIRSyncResult> {
-  const integration = await prisma.integration.findUnique({
-    where: { id: integrationId },
+  const integration = await prisma.integration.findFirst({
+    where: { id: integrationId, userId },
     select: { id: true, provider: true, status: true },
   });
   if (!integration)
