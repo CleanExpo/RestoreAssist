@@ -4,6 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  getGstTreatmentForCurrency,
+  resolveLineGstRatePercent,
+} from "@/lib/gst-rules";
 
 export async function GET(request: NextRequest) {
   try {
@@ -94,7 +98,7 @@ export async function POST(request: NextRequest) {
       // Verify the invoice belongs to this user
       const invoice = await prisma.invoice.findFirst({
         where: { id: invoiceId, userId },
-        select: { id: true },
+        select: { id: true, currency: true },
       });
 
       if (!invoice) {
@@ -104,6 +108,7 @@ export async function POST(request: NextRequest) {
           status: 404,
         });
       }
+      const gstTreatment = getGstTreatmentForCurrency(invoice.currency);
 
       // Generate credit note number
       const count = await prisma.creditNote.count({
@@ -117,8 +122,21 @@ export async function POST(request: NextRequest) {
         description: string;
         quantity: number;
         unitPrice: number;
-        gstRate: number;
+        gstRate?: number;
       }> = Array.isArray(lineItems) ? lineItems : [];
+
+      const invalidGstIndex = items.findIndex((item) => {
+        if (item.gstRate === null || item.gstRate === undefined) return false;
+        const rate = Number(item.gstRate);
+        return !Number.isFinite(rate) || rate < 0;
+      });
+      if (invalidGstIndex >= 0) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Line item ${invalidGstIndex + 1} has an invalid GST rate`,
+          status: 400,
+        });
+      }
 
       const subtotalExGST = items.reduce(
         (sum, item) => sum + Math.round(item.quantity * item.unitPrice),
@@ -127,7 +145,11 @@ export async function POST(request: NextRequest) {
       const gstAmount = items.reduce(
         (sum, item) =>
           sum +
-          Math.round(item.quantity * item.unitPrice * (item.gstRate / 100)),
+          Math.round(
+            item.quantity *
+              item.unitPrice *
+              (resolveLineGstRatePercent(item.gstRate, gstTreatment) / 100),
+          ),
         0,
       );
       const totalIncGST = subtotalExGST + gstAmount;
@@ -151,13 +173,18 @@ export async function POST(request: NextRequest) {
               description: item.description,
               quantity: item.quantity,
               unitPrice: Math.round(item.unitPrice),
-              gstRate: item.gstRate ?? 10,
+              gstRate: resolveLineGstRatePercent(item.gstRate, gstTreatment),
               subtotal: Math.round(item.quantity * item.unitPrice),
               gstAmount: Math.round(
-                item.quantity * item.unitPrice * (item.gstRate / 100),
+                item.quantity *
+                  item.unitPrice *
+                  (resolveLineGstRatePercent(item.gstRate, gstTreatment) / 100),
               ),
               total: Math.round(
-                item.quantity * item.unitPrice * (1 + item.gstRate / 100),
+                item.quantity *
+                  item.unitPrice *
+                  (1 +
+                    resolveLineGstRatePercent(item.gstRate, gstTreatment) / 100),
               ),
               sortOrder: idx,
             })),

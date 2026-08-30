@@ -6,6 +6,10 @@ import { isDraft, isCancelled } from "@/lib/invoice-status";
 import { recordMutationAudit } from "@/lib/audit-log";
 import { apiError, fromException } from "@/lib/api-errors";
 import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
+import {
+  getGstTreatmentForCurrency,
+  resolveLineGstRatePercent,
+} from "@/lib/gst-rules";
 
 export async function GET(
   request: NextRequest,
@@ -238,6 +242,7 @@ export async function PUT(
         status: 409,
       });
     }
+    const gstTreatment = getGstTreatmentForCurrency(existing.currency);
 
     const body = await request.json();
     const {
@@ -287,7 +292,10 @@ export async function PUT(
         const item = lineItems[index];
         const quantity = parseFloat(item.quantity);
         const unitPrice = Math.round(parseFloat(item.unitPrice));
-        const gstRate = item.gstRate ?? 10.0;
+        const requestedGstRate =
+          item.gstRate === null || item.gstRate === undefined || item.gstRate === ""
+            ? gstTreatment.ratePercent
+            : Number(item.gstRate);
 
         if (!Number.isFinite(quantity) || quantity < 0) {
           return apiError(request, {
@@ -305,7 +313,7 @@ export async function PUT(
             fields: { [`lineItems.${index}.unitPrice`]: "Must be a non-negative number" },
           });
         }
-        if (!Number.isFinite(Number(gstRate)) || Number(gstRate) < 0) {
+        if (!Number.isFinite(requestedGstRate) || requestedGstRate < 0) {
           return apiError(request, {
             code: "VALIDATION",
             message: `Line item ${index + 1} has an invalid GST rate — must be a non-negative number`,
@@ -319,7 +327,7 @@ export async function PUT(
         const quantity = parseFloat(item.quantity);
         const unitPrice = Math.round(parseFloat(item.unitPrice));
         const subtotal = Math.round(quantity * unitPrice);
-        const gstRate = item.gstRate ?? 10.0;
+        const gstRate = resolveLineGstRatePercent(item.gstRate, gstTreatment);
         const itemGst = Math.round(subtotal * (gstRate / 100));
         const total = subtotal + itemGst;
 
@@ -366,7 +374,7 @@ export async function PUT(
       // Add shipping
       if (shippingAmount) {
         subtotalExGST += shippingAmount;
-        gstAmount += Math.round(shippingAmount * 0.1);
+        gstAmount += Math.round(shippingAmount * gstTreatment.rate);
       }
 
       const totalIncGST = subtotalExGST + gstAmount;
@@ -377,6 +385,7 @@ export async function PUT(
         gstAmount,
         totalIncGST,
         amountDue: totalIncGST,
+        currency: gstTreatment.currency,
       };
 
       // Update invoice with line items in transaction

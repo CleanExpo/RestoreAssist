@@ -124,16 +124,30 @@ export async function buildJobPackageStream(
               renderedPngUrl: true,
               sketchData: true,
               moisturePoints: true,
+              underlayReferences: {
+                select: { verifiedAt: true, verificationJson: true },
+                orderBy: { createdAt: "desc" },
+                take: 1,
+              },
+              inspection: {
+                select: {
+                  sketchUnderlayReferences: {
+                    select: {
+                      floorNumber: true,
+                      verifiedAt: true,
+                      verificationJson: true,
+                    },
+                  },
+                },
+              },
             },
             orderBy: { floorNumber: "asc" },
             take: 20,
           });
-          const { claimSketchesToFloors } = await import(
-            "@/lib/reports/claim-sketch-floors"
-          );
-          const { appendSketchPages } = await import(
-            "@/lib/reports/append-sketch-pages"
-          );
+          const { claimSketchesToFloors } =
+            await import("@/lib/reports/claim-sketch-floors");
+          const { appendSketchPages } =
+            await import("@/lib/reports/append-sketch-pages");
           const floors = await claimSketchesToFloors(sketches);
           pdfBytes = await appendSketchPages(pdfBytes, floors, {
             propertyAddress: undefined,

@@ -162,13 +162,12 @@ async function throwClassifiedMYOBError(
  * prior MYOB sync, this updates that invoice in place (PUT with RowVersion)
  * instead of creating a duplicate.
  *
- * @param country - Billing jurisdiction. Defaults to "AU" (GST tax code).
- *   Pass "NZ" for GST15 tax code. Upstream source: Organization.country (RA-1120).
+ * @param country - Required billing jurisdiction from Organization.country.
  */
 export async function syncInvoiceToMYOB(
   invoice: any,
   integration: Integration,
-  country: Country = "AU",
+  country: Country,
 ) {
   const gst = getGstTreatment(country);
   if (!integration.accessToken) {

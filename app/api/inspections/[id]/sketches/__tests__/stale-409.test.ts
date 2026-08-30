@@ -24,6 +24,10 @@ vi.mock("@/lib/prisma", () => ({
       update: vi.fn(),
       create: vi.fn(),
     },
+    sketchUnderlayReference: {
+      findFirst: vi.fn(async () => null),
+      update: vi.fn(),
+    },
   },
 }));
 
@@ -38,6 +42,7 @@ const p = prisma as unknown as {
     update: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
   };
+  sketchUnderlayReference: { findFirst: ReturnType<typeof vi.fn> };
 };
 
 beforeEach(() => {
@@ -89,6 +94,7 @@ describe("RA-1762 — sketch POST staleness guard", () => {
     expect(json.reason).toMatch(/newer/i);
     expect(p.claimSketch.update).not.toHaveBeenCalled();
     expect(p.claimSketch.create).not.toHaveBeenCalled();
+    expect(p.sketchUnderlayReference.findFirst).not.toHaveBeenCalled();
   });
 
   it("proceeds with update when client timestamp is newer than server", async () => {

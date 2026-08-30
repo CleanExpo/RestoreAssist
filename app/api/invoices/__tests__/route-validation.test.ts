@@ -3,6 +3,14 @@ import { NextRequest } from "next/server";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+vi.mock("@/lib/gst/resolve-user-gst", () => ({
+  resolveUserGstTreatment: vi.fn().mockResolvedValue({
+    country: "AU",
+    rate: 0.1,
+    ratePercent: 10,
+    currency: "AUD",
+  }),
+}));
 // No Idempotency-Key header is sent, so withIdempotency passes straight
 // through to the handler — the real implementation is fine here.
 
@@ -100,6 +108,26 @@ describe("POST /api/invoices numeric validation", () => {
       postReq({
         ...validBase,
         lineItems: [{ description: "Drying", quantity: -1, unitPrice: 10000 }],
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.code).toBe("VALIDATION");
+    expect(p.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid GST rate with 400 instead of throwing", async () => {
+    const res = await POST(
+      postReq({
+        ...validBase,
+        lineItems: [
+          {
+            description: "Drying",
+            quantity: 1,
+            unitPrice: 10000,
+            gstRate: "not-a-rate",
+          },
+        ],
       }),
     );
 
