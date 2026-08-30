@@ -4,12 +4,10 @@
  */
 
 import { z } from "zod";
+import { getGstTreatment, type Country } from "@/lib/gst-rules";
 
 /** Minimum charge enforced on all quotes (ex-GST), AUD dollars. */
 export const MINIMUM_CHARGE_EX_GST = 2750;
-
-/** Australian GST rate. */
-export const GST_RATE = 0.1;
 
 export const QuoteRequestSchema = z.object({
   jobType: z.enum(["water", "fire", "mould", "storm", "bioclean"]),
@@ -57,11 +55,15 @@ export function applyMinimumCharge(subtotalExGST: number): {
   };
 }
 
-export function calcGstOnSubtotal(subtotalExGST: number): {
+export function calcGstOnSubtotal(
+  subtotalExGST: number,
+  country: Country = "AU",
+): {
   gst: number;
   totalIncGST: number;
 } {
-  const gst = Math.round(subtotalExGST * GST_RATE * 100) / 100;
+  const gst =
+    Math.round(subtotalExGST * getGstTreatment(country).rate * 100) / 100;
   const totalIncGST = Math.round((subtotalExGST + gst) * 100) / 100;
   return { gst, totalIncGST };
 }

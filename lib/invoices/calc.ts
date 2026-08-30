@@ -12,15 +12,15 @@
  * could make the approved preview total diverge from the saved invoice
  * (e.g. a GST-free line item, or per-item rounding with many lines).
  *
- * AU GST note: the server intentionally charges GST on shipping/freight
- * (`gstAmount += round(shipping * 0.1)`), which is generally correct for a
+ * AU/NZ GST note: the server intentionally charges GST on shipping/freight
+ * using the tenant rate, which is generally correct for a
  * taxable supply. We do NOT change that tax treatment here — we only align
  * the preview to whatever the server already does.
  *
  * All money is in integer cents. Inputs match the API request shape:
  *   - lineItems[].unitPrice : cents (integer)
  *   - lineItems[].quantity  : number (may be fractional)
- *   - lineItems[].gstRate   : percent (e.g. 10 for 10%); defaults to 10
+ *   - lineItems[].gstRate   : percent; defaults to the tenant rate
  *   - discountAmount        : cents (integer) — fixed-amount discount
  *   - discountPercentage    : percent (number)
  *   - shippingAmount        : cents (integer)
@@ -37,6 +37,7 @@ export interface InvoiceCalcInput {
   discountAmount?: number | null; // cents
   discountPercentage?: number | null; // percent
   shippingAmount?: number | null; // cents
+  defaultGstRatePercent?: number; // authoritative tenant rate (10 AU / 15 NZ)
 }
 
 export interface InvoiceCalcResult {
@@ -53,14 +54,19 @@ export interface InvoiceCalcResult {
  *  2. discount (amount OR percentage): subtract from subtotal, then scale the
  *     weighted gstAmount proportionally — gstAmount = round(gstAmount *
  *     (discountedSubtotal / preDiscountSubtotal))  [preserves per-item rates]
- *  3. shipping: subtotalExGST += shipping; gstAmount += round(shipping * 0.1)
+ *  3. shipping: subtotalExGST += shipping; GST uses defaultGstRatePercent
  *  4. totalIncGST = subtotalExGST + gstAmount
  */
 export function calculateInvoiceTotals(
   input: InvoiceCalcInput,
 ): InvoiceCalcResult {
-  const { lineItems, discountAmount, discountPercentage, shippingAmount } =
-    input;
+  const {
+    lineItems,
+    discountAmount,
+    discountPercentage,
+    shippingAmount,
+    defaultGstRatePercent = 10,
+  } = input;
 
   let subtotalExGST = 0;
   let gstAmount = 0;
@@ -77,7 +83,7 @@ export function calculateInvoiceTotals(
     if (!Number.isFinite(quantity) || !Number.isFinite(unitPrice)) continue;
 
     const subtotal = Math.round(quantity * unitPrice);
-    const gstRate = item.gstRate ?? 10.0;
+    const gstRate = item.gstRate ?? defaultGstRatePercent;
     const itemGst = Math.round(subtotal * (gstRate / 100));
 
     subtotalExGST += subtotal;
@@ -106,7 +112,9 @@ export function calculateInvoiceTotals(
   // Add shipping — server charges GST on shipping/freight.
   if (shippingAmount) {
     subtotalExGST += shippingAmount;
-    gstAmount += Math.round(shippingAmount * 0.1);
+    gstAmount += Math.round(
+      shippingAmount * (defaultGstRatePercent / 100),
+    );
   }
 
   const totalIncGST = subtotalExGST + gstAmount;
