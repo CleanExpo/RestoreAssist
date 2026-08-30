@@ -31,6 +31,7 @@ on:
           - A3-no-sev1-sev2-open
           - C2-secrets-scan
           - D3-revenue-reconciliation
+          - F1-monitoring-alerting
 
 permissions:
   contents: write
@@ -112,6 +113,7 @@ jobs:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GITLEAKS_BINARY: /tmp/gitleaks
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           npx --no-install tsx scripts/ci/sign-release-receipt.ts \
             --criterion='${{ inputs.criterion }}'

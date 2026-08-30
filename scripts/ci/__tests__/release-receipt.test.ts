@@ -325,11 +325,16 @@ describe("planted defect: the measurements themselves", () => {
   it("refuses a criterion with no registered measurement check", () => {
     // Without this, the owner's key alone would unlock points for any
     // criterion — a cryptographic restatement of self-attestation.
+    //
+    // Uses A1 because it is genuinely unregistered. This test named F1 until
+    // F1 gained a producer and a policy; leaving it there would have quietly
+    // turned an assertion about unregistered criteria into an assertion about
+    // a registered one, and it would still have passed for the wrong reason.
     const { privateKey, publicKeyPem } = keypair();
     const result = verifyReleaseReceipt(
-      sign(validReceipt({ criterionId: "F1-monitoring-alerting" }), privateKey),
-      context({ criterionId: "F1-monitoring-alerting" }),
-      keySet(publicKeyPem, ["F1-monitoring-alerting"]),
+      sign(validReceipt({ criterionId: "A1-core-journeys" }), privateKey),
+      context({ criterionId: "A1-core-journeys" }),
+      keySet(publicKeyPem, ["A1-core-journeys"]),
     );
     expect(result).toEqual({
       ok: false,
@@ -344,6 +349,7 @@ describe("planted defect: the measurements themselves", () => {
       "A3-no-sev1-sev2-open",
       "C2-secrets-scan",
       "D3-revenue-reconciliation",
+      "F1-monitoring-alerting",
     ]);
   });
 
@@ -640,6 +646,137 @@ describe("planted defect: environment binding", () => {
     // Exact on purpose: widening this must be a deliberate edit. A secrets
     // scan reads the tree, so it has no business claiming production.
     expect(CRITERION_POLICIES["C2-secrets-scan"].environments).toEqual(["ci"]);
+  });
+});
+
+describe("F1-monitoring-alerting policy", () => {
+  /** Measurements that pass, so each test plants exactly one lie. */
+  function f1(overrides: Record<string, string | number | boolean> = {}) {
+    return validReceipt({
+      criterionId: "F1-monitoring-alerting",
+      measurements: {
+        source: "github-actions",
+        repository: "CleanExpo/RestoreAssist",
+        checksDeclared: 4,
+        checksHealthy: 4,
+        failingChecks: "",
+        staleChecks: "",
+        notifierLabelsDeclared: "security",
+        missingNotifierLabels: "",
+        requiredClasses: "auth-failures,billing-webhook-errors,restore-job-failures",
+        coveredClasses: "auth-failures,billing-webhook-errors,restore-job-failures",
+        uncoveredClasses: "",
+        ...overrides,
+      },
+    });
+  }
+
+  function verify(receipt: ReleaseReceipt) {
+    const { privateKey, publicKeyPem } = keypair();
+    return verifyReleaseReceipt(
+      sign(receipt, privateKey),
+      context({ criterionId: "F1-monitoring-alerting" }),
+      keySet(publicKeyPem, ["F1-monitoring-alerting"]),
+    );
+  }
+
+  it("accepts a fully measured F1 receipt", () => {
+    expect(verify(f1())).toEqual({ ok: true });
+  });
+
+  it.each([
+    ["zero", 0],
+    ["negative", -2],
+    ["absent", undefined],
+  ])("refuses a receipt declaring %s checks", (_label, checksDeclared) => {
+    // A3's query that reached nothing, one criterion over: zero declared checks
+    // reports zero failing and zero stale, and reads as healthy monitoring.
+    const receipt = f1(
+      checksDeclared === undefined ? {} : { checksDeclared, checksHealthy: 0 },
+    );
+    if (checksDeclared === undefined) delete receipt.measurements.checksDeclared;
+    const result = verify(receipt);
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /checksDeclared must be a positive integer/,
+    );
+  });
+
+  it("refuses a receipt where a declared check is not healthy", () => {
+    const result = verify(f1({ checksHealthy: 3, failingChecks: "smoke-prod.yml" }));
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /only 3 of 4 production checks are healthy/,
+    );
+  });
+
+  it.each(["failingChecks", "staleChecks"])(
+    "refuses a receipt whose %s is not empty",
+    (field) => {
+      // Named separately from the count so the receipt says WHICH, and so a red
+      // check and a check that stopped firing stay distinguishable.
+      const result = verify(f1({ [field]: "deepsec-weekly.yml" }));
+      expect(result.ok).toBe(false);
+      expect(result.ok === false && result.message).toMatch(
+        new RegExp(`${field} is not empty`),
+      );
+    },
+  );
+
+  it("refuses a repository with no failure notifier at all", () => {
+    /**
+     * The hole a bare emptiness check would leave open. With no notifier, both
+     * `notifierLabelsDeclared` and `missingNotifierLabels` are empty -- so
+     * "no labels are missing" passes while nothing alerts on anything.
+     */
+    const result = verify(f1({ notifierLabelsDeclared: "" }));
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /no failure notifier is not alerting/,
+    );
+  });
+
+  it("refuses a notifier whose label does not exist", () => {
+    // The eight-week failure: `gh issue create` rejects a non-existent label,
+    // so the notifier step fails and files nothing.
+    const result = verify(f1({ missingNotifierLabels: "security" }));
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /alarms cannot fire: security/,
+    );
+  });
+
+  it("refuses a receipt that narrowed the criterion's own class list", () => {
+    // Comparing against the required list rather than trusting uncoveredClasses
+    // to be empty: a producer that simply stopped reporting a class would
+    // otherwise pass by omission.
+    const result = verify(
+      f1({
+        requiredClasses: "auth-failures",
+        coveredClasses: "auth-failures",
+      }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /requiredClasses does not match/,
+    );
+  });
+
+  it("refuses a receipt where a named failure class is unwatched", () => {
+    const result = verify(
+      f1({
+        coveredClasses: "auth-failures",
+        uncoveredClasses: "billing-webhook-errors,restore-job-failures",
+      }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /no alert covers: billing-webhook-errors,restore-job-failures/,
+    );
+  });
+
+  it("keeps F1 to environments where the GitHub API is the instrument", () => {
+    expect(CRITERION_POLICIES["F1-monitoring-alerting"].environments).toEqual(["ci"]);
   });
 });
 

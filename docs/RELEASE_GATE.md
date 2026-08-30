@@ -80,15 +80,29 @@ Profile omission does not award points: excluded criteria are removed from that 
 
 | Pts | Criterion | Verification |
 |---|---|---|
-| 5 | Monitoring/alerting for auth, billing webhook errors, restore failures | Vercel Observability alert rules configured (owner evidence remains blocked pending a trusted verifier) |
+| 5 | Monitoring/alerting for auth, billing webhook errors, restore failures | Signed receipt from `scripts/ci/producers/f1-monitoring-alerting.ts`: every scheduled production check green and fresh, every notifier label resolvable, and an alert registered for each of the three failure classes |
 | 5 | Runbooks + support SLAs (P1 response ≤1h, customer comms template ready) | Deterministic repository verifier: `docs/MOBILE_RELEASE_RUNBOOK.md`, `docs/PILOT_CUTOVER_CHECKLIST.md`, `docs/SUPPORT_SLA.md`, and `docs/CUSTOMER_COMMS_TEMPLATE.md` with rollback tree + templates A-E + P1 ≤1h |
 
 ## Machine-verifiable vs blocked owner-evidence breakdown
 
 - **Web profile machine-verifiable (50 / 85 pts):** A2 (10), all of B (20), C1 (10), D2 (5), and F2 (5).
-- **Web profile reachable by signed receipt (10 / 85 pts):** C2 (5) and A3 (5), once a receipt signed by a trusted key is present. See "Signed receipts" below.
-- **Web profile owner-evidence still blocked (25 / 85 pts):** A1 (10), D1 (5), D3 (5), and F1 (5). D3 counts as blocked because its producer cannot yet measure every field it claims, so it is unregistered in the signer and cannot be signed at all.
+- **Web profile reachable by signed receipt (15 / 85 pts):** C2 (5), A3 (5) and F1 (5) all have registered producers, so each can be measured and signed. Reachable is not the same as passing: a receipt earns points only when the measurement itself passes. See "Signed receipts" below.
+- **Web profile with no producer at all (20 / 85 pts):** A1 (10), D1 (5) and D3 (5). These cannot be signed, whatever key is held. D3 is deliberately unregistered because its producer cannot measure `failedWebhookDeliveries`, and filling that gap from the environment is the exact hole the signer exists to close.
 - **Mobile-only blocked additions (15 / 100 pts):** E1-E3 remain required in the `mobile` profile and are excluded from the `web` profile.
+
+### What still stands between the gate and a pass
+
+Having a producer is not having the points. Measured against production on
+2026-08-30:
+
+- **F1 fails on real conditions, precisely.** Three of four scheduled checks are
+  red (`smoke-prod`, `supabase-advisor-gate`, `deepsec-weekly`), the `security`
+  label a notifier asks for does not exist so that alarm cannot fire, and no
+  alert covers any of the three failure classes the criterion names. The
+  producer reports each of these by name rather than a bare fail.
+- **C2 and A3 need owner setup** — the keypair and the `release-receipts`
+  environment, plus `A3_EXPECTED_VIEWER_ID`.
+- **A1, D1 and D3 need producers written.**
 
 Committed prose, screenshots, URLs and hashes of narrative evidence do not earn release points: they are self-attestable. The scorer validates their structure and freshness for diagnostics, then fails closed until each owner criterion has a signed, criterion-specific machine receipt producer and verifier. A1 requires signup, login, onboarding, storage setup, restore, inspection, claim, attestation and PDF observations. E3 requires App Review, release, rollback and reviewer observations. Freshness is aged from the stated date, never filesystem metadata.
 
@@ -188,6 +202,33 @@ and a criterion absent from that registry cannot pass however good its key.
   The scanner is installed by the workflow at a pinned version and checksum,
   not by the producer. A producer that fetches its own instrument is not
   reporting on a reviewed one.
+- **F1-monitoring-alerting** — produced by
+  `scripts/ci/producers/f1-monitoring-alerting.ts`. Two halves, both required:
+
+  | Check | The failure it answers |
+  | --- | --- |
+  | Every declared check green AND fresh | The Supabase advisor gate was red for eight consecutive weeks, so the check watching prod for RLS-disabled tables had not looked at prod since 2026-06-22. A check that stopped running reports exactly what a healthy system reports: nothing. |
+  | `notifierLabelsDeclared` must be non-empty | A repository with no failure notifier reports zero *missing* labels, which passes a bare emptiness check while alerting on nothing. |
+  | `missingNotifierLabels` must be empty | Those eight weeks produced ZERO notifications: the notifier runs `gh issue create --label "security"`, and that label does not exist. `gh issue create` rejects a non-existent label, so the step failed and no issue was ever filed. |
+  | `requiredClasses` pinned, `coveredClasses` must equal it | Compared against the criterion's own class list rather than trusting `uncoveredClasses` to be empty, so a producer that stopped reporting a class cannot pass by omission. |
+
+  **The criterion's description was wrong, and is corrected.** It read "Vercel
+  Observability alert rules configured for auth/billing/restore". Production is
+  DigitalOcean App Platform — `.do/app.yaml` binds `restoreassist.app` — and the
+  only Vercel project linked to this repository is `restoreassist-sandbox`,
+  whose domains are `*.vercel.app`. Three alert rules there would have satisfied
+  the old wording word for word while watching preview deployments and alerting
+  on nothing a customer touches. The criterion as its evidence file states it
+  was always platform-neutral, and that is what the producer measures.
+
+  `F1_ALERT_COVERAGE` ships **empty**, so F1 cannot pass. The signals exist in
+  code and nothing watches them — `SecurityEvent` rows for every `LOGIN_FAILED`,
+  `StripeWebhookEvent.status = 'FAILED'` plus the
+  `stage = "stripe-webhook:processing"` log line, `StorageRestoreJob` failures
+  and `reportError()`. Filling the map is an owner action: it means choosing
+  where alerts live now that production is not on Vercel, and whatever is chosen
+  must be reachable by this producer to be measured.
+
 - **A3-no-sev1-sev2-open** — produced by
   `scripts/ci/producers/a3-open-blockers.ts`, which counts open Urgent/High
   issues on Linear team RA. Every check on it answers a line of that

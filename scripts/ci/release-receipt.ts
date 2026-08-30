@@ -75,6 +75,10 @@ import {
   C2_ENV_SOURCE,
   C2_SCANNED_REF,
 } from "./producers/c2-secrets-scan";
+import {
+  F1_REPOSITORY,
+  F1_REQUIRED_CLASSES,
+} from "./producers/f1-monitoring-alerting";
 
 /** Environment variable carrying the trusted public keys, as JSON. */
 export const TRUSTED_KEYS_ENV = "RELEASE_RECEIPT_PUBLIC_KEYS";
@@ -614,6 +618,92 @@ export const CRITERION_POLICIES: Record<string, CriterionPolicy> = {
         };
       }
       return requireCount(measurements, "missingEnvVars", 0);
+    },
+  },
+
+  "F1-monitoring-alerting": {
+    // Reads the GitHub API for workflow runs and repository labels, so it is
+    // reproducible on a runner and has no business claiming production.
+    environments: ["ci"],
+    check: (measurements) => {
+      if (measurements.source !== "github-actions") {
+        return { ok: false, message: "measurement source must be github-actions" };
+      }
+      if (measurements.repository !== F1_REPOSITORY) {
+        return {
+          ok: false,
+          message: `measurement repository must be ${F1_REPOSITORY}`,
+        };
+      }
+      // Population control. Zero declared checks would report zero failing and
+      // zero stale, and read as fully healthy monitoring -- A3's query that
+      // reached nothing, one criterion over.
+      const declared = measurements.checksDeclared;
+      if (typeof declared !== "number" || !Number.isInteger(declared) || declared <= 0) {
+        return {
+          ok: false,
+          message:
+            "measurement checksDeclared must be a positive integer: no declared checks is not healthy monitoring",
+        };
+      }
+      if (measurements.checksHealthy !== declared) {
+        return {
+          ok: false,
+          message: `only ${measurements.checksHealthy} of ${declared} production checks are healthy`,
+        };
+      }
+      // Stated separately from the count so the receipt says WHICH, and so a
+      // check that is red and a check that stopped firing stay distinguishable.
+      for (const field of ["failingChecks", "staleChecks"] as const) {
+        if (measurements[field] !== "") {
+          return {
+            ok: false,
+            message: `measurement ${field} is not empty: ${measurements[field]}`,
+          };
+        }
+      }
+      // The alerting half, and the hole it would otherwise leave open.
+      //
+      // A repository with NO failure notifier at all reports zero missing
+      // labels, which passes a bare emptiness check while alerting on nothing.
+      // So the receipt must show that notifiers exist before it can show that
+      // their labels resolve.
+      if (
+        typeof measurements.notifierLabelsDeclared !== "string" ||
+        measurements.notifierLabelsDeclared === ""
+      ) {
+        return {
+          ok: false,
+          message:
+            "measurement notifierLabelsDeclared is empty: a repository with no failure notifier is not alerting",
+        };
+      }
+      // The eight-week failure. `gh issue create` rejects a non-existent
+      // label, so a notifier naming one fails and files nothing -- an alarm
+      // wired to a bell that was never installed.
+      if (measurements.missingNotifierLabels !== "") {
+        return {
+          ok: false,
+          message: `notifier labels do not exist, so those alarms cannot fire: ${measurements.missingNotifierLabels}`,
+        };
+      }
+      // The criterion names three failure classes, and all three must be
+      // watched. Comparing against the required list rather than trusting
+      // `uncoveredClasses` to be empty, so a producer that simply stopped
+      // reporting a class cannot pass by omission.
+      if (measurements.requiredClasses !== [...F1_REQUIRED_CLASSES].join(",")) {
+        return {
+          ok: false,
+          message: "measurement requiredClasses does not match the criterion's classes",
+        };
+      }
+      if (measurements.coveredClasses !== measurements.requiredClasses) {
+        return {
+          ok: false,
+          message: `no alert covers: ${measurements.uncoveredClasses || "(unreported)"}`,
+        };
+      }
+      return { ok: true };
     },
   },
 
