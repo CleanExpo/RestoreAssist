@@ -16,7 +16,14 @@
  * State persistence: auto-saves to /api/inspections/[id]/sketches on change.
  */
 
-import { useState, useRef, useCallback, useEffect, useId, useMemo } from "react";
+import {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+} from "react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import {
@@ -303,12 +310,12 @@ export function SketchEditorV2({
   const [editorMode, setEditorMode] = useState<SketchEditorMode>("advanced");
   const editorModeUserSetRef = useRef(false);
   const [damageKind, setDamageKind] = useState<DamageKind>("water");
-  const [equipmentKind, setEquipmentKind] = useState<
-    import("@/lib/sketch/equipment-symbols").EquipmentKind
-  >("dehumidifier");
-  const [roomTemplateKind, setRoomTemplateKind] = useState<
-    import("@/lib/sketch/room-defaults").RoomTemplateKind
-  >("rect");
+  const [equipmentKind, setEquipmentKind] =
+    useState<import("@/lib/sketch/equipment-symbols").EquipmentKind>(
+      "dehumidifier",
+    );
+  const [roomTemplateKind, setRoomTemplateKind] =
+    useState<import("@/lib/sketch/room-defaults").RoomTemplateKind>("rect");
   const [roomTemplateRotateQuarters, setRoomTemplateRotateQuarters] =
     useState(0);
   const [roomTemplateFlipH, setRoomTemplateFlipH] = useState(false);
@@ -502,9 +509,7 @@ export function SketchEditorV2({
                 if (cancelled) return;
                 setFloorsData((prev) =>
                   prev.map((fd, idx) =>
-                    idx === i
-                      ? { ...fd, evidencePins: ej.pins ?? [] }
-                      : fd,
+                    idx === i ? { ...fd, evidencePins: ej.pins ?? [] } : fd,
                   ),
                 );
               } catch {
@@ -666,9 +671,12 @@ export function SketchEditorV2({
       setToolMode("moisture");
       setDamageKind("water");
       setStartOverlayDismissed(true);
-      toast("Drop moisture pins inside the room — freehand water stays clipped", {
-        duration: 4000,
-      });
+      toast(
+        "Drop moisture pins inside the room — freehand water stays clipped",
+        {
+          duration: 4000,
+        },
+      );
     },
     [activeFloor, activeIdx, viewport.width, viewport.height],
   );
@@ -704,9 +712,7 @@ export function SketchEditorV2({
       const roomPoints =
         roomMoistureSession?.points ??
         roomsFromFabricObjects(
-          (
-            canvas as { getObjects?: () => unknown[] }
-          ).getObjects?.() ?? [],
+          (canvas as { getObjects?: () => unknown[] }).getObjects?.() ?? [],
         ).find((r) => r.id === crop.roomId)?.points ??
         [];
       const inRoom = filterPinsInRoom(
@@ -746,194 +752,165 @@ export function SketchEditorV2({
   // it immediately and resolves after server acknowledgment — call flushSaveNow
   // before a floor switch, PDF export, or scope generation so no edits are lost
   // (RA-6762: the old `await scheduleSave()` returned void and never waited).
-  const performSave = useCallback(async (renderImage = false) => {
-    setSaving(true);
-    let queuedThisTick = 0;
-    let succeededOnline = 0;
-    let captureFailedThisTick = false;
-    const tickStartedAt = Date.now();
+  const performSave = useCallback(
+    async (renderImage = false) => {
+      setSaving(true);
+      let queuedThisTick = 0;
+      let succeededOnline = 0;
+      let captureFailedThisTick = false;
+      const tickStartedAt = Date.now();
 
-    const floorPromises = floorsDataRef.current.map(async (fd) => {
-      const canvas = fd.canvasRef.current;
-      let liveJson: Record<string, unknown> | null = null;
-      if (canvas) {
-        try {
-          liveJson = canvas.toJSON() as Record<string, unknown>;
-          // Keep a durable snapshot while the canvas is still alive so
-          // unmount/dispose flushes don't POST an empty objects:[].
-          if (!isEmptySketchData(liveJson)) {
-            fd.sketchSnapshot = liveJson;
+      const floorPromises = floorsDataRef.current.map(async (fd) => {
+        const canvas = fd.canvasRef.current;
+        let liveJson: Record<string, unknown> | null = null;
+        if (canvas) {
+          try {
+            liveJson = canvas.toJSON() as Record<string, unknown>;
+            // Keep a durable snapshot while the canvas is still alive so
+            // unmount/dispose flushes don't POST an empty objects:[].
+            if (!isEmptySketchData(liveJson)) {
+              fd.sketchSnapshot = liveJson;
+            }
+          } catch {
+            liveJson = null;
           }
-        } catch {
-          liveJson = null;
         }
-      }
-      const base = pickSketchDataForSave(liveJson, fd.sketchSnapshot);
-      if (!base) return;
-      const sketchData = {
-        ...withSketchFieldComplete(base, fd.fieldComplete === true),
-        scaleConfig: fd.scaleConfig,
-        ...(fd.roomMoistureCrop
-          ? { roomMoistureCrop: fd.roomMoistureCrop }
-          : {}),
-      };
-      const clientUpdatedAt = Date.now();
-      const { resolveSketchCaptureAdapter } = await import(
-        "@/lib/sketch/ingest-roomplan"
-      );
-      const captureAdapter = resolveSketchCaptureAdapter({ sketchData });
+        const base = pickSketchDataForSave(liveJson, fd.sketchSnapshot);
+        if (!base) return;
+        const sketchData = {
+          ...withSketchFieldComplete(base, fd.fieldComplete === true),
+          scaleConfig: fd.scaleConfig,
+          ...(fd.roomMoistureCrop
+            ? { roomMoistureCrop: fd.roomMoistureCrop }
+            : {}),
+        };
+        const clientUpdatedAt = Date.now();
+        const { resolveSketchCaptureAdapter } =
+          await import("@/lib/sketch/ingest-roomplan");
+        const captureAdapter = resolveSketchCaptureAdapter({ sketchData });
 
-      // RA-120 (PR2): on flush saves (floor switch / PDF export / scope gen),
-      // rasterise the floor via exportSketchPng (underlay stripped, content
-      // cropped, high-res) so the canonical report embeds a professional plan
-      // — not a full-viewport screenshot. Best-effort: the sketchData save
-      // below stays authoritative, so a failed render/upload must never block
-      // the save or surface an error.
-      let renderedPngUrl: string | undefined;
-      if (renderImage && inspectionId && !captureMode && canvas) {
+        const body = {
+          floorNumber: fd.floor.floorNumber,
+          floorLabel: fd.floor.floorLabel,
+          sketchType: "structural",
+          sketchData,
+          moisturePoints: fd.moisturePins,
+          backgroundImageUrl: fd.backgroundUrl,
+          backgroundImageOpacity: fd.backgroundOpacity,
+          backgroundImageScale: fd.backgroundScale ?? undefined,
+          backgroundImageOffsetX: fd.backgroundOffsetX ?? undefined,
+          backgroundImageOffsetY: fd.backgroundOffsetY ?? undefined,
+          requestCanonicalRender: renderImage && !captureMode,
+          country,
+          captureAdapter,
+          confirmUnderlayVerification: fd.fieldComplete === true,
+        };
+
+        const saveUrl = captureToken
+          ? `/api/capture/${captureToken}/sketch`
+          : `/api/inspections/${inspectionId}/sketches`;
         try {
-          // Lazy import so the Supabase client (instantiated at module load in
-          // lib/supabase) stays out of this component's import graph — eager
-          // import broke unit tests that load SketchEditorV2 without Supabase
-          // env, and it kept supabase out of the initial client chunk anyway.
-          const { uploadRenderedSketch, dataUrlToBlob } = await import(
-            "@/lib/sketch-storage"
-          );
-          const { EXPORT_REPORT_MULTIPLIER } = await import(
-            "@/lib/sketch/export-content-bounds"
-          );
-          // SketchCanvasHandle.toDataURL → exportSketchPng (firewall + crop).
-          const dataUrl = canvas.toDataURL({
-            format: "png",
-            multiplier: EXPORT_REPORT_MULTIPLIER,
+          const res = await fetch(saveUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-client-updated-at": String(clientUpdatedAt),
+            },
+            body: JSON.stringify(body),
           });
-          const uploaded = await uploadRenderedSketch(
-            dataUrlToBlob(dataUrl),
-            inspectionId,
-            fd.floor.floorNumber,
-          );
-          renderedPngUrl = uploaded.publicUrl;
+          if (res.ok) {
+            const savedSketch = (await res.json().catch(() => null)) as {
+              id?: string;
+            } | null;
+            if (savedSketch?.id && fd.floor.id.startsWith(uid)) {
+              // A locally-created floor cannot accept evidence pins until the
+              // server assigns its ClaimSketch id. Keep both the mutable ref
+              // used by this save loop and React state in sync so a pin placed
+              // immediately after the first save targets the persisted floor.
+              fd.floor.id = savedSketch.id;
+              setFloorsData((prev) =>
+                prev.map((candidate) =>
+                  candidate.floor.floorNumber === fd.floor.floorNumber
+                    ? {
+                        ...candidate,
+                        floor: { ...candidate.floor, id: savedSketch.id! },
+                      }
+                    : candidate,
+                ),
+              );
+            }
+            succeededOnline++;
+            return;
+          }
+          // 409 stale = server already has newer state. Do NOT queue — the
+          // offline drain would only hit 409 again and risk confusing the UI.
+          if (res.status === 409) {
+            const payload = (await res.json().catch(() => null)) as {
+              stale?: boolean;
+            } | null;
+            if (payload?.stale === true) return;
+          }
+          throw new Error(`save ${res.status}`);
         } catch {
-          // leave renderedPngUrl undefined → Prisma keeps the prior render
+          // Capture mode has no offline queue (the queue is bound to the authed
+          // sketches route); a failed homeowner save must surface as an error,
+          // never as a "Saved" indicator (silent data loss).
+          if (captureMode || !inspectionId) {
+            captureFailedThisTick = true;
+            return;
+          }
+          // Network failure or non-2xx — queue locally, drain later.
+          try {
+            await enqueueSketchSave(inspectionId, {
+              ...body,
+              clientUpdatedAt,
+            });
+            queuedThisTick++;
+          } catch {
+            // Both online save AND IDB enqueue failed — nothing more
+            // we can do here. Don't bubble; tickStart timer below
+            // surfaces the lack of a fresh savedAt so the user knows
+            // something is off.
+          }
         }
-      }
+      });
 
-      const body = {
-        floorNumber: fd.floor.floorNumber,
-        floorLabel: fd.floor.floorLabel,
-        sketchType: "structural",
-        sketchData,
-        moisturePoints: fd.moisturePins,
-        backgroundImageUrl: fd.backgroundUrl,
-        backgroundImageOpacity: fd.backgroundOpacity,
-        backgroundImageScale: fd.backgroundScale ?? undefined,
-        backgroundImageOffsetX: fd.backgroundOffsetX ?? undefined,
-        backgroundImageOffsetY: fd.backgroundOffsetY ?? undefined,
-        renderedPngUrl,
-        country,
-        captureAdapter,
-      };
+      await Promise.allSettled(floorPromises);
 
-      const saveUrl = captureToken
-        ? `/api/capture/${captureToken}/sketch`
-        : `/api/inspections/${inspectionId}/sketches`;
+      // Refresh the offline-pending count from the queue so it reflects
+      // ground truth (entries can also get added/removed by the SW
+      // drain, by other tabs, or by deeper retries we don't see here).
       try {
-        const res = await fetch(saveUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-client-updated-at": String(clientUpdatedAt),
-          },
-          body: JSON.stringify(body),
-        });
-        if (res.ok) {
-          const savedSketch = (await res.json().catch(() => null)) as {
-            id?: string;
-          } | null;
-          if (savedSketch?.id && fd.floor.id.startsWith(uid)) {
-            // A locally-created floor cannot accept evidence pins until the
-            // server assigns its ClaimSketch id. Keep both the mutable ref
-            // used by this save loop and React state in sync so a pin placed
-            // immediately after the first save targets the persisted floor.
-            fd.floor.id = savedSketch.id;
-            setFloorsData((prev) =>
-              prev.map((candidate) =>
-                candidate.floor.floorNumber === fd.floor.floorNumber
-                  ? {
-                      ...candidate,
-                      floor: { ...candidate.floor, id: savedSketch.id! },
-                    }
-                  : candidate,
-              ),
-            );
-          }
-          succeededOnline++;
-          return;
-        }
-        // 409 stale = server already has newer state. Do NOT queue — the
-        // offline drain would only hit 409 again and risk confusing the UI.
-        if (res.status === 409) {
-          const payload = (await res.json().catch(() => null)) as {
-            stale?: boolean;
-          } | null;
-          if (payload?.stale === true) return;
-        }
-        throw new Error(`save ${res.status}`);
+        const entries = await getPendingEntries(inspectionId);
+        const pendingSketches = entries.filter(
+          (e) => e.type === "sketch-save",
+        ).length;
+        setOfflinePending(pendingSketches);
       } catch {
-        // Capture mode has no offline queue (the queue is bound to the authed
-        // sketches route); a failed homeowner save must surface as an error,
-        // never as a "Saved" indicator (silent data loss).
-        if (captureMode || !inspectionId) {
-          captureFailedThisTick = true;
-          return;
-        }
-        // Network failure or non-2xx — queue locally, drain later.
-        try {
-          await enqueueSketchSave(inspectionId, {
-            ...body,
-            clientUpdatedAt,
-          });
-          queuedThisTick++;
-        } catch {
-          // Both online save AND IDB enqueue failed — nothing more
-          // we can do here. Don't bubble; tickStart timer below
-          // surfaces the lack of a fresh savedAt so the user knows
-          // something is off.
+        // IDB unavailable — fall back to the locally incremented count
+        // so the UI still surfaces the immediate enqueue feedback.
+        if (queuedThisTick > 0) {
+          setOfflinePending((c) => c + queuedThisTick);
         }
       }
-    });
-
-    await Promise.allSettled(floorPromises);
-
-    // Refresh the offline-pending count from the queue so it reflects
-    // ground truth (entries can also get added/removed by the SW
-    // drain, by other tabs, or by deeper retries we don't see here).
-    try {
-      const entries = await getPendingEntries(inspectionId);
-      const pendingSketches = entries.filter(
-        (e) => e.type === "sketch-save",
-      ).length;
-      setOfflinePending(pendingSketches);
-    } catch {
-      // IDB unavailable — fall back to the locally incremented count
-      // so the UI still surfaces the immediate enqueue feedback.
-      if (queuedThisTick > 0) {
-        setOfflinePending((c) => c + queuedThisTick);
+      // Only refresh savedAt when at least one floor actually saved online —
+      // otherwise the indicator would lie about the save being durable. If
+      // everything got queued (authed) the user sees "Offline: N pending"; if a
+      // capture-mode save failed (no queue) they see an explicit error.
+      const indicator = nextSaveIndicator({
+        succeededOnline,
+        captureFailedThisTick,
+      });
+      if (indicator.markSaved) {
+        setSavedAt(new Date(tickStartedAt));
       }
-    }
-    // Only refresh savedAt when at least one floor actually saved online —
-    // otherwise the indicator would lie about the save being durable. If
-    // everything got queued (authed) the user sees "Offline: N pending"; if a
-    // capture-mode save failed (no queue) they see an explicit error.
-    const indicator = nextSaveIndicator({ succeededOnline, captureFailedThisTick });
-    if (indicator.markSaved) {
-      setSavedAt(new Date(tickStartedAt));
-    }
-    // In capture mode a failed save is unrecoverable here (no offline queue),
-    // so flag it whenever nothing saved online this tick.
-    setCaptureSaveFailed(indicator.captureFailed);
-    setSaving(false);
-  }, [inspectionId, country, captureMode, captureToken, uid]);
+      // In capture mode a failed save is unrecoverable here (no offline queue),
+      // so flag it whenever nothing saved online this tick.
+      setCaptureSaveFailed(indicator.captureFailed);
+      setSaving(false);
+    },
+    [inspectionId, country, captureMode, captureToken, uid],
+  );
 
   // PR4b freshness: debounced saves persist sketchData but NOT a fresh render
   // (performSave(false)), so after an edit the stored renderedPngUrl is stale
@@ -1096,7 +1073,11 @@ export function SketchEditorV2({
   );
 
   const applyPendingSketch = useCallback(
-    async (floorId: string, canvas: FabricCanvasRef, pending: Record<string, unknown>) => {
+    async (
+      floorId: string,
+      canvas: FabricCanvasRef,
+      pending: Record<string, unknown>,
+    ) => {
       try {
         const fc = canvas.getFabricCanvas() as {
           getObjects?: () => unknown[];
@@ -1149,11 +1130,13 @@ export function SketchEditorV2({
       if (!canvas) continue;
       if (restoringFloorIdsRef.current.has(fd.floor.id)) continue;
       restoringFloorIdsRef.current.add(fd.floor.id);
-      void applyPendingSketch(fd.floor.id, canvas, fd.pendingSketchData).finally(
-        () => {
-          restoringFloorIdsRef.current.delete(fd.floor.id);
-        },
-      );
+      void applyPendingSketch(
+        fd.floor.id,
+        canvas,
+        fd.pendingSketchData,
+      ).finally(() => {
+        restoringFloorIdsRef.current.delete(fd.floor.id);
+      });
     }
   }, [floorsData, applyPendingSketch]);
 
@@ -1265,12 +1248,14 @@ export function SketchEditorV2({
 
   // PR4b: reposition/scale controls patch the active floor's underlay transform.
   const handleAdjustBackground = useCallback(
-    (patch: Partial<{
-      backgroundScale: number | null;
-      backgroundOffsetX: number | null;
-      backgroundOffsetY: number | null;
-      backgroundLockAspect: boolean;
-    }>) => {
+    (
+      patch: Partial<{
+        backgroundScale: number | null;
+        backgroundOffsetX: number | null;
+        backgroundOffsetY: number | null;
+        backgroundLockAspect: boolean;
+      }>,
+    ) => {
       setFloorsData((prev) =>
         prev.map((fd, i) => (i === activeIdx ? { ...fd, ...patch } : fd)),
       );
@@ -1358,15 +1343,7 @@ export function SketchEditorV2({
         ),
       );
     },
-    [
-      activeIdx,
-      captureMode,
-      flushSaveNow,
-      height,
-      inspectionId,
-      uid,
-      width,
-    ],
+    [activeIdx, captureMode, flushSaveNow, height, inspectionId, uid, width],
   );
 
   const handleEvidencePlace = useCallback(
@@ -1586,7 +1563,9 @@ export function SketchEditorV2({
           message?: string;
         } | null;
         toast.error(
-          errBody?.message ?? errBody?.error ?? `PDF export failed (${res.status})`,
+          errBody?.message ??
+            errBody?.error ??
+            `PDF export failed (${res.status})`,
         );
         return;
       }
@@ -1737,9 +1716,8 @@ export function SketchEditorV2({
         throw new Error("Canvas not ready for LiDAR ingest");
       }
 
-      const { prepareRoomPlanSceneIngest } = await import(
-        "@/lib/sketch/ingest-roomplan"
-      );
+      const { prepareRoomPlanSceneIngest } =
+        await import("@/lib/sketch/ingest-roomplan");
       const scene = prepareRoomPlanSceneIngest(captured);
       if (!scene.rooms.length) {
         throw new Error("Scan produced no usable room geometry");
@@ -1849,9 +1827,8 @@ export function SketchEditorV2({
       // so a crash mid-ingest cannot lose the only copy of the scan.
       let custodyId: string | null = null;
       try {
-        const { enqueueRoomPlanCapture } = await import(
-          "@/lib/sketch/roomplan-custody-queue"
-        );
+        const { enqueueRoomPlanCapture } =
+          await import("@/lib/sketch/roomplan-custody-queue");
         const entry = await enqueueRoomPlanCapture({
           inspectionId,
           floorNumber,
@@ -1879,9 +1856,8 @@ export function SketchEditorV2({
       try {
         const count = await applyCapturedRoomToFloor(captured, floorNumber);
         if (custodyId) {
-          const { markRoomPlanCaptureIngested } = await import(
-            "@/lib/sketch/roomplan-custody-queue"
-          );
+          const { markRoomPlanCaptureIngested } =
+            await import("@/lib/sketch/roomplan-custody-queue");
           await markRoomPlanCaptureIngested(custodyId);
         }
         toast.success(
@@ -1891,9 +1867,8 @@ export function SketchEditorV2({
         );
       } catch (ingestErr) {
         if (custodyId) {
-          const { markRoomPlanCaptureFailed } = await import(
-            "@/lib/sketch/roomplan-custody-queue"
-          );
+          const { markRoomPlanCaptureFailed } =
+            await import("@/lib/sketch/roomplan-custody-queue");
           await markRoomPlanCaptureFailed(
             custodyId,
             ingestErr instanceof Error ? ingestErr.message : "ingest failed",
@@ -1969,13 +1944,7 @@ export function SketchEditorV2({
     return () => {
       cancelled = true;
     };
-  }, [
-    inspectionId,
-    readonly,
-    guided,
-    captureMode,
-    applyCapturedRoomToFloor,
-  ]);
+  }, [inspectionId, readonly, guided, captureMode, applyCapturedRoomToFloor]);
 
   // ── Tool mode change ────────────────────────────────────
   const handleToolChange = useCallback(
@@ -2286,137 +2255,144 @@ export function SketchEditorV2({
         )}
         {sketchesHydrated &&
           floorsData.map((fd, idx) => (
-          <div
-            key={fd.floor.id}
-            className={cn(
-              "absolute inset-0",
-              idx === activeIdx ? "block" : "hidden",
-            )}
-          >
-            <SketchCanvas
-              ref={fd.canvasRef}
-              width={viewport.width}
-              height={viewport.height}
-              toolMode={toolMode}
-              damageKind={damageKind}
-              equipmentKind={equipmentKind}
-              roomTemplateKind={roomTemplateKind}
-              roomTemplateRotateQuarters={roomTemplateRotateQuarters}
-              roomTemplateFlipH={roomTemplateFlipH}
-              roomTemplateFlipV={roomTemplateFlipV}
-              pxPerMetre={fd.scaleConfig?.pxPerMetre}
-              snapEnabled={snapEnabled}
-              backgroundImageUrl={fd.backgroundUrl}
-              backgroundImageOpacity={fd.backgroundOpacity}
-              backgroundImageScale={fd.backgroundScale}
-              backgroundImageOffsetX={fd.backgroundOffsetX}
-              backgroundImageOffsetY={fd.backgroundOffsetY}
-              backgroundImageLockAspect={fd.backgroundLockAspect}
-              initialData={fd.pendingSketchData ?? null}
-              readonly={readonly}
-              onReady={(canvas) => handleCanvasReady(fd.floor.id, canvas)}
-              onModified={() => {
-                setStartOverlayDismissed(true);
-                scheduleSave();
-                const c = fd.canvasRef.current;
-                if (c)
-                  setHistoryState({ canUndo: c.canUndo, canRedo: c.canRedo });
-
-                // RA-7091: record geometry corrections on RoomPlan rooms.
-                const sel = selectedObjRef.current;
-                if (
-                  !sel ||
-                  sel.captureAdapter !== "roomplan" ||
-                  sel.type !== "room"
-                ) {
-                  return;
-                }
-                const fc = c?.getFabricCanvas() as {
-                  getObjects: () => unknown[];
-                  renderAll: () => void;
-                } | null;
-                if (!fc) return;
-                const obj = fc.getObjects().find((o) => {
-                  const d = (o as { data?: { id?: string } }).data;
-                  return d?.id === sel.id;
-                }) as
-                  | {
-                      data?: Record<string, unknown>;
-                      points?: { x: number; y: number }[];
-                    }
-                  | undefined;
-                if (!obj?.data || obj.data.captureAdapter !== "roomplan") return;
-                const pts =
-                  polygonAbsolutePoints(obj) ??
-                  (Array.isArray(obj.points) ? obj.points : null);
-                if (!pts || pts.length < 3) return;
-                const pxPerM =
-                  fd.scaleConfig?.pxPerMetre ?? PX_PER_METRE;
-                const areaM2 =
-                  Math.round(
-                    (shoelaceArea(pts) / (pxPerM * pxPerM)) * 100,
-                  ) / 100;
-                obj.data = recordRoomPlanGeometryCorrection(obj.data, {
-                  points: pts,
-                  areaM2,
-                });
-                const hist = obj.data.correctionHistory as unknown[] | undefined;
-                setSelectedObj((prev) =>
-                  prev && prev.id === sel.id
-                    ? {
-                        ...prev,
-                        correctionCount: Array.isArray(hist)
-                          ? hist.length
-                          : prev.correctionCount,
-                      }
-                    : prev,
-                );
-              }}
-              onSelect={setSelectedObj}
-              className="w-full h-full"
-            />
-
-            {/* Moisture pin overlay */}
-            <SketchMoistureLayer
-              pins={fd.moisturePins}
-              onChange={handleMoisturePinsChange}
-              active={toolMode === "moisture" && idx === activeIdx}
-              width={viewport.width}
-              height={viewport.height}
-              clipRoomPoints={
-                idx === activeIdx ? roomMoistureSession?.points ?? null : null
-              }
-              clipRoomId={
-                idx === activeIdx ? roomMoistureSession?.roomId ?? null : null
-              }
-            />
-
-            {/* Evidence pins on plan (P0) */}
-            {!guided && (
-              <SketchEvidenceLayer
-                pins={fd.evidencePins}
-                active={toolMode === "photo" && idx === activeIdx && !readonly}
+            <div
+              key={fd.floor.id}
+              className={cn(
+                "absolute inset-0",
+                idx === activeIdx ? "block" : "hidden",
+              )}
+            >
+              <SketchCanvas
+                ref={fd.canvasRef}
                 width={viewport.width}
                 height={viewport.height}
-                uploading={evidenceUploading && idx === activeIdx}
-                existingPhotos={existingEvidencePhotos}
-                onPlace={handleEvidencePlace}
-                onPlaceExisting={handleExistingEvidencePlace}
-                onMove={handleEvidenceMove}
-                onRemove={handleEvidenceRemove}
-              />
-            )}
+                toolMode={toolMode}
+                damageKind={damageKind}
+                equipmentKind={equipmentKind}
+                roomTemplateKind={roomTemplateKind}
+                roomTemplateRotateQuarters={roomTemplateRotateQuarters}
+                roomTemplateFlipH={roomTemplateFlipH}
+                roomTemplateFlipV={roomTemplateFlipV}
+                pxPerMetre={fd.scaleConfig?.pxPerMetre}
+                snapEnabled={snapEnabled}
+                backgroundImageUrl={fd.backgroundUrl}
+                backgroundImageOpacity={fd.backgroundOpacity}
+                backgroundImageScale={fd.backgroundScale}
+                backgroundImageOffsetX={fd.backgroundOffsetX}
+                backgroundImageOffsetY={fd.backgroundOffsetY}
+                backgroundImageLockAspect={fd.backgroundLockAspect}
+                initialData={fd.pendingSketchData ?? null}
+                readonly={readonly}
+                onReady={(canvas) => handleCanvasReady(fd.floor.id, canvas)}
+                onModified={() => {
+                  setStartOverlayDismissed(true);
+                  scheduleSave();
+                  const c = fd.canvasRef.current;
+                  if (c)
+                    setHistoryState({ canUndo: c.canUndo, canRedo: c.canRedo });
 
-            {idx === activeIdx && (
-              <SketchRoomMoistureCrop
-                active={Boolean(roomMoistureSession)}
-                crop={roomMoistureSession?.crop ?? null}
-                roomLabel={roomMoistureSession?.label}
-                onExit={handleExitRoomMoisture}
+                  // RA-7091: record geometry corrections on RoomPlan rooms.
+                  const sel = selectedObjRef.current;
+                  if (
+                    !sel ||
+                    sel.captureAdapter !== "roomplan" ||
+                    sel.type !== "room"
+                  ) {
+                    return;
+                  }
+                  const fc = c?.getFabricCanvas() as {
+                    getObjects: () => unknown[];
+                    renderAll: () => void;
+                  } | null;
+                  if (!fc) return;
+                  const obj = fc.getObjects().find((o) => {
+                    const d = (o as { data?: { id?: string } }).data;
+                    return d?.id === sel.id;
+                  }) as
+                    | {
+                        data?: Record<string, unknown>;
+                        points?: { x: number; y: number }[];
+                      }
+                    | undefined;
+                  if (!obj?.data || obj.data.captureAdapter !== "roomplan")
+                    return;
+                  const pts =
+                    polygonAbsolutePoints(obj) ??
+                    (Array.isArray(obj.points) ? obj.points : null);
+                  if (!pts || pts.length < 3) return;
+                  const pxPerM = fd.scaleConfig?.pxPerMetre ?? PX_PER_METRE;
+                  const areaM2 =
+                    Math.round((shoelaceArea(pts) / (pxPerM * pxPerM)) * 100) /
+                    100;
+                  obj.data = recordRoomPlanGeometryCorrection(obj.data, {
+                    points: pts,
+                    areaM2,
+                  });
+                  const hist = obj.data.correctionHistory as
+                    | unknown[]
+                    | undefined;
+                  setSelectedObj((prev) =>
+                    prev && prev.id === sel.id
+                      ? {
+                          ...prev,
+                          correctionCount: Array.isArray(hist)
+                            ? hist.length
+                            : prev.correctionCount,
+                        }
+                      : prev,
+                  );
+                }}
+                onSelect={setSelectedObj}
+                className="w-full h-full"
               />
-            )}
-          </div>
-        ))}
+
+              {/* Moisture pin overlay */}
+              <SketchMoistureLayer
+                pins={fd.moisturePins}
+                onChange={handleMoisturePinsChange}
+                active={toolMode === "moisture" && idx === activeIdx}
+                width={viewport.width}
+                height={viewport.height}
+                clipRoomPoints={
+                  idx === activeIdx
+                    ? (roomMoistureSession?.points ?? null)
+                    : null
+                }
+                clipRoomId={
+                  idx === activeIdx
+                    ? (roomMoistureSession?.roomId ?? null)
+                    : null
+                }
+              />
+
+              {/* Evidence pins on plan (P0) */}
+              {!guided && (
+                <SketchEvidenceLayer
+                  pins={fd.evidencePins}
+                  active={
+                    toolMode === "photo" && idx === activeIdx && !readonly
+                  }
+                  width={viewport.width}
+                  height={viewport.height}
+                  uploading={evidenceUploading && idx === activeIdx}
+                  existingPhotos={existingEvidencePhotos}
+                  onPlace={handleEvidencePlace}
+                  onPlaceExisting={handleExistingEvidencePlace}
+                  onMove={handleEvidenceMove}
+                  onRemove={handleEvidenceRemove}
+                />
+              )}
+
+              {idx === activeIdx && (
+                <SketchRoomMoistureCrop
+                  active={Boolean(roomMoistureSession)}
+                  crop={roomMoistureSession?.crop ?? null}
+                  roomLabel={roomMoistureSession?.label}
+                  onExit={handleExitRoomMoisture}
+                />
+              )}
+            </div>
+          ))}
 
         {/* Scan / blank / moisture empty-state chooser (P0 happy path). */}
         {!readonly && !guided && sketchesHydrated && (
@@ -2431,9 +2407,7 @@ export function SketchEditorV2({
                 activeFloor?.sketchSnapshot ?? activeFloor?.pendingSketchData,
               )
             }
-            canScan={Boolean(
-              inspectionId && hasNativeRoomPlan && !captureMode,
-            )}
+            canScan={Boolean(inspectionId && hasNativeRoomPlan && !captureMode)}
             onScan={
               inspectionId && hasNativeRoomPlan
                 ? () => {
@@ -2461,6 +2435,7 @@ export function SketchEditorV2({
               toast.success("Plan placed — tap to trace the first room");
             }}
             inspectionId={inspectionId}
+            floorNumber={activeFloor?.floor.floorNumber ?? 0}
             onImportUnderlay={() => {
               setStartOverlayDismissed(true);
               underlayPanelRef.current?.scrollIntoView({
@@ -2835,12 +2810,14 @@ export function SketchEditorV2({
             const obj = fc.getObjects().find((o) => {
               const d = (o as { data?: { id?: string } }).data;
               return d?.id === id;
-            }) as {
-              data?: Record<string, unknown>;
-              lockScalingX?: boolean;
-              lockScalingY?: boolean;
-              set?: (o: object) => void;
-            } | undefined;
+            }) as
+              | {
+                  data?: Record<string, unknown>;
+                  lockScalingX?: boolean;
+                  lockScalingY?: boolean;
+                  set?: (o: object) => void;
+                }
+              | undefined;
             if (!obj?.data) return;
             obj.data.dimLocked = locked;
             obj.lockScalingX = locked;
@@ -2867,10 +2844,12 @@ export function SketchEditorV2({
             const obj = fc.getObjects().find((o) => {
               const d = (o as { data?: { id?: string } }).data;
               return d?.id === id;
-            }) as {
-              data?: Record<string, unknown>;
-              set?: (o: object) => void;
-            } | undefined;
+            }) as
+              | {
+                  data?: Record<string, unknown>;
+                  set?: (o: object) => void;
+                }
+              | undefined;
             if (!obj?.data) return;
             const clamped = clampWallThicknessM(metres);
             obj.data.wallThicknessM = clamped;
@@ -2920,16 +2899,18 @@ export function SketchEditorV2({
             const obj = fc.getObjects().find((o) => {
               const d = (o as { data?: { id?: string } }).data;
               return d?.id === id;
-            }) as {
-              data?: Record<string, unknown>;
-              set?: (o: object) => void;
-              setCoords?: () => void;
-              points?: { x: number; y: number }[];
-              x1?: number;
-              y1?: number;
-              x2?: number;
-              y2?: number;
-            } | undefined;
+            }) as
+              | {
+                  data?: Record<string, unknown>;
+                  set?: (o: object) => void;
+                  setCoords?: () => void;
+                  points?: { x: number; y: number }[];
+                  x1?: number;
+                  y1?: number;
+                  x2?: number;
+                  y2?: number;
+                }
+              | undefined;
             if (!obj?.data) return;
             if (obj.data.dimLocked) {
               toast.error("Unlock the dimension before editing");
@@ -2984,9 +2965,7 @@ export function SketchEditorV2({
               });
               fc.renderAll();
               setSelectedObj((prev) =>
-                prev && prev.id === id
-                  ? { ...prev, lengthM, widthM }
-                  : prev,
+                prev && prev.id === id ? { ...prev, lengthM, widthM } : prev,
               );
               scheduleSave();
               return;
@@ -3037,11 +3016,7 @@ export function SketchEditorV2({
                   host = o;
                   break;
                 }
-                if (
-                  roomEdge &&
-                  d.type === "room" &&
-                  d.id === roomEdge.roomId
-                ) {
+                if (roomEdge && d.type === "room" && d.id === roomEdge.roomId) {
                   host = o;
                   break;
                 }
@@ -3049,7 +3024,9 @@ export function SketchEditorV2({
               if (host) {
                 fabric.fire?.("object:modified", { target: host });
               } else {
-                toast.error("Host wall not found — width saved, reselect to refresh");
+                toast.error(
+                  "Host wall not found — width saved, reselect to refresh",
+                );
               }
               fabric.renderAll();
               setSelectedObj((prev) =>
@@ -3167,6 +3144,7 @@ export function SketchEditorV2({
             defaultAddress={propertyAddress}
             defaultPostcode={propertyPostcode}
             inspectionId={inspectionId}
+            floorNumber={activeFloor?.floor.floorNumber ?? 0}
             onApply={handleApplyBackground}
             onClear={handleClearBackground}
             hasBackground={!!activeFloor?.backgroundUrl}

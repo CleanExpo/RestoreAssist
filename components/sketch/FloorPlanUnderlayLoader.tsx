@@ -8,7 +8,13 @@
  * semi-transparent underlay on the Fabric.js canvas for tracing.
  */
 
-import { useState, useRef, useCallback, useEffect, type MutableRefObject } from "react";
+import {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  type MutableRefObject,
+} from "react";
 import { cn } from "@/lib/utils";
 import {
   MapPin,
@@ -67,6 +73,8 @@ export interface FloorPlanUnderlayLoaderProps {
   /** Pass postcode for a better cache hit. */
   defaultPostcode?: string;
   inspectionId?: string;
+  /** Active ClaimSketch floor number; binds custody to the exact floor. */
+  floorNumber?: number;
   /** Called when the user confirms an image + opacity. */
   onApply: (imageUrl: string, opacity: number) => void;
   /** Called when the user removes the current underlay. */
@@ -88,6 +96,7 @@ export function FloorPlanUnderlayLoader({
   defaultAddress = "",
   defaultPostcode = "",
   inspectionId,
+  floorNumber = 0,
   onApply,
   onClear,
   hasBackground = false,
@@ -215,7 +224,9 @@ export function FloorPlanUnderlayLoader({
           return;
         }
         if (res.status === 403) {
-          setError("Listing floor-plan import is not enabled on this deployment.");
+          setError(
+            "Listing floor-plan import is not enabled on this deployment.",
+          );
           return;
         }
 
@@ -291,12 +302,16 @@ export function FloorPlanUnderlayLoader({
 
       const found = (json.candidates as string[] | undefined) ?? [];
       if (!res.ok && found.length === 0) {
-        setError(scrapeErrorMessage(json, "No property found for this address"));
+        setError(
+          scrapeErrorMessage(json, "No property found for this address"),
+        );
         return;
       }
 
       if (found.length === 0) {
-        setError(scrapeErrorMessage(json, "No property found for this address"));
+        setError(
+          scrapeErrorMessage(json, "No property found for this address"),
+        );
         return;
       }
 
@@ -308,13 +323,7 @@ export function FloorPlanUnderlayLoader({
     } finally {
       setLoading(false);
     }
-  }, [
-    address,
-    listingUrl,
-    defaultPostcode,
-    inspectionId,
-    fetchByUrl,
-  ]);
+  }, [address, listingUrl, defaultPostcode, inspectionId, fetchByUrl]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") fetchListing();
@@ -336,9 +345,7 @@ export function FloorPlanUnderlayLoader({
         window.location.href = json.url as string;
         return;
       }
-      setError(
-        json?.error ?? "Couldn't start the upgrade — please try again.",
-      );
+      setError(json?.error ?? "Couldn't start the upgrade — please try again.");
     } catch {
       setError("Couldn't start the upgrade — check your connection.");
     } finally {
@@ -379,9 +386,11 @@ export function FloorPlanUnderlayLoader({
     const result = await commitUnderlayImport({
       selectedImage,
       inspectionId,
+      floorNumber,
       holdsRights,
       compliesWithSourceTerms: compliesTerms,
       source,
+      sourcePageUrl: source === "url" ? results?.url : undefined,
     });
     setApplying(false);
     if (!result.ok) {
@@ -392,7 +401,19 @@ export function FloorPlanUnderlayLoader({
     setExpanded(false);
   };
 
-  const handleClear = () => {
+  const handleClear = async () => {
+    if (inspectionId) {
+      const res = await fetch(
+        `/api/inspections/${inspectionId}/sketches/underlay?floorNumber=${floorNumber}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        setError(
+          "Couldn't remove the reference floor plan — please try again.",
+        );
+        return;
+      }
+    }
     onClear();
     setSelectedImage(null);
     setResults(null);
@@ -698,7 +719,9 @@ export function FloorPlanUnderlayLoader({
               onClick={handleApply}
               disabled={!selectedImage || applying || !attestation.ok}
               title={
-                selectedImage && !attestation.ok ? attestation.reason : undefined
+                selectedImage && !attestation.ok
+                  ? attestation.reason
+                  : undefined
               }
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
@@ -712,7 +735,7 @@ export function FloorPlanUnderlayLoader({
             {hasBackground && (
               <button
                 type="button"
-                onClick={handleClear}
+                onClick={() => void handleClear()}
                 className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-sm text-rose-500 border border-rose-200 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
               >
                 <X size={13} />

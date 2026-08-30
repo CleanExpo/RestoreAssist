@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Loader2, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
+import { useOrganizationGst } from "@/hooks/use-organization-gst";
 
 const REASONS = [
   { value: "CUSTOMER_REFUND", label: "Customer Refund" },
@@ -41,6 +43,7 @@ export default function NewCreditNotePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
+  const { treatment: gstTreatment, ready: gstReady } = useOrganizationGst();
 
   const [form, setForm] = useState({
     invoiceId: "",
@@ -52,7 +55,7 @@ export default function NewCreditNotePage() {
   });
 
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", quantity: 1, unitPrice: 0, gstRate: 10 },
+    { description: "", quantity: 1, unitPrice: 0, gstRate: DEFAULT_GST_TREATMENT.ratePercent },
   ]);
 
   useEffect(() => {
@@ -65,10 +68,21 @@ export default function NewCreditNotePage() {
       .finally(() => setLoadingInvoices(false));
   }, []);
 
+  useEffect(() => {
+    if (!gstReady) return;
+    setLineItems((items) =>
+      items.map((item) =>
+        item.gstRate === DEFAULT_GST_TREATMENT.ratePercent
+          ? { ...item, gstRate: gstTreatment.ratePercent }
+          : item,
+      ),
+    );
+  }, [gstReady, gstTreatment.ratePercent]);
+
   const addLineItem = () =>
     setLineItems((prev) => [
       ...prev,
-      { description: "", quantity: 1, unitPrice: 0, gstRate: 10 },
+      { description: "", quantity: 1, unitPrice: 0, gstRate: gstTreatment.ratePercent },
     ]);
 
   const removeLineItem = (idx: number) =>
@@ -335,7 +349,7 @@ export default function NewCreditNotePage() {
                 <span>${subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>GST (10%)</span>
+                <span>GST</span>
                 <span>${gst.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-white font-semibold text-base pt-1">
