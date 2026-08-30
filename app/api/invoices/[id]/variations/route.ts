@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateInvoiceTotals } from "@/lib/invoices/calc";
+import { getGstTreatmentForCurrency } from "@/lib/gst-rules";
 import {
   inheritGstRate,
   resolveLineGstRate,
@@ -294,11 +295,21 @@ export async function POST(
       if (adjustmentError) return adjustmentError;
 
       // RA-7096 — use the existing single source of truth (lib/invoices/calc.ts).
+      //
+      // The rate comes from the parent invoice's own currency, not from the
+      // tenant's current country: a variation belongs to an already-issued
+      // document, and that document's jurisdiction is fixed at issue. A tenant
+      // who moved AU -> NZ must not have last year's AUD invoice re-taxed at
+      // 15%. Omitting this argument previously fell back to a hardcoded 10%,
+      // which taxed shipping on every NZ variation at the Australian rate.
       const totals = calculateInvoiceTotals({
         lineItems: lineItemsForCalc,
         discountAmount: discountAmountCents,
         discountPercentage: discountPercentageNum,
         shippingAmount: shippingAmountCents,
+        defaultGstRatePercent: getGstTreatmentForCurrency(
+          originalInvoice.currency,
+        ).ratePercent,
       });
       const subtotal = totals.subtotalExGST;
       const gst = totals.gstAmount;

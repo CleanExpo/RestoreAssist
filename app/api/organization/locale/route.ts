@@ -6,6 +6,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { normaliseAbn } from "@/lib/abn/checksum";
 import { normalizeNZBN } from "@/lib/validation/nzbn-validator";
 import { getGstTreatment } from "@/lib/gst-rules";
+import { isSupportedCountry } from "@/lib/locale/organization-locale";
 import { validateOrganizationLocaleProfile } from "@/lib/locale/validate-organization-profile";
 
 const localeSelect = {
@@ -38,7 +39,20 @@ export async function GET() {
     });
   }
 
-  const country = organization.country === "NZ" ? "NZ" : "AU";
+  // Fail closed, exactly as the PATCH branch below already does. Coercing an
+  // unset or unsupported stored country to "AU" reported a 10% GST treatment
+  // for a tenant whose jurisdiction is unknown — the invalid-tax-invoice
+  // failure that lib/gst/resolve-user-gst.ts is written to prevent.
+  const country = organization.country;
+  if (!isSupportedCountry(country)) {
+    return apiError(undefined, {
+      code: "VALIDATION",
+      message:
+        "Set your organisation locale (country) before using tax-dependent features",
+      status: 422,
+    });
+  }
+
   return NextResponse.json({
     data: { ...organization, country, tax: getGstTreatment(country) },
   });

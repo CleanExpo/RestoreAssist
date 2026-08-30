@@ -20,6 +20,7 @@ import { calculateInvoiceTotals } from "../calc";
 describe("calculateInvoiceTotals — GST-free and mixed rates (RA-7096)", () => {
   it("does not charge GST on a GST-free line", () => {
     const r = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: [
         { quantity: 1, unitPrice: 10000, gstRate: 10 },
         { quantity: 1, unitPrice: 10000, gstRate: 0 },
@@ -34,14 +35,16 @@ describe("calculateInvoiceTotals — GST-free and mixed rates (RA-7096)", () => 
 
   it("honours an explicit zero rate rather than defaulting it to 10", () => {
     const r = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: [{ quantity: 1, unitPrice: 10000, gstRate: 0 }],
     });
 
     expect(r.gstAmount).toBe(0);
   });
 
-  it("defaults a missing rate to 10 without swallowing a real zero", () => {
+  it("falls back to the supplied jurisdiction rate without swallowing a real zero", () => {
     const r = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: [
         { quantity: 1, unitPrice: 10000 },
         { quantity: 1, unitPrice: 10000, gstRate: 0 },
@@ -53,6 +56,7 @@ describe("calculateInvoiceTotals — GST-free and mixed rates (RA-7096)", () => 
 
   it("handles a mixed-rate invoice", () => {
     const r = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: [
         { quantity: 2, unitPrice: 5000, gstRate: 10 },
         { quantity: 1, unitPrice: 20000, gstRate: 0 },
@@ -66,6 +70,7 @@ describe("calculateInvoiceTotals — GST-free and mixed rates (RA-7096)", () => 
 
   it("scales GST proportionally on a fixed discount instead of recomputing flat", () => {
     const r = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: [
         { quantity: 1, unitPrice: 10000, gstRate: 10 },
         { quantity: 1, unitPrice: 10000, gstRate: 0 },
@@ -80,6 +85,7 @@ describe("calculateInvoiceTotals — GST-free and mixed rates (RA-7096)", () => 
 
   it("scales GST proportionally on a percentage discount", () => {
     const r = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: [
         { quantity: 1, unitPrice: 10000, gstRate: 10 },
         { quantity: 1, unitPrice: 10000, gstRate: 0 },
@@ -95,6 +101,7 @@ describe("calculateInvoiceTotals — GST-free and mixed rates (RA-7096)", () => 
     // Pinned so a future 'simplification' cannot silently change the tax
     // treatment of freight on every invoice.
     const r = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: [{ quantity: 1, unitPrice: 10000, gstRate: 0 }],
       shippingAmount: 5000,
     });
@@ -105,6 +112,7 @@ describe("calculateInvoiceTotals — GST-free and mixed rates (RA-7096)", () => 
 
   it("is identical to a flat 10% computation for an all-10% invoice", () => {
     const r = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: [
         { quantity: 1, unitPrice: 10000, gstRate: 10 },
         { quantity: 3, unitPrice: 5000, gstRate: 10 },
@@ -121,6 +129,7 @@ describe("calculateInvoiceTotals — GST-free and mixed rates (RA-7096)", () => 
   // invoice subtotal — see app/api/invoices/[id]/variations/route.ts.
   it("propagates fractional input rather than silently rounding it", () => {
     const r = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: [{ quantity: 1, unitPrice: 10000, gstRate: 10 }],
       discountAmount: 1055.5, // what an unrounded 10.555 dollars would pass
     });
@@ -130,6 +139,7 @@ describe("calculateInvoiceTotals — GST-free and mixed rates (RA-7096)", () => 
 
   it("stays integral when the caller rounds, as callers must", () => {
     const r = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: [{ quantity: 1, unitPrice: 10000, gstRate: 10 }],
       discountAmount: Math.round(1055.5),
     });
@@ -141,6 +151,7 @@ describe("calculateInvoiceTotals — GST-free and mixed rates (RA-7096)", () => 
 
   it("never divides by zero on a fully discounted invoice", () => {
     const r = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: [{ quantity: 1, unitPrice: 10000, gstRate: 10 }],
       discountAmount: 10000,
     });

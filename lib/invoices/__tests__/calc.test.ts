@@ -147,7 +147,13 @@ describe("calculateInvoiceTotals matches the server", () => {
         discountPercentage: input.discountPercentage ?? undefined,
         shippingAmount: input.shippingAmount ?? undefined,
       });
-      expect(calculateInvoiceTotals(input)).toEqual(expected);
+      // Every case here mirrors `serverComputeTotals`, whose reference
+      // implementation hardcodes the AU rate — so the jurisdiction under test
+      // is AU. It is stated explicitly now that the parameter is required; a
+      // case may still override it by setting its own.
+      expect(
+        calculateInvoiceTotals({ defaultGstRatePercent: 10, ...input }),
+      ).toEqual(expected);
     });
   });
 
