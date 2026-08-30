@@ -86,8 +86,8 @@ Profile omission does not award points: excluded criteria are removed from that 
 ## Machine-verifiable vs blocked owner-evidence breakdown
 
 - **Web profile machine-verifiable (50 / 85 pts):** A2 (10), all of B (20), C1 (10), D2 (5), and F2 (5).
-- **Web profile reachable by signed receipt (15 / 85 pts):** C2 (5), A3 (5) and F1 (5) all have registered producers, so each can be measured and signed. Reachable is not the same as passing: a receipt earns points only when the measurement itself passes. See "Signed receipts" below.
-- **Web profile with no producer at all (20 / 85 pts):** A1 (10), D1 (5) and D3 (5). These cannot be signed, whatever key is held. D3 is deliberately unregistered because its producer cannot measure `failedWebhookDeliveries`, and filling that gap from the environment is the exact hole the signer exists to close.
+- **Web profile reachable by signed receipt (25 / 85 pts):** A1 (10), C2 (5), A3 (5) and F1 (5) all have registered producers, so each can be measured and signed. Reachable is not the same as passing: a receipt earns points only when the measurement itself passes. See "Signed receipts" below.
+- **Web profile with no producer at all (10 / 85 pts):** D1 (5) and D3 (5). These cannot be signed, whatever key is held. D3 is deliberately unregistered because its producer cannot measure `failedWebhookDeliveries`, and filling that gap from the environment is the exact hole the signer exists to close.
 - **Mobile-only blocked additions (15 / 100 pts):** E1-E3 remain required in the `mobile` profile and are excluded from the `web` profile.
 
 ### What still stands between the gate and a pass
@@ -102,7 +102,8 @@ Having a producer is not having the points. Measured against production on
   producer reports each of these by name rather than a bare fail.
 - **C2 and A3 need owner setup** — the keypair and the `release-receipts`
   environment, plus `A3_EXPECTED_VIEWER_ID`.
-- **A1, D1 and D3 need producers written.**
+- **A1 fails until `restore` is exercised.** No spec covers the storage-restore journey step, so the coverage map names it and A1 fails closed.
+- **D1 and D3 need producers written.**
 
 Committed prose, screenshots, URLs and hashes of narrative evidence do not earn release points: they are self-attestable. The scorer validates their structure and freshness for diagnostics, then fails closed until each owner criterion has a signed, criterion-specific machine receipt producer and verifier. A1 requires signup, login, onboarding, storage setup, restore, inspection, claim, attestation and PDF observations. E3 requires App Review, release, rollback and reviewer observations. Freshness is aged from the stated date, never filesystem metadata.
 
@@ -202,6 +203,42 @@ and a criterion absent from that registry cannot pass however good its key.
   The scanner is installed by the workflow at a pinned version and checksum,
   not by the producer. A producer that fetches its own instrument is not
   reporting on a reviewed one.
+- **A1-core-journeys** — produced by
+  `scripts/ci/producers/a1-core-journeys.ts`. This is the largest single award
+  in the gate, and it previously rested on **text matching**: `ownerEvidence()`
+  passed A1 if a markdown file's `## Evidence` section contained the words
+  "signup", "login", "onboarding", "storage setup", "restore", "inspection",
+  "claim", "attest" and "pdf". Ten points for a document containing nine words —
+  and "we did not test signup" contains "signup".
+
+  | Check | The failure it answers |
+  | --- | --- |
+  | `deploymentSha` must equal the receipt's `releaseSha` | The criterion says "independently verified **on this SHA**". A green journey against yesterday's build is evidence about yesterday's build. Production served a revision older than its own `deploymentSha` field for weeks, so this is a failure that has happened here. |
+  | `testsExecuted` must be positive AND `specsMissingFromReport` empty | Playwright exits 0 when it matches no tests. A filter typo, a renamed spec or a moved `testDir` each produce a green run that executed nothing, and "0 failures" reads identically to a passing suite. |
+  | `journeySteps` pinned, `coveredSteps` must equal it | Compared against the criterion's own step list, so a producer that stopped reporting a step cannot pass by omission. |
+  | `baseUrl` pinned to the sandbox | The journey signs up companies and pushes an invoice. Running it against production would create customer-visible records on every gate run; the SHA binding is what makes a sandbox run meaningful. |
+
+  `A1_JOURNEY_STEPS` is the **single owner** of the step list —
+  `scripts/release-gate-score.ts` imports it rather than repeating it, because a
+  list that can drift between the thing measuring and the thing scoring can
+  disagree with itself without either side looking wrong.
+
+  **A1 does not pass today, and the map says why.** `restore` has no covering
+  spec: the matches for "restore" across the suite are incidental hits on
+  `restoreassist.app`, not exercises of the storage-restore journey.
+
+  The pilot-tester swarm was considered as the instrument and rejected. It is a
+  strong harness — `packages/pilot-tester/src/runner/release-gate.ts` already
+  enforces a 5x7 fixture population, unique sandbox identities and complete
+  grading — but its journey is "bootstrap auth cookie, create inspection, upload
+  photos, seed readings, generate assessment, grade". That is login, inspection
+  and assessment: three of the nine steps. Signing A1 off it would have repeated
+  F1's mistake, measuring a real thing that is not the thing the criterion names.
+
+  A known weakness, recorded rather than hidden: `storage setup` rests on a spec
+  that **mocks** the Google OAuth exchange. That verifies this application's half
+  of the handshake and nothing about the provider's.
+
 - **F1-monitoring-alerting** — produced by
   `scripts/ci/producers/f1-monitoring-alerting.ts`. Two halves, both required:
 

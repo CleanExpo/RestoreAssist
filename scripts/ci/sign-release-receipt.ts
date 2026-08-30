@@ -122,6 +122,21 @@ const PRODUCERS: Record<
       return produceF1Measurements(token) as Promise<Record<string, unknown>>;
     },
   },
+  "A1-core-journeys": {
+    environment: "sandbox",
+    produce: async () => {
+      const reportPath = process.env.A1_PLAYWRIGHT_REPORT;
+      if (!reportPath) {
+        fail(
+          "A1_PLAYWRIGHT_REPORT is not set; the A1 producer cannot run. It " +
+            "reads a real run's report rather than accepting counts, so there " +
+            "is nothing to measure without one.",
+        );
+      }
+      const { produceA1Measurements } = await import("./producers/a1-core-journeys");
+      return produceA1Measurements(reportPath) as Promise<Record<string, unknown>>;
+    },
+  },
   // D3-revenue-reconciliation is DELIBERATELY ABSENT.
   //
   // Its producer cannot yet measure `failedWebhookDeliveries` -- Stripe exposes
