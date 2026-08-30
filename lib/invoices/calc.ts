@@ -37,7 +37,21 @@ export interface InvoiceCalcInput {
   discountAmount?: number | null; // cents
   discountPercentage?: number | null; // percent
   shippingAmount?: number | null; // cents
-  defaultGstRatePercent?: number; // authoritative tenant rate (10 AU / 15 NZ)
+  /**
+   * Authoritative jurisdiction rate (10 AU / 15 NZ).
+   *
+   * Required, and deliberately so. It was optional with a `= 10` default,
+   * which meant every caller that forgot it silently computed Australian GST:
+   * shipping on a New Zealand variation was taxed at 10% instead of 15%. All
+   * three callers had in fact forgotten it. A default here cannot be right —
+   * the value belongs to the tenant or to the document's own currency, never
+   * to this function — so the type now forces the caller to say.
+   *
+   * Resolve it from `getGstTreatment(country).ratePercent` for a new document,
+   * or `getGstTreatmentForCurrency(doc.currency).ratePercent` for an existing
+   * one, whose currency is immutable. See CLAUDE.md, "Single sources of truth".
+   */
+  defaultGstRatePercent: number;
 }
 
 export interface InvoiceCalcResult {
@@ -65,7 +79,7 @@ export function calculateInvoiceTotals(
     discountAmount,
     discountPercentage,
     shippingAmount,
-    defaultGstRatePercent = 10,
+    defaultGstRatePercent,
   } = input;
 
   let subtotalExGST = 0;

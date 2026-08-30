@@ -55,6 +55,7 @@ describe("resolveLineGstRate (RA-7096)", () => {
 describe("variation totals with inherited GST-free rate", () => {
   it("a variation line at gstRate 0 yields zero GST (calc SSOT)", () => {
     const totals = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: [{ quantity: 1, unitPrice: 50000, gstRate: 0 }],
     });
     expect(totals.gstAmount).toBe(0);
@@ -66,6 +67,7 @@ describe("variation totals with inherited GST-free rate", () => {
     const rate = resolveLineGstRate(0, inheritGstRate([{ gstRate: 10 }]));
     expect(rate).toBe(0);
     const totals = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: [{ quantity: 1, unitPrice: 10000, gstRate: rate }],
     });
     expect(totals.gstAmount).toBe(0);
