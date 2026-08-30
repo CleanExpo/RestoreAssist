@@ -48,12 +48,15 @@ jobs:
     steps:
       # Receipts bind to the exact tree they were measured against, so this
       # must be main and must not be a shallow or detached surprise.
-      - uses: actions/checkout@v5
+      # Pinned to a full commit SHA, not a tag: check:release-bootstrap enforces
+      # it, and the reason bites hardest here. A tag is mutable, so a compromised
+      # action release would run inside the one job that can reach the signing key.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: main
           fetch-depth: 0
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .nvmrc
           cache: npm
