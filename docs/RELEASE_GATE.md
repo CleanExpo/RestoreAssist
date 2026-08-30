@@ -86,21 +86,53 @@ Profile omission does not award points: excluded criteria are removed from that 
 ## Machine-verifiable vs blocked owner-evidence breakdown
 
 - **Web profile machine-verifiable (50 / 85 pts):** A2 (10), all of B (20), C1 (10), D2 (5), and F2 (5).
-- **Web profile owner-evidence still blocked (35 / 85 pts):** A1/A3 (15), C2 (5), D1/D3 (10), and F1 (5).
+- **Web profile reachable by signed receipt (5 / 85 pts):** C2, once a receipt signed by a trusted key is present. See "Signed receipts" below.
+- **Web profile owner-evidence still blocked (30 / 85 pts):** A1/A3 (15), D1/D3 (10), and F1 (5).
 - **Mobile-only blocked additions (15 / 100 pts):** E1-E3 remain required in the `mobile` profile and are excluded from the `web` profile.
 
 Committed prose, screenshots, URLs and hashes of narrative evidence do not earn release points: they are self-attestable. The scorer validates their structure and freshness for diagnostics, then fails closed until each owner criterion has a signed, criterion-specific machine receipt producer and verifier. A1 requires signup, login, onboarding, storage setup, restore, inspection, claim, attestation and PDF observations. E3 requires App Review, release, rollback and reviewer observations. Freshness is aged from the stated date, never filesystem metadata.
 
-### Unresolved signed-receipt producers
+### Signed receipts
 
-No trusted producer or verifier currently exists for A1, A3, C2, D1, D3,
-E1-E3 or F1. F2 is now verified directly from repository content rather than
-from committed owner prose. This is a release blocker, not an operator checkbox. Each
-producer must bind its criterion ID, exact release SHA, observed environment,
-timestamp and raw evidence digest into a signed receipt; a separately trusted
-verifier must validate the signature and criterion-specific measurements.
-Until those implementations and their planted-defect controls exist, the
-scorer deliberately awards these criteria zero points.
+The verifier this section used to call for now exists:
+`scripts/ci/release-receipt.ts`, with its planted-defect controls in
+`scripts/ci/__tests__/release-receipt.test.ts` and the producer in
+`scripts/ci/sign-release-receipt.ts`. An owner criterion earns its points when
+`<criterion>.receipt.json` sits beside the evidence file and verifies.
+
+Three properties carry the scheme, and each has a test that fails without it:
+
+1. **The trust root is not in this repository.** Public keys are read from the
+   `RELEASE_RECEIPT_PUBLIC_KEYS` environment variable as
+   `{"<key-id>": "<PEM>"}`, which on Actions means a repository secret. A
+   committed key would be worthless: anyone who can open a pull request could
+   swap in a key they hold and sign their own receipts. The private half stays
+   with the owner and must never be committed.
+2. **Every absence fails closed.** No key set configured, an unknown key id, or
+   a criterion with no registered measurement check all score zero. A receipt
+   file appearing in the repository moves nothing on its own.
+3. **Measurements are re-derived, not believed.** A signature says who produced
+   the bytes, never that they are true, so the verifier recomputes the release
+   SHA, the source tree and the evidence digest against the checkout being
+   scored. A receipt taken on a different tree is rejected even when its
+   signature is perfect.
+
+That third property is why a signature alone cannot enable a criterion. Each
+one needs a registered measurement check saying what "measured" means for it,
+and a criterion absent from that registry cannot pass however good its key.
+
+**Registered:** C2-secrets-scan, which requires a `git-checkout-index` export
+rather than a working-directory scan (`gitleaks --no-git` ignores
+`.gitignore`), zero findings, and zero missing recommended environment
+variables.
+
+**Still unregistered, and therefore still scoring zero:** A1, A3, D1, D3, F1
+and E1-E3. Each needs a producer that can take its measurement without a human
+retyping it -- a Linear query for A3, Stripe reconciliation for D3, an
+instrumented end-to-end run for A1 -- plus its own measurement check and
+planted-defect tests. **The web profile therefore still cannot reach 85/85, so
+the release rule below still blocks.** This remains a release blocker, not an
+operator checkbox.
 
 ## Release rule (fail-closed)
 

@@ -27,7 +27,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { execSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, generateKeyPairSync, sign as edSign } from "node:crypto";
+
+import { canonicalizeManifest as canonicalJson } from "../../lib/evidence/manifest-canonical";
+import { TRUSTED_KEYS_ENV } from "../ci/release-receipt";
 
 import {
   ownerEvidence,
@@ -918,5 +921,125 @@ describe("runReleaseGate profiles", () => {
       "E3-release-rollback-plan",
     ]);
     expect(strictFail).toBe(true);
+  });
+});
+
+/**
+ * End-to-end: the criterion that could never pass, passing.
+ *
+ * Before scripts/ci/release-receipt.ts existed, `ownerEvidence()` ended in an
+ * unconditional `fail` -- there was no input, however perfect, that returned
+ * `pass`. The web profile's ceiling was therefore 50/85 against a release rule
+ * of `score == profile_max`, so the gate could not be passed, only bypassed.
+ *
+ * These two tests are a matched pair and neither means much alone. The first
+ * shows a real signed receipt earning the points. The second shows the same
+ * evidence file, byte for byte, still scoring zero the moment the trusted key
+ * set is absent -- which is the state of every checkout that has not been
+ * given the owner's public key, this one included.
+ */
+describe("ownerEvidence — signed receipts", () => {
+  const KEY_ID = "test-release-key";
+
+  function issueReceipt(
+    criterionId: string,
+    overrides: Record<string, unknown> = {},
+  ): string {
+    const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+    const evidence =
+      "Observed the named criterion against the exact release revision and retained the machine or operator receipt linked above. The independent reviewer examined the result and the alternative failure state.";
+    const receipt = {
+      criterionId,
+      gateVersion: GATE_VERSION,
+      releaseSha: execSync("git rev-parse HEAD").toString().trim(),
+      releaseTree: execSync("git rev-parse HEAD^{tree}").toString().trim(),
+      environment: "ci",
+      issuedAt: new Date().toISOString(),
+      evidenceDigest: `sha256:${createHash("sha256").update(evidence).digest("hex")}`,
+      measurements: {
+        scanner: "gitleaks",
+        scannerVersion: "8.28.0",
+        scannedRef: "git-checkout-index",
+        findings: 0,
+        missingEnvVars: 0,
+      },
+      ...overrides,
+    };
+    fs.writeFileSync(
+      path.join(versionDir, `${criterionId}.receipt.json`),
+      JSON.stringify({
+        keyId: KEY_ID,
+        signature: edSign(
+          null,
+          Buffer.from(canonicalJson(receipt), "utf8"),
+          privateKey,
+        ).toString("base64"),
+        receipt,
+      }),
+    );
+    return publicKey.export({ type: "spki", format: "pem" }).toString();
+  }
+
+  it("awards the points to a verified signed receipt", () => {
+    writeEvidence(
+      "C2-secrets-scan",
+      `criterion: C2-secrets-scan\nstatus: pass\nverified: ${isoDaysAgo(1)}`,
+    );
+    const pem = issueReceipt("C2-secrets-scan");
+    const previous = process.env[TRUSTED_KEYS_ENV];
+    process.env[TRUSTED_KEYS_ENV] = JSON.stringify({ [KEY_ID]: pem });
+    try {
+      const result = ownerEvidence("C2-secrets-scan", GATE_VERSION, evidenceRoot);
+      expect(result.status).toBe("pass");
+      expect(result.detail).toContain("signed receipt verified");
+    } finally {
+      if (previous === undefined) delete process.env[TRUSTED_KEYS_ENV];
+      else process.env[TRUSTED_KEYS_ENV] = previous;
+    }
+  });
+
+  it("scores the same evidence zero when no trusted key is configured", () => {
+    // The fail-closed default, and the state of any checkout without the
+    // owner's key. A receipt file appearing in the repository moves nothing.
+    writeEvidence(
+      "C2-secrets-scan",
+      `criterion: C2-secrets-scan\nstatus: pass\nverified: ${isoDaysAgo(1)}`,
+    );
+    issueReceipt("C2-secrets-scan");
+    const previous = process.env[TRUSTED_KEYS_ENV];
+    delete process.env[TRUSTED_KEYS_ENV];
+    try {
+      const result = ownerEvidence("C2-secrets-scan", GATE_VERSION, evidenceRoot);
+      expect(result.status).toBe("fail");
+      expect(result.detail).toContain("no trusted receipt keys configured");
+    } finally {
+      if (previous !== undefined) process.env[TRUSTED_KEYS_ENV] = previous;
+    }
+  });
+
+  it("rejects a receipt whose measurements contradict the criterion", () => {
+    writeEvidence(
+      "C2-secrets-scan",
+      `criterion: C2-secrets-scan\nstatus: pass\nverified: ${isoDaysAgo(1)}`,
+    );
+    const pem = issueReceipt("C2-secrets-scan", {
+      measurements: {
+        scanner: "gitleaks",
+        scannerVersion: "8.28.0",
+        scannedRef: "git-checkout-index",
+        findings: 2,
+        missingEnvVars: 0,
+      },
+    });
+    const previous = process.env[TRUSTED_KEYS_ENV];
+    process.env[TRUSTED_KEYS_ENV] = JSON.stringify({ [KEY_ID]: pem });
+    try {
+      const result = ownerEvidence("C2-secrets-scan", GATE_VERSION, evidenceRoot);
+      expect(result.status).toBe("fail");
+      expect(result.detail).toContain("findings is 2");
+    } finally {
+      if (previous === undefined) delete process.env[TRUSTED_KEYS_ENV];
+      else process.env[TRUSTED_KEYS_ENV] = previous;
+    }
   });
 });

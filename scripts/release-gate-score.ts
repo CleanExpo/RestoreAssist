@@ -20,6 +20,11 @@ import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import {
+  trustedKeysFromEnv,
+  verifyReleaseReceipt,
+} from "./ci/release-receipt";
+
 type CriterionStatus = "pass" | "fail" | "skip";
 export type ReleaseProfile = "web" | "mobile";
 
@@ -101,7 +106,7 @@ function sectionBodyFrom(lines: string[], start: number): string {
   return lines.slice(start + 1, end).join("\n").trim();
 }
 
-function markdownSection(body: string, heading: string): string | null {
+export function markdownSection(body: string, heading: string): string | null {
   const lines = body.replace(/\r\n/g, "\n").split("\n");
   const start = lines.findIndex(
     (line) => line.trim().toLowerCase() === `## ${heading.toLowerCase()}`,
@@ -476,13 +481,44 @@ export function ownerEvidence(
     };
   }
   // A hash of prose proves only that the prose did not change; it does not
-  // prove the external observation. Until each owner criterion has a signed,
-  // machine-verifiable producer and verifier, it must earn zero release points.
+  // prove the external observation. What earns points is a signed receipt from
+  // a producer the owner trusts, verified against THIS checkout -- see
+  // scripts/ci/release-receipt.ts and the "Unresolved signed-receipt producers"
+  // section of docs/RELEASE_GATE.md.
+  //
+  // Absent such a receipt the criterion still scores zero, exactly as before.
+  // That is the fail-closed default and it is load-bearing: no committed file,
+  // however well-formed, can move the score on its own.
+  const receiptPath = path.join(dir, `${criterionId}.receipt.json`);
+  if (!fs.existsSync(receiptPath)) {
+    return {
+      status: "fail",
+      detail:
+        `owner evidence is structurally complete but not machine-verifiable: ${criterionId}.md; ` +
+        "a signed criterion-specific receipt verifier is required",
+    };
+  }
+  const verified = verifyReleaseReceipt(
+    fs.readFileSync(receiptPath, "utf8"),
+    {
+      criterionId,
+      gateVersion,
+      releaseSha: expectedSha,
+      releaseTree: gitTree(),
+      evidenceDigest: `sha256:${createHash("sha256").update(evidenceSection).digest("hex")}`,
+      maxAgeDays: EVIDENCE_MAX_AGE_DAYS,
+    },
+    trustedKeysFromEnv(),
+  );
+  if (!verified.ok) {
+    return {
+      status: "fail",
+      detail: `signed receipt rejected for ${criterionId}: ${verified.message}`,
+    };
+  }
   return {
-    status: "fail",
-    detail:
-      `owner evidence is structurally complete but not machine-verifiable: ${criterionId}.md; ` +
-      "a signed criterion-specific receipt verifier is required",
+    status: "pass",
+    detail: `signed receipt verified for ${criterionId} against ${expectedSha.slice(0, 12)}`,
   };
 }
 
@@ -919,6 +955,22 @@ export const CRITERIA: Criterion[] = [
 function gitSha(): string {
   try {
     return execSync("git rev-parse HEAD", { cwd: ROOT }).toString().trim();
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
+ * HEAD's tree. Bound alongside the commit because the tree is what a scan
+ * actually reads: a receipt cannot then be carried across a rebase that keeps
+ * the content but changes the SHA, nor reused on a commit with different
+ * content.
+ */
+function gitTree(): string {
+  try {
+    return execSync("git rev-parse HEAD^{tree}", { cwd: ROOT })
+      .toString()
+      .trim();
   } catch {
     return "unknown";
   }
