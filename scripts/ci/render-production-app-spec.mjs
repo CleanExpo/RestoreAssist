@@ -65,8 +65,47 @@ export function renderProductionAppSpec({ template, digest, gitSha, registryCred
   if (JSON.stringify(image) !== JSON.stringify(expectedImage)) {
     throw new Error("services/web.image does not match the reviewed immutable template");
   }
-  if (service.health_check?.http_path !== "/api/health/migrations") {
-    throw new Error("services/web health check must use /api/health/migrations");
+  // READINESS, NOT DRIFT.
+  //
+  // This pinned /api/health/migrations, which is a migration-drift watchdog --
+  // its own docstring calls it a probe for "UptimeRobot, Pi-Dev-Ops watchdog,
+  // manual probe". Using it as the container health check conflates two
+  // different questions: "can this container serve traffic?" and "is the
+  // database ledger in the expected state?". A container can be perfectly
+  // healthy while the database has drift, and that endpoint answers 503 on any
+  // drift and 504 when it is slow -- which makes App Platform fail the
+  // deployment and roll back.
+  //
+  // Worse, it deadlocks: if drift ever exists, the deploy that would FIX the
+  // drift cannot go out, because the health check refuses to go green until the
+  // drift is gone. Drift gating belongs at the deploy gate (`prisma migrate
+  // status`), which is exactly what that endpoint's docstring says.
+  //
+  // /api/health is the right probe: one `SELECT 1`, memory-only rate limiting,
+  // and 503 only when a check is in `error`. It still fails a container that
+  // cannot reach its database, which is what readiness means.
+  if (service.health_check?.http_path !== "/api/health") {
+    throw new Error("services/web health check must use /api/health");
+  }
+  // The timings are pinned too, and this half is not cosmetic. Omitting them
+  // inherits App Platform's defaults -- a 1-SECOND timeout with no startup
+  // grace -- against an endpoint that opens a database connection, on a
+  // basic-xxs instance. Leaving them unset is how a correct health path still
+  // fails every deploy, so the guard must refuse a spec that drops them.
+  const health = requireObject(service.health_check, "services/web.health_check");
+  const minimums = {
+    initial_delay_seconds: 30,
+    period_seconds: 5,
+    timeout_seconds: 5,
+    failure_threshold: 3,
+  };
+  for (const [key, minimum] of Object.entries(minimums)) {
+    const observed = health[key];
+    if (typeof observed !== "number" || observed < minimum) {
+      throw new Error(
+        `services/web health check ${key} must be a number >= ${minimum}; observed ${JSON.stringify(observed)}`,
+      );
+    }
   }
   const gitShaEnv = service.envs?.find((entry) => entry?.key === "GIT_SHA");
   if (

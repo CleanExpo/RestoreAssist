@@ -95,7 +95,17 @@ test("reviewed app template is immutable, non-deployable and secret-free", () =>
   assert.equal(service.image.tag, undefined);
   assert.equal(service.image.deploy_on_push, undefined);
   assert.equal(service.github, undefined);
-  assert.equal(service.health_check.http_path, "/api/health/migrations");
+  // Readiness, not drift. /api/health/migrations is a migration-drift watchdog;
+  // using it as App Platform's health check meant any drift -- or a slow query
+  // on a cold basic-xxs container under the default 1s timeout -- failed the
+  // deployment and rolled it back, including the deploy that would have fixed
+  // the drift. See render-production-app-spec.mjs for the full reasoning.
+  assert.equal(service.health_check.http_path, "/api/health");
+  // The timings are part of the contract: naming only http_path inherits App
+  // Platform's defaults, which is how a correct path still fails every deploy.
+  assert.ok(service.health_check.initial_delay_seconds >= 30);
+  assert.ok(service.health_check.timeout_seconds >= 5);
+  assert.ok(service.health_check.failure_threshold >= 3);
   for (const entry of service.envs.filter((item) => item.type === "SECRET")) {
     assert.equal(Object.hasOwn(entry, "value"), false, `${entry.key} must be hydrated only in memory`);
   }
