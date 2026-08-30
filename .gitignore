@@ -106,7 +106,12 @@ secret.txt
 
 # Multi-PC swarm — local identity per machine (see work-together.md)
 .claude/swarm/identity.local.md
-scripts/__pycache__/
+# Python bytecode, anywhere. Was `scripts/__pycache__/` only, which stopped
+# covering it once CI began running scripts/ci/test_digitalocean_production_release
+# -- that suite creates scripts/ci/__pycache__/, and an unignored bytecode
+# directory dirties every contributor's tree and can be swept into a `git add -A`.
+__pycache__/
+*.py[cod]
 .DS_Store
 supabase/.temp/
 .claude/verifier-reports/
