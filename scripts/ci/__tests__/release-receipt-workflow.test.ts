@@ -95,10 +95,26 @@ describe("a branch dispatch cannot mint a receipt", () => {
     // The guard above is defence in depth. If the docs stop telling the owner
     // to restrict the environment to main, the only real control is gone and
     // nothing in the code would notice.
+    //
+    // The first version of this asserted /deployment.branch rule/i, which is
+    // close to worthless: the `.` matches any character, and nothing required
+    // the rule to name the environment, the branch, or reviewers. The docs
+    // could have dropped the main-only restriction entirely and this still
+    // passed — a test unable to fail for the reason it exists. Raised by
+    // CodeRabbit on #2113.
     const doc = readFileSync(
       join(process.cwd(), "docs", "RELEASE_GATE.md"),
       "utf8",
     );
-    expect(doc).toMatch(/deployment.branch rule/i);
+    for (const required of [
+      /deployment-branch rule/,
+      /restricting `release-receipts` to `main`/,
+      /required reviewers/,
+    ]) {
+      expect(doc).toMatch(required);
+    }
+    // And it must still be described as the control rather than as optional
+    // hardening, because that framing is what stops it being skipped.
+    expect(doc).toMatch(/not optional hardening/);
   });
 });

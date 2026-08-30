@@ -86,8 +86,8 @@ Profile omission does not award points: excluded criteria are removed from that 
 ## Machine-verifiable vs blocked owner-evidence breakdown
 
 - **Web profile machine-verifiable (50 / 85 pts):** A2 (10), all of B (20), C1 (10), D2 (5), and F2 (5).
-- **Web profile reachable by signed receipt (15 / 85 pts):** C2 (5), A3 (5) and D3 (5), once a receipt signed by a trusted key is present. See "Signed receipts" below.
-- **Web profile owner-evidence still blocked (20 / 85 pts):** A1 (10), D1 (5), and F1 (5).
+- **Web profile reachable by signed receipt (10 / 85 pts):** C2 (5) and A3 (5), once a receipt signed by a trusted key is present. See "Signed receipts" below.
+- **Web profile owner-evidence still blocked (25 / 85 pts):** A1 (10), D1 (5), D3 (5), and F1 (5). D3 counts as blocked because its producer cannot yet measure every field it claims, so it is unregistered in the signer and cannot be signed at all.
 - **Mobile-only blocked additions (15 / 100 pts):** E1-E3 remain required in the `mobile` profile and are excluded from the `web` profile.
 
 Committed prose, screenshots, URLs and hashes of narrative evidence do not earn release points: they are self-attestable. The scorer validates their structure and freshness for diagnostics, then fails closed until each owner criterion has a signed, criterion-specific machine receipt producer and verifier. A1 requires signup, login, onboarding, storage setup, restore, inspection, claim, attestation and PDF observations. E3 requires App Review, release, rollback and reviewer observations. Freshness is aged from the stated date, never filesystem metadata.
