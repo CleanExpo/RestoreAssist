@@ -58,13 +58,13 @@ import {
   FRESH,
   STALE,
 } from "./ci/classify-deployment-freshness.mjs";
+import { parseSmokeArgs } from "./ci/smoke-args.mjs";
 
 const require = createRequire(import.meta.url);
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const [baseUrl, ...rawArgs] = process.argv.slice(2);
-const preflightOnly = rawArgs.includes("--preflight-only");
-const extraArgs = rawArgs.filter((arg) => arg !== "--preflight-only");
+const { preflightOnly, allowStale, extraArgs } = parseSmokeArgs(rawArgs);
 
 /**
  * State the verdict where the run page shows it without opening logs. Silent
@@ -148,17 +148,43 @@ if (!isLocal && expectedSha) {
       "Nothing here says the application is unhealthy. main has moved ahead " +
         "of what is deployed; promote a release rather than debugging the app.",
     );
-    reportToStepSummary(
-      "🟡 Production is stale, not broken",
-      `${reason}\n\nThe application answered \`/api/health\` normally. This run did not ` +
-        `test user flows, because testing them against a revision that is not this ` +
-        `one would not tell you anything about this revision.\n\n` +
-        `**Fix:** promote a release. **Do not** debug the app for this.`,
-    );
-    process.exit(3);
+
+    // `--allow-stale` is how the outage watch says "I already know it is
+    // stale; the freshness step reported that. Tell me whether the site is
+    // UP." Without it the flows were skipped on every stale run, so for as
+    // long as a release sat unpromoted the watch proved nothing at all — and
+    // a genuine outage during that window would have produced the same exit 3
+    // everyone had stopped reading.
+    if (allowStale) {
+      reportToStepSummary(
+        "🟡 Production is stale — checking availability anyway",
+        `${reason}\n\nThe application answered \`/api/health\` normally. The user ` +
+          `flows below run against the **deployed** build, so a pass means the site ` +
+          `is up; it does not mean this revision works.\n\n` +
+          `**Fix:** promote a release.`,
+      );
+      console.error(
+        "Continuing to the user flows anyway (--allow-stale): a stale build " +
+          "still has to be up. A failure below is an availability failure.",
+      );
+    } else {
+      reportToStepSummary(
+        "🟡 Production is stale, not broken",
+        `${reason}\n\nThe application answered \`/api/health\` normally. This run did not ` +
+          `test user flows, because testing them against a revision that is not this ` +
+          `one would not tell you anything about this revision.\n\n` +
+          `**Fix:** promote a release. **Do not** debug the app for this.`,
+      );
+      process.exit(3);
+    }
   }
 
-  if (verdict !== FRESH) {
+  // STALE is excluded explicitly: reaching here as STALE means `--allow-stale`
+  // was passed and the branch above deliberately fell through. Without this,
+  // a tolerated stale run would exit 1 and report an outage — collapsing the
+  // very distinction between "not deployed" and "down" that the separate exit
+  // codes exist to preserve.
+  if (verdict !== FRESH && verdict !== STALE) {
     const detail = fetchError ? `${reason}: ${fetchError}` : reason;
     console.error(`Deployment freshness preflight failed: ${detail}`);
     reportToStepSummary(
@@ -168,7 +194,9 @@ if (!isLocal && expectedSha) {
     process.exit(1);
   }
 
-  console.log(`Deployment freshness preflight passed: ${reason}`);
+  if (verdict === FRESH) {
+    console.log(`Deployment freshness preflight passed: ${reason}`);
+  }
 }
 
 if (isProduction) {
