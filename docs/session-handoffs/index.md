@@ -1,7 +1,7 @@
 ---
 type: index
 name: session-handoffs
-description: OKF index — 10 concepts, 0 subfolders
+description: OKF index — 11 concepts, 0 subfolders
 okf_version: "0.1"
 updated: 2026-08-29
 ---
@@ -23,3 +23,4 @@ _Read this first. Lists every concept + subfolder here so an agent loads only wh
 - [[handoff-20260704-120200]] — Session handoff — READY
 - [[handoff-20260707T050930Z]] — Session Handoff — RA-6934 RAG ingest COMPLETE + verified (40,717 chunks) + RA-7000 grounding proven; nothing to resume
 - [[handoff-20260825T094609Z]] — Production still not deploying; five PRs merged; the blocker moved
+- [[handoff-20260829T233352Z]] — The owner gate was holed three times over, and every hole was found by running the loop against live issues (PRs #2079-#2085)
