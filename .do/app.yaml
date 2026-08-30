@@ -21,7 +21,12 @@
       "instance_size_slug": "basic-xxs",
       "http_port": 3000,
       "health_check": {
-        "http_path": "/api/health/migrations"
+        "http_path": "/api/health",
+        "initial_delay_seconds": 60,
+        "period_seconds": 15,
+        "timeout_seconds": 10,
+        "success_threshold": 1,
+        "failure_threshold": 5
       },
       "envs": [
         { "key": "NODE_ENV", "value": "production" },

@@ -438,11 +438,34 @@ function providerAllowlistViolations(root, spec, packageJson) {
         if (component.instance_count !== 1 || component.instance_size_slug !== "basic-xxs") {
           violations.push(`.do/app.yaml#${componentId} capacity contract drifted`);
         }
-        if (
+        // Readiness, not drift, and with explicit timings.
+        //
+        // This pinned an exact-match on `{ http_path: "/api/health/migrations" }`.
+        // Both halves of that were wrong. The path is a migration-drift
+        // watchdog, so any drift -- or a slow query on a cold container --
+        // returns 503/504 and App Platform fails the deploy and rolls back,
+        // including the deploy that would have fixed the drift. And pinning a
+        // health_check object with ONLY http_path required the timings to be
+        // absent, which meant App Platform's defaults applied: a 1-second
+        // timeout with no startup grace, against an endpoint that opens a
+        // database connection on a basic-xxs instance.
+        //
+        // So this guard was actively enforcing the broken configuration.
+        const health = component.health_check ?? {};
+        const healthMinimums = {
+          initial_delay_seconds: 30,
+          period_seconds: 5,
+          timeout_seconds: 5,
+          failure_threshold: 3,
+        };
+        const healthDrifted =
           component.http_port !== 3000 ||
-          JSON.stringify(component.health_check) !==
-            JSON.stringify({ http_path: "/api/health/migrations" })
-        ) {
+          health.http_path !== "/api/health" ||
+          Object.entries(healthMinimums).some(
+            ([key, minimum]) =>
+              typeof health[key] !== "number" || health[key] < minimum,
+          );
+        if (healthDrifted) {
           violations.push(`.do/app.yaml#${componentId} runtime health contract drifted`);
         }
       }
