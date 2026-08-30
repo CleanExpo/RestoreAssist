@@ -462,6 +462,66 @@ export const CRITERION_POLICIES: Record<string, CriterionPolicy> = {
       return requireCount(measurements, "missingEnvVars", 0);
     },
   },
+
+  "A3-no-sev1-sev2-open": {
+    // A Linear query, so it runs on a runner with an API key, not against
+    // production.
+    environments: ["ci"],
+    check: (measurements) => {
+      // Every check here answers a specific line of
+      // docs/evidence/release-gate/1.0.0/A3-no-sev1-sev2-open.md, which
+      // records how this criterion scored 5 points it had not earned.
+      if (measurements.source !== "linear") {
+        return { ok: false, message: "measurement source must be linear" };
+      }
+      if (measurements.teamKey !== "RA") {
+        return {
+          ok: false,
+          message: `measurement teamKey is ${String(measurements.teamKey)}, expected RA`,
+        };
+      }
+      // The prior query scanned only `state = started`, so anything in triage,
+      // backlog or unstarted was invisible while being open by any reading.
+      // Pinning the set means a narrowing cannot be silent.
+      if (measurements.stateTypesScanned !== "backlog,started,triage,unstarted") {
+        return {
+          ok: false,
+          message:
+            "measurement stateTypesScanned must cover every open state type (backlog,started,triage,unstarted)",
+        };
+      }
+      if (measurements.prioritiesScanned !== "1,2") {
+        return {
+          ok: false,
+          message:
+            "measurement prioritiesScanned must be 1,2: Urgent alone does not answer this criterion",
+        };
+      }
+      // Exclusions can drive any count to zero, so the permitted set is pinned
+      // here rather than left to the producer. Widening it is a reviewed code
+      // change; RA-2232 is the verdict that put these two out of scope.
+      if (measurements.excludedProjects !== "Margot,Pi-Dev-Ops") {
+        return {
+          ok: false,
+          message:
+            "measurement excludedProjects must be exactly Margot,Pi-Dev-Ops per RA-2232",
+        };
+      }
+      // The unplugged-smoke-detector guard. The prior PASS came from a query
+      // naming a project that did not exist: Linear answered "Could not find
+      // project" and the empty result read as zero blockers. A query that
+      // reached nothing must not look like a team with nothing wrong.
+      const population = measurements.populationCount;
+      if (typeof population !== "number" || population <= 0) {
+        return {
+          ok: false,
+          message:
+            "measurement populationCount must be positive: a query that matched no issues at all is an absent measurement, not a passing one",
+        };
+      }
+      return requireCount(measurements, "openBlockerCount", 0);
+    },
+  },
 };
 
 /**
