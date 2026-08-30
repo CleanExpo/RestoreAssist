@@ -44,7 +44,7 @@ const OWNER_GATED_PATTERNS: ReadonlyArray<{ name: string; pattern: RegExp }> = [
   {
     name: "needs human authority",
     pattern:
-      /needs?\s+(?:the\s+)?(?:founder|owner|human)(?:'s)?\s+(?:auth\w*|approval|sign-?off|decision|permission)/i,
+      /needs?\s+(?:an?\s+|the\s+)?(?:founder|owner|human)(?:'s)?[\s-]+(?:auth\w*|approv\w*|sign-?off|decision|permission)/i,
   },
 
   // RA-7132 description: "Agents do not create accounts", "an agent must not take".
@@ -58,6 +58,31 @@ const OWNER_GATED_PATTERNS: ReadonlyArray<{ name: string; pattern: RegExp }> = [
 
   // Defensive companion to the above; no live example yet.
   { name: "awaiting a human", pattern: /awaiting\s+(?:founder|owner|human)\b/i },
+
+  // RA-7253/7254/7255 governance sections: "Filed, not patched.", "Filed
+  // rather than patched — an agent quietly rewriting the gate that authorises
+  // its own releases is the failure mode this estate is built to prevent."
+  // The author is saying they deliberately declined to fix it. Deliberately
+  // left unfixed is the strongest possible do-not-dispatch signal.
+  //
+  // Kept to the fixed idiom, adjacent words only. "Filed" and "patched" are
+  // both ordinary restoration vocabulary — claims are filed, walls are
+  // patched — and a looser form gated "Insurer filed the dispute; we have not
+  // patched the estimate yet." and "The tech filed a report rather than
+  // patching the wall himself." Both are in the over-block tests below.
+  {
+    name: "filed deliberately unpatched",
+    pattern: /\bfiled\s*(?:,|—|-)?\s*(?:not|rather than|instead of)\s+(?:patched|fixed)\b/i,
+  },
+
+  // RA-7254/7255: "Changes release authority → RA-7120 applies." Release
+  // authority is exactly what .claude/RULES.md 29-33 reserves to the owner
+  // (merging to main, deploying, rotating secrets), so an issue that says it
+  // changes that authority is naming the gate itself.
+  {
+    name: "changes release authority",
+    pattern: /\b(?:changes?|affects?|touches?)\s+release\s+authority\b/i,
+  },
 ];
 
 export interface OwnerGateCheckInput {
