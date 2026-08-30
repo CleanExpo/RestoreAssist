@@ -987,7 +987,9 @@ describe("ownerEvidence — signed receipts", () => {
     );
     const pem = issueReceipt("C2-secrets-scan");
     const previous = process.env[TRUSTED_KEYS_ENV];
-    process.env[TRUSTED_KEYS_ENV] = JSON.stringify({ [KEY_ID]: pem });
+    process.env[TRUSTED_KEYS_ENV] = JSON.stringify({
+      [KEY_ID]: { publicKey: pem, criteria: ["C2-secrets-scan"] },
+    });
     try {
       const result = ownerEvidence("C2-secrets-scan", GATE_VERSION, evidenceRoot);
       expect(result.status).toBe("pass");
@@ -1032,7 +1034,9 @@ describe("ownerEvidence — signed receipts", () => {
       },
     });
     const previous = process.env[TRUSTED_KEYS_ENV];
-    process.env[TRUSTED_KEYS_ENV] = JSON.stringify({ [KEY_ID]: pem });
+    process.env[TRUSTED_KEYS_ENV] = JSON.stringify({
+      [KEY_ID]: { publicKey: pem, criteria: ["C2-secrets-scan"] },
+    });
     try {
       const result = ownerEvidence("C2-secrets-scan", GATE_VERSION, evidenceRoot);
       expect(result.status).toBe("fail");
