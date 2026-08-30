@@ -43,8 +43,15 @@ function getInstance(): Stripe {
       );
     }
 
+    // Pinned, and coupled to the SDK major/minor by `typescript: true`: the
+    // types accept only the version that SDK ships as its default, so a
+    // dependency bump that moves it fails the type-check rather than silently
+    // changing which Stripe API this talks to. That coupling is the reason
+    // this line moves in lockstep with `stripe` in package.json (2026-05-27 ->
+    // 06-24 -> 07-29 -> 08-26), and why bumping the SDK without bumping here
+    // cannot compile.
     _stripe = new Stripe(key, {
-      apiVersion: "2026-07-29.dahlia",
+      apiVersion: "2026-08-26.dahlia",
       typescript: true,
     });
   }
