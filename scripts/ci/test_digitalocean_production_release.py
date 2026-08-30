@@ -165,6 +165,82 @@ class DigitalOceanProductionReleaseTests(unittest.TestCase):
             with self.assertRaises(RuntimeError, msg=mutation):
                 release.validate_release_spec(candidate, DIGEST, GIT_SHA)
 
+    def test_accepts_the_readiness_health_check_the_repository_actually_ships(self):
+        """The exact defect: this validator disagreed with .do/app.yaml.
+
+        It exact-matched ``{"http_path": "/api/health/migrations"}``, so the
+        spec the renderer produces -- readiness path plus explicit timings --
+        was rejected before it ever reached DigitalOcean. Building the spec
+        from the real file rather than a fixture is the point: a fixture would
+        drift with the validator and both could be wrong together.
+        """
+        shipped = json.loads(Path(".do/app.yaml").read_text())
+        health = shipped["services"][0]["health_check"]
+        self.assertEqual(health["http_path"], "/api/health")
+        release.validate_release_spec(target_spec(), DIGEST, GIT_SHA)
+
+    def test_rejects_the_migration_drift_watchdog_as_a_health_check(self):
+        """A container can serve traffic perfectly while the ledger has drift.
+
+        Pointing the probe back at the watchdog reintroduces the deadlock: with
+        drift present, the deploy that would fix it can never come up healthy.
+        """
+        candidate = target_spec()
+        candidate["services"][0]["health_check"]["http_path"] = "/api/health/migrations"
+        with self.assertRaisesRegex(RuntimeError, r"must probe /api/health"):
+            release.validate_release_spec(candidate, DIGEST, GIT_SHA)
+
+    def test_rejects_a_health_check_that_inherits_platform_default_timings(self):
+        """Naming only http_path is how a CORRECT path still fails every deploy.
+
+        App Platform then applies its defaults -- a 1-second timeout with no
+        startup grace -- against an endpoint that opens a database connection on
+        a basic-xxs instance.
+        """
+        candidate = target_spec()
+        candidate["services"][0]["health_check"] = {"http_path": "/api/health"}
+        with self.assertRaisesRegex(
+            RuntimeError, r"initial_delay_seconds must be an integer >= 30"
+        ):
+            release.validate_release_spec(candidate, DIGEST, GIT_SHA)
+
+    def test_rejects_each_individually_weakened_health_check_timing(self):
+        for key, weakened in (
+            ("initial_delay_seconds", 5),
+            ("period_seconds", 1),
+            ("timeout_seconds", 1),
+            ("failure_threshold", 1),
+        ):
+            with self.subTest(timing=key):
+                candidate = target_spec()
+                candidate["services"][0]["health_check"][key] = weakened
+                with self.assertRaisesRegex(
+                    RuntimeError, rf"{key} must be an integer >= "
+                ):
+                    release.validate_release_spec(candidate, DIGEST, GIT_SHA)
+
+    def test_rejects_a_health_check_that_is_absent_or_not_an_object(self):
+        for replacement in (None, "/api/health", []):
+            with self.subTest(health_check=replacement):
+                candidate = target_spec()
+                if replacement is None:
+                    candidate["services"][0].pop("health_check")
+                else:
+                    candidate["services"][0]["health_check"] = replacement
+                with self.assertRaises(RuntimeError):
+                    release.validate_release_spec(candidate, DIGEST, GIT_SHA)
+
+    def test_container_health_check_probes_readiness_not_drift(self):
+        """The Dockerfile HEALTHCHECK is a second copy of the same decision.
+
+        Any runtime honouring Docker HEALTHCHECK would otherwise still treat
+        migration drift as container failure, outside App Platform.
+        """
+        dockerfile = Path("Dockerfile").read_text()
+        healthcheck = dockerfile[dockerfile.index("HEALTHCHECK") :]
+        self.assertIn("/api/health'", healthcheck)
+        self.assertNotIn("/api/health/migrations", healthcheck)
+
     def test_hydrates_every_secret_from_current_provider_spec(self):
         hydrated = release.hydrate_provider_values(target_spec(), current_spec())
         release.validate_release_spec(
