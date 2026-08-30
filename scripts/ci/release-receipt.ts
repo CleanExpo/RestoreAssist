@@ -646,6 +646,93 @@ export const CRITERION_POLICIES: Record<string, CriterionPolicy> = {
       return checkA3Viewer(measurements.viewerId);
     },
   },
+
+  "D3-revenue-reconciliation": {
+    // Real revenue, so the observation is of production: live Stripe against
+    // the production database. A CI-mode reconciliation would be test data.
+    environments: ["production"],
+    check: (measurements, context) => {
+      if (measurements.source !== "stripe+prisma") {
+        return { ok: false, message: "measurement source must be stripe+prisma" };
+      }
+      // Test-mode events are not revenue. The evidence file says live mode
+      // explicitly, and the producer reads this from the key prefix rather
+      // than accepting a declaration.
+      if (measurements.mode !== "live") {
+        return {
+          ok: false,
+          message: `measurement mode is ${String(measurements.mode)}; only live Stripe events are revenue`,
+        };
+      }
+      if (measurements.windowDays !== 7) {
+        return {
+          ok: false,
+          message: "measurement windowDays must be 7",
+        };
+      }
+      if (
+        measurements.eventTypesScanned !==
+        "customer.subscription.created,customer.subscription.deleted,customer.subscription.updated,invoice.payment_failed"
+      ) {
+        return {
+          ok: false,
+          message:
+            "measurement eventTypesScanned must cover all four reconciled Stripe types",
+        };
+      }
+      // A window chosen freely is a window that can be shopped for: some
+      // earlier seven days where the two sides happened to agree. It has to be
+      // the week ending about now, held to the same freshness rule as the
+      // receipt itself.
+      const windowEnd = Date.parse(String(measurements.windowEndsAt));
+      if (Number.isNaN(windowEnd)) {
+        return { ok: false, message: "measurement windowEndsAt is not a timestamp" };
+      }
+      const windowAgeDays =
+        ((context.now ?? new Date()).getTime() - windowEnd) / 86_400_000;
+      if (windowAgeDays > context.maxAgeDays || windowAgeDays < -1) {
+        return {
+          ok: false,
+          message: `measurement window ends ${Math.round(windowAgeDays)}d from now; it must be the current window, not an earlier one that happened to reconcile`,
+        };
+      }
+      // The trap the evidence file names outright: "0 events on both sides
+      // reconciles, but it does NOT prove the pipeline works; it only proves
+      // nothing happened." Two empty queries agreeing is an absent
+      // measurement, not a passing one.
+      const stripeCount = measurements.stripeEventCount;
+      if (typeof stripeCount !== "number" || stripeCount <= 0) {
+        return {
+          ok: false,
+          message:
+            "measurement stripeEventCount must be positive: a window with no Stripe events reconciles trivially and proves nothing about the pipeline",
+        };
+      }
+      // Equal totals are weak -- five events on each side can be five
+      // DIFFERENT events, which is what a partially-failing webhook produces.
+      // Every Stripe event must have its own row.
+      const missing = requireCount(measurements, "missingInDb", 0);
+      if (!missing.ok) return missing;
+      if (measurements.matchedInDb !== stripeCount) {
+        return {
+          ok: false,
+          message: `measurement matchedInDb (${String(measurements.matchedInDb)}) does not equal stripeEventCount (${stripeCount})`,
+        };
+      }
+      // Q4 in the evidence file: the @unique constraint should make this
+      // impossible, and running it is how you learn the constraint still works.
+      const duplicates = requireCount(measurements, "duplicateStripeIds", 0);
+      if (!duplicates.ok) return duplicates;
+      // Anything Stripe-originated carries an event id, so a row without one
+      // means something other than the webhook is writing revenue events.
+      const unlinked = requireCount(measurements, "dbEventsWithoutStripeId", 0);
+      if (!unlinked.ok) return unlinked;
+      // "The most likely explanation for a shortfall on the DB side." The
+      // producer defaults this to -1 rather than 0 when it is not supplied, so
+      // an unmeasured value fails here instead of passing silently.
+      return requireCount(measurements, "failedWebhookDeliveries", 0);
+    },
+  },
 };
 
 /**

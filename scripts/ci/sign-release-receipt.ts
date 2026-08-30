@@ -97,6 +97,17 @@ const PRODUCERS: Record<
       return produceA3Measurements(apiKey) as Promise<Record<string, unknown>>;
     },
   },
+  "D3-revenue-reconciliation": {
+    // Live Stripe against the production database, so `production` -- not the
+    // `ci` the other criteria use. The verifier pins this too.
+    environment: "production",
+    produce: async () => {
+      const { produceD3Measurements } = await import(
+        "./producers/d3-revenue-reconciliation"
+      );
+      return produceD3Measurements() as Promise<Record<string, unknown>>;
+    },
+  },
 };
 
 if (process.argv.includes("--measurements")
