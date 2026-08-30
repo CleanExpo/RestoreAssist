@@ -72,6 +72,26 @@ export const A3_EXCLUDED_PROJECTS = ["Margot", "Pi-Dev-Ops"] as const;
 
 export const A3_TEAM_KEY = "RA";
 
+/**
+ * The Linear identity whose key may take this measurement.
+ *
+ * Linear personal API keys see only what their user sees, and can be narrowed
+ * to particular teams. So `populationCount > 0` proves the query returned
+ * SOMETHING, never that it returned everything: a key without access to a
+ * private team reports a healthy population while omitting exactly the
+ * blockers that live there. Raised by CodeRabbit reviewing #2109.
+ *
+ * Pinning the viewer closes it. A narrower key belongs to a different identity
+ * and is rejected, whatever its counts say.
+ *
+ * Deliberately EMPTY until the owner creates a dedicated Linear service
+ * identity with verified read access across team RA and records its id here.
+ * While it is empty the criterion cannot pass -- which is the honest state,
+ * because until then nothing establishes that the querying key can see every
+ * issue the criterion is about.
+ */
+export const A3_EXPECTED_VIEWER_ID = "";
+
 export interface A3Issue {
   identifier: string;
   priority: number;
@@ -83,6 +103,8 @@ export interface A3Issue {
 export interface A3Measurements {
   source: string;
   teamKey: string;
+  /** Linear `viewer.id` of the key that ran the query. */
+  viewerId: string;
   prioritiesScanned: string;
   stateTypesScanned: string;
   excludedProjects: string;
@@ -100,7 +122,10 @@ export interface A3Measurements {
  * @param issues Every OPEN issue on the team, any priority. Passing an
  *   already-filtered list would defeat the population control.
  */
-export function summariseA3(issues: A3Issue[]): A3Measurements {
+export function summariseA3(
+  issues: A3Issue[],
+  viewerId: string = "",
+): A3Measurements {
   const excluded = new Set<string>(A3_EXCLUDED_PROJECTS);
   const priorities = new Set<number>(A3_PRIORITIES);
   const blockers = issues
@@ -115,6 +140,7 @@ export function summariseA3(issues: A3Issue[]): A3Measurements {
   return {
     source: "linear",
     teamKey: A3_TEAM_KEY,
+    viewerId,
     prioritiesScanned: [...A3_PRIORITIES].join(","),
     stateTypesScanned: [...A3_OPEN_STATE_TYPES].join(","),
     excludedProjects: [...A3_EXCLUDED_PROJECTS].join(","),
@@ -212,6 +238,48 @@ async function fetchPageFromLinear(
   return issues;
 }
 
+/**
+ * Take the measurement. Exported so `sign-release-receipt.ts` can invoke it
+ * directly rather than accepting numbers on the command line.
+ *
+ * That indirection is the whole point. While the signer took a
+ * `--measurements` argument, a key holder could certify `openBlockerCount: 0`
+ * without any Linear query happening at all, and every guard in the verifier
+ * would pass. The producer is now the only thing that can produce a
+ * measurement, and it is in the repository where it can be reviewed.
+ */
+export async function produceA3Measurements(
+  apiKey: string,
+): Promise<A3Measurements> {
+  const [viewerId, issues] = await Promise.all([
+    fetchViewerId(apiKey),
+    fetchAllOpenIssues((after) => fetchPageFromLinear(apiKey, A3_TEAM_KEY, after)),
+  ]);
+  return summariseA3(issues, viewerId);
+}
+
+/** The identity behind the key, so the verifier can pin its scope. */
+async function fetchViewerId(apiKey: string): Promise<string> {
+  const res = await fetch(LINEAR_GRAPHQL_URL, {
+    method: "POST",
+    headers: { Authorization: apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ query: "query { viewer { id } }" }),
+  });
+  if (!res.ok) throw new Error(`Linear viewer query returned ${res.status}`);
+  const json = (await res.json()) as {
+    data?: { viewer?: { id?: string } };
+    errors?: Array<{ message: string }>;
+  };
+  if (json.errors?.length) {
+    throw new Error(
+      `Linear viewer query errors: ${json.errors.map((e) => e.message).join("; ")}`,
+    );
+  }
+  const id = json.data?.viewer?.id;
+  if (!id) throw new Error("Linear returned no viewer id");
+  return id;
+}
+
 async function main(): Promise<void> {
   const apiKey = process.env.LINEAR_API_KEY;
   if (!apiKey) {
@@ -221,11 +289,7 @@ async function main(): Promise<void> {
     );
     process.exit(2);
   }
-  const measurements = summariseA3(
-    await fetchAllOpenIssues((after) =>
-      fetchPageFromLinear(apiKey, A3_TEAM_KEY, after),
-    ),
-  );
+  const measurements = await produceA3Measurements(apiKey);
 
   if (process.argv.includes("--json")) {
     console.log(JSON.stringify(measurements));

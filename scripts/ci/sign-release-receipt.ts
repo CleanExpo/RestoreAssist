@@ -10,12 +10,22 @@
  * from someone accountable for it, and a key an agent could reach would make
  * the signature decorative.
  *
- * Usage:
- *   RELEASE_RECEIPT_PRIVATE_KEY="$(cat key.pem)" \
- *   npx tsx scripts/ci/sign-release-receipt.ts \
- *     --criterion=C2-secrets-scan \
- *     --environment=ci \
- *     --measurements='{"scanner":"gitleaks","scannerVersion":"8.28.0","scannedRef":"git-checkout-index","findings":0,"missingEnvVars":0}'
+ * IT DOES NOT ACCEPT MEASUREMENTS.
+ *
+ * It used to. `--measurements` took caller-supplied JSON and signed it
+ * unchanged, so a holder of a valid key could certify `openBlockerCount: 0`
+ * without any producer ever running, and every guard in the verifier would
+ * pass. That is self-attestation with a signature on it -- the exact thing the
+ * receipt scheme exists to replace. CodeRabbit found it reviewing #2109
+ * retrospectively; the flag is gone rather than validated, because a flag that
+ * must not be trusted should not exist.
+ *
+ * The signer now invokes the registered producer for the criterion and signs
+ * what that returns. A criterion with no registered producer cannot be signed
+ * at all.
+ *
+ * Usage (inside the protected workflow only):
+ *   npx tsx scripts/ci/sign-release-receipt.ts --criterion=A3-no-sev1-sev2-open
  *
  * Writes docs/evidence/release-gate/<gate_version>/<criterion>.receipt.json.
  *
@@ -63,15 +73,70 @@ function gateVersion(): string {
   return m[1];
 }
 
-const criterionId = arg("criterion") ?? fail("--criterion is required");
-const environment = arg("environment") ?? fail("--environment is required");
-const rawMeasurements = arg("measurements") ?? fail("--measurements is required");
+/**
+ * Criterion to producer, and the environment its measurement is taken in.
+ *
+ * A criterion absent here cannot be signed. That is deliberate and matches the
+ * verifier's own registry: enabling a criterion has to be a reviewed code
+ * change that says how it is measured, not a command-line argument.
+ * `C2-secrets-scan` has a verifier policy but no producer yet, so it correctly
+ * cannot be signed.
+ */
+const PRODUCERS: Record<
+  string,
+  { environment: string; produce: () => Promise<Record<string, unknown>> }
+> = {
+  "A3-no-sev1-sev2-open": {
+    environment: "ci",
+    produce: async () => {
+      const apiKey = process.env.LINEAR_API_KEY;
+      if (!apiKey) fail("LINEAR_API_KEY is not set; the A3 producer cannot run");
+      const { produceA3Measurements } = await import(
+        "./producers/a3-open-blockers"
+      );
+      return produceA3Measurements(apiKey) as Promise<Record<string, unknown>>;
+    },
+  },
+};
 
-let measurements: unknown;
-try {
-  measurements = JSON.parse(rawMeasurements);
-} catch {
-  fail("--measurements must be valid JSON");
+if (process.argv.includes("--measurements")
+  || process.argv.some((a) => a.startsWith("--measurements="))) {
+  fail(
+    "--measurements is no longer accepted. The signer runs the producer itself; " +
+      "hand-supplied measurements are what made a signed receipt meaningless.",
+  );
+}
+
+const criterionId = arg("criterion") ?? fail("--criterion is required");
+const producer = PRODUCERS[criterionId];
+if (!producer) {
+  fail(
+    `no producer is registered for ${criterionId}. A criterion cannot be signed ` +
+      "until something in this repository can measure it.",
+  );
+}
+const environment = producer.environment;
+
+/**
+ * Provenance, straight from the Actions runtime.
+ *
+ * Refusing to run outside Actions is the point: a local run cannot mint a
+ * receipt at all, so the private key being reachable only by the protected
+ * workflow is enforced on both sides rather than by convention.
+ */
+const provenance = {
+  repository: process.env.GITHUB_REPOSITORY ?? "",
+  workflowRef: process.env.GITHUB_WORKFLOW_REF ?? "",
+  runId: process.env.GITHUB_RUN_ID ?? "",
+  runAttempt: process.env.GITHUB_RUN_ATTEMPT ?? "",
+};
+for (const [key, value] of Object.entries(provenance)) {
+  if (!value) {
+    fail(
+      `${key} is not set. This signer only runs inside the protected GitHub ` +
+        "Actions workflow; a receipt minted anywhere else is not evidence.",
+    );
+  }
 }
 
 const privateKeyPem = process.env[PRIVATE_KEY_ENV];
@@ -110,6 +175,11 @@ if (!evidenceSection) {
   fail(`${criterionId}.md has no ## Evidence section to bind a receipt to`);
 }
 
+// The measurement is taken HERE, by the registered producer, moments before
+// signing. Nothing between the producer and the signature can substitute a
+// different number, because there is no longer an input that carries one.
+const measurements = await producer.produce();
+
 const receipt = {
   criterionId,
   gateVersion: version,
@@ -124,6 +194,7 @@ const receipt = {
     .update(evidenceSection)
     .digest("hex")}`,
   measurements,
+  provenance,
 };
 
 const keyId = arg("key-id") ?? "release-signing";
@@ -142,4 +213,7 @@ fs.writeFileSync(
     2,
   )}\n`,
 );
-console.log(`Wrote ${path.relative(ROOT, out)} for ${receipt.releaseSha.slice(0, 12)}`);
+console.log(
+  `Wrote ${path.relative(ROOT, out)} for ${receipt.releaseSha.slice(0, 12)} ` +
+    `(run ${provenance.runId}, attempt ${provenance.runAttempt})`,
+);
