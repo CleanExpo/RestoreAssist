@@ -45,6 +45,13 @@
  * `--preflight-only` stops after the freshness and migration probes without
  * running Playwright, so a workflow can report "is production current?"
  * as its own named step, separately from "do the user flows work?".
+ *
+ * `--allow-stale` downgrades a STALE verdict to a warning and continues to the
+ * flows: a build that is not this revision still has to be up.
+ *
+ * `--flows-despite-degraded` runs the flows even when the migration-health
+ * probe fails, to establish whether users are affected. It does NOT make that
+ * failure green -- the run still exits 1 afterwards, whatever the flows say.
  */
 
 import { spawnSync } from "node:child_process";
@@ -58,13 +65,17 @@ import {
   FRESH,
   STALE,
 } from "./ci/classify-deployment-freshness.mjs";
-import { parseSmokeArgs } from "./ci/smoke-args.mjs";
+import { finalSmokeExitCode, parseSmokeArgs } from "./ci/smoke-args.mjs";
 
 const require = createRequire(import.meta.url);
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const [baseUrl, ...rawArgs] = process.argv.slice(2);
-const { preflightOnly, allowStale, extraArgs } = parseSmokeArgs(rawArgs);
+const { preflightOnly, allowStale, flowsDespiteDegraded, extraArgs } =
+  parseSmokeArgs(rawArgs);
+
+/** Set to the migration-health error when the run continues past it. */
+let degradedPreflight = null;
 
 /**
  * State the verdict where the run page shows it without opening logs. Silent
@@ -230,14 +241,43 @@ if (isProduction) {
     );
   } catch (error) {
     console.error(`Migration-health preflight failed: ${error}`);
-    process.exit(1);
+
+    // Aborting here answers "is the database path healthy?" and throws away
+    // "are users affected?", which is the more urgent of the two during an
+    // incident. `/api/health/migrations` returned 504 twice in ten minutes on
+    // 2026-08-30 and the flows never ran, so nobody could say whether sign-in
+    // still worked.
+    //
+    // This does NOT forgive the failure. The exit is deferred, not cancelled:
+    // the run still ends non-zero below, whatever the flows say. A degraded
+    // preflight that scored green would be the same defect as the staleness
+    // abort, pointed the other way.
+    if (!flowsDespiteDegraded) {
+      process.exit(1);
+    }
+    degradedPreflight = String(error);
+    reportToStepSummary(
+      "🔴 Migration health is failing — running the flows anyway",
+      `${degradedPreflight}\n\nThe user flows below ran despite this, to establish ` +
+        `whether customers are affected. **This run fails regardless of their result.**`,
+    );
+    console.error(
+      "Running the user flows anyway (--flows-despite-degraded) to find out " +
+        "whether users are affected. This run will still fail.",
+    );
   }
-  console.log(
-    `Migration-health preflight passed: ${payload.databaseFingerprint}`,
-  );
+  if (!degradedPreflight) {
+    console.log(
+      `Migration-health preflight passed: ${payload.databaseFingerprint}`,
+    );
+  }
 }
 
 if (preflightOnly) {
+  if (degradedPreflight) {
+    console.error("Preflight only: migration health is failing.");
+    process.exit(1);
+  }
   console.log("Preflight only: production is current. Not running Playwright.");
   process.exit(0);
 }
@@ -276,4 +316,16 @@ if (result.error) {
 
 // A signal-terminated child reports status === null; treat that as failure
 // rather than letting `?? 0` turn a SIGKILL into a green gate.
-process.exit(result.status ?? 1);
+const flowStatus = result.status ?? 1;
+
+// The deferred exit -- see finalSmokeExitCode, where the rule is unit-tested.
+if (degradedPreflight) {
+  console.error(
+    flowStatus === 0
+      ? "User flows PASSED, but migration health is failing: users are not " +
+          "visibly affected yet and production is still degraded."
+      : "User flows FAILED and migration health is failing: users are affected.",
+  );
+}
+
+process.exit(finalSmokeExitCode({ degraded: Boolean(degradedPreflight), flowStatus }));
