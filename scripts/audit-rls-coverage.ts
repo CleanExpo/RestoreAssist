@@ -202,6 +202,11 @@ export const SERVICE_ONLY = new Set<string>([
   // server-only/default-deny: deployment verification reads it through the
   // Prisma/direct connection, never through a browser or PostgREST role.
   "DatabaseInstanceSentinel",
+  // Content-bound floor-plan reference custody is only read or written by
+  // authenticated server routes after explicit inspection tenancy checks.
+  "SketchUnderlayReference",
+  "SketchRoom",
+  "EvidencePin",
   "AscoraIntegration",
   "DrNrpgIntegration",
   "AscoraJob",
@@ -519,8 +524,6 @@ export const PENDING_RLS = new Set<string>([
   // RA-6677: child rows of ClaimSketch (sketchId FK, onDelete Cascade) — tenant
   // data (a claim's floor-plan rooms + evidence pins). Sibling of SketchAnnotation;
   // gets a parent-join RLS policy under RA-6677, then moves out of this list.
-  "SketchRoom",
-  "EvidencePin",
   "StandardsChunk",
   "SubscriptionTier",
   "SupportTicket",
