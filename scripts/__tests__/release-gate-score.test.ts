@@ -169,13 +169,23 @@ function isoDaysAgo(daysAgo: number): string {
 }
 
 /**
+ * The evidence body every `pass` fixture writes.
+ *
+ * Shared, not copied: `issueReceipt` signs a digest of this text while
+ * `writeEvidence` writes it to disk, and the receipt verifies only because the
+ * two agree byte for byte. As two literals, editing one would fail the
+ * happy-path test with a digest mismatch that points nowhere near the cause.
+ */
+const FIXTURE_EVIDENCE =
+  "Observed the named criterion against the exact release revision and retained the machine or operator receipt linked above. The independent reviewer examined the result and the alternative failure state.";
+
+/**
  * Writes an evidence file. The file is created right now, so its mtime is
  * always "fresh" — reproducing what actions/checkout does to every file in CI.
  */
 function writeEvidence(criterionId: string, frontmatter: string): string {
   const file = path.join(versionDir, `${criterionId}.md`);
-  const evidence =
-    "Observed the named criterion against the exact release revision and retained the machine or operator receipt linked above. The independent reviewer examined the result and the alternative failure state.";
+  const evidence = FIXTURE_EVIDENCE;
   if (/^status:\s*pass\s*$/im.test(frontmatter)) {
     const head = execSync("git rev-parse HEAD").toString().trim();
     if (!/^criterion:/im.test(frontmatter))
@@ -946,8 +956,7 @@ describe("ownerEvidence — signed receipts", () => {
     overrides: Record<string, unknown> = {},
   ): string {
     const { publicKey, privateKey } = generateKeyPairSync("ed25519");
-    const evidence =
-      "Observed the named criterion against the exact release revision and retained the machine or operator receipt linked above. The independent reviewer examined the result and the alternative failure state.";
+    const evidence = FIXTURE_EVIDENCE;
     const receipt = {
       criterionId,
       gateVersion: GATE_VERSION,
