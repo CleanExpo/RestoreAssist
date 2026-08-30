@@ -97,17 +97,19 @@ const PRODUCERS: Record<
       return produceA3Measurements(apiKey) as Promise<Record<string, unknown>>;
     },
   },
-  "D3-revenue-reconciliation": {
-    // Live Stripe against the production database, so `production` -- not the
-    // `ci` the other criteria use. The verifier pins this too.
-    environment: "production",
-    produce: async () => {
-      const { produceD3Measurements } = await import(
-        "./producers/d3-revenue-reconciliation"
-      );
-      return produceD3Measurements() as Promise<Record<string, unknown>>;
-    },
-  },
+  // D3-revenue-reconciliation is DELIBERATELY ABSENT.
+  //
+  // Its producer cannot yet measure `failedWebhookDeliveries` -- Stripe exposes
+  // delivery attempts per endpoint rather than as a window count -- and the
+  // previous stand-in read the value from `D3_FAILED_WEBHOOK_DELIVERIES`, which
+  // reintroduced exactly the caller-supplied-measurement hole that removing
+  // `--measurements` closed. Registering a criterion whose producer cannot
+  // measure it, and filling the gap from the environment, is the defect this
+  // registry exists to prevent.
+  //
+  // It goes back in when the producer can query Stripe for that count itself.
+  // Until then D3 cannot be signed, which is the honest state rather than a
+  // regression: it could not legitimately pass before either.
 };
 
 if (process.argv.includes("--measurements")

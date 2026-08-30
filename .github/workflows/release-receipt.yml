@@ -41,6 +41,23 @@ concurrency:
 jobs:
   mint:
     runs-on: ubuntu-latest
+    # DEFENCE IN DEPTH ONLY -- this guard cannot be the control.
+    #
+    # `workflow_dispatch` lets the dispatcher choose any branch, and the chosen
+    # branch's copy of THIS FILE supplies the `run:` blocks. An attacker's
+    # branch simply omits this line, then exports a forged
+    # GITHUB_WORKFLOW_REF=...@refs/heads/main into the signer's environment and
+    # mints a receipt that satisfies checkProvenance. Found by CodeRabbit
+    # reviewing #2112.
+    #
+    # The control that actually holds is the `release-receipts` environment
+    # carrying a deployment-branch rule for `main` only: GitHub enforces that
+    # OUTSIDE the workflow file, so a branch run never receives the secrets and
+    # has no key to sign with. See "Owner setup" in docs/RELEASE_GATE.md.
+    #
+    # This line still earns its place: an accidental branch dispatch fails
+    # loudly instead of quietly minting a receipt the scorer would reject.
+    if: github.ref == 'refs/heads/main'
     # Gates the secrets below. Configure required reviewers on this
     # environment: minting a receipt is an owner action, not an agent one.
     environment: release-receipts

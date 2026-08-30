@@ -195,7 +195,13 @@ and a criterion absent from that registry cannot pass however good its key.
   customer-impacting defect, and that mismatch is why the criterion drifted.
   Reconciling the two is a human call made in Linear by downgrading the ticket.
 
-- **D3-revenue-reconciliation** — produced by
+- **D3-revenue-reconciliation** — **currently unregistered in the signer, so it
+  cannot be signed.** Its producer cannot measure `failedWebhookDeliveries`
+  itself (Stripe exposes delivery attempts per endpoint, not as a window
+  count), and the previous stand-in read that count from an environment
+  variable — reintroducing the caller-supplied-measurement hole that removing
+  `--measurements` closed. It goes back in when the producer can take that
+  measurement itself. Produced by
   `scripts/ci/producers/d3-revenue-reconciliation.ts`, which reconciles live
   Stripe subscription events against the `SubscriptionEvent` rows the webhook
   wrote, over the current 7-day window. Observed in `production`, not `ci`:
@@ -275,11 +281,24 @@ to *it*, not to repository-wide secrets:
 | `RELEASE_RECEIPT_PRIVATE_KEY` | the private PEM |
 | `RELEASE_RECEIPT_PUBLIC_KEYS` | `{"<key-id>": {"publicKey": "<public PEM>", "criteria": ["A3-no-sev1-sev2-open"]}}` |
 | `LINEAR_API_KEY` | a dedicated Linear service identity, not a personal key (A3) |
-| `STRIPE_SECRET_KEY` | live key; the producer reads live/test from its prefix (D3) |
-| `DATABASE_URL` | production database, read-only is sufficient (D3) |
+| `STRIPE_SECRET_KEY` | live key; the producer reads live/test from its prefix (D3, once registered) |
+| `DATABASE_URL` | production database, read-only is sufficient (D3, once registered) |
 
-Add required reviewers to the environment. Minting a receipt is an owner
-action.
+**Add a deployment-branch rule restricting `release-receipts` to `main`, and
+required reviewers.** The branch rule is not optional hardening — it is the
+control.
+
+`workflow_dispatch` lets whoever dispatches choose any branch, and the chosen
+branch's copy of `release-receipt.yml` supplies the `run:` blocks. A branch can
+therefore drop the workflow's own `if: github.ref == 'refs/heads/main'` guard,
+export a forged `GITHUB_WORKFLOW_REF` ending `@refs/heads/main`, and mint a
+receipt that satisfies `checkProvenance`. The in-file guard cannot stop that,
+because the attacker supplies the file.
+
+The deployment-branch rule can, because GitHub enforces it outside the workflow
+file: a run from any other ref never receives the environment's secrets, so it
+has no key to sign with. Required reviewers alone do not close it either — a
+dispatcher who is also an approved reviewer can approve their own branch run.
 
 Then set `A3_EXPECTED_VIEWER_ID` in `scripts/ci/producers/a3-open-blockers.ts`
 to that service identity's Linear `viewer.id`, as a reviewed code change.

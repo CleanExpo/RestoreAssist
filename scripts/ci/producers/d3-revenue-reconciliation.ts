@@ -51,6 +51,14 @@ export const D3_EVENT_TYPES = [
 
 export const D3_WINDOW_DAYS = 7;
 
+/**
+ * Sentinel for a measurement this producer cannot take.
+ *
+ * Negative rather than 0 on purpose: the verifier requires exactly 0, so an
+ * unmeasured field fails rather than passing as a silent success.
+ */
+export const UNMEASURED = -1;
+
 export interface StripeEventRef {
   id: string;
   type: string;
@@ -251,13 +259,20 @@ async function reconcile(key: string): Promise<D3Measurements> {
     stripeEvents: events,
     dbRows,
     dbEventsWithoutStripeId,
-    // Stripe exposes delivery attempts per endpoint rather than a simple
-    // window count, so this is supplied by the caller until that query exists.
-    // Defaulting it to 0 would silently satisfy the one check the evidence
-    // file names as the likeliest cause of a shortfall.
-    failedWebhookDeliveries: Number(
-      process.env.D3_FAILED_WEBHOOK_DELIVERIES ?? "-1",
-    ),
+    // NOT MEASURED, and reported as such.
+    //
+    // This used to read `D3_FAILED_WEBHOOK_DELIVERIES` from the environment,
+    // which was the `--measurements` defect wearing a different hat: a
+    // caller-controlled input becoming a signed measurement. The `-1` default
+    // failed closed, and I reasoned that made it safe. It does not -- failing
+    // closed by default is no protection when the caller sets it to 0. Found
+    // by CodeRabbit reviewing #2112.
+    //
+    // Stripe exposes delivery attempts per endpoint rather than as a window
+    // count, so the producer cannot yet measure this itself. Until it can, the
+    // honest value is "unmeasured", the policy rejects it, and D3 is
+    // unregistered in the signer so it cannot be signed at all.
+    failedWebhookDeliveries: UNMEASURED,
     liveMode: key.startsWith("sk_live"),
     windowEndsAt: new Date(window.lte * 1000).toISOString(),
   });

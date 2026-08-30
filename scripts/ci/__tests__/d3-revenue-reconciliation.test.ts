@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   D3_EVENT_TYPES,
@@ -6,6 +8,7 @@ import {
   d3Window,
   fetchAllStripeEvents,
   reconcileD3,
+  UNMEASURED,
   type StripeEventPage,
   type StripeEventRef,
 } from "../producers/d3-revenue-reconciliation";
@@ -178,5 +181,41 @@ describe("fetchAllStripeEvents — a truncated list hides a shortfall", () => {
       return page([stripeEvent("evt_1")]);
     });
     expect(calls).toBe(1);
+  });
+});
+
+describe("no measurement reaches the producer from its environment", () => {
+  const SOURCE = readFileSync(
+    join(process.cwd(), "scripts", "ci", "producers", "d3-revenue-reconciliation.ts"),
+    "utf8",
+  );
+
+  /**
+   * CodeRabbit's other P1 on #2112. This producer used to read
+   * `D3_FAILED_WEBHOOK_DELIVERIES` from the environment and sign whatever it
+   * found there -- the `--measurements` defect two files away, reintroduced.
+   * The `-1` default did fail closed, and I argued that made it safe. It did
+   * not: a default that fails closed is no protection when the caller sets the
+   * value to 0.
+   *
+   * This asserts on the source text deliberately. The hole was not a wrong
+   * value, it was an INPUT existing at all, and only reading the source can
+   * show that no such input has crept back.
+   */
+  it("reads no measurement value from process.env", () => {
+    const envReads = [...new Set(SOURCE.match(/process\.env\.[A-Z_]+/g) ?? [])].sort();
+    // STRIPE_SECRET_KEY is a credential, not a measurement: it decides whether
+    // the producer can run, never what it reports.
+    expect(envReads).toEqual(["process.env.STRIPE_SECRET_KEY"]);
+  });
+
+  it("never reads the old D3_FAILED_WEBHOOK_DELIVERIES variable", () => {
+    expect(SOURCE).not.toContain("D3_FAILED_WEBHOOK_DELIVERIES ??");
+  });
+
+  it("reports an unmeasurable field as unmeasured, not as zero", () => {
+    // Negative on purpose: the policy requires exactly 0, so "unmeasured"
+    // fails rather than passing as a silent success.
+    expect(UNMEASURED).toBeLessThan(0);
   });
 });
