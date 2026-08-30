@@ -82,7 +82,13 @@ test.describe("@smoke pilot workflow — auth gates", () => {
       page,
       }) => {
       await page.goto(route);
-      assertExactSmokeLocation(page.url(), "/login");
+      // NextAuth sends the user back here after sign-in, so the redirect
+      // carries ?callbackUrl=<this route>. Asserting the value, not merely
+      // permitting the parameter, keeps this a real check: it now also proves
+      // the callback points at the requested path and stays site-relative.
+      assertExactSmokeLocation(page.url(), "/login", {
+        expectedCallbackFor: route,
+      });
     });
   }
 });
@@ -175,12 +181,53 @@ function configuredSmokeOrigin(): URL {
   return parsed;
 }
 
-function assertExactSmokeLocation(observed: string, expectedPath: string): void {
+/**
+ * Assert the browser landed on exactly the expected origin and path.
+ *
+ * The strictness is deliberate and stays the default: a bare URL is what a
+ * direct navigation to a public page should produce, and pinning origin and
+ * hash is what makes this an *exact location* check rather than a substring
+ * one.
+ *
+ * `expectedCallbackFor` is the single documented exception. A redirect out of
+ * a protected route legitimately carries NextAuth's `callbackUrl`, so that the
+ * user returns where they were headed after signing in. Before this parameter
+ * existed the four auth-gate tests asserted `parsed.search === ""` against
+ * that redirect and failed on every run — origin and pathname both matched,
+ * and the redirect was working correctly the whole time.
+ *
+ * Tolerating the parameter is not enough on its own: an unchecked
+ * `callbackUrl` is where open-redirect bugs live. So when it is expected, its
+ * value is asserted to be exactly the protected path that was requested — a
+ * site-relative path, never an absolute URL that could point off-origin.
+ */
+function assertExactSmokeLocation(
+  observed: string,
+  expectedPath: string,
+  options: { expectedCallbackFor?: string } = {},
+): void {
   const expectedOrigin = configuredSmokeOrigin().origin;
   const parsed = new URL(observed);
   expect(parsed.origin).toBe(expectedOrigin);
   expect(parsed.pathname).toBe(expectedPath);
-  expect(parsed.search).toBe("");
+
+  const { expectedCallbackFor } = options;
+  if (expectedCallbackFor === undefined) {
+    expect(parsed.search).toBe("");
+  } else {
+    // No parameter other than callbackUrl, so this cannot become a licence
+    // for arbitrary query strings on a redirect.
+    expect([...parsed.searchParams.keys()]).toEqual(["callbackUrl"]);
+
+    const callback = parsed.searchParams.get("callbackUrl");
+    expect(callback).toBe(expectedCallbackFor);
+    // Site-relative only. An absolute callbackUrl surviving here would be an
+    // open redirect, which is worth failing on loudly rather than tolerating
+    // as "some query string".
+    expect(callback?.startsWith("/")).toBe(true);
+    expect(callback?.startsWith("//")).toBe(false);
+  }
+
   expect(parsed.hash).toBe("");
 }
 
