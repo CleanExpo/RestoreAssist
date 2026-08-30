@@ -18,6 +18,9 @@ export interface ScaleConfig {
   pxPerMetre: number;
   /** Human-readable description, e.g. "Calibrated: 3.00 m = 312 px" */
   description: string;
+  pointA: { x: number; y: number };
+  pointB: { x: number; y: number };
+  realMetres: number;
 }
 
 export interface SketchScaleModalProps {
@@ -100,6 +103,9 @@ export function SketchScaleModal({
     onCalibrate({
       pxPerMetre,
       description: `Calibrated: ${metres.toFixed(2)} m = ${Math.round(px)} px`,
+      pointA: pt1,
+      pointB: pt2,
+      realMetres: metres,
     });
     onClose();
   }, [pt1, pt2, realMetres, onCalibrate, onClose]);

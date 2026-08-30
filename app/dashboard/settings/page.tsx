@@ -33,6 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import BillingGate from "@/components/capacitor/BillingGate";
+import { OrganizationLocaleSetting } from "@/components/settings/OrganizationLocaleSetting";
 
 const SUBSCRIPTION_STATUS_TONES: Record<string, StatusTone> = {
   ACTIVE: "success",
@@ -353,6 +354,8 @@ export default function SettingsPage() {
 
       {/* Appearance — theme control (reuses the existing next-themes provider) */}
       <AppearanceSetting />
+
+      <OrganizationLocaleSetting />
 
       {/* Workstream C — Connections hub entry */}
       <a

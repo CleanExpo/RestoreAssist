@@ -58,9 +58,17 @@ export default async function ClientPortalPage({ params }: PageProps) {
   const inspection = await prisma.inspection.findUnique({
     where: { id: inspectionId },
     include: {
-      affectedAreas: true,
+      affectedAreas: {
+        select: {
+          id: true,
+          roomZoneId: true,
+        },
+      },
       scopeItems: {
         where: { isSelected: true },
+        select: {
+          id: true,
+        },
       },
       report: {
         select: { status: true, id: true },
@@ -231,7 +239,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
                       clipRule="evenodd"
                     />
                   </svg>
-                  {item.description}
+                  Restoration work item included
                 </li>
               ))}
             </ul>
