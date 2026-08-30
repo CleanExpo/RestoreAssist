@@ -326,15 +326,15 @@ describe("planted defect: the measurements themselves", () => {
     // Without this, the owner's key alone would unlock points for any
     // criterion — a cryptographic restatement of self-attestation.
     //
-    // Uses A1 because it is genuinely unregistered. This test named F1 until
-    // F1 gained a producer and a policy; leaving it there would have quietly
-    // turned an assertion about unregistered criteria into an assertion about
-    // a registered one, and it would still have passed for the wrong reason.
+    // Uses D1 because it is genuinely unregistered. This test named F1, then
+    // A1, and each time that criterion gained a producer the assertion would
+    // have quietly become one about a REGISTERED criterion -- still passing,
+    // for the wrong reason. D1 has no producer and no policy.
     const { privateKey, publicKeyPem } = keypair();
     const result = verifyReleaseReceipt(
-      sign(validReceipt({ criterionId: "A1-core-journeys" }), privateKey),
-      context({ criterionId: "A1-core-journeys" }),
-      keySet(publicKeyPem, ["A1-core-journeys"]),
+      sign(validReceipt({ criterionId: "D1-billing-flows" }), privateKey),
+      context({ criterionId: "D1-billing-flows" }),
+      keySet(publicKeyPem, ["D1-billing-flows"]),
     );
     expect(result).toEqual({
       ok: false,
@@ -346,6 +346,7 @@ describe("planted defect: the measurements themselves", () => {
     // Deliberately exact. Adding a criterion here must be a conscious edit
     // with its own measurement predicate and tests, not a side effect.
     expect(Object.keys(CRITERION_POLICIES).sort()).toEqual([
+      "A1-core-journeys",
       "A3-no-sev1-sev2-open",
       "C2-secrets-scan",
       "D3-revenue-reconciliation",
@@ -646,6 +647,143 @@ describe("planted defect: environment binding", () => {
     // Exact on purpose: widening this must be a deliberate edit. A secrets
     // scan reads the tree, so it has no business claiming production.
     expect(CRITERION_POLICIES["C2-secrets-scan"].environments).toEqual(["ci"]);
+  });
+});
+
+describe("A1-core-journeys policy", () => {
+  const RELEASE_SHA = SHA;
+
+  function a1(overrides: Record<string, string | number | boolean> = {}) {
+    return validReceipt({
+      criterionId: "A1-core-journeys",
+      environment: "sandbox",
+      measurements: {
+        source: "playwright",
+        baseUrl: "https://restoreassist-sandbox.vercel.app",
+        deploymentSha: RELEASE_SHA,
+        testsExecuted: 42,
+        specsDeclared: "auth.spec.ts,first-tradie-flow.spec.ts",
+        specsMissingFromReport: "",
+        failingSpecs: "",
+        journeySteps:
+          "signup,login,onboarding,storage setup,restore,inspection,claim,attest,pdf",
+        coveredSteps:
+          "signup,login,onboarding,storage setup,restore,inspection,claim,attest,pdf",
+        uncoveredSteps: "",
+        ...overrides,
+      },
+    });
+  }
+
+  function verify(receipt: ReleaseReceipt) {
+    const { privateKey, publicKeyPem } = keypair();
+    return verifyReleaseReceipt(
+      sign(receipt, privateKey),
+      context({ criterionId: "A1-core-journeys" }),
+      keySet(publicKeyPem, ["A1-core-journeys"]),
+    );
+  }
+
+  it("accepts a journey verified against this exact revision", () => {
+    expect(verify(a1())).toEqual({ ok: true });
+  });
+
+  it("refuses a journey verified against a different build", () => {
+    /**
+     * THE A1 control. "Independently verified on this SHA" is the criterion's
+     * own wording, and a green journey against yesterday's build is evidence
+     * about yesterday's build. Production served a revision older than its own
+     * deploymentSha field for weeks, so this has actually happened here.
+     */
+    const result = verify(a1({ deploymentSha: "b".repeat(40) }));
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /not the release SHA/,
+    );
+  });
+
+  it.each([
+    ["absent", undefined],
+    ["empty", ""],
+    ["a truncated SHA", "abc123"],
+  ])("refuses a receipt whose deploymentSha is %s", (_label, deploymentSha) => {
+    const receipt = a1(deploymentSha === undefined ? {} : { deploymentSha });
+    if (deploymentSha === undefined) delete receipt.measurements.deploymentSha;
+    const result = verify(receipt);
+    expect(result.ok).toBe(false);
+  });
+
+  it.each([
+    ["zero", 0],
+    ["negative", -1],
+    ["absent", undefined],
+  ])("refuses a run that executed %s tests", (_label, testsExecuted) => {
+    // Playwright exits 0 when it matches nothing, so "0 failures" and "ran
+    // nothing" are the same exit code.
+    const receipt = a1(testsExecuted === undefined ? {} : { testsExecuted });
+    if (testsExecuted === undefined) delete receipt.measurements.testsExecuted;
+    const result = verify(receipt);
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /testsExecuted must be a positive integer/,
+    );
+  });
+
+  it("refuses a receipt whose declared specs did not run", () => {
+    const result = verify(
+      a1({ specsMissingFromReport: "auth.spec.ts,setup-happy-path.spec.ts" }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /declared specs did not run: auth\.spec\.ts/,
+    );
+  });
+
+  it("refuses a coverage map that names no specs at all", () => {
+    // Otherwise an empty map reports nothing missing and nothing failing, and
+    // every step trivially "covered" -- verifying nothing.
+    const result = verify(a1({ specsDeclared: "" }));
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /specsDeclared is empty/,
+    );
+  });
+
+  it("refuses a receipt with a failing spec", () => {
+    const result = verify(a1({ failingSpecs: "job-close-happy-path.spec.ts" }));
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(/specs failed/);
+  });
+
+  it("refuses a receipt that narrowed the criterion's own step list", () => {
+    const result = verify(
+      a1({ journeySteps: "signup,login", coveredSteps: "signup,login" }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /journeySteps does not match/,
+    );
+  });
+
+  it("refuses a receipt where a journey step was not verified", () => {
+    const result = verify(
+      a1({
+        coveredSteps:
+          "signup,login,onboarding,storage setup,inspection,claim,attest,pdf",
+        uncoveredSteps: "restore",
+      }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /journey steps not verified: restore/,
+    );
+  });
+
+  it("keeps A1 to a deployed sandbox, not a runner and not production", () => {
+    // The journey signs up companies and pushes an invoice. "ci" would mean it
+    // ran against nothing deployed; "production" would create customer-visible
+    // records on every gate run.
+    expect(CRITERION_POLICIES["A1-core-journeys"].environments).toEqual(["sandbox"]);
   });
 });
 

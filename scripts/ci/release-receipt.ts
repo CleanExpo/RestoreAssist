@@ -79,6 +79,10 @@ import {
   F1_REPOSITORY,
   F1_REQUIRED_CLASSES,
 } from "./producers/f1-monitoring-alerting";
+import {
+  A1_BASE_URL,
+  A1_JOURNEY_STEPS,
+} from "./producers/a1-core-journeys";
 
 /** Environment variable carrying the trusted public keys, as JSON. */
 export const TRUSTED_KEYS_ENV = "RELEASE_RECEIPT_PUBLIC_KEYS";
@@ -701,6 +705,90 @@ export const CRITERION_POLICIES: Record<string, CriterionPolicy> = {
         return {
           ok: false,
           message: `no alert covers: ${measurements.uncoveredClasses || "(unreported)"}`,
+        };
+      }
+      return { ok: true };
+    },
+  },
+
+  "A1-core-journeys": {
+    // Observed against a deployed sandbox, not a runner. The journey signs up
+    // companies and pushes an invoice; "ci" would mean it ran against nothing
+    // deployed, and "production" would mean creating customer-visible records
+    // on every gate run.
+    environments: ["sandbox"],
+    check: (measurements, context) => {
+      if (measurements.source !== "playwright") {
+        return { ok: false, message: "measurement source must be playwright" };
+      }
+      if (measurements.baseUrl !== A1_BASE_URL) {
+        return {
+          ok: false,
+          message: `measurement baseUrl must be ${A1_BASE_URL}`,
+        };
+      }
+      // THE A1 CONTROL. "Independently verified on this SHA" is the criterion's
+      // own wording, and a green journey against a different build is evidence
+      // about that build. Production served a revision older than its own
+      // deploymentSha field for weeks, so this is a failure that has actually
+      // happened here rather than a hypothetical one.
+      const observed = measurements.deploymentSha;
+      if (
+        typeof observed !== "string" ||
+        observed.toLowerCase() !== context.releaseSha.toLowerCase()
+      ) {
+        return {
+          ok: false,
+          message: `journey ran against ${JSON.stringify(observed)}, not the release SHA ${context.releaseSha}`,
+        };
+      }
+      // Playwright exits 0 when it matches no tests, so "0 failures" and "ran
+      // nothing" are the same exit code. Both halves are needed: a positive
+      // count proves something ran, and an empty missing-list proves the
+      // things that ran were the declared ones.
+      const executed = measurements.testsExecuted;
+      if (typeof executed !== "number" || !Number.isInteger(executed) || executed <= 0) {
+        return {
+          ok: false,
+          message:
+            "measurement testsExecuted must be a positive integer: a run that executed nothing is not a verified journey",
+        };
+      }
+      if (measurements.specsMissingFromReport !== "") {
+        return {
+          ok: false,
+          message: `declared specs did not run: ${measurements.specsMissingFromReport}`,
+        };
+      }
+      if (
+        typeof measurements.specsDeclared !== "string" ||
+        measurements.specsDeclared === ""
+      ) {
+        return {
+          ok: false,
+          message:
+            "measurement specsDeclared is empty: a coverage map naming no specs verifies nothing",
+        };
+      }
+      if (measurements.failingSpecs !== "") {
+        return {
+          ok: false,
+          message: `specs failed: ${measurements.failingSpecs}`,
+        };
+      }
+      // Pinned against the criterion's own step list rather than trusting
+      // uncoveredSteps to be empty, so a producer that stopped reporting a step
+      // cannot pass by omission.
+      if (measurements.journeySteps !== [...A1_JOURNEY_STEPS].join(",")) {
+        return {
+          ok: false,
+          message: "measurement journeySteps does not match the criterion's steps",
+        };
+      }
+      if (measurements.coveredSteps !== measurements.journeySteps) {
+        return {
+          ok: false,
+          message: `journey steps not verified: ${measurements.uncoveredSteps || "(unreported)"}`,
         };
       }
       return { ok: true };

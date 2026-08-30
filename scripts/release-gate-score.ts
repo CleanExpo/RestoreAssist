@@ -24,6 +24,7 @@ import {
   trustedKeysFromEnv,
   verifyReleaseReceipt,
 } from "./ci/release-receipt";
+import { A1_JOURNEY_STEPS } from "./ci/producers/a1-core-journeys";
 
 type CriterionStatus = "pass" | "fail" | "skip";
 export type ReleaseProfile = "web" | "mobile";
@@ -424,17 +425,11 @@ export function ownerEvidence(
     };
   }
   const criterionTerms: Record<string, string[]> = {
-    "A1-core-journeys": [
-      "signup",
-      "login",
-      "onboarding",
-      "storage setup",
-      "restore",
-      "inspection",
-      "claim",
-      "attest",
-      "pdf",
-    ],
+    // One owner for this list: scripts/ci/producers/a1-core-journeys.ts.
+    // It was duplicated here, and a criterion whose step list can drift
+    // between the thing that measures it and the thing that scores it can
+    // disagree with itself without either side being obviously wrong.
+    "A1-core-journeys": [...A1_JOURNEY_STEPS],
     "E3-release-rollback-plan": [
       "app review",
       "release",

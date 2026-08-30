@@ -28,6 +28,7 @@ on:
         required: true
         type: choice
         options:
+          - A1-core-journeys
           - A3-no-sev1-sev2-open
           - C2-secrets-scan
           - D3-revenue-reconciliation
@@ -114,6 +115,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GITLEAKS_BINARY: /tmp/gitleaks
           GITHUB_TOKEN: ${{ github.token }}
+          A1_PLAYWRIGHT_REPORT: ${{ env.A1_PLAYWRIGHT_REPORT }}
         run: |
           npx --no-install tsx scripts/ci/sign-release-receipt.ts \
             --criterion='${{ inputs.criterion }}'
