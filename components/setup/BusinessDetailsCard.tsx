@@ -77,6 +77,9 @@ export function BusinessDetailsCard() {
     const result = await patchState({
       country: nextCountry,
       timezone: nextTimezone,
+      abn: nextCountry === 'NZ' ? null : (org?.abn ?? null),
+      acn: nextCountry === 'NZ' ? null : (org?.acn ?? null),
+      nzbn: nextCountry === 'AU' ? null : (org?.nzbn ?? null),
     });
     if (!result.ok) setSubmitError(result.error ?? 'Failed to save country');
   };

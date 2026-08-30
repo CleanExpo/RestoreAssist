@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
 import {
   Save,
   FileText,
@@ -123,7 +124,7 @@ export default function EstimationEngine({
       contingencyRationale: "",
       escalationPercent: 0,
       escalationNote: "",
-      gstPercent: 10,
+      gstPercent: Number(DEFAULT_GST_TREATMENT.ratePercent),
       roundTo: 5,
     },
 

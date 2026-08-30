@@ -16,6 +16,8 @@ import {
   toLocalDateInputValue,
   addDaysLocalDateInputValue,
 } from "@/lib/invoices/calc";
+import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
+import { useOrganizationGst } from "@/hooks/use-organization-gst";
 
 interface Client {
   id: string;
@@ -40,6 +42,7 @@ export default function NewInvoicePage() {
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const [loading, setLoading] = useState(false);
   const [loadingClients, setLoadingClients] = useState(false);
+  const { treatment: gstTreatment, ready: gstReady } = useOrganizationGst();
 
   // Customer selection
   const [customerType, setCustomerType] = useState<"client" | "manual">(
@@ -72,7 +75,7 @@ export default function NewInvoicePage() {
       category: "",
       quantity: 1,
       unitPrice: 0,
-      gstRate: 10.0,
+      gstRate: DEFAULT_GST_TREATMENT.ratePercent,
     },
   ]);
 
@@ -103,6 +106,17 @@ export default function NewInvoicePage() {
   useEffect(() => {
     fetchClients();
   }, []);
+
+  useEffect(() => {
+    if (!gstReady) return;
+    setLineItems((items) =>
+      items.map((item) =>
+        item.gstRate === DEFAULT_GST_TREATMENT.ratePercent
+          ? { ...item, gstRate: gstTreatment.ratePercent }
+          : item,
+      ),
+    );
+  }, [gstReady, gstTreatment.ratePercent]);
 
   useEffect(() => {
     // Auto-calculate due date when invoice date or due in days changes.
@@ -159,7 +173,7 @@ export default function NewInvoicePage() {
         category: "",
         quantity: 1,
         unitPrice: 0,
-        gstRate: 10.0,
+        gstRate: gstTreatment.ratePercent,
       },
     ]);
   };
@@ -202,6 +216,7 @@ export default function NewInvoicePage() {
       shippingAmount: shippingAmount
         ? Math.round(parseFloat(shippingAmount) * 100)
         : undefined,
+      defaultGstRatePercent: gstTreatment.ratePercent,
     });
 
     return {
@@ -213,6 +228,10 @@ export default function NewInvoicePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!gstReady) {
+      toast.error("Loading your organisation tax settings. Please try again.");
+      return;
+    }
 
     // Validation
     if (!customerName.trim()) {
@@ -747,7 +766,7 @@ export default function NewInvoicePage() {
 
               <div className="flex justify-between text-sm">
                 <span className="text-slate-600 dark:text-slate-400">
-                  GST (10%)
+                  GST
                 </span>
                 <span className="font-medium text-slate-900 dark:text-white">
                   ${(financials.gst / 100).toFixed(2)}
@@ -767,10 +786,14 @@ export default function NewInvoicePage() {
           <div className="space-y-3">
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !gstReady}
               className="w-full px-4 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors font-medium disabled:opacity-50"
             >
-              {loading ? "Creating Invoice..." : "Create Invoice"}
+              {loading
+                ? "Creating Invoice..."
+                : gstReady
+                  ? "Create Invoice"
+                  : "Loading tax settings..."}
             </button>
             <button
               type="button"

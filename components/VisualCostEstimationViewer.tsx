@@ -806,7 +806,7 @@ export default function VisualCostEstimationViewer({
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-slate-300">
                     <span className="text-lg font-semibold text-slate-700">
-                      GST (10%)
+                      GST
                     </span>
                     <span className="text-xl font-bold text-slate-900">
                       ${totals?.gst?.toFixed(2) || "0.00"}

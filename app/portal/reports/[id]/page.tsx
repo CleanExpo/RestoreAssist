@@ -22,6 +22,15 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 interface Report {
   id: string;
@@ -33,12 +42,9 @@ interface Report {
   totalCost: number | null;
   createdAt: string;
   updatedAt: string;
-  waterCategory: string | null;
-  waterClass: string | null;
   completionDate: string | null;
   scopeOfWorksDocument: string | null;
   costEstimationDocument: string | null;
-  detailedReport: string | null;
   client: {
     name: string;
     email: string;
@@ -280,7 +286,7 @@ export default function PortalReportDetail({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Link
           href="/portal"
-          className="inline-flex items-center gap-2 text-brand-bronze hover:underline mb-6"
+          className="inline-flex min-h-11 items-center gap-2 text-brand-cta hover:underline mb-6"
         >
           <ArrowLeft size={18} />
           Back to Reports
@@ -301,7 +307,7 @@ export default function PortalReportDetail({
                 <button
                   onClick={handleDownloadPdf}
                   disabled={downloadingPdf}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium disabled:opacity-50 transition-colors"
+                  className="flex min-h-11 items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium disabled:opacity-50 transition-colors"
                 >
                   {downloadingPdf ? (
                     <>
@@ -429,7 +435,7 @@ export default function PortalReportDetail({
                 ) : (
                   <button
                     onClick={() => handleApprovalClick("SCOPE_OF_WORK")}
-                    className="px-4 py-2 bg-brand-bronze text-white rounded-lg text-sm font-medium hover:bg-brand-bronze/90 transition-colors"
+                    className="min-h-11 px-4 py-2 bg-brand-cta text-white rounded-lg text-sm font-medium hover:bg-brand-cta-hover transition-colors"
                   >
                     Review & Approve
                   </button>
@@ -438,6 +444,9 @@ export default function PortalReportDetail({
               <p className="text-sm text-brand-slate">
                 Review and approve the proposed scope of work for this
                 restoration project.
+              </p>
+              <p className="mt-2 text-xs text-brand-slate">
+                This client copy excludes reviewer-only classifications and raw readings.
               </p>
               {report.scopeOfWorksDocument ? (
                 <details className="mt-3 border border-brand-slate/20 rounded-lg">
@@ -487,7 +496,7 @@ export default function PortalReportDetail({
                 ) : (
                   <button
                     onClick={() => handleApprovalClick("COST_ESTIMATE")}
-                    className="px-4 py-2 bg-brand-bronze text-white rounded-lg text-sm font-medium hover:bg-brand-bronze/90 transition-colors"
+                    className="min-h-11 px-4 py-2 bg-brand-cta text-white rounded-lg text-sm font-medium hover:bg-brand-cta-hover transition-colors"
                   >
                     Review & Approve
                   </button>
@@ -495,6 +504,9 @@ export default function PortalReportDetail({
               </div>
               <p className="text-sm text-brand-slate">
                 Review and approve the cost estimate for the restoration work.
+              </p>
+              <p className="mt-2 text-xs text-brand-slate">
+                Ask your contractor for the separate technical evidence report if your insurer needs it.
               </p>
               {report.costEstimationDocument ? (
                 <details className="mt-3 border border-brand-slate/20 rounded-lg">
@@ -550,69 +562,77 @@ export default function PortalReportDetail({
         </div>
       </div>
 
-      {/* Approval Modal */}
-      {showApprovalModal && approvalType && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-brand-navy mb-4">
+      <Dialog
+        open={showApprovalModal && approvalType !== null}
+        onOpenChange={(open) => {
+          setShowApprovalModal(open);
+          if (!open) setComments("");
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-brand-navy">
               {approvalType === "SCOPE_OF_WORK"
                 ? "Scope of Work"
                 : "Cost Estimate"}{" "}
               Approval
-            </h3>
+            </DialogTitle>
+            <DialogDescription>
+              Record your decision. You can add a note for the restoration
+              team before submitting it.
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-brand-navy mb-2">
-                  Your Decision
-                </label>
-                <select
-                  value={approvalStatus}
-                  onChange={(e) => setApprovalStatus(e.target.value as any)}
-                  className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze"
-                >
-                  <option value="APPROVED">Approve</option>
-                  <option value="REJECTED">Reject</option>
-                  <option value="CHANGES_REQUESTED">Request Changes</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-brand-navy mb-2">
-                  Comments (Optional)
-                </label>
-                <textarea
-                  value={comments}
-                  onChange={(e) => setComments(e.target.value)}
-                  rows={4}
-                  className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze"
-                  placeholder="Add any comments or feedback..."
-                />
-              </div>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="approval-decision" className="mb-2 text-brand-navy">
+                Your Decision
+              </Label>
+              <select
+                id="approval-decision"
+                value={approvalStatus}
+                onChange={(e) => setApprovalStatus(e.target.value as any)}
+                className="min-h-11 w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-cta"
+              >
+                <option value="APPROVED">Approve</option>
+                <option value="REJECTED">Reject</option>
+                <option value="CHANGES_REQUESTED">Request Changes</option>
+              </select>
             </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowApprovalModal(false);
-                  setComments("");
-                }}
-                disabled={submitting}
-                className="flex-1 px-4 py-2 border border-brand-slate/30 text-brand-navy rounded-lg hover:bg-brand-cloud transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmitApproval}
-                disabled={submitting}
-                className="flex-1 px-4 py-2 bg-brand-bronze text-white rounded-lg hover:bg-brand-bronze/90 transition-colors disabled:opacity-50"
-              >
-                {submitting ? "Submitting..." : "Submit"}
-              </button>
+            <div>
+              <Label htmlFor="approval-comments" className="mb-2 text-brand-navy">
+                Comments (Optional)
+              </Label>
+              <textarea
+                id="approval-comments"
+                value={comments}
+                onChange={(e) => setComments(e.target.value)}
+                rows={4}
+                className="min-h-24 w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-cta"
+                placeholder="Add any comments or feedback..."
+              />
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter className="grid grid-cols-2 gap-3 sm:grid-cols-2">
+            <button
+              onClick={() => setShowApprovalModal(false)}
+              disabled={submitting}
+              className="min-h-11 px-4 py-2 border border-brand-slate/30 text-brand-navy rounded-lg hover:bg-brand-cloud transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmitApproval}
+              disabled={submitting}
+              className="min-h-11 px-4 py-2 bg-brand-cta text-white rounded-lg hover:bg-brand-cta-hover transition-colors disabled:opacity-50"
+            >
+              {submitting ? "Submitting..." : "Submit"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
