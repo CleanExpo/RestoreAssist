@@ -112,9 +112,12 @@ describe("parseSmokeArgs", () => {
   });
 
   it("tolerates no arguments at all", () => {
+    // Exact shape on purpose: a new flag must be added here deliberately, so
+    // nobody adds one that silently defaults to permissive.
     expect(parseSmokeArgs(undefined as unknown as string[])).toEqual({
       preflightOnly: false,
       allowStale: false,
+      flowsDespiteDegraded: false,
       extraArgs: [],
     });
   });
