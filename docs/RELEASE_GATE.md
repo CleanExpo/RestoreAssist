@@ -86,8 +86,8 @@ Profile omission does not award points: excluded criteria are removed from that 
 ## Machine-verifiable vs blocked owner-evidence breakdown
 
 - **Web profile machine-verifiable (50 / 85 pts):** A2 (10), all of B (20), C1 (10), D2 (5), and F2 (5).
-- **Web profile reachable by signed receipt (10 / 85 pts):** C2 (5) and A3 (5), once a receipt signed by a trusted key is present. See "Signed receipts" below.
-- **Web profile owner-evidence still blocked (25 / 85 pts):** A1 (10), D1/D3 (10), and F1 (5).
+- **Web profile reachable by signed receipt (15 / 85 pts):** C2 (5), A3 (5) and D3 (5), once a receipt signed by a trusted key is present. See "Signed receipts" below.
+- **Web profile owner-evidence still blocked (20 / 85 pts):** A1 (10), D1 (5), and F1 (5).
 - **Mobile-only blocked additions (15 / 100 pts):** E1-E3 remain required in the `mobile` profile and are excluded from the `web` profile.
 
 Committed prose, screenshots, URLs and hashes of narrative evidence do not earn release points: they are self-attestable. The scorer validates their structure and freshness for diagnostics, then fails closed until each owner criterion has a signed, criterion-specific machine receipt producer and verifier. A1 requires signup, login, onboarding, storage setup, restore, inspection, claim, attestation and PDF observations. E3 requires App Review, release, rollback and reviewer observations. Freshness is aged from the stated date, never filesystem metadata.
@@ -161,7 +161,27 @@ and a criterion absent from that registry cannot pass however good its key.
   customer-impacting defect, and that mismatch is why the criterion drifted.
   Reconciling the two is a human call made in Linear by downgrading the ticket.
 
-**Still unregistered, and therefore still scoring zero:** A1, D1, D3, F1
+- **D3-revenue-reconciliation** — produced by
+  `scripts/ci/producers/d3-revenue-reconciliation.ts`, which reconciles live
+  Stripe subscription events against the `SubscriptionEvent` rows the webhook
+  wrote, over the current 7-day window. Observed in `production`, not `ci`:
+  test-mode events are not revenue.
+
+  | Check | Why |
+  | --- | --- |
+  | `stripeEventCount` must be positive | The evidence file states the trap outright: *"0 events on both sides reconciles, but it does NOT prove the pipeline works; it only proves nothing happened."* Two empty queries agreeing is an absent measurement. |
+  | `missingInDb` must be 0, and `matchedInDb` must equal `stripeEventCount` | Equal totals are weak — five events on each side can be five **different** events, which is exactly what a partially-failing webhook produces. `SubscriptionEvent.stripeEventId` is `@unique`, so the ids are compared as sets. |
+  | `windowEndsAt` must be current | A freely chosen window can be shopped for: an earlier week where the two sides happened to agree. |
+  | `duplicateStripeIds` must be 0 | The `@unique` constraint should make this impossible; measuring it is how you learn the constraint still works. |
+  | `dbEventsWithoutStripeId` must be 0 | Anything Stripe-originated carries an event id, so a row without one means something other than the webhook is writing revenue events. |
+  | `failedWebhookDeliveries` must be 0 | The evidence file calls this "the most likely explanation for a shortfall on the DB side". The producer defaults it to `-1` when unsupplied, so an unmeasured value fails rather than passing as a silent zero. |
+
+  The window is defined once on the Stripe side and the database is queried by
+  event id rather than `createdAt`, which removes the boundary skew a two-sided
+  time window creates. Tolerating those edge mismatches is where a real
+  shortfall would hide.
+
+**Still unregistered, and therefore still scoring zero:** A1, D1, F1
 and E1-E3. Each needs a producer that can take its measurement without a human
 retyping it -- a Linear query for A3, Stripe reconciliation for D3, an
 instrumented end-to-end run for A1 -- plus its own measurement check and
