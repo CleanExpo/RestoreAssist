@@ -965,6 +965,13 @@ describe("ownerEvidence — signed receipts", () => {
       environment: "ci",
       issuedAt: new Date().toISOString(),
       evidenceDigest: `sha256:${createHash("sha256").update(evidence).digest("hex")}`,
+      provenance: {
+        repository: "CleanExpo/RestoreAssist",
+        workflowRef:
+          "CleanExpo/RestoreAssist/.github/workflows/release-receipt.yml@refs/heads/main",
+        runId: "33334743656",
+        runAttempt: "1",
+      },
       measurements: {
         scanner: "gitleaks",
         scannerVersion: "8.28.0",

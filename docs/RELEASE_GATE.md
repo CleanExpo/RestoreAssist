@@ -120,7 +120,32 @@ Three properties carry the scheme, and each has a test that fails without it:
    key not authorised for the criterion it signed, or a criterion with no
    registered policy all score zero. A receipt file appearing in the repository
    moves nothing on its own.
-3. **Measurements are re-derived where possible, and constrained where not.** A
+3. **The signer cannot be handed a measurement.** It invokes the registered
+   producer itself and signs what that returns. This is the fix for a P1 found
+   by CodeRabbit reviewing #2109 after it merged: `sign-release-receipt.ts`
+   previously took a `--measurements` argument and signed it unchanged, so a
+   holder of a valid key could certify `openBlockerCount: 0` with no producer
+   ever running, and every check below would pass. That is self-attestation
+   with a signature on it — precisely what this scheme exists to replace.
+
+   The flag was removed rather than validated: an input that must never be
+   trusted should not exist. A criterion with no registered producer cannot be
+   signed at all, which is why `C2-secrets-scan` currently cannot be.
+
+4. **A receipt must come from the protected workflow.** Every receipt carries
+   `provenance` — repository, workflow ref, run id, run attempt — straight from
+   the Actions runtime, and the signer refuses to run outside Actions. The
+   verifier requires `.github/workflows/release-receipt.yml@refs/heads/main`.
+
+   The ref matters as much as the path: a pull request can edit that workflow
+   file, so a receipt minted from a PR branch would prove nothing about what
+   ran. Secrets live on the gated `release-receipts` environment, never as
+   repository-wide secrets, which every workflow can read.
+
+   Together with the key living only in that environment, this is what makes
+   "holder of the key" mean "that workflow" rather than "whoever has the key".
+
+5. **Measurements are re-derived where possible, and constrained where not.** A
    signature says who produced the bytes, never that they are true, so the
    verifier recomputes the release SHA, the source tree and the evidence digest
    against the checkout being scored. A receipt taken on a different tree is
@@ -155,6 +180,15 @@ and a criterion absent from that registry cannot pass however good its key.
   | `stateTypesScanned` must be all four open types | The old query scanned `state = started` only, so triage, backlog and unstarted blockers were invisible. |
   | `prioritiesScanned` must be `1,2` | Urgent alone does not answer a criterion about Urgent **and** High. |
   | `excludedProjects` must be exactly `Margot,Pi-Dev-Ops` | Exclusions can drive any count to zero. The RA-2232 scope verdict is pinned here, so widening it is a reviewed code change rather than a producer flag. |
+
+  **A3 cannot pass yet, by design.** Linear personal API keys see only what
+  their user sees and can be narrowed to particular teams, so `populationCount`
+  proves the query returned *something*, never *everything* — a key without
+  access to a private team reports a healthy population while omitting exactly
+  the blockers living there. `A3_EXPECTED_VIEWER_ID` pins the Linear identity
+  that may take the measurement, and is deliberately empty until the owner
+  creates a service identity with verified read access across team RA. While it
+  is empty the criterion fails closed, which is the honest state.
 
   The producer deliberately does **not** judge severity. Priority is not
   severity — an epic or a growth ticket can carry Urgent without being a
@@ -220,3 +254,36 @@ Any failed criterion = release blocked. No partial-credit overrides. To override
 - [[lint-debt-followup]] — known lint baseline (non-blocker)
 - [[ra-4983]] — local test-DB bootstrap doc (improves criterion B5 reproducibility)
 - [[ra-4984]] — middleware hard-paywall restoration (currently degrades A2 to "tests pass with .skip")
+
+## Owner setup for signed receipts
+
+Two steps, both deliberately outside any agent's reach.
+
+**1. Create the keypair.** The public half is configuration; the private half
+must never be committed or pasted anywhere but the secret store.
+
+```bash
+openssl genpkey -algorithm ed25519 -out release-signing.pem
+openssl pkey -in release-signing.pem -pubout
+```
+
+**2. Create the `release-receipts` GitHub environment** and add these secrets
+to *it*, not to repository-wide secrets:
+
+| Secret | Value |
+| --- | --- |
+| `RELEASE_RECEIPT_PRIVATE_KEY` | the private PEM |
+| `RELEASE_RECEIPT_PUBLIC_KEYS` | `{"<key-id>": {"publicKey": "<public PEM>", "criteria": ["A3-no-sev1-sev2-open"]}}` |
+| `LINEAR_API_KEY` | a dedicated Linear service identity, not a personal key (A3) |
+| `STRIPE_SECRET_KEY` | live key; the producer reads live/test from its prefix (D3) |
+| `DATABASE_URL` | production database, read-only is sufficient (D3) |
+
+Add required reviewers to the environment. Minting a receipt is an owner
+action.
+
+Then set `A3_EXPECTED_VIEWER_ID` in `scripts/ci/producers/a3-open-blockers.ts`
+to that service identity's Linear `viewer.id`, as a reviewed code change.
+
+Receipts are minted by running the **Release Receipt** workflow manually. It
+measures, signs, verifies the result the way the scorer will, and only then
+commits.

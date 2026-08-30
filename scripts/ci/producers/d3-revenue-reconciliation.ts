@@ -180,12 +180,40 @@ export async function fetchAllStripeEvents(
   );
 }
 
+/**
+ * Take the measurement. Exported so `sign-release-receipt.ts` can invoke it
+ * directly rather than accepting numbers on the command line — see that file
+ * for why hand-supplied measurements made a signed receipt meaningless.
+ */
+export async function produceD3Measurements(): Promise<D3Measurements> {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
+  return reconcile(key);
+}
+
 async function main(): Promise<void> {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) {
     console.error("STRIPE_SECRET_KEY is not set.");
     process.exit(2);
   }
+  const measurements = await reconcile(key);
+
+  if (process.argv.includes("--json")) {
+    console.log(JSON.stringify(measurements));
+    return;
+  }
+  console.log(
+    `Stripe ${measurements.stripeEventCount} events (${measurements.mode} mode), ` +
+      `${measurements.matchedInDb} matched, ${measurements.missingInDb} missing from the database.`,
+  );
+  if (measurements.missingInDb > 0) {
+    console.log(`Missing: ${measurements.missingIds}`);
+  }
+}
+
+/** The Stripe + Prisma round trip, shared by the CLI and the signer. */
+async function reconcile(key: string): Promise<D3Measurements> {
   const [{ stripe }, { prisma }] = await Promise.all([
     import("../../../lib/stripe"),
     import("../../../lib/prisma"),
@@ -219,7 +247,7 @@ async function main(): Promise<void> {
     }),
   ]);
 
-  const measurements = reconcileD3({
+  return reconcileD3({
     stripeEvents: events,
     dbRows,
     dbEventsWithoutStripeId,
@@ -233,18 +261,6 @@ async function main(): Promise<void> {
     liveMode: key.startsWith("sk_live"),
     windowEndsAt: new Date(window.lte * 1000).toISOString(),
   });
-
-  if (process.argv.includes("--json")) {
-    console.log(JSON.stringify(measurements));
-    return;
-  }
-  console.log(
-    `Stripe ${measurements.stripeEventCount} events (${measurements.mode} mode), ` +
-      `${measurements.matchedInDb} matched, ${measurements.missingInDb} missing from the database.`,
-  );
-  if (measurements.missingInDb > 0) {
-    console.log(`Missing: ${measurements.missingIds}`);
-  }
 }
 
 if (process.argv[1]?.endsWith("d3-revenue-reconciliation.ts")) {

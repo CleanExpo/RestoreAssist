@@ -70,6 +70,7 @@ import crypto from "node:crypto";
 // manifest; the function takes `unknown` and emits JCS (RFC 8785)-style bytes
 // for any plain object.
 import { canonicalizeManifest as canonicalJson } from "../../lib/evidence/manifest-canonical";
+import { A3_EXPECTED_VIEWER_ID } from "./producers/a3-open-blockers";
 
 /** Environment variable carrying the trusted public keys, as JSON. */
 export const TRUSTED_KEYS_ENV = "RELEASE_RECEIPT_PUBLIC_KEYS";
@@ -101,6 +102,32 @@ export interface ReleaseReceipt {
   evidenceDigest: string;
   /** Criterion-specific measurements, validated by a registered check. */
   measurements: Record<string, string | number | boolean>;
+  /** Where the producer actually ran. See `checkProvenance`. */
+  provenance: ReceiptProvenance;
+}
+
+/**
+ * Identifies the CI run that produced the measurements.
+ *
+ * This exists because a signature alone proves only that a key holder produced
+ * the bytes. Before provenance, `sign-release-receipt.ts` accepted a
+ * `--measurements` argument and signed whatever it was handed, so a key holder
+ * could certify `openBlockerCount: 0` without any producer ever running --
+ * self-attestation with a signature on it, which is the exact thing the receipt
+ * scheme exists to replace. Found by CodeRabbit reviewing #2109 retrospectively.
+ *
+ * The signer no longer accepts measurements at all; it invokes the registered
+ * producer itself. These fields record where that happened.
+ */
+export interface ReceiptProvenance {
+  /** `GITHUB_REPOSITORY`. */
+  repository: string;
+  /** `GITHUB_WORKFLOW_REF`, e.g. `owner/repo/.github/workflows/x.yml@refs/heads/main`. */
+  workflowRef: string;
+  /** `GITHUB_RUN_ID`, for auditing back to the run and its logs. */
+  runId: string;
+  /** `GITHUB_RUN_ATTEMPT`. */
+  runAttempt: string;
 }
 
 export interface SignedReleaseReceipt {
@@ -126,7 +153,20 @@ const RECEIPT_FIELDS = [
   "issuedAt",
   "evidenceDigest",
   "measurements",
+  "provenance",
 ] as const;
+
+/**
+ * The workflow permitted to mint receipts, and the ref it must run from.
+ *
+ * Pinning both is what makes provenance mean something offline. The scorer
+ * cannot call GitHub to confirm a run happened, but it CAN refuse a receipt
+ * that does not claim to come from this workflow on the default branch --
+ * which, combined with the signing key living only in that workflow's
+ * environment, is what closes the gap.
+ */
+export const RECEIPT_WORKFLOW_PATH = ".github/workflows/release-receipt.yml";
+export const RECEIPT_WORKFLOW_REF = "refs/heads/main";
 
 const SIGNED_FIELDS = ["keyId", "signature", "receipt"] as const;
 
@@ -241,9 +281,27 @@ export function parseSignedReceipt(raw: string): ParseResult {
     };
   }
   for (const field of RECEIPT_FIELDS) {
-    if (field === "measurements") continue;
+    if (field === "measurements" || field === "provenance") continue;
     if (!nonEmptyString(receipt[field])) {
       return { ok: false, message: `receipt.${field} is required` };
+    }
+  }
+  if (!isPlainObject(receipt.provenance)) {
+    return { ok: false, message: "receipt.provenance must be an object" };
+  }
+  const provenanceFields = ["repository", "workflowRef", "runId", "runAttempt"];
+  const extraProvenance = Object.keys(receipt.provenance).filter(
+    (key) => !provenanceFields.includes(key),
+  );
+  if (extraProvenance.length > 0) {
+    return {
+      ok: false,
+      message: `receipt.provenance carries unrecognised fields: ${extraProvenance.sort().join(", ")}`,
+    };
+  }
+  for (const field of provenanceFields) {
+    if (!nonEmptyString(receipt.provenance[field])) {
+      return { ok: false, message: `receipt.provenance.${field} is required` };
     }
   }
   if (!isPlainObject(receipt.measurements)) {
@@ -314,6 +372,11 @@ export interface ReceiptContext {
   evidenceDigest: string;
   /** Same ceiling the evidence-file freshness rule uses. */
   maxAgeDays: number;
+  /**
+   * `GITHUB_REPOSITORY` when the scorer runs in CI. Left undefined locally,
+   * where there is nothing trustworthy to compare against.
+   */
+  repository?: string;
   /** Injected for deterministic tests. */
   now?: Date;
 }
@@ -380,7 +443,59 @@ export function checkReceiptBinding(
       message: `receipt is stale: issued ${Math.round(ageDays)}d ago, max ${context.maxAgeDays}d`,
     };
   }
+  const provenance = checkProvenance(receipt, context);
+  if (!provenance.ok) return provenance;
+
   return checkMeasurements(receipt, context);
+}
+
+/**
+ * Require the receipt to have been minted by the protected workflow.
+ *
+ * The scorer runs offline and cannot ask GitHub whether a run happened, so this
+ * is not proof on its own. It is one half of a pair: the signing key lives only
+ * in that workflow's environment, so a valid signature already implies the
+ * workflow. Pinning the workflow path and ref here means a receipt cannot be
+ * minted by some OTHER workflow that later gains access to the same
+ * environment, and cannot be minted from a pull-request branch where the file
+ * can be edited by whoever opened the PR.
+ *
+ * That last point is the one that matters most: `pull_request` runs must never
+ * reach these secrets, and a receipt claiming a non-main ref is the signature
+ * of someone trying.
+ */
+export function checkProvenance(
+  receipt: ReleaseReceipt,
+  context: ReceiptContext,
+): ReceiptResult {
+  const { repository, workflowRef } = receipt.provenance;
+  if (context.repository && repository !== context.repository) {
+    return {
+      ok: false,
+      message: `receipt was produced in a different repository (${repository})`,
+    };
+  }
+  // Shape: owner/repo/.github/workflows/file.yml@ref
+  const [path, ref] = workflowRef.split("@");
+  if (!ref) {
+    return {
+      ok: false,
+      message: `receipt provenance workflowRef is malformed (${workflowRef})`,
+    };
+  }
+  if (!path.endsWith(RECEIPT_WORKFLOW_PATH)) {
+    return {
+      ok: false,
+      message: `receipt was minted by ${path}, not ${RECEIPT_WORKFLOW_PATH}`,
+    };
+  }
+  if (ref !== RECEIPT_WORKFLOW_REF) {
+    return {
+      ok: false,
+      message: `receipt was minted from ${ref}, not ${RECEIPT_WORKFLOW_REF}: a receipt from a pull-request branch is not evidence, because that branch can edit the workflow`,
+    };
+  }
+  return { ok: true };
 }
 
 type MeasurementCheck = (
@@ -519,7 +634,16 @@ export const CRITERION_POLICIES: Record<string, CriterionPolicy> = {
             "measurement populationCount must be positive: a query that matched no issues at all is an absent measurement, not a passing one",
         };
       }
-      return requireCount(measurements, "openBlockerCount", 0);
+      // Linear personal keys see only what their user sees, so a narrowed key
+      // reports a healthy population while omitting private-team blockers.
+      // populationCount cannot detect that; pinning the identity can.
+      // Substantive failures first: "you have 12 open blockers" is more
+      // actionable than a configuration message, and a run with real blockers
+      // fails either way. The identity gate is last because it decides whether
+      // a CLEAN result can be believed.
+      const blockers = requireCount(measurements, "openBlockerCount", 0);
+      if (!blockers.ok) return blockers;
+      return checkA3Viewer(measurements.viewerId);
     },
   },
 
@@ -651,6 +775,40 @@ export function verifyReleaseReceipt(
     return { ok: false, message: "receipt signature is invalid" };
   }
   return checkReceiptBinding(parsed.signed.receipt, context);
+}
+
+/**
+ * Pin the Linear identity that took the A3 measurement.
+ *
+ * Linear personal keys see only what their user sees and can be narrowed to
+ * particular teams, so a narrowed key reports a healthy `populationCount` while
+ * omitting exactly the private-team blockers the criterion is about. A count
+ * cannot detect that; an identity can.
+ *
+ * `expected` is injectable so the unset and mismatched cases are both testable
+ * without editing a constant.
+ *
+ * @param viewerId The `viewer.id` the producer observed.
+ * @param expected The configured service identity; empty means unconfigured.
+ */
+export function checkA3Viewer(
+  viewerId: string | number | boolean | undefined,
+  expected: string = A3_EXPECTED_VIEWER_ID,
+): ReceiptResult {
+  if (!expected) {
+    return {
+      ok: false,
+      message:
+        "A3 cannot pass until A3_EXPECTED_VIEWER_ID names a Linear service identity with verified read access across team RA: without it, nothing establishes that the querying key can see every issue this criterion is about",
+    };
+  }
+  if (viewerId !== expected) {
+    return {
+      ok: false,
+      message: `measurement viewerId is not the expected Linear service identity (${String(viewerId)})`,
+    };
+  }
+  return { ok: true };
 }
 
 /**

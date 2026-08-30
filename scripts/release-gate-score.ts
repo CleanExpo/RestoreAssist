@@ -507,6 +507,10 @@ export function ownerEvidence(
       releaseTree: gitTree(),
       evidenceDigest: `sha256:${createHash("sha256").update(evidenceSection).digest("hex")}`,
       maxAgeDays: EVIDENCE_MAX_AGE_DAYS,
+      // Active only in CI, where GITHUB_REPOSITORY is trustworthy. Locally
+      // there is nothing to compare against and inventing a value would be
+      // theatre; the workflow and ref checks still apply either way.
+      repository: process.env.GITHUB_REPOSITORY,
     },
     trustedKeysFromEnv(),
   );

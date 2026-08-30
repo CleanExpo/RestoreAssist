@@ -9,6 +9,8 @@ import {
   type ReceiptContext,
   type ReleaseReceipt,
   type TrustedKey,
+  checkA3Viewer,
+  RECEIPT_WORKFLOW_PATH,
   TRUSTED_KEYS_ENV,
   trustedKeysFromEnv,
   verifyReceiptSignature,
@@ -37,6 +39,14 @@ const SHA = "a".repeat(40);
 const TREE = "b".repeat(40);
 const DIGEST = `sha256:${"c".repeat(64)}`;
 const NOW = new Date("2026-08-30T00:00:00.000Z");
+const REPO = "CleanExpo/RestoreAssist";
+/** Provenance as the protected workflow stamps it. */
+const PROVENANCE = {
+  repository: REPO,
+  workflowRef: `${REPO}/${RECEIPT_WORKFLOW_PATH}@refs/heads/main`,
+  runId: "33334743656",
+  runAttempt: "1",
+};
 
 /** A fresh Ed25519 keypair, so no test depends on a committed key. */
 function keypair() {
@@ -57,6 +67,7 @@ function validReceipt(overrides: Partial<ReleaseReceipt> = {}): ReleaseReceipt {
     environment: "ci",
     issuedAt: "2026-08-29T12:00:00.000Z",
     evidenceDigest: DIGEST,
+    provenance: { ...PROVENANCE },
     measurements: {
       scanner: "gitleaks",
       scannerVersion: "8.28.0",
@@ -77,6 +88,7 @@ function context(overrides: Partial<ReceiptContext> = {}): ReceiptContext {
     releaseTree: TREE,
     evidenceDigest: DIGEST,
     maxAgeDays: 14,
+    repository: REPO,
     now: NOW,
     ...overrides,
   };
@@ -429,7 +441,7 @@ describe("planted defect: malformed receipts", () => {
   it("rejects a non-finite measurement, which cannot canonicalise", () => {
     expect(
       parseSignedReceipt(
-        '{"keyId":"k","signature":"s","receipt":{"criterionId":"C2-secrets-scan","gateVersion":"1.0.0","releaseSha":"a","releaseTree":"b","environment":"ci","issuedAt":"x","evidenceDigest":"d","measurements":{"findings":1e999}}}',
+        '{"keyId":"k","signature":"s","receipt":{"criterionId":"C2-secrets-scan","gateVersion":"1.0.0","releaseSha":"a","releaseTree":"b","environment":"ci","issuedAt":"x","evidenceDigest":"d","provenance":{"repository":"r","workflowRef":"w@refs/heads/main","runId":"1","runAttempt":"1"},"measurements":{"findings":1e999}}}',
       ),
     ).toEqual({
       ok: false,
@@ -573,8 +585,31 @@ describe("A3-no-sev1-sev2-open policy", () => {
     );
   }
 
-  it("accepts a clean run", () => {
-    expect(verifyA3(a3())).toEqual({ ok: true });
+  it("refuses even a clean run while no Linear service identity is pinned", () => {
+    // The honest state today. Until A3_EXPECTED_VIEWER_ID names an identity
+    // with verified read access across team RA, nothing establishes that the
+    // querying key can see the private-team issues this criterion is about --
+    // so a clean-looking run is not evidence.
+    expect(verifyA3(a3())).toEqual({
+      ok: false,
+      message: expect.stringContaining("A3_EXPECTED_VIEWER_ID"),
+    });
+  });
+
+  it("accepts the measurement once the identity matches", () => {
+    expect(checkA3Viewer("usr_service", "usr_service")).toEqual({ ok: true });
+  });
+
+  it("refuses a measurement taken by a different Linear identity", () => {
+    // A narrowed personal key is a different viewer, whatever its counts say.
+    expect(checkA3Viewer("usr_someone_else", "usr_service")).toEqual({
+      ok: false,
+      message: expect.stringContaining("not the expected Linear service identity"),
+    });
+  });
+
+  it("refuses a missing viewerId", () => {
+    expect(checkA3Viewer(undefined, "usr_service").ok).toBe(false);
   });
 
   it("refuses an empty population — the unplugged smoke detector", () => {
@@ -667,6 +702,114 @@ describe("A3-no-sev1-sev2-open policy", () => {
   });
 });
 
+describe("planted defect: provenance", () => {
+  /**
+   * The P1 CodeRabbit found reviewing #2109 after it merged: the signer took a
+   * `--measurements` argument and signed whatever it was handed, so a key
+   * holder could certify `openBlockerCount: 0` with no producer ever running.
+   * The structural fix is in the signer (the flag is gone). These are the
+   * verifier-side controls that stop a receipt minted anywhere but the
+   * protected workflow from counting.
+   */
+  function withProvenance(overrides: Record<string, string>) {
+    const { privateKey, publicKeyPem } = keypair();
+    return verifyReleaseReceipt(
+      sign(
+        validReceipt({ provenance: { ...PROVENANCE, ...overrides } }),
+        privateKey,
+      ),
+      context(),
+      keySet(publicKeyPem),
+    );
+  }
+
+  it("accepts a receipt minted by the protected workflow on main", () => {
+    expect(withProvenance({})).toEqual({ ok: true });
+  });
+
+  it("refuses a receipt minted from a pull-request branch", () => {
+    // The most important one. A PR branch can EDIT the workflow file, so a
+    // receipt minted from one proves nothing about what actually ran.
+    expect(
+      withProvenance({
+        workflowRef: `${REPO}/${RECEIPT_WORKFLOW_PATH}@refs/pull/2112/merge`,
+      }),
+    ).toEqual({
+      ok: false,
+      message: expect.stringContaining("not refs/heads/main"),
+    });
+  });
+
+  it("refuses a receipt minted by a different workflow", () => {
+    // Guards against another workflow later gaining access to the same
+    // environment and its secrets.
+    expect(
+      withProvenance({
+        workflowRef: `${REPO}/.github/workflows/pr-checks.yml@refs/heads/main`,
+      }),
+    ).toEqual({
+      ok: false,
+      message: expect.stringContaining("not .github/workflows/release-receipt.yml"),
+    });
+  });
+
+  it("refuses a receipt produced in another repository", () => {
+    expect(withProvenance({ repository: "attacker/fork" })).toEqual({
+      ok: false,
+      message: expect.stringContaining("different repository"),
+    });
+  });
+
+  it("refuses a malformed workflowRef rather than parsing past it", () => {
+    expect(withProvenance({ workflowRef: "no-at-sign-here" })).toEqual({
+      ok: false,
+      message: expect.stringContaining("malformed"),
+    });
+  });
+
+  it("refuses a receipt with no provenance at all", () => {
+    const { privateKey, publicKeyPem } = keypair();
+    const receipt = validReceipt();
+    delete (receipt as { provenance?: unknown }).provenance;
+    expect(
+      verifyReleaseReceipt(sign(receipt, privateKey), context(), keySet(publicKeyPem)),
+    ).toEqual({ ok: false, message: "receipt.provenance must be an object" });
+  });
+
+  it("refuses blank provenance fields, which would read as present", () => {
+    expect(withProvenance({ runId: "" })).toEqual({
+      ok: false,
+      message: "receipt.provenance.runId is required",
+    });
+  });
+
+  it("refuses unrecognised provenance fields", () => {
+    // Same rule as the receipt body: a field inside the signature but outside
+    // every check is where an unchecked claim would live.
+    const { privateKey, publicKeyPem } = keypair();
+    const receipt = validReceipt();
+    (receipt.provenance as Record<string, string>).approvedBy = "me";
+    expect(
+      verifyReleaseReceipt(sign(receipt, privateKey), context(), keySet(publicKeyPem)),
+    ).toEqual({
+      ok: false,
+      message: "receipt.provenance carries unrecognised fields: approvedBy",
+    });
+  });
+
+  it("skips the repository check when the scorer has nothing to compare against", () => {
+    // Running locally there is no trustworthy GITHUB_REPOSITORY, and inventing
+    // one would be theatre. The workflow and ref checks still apply.
+    const { privateKey, publicKeyPem } = keypair();
+    expect(
+      verifyReleaseReceipt(
+        sign(validReceipt({ provenance: { ...PROVENANCE, repository: "someone/else" } }), privateKey),
+        context({ repository: undefined }),
+        keySet(publicKeyPem),
+      ),
+    ).toEqual({ ok: true });
+  });
+});
 describe("D3-revenue-reconciliation policy", () => {
   const D3 = "D3-revenue-reconciliation";
 

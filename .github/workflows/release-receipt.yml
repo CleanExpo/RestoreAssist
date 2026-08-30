@@ -1,0 +1,102 @@
+# Mints signed release-gate receipts.
+#
+# This workflow is the ONLY thing that may hold RELEASE_RECEIPT_PRIVATE_KEY.
+# That is the whole control, so the two properties below are load-bearing:
+#
+#   1. `workflow_dispatch` only. There is no `pull_request` trigger, because a
+#      pull request can edit this file, and a run from a PR branch would let
+#      whoever opened it reach the signing key.
+#   2. `environment:` scopes the secrets. Put the key and the producer
+#      credentials on the `release-receipts` GitHub environment with required
+#      reviewers, NOT in repository-wide secrets -- a repo secret is reachable
+#      by every workflow, which is the hole this exists to close.
+#
+# Why it matters: scripts/ci/sign-release-receipt.ts used to accept a
+# `--measurements` argument and sign whatever it was handed, so a holder of a
+# valid key could certify "zero open blockers" with no producer ever running.
+# The signer no longer accepts measurements -- it invokes the registered
+# producer itself -- and scripts/ci/release-receipt.ts rejects any receipt whose
+# provenance is not this workflow on refs/heads/main.
+
+name: Release Receipt
+
+on:
+  workflow_dispatch:
+    inputs:
+      criterion:
+        description: Criterion to measure and sign
+        required: true
+        type: choice
+        options:
+          - A3-no-sev1-sev2-open
+          - D3-revenue-reconciliation
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-receipt-${{ inputs.criterion }}
+  cancel-in-progress: false
+
+jobs:
+  mint:
+    runs-on: ubuntu-latest
+    # Gates the secrets below. Configure required reviewers on this
+    # environment: minting a receipt is an owner action, not an agent one.
+    environment: release-receipts
+
+    steps:
+      # Receipts bind to the exact tree they were measured against, so this
+      # must be main and must not be a shallow or detached surprise.
+      # Pinned to a full commit SHA, not a tag: check:release-bootstrap enforces
+      # it, and the reason bites hardest here. A tag is mutable, so a compromised
+      # action release would run inside the one job that can reach the signing key.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Measure and sign
+        env:
+          RELEASE_RECEIPT_PRIVATE_KEY: ${{ secrets.RELEASE_RECEIPT_PRIVATE_KEY }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npx --no-install tsx scripts/ci/sign-release-receipt.ts \
+            --criterion='${{ inputs.criterion }}'
+
+      # Verify before committing. A receipt that the scorer would reject is
+      # worse than none: it looks like evidence in the tree while earning
+      # nothing, which is the shape of failure this whole subsystem exists to
+      # remove.
+      - name: Verify the receipt the way the scorer will
+        env:
+          RELEASE_RECEIPT_PUBLIC_KEYS: ${{ secrets.RELEASE_RECEIPT_PUBLIC_KEYS }}
+        run: |
+          npx --no-install tsx -e "
+            import { ownerEvidence } from './scripts/release-gate-score';
+            const r = ownerEvidence('${{ inputs.criterion }}', '1.0.0');
+            console.log(JSON.stringify(r, null, 2));
+            if (r.status !== 'pass') process.exit(1);
+          "
+
+      - name: Commit the receipt
+        run: |
+          set -euo pipefail
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add "docs/evidence/release-gate/1.0.0/${{ inputs.criterion }}.receipt.json"
+          if git diff --cached --quiet; then
+            echo "Receipt unchanged; nothing to commit."
+            exit 0
+          fi
+          git commit -m "chore(release-gate): receipt for ${{ inputs.criterion }} (run ${GITHUB_RUN_ID})"
+          git push origin main
