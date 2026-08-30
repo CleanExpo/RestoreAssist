@@ -25,7 +25,10 @@ const WORKFLOW = join(process.cwd(), RECEIPT_WORKFLOW_PATH);
 function workflow() {
   return parse(readFileSync(WORKFLOW, "utf8")) as {
     on: Record<string, unknown>;
-    jobs: Record<string, { environment?: string; steps: Array<{ run?: string }> }>;
+    jobs: Record<
+      string,
+      { environment?: string; if?: string; steps: Array<{ run?: string }> }
+    >;
   };
 }
 
@@ -67,5 +70,51 @@ describe("the workflow never hand-feeds measurements", () => {
       .jobs.mint.steps.map((s) => s.run ?? "")
       .join("\n");
     expect(runs).toContain("ownerEvidence");
+  });
+});
+
+describe("a branch dispatch cannot mint a receipt", () => {
+  /**
+   * CodeRabbit's second P1 on #2112. `workflow_dispatch` lets the dispatcher
+   * choose any branch, and the chosen branch's copy of this file supplies the
+   * `run:` blocks -- so an attacker's branch can export a forged
+   * GITHUB_WORKFLOW_REF pointing at refs/heads/main and mint a receipt that
+   * satisfies checkProvenance.
+   *
+   * Read the next assertion knowing what it is NOT: the guard lives in the
+   * file the attacker controls, so it stops an accident, not an attack. The
+   * control that holds is the environment's deployment-branch rule, enforced
+   * by GitHub outside this file, and no test here can assert repository
+   * configuration. That is why the docs assertion below exists.
+   */
+  it("refuses to run from any ref but main", () => {
+    expect(workflow().jobs.mint.if).toBe("github.ref == 'refs/heads/main'");
+  });
+
+  it("documents the deployment-branch rule as required owner setup", () => {
+    // The guard above is defence in depth. If the docs stop telling the owner
+    // to restrict the environment to main, the only real control is gone and
+    // nothing in the code would notice.
+    //
+    // The first version of this asserted /deployment.branch rule/i, which is
+    // close to worthless: the `.` matches any character, and nothing required
+    // the rule to name the environment, the branch, or reviewers. The docs
+    // could have dropped the main-only restriction entirely and this still
+    // passed — a test unable to fail for the reason it exists. Raised by
+    // CodeRabbit on #2113.
+    const doc = readFileSync(
+      join(process.cwd(), "docs", "RELEASE_GATE.md"),
+      "utf8",
+    );
+    for (const required of [
+      /deployment-branch rule/,
+      /restricting `release-receipts` to `main`/,
+      /required reviewers/,
+    ]) {
+      expect(doc).toMatch(required);
+    }
+    // And it must still be described as the control rather than as optional
+    // hardening, because that framing is what stops it being skipped.
+    expect(doc).toMatch(/not optional hardening/);
   });
 });
