@@ -4,10 +4,11 @@ import { describe, expect, it } from "vitest";
 import { canonicalizeManifest as canonicalJson } from "../../../lib/evidence/manifest-canonical";
 import {
   checkReceiptBinding,
-  MEASUREMENT_CHECKS,
+  CRITERION_POLICIES,
   parseSignedReceipt,
   type ReceiptContext,
   type ReleaseReceipt,
+  type TrustedKey,
   TRUSTED_KEYS_ENV,
   trustedKeysFromEnv,
   verifyReceiptSignature,
@@ -37,6 +38,7 @@ const TREE = "b".repeat(40);
 const DIGEST = `sha256:${"c".repeat(64)}`;
 const NOW = new Date("2026-08-30T00:00:00.000Z");
 
+/** A fresh Ed25519 keypair, so no test depends on a committed key. */
 function keypair() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
   return {
@@ -45,6 +47,7 @@ function keypair() {
   };
 }
 
+/** A receipt that passes every check, so each test plants exactly one lie. */
 function validReceipt(overrides: Partial<ReleaseReceipt> = {}): ReleaseReceipt {
   return {
     criterionId: "C2-secrets-scan",
@@ -65,6 +68,7 @@ function validReceipt(overrides: Partial<ReleaseReceipt> = {}): ReleaseReceipt {
   };
 }
 
+/** The scoring context the valid receipt is bound to. */
 function context(overrides: Partial<ReceiptContext> = {}): ReceiptContext {
   return {
     criterionId: "C2-secrets-scan",
@@ -78,6 +82,7 @@ function context(overrides: Partial<ReceiptContext> = {}): ReceiptContext {
   };
 }
 
+/** Sign a receipt over its canonical bytes, as the real producer does. */
 function sign(
   receipt: ReleaseReceipt,
   privateKey: crypto.KeyObject,
@@ -89,13 +94,21 @@ function sign(
   return JSON.stringify({ keyId, signature, receipt });
 }
 
+/** A trusted key set scoped, by default, to the criterion under test. */
+function keySet(
+  publicKeyPem: string,
+  criteria: string[] = ["C2-secrets-scan"],
+): Map<string, TrustedKey> {
+  return new Map([[KEY_ID, { publicKeyPem, criteria }]]);
+}
+
 describe("a correctly signed receipt verifies", () => {
   it("passes every check when nothing has been tampered with", () => {
     const { privateKey, publicKeyPem } = keypair();
     const result = verifyReleaseReceipt(
       sign(validReceipt(), privateKey),
       context(),
-      new Map([[KEY_ID, publicKeyPem]]),
+      keySet(publicKeyPem),
     );
     expect(result).toEqual({ ok: true });
   });
@@ -110,7 +123,7 @@ describe("a correctly signed receipt verifies", () => {
       verifyReleaseReceipt(
         reformatted,
         context(),
-        new Map([[KEY_ID, publicKeyPem]]),
+        keySet(publicKeyPem),
       ),
     ).toEqual({ ok: true });
   });
@@ -139,7 +152,7 @@ describe("planted defect: the trust root", () => {
     const result = verifyReleaseReceipt(
       sign(validReceipt(), attacker.privateKey),
       context(),
-      new Map([[KEY_ID, trusted.publicKeyPem]]),
+      keySet(trusted.publicKeyPem),
     );
     // Same key id, different key: the id is a selector, never a credential.
     expect(result).toEqual({
@@ -153,7 +166,7 @@ describe("planted defect: the trust root", () => {
     const result = verifyReleaseReceipt(
       sign(validReceipt(), privateKey, "some-other-key"),
       context(),
-      new Map([[KEY_ID, publicKeyPem]]),
+      keySet(publicKeyPem),
     );
     expect(result).toEqual({
       ok: false,
@@ -177,9 +190,11 @@ describe("planted defect: the trust root", () => {
     ).toBe(0);
     expect(
       trustedKeysFromEnv({
-        [TRUSTED_KEYS_ENV]: JSON.stringify({ [KEY_ID]: "pem-here" }),
+        [TRUSTED_KEYS_ENV]: JSON.stringify({
+          [KEY_ID]: { publicKey: "pem-here", criteria: ["C2-secrets-scan"] },
+        }),
       } as NodeJS.ProcessEnv).get(KEY_ID),
-    ).toBe("pem-here");
+    ).toEqual({ publicKeyPem: "pem-here", criteria: ["C2-secrets-scan"] });
   });
 
   it("refuses a non-Ed25519 key even when the signature would verify", () => {
@@ -197,16 +212,24 @@ describe("planted defect: the trust root", () => {
 });
 
 describe("planted defect: tampering with the signed body", () => {
-  const mutations: Array<[string, Partial<ReleaseReceipt>]> = [
-    ["criterion", { criterionId: "A1-core-journeys" }],
-    ["release SHA", { releaseSha: "d".repeat(40) }],
-    ["source tree", { releaseTree: "e".repeat(40) }],
-    ["evidence digest", { evidenceDigest: `sha256:${"f".repeat(64)}` }],
-    ["gate version", { gateVersion: "9.9.9" }],
-    ["issue time", { issuedAt: "2026-01-01T00:00:00.000Z" }],
+  // The expected rejection is named per mutation rather than assumed to be
+  // "signature invalid": key scope is checked BEFORE the signature, so an
+  // edited criterion is caught as unauthorised. Asserting the exact message
+  // keeps this test honest about which guard actually fired.
+  const mutations: Array<[string, Partial<ReleaseReceipt>, string]> = [
+    [
+      "criterion",
+      { criterionId: "A1-core-journeys" },
+      `key ${KEY_ID} is not authorised to sign A1-core-journeys`,
+    ],
+    ["release SHA", { releaseSha: "d".repeat(40) }, "receipt signature is invalid"],
+    ["source tree", { releaseTree: "e".repeat(40) }, "receipt signature is invalid"],
+    ["evidence digest", { evidenceDigest: `sha256:${"f".repeat(64)}` }, "receipt signature is invalid"],
+    ["gate version", { gateVersion: "9.9.9" }, "receipt signature is invalid"],
+    ["issue time", { issuedAt: "2026-01-01T00:00:00.000Z" }, "receipt signature is invalid"],
   ];
 
-  for (const [label, override] of mutations) {
+  for (const [label, override, expectedMessage] of mutations) {
     it(`rejects an edited ${label} — the signature no longer covers it`, () => {
       const { privateKey, publicKeyPem } = keypair();
       const raw = sign(validReceipt(), privateKey);
@@ -215,12 +238,9 @@ describe("planted defect: tampering with the signed body", () => {
       const result = verifyReleaseReceipt(
         JSON.stringify(tampered),
         context(),
-        new Map([[KEY_ID, publicKeyPem]]),
+        keySet(publicKeyPem),
       );
-      expect(result).toEqual({
-        ok: false,
-        message: "receipt signature is invalid",
-      });
+      expect(result).toEqual({ ok: false, message: expectedMessage });
     });
 
     it(`rejects a re-signed ${label} — a valid signature over a false claim`, () => {
@@ -231,7 +251,7 @@ describe("planted defect: tampering with the signed body", () => {
       const result = verifyReleaseReceipt(
         sign(validReceipt(override), privateKey),
         context(),
-        new Map([[KEY_ID, publicKeyPem]]),
+        keySet(publicKeyPem),
       );
       expect(result.ok).toBe(false);
     });
@@ -247,7 +267,7 @@ describe("planted defect: freshness", () => {
         privateKey,
       ),
       context(),
-      new Map([[KEY_ID, publicKeyPem]]),
+      keySet(publicKeyPem),
     );
     expect(result).toEqual({
       ok: false,
@@ -263,7 +283,7 @@ describe("planted defect: freshness", () => {
         privateKey,
       ),
       context(),
-      new Map([[KEY_ID, publicKeyPem]]),
+      keySet(publicKeyPem),
     );
     expect(result).toEqual({
       ok: false,
@@ -279,7 +299,7 @@ describe("planted defect: freshness", () => {
         privateKey,
       ),
       context(),
-      new Map([[KEY_ID, publicKeyPem]]),
+      keySet(publicKeyPem),
     );
     expect(result).toEqual({ ok: true });
   });
@@ -293,18 +313,18 @@ describe("planted defect: the measurements themselves", () => {
     const result = verifyReleaseReceipt(
       sign(validReceipt({ criterionId: "D3-revenue-reconciliation" }), privateKey),
       context({ criterionId: "D3-revenue-reconciliation" }),
-      new Map([[KEY_ID, publicKeyPem]]),
+      keySet(publicKeyPem, ["D3-revenue-reconciliation"]),
     );
     expect(result).toEqual({
       ok: false,
-      message: expect.stringContaining("no measurement check is registered"),
+      message: expect.stringContaining("no measurement policy is registered"),
     });
   });
 
   it("keeps the registry to criteria that have actually been defined", () => {
     // Deliberately exact. Adding a criterion here must be a conscious edit
     // with its own measurement predicate and tests, not a side effect.
-    expect(Object.keys(MEASUREMENT_CHECKS).sort()).toEqual(["C2-secrets-scan"]);
+    expect(Object.keys(CRITERION_POLICIES).sort()).toEqual(["C2-secrets-scan"]);
   });
 
   it("refuses a secrets scan that found something", () => {
@@ -317,7 +337,7 @@ describe("planted defect: the measurements themselves", () => {
         privateKey,
       ),
       context(),
-      new Map([[KEY_ID, publicKeyPem]]),
+      keySet(publicKeyPem),
     );
     expect(result).toEqual({
       ok: false,
@@ -340,7 +360,7 @@ describe("planted defect: the measurements themselves", () => {
         privateKey,
       ),
       context(),
-      new Map([[KEY_ID, publicKeyPem]]),
+      keySet(publicKeyPem),
     );
     expect(result).toEqual({
       ok: false,
@@ -355,7 +375,7 @@ describe("planted defect: the measurements themselves", () => {
     const result = verifyReleaseReceipt(
       sign(validReceipt({ measurements: withoutEnv }), privateKey),
       context(),
-      new Map([[KEY_ID, publicKeyPem]]),
+      keySet(publicKeyPem),
     );
     expect(result).toEqual({
       ok: false,
@@ -373,7 +393,7 @@ describe("planted defect: the measurements themselves", () => {
         privateKey,
       ),
       context(),
-      new Map([[KEY_ID, publicKeyPem]]),
+      keySet(publicKeyPem),
     );
     expect(result).toEqual({
       ok: false,
@@ -394,7 +414,7 @@ describe("planted defect: malformed receipts", () => {
     const result = verifyReleaseReceipt(
       sign(receipt, privateKey),
       context(),
-      new Map([[KEY_ID, publicKeyPem]]),
+      keySet(publicKeyPem),
     );
     expect(result).toEqual({
       ok: false,
@@ -435,5 +455,89 @@ describe("binding is checked independently of the signature", () => {
       ok: false,
       message: expect.stringContaining("bound to a different criterion"),
     });
+  });
+});
+
+describe("planted defect: key scope", () => {
+  it("refuses a key that is not authorised for the criterion it signed", () => {
+    // The blast-radius property. The Stripe reconciliation producer runs
+    // somewhere quite different from the secrets scanner; if its key leaks it
+    // must not be able to satisfy C2 as well.
+    const { privateKey, publicKeyPem } = keypair();
+    const result = verifyReleaseReceipt(
+      sign(validReceipt(), privateKey),
+      context(),
+      keySet(publicKeyPem, ["D3-revenue-reconciliation"]),
+    );
+    expect(result).toEqual({
+      ok: false,
+      message: `key ${KEY_ID} is not authorised to sign C2-secrets-scan`,
+    });
+  });
+
+  it("refuses a bare PEM entry rather than reading it as unscoped", () => {
+    // The old format. Silently treating it as authority over every criterion
+    // would be exactly the default nobody revisits.
+    expect(
+      trustedKeysFromEnv({
+        [TRUSTED_KEYS_ENV]: JSON.stringify({ [KEY_ID]: "pem-here" }),
+      } as NodeJS.ProcessEnv).size,
+    ).toBe(0);
+  });
+
+  it("refuses an empty criteria list, which would authorise nothing but look configured", () => {
+    expect(
+      trustedKeysFromEnv({
+        [TRUSTED_KEYS_ENV]: JSON.stringify({
+          [KEY_ID]: { publicKey: "pem-here", criteria: [] },
+        }),
+      } as NodeJS.ProcessEnv).size,
+    ).toBe(0);
+  });
+
+  // Both malformed shapes, because they take different branches. An earlier
+  // version of this test only covered the missing-criteria one, and mutation
+  // testing caught that the missing-publicKey branch could be changed to skip
+  // the entry with all 39 tests still passing.
+  it.each([
+    ["missing criteria", { publicKey: "pem-here" }],
+    ["missing publicKey", { criteria: ["C2-secrets-scan"] }],
+    ["publicKey of the wrong type", { publicKey: 42, criteria: ["C2"] }],
+  ])("drops the whole key set when one entry has %s", (_label, bad) => {
+    // Keeping the valid entries would let a typo silently reshape the trust
+    // root -- narrowing it, or widening it, without anyone noticing.
+    expect(
+      trustedKeysFromEnv({
+        [TRUSTED_KEYS_ENV]: JSON.stringify({
+          good: { publicKey: "pem-here", criteria: ["C2-secrets-scan"] },
+          bad,
+        }),
+      } as NodeJS.ProcessEnv).size,
+    ).toBe(0);
+  });
+});
+
+describe("planted defect: environment binding", () => {
+  it("refuses an environment the criterion does not accept", () => {
+    // Before this check, `environment` was required non-empty and then never
+    // compared to anything: a field that reads as a control in the receipt and
+    // in review while permitting any value at all.
+    const { privateKey, publicKeyPem } = keypair();
+    const result = verifyReleaseReceipt(
+      sign(validReceipt({ environment: "my-laptop" }), privateKey),
+      context(),
+      keySet(publicKeyPem),
+    );
+    expect(result).toEqual({
+      ok: false,
+      message:
+        "receipt was observed in my-laptop, which C2-secrets-scan does not accept",
+    });
+  });
+
+  it("keeps C2 to environments where a tracked-tree scan is reproducible", () => {
+    // Exact on purpose: widening this must be a deliberate edit. A secrets
+    // scan reads the tree, so it has no business claiming production.
+    expect(CRITERION_POLICIES["C2-secrets-scan"].environments).toEqual(["ci"]);
   });
 });

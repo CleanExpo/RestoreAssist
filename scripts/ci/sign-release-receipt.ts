@@ -22,9 +22,14 @@
  * Generating a keypair (owner, once, off this machine):
  *   openssl genpkey -algorithm ed25519 -out release-signing.pem
  *   openssl pkey -in release-signing.pem -pubout
- * The PUBLIC half goes into the RELEASE_RECEIPT_PUBLIC_KEYS repository secret
- * as {"<key-id>": "<PEM>"}. The private half never leaves the owner's control
- * and must not be committed.
+ * The PUBLIC half goes into the RELEASE_RECEIPT_PUBLIC_KEYS repository secret,
+ * scoped to the criteria that key is allowed to sign:
+ *
+ *   {"<key-id>": {"publicKey": "<PEM>", "criteria": ["C2-secrets-scan"]}}
+ *
+ * Issue a separate key per producer rather than one key for the gate: they run
+ * in different places, and a leaked key should only reach its own criterion.
+ * The private half never leaves the owner's control and must not be committed.
  */
 
 import crypto from "node:crypto";
@@ -38,16 +43,19 @@ import { markdownSection } from "../release-gate-score";
 const PRIVATE_KEY_ENV = "RELEASE_RECEIPT_PRIVATE_KEY";
 const ROOT = process.cwd();
 
+/** Read a `--name=value` flag from argv, or undefined when absent. */
 function arg(name: string): string | undefined {
   const hit = process.argv.slice(2).find((a) => a.startsWith(`--${name}=`));
   return hit?.slice(name.length + 3);
 }
 
+/** Abort with exit 2 (usage or setup error), matching run-smoke.mjs. */
 function fail(message: string): never {
   console.error(message);
   process.exit(2);
 }
 
+/** The gate version the receipt is produced against, from RELEASE_GATE.md. */
 function gateVersion(): string {
   const text = fs.readFileSync(path.join(ROOT, "docs", "RELEASE_GATE.md"), "utf8");
   const m = text.match(/^gate_version:\s*([\d.]+)\s*$/m);

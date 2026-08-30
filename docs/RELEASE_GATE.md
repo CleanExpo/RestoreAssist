@@ -103,19 +103,36 @@ The verifier this section used to call for now exists:
 Three properties carry the scheme, and each has a test that fails without it:
 
 1. **The trust root is not in this repository.** Public keys are read from the
-   `RELEASE_RECEIPT_PUBLIC_KEYS` environment variable as
-   `{"<key-id>": "<PEM>"}`, which on Actions means a repository secret. A
-   committed key would be worthless: anyone who can open a pull request could
-   swap in a key they hold and sign their own receipts. The private half stays
-   with the owner and must never be committed.
-2. **Every absence fails closed.** No key set configured, an unknown key id, or
-   a criterion with no registered measurement check all score zero. A receipt
-   file appearing in the repository moves nothing on its own.
-3. **Measurements are re-derived, not believed.** A signature says who produced
-   the bytes, never that they are true, so the verifier recomputes the release
-   SHA, the source tree and the evidence digest against the checkout being
-   scored. A receipt taken on a different tree is rejected even when its
-   signature is perfect.
+   `RELEASE_RECEIPT_PUBLIC_KEYS` environment variable, which on Actions means a
+   repository secret. A committed key would be worthless: anyone who can open a
+   pull request could swap in a key they hold and sign their own receipts. The
+   private half stays with the owner and must never be committed. Each key is
+   scoped to the criteria it may sign:
+
+   ```json
+   {"<key-id>": {"publicKey": "<PEM>", "criteria": ["C2-secrets-scan"]}}
+   ```
+
+   Issue one key per producer. They run in different places with different
+   blast radii, and a leaked key should reach only its own criterion. A bare
+   `"<key-id>": "<PEM>"` is rejected rather than read as unscoped.
+2. **Every absence fails closed.** No key set configured, an unknown key id, a
+   key not authorised for the criterion it signed, or a criterion with no
+   registered policy all score zero. A receipt file appearing in the repository
+   moves nothing on its own.
+3. **Measurements are re-derived where possible, and constrained where not.** A
+   signature says who produced the bytes, never that they are true, so the
+   verifier recomputes the release SHA, the source tree and the evidence digest
+   against the checkout being scored. A receipt taken on a different tree is
+   rejected even when its signature is perfect. The observed `environment` is
+   checked against the criterion's policy, so C2 cannot claim to have been
+   measured anywhere but CI.
+
+   What remains is stated rather than papered over: a scanner's finding count
+   is the producer's word, pinned to an exact tree. That residue is the reason
+   these criteria need an accountable signer at all. A measurement CI can take
+   unaided does not belong here — it belongs as a machine criterion, the way
+   C1 and F2 already do.
 
 That third property is why a signature alone cannot enable a criterion. Each
 one needs a registered measurement check saying what "measured" means for it,

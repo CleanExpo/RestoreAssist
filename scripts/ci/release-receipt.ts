@@ -33,15 +33,29 @@
  *     a future change makes it.
  *
  *  2. **It fails closed at every absence.** No key set configured, an unknown
- *     key id, or a criterion with no registered measurement check all return
- *     `fail`. Adding a criterion to the gate must therefore be a deliberate
- *     act, not something that falls out of a receipt file appearing.
+ *     key id, or a criterion with no registered policy all return `fail`.
+ *     Adding a criterion to the gate must therefore be a deliberate act, not
+ *     something that falls out of a receipt file appearing.
+ *
+ *     Authority is scoped per key rather than granted wholesale: a key lists
+ *     the criteria it may speak for, so the Stripe reconciliation producer's
+ *     key cannot sign a secrets-scan receipt. Producers run in different
+ *     places with different blast radii, and one leaked key should not be
+ *     able to satisfy the whole gate.
  *
  *  3. **Measurements are re-derived, not believed.** A signature proves who
  *     said it, never that it is true. So the binding check recomputes what it
  *     can: the release SHA and tree against this checkout, and the evidence
  *     digest against the actual `## Evidence` section. A receipt that scanned
  *     a different tree is rejected even when the signature is perfect.
+ *
+ *     What it cannot re-derive it constrains: the observed `environment` is
+ *     checked against the criterion's policy, because a field carried but
+ *     never compared is worse than an absent one -- it reads as a control in
+ *     the receipt and in review while permitting anything. The residual trust
+ *     is stated rather than papered over. A scanner's finding count is the
+ *     producer's word, pinned to an exact tree; a measurement CI could take
+ *     unaided does not belong here at all, but as a machine criterion.
  *
  * Signing lives in `scripts/ci/sign-release-receipt.ts`, which needs a private
  * key this repository does not contain and must never contain.
@@ -116,12 +130,21 @@ const RECEIPT_FIELDS = [
 
 const SIGNED_FIELDS = ["keyId", "signature", "receipt"] as const;
 
+/** True for a non-null, non-array object: the only shape a receipt may take. */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+/** True for a string with content. Empty strings are treated as absent. */
 function nonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
+}
+
+/** A trusted signing key and the criteria it is allowed to speak for. */
+export interface TrustedKey {
+  publicKeyPem: string;
+  /** Criterion ids this key may sign. Never empty; never a wildcard. */
+  criteria: string[];
 }
 
 /**
@@ -130,10 +153,18 @@ function nonEmptyString(value: unknown): value is string {
  * There is no file fallback and there must never be one — see property 1 in
  * the module comment. An absent or malformed value yields an EMPTY map, and an
  * empty map verifies nothing.
+ *
+ * The format requires every key to declare its scope:
+ *
+ *   {"<key-id>": {"publicKey": "<PEM>", "criteria": ["C2-secrets-scan"]}}
+ *
+ * A bare `"<key-id>": "<PEM>"` is REJECTED rather than read as unscoped.
+ * Authority over the whole gate granted by omission is the kind of default
+ * nobody revisits.
  */
 export function trustedKeysFromEnv(
   env: NodeJS.ProcessEnv = process.env,
-): Map<string, string> {
+): Map<string, TrustedKey> {
   const raw = env[TRUSTED_KEYS_ENV];
   if (!nonEmptyString(raw)) return new Map();
   let parsed: unknown;
@@ -143,13 +174,25 @@ export function trustedKeysFromEnv(
     return new Map();
   }
   if (!isPlainObject(parsed)) return new Map();
-  const keys = new Map<string, string>();
-  for (const [keyId, pem] of Object.entries(parsed)) {
-    // A non-string entry means the key set is not what the owner thinks it is.
-    // Dropping the whole set is the fail-closed reading; keeping the valid
-    // entries would let a typo silently narrow the trust root.
-    if (!nonEmptyString(keyId) || !nonEmptyString(pem)) return new Map();
-    keys.set(keyId, pem);
+  const keys = new Map<string, TrustedKey>();
+  for (const [keyId, entry] of Object.entries(parsed)) {
+    // A malformed entry means the key set is not what the owner thinks it is.
+    // Dropping the WHOLE set is the fail-closed reading; keeping the valid
+    // entries would let a typo silently reshape the trust root.
+    if (!nonEmptyString(keyId) || !isPlainObject(entry)) return new Map();
+    const { publicKey, criteria } = entry;
+    if (!nonEmptyString(publicKey)) return new Map();
+    if (
+      !Array.isArray(criteria) ||
+      criteria.length === 0 ||
+      !criteria.every((id) => nonEmptyString(id))
+    ) {
+      return new Map();
+    }
+    keys.set(keyId, {
+      publicKeyPem: publicKey,
+      criteria: criteria as string[],
+    });
   }
   return keys;
 }
@@ -345,6 +388,24 @@ type MeasurementCheck = (
   context: ReceiptContext,
 ) => ReceiptResult;
 
+/** What a criterion requires of a receipt beyond a valid signature. */
+interface CriterionPolicy {
+  /**
+   * Environments whose observation counts for this criterion. The receipt
+   * carries `environment`; without this it would be carried and never
+   * compared, which reads as a control while permitting anything.
+   */
+  environments: string[];
+  check: MeasurementCheck;
+}
+
+/**
+ * Assert a measurement is exactly the required count.
+ *
+ * @param measurements The receipt's measurement bag.
+ * @param name Measurement to read.
+ * @param expected The only value that passes.
+ */
 function requireCount(
   measurements: Record<string, string | number | boolean>,
   name: string,
@@ -355,13 +416,16 @@ function requireCount(
     return { ok: false, message: `measurement ${name} must be a number` };
   }
   if (value !== expected) {
-    return { ok: false, message: `measurement ${name} is ${value}, expected ${expected}` };
+    return {
+      ok: false,
+      message: `measurement ${name} is ${value}, expected ${expected}`,
+    };
   }
   return { ok: true };
 }
 
 /**
- * Criterion-specific measurement checks.
+ * Criterion-specific policies.
  *
  * A criterion absent from this table CANNOT pass, however good its signature.
  * That is the point: a signature alone would make the gate a cryptographic
@@ -369,34 +433,40 @@ function requireCount(
  * without anything having been measured. Enabling a criterion has to be a
  * deliberate act of writing down what "measured" means for it.
  */
-export const MEASUREMENT_CHECKS: Record<string, MeasurementCheck> = {
-  "C2-secrets-scan": (measurements) => {
-    for (const field of ["scanner", "scannerVersion", "scannedRef"] as const) {
-      if (!nonEmptyString(measurements[field])) {
-        return { ok: false, message: `measurement ${field} is required` };
+export const CRITERION_POLICIES: Record<string, CriterionPolicy> = {
+  "C2-secrets-scan": {
+    // A secrets scan reads the tree, so it is reproducible on a CI runner and
+    // has no business claiming to have been observed against production.
+    environments: ["ci"],
+    check: (measurements) => {
+      for (const field of ["scanner", "scannerVersion", "scannedRef"] as const) {
+        if (!nonEmptyString(measurements[field])) {
+          return { ok: false, message: `measurement ${field} is required` };
+        }
       }
-    }
-    // CLAUDE.md: `gitleaks --no-git` ignores .gitignore, so a scan of the
-    // working directory is not a scan of what ships. The receipt has to say it
-    // read an export of the tracked tree, which is what CI scans.
-    if (measurements.scannedRef !== "git-checkout-index") {
-      return {
-        ok: false,
-        message:
-          "measurement scannedRef must be git-checkout-index: a working-directory scan does not read the tracked tree",
-      };
-    }
-    const findings = requireCount(measurements, "findings", 0);
-    if (!findings.ok) return findings;
-    // The env-var completeness half of C2. `/api/health` reports `degraded`
-    // while any recommended variable is unset, so a secrets scan alone does
-    // not settle this criterion.
-    return requireCount(measurements, "missingEnvVars", 0);
+      // CLAUDE.md: `gitleaks --no-git` ignores .gitignore, so a scan of the
+      // working directory is not a scan of what ships. The receipt has to say
+      // it read an export of the tracked tree, which is what CI scans.
+      if (measurements.scannedRef !== "git-checkout-index") {
+        return {
+          ok: false,
+          message:
+            "measurement scannedRef must be git-checkout-index: a working-directory scan does not read the tracked tree",
+        };
+      }
+      const findings = requireCount(measurements, "findings", 0);
+      if (!findings.ok) return findings;
+      // The env-var completeness half of C2. `/api/health` reports `degraded`
+      // while any recommended variable is unset, so a secrets scan alone does
+      // not settle this criterion.
+      return requireCount(measurements, "missingEnvVars", 0);
+    },
   },
 };
 
 /**
- * Full verification: parse, resolve the key, verify the signature, then bind.
+ * Full verification: parse, resolve the key, check that key is allowed to
+ * speak for this criterion, verify the signature, then bind.
  *
  * Ordered so the cheapest and most specific rejections come first, and so a
  * signature is never checked against a key the caller did not vouch for.
@@ -404,7 +474,7 @@ export const MEASUREMENT_CHECKS: Record<string, MeasurementCheck> = {
 export function verifyReleaseReceipt(
   raw: string,
   context: ReceiptContext,
-  trustedKeys: Map<string, string>,
+  trustedKeys: Map<string, TrustedKey>,
 ): ReceiptResult {
   if (trustedKeys.size === 0) {
     return {
@@ -414,29 +484,48 @@ export function verifyReleaseReceipt(
   }
   const parsed = parseSignedReceipt(raw);
   if (!parsed.ok) return parsed;
-  const publicKeyPem = trustedKeys.get(parsed.signed.keyId);
-  if (!publicKeyPem) {
+  const key = trustedKeys.get(parsed.signed.keyId);
+  if (!key) {
     return {
       ok: false,
       message: `receipt is signed by an untrusted key id (${parsed.signed.keyId})`,
     };
   }
-  if (!verifyReceiptSignature(parsed.signed, publicKeyPem)) {
+  // Scope before signature. A key trusted for one criterion is not a key
+  // trusted for the gate, and producers run in different places with different
+  // blast radii -- one leaked key must not be able to satisfy everything.
+  if (!key.criteria.includes(parsed.signed.receipt.criterionId)) {
+    return {
+      ok: false,
+      message: `key ${parsed.signed.keyId} is not authorised to sign ${parsed.signed.receipt.criterionId}`,
+    };
+  }
+  if (!verifyReceiptSignature(parsed.signed, key.publicKeyPem)) {
     return { ok: false, message: "receipt signature is invalid" };
   }
   return checkReceiptBinding(parsed.signed.receipt, context);
 }
 
+/**
+ * Apply the criterion's policy: the environment it must have been observed in,
+ * then its measurements.
+ */
 function checkMeasurements(
   receipt: ReleaseReceipt,
   context: ReceiptContext,
 ): ReceiptResult {
-  const check = MEASUREMENT_CHECKS[receipt.criterionId];
-  if (!check) {
+  const policy = CRITERION_POLICIES[receipt.criterionId];
+  if (!policy) {
     return {
       ok: false,
-      message: `no measurement check is registered for ${receipt.criterionId}; a signature alone cannot earn release points`,
+      message: `no measurement policy is registered for ${receipt.criterionId}; a signature alone cannot earn release points`,
     };
   }
-  return check(receipt.measurements, context);
+  if (!policy.environments.includes(receipt.environment)) {
+    return {
+      ok: false,
+      message: `receipt was observed in ${receipt.environment}, which ${receipt.criterionId} does not accept`,
+    };
+  }
+  return policy.check(receipt.measurements, context);
 }
