@@ -311,9 +311,9 @@ describe("planted defect: the measurements themselves", () => {
     // criterion — a cryptographic restatement of self-attestation.
     const { privateKey, publicKeyPem } = keypair();
     const result = verifyReleaseReceipt(
-      sign(validReceipt({ criterionId: "D3-revenue-reconciliation" }), privateKey),
-      context({ criterionId: "D3-revenue-reconciliation" }),
-      keySet(publicKeyPem, ["D3-revenue-reconciliation"]),
+      sign(validReceipt({ criterionId: "F1-monitoring-alerting" }), privateKey),
+      context({ criterionId: "F1-monitoring-alerting" }),
+      keySet(publicKeyPem, ["F1-monitoring-alerting"]),
     );
     expect(result).toEqual({
       ok: false,
@@ -327,6 +327,7 @@ describe("planted defect: the measurements themselves", () => {
     expect(Object.keys(CRITERION_POLICIES).sort()).toEqual([
       "A3-no-sev1-sev2-open",
       "C2-secrets-scan",
+      "D3-revenue-reconciliation",
     ]);
   });
 
@@ -661,6 +662,155 @@ describe("A3-no-sev1-sev2-open policy", () => {
         ),
         context({ criterionId: A3 }),
         keySet(publicKeyPem, [A3]),
+      ).ok,
+    ).toBe(false);
+  });
+});
+
+describe("D3-revenue-reconciliation policy", () => {
+  const D3 = "D3-revenue-reconciliation";
+
+  /** Measurements a clean reconciliation emits. */
+  function d3(overrides: Record<string, string | number | boolean> = {}) {
+    return {
+      source: "stripe+prisma",
+      mode: "live",
+      windowDays: 7,
+      // NOW in these tests is 2026-08-30, so this window ends today.
+      windowEndsAt: "2026-08-30T00:00:00.000Z",
+      eventTypesScanned:
+        "customer.subscription.created,customer.subscription.deleted,customer.subscription.updated,invoice.payment_failed",
+      stripeEventCount: 9,
+      matchedInDb: 9,
+      missingInDb: 0,
+      duplicateStripeIds: 0,
+      dbEventsWithoutStripeId: 0,
+      failedWebhookDeliveries: 0,
+      missingIds: "",
+      ...overrides,
+    };
+  }
+
+  function verifyD3(measurements: Record<string, string | number | boolean>) {
+    const { privateKey, publicKeyPem } = keypair();
+    return verifyReleaseReceipt(
+      sign(
+        validReceipt({
+          criterionId: D3,
+          measurements,
+          environment: "production",
+        }),
+        privateKey,
+      ),
+      context({ criterionId: D3 }),
+      keySet(publicKeyPem, [D3]),
+    );
+  }
+
+  it("accepts a clean reconciliation", () => {
+    expect(verifyD3(d3())).toEqual({ ok: true });
+  });
+
+  it("refuses a window with no Stripe events at all", () => {
+    // The trap the evidence file names outright: two empty queries agreeing
+    // reconciles perfectly and proves nothing. The single most important
+    // assertion in this block.
+    expect(verifyD3(d3({ stripeEventCount: 0, matchedInDb: 0 }))).toEqual({
+      ok: false,
+      message: expect.stringContaining("stripeEventCount must be positive"),
+    });
+  });
+
+  it("refuses when an event has no database row", () => {
+    expect(
+      verifyD3(d3({ missingInDb: 1, matchedInDb: 8, missingIds: "evt_x" })),
+    ).toEqual({
+      ok: false,
+      message: "measurement missingInDb is 1, expected 0",
+    });
+  });
+
+  it("refuses equal totals that do not actually match", () => {
+    // missingInDb 0 but matchedInDb short of the Stripe count is internally
+    // inconsistent, and consistency is what stops a hand-edited receipt.
+    expect(verifyD3(d3({ matchedInDb: 7 }))).toEqual({
+      ok: false,
+      message: expect.stringContaining("does not equal stripeEventCount"),
+    });
+  });
+
+  it("refuses test-mode events, which are not revenue", () => {
+    expect(verifyD3(d3({ mode: "test" }))).toEqual({
+      ok: false,
+      message: expect.stringContaining("only live Stripe events are revenue"),
+    });
+  });
+
+  it("refuses an earlier window that happened to reconcile", () => {
+    // A freely chosen window can be shopped for. NOW is 2026-08-30, so a
+    // window ending in June is well outside the 14-day evidence ceiling.
+    expect(verifyD3(d3({ windowEndsAt: "2026-06-01T00:00:00.000Z" }))).toEqual({
+      ok: false,
+      message: expect.stringContaining("must be the current window"),
+    });
+  });
+
+  it("refuses a future window", () => {
+    expect(verifyD3(d3({ windowEndsAt: "2027-01-01T00:00:00.000Z" })).ok).toBe(
+      false,
+    );
+  });
+
+  it("refuses a window that is not seven days", () => {
+    expect(verifyD3(d3({ windowDays: 30 }))).toEqual({
+      ok: false,
+      message: "measurement windowDays must be 7",
+    });
+  });
+
+  it("refuses a narrowed set of Stripe event types", () => {
+    expect(
+      verifyD3(d3({ eventTypesScanned: "customer.subscription.created" })),
+    ).toEqual({
+      ok: false,
+      message: expect.stringContaining("all four reconciled Stripe types"),
+    });
+  });
+
+  it("refuses duplicate stripe ids — the @unique positive control", () => {
+    expect(verifyD3(d3({ duplicateStripeIds: 2 }))).toEqual({
+      ok: false,
+      message: "measurement duplicateStripeIds is 2, expected 0",
+    });
+  });
+
+  it("refuses rows written by something other than the webhook", () => {
+    expect(verifyD3(d3({ dbEventsWithoutStripeId: 3 }))).toEqual({
+      ok: false,
+      message: "measurement dbEventsWithoutStripeId is 3, expected 0",
+    });
+  });
+
+  it("refuses failed webhook deliveries, and an unmeasured -1 with them", () => {
+    // The producer defaults this to -1 when nobody supplied it, so "not
+    // measured" fails here rather than passing as a silent zero.
+    expect(verifyD3(d3({ failedWebhookDeliveries: 2 })).ok).toBe(false);
+    expect(verifyD3(d3({ failedWebhookDeliveries: -1 }))).toEqual({
+      ok: false,
+      message: "measurement failedWebhookDeliveries is -1, expected 0",
+    });
+  });
+
+  it("refuses a CI-mode observation: this criterion is about production", () => {
+    const { privateKey, publicKeyPem } = keypair();
+    expect(
+      verifyReleaseReceipt(
+        sign(
+          validReceipt({ criterionId: D3, measurements: d3(), environment: "ci" }),
+          privateKey,
+        ),
+        context({ criterionId: D3 }),
+        keySet(publicKeyPem, [D3]),
       ).ok,
     ).toBe(false);
   });
