@@ -17,6 +17,7 @@ import {
 } from "./account-code-resolver";
 import { isKnownItemType } from "@/lib/progress/integrations/xero-category";
 import { getGSTTreatment } from "../../gst-treatment-rules";
+import { getGstTreatment, type Country } from "@/lib/gst-rules";
 
 /**
  * RA-870: Format an 11-digit ABN to Xero TaxNumber format (XX XXX XXX XXX).
@@ -59,6 +60,8 @@ function getDamageTypeAccountCode(damageType: string): string {
 
 export interface NIRJobPayload {
   reportId: string;
+  country: Country;
+  currency: "AUD" | "NZD";
   clientName: string;
   clientEmail?: string;
   clientPhone?: string;
@@ -168,6 +171,7 @@ export async function syncNIRJobToXero(
 
   // RA-855: Damage-type account code fallback (STORM→203, BIOHAZARD→204, etc.)
   const damageAccountCode = getDamageTypeAccountCode(job.damageType);
+  const jurisdiction = getGstTreatment(job.country);
 
   const lineItems = [
     ...job.scopeItems.map((item, idx) => {
@@ -180,7 +184,11 @@ export async function syncNIRJobToXero(
       // - EXEMPT / INPUT / NONE use the ATO treatment directly — category rule overrides
       const treatment = getGSTTreatment(item.category);
       const taxType =
-        treatment.taxType === "OUTPUT" ? resolved.taxType : treatment.taxType;
+        item.gstRate === 0
+          ? "NONE"
+          : treatment.taxType === "OUTPUT"
+            ? jurisdiction.xeroTaxType
+            : treatment.taxType;
       return {
         Description: item.iicrcRef
           ? `${item.description} (${item.category}) [${item.iicrcRef}]`
@@ -227,7 +235,7 @@ export async function syncNIRJobToXero(
     Reference: `NIR-${job.reportId}${job.insuranceClaim ? " | Claim: " + job.insuranceClaim : ""}`,
     Status: "DRAFT",
     LineItems: lineItems,
-    CurrencyCode: "AUD",
+    CurrencyCode: job.currency,
   };
 
   const res = await fetch("https://api.xero.com/api.xro/2.0/Invoices", {

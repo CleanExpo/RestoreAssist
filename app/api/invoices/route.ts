@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
+import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
+import { resolveLineGstRatePercent } from "@/lib/gst-rules";
 
 export async function GET(request: NextRequest) {
   try {
@@ -178,6 +180,7 @@ export async function POST(request: NextRequest) {
         shippingAmount,
         source: bodySource,
       } = body;
+      const gstTreatment = await resolveUserGstTreatment(userId);
 
       // Validate required fields
       if (!customerName || !customerEmail) {
@@ -217,7 +220,10 @@ export async function POST(request: NextRequest) {
         const item = lineItems[index];
         const quantity = parseFloat(item.quantity);
         const unitPrice = parseInt(item.unitPrice);
-        const gstRate = item.gstRate ?? 10.0;
+        const requestedGstRate =
+          item.gstRate === null || item.gstRate === undefined || item.gstRate === ""
+            ? gstTreatment.ratePercent
+            : Number(item.gstRate);
 
         if (!Number.isFinite(quantity) || quantity < 0) {
           return apiError(request, {
@@ -235,7 +241,7 @@ export async function POST(request: NextRequest) {
             fields: { [`lineItems.${index}.unitPrice`]: "Must be a non-negative number" },
           });
         }
-        if (!Number.isFinite(Number(gstRate)) || Number(gstRate) < 0) {
+        if (!Number.isFinite(requestedGstRate) || requestedGstRate < 0) {
           return apiError(request, {
             code: "VALIDATION",
             message: `Line item ${index + 1} has an invalid GST rate — must be a non-negative number`,
@@ -249,7 +255,7 @@ export async function POST(request: NextRequest) {
         const quantity = parseFloat(item.quantity);
         const unitPrice = Math.round(parseFloat(item.unitPrice));
         const subtotal = Math.round(quantity * unitPrice);
-        const gstRate = item.gstRate ?? 10.0;
+        const gstRate = resolveLineGstRatePercent(item.gstRate, gstTreatment);
         const itemGst = Math.round(subtotal * (gstRate / 100));
         const total = subtotal + itemGst;
 
@@ -305,7 +311,7 @@ export async function POST(request: NextRequest) {
       // Add shipping
       if (shippingAmount) {
         subtotalExGST += shippingAmount;
-        gstAmount += Math.round(shippingAmount * 0.1);
+        gstAmount += Math.round(shippingAmount * gstTreatment.rate);
       }
 
       const totalIncGST = subtotalExGST + gstAmount;
@@ -353,6 +359,7 @@ export async function POST(request: NextRequest) {
               gstAmount,
               totalIncGST,
               amountDue: totalIncGST,
+              currency: gstTreatment.currency,
               discountAmount: discountAmount || 0,
               discountPercentage,
               shippingAmount: shippingAmount || 0,

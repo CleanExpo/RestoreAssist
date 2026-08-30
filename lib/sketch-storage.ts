@@ -1,7 +1,7 @@
 /**
  * Supabase Storage utilities for sketch media — RA2-004 (RA-90)
  *
- * Bucket: sketch-media (public, auto-created via SQL below)
+ * Bucket: sketch-media (private; tenant-scoped policies live in migrations)
  *
  * Path structure:
  *   sketch-media/
@@ -15,22 +15,14 @@
  *   VALUES (
  *     'sketch-media',
  *     'sketch-media',
- *     true,
+ *     false,
  *     10485760,  -- 10 MB per file
  *     ARRAY['image/jpeg','image/png','image/webp','image/gif','application/pdf']
  *   ) ON CONFLICT (id) DO NOTHING;
  *
- *   CREATE POLICY "Authenticated users can upload sketch media"
- *     ON storage.objects FOR INSERT TO authenticated
- *     WITH CHECK (bucket_id = 'sketch-media');
- *
- *   CREATE POLICY "Authenticated users can delete own sketch media"
- *     ON storage.objects FOR DELETE TO authenticated
- *     USING (bucket_id = 'sketch-media' AND auth.uid()::text = owner);
- *
- *   CREATE POLICY "Anyone can read sketch media"
- *     ON storage.objects FOR SELECT TO public
- *     USING (bucket_id = 'sketch-media');
+ * Tenant-scoped SELECT/INSERT/UPDATE/DELETE policies validate the inspection ID
+ * in each object path. Underlays are server-uploaded only; browser writes are
+ * limited to photos and clean exports.
  */
 
 import { supabase } from "./supabase";

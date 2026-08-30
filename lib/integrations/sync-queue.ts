@@ -7,6 +7,7 @@ import { retryWithExponentialBackoff, DEFAULT_RETRY_OPTIONS } from "./retry";
 import { syncInvoiceToXero } from "./xero";
 import { syncInvoiceToQuickBooks } from "./quickbooks";
 import { syncInvoiceToMYOB } from "./myob";
+import { getGstTreatmentForCurrency } from "@/lib/gst-rules";
 
 /**
  * Durable Sync Queue System — RA-902
@@ -338,7 +339,12 @@ export async function cleanupSyncQueue(): Promise<number> {
  * caller (_processJob) which handles retry/dead-letter via the queue.
  */
 async function _syncInvoiceToProvider(
-  invoice: { id: string; userId: string; workspaceId?: string | null },
+  invoice: {
+    id: string;
+    userId: string;
+    workspaceId?: string | null;
+    currency?: string | null;
+  },
   provider: IntegrationProvider,
 ): Promise<void> {
   // Find the active integration for this provider + workspace/user
@@ -356,16 +362,29 @@ async function _syncInvoiceToProvider(
       `No active ${provider} integration found for invoice ${invoice.id} (userId: ${invoice.userId})`,
     );
   }
+  const gstTreatment = getGstTreatmentForCurrency(invoice.currency);
 
   switch (provider) {
     case IntegrationProvider.XERO:
-      await syncInvoiceToXero(invoice, integration as Integration);
+      await syncInvoiceToXero(
+        invoice,
+        integration as Integration,
+        gstTreatment.country,
+      );
       break;
     case IntegrationProvider.QUICKBOOKS:
-      await syncInvoiceToQuickBooks(invoice, integration as Integration);
+      await syncInvoiceToQuickBooks(
+        invoice,
+        integration as Integration,
+        gstTreatment.country,
+      );
       break;
     case IntegrationProvider.MYOB:
-      await syncInvoiceToMYOB(invoice, integration as Integration);
+      await syncInvoiceToMYOB(
+        invoice,
+        integration as Integration,
+        gstTreatment.country,
+      );
       break;
     default:
       throw new Error(

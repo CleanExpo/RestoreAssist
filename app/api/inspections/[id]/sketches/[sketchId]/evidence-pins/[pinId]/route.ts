@@ -36,7 +36,11 @@ export async function PATCH(
     }
 
     const existing = await prisma.evidencePin.findFirst({
-      where: { id: pinId, sketchId },
+      where: {
+        id: pinId,
+        sketchId,
+        sketch: { inspectionId: id },
+      },
       select: { id: true, x: true, y: true },
     });
     if (!existing) {
@@ -58,8 +62,6 @@ export async function PATCH(
       caption?: string | null;
       rotationDeg?: number;
       scale?: number;
-      fileUrl?: string | null;
-      thumbnailUrl?: string | null;
     };
 
     let nx = body.nx;
@@ -71,15 +73,19 @@ export async function PATCH(
       typeof body.canvasWidth === "number" &&
       typeof body.canvasHeight === "number"
     ) {
-      const n = toNormalized(body.x, body.y, body.canvasWidth, body.canvasHeight);
+      const n = toNormalized(
+        body.x,
+        body.y,
+        body.canvasWidth,
+        body.canvasHeight,
+      );
       nx = n.nx;
       ny = n.ny;
     }
 
     const nextX = typeof body.x === "number" ? body.x : existing.x;
     const nextY = typeof body.y === "number" ? body.y : existing.y;
-    const moved =
-      typeof body.x === "number" || typeof body.y === "number";
+    const moved = typeof body.x === "number" || typeof body.y === "number";
 
     let sketchRoomId = body.sketchRoomId;
     let roomName: string | null = null;
@@ -104,10 +110,17 @@ export async function PATCH(
         where: { id: sketchRoomId, sketchId },
         select: { name: true, geometryJson: true },
       });
+      if (!room) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "The selected room does not belong to this floor plan.",
+          status: 400,
+        });
+      }
       roomName = room?.name ?? null;
-      const geo = room?.geometryJson as
-        | { data?: { captureAdapter?: unknown } }
-        | null;
+      const geo = room?.geometryJson as {
+        data?: { captureAdapter?: unknown };
+      } | null;
       captureAdapter =
         typeof geo?.data?.captureAdapter === "string"
           ? geo.data.captureAdapter
@@ -127,10 +140,6 @@ export async function PATCH(
           ? { rotationDeg: body.rotationDeg }
           : {}),
         ...(typeof body.scale === "number" ? { scale: body.scale } : {}),
-        ...(body.fileUrl !== undefined ? { fileUrl: body.fileUrl } : {}),
-        ...(body.thumbnailUrl !== undefined
-          ? { thumbnailUrl: body.thumbnailUrl }
-          : {}),
       },
       select: {
         id: true,
@@ -190,7 +199,11 @@ export async function DELETE(
     }
 
     const existing = await prisma.evidencePin.findFirst({
-      where: { id: pinId, sketchId },
+      where: {
+        id: pinId,
+        sketchId,
+        sketch: { inspectionId: id },
+      },
       select: { id: true },
     });
     if (!existing) {

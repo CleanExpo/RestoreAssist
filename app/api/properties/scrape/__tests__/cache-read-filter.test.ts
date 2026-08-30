@@ -1,15 +1,6 @@
-/**
- * RA-1761 — regression test for the cache read filter.
- *
- * The scrape route's write path (POST handler tail) persists rows for both
- * `dataSource: "onthehouse"` and `dataSource: "domain"` with a 90-day TTL.
- * The read path used to filter to `dataSource: "onthehouse"` only, so cached
- * domain.com.au rows were stranded — every repeat domain lookup hit the
- * upstream scraper unnecessarily.
- *
- * These tests exercise the read filter in isolation. They mock the route's
- * collaborators so the test stops at the cache-hit return and never touches
- * the live scraper.
+/** Global address/postcode caching is disabled because a caller-controlled
+ * listing URL could poison address A with listing B. These tests keep that
+ * legal/provenance boundary closed and require inspection tenancy when supplied.
  */
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
@@ -50,6 +41,19 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+vi.mock("@/lib/scraping/dispatch", () => ({
+  fetchHtmlViaWorkspaceProvider: vi.fn(async () => ({
+    html: "",
+    status: 403,
+    providerUsed: "SHARED",
+    fellBack: false,
+  })),
+}));
+
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
+}));
+
 // RA-6922: the route gates on requireAddon() before the cache read. These tests
 // target the RA-1761 cache-read FILTER in isolation, so grant the add-on so the
 // handler reaches that code path.
@@ -63,6 +67,7 @@ vi.mock("@/lib/entitlements", () => ({
 
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { POST } from "../route";
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
@@ -82,15 +87,15 @@ const mockUpsert = (
     };
   }
 ).propertyLookup.upsert;
+const mockTenancy = assertInspectionTenancy as unknown as ReturnType<
+  typeof vi.fn
+>;
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("NEXT_PUBLIC_UNDERLAY_URL_IMPORT", "1");
   mockSession.mockResolvedValue({ user: { id: "u_test" } });
-  // Fail loudly if the test ever falls through to the scraper.
-  vi.spyOn(global, "fetch").mockImplementation(async () => {
-    throw new Error("fetch should not be called when cache hits");
-  });
+  mockTenancy.mockResolvedValue({ ok: true });
 });
 
 function makePost(body: object): NextRequest {
@@ -101,95 +106,39 @@ function makePost(body: object): NextRequest {
   });
 }
 
-const SAMPLE_DATA = {
-  address: "12 SMITH ST, BRISBANE QLD 4000",
-  url: "https://www.onthehouse.com.au/property/qld/brisbane-4000/12-smith-st-12345",
-  bedrooms: 3,
-  bathrooms: 2,
-  carSpaces: 1,
-  floorAreaM2: 120,
-  floorPlanImages: [],
-  propertyImages: [],
-  scrapedAt: new Date().toISOString(),
-  confidence: "high" as const,
-};
+describe("Track B — listing cache and inspection boundary", () => {
+  it("never reads or writes the legacy global property cache", async () => {
+    await POST(
+      makePost({
+        url: "https://www.onthehouse.com.au/property/qld/brisbane-4000/example",
+      }),
+    );
 
-describe("RA-1761 — cache read filter widened to include domain + realestate", () => {
-  it("ignores malformed cached JSON instead of returning it as property data", async () => {
-    mockFindFirst.mockResolvedValueOnce({
-      id: "pl_bad",
-      propertyAddress: "12 SMITH ST",
-      propertyPostcode: "4000",
-      dataSource: "onthehouse",
-      expiresAt: new Date(Date.now() + 86_400_000),
-      propertyData: ["not", "property", "data"],
-    });
-
-    await expect(
-      POST(makePost({ address: "12 Smith St", postcode: "4000" })),
-    ).rejects.toThrow();
+    expect(mockFindFirst).not.toHaveBeenCalled();
     expect(mockUpsert).not.toHaveBeenCalled();
   });
 
-  it("serves a cached `onthehouse` row (regression)", async () => {
-    mockFindFirst.mockResolvedValueOnce({
-      id: "pl_1",
-      propertyAddress: "12 SMITH ST",
-      propertyPostcode: "4000",
-      dataSource: "onthehouse",
-      expiresAt: new Date(Date.now() + 86_400_000),
-      propertyData: SAMPLE_DATA,
+  it("authorises an inspection-bound scrape before provider dispatch", async () => {
+    mockTenancy.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      reason: "Inspection not found",
     });
 
     const res = await POST(
-      makePost({ address: "12 Smith St", postcode: "4000" }),
+      makePost({
+        inspectionId: "foreign-inspection",
+        url: "https://www.onthehouse.com.au/property/qld/brisbane-4000/example",
+      }),
     );
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json).toEqual({
-      data: SAMPLE_DATA,
-      cached: true,
-      source: "onthehouse",
-    });
-    expect(mockUpsert).not.toHaveBeenCalled();
-  });
 
-  it("serves a cached `domain` row (the bug RA-1761 fixes)", async () => {
-    mockFindFirst.mockResolvedValueOnce({
-      id: "pl_2",
-      propertyAddress: "34 OAK AVE",
-      propertyPostcode: "2000",
-      dataSource: "domain",
-      expiresAt: new Date(Date.now() + 86_400_000),
-      propertyData: { ...SAMPLE_DATA, address: "34 OAK AVE, SYDNEY NSW 2000" },
-    });
-
-    const res = await POST(
-      makePost({ address: "34 Oak Ave", postcode: "2000" }),
+    expect(res.status).toBe(404);
+    expect(mockTenancy).toHaveBeenCalledWith(
+      expect.objectContaining({ user: { id: "u_test" } }),
+      "foreign-inspection",
     );
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.cached).toBe(true);
-    expect(json.source).toBe("domain");
-    expect(json.data.address).toBe("34 OAK AVE, SYDNEY NSW 2000");
+    expect(mockFindFirst).not.toHaveBeenCalled();
     expect(mockUpsert).not.toHaveBeenCalled();
-  });
-
-  it("findFirst includes onthehouse, domain, and realestate", async () => {
-    mockFindFirst.mockResolvedValueOnce({
-      id: "pl_3",
-      dataSource: "domain",
-      expiresAt: new Date(Date.now() + 86_400_000),
-      propertyData: SAMPLE_DATA,
-    });
-
-    await POST(makePost({ address: "1 Test St", postcode: "1000" }));
-
-    expect(mockFindFirst).toHaveBeenCalledTimes(1);
-    const callArg = mockFindFirst.mock.calls[0][0];
-    expect(callArg.where.dataSource).toEqual({
-      in: ["onthehouse", "domain", "realestate"],
-    });
   });
 
   it("returns 401 when unauthenticated (no session)", async () => {

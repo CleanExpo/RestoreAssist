@@ -159,6 +159,9 @@ export async function POST(request: NextRequest) {
         businessPhone: true,
         businessEmail: true,
         businessLogo: true,
+        organization: {
+          select: { country: true },
+        },
       },
     });
 
@@ -366,7 +369,15 @@ export async function POST(request: NextRequest) {
       minimumApplied,
       minimumChargeAmount,
     } = applyMinimumCharge(lineSubtotal);
-    const { gst, totalIncGST } = calcGstOnSubtotal(subtotalExGST);
+    const country = user?.organization?.country;
+    if (country !== "AU" && country !== "NZ") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Complete your organisation country before calculating tax.",
+        status: 422,
+      });
+    }
+    const { gst, totalIncGST } = calcGstOnSubtotal(subtotalExGST, country);
 
     // Generate quote number
     const shortId = session.user.id.slice(-4).toUpperCase();

@@ -35,7 +35,6 @@ export async function GET(
     const [
       inspection,
       moistureCount,
-      moistureAverage,
       latestMoisture,
       affectedAreaCount,
       scopeItemCount,
@@ -44,11 +43,18 @@ export async function GET(
         where: { id: inspectionId },
         include: {
           affectedAreas: {
+            select: {
+              id: true,
+              roomZoneId: true,
+            },
             orderBy: { createdAt: "asc" },
             take: MAX_PORTAL_AFFECTED_AREAS,
           },
           scopeItems: {
             where: { isSelected: true },
+            select: {
+              id: true,
+            },
             orderBy: { createdAt: "asc" },
             take: MAX_PORTAL_SCOPE_ITEMS,
           },
@@ -58,10 +64,6 @@ export async function GET(
         },
       }),
       prisma.moistureReading.count({ where: { inspectionId } }),
-      prisma.moistureReading.aggregate({
-        where: { inspectionId },
-        _avg: { moistureLevel: true },
-      }),
       prisma.moistureReading.findFirst({
         where: { inspectionId },
         orderBy: { recordedAt: "desc" },
@@ -81,11 +83,6 @@ export async function GET(
       });
     }
 
-    const avgMoisture =
-      moistureAverage._avg.moistureLevel !== null
-        ? Math.round(moistureAverage._avg.moistureLevel)
-        : null;
-
     const latestDate = latestMoisture?.recordedAt ?? null;
 
     // Public-safe payload — strip pricing, internal fields, notes
@@ -98,15 +95,10 @@ export async function GET(
       affectedAreas: inspection.affectedAreas.map((a) => ({
         id: a.id,
         roomZoneId: a.roomZoneId,
-        category: a.category,
-        class: a.class,
-        affectedAreaSqm: a.affectedAreaSqm,
-        affectedSquareFootage: a.affectedSquareFootage,
       })),
       scopeItems: inspection.scopeItems.map((s) => ({
         id: s.id,
-        description: s.description,
-        itemType: s.itemType,
+        label: "Restoration work item included",
       })),
       limits: {
         affectedAreasReturned: inspection.affectedAreas.length,
@@ -117,10 +109,13 @@ export async function GET(
         scopeItemsTotal: scopeItemCount,
         scopeItemsTruncated: scopeItemCount > MAX_PORTAL_SCOPE_ITEMS,
       },
-      moistureSummary: {
-        avgMoisture,
-        latestDate,
-        readingCount: moistureCount,
+      progressChecks: {
+        latestCheckDate: latestDate,
+        completedCheckCount: moistureCount,
+        summary:
+          moistureCount > 0
+            ? "Your technician is recording drying progress."
+            : "No drying progress checks have been recorded yet.",
       },
       reportReady: inspection.report?.status === "COMPLETED",
     };
