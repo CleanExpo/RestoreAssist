@@ -22,7 +22,16 @@ export async function GET(
         id: reportId,
         clientId,
       },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        propertyAddress: true,
+        hazardType: true,
+        totalCost: true,
+        createdAt: true,
+        updatedAt: true,
+        completionDate: true,
         client: {
           select: {
             name: true,
@@ -42,6 +51,15 @@ export async function GET(
           orderBy: {
             createdAt: "desc",
           },
+          select: {
+            id: true,
+            approvalType: true,
+            status: true,
+            requestedAt: true,
+            respondedAt: true,
+            clientComments: true,
+            amount: true,
+          },
         },
       },
     });
@@ -54,7 +72,14 @@ export async function GET(
       });
     }
 
-    return NextResponse.json({ report });
+    return NextResponse.json({
+      report: {
+        ...report,
+        description: null,
+        scopeOfWorksDocument: null,
+        costEstimationDocument: null,
+      },
+    });
   } catch (error) {
     console.error("Error fetching report:", error);
     return fromException(request, error, { stage: "portal/reports:get" });

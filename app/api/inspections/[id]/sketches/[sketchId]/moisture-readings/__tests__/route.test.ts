@@ -12,6 +12,9 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    claimSketch: { findFirst: vi.fn() },
+    sketchElement: { findFirst: vi.fn() },
+    sketchRoom: { findFirst: vi.fn() },
     material: { findUnique: vi.fn() },
     sketchMoistureReading: { create: vi.fn() },
   },
@@ -28,6 +31,9 @@ const mockTenancy = assertInspectionTenancy as unknown as ReturnType<
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const p = prisma as unknown as {
+  claimSketch: { findFirst: ReturnType<typeof vi.fn> };
+  sketchElement: { findFirst: ReturnType<typeof vi.fn> };
+  sketchRoom: { findFirst: ReturnType<typeof vi.fn> };
   material: { findUnique: ReturnType<typeof vi.fn> };
   sketchMoistureReading: { create: ReturnType<typeof vi.fn> };
 };
@@ -35,6 +41,9 @@ const p = prisma as unknown as {
 beforeEach(() => {
   vi.clearAllMocks();
   mockSession.mockResolvedValue({ user: { id: "u_1" } });
+  p.claimSketch.findFirst.mockResolvedValue({ id: "s1" });
+  p.sketchElement.findFirst.mockResolvedValue({ id: "e1" });
+  p.sketchRoom.findFirst.mockResolvedValue({ id: "room1" });
   p.material.findUnique.mockResolvedValue({
     id: "mat_timber",
     slug: "timber-framing",
@@ -113,5 +122,29 @@ describe("POST moisture-readings", () => {
       params,
     );
     expect(res.status).toBe(403);
+  });
+
+  it("404s before writing when the sketch belongs to another inspection", async () => {
+    p.claimSketch.findFirst.mockResolvedValueOnce(null);
+    const res = await POST(
+      post({ materialSlug: "timber-framing", currentMc: 14 }),
+      params,
+    );
+    expect(res.status).toBe(404);
+    expect(p.sketchMoistureReading.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a room from another sketch", async () => {
+    p.sketchRoom.findFirst.mockResolvedValueOnce(null);
+    const res = await POST(
+      post({
+        materialSlug: "timber-framing",
+        currentMc: 14,
+        sketchRoomId: "foreign",
+      }),
+      params,
+    );
+    expect(res.status).toBe(422);
+    expect(p.sketchMoistureReading.create).not.toHaveBeenCalled();
   });
 });

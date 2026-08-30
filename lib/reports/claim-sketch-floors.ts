@@ -1,4 +1,5 @@
 import type { SketchFloor } from "@/lib/generate-sketch-pdf";
+import { createHash } from "node:crypto";
 import { parseMoisturePins } from "./moisture-map";
 import { parseEvidencePins } from "./evidence-map";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
@@ -7,11 +8,65 @@ import {
   type RoomMoistureCropMeta,
 } from "@/lib/sketch/room-moisture-crop";
 import { roomMoistureCropFromStoredSketchData } from "@/lib/sketch/pending-sketch-load";
+import { parseSupabaseStorageUrl } from "@/lib/storage/sign-stored-url";
+import { stableStringify } from "@/lib/sketch/roomplan-custody-queue";
+
+const MAX_RENDER_BYTES = 15 * 1024 * 1024;
+
+async function readStoredRender(
+  storedUrl: string,
+  fetchImpl: typeof fetch,
+): Promise<{ bytes: Buffer; contentType: string } | null> {
+  const ref = parseSupabaseStorageUrl(storedUrl);
+  if (
+    !ref ||
+    ref.bucket !== "sketch-media" ||
+    !/^inspections\/[^/]+\/exports\/(?:(?:verified|client)\/)?[^/]+\.png$/i.test(
+      ref.path,
+    )
+  )
+    return null;
+  const signedUrl = await signStoredMediaUrl(storedUrl);
+  if (!signedUrl || signedUrl.startsWith("storage://")) return null;
+  const response = await fetchImpl(signedUrl, { redirect: "manual" });
+  if (!response.ok || response.status >= 300) return null;
+  const contentType = (response.headers.get("content-type") ?? "").split(
+    ";",
+  )[0];
+  if (contentType !== "image/png") return null;
+  const declared = Number(response.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declared) && declared > MAX_RENDER_BYTES) return null;
+  if (!response.body) return null;
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > MAX_RENDER_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(Buffer.from(value));
+  }
+  const bytes = Buffer.concat(chunks, total);
+  if (
+    bytes.length < 8 ||
+    bytes[0] !== 0x89 ||
+    bytes[1] !== 0x50 ||
+    bytes[2] !== 0x4e ||
+    bytes[3] !== 0x47
+  )
+    return null;
+  return { bytes, contentType };
+}
 
 /**
  * The subset of a `ClaimSketch` row needed to build a report floor page.
- * `renderedPngUrl` is the client-rasterised floor (operator geometry only —
- * underlay stripped, content-cropped) stored in the `sketch-media/exports` bucket.
+ * `renderedPngUrl` is the immutable server-rendered floor (allowlisted operator
+ * geometry only) stored in the private `sketch-media/exports/verified` prefix.
  */
 export interface ClaimSketchRow {
   floorNumber: number;
@@ -25,6 +80,52 @@ export interface ClaimSketchRow {
    */
   moisturePoints?: unknown;
   evidencePins?: unknown;
+  underlayReferences?: Array<{
+    verifiedAt: Date | string | null;
+    verificationJson?: unknown;
+  }>;
+  inspection?: {
+    sketchUnderlayReferences?: Array<{
+      floorNumber: number;
+      verifiedAt: Date | string | null;
+      verificationJson?: unknown;
+    }>;
+  };
+}
+
+export function isClaimSketchExportEligible(sketch: ClaimSketchRow): boolean {
+  if (!sketch.renderedPngUrl) return false;
+  const render = parseSupabaseStorageUrl(sketch.renderedPngUrl);
+  if (
+    !render ||
+    render.bucket !== "sketch-media" ||
+    !/^inspections\/[^/]+\/exports\/verified\/floor-\d+-[a-f0-9]{64}\.png$/i.test(
+      render.path,
+    )
+  )
+    return false;
+  const inspectionHistory = sketch.inspection?.sketchUnderlayReferences;
+  const references = Array.isArray(inspectionHistory)
+    ? inspectionHistory.filter(
+        (reference) => reference.floorNumber === sketch.floorNumber,
+      )
+    : (sketch.underlayReferences ?? []);
+  if (!references.length) return true;
+  const sketchSha256 = createHash("sha256")
+    .update(stableStringify(sketch.sketchData ?? null))
+    .digest("hex");
+  return references.some((reference) => {
+    if (!reference.verifiedAt || !reference.verificationJson) return false;
+    const receipt = reference.verificationJson as Record<string, unknown>;
+    const renderSha256 =
+      typeof receipt.renderSha256 === "string" ? receipt.renderSha256 : "";
+    return (
+      /^[a-f0-9]{64}$/i.test(renderSha256) &&
+      receipt.sketchSha256 === sketchSha256 &&
+      receipt.storagePath === render.path &&
+      render.path.endsWith(`-${renderSha256}.png`)
+    );
+  });
 }
 
 /**
@@ -47,10 +148,7 @@ export function expandFloorsWithRoomMoisture(
       w,
       h,
     );
-    const label =
-      cropMeta.crop.label ??
-      cropMeta.roomId ??
-      "Room";
+    const label = cropMeta.crop.label ?? cropMeta.roomId ?? "Room";
     out.push({
       ...floor,
       label: `Room moisture — ${label}`,
@@ -65,9 +163,8 @@ export function expandFloorsWithRoomMoisture(
 
 /**
  * Convert persisted `ClaimSketch` rows into `SketchFloor`s for
- * {@link embedSketchesInPdf}. Only sketches with a `renderedPngUrl` are
- * included (the server cannot render the Fabric canvas itself), sorted by
- * floor. Each PNG is fetched and inlined as a data URL because
+ * {@link embedSketchesInPdf}. Only receipt-eligible canonical server renders
+ * are included, sorted by floor. Each PNG is fetched and inlined as a data URL because
  * `dataUrlToBytes` (the embed path) only decodes `data:` URLs.
  *
  * A floor whose image fails to fetch is skipped rather than failing the whole
@@ -80,20 +177,19 @@ export async function claimSketchesToFloors(
   fetchImpl: typeof fetch = fetch,
 ): Promise<SketchFloor[]> {
   const renderable = sketches
-    .filter((s): s is ClaimSketchRow & { renderedPngUrl: string } =>
-      Boolean(s.renderedPngUrl),
+    .filter(
+      (s): s is ClaimSketchRow & { renderedPngUrl: string } =>
+        Boolean(s.renderedPngUrl) &&
+        isClaimSketchExportEligible(s),
     )
     .sort((a, b) => a.floorNumber - b.floorNumber);
 
   const floors = await Promise.all(
     renderable.map(async (s): Promise<SketchFloor | null> => {
       try {
-        // P0-1: sketch-media is private; re-sign the stored URL before fetching
-        // its bytes for PDF embedding. Non-storage URLs pass through unchanged.
-        const signedUrl = await signStoredMediaUrl(s.renderedPngUrl);
-        const res = await fetchImpl(signedUrl ?? s.renderedPngUrl);
-        if (!res.ok) return null;
-        const base64 = Buffer.from(await res.arrayBuffer()).toString("base64");
+        const stored = await readStoredRender(s.renderedPngUrl, fetchImpl);
+        if (!stored) return null;
+        const base64 = stored.bytes.toString("base64");
         const roomMoistureCrop: RoomMoistureCropMeta | null =
           roomMoistureCropFromStoredSketchData(s.sketchData);
         return {
@@ -116,33 +212,4 @@ export async function claimSketchesToFloors(
   return expandFloorsWithRoomMoisture(
     floors.filter((f): f is SketchFloor => f !== null),
   );
-}
-
-/**
- * RA-7006 Gap 6: an uploaded floor-plan image (`Inspection.floorPlanImageUrl`)
- * rendered only in the on-screen viewer and never reached the PDF. This fetches
- * that image and returns it as a SketchFloor so it can be appended alongside
- * the rasterised sketches. Best-effort: a missing/broken image returns null and
- * must never block the download.
- */
-export async function uploadedFloorPlanToFloor(
-  floorPlanImageUrl: string | null | undefined,
-  fetchImpl: typeof fetch = fetch,
-): Promise<SketchFloor | null> {
-  if (!floorPlanImageUrl) return null;
-  try {
-    const res = await fetchImpl(floorPlanImageUrl);
-    if (!res.ok) return null;
-    const contentType = res.headers.get("content-type") || "image/png";
-    const base64 = Buffer.from(await res.arrayBuffer()).toString("base64");
-    return {
-      label: "Uploaded Floor Plan",
-      pngDataUrl: `data:${contentType};base64,${base64}`,
-      fabricJson: null,
-      moisturePins: null,
-      evidencePins: null,
-    };
-  } catch {
-    return null;
-  }
 }

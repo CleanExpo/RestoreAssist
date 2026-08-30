@@ -13,6 +13,7 @@ import {
   type AiProvider,
 } from "@/lib/workspace/provider-connections";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
+import { validateOrganizationLocaleProfile } from "@/lib/locale/validate-organization-profile";
 
 /**
  * New-client startup readiness checks.
@@ -71,18 +72,22 @@ const businessProfileCheck: Check = async (orgId) => {
       note: "Organization not found",
     };
   }
-  const businessIdentifier = org.country === "NZ" ? org.nzbn : org.abn;
+  const localeValidation = validateOrganizationLocaleProfile(
+    org,
+    { requireComplete: org.tradingStatus !== "PRE_TRADING" },
+  );
   const missing =
     !org.legalName ||
     !org.state ||
-    !org.timezone ||
-    (!businessIdentifier && org.tradingStatus !== "PRE_TRADING");
+    !localeValidation.valid;
   return {
     capability: "business_profile",
     label: "Business profile complete",
     status: missing ? "red" : "green",
     note: missing
-      ? `Add legal name, region, timezone, and ${org.country === "NZ" ? "NZBN" : "ABN"} (or mark pre-trading)`
+      ? !localeValidation.valid
+        ? localeValidation.error
+        : `Add legal name and region${org.tradingStatus === "PRE_TRADING" ? "" : `, plus a valid ${org.country === "NZ" ? "NZBN" : "ABN"}`}`
       : undefined,
   };
 };

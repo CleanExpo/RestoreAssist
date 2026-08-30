@@ -2,10 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const signStoredMediaUrl = vi.hoisted(() => vi.fn());
+const inspectionStorageRef = vi.hoisted(() => vi.fn());
+const toStorageLocator = vi.hoisted(() => vi.fn());
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-vi.mock("@/lib/storage/sign-stored-url", () => ({ signStoredMediaUrl }));
+vi.mock("@/lib/storage/sign-stored-url", () => ({
+  signStoredMediaUrl,
+  inspectionStorageRef,
+  toStorageLocator,
+}));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
 }));
@@ -32,7 +38,10 @@ const context = {
   params: Promise.resolve({ id: "inspection-1", sketchId: "sketch-1" }),
 };
 
-function request(photoId: string): NextRequest {
+function request(
+  photoId: string,
+  overrides: Record<string, unknown> = {},
+): NextRequest {
   return new NextRequest(
     "http://localhost/api/inspections/inspection-1/sketches/sketch-1/evidence-pins",
     {
@@ -46,6 +55,7 @@ function request(photoId: string): NextRequest {
         ny: 0.5,
         inspectionPhotoId: photoId,
         fileUrl: "https://attacker.test/substitution.jpg",
+        ...overrides,
       }),
     },
   );
@@ -57,6 +67,11 @@ beforeEach(() => {
   db.claimSketch.findFirst.mockResolvedValue({ id: "sketch-1", rooms: [] });
   signStoredMediaUrl.mockImplementation(async (url: string | null) =>
     url ? `fresh:${url}` : url,
+  );
+  inspectionStorageRef.mockReturnValue(null);
+  toStorageLocator.mockImplementation(
+    (ref: { bucket: string; path: string }) =>
+      `storage://${ref.bucket}/${ref.path}`,
   );
   db.evidencePin.create.mockImplementation(async ({ data }: any) => ({
     id: "pin-1",
@@ -104,6 +119,30 @@ describe("POST evidence pin with an existing inspection photo", () => {
     db.inspectionPhoto.findFirst.mockResolvedValue(null);
 
     const response = await POST(request("other-inspection-photo"), context);
+
+    expect(response.status).toBe(400);
+    expect(db.evidencePin.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects an explicit room from another sketch", async () => {
+    db.claimSketch.findFirst.mockResolvedValue({
+      id: "sketch-1",
+      rooms: [{ id: "room-local", name: "Kitchen", geometryJson: null }],
+    });
+    db.inspectionPhoto.findFirst.mockResolvedValue({
+      id: "photo-1",
+      url: "storage://inspection-photos/inspections/inspection-1/photo.jpg",
+      thumbnailUrl: null,
+      description: null,
+      location: null,
+      mimeType: "image/jpeg",
+      fileSize: 1234,
+    });
+
+    const response = await POST(
+      request("photo-1", { sketchRoomId: "room-from-another-sketch" }),
+      context,
+    );
 
     expect(response.status).toBe(400);
     expect(db.evidencePin.create).not.toHaveBeenCalled();

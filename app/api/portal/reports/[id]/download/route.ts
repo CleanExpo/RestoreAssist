@@ -1,27 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireClientAuth } from "@/lib/portal/require-client-auth";
-import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
-import { isAiDraftPending } from "@/lib/reports/ai-ownership";
-import { resolveOrgBrandTheme } from "@/lib/clients/brand";
-import {
-  claimSketchesToFloors,
-  uploadedFloorPlanToFloor,
-} from "@/lib/reports/claim-sketch-floors";
-import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
-import { inspectionPhotosToImages } from "@/lib/reports/inspection-photos-to-images";
-import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
 import { apiError, fromException } from "@/lib/api-errors";
+import { generateConsumerReportPdf } from "@/lib/portal/consumer-report";
 
-// GET /api/portal/reports/[id]/download - Download PDF for client portal users.
-//
-// RA-7006 Gap 2: previously fed report.detailedReport into
-// generateEnhancedReportPDF, which (a) embedded none of the captured artifacts
-// (floor plans, photos, waivers) and (b) had no raw-JSON guard, so a structured
-// Basic/Enhanced report (detailedReport = JSON) rendered as a PDF of raw JSON
-// for the client. This now mirrors the dashboard /api/reports/[id]/pdf pipeline:
-// the artifact-aware IICRC generator + sketch + photo appenders, with the same
-// JSON guard — so the client gets the exact same complete document.
+// Client downloads are plain-language decision summaries. Technical evidence
+// remains available through the authenticated reviewer report.
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -29,53 +13,25 @@ export async function GET(
   try {
     const auth = await requireClientAuth(request);
     if (!auth.ok) return auth.response;
+    const { id } = await params;
 
-    const clientId = auth.claims.clientId;
-
-    const { id: reportId } = await params;
-
-    // Fetch report — verify it belongs to this client — with the same artifact
-    // relations the dashboard PDF pipeline reads.
     const report = await prisma.report.findFirst({
-      where: { id: reportId, clientId },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-            businessName: true,
-            businessAddress: true,
-            businessABN: true,
-            organization: {
-              select: { logoUrl: true, primaryColor: true },
-            },
-          },
-        },
-        client: {
-          select: { name: true, email: true, phone: true, company: true },
-        },
+      where: { id, clientId: auth.claims.clientId },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        propertyAddress: true,
+        createdAt: true,
+        reportNumber: true,
+        user: { select: { businessName: true, name: true } },
         inspection: {
           select: {
-            floorPlanImageUrl: true,
-            claimSketches: {
-              select: {
-                floorNumber: true,
-                floorLabel: true,
-                renderedPngUrl: true,
-                sketchData: true,
-                moisturePoints: true,
-              },
-            },
-            photos: {
-              select: {
-                url: true,
-                thumbnailUrl: true,
-                description: true,
-                location: true,
-                roomType: true,
-                mimeType: true,
-              },
-              orderBy: { timestamp: "asc" },
+            inspectionNumber: true,
+            affectedAreas: { select: { id: true } },
+            scopeItems: {
+              where: { isSelected: true },
+              select: { id: true },
             },
           },
         },
@@ -89,8 +45,6 @@ export async function GET(
         status: 404,
       });
     }
-
-    // Don't expose draft reports to clients
     if (report.status === "DRAFT") {
       return apiError(request, {
         code: "FORBIDDEN",
@@ -99,78 +53,22 @@ export async function GET(
       });
     }
 
-    // Parse JSON fields before passing to the PDF generator, mirroring
-    // /api/reports/[id]/pdf. The raw-JSON guard prevents a structured
-    // detailedReport (JSON) from leaking into the client PDF.
-    const reportData = {
-      ...report,
-      detailedReport: report.detailedReport?.trimStart().startsWith("{")
-        ? null
-        : report.detailedReport,
-      moistureReadings: report.moistureReadings
-        ? JSON.parse(report.moistureReadings as string)
-        : null,
-      psychrometricReadings: report.psychrometricReadings
-        ? JSON.parse(report.psychrometricReadings as string)
-        : null,
-      psychrometricAssessment: report.psychrometricAssessment
-        ? JSON.parse(report.psychrometricAssessment as string)
-        : null,
-      equipmentSelection: report.equipmentSelection
-        ? JSON.parse(report.equipmentSelection as string)
-        : null,
-      scopeAreas: report.scopeAreas
-        ? JSON.parse(report.scopeAreas as string)
-        : null,
-    };
-
-    const theme = resolveOrgBrandTheme(report.user?.organization);
-    let pdfBytes = await generateIICRCReportPDF(reportData as any, {
-      theme,
-      showAiDraftWatermark: isAiDraftPending(report),
+    const pdfBytes = await generateConsumerReportPdf({
+      title: report.title,
+      inspectionNumber:
+        report.inspection?.inspectionNumber ?? report.reportNumber,
+      propertyAddress: report.propertyAddress,
+      status: report.status,
+      date: report.createdAt,
+      affectedAreaCount: report.inspection?.affectedAreas.length ?? 0,
+      scopeItemCount: report.inspection?.scopeItems.length ?? 0,
+      contractorName: report.user.businessName ?? report.user.name,
     });
 
-    // Append floor-plan sketches + any uploaded floor-plan image (Gap 6).
-    const floors = await claimSketchesToFloors(
-      report.inspection?.claimSketches ?? [],
+    const filename = `client-report-${report.reportNumber || report.id}.pdf`.replace(
+      /[^a-zA-Z0-9.\-_]/g,
+      "-",
     );
-    const uploadedFloor = await uploadedFloorPlanToFloor(
-      report.inspection?.floorPlanImageUrl,
-    );
-    pdfBytes = await appendSketchPages(
-      pdfBytes,
-      uploadedFloor ? [...floors, uploadedFloor] : floors,
-      {
-        propertyAddress: report.propertyAddress ?? undefined,
-        reportNumber: report.reportNumber ?? undefined,
-      },
-    );
-
-    // Append inspection evidence photos (a broken image is skipped).
-    const photos = await inspectionPhotosToImages(
-      report.inspection?.photos ?? [],
-    );
-    pdfBytes = await appendPhotoPages(pdfBytes, photos, {
-      propertyAddress: report.propertyAddress ?? undefined,
-      reportNumber: report.reportNumber ?? undefined,
-    });
-
-    const MAX_PDF_BYTES = 60 * 1024 * 1024; // 60 MB (RA-1331 OOM guard)
-    if (pdfBytes.length > MAX_PDF_BYTES) {
-      return apiError(request, {
-        code: "VALIDATION",
-        message:
-          "This report is too large to generate inline. Please contact your restoration provider for a copy.",
-        status: 413,
-      });
-    }
-
-    const filename =
-      `report-${report.reportNumber || report.id}.pdf`.replace(
-        /[^a-zA-Z0-9.\-_]/g,
-        "-",
-      );
-
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
@@ -178,9 +76,7 @@ export async function GET(
         "Cache-Control": "no-store",
       },
     });
-  } catch (error: unknown) {
-    // RA-786: do not leak error.message to clients
-    console.error("[Portal Download] Error:", error);
+  } catch (error) {
     return fromException(request, error, {
       stage: "portal/reports/download:get",
     });

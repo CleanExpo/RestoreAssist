@@ -20,13 +20,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError } from "@/lib/api-errors";
 import { requireAddon } from "@/lib/entitlements";
 import { FLOORPLAN_UNDERLAY_SKU } from "@/lib/billing/floorplan-underlay-addon";
 import { isUnderlayUrlImportEnabled } from "@/lib/sketch/underlay-import-flag";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import {
   parseOnTheHouseHTML,
   parseOnTheHouseSearchResults,
@@ -34,7 +34,6 @@ import {
   parseDomainComAuSearchResults,
   parseRealestateComAuHTML,
   parseRealestateComAuSearchResults,
-  type ScrapedPropertyData,
 } from "@/lib/property-data-parser";
 import { fetchHtmlViaWorkspaceProvider } from "@/lib/scraping/dispatch";
 import { resolveApifyToken } from "@/lib/scraping/providers/apify";
@@ -57,23 +56,6 @@ const DOMAIN_BASE = "https://www.domain.com.au";
 const REA_BASE = "https://www.realestate.com.au";
 const TIMEOUT_MS = 15_000;
 const MAX_CANDIDATES = SCRAPE_LIMITS.MAX_CANDIDATES;
-
-function isScrapedPropertyData(value: unknown): value is ScrapedPropertyData {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const data = value as Record<string, unknown>;
-  return (
-    typeof data.address === "string" &&
-    typeof data.url === "string" &&
-    typeof data.scrapedAt === "string" &&
-    (data.confidence === "high" ||
-      data.confidence === "medium" ||
-      data.confidence === "low") &&
-    Array.isArray(data.floorPlanImages) &&
-    data.floorPlanImages.every((item) => typeof item === "string") &&
-    Array.isArray(data.propertyImages) &&
-    data.propertyImages.every((item) => typeof item === "string")
-  );
-}
 
 const SCRAPE_HEADERS: Record<string, string> = {
   "User-Agent":
@@ -266,6 +248,16 @@ export async function POST(req: NextRequest) {
       /^[a-zA-Z0-9_-]+$/.test(body.inspectionId)
         ? body.inspectionId
         : undefined;
+    if (inspectionId) {
+      const tenancy = await assertInspectionTenancy(session, inspectionId);
+      if (!tenancy.ok) {
+        return apiError(req, {
+          code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+          message: tenancy.reason ?? "Inspection not found",
+          status: tenancy.status,
+        });
+      }
+    }
     const fallbackSources = sanitizeFallbackSources(body.fallbackSources);
     const useDomainFallback =
       fallbackSources.includes("domain") || fallbackSources.length === 0;
@@ -290,33 +282,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const normAddress = address?.toUpperCase().trim();
-    const normPostcode = postcode?.trim();
-
-    if (normAddress && normPostcode && !directUrl) {
-      try {
-        const cached = await prisma.propertyLookup.findFirst({
-          where: {
-            propertyAddress: { equals: normAddress, mode: "insensitive" },
-            propertyPostcode: normPostcode,
-            dataSource: { in: ["onthehouse", "domain", "realestate"] },
-            expiresAt: { gt: new Date() },
-          },
-        });
-        if (isScrapedPropertyData(cached?.propertyData)) {
-          const safe = sanitizeScrapedPropertyMedia(
-            cached.propertyData,
-          );
-          return NextResponse.json({
-            data: safe,
-            cached: true,
-            source: cached.dataSource,
-          });
-        }
-      } catch {
-        // Cache miss — continue to scrape
-      }
-    }
+    // The legacy global address/postcode cache is deliberately bypassed. Its
+    // caller-controlled key allowed address A to be paired with listing B.
 
     if (!directUrl) {
       const searchQuery = [address, postcode].filter(Boolean).join(" ");
@@ -343,7 +310,12 @@ export async function POST(req: NextRequest) {
 
       const blockedStatuses: number[] = [];
       const recordStatus = (status: number) => {
-        if (status === 0 || status === 403 || status === 429 || status === 503) {
+        if (
+          status === 0 ||
+          status === 403 ||
+          status === 429 ||
+          status === 503
+        ) {
           blockedStatuses.push(status);
         }
       };
@@ -389,7 +361,11 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (candidates.length < MAX_CANDIDATES && useReaFallback && (!preferDomain || candidates.length === 0)) {
+      if (
+        candidates.length < MAX_CANDIDATES &&
+        useReaFallback &&
+        (!preferDomain || candidates.length === 0)
+      ) {
         const reaSearchUrl = `${REA_BASE}/buy/list-1?keywords=${encodeURIComponent(searchQuery)}`;
         const { html: reaHtml, status: reaStatus } =
           await fetchHtmlViaWorkspaceProvider(reaSearchUrl, userId, fetchHtml);
@@ -455,43 +431,6 @@ export async function POST(req: NextRequest) {
           ? parseRealestateComAuHTML(propertyHtml, propertyUrl)
           : parseOnTheHouseHTML(propertyHtml, propertyUrl);
     const data = sanitizeScrapedPropertyMedia(rawData);
-
-    if (normAddress && normPostcode) {
-      const now = new Date();
-      const expiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-
-      try {
-        await prisma.propertyLookup.upsert({
-          where: {
-            address_postcode_unique: {
-              propertyAddress: normAddress,
-              propertyPostcode: normPostcode,
-            },
-          },
-          create: {
-            propertyAddress: normAddress,
-            propertyPostcode: normPostcode,
-            lookupDate: now,
-            expiresAt,
-            apiResponseStatus: propertyStatus,
-            dataSource: hostLabel,
-            lookupCost: 0,
-            confidence: data.confidence,
-            propertyData: data as any,
-          },
-          update: {
-            lookupDate: now,
-            expiresAt,
-            apiResponseStatus: propertyStatus,
-            confidence: data.confidence,
-            propertyData: data as any,
-            dataSource: hostLabel,
-          },
-        });
-      } catch (err) {
-        console.error("PropertyLookup cache write failed:", err);
-      }
-    }
 
     return NextResponse.json({
       data,

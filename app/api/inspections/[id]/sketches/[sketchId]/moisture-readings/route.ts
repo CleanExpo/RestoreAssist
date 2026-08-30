@@ -37,12 +37,52 @@ export async function POST(
     const body = await request.json();
     const {
       elementId,
+      sketchRoomId,
       materialSlug,
       waterCategory,
       currentMc,
       targetMc,
       readingDatetime,
     } = body;
+
+    const sketch = await (prisma as any).claimSketch.findFirst({
+      where: { id: sketchId, inspectionId: id },
+      select: { id: true },
+    });
+    if (!sketch) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Sketch not found",
+        status: 404,
+      });
+    }
+
+    if (elementId) {
+      const element = await (prisma as any).sketchElement.findFirst({
+        where: { id: elementId, sketchId },
+        select: { id: true },
+      });
+      if (!element) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "The selected element does not belong to this floor plan.",
+          status: 422,
+        });
+      }
+    }
+    if (sketchRoomId) {
+      const room = await (prisma as any).sketchRoom.findFirst({
+        where: { id: sketchRoomId, sketchId, detachedAt: null },
+        select: { id: true },
+      });
+      if (!room) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "The selected room does not belong to this floor plan.",
+          status: 422,
+        });
+      }
+    }
 
     if (typeof currentMc !== "number") {
       return apiError(request, {
@@ -81,6 +121,7 @@ export async function POST(
       data: {
         sketchId,
         elementId: elementId ?? null,
+        sketchRoomId: sketchRoomId ?? null,
         materialId,
         waterCategory: waterCategory ?? null,
         targetMc: dryEval.targetMc,

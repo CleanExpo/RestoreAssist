@@ -40,6 +40,7 @@ beforeEach(() => {
     id: "inv_1",
     userId: "u_1",
     status: "DRAFT",
+    currency: "AUD",
     invoiceNumber: "INV-0001",
     subtotalExGST: 20000,
   });
@@ -164,6 +165,33 @@ describe("PUT /api/invoices/[id] line-item numeric validation", () => {
     expect(data.gstAmount).toBe(110);
     expect(data.totalIncGST).toBe(1210);
     expect(data.amountDue).toBe(1210);
+  });
+
+  it("uses the stored NZD invoice currency for newly supplied default-rate items", async () => {
+    p.invoice.findUnique.mockResolvedValue({
+      id: "inv_1",
+      userId: "u_1",
+      status: "DRAFT",
+      currency: "NZD",
+      invoiceNumber: "INV-0001",
+      subtotalExGST: 10000,
+    });
+
+    let captured: any;
+    txInvoiceUpdate.mockImplementation(async (arg: any) => {
+      captured = arg;
+      return { id: "inv_1", ...arg.data, lineItems: [] };
+    });
+
+    const res = await PUT(putReq({
+      lineItems: [{ description: "Drying", quantity: 1, unitPrice: 10000 }],
+    }), { params });
+
+    expect(res.status).toBe(200);
+    expect(captured.data.subtotalExGST).toBe(10000);
+    expect(captured.data.gstAmount).toBe(1500);
+    expect(captured.data.totalIncGST).toBe(11500);
+    expect(captured.data.amountDue).toBe(11500);
   });
 });
 

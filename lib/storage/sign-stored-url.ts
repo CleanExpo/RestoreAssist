@@ -28,22 +28,59 @@ export interface StorageRef {
   path: string;
 }
 
+export function toStorageLocator(ref: StorageRef): string {
+  return `storage://${ref.bucket}/${ref.path}`;
+}
+
+export function inspectionStorageRef(
+  url: string,
+  inspectionId: string,
+  folder: "underlays" | "exports" | "photos",
+): StorageRef | null {
+  const ref = parseSupabaseStorageUrl(url);
+  if (!ref || ref.bucket !== "sketch-media") return null;
+  const expectedPrefix = `inspections/${inspectionId}/${folder}/`;
+  return ref.path.startsWith(expectedPrefix) ? ref : null;
+}
+
 /**
  * Parse a Supabase storage URL into { bucket, path }. Handles both the public
  * form (`/storage/v1/object/public/<bucket>/<path>`) and the signed form
  * (`/storage/v1/object/sign/<bucket>/<path>?token=…`). Returns null for any URL
  * that is not a Supabase storage object URL. Pure — no I/O, unit-testable.
  */
-export function parseSupabaseStorageUrl(url: string): StorageRef | null {
+export function parseSupabaseStorageUrl(
+  url: string,
+  expectedOrigin: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL,
+): StorageRef | null {
   if (!url) return null;
-  const marker = url.match(/\/storage\/v1\/object\/(?:public|sign)\/(.+)$/);
+  if (url.startsWith("storage://")) {
+    const locator = url.slice("storage://".length);
+    const slash = locator.indexOf("/");
+    if (slash <= 0) return null;
+    const bucket = locator.slice(0, slash);
+    const path = locator.slice(slash + 1);
+    return bucket && path ? { bucket, path } : null;
+  }
+
+  let parsed: URL;
+  let trustedOrigin: URL;
+  try {
+    parsed = new URL(url);
+    if (!expectedOrigin) return null;
+    trustedOrigin = new URL(expectedOrigin);
+  } catch {
+    return null;
+  }
+  if (parsed.origin !== trustedOrigin.origin) return null;
+  const marker = parsed.pathname.match(
+    /\/storage\/v1\/object\/(?:public|sign)\/(.+)$/,
+  );
   if (!marker) return null;
-  // Strip any query string (signed URLs carry ?token=…) before splitting.
-  const withoutQuery = marker[1].split("?")[0];
-  const firstSlash = withoutQuery.indexOf("/");
+  const firstSlash = marker[1].indexOf("/");
   if (firstSlash <= 0) return null;
-  const bucket = withoutQuery.slice(0, firstSlash);
-  const path = withoutQuery.slice(firstSlash + 1);
+  const bucket = marker[1].slice(0, firstSlash);
+  const path = marker[1].slice(firstSlash + 1);
   if (!bucket || !path) return null;
   return { bucket, path: decodeURIComponent(path) };
 }
