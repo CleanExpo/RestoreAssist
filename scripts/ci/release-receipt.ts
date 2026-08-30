@@ -71,6 +71,10 @@ import crypto from "node:crypto";
 // for any plain object.
 import { canonicalizeManifest as canonicalJson } from "../../lib/evidence/manifest-canonical";
 import { A3_EXPECTED_VIEWER_ID } from "./producers/a3-open-blockers";
+import {
+  C2_ENV_SOURCE,
+  C2_SCANNED_REF,
+} from "./producers/c2-secrets-scan";
 
 /** Environment variable carrying the trusted public keys, as JSON. */
 export const TRUSTED_KEYS_ENV = "RELEASE_RECEIPT_PUBLIC_KEYS";
@@ -562,11 +566,34 @@ export const CRITERION_POLICIES: Record<string, CriterionPolicy> = {
       // CLAUDE.md: `gitleaks --no-git` ignores .gitignore, so a scan of the
       // working directory is not a scan of what ships. The receipt has to say
       // it read an export of the tracked tree, which is what CI scans.
-      if (measurements.scannedRef !== "git-checkout-index") {
+      if (measurements.scannedRef !== C2_SCANNED_REF) {
         return {
           ok: false,
           message:
-            "measurement scannedRef must be git-checkout-index: a working-directory scan does not read the tracked tree",
+            `measurement scannedRef must be ${C2_SCANNED_REF}: a working-directory scan does not read the tracked tree`,
+        };
+      }
+      // An empty scan finds nothing. A checkout-index export that produced no
+      // files would scan clean and read as a pass -- A3's unplugged smoke
+      // detector, in a different costume.
+      const scanned = measurements.scannedFileCount;
+      if (typeof scanned !== "number" || !Number.isInteger(scanned) || scanned <= 0) {
+        return {
+          ok: false,
+          message:
+            "measurement scannedFileCount must be a positive integer: a scan that read no files has not reported a clean tree",
+        };
+      }
+      // The instrument's own control. C2 previously rested on a .gitleaks.toml
+      // that allowlisted every markdown file, so the scan could not have
+      // detected a secret committed to one and reported "no leaks found"
+      // regardless. The producer plants a canary in a .md and rescans; without
+      // that proof a findings count of 0 means nothing.
+      if (measurements.controlCanaryDetected !== true) {
+        return {
+          ok: false,
+          message:
+            "measurement controlCanaryDetected must be true: a scanner not proven able to see the file it scanned cannot report a clean tree",
         };
       }
       const findings = requireCount(measurements, "findings", 0);
@@ -574,6 +601,18 @@ export const CRITERION_POLICIES: Record<string, CriterionPolicy> = {
       // The env-var completeness half of C2. `/api/health` reports `degraded`
       // while any recommended variable is unset, so a secrets scan alone does
       // not settle this criterion.
+      //
+      // Pinned to production. `getEnvStatus()` on a CI runner reads the
+      // RUNNER's environment, and a sandbox or preview host answers a
+      // different question than the one this criterion asks -- so the receipt
+      // has to say which host it read, and only one host counts.
+      if (measurements.envSource !== C2_ENV_SOURCE) {
+        return {
+          ok: false,
+          message:
+            `measurement envSource must be ${C2_ENV_SOURCE}: env completeness read anywhere else is not production's`,
+        };
+      }
       return requireCount(measurements, "missingEnvVars", 0);
     },
   },

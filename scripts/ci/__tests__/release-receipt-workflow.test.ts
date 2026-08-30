@@ -117,4 +117,44 @@ describe("a branch dispatch cannot mint a receipt", () => {
     // hardening, because that framing is what stops it being skipped.
     expect(doc).toMatch(/not optional hardening/);
   });
+  it("pins C2's scanner by version AND checksum, and never lets it self-install", () => {
+    /**
+     * The producer reports on the instrument it was handed. If this job could
+     * fetch whatever gitleaks it liked at run time, `findings: 0` would be a
+     * claim about an unreviewed binary -- inside the one job that holds the
+     * signing key.
+     *
+     * Pinned to the same version and digest as the working-tree scan in
+     * pr-checks.yml, so CI and the receipt are the same instrument rather than
+     * two that merely share a name.
+     */
+    const workflow = readFileSync(
+      join(process.cwd(), ".github", "workflows", "release-receipt.yml"),
+      "utf8",
+    );
+    const prChecks = readFileSync(
+      join(process.cwd(), ".github", "workflows", "pr-checks.yml"),
+      "utf8",
+    );
+
+    const version = /VERSION=([0-9]+\.[0-9]+\.[0-9]+)/.exec(workflow)?.[1];
+    const digest = /ARCHIVE_SHA256="([0-9a-f]{64})"/.exec(workflow)?.[1];
+    expect(version, "the receipt workflow must pin a gitleaks version").toBeDefined();
+    expect(digest, "the receipt workflow must pin a gitleaks checksum").toBeDefined();
+
+    // Same instrument as the PR scan, not merely the same name.
+    expect(prChecks).toContain(`VERSION=${version}`);
+    expect(prChecks).toContain(`ARCHIVE_SHA256="${digest}"`);
+
+    // The checksum has to be ENFORCED, not just recorded.
+    expect(workflow).toMatch(/sha256sum --check --strict/);
+
+    // And the producer must be told which binary to use, rather than being
+    // free to find one on PATH.
+    expect(workflow).toMatch(/GITLEAKS_BINARY: \/tmp\/gitleaks/);
+    expect(
+      /options:[\s\S]*?- C2-secrets-scan/.test(workflow),
+      "C2 must be dispatchable",
+    ).toBe(true);
+  });
 });

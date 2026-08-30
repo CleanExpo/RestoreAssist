@@ -130,7 +130,9 @@ Three properties carry the scheme, and each has a test that fails without it:
 
    The flag was removed rather than validated: an input that must never be
    trusted should not exist. A criterion with no registered producer cannot be
-   signed at all, which is why `C2-secrets-scan` currently cannot be.
+   signed at all, which is why `D3-revenue-reconciliation` currently cannot be:
+   its producer cannot measure `failedWebhookDeliveries`, so it is deliberately
+   absent from the registry rather than filling the gap from the environment.
 
 4. **A receipt must come from the protected workflow.** Every receipt carries
    `provenance` — repository, workflow ref, run id, run attempt — straight from
@@ -165,9 +167,27 @@ and a criterion absent from that registry cannot pass however good its key.
 
 **Registered:**
 
-- **C2-secrets-scan** — requires a `git-checkout-index` export rather than a
-  working-directory scan (`gitleaks --no-git` ignores `.gitignore`), zero
-  findings, and zero missing recommended environment variables.
+- **C2-secrets-scan** — produced by `scripts/ci/producers/c2-secrets-scan.ts`.
+  Each control answers a line of that criterion's own evidence file, which
+  records how it held a PASS it had not earned:
+
+  | Check | The failure it answers |
+  | --- | --- |
+  | `controlCanaryDetected` must be `true` | The `.gitleaks.toml` this criterion rested on allowlisted `(?i)\.md$`, so the scan could not have detected a secret committed to any markdown file and reported "no leaks found" regardless. The producer plants a Stripe-shaped canary in a `.md` inside the export and rescans; without that proof, `findings: 0` is silence rather than evidence. |
+  | `scannedRef` pinned to `git-checkout-index` | `gitleaks --no-git` ignores `.gitignore`, so a working-directory scan is not a scan of what ships. |
+  | `scannedFileCount` must be positive | An export that produced no files scans clean, which reads as a pass — A3's unplugged smoke detector in a different costume. |
+  | `envSource` pinned to production | `getEnvStatus()` on a CI runner reads the *runner's* environment. A sandbox or preview host answers a different question than the one this criterion asks. |
+  | `findings` and `missingEnvVars` must be 0 | The criterion itself. |
+
+  The canary value is assembled at run time rather than written as a literal.
+  That seam is load-bearing: the producer's own source sits inside the tracked
+  tree it scans, so an inlined literal would be found by the real scan and
+  `findings` could never reach 0 — the control permanently failing the
+  criterion it exists to make trustworthy.
+
+  The scanner is installed by the workflow at a pinned version and checksum,
+  not by the producer. A producer that fetches its own instrument is not
+  reporting on a reviewed one.
 - **A3-no-sev1-sev2-open** — produced by
   `scripts/ci/producers/a3-open-blockers.ts`, which counts open Urgent/High
   issues on Linear team RA. Every check on it answers a line of that

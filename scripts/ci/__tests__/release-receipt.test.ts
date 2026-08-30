@@ -72,7 +72,11 @@ function validReceipt(overrides: Partial<ReleaseReceipt> = {}): ReleaseReceipt {
       scanner: "gitleaks",
       scannerVersion: "8.28.0",
       scannedRef: "git-checkout-index",
+      scannedFileCount: 3184,
       findings: 0,
+      controlCanaryDetected: true,
+      envSource: "https://restoreassist.app/api/health",
+      envStatus: "ok",
       missingEnvVars: 0,
     },
     ...overrides,
@@ -549,6 +553,87 @@ describe("planted defect: environment binding", () => {
       message:
         "receipt was observed in my-laptop, which C2-secrets-scan does not accept",
     });
+  });
+
+  it.each([
+    ["absent", undefined],
+    ["zero", 0],
+    ["negative", -1],
+    ["fractional", 12.5],
+    ["a string", "3184"],
+  ])("refuses a scan that read %s files", (_label, scannedFileCount) => {
+    // A3's unplugged smoke detector, in a different costume. A checkout-index
+    // export that produced no files scans clean, and a clean scan of nothing
+    // is indistinguishable from a clean tree unless the count is checked.
+    const measurements = { ...validReceipt().measurements };
+    if (scannedFileCount === undefined) delete measurements.scannedFileCount;
+    else measurements.scannedFileCount = scannedFileCount;
+    const { privateKey, publicKeyPem } = keypair();
+    const result = verifyReleaseReceipt(
+      sign(validReceipt({ measurements }), privateKey),
+      context(),
+      keySet(publicKeyPem),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /scannedFileCount must be a positive integer/,
+    );
+  });
+
+  it.each([
+    ["absent", undefined],
+    ["false", false],
+    ["the string \"true\"", "true"],
+    ["1", 1],
+  ])("refuses a scan whose control canary reads %s", (_label, detected) => {
+    // C2 rested on a .gitleaks.toml that allowlisted every markdown file, so
+    // the scan could not have detected a secret committed to one and reported
+    // "no leaks found" regardless. Without the control, findings: 0 is silence,
+    // not evidence. Truthy-but-not-true must fail too, or `1` would pass.
+    const measurements = { ...validReceipt().measurements };
+    if (detected === undefined) delete measurements.controlCanaryDetected;
+    else measurements.controlCanaryDetected = detected;
+    const { privateKey, publicKeyPem } = keypair();
+    const result = verifyReleaseReceipt(
+      sign(validReceipt({ measurements }), privateKey),
+      context(),
+      keySet(publicKeyPem),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /controlCanaryDetected must be true/,
+    );
+  });
+
+  it.each([
+    ["a sandbox host", "https://restoreassist-sandbox.vercel.app/api/health"],
+    ["a preview host", "https://restoreassist.app.localhost/api/health"],
+    ["the drift watchdog", "https://restoreassist.app/api/health/migrations"],
+    ["absent", undefined],
+  ])("refuses env completeness read from %s", (_label, envSource) => {
+    // getEnvStatus() on a CI runner reads the RUNNER's environment, and a
+    // sandbox answers a different question than the one C2 asks. The receipt
+    // has to say which host it read, and only production counts.
+    const measurements = { ...validReceipt().measurements };
+    if (envSource === undefined) delete measurements.envSource;
+    else measurements.envSource = envSource;
+    const { privateKey, publicKeyPem } = keypair();
+    const result = verifyReleaseReceipt(
+      sign(validReceipt({ measurements }), privateKey),
+      context(),
+      keySet(publicKeyPem),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(/envSource must be/);
+  });
+
+  it("accepts a fully measured C2 receipt", () => {
+    // The positive control. Without this the negatives above would all pass
+    // against a policy that rejected everything.
+    const { privateKey, publicKeyPem } = keypair();
+    expect(
+      verifyReleaseReceipt(sign(validReceipt(), privateKey), context(), keySet(publicKeyPem)),
+    ).toEqual({ ok: true });
   });
 
   it("keeps C2 to environments where a tracked-tree scan is reproducible", () => {
