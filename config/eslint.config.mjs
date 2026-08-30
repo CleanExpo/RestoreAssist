@@ -24,6 +24,7 @@ import typescriptParser from "@typescript-eslint/parser";
 import typescriptPlugin from "@typescript-eslint/eslint-plugin";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 import nextPlugin from "@next/eslint-plugin-next";
+import jsxA11yPlugin from "eslint-plugin-jsx-a11y";
 
 export default [
   {
@@ -135,6 +136,24 @@ export default [
         ...globals.node,
         ...globals.es2024,
       },
+    },
+  },
+  {
+    // Track A accessibility ratchet. Start with the consumer portal and setup
+    // surfaces changed by Job Continuity; expand this list as legacy screens
+    // are repaired. Violations are errors, so these paths cannot add new
+    // labelling, keyboard, focus or ARIA debt.
+    files: [
+      "app/portal/**/*.{ts,tsx,js,jsx}",
+      "components/portal/**/*.{ts,tsx,js,jsx}",
+      "components/setup/**/*.{ts,tsx,js,jsx}",
+      "components/settings/OrganizationLocaleSetting.tsx",
+    ],
+    plugins: {
+      "jsx-a11y": jsxA11yPlugin,
+    },
+    rules: {
+      ...jsxA11yPlugin.flatConfigs.recommended.rules,
     },
   },
 ];
