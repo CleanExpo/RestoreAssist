@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Loader2, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
+import { useOrganizationGst } from "@/hooks/use-organization-gst";
 
 const FREQUENCIES = [
   { value: "WEEKLY", label: "Weekly" },
@@ -33,6 +35,7 @@ export default function NewRecurringInvoicePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
+  const { treatment: gstTreatment, ready: gstReady } = useOrganizationGst();
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -53,7 +56,7 @@ export default function NewRecurringInvoicePage() {
   });
 
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", quantity: 1, unitPrice: 0, gstRate: 10 },
+    { description: "", quantity: 1, unitPrice: 0, gstRate: DEFAULT_GST_TREATMENT.ratePercent },
   ]);
 
   useEffect(() => {
@@ -63,6 +66,17 @@ export default function NewRecurringInvoicePage() {
       .catch(() => {})
       .finally(() => setLoadingClients(false));
   }, []);
+
+  useEffect(() => {
+    if (!gstReady) return;
+    setLineItems((items) =>
+      items.map((item) =>
+        item.gstRate === DEFAULT_GST_TREATMENT.ratePercent
+          ? { ...item, gstRate: gstTreatment.ratePercent }
+          : item,
+      ),
+    );
+  }, [gstReady, gstTreatment.ratePercent]);
 
   // Auto-fill customer details when a client is selected
   const handleClientChange = (clientId: string) => {
@@ -78,7 +92,7 @@ export default function NewRecurringInvoicePage() {
   const addLineItem = () =>
     setLineItems((prev) => [
       ...prev,
-      { description: "", quantity: 1, unitPrice: 0, gstRate: 10 },
+      { description: "", quantity: 1, unitPrice: 0, gstRate: gstTreatment.ratePercent },
     ]);
 
   const removeLineItem = (idx: number) =>
@@ -453,7 +467,7 @@ export default function NewRecurringInvoicePage() {
                 <span>${subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>GST (10%)</span>
+                <span>GST</span>
                 <span>${gst.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-white font-semibold text-base pt-1">

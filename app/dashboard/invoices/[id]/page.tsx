@@ -794,7 +794,7 @@ export default function InvoiceDetailPage({
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600 dark:text-slate-400">
-                    GST (10%)
+                    GST
                   </span>
                   <span className="font-medium text-slate-900 dark:text-white">
                     ${(invoice.gstAmount / 100).toFixed(2)}

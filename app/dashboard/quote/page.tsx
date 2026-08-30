@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { dollarsToCents } from "@/lib/quotes/quote-calc";
+import { useOrganizationGst } from "@/hooks/use-organization-gst";
 
 /* ─── Types ─── */
 
@@ -125,6 +126,7 @@ const DEFAULT_FORM = {
 /* ─── Component ─── */
 
 export default function QuotePage() {
+  const { treatment: gstTreatment } = useOrganizationGst();
   const router = useRouter();
   const [selectedJobType, setSelectedJobType] = useState<string | null>(null);
   const [form, setForm] = useState(DEFAULT_FORM);
@@ -227,7 +229,7 @@ export default function QuotePage() {
         category: "Quote",
         quantity: li.qty,
         unitPrice: dollarsToCents(li.rate),
-        gstRate: 10,
+        gstRate: gstTreatment.ratePercent,
       }));
       // If minimum charge padded the subtotal without a matching line, add a top-up line
       const linesEx = lineItems.reduce(
@@ -241,7 +243,7 @@ export default function QuotePage() {
           category: "Quote",
           quantity: 1,
           unitPrice: targetEx - linesEx,
-          gstRate: 10,
+          gstRate: gstTreatment.ratePercent,
         });
       }
 
@@ -790,7 +792,7 @@ export default function QuotePage() {
                   </span>
                 </div>
                 <div className="flex justify-between text-sm text-slate-600 dark:text-slate-400">
-                  <span>GST (10%)</span>
+                  <span>GST</span>
                   <span>{fmt(quoteResult.gst)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold border-t-2 border-slate-300 dark:border-slate-600 pt-2 text-slate-900 dark:text-white">
