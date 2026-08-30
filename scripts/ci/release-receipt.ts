@@ -71,6 +71,14 @@ import crypto from "node:crypto";
 // for any plain object.
 import { canonicalizeManifest as canonicalJson } from "../../lib/evidence/manifest-canonical";
 import { A3_EXPECTED_VIEWER_ID } from "./producers/a3-open-blockers";
+import {
+  C2_ENV_SOURCE,
+  C2_SCANNED_REF,
+} from "./producers/c2-secrets-scan";
+import {
+  F1_REPOSITORY,
+  F1_REQUIRED_CLASSES,
+} from "./producers/f1-monitoring-alerting";
 
 /** Environment variable carrying the trusted public keys, as JSON. */
 export const TRUSTED_KEYS_ENV = "RELEASE_RECEIPT_PUBLIC_KEYS";
@@ -562,11 +570,34 @@ export const CRITERION_POLICIES: Record<string, CriterionPolicy> = {
       // CLAUDE.md: `gitleaks --no-git` ignores .gitignore, so a scan of the
       // working directory is not a scan of what ships. The receipt has to say
       // it read an export of the tracked tree, which is what CI scans.
-      if (measurements.scannedRef !== "git-checkout-index") {
+      if (measurements.scannedRef !== C2_SCANNED_REF) {
         return {
           ok: false,
           message:
-            "measurement scannedRef must be git-checkout-index: a working-directory scan does not read the tracked tree",
+            `measurement scannedRef must be ${C2_SCANNED_REF}: a working-directory scan does not read the tracked tree`,
+        };
+      }
+      // An empty scan finds nothing. A checkout-index export that produced no
+      // files would scan clean and read as a pass -- A3's unplugged smoke
+      // detector, in a different costume.
+      const scanned = measurements.scannedFileCount;
+      if (typeof scanned !== "number" || !Number.isInteger(scanned) || scanned <= 0) {
+        return {
+          ok: false,
+          message:
+            "measurement scannedFileCount must be a positive integer: a scan that read no files has not reported a clean tree",
+        };
+      }
+      // The instrument's own control. C2 previously rested on a .gitleaks.toml
+      // that allowlisted every markdown file, so the scan could not have
+      // detected a secret committed to one and reported "no leaks found"
+      // regardless. The producer plants a canary in a .md and rescans; without
+      // that proof a findings count of 0 means nothing.
+      if (measurements.controlCanaryDetected !== true) {
+        return {
+          ok: false,
+          message:
+            "measurement controlCanaryDetected must be true: a scanner not proven able to see the file it scanned cannot report a clean tree",
         };
       }
       const findings = requireCount(measurements, "findings", 0);
@@ -574,7 +605,105 @@ export const CRITERION_POLICIES: Record<string, CriterionPolicy> = {
       // The env-var completeness half of C2. `/api/health` reports `degraded`
       // while any recommended variable is unset, so a secrets scan alone does
       // not settle this criterion.
+      //
+      // Pinned to production. `getEnvStatus()` on a CI runner reads the
+      // RUNNER's environment, and a sandbox or preview host answers a
+      // different question than the one this criterion asks -- so the receipt
+      // has to say which host it read, and only one host counts.
+      if (measurements.envSource !== C2_ENV_SOURCE) {
+        return {
+          ok: false,
+          message:
+            `measurement envSource must be ${C2_ENV_SOURCE}: env completeness read anywhere else is not production's`,
+        };
+      }
       return requireCount(measurements, "missingEnvVars", 0);
+    },
+  },
+
+  "F1-monitoring-alerting": {
+    // Reads the GitHub API for workflow runs and repository labels, so it is
+    // reproducible on a runner and has no business claiming production.
+    environments: ["ci"],
+    check: (measurements) => {
+      if (measurements.source !== "github-actions") {
+        return { ok: false, message: "measurement source must be github-actions" };
+      }
+      if (measurements.repository !== F1_REPOSITORY) {
+        return {
+          ok: false,
+          message: `measurement repository must be ${F1_REPOSITORY}`,
+        };
+      }
+      // Population control. Zero declared checks would report zero failing and
+      // zero stale, and read as fully healthy monitoring -- A3's query that
+      // reached nothing, one criterion over.
+      const declared = measurements.checksDeclared;
+      if (typeof declared !== "number" || !Number.isInteger(declared) || declared <= 0) {
+        return {
+          ok: false,
+          message:
+            "measurement checksDeclared must be a positive integer: no declared checks is not healthy monitoring",
+        };
+      }
+      if (measurements.checksHealthy !== declared) {
+        return {
+          ok: false,
+          message: `only ${measurements.checksHealthy} of ${declared} production checks are healthy`,
+        };
+      }
+      // Stated separately from the count so the receipt says WHICH, and so a
+      // check that is red and a check that stopped firing stay distinguishable.
+      for (const field of ["failingChecks", "staleChecks"] as const) {
+        if (measurements[field] !== "") {
+          return {
+            ok: false,
+            message: `measurement ${field} is not empty: ${measurements[field]}`,
+          };
+        }
+      }
+      // The alerting half, and the hole it would otherwise leave open.
+      //
+      // A repository with NO failure notifier at all reports zero missing
+      // labels, which passes a bare emptiness check while alerting on nothing.
+      // So the receipt must show that notifiers exist before it can show that
+      // their labels resolve.
+      if (
+        typeof measurements.notifierLabelsDeclared !== "string" ||
+        measurements.notifierLabelsDeclared === ""
+      ) {
+        return {
+          ok: false,
+          message:
+            "measurement notifierLabelsDeclared is empty: a repository with no failure notifier is not alerting",
+        };
+      }
+      // The eight-week failure. `gh issue create` rejects a non-existent
+      // label, so a notifier naming one fails and files nothing -- an alarm
+      // wired to a bell that was never installed.
+      if (measurements.missingNotifierLabels !== "") {
+        return {
+          ok: false,
+          message: `notifier labels do not exist, so those alarms cannot fire: ${measurements.missingNotifierLabels}`,
+        };
+      }
+      // The criterion names three failure classes, and all three must be
+      // watched. Comparing against the required list rather than trusting
+      // `uncoveredClasses` to be empty, so a producer that simply stopped
+      // reporting a class cannot pass by omission.
+      if (measurements.requiredClasses !== [...F1_REQUIRED_CLASSES].join(",")) {
+        return {
+          ok: false,
+          message: "measurement requiredClasses does not match the criterion's classes",
+        };
+      }
+      if (measurements.coveredClasses !== measurements.requiredClasses) {
+        return {
+          ok: false,
+          message: `no alert covers: ${measurements.uncoveredClasses || "(unreported)"}`,
+        };
+      }
+      return { ok: true };
     },
   },
 

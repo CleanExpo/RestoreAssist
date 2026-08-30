@@ -941,8 +941,15 @@ export const CRITERIA: Criterion[] = [
     points: 5,
     kind: "owner-evidence",
     profiles: ALL_PROFILES,
+    // Was "Vercel Observability alert rules configured for auth/billing/restore".
+    // That named the wrong platform: production is DigitalOcean App Platform
+    // (.do/app.yaml binds restoreassist.app), and the only Vercel project
+    // linked to this repository is restoreassist-sandbox, which does not serve
+    // that domain. Three alert rules there would have satisfied the old wording
+    // while watching preview deployments. The criterion itself, as its evidence
+    // file states it, was always platform-neutral.
     description:
-      "Vercel Observability alert rules configured for auth/billing/restore",
+      "Monitoring and alerting configured for auth failures, billing webhook errors, and restore/job failures",
     run: () => ownerEvidence("F1-monitoring-alerting", GATE_VERSION),
   },
   {

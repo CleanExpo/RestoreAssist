@@ -97,6 +97,31 @@ const PRODUCERS: Record<
       return produceA3Measurements(apiKey) as Promise<Record<string, unknown>>;
     },
   },
+  "C2-secrets-scan": {
+    environment: "ci",
+    produce: async () => {
+      if (!process.env.GITLEAKS_BINARY?.trim()) {
+        fail(
+          "GITLEAKS_BINARY is not set; the C2 producer cannot run. The " +
+            "workflow installs gitleaks at a pinned version and checksum -- " +
+            "the producer deliberately does not fetch its own scanner.",
+        );
+      }
+      const { produceC2Measurements } = await import("./producers/c2-secrets-scan");
+      return produceC2Measurements() as Promise<Record<string, unknown>>;
+    },
+  },
+  "F1-monitoring-alerting": {
+    environment: "ci",
+    produce: async () => {
+      const token = process.env.GITHUB_TOKEN;
+      if (!token) fail("GITHUB_TOKEN is not set; the F1 producer cannot run");
+      const { produceF1Measurements } = await import(
+        "./producers/f1-monitoring-alerting"
+      );
+      return produceF1Measurements(token) as Promise<Record<string, unknown>>;
+    },
+  },
   // D3-revenue-reconciliation is DELIBERATELY ABSENT.
   //
   // Its producer cannot yet measure `failedWebhookDeliveries` -- Stripe exposes
