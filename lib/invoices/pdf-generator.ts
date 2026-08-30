@@ -847,7 +847,7 @@ async function renderTotalsSection(
   yPosition -= 18;
 
   // GST
-  page.drawText("GST (10%):", {
+  page.drawText("GST:", {
     x: totalsX,
     y: yPosition,
     size: 10,
