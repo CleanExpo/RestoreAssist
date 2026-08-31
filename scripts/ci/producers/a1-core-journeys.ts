@@ -124,7 +124,26 @@ export const A1_STEP_COVERAGE: Record<string, readonly string[]> = {
   login: ["auth.spec.ts"],
   onboarding: ["setup-happy-path.spec.ts", "first-tradie-flow.spec.ts"],
   "storage setup": ["setup-storage-google-drive.spec.ts"],
-  // NO COVERING SPEC. See "why the coverage map is incomplete" above.
+  // STILL NO COVERING SPEC, deliberately.
+  //
+  // `docs/archive/playwright-e2e/storage-restore.spec.ts` now exists and covers
+  // the restore SURFACE -- the owner-only gate, the API contract, that Preview
+  // enqueues nothing, and that the mode defaults to non-destructive MISSING.
+  // It is real coverage of a path that had none.
+  //
+  // It is NOT mapped here, because no file is restored in it. A real restore
+  // needs a COMPLETED StorageMirrorJob carrying a driveFileId, obtainable only
+  // by closing a job against a live Google Drive connection; Drive I/O runs
+  // server-side via `googleapis`, so Playwright's `context.route()` cannot
+  // intercept it. Mapping the surface spec here would report the journey step
+  // covered on evidence that no restore occurred -- the same over-claim this
+  // producer's own history corrected twice.
+  //
+  // The route to closing it is in that spec's header: the MISSING-mode SKIPPED
+  // short-circuit at lib/restore/rehydrate.ts:26-28 permits a full queue
+  // traversal with no Drive call, given one gated seed helper and CRON_SECRET.
+  // Even then the Drive download, the integrity check and the write-back stay
+  // unproven in CI.
   restore: [],
   inspection: ["first-tradie-flow.spec.ts", "pilot-workflow.spec.ts"],
   claim: ["job-close-happy-path.spec.ts", "first-tradie-flow.spec.ts"],
