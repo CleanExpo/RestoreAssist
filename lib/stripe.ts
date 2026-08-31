@@ -1,5 +1,25 @@
 import Stripe from "stripe";
 
+/**
+ * The Stripe API version this application speaks. THE single source of truth.
+ *
+ * Two things make this line load-bearing, and both were learned the hard way.
+ *
+ * It is coupled to the SDK by `typescript: true` at every call site: the SDK's
+ * types accept only the version that SDK ships as its default, so a dependency
+ * bump that moves it FAILS THE BUILD rather than silently changing which Stripe
+ * API the payments path talks to. That is why this value moves in lockstep with
+ * `stripe` in package.json (2026-05-27 -> 06-24 -> 07-29 -> 08-26).
+ *
+ * And it lives here, exported, because it did not used to. A second literal in
+ * `scripts/reconcile-stripe-subscriptions.ts` pinned 2026-05-27 and omitted
+ * `typescript: true`, so its types never objected and it drifted FOUR versions
+ * behind unnoticed -- a reconciler reading Stripe on a different API version
+ * than the writer, which can see differently shaped objects. One owner, imported
+ * everywhere, is the only arrangement in which that cannot happen again.
+ */
+export const STRIPE_API_VERSION = "2026-08-26.dahlia" as const;
+
 // Lazy singleton — the Stripe constructor throws on falsy keys, so we defer
 // instantiation until the first actual call. This prevents Next.js build from
 // failing during "Collecting page data" when STRIPE_SECRET_KEY is absent
@@ -7,6 +27,7 @@ import Stripe from "stripe";
 // All 14 callers are server-side API routes, so the key is always present
 // at runtime. Any missing-key errors surface as Stripe 401s, caught in
 // each route's try/catch.
+
 let _stripe: Stripe | null = null;
 
 function getInstance(): Stripe {
@@ -43,15 +64,8 @@ function getInstance(): Stripe {
       );
     }
 
-    // Pinned, and coupled to the SDK major/minor by `typescript: true`: the
-    // types accept only the version that SDK ships as its default, so a
-    // dependency bump that moves it fails the type-check rather than silently
-    // changing which Stripe API this talks to. That coupling is the reason
-    // this line moves in lockstep with `stripe` in package.json (2026-05-27 ->
-    // 06-24 -> 07-29 -> 08-26), and why bumping the SDK without bumping here
-    // cannot compile.
     _stripe = new Stripe(key, {
-      apiVersion: "2026-08-26.dahlia",
+      apiVersion: STRIPE_API_VERSION,
       typescript: true,
     });
   }
