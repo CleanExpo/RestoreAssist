@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   listAustralianStates,
   nationalFloorEdition,
+  permittedNccEditions,
   resolveNccEdition,
   type AustralianState,
 } from "../ncc-adoption";
@@ -104,6 +105,29 @@ describe("NCC adoption — the Northern Territory has not adopted NCC 2025", () 
   it("stays on NCC 2022 Amendment 2 indefinitely", () => {
     expect(resolveNccEdition("NT", "2026-08-31")).toBe("NCC 2022 Amendment 2");
     expect(resolveNccEdition("NT", "2030-01-01")).toBe("NCC 2022 Amendment 2");
+  });
+});
+
+describe("permittedNccEditions models the 12-month transition", () => {
+  it("ACT permits BOTH editions inside the transition window", () => {
+    const permitted = permittedNccEditions("ACT", "2026-08-31");
+    expect(permitted).toEqual(["NCC 2025", "NCC 2022 Amendment 2"]);
+    // and resolveNccEdition is always the default, element 0
+    expect(permitted[0]).toBe(resolveNccEdition("ACT", "2026-08-31"));
+  });
+
+  it("ACT permits only the new edition once the window closes", () => {
+    expect(permittedNccEditions("ACT", "2027-05-01")).toEqual(["NCC 2025"]);
+  });
+
+  it("Victoria has no transition, so only ever one permitted edition", () => {
+    expect(permittedNccEditions("VIC", "2026-08-31")).toEqual(["NCC 2025"]);
+  });
+
+  it("NSW before adoption permits only the edition in force", () => {
+    expect(permittedNccEditions("NSW", "2026-08-31")).toEqual([
+      "NCC 2022 Amendment 2",
+    ]);
   });
 });
 

@@ -105,6 +105,14 @@ export const TRANSITION_12_MONTHS: ReadonlySet<AustralianState> = new Set<Austra
   "WA",
 ]);
 
+const TRANSITION_MONTHS = 12;
+
+function addMonths(iso: string, months: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().slice(0, 10);
+}
+
 function stepsFor(state: AustralianState): NccAdoptionStep[] {
   return [...NATIONAL_BASE, ...STATE_STEPS[state]];
 }
@@ -119,6 +127,11 @@ export function listAustralianStates(): AustralianState[] {
 
 /**
  * The NCC edition legally in force in `state` on `asAt` (ISO date, default today).
+ *
+ * During a 12-month transition (ACT, WA) more than one edition may lawfully apply
+ * and the project's approval decides; this returns the newly adopted edition as
+ * the default. Use `permittedNccEditions` when the project's compliance basis is
+ * known.
  * e.g. VIC on 2026-08-31 → "NCC 2025"; NSW the same day → "NCC 2022 Amendment 2";
  * NT on any date → "NCC 2022 Amendment 2", because it has not adopted NCC 2025.
  */
@@ -134,6 +147,45 @@ export function resolveNccEdition(
     if (step.from <= asAt) current = step.edition;
   }
   return current;
+}
+
+/**
+ * Every edition a project may lawfully be built to in `state` on `asAt`.
+ *
+ * Usually one. During a transition it is TWO: the ACT and WA each run a 12-month
+ * period in which a project may nominate either the new edition or the previous
+ * one, and the project's approval fixes which. RestoreAssist does not record a
+ * project's nominated compliance basis, so `resolveNccEdition` returns the NEWLY
+ * ADOPTED edition as the default; this function exists so a caller that does know
+ * the basis is not forced to accept that default, and so the transition is
+ * modelled rather than silently flattened.
+ *
+ * Returned newest first. `resolveNccEdition(state, asAt)` is always element 0.
+ */
+export function permittedNccEditions(
+  state: AustralianState,
+  asAt: string = new Date().toISOString().slice(0, 10),
+): string[] {
+  const current = resolveNccEdition(state, asAt);
+  if (!TRANSITION_12_MONTHS.has(state)) return [current];
+
+  // Find the step that brought `current` in, and check we are still inside its
+  // transition window. Steps are chronological.
+  const steps = stepsFor(state);
+  let activeFrom: string | null = null;
+  let previous: string | null = null;
+  for (const step of steps) {
+    if (step.from <= asAt) {
+      if (step.edition !== current) {
+        previous = step.edition;
+      } else if (activeFrom === null || step.from > activeFrom) {
+        activeFrom = step.from;
+      }
+    }
+  }
+  if (activeFrom === null || previous === null) return [current];
+  if (asAt >= addMonths(activeFrom, TRANSITION_MONTHS)) return [current];
+  return [current, previous];
 }
 
 /**
