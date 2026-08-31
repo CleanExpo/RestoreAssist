@@ -94,6 +94,16 @@ function context(overrides: Partial<ReceiptContext> = {}): ReceiptContext {
     maxAgeDays: 14,
     repository: REPO,
     now: NOW,
+    // These fixtures bind fabricated SHAs that no repository contains, so the
+    // real `sourceTreeDigest` (which shells out to `git ls-tree`) cannot
+    // resolve them. Identity is the right stub: two receipts naming the same
+    // ref agree, two naming different refs disagree — which is exactly the
+    // distinction every binding test below is written to exercise.
+    sourceDigestAt: (ref: string) => `digest-of-${ref.toLowerCase()}`,
+    // The tree of the fixture's own SHA is the fixture's tree; anything else
+    // resolves to a distinct value, so a re-signed receipt naming a different
+    // tree for the same commit is still rejected.
+    treeAt: (ref: string) => (ref.toLowerCase() === SHA.toLowerCase() ? TREE : `tree-of-${ref}`),
     ...overrides,
   };
 }

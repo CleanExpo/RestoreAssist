@@ -61,6 +61,7 @@
  * key this repository does not contain and must never contain.
  */
 
+import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 
 // Deliberately the SAME canonicaliser the signed capture manifests use, not a
@@ -89,6 +90,84 @@ import {
 } from "./producers/d1-billing-flows";
 
 /** Environment variable carrying the trusted public keys, as JSON. */
+/**
+ * Everything under here is EVIDENCE ABOUT the source, not the source itself.
+ *
+ * Excluded from the binding digest below. See `sourceTreeDigest`.
+ */
+export const RELEASE_EVIDENCE_PREFIX = "docs/evidence/release-gate/";
+
+/**
+ * A digest of the tracked SOURCE tree at `ref`, excluding release-gate evidence.
+ *
+ * THE CATCH-22 THIS EXISTS TO BREAK
+ * ---------------------------------
+ * Receipts used to bind to `git rev-parse HEAD` and `HEAD^{tree}`. Both are
+ * changed by committing a receipt -- and `release-receipt.yml` commits every
+ * receipt to `main`. So the workflow verified a receipt at commit X, committed
+ * it as commit Y, and at Y the receipt failed its own binding check with
+ * "receipt is bound to a different release SHA".
+ *
+ * Worse, it did not just fail itself. Minting a second criterion advanced HEAD
+ * again and invalidated the first, so six criteria needed six commits and each
+ * commit invalidated every receipt already committed. The subsystem could never
+ * hold more than zero valid receipts at once, and nothing in the code said so.
+ *
+ * Excluding the evidence directory fixes it at the root: a receipt attests to
+ * the SOURCE, and recording that attestation is not a change to the thing
+ * attested. Adding, updating or removing a receipt now leaves every other
+ * receipt's binding intact, while any change to real source still invalidates
+ * all of them -- which is the property that actually matters.
+ *
+ * Content, not identity. `git ls-tree -r` yields "<mode> blob <sha>\t<path>"
+ * per tracked file, so this is a hash of paths and blob contents. A rebase that
+ * preserves content keeps the digest, which is correct: the measurement is
+ * still about that source. A one-character change to any non-evidence file
+ * changes it.
+ */
+/** The real tree SHA of a commit-ish. */
+export function gitTreeAt(ref: string, root: string = process.cwd()): string {
+  return execFileSync("git", ["rev-parse", `${ref}^{tree}`], {
+    cwd: root,
+    encoding: "utf8",
+  }).trim();
+}
+
+export function sourceTreeDigest(
+  ref = "HEAD",
+  root: string = process.cwd(),
+): string {
+  const listing = execFileSync(
+    "git",
+    ["ls-tree", "-r", "--full-tree", ref],
+    { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+  );
+
+  const lines = listing
+    .split("\n")
+    .filter(Boolean)
+    .filter((line) => {
+      // "<mode> <type> <sha>\t<path>"
+      const path = line.slice(line.indexOf("\t") + 1);
+      return !path.startsWith(RELEASE_EVIDENCE_PREFIX);
+    })
+    .sort();
+
+  // Population control, and not a formality. An empty or unreadable listing
+  // would hash to a stable value that matches itself on both sides -- a
+  // binding that always passes while measuring nothing. That is the same
+  // failure shape as a scan that read no files, and it would be invisible
+  // precisely because the two sides would agree.
+  if (lines.length === 0) {
+    throw new Error(
+      `git ls-tree produced no non-evidence entries for ${ref}; refusing to ` +
+        "derive a source digest that would match anything",
+    );
+  }
+
+  return crypto.createHash("sha256").update(lines.join("\n")).digest("hex");
+}
+
 export const TRUSTED_KEYS_ENV = "RELEASE_RECEIPT_PUBLIC_KEYS";
 
 /**
@@ -378,6 +457,13 @@ export function verifyReceiptSignature(
 }
 
 export interface ReceiptContext {
+  /**
+   * Resolve a commit-ish to its source digest. Injected only by tests, which
+   * bind fabricated SHAs that no repository contains.
+   */
+  sourceDigestAt?: (ref: string) => string;
+  /** Resolve a commit-ish to its tree SHA. Injected only by tests. */
+  treeAt?: (ref: string) => string;
   criterionId: string;
   gateVersion: string;
   /** HEAD of this checkout. */
@@ -420,19 +506,70 @@ export function checkReceiptBinding(
       message: `receipt was produced against gate version ${receipt.gateVersion}, scoring ${context.gateVersion}`,
     };
   }
-  if (receipt.releaseSha.toLowerCase() !== context.releaseSha.toLowerCase()) {
+  // BOUND TO THE SOURCE, NOT TO THE COMMIT.
+  //
+  // This compared `releaseSha` and `releaseTree` for equality with HEAD. Both
+  // are moved by committing a receipt -- and release-receipt.yml commits every
+  // receipt to `main`. So the workflow verified a receipt at commit X,
+  // committed it as Y, and at Y the receipt failed its own binding. Minting a
+  // second criterion invalidated the first; six criteria needed six commits,
+  // each invalidating every receipt already committed. The subsystem could
+  // never hold more than zero valid receipts at once.
+  //
+  // Comparing the SOURCE digest at each side fixes it at the root: a receipt
+  // attests to the source, and recording that attestation is not a change to
+  // the thing attested. The security property is unchanged and arguably
+  // stronger -- any change to a non-evidence file still invalidates every
+  // receipt, and content is compared rather than commit identity, so a rebase
+  // that preserves content correctly keeps the binding.
+  //
+  // `digestAt` is injectable so the pure binding logic stays testable without a
+  // git repository; the default reads the real tree.
+  const digestAt = context.sourceDigestAt ?? sourceTreeDigest;
+  let receiptDigest: string;
+  let contextDigest: string;
+  try {
+    receiptDigest = digestAt(receipt.releaseSha);
+    contextDigest = digestAt(context.releaseSha);
+  } catch (error) {
+    // A receipt naming a commit this checkout does not have is unverifiable,
+    // which is a rejection rather than a pass. Reported distinctly so a shallow
+    // clone is not mistaken for a forged receipt.
     return {
       ok: false,
-      message: `receipt is bound to a different release SHA (${receipt.releaseSha})`,
+      message: `cannot resolve the source tree for this receipt: ${String(error)}`,
     };
   }
-  // The tree is what a scan actually reads. Binding it as well as the commit
-  // means a receipt cannot be carried across a rebase that preserves content
-  // but changes the SHA, nor across a commit that reuses a SHA's message.
-  if (receipt.releaseTree.toLowerCase() !== context.releaseTree.toLowerCase()) {
+  if (receiptDigest !== contextDigest) {
     return {
       ok: false,
-      message: `receipt is bound to a different source tree (${receipt.releaseTree})`,
+      message: `receipt is bound to a different source tree (measured at ${receipt.releaseSha})`,
+    };
+  }
+  // `releaseTree` must be the real tree of `releaseSha`.
+  //
+  // Once the binding moved to the source digest, this field stopped being
+  // checked -- and an unchecked field in a signed receipt is worse than an
+  // absent one: it reads as a control to everyone who sees it while permitting
+  // any value. That is the same defect this file already records against
+  // `environment`, which was required non-empty and then never compared.
+  //
+  // Keeping it honest costs one lookup and catches a re-signed receipt whose
+  // author edited the tree to tell a different story about the same commit.
+  const treeAt = context.treeAt ?? gitTreeAt;
+  let actualTree: string;
+  try {
+    actualTree = treeAt(receipt.releaseSha);
+  } catch (error) {
+    return {
+      ok: false,
+      message: `cannot resolve the tree for this receipt: ${String(error)}`,
+    };
+  }
+  if (receipt.releaseTree.toLowerCase() !== actualTree.toLowerCase()) {
+    return {
+      ok: false,
+      message: `receipt names a tree (${receipt.releaseTree}) that is not the tree of ${receipt.releaseSha}`,
     };
   }
   if (

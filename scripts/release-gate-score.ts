@@ -21,6 +21,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import {
+  sourceTreeDigest,
   trustedKeysFromEnv,
   verifyReleaseReceipt,
 } from "./ci/release-receipt";
@@ -360,11 +361,44 @@ export function ownerEvidence(
       detail: `evidence criterion mismatch: expected ${criterionId}`,
     };
   }
-  if (releaseSha !== expectedSha || !/^[0-9a-f]{40}$/i.test(releaseSha ?? "")) {
+  if (!/^[0-9a-f]{40}$/i.test(releaseSha ?? "")) {
     return {
       status: "fail",
-      detail: `evidence release_sha is not bound to HEAD ${expectedSha}`,
+      detail: "evidence release_sha must be a full 40-character commit SHA",
     };
+  }
+  // BOUND TO THE SOURCE, NOT TO HEAD.
+  //
+  // This required `release_sha === HEAD`, which is the same catch-22 the
+  // receipt binding had: release-receipt.yml commits each receipt to `main`,
+  // moving HEAD, so every evidence file went stale the moment any receipt was
+  // recorded -- and each further receipt re-staled the rest.
+  //
+  // Comparing the SOURCE digest keeps the property that matters (evidence
+  // written against different source is rejected) while letting evidence about
+  // the source survive the act of recording it. Any change to a non-evidence
+  // file still invalidates every file.
+  if (releaseSha !== expectedSha) {
+    let sameSource = false;
+    try {
+      sameSource =
+        sourceTreeDigest(releaseSha as string, ROOT) ===
+        sourceTreeDigest(expectedSha, ROOT);
+    } catch {
+      // A SHA this checkout does not contain cannot be compared. That is a
+      // rejection, not a pass, and it is reported distinctly so a shallow
+      // clone is not mistaken for stale evidence.
+      return {
+        status: "fail",
+        detail: `evidence release_sha ${releaseSha} is not resolvable in this checkout`,
+      };
+    }
+    if (!sameSource) {
+      return {
+        status: "fail",
+        detail: `evidence release_sha ${releaseSha} names source that differs from HEAD ${expectedSha}`,
+      };
+    }
   }
   if (!owner || !reviewer || owner === reviewer) {
     return {

@@ -159,10 +159,24 @@ jobs:
 
       - name: Run release gate scorer
         id: gate
-        # The scorer receives no secrets. Its smoke suite exercises public
+        # The scorer receives no SECRETS. Its smoke suite exercises public
         # surfaces only, so a BotID bypass is neither required nor permitted.
         # Every invocation is strict. A manual run is diagnostic only and may
         # never weaken the production threshold.
+        #
+        # RELEASE_RECEIPT_PUBLIC_KEYS is not a secret -- it is the PUBLIC half,
+        # and it belongs here as a repository variable rather than on an
+        # environment, because this job deliberately declares no `environment:`
+        # and an environment-scoped value could never reach it.
+        #
+        # Without it, `trustedKeysFromEnv()` returns an empty map and EVERY
+        # owner-evidence criterion fails with "no trusted receipt keys
+        # configured" -- all 35 points of the web profile, unconditionally,
+        # however perfect the receipts are. The whole signed-receipt subsystem
+        # was unable to earn a single point, and nothing said so: the criteria
+        # simply read as failing, which is what they would look like anyway.
+        env:
+          RELEASE_RECEIPT_PUBLIC_KEYS: ${{ vars.RELEASE_RECEIPT_PUBLIC_KEYS }}
         run: npx --no-install tsx scripts/release-gate-score.ts --profile=web --json --strict
 
       - name: Upload release gate report
