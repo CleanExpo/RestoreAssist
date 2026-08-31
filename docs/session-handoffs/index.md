@@ -1,9 +1,9 @@
 ---
 type: index
 name: session-handoffs
-description: OKF index — 14 concepts, 0 subfolders
+description: OKF index — 15 concepts, 0 subfolders
 okf_version: "0.1"
-updated: 2026-08-30
+updated: 2026-08-31
 ---
 
 <!-- okf:generated -->
@@ -27,3 +27,4 @@ _Read this first. Lists every concept + subfolder here so an agent loads only wh
 - [[handoff-20260830T014155Z]] — Closing the owner-gate session: #2085 and #2086 merged and verified on main, nothing left running
 - [[handoff-20260830T092753Z]] — The floor-plan stack landed in five PRs, and the review that ran only after it retargeted found seven defects in it
 - [[handoff-20260830T172338Z]] — Two masking layers came off the production alarm, and what was underneath is one real fault and one bad test
+- [[handoff-20260831T020627Z]] — Every release-gate criterion got a producer, and then the pipeline turned out to be unable to earn a point
