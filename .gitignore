@@ -165,3 +165,12 @@ _bmad-output/
 # see this repo's own note in .gitleaks.toml about what a broad exemption cost
 # last time. Verified `bmad status` behaves identically without it.
 _bmad/_config/files-manifest.csv
+
+# Capacitor source assets written by docs/distribution/app-store/icon-source/
+# build-icons.mjs. They are intermediates: `npx cap sync` copies them into the
+# native ios/ and android/ projects, and those projects are not in this
+# repository — only app-store/ is tracked under distribution/. Nothing has ever
+# tracked them, and nothing ignored them either, so running the generator left
+# an untracked directory behind and every run looked like a pending change.
+# Regenerable from icon-mark.svg; the tracked outputs are in icon-source/out/.
+docs/distribution/mobile/
