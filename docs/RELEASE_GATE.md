@@ -118,7 +118,10 @@ Three properties carry the scheme, and each has a test that fails without it:
 
 1. **The trust root is not in this repository.** Public keys are read from the
    `RELEASE_RECEIPT_PUBLIC_KEYS` environment variable, which on Actions means a
-   repository secret. A committed key would be worthless: anyone who can open a
+   repository **variable** — *not* a secret, and *not* an environment secret. The
+   scorer job in `release-gate.yml` deliberately declares no `environment:`, so an
+   environment-scoped value can never reach it, and these are the PUBLIC halves
+   anyway. A committed key would be worthless: anyone who can open a
    pull request could swap in a key they hold and sign their own receipts. The
    private half stays with the owner and must never be committed. Each key is
    scoped to the criteria it may sign:
@@ -420,13 +423,34 @@ openssl genpkey -algorithm ed25519 -out release-signing.pem
 openssl pkey -in release-signing.pem -pubout
 ```
 
-**2. Create the `release-receipts` GitHub environment** and add these secrets
+**2a. Add the PUBLIC keys as a repository VARIABLE.**
+Settings > Secrets and variables > Actions > **Variables** tab > New repository
+variable. Name `RELEASE_RECEIPT_PUBLIC_KEYS`, value:
+
+```json
+{"<key-id>": {"publicKey": "<public PEM>", "criteria": ["A3-no-sev1-sev2-open"]}}
+```
+
+**This must be a repository variable, not an environment secret, and the
+distinction is not cosmetic.** The scorer step in `release-gate.yml` runs in a job
+with no `environment:`, so it can read `vars.` and repository-wide `secrets.` but
+can *never* read a secret scoped to the `release-receipts` environment. Put the
+public keys there and `trustedKeysFromEnv()` returns an empty map, every
+owner-evidence criterion fails with "no trusted receipt keys configured", and all
+35 points are lost — while looking exactly like criteria that legitimately failed.
+
+Worse, the minting workflow's own verify step *would still pass*, because it runs
+inside the environment and can see the value. So the run reports success and
+commits a receipt that scores zero. This document told owners to do precisely that
+until 2026-08-31; `scripts/ci/__tests__/release-receipt-workflow.test.ts` now
+asserts these instructions stay correct.
+
+**2b. Create the `release-receipts` GitHub environment** and add these SECRETS
 to *it*, not to repository-wide secrets:
 
 | Secret | Value |
 | --- | --- |
 | `RELEASE_RECEIPT_PRIVATE_KEY` | the private PEM |
-| `RELEASE_RECEIPT_PUBLIC_KEYS` | `{"<key-id>": {"publicKey": "<public PEM>", "criteria": ["A3-no-sev1-sev2-open"]}}` |
 | `LINEAR_API_KEY` | a dedicated Linear service identity, not a personal key (A3) |
 | `STRIPE_SECRET_KEY` | live key; the producer reads live/test from its prefix (D3) |
 | `DATABASE_URL` | production database, read-only is sufficient (D3) |

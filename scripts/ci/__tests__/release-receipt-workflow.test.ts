@@ -292,6 +292,47 @@ describe("a branch dispatch cannot mint a receipt", () => {
     }
   });
 
+  it("RELEASE_GATE.md does not send the owner to a store the scorer cannot read", () => {
+    /**
+     * The surviving half of the same fault, found by a sweep AFTER the first fix.
+     *
+     * The workflows and sign-release-receipt.ts were corrected, and this document --
+     * the "Owner setup for signed receipts" section, the one an owner actually
+     * follows -- was left saying to create the `release-receipts` environment and add
+     * RELEASE_RECEIPT_PUBLIC_KEYS to it as a secret.
+     *
+     * The scorer job declares no `environment:`, so an environment secret can NEVER
+     * reach it. The `|| secrets.` fallback does not rescue this: a repository-wide
+     * secret works, an ENVIRONMENT secret does not, and the doc explicitly said not
+     * to use repository-wide.
+     *
+     * Fixing the code and leaving the instructions wrong is the class this whole
+     * subsystem keeps re-opening, so the instructions are now under test too.
+     */
+    const doc = readFileSync(
+      join(process.cwd(), "docs", "RELEASE_GATE.md"),
+      "utf8",
+    );
+    // The public key must be introduced as a VARIABLE.
+    const intro = doc
+      .split("\n")
+      .find((l) => l.includes("Name `RELEASE_RECEIPT_PUBLIC_KEYS`"));
+    expect(intro, "the setup steps must still name where the public key goes")
+      .toBeDefined();
+
+    // And the environment-secret table must no longer carry it.
+    const envSection = doc.slice(doc.indexOf("release-receipts` GitHub environment"));
+    const table = envSection.slice(0, envSection.indexOf("\n\n**") + 1);
+    expect(
+      table.includes("RELEASE_RECEIPT_PUBLIC_KEYS"),
+      "the public key must NOT be listed among the environment secrets: the scorer " +
+        "job has no `environment:` and could never read it there",
+    ).toBe(false);
+
+    // The private key legitimately belongs there.
+    expect(table).toContain("RELEASE_RECEIPT_PRIVATE_KEY");
+  });
+
   it("does not tell the owner to put the public key somewhere the scorer cannot read", () => {
     // The doc comment is the instruction an owner actually follows, so it is part of
     // the contract. It said "repository secret" while the scorer read a variable.
