@@ -149,6 +149,23 @@ jobs:
           fi
           echo "A1_PLAYWRIGHT_REPORT=$PLAYWRIGHT_JSON_OUTPUT_NAME" >> "$GITHUB_ENV"
 
+      # Refuse to mint before the key exists. Without this the run signs a receipt,
+      # commits it, and the failure only surfaces later as an owner-evidence
+      # criterion reading exactly like one that legitimately failed.
+      - name: Refuse to mint without the public key in the store the scorer reads
+        env:
+          PUBLIC_KEYS: ${{ vars.RELEASE_RECEIPT_PUBLIC_KEYS }}
+        run: |
+          if [ -z "$PUBLIC_KEYS" ]; then
+            echo "::error title=RELEASE_RECEIPT_PUBLIC_KEYS is not set::The repository"\
+                 " VARIABLE is empty. The scorer reads vars.RELEASE_RECEIPT_PUBLIC_KEYS"\
+                 " and cannot read an environment secret, so minting now would produce"\
+                 " a receipt that scores zero. Settings > Secrets and variables >"\
+                 " Actions > Variables. See docs/RELEASE_GATE.md step 2a."
+            exit 1
+          fi
+          echo "public key variable present (${#PUBLIC_KEYS} chars)"
+
       - name: Measure and sign
         env:
           RELEASE_RECEIPT_PRIVATE_KEY: ${{ secrets.RELEASE_RECEIPT_PRIVATE_KEY }}
@@ -167,22 +184,30 @@ jobs:
       # worse than none: it looks like evidence in the tree while earning
       # nothing, which is the shape of failure this whole subsystem exists to
       # remove.
-      # The key MUST come from the same store the scorer reads. This step used to
-      # read `secrets.` while release-gate.yml's scorer reads `vars.`, and
-      # sign-release-receipt.ts documented it as a secret -- three statements, two
-      # stores. Populate only the secret, as the doc said, and this step PASSES
-      # (it can see the key) while the scorer sees an empty map and fails every
-      # owner-evidence criterion. The workflow would report success and commit a
-      # receipt that earns nothing -- which is exactly the failure this step was
-      # added to prevent, arriving through the step itself.
+      # `vars` ONLY. No `secrets` fallback -- and the absence is the fix.
       #
-      # `vars` first because these are PUBLIC keys and the scorer's job declares no
-      # `environment:`, so an environment-scoped secret could never reach it. The
-      # `secrets` fallback means an owner who already followed the old doc is not
-      # silently broken.
+      # This step used to read `secrets.`, while release-gate.yml's scorer reads
+      # `vars.`, and sign-release-receipt.ts documented a secret. Three statements,
+      # two stores. Populate only the secret and this step PASSES (it sees the key)
+      # while the scorer reads an empty map and fails all 35 owner-evidence points.
+      # The run reports success and commits a receipt that earns nothing -- exactly
+      # the failure this step exists to prevent, arriving through the step itself.
+      #
+      # A `${{ vars.X || secrets.X }}` fallback on both sides LOOKED like it unified
+      # them and did not: THIS job declares `environment: release-receipts` and the
+      # scorer's job declares no environment, so `secrets.X` resolves to different
+      # things in the two places. An owner who followed the old doc -- environment
+      # secret, no repository variable -- still got verify-passes / score-zero, and
+      # a test comparing the two expression STRINGS passed because they were
+      # identical. Two identical expressions in differently-scoped jobs are not the
+      # same store.
+      #
+      # Reading `vars` alone removes the degree of freedom. A repository variable
+      # resolves identically everywhere, so the two sides cannot diverge, and the
+      # preflight below fails loudly instead of scoring zero quietly.
       - name: Verify the receipt the way the scorer will
         env:
-          RELEASE_RECEIPT_PUBLIC_KEYS: ${{ vars.RELEASE_RECEIPT_PUBLIC_KEYS || secrets.RELEASE_RECEIPT_PUBLIC_KEYS }}
+          RELEASE_RECEIPT_PUBLIC_KEYS: ${{ vars.RELEASE_RECEIPT_PUBLIC_KEYS }}
         run: |
           npx --no-install tsx -e "
             import { ownerEvidence } from './scripts/release-gate-score';

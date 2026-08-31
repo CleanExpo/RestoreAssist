@@ -283,13 +283,69 @@ describe("a branch dispatch cannot mint a receipt", () => {
         "can verify green and score zero",
     ).toBe(scorer);
 
-    // And `vars` must be consulted first on both, because the scorer's job declares
-    // no `environment:` and could never reach an environment-scoped secret.
+    /**
+     * STRING EQUALITY IS NOT ENOUGH, and asserting only that was how the first fix
+     * shipped broken.
+     *
+     * Both sides carried the identical expression `${{ vars.X || secrets.X }}`, so
+     * the `.toBe()` above passed — while the two jobs still read different stores.
+     * `secrets.X` resolves against the ENVIRONMENT in the minting job (which
+     * declares `environment: release-receipts`) and against repository-wide secrets
+     * in the scorer's job (which declares none). An owner who followed the old
+     * documentation — environment secret, no repository variable — therefore still
+     * got the original failure: verify passes, receipt commits, scorer scores zero.
+     *
+     * The only way two expressions in differently-scoped jobs are guaranteed to read
+     * the same value is if neither can reach a scoped store at all. So: `vars` only,
+     * and no `secrets` fallback anywhere in this chain.
+     */
     for (const [name, expr] of [["scorer", scorer], ["verifier", verifier]] as const) {
-      expect(expr, `${name} must read vars first`).toMatch(
-        /\$\{\{\s*vars\.RELEASE_RECEIPT_PUBLIC_KEYS/,
+      expect(expr, `${name} must read the repository variable`).toMatch(
+        /\$\{\{\s*vars\.RELEASE_RECEIPT_PUBLIC_KEYS\s*\}\}/,
       );
+      expect(
+        expr.includes("secrets."),
+        `${name} must NOT fall back to secrets: it resolves differently in an ` +
+          "environment-scoped job than in an unscoped one, so a fallback silently " +
+          "re-opens the split this test exists to close",
+      ).toBe(false);
     }
+  });
+
+  it("refuses to mint when the public key variable is empty", () => {
+    /**
+     * Without this the workflow signs, commits, and the failure surfaces only later
+     * as an owner-evidence criterion that reads exactly like one that legitimately
+     * failed. Failing at mint time is the difference between a two-minute fix and a
+     * hunt through the producers, which are fine.
+     */
+    const wf = readFileSync(
+      join(process.cwd(), ".github", "workflows", "release-receipt.yml"),
+      "utf8",
+    );
+    const parsed = parse(wf) as {
+      jobs: Record<string, { steps?: Array<Record<string, unknown>> }>;
+    };
+    const steps = Object.values(parsed.jobs).flatMap((j) => j.steps ?? []);
+
+    const guard = steps.find((st) =>
+      String(st.run ?? "").includes("RELEASE_RECEIPT_PUBLIC_KEYS is not set"),
+    );
+    expect(guard, "a preflight must refuse to mint without the key").toBeDefined();
+
+    const run = String(guard?.run ?? "");
+    expect(run, "the guard must actually exit non-zero").toMatch(/exit 1/);
+
+    // And it must run BEFORE the signer, or it guards nothing.
+    const guardIdx = steps.indexOf(guard!);
+    const signIdx = steps.findIndex((st) =>
+      String(st.run ?? "").includes("sign-release-receipt.ts"),
+    );
+    expect(signIdx, "the signing step must exist").toBeGreaterThan(-1);
+    expect(
+      guardIdx,
+      "the preflight must come before signing, or the receipt is already written",
+    ).toBeLessThan(signIdx);
   });
 
   it("RELEASE_GATE.md does not send the owner to a store the scorer cannot read", () => {

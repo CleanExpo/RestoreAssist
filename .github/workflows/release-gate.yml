@@ -176,7 +176,7 @@ jobs:
         # was unable to earn a single point, and nothing said so: the criteria
         # simply read as failing, which is what they would look like anyway.
         env:
-          RELEASE_RECEIPT_PUBLIC_KEYS: ${{ vars.RELEASE_RECEIPT_PUBLIC_KEYS || secrets.RELEASE_RECEIPT_PUBLIC_KEYS }}
+          RELEASE_RECEIPT_PUBLIC_KEYS: ${{ vars.RELEASE_RECEIPT_PUBLIC_KEYS }}
         run: npx --no-install tsx scripts/release-gate-score.ts --profile=web --json --strict
 
       - name: Upload release gate report
