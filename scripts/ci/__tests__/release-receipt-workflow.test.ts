@@ -200,4 +200,43 @@ describe("a branch dispatch cannot mint a receipt", () => {
     expect(options).toEqual(produced);
     expect(Object.keys(CRITERION_POLICIES).sort()).toEqual(produced);
   });
+
+  it("gives the SCORER the public keys, or no receipt can earn a point", () => {
+    /**
+     * The blocker that made the whole subsystem inert, and which nothing
+     * detected: `release-gate.yml`'s scorer step had no
+     * RELEASE_RECEIPT_PUBLIC_KEYS. `trustedKeysFromEnv()` returns an EMPTY MAP
+     * when the variable is absent, so every owner-evidence criterion failed
+     * with "no trusted receipt keys configured" -- all 35 points of the web
+     * profile, unconditionally, however perfect the receipts were.
+     *
+     * It was invisible because those criteria read as failing either way. A
+     * gate that cannot pass looks identical to a gate that is not passing.
+     *
+     * It must be a repository `vars.` reference, not `secrets.`: the job
+     * deliberately declares no `environment:`, so an environment-scoped value
+     * could never reach it -- and these are PUBLIC keys.
+     */
+    const gate = readFileSync(
+      join(process.cwd(), ".github", "workflows", "release-gate.yml"),
+      "utf8",
+    );
+    const parsed = parse(gate) as {
+      jobs: Record<string, { environment?: unknown; steps?: Array<Record<string, unknown>> }>;
+    };
+    const scorer = Object.values(parsed.jobs)
+      .flatMap((j) => j.steps ?? [])
+      .find((st) => String(st.run ?? "").includes("release-gate-score.ts"));
+
+    expect(scorer, "the scorer step must exist").toBeDefined();
+    const env = (scorer?.env ?? {}) as Record<string, string>;
+    expect(
+      env.RELEASE_RECEIPT_PUBLIC_KEYS,
+      "scorer step must receive RELEASE_RECEIPT_PUBLIC_KEYS",
+    ).toBeDefined();
+    // Repository variable, not an environment secret.
+    expect(env.RELEASE_RECEIPT_PUBLIC_KEYS).toMatch(
+      /\$\{\{\s*vars\.RELEASE_RECEIPT_PUBLIC_KEYS\s*\}\}/,
+    );
+  });
 });
