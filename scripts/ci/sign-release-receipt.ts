@@ -137,6 +137,16 @@ const PRODUCERS: Record<
       return produceA1Measurements(reportPath) as Promise<Record<string, unknown>>;
     },
   },
+  "D1-billing-flows": {
+    environment: "ci",
+    produce: async () => {
+      if (!process.env.STRIPE_TEST_SECRET_KEY) {
+        fail("STRIPE_TEST_SECRET_KEY is not set; the D1 producer cannot run");
+      }
+      const { produceD1Measurements } = await import("./producers/d1-billing-flows");
+      return produceD1Measurements() as Promise<Record<string, unknown>>;
+    },
+  },
   "D3-revenue-reconciliation": {
     environment: "production",
     produce: async () => {

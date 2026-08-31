@@ -83,6 +83,10 @@ import {
   A1_BASE_URL,
   A1_JOURNEY_STEPS,
 } from "./producers/a1-core-journeys";
+import {
+  D1_IOS_GUARD,
+  D1_LIFECYCLE,
+} from "./producers/d1-billing-flows";
 
 /** Environment variable carrying the trusted public keys, as JSON. */
 export const TRUSTED_KEYS_ENV = "RELEASE_RECEIPT_PUBLIC_KEYS";
@@ -705,6 +709,86 @@ export const CRITERION_POLICIES: Record<string, CriterionPolicy> = {
         return {
           ok: false,
           message: `no alert covers: ${measurements.uncoveredClasses || "(unreported)"}`,
+        };
+      }
+      return { ok: true };
+    },
+  },
+
+  "D1-billing-flows": {
+    // Stripe TEST mode plus a read of this repository's routes: both
+    // reproducible on a runner, and neither is an observation of production.
+    environments: ["ci"],
+    check: (measurements) => {
+      if (measurements.source !== "stripe+repo") {
+        return { ok: false, message: "measurement source must be stripe+repo" };
+      }
+      // Pinned to test mode. The walk creates subscriptions and cancels them;
+      // the evidence file is explicit that it must never run against prod
+      // Stripe, and a live-key run would charge real cards. Reconciling live
+      // revenue is D3's job, not this one.
+      if (measurements.mode !== "test") {
+        return {
+          ok: false,
+          message: `D1 is a test-mode walk; observed mode ${JSON.stringify(measurements.mode)}`,
+        };
+      }
+      // Compared against the criterion's own stage list rather than trusting
+      // missingStages to be empty, so a producer that stopped reporting a
+      // stage cannot pass by omission.
+      if (measurements.lifecycleStages !== [...D1_LIFECYCLE].join(",")) {
+        return {
+          ok: false,
+          message: "measurement lifecycleStages does not match the criterion's stages",
+        };
+      }
+      if (measurements.missingStages !== "") {
+        return {
+          ok: false,
+          message: `lifecycle stages never observed: ${measurements.missingStages}`,
+        };
+      }
+      // Population control on the route scan. Zero discovered routes reports
+      // zero unguarded and zero unclassified, and reads as a fully guarded
+      // application -- A3's query that reached nothing, one criterion over.
+      const scanned = measurements.billingRoutesScanned;
+      if (typeof scanned !== "number" || !Number.isInteger(scanned) || scanned <= 0) {
+        return {
+          ok: false,
+          message:
+            "measurement billingRoutesScanned must be a positive integer: a scan that found no billing routes has not verified any",
+        };
+      }
+      const guarded = measurements.guardedRoutes;
+      if (typeof guarded !== "number" || guarded <= 0) {
+        return {
+          ok: false,
+          message:
+            "measurement guardedRoutes must be positive: an application where nothing rejects iOS is not enforcing Path B",
+        };
+      }
+      if (measurements.iosGuard !== D1_IOS_GUARD) {
+        return {
+          ok: false,
+          message: `measurement iosGuard must be ${D1_IOS_GUARD}`,
+        };
+      }
+      // The regression this half exists for: a new checkout route that nobody
+      // guarded and nobody classified.
+      if (measurements.unclassifiedBillingRoutes !== "") {
+        return {
+          ok: false,
+          message: `billing routes neither guarded nor classified: ${measurements.unclassifiedBillingRoutes}`,
+        };
+      }
+      // The scope-out has to stay true. If StoreKit or an IAP library ever
+      // lands, "Apple IAP is not applicable" stops being a fact and this
+      // criterion must be rethought rather than quietly measuring Stripe alone.
+      if (measurements.appleIapShipped !== false) {
+        return {
+          ok: false,
+          message:
+            "Apple IAP appears to ship: the RA-1842 Path B scope-out no longer holds and D1 must be re-scoped",
         };
       }
       return { ok: true };

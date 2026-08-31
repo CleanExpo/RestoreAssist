@@ -86,8 +86,8 @@ Profile omission does not award points: excluded criteria are removed from that 
 ## Machine-verifiable vs blocked owner-evidence breakdown
 
 - **Web profile machine-verifiable (50 / 85 pts):** A2 (10), all of B (20), C1 (10), D2 (5), and F2 (5).
-- **Web profile reachable by signed receipt (30 / 85 pts):** A1 (10), C2 (5), A3 (5), D3 (5) and F1 (5) all have registered producers, so each can be measured and signed. Reachable is not the same as passing: a receipt earns points only when the measurement itself passes. See "Signed receipts" below.
-- **Web profile with no producer at all (5 / 85 pts):** D1 (5) alone. It cannot be signed, whatever key is held.
+- **Web profile reachable by signed receipt (35 / 85 pts):** A1 (10), C2 (5), A3 (5), D1 (5), D3 (5) and F1 (5) all have registered producers, so each can be measured and signed. Reachable is not the same as passing: a receipt earns points only when the measurement itself passes. See "Signed receipts" below.
+- **Every web criterion now has a path to a receipt.** No criterion is unsignable for want of a producer.
 - **Mobile-only blocked additions (15 / 100 pts):** E1-E3 remain required in the `mobile` profile and are excluded from the `web` profile.
 
 ### What still stands between the gate and a pass
@@ -103,7 +103,6 @@ Having a producer is not having the points. Measured against production on
 - **C2 and A3 need owner setup** — the keypair and the `release-receipts`
   environment, plus `A3_EXPECTED_VIEWER_ID`.
 - **A1 fails until `restore` is exercised.** No spec covers the storage-restore journey step, so the coverage map names it and A1 fails closed.
-- **D1 needs a producer written.**
 
 Committed prose, screenshots, URLs and hashes of narrative evidence do not earn release points: they are self-attestable. The scorer validates their structure and freshness for diagnostics, then fails closed until each owner criterion has a signed, criterion-specific machine receipt producer and verifier. A1 requires signup, login, onboarding, storage setup, restore, inspection, claim, attestation and PDF observations. E3 requires App Review, release, rollback and reviewer observations. Freshness is aged from the stated date, never filesystem metadata.
 
@@ -299,6 +298,40 @@ and a criterion absent from that registry cannot pass however good its key.
   severity — an epic or a growth ticket can carry Urgent without being a
   customer-impacting defect, and that mismatch is why the criterion drifted.
   Reconciling the two is a human call made in Linear by downgrading the ticket.
+
+- **D1-billing-flows** — produced by
+  `scripts/ci/producers/d1-billing-flows.ts`. Two halves, both required.
+
+  **Scope correction first.** The criterion says "Stripe **and Apple IAP**", but
+  RestoreAssist ships no Apple In-App Purchase — RA-1842 "Path B", locked
+  2026-05-02 after App Review rejected build 1.0(3) on guideline 3.1.1. iOS
+  stays free and sales happen only on the website. The evidence file is blunt
+  that hunting for an IAP sandbox purchase is "the single biggest time sink in
+  this item", so the producer measures Stripe only, and measures the iOS
+  **block** instead of an iOS purchase.
+
+  | Check | The failure it answers |
+  | --- | --- |
+  | `missingStages` empty, `lifecycleStages` pinned | Purchase, renewal and cancellation must each be observed. Compared against the criterion's own list so a producer that stopped reporting a stage cannot pass by omission. |
+  | Renewal read from `billing_reason = "subscription_cycle"` | The FIRST invoice on a new subscription is `subscription_create`. Counting `invoice.payment_succeeded` outright would let one purchase satisfy both "purchase" and "renewal" — an event standing as evidence for something it never showed. This is why the walk script uses a Stripe test clock. |
+  | `mode` pinned to `test` | The walk creates subscriptions and cancels them. The evidence file: "Never run this against prod Stripe." Reconciling live revenue is D3's job. |
+  | `billingRoutesScanned` positive, `guardedRoutes` positive | Zero discovered routes reports zero unguarded and zero unclassified, and reads as a fully guarded application — A3's unplugged smoke detector again. |
+  | `unclassifiedBillingRoutes` empty | The regression this exists for: a checkout route added without `rejectIfIOSCapacitor()`, unnoticed until App Review notices. |
+  | `appleIapShipped` must be `false` | If StoreKit or an IAP library ever lands, "Apple IAP is not applicable" stops being a fact and D1 must be re-scoped rather than quietly measuring Stripe alone. |
+
+  Routes are **discovered, not listed**. Every `app/api/**/route.ts` importing
+  `lib/stripe` is a candidate, and each must be either guarded or declared in
+  `D1_NOT_PURCHASE_INITIATING` with a reason. A new route is neither by default,
+  so it fails until someone decides which it is. A hardcoded list would have
+  gone stale silently — the same defect as A3's filter naming a project that no
+  longer existed. Measured against the real tree: 17 Stripe routes, 6 guarded,
+  11 classified, 0 unclassified.
+
+  Not every Stripe-touching route belongs behind the guard, which is why the
+  classification carries reasons rather than being a bare allowlist. Cancellation
+  and account deletion are deliberately reachable from iOS — blocking those
+  would trap subscribers — and `invoices/[id]/checkout` is a contractor's
+  customer paying for restoration **work**, which guideline 3.1.1 does not reach.
 
 - **D3-revenue-reconciliation** — registered. It was unregistered while its
   producer could not measure the webhook half itself: the stand-in read

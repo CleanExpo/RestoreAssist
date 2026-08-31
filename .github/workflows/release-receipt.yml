@@ -31,6 +31,7 @@ on:
           - A1-core-journeys
           - A3-no-sev1-sev2-open
           - C2-secrets-scan
+          - D1-billing-flows
           - D3-revenue-reconciliation
           - F1-monitoring-alerting
 
@@ -112,6 +113,7 @@ jobs:
           RELEASE_RECEIPT_PRIVATE_KEY: ${{ secrets.RELEASE_RECEIPT_PRIVATE_KEY }}
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GITLEAKS_BINARY: /tmp/gitleaks
           GITHUB_TOKEN: ${{ github.token }}

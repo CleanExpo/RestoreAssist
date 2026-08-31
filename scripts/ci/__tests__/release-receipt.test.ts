@@ -326,15 +326,17 @@ describe("planted defect: the measurements themselves", () => {
     // Without this, the owner's key alone would unlock points for any
     // criterion — a cryptographic restatement of self-attestation.
     //
-    // Uses D1 because it is genuinely unregistered. This test named F1, then
-    // A1, and each time that criterion gained a producer the assertion would
-    // have quietly become one about a REGISTERED criterion -- still passing,
-    // for the wrong reason. D1 has no producer and no policy.
+    // This test has named F1, then A1, then D1 -- and each time that criterion
+    // gained a producer the assertion quietly became one about a REGISTERED
+    // criterion, still passing for the wrong reason. E1 is used now because it
+    // is not receipt-based at all: it is a mobile-profile criterion with no
+    // producer and no policy, so it cannot drift into being registered the way
+    // the owner-evidence criteria did, one after another.
     const { privateKey, publicKeyPem } = keypair();
     const result = verifyReleaseReceipt(
-      sign(validReceipt({ criterionId: "D1-billing-flows" }), privateKey),
-      context({ criterionId: "D1-billing-flows" }),
-      keySet(publicKeyPem, ["D1-billing-flows"]),
+      sign(validReceipt({ criterionId: "E1-app-store-metadata" }), privateKey),
+      context({ criterionId: "E1-app-store-metadata" }),
+      keySet(publicKeyPem, ["E1-app-store-metadata"]),
     );
     expect(result).toEqual({
       ok: false,
@@ -349,6 +351,7 @@ describe("planted defect: the measurements themselves", () => {
       "A1-core-journeys",
       "A3-no-sev1-sev2-open",
       "C2-secrets-scan",
+      "D1-billing-flows",
       "D3-revenue-reconciliation",
       "F1-monitoring-alerting",
     ]);
@@ -647,6 +650,116 @@ describe("planted defect: environment binding", () => {
     // Exact on purpose: widening this must be a deliberate edit. A secrets
     // scan reads the tree, so it has no business claiming production.
     expect(CRITERION_POLICIES["C2-secrets-scan"].environments).toEqual(["ci"]);
+  });
+});
+
+describe("D1-billing-flows policy", () => {
+  function d1(overrides: Record<string, string | number | boolean> = {}) {
+    return validReceipt({
+      criterionId: "D1-billing-flows",
+      measurements: {
+        source: "stripe+repo",
+        mode: "test",
+        windowDays: 30,
+        lifecycleStages: "purchase,renewal,cancellation",
+        purchaseCount: 1,
+        renewalCount: 1,
+        cancellationCount: 1,
+        missingStages: "",
+        iosGuard: "rejectIfIOSCapacitor",
+        billingRoutesScanned: 17,
+        guardedRoutes: 6,
+        unclassifiedBillingRoutes: "",
+        appleIapShipped: false,
+        ...overrides,
+      },
+    });
+  }
+
+  function verify(receipt: ReleaseReceipt) {
+    const { privateKey, publicKeyPem } = keypair();
+    return verifyReleaseReceipt(
+      sign(receipt, privateKey),
+      context({ criterionId: "D1-billing-flows" }),
+      keySet(publicKeyPem, ["D1-billing-flows"]),
+    );
+  }
+
+  it("accepts a complete test-mode walk with every route accounted for", () => {
+    expect(verify(d1())).toEqual({ ok: true });
+  });
+
+  it("refuses a live-mode walk", () => {
+    // The walk creates subscriptions and cancels them. Against live Stripe it
+    // would charge real cards; reconciling live revenue is D3's job.
+    const result = verify(d1({ mode: "live" }));
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(/test-mode walk/);
+  });
+
+  it("refuses a walk with a lifecycle stage never observed", () => {
+    const result = verify(d1({ missingStages: "renewal" }));
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /lifecycle stages never observed: renewal/,
+    );
+  });
+
+  it("refuses a receipt that narrowed the criterion's own stage list", () => {
+    const result = verify(
+      d1({ lifecycleStages: "purchase", missingStages: "" }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /lifecycleStages does not match/,
+    );
+  });
+
+  it.each([
+    ["zero", 0],
+    ["absent", undefined],
+  ])("refuses a route scan that discovered %s routes", (_label, scanned) => {
+    // A3's unplugged smoke detector: zero discovered routes reports zero
+    // unguarded and zero unclassified, and reads as a fully guarded app.
+    const receipt = d1(scanned === undefined ? {} : { billingRoutesScanned: scanned });
+    if (scanned === undefined) delete receipt.measurements.billingRoutesScanned;
+    const result = verify(receipt);
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /billingRoutesScanned must be a positive integer/,
+    );
+  });
+
+  it("refuses an application where nothing rejects iOS at all", () => {
+    const result = verify(d1({ guardedRoutes: 0 }));
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /guardedRoutes must be positive/,
+    );
+  });
+
+  it("refuses a billing route neither guarded nor classified", () => {
+    // The regression: a checkout route added without rejectIfIOSCapacitor.
+    const result = verify(
+      d1({ unclassifiedBillingRoutes: "app/api/new-thing/checkout/route.ts" }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /neither guarded nor classified: app\/api\/new-thing/,
+    );
+  });
+
+  it("refuses the receipt if Apple IAP has started shipping", () => {
+    // RA-1842 Path B is what makes "Apple IAP is not applicable" true. If an
+    // IAP library lands, the scope-out is void and D1 must be re-scoped rather
+    // than quietly continuing to measure Stripe alone.
+    const result = verify(d1({ appleIapShipped: true }));
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(/Path B scope-out no longer holds/);
+  });
+
+  it("keeps D1 to environments where a test-mode walk is reproducible", () => {
+    expect(CRITERION_POLICIES["D1-billing-flows"].environments).toEqual(["ci"]);
   });
 });
 
