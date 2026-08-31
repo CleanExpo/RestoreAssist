@@ -836,6 +836,91 @@ export const STANDARDS_VERSIONS = {
 
 export type StandardKey = keyof typeof STANDARDS_VERSIONS;
 
+// ─── AUSTRALIAN ADOPTIONS ─────────────────────────────────────────────────────
+
+/**
+ * Standards Australia adoptions of the ANSI/IICRC standards.
+ *
+ * For an AUSTRALIAN job the governing document is the AS-IICRC adoption, NOT the
+ * ANSI original it adopts. Both are MODIFIED adoptions: the Australian changes are
+ * collected in Appendix ZZ, so an ANSI-only citation is not merely less precise —
+ * it omits requirements.
+ *
+ * AUSTRALIA ONLY. These are designated `AS-IICRC`, not `AS/NZS-IICRC`: Standards
+ * Australia publishes joint trans-Tasman standards under the `AS/NZS` prefix, and
+ * these do not carry it. The adoption boilerplate in the preface mentions
+ * "Australia/New Zealand", but that is template text, not a joint designation —
+ * docs/marketing/pillar-c/icp-nz.md:144 records the same finding from independent
+ * NZ research. So NZ falls back to the ANSI publication, which is what
+ * `hasAsAdoption` implements. If Standards New Zealand later adopts these, that is
+ * a new entry here, not a change to this rule.
+ *
+ * Verified 2026-08-31 against the Standards Australia catalogue and the IICRC's
+ * own publication announcement (iicrc.org/wp-content/uploads/2025/04/
+ * AS-IICRC-S500-Published-Press-Release_March-2025.pdf). Both were prepared by
+ * Standards Australia committee ME-094 (Mould and Water Restoration), on which
+ * the IICRC, the Insurance Council of Australia, RIA Australasia, the HIA,
+ * Master Builders Australia and IAQAA are represented.
+ *
+ * Copyright note: AS-IICRC is a Standards Australia publication — a DIFFERENT
+ * licensor from the IICRC, with its own terms. The repo's no-verbatim rule
+ * applies to both; see docs/compliance/IICRC-STANDARDS-LICENSING.md.
+ *
+ * Only S500 and S520 have been adopted. ME-094 has stated further work is
+ * planned, so absence here means "not adopted as at the verification date"
+ * — never "does not exist". `applicableStandard()` falls back to the ANSI
+ * designation for any standard with no adoption, which is the correct answer.
+ */
+export const AS_IICRC_ADOPTIONS = {
+  S500: {
+    year: 2025,
+    designation: "AS-IICRC S500:2025",
+    adopts: "ANSI/IICRC S500:2021",
+    published: "2025-03-28",
+  },
+  S520: {
+    year: 2025,
+    designation: "AS-IICRC S520:2025",
+    adopts: "ANSI/IICRC S520:2024",
+    published: "2025-11-28",
+  },
+} as const;
+
+export type AsIicrcKey = keyof typeof AS_IICRC_ADOPTIONS;
+
+/** Countries whose jurisdiction changes which standard governs. */
+export type StandardsJurisdiction = "AU" | "NZ" | "INTL";
+
+/**
+ * Is there a Standards Australia adoption of this standard that governs in the
+ * given jurisdiction? Australia only — see the AUSTRALIA ONLY note above. NZ and
+ * INTL both fall back to the ANSI publication.
+ */
+export function hasAsAdoption(
+  std: StandardKey,
+  jurisdiction: StandardsJurisdiction,
+): std is AsIicrcKey & StandardKey {
+  if (jurisdiction !== "AU") return false;
+  return std in AS_IICRC_ADOPTIONS;
+}
+
+/**
+ * The formal designation of the standard that actually governs a job, e.g.
+ * `applicableStandard("S500", "AU")` → "AS-IICRC S500:2025", but
+ * `applicableStandard("S700", "AU")` → "ANSI/IICRC S700-2025" because S700 has
+ * no Australian adoption. Use this anywhere a report, scope or prompt names the
+ * governing standard for a specific job.
+ */
+export function applicableStandard(
+  std: StandardKey,
+  jurisdiction: StandardsJurisdiction,
+): string {
+  if (hasAsAdoption(std, jurisdiction)) {
+    return AS_IICRC_ADOPTIONS[std].designation;
+  }
+  return STANDARDS_VERSIONS[std].designation;
+}
+
 /**
  * Canonical in-product short citation, e.g. `standardCite("S500")` → "S500:2021",
  * `standardCite("S500", "10.5")` → "S500:2021 §10.5". Use this instead of hard-coding

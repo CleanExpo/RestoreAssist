@@ -141,7 +141,7 @@ bodies and NZ trade sites actually use, and they are safe to write from.
 > New Zealand report is the mistake being described. Rewriting them to the editions the gate
 > expects would delete the finding, so the literals are exempted on their own line.
 
-**`AS-IICRC S500:2025` and `AS-IICRC S520:2025` are Australian Standards with no NZ status.** <!-- standards-cite-ignore -->
+**`AS-IICRC S500:2025` and `AS-IICRC S520:2025` are Australian Standards with no NZ status.**
  Standards Australia published them via committee ME-094, whose membership is entirely
 Australian bodies. **No Standards New Zealand adoption was found.** New Zealand practitioners
 cite **ANSI/IICRC S500 (2021, 5th ed.)** and **ANSI/IICRC S520 (2024, 4th ed.)** directly, and

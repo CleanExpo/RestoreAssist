@@ -10,6 +10,16 @@
  *      fabricated/stale editions (e.g. the old "S500:2025" / "S520:2023" — standards-cite-ignore)
  *      from creeping back into code OR the JSON content corpus.
  *
+ *   1a. AUSTRALIAN ADOPTION — `AS-IICRC S###:YYYY` is a Standards Australia
+ *      publication, a DIFFERENT document from the ANSI original it adopts and with
+ *      a different year (AS-IICRC S500:2025 adopts ANSI/IICRC S500:2021). Validated
+ *      against AS_IICRC_ADOPTIONS, and matched BEFORE check 1 so the nested ANSI
+ *      form inside it is not read as a stale year. Two ways to fail: a wrong
+ *      adoption year, and an `AS-IICRC` designation for a standard Standards
+ *      Australia has not adopted — the second caught 29 live instances of a
+ *      fabricated "AS-IICRC S500:2021" on its first run, including a published
+ *      video title. Australia only; NZ cites the ANSI publication.
+ *
  *   2. STALE EDITION (structured JSON corpus) — fails if any object in
  *      scripts/data/*.json carries an `edition` year that disagrees with
  *      STANDARDS_VERSIONS for the standard it names.
@@ -42,7 +52,10 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { STANDARDS_VERSIONS } from "../lib/nir-standards-mapping";
+import {
+  AS_IICRC_ADOPTIONS,
+  STANDARDS_VERSIONS,
+} from "../lib/nir-standards-mapping";
 import { S500_SECTIONS } from "../lib/standards/s500-sections";
 
 const ROOTS = [
@@ -65,6 +78,17 @@ const ROOTS = [
 const EXT = /\.(ts|tsx|md|mdx|json|jsonl|txt|toml|prisma)$/;
 // Accept both `S###:YYYY` and the formal `S###-YYYY` designation form.
 const CITE = /\bS(100|500|520|540|700)[-:](\d{4})\b/gi;
+// The Standards Australia adoption is a DIFFERENT document with a different year
+// (e.g. AS-IICRC S500:2025 adopts ANSI/IICRC S500:2021). It must be matched first
+// and validated against its own registry, or check 1 reads the AS year as a stale
+// ANSI year — which is what used to force `standards-cite-ignore` onto correct
+// Australian citations.
+// Case-SENSITIVE on purpose, and the one flag on this line that matters: with
+// /i the English "…structured as IICRC S500:2021-compliant…"
+// (lib/ai/byok-vision-client.ts:9) matches as though "as IICRC" were the
+// designation, and the gate demands 2025 for a correct ANSI citation. A real
+// designation is always uppercase "AS-IICRC" / "AS IICRC".
+const AS_CITE = /\bAS[-\s]?IICRC\s+S(100|500|520|540|700)[-:](\d{4})\b/g;
 // Capture the FULL dotted section number so subsection depth can be validated.
 const S500_SEC = /\bS500[-:]\d{4}\s*§\s*(\d+(?:\.\d+)*)/gi;
 const S700_SEC = /\bS700[-:]\d{4}\s*§\s*(\d+)(?:\.\d+)*/gi;
@@ -73,6 +97,14 @@ const IGNORE = "standards-cite-ignore";
 const expectedYear: Record<string, number> = {};
 for (const [key, v] of Object.entries(STANDARDS_VERSIONS)) {
   expectedYear[key] = v.year;
+}
+
+// Year of the Standards Australia adoption, where one exists. A standard absent
+// here has NO Australian adoption, so an `AS-IICRC S###` citation naming it is
+// fabricated — a distinct failure from a stale year.
+const expectedAsYear: Record<string, number> = {};
+for (const [key, v] of Object.entries(AS_IICRC_ADOPTIONS)) {
+  expectedAsYear[key] = v.year;
 }
 
 // Top-level S500 chapter numbers that actually exist (e.g. "1".."16").
@@ -125,9 +157,39 @@ function scanText(file: string, text: string): void {
   lines.forEach((line, i) => {
     if (line.includes(IGNORE)) return;
 
+    // Check 1a — Standards Australia adoptions. Matched BEFORE check 1 so the
+    // spans can be excluded from it; `AS-IICRC S500:2025` is correct and must not
+    // be read as a stale `S500:2021`.
+    const asSpans: Array<[number, number]> = [];
+    for (const m of line.matchAll(AS_CITE)) {
+      const [literal, std, year] = m;
+      const start = m.index ?? 0;
+      asSpans.push([start, start + literal.length]);
+      const want = expectedAsYear[`S${std}`];
+      if (want === undefined) {
+        violations.push({
+          file,
+          line: i + 1,
+          found: literal,
+          expected: `no Standards Australia adoption of S${std} exists — cite the ANSI/IICRC publication, or add the adoption to AS_IICRC_ADOPTIONS if one has since been published`,
+        });
+      } else if (Number(year) !== want) {
+        violations.push({
+          file,
+          line: i + 1,
+          found: literal,
+          expected: `AS-IICRC S${std}:${want}`,
+        });
+      }
+    }
+
     // Check 1 — stale edition literals (`:` or `-` form).
     for (const m of line.matchAll(CITE)) {
       const [literal, std, year] = m;
+      const at = m.index ?? 0;
+      // Skip the ANSI-form match nested inside an `AS-IICRC S###:YYYY` literal,
+      // which check 1a has already validated against its own registry.
+      if (asSpans.some(([lo, hi]) => at >= lo && at < hi)) continue;
       const want = expectedYear[`S${std}`];
       if (want !== undefined && Number(year) !== want) {
         violations.push({
