@@ -135,8 +135,14 @@ bodies and NZ trade sites actually use, and they are safe to write from.
 
 ### The standards trap — the most important entry in this table
 
-**`AS-IICRC S500:2025` and `AS-IICRC S520:2025` are Australian Standards with no New Zealand
-status.** Standards Australia published them via committee ME-094, whose membership is entirely
+> The two designations in the next sentence are **Standards Australia** publications, not the
+> ANSI/IICRC editions `standardCite()` owns. Naming them exactly is the point of this section:
+> they are a different document from ANSI/IICRC S500:2021 and S520:2024, and citing them in a
+> New Zealand report is the mistake being described. Rewriting them to the editions the gate
+> expects would delete the finding, so the literals are exempted on their own line.
+
+**`AS-IICRC S500:2025` and `AS-IICRC S520:2025` are Australian Standards with no NZ status.** <!-- standards-cite-ignore -->
+ Standards Australia published them via committee ME-094, whose membership is entirely
 Australian bodies. **No Standards New Zealand adoption was found.** New Zealand practitioners
 cite **ANSI/IICRC S500 (2021, 5th ed.)** and **ANSI/IICRC S520 (2024, 4th ed.)** directly, and
 NZQA unit standard 29390 requires evidence reflecting ANSI/IICRC S500:2021 and S520, plus
