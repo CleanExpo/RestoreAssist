@@ -35,11 +35,11 @@ This is the **consolidated launch package**. It does not replace the prior asset
 >
 > - Site evidence captured once, in the field, on any device — no double-handling
 > - Inspection, scoping and estimating in one flow, with IICRC S500 references built into the report structure
-> - WHS policies and Australian Building Code (NCC 2022) references inbuilt
+> - WHS policies and building code references inbuilt — the edition current for your state
 > - AI assists with damage analysis and documentation — the decisions stay with the operator
 > - Client-ready reports out the other end, PDF or Excel
 >
-> Built for Australian and New Zealand conditions: GST at 10%, 11-digit ABN validation, state-based references, regional cost libraries. Sign-up starts with your ABN and takes under 90 seconds.
+> Built for Australian and New Zealand conditions: GST at 10% in Australia and 15% in New Zealand, ABN or NZBN validation, state-based references, regional cost libraries. Sign-up starts with your ABN or NZBN and takes under 90 seconds.
 >
 > → https://restoreassist.app/setup
 
@@ -50,7 +50,7 @@ This is the **consolidated launch package**. It does not replace the prior asset
 >
 > Today we're launching **RestoreAssist** — Australia's first Australian-designed full CRM for the restoration industry. One system covering the office and the field, so the same data flows from site capture through scoping and estimating to a client-ready report.
 >
-> - IICRC frameworks, WHS policies and NCC 2022 references inbuilt
+> - IICRC frameworks, WHS policies and building code references inbuilt
 > - Regional cost libraries with equipment and labour rates, GST handled correctly
 > - AI-powered assistance for damage analysis and report drafting — your operators keep every decision
 > - Runs on any device your team already carries — no new hardware
@@ -78,7 +78,7 @@ This is the **consolidated launch package**. It does not replace the prior asset
 > That's the gap RestoreAssist closes — Australia's first Australian-designed CRM built just for the restoration industry, office and field in the one system.
 >
 > Field capture flows straight through to scoping, estimating and the final report
-> IICRC frameworks, WHS policies and NCC 2022 references inbuilt
+> IICRC frameworks, WHS policies and building code references inbuilt
 > Regional cost libraries with proper Aussie pricing — GST done right
 > AI assists your admin team and your techs. It never replaces them.
 > Works on any device your crew already carries
@@ -98,7 +98,7 @@ Hashtags: #RestoreAssist #WaterDamageRestoration #RestorationIndustry #IICRC #Re
 ### Instagram — Variant B (business-owner)
 > Your techs are great on the tools. So why is documentation still the slowest part of every job?
 >
-> RestoreAssist launches today — Australia's first Australian-designed CRM for the restoration industry. Office + field in one system. Field capture flows straight into scoping, estimating and a client-ready report. IICRC, WHS and NCC 2022 references inbuilt. AI assists; your team decides.
+> RestoreAssist launches today — Australia's first Australian-designed CRM for the restoration industry. Office + field in one system. Field capture flows straight into scoping, estimating and a client-ready report. IICRC, WHS and building code references inbuilt. AI assists; your team decides.
 >
 > Onboarding starts with your ABN — under 90 seconds. restoreassist.app (link in bio)
 
@@ -115,7 +115,7 @@ Hashtags: #RestoreAssist #RestorationBusiness #WaterDamageRestoration #Restorati
 >
 > Most of the software our industry inherited was designed somewhere else, for someone else's standards, someone else's paperwork, someone else's job site. Then it got shipped halfway around the world and we were told to make it fit. So we started again from the ground up.
 >
-> RestoreAssist puts the office and the field in one system. The IICRC, WHS and NCC 2022 references are built in, not bolted on. Inspection, scoping and estimating live in a single flow, so the work you do on site carries straight through to the report — instead of being re-typed three times.
+> RestoreAssist puts the office and the field in one system. The IICRC, WHS and building code references are built in, not bolted on. Inspection, scoping and estimating live in a single flow, so the work you do on site carries straight through to the report — instead of being re-typed three times.
 >
 > The AI helps read the damage and speeds up the admin. But every decision stays with the operator. AI assists. It never replaces the person who actually understands the job.
 >
@@ -160,9 +160,9 @@ Hashtags: #RestoreAssist #RestorationBusiness #WaterDamageRestoration #Restorati
 ### DAY 3 — "References built in"
 
 **LinkedIn — Compliance references (no guarantee language)**
-> One of the quieter frustrations in restoration documentation: the references live somewhere else. You're writing up a job and the IICRC standard is in one tab, the WHS material in another, the NCC 2022 detail in a folder someone last updated who-knows-when. So you either stop and go looking, or you write from memory and hope.
+> One of the quieter frustrations in restoration documentation: the references live somewhere else. You're writing up a job and the IICRC standard is in one tab, the WHS material in another, the building code detail in a folder someone last updated who-knows-when. So you either stop and go looking, or you write from memory and hope.
 >
-> RestoreAssist brings those references into the system where you're already working — IICRC, WHS and NCC 2022 material alongside the job, so the framework you're documenting against is right there while you document.
+> RestoreAssist brings those references into the system where you're already working — IICRC, WHS and building code material alongside the job, so the framework you're documenting against is right there while you document.
 >
 > To be clear about what that is and isn't: it puts the reference material in front of you at the moment you need it. It doesn't make the judgement for you. The reading of the site, the scope, the call on what the standard means for this job — that stays with the operator, where it belongs.
 >
@@ -214,8 +214,8 @@ Hashtags: #RestoreAssist #RestorationBusiness #WaterDamageRestoration #Restorati
 > *(Scheduler: "stabilisation" is the AS-IICRC S500:2025 term — never substitute "make-safe".)*
 
 **Instagram — "What's in a client-ready report" carousel (4 slides + caption)**
-- Slide 1: What's in a client-ready report? · Slide 2: The inspection — readings and photos, captured on site. · Slide 3: The scope — what needs doing, and why. · Slide 4: The estimate — regional pricing, GST at 10%, export to PDF or Excel.
-> Caption: A report your client can actually read — inspection, scope and estimate in one place, priced for your region, GST at 10%, exported to PDF or Excel. Built in one flow. Link in bio → https://restoreassist.app
+- Slide 1: What's in a client-ready report? · Slide 2: The inspection — readings and photos, captured on site. · Slide 3: The scope — what needs doing, and why. · Slide 4: The estimate — regional pricing, GST at your local rate, export to PDF or Excel.
+> Caption: A report your client can actually read — inspection, scope and estimate in one place, priced for your region, GST at your local rate, exported to PDF or Excel. Built in one flow. Link in bio → https://restoreassist.app
 > Hashtags: #RestoreAssist #RestorationReports #Estimating #WaterDamageRestoration #IICRC #RegionalPricing #Tradies #AustralianBusiness #NewZealandBusiness #RestorationLife
 
 ### DAY 6 — "For the office, not just the field"
@@ -228,7 +228,7 @@ Hashtags: #RestoreAssist #RestorationBusiness #WaterDamageRestoration #Restorati
 > https://restoreassist.app
 
 **Facebook — NZ shout-out**
-> A quick one for our neighbours across the ditch. RestoreAssist is built for New Zealand too — not an afterthought bolted onto an Australian tool, but part of how it's made. Same one system: office and field together, inspection through to estimate in one flow, works on any device. Kiwi restorers — we built this with you in mind as well. https://restoreassist.app
+> A quick one for our neighbours across the ditch. RestoreAssist is built for New Zealand too — not an afterthought bolted onto an Australian tool, but part of how it's made. Same one system: office and field together, inspection through to estimate in one flow, works on any device. GST at 15%, NZBN validation, pricing in NZD. Kiwi restorers — we built this with you in mind as well. https://restoreassist.app
 
 **Instagram — "Evening report" reel (overlays + caption)**
 - Overlays: (1) End of the day. Last job's done. (2) Old way: now you start the paperwork. (3) New way: the report's already coming together. (4) Because you captured it as you worked. (5) Home a bit earlier.

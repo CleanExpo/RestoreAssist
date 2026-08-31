@@ -168,7 +168,20 @@ worth knowing.
 2. **Update the live listings.** The repository now holds corrected text; App Store
    Connect and Google Play still hold the filed originals. Editing these files does
    not change what is published.
-3. The **campaign copy** (`RA-5036`) third — still uncorrected.
+3. ~~The **campaign copy** (`RA-5036`)~~ — **corrected 2026-08-31**, 11 replacements.
+   Bare "NCC 2022" removed from six sites (superseded nationally, adoption split by
+   state, and no NCC exists in New Zealand). "GST at 10%" removed from a post
+   hashtagged `#NewZealandBusiness`. The Day 1 claim that read *"Built for
+   Australian and New Zealand conditions: GST at 10%, 11-digit ABN validation …
+   Sign-up starts with your ABN"* — every specific AU-only, under an explicit
+   AU-and-NZ banner — now names both: 10% and 15%, ABN or NZBN. The NZ post asserted
+   New Zealand support without naming any of it; it now names GST at 15%, NZBN
+   validation and NZD, all verified against `lib/gst-rules.ts` and
+   `lib/validation/nzbn-validator.ts` before the claim was written.
+
+   Note what that correction did: the copy was **understating** the product. NZ
+   support is real and was going unclaimed while an AU-only specific stood in its
+   place.
 4. Consider whether the underlying evidence should be strengthened rather than the
    claim weakened. If the standards retrieval path were grounded and current
    editions held, "aligned with AS-IICRC S500:2025" would be provable rather than
