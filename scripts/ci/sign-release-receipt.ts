@@ -137,19 +137,21 @@ const PRODUCERS: Record<
       return produceA1Measurements(reportPath) as Promise<Record<string, unknown>>;
     },
   },
-  // D3-revenue-reconciliation is DELIBERATELY ABSENT.
-  //
-  // Its producer cannot yet measure `failedWebhookDeliveries` -- Stripe exposes
-  // delivery attempts per endpoint rather than as a window count -- and the
-  // previous stand-in read the value from `D3_FAILED_WEBHOOK_DELIVERIES`, which
-  // reintroduced exactly the caller-supplied-measurement hole that removing
-  // `--measurements` closed. Registering a criterion whose producer cannot
-  // measure it, and filling the gap from the environment, is the defect this
-  // registry exists to prevent.
-  //
-  // It goes back in when the producer can query Stripe for that count itself.
-  // Until then D3 cannot be signed, which is the honest state rather than a
-  // regression: it could not legitimately pass before either.
+  "D3-revenue-reconciliation": {
+    environment: "production",
+    produce: async () => {
+      if (!process.env.STRIPE_SECRET_KEY) {
+        fail("STRIPE_SECRET_KEY is not set; the D3 producer cannot run");
+      }
+      if (!process.env.DATABASE_URL) {
+        fail("DATABASE_URL is not set; the D3 producer cannot reconcile");
+      }
+      const { produceD3Measurements } = await import(
+        "./producers/d3-revenue-reconciliation"
+      );
+      return produceD3Measurements() as Promise<Record<string, unknown>>;
+    },
+  },
 };
 
 if (process.argv.includes("--measurements")

@@ -51,17 +51,16 @@ export const D3_EVENT_TYPES = [
 
 export const D3_WINDOW_DAYS = 7;
 
-/**
- * Sentinel for a measurement this producer cannot take.
- *
- * Negative rather than 0 on purpose: the verifier requires exactly 0, so an
- * unmeasured field fails rather than passing as a silent success.
- */
-export const UNMEASURED = -1;
 
 export interface StripeEventRef {
   id: string;
   type: string;
+  /**
+   * Stripe's `pending_webhooks`: "Number of webhooks that haven't been
+   * successfully delivered (for example, to return a 20x response) to the URLs
+   * you specify." Present on every Event, so measuring it costs no extra call.
+   */
+  pendingWebhooks: number;
 }
 
 export interface DbEventRef {
@@ -79,11 +78,6 @@ export interface D3Inputs {
    * other than the webhook is writing revenue events.
    */
   dbEventsWithoutStripeId: number;
-  /**
-   * Failed webhook deliveries in the window, from Stripe. The file calls this
-   * "the most likely explanation for a shortfall on the DB side".
-   */
-  failedWebhookDeliveries: number;
   /** Whether the key in use is a live key. Read from the key, not declared. */
   liveMode: boolean;
   /** End of the window, ISO-8601. */
@@ -101,7 +95,7 @@ export interface D3Measurements {
   missingInDb: number;
   duplicateStripeIds: number;
   dbEventsWithoutStripeId: number;
-  failedWebhookDeliveries: number;
+  undeliveredWebhookEvents: number;
   missingIds: string;
 }
 
@@ -122,6 +116,23 @@ export function reconcileD3(inputs: D3Inputs): D3Measurements {
   // exactly as the evidence file's Q4 intends.
   const duplicateStripeIds = [...seen.values()].filter((n) => n > 1).length;
 
+  // The webhook half, measured rather than declared.
+  //
+  // PRECISION MATTERS HERE, so read the claim narrowly. `pending_webhooks` is
+  // the number of webhooks for THIS event not yet successfully delivered, read
+  // at query time. An event that failed twice and then succeeded on retry
+  // reports 0. So this is NOT the dashboard's "failed delivery count over 7
+  // days", and it is deliberately not named as if it were.
+  //
+  // It is the right measurement for what the criterion needs. A delivery that
+  // eventually succeeded wrote its database row, and a genuine shortfall is
+  // already caught by `missingInDb`, which compares the two SETS. What remains
+  // dangerous is a delivery still outstanding at reconciliation time, because
+  // that row is not there yet and may never arrive. That is what this counts.
+  const undelivered = inputs.stripeEvents.filter(
+    (event) => event.pendingWebhooks > 0,
+  );
+
   const missing = inputs.stripeEvents
     .filter((event) => !seen.has(event.id))
     .map((event) => event.id)
@@ -138,7 +149,7 @@ export function reconcileD3(inputs: D3Inputs): D3Measurements {
     missingInDb: missing.length,
     duplicateStripeIds,
     dbEventsWithoutStripeId: inputs.dbEventsWithoutStripeId,
-    failedWebhookDeliveries: inputs.failedWebhookDeliveries,
+    undeliveredWebhookEvents: undelivered.length,
     // Bounded: the receipt is a measurement, not an incident report. The full
     // list belongs in the run log, where it is not signed into a receipt.
     missingIds: missing.slice(0, 20).join(","),
@@ -236,7 +247,14 @@ async function reconcile(key: string): Promise<D3Measurements> {
       limit: 100,
       ...(startingAfter ? { starting_after: startingAfter } : {}),
     });
-    return { data: page.data, has_more: page.has_more };
+    return {
+      data: page.data.map((event) => ({
+        id: event.id,
+        type: event.type,
+        pendingWebhooks: event.pending_webhooks,
+      })),
+      has_more: page.has_more,
+    };
   });
 
   const ids = events.map((event) => event.id);
@@ -259,20 +277,6 @@ async function reconcile(key: string): Promise<D3Measurements> {
     stripeEvents: events,
     dbRows,
     dbEventsWithoutStripeId,
-    // NOT MEASURED, and reported as such.
-    //
-    // This used to read `D3_FAILED_WEBHOOK_DELIVERIES` from the environment,
-    // which was the `--measurements` defect wearing a different hat: a
-    // caller-controlled input becoming a signed measurement. The `-1` default
-    // failed closed, and I reasoned that made it safe. It does not -- failing
-    // closed by default is no protection when the caller sets it to 0. Found
-    // by CodeRabbit reviewing #2112.
-    //
-    // Stripe exposes delivery attempts per endpoint rather than as a window
-    // count, so the producer cannot yet measure this itself. Until it can, the
-    // honest value is "unmeasured", the policy rejects it, and D3 is
-    // unregistered in the signer so it cannot be signed at all.
-    failedWebhookDeliveries: UNMEASURED,
     liveMode: key.startsWith("sk_live"),
     windowEndsAt: new Date(window.lte * 1000).toISOString(),
   });

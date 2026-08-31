@@ -944,10 +944,19 @@ export const CRITERION_POLICIES: Record<string, CriterionPolicy> = {
       // means something other than the webhook is writing revenue events.
       const unlinked = requireCount(measurements, "dbEventsWithoutStripeId", 0);
       if (!unlinked.ok) return unlinked;
-      // "The most likely explanation for a shortfall on the DB side." The
-      // producer defaults this to -1 rather than 0 when it is not supplied, so
-      // an unmeasured value fails here instead of passing silently.
-      return requireCount(measurements, "failedWebhookDeliveries", 0);
+      // The webhook half, now actually measured. This was
+      // `failedWebhookDeliveries`, supplied by the caller and defaulted to -1
+      // so an unmeasured value would fail rather than pass silently. The
+      // producer derives it from Stripe's `pending_webhooks`, so the field can
+      // no longer be asserted at all.
+      //
+      // Named narrowly on purpose. `pending_webhooks` counts deliveries not yet
+      // successful AT READ TIME, so an event that failed twice then succeeded
+      // reports 0. That is not the dashboard's "failed deliveries over 7 days",
+      // and calling it that would be a claim the measurement cannot support.
+      // What it does catch is a delivery still outstanding when the two sides
+      // were compared -- a row that is not there yet and may never arrive.
+      return requireCount(measurements, "undeliveredWebhookEvents", 0);
     },
   },
 };

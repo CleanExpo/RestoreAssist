@@ -1188,7 +1188,7 @@ describe("D3-revenue-reconciliation policy", () => {
       missingInDb: 0,
       duplicateStripeIds: 0,
       dbEventsWithoutStripeId: 0,
-      failedWebhookDeliveries: 0,
+      undeliveredWebhookEvents: 0,
       missingIds: "",
       ...overrides,
     };
@@ -1294,14 +1294,31 @@ describe("D3-revenue-reconciliation policy", () => {
     });
   });
 
-  it("refuses failed webhook deliveries, and an unmeasured -1 with them", () => {
-    // The producer defaults this to -1 when nobody supplied it, so "not
-    // measured" fails here rather than passing as a silent zero.
-    expect(verifyD3(d3({ failedWebhookDeliveries: 2 })).ok).toBe(false);
-    expect(verifyD3(d3({ failedWebhookDeliveries: -1 }))).toEqual({
+  it("refuses a webhook delivery still outstanding at reconciliation time", () => {
+    // A row that is not there yet and may never arrive. Distinct from
+    // missingInDb, which catches a delivery that landed and still wrote no row.
+    expect(verifyD3(d3({ undeliveredWebhookEvents: 2 }))).toEqual({
       ok: false,
-      message: "measurement failedWebhookDeliveries is -1, expected 0",
+      message: "measurement undeliveredWebhookEvents is 2, expected 0",
     });
+  });
+
+  it("refuses the old caller-supplied field, however it is spelled", () => {
+    /**
+     * This measurement used to be `failedWebhookDeliveries`, read from
+     * D3_FAILED_WEBHOOK_DELIVERIES -- a caller-controlled input becoming a
+     * signed measurement, which is the `--measurements` defect in different
+     * clothing. A receipt carrying only the old field must fail: the policy
+     * asks for the derived one, and a missing measurement is not a zero.
+     */
+    const measurements = d3();
+    delete measurements.undeliveredWebhookEvents;
+    measurements.failedWebhookDeliveries = 0;
+    const result = verifyD3(measurements);
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /undeliveredWebhookEvents must be a number/,
+    );
   });
 
   it("refuses a CI-mode observation: this criterion is about production", () => {
