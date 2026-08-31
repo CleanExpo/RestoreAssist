@@ -32,8 +32,15 @@
  * Generating a keypair (owner, once, off this machine):
  *   openssl genpkey -algorithm ed25519 -out release-signing.pem
  *   openssl pkey -in release-signing.pem -pubout
- * The PUBLIC half goes into the RELEASE_RECEIPT_PUBLIC_KEYS repository secret,
- * scoped to the criteria that key is allowed to sign:
+ * The PUBLIC half goes into the RELEASE_RECEIPT_PUBLIC_KEYS repository VARIABLE
+ * (Settings > Secrets and variables > Actions > Variables), scoped to the criteria
+ * that key is allowed to sign. A variable, not a secret: it is the public half, and
+ * the scorer's job in release-gate.yml declares no `environment:`, so an
+ * environment-scoped secret could never reach it. This line previously said
+ * "secret", and an owner following it would have populated a store the scorer does
+ * not read -- every owner-evidence criterion failing while looking like ordinary
+ * failure. Both workflows now fall back to `secrets` so an existing secret still
+ * works, but the variable is the correct home:
  *
  *   {"<key-id>": {"publicKey": "<PEM>", "criteria": ["C2-secrets-scan"]}}
  *

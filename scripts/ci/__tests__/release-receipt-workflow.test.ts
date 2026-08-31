@@ -234,10 +234,117 @@ describe("a branch dispatch cannot mint a receipt", () => {
       env.RELEASE_RECEIPT_PUBLIC_KEYS,
       "scorer step must receive RELEASE_RECEIPT_PUBLIC_KEYS",
     ).toBeDefined();
-    // Repository variable, not an environment secret.
+    // Repository variable first, not an environment secret.
     expect(env.RELEASE_RECEIPT_PUBLIC_KEYS).toMatch(
-      /\$\{\{\s*vars\.RELEASE_RECEIPT_PUBLIC_KEYS\s*\}\}/,
+      /\$\{\{\s*vars\.RELEASE_RECEIPT_PUBLIC_KEYS/,
     );
+  });
+
+  it("reads the public key from the SAME store on both sides of the pipeline", () => {
+    /**
+     * The trap that would have burned the owner's first mint. Three statements,
+     * two stores:
+     *
+     *   release-gate.yml    scorer      -> vars.RELEASE_RECEIPT_PUBLIC_KEYS
+     *   release-receipt.yml verify step -> secrets.RELEASE_RECEIPT_PUBLIC_KEYS
+     *   sign-release-receipt.ts doc     -> "repository secret"
+     *
+     * Follow the doc, populate only the secret, and the minting workflow's verify
+     * step PASSES -- it can see the key -- while the scorer reads an empty map and
+     * fails all 35 owner-evidence points. The workflow reports success and commits
+     * a receipt that earns nothing.
+     *
+     * That is precisely what the verify step was added to prevent ("a receipt the
+     * scorer would reject is worse than none"), arriving through the verify step
+     * itself, because the two were not reading the same place.
+     *
+     * This asserts they cannot drift apart again.
+     */
+    const stepEnv = (file: string, needle: string): string => {
+      const parsed = parse(
+        readFileSync(join(process.cwd(), ".github", "workflows", file), "utf8"),
+      ) as { jobs: Record<string, { steps?: Array<Record<string, unknown>> }> };
+      const step = Object.values(parsed.jobs)
+        .flatMap((j) => j.steps ?? [])
+        .find((st) => String(st.run ?? "").includes(needle));
+      expect(step, `${file}: no step running ${needle}`).toBeDefined();
+      const value = ((step?.env ?? {}) as Record<string, string>)
+        .RELEASE_RECEIPT_PUBLIC_KEYS;
+      expect(value, `${file}: step must receive RELEASE_RECEIPT_PUBLIC_KEYS`).toBeDefined();
+      return value;
+    };
+
+    const scorer = stepEnv("release-gate.yml", "release-gate-score.ts");
+    const verifier = stepEnv("release-receipt.yml", "ownerEvidence");
+
+    expect(
+      verifier,
+      "the minting workflow and the scorer must read the same store, or a receipt " +
+        "can verify green and score zero",
+    ).toBe(scorer);
+
+    // And `vars` must be consulted first on both, because the scorer's job declares
+    // no `environment:` and could never reach an environment-scoped secret.
+    for (const [name, expr] of [["scorer", scorer], ["verifier", verifier]] as const) {
+      expect(expr, `${name} must read vars first`).toMatch(
+        /\$\{\{\s*vars\.RELEASE_RECEIPT_PUBLIC_KEYS/,
+      );
+    }
+  });
+
+  it("RELEASE_GATE.md does not send the owner to a store the scorer cannot read", () => {
+    /**
+     * The surviving half of the same fault, found by a sweep AFTER the first fix.
+     *
+     * The workflows and sign-release-receipt.ts were corrected, and this document --
+     * the "Owner setup for signed receipts" section, the one an owner actually
+     * follows -- was left saying to create the `release-receipts` environment and add
+     * RELEASE_RECEIPT_PUBLIC_KEYS to it as a secret.
+     *
+     * The scorer job declares no `environment:`, so an environment secret can NEVER
+     * reach it. The `|| secrets.` fallback does not rescue this: a repository-wide
+     * secret works, an ENVIRONMENT secret does not, and the doc explicitly said not
+     * to use repository-wide.
+     *
+     * Fixing the code and leaving the instructions wrong is the class this whole
+     * subsystem keeps re-opening, so the instructions are now under test too.
+     */
+    const doc = readFileSync(
+      join(process.cwd(), "docs", "RELEASE_GATE.md"),
+      "utf8",
+    );
+    // The public key must be introduced as a VARIABLE.
+    const intro = doc
+      .split("\n")
+      .find((l) => l.includes("Name `RELEASE_RECEIPT_PUBLIC_KEYS`"));
+    expect(intro, "the setup steps must still name where the public key goes")
+      .toBeDefined();
+
+    // And the environment-secret table must no longer carry it.
+    const envSection = doc.slice(doc.indexOf("release-receipts` GitHub environment"));
+    const table = envSection.slice(0, envSection.indexOf("\n\n**") + 1);
+    expect(
+      table.includes("RELEASE_RECEIPT_PUBLIC_KEYS"),
+      "the public key must NOT be listed among the environment secrets: the scorer " +
+        "job has no `environment:` and could never read it there",
+    ).toBe(false);
+
+    // The private key legitimately belongs there.
+    expect(table).toContain("RELEASE_RECEIPT_PRIVATE_KEY");
+  });
+
+  it("does not tell the owner to put the public key somewhere the scorer cannot read", () => {
+    // The doc comment is the instruction an owner actually follows, so it is part of
+    // the contract. It said "repository secret" while the scorer read a variable.
+    const signer = readFileSync(
+      join(process.cwd(), "scripts", "ci", "sign-release-receipt.ts"),
+      "utf8",
+    );
+    const line = signer
+      .split("\n")
+      .find((l) => l.includes("PUBLIC half goes into"));
+    expect(line, "the keypair instructions must still name where the key goes").toBeDefined();
+    expect(line).toMatch(/VARIABLE/);
   });
   it("actually produces the report A1 is handed, and sources its specs from the producer", () => {
     /**

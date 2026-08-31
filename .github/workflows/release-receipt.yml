@@ -167,9 +167,22 @@ jobs:
       # worse than none: it looks like evidence in the tree while earning
       # nothing, which is the shape of failure this whole subsystem exists to
       # remove.
+      # The key MUST come from the same store the scorer reads. This step used to
+      # read `secrets.` while release-gate.yml's scorer reads `vars.`, and
+      # sign-release-receipt.ts documented it as a secret -- three statements, two
+      # stores. Populate only the secret, as the doc said, and this step PASSES
+      # (it can see the key) while the scorer sees an empty map and fails every
+      # owner-evidence criterion. The workflow would report success and commit a
+      # receipt that earns nothing -- which is exactly the failure this step was
+      # added to prevent, arriving through the step itself.
+      #
+      # `vars` first because these are PUBLIC keys and the scorer's job declares no
+      # `environment:`, so an environment-scoped secret could never reach it. The
+      # `secrets` fallback means an owner who already followed the old doc is not
+      # silently broken.
       - name: Verify the receipt the way the scorer will
         env:
-          RELEASE_RECEIPT_PUBLIC_KEYS: ${{ secrets.RELEASE_RECEIPT_PUBLIC_KEYS }}
+          RELEASE_RECEIPT_PUBLIC_KEYS: ${{ vars.RELEASE_RECEIPT_PUBLIC_KEYS || secrets.RELEASE_RECEIPT_PUBLIC_KEYS }}
         run: |
           npx --no-install tsx -e "
             import { ownerEvidence } from './scripts/release-gate-score';
