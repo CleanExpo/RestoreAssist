@@ -42,6 +42,62 @@ const OPERATIONAL_DOCS = [
   "docs/launch-kit/05-day-1-checklist.md",
 ] as const;
 
+/**
+ * Docs that state HOW production ships. Separate from the list above because
+ * the failure is different: those three named a wrong mechanism, this one
+ * asserted the opposite outcome.
+ *
+ * `.claude/WORKFLOWS.md` said "Auto-deploys from `main` branch" until
+ * 31/08/2026 -- directly contradicting `.claude/RULES.md` rule 33 and
+ * `deploy-production.yml`, which is `workflow_dispatch`-only and demands a
+ * release-gate run ID plus a typed 40-character SHA.
+ *
+ * It went uncaught because the guard above covered two report files and a
+ * checklist, and not the one file Claude Code loads automatically into every
+ * session. Two independent audits on 31/08/2026 flagged it as the most likely
+ * document to mislead someone mid-incident.
+ */
+const DEPLOY_MECHANISM_DOCS = [
+  ".claude/WORKFLOWS.md",
+] as const;
+
+describe("docs that state how production ships", () => {
+  it.each(DEPLOY_MECHANISM_DOCS)("%s never claims main auto-deploys", (rel) => {
+    const src = readDoc(rel);
+    // Matches "Auto-deploys from `main`", "auto deploy from main", etc. within
+    // the production section. The Vercel PREVIEW environment genuinely does
+    // auto-deploy, so this must not be a bare search for "auto-deploy".
+    const production = src.slice(
+      src.indexOf("### Production"),
+      src.indexOf("### Preview"),
+    );
+    expect(production.length, `${rel}: could not isolate the Production section`)
+      .toBeGreaterThan(50);
+    expect(
+      production,
+      `${rel} claims production auto-deploys; deploy-production.yml is workflow_dispatch-only (RULES.md 33)`,
+    ).not.toMatch(/auto[- ]?deploys?\s+(from|on)\s+`?main`?/i);
+  });
+
+  it.each(DEPLOY_MECHANISM_DOCS)("%s names the real promotion path", (rel) => {
+    const src = readDoc(rel);
+    // Naming the workflow is not enough -- the trigger is the whole point.
+    expect(src).toMatch(/deploy-production\.yml/);
+    expect(src).toMatch(/workflow_dispatch/);
+  });
+
+  it.each(DEPLOY_MECHANISM_DOCS)(
+    "%s distinguishes building an image from deploying it",
+    (rel) => {
+      // The image builds on every push to main and publishes to GHCR. Someone
+      // seeing those green runs can reasonably conclude production shipped.
+      const src = readDoc(rel);
+      expect(src).toMatch(/build-production-image\.yml/);
+      expect(src).toMatch(/not deploying it|is not deploying/i);
+    },
+  );
+});
+
 describe("deploy-mechanism docs", () => {
   it("no operational doc claims .do/app.yaml uses branch/deploy_on_push", () => {
     for (const rel of OPERATIONAL_DOCS) {
