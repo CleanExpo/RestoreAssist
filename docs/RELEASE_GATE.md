@@ -86,8 +86,8 @@ Profile omission does not award points: excluded criteria are removed from that 
 ## Machine-verifiable vs blocked owner-evidence breakdown
 
 - **Web profile machine-verifiable (50 / 85 pts):** A2 (10), all of B (20), C1 (10), D2 (5), and F2 (5).
-- **Web profile reachable by signed receipt (25 / 85 pts):** A1 (10), C2 (5), A3 (5) and F1 (5) all have registered producers, so each can be measured and signed. Reachable is not the same as passing: a receipt earns points only when the measurement itself passes. See "Signed receipts" below.
-- **Web profile with no producer at all (10 / 85 pts):** D1 (5) and D3 (5). These cannot be signed, whatever key is held. D3 is deliberately unregistered because its producer cannot measure `failedWebhookDeliveries`, and filling that gap from the environment is the exact hole the signer exists to close.
+- **Web profile reachable by signed receipt (35 / 85 pts):** A1 (10), C2 (5), A3 (5), D1 (5), D3 (5) and F1 (5) all have registered producers, so each can be measured and signed. Reachable is not the same as passing: a receipt earns points only when the measurement itself passes. See "Signed receipts" below.
+- **Every web criterion now has a path to a receipt.** No criterion is unsignable for want of a producer.
 - **Mobile-only blocked additions (15 / 100 pts):** E1-E3 remain required in the `mobile` profile and are excluded from the `web` profile.
 
 ### What still stands between the gate and a pass
@@ -103,7 +103,6 @@ Having a producer is not having the points. Measured against production on
 - **C2 and A3 need owner setup** — the keypair and the `release-receipts`
   environment, plus `A3_EXPECTED_VIEWER_ID`.
 - **A1 fails until `restore` is exercised.** No spec covers the storage-restore journey step, so the coverage map names it and A1 fails closed.
-- **D1 and D3 need producers written.**
 
 Committed prose, screenshots, URLs and hashes of narrative evidence do not earn release points: they are self-attestable. The scorer validates their structure and freshness for diagnostics, then fails closed until each owner criterion has a signed, criterion-specific machine receipt producer and verifier. A1 requires signup, login, onboarding, storage setup, restore, inspection, claim, attestation and PDF observations. E3 requires App Review, release, rollback and reviewer observations. Freshness is aged from the stated date, never filesystem metadata.
 
@@ -145,9 +144,16 @@ Three properties carry the scheme, and each has a test that fails without it:
 
    The flag was removed rather than validated: an input that must never be
    trusted should not exist. A criterion with no registered producer cannot be
-   signed at all, which is why `D3-revenue-reconciliation` currently cannot be:
-   its producer cannot measure `failedWebhookDeliveries`, so it is deliberately
-   absent from the registry rather than filling the gap from the environment.
+   signed at all — the state `D3-revenue-reconciliation` sat in until its
+   producer could measure the webhook half itself rather than reading it from
+   the environment.
+
+   Three lists have to agree on which criteria those are: `PRODUCERS` (what can
+   be measured), `CRITERION_POLICIES` (what can be verified) and the workflow's
+   dispatch options (what can be run). `release-receipt-workflow.test.ts` pins
+   them against each other, because drift in any direction fails quietly — a
+   criterion dispatchable but unsignable dies mid-run, and one signable but
+   unverifiable earns nothing after being measured.
 
 4. **A receipt must come from the protected workflow.** Every receipt carries
    `provenance` — repository, workflow ref, run id, run attempt — straight from
@@ -293,13 +299,56 @@ and a criterion absent from that registry cannot pass however good its key.
   customer-impacting defect, and that mismatch is why the criterion drifted.
   Reconciling the two is a human call made in Linear by downgrading the ticket.
 
-- **D3-revenue-reconciliation** — **currently unregistered in the signer, so it
-  cannot be signed.** Its producer cannot measure `failedWebhookDeliveries`
-  itself (Stripe exposes delivery attempts per endpoint, not as a window
-  count), and the previous stand-in read that count from an environment
-  variable — reintroducing the caller-supplied-measurement hole that removing
-  `--measurements` closed. It goes back in when the producer can take that
-  measurement itself. Produced by
+- **D1-billing-flows** — produced by
+  `scripts/ci/producers/d1-billing-flows.ts`. Two halves, both required.
+
+  **Scope correction first.** The criterion says "Stripe **and Apple IAP**", but
+  RestoreAssist ships no Apple In-App Purchase — RA-1842 "Path B", locked
+  2026-05-02 after App Review rejected build 1.0(3) on guideline 3.1.1. iOS
+  stays free and sales happen only on the website. The evidence file is blunt
+  that hunting for an IAP sandbox purchase is "the single biggest time sink in
+  this item", so the producer measures Stripe only, and measures the iOS
+  **block** instead of an iOS purchase.
+
+  | Check | The failure it answers |
+  | --- | --- |
+  | `missingStages` empty, `lifecycleStages` pinned | Purchase, renewal and cancellation must each be observed. Compared against the criterion's own list so a producer that stopped reporting a stage cannot pass by omission. |
+  | Renewal read from `billing_reason = "subscription_cycle"` | The FIRST invoice on a new subscription is `subscription_create`. Counting `invoice.payment_succeeded` outright would let one purchase satisfy both "purchase" and "renewal" — an event standing as evidence for something it never showed. This is why the walk script uses a Stripe test clock. |
+  | `mode` pinned to `test` | The walk creates subscriptions and cancels them. The evidence file: "Never run this against prod Stripe." Reconciling live revenue is D3's job. |
+  | `billingRoutesScanned` positive, `guardedRoutes` positive | Zero discovered routes reports zero unguarded and zero unclassified, and reads as a fully guarded application — A3's unplugged smoke detector again. |
+  | `unclassifiedBillingRoutes` empty | The regression this exists for: a checkout route added without `rejectIfIOSCapacitor()`, unnoticed until App Review notices. |
+  | `appleIapShipped` must be `false` | If StoreKit or an IAP library ever lands, "Apple IAP is not applicable" stops being a fact and D1 must be re-scoped rather than quietly measuring Stripe alone. |
+
+  Routes are **discovered, not listed**. Every `app/api/**/route.ts` importing
+  `lib/stripe` is a candidate, and each must be either guarded or declared in
+  `D1_NOT_PURCHASE_INITIATING` with a reason. A new route is neither by default,
+  so it fails until someone decides which it is. A hardcoded list would have
+  gone stale silently — the same defect as A3's filter naming a project that no
+  longer existed. Measured against the real tree: 17 Stripe routes, 6 guarded,
+  11 classified, 0 unclassified.
+
+  Not every Stripe-touching route belongs behind the guard, which is why the
+  classification carries reasons rather than being a bare allowlist. Cancellation
+  and account deletion are deliberately reachable from iOS — blocking those
+  would trap subscribers — and `invoices/[id]/checkout` is a contractor's
+  customer paying for restoration **work**, which guideline 3.1.1 does not reach.
+
+- **D3-revenue-reconciliation** — registered. It was unregistered while its
+  producer could not measure the webhook half itself: the stand-in read
+  `failedWebhookDeliveries` from an environment variable, reintroducing the
+  caller-supplied-measurement hole that removing `--measurements` closed.
+
+  It is now derived from Stripe's `pending_webhooks`, which rides on every
+  Event the producer already fetches, so the field costs no extra call and
+  cannot be asserted by anyone. **Read the claim narrowly:** `pending_webhooks`
+  counts deliveries not yet successful *at read time*, so an event that failed
+  twice and then succeeded reports 0. That is not the dashboard's "failed
+  deliveries over 7 days", and the measurement is named
+  `undeliveredWebhookEvents` rather than `failedWebhookDeliveries` so it cannot
+  be mistaken for it. What it catches is a delivery still outstanding when the
+  two sides were compared — a row that is not there yet and may never arrive.
+  A delivery that eventually landed wrote its row, and a genuine shortfall is
+  already caught by `missingInDb`, which compares the two sets. Produced by
   `scripts/ci/producers/d3-revenue-reconciliation.ts`, which reconciles live
   Stripe subscription events against the `SubscriptionEvent` rows the webhook
   wrote, over the current 7-day window. Observed in `production`, not `ci`:
@@ -379,8 +428,8 @@ to *it*, not to repository-wide secrets:
 | `RELEASE_RECEIPT_PRIVATE_KEY` | the private PEM |
 | `RELEASE_RECEIPT_PUBLIC_KEYS` | `{"<key-id>": {"publicKey": "<public PEM>", "criteria": ["A3-no-sev1-sev2-open"]}}` |
 | `LINEAR_API_KEY` | a dedicated Linear service identity, not a personal key (A3) |
-| `STRIPE_SECRET_KEY` | live key; the producer reads live/test from its prefix (D3, once registered) |
-| `DATABASE_URL` | production database, read-only is sufficient (D3, once registered) |
+| `STRIPE_SECRET_KEY` | live key; the producer reads live/test from its prefix (D3) |
+| `DATABASE_URL` | production database, read-only is sufficient (D3) |
 
 **Add a deployment-branch rule restricting `release-receipts` to `main`, and
 required reviewers.** The branch rule is not optional hardening — it is the

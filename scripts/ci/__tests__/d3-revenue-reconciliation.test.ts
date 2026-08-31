@@ -8,7 +8,6 @@ import {
   d3Window,
   fetchAllStripeEvents,
   reconcileD3,
-  UNMEASURED,
   type StripeEventPage,
   type StripeEventRef,
 } from "../producers/d3-revenue-reconciliation";
@@ -24,8 +23,8 @@ import {
  * shown to detect a disagreement.
  */
 
-function stripeEvent(id: string): StripeEventRef {
-  return { id, type: "customer.subscription.created" };
+function stripeEvent(id: string, pendingWebhooks = 0): StripeEventRef {
+  return { id, type: "customer.subscription.created", pendingWebhooks };
 }
 
 function inputs(overrides: Partial<Parameters<typeof reconcileD3>[0]> = {}) {
@@ -33,7 +32,6 @@ function inputs(overrides: Partial<Parameters<typeof reconcileD3>[0]> = {}) {
     stripeEvents: [stripeEvent("evt_1"), stripeEvent("evt_2")],
     dbRows: [{ stripeEventId: "evt_1" }, { stripeEventId: "evt_2" }],
     dbEventsWithoutStripeId: 0,
-    failedWebhookDeliveries: 0,
     liveMode: true,
     windowEndsAt: "2026-08-30T00:00:00.000Z",
     ...overrides,
@@ -213,9 +211,57 @@ describe("no measurement reaches the producer from its environment", () => {
     expect(SOURCE).not.toContain("D3_FAILED_WEBHOOK_DELIVERIES ??");
   });
 
-  it("reports an unmeasurable field as unmeasured, not as zero", () => {
-    // Negative on purpose: the policy requires exactly 0, so "unmeasured"
-    // fails rather than passing as a silent success.
-    expect(UNMEASURED).toBeLessThan(0);
+  it("derives the webhook count from Stripe, never from a caller", () => {
+    // This field WAS `failedWebhookDeliveries`, read from
+    // D3_FAILED_WEBHOOK_DELIVERIES: a caller-controlled input becoming a signed
+    // measurement, which is the `--measurements` defect wearing a different
+    // hat. It is now computed from each event's own `pending_webhooks`, so
+    // there is no argument left to supply.
+    expect(SOURCE).toContain("event.pending_webhooks");
+    expect(SOURCE).not.toContain("failedWebhookDeliveries");
+  });
+});
+
+describe("the webhook-delivery half", () => {
+  it("counts events whose webhooks have not been delivered", () => {
+    const m = reconcileD3(
+      inputs({
+        stripeEvents: [stripeEvent("evt_1"), stripeEvent("evt_2", 2)],
+        dbRows: [{ stripeEventId: "evt_1" }, { stripeEventId: "evt_2" }],
+      }),
+    );
+    expect(m.undeliveredWebhookEvents).toBe(1);
+  });
+
+  it("reports zero when every delivery has landed", () => {
+    expect(reconcileD3(inputs()).undeliveredWebhookEvents).toBe(0);
+  });
+
+  it("counts an event once however many of its webhooks are outstanding", () => {
+    // `pending_webhooks` is a count of endpoints, not of events. Summing it
+    // would inflate the measurement on a repository with several endpoints and
+    // make the criterion fail for having more subscribers.
+    const m = reconcileD3(
+      inputs({
+        stripeEvents: [stripeEvent("evt_1", 7)],
+        dbRows: [{ stripeEventId: "evt_1" }],
+      }),
+    );
+    expect(m.undeliveredWebhookEvents).toBe(1);
+  });
+
+  it("is independent of whether the row exists", () => {
+    // The two halves catch different things. A delivered webhook whose row is
+    // missing is a writer failure (missingInDb); an undelivered webhook whose
+    // row is absent is a delivery still in flight. Conflating them would let
+    // one mask the other.
+    const m = reconcileD3(
+      inputs({
+        stripeEvents: [stripeEvent("evt_1", 1)],
+        dbRows: [],
+      }),
+    );
+    expect(m.undeliveredWebhookEvents).toBe(1);
+    expect(m.missingInDb).toBe(1);
   });
 });
