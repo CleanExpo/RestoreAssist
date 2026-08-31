@@ -981,6 +981,17 @@ export const CRITERION_POLICIES: Record<string, CriterionPolicy> = {
           message: `declared specs did not run: ${measurements.specsMissingFromReport}`,
         };
       }
+      // A skipped spec is not a pass, and Playwright's `ok` says otherwise.
+      // `ok` is true for "expected", "flaky" AND "skipped", so a quarantined
+      // `test.fixme` spec reads as green in the raw report. The producer now
+      // counts per-test status; this refuses the receipt if any declared spec
+      // was skipped, so the quarantine has to be visible rather than absorbed.
+      if (measurements.skippedSpecs !== "") {
+        return {
+          ok: false,
+          message: `declared specs were skipped, not run: ${measurements.skippedSpecs}`,
+        };
+      }
       if (
         typeof measurements.specsDeclared !== "string" ||
         measurements.specsDeclared === ""
