@@ -63,6 +63,7 @@ is ahead of the evidence, and that gap is the exposure — not the word itself.
 | `docs/distribution/app-store/app-store-submission-package.md` | 163 | "IICRC S500, S520, and S700 compliant inspection workflow" |
 | `docs/distribution/app-store/whatsnew/whatsnew-en-AU`, `whatsnew-en-US` | 3 | same compliant-workflow line, both locales |
 | `docs/distribution/app-store/icon-source/build-icons.mjs` | 135 | **"IICRC compliance" rendered into the app icon artwork** |
+| `docs/distribution/app-store/play-store-submission-package.md` | 49, 153, 171, 172, 187–190 | the same claim set again — **missed in the first pass of this audit** |
 | `docs/marketing/RA-5036-organic-launch-campaign-FINAL.md` | 118, 163–165 | bare "NCC 2022" product claims |
 
 The icon is the one most easily missed: the claim is baked into a generated image,
@@ -117,12 +118,57 @@ names it as the wrapped origin, but I have not been given it as a site to check 
 have not fetched it. Saying so rather than implying coverage: the live site may
 carry claims this audit does not cover.
 
+## Applied 2026-08-31, on instruction — and what could not be
+
+The copy replacements below were applied across `store-listings.md`, both
+submission packages, and both what's-new locales. 32 replacements; no
+"IICRC-compliant" claim remains anywhere in `docs/distribution/`.
+
+**Two things the drafting got wrong, found while applying:**
+
+1. **The Play submission package was missing from the table above.** It carries the
+   same claim set. Now listed, and corrected with the rest.
+2. **Two replacements exceeded the stores' character limits.** The drafted short
+   description was 86 characters against Play's 80, and the drafted promotional
+   text 208 against Apple's 170. Both would have been rejected at submission. The
+   audit was written as prose and never measured; it should have been. Shipped
+   values are 74/80 and 158/170, and the keyword field is unchanged at 96/100.
+
+**The icon banner text is corrected in the generator, and the committed artwork is
+NOT regenerated. Deliberately.**
+
+`build-icons.mjs:135` now reads "Restoration standards · Australia + NZ". But
+running the generator produces an image that does not match the committed
+`out/android-feature-graphic.png` in any respect except its dimensions:
+
+| | Committed artwork | What the generator produces |
+|---|---|---|
+| Background | black | navy `#1C2E47` |
+| Logo | photographic metallic badge | line-art house and magnifier from `icon-mark.svg` |
+| Tagline colour | grey | tan `#D4A574` |
+
+So the committed banner was **not produced by this script**. Regenerating it would
+have replaced the brand artwork wholesale under cover of a text correction — a
+rebrand, not a copy fix, and not what was asked for. The artwork was reverted.
+
+Two further practical notes: the script aborts partway through in this checkout
+because it writes into `docs/distribution/ios/App/App/Assets.xcassets/`, which is
+not present, and it never reaches the feature graphic at all.
+
+**The committed feature graphic still reads "IICRC compliance · Australia + NZ".**
+Closing that needs a decision the repository cannot make: either regenerate from
+whatever produced the current artwork, or accept the generator's output as the new
+brand. Until then the generator and the committed PNG disagree, which is itself
+worth knowing.
+
 ## Recommendation
 
-1. The **icon** first, because it is the hardest to change once shipped.
-2. The **store listings and what's-new** next — they are filed representations to
-   Apple and Google as well as to customers.
-3. The **campaign copy** third.
+1. **Resolve the icon divergence** — the committed artwork still carries the claim,
+   and the generator no longer describes it. This is the open item.
+2. **Update the live listings.** The repository now holds corrected text; App Store
+   Connect and Google Play still hold the filed originals. Editing these files does
+   not change what is published.
+3. The **campaign copy** (`RA-5036`) third — still uncorrected.
 4. Consider whether the underlying evidence should be strengthened rather than the
    claim weakened. If the standards retrieval path were grounded and current
    editions held, "aligned with AS-IICRC S500:2025" would be provable rather than

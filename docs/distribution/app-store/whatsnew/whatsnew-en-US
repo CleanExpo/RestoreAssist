@@ -1,6 +1,6 @@
 First release of RestoreAssist — the property restoration reporting platform for water, fire, and storm damage technicians.
 
-• IICRC S500, S520, and S700 compliant inspection workflow
+• Inspection workflow structured to AS-IICRC S500:2025, AS-IICRC S520:2025 and ANSI/IICRC S700:2025
 • Room-by-room moisture readings, photos, and scope of works
 • AI-powered photo analysis for meter readings
 • Offline-first — field data syncs when connection is restored
