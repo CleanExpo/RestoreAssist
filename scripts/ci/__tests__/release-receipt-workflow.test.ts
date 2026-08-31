@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
 
-import { RECEIPT_WORKFLOW_PATH } from "../release-receipt";
+import { CRITERION_POLICIES, RECEIPT_WORKFLOW_PATH } from "../release-receipt";
 
 /**
  * The workflow IS the control.
@@ -156,5 +156,48 @@ describe("a branch dispatch cannot mint a receipt", () => {
       /options:[\s\S]*?- C2-secrets-scan/.test(workflow),
       "C2 must be dispatchable",
     ).toBe(true);
+  });
+
+  it("keeps producers, policies and dispatch options in agreement", () => {
+    /**
+     * Three lists have to say the same thing, and nothing checked that they did:
+     *
+     *   - PRODUCERS in sign-release-receipt.ts  (what can be MEASURED)
+     *   - CRITERION_POLICIES in release-receipt.ts (what can be VERIFIED)
+     *   - workflow_dispatch options in release-receipt.yml (what can be RUN)
+     *
+     * Drift in any direction is a quiet failure. A criterion in the workflow
+     * but not the registry is dispatchable and then dies mid-run. One with a
+     * producer but no policy would be measured, signed, and then earn nothing.
+     * One with a policy but no producer is the state D3 sat in.
+     *
+     * CRITERION_POLICIES is already pinned exactly, one test over; this pins
+     * the other two against it so adding a criterion stays a deliberate act in
+     * all three places rather than two.
+     */
+    const signer = readFileSync(
+      join(process.cwd(), "scripts", "ci", "sign-release-receipt.ts"),
+      "utf8",
+    );
+    const registry = signer.slice(
+      signer.indexOf("const PRODUCERS"),
+      signer.indexOf("if (process.argv.includes(\"--measurements\")"),
+    );
+    expect(registry.length).toBeGreaterThan(200);
+    const produced = [...registry.matchAll(/^  "([A-Z][0-9][a-z0-9-]+)":/gm)]
+      .map((m) => m[1])
+      .sort();
+
+    const workflow = readFileSync(
+      join(process.cwd(), ".github", "workflows", "release-receipt.yml"),
+      "utf8",
+    );
+    const options = [...workflow.matchAll(/^\s+- ([A-Z][0-9][a-z0-9-]+)$/gm)]
+      .map((m) => m[1])
+      .sort();
+
+    expect(produced.length).toBeGreaterThan(0);
+    expect(options).toEqual(produced);
+    expect(Object.keys(CRITERION_POLICIES).sort()).toEqual(produced);
   });
 });
