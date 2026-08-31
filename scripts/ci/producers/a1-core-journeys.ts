@@ -326,6 +326,18 @@ function arg(name: string): string | undefined {
 }
 
 async function main(): Promise<void> {
+  // `--list-specs` prints the declared specs, one per line, for the workflow to
+  // hand to Playwright. The producer owns the list so the run and the
+  // measurement cannot disagree: a spec added to A1_STEP_COVERAGE is executed
+  // automatically, and one removed stops being executed. A hardcoded list in
+  // the workflow would drift, and the drift would surface as
+  // `specsMissingFromReport` -- a real failure with a misleading cause.
+  if (process.argv.includes("--list-specs")) {
+    for (const spec of declaredSpecs()) console.log(spec);
+    return;
+  }
+
+
   const reportPath = arg("report");
   if (!reportPath) {
     console.error(

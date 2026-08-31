@@ -239,4 +239,49 @@ describe("a branch dispatch cannot mint a receipt", () => {
       /\$\{\{\s*vars\.RELEASE_RECEIPT_PUBLIC_KEYS\s*\}\}/,
     );
   });
+  it("actually produces the report A1 is handed, and sources its specs from the producer", () => {
+    /**
+     * A1 shipped unmintable. The signer was handed
+     * `A1_PLAYWRIGHT_REPORT: ${{ env.A1_PLAYWRIGHT_REPORT }}` -- an `env`
+     * context nothing populated -- so it resolved EMPTY and the producer failed
+     * on a missing argument. There was no Playwright step at all. The producer
+     * was complete and unreachable, and nothing said so.
+     */
+    const workflow = readFileSync(
+      join(process.cwd(), ".github", "workflows", "release-receipt.yml"),
+      "utf8",
+    );
+    const parsed = parse(workflow) as {
+      jobs: { mint: { steps: Array<Record<string, unknown>> } };
+    };
+    const steps = parsed.jobs.mint.steps;
+
+    const runner = steps.find((st) =>
+      String(st.name ?? "").includes("core journey"),
+    );
+    expect(runner, "a step must actually run the journey").toBeDefined();
+    expect(String(runner?.if ?? "")).toContain("A1-core-journeys");
+
+    const run = String(runner?.run ?? "");
+    // The producer owns the spec list; a list written in the workflow would
+    // drift and surface as specsMissingFromReport with a misleading cause.
+    expect(run).toMatch(/a1-core-journeys\.ts --list-specs/);
+    expect(run).toMatch(/playwright test/);
+    // The path must be exported, or the signer is handed an empty string again.
+    expect(run).toMatch(/A1_PLAYWRIGHT_REPORT=.*>> "\$GITHUB_ENV"/);
+    // A missing report must fail the job: it means Playwright never ran, which
+    // must not read as a clean run.
+    expect(run).toMatch(/! -s .*PLAYWRIGHT_JSON_OUTPUT_NAME/);
+    // The sandbox, not production. The journey signs up companies.
+    expect(String((runner?.env as Record<string, string>)?.PLAYWRIGHT_BASE_URL))
+      .toBe("https://restoreassist-sandbox.vercel.app");
+
+    // And it must run BEFORE the signer, or the variable is not yet set.
+    const runnerAt = steps.indexOf(runner as Record<string, unknown>);
+    const signAt = steps.findIndex((st) =>
+      String(st.name ?? "").includes("Measure and sign"),
+    );
+    expect(runnerAt).toBeGreaterThanOrEqual(0);
+    expect(signAt).toBeGreaterThan(runnerAt);
+  });
 });
