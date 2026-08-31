@@ -141,6 +141,48 @@ calls it "verified genuine" without recording which account verified it.
    with no constraint, and the table has **zero rows on production**. It asserts
    nothing today.
 
+## 4.5 ISO-derived Australian adoptions the product should be tracking
+
+Checked 2026-08-31 against the Standards Australia catalogue, prompted by the
+question "are there ISO numbers we should be looking for too". There are, and one
+of them resolves an open item above.
+
+**`AS/NZS 4360:2004` is superseded, and its replacement is an ISO adoption.** The
+Standards Australia store lists it as **"[Available Superseded]"**. The lineage,
+from the front matter of the current edition: AS/NZS 4360:1995, revised 1999, third
+edition 2004, *"jointly revised and redesignated as AS/NZS ISO 31000:2009"*, then
+*"revised and redesignated as **AS ISO 31000:2018**"*. Three rows of the withdrawn
+2004 edition sit in `scripts/data/standards-corpus.json`, and the citation gate
+skips them because the standard is not in the registry.
+
+Note the same AS versus AS/NZS distinction that applies to AS-IICRC: the 2018
+revision states that *"Standards Australia and Standards New Zealand decided to
+develop this Standard as an Australian Standard rather than an Australian/New
+Zealand Standard"*. So AS ISO 31000:2018 is **Australia only**, and the joint
+AS/NZS ISO 31000:2009 is the last trans-Tasman edition. A product citing risk
+management in New Zealand cannot simply substitute the AS number.
+
+**`AS 16000.1:2025`** — Standards Australia's adoption, with national
+modifications, of ISO 16000-1 *Indoor air — Part 1: General aspects of sampling
+strategy*, prepared by Committee EV-007 (Method for Examination of Air),
+sub-committee EV-007-02 (Indoor Air). This matters for a mould product because the
+ISO 16000 series carries the mould methods: Part 16 (sampling by filtration),
+Part 17 (culture-based), Part 18 (impaction), **Part 19 (sampling strategy for
+moulds)**, Part 20 (total spore count), Part 21 (sampling from materials), Part 22
+(fungal biomass). AS-IICRC S520 says in terms that it *"is not intended to
+establish procedures or criteria for assessing mold contamination"* — so the
+assessment methods a remediation job depends on sit in this series, not in S520.
+
+**Australian Mould Guideline (AMG) 2026** — updates the 2010 edition, adding
+threshold levels for environmental health-based risk assessment and a Normal
+Environmental Fungal Ecology (NEFE) verification concept. Not a Standard, but it is
+the Australian assessment guidance S520 defers to.
+
+None of these is in `STANDARDS_VERSIONS` and none is gated. Recorded as findings,
+not actioned: adding them is a registry change with its own scope, and AS ISO
+31000 in particular needs the corpus rows fixed at the same time so the gate does
+not simply start failing on data nobody has corrected.
+
 ## 5. NCC is not a constant
 
 Recorded here because it shares the defect class: a single global value where the
@@ -219,7 +261,13 @@ may cite by designation and edition only, never by section or clause.
 ## Open items
 
 1. The RA-6934 runbook's S900/S410/S400/S300 editions are unverified and unheld.
-2. `AS/NZS 4360:2004` is withdrawn and sits in the embedded corpus, ungated.
+2. `AS/NZS 4360:2004` is superseded and sits in the embedded corpus, ungated. Its
+   current replacement is **AS ISO 31000:2018** (Australia only; the last joint
+   edition was AS/NZS ISO 31000:2009). See §4.5.
 3. The Drive standards folder is unreadable from the application's identity.
 4. No current edition of S500, S520, S540 or S700 is held.
 5. The section indexes remain owner-attested and unverifiable by a second party.
+6. `AS 16000.1:2025` and the ISO 16000 mould-method series (Parts 16–22) are
+   unregistered and uncited, though S520 defers assessment methodology to them.
+7. Standards Australia is a SECOND licensor with its own AI prohibition, broader
+   than the IICRC's. See `docs/compliance/IICRC-STANDARDS-LICENSING.md`.
