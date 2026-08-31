@@ -196,12 +196,16 @@ gate_audits() {
 #
 # Do not add a migrate-deploy against an unknown DATABASE_URL in this script.
 #
-# STANDING HAZARD, pre-existing and NOT introduced here: --full runs
-# gate_build_full -> npm run build -> scripts/build.sh:48, which itself runs
-# `prisma migrate deploy` whenever DATABASE_URL is set and VERCEL_ENV is not
-# preview/development. So running --full against a real DATABASE_URL already
-# mutates that database. Run --full with DATABASE_URL unset, or against a
-# throwaway database only.
+# The migrate-deploy hazard this comment used to describe is CLOSED, and the
+# comment outlived it. It said --full reaches `prisma migrate deploy` via
+# scripts/build.sh:48. scripts/build.sh is ten lines long, runs `prisma generate`
+# and `next build`, and line 2 states outright that builds never mutate a
+# database. `npm run check:release-bootstrap` now fails any build path that
+# reaches a migration, so the hazard cannot silently return.
+#
+# What remains, and is much smaller: `next build` may READ DATABASE_URL during
+# static generation. A read, not a write. Point --full at a throwaway database if
+# that matters to you; it will not migrate one.
 
 # ---- Dispatch by mode ----
 
