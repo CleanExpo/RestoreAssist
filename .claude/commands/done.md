@@ -26,8 +26,9 @@ give**. It claimed `npm run build` reaches `prisma migrate deploy` at
 `scripts/build.sh:48`. That file is ten lines long and line 2 says the opposite:
 builds are database-independent and never mutate a database. The hazard was real
 once and has since been closed — `npm run check:release-bootstrap` now fails any
-build path that reaches a migration. The same stale claim still sits in
-`scripts/handoff-loop.sh`, which is where this one was copied from.
+build path that reaches a migration. The identical stale claim sat in
+`scripts/handoff-loop.sh`, which is where this one was copied from; both were
+corrected together.
 
 The honest reason to leave `--full` out: it runs `npm ci` and a full production
 build, which is slow, and `next build` may still *read* `DATABASE_URL` during
@@ -119,6 +120,7 @@ npm run audit:api                  # pr-checks.yml:225
 npm run audit:prod                 # pr-checks.yml:343 (enforcing)
 npm run test:unit:full             # pr-checks.yml:307
 python3 -m unittest scripts.ci.test_digitalocean_production_release -v   # pr-checks.yml:283
+npm run test:parity                # no workflow runs this at all
 ```
 
 The three `audit:*` lines look redundant with Phase 1 and are not. They live in
@@ -133,9 +135,15 @@ omitted deliberately: it needs live production credentials
 (`.github/workflows/supabase-advisor-gate.yml:5`), so it is owner-gated rather
 than a parity gap this command can close.
 
-Two more exist in `package.json` and are wired to no workflow at all, so nothing
-but this command will ever run them: `npm run check:corpus` and
-`npm run test:parity`.
+**Do not run `npm run check:corpus`.** An earlier revision of this file listed it
+alongside `test:parity` as an unwired gate. It is not a gate.
+`scripts/ci/check-corpus-hygiene.mjs` is a scanner whose CLI requires
+`--dir <staging-dir>` — a directory that exists only during a standards ingest —
+and the npm alias passes no `--dir`, so it exits 2 with a usage error every time.
+That is not a broken script to be repaired; its real caller is
+`scripts/ingest-standards-remote.ts:163`, which imports `scanText` to abort an
+ingest carrying charge-out rates. There is no staging directory during a `/done`
+run, so this check is **not applicable here** rather than failing or skipping.
 
 The secrets scan needs care. CI runs `gitleaks detect --no-git`, and
 `--no-git` **ignores `.gitignore`** — so a working-directory scan is not a scan
