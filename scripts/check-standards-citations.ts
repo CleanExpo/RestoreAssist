@@ -17,8 +17,9 @@
  *      form inside it is not read as a stale year. Two ways to fail: a wrong
  *      adoption year, and an `AS-IICRC` designation for a standard Standards
  *      Australia has not adopted — the second caught 29 live instances of a
- *      fabricated "AS-IICRC S500:2021" on its first run, including a published
- *      video title. Australia only; NZ cites the ANSI publication.
+ *      fabricated "AS-IICRC S500:2021" on its first run (standards-cite-ignore:
+ *      naming the defect, not committing it), including a published video title.
+ *      Australia only; NZ cites the ANSI publication.
  *
  *   2. STALE EDITION (structured JSON corpus) — fails if any object in
  *      scripts/data/*.json carries an `edition` year that disagrees with

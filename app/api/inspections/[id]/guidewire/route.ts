@@ -33,6 +33,7 @@ import {
 } from "@/lib/nir-guidewire-integration";
 import { getPropertyLocationFlags } from "@/lib/nir-location-services";
 import { standardEdition } from "@/lib/nir-standards-mapping";
+import { getNccEdition } from "@/lib/anz/ncc-edition";
 import { withIdempotency } from "@/lib/idempotency";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -294,14 +295,17 @@ export function buildNirReportOutput(
       : ref.startsWith("IICRC S700")
         ? ("IICRC S700" as const)
         : ref.startsWith("NCC")
-          ? ("NCC 2022" as const)
+          ? ("NCC" as const)
           : ("IICRC S500" as const),
     edition: ref.startsWith("IICRC S520")
       ? standardEdition("S520")
       : ref.startsWith("IICRC S700")
         ? standardEdition("S700")
         : ref.startsWith("NCC")
-          ? standardEdition("NCC")
+          ? // No state on the Inspection model yet (RA-1120), so this resolves to
+            // the edition in force in every jurisdiction — correct everywhere, less
+            // precise than it could be. Pass the state once RA-1120 lands.
+            (getNccEdition() ?? "")
           : standardEdition("S500"),
     clauseRef: ref,
     fieldName: "Water category / class classification",

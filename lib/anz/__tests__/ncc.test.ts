@@ -7,14 +7,28 @@ afterEach(() => {
 });
 
 describe("NCC edition (configurable)", () => {
-  it("defaults to the bundled edition when no env override", () => {
+  it("without a state, returns the edition in force in EVERY jurisdiction", () => {
     vi.stubEnv("NCC_EDITION", "");
-    expect(getNccEdition()).toBe(DEFAULT_NCC_EDITION);
+    // Deliberately NOT DEFAULT_NCC_EDITION. NCC 2022 was superseded by
+    // Amendment 1 (1 May 2025) then Amendment 2 (29 July 2025), so plain
+    // "NCC 2022" has not been the answer anywhere since mid-2025.
+    expect(getNccEdition(undefined, "2026-08-31")).toBe("NCC 2022 Amendment 2");
+    expect(getNccEdition(undefined, "2026-08-31")).not.toBe(DEFAULT_NCC_EDITION);
   });
 
   it("rolls to a new edition via NCC_EDITION without a code change", () => {
     vi.stubEnv("NCC_EDITION", "NCC 2025");
     expect(getNccEdition()).toBe("NCC 2025");
+  });
+
+  it("the env override wins over the adoption table", () => {
+    vi.stubEnv("NCC_EDITION", "NCC 2019");
+    expect(getNccEdition("VIC", "2026-08-31")).toBe("NCC 2019");
+  });
+
+  it("returns null for New Zealand — there is no NCC there", () => {
+    vi.stubEnv("NCC_EDITION", "");
+    expect(getNccEdition("NZ")).toBeNull();
   });
 });
 
@@ -30,6 +44,11 @@ describe("NCC reference attachment", () => {
   it("carries the configured edition through to the reference", () => {
     vi.stubEnv("NCC_EDITION", "NCC 2025");
     expect(getNccReference("wet-area-waterproofing")!.edition).toBe("NCC 2025");
+  });
+
+  it("attaches no NCC reference when no edition is in force (NZ)", () => {
+    vi.stubEnv("NCC_EDITION", "");
+    expect(getNccReference("wet-area-waterproofing", null)).toBeNull();
   });
 
   it("honours an explicit edition argument over the env default", () => {

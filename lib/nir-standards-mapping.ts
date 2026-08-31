@@ -18,6 +18,8 @@
 
 // ─── S500 WATER DAMAGE FIELD MAP ──────────────────────────────────────────────
 
+import { getNccEdition } from "./anz/ncc-edition";
+
 export const S500_FIELD_MAP = {
   /**
    * Moisture content thresholds per material type
@@ -821,17 +823,37 @@ export const S540_FIELD_MAP = {
  *   - S540: ANSI/IICRC S540-2023, 2nd ed.
  *   - S100: ANSI/IICRC S100-2021, 7th ed.
  *
+ * All five verified again 2026-08-31 against the IICRC's own published pages
+ * (iicrc.org/s500/, /s520/, /s540/, /s700/, /s100/) — the first check of this
+ * registry against a source other than itself. All five match.
+ *
+ * NOT HERE, DELIBERATELY:
+ *   - `NCC`. The National Construction Code is not an ANSI/IICRC standard, and it
+ *     is not a constant: it takes effect per state on different dates, and NCC 2025
+ *     is in force in ACT/TAS/VIC/WA while NSW/QLD/SA remain on NCC 2022 Amendment 2
+ *     and the NT has not adopted it at all. Keeping it here created a SECOND source
+ *     of truth alongside lib/anz/ncc-edition.ts, and the two diverged — the same PDF
+ *     could print NCC 2025 in the scope and NCC 2022 in the footer. Use
+ *     `getNccEdition(state, asAt)`.
+ *   - `nextRevisionExpected`. Removed per .planning/specs/01-JUDGE-VERDICT-revise.md:71
+ *     ("Delete nextRevisionExpected... Predicted dates never gate anything"). Nothing
+ *     read it, and two of its values were already contradicted by the IICRC's own
+ *     status pages, which say consensus bodies have begun revising S540 and S700.
+ *     A prediction nothing consumes and nobody re-checks is a liability, not data.
+ *
+ * The Australian adoptions of these standards are in AS_IICRC_ADOPTIONS below; for
+ * an Australian job that adoption governs, not the ANSI publication.
+ *
  * Every citation string in the product should derive from this registry (see
  * standardCite / standardDesignation). scripts/check-standards-citations.ts
  * guards against literals drifting out of sync.
  */
 export const STANDARDS_VERSIONS = {
-  S500: { edition: "5th", year: 2021, designation: "ANSI/IICRC S500-2021", nextRevisionExpected: 2026 },
-  S520: { edition: "4th", year: 2024, designation: "ANSI/IICRC S520-2024", nextRevisionExpected: 2029 },
-  S540: { edition: "2nd", year: 2023, designation: "ANSI/IICRC S540-2023", nextRevisionExpected: 2028 },
-  S700: { edition: "1st", year: 2025, designation: "ANSI/IICRC S700-2025", nextRevisionExpected: 2030 },
-  S100: { edition: "7th", year: 2021, designation: "ANSI/IICRC S100-2021", nextRevisionExpected: 2026 },
-  NCC: { edition: "2022", year: 2022, designation: "NCC 2022", nextRevisionExpected: 2025 },
+  S500: { edition: "5th", year: 2021, designation: "ANSI/IICRC S500-2021" },
+  S520: { edition: "4th", year: 2024, designation: "ANSI/IICRC S520-2024" },
+  S540: { edition: "2nd", year: 2023, designation: "ANSI/IICRC S540-2023" },
+  S700: { edition: "1st", year: 2025, designation: "ANSI/IICRC S700-2025" },
+  S100: { edition: "7th", year: 2021, designation: "ANSI/IICRC S100-2021" },
 } as const;
 
 export type StandardKey = keyof typeof STANDARDS_VERSIONS;
@@ -938,29 +960,57 @@ export function standardDesignation(std: StandardKey): string {
 
 /**
  * Human-readable edition label for report/insurer text, e.g. `standardEdition("S500")`
- * → "5th Ed". NCC has no ordinal edition, so its year-style label ("2022") is returned
- * as-is. Derives from STANDARDS_VERSIONS so an edition bump to the registry can't leave
- * a hard-coded label stale (CLAUDE.md rule #12).
+ * → "5th Ed". Derives from STANDARDS_VERSIONS so an edition bump to the registry can't
+ * leave a hard-coded label stale (CLAUDE.md rule #12).
+ *
+ * NCC is not a key here — it has no ordinal edition and varies by jurisdiction.
+ * Use `getNccEdition(state, asAt)` from lib/anz/ncc-edition.ts.
  */
 export function standardEdition(std: StandardKey): string {
   const { edition } = STANDARDS_VERSIONS[std];
-  return std === "NCC" ? edition : `${edition} Ed`;
+  return `${edition} Ed`;
 }
 
 /**
- * The IICRC/NCC standards line printed in the generated-PDF report footer. Built
- * entirely from STANDARDS_VERSIONS so a future edition bump to the registry updates
- * the insurer-facing footer automatically instead of drifting to a stale literal
- * (CLAUDE.md rule #12; guarded by lib/__tests__/report-footer-standards.test.ts).
- * e.g. "IICRC S500:2021, S520 4th Ed (2024), S700 1st Ed (2025), NCC 2022".
+ * The standards line printed in the generated-PDF report footer.
+ *
+ * Takes the job's jurisdiction because the answer depends on it, and printing one
+ * global answer was a live defect in two directions at once:
+ *
+ *   - Every New Zealand report cited "NCC 2022". NZ has no NCC; it is governed by
+ *     the New Zealand Building Code. The footer now omits NCC entirely for NZ.
+ *   - Every Australian report cited "NCC 2022" regardless of state or date, four
+ *     months after ACT/TAS/VIC/WA moved to NCC 2025 and a year after Amendment 2
+ *     superseded plain NCC 2022 everywhere.
+ *
+ * `state` is optional: without it `getNccEdition` returns the edition in force in
+ * every Australian jurisdiction, which understates rather than overstates. Pass the
+ * state whenever the job records one.
+ *
+ * Guarded by lib/__tests__/report-footer-standards.test.ts.
  */
-export function reportStandardsFooterLine(): string {
-  return [
+export function reportStandardsFooterLine(
+  jurisdiction: StandardsJurisdiction = "AU",
+  state?: string | null,
+  asAt?: string,
+): string {
+  const parts = [
     `IICRC ${standardCite("S500")}`,
     `S520 ${standardEdition("S520")} (${STANDARDS_VERSIONS.S520.year})`,
     `S700 ${standardEdition("S700")} (${STANDARDS_VERSIONS.S700.year})`,
-    standardDesignation("NCC"),
-  ].join(", ");
+  ];
+
+  // The Australian adoption governs an AU job, so name it alongside the ANSI
+  // citation rather than instead of it — the adoption is what applies, the ANSI
+  // edition is what it adopts, and an insurer reading the footer needs both.
+  if (jurisdiction === "AU") {
+    parts.unshift(AS_IICRC_ADOPTIONS.S500.designation);
+  }
+
+  const ncc = jurisdiction === "NZ" ? null : getNccEdition(state, asAt);
+  if (ncc) parts.push(ncc);
+
+  return parts.join(", ");
 }
 
 /**
