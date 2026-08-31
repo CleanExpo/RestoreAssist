@@ -24,9 +24,21 @@ export DATABASE_URL="postgresql://ci:ci@localhost:${PORT}/ci"
 export DIRECT_URL="$DATABASE_URL"
 export RELEASE_DB_PROFILE=1
 
+# Check the DAEMON, not just the binary. A CLI with no reachable daemon passed
+# this guard and failed 20 lines later with a raw Docker API socket error, which
+# reads as a broken script rather than a missing service -- and reached the
+# release gate as an opaque B3 failure.
 if ! command -v docker >/dev/null 2>&1; then
   echo "test:db needs Docker (CI uses a digest-pinned pgvector 0.8.6-pg16 service)." >&2
   echo "Install Docker, or run only the non-DB suites with: npm run test:unit" >&2
+  exit 127
+fi
+if ! docker info >/dev/null 2>&1; then
+  echo "test:db found the docker CLI but no reachable daemon." >&2
+  echo "Start Docker, or stand up Postgres yourself and export DATABASE_URL," >&2
+  echo "DIRECT_URL and RELEASE_DB_PROFILE=1 before running vitest directly." >&2
+  echo "The database must be UTF8: 20260825123000_canonical_email_identity calls" >&2
+  echo "chr() beyond U+00FF and fails on a SQL_ASCII or LATIN1 cluster." >&2
   exit 127
 fi
 
