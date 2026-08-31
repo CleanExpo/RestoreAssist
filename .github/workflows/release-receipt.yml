@@ -108,6 +108,47 @@ jobs:
           tar -xzf "/tmp/${ARCHIVE}" -C /tmp gitleaks
           /tmp/gitleaks version
 
+      # A1's instrument: a real Playwright run against the sandbox.
+      #
+      # This did not exist. The signer was handed
+      # `A1_PLAYWRIGHT_REPORT: ${{ env.A1_PLAYWRIGHT_REPORT }}`, an `env`
+      # context nothing ever populated, so it resolved EMPTY and the producer
+      # failed on a missing argument. A1 could not be minted at all -- the
+      # producer was complete and unreachable.
+      #
+      # The spec list comes from the producer itself (`--list-specs`), not from
+      # a list written here. A spec added to A1_STEP_COVERAGE is then executed
+      # automatically; a hardcoded list would drift, and the drift would surface
+      # as `specsMissingFromReport` -- a real failure wearing a misleading cause.
+      - name: Run the core journey against the sandbox (A1 only)
+        if: inputs.criterion == 'A1-core-journeys'
+        env:
+          PLAYWRIGHT_BASE_URL: https://restoreassist-sandbox.vercel.app
+          PLAYWRIGHT_JSON_OUTPUT_NAME: /tmp/a1-playwright-report.json
+        run: |
+          set -euo pipefail
+          npx --no-install playwright install --with-deps chromium
+          mapfile -t SPECS < <(npx --no-install tsx \
+            scripts/ci/producers/a1-core-journeys.ts --list-specs)
+          if [ "${#SPECS[@]}" -eq 0 ]; then
+            echo "::error::the producer declared no specs; refusing to run an empty journey"
+            exit 1
+          fi
+          echo "Running ${#SPECS[@]} declared specs against $PLAYWRIGHT_BASE_URL"
+          # A FAILING TEST IS A MEASUREMENT, NOT A BROKEN JOB. The producer
+          # reads pass, fail and skip from the report and the verifier decides;
+          # aborting here would turn a red journey into "could not measure",
+          # which is a different and less useful claim.
+          npx --no-install playwright test -c config/playwright.config.ts \
+            "${SPECS[@]}" --project=chromium --reporter=json || true
+          # A MISSING report is a broken job, and is not tolerated: it means
+          # Playwright never ran, which must not be mistaken for a clean run.
+          if [ ! -s "$PLAYWRIGHT_JSON_OUTPUT_NAME" ]; then
+            echo "::error::Playwright produced no report at $PLAYWRIGHT_JSON_OUTPUT_NAME"
+            exit 1
+          fi
+          echo "A1_PLAYWRIGHT_REPORT=$PLAYWRIGHT_JSON_OUTPUT_NAME" >> "$GITHUB_ENV"
+
       - name: Measure and sign
         env:
           RELEASE_RECEIPT_PRIVATE_KEY: ${{ secrets.RELEASE_RECEIPT_PRIVATE_KEY }}
