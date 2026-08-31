@@ -2,9 +2,25 @@
  * ANSI/IICRC S520-2024 (4th ed.) section index — verified source of truth for
  * S520 section→title recall (mirrors lib/standards/s500-sections.ts).
  *
- * Values transcribed from the owner's LICENSED S520:2024 standard as ingested
- * into the RA-7000 authoritative RAG corpus (verified against the ingested
- * chapter headings 2026-07-11). This replaces ad-hoc per-file S520 section
+ * PROVENANCE — READ THIS BEFORE RELYING ON A SECTION NUMBER HERE.
+ * This previously claimed the values were "transcribed from the owner's LICENSED
+ * S520:2024 standard as ingested into the RA-7000 authoritative RAG corpus
+ * (verified against the ingested chapter headings 2026-07-11)". That claim is
+ * CIRCULAR and cannot be checked by anyone: the corpus it cites as the authority
+ * is `IicrcChunk`, which has zero rows on production, and the corpus's own
+ * provenance is the open question. An audit of the accessible Drive on 2026-08-31
+ * found no S520 document of any edition — only a superseded S540:2017 set and a  standards-cite-ignore (naming a superseded edition on purpose)
+ * third-party retyping of the S500 definitions clause.
+ *
+ * So: these numbers are ATTESTED BY THE OWNER, not independently verifiable from
+ * anything in this repository or reachable from it. They are used because they
+ * corrected demonstrably wrong values (see below) and because failing loudly on an
+ * unknown section is better than fabricating one — not because a second party has
+ * checked them. Re-verify against the licensed S520:2024 before treating any
+ * number here as authoritative, and replace this note with what was actually
+ * checked, by whom, and when. See docs/findings/iicrc-standards-provenance.md.
+ *
+ * This replaces ad-hoc per-file S520 section
  * hardcoding, several instances of which were WRONG — in particular the
  * worker-protection PPE citation was recorded as "§14", but S520:2024 has no
  * §14; worker protection is §5 "Safety and Health", and post-remediation
