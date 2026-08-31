@@ -46,6 +46,17 @@ Three rules, each of which has already cost someone something:
   the checkout mtime, so `ls -t` degrades to arbitrary order and has been
   observed returning the *oldest* handoff first. The names are lexicographic
   UTC stamps; sort those.
+- **Check whether evidence frontmatter was edited.** Phase 6 forbids flipping a
+  `status:` or `verified:` to make a criterion pass, but forbidding it in prose
+  does not detect it. Run this and report any hit:
+
+  ```bash
+  git diff origin/main...HEAD -- docs/evidence/release-gate/ | grep -E '^\+(status|verified):' || echo "  no evidence frontmatter changed"
+  ```
+
+  A hit is not automatically wrong — evidence legitimately gets refreshed — but
+  it must be stated in the output and justified, never left for a reader to
+  find.
 - **Re-check the tree after the gate.** `.claude/RULES.md` permits at most one
   code-modifying agent at a time. If `git rev-parse HEAD` moved between Phase 0
   and Phase 5, another agent is writing — stop and report rather than committing
@@ -76,7 +87,15 @@ Never write "all gates passed" as if it had. The isolated equivalent is
 `npm run test:db`, which stands up a throwaway container.
 
 `HANDOFF_GATE_SKIP=1` bypasses everything. A claim made that way is ungated and
-must say so.
+must say so — and saying so requires checking, not assuming:
+
+```bash
+[ -n "$HANDOFF_GATE_SKIP" ] && echo "UNGATED: HANDOFF_GATE_SKIP=$HANDOFF_GATE_SKIP" || echo "gate active"
+```
+
+This is condition 2 of `OWNER_APPROVAL_MODEL.md` ("false-done prevention
+remains active"). Stating it is active without reading the variable is the
+false-done the condition exists to prevent, one level up.
 
 ## Phase 2 — Close the CI-parity holes
 
@@ -225,6 +244,14 @@ Three more this command must refuse, which are not in either list:
   `scripts/release-gate-score.ts:326-330` names this exact temptation. Flipping
   a `deferred` or a `fail` is falsifying the gate, not passing it.
 
+**Approval given in this session must be written down.**
+`PRODUCTION_GATE.md` requires "a separate Founder / Board decision naming the
+production action approved", and a decision that exists only in chat is not a
+decision anyone can audit later. When the owner approves a gated action, record
+in the PR body: what was approved, by whom, and when. Otherwise the next reader
+finds a merged change with no trace of who authorised it — including the owner,
+six months on.
+
 The meta-rule at `.claude/RULES.md:76`: stop, state exactly what you would do
 and why, and wait for explicit go-ahead **in this session**. Prior approval
 cannot be inferred from a ticket status, a runbook's existence, or a previous
@@ -240,6 +267,20 @@ exceptions clause does not reach this command: `/done` makes a completion claim.
 Produce all five elements — where to check, how to get there, what to see, what
 **not** to see, and the confirmation prompt.
 
+**And open the checklist with an explicit scope line.** Layer 1 is item-level.
+`RESTOREASSIST_PROJECT_DOD.md` is emphatic that the project is "not considered
+done because a single feature, brief, migration lane, video lane, or validation
+task completed" — so a report that says "Layer 1 complete" and stops can be read
+as project completion by someone who has not read both documents. Say which it
+is, in as many words:
+
+```
+SCOPE: item-level. This is <n> item(s) of the backlog, not project completion.
+       Project DoD additionally needs data-model posture, security and readiness
+       gates, pilot readiness, business-sale readiness, and Founder/Board
+       acceptance — none of which this run establishes.
+```
+
 ## How to read a `/done` result correctly
 
 The failure this guards against is a claim outrunning its evidence, so the
@@ -254,6 +295,12 @@ result has to be read precisely.
   is indistinguishable from a fresh one until you compare `git_sha` to HEAD.
 - **Layer-2 engine reconciliation is unavailable here, not failing.** Those are
   different words for a reason.
+- **Two more of the five Layer-2 conditions cannot be closed by this command.**
+  Condition 2 (false-done prevention active) is now *checked* rather than
+  assumed, but only for this run. Condition 5 (Founder/Board acceptance) is the
+  owner's act, and this command can record it, never supply it. A report that
+  lists five conditions without saying which three it can actually establish has
+  overstated itself.
 - **A green `/done` is not a release decision.**
   `docs/definition-of-done/PRODUCTION_GATE.md:4` — local readiness never
   authorises production action. And `spec.md:397` is blunt that opening a PR,
