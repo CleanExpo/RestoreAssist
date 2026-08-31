@@ -787,6 +787,7 @@ describe("A1-core-journeys policy", () => {
         testsExecuted: 42,
         specsDeclared: "auth.spec.ts,first-tradie-flow.spec.ts",
         specsMissingFromReport: "",
+        skippedSpecs: "",
         failingSpecs: "",
         journeySteps:
           "signup,login,onboarding,storage setup,restore,inspection,claim,attest,pdf",
@@ -869,6 +870,25 @@ describe("A1-core-journeys policy", () => {
     expect(result.ok).toBe(false);
     expect(result.ok === false && result.message).toMatch(
       /specsDeclared is empty/,
+    );
+  });
+
+  it("refuses a receipt whose declared specs were skipped", () => {
+    /**
+     * Playwright's `spec.ok` is TRUE for a skipped test, so a quarantined
+     * `test.fixme` spec reads as green in the raw report. The producer counted
+     * exactly that as passed, and `storage setup` was covered by a spec that
+     * had not run since it was quarantined.
+     *
+     * The producer now counts per-test status; this refuses the receipt so the
+     * quarantine is visible rather than absorbed into a passing measurement.
+     */
+    const result = verify(
+      a1({ skippedSpecs: "setup-storage-google-drive.spec.ts" }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(
+      /were skipped, not run: setup-storage-google-drive\.spec\.ts/,
     );
   });
 

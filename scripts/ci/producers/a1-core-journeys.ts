@@ -144,6 +144,8 @@ export interface SpecOutcome {
   file: string;
   passed: number;
   failed: number;
+  /** Declared, never executed. Not a pass, and reported by name. */
+  skipped: number;
 }
 
 /** The measurement bag this producer emits, all values receipt-safe scalars. */
@@ -154,6 +156,7 @@ export interface A1Measurements {
   testsExecuted: number;
   specsDeclared: string;
   specsMissingFromReport: string;
+  skippedSpecs: string;
   failingSpecs: string;
   journeySteps: string;
   coveredSteps: string;
@@ -194,10 +197,40 @@ export function readPlaywrightReport(payload: unknown): SpecOutcome[] {
           ? specRecord.file
           : file;
       const base = specFile.split("/").pop() ?? specFile;
-      const outcome = byFile.get(base) ?? { file: base, passed: 0, failed: 0 };
-      // `ok` is Playwright's own verdict for the spec, after retries.
-      if (specRecord.ok === true) outcome.passed += 1;
-      else outcome.failed += 1;
+      const outcome =
+        byFile.get(base) ?? { file: base, passed: 0, failed: 0, skipped: 0 };
+
+      // NEVER `spec.ok`. It is TRUE for a skipped test.
+      //
+      // Playwright's own definition (runner/index.js):
+      //   ok() { const s = this.outcome();
+      //          return s === "expected" || s === "flaky" || s === "skipped"; }
+      //
+      // So a `test.fixme(true, ...)` spec -- quarantined, never executed --
+      // reports ok: true. This producer counted that as PASSED, which marked
+      // its journey step covered and inflated `testsExecuted`. The `storage
+      // setup` step was green on a spec that has not run since it was
+      // quarantined.
+      //
+      // That is the exact defect this producer exists to close ("0 failures
+      // reads identically to a passing suite"), reproduced one layer down.
+      // Reading per-test status keeps the three outcomes distinct, because
+      // "ran and passed", "ran and failed" and "never ran" are three different
+      // claims and only the first is evidence.
+      const tests = Array.isArray(specRecord.tests) ? specRecord.tests : [];
+      if (tests.length === 0) {
+        // No test entries at all: unreadable, so not evidence of a pass.
+        outcome.failed += 1;
+      }
+      for (const test of tests) {
+        const status =
+          typeof test === "object" && test !== null
+            ? (test as Record<string, unknown>).status
+            : undefined;
+        if (status === "expected" || status === "flaky") outcome.passed += 1;
+        else if (status === "skipped") outcome.skipped += 1;
+        else outcome.failed += 1;
+      }
       byFile.set(base, outcome);
     }
 
@@ -233,6 +266,16 @@ export function summariseA1(input: {
     .filter((spec) => (observed.get(spec)?.failed ?? 0) > 0)
     .sort();
 
+  // Named, not merely uncovered. A quarantined spec would otherwise show up
+  // only as a missing journey step, sending the reader to look for a spec that
+  // does not exist rather than at the `test.fixme` that disabled one.
+  const skipped = declared
+    .filter((spec) => {
+      const o = observed.get(spec);
+      return o !== undefined && o.skipped > 0;
+    })
+    .sort();
+
   const testsExecuted = input.outcomes.reduce(
     (sum, o) => sum + o.passed + o.failed,
     0,
@@ -246,7 +289,12 @@ export function summariseA1(input: {
       specs.length > 0 &&
       specs.every((spec) => {
         const outcome = observed.get(spec);
-        return outcome !== undefined && outcome.failed === 0 && outcome.passed > 0;
+        return (
+          outcome !== undefined &&
+          outcome.failed === 0 &&
+          outcome.skipped === 0 &&
+          outcome.passed > 0
+        );
       })
     );
   });
@@ -259,6 +307,7 @@ export function summariseA1(input: {
     testsExecuted,
     specsDeclared: declared.join(","),
     specsMissingFromReport: missing.join(","),
+    skippedSpecs: skipped.join(","),
     failingSpecs: failing.join(","),
     journeySteps: [...A1_JOURNEY_STEPS].join(","),
     coveredSteps: covered.join(","),
@@ -348,6 +397,13 @@ async function main(): Promise<void> {
       `Declared specs that did NOT run: ${m.specsMissingFromReport}. ` +
         "Playwright exits 0 when it matches nothing, so this is a silent " +
         "green, not a pass.",
+    );
+  }
+  if (m.skippedSpecs) {
+    console.log(
+      `Declared specs that were SKIPPED: ${m.skippedSpecs}. Playwright reports ` +
+        "ok: true for a skipped test, so these look like passes in the raw " +
+        "report. A quarantined spec is not evidence.",
     );
   }
   if (m.failingSpecs) console.log(`Failing specs: ${m.failingSpecs}`);

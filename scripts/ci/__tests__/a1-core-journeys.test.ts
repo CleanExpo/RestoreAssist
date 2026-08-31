@@ -19,8 +19,8 @@ import {
  * and a run that executed against a different build.
  */
 
-function outcome(file: string, passed = 1, failed = 0): SpecOutcome {
-  return { file, passed, failed };
+function outcome(file: string, passed = 1, failed = 0, skipped = 0): SpecOutcome {
+  return { file, passed, failed, skipped };
 }
 
 /** Every declared spec passing, which is the only shape that should pass. */
@@ -37,19 +37,19 @@ describe("readPlaywrightReport", () => {
       suites: [
         {
           file: "docs/archive/playwright-e2e/auth.spec.ts",
-          specs: [{ ok: true }],
-          suites: [{ specs: [{ ok: true }, { ok: false }] }],
+          specs: [{ ok: true, tests: [{ status: "expected" }] }],
+          suites: [{ specs: [{ ok: true, tests: [{ status: "expected" }] }, { ok: false, tests: [{ status: "unexpected" }] }] }],
         },
       ],
     };
     expect(readPlaywrightReport(report)).toEqual([
-      { file: "auth.spec.ts", passed: 2, failed: 1 },
+      { file: "auth.spec.ts", passed: 2, failed: 1, skipped: 0 },
     ]);
   });
 
   it("keys outcomes by basename so a moved testDir does not orphan them", () => {
     const report = {
-      suites: [{ file: "some/other/root/auth.spec.ts", specs: [{ ok: true }] }],
+      suites: [{ file: "some/other/root/auth.spec.ts", specs: [{ ok: true, tests: [{ status: "expected" }] }] }],
     };
     expect(readPlaywrightReport(report)[0].file).toBe("auth.spec.ts");
   });
@@ -57,9 +57,9 @@ describe("readPlaywrightReport", () => {
   it("counts a spec with no ok verdict as failed, not as passed", () => {
     // An interrupted or timed-out spec has no `ok: true`. Treating the absence
     // as success is how a crashed run reports green.
-    const report = { suites: [{ file: "a.spec.ts", specs: [{}, { ok: false }] }] };
+    const report = { suites: [{ file: "a.spec.ts", specs: [{}, { ok: false, tests: [{ status: "unexpected" }] }] }] };
     expect(readPlaywrightReport(report)).toEqual([
-      { file: "a.spec.ts", passed: 0, failed: 2 },
+      { file: "a.spec.ts", passed: 0, failed: 2, skipped: 0 },
     ]);
   });
 
@@ -68,6 +68,90 @@ describe("readPlaywrightReport", () => {
     ["a report with no suites array", { ok: true }],
   ])("refuses %s rather than reading it as zero failures", (_label, payload) => {
     expect(() => readPlaywrightReport(payload)).toThrow();
+  });
+});
+
+describe("a skipped spec is not a passing spec", () => {
+  /**
+   * THE DEFECT THIS SUITE MISSED THE FIRST TIME.
+   *
+   * Playwright's `spec.ok` is TRUE for a skipped test -- its own definition is
+   * `status === "expected" || status === "flaky" || status === "skipped"`. The
+   * producer read `ok` and counted a quarantined `test.fixme` spec as PASSED,
+   * which marked its journey step covered and inflated `testsExecuted`.
+   *
+   * `docs/archive/playwright-e2e/setup-storage-google-drive.spec.ts` is exactly
+   * that: `test.fixme(true, "Quarantined from A1/B4 gate ...")`. The `storage
+   * setup` step was green on a spec that has not run since it was quarantined.
+   *
+   * The original tests never constructed a skipped spec -- they used only
+   * `ok: true`, `ok: false` and `{}` -- so the hole was untested rather than
+   * mis-tested.
+   */
+  it("does not count a skipped test as passed", () => {
+    const report = {
+      suites: [
+        {
+          file: "docs/archive/playwright-e2e/setup-storage-google-drive.spec.ts",
+          specs: [{ ok: true, tests: [{ status: "skipped" }] }],
+        },
+      ],
+    };
+    expect(readPlaywrightReport(report)).toEqual([
+      {
+        file: "setup-storage-google-drive.spec.ts",
+        passed: 0,
+        failed: 0,
+        skipped: 1,
+      },
+    ]);
+  });
+
+  it("ignores ok:true entirely and reads per-test status", () => {
+    // ok:true on every spec; only the statuses differ.
+    const report = {
+      suites: [
+        {
+          file: "a.spec.ts",
+          specs: [
+            { ok: true, tests: [{ status: "expected" }] },
+            { ok: true, tests: [{ status: "skipped" }] },
+            { ok: true, tests: [{ status: "flaky" }] },
+          ],
+        },
+      ],
+    };
+    expect(readPlaywrightReport(report)).toEqual([
+      { file: "a.spec.ts", passed: 2, failed: 0, skipped: 1 },
+    ]);
+  });
+
+  it("names a skipped spec rather than leaving its step mysteriously uncovered", () => {
+    const outcomes = declaredSpecs().map((f) =>
+      f === "auth.spec.ts" ? outcome(f, 0, 0, 1) : outcome(f),
+    );
+    const m = summariseA1({ outcomes, deploymentSha: "a".repeat(40) });
+    expect(m.skippedSpecs).toBe("auth.spec.ts");
+    // And it must not silently count as coverage.
+    expect(m.uncoveredSteps).toContain("login");
+  });
+
+  it("does not let a partly-skipped spec cover its step", () => {
+    // One test ran and passed, another was quarantined. The step is not proven.
+    const outcomes = declaredSpecs().map((f) =>
+      f === "auth.spec.ts" ? outcome(f, 1, 0, 1) : outcome(f),
+    );
+    const m = summariseA1({ outcomes, deploymentSha: "a".repeat(40) });
+    expect(m.skippedSpecs).toBe("auth.spec.ts");
+    expect(m.uncoveredSteps).toContain("login");
+  });
+
+  it("counts a spec with no test entries as failed, not passed", () => {
+    // An unreadable spec is not evidence of a pass.
+    const report = { suites: [{ file: "a.spec.ts", specs: [{ ok: true }] }] };
+    expect(readPlaywrightReport(report)).toEqual([
+      { file: "a.spec.ts", passed: 0, failed: 1, skipped: 0 },
+    ]);
   });
 });
 
