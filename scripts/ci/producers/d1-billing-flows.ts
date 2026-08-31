@@ -60,6 +60,8 @@ import { readFileSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join, relative } from "node:path";
 
+import { STRIPE_API_VERSION } from "../../../lib/stripe";
+
 export const D1_WINDOW_DAYS = 30;
 
 /** The three lifecycle stages the criterion names. */
@@ -268,7 +270,14 @@ export async function produceD1Measurements(): Promise<D1Measurements> {
   const liveMode = key.startsWith("sk_live");
 
   const StripeCtor = (await import("stripe")).default;
-  const stripe = new StripeCtor(key);
+  // Pinned explicitly. Omitting `apiVersion` does not fall back to the account
+  // default -- the SDK substitutes its own pinned version (stripe.core.js:99,
+  // 178), so an unpinned client silently follows every dependency bump with no
+  // diff to review. Correct by accident is still a second owner.
+  const stripe = new StripeCtor(key, {
+    apiVersion: STRIPE_API_VERSION,
+    typescript: true,
+  });
   const lte = Math.floor(Date.now() / 1000);
   const gte = lte - D1_WINDOW_DAYS * 86_400;
 
