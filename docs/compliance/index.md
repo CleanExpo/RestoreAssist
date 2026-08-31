@@ -1,9 +1,9 @@
 ---
 type: index
 name: compliance
-description: OKF index — 7 concepts, 0 subfolders
+description: OKF index — 8 concepts, 0 subfolders
 okf_version: "0.1"
-updated: 2026-07-06
+updated: 2026-08-31
 ---
 
 <!-- okf:generated -->
@@ -13,6 +13,7 @@ _Read this first. Lists every concept + subfolder here so an agent loads only wh
 
 ## Concepts
 - [[AU-GST-TAX]] — Australian GST — Stripe Tax Configuration
+- [[IICRC-STANDARDS-LICENSING]] — Standards licensing: what AU and NZ law permits, and what the licences permit
 - [[DATA-RETENTION-POLICY]] — Data Retention Policy
 - [[LAUNCH-CHECKLIST]] — RestoreAssist Launch Checklist
 - [[OBSERVABILITY-SETUP]] — Observability Setup — Vercel-native stack

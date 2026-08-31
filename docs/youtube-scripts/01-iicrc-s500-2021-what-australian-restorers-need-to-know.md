@@ -1,4 +1,4 @@
-# Video 1: AS-IICRC S500:2021 — What Australian Restorers Need to Know
+# Video 1: AS-IICRC S500:2025 — What Australian Restorers Need to Know
 
 **Channel:** Phill McGurk | RestoreAssist
 **Target length:** 10–14 minutes
@@ -113,8 +113,8 @@
 
 ## SEO metadata
 
-**Title:** AS-IICRC S500:2021 — What Australian Restorers Need to Know
-**Description:** The 2025 revision of IICRC S500 is changing what Australian water damage assessors expect in scope documents. Phill McGurk breaks down the 3 biggest changes and how to update your business.
+**Title:** AS-IICRC S500:2025 — What Australian Restorers Need to Know
+**Description:** AS-IICRC S500:2025 — Standards Australia's adoption of ANSI/IICRC S500:2021, published 28 March 2025 — is changing what Australian water damage assessors expect in scope documents. Phill McGurk breaks down the 3 biggest changes and how to update your business.
 **Tags:** IICRC S500 2025, Australian water damage restoration, scope of works, restoration compliance, IAG assessor, Suncorp restoration, Australian IICRC
 
 ---

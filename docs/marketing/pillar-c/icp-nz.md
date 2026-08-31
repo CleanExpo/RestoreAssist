@@ -141,7 +141,7 @@ bodies and NZ trade sites actually use, and they are safe to write from.
 > New Zealand report is the mistake being described. Rewriting them to the editions the gate
 > expects would delete the finding, so the literals are exempted on their own line.
 
-**`AS-IICRC S500:2025` and `AS-IICRC S520:2025` are Australian Standards with no NZ status.** <!-- standards-cite-ignore -->
+**`AS-IICRC S500:2025` and `AS-IICRC S520:2025` are Australian Standards with no NZ status.**
  Standards Australia published them via committee ME-094, whose membership is entirely
 Australian bodies. **No Standards New Zealand adoption was found.** New Zealand practitioners
 cite **ANSI/IICRC S500 (2021, 5th ed.)** and **ANSI/IICRC S520 (2024, 4th ed.)** directly, and
@@ -291,8 +291,8 @@ load-bearing: without it `globals` is unset and the suites fail with `describe i
 
 | Gap | Evidence | Consequence |
 |---|---|---|
-| **The NZBC gate does not gate anything.** `nzbs-compliance-gate.ts:70` hardcodes `const propertyCountry: string = "AU"` with `// TODO RA-1120 … no country field exists — default AU so this gate is a no-op` | `[code]` | It **can never block an NZ inspection.** Its own test header says "NZ blocking (currently always no-op due to RA-1120)". Do not claim NZ Building Code enforcement |
-| Report footers cite the Australian building code on **every** report | `reportStandardsFooterLine()`, `lib/nir-standards-mapping.ts:871` — takes no country argument, unconditionally appends `standardDesignation("NCC")` | Every NZ PDF footer prints "NCC 2022". Not "may" — does, always |
+| **The NZBC gate does not gate anything.** `nzbs-compliance-gate.ts:70` hardcodes `const propertyCountry: string = "AU"` | `[code]` | Still true: it **can never block an NZ inspection**, so do not claim NZ Building Code enforcement. But the stated reason was wrong — the old TODO said "no country field exists" and `Inspection.propertyCountry` has existed since RA-6996. No migration blocks this; it needs the caller to thread the country through, in its own change set, because un-no-opping it starts blocking NZ submissions that currently pass |
+| Report footers cited the Australian building code on **every** report — FIXED 31/08/2026 | `reportStandardsFooterLine()` now takes jurisdiction, state and date and omits NCC entirely for NZ; `generateNIRPDF` passes `Inspection.propertyCountry`, the state derived from `propertyPostcode`, and `inspectionDate` | Was: every NZ PDF footer printed "NCC 2022". Now: NZ footers carry no NCC and no AS-IICRC designation |
 | Standards cited may be the **Australian** IICRC adoptions | §5 | AS-IICRC has no NZ standing; NZ cites ANSI/IICRC directly |
 | NZ setup path skips all three hydration jobs | `BusinessDetailsCard.tsx:98` | §7 |
 | No NZBN → register lookup | `lib/integrations/` | §7 |

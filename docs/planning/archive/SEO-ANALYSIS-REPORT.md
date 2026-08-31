@@ -818,11 +818,11 @@ Crawl-delay: 1
 
 ## Appendix B: IICRC S500:2021 Content Opportunity
 
-The AS-IICRC S500:2021 Standard was published in March 2025 - this is a MAJOR content opportunity. RestoreAssist should create authoritative content around:
+The AS-IICRC S500:2025 Standard was published in March 2025 - this is a MAJOR content opportunity. RestoreAssist should create authoritative content around:
 
-1. "What's New in AS-IICRC S500:2021"
-2. "How to Meet AS-IICRC S500:2021 Requirements"
-3. "AS-IICRC S500:2021 Checklist for Restoration Companies"
+1. "What's New in AS-IICRC S500:2025"
+2. "How to Meet AS-IICRC S500:2025 Requirements"
+3. "AS-IICRC S500:2025 Checklist for Restoration Companies"
 
 This positions RestoreAssist as the go-to resource for Australian restoration compliance.
 

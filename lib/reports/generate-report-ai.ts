@@ -869,9 +869,11 @@ ${standardsContext ? standardsContext + "\n\n" : ""}
 
 # REPORT STRUCTURE REQUIREMENTS
 
-${standardsContext ? '**IMPORTANT: The standards documents above have been retrieved from the Google Drive "IICRC Standards" folder. You MUST reference and cite specific sections from these documents throughout the report. Use exact standard numbers, section references, and terminology from the retrieved documents.**\n\n' : ""}
-
-${data.standardsContext ? '**IMPORTANT: The standards documents above have been retrieved from the Google Drive "IICRC Standards" folder. You MUST reference and cite specific sections from these documents throughout the report. Use exact standard numbers, section references, and terminology from the retrieved documents.**\n\n' : ""}
+${
+  standardsContext
+    ? '**IMPORTANT: The standards documents above have been retrieved from the Google Drive "IICRC Standards" folder. You MUST reference and cite specific sections from these documents throughout the report. Use exact standard numbers, section references, and terminology from the retrieved documents.**\n\n'
+    : '**STANDARDS NOT GROUNDED FOR THIS REPORT.** The IICRC standards documents could not be retrieved, so no standard text appears anywhere in this prompt. Cite standards by designation and edition ONLY — for example "ANSI/IICRC S500:2021" — which are verified independently of the documents. Do NOT cite section, clause or paragraph numbers (§10.4, 12.3.2 and the like) for ANY standard: there is no source here to take them from, so a plausible-looking number would be fabricated. Do not state or imply that any work has been verified as compliant with a standard.\n\n'
+}
 
 Generate a comprehensive Professional Inspection Report with ALL of the following sections. **CRITICAL: You MUST use proper Markdown heading syntax (# for H1, ## for H2, ### for H3) for all section headers. Do NOT use plain text for section titles.**
 

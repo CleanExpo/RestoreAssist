@@ -101,7 +101,12 @@ export interface NirScopeLineItem {
 }
 
 export interface NirStandardsCitation {
-  standard: "IICRC S500" | "IICRC S520" | "IICRC S700" | "NCC 2022";
+  /**
+   * Standard NAME only — the edition belongs in `edition`. This was
+   * `"NCC 2022"`, which pinned an edition inside the identifier and so sent
+   * insurers a superseded code for every jurisdiction that had moved on.
+   */
+  standard: "IICRC S500" | "IICRC S520" | "IICRC S700" | "NCC";
   edition: string;
   clauseRef: string;
   fieldName: string;

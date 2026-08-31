@@ -132,7 +132,7 @@ async function makeFeatureGraphic(svgBuf, outPath) {
   <rect width="1024" height="500" fill="${NAVY}" />
   <text x="500" y="240" font-family="Helvetica, Arial, sans-serif" font-size="74" font-weight="700" fill="#FFFFFF">RestoreAssist</text>
   <text x="500" y="294" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="400" fill="#D4A574">Restoration Intelligence</text>
-  <text x="500" y="358" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="400" fill="#9FB3CC">IICRC compliance · Australia + NZ</text>
+  <text x="500" y="358" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="400" fill="#9FB3CC">Restoration standards · Australia + NZ</text>
 </svg>`);
   await sharp(banner, { density: 192 })
     .composite([{ input: mark, top: 40, left: 40 }])

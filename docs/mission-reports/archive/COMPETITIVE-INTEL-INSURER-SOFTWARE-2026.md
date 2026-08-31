@@ -150,13 +150,13 @@ Wilbur is now an independent technology company, separated from the collapsed fi
 
 | Vendor                | Product                         | Notes                                                                                                     |
 | --------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| **Encircle** (Canada) | Encircle Hydro                  | Follows AS-IICRC S500:2021; AI-generated mitigation scopes. US/Canada primary; AU presence limited.       |
+| **Encircle** (Canada) | Encircle Hydro                  | Documents alignment with IICRC S500 (not the Australian adoption); AI-generated mitigation scopes. US/Canada primary; AU presence limited.       |
 | **Xcelerate**         | Moisture tracking / drying logs | IICRC compliance tools for water damage; primarily US market.                                             |
-| **RestoreAssist**     | Full-stack compliance platform  | Only AU-native IICRC S500:2021-specific platform with scope generation, moisture mapping, report workflow |
+| **RestoreAssist**     | Full-stack compliance platform  | Only AU-native platform built to AS-IICRC S500:2025, Australia's adoption of ANSI/IICRC S500:2021, with scope generation, moisture mapping, report workflow |
 
 ### Key Standards Context
 
-The **AS-IICRC S500:2021** standard was published by Standards Australia in early 2025 — Australia's first nationally recognised standard for water damage restoration. This creates a regulatory tailwind: insurers (Suncorp welcomed the standard publicly via Greg Buchhorn, Executive Manager Claims Procurement) and contractors are now required to document compliance. No existing insurer-side platform natively supports AS-IICRC S500:2021 documentation at the field level.
+The **AS-IICRC S500:2025** standard was published by Standards Australia in early 2025 — Australia's first nationally recognised standard for water damage restoration. This creates a regulatory tailwind: insurers (Suncorp welcomed the standard publicly via Greg Buchhorn, Executive Manager Claims Procurement) increasingly expect compliance to be documented. Note the limit of that claim: an Australian Standard is voluntary unless legislation, regulation, a contract or a policy wording incorporates it, so this is commercial expectation rather than a legal obligation in itself. No existing insurer-side platform natively supports AS-IICRC S500:2025 documentation at the field level.
 
 ---
 
@@ -250,12 +250,12 @@ RestoreAssist is an AU-native, IICRC S500:2021 compliant platform serving water 
 **Competitors to displace at this layer:**
 
 - Codafication Crunchwork (strong at insurer layer, weak at individual contractor IICRC documentation)
-- Xcelerate / Encircle Hydro (US-built, not AS-IICRC S500:2021 native, no AU pricing data)
+- Xcelerate / Encircle Hydro (US-built, not AS-IICRC S500:2025 native, no AU pricing data)
 - Manual processes / Excel (majority of AU restorers)
 
 **Key capabilities to build/strengthen:**
 
-- AS-IICRC S500:2021 compliance certification badges and audit trails
+- AS-IICRC S500:2025 compliance certification badges and audit trails
 - RIA (Restoration Industry Association) membership integration
 - Offline-capable mobile app (Capacitor) for on-site use
 
@@ -274,13 +274,13 @@ RestoreAssist is an AU-native, IICRC S500:2021 compliant platform serving water 
 - Bidirectional Guidewire ClaimCenter API integration (receive claim, return scope + documentation package)
 - Insurer-facing dashboard (claim status, compliance scores, photo evidence)
 - Panel management module (insurer assigns RestoreAssist contractors to claims)
-- SLA tracking aligned to AS-IICRC S500:2021 drying standards
+- SLA tracking aligned to AS-IICRC S500:2025 drying standards
 
 #### Phase 3: Ecosystem Play / Acquisition Target (24–48 months)
 
 **The moat:** A platform that sits at the intersection of:
 
-- **Field compliance data** (IICRC, AS-IICRC S500:2021 documentation)
+- **Field compliance data** (IICRC, AS-IICRC S500:2025 documentation)
 - **Insurer connectivity** (Guidewire, Duck Creek API)
 - **Pricing intelligence** (AU-specific restoration cost data, Xactimate-compatible)
 - **Contractor network** (panel management, certification tracking)
@@ -302,9 +302,9 @@ RestoreAssist is an AU-native, IICRC S500:2021 compliant platform serving water 
 | **Claim Central (collapsed)**      | Customer base now unserved; 50+ insurer-contracted restoration businesses need platform | Immediate (now)                                    |
 | **Wilbur**                         | No field restoration tools; no IICRC compliance; no scope generation                    | 12–18 months (insurer integration needed first)    |
 | **Codafication Crunchwork**        | Insurer-facing only; no IICRC documentation for field teams; no moisture mapping        | 18–24 months (requires insurer API layer)          |
-| **CoreLogic Contractor Workspace** | Generic contractor CRM; not IICRC-native; no AS-IICRC S500:2021 compliance              | 12 months (at field/contractor layer)              |
+| **CoreLogic Contractor Workspace** | Generic contractor CRM; not IICRC-native; no AS-IICRC S500:2025 compliance              | 12 months (at field/contractor layer)              |
 | **Xactimate AU**                   | Estimating-only; no IICRC field compliance; no drying logs; distributed via third party | Complementary integration better than displacement |
-| **Encircle Hydro**                 | US-built; not AS-IICRC S500:2021 native; no AU pricing; no insurer integrations         | 6–12 months (contractor acquisition)               |
+| **Encircle Hydro**                 | US-built; not AS-IICRC S500:2025 native; no AU pricing; no insurer integrations         | 6–12 months (contractor acquisition)               |
 
 ### Key Risk: Codafication
 
@@ -351,7 +351,7 @@ However, Codafication is a **supply chain orchestration platform** — it connec
 - [Cotality/CoreLogic Acquisition of Prime Ecosystem — Cotality press release](https://www.cotality.com/press-releases/corelogic-announces-acquisition-of-prime-ecosystem-expanding-contractor-solutions-globally)
 - [Vero Insurance implements Symbility Solutions claims platform — Vero NZ](https://www.vero.co.nz/newsroom/vero-implements-symbility-solutions-claims-platform.html)
 - [Xactware Offers Industry-Leading Suite for AU/NZ — Verisk newsroom](https://www.verisk.com/company/newsroom/xactware-offers-industry-leading-suite-of-claims-solutions-for-australia-and-new-zealand/)
-- [AS-IICRC S500:2021 Standard Published — R&R Magazine](https://www.randrmagonline.com/articles/91304-australia-standard-published-as-iicrc-s500-standard-for-professional-water-damage-restoration)
+- [AS-IICRC S500:2025 Standard Published — R&R Magazine](https://www.randrmagonline.com/articles/91304-australia-standard-published-as-iicrc-s500-standard-for-professional-water-damage-restoration)
 - [CoreLogic modernized Claims Estimate — Cotality press release](https://www.cotality.com/press-releases/modernized-corelogic-claims-estimate-brings-enhanced-efficiency-and-customization-to-the-property-claims-industry)
 
 **Verisk:**

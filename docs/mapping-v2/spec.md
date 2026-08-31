@@ -48,7 +48,8 @@ flag, offline-bundled fallback (`ANZ_MATERIAL_OPTIONS`). _`lib/anz/materials.ts`
 
 ### §5.2 S500 water category + drying validation
 
-AS-IICRC S500:2021. Water category Cat 1/2/3 per room; class-of-water §8.1; moisture
+AS-IICRC S500:2025 for Australian jobs; ANSI/IICRC S500:2021 for New Zealand, which has no
+Standards Australia adoption. Water category Cat 1/2/3 per room; class-of-water §8.1; moisture
 readings → `dryStandardMet` from current vs target MC; clear "DRY / NOT YET DRY" status.
 _`lib/anz/water-category.ts`, `class-of-water.ts`, `dry-standard.ts`, `lib/sketch/pin-drying.ts`,
 `SketchMoistureLayer.tsx`._

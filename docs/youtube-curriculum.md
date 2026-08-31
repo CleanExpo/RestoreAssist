@@ -50,7 +50,7 @@ _Build the core credentials. Establish as the go-to S500:2021 resource for Austr
 
 | Week | #   | Title                                                                            | Module | CPD Tag               | Script                                                                                      |
 | ---- | --- | -------------------------------------------------------------------------------- | ------ | --------------------- | ------------------------------------------------------------------------------------------- |
-| 1    | V01 | AS-IICRC S500:2021 — What Australian Restorers Need to Know                      | M3     | Regulatory Compliance | [PASS] [Script 1](youtube-scripts/01-iicrc-s500-2021-what-australian-restorers-need-to-know.md) |
+| 1    | V01 | AS-IICRC S500:2025 — What Australian Restorers Need to Know                      | M3     | Regulatory Compliance | [PASS] [Script 1](youtube-scripts/01-iicrc-s500-2021-what-australian-restorers-need-to-know.md) |
 | 1    | V02 | Water Damage Categories Explained: 1, 2, 3 — What Actually Changes Your Protocol | M1     | Technical Knowledge   | [OPEN]                                                                                          |
 | 2    | V03 | AI Moisture Mapping — Is It Ready for Australian Sites?                          | M5     | Technical Application | [PASS] [Script 2](youtube-scripts/02-ai-moisture-mapping-ready-for-australian-sites.md)         |
 | 2    | V04 | Psychrometrics for Restorers: GPP, RH, and Why They Matter                       | M2     | Technical Knowledge   | [OPEN]                                                                                          |

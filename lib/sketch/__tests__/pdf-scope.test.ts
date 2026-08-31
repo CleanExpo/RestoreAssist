@@ -73,7 +73,9 @@ describe("buildComplianceAnnex", () => {
     // fibro → external wall cladding; timber-framing → structural timber
     expect(topics).toContain("External wall cladding & weatherproofing");
     expect(topics).toContain("Structural provisions (timber framing)");
-    expect(annex.nccReferences.every((r) => r.edition === "NCC 2022")).toBe(
+    expect(
+      annex.nccReferences.every((r) => r.edition === "NCC 2022 Amendment 2"),
+    ).toBe(
       true,
     );
   });

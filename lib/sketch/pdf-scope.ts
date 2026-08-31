@@ -62,7 +62,13 @@ export interface NhcoverBlock {
 }
 
 export interface ComplianceAnnex {
-  edition: string;
+  /**
+   * NCC edition governing this job, or null for a New Zealand job — NZ has no
+   * NCC and is governed by the New Zealand Building Code. Render the annex
+   * without an NCC line when this is null; do not substitute an Australian
+   * edition.
+   */
+  edition: string | null;
   rows: ScopeRow[];
   /** Element labels flagged as suspected ACM. */
   acmElements: string[];
@@ -116,7 +122,15 @@ export function buildComplianceAnnex(
     estimatedRepairNzd?: number;
   } = {},
 ): ComplianceAnnex {
-  const edition = opts.edition ?? getNccEdition();
+  // The NCC does not apply in New Zealand. `opts.country` was already here; it
+  // just was not reaching the edition lookup, so an NZ annex carried an Australian
+  // code edition. Jurisdiction is checked BEFORE the explicit override for the same
+  // reason getNccEdition does it: an explicitly passed edition must not be able to
+  // put an Australian code on an NZ annex.
+  const edition =
+    opts.country === "NZ"
+      ? null
+      : (opts.edition ?? getNccEdition(opts.country ?? undefined));
   const bySlug = new Map(materials.map((m) => [m.slug, m]));
   const objects =
     (fabricJson?.objects as Array<Record<string, unknown>> | undefined) ?? [];
