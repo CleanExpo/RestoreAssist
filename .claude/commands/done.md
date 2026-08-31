@@ -21,11 +21,18 @@ release.
 /done --release          # additionally score the release gate and report the position
 ```
 
-`--full` is deliberately absent. `scripts/handoff-loop.sh --full` runs
-`npm run build`, which reaches `prisma migrate deploy` (`scripts/build.sh:48`)
-against whatever `DATABASE_URL` is set — that is owner-gated rule 29 executing
-as a side effect of a completion check. If you genuinely need it, run it by hand
-with the variable unset and say so in the output.
+`--full` is deliberately absent, but **not for the reason this file used to
+give**. It claimed `npm run build` reaches `prisma migrate deploy` at
+`scripts/build.sh:48`. That file is ten lines long and line 2 says the opposite:
+builds are database-independent and never mutate a database. The hazard was real
+once and has since been closed — `npm run check:release-bootstrap` now fails any
+build path that reaches a migration. The same stale claim still sits in
+`scripts/handoff-loop.sh`, which is where this one was copied from.
+
+The honest reason to leave `--full` out: it runs `npm ci` and a full production
+build, which is slow, and `next build` may still *read* `DATABASE_URL` during
+static generation. A read, not a migration. If you want it, run it by hand and
+say so in the output.
 
 ## Phase 0 — Preflight, read-only
 
@@ -110,9 +117,21 @@ npm run check:release-bootstrap    # pr-checks.yml:76
 npm run audit:ai                   # pr-checks.yml:218
 npm run audit:api                  # pr-checks.yml:225
 npm run audit:prod                 # pr-checks.yml:343 (enforcing)
-npm run test:unit:full             # pr-checks.yml:304
+npm run test:unit:full             # pr-checks.yml:307
 python3 -m unittest scripts.ci.test_digitalocean_production_release -v   # pr-checks.yml:283
 ```
+
+The three `audit:*` lines look redundant with Phase 1 and are not. They live in
+`gate_audits` (`scripts/handoff-loop.sh:162-173`), and the dispatch at
+`scripts/handoff-loop.sh:230-241` wires that gate to **`--full` only**. A
+standard or `--quick` run — which is every run this command makes — never
+reaches them. Presence in the script is not reachability from the mode invoked;
+check the `case` block, not just `grep`.
+
+`audit:rls` sits in the same gate and is likewise unreachable here, but it is
+omitted deliberately: it needs live production credentials
+(`.github/workflows/supabase-advisor-gate.yml:5`), so it is owner-gated rather
+than a parity gap this command can close.
 
 Two more exist in `package.json` and are wired to no workflow at all, so nothing
 but this command will ever run them: `npm run check:corpus` and
@@ -186,11 +205,17 @@ below the profile maximum and will abort the command.
 Omitting `--profile` defaults to `mobile`, which is stricter — an omission
 fails safe.
 
-**State the ceiling honestly.** The web profile maximum is 85, and 30 of those
-points require signed receipts that only `release-receipt.yml` can mint, through
-a reviewer-gated environment the owner dispatches. **No agent can take this
-repository past 55 of 85.** A `/done` run that does not say so has overstated
-what it achieved.
+**State the ceiling honestly.** The web profile maximum is 85. Of that, **35
+points are `kind: "owner-evidence"`** and require signed receipts that only
+`release-receipt.yml` can mint, through a reviewer-gated environment the owner
+dispatches: A1 (10), A3 (5), C2 (5), D1 (5), D3 (5), F1 (5). The remaining **50
+points are `kind: "machine"`**: A2 (10), B1-B4 (5 each), C1 (10), D2 (5), F2 (5).
+
+**No agent can take this repository past 50 of 85.** Earlier revisions of this
+file said 55, which was arithmetic nobody checked — the criteria are enumerated
+in `scripts/release-gate-score.ts` and sum to 50/35. Re-derive it there rather
+than trusting this paragraph. A `/done` run that does not state the ceiling has
+overstated what it achieved.
 
 ## Phase 4 — Cleanup
 
@@ -305,5 +330,6 @@ result has to be read precisely.
   `docs/definition-of-done/PRODUCTION_GATE.md:4` — local readiness never
   authorises production action. And `spec.md:397` is blunt that opening a PR,
   writing code and passing type-check are each explicitly **not** completion.
-- **55 of 85 is the agent ceiling.** Reaching it means the remaining work is
+- **50 of 85 is the agent ceiling**, not 55 — the 35 owner-evidence points need
+  receipts only the owner can mint. Reaching 50 means the remaining work is
   yours, not that the work is done.
