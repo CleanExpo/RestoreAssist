@@ -244,7 +244,7 @@ This is the central tension in the US market: **Clean Claims = compliance-first,
 
 ### Where RestoreAssist has structural advantages Clean Claims cannot quickly close
 
-1. **AS-IICRC S500:2025 specificity** — The April 2025 Australian standard. Clean Claims cites the US source document. Australian compliance documentation citing "AS-IICRC S500:2025 §X.X" vs "IICRC S500" is a material difference adjusters will notice.
+1. **AS-IICRC S500:2025 specificity** — The March 2025 Australian standard. Clean Claims cites the US source document. Australian compliance documentation citing "AS-IICRC S500:2025 §X.X" vs "IICRC S500" is a material difference adjusters will notice.
 2. **Xero/MYOB integration** — Binary differentiator. Every Australian operator using Xero (majority) cannot close their workflow loop with Clean Claims.
 3. **No local support infrastructure** — US timezone, USD billing, Utah hardware. Real friction for AU operators.
 4. **Rigid workflow is a known vulnerability** — Encircle already markets against this. RestoreAssist should too.
@@ -256,7 +256,7 @@ This is the central tension in the US market: **Clean Claims = compliance-first,
 | Action                                                                                                                                                                                                      | Priority    |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | **Message against rigid workflows** — "compliance without coercion" — explicitly in sales/marketing                                                                                                         | High        |
-| **Own AS-IICRC S500:2025** — produce content marketing around the April 2025 Australian standard. Clean Claims cannot legitimately claim AU standard compliance without this citation.                      | High        |
+| **Own AS-IICRC S500:2025** — produce content marketing around the March 2025 Australian standard. Clean Claims cannot legitimately claim AU standard compliance without this citation.                      | High        |
 | **Target ACRA/Restore Solutions attendees** — Clean Claims' AU channel runs through these events. Presence at RIA Australia, ACRA-adjacent conferences, and Restore Solutions' network is a direct counter. | High        |
 | **Lead with Xero/MYOB in every sales conversation** — binary differentiator, cannot be replicated quickly                                                                                                   | High        |
 | **Generate AU-specific sample reports** showing AS-IICRC S500:2025 §X.X citations — make the standard difference tangible and visual                                                                        | Medium      |

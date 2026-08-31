@@ -43,9 +43,10 @@ describe("report footer standards line tracks the registries", () => {
     );
   });
 
-  it("names the Australian adoption on an AU report", () => {
+  it("names BOTH Australian adoptions on an AU report", () => {
     const line = reportStandardsFooterLine("AU", "VIC", "2026-08-31");
     expect(line).toContain(AS_IICRC_ADOPTIONS.S500.designation);
+    expect(line).toContain(AS_IICRC_ADOPTIONS.S520.designation);
   });
 });
 

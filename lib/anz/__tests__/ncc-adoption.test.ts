@@ -34,7 +34,8 @@ describe("NCC adoption — the split is real, on one day", () => {
     NT: "NCC 2022 Amendment 2",
     QLD: "NCC 2022 Amendment 2",
     SA: "NCC 2022 Amendment 2",
-    TAS: "NCC 2025",
+    // Reverted 5 June 2026 by the Building Amendment Act 2026 (Tas).
+    TAS: "NCC 2022 Amendment 2",
     VIC: "NCC 2025",
     WA: "NCC 2025",
   };
@@ -66,6 +67,36 @@ describe("NCC adoption — 1 May 2026 boundary", () => {
   it("SA follows the BCA date (2027), not the PCA date (2026)", () => {
     expect(resolveNccEdition("SA", "2026-06-01")).toBe("NCC 2022 Amendment 2");
     expect(resolveNccEdition("SA", "2027-05-01")).toBe("NCC 2025");
+  });
+});
+
+describe("NCC adoption — Tasmania adopted NCC 2025 and then reverted", () => {
+  // Building Amendment Act 2026 (Tas) No. 6 of 2026, Royal Assent and commencement
+  // 5 June 2026, substituting the Building Act 2016 s 4(1) definition to fix the
+  // applicable edition at NCC 2022 as amended by Amendment 2 until 30 April 2027.
+  it("is on NCC 2022 Amendment 2 the day before the national commencement", () => {
+    expect(resolveNccEdition("TAS", "2026-04-30")).toBe("NCC 2022 Amendment 2");
+  });
+
+  it("is on NCC 2025 during the five-week window it actually applied", () => {
+    expect(resolveNccEdition("TAS", "2026-05-01")).toBe("NCC 2025");
+    expect(resolveNccEdition("TAS", "2026-06-04")).toBe("NCC 2025");
+  });
+
+  it("reverts to NCC 2022 Amendment 2 on the day the Act commenced", () => {
+    expect(resolveNccEdition("TAS", "2026-06-05")).toBe("NCC 2022 Amendment 2");
+    expect(resolveNccEdition("TAS", "2027-04-30")).toBe("NCC 2022 Amendment 2");
+  });
+
+  it("returns to NCC 2025 on 1 May 2027", () => {
+    expect(resolveNccEdition("TAS", "2027-05-01")).toBe("NCC 2025");
+  });
+
+  it("proves adoption is not monotonic — a later step names an older edition", () => {
+    const may = resolveNccEdition("TAS", "2026-05-15");
+    const july = resolveNccEdition("TAS", "2026-07-15");
+    expect(may).toBe("NCC 2025");
+    expect(july).toBe("NCC 2022 Amendment 2");
   });
 });
 

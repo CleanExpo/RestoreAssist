@@ -39,11 +39,16 @@ export function getNccEdition(
   state?: AustralianState | string | null,
   asAt?: string,
 ): string | null {
+  // Jurisdiction first, override second. New Zealand has no NCC at all, so a
+  // deployment-wide NCC_EDITION pin must not put an Australian code on an NZ
+  // report — the override exists to pin which AUSTRALIAN edition applies, not to
+  // create one where none does.
+  if (state === "NZ") return null;
+
   const forced = process.env.NCC_EDITION?.trim();
   if (forced) return forced;
   if (typeof state === "string" && isAustralianState(state)) {
     return resolveNccEdition(state, asAt);
   }
-  if (state === "NZ") return null;
   return nationalFloorEdition(asAt);
 }

@@ -30,6 +30,13 @@ describe("NCC edition (configurable)", () => {
     vi.stubEnv("NCC_EDITION", "");
     expect(getNccEdition("NZ")).toBeNull();
   });
+
+  it("returns null for NZ even when NCC_EDITION is pinned", () => {
+    // Jurisdiction beats the override. The pin exists to fix which AUSTRALIAN
+    // edition applies, not to create one where no NCC exists.
+    vi.stubEnv("NCC_EDITION", "NCC 2025");
+    expect(getNccEdition("NZ")).toBeNull();
+  });
 });
 
 describe("NCC reference attachment", () => {

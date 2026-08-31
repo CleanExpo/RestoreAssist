@@ -150,13 +150,13 @@ Wilbur is now an independent technology company, separated from the collapsed fi
 
 | Vendor                | Product                         | Notes                                                                                                     |
 | --------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| **Encircle** (Canada) | Encircle Hydro                  | Follows AS-IICRC S500:2025; AI-generated mitigation scopes. US/Canada primary; AU presence limited.       |
+| **Encircle** (Canada) | Encircle Hydro                  | Documents alignment with IICRC S500 (not the Australian adoption); AI-generated mitigation scopes. US/Canada primary; AU presence limited.       |
 | **Xcelerate**         | Moisture tracking / drying logs | IICRC compliance tools for water damage; primarily US market.                                             |
-| **RestoreAssist**     | Full-stack compliance platform  | Only AU-native IICRC S500:2021-specific platform with scope generation, moisture mapping, report workflow |
+| **RestoreAssist**     | Full-stack compliance platform  | Only AU-native platform built to AS-IICRC S500:2025, Australia's adoption of ANSI/IICRC S500:2021, with scope generation, moisture mapping, report workflow |
 
 ### Key Standards Context
 
-The **AS-IICRC S500:2025** standard was published by Standards Australia in early 2025 — Australia's first nationally recognised standard for water damage restoration. This creates a regulatory tailwind: insurers (Suncorp welcomed the standard publicly via Greg Buchhorn, Executive Manager Claims Procurement) and contractors are now required to document compliance. No existing insurer-side platform natively supports AS-IICRC S500:2025 documentation at the field level.
+The **AS-IICRC S500:2025** standard was published by Standards Australia in early 2025 — Australia's first nationally recognised standard for water damage restoration. This creates a regulatory tailwind: insurers (Suncorp welcomed the standard publicly via Greg Buchhorn, Executive Manager Claims Procurement) increasingly expect compliance to be documented. Note the limit of that claim: an Australian Standard is voluntary unless legislation, regulation, a contract or a policy wording incorporates it, so this is commercial expectation rather than a legal obligation in itself. No existing insurer-side platform natively supports AS-IICRC S500:2025 documentation at the field level.
 
 ---
 

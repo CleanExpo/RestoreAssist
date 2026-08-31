@@ -54,23 +54,46 @@ const NATIONAL_BASE: NccAdoptionStep[] = [
 ];
 
 /**
- * When each jurisdiction adopts NCC 2025. `null` means it has not adopted it and
- * no date has been announced — that is a real answer, not missing data.
+ * Per-jurisdiction steps layered on top of NATIONAL_BASE. An empty list means the
+ * jurisdiction has not moved off NCC 2022 and no date has been announced — that is
+ * a real answer, not missing data (the Northern Territory).
+ *
+ * Adoption is NOT monotonic. Tasmania adopted NCC 2025 on 1 May 2026 and then
+ * REVERTED to NCC 2022 Amendment 2 five weeks later, so this is a list of steps
+ * per state rather than a single adoption date. Any model that assumes a
+ * jurisdiction only ever moves forward gets Tasmania wrong for eleven months.
  *
  * South Australia is split: the Plumbing Code (PCA) applies from 1 May 2026 but
  * the Building Code (BCA) not until 1 May 2027. RestoreAssist scopes building
  * reinstatement, so the BCA date governs here; the PCA date is recorded in
  * `SA_PCA_ADOPTION` rather than dropped.
  */
-const NCC_2025_ADOPTION: Record<AustralianState, string | null> = {
-  ACT: "2026-05-01",
-  NSW: "2027-05-01",
-  NT: null,
-  QLD: "2027-05-01",
-  SA: "2027-05-01",
-  TAS: "2026-05-01",
-  VIC: "2026-05-01",
-  WA: "2026-05-01",
+const STATE_STEPS: Record<AustralianState, NccAdoptionStep[]> = {
+  ACT: [{ edition: "NCC 2025", from: "2026-05-01" }],
+  NSW: [{ edition: "NCC 2025", from: "2027-05-01" }],
+  // No announced adoption date. Not missing data — the NT has not adopted NCC 2025.
+  NT: [],
+  QLD: [{ edition: "NCC 2025", from: "2027-05-01" }],
+  SA: [{ edition: "NCC 2025", from: "2027-05-01" }],
+  // Tasmania: adopted, then reversed by primary legislation.
+  //   1 May 2026  — NCC 2025 commences (the Building Amendment Bill had not yet
+  //                 passed both Houses, so the national date took effect).
+  //   5 June 2026 — Building Amendment Act 2026 (Tas) No. 6 of 2026 receives Royal
+  //                 Assent and commences, substituting the Building Act 2016 s 4(1)
+  //                 definition to fix the applicable edition at NCC 2022 as amended
+  //                 by Amendment 2. NCC 2025 ceases to apply statewide.
+  //   1 May 2027  — the definition points at the latest published edition again, so
+  //                 NCC 2025 applies with no further instrument needed.
+  // Note: a project approved under NCC 2025 during the five-week window completes
+  // under NCC 2025 (Building Act 2016 s 11(5)). That is per-project transitional
+  // relief, not a jurisdiction-wide edition, so it is not modelled here.
+  TAS: [
+    { edition: "NCC 2025", from: "2026-05-01" },
+    { edition: "NCC 2022 Amendment 2", from: "2026-06-05" },
+    { edition: "NCC 2025", from: "2027-05-01" },
+  ],
+  VIC: [{ edition: "NCC 2025", from: "2026-05-01" }],
+  WA: [{ edition: "NCC 2025", from: "2026-05-01" }],
 };
 
 /** SA adopts the Plumbing Code a year ahead of the Building Code. */
@@ -83,17 +106,15 @@ export const TRANSITION_12_MONTHS: ReadonlySet<AustralianState> = new Set<Austra
 ]);
 
 function stepsFor(state: AustralianState): NccAdoptionStep[] {
-  const adopted = NCC_2025_ADOPTION[state];
-  if (adopted === null) return NATIONAL_BASE;
-  return [...NATIONAL_BASE, { edition: "NCC 2025", from: adopted }];
+  return [...NATIONAL_BASE, ...STATE_STEPS[state]];
 }
 
 export function isAustralianState(value: string): value is AustralianState {
-  return value in NCC_2025_ADOPTION;
+  return value in STATE_STEPS;
 }
 
 export function listAustralianStates(): AustralianState[] {
-  return Object.keys(NCC_2025_ADOPTION) as AustralianState[];
+  return Object.keys(STATE_STEPS) as AustralianState[];
 }
 
 /**
@@ -105,6 +126,8 @@ export function resolveNccEdition(
   state: AustralianState,
   asAt: string = new Date().toISOString().slice(0, 10),
 ): string {
+  // Steps are chronological, so the LAST step whose date has arrived wins. This is
+  // what makes a reversion (Tasmania) work: a later step may name an older edition.
   const steps = stepsFor(state);
   let current = steps[0].edition;
   for (const step of steps) {

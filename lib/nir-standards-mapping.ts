@@ -1004,7 +1004,14 @@ export function reportStandardsFooterLine(
   // citation rather than instead of it — the adoption is what applies, the ANSI
   // edition is what it adopts, and an insurer reading the footer needs both.
   if (jurisdiction === "AU") {
-    parts.unshift(AS_IICRC_ADOPTIONS.S500.designation);
+    // Both adoptions, not just S500. A mould report that cites the ANSI S520 while
+    // the S500 line carries its Australian adoption is inconsistent about which
+    // document governs, and it is the S520 adoption that carries Appendix ZZ for
+    // mould work.
+    parts.unshift(
+      AS_IICRC_ADOPTIONS.S500.designation,
+      AS_IICRC_ADOPTIONS.S520.designation,
+    );
   }
 
   const ncc = jurisdiction === "NZ" ? null : getNccEdition(state, asAt);

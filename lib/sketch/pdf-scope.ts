@@ -122,10 +122,15 @@ export function buildComplianceAnnex(
     estimatedRepairNzd?: number;
   } = {},
 ): ComplianceAnnex {
-  // The NCC does not apply in New Zealand. `opts.country` was already here;
-  // it just was not reaching the edition lookup, so an NZ annex carried an
-  // Australian code edition.
-  const edition = opts.edition ?? getNccEdition(opts.country ?? undefined);
+  // The NCC does not apply in New Zealand. `opts.country` was already here; it
+  // just was not reaching the edition lookup, so an NZ annex carried an Australian
+  // code edition. Jurisdiction is checked BEFORE the explicit override for the same
+  // reason getNccEdition does it: an explicitly passed edition must not be able to
+  // put an Australian code on an NZ annex.
+  const edition =
+    opts.country === "NZ"
+      ? null
+      : (opts.edition ?? getNccEdition(opts.country ?? undefined));
   const bySlug = new Map(materials.map((m) => [m.slug, m]));
   const objects =
     (fabricJson?.objects as Array<Record<string, unknown>> | undefined) ?? [];

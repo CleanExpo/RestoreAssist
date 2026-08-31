@@ -146,10 +146,25 @@ calls it "verified genuine" without recording which account verified it.
 Recorded here because it shares the defect class: a single global value where the
 jurisdiction has its own answer. Per ncc.abcb.gov.au, read 2026-08-31 —
 NCC 2025 published 1 May 2026; NCC 2022 superseded by Amendment 1 (1 May 2025)
-then Amendment 2 (29 July 2025); adoption split with ACT, Tasmania, Victoria and
-Western Australia on NCC 2025 from 1 May 2026, New South Wales and Queensland from
+then Amendment 2 (29 July 2025); adoption split with ACT, Victoria and Western
+Australia on NCC 2025 from 1 May 2026, New South Wales and Queensland from
 1 May 2027, South Australia split between its plumbing and building codes, and the
 **Northern Territory not adopting it at all**.
+
+**Adoption is not monotonic, and getting that wrong cost a correction.** The first
+version of this record and of `lib/anz/ncc-adoption.ts` had Tasmania on NCC 2025
+from 1 May 2026. It is not. The **Building Amendment Act 2026 (Tas) No. 6 of 2026**
+received Royal Assent and commenced on **5 June 2026**, substituting the
+Building Act 2016 s 4(1) definition to fix the applicable edition at NCC 2022 as
+amended by Amendment 2 until **30 April 2027**. Tasmania was on NCC 2025 for five
+weeks (1 May to 4 June 2026) and then reverted. Confirmed against the Australian
+Institute of Architects, HIA and the Act itself. A model that assumes jurisdictions
+only move forward is wrong about Tasmania for eleven months, so the table stores a
+list of steps per state, and a later step may name an older edition.
+
+Caught by CodeRabbit on this PR, not by me — worth recording, because the table and
+the test I wrote to guard it encoded the same error. A test is only ever as correct
+as the table it locks.
 
 Now in `lib/anz/ncc-adoption.ts` with its source and verification date.
 
@@ -179,6 +194,27 @@ may cite by designation and edition only, never by section or clause.
   `docs/compliance/IICRC-STANDARDS-LICENSING.md`.
 - **Anything about editions published after 2026-08-31.** Every row above is dated
   so it can be re-checked rather than re-trusted.
+
+## Corrections made to this record after first writing
+
+- **Tasmania**, above. The table and its test both had it wrong.
+- **RA-1120's premise is stale.** `lib/compliance/nzbs-compliance-gate.ts` carried
+  `// TODO RA-1120 … no country field exists`, and I repeated that claim in two
+  more comments. `Inspection.propertyCountry String @default("AU")` has existed
+  since RA-6996 (`prisma/schema.prisma`, "schema-drift reconciliation, verified
+  against prod 2026-07-05"). **No migration is needed** to make report output
+  jurisdiction-aware; the report footer is now wired to it. The NZBC gate remains
+  a deliberate no-op because un-no-opping it starts blocking New Zealand
+  submissions that currently pass, which needs its own change set.
+- **A bulk find-and-replace caused collateral damage.** Correcting 29 instances of
+  the fabricated "AS-IICRC S500:2021" <!-- standards-cite-ignore: naming it again -->
+  by substitution also rewrote sentences whose
+  meaning depended on the old string: an archived audit finding that correctly
+  called the designation fabricated was inverted into calling a real standard
+  fabricated, a competitor's product description was made to assert conformance it
+  does not claim, and an ANZ-wide specification was made to name an Australia-only
+  standard. All repaired. The lesson is narrow and worth keeping: a designation is
+  not a token, and substituting one changes the claim around it.
 
 ## Open items
 
