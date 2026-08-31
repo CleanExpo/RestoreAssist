@@ -58,6 +58,38 @@ const SPLASH_DIR = path.join(
 );
 const ANDROID_RES = path.join(REPO, "android/app/src/main/res");
 
+// The native Capacitor projects are NOT checked into this repository — only
+// app-store/ is tracked under distribution/. Writing into them used to abort the
+// whole run on a fresh clone (sharp: "unable to open for write"), and because the
+// iOS writes come FIRST, the Play feature graphic at the end was never generated
+// here at all. That is how out/android-feature-graphic.png went stale.
+//
+// So an absent native project is skipped, never fatal — but skipped LOUDLY, and
+// counted, so a partial run cannot be mistaken for a complete one.
+const IOS_ROOT = path.join(REPO, "ios");
+const ANDROID_ROOT = path.join(REPO, "android");
+const skipped = [];
+
+async function present(dir) {
+  try {
+    await fs.access(dir);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Run `fn` only if its native project is checked out; otherwise record a skip. */
+async function ifPresent(projectRoot, label, fn) {
+  if (!(await present(projectRoot))) {
+    const rel = path.relative(REPO, projectRoot);
+    console.log(`  SKIPPED  ${label} — no ${rel}/ in this checkout`);
+    skipped.push(label);
+    return;
+  }
+  await fn();
+}
+
 const NAVY = "#1C2E47";
 const NAVY_RGB = { r: 0x1c, g: 0x2e, b: 0x47, alpha: 1 };
 const TRANS = { r: 0, g: 0, b: 0, alpha: 0 };
@@ -153,16 +185,20 @@ async function main() {
   console.log("\nApp Store + iOS bundle:");
   await renderOpaque(svgBuf, 1024, path.join(OUT, "ios-1024.png"));
   await renderOpaque(svgBuf, 1024, path.join(OUT, "ios-marketing-1024.png"));
-  await renderOpaque(svgBuf, 1024, path.join(APPICON, "AppIcon-512@2x.png"));
+  await ifPresent(IOS_ROOT, "iOS AppIcon catalog", () =>
+    renderOpaque(svgBuf, 1024, path.join(APPICON, "AppIcon-512@2x.png")),
+  );
 
   console.log("\niOS launch splash:");
-  for (const f of [
-    "splash-2732x2732.png",
-    "splash-2732x2732-1.png",
-    "splash-2732x2732-2.png",
-  ]) {
-    await renderSplash(svgBuf, path.join(SPLASH_DIR, f));
-  }
+  await ifPresent(IOS_ROOT, "iOS Splash imageset", async () => {
+    for (const f of [
+      "splash-2732x2732.png",
+      "splash-2732x2732-1.png",
+      "splash-2732x2732-2.png",
+    ]) {
+      await renderSplash(svgBuf, path.join(SPLASH_DIR, f));
+    }
+  });
   await renderSplash(svgBuf, path.join(MOBILE, "splash.png"));
 
   console.log("\nCapacitor source assets:");
@@ -198,15 +234,27 @@ async function main() {
     ["mipmap-xxhdpi", 144],
     ["mipmap-xxxhdpi", 192],
   ];
-  for (const [dir, size] of DENSITIES) {
-    const base = path.join(ANDROID_RES, dir);
-    await renderOpaque(svgBuf, size, path.join(base, "ic_launcher.png"));
-    await renderOpaque(svgBuf, size, path.join(base, "ic_launcher_round.png"));
-    await renderAdaptiveForeground(
-      svgBuf,
-      size,
-      Math.round(size * 0.66),
-      path.join(base, "ic_launcher_foreground.png"),
+  await ifPresent(ANDROID_ROOT, "Android mipmaps", async () => {
+    for (const [dir, size] of DENSITIES) {
+      const base = path.join(ANDROID_RES, dir);
+      await ensureDir(base);
+      await renderOpaque(svgBuf, size, path.join(base, "ic_launcher.png"));
+      await renderOpaque(svgBuf, size, path.join(base, "ic_launcher_round.png"));
+      await renderAdaptiveForeground(
+        svgBuf,
+        size,
+        Math.round(size * 0.66),
+        path.join(base, "ic_launcher_foreground.png"),
+      );
+    }
+  });
+
+  if (skipped.length > 0) {
+    console.log(
+      `\nPARTIAL RUN — ${skipped.length} target(s) skipped: ${skipped.join(", ")}.`,
+    );
+    console.log(
+      "  The out/ assets above are complete. Re-run where the native projects are checked out.",
     );
   }
 
