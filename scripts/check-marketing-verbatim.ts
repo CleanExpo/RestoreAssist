@@ -19,17 +19,22 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { guardStandardOutput } from "../lib/standards/copyright-guard";
+import { STANDARDS_FINGERPRINTS } from "./standards-fingerprints";
 
-// Verbatim fingerprint sentences from the licensed standards (same corpus as
-// scripts/check-no-verbatim-standards.ts — keep the two lists in sync).
-const SOURCE_FINGERPRINTS: string[] = [
-  "Mitigation following water damage events should begin as soon as safely possible",
-  "establish drying goals that would be expected to inhibit microbial growth and return materials",
-];
+// One shared list with scripts/check-no-verbatim-standards.ts. It used to be a
+// second copy with a "keep in sync" comment and nothing enforcing it.
+const SOURCE_FINGERPRINTS: readonly string[] = STANDARDS_FINGERPRINTS;
 
 // Public marketing / outward-facing copy surfaces.
+//
+// docs/distribution and docs/youtube-scripts were NOT scanned until 2026-08-31,
+// which left the two trees most likely to carry standards content outside every
+// gate: the listings filed with Apple and Google, and a published video script
+// explaining S500. Both are more outward-facing than anything already in this list.
 const ROOTS = [
   "docs/marketing",
+  "docs/distribution",
+  "docs/youtube-scripts",
   "tools/remotion/compositions/marketing",
   "data/content",
 ];
