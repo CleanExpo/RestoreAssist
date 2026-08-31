@@ -5,18 +5,23 @@ import Stripe from "stripe";
  *
  * Two things make this line load-bearing, and both were learned the hard way.
  *
- * It is coupled to the SDK by `typescript: true` at every call site: the SDK's
- * types accept only the version that SDK ships as its default, so a dependency
- * bump that moves it FAILS THE BUILD rather than silently changing which Stripe
- * API the payments path talks to. That is why this value moves in lockstep with
- * `stripe` in package.json (2026-05-27 -> 06-24 -> 07-29 -> 08-26).
+ * The SDK types `apiVersion?: LatestApiVersion` -- a single literal, constrained
+ * UNCONDITIONALLY (node_modules/stripe/esm/lib.d.ts:27). So a dependency bump
+ * that moves the default fails the type-check wherever tsc can see the call,
+ * which is why this value moves in lockstep with `stripe` in package.json
+ * (2026-05-27 -> 06-24 -> 07-29 -> 08-26).
  *
- * And it lives here, exported, because it did not used to. A second literal in
- * `scripts/reconcile-stripe-subscriptions.ts` pinned 2026-05-27 and omitted
- * `typescript: true`, so its types never objected and it drifted FOUR versions
- * behind unnoticed -- a reconciler reading Stripe on a different API version
- * than the writer, which can see differently shaped objects. One owner, imported
- * everywhere, is the only arrangement in which that cannot happen again.
+ * A correction worth keeping, because the wrong version of it was committed
+ * first: `typescript: true` has NOTHING to do with that. Stripe documents it as
+ * a user-agent string with "no runtime effect" (lib.d.ts:34-37). The reconciler
+ * drifted three versions behind for a different reason entirely -- `scripts/**`
+ * is excluded from tsconfig.json, so tsc never opened the file. The stale pin
+ * was a real type error sitting in the tree, invisible to the gate.
+ *
+ * That means a shared constant alone does NOT restore build-time protection for
+ * anything under `scripts/`. A future script can still hardcode a stale literal
+ * and stay green. What this file buys is one owner and a runtime guard; closing
+ * the hole needs `scripts/` brought under a type-check.
  */
 export const STRIPE_API_VERSION = "2026-08-26.dahlia" as const;
 

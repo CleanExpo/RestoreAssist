@@ -74,12 +74,12 @@ if (!process.env.STRIPE_SECRET_KEY)
   throw new Error("STRIPE_SECRET_KEY is required");
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
 
-// `typescript: true` is not cosmetic here, and its absence is exactly why this
-// drifted. Without it the SDK's types accept any version string, so a stale pin
-// compiles happily for months; with it, the build fails the moment the SDK's
-// default moves. A reconciler reading Stripe on a different API version than
-// the writer can see differently shaped objects -- which is precisely the class
-// of silent disagreement this script exists to detect.
+// This pinned 2026-05-27.dahlia -- three versions behind lib/stripe.ts -- and
+// nothing objected, because `scripts/**` is excluded from tsconfig.json and tsc
+// never opened the file. It was a genuine type error sitting in the tree,
+// invisible to the gate. A reconciler reading Stripe on a different API version
+// than the writer can see differently shaped objects, which is precisely the
+// class of silent disagreement this script exists to detect.
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: STRIPE_API_VERSION,
   typescript: true,
