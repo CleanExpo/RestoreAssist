@@ -123,6 +123,42 @@ describe("quote page — a critical safety conflict blocks the document", () => 
     ).not.toBeDisabled();
   });
 
+  /**
+   * WHY PRINT IS NOT BLOCKED, and why that is not a hole.
+   *
+   * CodeRabbit asked for `handlePrint` to be blocked alongside the two save
+   * actions. Two reasons it is not, the second being the load-bearing one:
+   *
+   *  1. It cannot be. Ctrl+P and the browser print menu bypass any button
+   *     state, so disabling it is theatre, not protection.
+   *  2. The advisory PRINTS. It sits outside every `print:hidden` container, so
+   *     the exported PDF carries the "Do not send" panel with it -- the warning
+   *     travels to whoever receives the document, which is stronger than a
+   *     disabled button that never leaves the operator's screen.
+   *
+   * Reason 2 is a layout fact that a later refactor could silently break --
+   * moving the advisory inside a `print:hidden` wrapper would produce a clean
+   * printed quote for an unsafe job. This asserts it instead of trusting it.
+   *
+   * Sabotage: add `print:hidden` to the advisory container -- this goes red.
+   */
+  it("keeps the advisory in the printed output, where blocking cannot reach", async () => {
+    mockCalculate(CRITICAL);
+    render(<QuotePage />);
+    await calculate();
+
+    let node: HTMLElement | null = screen.getByText(/Do not send/i);
+    const hidden: string[] = [];
+    while (node) {
+      if (String(node.className ?? "").includes("print:hidden")) {
+        hidden.push(node.className);
+      }
+      node = node.parentElement;
+    }
+
+    expect(hidden).toEqual([]);
+  });
+
   // A warning is informational -- power constraints, occupied-home protocols.
   // Blocking on those would train estimators to ignore the critical ones.
   it("does not block on a warning-only advisory", async () => {
