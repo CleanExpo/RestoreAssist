@@ -48,7 +48,11 @@ import {
   REGULATORY_ENTRIES,
   regulatoryIds,
 } from "../lib/compliance/regulatory-registry";
-import { AUTHORITY_TEMPLATES } from "../lib/documents/authority-catalogue";
+import {
+  AUTHORITY_TEMPLATES,
+  TEMPLATE_HAZARD_KEYWORD,
+  templateProse,
+} from "../lib/documents/authority-catalogue";
 import { VERIFICATION_KINDS } from "../lib/compliance/regulatory-registry/types";
 
 /** How long an entry may go unchecked before the build fails. */
@@ -302,13 +306,9 @@ for (const spec of AUTHORITY_TEMPLATES) {
 
   // Prose the template renders. Field HELP is included: it is shown to the
   // person signing, so a regulation asserted there is asserted to them.
-  const prose = [
-    spec.name,
-    spec.description,
-    ...spec.fields.flatMap((f) => [f.label, f.help ?? ""]),
-  ].join(" \n ");
+  const prose = templateProse(spec);
 
-  if (REGULATORY_KEYWORD.test(prose) && spec.citesRegulations.length === 0) {
+  if (TEMPLATE_HAZARD_KEYWORD.test(prose) && spec.citesRegulations.length === 0) {
     violations.push({
       rule: "template-citation",
       where: at,
