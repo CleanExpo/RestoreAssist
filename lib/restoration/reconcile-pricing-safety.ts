@@ -14,6 +14,7 @@
  * the document + response so an unsafe configuration is visible, not hidden.
  */
 import { planDrying, type EquipmentPlan } from "./equipment-planner";
+import { resolvePowerAssessment } from "./plan-inputs";
 import {
   requiredPpe,
   type PpeRequirement,
@@ -95,7 +96,7 @@ export function reconcilePricingSafety(input: {
             affectedAreaM2: Math.round(areaM2 * 10) / 10,
             mouldActive,
           },
-          input.powerAssessment ?? { circuits: 2, circuitRatingA: 20 },
+          resolvePowerAssessment(input.powerAssessment).assessment,
         )
       : null;
 

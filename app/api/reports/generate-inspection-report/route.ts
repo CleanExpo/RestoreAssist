@@ -25,6 +25,11 @@ import {
 import { localiseForAUNZ } from "@/lib/anz/localisation";
 import type { ChunkResult } from "@/lib/rag/retrieve";
 import { planDrying } from "@/lib/restoration/equipment-planner";
+import {
+  deriveMouldActive,
+  powerAssessmentFromInspection,
+  resolvePowerAssessment,
+} from "@/lib/restoration/plan-inputs";
 import { requiredPpe, summarisePpe } from "@/lib/restoration/ppe-requirements";
 import { deriveHazardProfile } from "@/lib/reports/build-structured-report";
 import { claimRecommendations } from "@/lib/restoration/claim-recommendations";
@@ -463,22 +468,16 @@ export async function POST(request: NextRequest) {
     // RA-7005: resolve the power assessment (captured or assumed) + mould flag
     // once, so both the structured builder and the AI prompt use the same
     // safety inputs.
-    const inspForPower = report.inspection;
-    const powerAssessment =
-      inspForPower?.powerCircuits && inspForPower?.powerCircuitRatingA
-        ? {
-            circuits: inspForPower.powerCircuits,
-            circuitRatingA: inspForPower.powerCircuitRatingA,
-            deratePct: inspForPower.powerDeratePct ?? 0.8,
-          }
-        : undefined;
-    const mouldActive =
-      Boolean((report as any).biologicalMouldDetected) ||
-      Boolean((report as any).biologicalMouldCategory) ||
-      String(report.hazardType ?? "")
-        .toLowerCase()
-        .includes("mould") ||
-      (tier1?.T1_Q7_hazards ?? []).some((h: string) => /mould|mold/i.test(h));
+    // Both derivations are shared with the Margot co-pilot's recommend_method
+    // tool (lib/restoration/plan-inputs.ts). A surface that decides mouldActive
+    // differently from this one will contradict this report on the same job.
+    const powerAssessment = powerAssessmentFromInspection(report.inspection);
+    const mouldActive = deriveMouldActive({
+      biologicalMouldDetected: (report as any).biologicalMouldDetected,
+      biologicalMouldCategory: (report as any).biologicalMouldCategory,
+      hazardType: report.hazardType,
+      hazards: tier1?.T1_Q7_hazards,
+    });
 
     // For basic and enhanced reports, use structured data directly from Report model (no AI - ensures 100% accurate data)
     if (reportType === "basic" || reportType === "enhanced") {
@@ -622,18 +621,16 @@ export async function POST(request: NextRequest) {
           )
         : 0;
       if (areaM2 > 0) {
-        // RA-7005: use the hoisted power assessment (captured or assumed 2×20A).
-        const assessment = powerAssessment ?? {
-          circuits: 2,
-          circuitRatingA: 20,
-        };
+        // RA-7005: the hoisted power assessment, or the assumed 2×20A budget.
+        const { assessment, assumed: powerAssumed } =
+          resolvePowerAssessment(powerAssessment);
         const plan = planDrying(
           { affectedAreaM2: Math.round(areaM2 * 10) / 10, mouldActive },
           assessment,
         );
         safetyPlanContext += [
           `\n\n--- EQUIPMENT & SAFETY PLAN (RA-7005 — non-negotiable) ---`,
-          `Power (${powerAssessment ? `assessed on site: ${assessment.circuits}× ${assessment.circuitRatingA}A/230V` : "ASSUMED 2× 20A/230V — confirm on site"}): ${plan.budget.siteUsableA}A usable at ${plan.budget.deratePct * 100}% derate (AS/NZS 3000), ${plan.budget.perCircuitUsableA}A/circuit.`,
+          `Power (${powerAssumed ? `ASSUMED ${assessment.circuits}× ${assessment.circuitRatingA}A/230V — confirm on site` : `assessed on site: ${assessment.circuits}× ${assessment.circuitRatingA}A/230V`}): ${plan.budget.siteUsableA}A usable at ${plan.budget.deratePct * 100}% derate (AS/NZS 3000), ${plan.budget.perCircuitUsableA}A/circuit.`,
           ...plan.phases.map(
             (ph) =>
               `${ph.label} Equipment: ${ph.lines

@@ -1,5 +1,6 @@
 import { getEquipmentGroupById } from "@/lib/equipment-matrix";
 import { planDrying } from "@/lib/restoration/equipment-planner";
+import { resolvePowerAssessment } from "@/lib/restoration/plan-inputs";
 import {
   requiredPpe,
   type HazardProfile,
@@ -149,7 +150,7 @@ export function buildStructuredBasicReport(data: {
           affectedAreaM2: Math.round(planAreaM2 * 10) / 10,
           mouldActive: planMouldActive,
         },
-        powerAssessment ?? { circuits: 2, circuitRatingA: 20 },
+        resolvePowerAssessment(powerAssessment).assessment,
       );
     }
   } catch {
