@@ -36,6 +36,11 @@ interface QuoteResponse {
   jobType: string;
   standardApplied: string;
   applicableStandards: string[];
+  safety?: {
+    mouldActive: boolean;
+    airMoverQty: number;
+    advisories: { severity: "critical" | "warning"; text: string }[];
+  };
   contractor: {
     businessName: string;
     abn: string;
@@ -116,6 +121,7 @@ const DEFAULT_FORM = {
   includeCallOut: true,
   includeAdminFee: true,
   includeThermalCamera: false,
+  mouldActive: false,
   clientName: "",
   clientAddress: "",
   clientPhone: "",
@@ -549,6 +555,14 @@ export default function QuotePage() {
                 checked={form.includeThermalCamera}
                 onChange={(v) => updateField("includeThermalCamera", v)}
               />
+              {/* Job type alone cannot express a WATER job with mould growth,
+                  which is the case most likely to be mis-priced -- nobody
+                  relabels a burst-pipe claim as a "mould job". */}
+              <CheckboxField
+                label="Active mould on this job"
+                checked={form.mouldActive}
+                onChange={(v) => updateField("mouldActive", v)}
+              />
             </div>
           </Section>
 
@@ -687,6 +701,43 @@ export default function QuotePage() {
                 </p>
               </div>
             </div>
+
+            {/* RA-7005 safety reconciliation. Shown ABOVE the priced lines
+                because a critical advisory means the quote as configured must
+                not be sent -- pricing Phase 1 air movers over active mould is
+                what reconcile-pricing-safety.ts calls remediation negligence
+                (S520). Burying it under the total would make it a footnote. */}
+            {quoteResult.safety?.advisories &&
+              quoteResult.safety.advisories.length > 0 && (
+                <div className="space-y-2">
+                  {quoteResult.safety.advisories.map((advisory, i) => (
+                    <div
+                      key={i}
+                      role="alert"
+                      className={
+                        advisory.severity === "critical"
+                          ? "rounded-md border border-red-300 bg-red-50 p-3 dark:border-red-800/60 dark:bg-red-950/30"
+                          : "rounded-md border border-amber-300 bg-amber-50 p-3 dark:border-amber-800/60 dark:bg-amber-950/30"
+                      }
+                    >
+                      <p
+                        className={
+                          advisory.severity === "critical"
+                            ? "text-xs font-semibold uppercase tracking-wider text-red-700 dark:text-red-400"
+                            : "text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400"
+                        }
+                      >
+                        {advisory.severity === "critical"
+                          ? "Do not send — safety conflict"
+                          : "Check before sending"}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+                        {advisory.text}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
 
             {/* Client & Job Info */}
             <div className="grid grid-cols-2 gap-6">

@@ -13,6 +13,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
+import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
 import { getGstTreatment } from "@/lib/gst-rules";
 
 // POST - Generate Cost Estimation document
@@ -246,7 +247,14 @@ export async function POST(request: NextRequest) {
   });
 }
 
-function buildCostEstimationData(data: {
+/**
+ * Exported for test. buildCostEstimationData is the pure builder that decides,
+ * among much else, the mould flag handed to the safety reconciler --
+ * the one thing on this priced document that must never contradict the
+ * report for the same job. Reaching it through POST would mean mocking an
+ * AI call and a credit ledger to assert a boolean.
+ */
+export function buildCostEstimationData(data: {
   report: any;
   analysis: any;
   tier1: any;
@@ -793,10 +801,26 @@ function buildCostEstimationData(data: {
   // plan so the estimate can never silently contradict the report's safety
   // sequence (mould air-mover gate + derated power budget). Robust mould
   // detection also consults Report.biologicalMouldDetected (Gap 3).
-  const mouldActiveForSafety =
-    hasMould ||
-    Boolean(report.biologicalMouldDetected) ||
-    Boolean(report.biologicalMouldCategory);
+  // The SAFETY flag is derived with the shared helper, NOT with `hasMould`
+  // above. `hasMould` reads only the tier-1 hazard TICKBOXES, so it misses
+  // mould recorded in `T1_Q7_hazardsOther` (the free text beside "Other" on
+  // that same question), in the technician's written report, in `hazardType`,
+  // or spelled the American way. The report acts on all of those, so a job
+  // could be classified mould-active while THIS document was priced with mould
+  // off and carried Phase 1 air movers. Same defect as #2149/#2150/#2151.
+  //
+  // `hasMould` is deliberately left alone: it also drives PRICED lines (mould
+  // remediation treatment, PPE, hazard surcharges), and widening those would
+  // start charging mould remediation on a prose mention. That is a repricing,
+  // not a safety fix. The two therefore differ on purpose.
+  const mouldActiveForSafety = deriveMouldActive({
+    biologicalMouldDetected: report.biologicalMouldDetected,
+    biologicalMouldCategory: report.biologicalMouldCategory,
+    hazardType: report.hazardType,
+    hazards,
+    technicianFieldReport: report.technicianFieldReport,
+    tier1,
+  });
   const safety = reconcilePricingSafety({
     scopeAreas,
     equipmentSelection,

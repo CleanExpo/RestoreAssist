@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
 import { getRestorationInvoiceTypeById } from "@/lib/restoration-invoice-types";
+import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
@@ -379,6 +380,32 @@ export async function POST(request: NextRequest) {
     }
     const { gst, totalIncGST } = calcGstOnSubtotal(subtotalExGST, country);
 
+    // Reconcile the priced equipment against the RA-7005 safety plan.
+    //
+    // This route is the CUSTOMER-FACING quote, and until now it was the only
+    // priced document with no safety reconciliation at all: it prices air
+    // movers by unit-days and treats "mould" as a job type, so a quote could
+    // carry mould remediation and Phase 1 air movers on the same page.
+    // `reconcile-pricing-safety.ts` calls that "remediation negligence (S520)".
+    //
+    // Unlike the report routes this is a STANDALONE calculator — no inspection,
+    // no Report row, no tier-1 answers — so there is nothing for
+    // `deriveMouldActive` to read. The mould signal has to come from the quote
+    // itself, which is why `mouldActive` is an input: a WATER job with mould
+    // growth cannot otherwise be expressed, and that is the case most likely to
+    // be mis-priced.
+    const safety = reconcilePricingSafety({
+      affectedAreaM2: input.affectedAreaM2,
+      equipmentSelection: [
+        { type: "air_mover_axial", quantity: input.airMoversAxial },
+        { type: "air_mover_centrifugal", quantity: input.airMoversCentrifugal },
+      ],
+      mouldActive: input.jobType === "mould" || input.mouldActive,
+      hazards: input.jobType === "bioclean" ? ["biohazard"] : [],
+      // No site power assessment exists on a quote, so the planner's assumed
+      // 2x20A budget applies and is reported as assumed.
+    });
+
     // Generate quote number
     const shortId = session.user.id.slice(-4).toUpperCase();
     const quoteNumber = `QTE-${shortId}-${Date.now()}`;
@@ -389,6 +416,7 @@ export async function POST(request: NextRequest) {
       jobType: invoiceType?.label ?? input.jobType,
       standardApplied: invoiceType?.standardApplied ?? "",
       applicableStandards: invoiceType?.applicableStandards ?? [],
+      safety,
       contractor: {
         businessName: user?.businessName ?? "",
         abn: user?.businessABN ?? "",
