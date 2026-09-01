@@ -50,15 +50,17 @@ else
   fail "rc=$RC, key_source='$(field "$OUT" key_source)' — the LLM stage stays dead on the platform key"
 fi
 
-echo "case 2: the default model is the :free variant lib/ai/openrouter.ts pins"
+echo "case 2: the default model is :free AND matches what lib/ai/openrouter.ts pins"
+# Both halves matter. Equality alone is self-referential — FREE_MODEL is read
+# from the same constant, so a paid DEFAULT_MARGOT_MODEL would satisfy it.
 OUT=$(dry_run OPENROUTER_API_KEY=sk-test-platform)
 MODEL=$(field "$OUT" model)
-if [[ "$MODEL" == "$FREE_MODEL" ]]; then
-  pass "default is $MODEL"
-elif [[ "$MODEL" == *:free ]]; then
+if [[ "$MODEL" != *:free ]]; then
+  fail "default model '$MODEL' is not a :free variant — bills the platform key"
+elif [[ "$MODEL" != "$FREE_MODEL" ]]; then
   fail "default $MODEL is free but does not match lib/ai/openrouter.ts ($FREE_MODEL)"
 else
-  fail "default model '$MODEL' is not a :free variant — bills the platform key"
+  pass "default is $MODEL"
 fi
 
 echo "case 3: a non-:free VERIFIER_MODEL_ID is refused on OpenRouter"
@@ -125,6 +127,31 @@ else
   else
     fail "model='$SENT_MODEL' auth='$SENT_AUTH' parsed='$GOT'"
   fi
+fi
+
+echo "case 6: an UPPERCASE OpenRouter host is still OpenRouter"
+# URL hosts are case-insensitive. A case-sensitive check here let a paid model
+# through to OpenRouter on the platform key.
+OUT=$(dry_run OPENROUTER_API_KEY=sk-test-platform \
+  VERIFIER_API_BASE=https://OPENROUTER.AI/api/v1 VERIFIER_MODEL_ID=openai/gpt-4o)
+MODEL=$(field "$OUT" model)
+if [[ "$MODEL" == "$FREE_MODEL" ]]; then
+  pass "pin applied despite the capitalised host"
+else
+  fail "sent '$MODEL' to OpenRouter — the pin was bypassed by capitalisation"
+fi
+
+echo "case 7: a DEFAULT_MARGOT_MODEL that is not :free is not trusted"
+# The constant says WHICH free model, never whether it is free. If a later edit
+# points it at a paid slug, the hook must refuse it rather than spend.
+FAKE_TS="$TMP/openrouter.ts"
+echo 'export const DEFAULT_MARGOT_MODEL = "openai/gpt-4o";' > "$FAKE_TS"
+OUT=$(dry_run OPENROUTER_API_KEY=sk-test-platform VERIFIER_MODEL_SOURCE_FILE="$FAKE_TS")
+MODEL=$(field "$OUT" model)
+if [[ "$MODEL" == *:free ]]; then
+  pass "fell back to $MODEL"
+else
+  fail "adopted '$MODEL' from the constant without checking it is free"
 fi
 
 echo

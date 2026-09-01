@@ -65,16 +65,24 @@ FREE_MODEL_FALLBACK="nvidia/nemotron-3-super-120b-a12b:free"
 # The free model the platform has settled on, read from its owner rather than
 # copied — lib/ai/openrouter.ts documents the review cadence for this choice.
 default_free_model() {
-  local ts="$REPO_ROOT/lib/ai/openrouter.ts" found=""
+  local ts="${VERIFIER_MODEL_SOURCE_FILE:-$REPO_ROOT/lib/ai/openrouter.ts}" found=""
   if [[ -r "$ts" ]]; then
     found=$(grep -oE 'DEFAULT_MARGOT_MODEL[[:space:]]*=[[:space:]]*"[^"]+"' "$ts" \
       | head -n1 | cut -d'"' -f2)
   fi
-  if [[ -n "$found" ]]; then echo "$found"; else echo "$FREE_MODEL_FALLBACK"; fi
+  # Trust that constant for WHICH free model, never for whether it is free. If
+  # a future edit points it at a paid slug, an unset VERIFIER_MODEL_ID would
+  # otherwise spend on the platform key without anyone touching this file.
+  if [[ "$found" == *:free ]]; then echo "$found"; return 0; fi
+  [[ -n "$found" ]] && echo "openrouter-call: DEFAULT_MARGOT_MODEL=\"$found\" is not a :free" \
+    "variant — using $FREE_MODEL_FALLBACK instead (RA-6998)." >&2
+  echo "$FREE_MODEL_FALLBACK"
 }
 
 # True when we are talking to OpenRouter, where the :free pin means $0.
-is_openrouter() { [[ "$API_BASE" == *openrouter.ai* ]]; }
+# Case-folded: URL hosts are case-insensitive, so a base of
+# https://OPENROUTER.AI/... is still OpenRouter and must still be pinned.
+is_openrouter() { [[ "${API_BASE,,}" == *openrouter.ai* ]]; }
 
 resolve_model() {
   local configured="${VERIFIER_MODEL_ID:-}" free_model
