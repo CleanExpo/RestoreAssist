@@ -13,6 +13,7 @@
  *     December 2026.
  */
 import { ASBESTOS_ENTRIES } from "./asbestos";
+import { ELECTRICAL_ENTRIES } from "./electrical";
 import { SILICA_ENTRIES } from "./silica";
 import type {
   RegulatoryDomain,
@@ -26,6 +27,7 @@ export * from "./types";
 export const REGULATORY_ENTRIES: readonly RegulatoryEntry[] = [
   ...ASBESTOS_ENTRIES,
   ...SILICA_ENTRIES,
+  ...ELECTRICAL_ENTRIES,
 ];
 
 const BY_ID = new Map(REGULATORY_ENTRIES.map((e) => [e.id, e]));

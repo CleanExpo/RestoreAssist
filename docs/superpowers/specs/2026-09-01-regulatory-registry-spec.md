@@ -82,7 +82,7 @@
 - Entry shape carrying: instrument, jurisdiction, commencement/effective date,
   source URL, `verifiedAt`, `verifiedBy`, and a plain-English requirement.
 - `scripts/check-regulatory-registry.ts` — CI gate (rules in §11).
-- Domains, in the order of §17: asbestos (**done**), crystalline silica (**done**),
+- Domains, in the order of §17: asbestos (**done**), crystalline silica (**done**), electrical (**done**),
   electrical on wet sites, VOCs and hazardous chemicals, building codes.
 - The document catalogue (§9.3) as the registry's first consumer.
 
@@ -196,6 +196,52 @@ The Silica Risk Control Plan duty was also narrower than asserted: it is
 triggered where a risk assessment finds the processing of a crystalline silica
 substance is **high risk**, not by every job touching a silica-bearing material.
 The registry entry says so.
+
+### 9.2.1 Electrical — and one claim that did not survive checking
+
+Verified and seeded: the flood-reconnection inspection duty (an inundated
+installation is inspected and certified by a licensed electrical worker
+**before** supply is reconnected; submerged breakers, RCDs, relays and
+contactors are replaced, not dried and re-used; NSW records it on an Electrical
+Installation Inspection Safety Certificate); the model WHS reg 157 prohibition
+on energised work, where **convenience is expressly not an exception**; the
+AS/NZS 3012:2019 (A1:2020) requirement that all site equipment run on
+RCD-protected circuits tripping at **no more than 30 mA**; AS/NZS 3760:2022
+in-service testing, which **has no single legislated interval** and replaced the
+2010 edition; AS/NZS 3000:2018 currency (6th ed, Amd 1:2020, 2:2021, 3:2023,
+Ruling 1:2024); and New Zealand's separate route via the Electricity (Safety)
+Regulations 2010 reg 65 certificate of compliance.
+
+**Deliberately NOT seeded: the "80% continuous-load rule".** Three files assert
+it and they do not agree on its authority:
+
+| File | Cites |
+| --- | --- |
+| `lib/equipment-power.ts:35` | AS/NZS **3012**:2019 |
+| `lib/equipment-calculator-fire.ts:10` | AS/NZS **3012**:2019 |
+| `lib/restoration/equipment-planner.ts:17,60` | AS/NZS **3000** |
+
+Same rule, two authorities — the one-fact-two-answers shape that produced the
+asbestos defect. Worse, the 80%/125% continuous-load construct is
+characteristic of the **US National Electrical Code** (NEC 210.19/210.20, where
+80% is simply the inverse of the 125% multiplier). AS/NZS 3000 sizes circuits by
+maximum demand and diversity (Appendix C, Tables C1/C2) and the
+`Ib <= In <= Iz` inequality — a different method, not the same rule renamed.
+
+To be precise about what is and is not in doubt: **the number may well be sound
+conservative engineering. The citation is unproven and self-contradictory.**
+Deciding it requires the licensed text of AS/NZS 3000 and AS/NZS 3012, which
+this environment cannot reach and which is copyright regardless. Seeding it
+would be exactly the confident-sourced-unverified claim the registry exists to
+stop, so `registry.test.ts` pins the omission: any electrical entry mentioning
+`80%` or "continuous-load" fails the suite.
+
+**Owner decision E-1:** resolve the derate's authority against the standards,
+then either seed it or correct the three files to describe it as a RestoreAssist
+engineering margin rather than a standards requirement. Note one file ships the
+citation to users -- `equipment-calculator-water` surfaces `AS/NZS 3012:2019` in
+`circuitLoadWarning`, with a test asserting that string -- so this is
+customer-facing wording, not just a comment.
 
 **Still asserted by the CARSI course and NOT independently verified** — these
 enter the registry only after checking: the 2025 lead blood-level changes
