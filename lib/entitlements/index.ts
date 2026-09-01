@@ -10,6 +10,7 @@ export {
 
 export {
   requireAddon,
+  requireAddonForWorkspace,
   requireAddonOrThrow,
   AddonNotEntitledError,
   type AddonDenyReason,

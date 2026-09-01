@@ -9,8 +9,13 @@
  *
  * This module is the single source of truth for the add-on SKU keys and
  * mirrors the Prisma `AddonSku` enum (the same pattern `provider-connections`
- * uses to mirror `AiProvider`). Nothing here is enforced yet — the guard is
- * not wired into any live surface in this PR.
+ * uses to mirror `AiProvider`).
+ *
+ * The "nothing here is enforced yet" note this header used to carry has been
+ * false since the P2 wiring landed: CLIENT_COMMS gates the Pulse sends,
+ * SERVICE_CRM gates Ascora/DR-NRPG connect, BOOKKEEPING gates the bookkeeping
+ * OAuth, PAYMENTS gates invoice payments, FLOORPLAN_UNDERLAY gates the scrape
+ * and VOICE gates the ElevenLabs SFX route. Treat every SKU here as live.
  */
 
 /**
@@ -32,6 +37,10 @@ export const ADDON_SKUS = [
   "FLOORPLAN_UNDERLAY",
   /** RA-6954: Restoration Pulse client-comms — recurring $11/mo client-facing email updates. */
   "CLIENT_COMMS",
+  /** Client education library + /learn kiosk on the client portal — recurring $11/mo. */
+  "CLIENT_EDUCATION",
+  /** Margot technician co-pilot (the live-teacher routes) — recurring $11/mo. */
+  "AI_COPILOT",
 ] as const;
 
 /** Mirrors the Prisma `AddonSku` enum. */
