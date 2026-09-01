@@ -10,7 +10,12 @@ import {
   formatProvenanceLegend,
   summarizeSketchProvenance,
 } from "@/lib/sketch/sketch-provenance-summary";
-import { recommendedEquipment } from "@/lib/sketch/iicrc-utils";
+import {
+  buildScopeDryingPlan,
+  dryingPlanLines,
+  type ScopeDryingPlan,
+} from "@/lib/restoration/scope-drying-plan";
+import type { PowerAssessment } from "@/lib/restoration/equipment-planner";
 import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
 import {
   placeMoisturePins,
@@ -762,7 +767,13 @@ function addComplianceAnnexPage(
     helvetica: Awaited<ReturnType<PDFDocument["embedFont"]>>;
     bold: Awaited<ReturnType<PDFDocument["embedFont"]>>;
     propertyAddress: string;
-    equipment?: { dehumidifier: number; airMover: number; airScrubber: number };
+    /**
+     * RA-7005 phased plan, not three numbers off an area division. The annex
+     * has to render the mould gate and the circuit budget, because a technician
+     * works from this page: printing a bare air-mover count on a mould job is
+     * the S520 failure the planner exists to prevent.
+     */
+    dryingPlan?: ScopeDryingPlan | null;
   },
 ) {
   const page = doc.addPage([PAGE_W, PAGE_H]);
@@ -959,23 +970,36 @@ function addComplianceAnnexPage(
     }
   }
 
-  // S500 §8.3 drying equipment (indicative)
-  if (shared.equipment) {
-    const eq = shared.equipment;
-    y -= 10;
-    page.drawText("S500 drying equipment (indicative)", {
+  // Drying equipment - RA-7005 phased plan, mould-gated and power-bounded.
+  // The lines are built by dryingPlanLines() rather than assembled inline here,
+  // so what lands on the page a technician works from is assertable in a test.
+  // PDF text is not extractable from the saved bytes, so inline draw calls were
+  // only ever verifiable as "two exports differ".
+  const TONE_SIZE: Record<string, number> = {
+    heading: 12,
+    body: 10,
+    warn: 8,
+    muted: 8,
+  };
+  const TONE_COLOR = {
+    heading: BRAND_DARK,
+    body: TEXT_MAIN,
+    warn: ACM_RED,
+    muted: TEXT_MUTED,
+  } as const;
+  const planLines = dryingPlanLines(shared.dryingPlan ?? null);
+  if (planLines.length) y -= 10;
+  for (const pl of planLines) {
+    // Stop before the footer rather than drawing over it.
+    if (y < MARGIN) break;
+    page.drawText(safe(pl.text), {
       x: MARGIN,
       y,
-      size: 12,
-      font: bold,
-      color: BRAND_DARK,
+      size: TONE_SIZE[pl.tone],
+      font: pl.tone === "heading" ? bold : helvetica,
+      color: TONE_COLOR[pl.tone],
     });
-    y -= 16;
-    page.drawText(
-      `Dehumidifiers: ${eq.dehumidifier} · Air movers: ${eq.airMover} · Air scrubbers: ${eq.airScrubber}`,
-      { x: MARGIN, y, size: 10, font: helvetica, color: TEXT_MAIN },
-    );
-    y -= 14;
+    y -= pl.tone === "heading" ? 16 : pl.tone === "body" ? 13 : 11;
   }
 
   page.drawText(
@@ -1028,6 +1052,19 @@ export interface SketchPdfOptions {
    * inspection owner's business identity. Omit for the RestoreAssist default.
    */
   branding?: SketchBrandingInput;
+  /**
+   * Active mould on the job (RA-7005). Drives the S520 sequence: while true the
+   * annex's Phase 1 carries NO air movers. Derive it with `deriveMouldActive`
+   * via `lib/restoration/fetch-plan-inputs.ts`, the same signals the report
+   * reads — a caller that computes it its own way puts the PDF and the report in
+   * contradiction on one job.
+   */
+  mouldActive?: boolean;
+  /**
+   * On-site power assessment. Omitted means the plan is built on the assumed
+   * 2x20A budget and the annex prints it as ASSUMED.
+   */
+  powerAssessment?: PowerAssessment;
 }
 
 /**
@@ -1080,6 +1117,8 @@ export async function generateSketchPdf(
     country,
     nhCause,
     estimatedRepairNzd,
+    mouldActive,
+    powerAssessment,
   } = options;
 
   if (!floors.length) throw new Error("At least one floor is required");
@@ -1130,7 +1169,11 @@ export async function generateSketchPdf(
     shared.pageNum++;
     addComplianceAnnexPage(doc, annex, {
       ...shared,
-      equipment: recommendedEquipment(totalAreaM2),
+      dryingPlan: buildScopeDryingPlan({
+        totalAreaM2,
+        mouldActive: mouldActive ?? false,
+        powerAssessment,
+      }),
     });
   }
 

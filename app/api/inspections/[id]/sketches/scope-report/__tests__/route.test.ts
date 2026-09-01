@@ -76,7 +76,7 @@ describe("POST scope-report", () => {
     const res = await POST(post({ floors: FLOORS }), params);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.structured.schemaVersion).toBe("1.0");
+    expect(body.structured.schemaVersion).toBe("1.1");
     expect(body.structured.floors[0].rooms[0].areaM2).toBeCloseTo(12, 5);
     expect(body.narrative).toContain("# Scope of Works");
     expect(body.narrative).toContain("ANSI/IICRC S500:2021");
