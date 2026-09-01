@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { verifyPortalToken } from "@/lib/portal-token";
-import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
+import { resolvePortalInspectionId } from "@/lib/portal/resolve-portal-inspection";
 import { prisma } from "@/lib/prisma";
 import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
 import { ClientPortalUpload } from "@/components/portal/ClientPortalUpload";
@@ -14,6 +13,8 @@ import { fetchPublishedPortalContent } from "@/lib/portal/fetch-portal-content";
 import { requireAddonForWorkspace } from "@/lib/entitlements";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { CLIENT_EDUCATION_SKU } from "@/lib/billing/client-education-addon";
+import { fetchTechnicianIdentity } from "@/lib/portal/fetch-technician-identity";
+import { TechnicianIdentityCard } from "@/components/portal/TechnicianIdentityCard";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -22,37 +23,12 @@ interface PageProps {
 export default async function ClientPortalPage({ params }: PageProps) {
   const { token } = await params;
 
-  // ─── Lookup order (RA-4861 deliberation short-circuit #1) ─────────────
-  // 1. First try the new ClientPortalAccount table — revocable,
-  //    rotatable, client-scoped tokens. When this hits we surface the
-  //    client's most-recent inspection so the existing rich timeline UI
-  //    still renders against real data instead of changing shape.
-  // 2. Fall back to the legacy HMAC inspection-scoped tokens minted by
-  //    `lib/portal-token.ts` + `/api/portal/generate`. Existing links
-  //    in the wild MUST keep working — they're emailed with up to a
-  //    7-day TTL.
-  // 3. If neither resolves, render the framework 404 (notFound()).
-  //    The legacy "Link Expired" friendly card remains below for the
-  //    legacy-path miss case (verified but inspection deleted).
-  let inspectionId: string | null = null;
-
-  const portalAccount = await lookupPortalAccount(token);
-  if (portalAccount) {
-    // Inspection has no direct `clientId` — it links to Client through
-    // `Report.clientId` (1:0..1 between Report and Inspection). Pick
-    // the newest Inspection whose Report points at this Client.
-    const latest = await prisma.inspection.findFirst({
-      where: { report: { clientId: portalAccount.clientId } },
-      orderBy: { createdAt: "desc" },
-      select: { id: true },
-    });
-    inspectionId = latest?.id ?? null;
-  }
-
-  if (!inspectionId) {
-    const verified = verifyPortalToken(token);
-    if (verified) inspectionId = verified.inspectionId;
-  }
+  // Token -> inspection. The lookup order (ClientPortalAccount first, legacy
+  // HMAC tokens second) lives in resolvePortalInspectionId so the /learn kiosk
+  // resolves identically — see that file for why it is shared rather than
+  // copied. If neither path resolves, the framework 404 renders; the friendly
+  // "Link Expired" card below still covers the legacy hit-but-deleted case.
+  const inspectionId = await resolvePortalInspectionId(token);
 
   if (!inspectionId) {
     notFound();
@@ -140,6 +116,17 @@ export default async function ClientPortalPage({ params }: PageProps) {
   const portalArticles = await fetchPublishedPortalContent("customer", {
     includeAddonContent: educationEntitled,
   }).catch(() => []);
+
+  // The identity card rides on the same add-on as the library. Nothing is taken
+  // away by gating it: the technician's NAME has always been shown above and
+  // still is, entitled or not, so a client is never left wondering who is at
+  // their door. The add-on adds the photo, biography and checkable credentials.
+  const technician = educationEntitled
+    ? await fetchTechnicianIdentity(
+        inspection.technicianId,
+        inspection.technicianName,
+      ).catch(() => null)
+    : null;
 
   const org = inspection.user.organization;
 
@@ -302,6 +289,11 @@ export default async function ClientPortalPage({ params }: PageProps) {
 
         {/* Client evidence upload — photos + a note (quarantined for staff review) */}
         <ClientPortalUpload token={token} />
+
+        {/* Who is in your home. Falls back to the bare name above when the
+            technician is not linked to a profile, or has opted out of being
+            shown publicly. */}
+        {technician && <TechnicianIdentityCard technician={technician} />}
 
         <PortalAboutSection
           logoUrl={org?.logoUrl}
