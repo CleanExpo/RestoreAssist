@@ -16,13 +16,21 @@
 # Escape hatch: set CLAUDE_HANDOFF_NUDGE_SKIP=1 to silence this hook (e.g. for
 # rapid iteration loops where a handoff on every Stop is noise).
 #
-# Stdin:  Stop-hook payload JSON (unused — nothing to parse here)
+# Stdin:  Stop-hook payload JSON (read only for stop_hook_active)
 # Stdout: additionalContext JSON, or nothing
 # Exit:   ALWAYS 0 (never blocks Stop)
 
 set -uo pipefail
 
 if [[ "${CLAUDE_HANDOFF_NUDGE_SKIP:-}" == "1" ]]; then
+  exit 0
+fi
+
+# Drain stdin so the writing hook never sees EPIPE, and stay silent when a Stop
+# hook already blocked this turn: the nudge was injected on the first Stop and
+# repeating it on every re-stop is pure noise.
+PAYLOAD=$(cat 2>/dev/null || true)
+if [[ "$(echo "$PAYLOAD" | jq -r '.stop_hook_active // false' 2>/dev/null || echo false)" == "true" ]]; then
   exit 0
 fi
 
