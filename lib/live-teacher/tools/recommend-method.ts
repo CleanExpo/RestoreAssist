@@ -104,12 +104,17 @@ export async function recommendMethod(
         select: { affectedAreaSqm: true, affectedSquareFootage: true },
       },
       // The mould signals live on Report, not Inspection — which is why this
-      // tool could not see them at all before.
+      // tool could not see them at all before. All five are needed: mould is
+      // frequently recorded ONLY in the technician's prose or in the tier-1
+      // hazard checklist, and missing either would let Phase 1 air movers
+      // through on a mould job while the report for the same job says otherwise.
       report: {
         select: {
           biologicalMouldDetected: true,
           biologicalMouldCategory: true,
           hazardType: true,
+          technicianFieldReport: true,
+          tier1Responses: true,
         },
       },
     },
@@ -141,7 +146,14 @@ export async function recommendMethod(
     };
   }
 
-  const mouldActive = deriveMouldActive(inspection.report);
+  // tier1Responses is passed through unparsed on purpose: deriveMouldActive
+  // stringifies it either way, so a malformed payload degrades to a plain text
+  // match instead of throwing and taking the equipment plan with it.
+  const mouldActive = deriveMouldActive(
+    inspection.report
+      ? { ...inspection.report, tier1: inspection.report.tier1Responses }
+      : null,
+  );
   const { assessment, assumed } = resolvePowerAssessment(
     powerAssessmentFromInspection(inspection),
   );

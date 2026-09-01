@@ -477,6 +477,8 @@ export async function POST(request: NextRequest) {
       biologicalMouldCategory: (report as any).biologicalMouldCategory,
       hazardType: report.hazardType,
       hazards: tier1?.T1_Q7_hazards,
+      technicianFieldReport: (report as any).technicianFieldReport,
+      tier1,
     });
 
     // For basic and enhanced reports, use structured data directly from Report model (no AI - ensures 100% accurate data)

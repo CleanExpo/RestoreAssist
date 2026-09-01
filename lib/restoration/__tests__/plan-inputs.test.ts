@@ -95,4 +95,43 @@ describe("deriveMouldActive", () => {
     expect(deriveMouldActive({ hazardType: "mold growth" })).toBe(true);
     expect(deriveMouldActive({ hazards: ["black mold"] })).toBe(true);
   });
+
+  // deriveHazardProfile sweeps the technician narrative and the whole tier-1
+  // payload. Anything it catches that this misses means the hazard profile
+  // classifies a job mould-active while the drying plan puts air movers in
+  // Phase 1 on the same job.
+  it("finds mould mentioned only in the technician narrative", () => {
+    expect(
+      deriveMouldActive({
+        technicianFieldReport:
+          "Cupped boards in the hallway and visible mould behind the vanity.",
+      }),
+    ).toBe(true);
+  });
+
+  it("finds mould recorded under any tier-1 key, parsed or still serialised", () => {
+    const parsed = { T1_Q11_notes: "suspected mould in the wall cavity" };
+
+    expect(deriveMouldActive({ tier1: parsed })).toBe(true);
+    // Callers may hand over Report.tier1Responses without parsing it.
+    expect(deriveMouldActive({ tier1: JSON.stringify(parsed) })).toBe(true);
+  });
+
+  it("does not throw on an unserialisable tier-1 payload", () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+
+    expect(() => deriveMouldActive({ tier1: circular })).not.toThrow();
+    expect(deriveMouldActive({ tier1: circular })).toBe(false);
+  });
+
+  // The regex is shared across call sites; a stateful /g flag would make
+  // consecutive calls alternate between true and false.
+  it("gives the same answer when called repeatedly", () => {
+    const signals = { hazardType: "mould remediation" };
+
+    expect(deriveMouldActive(signals)).toBe(true);
+    expect(deriveMouldActive(signals)).toBe(true);
+    expect(deriveMouldActive(signals)).toBe(true);
+  });
 });

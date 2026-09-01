@@ -1,6 +1,9 @@
 import { getEquipmentGroupById } from "@/lib/equipment-matrix";
 import { planDrying } from "@/lib/restoration/equipment-planner";
-import { resolvePowerAssessment } from "@/lib/restoration/plan-inputs";
+import {
+  deriveMouldActive,
+  resolvePowerAssessment,
+} from "@/lib/restoration/plan-inputs";
 import {
   requiredPpe,
   type HazardProfile,
@@ -38,10 +41,20 @@ export function deriveHazardProfile(
   if (m) mouldCondition = Number(m[1]) as MouldCondition;
   // RA-7006 Gap 3: the schema's biologicalMouldDetected boolean must also gate
   // air movers — a report can print "mould detected: true" with no category.
+  // Delegates to the same helper planDrying is fed from, so the hazard profile
+  // and the drying plan cannot classify one job differently — the failure this
+  // whole change exists to remove. `mouldActive` stays in the OR because a
+  // caller may have derived it from signals not reachable from `report` here.
   else if (
     mouldActive ||
-    Boolean(report?.biologicalMouldDetected) ||
-    has(/mould|mold/)
+    deriveMouldActive({
+      biologicalMouldDetected: report?.biologicalMouldDetected,
+      biologicalMouldCategory: report?.biologicalMouldCategory,
+      hazardType: report?.hazardType,
+      hazards: tier1?.T1_Q7_hazards,
+      technicianFieldReport: report?.technicianFieldReport,
+      tier1,
+    })
   )
     mouldCondition = 3;
   const wc = report?.waterCategory ? String(report.waterCategory) : null;

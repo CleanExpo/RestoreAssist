@@ -26,6 +26,8 @@ function inspection(over: Record<string, unknown> = {}) {
       biologicalMouldDetected: false,
       biologicalMouldCategory: null,
       hazardType: "water damage",
+      technicianFieldReport: "Burst flexi hose under the vanity.",
+      tier1Responses: JSON.stringify({ T1_Q7_hazards: ["slip hazard"] }),
     },
     ...over,
   } as never;
@@ -82,6 +84,22 @@ describe("recommend_method", () => {
     ["the detected flag", { biologicalMouldDetected: true }],
     ["a recorded condition", { biologicalMouldCategory: "Condition 3" }],
     ["the hazard type", { hazardType: "mould remediation" }],
+    // Both found by CodeRabbit on #2149: the tool selected neither column, so a
+    // job whose ONLY mould signal was the tier-1 checklist or the technician's
+    // prose came back mouldActive: false and allowed Phase 1 air movers — while
+    // the report for that same job classified it mould-active.
+    [
+      "the tier-1 hazard checklist alone",
+      {
+        tier1Responses: JSON.stringify({
+          T1_Q7_hazards: ["visible mould growth"],
+        }),
+      },
+    ],
+    [
+      "the technician narrative alone",
+      { technicianFieldReport: "Mould behind the vanity, approx 1.5 m2." },
+    ],
   ])(
     "withholds every air mover from Phase 1 when mould is signalled by %s",
     async (_label, reportOver) => {
@@ -91,6 +109,8 @@ describe("recommend_method", () => {
             biologicalMouldDetected: false,
             biologicalMouldCategory: null,
             hazardType: "water damage",
+            technicianFieldReport: "Burst flexi hose under the vanity.",
+            tier1Responses: JSON.stringify({ T1_Q7_hazards: ["slip hazard"] }),
             ...reportOver,
           },
         }),
