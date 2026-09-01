@@ -63,7 +63,84 @@ describe("regulationFor", () => {
   // Serving an Australian rule on a NZ job is how a product tells a technician
   // the wrong law with total confidence.
   it("returns undefined rather than the Australian answer for an uncovered domain", () => {
-    expect(regulationFor("electrical", "AU")).toBeUndefined();
+    expect(regulationFor("chemicals", "AU")).toBeUndefined();
+    expect(regulationFor("building-code", "NZ")).toBeUndefined();
+  });
+});
+
+/**
+ * Electrical. The domain a water-damage job touches before any drying kit is
+ * plugged in, and the one where the shared standard hides a split legal route.
+ */
+describe("electrical", () => {
+  /**
+   * The restoration-critical rule, and it is not in a wiring standard: a
+   * flood-inundated installation is inspected and certified BEFORE supply comes
+   * back. Energising a dehumidifier off a wet board skips a step the law does
+   * not treat as optional.
+   */
+  it("requires inspection before an inundated installation is re-energised", () => {
+    const au = regulation("electrical.flood-reconnection-inspection.au");
+    expect(au.requirement).toMatch(/before supply is reconnected/i);
+    expect(au.requirement).toMatch(/licensed electrical worker/i);
+    // Submerged protective devices are replaced, not dried and re-used.
+    expect(au.requirement).toMatch(/replaced rather than dried/i);
+  });
+
+  it("keeps convenience out of the energised-work exceptions", () => {
+    const r = regulation("electrical.energised-work-prohibition.au").requirement;
+    expect(r).toMatch(/prohibited/i);
+    expect(r).toMatch(/convenience is expressly not an exception/i);
+  });
+
+  it("carries the RCD trip threshold as a number, not prose", () => {
+    expect(regulationFor("electrical", "AU", "rcd")?.value).toBe(30);
+  });
+
+  /**
+   * AS/NZS 3000 is a joint standard, so the figure and the document are shared
+   * -- but New Zealand reaches it through the Electricity (Safety) Regulations
+   * 2010 and the EWRB, not through work health and safety regulations. Same
+   * trap as Victoria in the silica domain: right document, wrong legal hook.
+   */
+  it("cites New Zealand's own legal route to the shared Wiring Rules", () => {
+    const nz = regulationFor("electrical", "NZ", "wiring-rules");
+    expect(nz?.jurisdiction).toBe("NZ");
+    expect(nz?.instrument).toMatch(/Electricity \(Safety\) Regulations 2010/i);
+
+    const au = regulationFor("electrical", "AU", "wiring-rules");
+    expect(au?.jurisdiction).toBe("AU");
+    expect(au?.instrument).not.toMatch(/Electricity \(Safety\) Regulations/i);
+  });
+
+  it("does not serve the Australian WHS prohibition on a New Zealand job", () => {
+    expect(
+      regulationFor("electrical", "NZ", "energised-work-prohibition"),
+    ).toBeUndefined();
+    expect(
+      regulationFor("electrical", "NZ", "prescribed-work-certification")
+        ?.jurisdiction,
+    ).toBe("NZ");
+  });
+
+  /**
+   * A deliberate ABSENCE, pinned so it cannot be quietly filled in.
+   *
+   * Three files in this repo apply an "80% continuous-load rule" and disagree
+   * about whether its authority is AS/NZS 3000 or AS/NZS 3012. The 80%/125%
+   * continuous-load construct belongs to the US National Electrical Code;
+   * AS/NZS 3000 sizes circuits by maximum demand and diversity instead. The
+   * derate may be sound engineering, but the citation is unproven, and settling
+   * it needs the licensed standard text. Until then it must not enter the
+   * registry wearing a source it may not have.
+   */
+  it("does not assert an 80% derate it cannot source", () => {
+    const electrical = REGULATORY_ENTRIES.filter((e) => e.domain === "electrical");
+    expect(electrical.length).toBeGreaterThan(0);
+    for (const e of electrical) {
+      expect(e.requirement).not.toMatch(/80\s*%/);
+      expect(e.requirement).not.toMatch(/continuous[- ]load/i);
+    }
   });
 });
 
