@@ -17,6 +17,8 @@
  * Annual review against major insurer protocol updates required.
  */
 
+import { presumeAsbestosFromEra } from "@/lib/compliance/asbestos-era";
+
 export interface JurisdictionConfig {
   state: string;
   fullName: string;
@@ -1409,7 +1411,7 @@ export function getActiveTriggers(
         return inspectionContext.isHeritageListed;
       case "asbestos":
         return inspectionContext.buildingYearBuilt
-          ? inspectionContext.buildingYearBuilt < 1990
+          ? presumeAsbestosFromEra(inspectionContext.buildingYearBuilt) // regulatory-year-ignore: delegated
           : false;
       case "seismic":
         return inspectionContext.isSeismicZone;

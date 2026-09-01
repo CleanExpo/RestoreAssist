@@ -134,7 +134,8 @@ ${standardsContext ? `\n**RELEVANT STANDARDS FROM IICRC GOOGLE DRIVE:**\n${stand
 - Safety equipment (barriers, signage, ventilation) per WHS requirements
 - Environmental controls and containment procedures
 - Waste disposal procedures per state regulations
-- Asbestos/lead testing and management (buildings before 2004 in AU, 2000 in NZ)
+- Asbestos testing and management: buildings before 2004 (AU, banned 31 Dec 2003) or before 2000 (NZ)
+- Lead paint testing and management: SEPARATE and EARLIER thresholds — buildings before 1970 (AU); built in the 1980s or earlier (NZ, WorkSafe NZ; post-1980 paintwork is generally low-lead). Do NOT apply the asbestos dates to lead.
 - Electrical safety standards (AS/NZS 3000) for equipment operation
 - Site safety documentation and compliance records
 

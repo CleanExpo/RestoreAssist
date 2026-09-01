@@ -298,7 +298,7 @@ export function determineScopeItems(
         itemType: "asbestos_assessment",
         description: "Asbestos Assessment (Building Code Requirement)",
         justification:
-          "Building code requires asbestos assessment for buildings predating the asbestos ban (before 2004 in AU, 2000 in NZ).",
+          "Asbestos assessment required. Australia: all asbestos was prohibited in workplaces from 31 December 2003, so treat a pre-2004 building as possibly containing ACM. New Zealand: WorkSafe NZ sets 1 January 2000 as the likelihood boundary for presuming asbestos — that is a presumption threshold, not a ban date.",
         standardReference: codeRef,
         clauseRefs: [codeRef, "WHS Regulations 2011"],
         isRequired: true,

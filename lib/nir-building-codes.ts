@@ -12,6 +12,7 @@
  *   No call-site changes required.
  */
 
+import { presumeAsbestosFromEra } from "@/lib/compliance/asbestos-era";
 import { detectStateFromPostcode } from "@/lib/state-detection";
 import {
   getJurisdictionConfig,
@@ -149,11 +150,14 @@ export function checkBuildingCodeTriggers(
   }
 
   // ── Asbestos assessment ──────────────────────────────────────────────────────
-  if (inspectionData.buildingAge && inspectionData.buildingAge < 1990) {
+  // Jurisdiction-aware, from lib/compliance/regulatory-registry. This was a flat
+  // `< 1990` -- Queensland's asbestos REGISTER exemption applied nationally --
+  // so a 1995 building was told it had no asbestos risk.
+  if (presumeAsbestosFromEra(inspectionData.buildingAge)) {
     triggers.push(
       `Building age (${inspectionData.buildingAge}) indicates potential asbestos presence`,
     );
-    requiredActions.push("Asbestos assessment required (building predates the 2004 asbestos ban)");
+    requiredActions.push("Asbestos assessment required (building predates the 31 December 2003 asbestos prohibition)");
   }
 
   // ── Lead paint assessment ────────────────────────────────────────────────────
@@ -239,12 +243,12 @@ function getStateBuildingCodeRequirements(
             "If moisture >20% AND drywall affected, dehumidification is mandatory",
           dryingAssessment: "48–72 hr drying assessment required",
           mouldTesting: "If >3 days damp: requires mould testing",
-          asbestos: "Pre-1990 buildings: Asbestos assessment required",
+          asbestos: "Buildings before 2004 (AU): asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required",
         },
         notes:
           "Queensland Building and Construction Commission (QBCC) requirements apply. " +
-          "Pre-1990 buildings require asbestos assessment. " +
+          "Buildings before 2004 require asbestos assessment (all asbestos prohibited in Australian workplaces from 31 December 2003). " +
           "High-humidity climate: apply QLD_HUMID_DRYING_ADJUSTMENT to drying targets.",
       };
 
@@ -283,13 +287,13 @@ function getStateBuildingCodeRequirements(
           dryingAssessment: "48–72 hr drying assessment required",
           mouldTesting:
             "If visible mould or >3 days damp: requires mould testing",
-          asbestos: "Pre-1990 buildings: Asbestos assessment required",
+          asbestos: "Buildings before 2004 (AU): asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required",
           coolClimateAdjustment:
             "VIC_COOL_CLIMATE_DRYING_EXTENSION flag: standard drying timeline may be insufficient",
         },
         notes:
-          "Victorian Building Authority (VBA) requirements apply. Pre-1990 buildings require asbestos assessment.",
+          "Victorian Building Authority (VBA) requirements apply. Buildings before 2004 require asbestos assessment.",
       };
 
     case "WA":
@@ -305,7 +309,7 @@ function getStateBuildingCodeRequirements(
           dryingAssessment: "48–72 hr drying assessment required",
           mouldTesting:
             "If visible mould or >3 days damp: requires mould testing",
-          asbestos: "Pre-1990 buildings: Asbestos assessment required",
+          asbestos: "Buildings before 2004 (AU): asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required",
           cycloneZone:
             "WA_CYCLONE_ZONE_CHECK: Pilbara/Kimberley — structural replacements must meet Wind Region C/D",
@@ -329,7 +333,7 @@ function getStateBuildingCodeRequirements(
           dryingAssessment: "48–72 hr drying assessment required",
           mouldTesting:
             "If visible mould or >3 days damp: requires mould testing",
-          asbestos: "Pre-1990 buildings: Asbestos assessment required",
+          asbestos: "Buildings before 2004 (AU): asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required",
           heritageCheck:
             "SA_HERITAGE_REGISTER_CHECK: Heritage-listed properties require Heritage SA approval before material removal",
@@ -352,7 +356,7 @@ function getStateBuildingCodeRequirements(
             "48–72 hr drying assessment required — TAS cool climate may require extension",
           mouldTesting:
             "If visible mould or >3 days damp: requires mould testing",
-          asbestos: "Pre-1990 buildings: Asbestos assessment required",
+          asbestos: "Buildings before 2004 (AU): asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required",
           timberAdjustment:
             "TAS_TIMBER_MOISTURE_ADJUSTMENT: high timber prevalence — standard 48-72 hr timeline frequently insufficient",
@@ -375,7 +379,7 @@ function getStateBuildingCodeRequirements(
             "NT: 24-hour re-inspection cycle required for Cat 3 events",
           mouldTesting:
             "If visible mould or >3 days damp: requires mould testing",
-          asbestos: "Pre-1990 buildings: Asbestos assessment required",
+          asbestos: "Buildings before 2004 (AU): asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required",
           cycloneZone:
             "NT_CYCLONE_WIND_REGION_CD_ALL: ALL NT structural restoration must meet cyclone-rated specification",
@@ -400,7 +404,7 @@ function getStateBuildingCodeRequirements(
           dryingAssessment: "48–72 hr drying assessment required",
           mouldTesting:
             "If visible mould or >3 days damp: requires mould testing",
-          asbestos: "Pre-1990 buildings: Asbestos assessment required",
+          asbestos: "Buildings before 2004 (AU): asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required",
           bushfireCheck:
             "ACT_BUSHFIRE_PRONE_AREA_CHECK: Tuggeranong/Weston Creek/Molonglo Valley fringe — BAL-rated materials required",

@@ -84,9 +84,25 @@ const SKIP_DIR = /(^|\/)(node_modules|\.next|__tests__|__mocks__)(\/|$)/;
 const REGULATORY_KEYWORD =
   /\b(asbestos|acm\b|silica|crystalline|engineered stone|lead paint|blood[- ]lead|ghs)\b/i;
 
+/**
+ * How far from a regulatory keyword a year still counts as asserting a rule.
+ *
+ * Rule 4 was line-scoped at first and missed the two predicates that mattered:
+ * `inspectionContext.buildingYearBuilt < 1990` and `inspectionData.buildingAge
+ * < 1990` both sat on lines with no keyword on them, while the surrounding
+ * function was entirely about asbestos. CodeRabbit caught both on #2153. A
+ * small window catches a threshold split across a condition and its context.
+ */
+const KEYWORD_WINDOW = 4;
+
 /** "pre-1990", "before 2004", "< 1990", "built after 1989". */
+// The leading \b must attach to the WORD alternatives only. Applied to the whole
+// group it silently never matched `< 1990`, because there is no word boundary
+// between a space and `<` -- so the comparison form, which is what the two live
+// predicates actually used, slipped through. The first proof of this rule looked
+// green only because its fixture also carried the words "pre-1990".
 const YEAR_CLAIM =
-  /\b(?:pre-|before\s+|after\s+|since\s+|[<>]=?\s*)(19[5-9]\d|20[0-4]\d)\b/i;
+  /(?:\bpre-|\bbefore\s+|\bafter\s+|\bsince\s+|[<>]=?\s*)(19[5-9]\d|20[0-4]\d)\b/i;
 
 interface Violation {
   rule: string;
@@ -208,7 +224,15 @@ for (const root of SCAN_ROOTS) {
   walk(root, (file, text) => {
     const inRegistry = file.startsWith(REGISTRY_DIR);
 
-    text.split("\n").forEach((line, i) => {
+    const lines = text.split("\n");
+
+    /** Does a regulatory keyword sit within KEYWORD_WINDOW lines of this one? */
+    const nearKeyword = (i: number): boolean =>
+      lines
+        .slice(Math.max(0, i - KEYWORD_WINDOW), i + KEYWORD_WINDOW + 1)
+        .some((l) => REGULATORY_KEYWORD.test(l));
+
+    lines.forEach((line, i) => {
       if (line.includes(IGNORE)) return;
       const at = `${file}:${i + 1}`;
 
@@ -226,11 +250,7 @@ for (const root of SCAN_ROOTS) {
       // Rule 4 — a year threshold next to a regulatory keyword, outside the
       // registry. This is the shape of the original defect. Counted per file
       // and compared against the baseline below.
-      if (
-        !inRegistry &&
-        REGULATORY_KEYWORD.test(line) &&
-        YEAR_CLAIM.test(line)
-      ) {
+      if (!inRegistry && YEAR_CLAIM.test(line) && nearKeyword(i)) {
         yearHits.push({ file, line: i + 1, text: line.trim().slice(0, 120) });
       }
     });

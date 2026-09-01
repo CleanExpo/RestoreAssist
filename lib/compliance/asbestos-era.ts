@@ -4,10 +4,10 @@
  * This existed in the codebase three times with two different answers, and the
  * safety-critical copies had the wrong one:
  *
- *   lib/compliance/safework-notification-gate.ts   pre-2004 AU / pre-2000 NZ  (right)
- *   lib/swms/auto-generator.ts                     pre-1990                   (wrong)
- *   lib/ai/claim-type-prompts.ts                   pre-1990                   (wrong)
- *   lib/restoration/ppe-requirements.ts            pre-1990                   (wrong)
+ *   lib/compliance/safework-notification-gate.ts   pre-2004 AU / pre-2000 NZ  (right)  regulatory-year-ignore
+ *   lib/swms/auto-generator.ts                     pre-1990                   (wrong)  regulatory-year-ignore
+ *   lib/ai/claim-type-prompts.ts                   pre-1990                   (wrong)  regulatory-year-ignore
+ *   lib/restoration/ppe-requirements.ts            pre-1990                   (wrong)  regulatory-year-ignore
  *
  * So a 1995 building produced a Safe Work Method Statement with NO asbestos
  * hazard on it, and a test pinned that behaviour ("does NOT include
