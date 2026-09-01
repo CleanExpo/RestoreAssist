@@ -153,7 +153,7 @@ export function checkBuildingCodeTriggers(
     triggers.push(
       `Building age (${inspectionData.buildingAge}) indicates potential asbestos presence`,
     );
-    requiredActions.push("Asbestos assessment required (pre-1990 building)");
+    requiredActions.push("Asbestos assessment required (building predates the 2004 asbestos ban)");
   }
 
   // ── Lead paint assessment ────────────────────────────────────────────────────

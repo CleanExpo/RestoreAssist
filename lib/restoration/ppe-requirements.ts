@@ -131,7 +131,7 @@ export function requiredPpe(hazard: HazardProfile): PpeRequirement {
     items.add("P2 particulate mask (soot)");
     references.add("IICRC S700:2025 §4 (Safety and Health)");
     escalations.push(
-      "Heavy soot / confined or unventilated spaces: escalate to P3/PAPR and test for pre-1990 ACM before disturbing fire-damaged materials.",
+      "Heavy soot / confined or unventilated spaces: escalate to P3/PAPR and test for ACM before disturbing fire-damaged materials — presume it in any building before 2004 (AU) or 2000 (NZ). Fire and water damage can turn bonded asbestos friable.",
     );
   }
 

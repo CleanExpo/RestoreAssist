@@ -298,7 +298,7 @@ export function determineScopeItems(
         itemType: "asbestos_assessment",
         description: "Asbestos Assessment (Building Code Requirement)",
         justification:
-          "Building code requires asbestos assessment for pre-1990 buildings.",
+          "Building code requires asbestos assessment for buildings predating the asbestos ban (before 2004 in AU, 2000 in NZ).",
         standardReference: codeRef,
         clauseRefs: [codeRef, "WHS Regulations 2011"],
         isRequired: true,

@@ -134,7 +134,7 @@ ${standardsContext ? `\n**RELEVANT STANDARDS FROM IICRC GOOGLE DRIVE:**\n${stand
 - Safety equipment (barriers, signage, ventilation) per WHS requirements
 - Environmental controls and containment procedures
 - Waste disposal procedures per state regulations
-- Asbestos/lead testing and management (for pre-1990 buildings)
+- Asbestos/lead testing and management (buildings before 2004 in AU, 2000 in NZ)
 - Electrical safety standards (AS/NZS 3000) for equipment operation
 - Site safety documentation and compliance records
 

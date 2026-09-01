@@ -137,7 +137,7 @@ export async function analyzeClaimPDF(
 - Safety equipment (barriers, signage, ventilation)
 - Environmental controls
 - Waste disposal procedures
-- Asbestos/lead testing (for pre-1990 buildings)
+- Asbestos/lead testing (buildings before 2004 in AU, 2000 in NZ)
 - Heat stress management
 - Emergency procedures
 
