@@ -11,6 +11,15 @@ export const MINIMUM_CHARGE_EX_GST = 2750;
 
 export const QuoteRequestSchema = z.object({
   jobType: z.enum(["water", "fire", "mould", "storm", "bioclean"]),
+  /**
+   * Active mould on this job, independent of jobType.
+   *
+   * Needed because jobType alone cannot express the commonest real case: a
+   * WATER job with mould growth. Without this the S520 air-mover gate would
+   * only ever fire on a job someone had already labelled "mould", which is the
+   * case least likely to be mis-priced.
+   */
+  mouldActive: z.boolean().default(false),
   affectedAreaM2: z.number().min(1).max(10000),
   numberOfRooms: z.number().int().min(1).max(50),
   dryingDays: z.number().int().min(1).max(30),
