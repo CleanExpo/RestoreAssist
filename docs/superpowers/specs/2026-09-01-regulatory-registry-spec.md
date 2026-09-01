@@ -82,7 +82,7 @@
 - Entry shape carrying: instrument, jurisdiction, commencement/effective date,
   source URL, `verifiedAt`, `verifiedBy`, and a plain-English requirement.
 - `scripts/check-regulatory-registry.ts` — CI gate (rules in §11).
-- Domains, in the order of §17: asbestos (**done**), crystalline silica,
+- Domains, in the order of §17: asbestos (**done**), crystalline silica (**done**),
   electrical on wet sites, VOCs and hazardous chemicals, building codes.
 - The document catalogue (§9.3) as the registry's first consumer.
 
@@ -179,12 +179,30 @@ interface RegulatoryEntry {
 | Silica | Engineered stone ban **1 Jul 2024** (manufacture, supply, processing, installation); engineered stone = artificial product ≥1% crystalline silica w/w | Safe Work Australia, SafeWork NSW, DEWR |
 | Silica | CSS regime from **1 Sep 2024** — all materials ≥1% crystalline silica | Safe Work Australia |
 | Silica | Import prohibition **1 Jan 2025**, Customs (Prohibited Imports) Regulations 1956 reg 5M | Safe Work Australia |
+| Silica AU | RCS exposure standard **0.05 mg/m³** 8-hour TWA, halved from 0.1 with effect from **1 Jul 2020** | Safe Work Australia, Comcare, SafeWork SA, WorkSafe Victoria |
+| Silica NZ | RCS exposure standard **0.025 mg/m³** 8-hour TWA — halved from 0.05 in **November 2023**, and Australia has not followed | WorkSafe NZ, MBIE consultation Annex III |
+| Silica VIC | Same 0.05 mg/m³ figure, but under the **OHS Regulations 2017 (Vic) Pt 4.1/4.5** — Victoria is not a model WHS jurisdiction; its engineered stone ban has **no transitional period** | WorkSafe Victoria, Victorian Building Authority |
+| Silica NZ | Engineered stone is **not prohibited** in New Zealand; managed by the lower WES, guidance and voluntary accreditation, with MBIE consulting on options | WorkSafe NZ, MBIE |
 
-**Asserted by the CARSI course but NOT yet independently verified** — these enter
-the registry only after checking: RCS exposure standard 0.05 mg/m³; the Silica
-Risk Control Plan duty; the 2025 lead blood-level changes (20 / 5 µg/dL); GHS 7
-mandatory from 1 Jan 2023; AS/NZS 1715/1716, 3012, 3760 currency; the 85 dB(A)
-noise standard.
+Two of those rows were the point of doing this rather than trusting the course.
+The RCS figure is **not one number**: New Zealand's is half Australia's, so a
+product carrying a single "silica exposure standard" permits twice the legal
+exposure on one side of the Tasman. And **Victoria is not a model WHS
+jurisdiction** — the figure matches but the instrument does not, so a model WHS
+citation shown to a Victorian technician is wrong even where the number is right.
+Neither distinction appears in the course material.
+
+The Silica Risk Control Plan duty was also narrower than asserted: it is
+triggered where a risk assessment finds the processing of a crystalline silica
+substance is **high risk**, not by every job touching a silica-bearing material.
+The registry entry says so.
+
+**Still asserted by the CARSI course and NOT independently verified** — these
+enter the registry only after checking: the 2025 lead blood-level changes
+(20 / 5 µg/dL); GHS 7 mandatory from 1 Jan 2023; AS/NZS 1715/1716, 3012, 3760
+currency; the 85 dB(A) noise standard. Also unconfirmed: the claim in this
+repository that exposure standards become *workplace exposure limits* in
+December 2026.
 
 ### 9.3 The document catalogue — first consumer
 

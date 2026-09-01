@@ -13,6 +13,7 @@
  *     December 2026.
  */
 import { ASBESTOS_ENTRIES } from "./asbestos";
+import { SILICA_ENTRIES } from "./silica";
 import type {
   RegulatoryDomain,
   RegulatoryEntry,
@@ -24,6 +25,7 @@ export * from "./types";
 /** Every entry, in one place, so the gate can see all of them. */
 export const REGULATORY_ENTRIES: readonly RegulatoryEntry[] = [
   ...ASBESTOS_ENTRIES,
+  ...SILICA_ENTRIES,
 ];
 
 const BY_ID = new Map(REGULATORY_ENTRIES.map((e) => [e.id, e]));
