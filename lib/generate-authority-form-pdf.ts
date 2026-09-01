@@ -1,5 +1,6 @@
 import { PDFDocument, rgb, StandardFonts, PDFImage } from "pdf-lib";
 import { isPublicHttpUrl } from "@/lib/branding/url-validator";
+import type { ProvenanceBlock } from "@/lib/documents/provenance";
 
 interface AuthorityFormData {
   // Company Information
@@ -22,6 +23,18 @@ interface AuthorityFormData {
   formName: string; // e.g., "Authority to Commence Work"
   authorityDescription: string;
   date: Date;
+
+  /**
+   * The regulatory basis for this authority, built by
+   * lib/documents/provenance.ts from the template's registry citations.
+   *
+   * Optional so existing callers keep working, and omitted entirely for a
+   * template that cites nothing -- a caution printed on every document is a
+   * caution nobody reads. When present it renders BEFORE the signature blocks,
+   * because a person signing is entitled to see the basis before they sign
+   * rather than in a footer after it.
+   */
+  provenance?: ProvenanceBlock | null;
 
   // Signatures
   signatures: Array<{
@@ -398,7 +411,83 @@ export async function generateAuthorityFormPDF(
     yPosition -= 15;
   });
 
-  yPosition = authorityBoxY - 40;
+  yPosition = authorityBoxY - 30;
+
+  // Regulatory basis — rendered BEFORE the signatures, so the person signing
+  // sees the rule, its source and the date it was checked before they sign.
+  // Nothing is printed when the template cites no registry entry.
+  if (data.provenance && !data.provenance.empty) {
+    page.drawText(data.provenance.heading, {
+      x: margin,
+      y: yPosition,
+      size: 12,
+      font: helveticaBold,
+      color: black,
+    });
+    yPosition -= 16;
+
+    for (const entry of data.provenance.entries) {
+      const instrument = `${entry.instrument}${entry.provision ? `, ${entry.provision}` : ""} (${entry.jurisdiction})`;
+      for (const line of wrapText(instrument, contentWidth, 9, helveticaBold)) {
+        page.drawText(line, {
+          x: margin,
+          y: yPosition,
+          size: 9,
+          font: helveticaBold,
+          color: black,
+        });
+        yPosition -= 11;
+      }
+
+      for (const line of wrapText(entry.requirement, contentWidth, 8, helvetica)) {
+        page.drawText(line, {
+          x: margin,
+          y: yPosition,
+          size: 8,
+          font: helvetica,
+          color: darkGray,
+        });
+        yPosition -= 10;
+      }
+
+      // Source and check date, per spec 10: a rule with no source on the page
+      // is indistinguishable from one somebody typed.
+      for (const line of wrapText(
+        `Source: ${entry.sourceUrl}  |  Checked: ${entry.verifiedAt}`,
+        contentWidth,
+        8,
+        helvetica,
+      )) {
+        page.drawText(line, {
+          x: margin,
+          y: yPosition,
+          size: 8,
+          font: helvetica,
+          color: darkGray,
+        });
+        yPosition -= 10;
+      }
+      yPosition -= 4;
+    }
+
+    for (const notice of data.provenance.notices) {
+      for (const line of wrapText(notice, contentWidth, 8, helvetica)) {
+        page.drawText(line, {
+          x: margin,
+          y: yPosition,
+          size: 8,
+          font: helvetica,
+          color: darkGray,
+        });
+        yPosition -= 10;
+      }
+      yPosition -= 4;
+    }
+
+    yPosition -= 10;
+  } else {
+    yPosition -= 10;
+  }
 
   // Signatures Section
   page.drawText("Signatures", {
