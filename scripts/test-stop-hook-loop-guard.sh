@@ -23,7 +23,11 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"; rm -f "$REPORTS_DIR"/loopguard-*.count "$REPORTS_DIR"/loopguard-*-*.json' EXIT
 
 FAILURES=0
+
+# Record a passing case: $1 is what held.
 pass() { echo "  ok   — $1"; }
+
+# Record a failing case: $1 is what should have held. Sets the exit status.
 fail() { echo "  FAIL — $1"; FAILURES=$((FAILURES + 1)); }
 
 # A transcript whose final turn edits a file and asserts tests pass with no
@@ -35,12 +39,16 @@ cat > "$TRANSCRIPT" <<'EOF'
 {"type":"assistant","message":{"content":[{"type":"text","text":"Fixed it. All tests pass."}]}}
 EOF
 
-# Each case gets its own session id so the on-disk counter starts clean.
-run_hook() { # $1 = session id, $2 = stop_hook_active ("true"/"false")
+# Fire one Stop at the hook and echo whatever it puts on stdout.
+#   $1 = session id — give each case its own so the on-disk counter starts clean
+#   $2 = stop_hook_active, "true" or "false"
+run_hook() {
   jq -n --arg s "$1" --arg t "$TRANSCRIPT" --argjson a "$2" \
     '{session_id:$s, transcript_path:$t, stop_hook_active:$a}' \
     | "$HOOK" 2>/dev/null
 }
+
+# True when hook output $1 is a block decision. Empty output means allow.
 blocked() { [[ "$(echo "${1:-}" | jq -r '.decision // "allow"' 2>/dev/null)" == "block" ]]; }
 
 echo "case 1: an unbacked pass-claim blocks the first Stop"
@@ -55,7 +63,7 @@ else
   pass "allowed while a Stop hook is already driving the turn"
 fi
 
-echo "case 3: repeated Stops in one turn never exceed the loop cap"
+echo "case 3: repeated Stops within ONE turn stop at the recursion guard"
 BLOCKS=0
 for _ in 1 2 3 4 5 6 7 8 9; do
   # After the first block the CLI sets stop_hook_active on every subsequent
@@ -65,13 +73,28 @@ for _ in 1 2 3 4 5 6 7 8 9; do
   blocked "$OUT" && BLOCKS=$((BLOCKS + 1))
 done
 CAP="${VERIFIER_LOOP_CAP:-2}"
-if (( BLOCKS <= CAP )); then
-  pass "$BLOCKS block(s) across 9 Stops (cap $CAP)"
+if (( BLOCKS == 1 )); then
+  pass "$BLOCKS block across 9 Stops in one turn"
 else
-  fail "$BLOCKS blocks across 9 Stops — exceeds cap $CAP"
+  fail "$BLOCKS blocks across 9 Stops in one turn — expected exactly 1"
 fi
 
-echo "case 4: a counter that cannot be persisted fails open"
+echo "case 4: Stops across SEPARATE turns stop at the loop cap"
+# stop_hook_active=false throughout, so the recursion guard never fires and the
+# on-disk counter is the only thing bounding this — which is the point. Without
+# this case, removing the counter entirely would leave every other case green.
+BLOCKS=0
+for _ in $(seq 1 $((CAP + 3))); do
+  OUT=$(run_hook "loopguard-5" false)
+  blocked "$OUT" && BLOCKS=$((BLOCKS + 1))
+done
+if (( BLOCKS == CAP )); then
+  pass "$BLOCKS block(s) across $((CAP + 3)) separate-turn Stops (cap $CAP)"
+else
+  fail "$BLOCKS blocks across $((CAP + 3)) separate-turn Stops — expected exactly $CAP"
+fi
+
+echo "case 5: a counter that cannot be persisted fails open"
 # Simulate an unwritable reports dir by pointing the counter at a path the
 # hook cannot create (a file where a directory must be).
 BADDIR="$TMP/not-a-dir"
