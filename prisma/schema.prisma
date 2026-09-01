@@ -6391,13 +6391,20 @@ enum AddonSku {
   PAYMENTS // Payments Collection (Stripe Connect on the client's own account)
   FLOORPLAN_UNDERLAY // RA-6922: Floor Plan Underlay — recurring $9.95/mo internet-floorplan-overlay entitlement
   CLIENT_COMMS // RA-6954: Restoration Pulse client-comms — recurring $11/mo client-facing email updates entitlement
+  CLIENT_EDUCATION // Client education library + /learn kiosk on the client portal — recurring $11/mo
+  AI_COPILOT // Margot technician co-pilot (the live-teacher routes) — recurring $11/mo
 }
 
 // FeatureEntitlement — per-workspace record of which add-on SKUs are active.
-// RA-6922 scaffold: the model + guard (lib/entitlements/requireAddon) exist but
-// are NOT yet enforced at any surface, so existing workspaces are unaffected.
-// Stripe linkage is nullable so the recurring Price/subscription can be wired
-// later (owner Stripe action, out of scope for this PR).
+// The RA-6922 header here used to say the guard was "NOT yet enforced at any
+// surface". That has been false since the P2 wiring landed — every SKU is live
+// behind requireAddon() (Pulse sends, Ascora/DR-NRPG connect, bookkeeping OAuth,
+// invoice payments, the floorplan scrape, ElevenLabs SFX). An absent row now
+// denies, so a workspace missing one loses that surface.
+// `seats` is read ONLY by the per-seat TECHNICIAN_SEATS add-on and stays null
+// for every flat one (billed at Stripe quantity 1).
+// Stripe linkage is nullable because add-ons price inline via `price_data` at
+// checkout — there is no pre-created Stripe Product or Price to reference.
 model FeatureEntitlement {
   id          String    @id @default(cuid())
   workspaceId String

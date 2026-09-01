@@ -47,6 +47,14 @@ import {
   TECHNICIAN_SEATS_ADDON,
   TECHNICIAN_SEATS_ADDON_SUBSCRIPTION_TYPE,
 } from "./technician-seats-addon";
+import {
+  CLIENT_EDUCATION_ADDON,
+  CLIENT_EDUCATION_ADDON_SUBSCRIPTION_TYPE,
+} from "./client-education-addon";
+import {
+  AI_COPILOT_ADDON,
+  AI_COPILOT_ADDON_SUBSCRIPTION_TYPE,
+} from "./ai-copilot-addon";
 
 /**
  * The data-driven descriptor for one recurring add-on. Everything the checkout
@@ -154,6 +162,24 @@ export const RECURRING_ADDONS: Readonly<
     interval: TECHNICIAN_SEATS_ADDON.interval,
     subscriptionType: TECHNICIAN_SEATS_ADDON_SUBSCRIPTION_TYPE,
     perSeat: TECHNICIAN_SEATS_ADDON.perSeat,
+  },
+  [CLIENT_EDUCATION_ADDON.sku]: {
+    sku: CLIENT_EDUCATION_ADDON.sku,
+    name: CLIENT_EDUCATION_ADDON.name,
+    description: CLIENT_EDUCATION_ADDON.description,
+    amount: CLIENT_EDUCATION_ADDON.amount,
+    currency: CLIENT_EDUCATION_ADDON.currency,
+    interval: CLIENT_EDUCATION_ADDON.interval,
+    subscriptionType: CLIENT_EDUCATION_ADDON_SUBSCRIPTION_TYPE,
+  },
+  [AI_COPILOT_ADDON.sku]: {
+    sku: AI_COPILOT_ADDON.sku,
+    name: AI_COPILOT_ADDON.name,
+    description: AI_COPILOT_ADDON.description,
+    amount: AI_COPILOT_ADDON.amount,
+    currency: AI_COPILOT_ADDON.currency,
+    interval: AI_COPILOT_ADDON.interval,
+    subscriptionType: AI_COPILOT_ADDON_SUBSCRIPTION_TYPE,
   },
 };
 
