@@ -64,8 +64,8 @@ describe("regulationFor", () => {
   // Serving an Australian rule on a NZ job is how a product tells a technician
   // the wrong law with total confidence.
   it("returns undefined rather than the Australian answer for an uncovered domain", () => {
-    expect(regulationFor("chemicals", "AU")).toBeUndefined();
     expect(regulationFor("building-code", "NZ")).toBeUndefined();
+    expect(regulationFor("building-code", "AU")).toBeUndefined();
   });
 });
 
@@ -230,6 +230,88 @@ describe("silica exposure standards differ across the Tasman", () => {
  * The fix is to let the field say less when less is known, and to make the
  * partial forms mean an interval rather than a point.
  */
+/**
+ * Chemicals and VOCs. Three claims here are easy to state confidently and
+ * wrongly, and a restoration report makes all three in passing.
+ */
+describe("chemicals", () => {
+  /**
+   * Western Australia moved to GHS 7 three months after everyone else. A
+   * compliance line citing 1 January 2023 is wrong for a WA workplace in that
+   * window -- the state-over-national fallback has to land on the state.
+   */
+  it("gives Western Australia its own later GHS date", () => {
+    const wa = regulationFor("chemicals", "WA", "ghs");
+    const au = regulationFor("chemicals", "AU", "ghs");
+    expect(wa?.jurisdiction).toBe("WA");
+    expect(wa?.effectiveFrom).toBe("2023-03-31");
+    expect(au?.effectiveFrom).toBe("2023-01-01");
+    expect(wa?.effectiveFrom).not.toBe(au?.effectiveFrom);
+  });
+
+  it("falls back to the national GHS date in a state with no rule of its own", () => {
+    expect(regulationFor("chemicals", "NSW", "ghs")?.jurisdiction).toBe("AU");
+  });
+
+  // Same revision, different statute and different dates.
+  it("reaches GHS 7 in New Zealand by New Zealand's own route", () => {
+    const nz = regulationFor("chemicals", "NZ", "ghs");
+    expect(nz?.value).toBe(7);
+    expect(nz?.jurisdiction).toBe("NZ");
+    expect(nz?.instrument).toMatch(/Hazardous Substances and New Organisms Act 1996/i);
+    expect(nz?.instrument).not.toMatch(/Work Health and Safety Regulations/i);
+  });
+
+  /**
+   * The number that is three times different across the Tasman, on a figure
+   * that decides whether a house is habitable.
+   */
+  it("keeps the two methamphetamine thresholds apart", () => {
+    const au = regulation("chemicals.meth-remediation-guideline.au");
+    const nz = regulation("chemicals.meth-remediation-standard.nz");
+    expect(au.value).toBe(0.5);
+    expect(nz.value).toBe(1.5);
+    expect(au.value).not.toBe(nz.value);
+  });
+
+  /**
+   * And neither is law. A product selling compliance must not present
+   * guidance as a legal requirement -- that misstates its own foundation.
+   */
+  it("records that neither methamphetamine figure is legally binding", () => {
+    expect(
+      regulation("chemicals.meth-remediation-guideline.au").requirement,
+    ).toMatch(/not cited in legislation|GUIDANCE, NOT LAW/i);
+    expect(
+      regulation("chemicals.meth-remediation-standard.nz").requirement,
+    ).toMatch(/VOLUNTARY standard and is not cited in legislation/i);
+  });
+
+  /**
+   * An absence recorded on purpose. A hand-held TVOC meter produces a number,
+   * and a number invites a comparison to a limit that does not exist. An
+   * invented limit is easier to write than a missing one is to notice.
+   */
+  it("denies that a total-VOC exposure standard exists", () => {
+    const voc = regulation("chemicals.total-voc-exposure-standard.au");
+    expect(voc.requirement).toMatch(/NO workplace exposure standard for total volatile organic compounds/i);
+    expect(voc.requirement).toMatch(/substance by substance/i);
+    // An absence must not carry a scalar: a number here would be read as the limit.
+    expect(voc.value).toBeUndefined();
+  });
+
+  /**
+   * Which regulator applies turns on the claim the product makes, not on what
+   * the technician means to do with it.
+   */
+  it("keeps the APVMA and TGA split visible on antimicrobials", () => {
+    const r = regulation("chemicals.antimicrobial-registration.au").requirement;
+    expect(r).toMatch(/APVMA/);
+    expect(r).toMatch(/TGA/);
+    expect(r).toMatch(/DEPENDS ON THE CLAIM/i);
+  });
+});
+
 describe("effectiveFrom states only the precision that was established", () => {
   it("treats a full date as a single day", () => {
     const r = effectiveFromRange(regulation("silica.engineered-stone-ban.au"));
