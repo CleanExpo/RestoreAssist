@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   AUTHORITY_TEMPLATES,
+  TEMPLATE_HAZARD_KEYWORD,
+  templateProse,
   authorityTemplate,
   citedRegulations,
   formContentFor,
@@ -12,6 +14,55 @@ import { regulatoryIds } from "../../compliance/regulatory-registry";
  * `scripts/check-regulatory-registry.ts` rule 5 covers the build half, and all
  * three of its branches were watched failing before being trusted.
  */
+/**
+ * The invariant CodeRabbit's finding on #2158 exposed.
+ *
+ * Rule 5 only fires when a template's prose matches TEMPLATE_HAZARD_KEYWORD. So
+ * a template can cite a regulation and still be UNPROTECTED: remove the
+ * citation and, if no keyword matches, the gate stays silent. That was exactly
+ * the state AUTH_CHEMICAL shipped in -- the keyword list held neither
+ * "antimicrobial" nor "chemical", so the guard could not have fired for the one
+ * document it was written for.
+ *
+ * The sabotage that "proved" rule 5 used AUTH_DISPOSE with the word "asbestos",
+ * which was already on the list. It proved the easy case.
+ */
+describe("every cited template is one the gate would catch if it stopped citing", () => {
+  it("matches a hazard keyword in the prose of each citing template", () => {
+    const citing = AUTHORITY_TEMPLATES.filter(
+      (t) => t.citesRegulations.length > 0,
+    );
+    expect(citing.length).toBeGreaterThan(0);
+
+    for (const spec of citing) {
+      // If this fails, dropping the citation would pass the gate silently.
+      expect(TEMPLATE_HAZARD_KEYWORD.test(templateProse(spec))).toBe(true);
+    }
+  });
+
+  // The specific regression. AUTH_CHEMICAL is the document the rule exists for.
+  it("covers the antimicrobial wording that the original list missed", () => {
+    const chemical = authorityTemplate("AUTH_CHEMICAL");
+    expect(templateProse(chemical)).toMatch(/antimicrobial/i);
+    expect(TEMPLATE_HAZARD_KEYWORD.test(templateProse(chemical))).toBe(true);
+
+    // The list as it stood when rule 5 shipped, kept as the counter-example.
+    const listAtShipTime =
+      /\b(asbestos|acm\b|silica|crystalline|engineered stone|lead paint|blood[- ]lead|ghs)\b/i;
+    expect(listAtShipTime.test(templateProse(chemical))).toBe(false);
+  });
+
+  // A template that names no hazard is legitimately uncited; the guard must not
+  // fire on it, or every consent form grows a hazard notice nobody reads.
+  it("does not flag templates that name no regulated hazard", () => {
+    for (const code of ["AUTH_COMMENCE", "AUTH_EXTENDED_DRYING"]) {
+      const spec = authorityTemplate(code);
+      expect(spec.citesRegulations).toEqual([]);
+      expect(TEMPLATE_HAZARD_KEYWORD.test(templateProse(spec))).toBe(false);
+    }
+  });
+});
+
 describe("authority catalogue", () => {
   it("keeps template codes unique and stable", () => {
     const codes = AUTHORITY_TEMPLATES.map((t) => t.code);

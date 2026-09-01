@@ -178,6 +178,39 @@ export const AUTHORITY_TEMPLATES: AuthorityTemplateSpec[] = [
   },
 ];
 
+/**
+ * Hazards a consent document may name.
+ *
+ * Lives here rather than in the gate script so it has ONE home and can be
+ * asserted by tests. `scripts/check-regulatory-registry.ts` rule 5 imports it.
+ *
+ * Deliberately broader than the gate's REGULATORY_KEYWORD, which exists to spot
+ * a year threshold beside a hazard in CODE and carries a 68-line baseline that
+ * widening would churn. A document a client signs is held to a higher bar than
+ * a comment.
+ *
+ * WHY IT EXISTS. Rule 5 was written to protect AUTH_CHEMICAL -- the form in
+ * which a client consents to an antimicrobial being applied to their home --
+ * and the gate's keyword list matched NONE of that template's prose, because
+ * "antimicrobial" and "chemical" were not on it. The guard could not have fired
+ * for the one document it was built for. The sabotage that "proved" rule 5 used
+ * AUTH_DISPOSE with the word "asbestos", already on the list: it proved the
+ * guard works for an easy case, not the hard one. CodeRabbit caught it on
+ * #2158, after that PR had merged. Spec 11 names asbestos, silica, RCD, GHS and
+ * notifiable; the chemical terms come from the template that exposed the gap.
+ */
+export const TEMPLATE_HAZARD_KEYWORD =
+  /\b(asbestos|acm|silica|crystalline|engineered stone|lead paint|blood[- ]lead|ghs|rcd|notifiable|antimicrobial|biocide|disinfectant|fungicide|pesticide|chemical)\b/i;
+
+/** The prose a template renders to the person signing it. */
+export function templateProse(spec: AuthorityTemplateSpec): string {
+  return [
+    spec.name,
+    spec.description,
+    ...spec.fields.flatMap((f) => [f.label, f.help ?? ""]),
+  ].join(" \n ");
+}
+
 /** The JSON shape AuthorityFormTemplate.formContent has always held. */
 export function formContentFor(spec: AuthorityTemplateSpec): string {
   return JSON.stringify({
